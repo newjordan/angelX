@@ -1,0 +1,16 @@
+{
+  "api_version": 1,
+  "id": "lanternward-rules",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "new",
+    "here": [[1, 0, 0, 0, 0, 0]],
+    "rules": {"lock": 28672, "parry": 8, "combo": 14, "flame": 150, "tell": 56}
+  },
+  "bend": {
+    "entry": "lanternward-rules.bend",
+    "proof": "PROOF.bend",
+    "output": "lanternward-rules.compiled.js"
+  }
+}

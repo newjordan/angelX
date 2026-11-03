@@ -1,10 +1,9 @@
 //! Frame cost of saved four-seat Bard stream/song states, and their quiet room.
-use angel_delve::{render::overworld::arena, rules::Run, settings::{self, Settings}};
+use angel_delve::{render::overworld::arena, rules::Run};
 use std::{hint::black_box, path::PathBuf, time::Instant};
 
 fn main() {
     let dir = PathBuf::from(std::env::args_os().nth(1).expect("Bard review directory"));
-    settings::set(Settings { art_v2: true, feel_ledger: false, open_floors: false });
     for name in ["stream", "song"] {
         let run: Run = serde_json::from_slice(&std::fs::read(dir.join(format!("{name}.json"))).unwrap()).unwrap();
         assert_eq!(run.players.len(), 4);

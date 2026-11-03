@@ -1,0 +1,127 @@
+# Weapon attack library. `weapon` lists the weapon types a clip suits (first = best).
+# Every attack: guard -> anticipation (ease=out) -> strike (ease=in, smear, hit) -> follow-through (ease=back/out) -> recover.
+# Shared guard pose (copy/paste-friendly):
+#   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+
+clip guard
+fps 8
+weapon sword axe dagger greatsword spear staff shield bow unarmed
+tags idle
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+4   rarm=27,0,10 rfore=78 larm=17,0,15 lfore=48 spine=8 bob=-0.045
+8   =0
+
+clip slash
+fps 12
+loop no
+weapon sword axe dagger
+tags attack
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+3   ease=out  anticipation  rarm=155,0,25 rfore=35 spine=-8,-25,0 chest=0,-10 larm=40,0,20 lfore=60
+5   ease=in smear hit  rarm=40,0,-15 rfore=5 spine=18,20,0 chest=0,10 lleg=30 lknee=25 rleg=-25 bob=-0.08
+7   ease=back  follow  rarm=0,0,-25 rfore=15 spine=22,30,0
+10  ease=out  rarm=15,0,5 rfore=60 spine=10,5,0 chest=0,0 bob=-0.04
+13  =0
+
+clip overhead
+fps 12
+loop no
+weapon greatsword axe sword
+tags attack heavy
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+4   ease=out  windup  rarm=175,0,5 rfore=40 larm=170,0,-10 lfore=45 spine=-15 chest=-8 bob=0.0 lleg=5
+5   hold
+7   ease=in smear hit  rarm=45,0,-5 rfore=0 larm=45,0,-5 lfore=5 spine=35 chest=10 lleg=35 lknee=40 rleg=-25 rknee=10 bob=-0.14
+10  ease=back  rarm=25,0,-5 larm=25,0,-5 spine=40 bob=-0.15
+14  ease=out  rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 spine=10 chest=0 lleg=12 lknee=10 rleg=-8 rknee=12 bob=-0.04
+16  =0
+
+clip thrust
+fps 12
+loop no
+weapon spear sword dagger staff
+tags attack
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+3   ease=out  pullback  rarm=-25,0,15 rfore=110 larm=40,0,5 lfore=70 spine=-6,-20,0 hips=0,-0.03,-0.06
+5   ease=in smear hit  rarm=88,0,-5 rfore=0 rhand=0,0,0 larm=-10,0,20 lfore=20 spine=14,15,0 lleg=45 lknee=35 rleg=-30 hips=0,-0.10,0.16
+8   ease=back  rarm=80,0,0 spine=12,10,0 hips=0,-0.09,0.12
+12  ease=out  =0
+
+clip spin
+fps 12
+loop no
+weapon greatsword sword axe staff
+tags attack aoe
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+3   ease=out  coil  root=0,40,0 rarm=60,0,80 rfore=10 larm=30,0,50 spine=0,30,0 bob=-0.08
+5   ease=in smear  root=0,-120,0 rarm=85,0,85 rfore=0 spine=0,-10,0 bob=-0.05
+7   smear hit  root=0,-240,0
+9   smear  root=0,-360,0 rarm=70,0,60
+12  ease=out  root=0,-360,0 rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 spine=6 bob=-0.03
+
+clip combo
+fps 12
+loop no
+weapon sword axe dagger
+tags attack combo
+# three-hit chain: forehand, backhand, finishing thrust (hits on 4, 8, 14)
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+2   ease=out  rarm=150,0,25 rfore=35 spine=-6,-25,0
+4   ease=in smear hit  rarm=40,0,-15 rfore=5 spine=16,20,0 lleg=25 lknee=20 bob=-0.07
+6   ease=out  rarm=50,0,-60 rfore=60 spine=10,40,0
+8   ease=in smear hit  rarm=120,0,40 rfore=10 spine=4,-25,0 rleg=10 lleg=5
+11  ease=out  rarm=-20,0,15 rfore=110 spine=-4,-20,0 hips=0,-0.03,-0.05
+14  ease=in smear hit  rarm=88,0,-5 rfore=0 spine=14,15,0 lleg=45 lknee=35 rleg=-30 hips=0,-0.10,0.16
+16  ease=back  rarm=80,0,0 hips=0,-0.09,0.13
+20  ease=out  =0
+
+clip shield_bash
+fps 12
+loop no
+weapon shield sword
+tags attack
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+3   ease=out  brace  larm=60,0,-25 lfore=85 spine=-5,25,0 hips=0,-0.06,-0.05 lleg=0 rleg=-15
+5   ease=in hit  larm=80,0,-30 lfore=40 spine=20,10,0 lleg=40 lknee=30 rleg=-35 hips=0,-0.08,0.2
+8   ease=back  larm=70,0,-25 hips=0,-0.07,0.17
+12  ease=out  =0
+
+clip bow_shot
+fps 12
+loop no
+weapon bow
+tags attack ranged
+# left hand holds the bow out; right hand draws to the cheek (string follows the right hand automatically)
+0   larm=30,0,10 lfore=40 rarm=20,0,10 rfore=40 lleg=12 lknee=8 rleg=-8 spine=4 bob=-0.02
+3   ease=out  raise  larm=88,0,-5 lfore=0 rarm=85,0,-25 rfore=100 spine=0,30,0 head=0,-25,0
+7   ease=inout  draw  rarm=80,0,35 rfore=150 rhand=0,0,0 spine=-4,40,0
+9   hold
+10  ease=snap hit  release  rarm=70,0,70 rfore=20
+12  ease=back  rarm=60,0,80 rfore=10 spine=-2,35,0
+16  ease=out  =0
+
+clip staff_cast
+fps 12
+loop no
+weapon staff
+tags attack magic
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+4   ease=out  gather  rarm=150,0,20 rfore=25 larm=60,0,40 lfore=90 spine=-12 head=-15 bob=0.02
+6   hold  bob=0.04
+8   ease=in smear hit  rarm=80,0,-5 rfore=0 larm=85,0,10 lfore=0 spine=18 head=5 lleg=30 lknee=25 bob=-0.08
+11  ease=back  rarm=70,0,0 spine=20 bob=-0.09
+15  ease=out  =0
+
+clip dagger_flurry
+fps 14
+loop no
+weapon dagger sword
+tags attack fast
+0   rarm=25,0,10 rfore=75 larm=15,0,15 lfore=45 lleg=12 lknee=10 rleg=-8 rknee=12 spine=6 bob=-0.03
+2   ease=out  rarm=10,0,15 rfore=110 hips=0,-0.05,-0.02
+3   ease=in smear hit  rarm=85,0,-5 rfore=5 spine=12,12,0 hips=0,-0.06,0.08
+4   ease=out  rarm=10,0,15 rfore=110 spine=6,0,0 hips=0,-0.05,0.04
+5   ease=in smear hit  rarm=80,0,-20 rfore=10 spine=12,18,0 hips=0,-0.06,0.1
+6   ease=out  rarm=10,0,15 rfore=110 hips=0,-0.05,0.06
+7   ease=in smear hit  rarm=95,0,5 rfore=0 spine=15,8,0 hips=0,-0.07,0.14
+10  ease=out  =0

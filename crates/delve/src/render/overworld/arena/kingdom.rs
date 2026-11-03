@@ -6,10 +6,13 @@ use super::*;
 // source the arcade cell gate fingerprints).
 #[path = "finds.rs"]
 mod finds;
+// The places of the knight's missions, beside the doors.
+#[path = "missions.rs"]
+pub(super) mod missions;
 use crate::rules::kingdom::Goal;
 
-pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: bool) -> (Img, Img) {
-    paint(run, focus, legible, modern, None)
+pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
+    paint(run, focus, legible, None)
 }
 
 /// What a window that stands the kingdom up in 3D (`world3d::kingdom`)
@@ -21,7 +24,7 @@ pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool, modern: 
 /// world.
 pub(super) fn layers_3d(run: &Run, focus: Option<u32>) -> (Img, Img, Vec<Figure>) {
     let mut three = Three { screen: Img::new(NATIVE_W, NATIVE_H), figures: Vec::new() };
-    let (_, over) = paint(run, focus, true, false, Some(&mut three));
+    let (_, over) = paint(run, focus, true, Some(&mut three));
     // The ballot panel lies on the screen, as `arena::layers_with` lays it
     // over the view.
     votes::panel(&mut three.screen, run, focus);
@@ -37,31 +40,23 @@ struct Three {
 /// A knight as a figure of the kingdom in 3D: its contact shadow and its
 /// sprite where `paint` lays them, on a picture of their own, its feet its
 /// depth.
-fn knight_figure(im: &Img, hero: &crate::rules::Hero) -> Figure {
+fn knight_figure(im: &Img, hero: &crate::rules::Hero, book: &crate::rules::cards::Book) -> Figure {
     let (hx, hy) = (hero.x * UNIT, hero.y * UNIT);
     let (fx, fy) = (hx.floor() as i32, hy.floor() as i32);
-    let (sx, sy) = (hx - im.w as f32 / 2.0, hy - im.h as f32 + 1.0);
+    let (sx, sy) = (hx - knights::rig_centre(hero, book, im.w), hy - im.h as f32 + 1.0 + knights::rig_floor_offset(hero, book) as f32);
     let (left, top) = (sx.floor() as i32, sy.floor() as i32);
     let (x0, y0) = (left.min(fx - 5), top.min(fy));
     let (x1, y1) = ((left + im.w + 1).max(fx + 6), (top + im.h + 1).max(fy + 2));
     let mut img = Img::new(x1 - x0, y1 - y0);
     knights::shadow(&mut img, fx - x0, fy - y0);
     img.stamp_sub(im, sx - x0 as f32, sy - y0 as f32);
-    Figure { img, x: x0, y: y0, frac: (0.0, 0.0), depth: hero.y, bodies: Vec::new(), foe: false }
+    Figure { img, x: x0, y: y0, frac: (0.0, 0.0), depth: hero.y, height: 0.0, additive: false, bodies: Vec::new(), foe: false, paints: Vec::new() }
 }
 
-fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: Option<&mut Three>) -> (Img, Img) {
+fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Three>) -> (Img, Img) {
     let origin = camera(run, focus);
-    let scenery = if modern || three.is_some() {
+    let scenery = if three.is_some() {
         Img::new(NATIVE_W, NATIVE_H)
-    } else if crate::world3d::enabled() {
-        // The world in 3D, on a page that draws no scenes: each chunk's
-        // plate laid down on its ground (`world3d::kingdom::lay_plates`),
-        // what the run stands on its lots painted over it.
-        let mut scenery = crop(&map::atlas(&run.kingdom.wishes), origin);
-        let lots = crate::world3d::lots::of(run);
-        crate::world3d::kingdom::lay_plates(&mut scenery, origin, lots.as_deref());
-        scenery
     } else {
         crop(&map::atlas(&run.kingdom.wishes), origin)
     };
@@ -69,6 +64,7 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: 
     super::forest_road::kingdom(&mut over, run, origin);
     super::roundtable::kingdom(&mut over, run, origin);
     let geo = map::geography(&run.kingdom.wishes);
+    super::squires_lodge::town(&mut over, run, origin);
     // Region names are lettered on the ground, under everything that moves.
     let lettered = map::letter_regions(&mut over, origin);
     let tick = run.tick as u32;
@@ -222,12 +218,19 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: 
         if x < -24 || y < -24 || x > NATIVE_W + 24 || y > NATIVE_H + 24 {
             continue;
         }
-        let im = if let Some(avatar) = &hero.avatar {
-            knights::avatar_figure(hero, &avatar.pixels, run.shield_out(id))
+        let bodied = hero.shape.is_some() && hero.making(&run.book).is_some_and(|m| m.parts.iter().any(|p| p == "body"));
+        let im = if let Some(shape) = hero.shape {
+            knights::identity_figure(hero, shape, bodied, run.shield_out(id), Default::default())
+        } else if let Some(avatar) = &hero.avatar {
+            knights::avatar_figure(hero, avatar.pixels_at(run.tick), run.shield_out(id))
         } else {
-            knights::figure_with(hero, id, run.shield_out(id))
+            knights::figure_at(hero, id, run.shield_out(id), Default::default(), false, run.tick)
         };
-        let mut im = knights::dress(&im, &hero.worn(&run.book), run.tick);
+        // Seated, so a plain knight is dressed on their own design's sockets.
+        let mut im = knights::dressed_event(&im, hero, &run.book, run.tick, 0, None, run.shield_out(id), Default::default(), Some(id)).0;
+        if let Some(shape) = hero.shape.filter(|_| bodied) {
+            knights::emblem(&mut im, shape);
+        }
         if hero.aim_x < -0.3 {
             im = im.flip_h();
         }
@@ -250,7 +253,7 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: 
             im = sprites::stone(&im);
         }
         if let Some(left) = hero.rolling() {
-            im = knights::rolled(&im, left);
+            im = knights::rolled_hero(&im, hero, &run.book, left);
         }
         if hero.swing > 0 {
             let a = hero.aim_y.atan2(hero.aim_x);
@@ -266,19 +269,22 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: 
         if hero.hp == 0 {
             bones::draw(&mut over, hero, id, run.tick, false, x, y, true);
         } else if let Some(three) = three.as_deref_mut() {
-            three.figures.push(knight_figure(&im, hero));
-        } else if !(modern && art_v2::knight_supported(run, hero, id)) {
+            three.figures.push(knight_figure(&im, hero, &run.book));
+        } else {
             knights::shadow(&mut over, x, y);
             over.stamp_sub(
                 &im,
-                hero.x * UNIT - origin.0 as f32 - im.w as f32 / 2.0,
-                hero.y * UNIT - origin.1 as f32 - im.h as f32 + 1.0,
+                hero.x * UNIT - origin.0 as f32 - knights::rig_centre(hero, &run.book, im.w),
+                hero.y * UNIT - origin.1 as f32 - im.h as f32 + 1.0 + knights::rig_floor_offset(hero, &run.book) as f32,
             );
         }
     }
     for shot in &run.projectiles {
         let (x, y) = local(shot.x, shot.y);
-        over.rect(x - 1, y - 1, 3, 3, '6');
+        // A mark 3 pixels across at the old size, a knight's shot's size
+        // (`wishcraft`) of it, never under 1.
+        let side = (3.0 * shot.scale()).round().max(1.0) as i32;
+        over.rect(x - side / 2, y - side / 2, side, side, '6');
     }
     for &(ux, uy, age) in &run.blasts {
         let (x, y) = local(ux, uy);
@@ -294,10 +300,11 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: 
             }
         }
     }
+    super::team::over_at(&mut over,run,origin);
     super::holdings::castle_pennons(&mut over, run, origin);
     beyond(&mut over, run, origin);
     let goal = run.kingdom_goal(focus.unwrap_or(1));
-    let mut taken = class_banners(&mut over, run, &geo, origin, focus, tick, legible);
+    let mut taken = Vec::new();
     taken.extend(lettered);
     taken.extend(trinkets(&mut over, run, &geo, origin, focus, legible));
     // In 3D the finds and the herald's posts stand up as blocks
@@ -315,11 +322,19 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: 
             }
         };
     }
+    super::team::panel(ui!(),run,focus);
+    survey_ghost(&mut over, run, origin, focus);
+    survey_panel(ui!(), run, focus);
     // The goal's arrow and name go down first; plaques make way for them.
     let mut goal_layer = Img::new(NATIVE_W, NATIVE_H);
+    let mut aimed = Vec::new();
     if let Some(goal) = &goal {
-        taken.extend(goal_marker(&mut goal_layer, goal, origin, tick));
+        aimed = goal_marker(&mut goal_layer, goal, origin, tick);
     }
+    // The knight's own missions, each at the door where it can be done.
+    let marked = missions::doors(&mut goal_layer, run, focus.unwrap_or(1), origin, tick, &aimed);
+    taken.extend(aimed);
+    taken.extend(marked);
     if legible {
         let hero = run.players.get(&focus.unwrap_or(1)).map(|h| (h.x / TILE_UNITS, h.y / TILE_UNITS));
         // A fingerpost's arms read as the knight passes it.
@@ -330,7 +345,6 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: 
         plaques(&mut over, &geo, origin, goal.as_ref(), hero, taken);
     }
     ui!().stamp(&goal_layer, 0, 0);
-    school_board(ui!(), run, focus, legible);
     // The ballot covers the view: the door's footer would only peek out
     // under it.
     let ballot = run
@@ -351,6 +365,11 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, modern: bool, mut three: 
         let top = NATIVE_H - board.h - 3;
         chrome::band(ui!(), (0, top, NATIVE_W, NATIVE_H - top), chrome::rim_of('B')[0]);
         ui!().stamp(&board, (NATIVE_W - board.w) / 2, top + 2);
+    }
+    // A yard ledger is actionable UI, including a native-size seat whose
+    // HUD bands reduce its room height. Keep it above ground plaques.
+    if !ballot && let Some(panel) = super::squires_lodge::panel(run, focus.unwrap_or(1)) {
+        ui!().stamp(&panel, (NATIVE_W - panel.w).max(0) / 2, 3);
     }
     if let (Some(three), Some(screen)) = (three, apart) {
         three.screen = screen;
@@ -396,24 +415,16 @@ fn biome_title(over: &mut Img, run: &Run, id: u32, taken: &[(i32, i32, i32, i32)
 /// ENTER; waiting outside while the party plays on, where they are and how
 /// to go back. `None` elsewhere, or by a class banner nearer than the door.
 pub(super) fn footer_sign(run: &Run, geo: &map::Geography, focus: Option<u32>) -> Option<Img> {
+    // With the surveyor's rod up E builds, and the panel says what.
+    if run.kingdom.survey.contains_key(&focus.unwrap_or(1)) {
+        return None;
+    }
     let hero = focus
         .and_then(|id| run.players.get(&id))
         .or_else(|| run.players.get(&1))
         // A host who plays no knight sends none (`Hero::absent`): the
         // party's first.
         .or_else(|| run.players.values().next());
-    // By a class banner the key changes class, so the door's sign keeps
-    // quiet unless the door is the nearer of the two.
-    let banner = |h: &crate::rules::Hero| {
-        crate::rules::classes::stones(geo)
-            .iter()
-            .map(|&(_, p)| p)
-            .chain(crate::rules::trinkets::things(geo).iter().map(|&(_, p)| p))
-            .map(|(x, y)| {
-                (h.x - (x as f32 + 0.5) * TILE_UNITS).hypot(h.y - (y as f32 + 0.5) * TILE_UNITS)
-            })
-            .fold(f32::MAX, f32::min)
-    };
     // Waiting outside while the party plays on: no door opens for this
     // knight but the one they came out of, so the footer says so.
     if let Some(w) = run.kingdom.waiting.as_ref() {
@@ -421,13 +432,74 @@ pub(super) fn footer_sign(run: &Run, geo: &map::Geography, focus: Option<u32>) -
         return Some(kit::waiting_sign(&w.place, at_door));
     }
     let hero = hero?;
-    let site = geo.sites.iter().find(|s| {
-        let x = (s.stand.0 as f32 + 0.5) * TILE_UNITS;
-        let y = (s.stand.1 as f32 + 0.7) * TILE_UNITS;
-        let door = (hero.x - x).hypot(hero.y - y);
-        door < 4.5 && door <= banner(hero)
-    })?;
-    Some(kit::door_sign(&site.name, true))
+    // The door E opens (`rules::kingdom::door_at`): by a class banner the
+    // key changes class, so the sign keeps quiet unless the door is nearer.
+    let keys = crate::rules::hud::Keys::of(focus.unwrap_or(1), focus.is_none());
+    let Some(door) = crate::rules::kingdom::door_at(geo, hero.x, hero.y) else {
+        // Away from any door with wishmotes banked: the kingdom is waiting.
+        return (run.treasury.get(crate::realm::Spoil::Wishmote) > 0)
+            .then(|| kit::survey_sign(keys.cycle));
+    };
+    Some(kit::door_key_sign(&geo.sites[door].name, keys.interact))
+}
+
+/// The plan on a knight's surveyor's rod (`raisings`), standing where it would
+/// rise: its picture on open ground, its lot framed in what E would do.
+fn survey_ghost(over: &mut Img, run: &Run, origin: (i32, i32), focus: Option<u32>) {
+    let Some(target) = run.survey_target(focus.unwrap_or(1)) else {
+        return;
+    };
+    let lot = target.lot;
+    let (x, y) = (lot.tx * TILE - origin.0, lot.ty * TILE - origin.1);
+    if target.level == 1 {
+        if let Some(wish) = crate::rules::raisings::standing(&[crate::rules::raisings::Raised {
+            plan: target.plan.id.to_owned(),
+            tx: lot.tx,
+            ty: lot.ty,
+            level: 1,
+            by: String::new(),
+        }])
+        .first()
+        {
+            over.stamp(&crate::world::wishes::art(wish), x, y);
+        }
+    }
+    let ink = if target.refused.is_some() { '7' } else { '3' };
+    over.frame(x, y, lot.tw * TILE, lot.th * TILE, ink);
+}
+
+/// The surveyor's panel: the plan, what it does, what it costs and what E does
+/// about it here.
+fn survey_panel(ui: &mut Img, run: &Run, focus: Option<u32>) {
+    let id = focus.unwrap_or(1);
+    let (Some(survey), Some(target)) = (run.kingdom.survey.get(&id), run.survey_target(id)) else {
+        return;
+    };
+    let keys = crate::rules::hud::Keys::of(id, focus.is_none());
+    let name = target.plan.name.to_uppercase();
+    let title = if target.level == 1 { name } else { format!("{name} LEVEL {}", target.level) };
+    let price = target.price.label().to_uppercase();
+    let act = match &target.refused {
+        Some(why) => why.clone(),
+        None => format!(
+            "HOLD {} {}",
+            keys.interact,
+            crate::rules::home::hold_bar(survey.hold, crate::rules::home::BUY_HOLD)
+        ),
+    };
+    let next = format!("{} NEXT PLAN", keys.cycle);
+    let lines = [title.as_str(), target.plan.says, price.as_str(), act.as_str(), next.as_str()];
+    let w = lines.iter().map(|l| crate::ink::text_width(l)).max().unwrap_or(0) + 8;
+    let (x, y) = ((NATIVE_W - w) / 2, 8);
+    chrome::panel(ui, (x, y, w, 46), chrome::Tone::FRAMED);
+    for (i, line) in lines.iter().enumerate() {
+        let ink = match i {
+            0 => 'O',
+            3 if target.refused.is_some() => '7',
+            _ => 'i',
+        };
+        ui.text(x + 4, y + 3 + 8 * i as i32, line, ink);
+    }
 }
 
 /// The kingdom's door sign for a seat's HUD band (`footer_sign`), when the
@@ -673,130 +745,6 @@ fn trinkets(
     taken
 }
 
-/// The school's mission board: while a knight reads a master's board, a
-/// framed scroll over the view with the class's three missions, each in
-/// plain words with its progress, and the master's line beneath.
-fn school_board(over: &mut Img, run: &Run, focus: Option<u32>, legible: bool) {
-    use crate::rules::classes::CLASSES;
-    if run.school.owner.is_none() || !legible {
-        return;
-    }
-    let Some(i) = usize::from(run.school.class).checked_rem(CLASSES.len()) else {
-        return;
-    };
-    let class = &CLASSES[i];
-    let hero = run
-        .school
-        .owner
-        .and_then(|id| run.players.get(&id))
-        .or_else(|| focus.and_then(|id| run.players.get(&id)));
-    let key = hero.map(crate::rules::home::Home::school_key);
-    let standing = key
-        .as_deref()
-        .map(|k| run.home.school.standing(k))
-        .unwrap_or_default();
-    let w = 236;
-    let rows = crate::rules::school::MISSIONS
-        .iter()
-        .filter(|m| m.class == class.name)
-        .map(|m| {
-            let have = standing.count(m);
-            let mark = if have >= m.need { '*' } else { ' ' };
-            format!("{mark} {}: {} ({have}/{})", m.step, m.asks, m.need)
-        })
-        .collect::<Vec<_>>();
-    let lines = std::iter::once(format!("{}'S BOARD", class.name.to_uppercase()))
-        .chain(rows)
-        .chain(std::iter::once(String::from(
-            "E again: the master hands over earned gear",
-        )))
-        .collect::<Vec<_>>();
-    let h = 13 + lines.len() as i32 * 11;
-    let (x, y) = ((NATIVE_W - w) / 2, (NATIVE_H - h) / 2 - 6);
-    over.rect(x + 2, y + 2, w - 4, h - 4, 'K');
-    over.frame(x, y, w, h, class.ink);
-    over.frame(x + 2, y + 2, w - 4, h - 4, 'u');
-    for (i, line) in lines.iter().enumerate() {
-        over.text(x + 8, y + 8 + i as i32 * 11, &line, if i == 0 { 'O' } else { 'i' });
-    }
-}
-
-/// The class halls' banner stones: a pole and a flag in the class's colour
-/// with its emblem, the class's name, and the key when a knight is close.
-fn class_banners(
-    over: &mut Img,
-    run: &Run,
-    geo: &map::Geography,
-    origin: (i32, i32),
-    focus: Option<u32>,
-    tick: u32,
-    legible: bool,
-) -> Vec<(i32, i32, i32, i32)> {
-    use crate::rules::classes::{self, CLASSES};
-    let hero = run.players.get(&focus.unwrap_or(1));
-    let mut taken = Vec::new();
-    for (i, (tx, ty)) in classes::stones(geo) {
-        let class = &CLASSES[i];
-        let (x, y) = (tx * TILE + TILE / 2 - origin.0, (ty + 1) * TILE - origin.1);
-        if x < -24 || y < -40 || x > NATIVE_W + 24 || y > NATIVE_H + 40 {
-            continue;
-        }
-        // Pole, base stone and a flag that flutters a pixel.
-        over.rect(x - 4, y - 3, 9, 3, 'G');
-        over.rect(x - 1, y - 30, 2, 28, 'h');
-        let flap = i32::from((tick / 8 + i as u32) % 2 == 0);
-        over.rect(x + 1, y - 29 + flap, 13, 11, class.ink);
-        over.rect(x + 1, y - 29 + flap, 13, 1, 'K');
-        let emblem: &[&str] = match class.name {
-            "Archer" => &[".9...", "9.9..", "9..9.", "9.9..", ".9..."],
-            "Shieldmaiden" => &["99999", "9...9", "9...9", ".9.9.", "..9.."],
-            "Gunner" => &["...9.", "..9..", ".999.", ".999.", "..9.."],
-            "Swordsman" => &["..9..", "..9..", "..9..", ".999.", "..9.."],
-            "Mage" => &["..6..", ".666.", "66666", ".666.", "..6.."],
-            "Healer" => &["..7..", "..7..", "77777", "..7..", "..7.."],
-            _ => &["99.9.", "9999.", "99.9.", "..9..", "..9.."],
-        };
-        for (ey, row) in emblem.iter().enumerate() {
-            for (ex, c) in row.chars().enumerate() {
-                if c != '.' {
-                    over.put(x + 5 + ex as i32, y - 26 + flap + ey as i32, chrome::dusk_mark(c));
-                }
-            }
-        }
-        // The class on a stand by its banner, in the onlooker's own trim:
-        // what they would be, at a glance, before the E.
-        if let Some(look) = super::class_looks::Look::named(class.name) {
-            use super::class_looks::{Pose, figure};
-            let seat = focus.unwrap_or(1);
-            let im = figure(look, knights::Facing::Down, Pose::Stand, true).recolor(knights::seat_colours(seat));
-            let (mx, my) = (x - 5 - im.w, y - 1);
-            over.rect(mx + im.w / 2 - 4, my - 1, 9, 2, 'P');
-            over.rect(mx + im.w / 2 - 3, my - 2, 7, 1, 'r');
-            over.stamp(&im, mx, my - 2 - im.h);
-            taken.push((mx, my - 2 - im.h, im.w, im.h + 3));
-        }
-        if !legible {
-            continue;
-        }
-        let near = hero.is_some_and(|h| {
-            (h.x - (tx as f32 + 0.5) * TILE_UNITS).hypot(h.y - (ty as f32 + 0.5) * TILE_UNITS)
-                < 3.0 * TILE_UNITS
-        });
-        let mine = hero.and_then(classes::of).is_some_and(|c| c.name == class.name);
-        let label = match (near, mine) {
-            (_, true) => format!("{} (YOU)", class.name.to_uppercase()),
-            (true, false) => format!("E: {}", class.name.to_uppercase()),
-            _ => class.name.to_uppercase(),
-        };
-        let w = super::super::ink::text_width(&label);
-        let (lx, ly) = (x - w / 2, y + 3);
-        let tone = if near { chrome::Tone::KEY } else { chrome::Tone::SLATE };
-        taken.push(chrome::label(over, (lx, ly), &label, 'O', tone));
-        taken.push((x - 4, y - 30, 18, 30));
-    }
-    taken
-}
-
 /// The places whose names are carved into the scenery already: a plaque
 /// over them would show the name twice.
 const CARVED: [(&str, &str); 3] = [
@@ -978,6 +926,13 @@ fn goal_marker(over: &mut Img, goal: &Goal, origin: (i32, i32), tick: u32) -> Ve
         goal.stand.0 * TILE + TILE / 2 - origin.0,
         goal.stand.1 * TILE - origin.1,
     );
+    pointer_toward(over, (gx, gy), &goal.name, tick)
+}
+
+/// A pointer to the view's pixel `(gx, gy)`, named `name`: bobbing over it,
+/// pointing down, while it is in view, and at the edge of the view toward
+/// it when it is not.
+pub(super) fn pointer_toward(over: &mut Img, (gx, gy): (i32, i32), name: &str, tick: u32) -> Vec<(i32, i32, i32, i32)> {
     let inside = (24..NATIVE_W - 24).contains(&gx) && (56..NATIVE_H - 8).contains(&gy);
     let (ax, ay, ux, uy) = if inside {
         // Bobbing over the door, pointing down at it.
@@ -993,7 +948,7 @@ fn goal_marker(over: &mut Img, goal: &Goal, origin: (i32, i32), tick: u32) -> Ve
         let len = dx.hypot(dy).max(0.01);
         (cx + dx * k, cy + dy * k, dx / len, dy / len)
     };
-    pointer(over, (ax, ay), (ux, uy), &goal.name, !inside)
+    pointer(over, (ax, ay), (ux, uy), name, !inside)
 }
 
 pub(super) fn hall(run: &Run) -> Img {
@@ -1043,5 +998,5 @@ pub(super) fn hall(run: &Run) -> Img {
 }
 
 #[cfg(test)]
-#[path = "../../../../tests/render/overworld__school_shots.rs"]
-mod school_shots;
+#[path = "../../../../tests/render/arena__survey_sign__tests.rs"]
+mod survey_sign_tests;

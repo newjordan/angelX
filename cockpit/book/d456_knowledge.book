@@ -1,0 +1,113 @@
+@@book-page 1@@
+[repo dossier — what angel has verified about this workspace]
+@@book-page 1@@
+[/dossier]
+@@book-page 1@@
+({withheld} fact(s) below {min_belief} belief withheld pending re-verification)
+@@book-page 1@@
+trap: `{text}` fails here ({evidence})
+@@book-page 1@@
+last session here: {age} ago, ended with {stop} ({driver})
+@@book-page 2@@
+recipes (verified on this workspace):
+@@book-page 2@@
+recipes (historical; source unbound; rerun before relying):
+@@book-page 2@@
+hazards (what failed here and why):
+@@book-page 2@@
+[caddy · {repo} · HEAD {head} · {dirty} dirty · {langs} · host: {host}]
+@@book-page 2@@
+recipes degraded
+@@book-page 2@@
+hazards degraded
+@@book-page 2@@
+doors: skills {skills} · dossier rituals: {rituals}
+@@book-page 3@@
+[scoped project doc truncated: middle elided]
+@@book-page 3@@
+<!-- angel-project-doc-bytes: {n} -->
+@@book-page 4@@
+Describe this image in detail.
+@@book-page 4@@
+Include any visible text (OCR), layout, objects, and anything needed to answer a follow-up question about it.
+@@book-page 4@@
+The operator's question about this image:
+@@book-page 4@@
+Describe the image carefully (OCR any text) so a text-only model can answer that question without seeing the pixels.
+@@book-page 4@@
+[vision sidecar · {backend} · {n} image(s)]
+@@book-page 4@@
+[vision sidecar unavailable — image attachments dropped; configure ANGEL_VISION_URL + ANGEL_VISION_MODEL or use vision_look once a backend is up]
+@@book-page 4@@
+Operator question: {question}
+@@book-page 5@@
+You extract a typed knowledge graph from one document.
+@@book-page 5@@
+Entity types — the ONLY allowed values for "type": PERSON, ORGANIZATION, LOCATION, EVENT, ARTIFACT.
+@@book-page 5@@
+Rules:
+- Extract only entities central to what the document is about; skip incidental mentions.
+@@book-page 5@@
+- For each entity write a one-sentence description grounded in THIS document (it is used later to disambiguate entities with similar names).
+@@book-page 5@@
+- Predicates are short verb phrases: "commanded", "launched from", "part of".
+@@book-page 5@@
+- Every relation must connect two entities you extracted.
+@@book-page 5@@
+Reply with STRICT JSON only — no prose, no code fence — matching exactly:
+{"entities":[{"name":"…","type":"PERSON","description":"…"}],
+ "relations":[{"source":"…","predicate":"…","target":"…"}]}
+@@book-page 5@@
+Document (source id: {source_doc}):
+@@book-page 5@@
+(The document was truncated to fit; extract from what is shown.)
+@@book-page 6@@
+You deduplicate entities in a knowledge graph.
+@@book-page 6@@
+Below are {type} entities, one per line as `name — description`.
+@@book-page 6@@
+Cluster entries that refer to the SAME real-world {type}.
+@@book-page 6@@
+Use the descriptions — do NOT merge entities that merely share a name ("Armstrong — walked on the Moon" and "Armstrong — jazz trumpeter" stay separate), and DO merge different surface forms of one thing ("Edwin Aldrin" and "Buzz Aldrin").
+@@book-page 6@@
+The canonical name is the most complete, unambiguous form and MUST be one of the listed names.
+@@book-page 6@@
+Only output clusters with 2+ members; singletons are implied.
+@@book-page 6@@
+Reply with STRICT JSON only — no prose, no code fence:
+{"clusters":[{"canonical":"…","aliases":["…"]}]}
+@@book-page 7@@
+Write a profile for one entity in a knowledge graph, grounded ONLY in the facts below.
+@@book-page 7@@
+Do not add outside knowledge; if the facts do not support a claim, leave it out.
+@@book-page 7@@
+Reply with STRICT JSON only — no prose, no code fence:
+{"summary":"2-3 sentences","key_facts":["…"],"time_range":{"start":"YYYY or YYYY-MM or unknown","end":"YYYY or YYYY-MM or ongoing or unknown"}}
+@@book-page 8@@
+Answer the question using ONLY the knowledge-graph facts below.
+@@book-page 8@@
+Every claim must cite at least one edge, written as (source —predicate→ target [doc]).
+@@book-page 8@@
+If the graph does not contain the answer, say exactly what is missing — do not guess.
+@@book-page 9@@
+Select 0 to {max} tools that the coding agent is likely to need for the current task.
+@@book-page 9@@
+Return ONLY JSON in this exact shape: {"tools":["tool_name"]}.
+@@book-page 9@@
+Use only names from the candidate list.
+@@book-page 9@@
+Prefer fewer tools; the base read/edit/shell/search tools are already present.
+@@book-page 0@@
+You are the Living Atlas teacher.
+@@book-page 0@@
+Draft zero to three review candidates from the bounded harvest below.
+@@book-page 0@@
+Output only strict JSON matching {"schema":"angel-atlas-clerk/v1","action":"propose|merge|abstain","candidates":[{"kind":"fact|decision|procedure|note|preference|open_thread|entity|artifact","content":"...","confidence":0.0,"sources":[{"id":"...","kind":"...","digest":"...","excerpt":null,"independent":true,"influenced_by":null}],"merge_into":null}]}.
+@@book-page 0@@
+Never activate, accept, share, or train on a claim.
+@@book-page 0@@
+Copy source ids and digests exactly from receipt_sources; independence and influence are owned by the harness.
+@@book-page 0@@
+A merge is a proposed revision linked to merge_into, never an automatic edit.
+@@book-page 0@@
+Abstain when bound independent receipts are absent or evidence is insufficient.

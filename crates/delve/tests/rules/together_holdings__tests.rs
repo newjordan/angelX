@@ -36,7 +36,8 @@ fn a_fief_is_cheaper_and_the_king_takes_his_tithe() {
     assert_eq!(h.holding(&key).unwrap().coffer, 0);
     // With a room standing, the King takes his thirty first.
     let mut t = gold(1000);
-    settle(&mut h, &mut t, &marks(&[&build_mark(&key, Family::Tavern)]));
+    stage(&mut h, &key, "taproom");
+    settle(&mut h, &mut t, &marks_of(&[aye()]));
     settle(&mut h, &mut t, &BTreeMap::from([(LABOUR.to_string(), ROOM_LABOUR)]));
     let rent = h.holding(&key).unwrap().rent();
     assert_eq!(rent, 20);
@@ -77,13 +78,14 @@ fn a_short_purse_buys_nothing_and_says_so() {
 // ── Managing ──────────────────────────────────────────────────────────────
 
 #[test]
-fn rooms_are_bought_then_built_by_labour_ten_bays_three_of_a_family() {
+fn rooms_come_by_the_foremans_petition_then_labour_ten_bays_three_of_a_family() {
     let mut h = cleared();
     let mut t = gold(50_000);
     let key = crypt_key();
     settle(&mut h, &mut t, &marks(&[&buy_mark(crypt(), false)]));
     let before = t.get(Spoil::Gold);
-    settle(&mut h, &mut t, &marks(&[&build_mark(&key, Family::Forge)]));
+    stage(&mut h, &key, "smithy");
+    settle(&mut h, &mut t, &marks_of(&[aye()]));
     assert_eq!(t.get(Spoil::Gold), before - 400);
     let w = h.holding(&key).unwrap();
     assert_eq!(w.rooms[0].id, "smithy");
@@ -95,21 +97,111 @@ fn rooms_are_bought_then_built_by_labour_ten_bays_three_of_a_family() {
     let out = settle(&mut h, &mut t, &BTreeMap::from([(LABOUR.to_string(), 1)]));
     assert!(h.holding(&key).unwrap().rooms[0].standing());
     assert!(out.said.iter().any(|(_, l)| l.contains("Smithy stands")));
-    // A family has three rooms, then no more.
-    for _ in 0..3 {
-        settle(&mut h, &mut t, &marks(&[&build_mark(&key, Family::Forge)]));
+    // A family has three rooms, then no more: a fourth smithy petition is
+    // refused by the open gate.
+    for room in ["fletcher", "armory"] {
+        stage(&mut h, &key, room);
+        settle(&mut h, &mut t, &marks_of(&[aye()]));
     }
+    stage(&mut h, &key, "smithy");
+    let out = settle(&mut h, &mut t, &marks_of(&[aye()]));
+    assert!(out.said.iter().any(|(_, l)| l.contains("ALREADY BUILT")), "an honest refusal");
     let ids: Vec<_> = h.holding(&key).unwrap().rooms.iter().map(|r| r.id.clone()).collect();
     assert_eq!(ids, ["smithy", "fletcher", "armory"]);
-    assert_eq!(build_open(&h, &key, Family::Forge, 9999).err(), Some("ALL THREE BUILT"));
-    // Ten bays, of twelve rooms.
-    for f in [Family::Tavern, Family::Chapel, Family::Trade] {
-        for _ in 0..3 {
-            settle(&mut h, &mut t, &marks(&[&build_mark(&key, f)]));
-        }
+    // Ten bays, of the fifteen rooms.
+    for room in ["taproom", "brewery", "inn", "shrine", "infirmary", "belltower", "stall"] {
+        stage(&mut h, &key, room);
+        settle(&mut h, &mut t, &marks_of(&[aye()]));
     }
     assert_eq!(h.holding(&key).unwrap().rooms.len(), SLOTS);
-    assert_eq!(build_open(&h, &key, Family::Trade, 9999).err(), Some("BAYS FULL"));
+    stage(&mut h, &key, "counting");
+    let out = settle(&mut h, &mut t, &marks_of(&[aye()]));
+    assert!(out.said.iter().any(|(_, l)| l.contains("BAYS FULL")));
+}
+
+#[test]
+fn the_foreman_drafts_three_petitions_at_a_rent_day_and_his_quotes_ride_the_deal_counter() {
+    let mut h = cleared();
+    let mut t = gold(50_000);
+    settle(&mut h, &mut t, &marks(&[&buy_mark(crypt(), false)]));
+    // No ledge without a rent day.
+    assert!(h.foreman.queue.is_empty());
+    rent_day(&mut h, 1);
+    assert_eq!(h.foreman.queue.len(), crate::rules::foreman::QUEUE);
+    // The deals turn through the families in their own order: taproom,
+    // smithy, shrine.
+    let rooms: Vec<&str> = h.foreman.queue.iter().map(|p| p.room.as_str()).collect();
+    assert_eq!(rooms, ["taproom", "smithy", "shrine"]);
+    assert!(h.foreman.queue.iter().all(|p| p.gold == 400), "the first three at the list");
+    // Answer them all: the next rent day brings the next three, and the
+    // fifth deal (the second of the second round's third) is padded.
+    settle(&mut h, &mut t, &BTreeMap::from([(aye(), 3)]));
+    rent_day(&mut h, 1);
+    let rooms: Vec<&str> = h.foreman.queue.iter().map(|p| p.room.as_str()).collect();
+    assert_eq!(rooms, ["stall", "barracks", "brewery"]);
+    // Deals 3, 4 and 5: the barracks quote is the fifth deal, padded ten
+    // in the hundred.
+    let barracks = &h.foreman.queue[1];
+    assert_eq!(barracks.gold, 400 + 40, "padded: {}", barracks.says);
+    // His line for an honest deal, and for a padded one.
+    assert_ne!(h.foreman.queue[0].says, barracks.says);
+}
+
+#[test]
+fn every_seventh_deal_is_the_dud_the_neighbours_like_least() {
+    let mut h = cleared();
+    let mut t = gold(50_000);
+    settle(&mut h, &mut t, &marks(&[&buy_mark(crypt(), false)]));
+    // An inn standing: a smithy beside it is the room the neighbours like
+    // least (NOISY, -10).
+    h.owned[0].rooms.push(holdings::Built { id: "inn".into(), labour: ROOM_LABOUR });
+    let mut deals = Vec::new();
+    while deals.len() < 7 {
+        rent_day(&mut h, 1);
+        while let Some(p) = h.foreman.queue.first().cloned() {
+            h.foreman.queue.remove(0);
+            deals.push(p);
+        }
+    }
+    // Deal seven (index six) is the dud: the smithy beside the inn.
+    let dud = &deals[6];
+    assert_eq!(dud.room, "smithy");
+    assert!(
+        dud.says.contains("trust me") || dud.says.contains("neighbours") || dud.says.contains("feeling"),
+        "{}",
+        dud.says
+    );
+}
+
+#[test]
+fn an_aye_pays_his_quote_and_three_nays_stir_the_works() {
+    let mut h = cleared();
+    let mut t = gold(7000);
+    settle(&mut h, &mut t, &marks(&[&buy_mark(crypt(), false)]));
+    // A padded quote pays whole, padding and all.
+    h.foreman.queue.push(crate::rules::foreman::Petition {
+        key: crypt_key(),
+        room: "taproom".into(),
+        gold: 440,
+        relic: None,
+        says: "the wagon axle broke on the oak".into(),
+    });
+    let out = settle(&mut h, &mut t, &marks_of(&[aye()]));
+    assert_eq!(t.get(Spoil::Gold), 7000 - 6000 - 440);
+    assert!(out.said.iter().any(|(_, l)| l.contains("going up at The Crypt")), "{:?}", out.said);
+    // Refusals cost nothing but his temper: three in a row stir unrest.
+    for _ in 0..3 {
+        stage(&mut h, &crypt_key(), "shrine");
+        settle(&mut h, &mut t, &marks_of(&[nay()]));
+    }
+    assert_eq!(h.unrest, 1, "the works grumble");
+    assert_eq!(h.holding(&crypt_key()).unwrap().rooms.len(), 1, "nothing built by refusal");
+    // A short purse is told so, and the petition lapses off the ledge.
+    let mut poor = gold(0);
+    stage(&mut h, &crypt_key(), "smithy");
+    let out = settle(&mut h, &mut poor, &marks_of(&[aye()]));
+    assert!(out.said.iter().any(|(_, l)| l.contains("PURSE SHORT")));
+    assert!(h.foreman.queue.is_empty());
 }
 
 #[test]
@@ -237,7 +329,8 @@ fn every_steward_has_a_way() {
     let mut h = with("vell");
     let mut t = gold(5000);
     let key = crypt_key();
-    settle(&mut h, &mut t, &marks(&[&build_mark(&key, Family::Trade)]));
+    stage(&mut h, &key, "stall");
+    settle(&mut h, &mut t, &marks_of(&[aye()]));
     settle(&mut h, &mut t, &BTreeMap::from([(LABOUR.to_string(), ROOM_LABOUR / 2)]));
     assert!(h.owned[0].rooms.last().unwrap().standing());
 }
@@ -413,14 +506,17 @@ fn the_arrows_turn_the_board_and_the_plates_buy_build_and_collect() {
     cockpit(&mut run);
     assert!(run.home.holdings.holding(&crypt_key()).is_some());
     assert_eq!(run.treasury.get(Spoil::Gold), 14_000);
-    // A steward, a taproom, labour from play.
+    // A steward, the Foreman's petition for a taproom, and the crew's
+    // trips from play: two hands raise it.
     hold(&mut run, STEWARD);
-    hold(&mut run, BUILD[0]);
+    crate::rules::foreman::draft(&mut run.home.holdings);
+    assert_eq!(run.home.holdings.foreman.queue[0].room, "taproom");
+    hold(&mut run, AYE);
     cockpit(&mut run);
     let w = run.home.holdings.holding(&crypt_key()).unwrap();
     assert_eq!(w.steward.as_deref(), Some("wynn"));
     assert_eq!(w.rooms[0].id, "taproom");
-    for _ in 0..(SHIFT_SECS * HZ * ROOM_LABOUR) {
+    for _ in 0..(SHIFT_SECS * HZ * COURSE_TRIPS * ROOM_LABOUR / HANDS) {
         run.step(&BTreeMap::new());
     }
     cockpit(&mut run);
@@ -437,7 +533,7 @@ fn the_arrows_turn_the_board_and_the_plates_buy_build_and_collect() {
 #[test]
 fn shut_plates_do_nothing() {
     let mut run = court(Holdings::default(), 90_000);
-    for rect in [CLAIM, FIEF, STEWARD, CHARTER, BUILD[0], STRONGBOX] {
+    for rect in [CLAIM, FIEF, STEWARD, CHARTER, AYE, NAY, STRONGBOX] {
         hold(&mut run, rect);
     }
     assert!(run.marks.keys().all(|k| !k.starts_with("holdings:") || k == LABOUR));
@@ -580,19 +676,25 @@ fn write_holdings_shots() {
     let mut h = owned_floor();
     let mut t = gold(60_000);
     let key = crypt_key();
-    for f in [Family::Forge, Family::Trade, Family::Tavern] {
-        settle(&mut h, &mut t, &marks(&[&build_mark(&key, f)]));
+    for room in ["smithy", "stall", "brewery"] {
+        stage(&mut h, &key, room);
+        settle(&mut h, &mut t, &marks_of(&[aye()]));
     }
     settle(&mut h, &mut t, &BTreeMap::from([(LABOUR.to_string(), ROOM_LABOUR * 2 + 2)]));
+    // The great works, standing: forge and hearth and the way down.
+    for room in ["greatforge", "greathall", "waypoint"] {
+        h.holding_mut(&key).unwrap().rooms.push(holdings::Built { id: room.into(), labour: ROOM_LABOUR });
+    }
     settle(&mut h, &mut t, &marks(&[&buy_mark(Deed::Castle(0), false)]));
-    settle(&mut h, &mut t, &marks(&[&build_mark(&Deed::Castle(0).key(), Family::Chapel)]));
+    stage(&mut h, &Deed::Castle(0).key(), "shrine");
+    settle(&mut h, &mut t, &marks_of(&[aye()]));
     feed(&mut h, &Ops { cache: CACHE_PER_SACK * 14, tokens: TOKENS_PER_SACK * 3, tests: 5, commits: 1, compactions: 2, subagents: 2, loops: 4, errors: 3, slow: 0 });
     h.owned[0].walls = 7;
     h.owned[0].stars = 2;
     h.owned[0].coffer = 240;
     let mut run = court(h.clone(), 8000);
     run.players.get_mut(&1).unwrap().buying = BUY_HOLD / 2;
-    stand(&mut run, BUILD[1]);
+    stand(&mut run, NAY);
     run.step(&BTreeMap::new());
     save(&run, "a-court-held");
     // A deed for sale on the board, a knight at the claim plate.
@@ -642,6 +744,63 @@ fn write_holdings_shots() {
         run.step(&BTreeMap::new());
     }
     save(&run, "i-kingdom-castle-pennon");
+    // The Foreman at his ledge: three petitions, the head one padded
+    // (the sheet says 495 against the brewery's 450), a knight weighing
+    // it at the AYE post; then the NAY post's refusal.
+    let mut h = owned_floor();
+    crate::rules::foreman::draft(&mut h);
+    h.foreman.queue.insert(
+        0,
+        crate::rules::foreman::Petition {
+            key: crypt_key(),
+            room: "brewery".into(),
+            gold: 495,
+            relic: None,
+            says: "the wagon axle broke on the oak".into(),
+        },
+    );
+    let mut run = court(h.clone(), 8000);
+    stand(&mut run, AYE);
+    run.players.get_mut(&1).unwrap().buying = BUY_HOLD / 2;
+    run.step(&BTreeMap::new());
+    save(&run, "j-foreman-aye");
+    stand(&mut run, NAY);
+    run.players.get_mut(&1).unwrap().buying = BUY_HOLD / 3;
+    run.step(&BTreeMap::new());
+    save(&run, "k-foreman-nay");
+    // A great work petitioned with its relic wanted, beside a purse that
+    // holds one.
+    let mut run = court(h.clone(), 8000);
+    run.treasury.add(Spoil::Forgeheart, 1);
+    run.home.holdings.foreman.queue.insert(
+        0,
+        crate::rules::foreman::Petition {
+            key: crypt_key(),
+            room: "greatforge".into(),
+            gold: 800,
+            relic: Some(Spoil::Forgeheart),
+            says: "it beats, m'lord".into(),
+        },
+    );
+    stand(&mut run, AYE);
+    run.step(&BTreeMap::new());
+    save(&run, "l-foreman-great-forge");
+    // The same great work against an empty purse: the sheet names the
+    // missing relic in red, the AYE post stays shut.
+    let mut run = court(h.clone(), 8000);
+    run.home.holdings.foreman.queue.insert(
+        0,
+        crate::rules::foreman::Petition {
+            key: crypt_key(),
+            room: "greatforge".into(),
+            gold: 800,
+            relic: Some(Spoil::Forgeheart),
+            says: "it beats, m'lord".into(),
+        },
+    );
+    stand(&mut run, AYE);
+    run.step(&BTreeMap::new());
+    save(&run, "m-foreman-bring-a-relic");
 }
 
 // ── Neighbours ────────────────────────────────────────────────────────────
@@ -672,7 +831,123 @@ fn neighbours_in_the_same_row_help_or_harm_a_rooms_rent() {
     assert_eq!(w.preview(smithy), vec![(-10, "NOISY")]);
 }
 
-// ── Raids ─────────────────────────────────────────────────────────────────
+// ── The relics of the deep ─────────────────────────────────────────────────
+
+#[test]
+fn the_deep_floors_give_up_relics_by_a_fixed_table() {
+    use crate::realm::Spoil as S;
+    use crate::rules::relics;
+    assert_eq!(relics::find(Pack::Archive, 0, relics::CHEST_EVERY), Some(S::Hearthstone));
+    assert_eq!(relics::find(Pack::Archive, 6, relics::CHEST_EVERY), Some(S::Forgeheart));
+    assert_eq!(relics::find(Pack::Archive, 12, relics::CHEST_EVERY), Some(S::Ledgerglass));
+    assert_eq!(relics::find(Pack::Fungal, 0, relics::CHEST_EVERY), Some(S::Bellmetal));
+    assert_eq!(relics::find(Pack::Unknown, 0, relics::GUARDIAN_EVERY), Some(S::Waystone));
+    // The shallow floors give up nothing, and most draws are nothing.
+    for draw in 1..6 {
+        assert_eq!(relics::find(Pack::Crypt, draw, relics::CHEST_EVERY), None);
+        assert_eq!(relics::find(Pack::Archive, draw, relics::CHEST_EVERY), None);
+    }
+}
+
+#[test]
+fn a_great_work_wants_its_relic_and_the_foreman_pays_it_in() {
+    let mut h = cleared();
+    let mut t = gold(20_000);
+    settle(&mut h, &mut t, &marks(&[&buy_mark(crypt(), false)]));
+    // A great forge petition without the heart in the treasury lapses with
+    // its want named.
+    let petition = crate::rules::foreman::Petition {
+        key: crypt_key(),
+        room: "greatforge".into(),
+        gold: 800,
+        relic: Some(Spoil::Forgeheart),
+        says: "it beats, m'lord".into(),
+    };
+    h.foreman.queue.push(petition.clone());
+    let out = settle(&mut h, &mut t, &marks_of(&[aye()]));
+    assert!(out.said.iter().any(|(_, l)| l.contains("NEEDS A RELIC")), "{:?}", out.said);
+    assert!(h.holding(&crypt_key()).unwrap().rooms.is_empty(), "nothing built without the heart");
+    // With the heart in the treasury: gold and heart both paid.
+    t.add(Spoil::Forgeheart, 1);
+    h.foreman.queue.push(petition);
+    settle(&mut h, &mut t, &marks_of(&[aye()]));
+    let w = h.holding(&crypt_key()).unwrap();
+    assert_eq!(w.rooms[0].id, "greatforge");
+    assert_eq!(t.get(Spoil::Gold), 20_000 - 6000 - 800);
+    assert_eq!(t.get(Spoil::Forgeheart), 0, "the heart is spent");
+}
+
+#[test]
+fn a_standing_waypoint_is_a_landing_of_the_realms_own() {
+    let waypoint = |key: String, labour| Holdings {
+        owned: vec![Holding {
+            key,
+            walls: WALLS,
+            stars: 1,
+            rooms: vec![holdings::Built { id: "waypoint".into(), labour }],
+            ..Holding::default()
+        }],
+        ..Holdings::default()
+    };
+    // Wren's ladder alone: floor 1.
+    assert_eq!(Home::default().landings(), vec![1]);
+    // A Waypoint standing on a held Archive floor: floor 4 joins the
+    // stair, and half-built does not count.
+    let standing = waypoint(Deed::Floor(Pack::Archive).key(), ROOM_LABOUR);
+    assert_eq!(Home { holdings: standing, ..Home::default() }.landings(), vec![1, 4]);
+    let rising = waypoint(Deed::Floor(Pack::Archive).key(), 0);
+    assert_eq!(Home { holdings: rising, ..Home::default() }.landings(), vec![1]);
+    // The Unknown floor's Waypoint is the only stair to floor 6: Wren
+    // never sells one that deep.
+    let deep = waypoint(Deed::Floor(Pack::Unknown).key(), ROOM_LABOUR);
+    assert_eq!(Home { holdings: deep, ..Home::default() }.landings(), vec![1, 6]);
+}
+
+#[test]
+fn the_deep_gives_a_relic_into_the_first_living_knights_purse() {
+    let mut run = Run::at_home(7, 1, None, Home::default(), Spoils::default());
+    run.dungeon.pack = Pack::Archive;
+    run.dungeon.depth = 4;
+    run.relic_find(0, crate::rules::relics::CHEST_EVERY);
+    assert_eq!(run.players[&1].carried.get(Spoil::Hearthstone), 1);
+    assert!(run.cues.iter().any(|c| c == "relic"));
+    assert!(run.found.as_ref().is_some_and(|f| f.2.contains("hearthstone")));
+    // A draw that finds nothing finds nothing.
+    run.relic_find(1, crate::rules::relics::CHEST_EVERY);
+    assert_eq!(run.players[&1].carried.get(Spoil::Hearthstone), 1);
+    // A knight of stone waits for a living shoulder.
+    run.players.get_mut(&1).unwrap().stone = true;
+    run.relic_find(6, crate::rules::relics::CHEST_EVERY);
+    assert_eq!(run.players[&1].carried.get(Spoil::Forgeheart), 0);
+}
+
+// ── Raids on the board ────────────────────────────────────────────────────
+
+#[test]
+fn a_raid_is_pinned_to_wrens_board_until_it_is_fought_off() {
+    let (mut h, mut t) = held();
+    h.owned[0].raid = 1;
+    let mut home = Home { holdings: h.clone(), ..Home::default() };
+    assert!(crate::rules::bounties::drift(&home));
+    let said = crate::rules::bounties::note_raids(&mut home);
+    assert_eq!(home.raids, [crypt_key()]);
+    assert!(said.iter().any(|l| l.contains("Wren pins a raid: throw them out of The Crypt")));
+    assert!(!crate::rules::bounties::drift(&home), "in sync");
+    // The raid rides the missions: the Gate's gold arrow pulls the party
+    // back down, and the board's row says whose hall.
+    let run = Run::at_home(7, 1, None, home.clone(), Spoils::default());
+    let held_names: Vec<String> = run.missions_held(1).into_iter().map(|m| m.name).collect();
+    assert!(held_names.iter().any(|n| n == "Raiders hold The Crypt"), "{held_names:?}");
+    // Fought off: the purse is won once (the raid's own settle), the row
+    // comes down, and no second purse is minted.
+    let before = t.get(Spoil::Gold);
+    settle(&mut home.holdings, &mut t, &marks(&[&raids::won_mark(&crypt_key())]));
+    assert_eq!(t.get(Spoil::Gold), before + RAID_PURSE[1]);
+    let said = crate::rules::bounties::note_raids(&mut home);
+    assert!(said.is_empty());
+    assert!(home.raids.is_empty());
+    assert!(!crate::rules::bounties::drift(&home));
+}
 
 #[test]
 fn low_walls_bring_raiders_who_stop_the_rent_and_sack_a_room_a_day() {
@@ -799,14 +1074,18 @@ fn the_kings_favour_moves_with_the_terms_and_does_something_at_either_end() {
     // High: his masons build for less.
     h.favour = holdings::ROYAL;
     let before = t.get(Spoil::Gold);
-    settle(&mut h, &mut t, &marks(&[&build_mark(&crypt_key(), Family::Forge)]));
+    stage(&mut h, &crypt_key(), "smithy");
+    settle(&mut h, &mut t, &marks_of(&[aye()]));
     assert_eq!(before - t.get(Spoil::Gold), 400 - holdings::MASONS);
     assert_eq!(crown::favour_word(&h), Some("ROYAL MASONS"));
     // Low: his men tithe a claimed holding too.
     let mines = Deed::Floor(Pack::Cavern).key();
     h.favour = -holdings::ROYAL;
     let mut t2 = gold(5000);
-    settle(&mut h, &mut t2, &BTreeMap::from([(build_mark(&mines, Family::Trade), 3)]));
+    for room in ["stall", "counting", "warehouse"] {
+        stage(&mut h, &mines, room);
+    }
+    settle(&mut h, &mut t2, &BTreeMap::from([(aye(), 3)]));
     settle(&mut h, &mut t2, &BTreeMap::from([(LABOUR.to_string(), ROOM_LABOUR * 3)]));
     let w = h.holding(&mines).unwrap();
     assert!(!w.fief);
@@ -955,7 +1234,7 @@ fn write_holdings_raid_shots() {
     h.favour = 3;
     h.stores = 9;
     let mut run = court(h.clone(), 6000);
-    stand(&mut run, BUILD[1]);
+    stand(&mut run, NAY);
     run.players.get_mut(&1).unwrap().buying = BUY_HOLD / 3;
     run.step(&BTreeMap::new());
     save(&run, "a-court-raided-neighbours");

@@ -4,7 +4,7 @@ use std::collections::{BTreeSet, VecDeque};
 
 fn cue(door: &str, passage: ResearchPassage, outcome: Outcome) -> Input {
     Input {
-        map_sha256: crate::knowledge::cut::sha256_hex(door.as_bytes()),
+        map_sha256: crate::drive::realm_support::sha256_hex(door.as_bytes()),
         task_id: "q.task".into(),
         door_id: door.into(),
         route: vec!["q.task".into(), "m.check".into(), door.into()],
@@ -267,11 +267,11 @@ fn settlement_planning_cannot_mint_work_or_rewrite_duplicate_provenance() {
     let other = cue("q.duplicate", ResearchPassage::Review, Outcome::Failed);
     let mut store = Store::beside(None, 77, "Miner").unwrap();
     let before = super::tests::value(&store.site);
-    let mut unconfirmed = super::tests::facts("A", &[1]);
+    let mut unconfirmed = super::tests::state("A", &[1]);
     unconfirmed.workspace = Some(std::env::temp_dir().join("different-project"));
     assert!(
         !store
-            .sync_with_plan(&unconfirmed, false, Some(&input))
+            .sync_with_plan(&unconfirmed.summary(), false, Some(&input))
             .unwrap()
     );
     assert_eq!(super::tests::value(&store.site), before);
@@ -414,7 +414,7 @@ fn settlement_planning_uses_real_frontier_routes_and_independent_review_states()
     let task = "test the stone hypothesis";
     let task_id = format!(
         "q.angel-{}",
-        &crate::knowledge::cut::sha256_hex(task.as_bytes())[..24]
+        &crate::drive::realm_support::sha256_hex(task.as_bytes())[..24]
     );
     std::fs::create_dir(dir.path().join("labyrinth")).unwrap();
     let write_map = |outcome: &str| {

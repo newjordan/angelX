@@ -18,6 +18,12 @@
 //! | the Competition Knight | Assassinate: a second's aim, then the room's toughest monster takes it |
 //! | the Scryglass Knight | Phantasm: two images of the knight that fire with them and draw fire |
 //! | Dame Thrudi | Axe Storm: the axe spin, over and over for three seconds |
+//! | the Hammerer | Earthsplitter: a crack runs out along the aim and the ground bursts up along it |
+//! | the Butcher | Dismember: the nearest foe held fast and carved, and the Butcher fed |
+//! | the Reaver | Red Harvest: one sweep all round; the badly wounded are reaped and give back charge |
+//! | the Lancer | Skewer Drive: a charge that carries every foe before the lance and pins them where it stops |
+//! | the Alchemist | Philosopher's Rain: foul air and then fire on the nearest eight, each one flashing |
+//! | the Gravecaller | Tombstone: a grave ahead that raises zombies for eight seconds |
 
 use super::*;
 
@@ -42,10 +48,22 @@ pub enum Ult {
     AxeStorm,
     Lullaby,
     Desertion,
+    // The champions' (`champions`). Appended, so saved names keep.
+    Earthsplitter,
+    Dismember,
+    PhilosophersRain,
+    /// Appended, so saved names keep.
+    Tombstone,
+    LastLight,
+    NeedleSquall,
+    FurnaceVerdict,
+    /// The Reaver's and the Lancer's (`champions`). Appended, so saved names keep.
+    RedHarvest,
+    SkewerDrive,
 }
 
 impl Ult {
-    pub const ALL: [Ult; 13] = [
+    pub const ALL: [Ult; 22] = [
         Ult::PilgrimsArrow,
         Ult::LadysVeil,
         Ult::Trebuchet,
@@ -59,11 +77,28 @@ impl Ult {
         Ult::AxeStorm,
         Ult::Lullaby,
         Ult::Desertion,
+        Ult::Earthsplitter,
+        Ult::Dismember,
+        Ult::PhilosophersRain,
+        Ult::Tombstone,
+        Ult::LastLight,
+        Ult::NeedleSquall,
+        Ult::FurnaceVerdict,
+        Ult::RedHarvest,
+        Ult::SkewerDrive,
     ];
 
-    /// The ultimate a knight of the company carries.
+    /// The ultimate a knight of the company carries; a recruit's, until
+    /// one is wished for them (`recruit_ults`), the Pilgrim's Arrow.
     pub fn of(knight: Option<&str>) -> Ult {
-        match knight.unwrap_or("percival") {
+        Ult::own(knight.unwrap_or("percival")).unwrap_or(Ult::PilgrimsArrow)
+    }
+
+    /// The ultimate the knight of `kit` carries as their own: none for a
+    /// recruit, whose is wished (`recruit_ults`).
+    pub fn own(kit: &str) -> Option<Ult> {
+        Some(match kit {
+            "percival" => Ult::PilgrimsArrow,
             "lynette" => Ult::LadysVeil,
             "gareth" => Ult::Trebuchet,
             "galahad" => Ult::Bladewind,
@@ -76,8 +111,29 @@ impl Ult {
             "ironbraid" => Ult::AxeStorm,
             "bard" => Ult::Lullaby,
             "peasant" => Ult::Desertion,
-            _ => Ult::PilgrimsArrow,
-        }
+            "hammerer" => Ult::Earthsplitter,
+            "butcher" => Ult::Dismember,
+            "alchemist" => Ult::PhilosophersRain,
+            "reaver" => Ult::RedHarvest,
+            "lancer" => Ult::SkewerDrive,
+            "gravecaller" => Ult::Tombstone,
+            "farwatch" => Ult::LastLight,
+            "galeweaver" => Ult::NeedleSquall,
+            "cinderheart" => Ult::FurnaceVerdict,
+            _ => return None,
+        })
+    }
+
+    /// The ultimate a card's `ult <word>` names (`pilgrims_arrow`; dashes,
+    /// spaces and the name itself are read too).
+    pub fn parse(word: &str) -> Option<Ult> {
+        let word = word.trim().to_lowercase().replace('\'', "").replace([' ', '-'], "_");
+        Ult::ALL.into_iter().find(|u| u.word() == word)
+    }
+
+    /// Every ultimate's word, for a card error and the briefs.
+    pub fn words() -> String {
+        Ult::ALL.map(Ult::word).join(", ")
     }
 
     pub fn name(self) -> &'static str {
@@ -95,6 +151,15 @@ impl Ult {
             Ult::AxeStorm => "Axe Storm",
             Ult::Lullaby => "Lullaby",
             Ult::Desertion => "Desertion",
+            Ult::Earthsplitter => "Earthsplitter",
+            Ult::Dismember => "Dismember",
+            Ult::PhilosophersRain => "Philosopher's Rain",
+            Ult::RedHarvest => "Red Harvest",
+            Ult::SkewerDrive => "Skewer Drive",
+            Ult::Tombstone => "Tombstone",
+            Ult::LastLight => "Last Light",
+            Ult::NeedleSquall => "Needle Squall",
+            Ult::FurnaceVerdict => "Furnace Verdict",
         }
     }
 
@@ -114,6 +179,15 @@ impl Ult {
             Ult::AxeStorm => "axe_storm",
             Ult::Lullaby => "lullaby",
             Ult::Desertion => "desertion",
+            Ult::Earthsplitter => "earthsplitter",
+            Ult::Dismember => "dismember",
+            Ult::PhilosophersRain => "philosophers_rain",
+            Ult::RedHarvest => "red_harvest",
+            Ult::SkewerDrive => "skewer_drive",
+            Ult::Tombstone => "tombstone",
+            Ult::LastLight => "last_light",
+            Ult::NeedleSquall => "needle_squall",
+            Ult::FurnaceVerdict => "furnace_verdict",
         }
     }
 }
@@ -162,7 +236,8 @@ impl Run {
     /// The knights' charges fill while the party fights.
     pub(super) fn charge_ults(&mut self, credits: &[(u32, u32)]) {
         let fighting = self.fighting();
-        for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
+        // A shape with no ultimate wished has none to charge (`identity`).
+        for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone && (h.shape.is_none() || h.ult.is_some())) {
             if fighting {
                 hero.ult_charge = (hero.ult_charge + PER_TICK).min(ULT_FULL);
             }
@@ -176,6 +251,8 @@ impl Run {
 
     /// Cast each knight's ultimate whose key was pressed on a full charge.
     pub(super) fn cast_ults(&mut self, casts: Vec<u32>) {
+        let mut champs = Vec::new();
+        let mut graves = Vec::new();
         for id in casts {
             let Some(ult) = self.players.get(&id).map(Hero::ult) else {
                 continue;
@@ -247,6 +324,19 @@ impl Run {
                 }
                 // Desertion starts at input time, before movement and attacks.
                 Ult::Desertion => {}
+                // The champions' play out in their own field (`champions`).
+                Ult::LastLight
+                | Ult::NeedleSquall
+                | Ult::FurnaceVerdict
+                | Ult::Earthsplitter
+                | Ult::Dismember
+                | Ult::PhilosophersRain
+                | Ult::RedHarvest
+                | Ult::SkewerDrive => {
+                    champs.push((id, ult));
+                }
+                // The grave is planted once every cast is out (`minions`).
+                Ult::Tombstone => graves.push(id),
                 Ult::Lullaby => {
                     self.bard_songs.push(bard::Song {
                         owner: id, until: self.tick + u64::from(bard::SONG_TICKS),
@@ -415,11 +505,21 @@ impl Run {
                     }
                 }
             }
+            // The cast as its look remembers it (`feel`).
+            self.feel.ult_cast(id, ult, self.tick, (hx, hy), (ax, ay));
             self.cues.push(format!("ult:{}", ult.word()));
             self.notice("my_ult");
             self.found = Some((self.tick, id, format!("{}!", ult.name())));
-            self.sounds.push("boss_rise");
+            // The Bard's song is its own music box; every other ultimate
+            // rises like a guardian.
+            self.sounds.push(if matches!(ult, Ult::Lullaby) { bard::LULLABY } else { "boss_rise" });
             self.fx.push(Fx::Shake(6));
+        }
+        for (id, ult) in champs {
+            if matches!(ult, Ult::LastLight | Ult::NeedleSquall | Ult::FurnaceVerdict) { self.hero_ult(id, ult); } else { self.champion_ult(id, ult); }
+        }
+        for id in graves {
+            self.plant_tombstone(id);
         }
     }
 
@@ -454,7 +554,7 @@ impl Run {
                 continue;
             };
             let room = &self.dungeon.rooms[self.at];
-            let grid = Grid { room, barred: true };
+            let grid = Grid { room, barred: self.barred() };
             let (ux, uy) = unit(hx - tx, hy - ty);
             let spots = [
                 (tx + ux * (tr + 0.9), ty + uy * (tr + 0.9)),
@@ -466,6 +566,7 @@ impl Run {
                 .into_iter()
                 .find(|&(x, y)| grid.clear(x, y, HERO_RADIUS, Mover::Hero))
                 .unwrap_or((hx, hy));
+            let landing = grid.halted((hx, hy), (landing.0 - hx, landing.1 - hy));
             if let Some(enemy) = self.enemies.iter_mut().find(|e| e.id == tid) {
                 let actual = damage.min(enemy.hp);
                 enemy.hp = enemy.hp.saturating_sub(damage);
@@ -489,6 +590,8 @@ impl Run {
             hero.slash_wait = 4;
             hero.swing = 6;
             hero.sword = true;
+            self.feel.melee.swing(id, hero, melee::Stroke::Slash, 3.5, 180.0);
+            self.feel.melee.hit(tid, (tx,ty), (hero.aim_x,hero.aim_y), melee::Tier::Heavy, false);
             hero.invulnerable = hero.invulnerable.max(8);
             self.sounds.push("swing");
             self.sounds.push("hit");

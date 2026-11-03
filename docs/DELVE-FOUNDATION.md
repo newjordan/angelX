@@ -8,7 +8,7 @@ Delve on the engine" is the long form of 1 to 3 here.
 
 The rule it exists for: frame rate is never again a reason to park a feature.
 
-## 1. The server (`cockpit/src/drive/together_sim.rs`)
+## 1. The server (`crates/realm-host/src/together_sim.rs`)
 
 ```
  terminal keys ─► host's seat (in process) ─┐                     ┌─► every seat's own client draws its screen

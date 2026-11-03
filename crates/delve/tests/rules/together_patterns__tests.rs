@@ -50,6 +50,7 @@ fn volley(
         kind: Shot::Wisp,
         damage: 12,
         guardian: None,
+        shield_line: false,
     };
     let mut shots = Vec::new();
     emit(emitter, &aim, &mut shots);
@@ -80,6 +81,32 @@ fn fly(shots: &mut Vec<Projectile>, at: (f32, f32), ticks: u32) {
 
 fn print(shots: &[Projectile]) -> String {
     serde_json::to_string(shots).unwrap()
+}
+
+#[test]
+fn boss_pressure_health_and_gap_patterns() {
+    let mut run = quiet();
+    let raw = "name PRESSURE\nwhere crypt\nhp 500\nmove anchor\nattack aimed shots=1 every=120\nart\n.x.\n";
+    let (boss, _) = bosses::check("pressure-test", raw).unwrap();
+    let old_base = u64::from(boss.hp) * u64::from(run.toughness()) / 100
+        * u64::from(run.boss_health()) / 100;
+    run.bosses.push(boss);
+    run.spawn_boss_at_for_test(run.bosses.len() - 1, 24.0, 8.0);
+    let mut enemy = run.enemies.last().unwrap().clone();
+    assert_eq!(enemy.max_hp, (old_base * 70 / 100) as u32);
+    assert_eq!(enemy.base_hp(), enemy.max_hp);
+    let grid = Grid { room: &run.dungeon.rooms[run.at], barred: false };
+    let sight = Sight {
+        knights: &[(24.0, 20.0)], paces: &[(0.0, 0.0)],
+        pack: Pack::Crypt, depth: 1, heads: 1,
+    };
+    for count in 1..=3 {
+        enemy.age = count * 120 - 19;
+        let mut shots = Vec::new();
+        patterns::volley(&mut enemy, &sight, &grid, run.seed, &run.bosses, &mut shots);
+        assert!(!shots.is_empty(), "pressure volley {count}");
+        assert!(shots.len() <= bosses::VOLLEY_MOST as usize);
+    }
 }
 
 #[test]
@@ -157,6 +184,7 @@ fn a_gap_ring_leaves_a_gap_a_knight_fits_through() {
                 kind: Shot::Wisp,
                 damage: 12,
                 guardian: None,
+                shield_line: false,
             };
             let mut angles = gap_ring(&aim);
             angles.sort_by(f32::total_cmp);
@@ -221,10 +249,8 @@ fn a_wall_leaves_one_gap_a_knight_fits_through_and_the_next_wall_moves_it() {
             .unwrap()
     };
     let (wide, at) = gap(&first);
-    assert!(
-        wide >= 3.0 - 1e-3 && wide > 2.0 * (HERO_RADIUS + 0.16) + 0.5,
-        "{wide}"
-    );
+    assert!(wide >= 3.0 - 1e-3, "{wide}");
+    assert!(wide > 2.0 * (HERO_RADIUS + 0.16) + 0.5, "{wide}");
     let (wide2, at2) = gap(&second);
     assert!(wide2 >= 3.0 - 1e-3, "{wide2}");
     assert!((at - at2).abs() > 0.5, "the gap moved: {at} {at2}");
@@ -745,6 +771,7 @@ fn every_emitter_respects_the_remaining_shot_capacity() {
         kind: Shot::Eye,
         damage: 12,
         guardian: None,
+        shield_line: false,
     };
     let filler = volley(&run, Emitter::Burst, aim.from, aim.at, 0, 0)[0].clone();
     for emitter in Emitter::ALL {
@@ -1078,6 +1105,7 @@ fn a_lob_flies_over_everything_and_lands_on_its_mark() {
         kind: Shot::Ore,
         damage: 12,
         guardian: None,
+        shield_line: false,
     };
     let mut shots = Vec::new();
     emit(Emitter::Lob, &aim, &mut shots);
@@ -1393,6 +1421,7 @@ fn write_pattern_shots() {
                 kind: look,
                 damage: 12,
                 guardian: None,
+                shield_line: false,
             };
             let mut shots = Vec::new();
             emit(emitter, &aim, &mut shots);
@@ -1503,6 +1532,7 @@ fn write_mixed_fight_shots() {
             kind,
             damage: 10,
             guardian: None,
+            shield_line: false,
         };
         let mut shots = Vec::new();
         emit(emitter, &aim, &mut shots);
@@ -1562,4 +1592,174 @@ fn a_greater_demon_on_the_third_floor_fires_thin_slow_volleys_for_a_full_party()
     assert!(volleys >= 1 && most >= 16, "it fires: {volleys} volleys, {most} at most");
     assert!(volleys <= 3, "a volley every three seconds or slower: {volleys} in six");
     assert!(most <= 32, "a twin spiral of 32 at most: {most}");
+}
+
+/// A quiet run on open floor: every tile of the room floor.
+fn open_floor() -> Run {
+    let mut run = quiet();
+    let at = run.at;
+    for row in 1..run.room().rows - 1 {
+        for col in 1..run.room().cols - 1 {
+            run.dungeon.rooms[at].set_for_test(col, row, Tile::Floor);
+        }
+    }
+    run
+}
+
+/// A gap wall from (24, 8) at a knight at (24, 20), `step` thicker,
+/// fired by the shield line or not: its first wall's spots across and
+/// its second's, each in order.
+fn walls(run: &Run, step: u8, shield_line: bool) -> (Vec<f32>, Vec<f32>) {
+    let grid = Grid {
+        room: &run.dungeon.rooms[run.at],
+        barred: false,
+    };
+    let aim = Aim {
+        from: (24.0, 8.0),
+        at: (24.0, 20.0),
+        pace: (0.0, 0.0),
+        grid: &grid,
+        count: 5,
+        salt: 0x5eed,
+        step,
+        kind: Shot::Bone,
+        damage: 12,
+        guardian: None,
+        shield_line,
+    };
+    let mut shots = Vec::new();
+    emit(Emitter::GapWall, &aim, &mut shots);
+    let xs = |second: bool| {
+        let mut xs: Vec<f32> = shots
+            .iter()
+            .filter(|s| (s.traits.path.wait > 0) == second)
+            .map(|s| s.x)
+            .collect();
+        xs.sort_by(f32::total_cmp);
+        xs
+    };
+    (xs(false), xs(true))
+}
+
+#[test]
+fn the_shield_lines_second_wall_carries_a_quarter_fewer_shots_and_can_still_be_slipped() {
+    let run = open_floor();
+    let fits = 2.0 * (HERO_RADIUS + STRIKE);
+    for step in 0..=MOST_STEP {
+        let n = 13 + 2 * step as usize;
+        let (first, second) = walls(&run, step, false);
+        let (lean_first, lean_second) = walls(&run, step, true);
+        assert_eq!(lean_first, first, "step {step}: the first wall as it was");
+        assert_eq!(second.len(), n - 2, "step {step}");
+        // A quarter fewer, to the nearest shot: eleven become eight.
+        let kept = ((n - 2) as f32 * 0.75).round() as usize;
+        assert_eq!(lean_second.len(), kept, "step {step}");
+        assert_eq!(lean_second.len(), n - 2 - thinned(n));
+        if step == 0 {
+            assert_eq!((second.len(), lean_second.len()), (11, 8));
+        }
+        // Every spot it keeps is one the plain wall had, and the ends stay.
+        assert!(lean_second.iter().all(|x| second.iter().any(|y| (x - y).abs() < 1e-4)));
+        assert_eq!((lean_second[0], lean_second[kept - 1]), (second[0], second[n - 3]));
+        // Its gap where the plain one is, still the widest way through; the
+        // rest a slot apart, or a chink a slot wide a knight fits through.
+        let gaps: Vec<(f32, f32)> = lean_second.windows(2).map(|w| (w[1] - w[0], w[0])).collect();
+        let widest = gaps.iter().copied().max_by(|a, b| a.0.total_cmp(&b.0)).unwrap();
+        let plain = second.windows(2).map(|w| (w[1] - w[0], w[0])).max_by(|a, b| a.0.total_cmp(&b.0)).unwrap();
+        assert!((widest.0 - 3.0).abs() < 1e-3 && (widest.1 - plain.1).abs() < 1e-3, "step {step}: {widest:?} {plain:?}");
+        let chinks = gaps.iter().filter(|g| (g.0 - 2.0).abs() < 1e-3).count();
+        assert_eq!(chinks, thinned(n), "step {step}: {gaps:?}");
+        assert!(2.0 > fits, "a knight fits a chink");
+        assert!(gaps.iter().all(|g| [1.0, 2.0, 3.0].iter().any(|w| (g.0 - w).abs() < 1e-3)), "{gaps:?}");
+        // What a boss's budget counts still holds it.
+        assert!((first.len() + lean_second.len()) as u32 <= Emitter::GapWall.shots() + 4 * u32::from(step));
+    }
+}
+
+/// The first gap wall a monster of `kind` sends from (24, 8) at a knight
+/// at (24, 20): how many shots in its first wall and in its second.
+fn walls_of(kind: EnemyKind) -> (usize, usize) {
+    let mut run = open_floor();
+    run.spawn_at_for_test(kind, 24.0, 8.0);
+    let mut enemy = run.enemies.pop().unwrap();
+    let grid = Grid {
+        room: &run.dungeon.rooms[run.at],
+        barred: false,
+    };
+    let (knights, paces) = ([(24.0, 20.0)], [(0.0, 0.0)]);
+    let sight = Sight {
+        knights: &knights,
+        paces: &paces,
+        pack: Pack::Crypt,
+        depth: 1,
+        heads: 1,
+    };
+    for age in 0..2_000 {
+        // The Pit Tyrant's wall is the second of its chain.
+        (enemy.age, enemy.stage) = (age, 0);
+        enemy.pattern_volleys = u32::from(kind == EnemyKind::PitTyrant);
+        let mut shots = Vec::new();
+        super::volley(&mut enemy, &sight, &grid, 7, &[], &mut shots);
+        if shots.iter().any(|s| s.traits.path.wait == WALL_FOLLOWS) {
+            let second = shots.iter().filter(|s| s.traits.path.wait == WALL_FOLLOWS).count();
+            return (shots.len() - second, second);
+        }
+    }
+    panic!("{kind:?} never sent a wall");
+}
+
+#[test]
+fn only_a_pavise_sends_the_thinner_second_wall() {
+    assert_eq!(walls_of(EnemyKind::Pavise), (11, 8));
+    assert_eq!(walls_of(EnemyKind::PitTyrant), (11, 11), "the Pit Tyrant's walls as they were");
+}
+
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_pavise_wall_shots -- --ignored`:
+/// a pavise's two walls in flight, as they were and thinned.
+#[test]
+#[ignore]
+fn write_pavise_wall_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS").map(std::path::PathBuf::from) else {
+        return;
+    };
+    std::fs::create_dir_all(&dir).unwrap();
+    for (name, shield_line) in [("pavise_walls_before", false), ("pavise_walls_after", true)] {
+        let mut run = open_floor();
+        run.players.get_mut(&1).unwrap().invulnerable = 100_000;
+        (run.players.get_mut(&1).unwrap().x, run.players.get_mut(&1).unwrap().y) = (24.0, 20.0);
+        run.spawn_at_for_test(EnemyKind::Pavise, 24.0, 6.0);
+        {
+            let e = run.enemies.last_mut().unwrap();
+            (e.hp, e.max_hp, e.seen_hp, e.frozen) = (100_000, 100_000, 100_000, 100_000);
+        }
+        let grid = Grid {
+            room: &run.dungeon.rooms[run.at],
+            barred: false,
+        };
+        let aim = Aim {
+            from: (24.0, 7.0),
+            at: (24.0, 20.0),
+            pace: (0.0, 0.0),
+            grid: &grid,
+            count: 5,
+            salt: 0x5eed,
+            step: 0,
+            kind: Shot::Bone,
+            damage: 12,
+            guardian: None,
+            shield_line,
+        };
+        let mut shots = Vec::new();
+        emit(Emitter::GapWall, &aim, &mut shots);
+        run.projectiles = shots;
+        for _ in 0..u32::from(WALL_FOLLOWS) + 8 {
+            run.step(&BTreeMap::new());
+        }
+        let img = crate::render::overworld::arena::frame(&run, 768, 448);
+        let rgba = img.rgba_scaled(2);
+        image::RgbaImage::from_raw(img.w as u32 * 2, img.h as u32 * 2, rgba)
+            .unwrap()
+            .save(dir.join(format!("{name}.png")))
+            .unwrap();
+    }
 }

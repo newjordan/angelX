@@ -60,7 +60,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "latch.entrance",
-  "source_path": "/work/artifacts/delve-int-20261015/entrance-fix-1/prepared/latch.entrance/source-sheet.png",
+  "source_path": "artifacts/delve-int-20261015/entrance-fix-1/prepared/latch.entrance/source-sheet.png",
   "source_sha256": "af87fa9e9562393dbc82ce9dd2d8dc3d2ec18b3bc42620b2634f3badcffc9151",
   "tool_version": 2
 }

@@ -1843,6 +1843,28 @@ pub(super) fn rock() -> Img {
     ])
 }
 
+/// A falling ember of hell's: a coal, its heart flickering.
+pub(super) fn ember(tick: u32) -> Img {
+    let core = if (tick / 3).is_multiple_of(2) { '6' } else { '5' };
+    let mut im = rows(&["..878..", ".7@@@7.", "87@6@78", ".7@@@7.", "..878.."]);
+    im.put(3, 2, core);
+    im
+}
+
+/// Where an ember landed: cinders flung out, dimming as they go.
+pub(super) fn cinders(left: u32) -> Img {
+    let mut im = Img::new(24, 12);
+    let spread = 12 - left as i32;
+    for (dx, dy) in [(-1, 0), (1, 0), (-1, -1), (1, -1), (0, -1), (-1, 1), (1, 1), (0, 1)] {
+        im.put(
+            12 + dx * spread * 3 / 4,
+            6 + dy * (spread / 3),
+            if left > 8 { '6' } else if left > 4 { '@' } else { '7' },
+        );
+    }
+    im
+}
+
 pub(super) fn dust(left: u32) -> Img {
     let mut im = Img::new(20, 10);
     let spread = 12 - left as i32;
@@ -2334,43 +2356,6 @@ pub(super) fn skater(spin: u16, airborne: bool, direction: i8) -> Img {
         }
     };
     if direction < 0 { im.flip_h() } else { im }
-}
-
-/// A bat grown from a plum for the mine trolley: stone-purple body with a
-/// rust rim, leather wings, and eyes that mean business.
-#[allow(dead_code)]
-pub(super) fn fruit_bat(wings_up: bool) -> Img {
-    if wings_up {
-        rows(&[
-            "Ib..............bI",
-            "Ibb............bbI",
-            ".Ibbb.kk..kk.bbbI.",
-            "..Ibb.kQQQQk.bbI..",
-            "..IbbkQ7QQ7QkbbI..",
-            ".IbbkqQqqqqQqkbbI.",
-            "IbbkqRQQqqqqQQkbbI",
-            ".bbkqQQqqqqQQqkbb.",
-            "..kkqQQqqqqQQqkk..",
-            "...kqQQqqqqQQqk...",
-            "....kqQQqqQQqk....",
-            ".....kk..kk.......",
-        ])
-    } else {
-        rows(&[
-            "......kk..kk......",
-            ".....kQQQQQk......",
-            ".....kQ7QQ7Qk.....",
-            "....kRQQqqQQqk....",
-            "....kqQQqqQQqqk...",
-            "....kqQQqqqQQqk...",
-            "...IkqQQqqQQqkI...",
-            "..IbkqQQqqQQqkbI..",
-            ".Ibb.kQQqqqQq.bbI.",
-            "Ibb...kqQQQQqk.bbI",
-            "Ib......kkkkk..bbI",
-            ".I..............I.",
-        ])
-    }
 }
 
 /// The booth's BB rifle at rest on the counter; `fired` lights the muzzle.

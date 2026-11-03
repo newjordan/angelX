@@ -1,4 +1,4 @@
-power wish:armor 3
+power wish:iron 3
 teacher Sir Ferris the Kettle
 place the lists, east of the gate, in the stands' shadow
 room Lists

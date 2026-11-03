@@ -59,7 +59,7 @@ fn the_route_in_hand_serves_from_its_model_familys_castle() {
     assert!(serving.seated.is_empty() && !serving.turn);
     app.advance();
     assert_eq!(
-        app.world.overworld_scene().march.lead,
+        app.realm.world.overworld_scene().march.lead,
         houses::by_key("kimi")
     );
     assert_eq!(houses::serving().lead, houses::by_key("kimi"));

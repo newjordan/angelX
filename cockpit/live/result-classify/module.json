@@ -1,0 +1,15 @@
+{
+  "api_version": 1,
+  "id": "result-classify",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "error": true, "verifier": true, "has_exit": true, "exit": 101,
+    "empty_marker": false, "club_stream": false
+  },
+  "bend": {
+    "entry": "result-classify.bend",
+    "proof": "PROOF.bend",
+    "output": "result-classify.compiled.js"
+  }
+}

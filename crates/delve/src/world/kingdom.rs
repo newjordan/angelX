@@ -58,6 +58,10 @@ pub fn outdoor(kind: RoomKind) -> bool {
         && (!crate::rules::college::is_room(kind)
             || kind == RoomKind::CollegeGrounds)
         && !crate::rules::colosseum::is_arena(kind)
+        // The tavern and its bazaar are where a delve begins, not on the map.
+        && !crate::rules::alehouse::is_room(kind)
+        // The squires' rooms open off the Training Yard (`squire_rooms`).
+        && !crate::rules::squire_rooms::is_room(kind)
 }
 fn short(name: &str) -> String {
     let words = name.replace(['/', '-'], " ");
@@ -222,6 +226,19 @@ pub const REGIONS: [Region; 11] = [
     region(Biome::March, &[]),
 ];
 
+/// The kingdom's own halls: a realm hall's door on a lot of its own, built
+/// by the rule a countryside place is (the free lot nearest its spot in its
+/// region, a lane to the nearest road), after them all, so none of theirs
+/// moves. Inside, the shared stone hall with the hall's name over it.
+pub const HALLS: [(&str, Biome, (i32, i32)); 1] = [
+    // The Heartwright's, on the town green east of the open plot
+    // (`docs/HEART-QUEST.md`).
+    (LANTERN_HALL, Biome::CastleTown, (82, 70)),
+];
+
+/// The Heartwright's hall (`HALLS`), by its door's name.
+pub const LANTERN_HALL: &str = "Lantern Hall";
+
 /// Open ground on Castle Town's green, between the Keep and the Village
 /// beside the high street, kept clear for the King's court and its land
 /// office.
@@ -239,7 +256,7 @@ pub fn regions() -> Vec<(&'static str, (i32, i32))> {
 
 /// The tiles a region's name is lettered across: `(x0, x1, y)`, inclusive.
 fn name_strip(region: &Region) -> (i32, i32, i32) {
-    let half = (crate::render::overworld::ink::text_width(&region.name.to_uppercase()) + 24) / TILE / 2 + 1;
+    let half = (crate::ink::text_width(&region.name.to_uppercase()) + 24) / TILE / 2 + 1;
     (region.label.0 - half, region.label.0 + half, region.label.1)
 }
 
@@ -262,11 +279,50 @@ pub fn geography(wishes: &[Wish]) -> Arc<Geography> {
     {
         return geo.clone();
     }
-    let geo = Arc::new(build(wishes));
+    let geo = Arc::new(build(wishes, true));
     *cache = Some((wishes.to_vec(), geo.clone()));
     geo
 }
-fn build(wish_list: &[Wish]) -> Geography {
+
+/// The old tile-list spelling used by rule-history comparisons predates the
+/// yard. Project only the ordinary, unwished map: a changed tile list must
+/// remain visible, rather than having its edits overwritten for a hash.
+#[cfg(test)]
+pub(crate) fn historic_tiles(tiles: &mut [Tile]) {
+    if tiles.len() != (MAP_W * MAP_H) as usize {
+        return;
+    }
+    type YardDelta = (Vec<Tile>, Vec<(usize, Tile)>);
+    static YARD_DELTA: OnceLock<YardDelta> = OnceLock::new();
+    let (current, delta) = YARD_DELTA.get_or_init(|| {
+        let now = build(&[], true);
+        let before = build(&[], false);
+        let current = now.room.tiles_for_test().to_vec();
+        let (x, y, w, h) = crate::rules::squires_town::YARD;
+        let delta = current
+            .iter()
+            .zip(before.room.tiles_for_test())
+            .enumerate()
+            .filter_map(|(i, (&now, &before))| {
+                let (tx, ty) = (i as i32 % MAP_W, i as i32 / MAP_W);
+                // This compatibility spelling owns the yard, not other sites,
+                // roads or wishes affected by where a lot might be reserved.
+                (now != before
+                    && (x - 1..x + w + 1).contains(&tx)
+                    && (y - 1..y + h + 1).contains(&ty))
+                .then_some((i, before))
+            })
+            .collect();
+        (current, delta)
+    });
+    if tiles == current.as_slice() {
+        for &(i, before) in delta {
+            tiles[i] = before;
+        }
+    }
+}
+
+fn build(wish_list: &[Wish], yard: bool) -> Geography {
     let mut sites: Vec<Site> = doors::doors()
         .iter()
         .map(|&(stand, door)| Site {
@@ -293,6 +349,10 @@ fn build(wish_list: &[Wish]) -> Geography {
         .collect();
     taken.extend(super::castles::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th }));
     taken.extend([college::lot(), wishes::delve_gate()]);
+    if yard {
+        let (tx, ty, tw, th) = crate::rules::squires_town::YARD;
+        taken.push(Lot { tx, ty, tw, th });
+    }
     let wish_lots = wishes::lots(wish_list);
     taken.extend(wish_lots.iter().flatten().copied());
     let mut cleared = Vec::new();
@@ -324,37 +384,7 @@ fn build(wish_list: &[Wish]) -> Geography {
             if !outdoor(kind) || sites.iter().any(|s| s.room == kind) {
                 continue;
             }
-            let (x0, y0, x1, y1) = region.bounds();
-            let free = |x: i32, y: i32, taken: &[Lot]| {
-                // Three tiles of ground between neighbours, a tile off every
-                // set piece.
-                !taken.iter().any(|l| {
-                    x < l.tx + l.tw + 3 && x + 4 + 3 > l.tx && y < l.ty + l.th + 3 && y + 3 + 3 > l.ty
-                }) && (y - 1..y + 5).all(|ty| (x - 1..x + 5).all(|tx| !map::in_set_piece(tx, ty)))
-                    && REGIONS.iter().map(name_strip).all(|(x0, x1, sy)| {
-                    // A lot and its door keep off a region's name, the row
-                    // above it, and the two below (where a plaque goes).
-                    x + 3 < x0 - 1 || x > x1 + 1 || y + 3 < sy - 1 || y > sy + 2
-                }) && (y..y + 4).all(|ty| {
-                    (x..x + 4).all(|tx| {
-                        matches!(Realm::get().at(tx, ty), b'.' | b'T' | b'^' | b'd' | b'a' | b's' | b'%')
-                    })
-                })
-            };
-            // In its region; failing that (a wish took the ground), the free
-            // lot nearest its spot anywhere.
-            let nearest = |(x0, y0, x1, y1): (i32, i32, i32, i32), within: &dyn Fn(&(i32, i32)) -> bool| {
-                (y0.max(3)..y1.min(MAP_H - 4))
-                    .flat_map(|y| (x0.max(3)..x1.min(MAP_W - 5)).map(move |x| (x, y)))
-                    .filter(|p| within(p))
-                    .filter(|&(x, y)| free(x, y, &taken))
-                    .min_by_key(|&(x, y)| ((x - goal.0).pow(2) + (y - goal.1).pow(2), y, x))
-            };
-            let home = |(x, y): &(i32, i32)| {
-                [(*x, *y), (x + 3, *y), (*x, y + 3), (x + 3, y + 3)].iter().all(|&(cx, cy)| region.holds(cx, cy))
-            };
-            let best = nearest((x0, y0, x1, y1), &home).or_else(|| nearest((0, 0, MAP_W, MAP_H), &|_| true));
-            let Some((x, y)) = best else {
+            let Some((x, y)) = place_lot(region, goal, &taken) else {
                 continue;
             };
             let lot = Lot {
@@ -387,6 +417,30 @@ fn build(wish_list: &[Wish]) -> Geography {
             });
         }
     }
+    // The kingdom's own halls, by the same rule, after every countryside
+    // place has its lot.
+    for &(name, biome, goal) in &HALLS {
+        let Some(region) = REGIONS.iter().find(|r| r.biome == biome) else {
+            continue;
+        };
+        let Some((x, y)) = place_lot(region, goal, &taken) else {
+            continue;
+        };
+        let lot = Lot {
+            tx: x,
+            ty: y,
+            tw: 4,
+            th: 3,
+        };
+        taken.push(lot);
+        cleared.push(lot);
+        sites.push(Site {
+            name: name.into(),
+            stand: (lot.tx + 1, lot.ty + lot.th),
+            room: RoomKind::RealmHall,
+            lot: Some(lot),
+        });
+    }
     for (wish, lot) in wish_list.iter().zip(wish_lots.iter()) {
         if let Some(lot) = lot {
             sites.push(Site {
@@ -412,6 +466,23 @@ fn build(wish_list: &[Wish]) -> Geography {
         for y in lot.ty..lot.ty + lot.th {
             for x in lot.tx..lot.tx + lot.tw {
                 tiles[idx((x, y))] = Tile::Block;
+            }
+        }
+    }
+    if yard {
+        // A connected, clear yard with three solid buildings and a two-tile apron.
+        let yard = crate::rules::squires_town::YARD;
+        for y in yard.1 - 1..yard.1 + yard.3 + 1 {
+            for x in yard.0 - 1..yard.0 + yard.2 + 1 {
+                tiles[idx((x, y))] = Tile::Floor;
+            }
+        }
+        for s in 0..3 {
+            let (x, y, w, h) = crate::rules::squires_town::building(s);
+            for y in y..y + h {
+                for x in x..x + w {
+                    tiles[idx((x, y))] = Tile::Block;
+                }
             }
         }
     }
@@ -617,6 +688,40 @@ fn build(wish_list: &[Wish]) -> Geography {
         roads,
         room: Room::kingdom(tiles, MAP_W as usize, MAP_H as usize),
     }
+}
+
+/// Whether a place's 4 x 3 lot at `(x, y)` is free: three tiles of ground
+/// between it and its neighbours, a tile off every set piece, off every
+/// region's name, on ground that can be cleared.
+fn free_lot(x: i32, y: i32, taken: &[Lot]) -> bool {
+    !taken.iter().any(|l| {
+        x < l.tx + l.tw + 3 && x + 4 + 3 > l.tx && y < l.ty + l.th + 3 && y + 3 + 3 > l.ty
+    }) && (y - 1..y + 5).all(|ty| (x - 1..x + 5).all(|tx| !map::in_set_piece(tx, ty)))
+        && REGIONS.iter().map(name_strip).all(|(x0, x1, sy)| {
+            // A lot and its door keep off a region's name, the row above it,
+            // and the two below (where a plaque goes).
+            x + 3 < x0 - 1 || x > x1 + 1 || y + 3 < sy - 1 || y > sy + 2
+        })
+        && (y..y + 4).all(|ty| {
+            (x..x + 4).all(|tx| matches!(Realm::get().at(tx, ty), b'.' | b'T' | b'^' | b'd' | b'a' | b's' | b'%'))
+        })
+}
+
+/// Where a place built in `region` nearest `goal` stands: the free lot
+/// nearest its spot whose corners are in its region; failing that (a wish
+/// took the ground), the free lot nearest its spot anywhere.
+fn place_lot(region: &Region, goal: (i32, i32), taken: &[Lot]) -> Option<(i32, i32)> {
+    let nearest = |(x0, y0, x1, y1): (i32, i32, i32, i32), within: &dyn Fn(&(i32, i32)) -> bool| {
+        (y0.max(3)..y1.min(MAP_H - 4))
+            .flat_map(|y| (x0.max(3)..x1.min(MAP_W - 5)).map(move |x| (x, y)))
+            .filter(|p| within(p))
+            .filter(|&(x, y)| free_lot(x, y, taken))
+            .min_by_key(|&(x, y)| ((x - goal.0).pow(2) + (y - goal.1).pow(2), y, x))
+    };
+    let home = |(x, y): &(i32, i32)| {
+        [(*x, *y), (x + 3, *y), (*x, y + 3), (x + 3, y + 3)].iter().all(|&(cx, cy)| region.holds(cx, cy))
+    };
+    nearest(region.bounds(), &home).or_else(|| nearest((0, 0, MAP_W, MAP_H), &|_| true))
 }
 
 pub fn gate_stand(wishes: &[Wish]) -> (i32, i32) {

@@ -55,6 +55,9 @@ struct State {
     /// The server's reader has a message in hand: it took it from `up` and
     /// has not come back for the next, so it may not have acted on it yet.
     in_hand: bool,
+    /// Test-only: one-shot, fired once a put is waiting for room.
+    #[cfg(test)]
+    blocked: Option<std::sync::mpsc::Sender<()>>,
 }
 
 /// The two queues, shared by the client's `LocalConn` and the server's
@@ -157,6 +160,10 @@ impl Outlet for PipeOut {
             Put::Binary(bytes) => {
                 let until = Instant::now() + WRITE_TIMEOUT;
                 while s.down_bytes >= LOCAL_UNREAD && !gone(&s) {
+                    #[cfg(test)]
+                    if let Some(tx) = s.blocked.take() {
+                        let _ = tx.send(());
+                    }
                     let left = until.saturating_duration_since(Instant::now());
                     if left.is_zero() {
                         return Err(io::Error::new(ErrorKind::TimedOut, "the in-process client took nothing"));
@@ -347,6 +354,12 @@ mod tests {
         (LocalConn::new(pipe.clone(), Arc::new(Nowhere)), PipeIn(pipe.clone()), PipeOut(pipe))
     }
 
+    impl PipeOut {
+        fn on_wait_for_room(&self, tx: std::sync::mpsc::Sender<()>) {
+            self.0.lock().blocked = Some(tx);
+        }
+    }
+
     #[test]
     fn messages_go_each_way_in_order_and_what_was_sent_before_closing_is_read() {
         let (client, mut reader, mut writer) = pair();
@@ -395,15 +408,14 @@ mod tests {
         let big = vec![0u8; LOCAL_UNREAD];
         // The first is taken whatever its size, as a whole document must be.
         writer.put(Put::Binary(&big)).unwrap();
+        let (blocked_tx, blocked) = std::sync::mpsc::channel();
+        writer.on_wait_for_room(blocked_tx);
         let t = std::thread::spawn(move || {
-            let started = Instant::now();
             writer.put(Put::Binary(&[1])).unwrap();
-            started.elapsed()
         });
-        std::thread::sleep(Duration::from_millis(50));
+        blocked.recv().unwrap();
         assert_eq!(client.try_recv().unwrap().map(|m| m.len()), Some(LOCAL_UNREAD));
-        let waited = t.join().unwrap();
-        assert!(waited >= Duration::from_millis(40), "{waited:?}");
+        t.join().unwrap();
         assert_eq!(client.try_recv(), Ok(Some(vec![1])));
     }
 }

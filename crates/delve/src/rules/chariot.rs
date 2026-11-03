@@ -171,6 +171,24 @@ pub struct Racer {
     pub caltrops: u8,
     /// Finished place, once over the line.
     pub place: Option<u8>,
+    /// Ticks of crash spin animation remaining (dust cloud around chariot).
+    #[serde(default)]
+    pub crash_spin: u8,
+    /// Ticks of boost flame effect remaining (flame particles behind chariot).
+    #[serde(default)]
+    pub boost_flame: u8,
+    /// Ticks of lap-complete flash remaining (screen flash + "LAP" text burst).
+    #[serde(default)]
+    pub lap_flash: u8,
+    /// Ticks of cabbage splat effect remaining (splat particles on rival hit).
+    #[serde(default)]
+    pub cabbage_splat: u8,
+    /// Tile-space X position of the cabbage splat.
+    #[serde(default)]
+    pub splat_x: i32,
+    /// Tile-space Y position of the cabbage splat.
+    #[serde(default)]
+    pub splat_y: i32,
 }
 
 impl Racer {
@@ -187,6 +205,12 @@ impl Racer {
             whipped: false,
             caltrops: 3,
             place: None,
+            crash_spin: 0,
+            boost_flame: 0,
+            lap_flash: 0,
+            cabbage_splat: 0,
+            splat_x: 0,
+            splat_y: 0,
         }
     }
     pub fn lap(&self, track: &Track) -> u32 {
@@ -514,6 +538,7 @@ impl Chariot {
                 } else if mix(self.seed ^ self.t as u64) % 11 == 0 && self.racers[0].wrecked == 0 {
                     self.racers[0].wrecked = HZ / 2;
                     self.racers[0].speed = 0.0;
+                    self.racers[0].crash_spin = 10;
                     events.push(Event::Crash(0));
                 }
             }
@@ -530,6 +555,14 @@ impl Chariot {
         for &i in &hits {
             self.racers[i].wrecked = HZ * 3 / 4;
             self.racers[i].speed = 0.0;
+            self.racers[i].crash_spin = 10;
+            // Cabbage splat: when a rival is hit, store their position for the splat effect.
+            if i != 0 {
+                let (sx, sy) = pos_on(course, self.racers[i].dist, self.racers[i].lane);
+                self.racers[i].cabbage_splat = 4;
+                self.racers[i].splat_x = sx as i32;
+                self.racers[i].splat_y = sy as i32;
+            }
             events.push(if i == 0 {
                 Event::CaltropHit(0)
             } else {
@@ -548,6 +581,11 @@ impl Chariot {
             if r.place.is_some() {
                 continue;
             }
+            // Decay crash spin, boost flame, lap flash and cabbage splat animations.
+            r.crash_spin = r.crash_spin.saturating_sub(1);
+            r.boost_flame = r.boost_flame.saturating_sub(1);
+            r.lap_flash = r.lap_flash.saturating_sub(1);
+            r.cabbage_splat = r.cabbage_splat.saturating_sub(1);
             if r.wrecked > 0 {
                 r.wrecked -= 1;
             } else {
@@ -558,7 +596,14 @@ impl Chariot {
                     r.top()
                 };
                 r.speed += (cap - r.speed).clamp(-0.22, 0.045);
+                let prev_dist = r.dist;
                 r.dist += r.speed.max(0.0);
+                // Lap complete: flash celebration when crossing a lap boundary.
+                if ((r.dist / course.lap) as u32) > ((prev_dist / course.lap) as u32)
+                    && ((r.dist / course.lap) as u32) < LAPS
+                {
+                    r.lap_flash = 6;
+                }
                 if bend <= CORNER_BEND && !r.whipped {
                     r.wind = (r.wind + 0.0005 * f32::from(r.blood.stamina)).min(1.0);
                 }
@@ -569,6 +614,14 @@ impl Chariot {
                 let place = placed;
                 r.place = Some(place);
                 events.push(Event::Finished(index as u8, place));
+            }
+        }
+        // The leader gets a continuous boost flame effect.
+        if self.phase == Phase::Racing {
+            let order = self.order();
+            let leader = order[0];
+            if self.racers[leader].place.is_none() && self.racers[leader].wrecked == 0 {
+                self.racers[leader].boost_flame = 2;
             }
         }
         for i in 0..4 {

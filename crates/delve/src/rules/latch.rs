@@ -454,3 +454,7 @@ impl Run {
         run
     }
 }
+
+#[cfg(all(test, feature = "bend-cases-games-c"))]
+#[path = "../../tests/rules/latch_bend_cases__tests.rs"]
+mod latch_bend_cases_tests;

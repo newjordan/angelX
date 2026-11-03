@@ -446,7 +446,7 @@ mod tests {
     use crate::scene::{Material, MeshRef, Node};
     use crate::shapes::{NAMES, by_name};
     use crate::wire::{decode, encode};
-    use crate::scene::{Props, MAX_GRAIN};
+    use crate::scene::Props;
     use crate::Frame;
 
     fn cases() -> Vec<(&'static str, MeshData)> {
@@ -708,6 +708,8 @@ mod tests {
             MeshRef::Rock { seed: 42 },
             MeshRef::Blob { seed: 9 },
             MeshRef::Fence { posts: 2 },
+            MeshRef::RoundCube { radius: 120, segments: 4 },
+            MeshRef::RoundCube { radius: 500, segments: 16 },
         ];
         for mesh in meshes {
             let node = Node::new(1, mesh, Material::default());

@@ -21,20 +21,7 @@ pub fn skin(name: &'static str, w: i32, h: i32) -> Option<Arc<Img>> {
     if let Some(im) = cache.get(&(name, w, h)) {
         return Some(im.clone());
     }
-    static SOURCES: OnceLock<BTreeMap<&'static str, Img>> = OnceLock::new();
-    let sources = SOURCES.get_or_init(|| {
-        [
-            "ready", "cooldown", "disabled", "pressed", "health", "stamina", "boss", "seat",
-            "floor", "minimap", "status", "toast",
-        ]
-        .into_iter()
-        .filter_map(|name| {
-            slot_art::bytes("dgn.hud.chrome", name)
-                .map(|_| (name, slot_art::load("dgn.hud.chrome", name, &[])))
-        })
-        .collect()
-    });
-    let source = sources.get(name)?;
+    let source = sources().get(name)?;
     let mut im = Img::new(w, h);
     let edge = |at: i32, dest: i32, src: i32, cap: i32| {
         if at < cap {
@@ -57,6 +44,101 @@ pub fn skin(name: &'static str, w: i32, h: i32) -> Option<Arc<Img>> {
     let im = Arc::new(im);
     cache.insert((name, w, h), im.clone());
     Some(im)
+}
+
+/// The kit's pieces as delivered, loaded once.
+fn sources() -> &'static BTreeMap<&'static str, Img> {
+    static SOURCES: OnceLock<BTreeMap<&'static str, Img>> = OnceLock::new();
+    SOURCES.get_or_init(|| {
+        [
+            "ready", "cooldown", "disabled", "pressed", "health", "stamina", "boss", "seat",
+            "floor", "minimap", "status", "toast",
+        ]
+        .into_iter()
+        .filter_map(|name| {
+            slot_art::bytes("dgn.hud.chrome", name)
+                .map(|_| (name, slot_art::load("dgn.hud.chrome", name, &[])))
+        })
+        .collect()
+    })
+}
+
+/// A plate's rim alone round `(x, y, w, h)`, `depth` pixels deep, at the
+/// kit's own pixels: its studded corners (`CORNER` square) kept whole and
+/// its plain rail (the source's middle column and row) run between them,
+/// so a panel of any size wears the same frame as the plates beside it.
+/// What lies inside the rim is left as it was.
+pub fn rim(cv: &mut Img, name: &'static str, (x, y, w, h): (i32, i32, i32, i32), depth: i32) -> bool {
+    const CORNER: i32 = 5;
+    if !slot_art::enabled() || w < 2 * CORNER || h < 2 * CORNER {
+        return false;
+    }
+    let Some(src) = sources().get(name) else {
+        return false;
+    };
+    let along = |at: i32, size: i32, src_size: i32| {
+        if at < CORNER {
+            at
+        } else if at >= size - CORNER {
+            src_size - (size - at)
+        } else {
+            src_size / 2 - 1
+        }
+    };
+    for dy in 0..h {
+        for dx in 0..w {
+            if dx >= depth && dy >= depth && dx < w - depth && dy < h - depth {
+                continue;
+            }
+            if let Some(c) = src.get(along(dx, w, src.w), along(dy, h, src.h)) {
+                cv.set(x + dx, y + dy, c);
+            }
+        }
+    }
+    true
+}
+
+/// The minimap's studded frame round a window `(x, y, w, h)`, at the kit's
+/// own pixels: its four corners whole (twelve square), its brass rail run
+/// between them (the kit's plain span, clear of its ornaments). The page's
+/// windows wear the same frame (crates/web/shell/art/frames.py), so a
+/// window in the picture and one over it are one set. What lies inside is
+/// left as it was.
+pub fn window(cv: &mut Img, (x, y, w, h): (i32, i32, i32, i32)) -> bool {
+    const CORNER: i32 = 12;
+    /// The kit's plain rail: this column (top and bottom) and row (sides).
+    const RAIL: i32 = 16;
+    if !slot_art::enabled() || w < 2 * CORNER || h < 2 * CORNER {
+        return false;
+    }
+    let Some(src) = sources().get("minimap") else {
+        return false;
+    };
+    let along = |at: i32, size: i32, src_size: i32| {
+        if at < CORNER {
+            at
+        } else if at >= size - CORNER {
+            src_size - (size - at)
+        } else {
+            RAIL
+        }
+    };
+    for dy in 0..h {
+        for dx in 0..w {
+            let edge = dx < CORNER || dy < CORNER || dx >= w - CORNER || dy >= h - CORNER;
+            if !edge {
+                continue;
+            }
+            let (sx, sy) = (along(dx, w, src.w), along(dy, h, src.h));
+            match src.get(sx, sy) {
+                Some(c) => cv.set(x + dx, y + dy, c),
+                // Outside the rail (the kit's clear margin): no panel.
+                None if sx.min(sy).min(src.w - 1 - sx).min(src.h - 1 - sy) < 3 => cv.clear(x + dx, y + dy),
+                None => {}
+            }
+        }
+    }
+    true
 }
 
 pub(super) fn warm() {

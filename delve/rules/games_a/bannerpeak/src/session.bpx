@@ -1,0 +1,795 @@
+# crates/delve/src/rules/bannerpeak/session.rs, first half — the run: every seated knight
+# in one shared world, one tick at a time. `Session::step` and what it runs per knight.
+module bannerpeak.session
+
+use world.TILE
+use body.Q
+use body.TQ
+use body.SHIELD_ID
+use layout.WIDTH
+use layout.HEIGHT
+use layout.SNOW_OX
+use layout.SNOW_OY
+use knight.PIPS
+use knight.BACK_PIPS
+use knight.WIPE_PIPS
+use knight.HURT_GRACE
+use knight.BUBBLE_TICKS
+use knight.PIT_TICKS
+use knight.POSE_TICKS
+use foes.BOLT_LIFE
+use foes.BOLT_MOST
+use foes.BOLT_SPEED
+use foes.CARRY
+use boss.BOSS_ID
+
+const HZ: u32 = 30
+const MAX_PLAYERS: u32 = 6
+const LIMIT: u32 = 108000
+const SUMMIT_BANNERS: u32 = 7
+const WIPE_TICKS: u32 = 20
+const SELECT_TICKS: u32 = 240
+const FINALE_TICKS: u32 = 210
+const ANNOUNCE_TICKS: u32 = 110
+const FX_LIFE: u32 = 14
+const BOARD_LEN: u32 = 6
+
+extern fn Input.default() -> Input = bannerpeak.u.input_default
+extern fn Input.valid(self: Input) -> bool = rules.Input.valid
+extern fn View.insert(self: View mut, key: u32, code: u32) -> unit = bannerpeak.u.view_insert
+extern fn board_banner(i: u32) -> u32 = bannerpeak.u.board_banner
+extern fn board_gate(i: u32) -> u32 = bannerpeak.u.board_gate
+extern fn pole_score(i: u32) -> u32 = bannerpeak.u.pole_score
+extern fn set_has(a: Vec<u32>, x: u32) -> bool = bannerpeak.u.set_has
+extern fn set_insert(a: Vec<u32>, x: u32) -> Vec<u32> = bannerpeak.u.set_insert
+
+
+fn Cmd.default() -> Cmd:
+  return Cmd{x: 0, jump: false, jump_edge: false, down: false, down_edge: false, dive_edge: false, brace: false}
+
+fn overlap(a: (i32, i32, i32, i32), b: (i32, i32, i32, i32)) -> bool:
+  return a.0 < b.2 && b.0 < a.2 && a.1 < b.3 && b.1 < a.3
+
+# A body's box in whole pixels.
+fn px(b: Body) -> (i32, i32, i32, i32):
+  let (l, t, r, bt) = b.rect()
+  return (l.div_euclid(Q), t.div_euclid(Q), (r - 1).div_euclid(Q) + 1, bt.div_euclid(Q))
+
+# Session::new: the seats of the knights here and awake, the foes for them.
+fn Session.new(players: Map<Hero>) -> Session:
+  let mut s = Session{seats: Map::new(), elapsed: 0, banners: 0, sparks: 0, gates: 0, checkpoint: 0, doors: 0, phase: Phase::Play, phase_t: 0, cursor: 0, foes: Vec::new(), items: Vec::new(), bolts: Vec::new(), boulders: Vec::new(), boss: Boss::new(1), fx: Vec::new(), taken: Vec::new(), changed: Map::new(), announce: None, wipe: 0, scaled: 0, seen: false, completed: None}
+  s.seat_all(players, players.ids())
+  s.provision()
+  return s
+
+fn Session.seat_all(self: Session mut, players: Map<Hero>, ids: list<u32>) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let h = players[id]
+  if !h.away && !h.stone:
+    self.seat(id, 0)
+  self.seat_all(players, ids.tail())
+
+fn Session.view(self: Session) -> View:
+  return self.changed
+
+fn Session.tile(self: Session, tx: i32, ty: i32) -> u32:
+  return self.changed.tile(tx, ty)
+
+fn Session.set_tile(self: Session mut, tx: i32, ty: i32, code: u32) -> unit:
+  if inr(tx, 0, WIDTH) && inr(ty, 0, HEIGHT):
+    self.changed.insert(((ty * WIDTH + tx) as u32), code)
+
+# Where the latest checkpoint stands: its feet, in pixels.
+fn Session.station(self: Session) -> (i32, i32):
+  if self.checkpoint == 0:
+    return (layout::cell_feet_x(layout::info::start_x()), layout::cell_feet_y(layout::info::start_y()))
+  let n = (self.checkpoint as u32) - 1
+  return (layout::cell_feet_x(layout::info::gate_x(n)), layout::cell_feet_y(layout::info::gate_y(n)))
+
+fn Session.seat_count(self: Session) -> u32:
+  return bannerpeak_map_len(self.seats)
+
+extern fn bannerpeak_map_len(m: Map<Knight>) -> u32 = bannerpeak.u.map_len
+
+# Sit a knight down at the checkpoint, spread a little by seat.
+fn Session.seat(self: Session mut, id: u32, joined: u32) -> unit:
+  let (x0, y) = self.station()
+  let n = self.seat_count() as i32
+  # Alternate either side of the post; stay out of the walls.
+  let mut sgn: i32 = -1
+  if n % 2 == 0:
+    sgn = 1
+  let off = ((n + 1) / 2) * 7 * sgn
+  let mut x = x0 + off
+  let g = self.view()
+  let cx = x.div_euclid(TILE)
+  let cy = (y - 1).div_euclid(TILE)
+  let here = g.tile(cx, cy)
+  let below = g.tile(cx, cy + 1)
+  if Tile::solid(here) || (!Tile::solid(below) && !Tile::one_way(below)):
+    x -= off
+  let mut k = Knight::at(joined, x, y)
+  k.cam = knight::follow((0, 0), x, y, 1, 0, 0)
+  self.seats.insert(id, k)
+
+# Foes for the seats at the table: the map's own, then more as the table fills. Never
+# fewer, and never weaker.
+fn Session.provision(self: Session mut) -> unit:
+  let seats = self.seat_count().max(1)
+  let first = self.scaled == 0
+  let was = Session::tier(self.scaled as u32)
+  let now = Session::tier(seats)
+  let station_x = self.station().0
+  self.provision_marks(layout::info::foes(), 0, first, was, now, station_x)
+  if self.scaled == 0:
+    self.boss.plates = seats
+  else:
+    self.boss.seated(self.scaled, seats.max(self.scaled as u32))
+  self.scaled = (self.scaled as u32).max(seats)
+
+fn Session.tier(s: u32) -> u32:
+  return bannerpeak_b2u(s >= 3) + bannerpeak_b2u(s >= 5)
+
+extern fn bannerpeak_b2u(b: bool) -> u32 = bannerpeak.u.b2u
+
+# The map's foe marks in reading order (glyph, x, y triples), the foes they call for.
+fn Session.provision_marks(self: Session mut, ms: list<u32>, n: u32, first: bool, was: u32, now: u32, station_x: i32) -> unit:
+  if ms.is_empty():
+    return
+  let glyph = ms.head()
+  let r1 = ms.tail()
+  let mx = r1.head()
+  let r2 = r1.tail()
+  let my = r2.head()
+  let rest = r2.tail()
+  let mut kind: str = FoeKind::Snuffer
+  let mut wanted: bool = false
+  let mut known: bool = true
+  if glyph == 's':
+    wanted = first
+  elif glyph == 'c':
+    kind = FoeKind::Capped
+    wanted = first
+  elif glyph == 'w':
+    kind = FoeKind::Wisp
+    wanted = first
+  elif glyph == 'e':
+    wanted = was < 1 && now >= 1
+  elif glyph == 'f':
+    kind = FoeKind::Capped
+    wanted = was < 2 && now >= 2
+  else:
+    known = false
+  # A mid-run extra behind the party is not worth a late arrival.
+  let behind = !first && mx * TILE < station_x
+  if known && wanted && !behind:
+    self.foes.push(Foe::new(kind, mx, my, n))
+  self.provision_marks(rest, n + 1, first, was, now, station_x)
+
+fn Session.fx(self: Session mut, k: str, x: i32, y: i32) -> unit:
+  if self.fx.len() >= 48:
+    self.fx.remove(0)
+  self.fx.push(Fx{k: k, x: x, y: y, t: FX_LIFE})
+
+# --- validity: the bounds a save, the wire or a repair holds a session to.
+fn Session.seats_valid(self: Session, ids: list<u32>) -> bool:
+  if ids.is_empty():
+    return true
+  let id = ids.head()
+  let k = self.seats[id]
+  if !(inc(id, 1, MAX_PLAYERS) && k.valid() && k.joined <= self.elapsed):
+    return false
+  return self.seats_valid(ids.tail())
+
+fn Session.foes_valid(foes: Vec<Foe>, n: u32, wp: i32, hp: i32) -> bool:
+  if n >= foes.len():
+    return true
+  if !foes[n].valid(wp, hp):
+    return false
+  return Session::foes_valid(foes, n + 1, wp, hp)
+
+fn Session.items_valid(items: Vec<Item>, n: u32, wp: i32, hp: i32) -> bool:
+  if n >= items.len():
+    return true
+  if !items[n].valid(wp, hp):
+    return false
+  return Session::items_valid(items, n + 1, wp, hp)
+
+fn Session.bolts_valid(bolts: Vec<Bolt>, n: u32, wp: i32, hp: i32) -> bool:
+  if n >= bolts.len():
+    return true
+  if !bolts[n].valid(wp, hp):
+    return false
+  return Session::bolts_valid(bolts, n + 1, wp, hp)
+
+fn Session.boulders_valid(bs: Vec<Boulder>, n: u32, wp: i32) -> bool:
+  if n >= bs.len():
+    return true
+  let b = bs[n]
+  if !(inc(b.x, 0, wp * Q) && b.t < 16777216):
+    return false
+  return Session::boulders_valid(bs, n + 1, wp)
+
+fn Session.fx_valid(fx: Vec<Fx>, n: u32) -> bool:
+  if n >= fx.len():
+    return true
+  if fx[n].t > FX_LIFE:
+    return false
+  return Session::fx_valid(fx, n + 1)
+
+fn Session.taken_valid(taken: Vec<u32>, n: u32, coins: u32) -> bool:
+  if n >= taken.len():
+    return true
+  if taken[n] >= coins:
+    return false
+  return Session::taken_valid(taken, n + 1, coins)
+
+fn Session.changed_valid(self: Session, ids: list<u32>) -> bool:
+  if ids.is_empty():
+    return true
+  let key = ids.head()
+  let code = self.changed.code(key)
+  if !((key as i32) < WIDTH * HEIGHT && Tile::known(code)):
+    return false
+  return self.changed_valid(ids.tail())
+
+fn Session.valid(self: Session) -> bool:
+  let wp = WIDTH * TILE
+  let hp = HEIGHT * TILE
+  let gates_len = layout::info::gates_len()
+  if !(self.seat_count() <= MAX_PLAYERS && self.elapsed <= LIMIT && self.seats_valid(self.seats.ids())):
+    return false
+  if !((self.checkpoint as u32) <= gates_len && (self.gates as u32) < (1 << gates_len) && self.doors <= 3 && self.phase_t <= LIMIT && self.cursor < BOARD_LEN):
+    return false
+  if !(self.foes.len() <= 128 && Session::foes_valid(self.foes, 0, wp, hp) && self.items.len() <= 48 && Session::items_valid(self.items, 0, wp, hp)):
+    return false
+  if !(self.bolts.len() <= 16 && Session::bolts_valid(self.bolts, 0, wp, hp) && self.boulders.len() <= 8 && Session::boulders_valid(self.boulders, 0, wp)):
+    return false
+  if !(self.boss.valid(MAX_PLAYERS) && self.fx.len() <= 48 && Session::fx_valid(self.fx, 0)):
+    return false
+  let coins = layout::info::coins_len()
+  if !(self.taken.len() <= coins && Session::taken_valid(self.taken, 0, coins)):
+    return false
+  if !(bannerpeak_map_len(self.changed) <= 2048 && self.changed_valid(self.changed.ids())):
+    return false
+  let announce_ok = self.announce.is_none() || (self.announce.unwrap().banner < 8 && self.announce.unwrap().t <= ANNOUNCE_TICKS)
+  let completed_ok = self.completed.is_none() || self.completed.unwrap() <= self.elapsed
+  return announce_ok && self.wipe <= WIPE_TICKS && self.scaled <= MAX_PLAYERS && completed_ok && (self.phase != Phase::Finale || self.banners == 255)
+
+# Banners raised.
+fn Session.count(self: Session) -> u32:
+  return (self.banners as u32).count_ones()
+
+# Whether the summit door's count is met.
+fn Session.door_count(self: Session) -> u32:
+  return ((self.banners as u32) & 127).count_ones()
+
+# The knights standing and playing: not in a bubble or a pit.
+fn Session.alive(self: Session) -> Vec<u32>:
+  return self.alive_from(self.seats.ids(), Vec::new())
+
+fn Session.alive_from(self: Session, ids: list<u32>, acc: Vec<u32>) -> Vec<u32>:
+  if ids.is_empty():
+    return acc
+  let id = ids.head()
+  if self.seats[id].alive():
+    acc.push(id)
+  return self.alive_from(ids.tail(), acc)
+
+# The gate a ring spark not yet found sends a knight to on the board.
+fn Session.spark_gate(self: Session) -> u32:
+  let n = Session::first_missing(self.sparks as u32, 0)
+  if n >= layout::info::sparks_len():
+    return 0
+  let section = layout::section_of(layout::info::spark_x(n))
+  if section == 1:
+    return 0
+  if section == 2:
+    return 2
+  if section == 3:
+    return 3
+  return 5
+
+fn Session.first_missing(sparks: u32, n: u32) -> u32:
+  if n >= layout::info::sparks_len():
+    return n
+  if sparks & (1 << n) == 0:
+    return n
+  return Session::first_missing(sparks, n + 1)
+
+# Banners raised so far: a banner is a bit.
+fn Session.crown_down(self: Session) -> bool:
+  return self.boss.defeated()
+
+# --- the tick
+
+# The sounds of one tick for the whole table are pushed to `say`.
+fn Session.step(self: Session mut, inputs: Map<Input>, heroes: Map<Hero>, knobs: Knobs, say: Vec<str> mut) -> unit:
+  self.elapsed = (self.elapsed + 1).min(LIMIT)
+  # Seats are whoever is here and awake; a late knight sits at the gate.
+  self.retain_awake(heroes, self.seats.ids())
+  self.seat_late(heroes, heroes.ids(), say)
+  if self.seat_count() > (self.scaled as u32):
+    self.provision()
+  self.fx = Session::fx_tick(self.fx, 0, Vec::new())
+  if self.announce.is_some():
+    let mut a = self.announce.unwrap()
+    a.t = a.t.saturating_sub(1)
+    if a.t == 0:
+      self.announce = None
+    else:
+      self.announce = Some(a)
+  if self.phase == Phase::Select:
+    self.select_step(inputs, say)
+    return
+  if self.phase == Phase::Finale:
+    self.finale_step(say)
+    return
+  # Moving platforms, and each raised shield a friend may stand on.
+  let mut now = layout::movers(self.elapsed)
+  let mut before = layout::movers(self.elapsed.saturating_sub(1))
+  if !self.boss.defeated():
+    now.push(Mover{id: BOSS_ID, p: self.boss.plank(false)})
+    before.push(Mover{id: BOSS_ID, p: self.boss.plank(true)})
+  let ids = self.seats.ids()
+  let shields = self.shields(ids, Vec::new())
+  self.step_seats(ids, inputs, knobs, now, before, shields, say)
+  self.step_things(knobs, say)
+  self.step_rescue(say)
+  self.step_doors(say)
+  # The camera of every seat.
+  self.cameras(ids)
+  # Everyone down at once: the checkpoint takes them back.
+  if self.seat_count() > 0 && self.all_down(ids):
+    self.wipe += 1
+    if self.wipe >= WIPE_TICKS:
+      self.wipe = 0
+      self.retry(say)
+  else:
+    self.wipe = 0
+  if self.banners == 255 && self.phase == Phase::Play && self.announce.is_none():
+    self.start_finale(say)
+
+fn Session.retain_awake(self: Session mut, heroes: Map<Hero>, ids: list<u32>) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let mut keep = false
+  if heroes.contains_key(id):
+    let h = heroes[id]
+    keep = !h.away && !h.stone
+  if !keep:
+    self.seats.remove(id)
+  self.retain_awake(heroes, ids.tail())
+
+fn Session.seat_late(self: Session mut, heroes: Map<Hero>, ids: list<u32>, say: Vec<str> mut) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let h = heroes[id]
+  if !h.away && !h.stone && !self.seats.contains_key(id):
+    let at = self.elapsed
+    self.seat(id, at)
+    say.push("door_pass")
+  self.seat_late(heroes, ids.tail(), say)
+
+fn Session.fx_tick(fx: Vec<Fx>, n: u32, acc: Vec<Fx>) -> Vec<Fx>:
+  if n >= fx.len():
+    return acc
+  let mut f = fx[n]
+  f.t = f.t.saturating_sub(1)
+  if f.t > 0:
+    acc.push(f)
+  return Session::fx_tick(fx, n + 1, acc)
+
+fn Session.input_of(inputs: Map<Input>, id: u32) -> Input:
+  if inputs.contains_key(id):
+    let i = inputs[id]
+    if i.valid():
+      return i
+  return Input::default()
+
+# Each raised shield of a seat, in seat order.
+fn Session.shields(self: Session, ids: list<u32>, acc: Vec<Mover>) -> Vec<Mover>:
+  if ids.is_empty():
+    return acc
+  let id = ids.head()
+  let sh = self.seats[id].body.shield(SHIELD_ID + id)
+  if sh.is_some():
+    acc.push(sh.unwrap())
+  return self.shields(ids.tail(), acc)
+
+# The platforms and the shields of the others, for seat `id`.
+fn Session.with_shields(ms: Vec<Mover>, shields: Vec<Mover>, id: u32, n: u32) -> Vec<Mover>:
+  if n >= shields.len():
+    return ms
+  let s = shields[n]
+  if s.id != SHIELD_ID + id:
+    ms.push(s)
+  return Session::with_shields(ms, shields, id, n + 1)
+
+fn Session.step_seats(self: Session mut, ids: list<u32>, inputs: Map<Input>, knobs: Knobs, now: Vec<Mover>, before: Vec<Mover>, shields: Vec<Mover>, say: Vec<str> mut) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let mut k = self.seats[id]
+  self.seats.remove(id)
+  let pn = Session::with_shields(now, shields, id, 0)
+  let pb = Session::with_shields(before, shields, id, 0)
+  self.step_knight(id, &mut k, Session::input_of(inputs, id), knobs, pn, pb, say)
+  self.seats.insert(id, k)
+  self.step_seats(ids.tail(), inputs, knobs, now, before, shields, say)
+
+fn Session.cameras(self: Session mut, ids: list<u32>) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let mut k = self.seats[id]
+  let (fx, fy) = k.body.foot()
+  let mut x: i32 = fx
+  let mut y: i32 = fy
+  let mut face: i32 = k.body.face as i32
+  let mut vx: i32 = k.body.vx
+  let mut vy: i32 = k.body.vy
+  if k.bubble.is_some():
+    let b = k.bubble.unwrap()
+    x = b.x.div_euclid(Q)
+    y = b.y.div_euclid(Q) + 10
+    face = 1
+    vx = 0
+    vy = 0
+  if k.pit == 0:
+    k.cam = knight::follow(k.cam, x, y, face, vx, vy)
+  self.seats.insert(id, k)
+  self.cameras(ids.tail())
+
+fn Session.all_down(self: Session, ids: list<u32>) -> bool:
+  if ids.is_empty():
+    return true
+  if self.seats[ids.head()].alive():
+    return false
+  return self.all_down(ids.tail())
+
+# Everyone back at the latest gate, mended a little, the world as it is.
+fn Session.retry(self: Session mut, say: Vec<str> mut) -> unit:
+  let (x, y) = self.station()
+  self.retry_seats(self.seats.ids(), 0, x, y)
+  self.boulders = Vec::new()
+  self.bolts = Vec::new()
+  say.push("door_open")
+
+fn Session.offset(n: i32) -> i32:
+  let mut sgn: i32 = -1
+  if n % 2 == 0:
+    sgn = 1
+  return ((n + 1) / 2) * 7 * sgn
+
+fn Session.retry_seats(self: Session mut, ids: list<u32>, n: u32, x: i32, y: i32) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let off = Session::offset(n as i32)
+  let old = self.seats[id]
+  let pips = (old.pips as u32).max(WIPE_PIPS)
+  let mut k = Knight::at(old.joined, x + off, y)
+  k.coins = old.coins
+  k.score = old.score
+  k.pips = pips
+  k.hurt = HURT_GRACE
+  k.cam = knight::follow(k.cam, x, y, 1, 0, 0)
+  self.seats.insert(id, k)
+  self.retry_seats(ids.tail(), n + 1, x, y)
+
+# --- a knight
+
+fn Session.step_knight(self: Session mut, id: u32, k: Knight mut, input: Input, knobs: Knobs, now: Vec<Mover>, before: Vec<Mover>, say: Vec<str> mut) -> unit:
+  k.hurt = k.hurt.saturating_sub(1)
+  k.cooldown = k.cooldown.saturating_sub(1)
+  k.shock = k.shock.saturating_sub(1)
+  k.landed = k.landed.saturating_add(1)
+  # A knight in a bubble steers it; the rest of the tick is for friends.
+  if k.bubble.is_some():
+    let mut b = k.bubble.unwrap()
+    b.t += 1
+    let dx = input.move_x as i32
+    let dy = input.move_y as i32
+    b.x += dx * 190
+    b.y += dy * 150 - 40
+    b.x = b.x.clamp(8 * TQ / 16, (WIDTH * TILE - 8) * Q)
+    b.y = b.y.clamp(0, (HEIGHT * TILE) * Q)
+    if b.t >= BUBBLE_TICKS:
+      # Too long alone: the gate takes the knight back.
+      let (x, y) = self.station()
+      let joined = k.joined
+      let coins = k.coins
+      let score = k.score
+      k = Knight::at(joined, x, y)
+      k.coins = coins
+      k.score = score
+      k.pips = BACK_PIPS
+      k.hurt = HURT_GRACE
+      k.cam = knight::follow(k.cam, x, y, 1, 0, 0)
+      say.push("door_pass")
+    else:
+      k.bubble = Some(b)
+    let (c0, bits0) = k.cmd(input)
+    k.prev = bits0
+    return
+  # Out of sight in a pit until the safe ledge takes it back.
+  if k.pit > 0:
+    k.pit -= 1
+    if k.pit == 0:
+      let (x, y) = k.safe
+      k.body.place(x, y)
+      k.hurt = HURT_GRACE
+      k.cam = knight::follow(k.cam, x, y, k.body.face, 0, 0)
+    let (c1, bits1) = k.cmd(input)
+    k.prev = bits1
+    return
+  if k.pole > 0:
+    self.step_pole(k, say)
+    return
+  let (cmd0, bits) = k.cmd(input)
+  let mut cmd = cmd0
+  if k.pose > 0:
+    # The item-get pose: held still, the world goes on.
+    k.pose -= 1
+    cmd = Cmd::default()
+  k.body.big = k.big()
+  let was = k.body.y
+  let mut evs: Vec<Ev> = Vec::new()
+  k.body.step(cmd, knobs, self.changed, now, before, evs)
+  self.body_events(id, k, evs, 0, knobs, say)
+  if k.pose == 0:
+    self.touch(id, k, bits, was, say)
+  # Landing clears the stomp chain.
+  if k.body.ground:
+    k.chain = 0
+  # The last safe footing: still on plain ground, not by a hazard.
+  self.note_safe(k)
+  k.prev = bits
+
+fn Session.body_events(self: Session mut, id: u32, k: Knight mut, evs: Vec<Ev>, n: u32, knobs: Knobs, say: Vec<str> mut) -> unit:
+  if n >= evs.len():
+    return
+  self.body_event(id, k, evs[n], knobs, say)
+  self.body_events(id, k, evs, n + 1, knobs, say)
+
+fn Session.note_safe(self: Session mut, k: Knight mut) -> unit:
+  let b = k.body
+  let (fx, fy) = b.foot()
+  let g = self.view()
+  let ok = b.ground && b.plank.is_none() && b.mode == Move::Ground && Tile::solid(g.tile((fx - 7).div_euclid(TILE), fy.div_euclid(TILE))) && Tile::solid(g.tile((fx + 7).div_euclid(TILE), fy.div_euclid(TILE))) && g.tile(fx.div_euclid(TILE), (fy - 1).div_euclid(TILE)) != SPIKES
+  if ok:
+    k.safe_t += 1
+    if k.safe_t >= 8:
+      k.safe = (fx, fy)
+  else:
+    k.safe_t = 0
+
+fn Session.body_event(self: Session mut, id: u32, k: Knight mut, e: Ev, knobs: Knobs, say: Vec<str> mut) -> unit:
+  let (fx, fy) = k.body.foot()
+  if e.k == "Jump":
+    if e.s == Jump::Second:
+      say.push("swing")
+    elif e.s == Jump::Triple:
+      say.push("spell_cast")
+    elif e.s == Jump::Long || e.s == Jump::Back || e.s == Jump::Kick:
+      say.push("roll")
+    elif e.s == Jump::Spring:
+      say.push("shield_up")
+  elif e.k == "Land":
+    k.landed = 0
+    if e.a > 1700:
+      self.fx(FxKind::Dust, fx, fy)
+      say.push("step_stone")
+  elif e.k == "Skid":
+    self.fx(FxKind::Dust, fx, fy)
+  elif e.k == "Hatch":
+    let to = layout::hatch_to(fx.div_euclid(TILE), fy.div_euclid(TILE))
+    if to.some:
+      let x = layout::cell_feet_x(to.x)
+      let y = layout::cell_feet_y(to.y)
+      k.body.place(x, y)
+      k.cam = knight::follow(k.cam, x, y, k.body.face, 0, 0)
+      k.safe = (x, y)
+      say.push("door_pass")
+  elif e.k == "Bump":
+    self.bump(id, k, e.a, e.b, say)
+  elif e.k == "Slam":
+    k.shock = 10
+    k.chain = 0
+    self.slam(id, k, e.a, e.b, knobs.slam, say)
+
+# A head struck the tile (tx, ty) from below.
+fn Session.bump(self: Session mut, id: u32, k: Knight mut, tx: i32, ty: i32, say: Vec<str> mut) -> unit:
+  let t = self.tile(tx, ty)
+  let cx = tx * TILE + TILE / 2
+  let top = ty * TILE
+  let mut hit: bool = true
+  if t == COIN:
+    self.set_tile(tx, ty, SPENT)
+    self.coin(k, say)
+    self.fx(FxKind::Coin, cx, top)
+    self.fx(FxKind::Bump, cx, top)
+    say.push("clang")
+  elif inc(t, 21, 25):
+    let n = t - MANY
+    if n > 1:
+      self.set_tile(tx, ty, MANY + n - 1)
+    else:
+      self.set_tile(tx, ty, SPENT)
+    self.coin(k, say)
+    self.fx(FxKind::Coin, cx, top)
+    self.fx(FxKind::Bump, cx, top)
+    say.push("clang")
+  elif t == POWER:
+    self.set_tile(tx, ty, SPENT)
+    let mut kind: str = ItemKind::Flame
+    if k.size == Size::Small:
+      kind = ItemKind::Loaf
+    let mut item = Item::new(kind, cx, top + TILE)
+    if id % 2 == 0:
+      item.dir = -1
+    else:
+      item.dir = 1
+    self.items.push(item)
+    self.fx(FxKind::Bump, cx, top)
+    say.push("clang")
+  elif t == BRICK:
+    if k.big():
+      self.set_tile(tx, ty, AIR)
+      self.fx(FxKind::Debris, cx - 5, top + 8)
+      self.fx(FxKind::Debris, cx + 5, top + 8)
+      say.push("crack_open")
+    else:
+      self.fx(FxKind::Bump, cx, top)
+      say.push("clang")
+  else:
+    hit = false
+  if !hit:
+    return
+  # Whatever stood on the block is thrown off it.
+  let score = self.knock_foes(0, tx, top)
+  k.score += score
+  self.knock_items(0, tx, top)
+
+fn Session.knock_foes(self: Session mut, n: u32, tx: i32, top: i32) -> u32:
+  if n >= self.foes.len():
+    return 0
+  let mut f = self.foes[n]
+  let (l, ft, r, b) = f.rect()
+  let mut gained: u32 = 0
+  if f.alive() && b == top && l < tx * TILE + TILE && r > tx * TILE:
+    f.defeat()
+    self.foes[n] = f
+    gained = 100
+  return gained + self.knock_foes(n + 1, tx, top)
+
+fn Session.knock_items(self: Session mut, n: u32, tx: i32, top: i32) -> unit:
+  if n >= self.items.len():
+    return
+  let mut i = self.items[n]
+  let (l, it, r, b) = i.rect()
+  if b == top && l < tx * TILE + TILE && r > tx * TILE && i.kind == ItemKind::Cap:
+    i.vy = -1500
+    self.items[n] = i
+  self.knock_items(n + 1, tx, top)
+
+fn Session.coin(self: Session mut, k: Knight mut, say: Vec<str> mut) -> unit:
+  k.coins += 1
+  k.score += 10
+  say.push("gold")
+  if k.coins % 20 == 0:
+    k.pips = ((k.pips as u32) + 1).min(PIPS as u32)
+  if k.coins % 100 == 0:
+    # A hundred sparks is a reward: the whole pie.
+    k.pips = PIPS
+    k.score += 500
+    say.push("wish_grant")
+
+# A slam landed at (x, y) pixels: the floor cracks, small foes tumble.
+fn Session.slam(self: Session mut, id: u32, k: Knight mut, x: i32, y: i32, radius: i32, say: Vec<str> mut) -> unit:
+  self.fx(FxKind::Ring, x, y)
+  say.push("rock_land")
+  let phase = self.boss.phase
+  if self.boss.slam(x, y):
+    k.score += 500
+    self.fx(FxKind::Debris, self.boss.x, y - 8)
+    self.fx(FxKind::Gleam, self.boss.x, y - 14)
+    if self.boss.defeated():
+      say.push("boss_death")
+    elif self.boss.phase > phase:
+      say.push("boss_rage")
+    else:
+      say.push("boss_roar")
+  elif !self.boss.defeated():
+    # Not the moment: the shock rings off his head.
+    let head = self.boss.plank(false)
+    if (x - self.boss.x).abs() <= 24 && (y - head.y).abs() <= 3:
+      say.push("shield_block")
+  let row = y.div_euclid(TILE)
+  let c0 = (x - radius).div_euclid(TILE)
+  let c1 = (x + radius).div_euclid(TILE)
+  let mut broke = self.crack_rows(row, row + 1, c0, c1, x, radius)
+  if broke:
+    say.push("crack_open")
+  k.score += self.slam_foes(0, x, y, radius, say)
+  self.slam_caps(0, x, y, radius)
+
+# The cracked floor in rows row..=last, columns c0..=c1 that the shock reaches breaks.
+fn Session.crack_rows(self: Session mut, ty: i32, last: i32, c0: i32, c1: i32, x: i32, radius: i32) -> bool:
+  if ty > last:
+    return false
+  let a = self.crack_cols(ty, c0, c1, x, radius)
+  let b = self.crack_rows(ty + 1, last, c0, c1, x, radius)
+  return a || b
+
+fn Session.crack_cols(self: Session mut, ty: i32, tx: i32, c1: i32, x: i32, radius: i32) -> bool:
+  if tx > c1:
+    return false
+  let mut broke = false
+  if self.tile(tx, ty) == CRACKED:
+    let centre = tx * TILE + TILE / 2
+    if (centre - x).abs() <= radius + TILE / 2:
+      self.set_tile(tx, ty, AIR)
+      self.fx(FxKind::Debris, centre - 4, ty * TILE + 8)
+      self.fx(FxKind::Debris, centre + 4, ty * TILE + 8)
+      broke = true
+  let rest = self.crack_cols(ty, tx + 1, c1, x, radius)
+  return broke || rest
+
+fn Session.slam_foes(self: Session mut, n: u32, x: i32, y: i32, radius: i32, say: Vec<str> mut) -> u32:
+  if n >= self.foes.len():
+    return 0
+  let mut f = self.foes[n]
+  let (l, ft, r, b) = f.rect()
+  let cx = (l + r) / 2
+  let mut gained: u32 = 0
+  if f.alive() && (cx - x).abs() <= radius && (b - y).abs() <= 8:
+    f.defeat()
+    self.foes[n] = f
+    gained = 200
+    say.push("kill")
+  return gained + self.slam_foes(n + 1, x, y, radius, say)
+
+fn Session.slam_caps(self: Session mut, n: u32, x: i32, y: i32, radius: i32) -> unit:
+  if n >= self.items.len():
+    return
+  let mut it = self.items[n]
+  if it.kind == ItemKind::Cap && it.cap == CapState::Slide:
+    let (l, itop, r, b) = it.rect()
+    if ((l + r) / 2 - x).abs() <= radius && (b - y).abs() <= 8:
+      it.cap = CapState::Rest
+      it.vx = 0
+      self.items[n] = it
+  self.slam_caps(n + 1, x, y, radius)
+
+
+struct SessionSmall:
+  station: (i32, i32)
+  count: u32
+  door_count: u32
+  alive: Vec<u32>
+  spark_gate: u32
+  crown_down: bool
+  valid: bool
+
+fn Session.small(self: Session) -> SessionSmall:
+  return SessionSmall{station: self.station(), count: self.count(), door_count: self.door_count(), alive: self.alive(), spark_gate: self.spark_gate(), crown_down: self.crown_down(), valid: self.valid()}
+
+case Session.step: session=self => session=self
+case Session.small: session=self
+case Session.tile: session=self
+case Session.set_tile: session=self
+case Session.seat: session=self
+case Session.provision: session=self
+case Session.step_knight: session=self => session=self
+case Session.note_safe: session=self => session=self
+case Session.body_event: session=self, ev=e => session=self
+case Session.bump: session=self => session=self
+case Session.coin: session=self => session=self
+case Session.slam: session=self => session=self
+case Session.new: heroes=players

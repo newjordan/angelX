@@ -203,9 +203,6 @@ pub(crate) fn render(
         line(frame, Rect::new(side.x, y, side.width, 1), &text, color);
     }
 
-    if let Some(wish) = reforge {
-        reforge_box(frame, room, &wish);
-    }
     let footer = inner.bottom() - 5;
     let host_notice = state["notice"].as_str().unwrap_or("");
     let (first, first_color) = match said {
@@ -249,6 +246,9 @@ pub(crate) fn render(
             color,
         );
     }
+    if let Some(wish) = reforge {
+        reforge_box(frame, inner, &wish);
+    }
     true
 }
 
@@ -290,9 +290,11 @@ fn cards_screen(
         .and_then(|k| k["spell_ids"].as_array())
         .map(|a| a.iter().map(|v| v.as_str().map(str::to_owned)).collect())
         .unwrap_or_default();
+    let tiers = joined.run().and_then(|run| run.players.get(&joined.actor()).map(|h| h.spell_tiers.clone())).unwrap_or_default();
     let mine = super::shooter_viz::Mine {
         hand: &hand,
         spells: &spells,
+        tiers: &tiers,
         arm: arm.as_deref(),
         deck: &deck,
     };

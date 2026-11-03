@@ -13,7 +13,7 @@
 
 use super::{DEEPEST, EnemyKind, FLOORS, Rng};
 use serde::{Deserialize, Serialize};
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 pub mod open;
 pub use open::{Chamber, OPEN_MAX_COLS, OPEN_MAX_ROWS, Open, SideDoor, open_floor};
@@ -46,6 +46,174 @@ pub enum Tile {
     /// Mire: walkable, but it holds the feet. A knight or a walking monster
     /// wades it at `swamp::BOG_PACE`; shots and wings pass over it.
     Bog,
+}
+
+/// One character a tile, never a digit, so a count in front of it is plain.
+/// A run writes `4000#` instead of four thousand `"wall"`.
+fn tile_glyph(tile: Tile) -> char {
+    match tile {
+        Tile::Floor => '.',
+        Tile::Wall => '#',
+        Tile::Block => 'B',
+        Tile::Hazard => '~',
+        Tile::Door => 'D',
+        Tile::Stairs => '>',
+        Tile::Ledge => '=',
+        Tile::Bog => 'o',
+    }
+}
+
+fn tile_from_glyph(glyph: char) -> Option<Tile> {
+    Some(match glyph {
+        '.' => Tile::Floor,
+        '#' => Tile::Wall,
+        'B' => Tile::Block,
+        '~' => Tile::Hazard,
+        'D' => Tile::Door,
+        '>' => Tile::Stairs,
+        '=' => Tile::Ledge,
+        'o' => Tile::Bog,
+        _ => return None,
+    })
+}
+
+/// The name a tile had when a save wrote one JSON string a cell.
+fn tile_name(tile: Tile) -> &'static str {
+    match tile {
+        Tile::Floor => "floor",
+        Tile::Wall => "wall",
+        Tile::Block => "block",
+        Tile::Hazard => "hazard",
+        Tile::Door => "door",
+        Tile::Stairs => "stairs",
+        Tile::Ledge => "ledge",
+        Tile::Bog => "bog",
+    }
+}
+
+/// A room bigger than the kingdom map is not a save we will keep.
+const TILE_RUN_MAX: usize = 256 * 256;
+
+/// `12#3.D` is twelve walls, three floors, one door. A count of one is left
+/// off. The whole room is one string, so a fourteen-thousand-cell floor is
+/// not fourteen thousand JSON strings.
+pub(crate) fn tiles_rle(tiles: &[Tile]) -> String {
+    let mut out = String::new();
+    let mut i = 0;
+    while i < tiles.len() {
+        let mut j = i + 1;
+        while j < tiles.len() && tiles[j] == tiles[i] {
+            j += 1;
+        }
+        let n = j - i;
+        if n > 1 {
+            out.push_str(&n.to_string());
+        }
+        out.push(tile_glyph(tiles[i]));
+        i = j;
+    }
+    out
+}
+
+pub(crate) fn tiles_from_rle(text: &str) -> Result<Vec<Tile>, String> {
+    let mut tiles = Vec::new();
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        let mut n: usize = 0;
+        let mut saw_digit = false;
+        while i < bytes.len() && bytes[i].is_ascii_digit() {
+            saw_digit = true;
+            n = n
+                .checked_mul(10)
+                .and_then(|n| n.checked_add(usize::from(bytes[i] - b'0')))
+                .ok_or_else(|| "tile run too long".to_string())?;
+            i += 1;
+        }
+        if i >= bytes.len() {
+            return Err("tile run ended on a count".to_string());
+        }
+        let glyph = bytes[i] as char;
+        i += 1;
+        let tile = tile_from_glyph(glyph).ok_or_else(|| format!("unknown tile {glyph}"))?;
+        let count = if saw_digit { n } else { 1 };
+        if count == 0 {
+            return Err("empty tile run".to_string());
+        }
+        if tiles.len().saturating_add(count) > TILE_RUN_MAX {
+            return Err("tile run too long".to_string());
+        }
+        tiles.extend(std::iter::repeat(tile).take(count));
+    }
+    Ok(tiles)
+}
+
+fn ser_tiles<S: serde::Serializer>(tiles: &[Tile], serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&tiles_rle(tiles))
+}
+
+fn de_tiles<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<Tile>, D::Error> {
+    struct Visit;
+    impl<'de> serde::de::Visitor<'de> for Visit {
+        type Value = Vec<Tile>;
+
+        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+            formatter.write_str("a tile run or a list of tile names")
+        }
+
+        fn visit_str<E: serde::de::Error>(self, text: &str) -> Result<Vec<Tile>, E> {
+            tiles_from_rle(text).map_err(E::custom)
+        }
+
+        fn visit_string<E: serde::de::Error>(self, text: String) -> Result<Vec<Tile>, E> {
+            self.visit_str(&text)
+        }
+
+        fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Vec<Tile>, A::Error> {
+            let mut tiles = Vec::with_capacity(seq.size_hint().unwrap_or(0));
+            while let Some(tile) = seq.next_element::<Tile>()? {
+                tiles.push(tile);
+            }
+            Ok(tiles)
+        }
+    }
+    deserializer.deserialize_any(Visit)
+}
+
+/// The tile lists a save used to write, put back into `json` so a hash of
+/// play can ignore the run-length spelling. Only `"tiles":"..."` values are
+/// rewritten; a list is already the old form and is left alone. Historical
+/// rule snapshots also predate the squire yard; only its known static tile
+/// delta is put back, not other edits to the map or any part of the run.
+pub(crate) fn expand_saved_tiles(json: &str) -> String {
+    const KEY: &str = "\"tiles\":\"";
+    let mut out = String::with_capacity(json.len());
+    let mut rest = json;
+    while let Some(at) = rest.find(KEY) {
+        out.push_str(&rest[..at]);
+        let value = &rest[at + KEY.len() - 1..];
+        let Some(end) = value[1..].find('"') else {
+            out.push_str(rest);
+            return out;
+        };
+        let raw = &value[1..1 + end];
+        let Ok(tiles) = tiles_from_rle(raw) else {
+            out.push_str(rest);
+            return out;
+        };
+        #[cfg(test)]
+        let tiles = {
+            let mut tiles = tiles;
+            crate::world::kingdom::historic_tiles(&mut tiles);
+            tiles
+        };
+        let names: Vec<&str> = tiles.iter().copied().map(tile_name).collect();
+        out.push_str("\"tiles\":");
+        out.push_str(&serde_json::to_string(&names).unwrap_or_else(|_| "[]".to_string()));
+        rest = &value[end + 2..];
+    }
+    out.push_str(rest);
+    out
 }
 
 impl Tile {
@@ -205,6 +373,26 @@ pub enum RoomKind {
     ColosseumHall,
     KegYard,
     GanderHall,
+    /// The Sozzled Griffin (`alehouse`): the great tavern where every party
+    /// begins together and picks its knights, and the bazaar of odd magical
+    /// goods joined to it (`bazaar`). Appended, so saved names and masks keep.
+    Alehouse,
+    Bazaar,
+    /// The Gnome's Garden off an open delve's third floor (`nooks::gnome`).
+    GnomeParty,
+    /// A village of the Deep, every tenth floor below the Unknown
+    /// (`deep::village`). Appended, so saved names and masks keep.
+    DeepVillage,
+    /// The recruits' bar in a tent on the mine-head (`muster_tent`).
+    /// Appended, so saved names and masks keep.
+    MusterTent,
+    /// The squires' rooms off the Training Yard (`squire_rooms`), each one
+    /// squire game's own. Appended, so saved names and masks keep.
+    SquireGuild,
+    SquireAcademy,
+    SquireBarracks,
+    SquireHall,
+    SquireLanes,
 }
 
 impl RoomKind {
@@ -244,6 +432,8 @@ pub enum Pack {
 }
 
 impl Pack {
+    pub const ALL: [Pack; 7] = [Pack::Crypt, Pack::Cavern, Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown, Pack::Swamp];
+
     pub fn name(self) -> &'static str {
         match self {
             Pack::Crypt => "The Crypt",
@@ -447,7 +637,7 @@ impl Pack {
             .unwrap_or(EnemyKind::Bat)
     }
 
-    fn templates(self) -> &'static [Template] {
+    pub(crate) fn templates(self) -> &'static [Template] {
         match self {
             Pack::Crypt => &[PILLARS, TOMBS, COLONNADE, CROSS, POOLS],
             Pack::Cavern => &[EMPTY, PILLARS, POOLS, CROSS, COLONNADE],
@@ -539,7 +729,7 @@ const STACKS: Template = [
     "...........",
     ".####.####.",
     "...........",
-    ".####.####.",
+    ".####.##...",
     "...........",
     "...........",
 ];
@@ -550,7 +740,7 @@ const REEDBEDS: Template = [
     "..#........",
     "......#....",
     "..~~.......",
-    "..~~....#..",
+    "..~~...#...",
     "...........",
 ];
 const SHRINE: Template = [
@@ -589,6 +779,10 @@ pub struct Room {
     pub cols: usize,
     #[serde(default = "screen_rows")]
     pub rows: usize,
+    /// The room's ground, one tile a cell, row by row. A save writes this as
+    /// one run (`12#3.`) rather than a JSON string a cell. A save from before
+    /// that still reads the list of names.
+    #[serde(serialize_with = "ser_tiles", deserialize_with = "de_tiles")]
     tiles: Vec<Tile>,
     pub visited: bool,
     pub cleared: bool,
@@ -679,6 +873,20 @@ impl Room {
             })
             && self.items.len() <= if self.kind == RoomKind::Depths { super::depths::OPEN_ITEMS } else { 32 }
             && self.roster.len() <= 64
+    }
+
+    /// Whether `tile` can index this grid. A damaged wire tree or save must
+    /// be refused before a stop walks it: a zero side makes the clamp panic,
+    /// and a short list indexes off the end.
+    pub(crate) fn grid_holds(&self) -> bool {
+        self.cols > 0
+            && self.rows > 0
+            && self.cols <= i32::MAX as usize
+            && self.rows <= i32::MAX as usize
+            && self
+                .cols
+                .checked_mul(self.rows)
+                .is_some_and(|n| self.tiles.len() >= n)
     }
 
     pub fn tile(&self, col: i32, row: i32) -> Tile {
@@ -830,6 +1038,11 @@ pub struct Floor {
     /// none for a floor of rooms.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub open: Option<open::Open>,
+    /// The wish altar's spot in each room that has one, chosen once when
+    /// that room was first entered. An old save has none; the spot is picked
+    /// when the save is loaded. A room whose search found nowhere is `None`.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub altar_at: BTreeMap<u16, Option<(f32, f32)>>,
 }
 
 /// A vault hung off a fight room behind a cracked wall: the room that hides
@@ -1185,14 +1398,20 @@ fn build(depth: u32, pack: Pack, party: usize, rng: &mut Rng, cells: Vec<(i32, i
         pack,
         rooms,
         secret: None,
+        altar_at: BTreeMap::new(),
     };
     if depth == 1 {
-        add_ledge(&mut floor, &dist, far, treasure, &halls);
+        if ledge_on() {
+            add_ledge(&mut floor, &dist, far, treasure, &halls);
+        }
     } else if depth < DEEPEST {
         add_pit(&mut floor, &dist, far, treasure, &halls);
     }
-    // Every floor has its showdown (it draws nothing from the dice).
-    hang(&mut floor, &dist, far, treasure, &halls, wanted);
+    // Every floor has its showdown (it draws nothing from the dice), when
+    // the Wanted hall is on.
+    if wanted_on() {
+        hang(&mut floor, &dist, far, treasure, &halls, wanted);
+    }
     if depth < DEEPEST {
         add_secret(&mut floor, &dist, far, treasure, &halls);
     }
@@ -1406,7 +1625,7 @@ fn vault(cell: (i32, i32), door: usize, snibbet: bool) -> Room {
             card: "gold".into(),
             x: cx + a.cos() * 6.0,
             y: cy + a.sin() * 4.0,
-            held_off: None, took: Vec::new(),
+            held_off: None, took: Vec::new(), dropped: 0, owner: None,
         });
     }
     room
@@ -1559,6 +1778,61 @@ fn ledge(cell: (i32, i32), door: usize) -> Room {
     room
 }
 
+/// The Wanted hall is off for play-testing until it is reworked (the user,
+/// 2026-10-19: "the western room boss battle side scroller stinks, turn it
+/// off for testing"): `ANGEL_DELVE_WANTED=1` brings it back. Tests keep it on.
+fn wanted_on() -> bool {
+    cfg!(test) || std::env::var_os("ANGEL_DELVE_WANTED").is_some_and(|v| v == "1")
+}
+
+/// The Ledge hall (and the Keg Gantry in it) is off for play-testing too
+/// (the user, 2026-10-19: "the side scroll rooms with bosses, where the
+/// camera angle changes shouldnt be on"): `ANGEL_DELVE_LEDGE=1` brings it
+/// back. Tests keep it on, and a scene that needs one may ask for it
+/// ([`with_ledge_for_test`]).
+fn ledge_on() -> bool {
+    cfg!(test) || ledge_asked() || std::env::var_os("ANGEL_DELVE_LEDGE").is_some_and(|v| v == "1")
+}
+
+/// Whether a room of `kind` may be walked into: the side-on halls only
+/// while they are switched on, so a floor saved with one keeps it shut.
+pub fn hall_open(kind: RoomKind) -> bool {
+    match kind {
+        RoomKind::Ledge => ledge_on(),
+        RoomKind::Wanted => wanted_on(),
+        _ => true,
+    }
+}
+
+#[cfg(any(test, feature = "testing"))]
+thread_local! { static LEDGE_ASKED: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }
+
+fn ledge_asked() -> bool {
+    #[cfg(any(test, feature = "testing"))]
+    {
+        LEDGE_ASKED.with(|l| l.get())
+    }
+    #[cfg(not(any(test, feature = "testing")))]
+    {
+        false
+    }
+}
+
+/// `make` with the Ledge hall laid on the floors it lays, as tests have it:
+/// for the smoke run's side hall, which is built under the `testing`
+/// feature, where `cfg(test)` is off.
+#[cfg(any(test, feature = "testing"))]
+pub fn with_ledge_for_test<T>(make: impl FnOnce() -> T) -> T {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            LEDGE_ASKED.with(|l| l.set(self.0));
+        }
+    }
+    let _restore = Restore(LEDGE_ASKED.with(|l| l.replace(true)));
+    make()
+}
+
 /// The Wanted hall at `cell`, its one doorway leading back through `door`:
 /// the stage in `outlaw::STAGE`, side-on, with nobody in it until the
 /// outlaw is raised as the party walks in.
@@ -1663,7 +1937,7 @@ fn room(
 fn template_for(kind: RoomKind, pack: Pack, rng: &mut Rng) -> Template {
     match kind {
         RoomKind::Kingdom | RoomKind::RealmHall | RoomKind::LandOffice | RoomKind::Holding => EMPTY,
-        RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft => EMPTY,
+        RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft | RoomKind::GnomeParty | RoomKind::DeepVillage => EMPTY,
         RoomKind::Start
         | RoomKind::Hall
         | RoomKind::Sanctuary
@@ -1742,7 +2016,15 @@ fn template_for(kind: RoomKind, pack: Pack, rng: &mut Rng) -> Template {
         | RoomKind::Eyrie
         | RoomKind::ColosseumHall
         | RoomKind::KegYard
-        | RoomKind::GanderHall => EMPTY,
+        | RoomKind::GanderHall
+        | RoomKind::Alehouse
+        | RoomKind::MusterTent
+        | RoomKind::SquireGuild
+        | RoomKind::SquireAcademy
+        | RoomKind::SquireBarracks
+        | RoomKind::SquireHall
+        | RoomKind::SquireLanes
+        | RoomKind::Bazaar => EMPTY,
         RoomKind::Threshold | RoomKind::Depths => EMPTY,
         RoomKind::Treasure => SHRINE,
         RoomKind::Lair => LAIR,
@@ -1782,7 +2064,7 @@ pub(super) fn furnish(
         } else {
             Vec::new()
         };
-        if !authored.is_empty() && rng.chance(super::rooms::AUTHORED_SHARE) {
+        if !authored.is_empty() && rng.chance(super::rooms::authored_share()) {
             authored[rng.below(authored.len())].iter().map(|r| r.bytes().collect()).collect()
         } else {
             great_quadrant(cols / 2 - 1, rows / 2 - 1, kind, rng)
@@ -1876,7 +2158,7 @@ pub(super) fn furnish(
     let foes = (2 + depth.min(FLOORS) as usize + rng.below(2)).min(6);
     room.roster = match kind {
         RoomKind::Kingdom | RoomKind::RealmHall | RoomKind::LandOffice | RoomKind::Holding => Vec::new(),
-        RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft => Vec::new(),
+        RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft | RoomKind::GnomeParty | RoomKind::DeepVillage => Vec::new(),
         RoomKind::Start if pack == Pack::Swamp => vec![EnemyKind::Leech, EnemyKind::Leech],
         RoomKind::Start => vec![EnemyKind::Skeleton, EnemyKind::Skeleton],
         RoomKind::Treasure
@@ -1956,7 +2238,15 @@ pub(super) fn furnish(
         | RoomKind::Depths
         | RoomKind::ColosseumHall
         | RoomKind::KegYard
-        | RoomKind::GanderHall => Vec::new(),
+        | RoomKind::GanderHall
+        | RoomKind::Alehouse
+        | RoomKind::MusterTent
+        | RoomKind::SquireGuild
+        | RoomKind::SquireAcademy
+        | RoomKind::SquireBarracks
+        | RoomKind::SquireHall
+        | RoomKind::SquireLanes
+        | RoomKind::Bazaar => Vec::new(),
         RoomKind::Pit => vec![EnemyKind::PitTyrant],
         // A passage may hold a straggler or two that fly.
         RoomKind::Hall => (0..rng.below(3)).map(|_| EnemyKind::Bat).collect(),
@@ -1998,14 +2288,314 @@ pub(super) fn furnish(
             room.roster.push(plain[(h % plain.len() as u64) as usize]);
         }
     }
+    // The first floor's start is where the party makes its first wishes:
+    // nothing waits in it. Cleared last, once every die the room rolls has
+    // been rolled, so the seeded floors are laid as they always were.
+    if kind == RoomKind::Start && depth <= 1 {
+        room.roster.clear();
+        room.cleared = true;
+    }
     room
 }
 
 /// The Undercroft: one screen of cellar, the Winding Stair in its middle
 /// behind a parapet open to the south, the stations' furniture along its
 /// walls. Depth 0: the stair below it goes to the first floor of `pack`.
+/// The Bend leg this game's layout rules live in: where the Undercroft's halls
+/// stand, what each is built of, and how Maud's tavern and the wing west of it
+/// are dug. The authored rectangle tables stay here — inert art data the
+/// renderer reads too — and the leg decides where they stand.
+const RULES: &str = "layout-rules";
+
+/// Room cells cross the leg biased, so a floor's own coordinates stay unsigned.
+/// The cells it answers with are biased the same way.
+const CELL_BIAS: i32 = 1024;
+
+/// A room kind the leg has no name for: it only has to recognise a Trophy Hall
+/// and a tavern that already stands.
+const OTHER_KIND: i32 = 99;
+
+fn rect(r: (i32, i32, i32, i32)) -> [i32; 4] {
+    [r.0, r.1, r.2, r.3]
+}
+
+/// The leg's own name for a room kind ([`kind_of`] is the way back).
+fn kind_id(kind: RoomKind) -> i32 {
+    match kind {
+        RoomKind::Trophies => 3,
+        RoomKind::Tavern => 4,
+        _ => OTHER_KIND,
+    }
+}
+
+fn kind_of(id: i32) -> Option<RoomKind> {
+    Some(match id {
+        0 => RoomKind::Home,
+        1 => RoomKind::Fortune,
+        2 => RoomKind::Yard,
+        3 => RoomKind::Trophies,
+        4 => RoomKind::Tavern,
+        5 => RoomKind::Workshop,
+        6 => RoomKind::Muster,
+        _ => return None,
+    })
+}
+
+fn tile_of(id: i32) -> Option<Tile> {
+    Some(match id {
+        0 => Tile::Floor,
+        1 => Tile::Wall,
+        2 => Tile::Block,
+        3 => Tile::Hazard,
+        4 => Tile::Door,
+        5 => Tile::Stairs,
+        6 => Tile::Ledge,
+        7 => Tile::Bog,
+        _ => return None,
+    })
+}
+
+#[derive(Serialize)]
+struct UndercroftAsk {
+    op: &'static str,
+    spots: Vec<[i32; 4]>,
+    bounty_board: [i32; 4],
+    stairwell: [i32; 4],
+    stair_mouth: [i32; 4],
+    wheel_stand: [i32; 4],
+    coffer: [i32; 4],
+    benches: Vec<[i32; 4]>,
+    stall: [i32; 4],
+    plinths: Vec<[i32; 4]>,
+}
+
+#[derive(Deserialize)]
+struct RoomAnswer {
+    cell_x: i32,
+    cell_y: i32,
+    kind: i32,
+    doors: [bool; 4],
+    cols: usize,
+    rows: usize,
+    tiles: Vec<i32>,
+}
+
+#[derive(Deserialize)]
+struct RoomsAnswer {
+    rooms: Vec<RoomAnswer>,
+}
+
+impl RoomAnswer {
+    /// The room the leg laid, or why it is not one this floor may hold.
+    fn into_room(self, at: usize) -> Result<Room, String> {
+        // Every authored room here is one screen: the leg has no art for a
+        // great hall, so a room of another size is a refusal, not a guess.
+        if self.cols != COLS || self.rows != ROWS {
+            return Err(format!(
+                "room {at}: {}x{} is not a screen room",
+                self.cols, self.rows
+            ));
+        }
+        if self.tiles.len() != COLS * ROWS {
+            return Err(format!(
+                "room {at}: {} tiles for a screen room",
+                self.tiles.len()
+            ));
+        }
+        let mut room = Room::solid_rock((self.cell_x, self.cell_y));
+        room.kind = kind_of(self.kind).ok_or_else(|| format!("room {at}: kind {}", self.kind))?;
+        room.doors = self.doors;
+        for (index, id) in self.tiles.into_iter().enumerate() {
+            let tile = tile_of(id).ok_or_else(|| format!("room {at}: tile {id}"))?;
+            room.set(index % COLS, index / COLS, tile);
+        }
+        if !room.valid_snapshot() {
+            return Err(format!("room {at} is not a room a save would keep"));
+        }
+        Ok(room)
+    }
+}
+
+/// One step of the leg, refused loudly: a floor is never half laid.
+fn rooms_of<I: Serialize>(ask: &I) -> Vec<Room> {
+    let answer: RoomsAnswer = crate::scripted::step(RULES, ask)
+        .unwrap_or_else(|error| panic!("layout-rules refused the ask: {error}"));
+    answer
+        .rooms
+        .into_iter()
+        .enumerate()
+        .map(|(at, room)| {
+            room.into_room(at)
+                .unwrap_or_else(|error| panic!("layout-rules refused the answer: {error}"))
+        })
+        .collect()
+}
+
 pub fn undercroft(pack: Pack) -> Floor {
+    #[cfg(any(test, feature = "testing"))]
+    if crate::scripted::answers_natively(RULES) {
+        return oracle::undercroft(pack);
+    }
     use super::home::{BOUNTY_BOARD, SPOTS, STAIR_MOUTH, STAIRWELL};
+    let ask = UndercroftAsk {
+        op: "undercroft",
+        spots: SPOTS.iter().map(|spot| rect(spot.furniture)).collect(),
+        bounty_board: rect(BOUNTY_BOARD),
+        stairwell: rect(STAIRWELL),
+        stair_mouth: rect(STAIR_MOUTH),
+        wheel_stand: rect(super::fortune::WHEEL_STAND),
+        coffer: rect(super::fortune::COFFER),
+        benches: super::fortune::BENCHES.iter().copied().map(rect).collect(),
+        stall: rect(super::yard::STALL),
+        plinths: super::trophies::PLINTHS
+            .iter()
+            .map(|plinth| rect(plinth.at))
+            .collect(),
+    };
+    let rooms = rooms_of(&ask);
+    if rooms.len() != 4 {
+        panic!("layout-rules laid {} Undercroft rooms, not 4", rooms.len());
+    }
+    Floor {
+        depth: 0,
+        world_revision: 0,
+        pack,
+        rooms,
+        secret: None,
+        open: None,
+        altar_at: BTreeMap::new(),
+    }
+}
+
+#[derive(Serialize)]
+struct TavernAsk {
+    op: &'static str,
+    depth: u32,
+    kinds: Vec<i32>,
+    cells_x: Vec<i32>,
+    cells_y: Vec<i32>,
+    bar: [i32; 4],
+    board: [i32; 4],
+    stage: [i32; 4],
+    tables: Vec<[i32; 4]>,
+}
+
+fn no_room() -> RoomAnswer {
+    RoomAnswer {
+        cell_x: 0,
+        cell_y: 0,
+        kind: OTHER_KIND,
+        doors: [false; 4],
+        cols: COLS,
+        rows: ROWS,
+        tiles: Vec::new(),
+    }
+}
+
+#[derive(Deserialize)]
+struct DigAnswer {
+    dug: bool,
+    #[serde(default)]
+    hall: usize,
+    #[serde(default = "no_room")]
+    room: RoomAnswer,
+}
+
+/// Tobbin's crew digs out the west wing: the Trophy Hall's west wall opens on
+/// Maud's tavern, the Siege Perilous. False if there is no Trophy Hall here, or
+/// the tavern is already dug.
+pub fn dig_tavern(floor: &mut Floor) -> bool {
+    #[cfg(any(test, feature = "testing"))]
+    if crate::scripted::answers_natively(RULES) {
+        return oracle::dig_tavern(floor);
+    }
+    if !dig_tavern_reserved(floor) {
+        return false;
+    }
+    let Some(tavern) = floor.rooms.last() else {
+        return false;
+    };
+    let (cell_x, cell_y) = (tavern.cell.0 + CELL_BIAS, tavern.cell.1 + CELL_BIAS);
+    #[derive(Serialize)]
+    struct WingAsk {
+        op: &'static str,
+        cell_x: i32,
+        cell_y: i32,
+    }
+    let ask = WingAsk {
+        op: "wing",
+        cell_x,
+        cell_y,
+    };
+    let mut wing = rooms_of(&ask);
+    if wing.len() != 2 {
+        panic!("layout-rules laid {} wing rooms, not 2", wing.len());
+    }
+    for room in &mut wing {
+        room.cell = (room.cell.0 - CELL_BIAS, room.cell.1 - CELL_BIAS);
+    }
+    floor.rooms.last_mut().unwrap().open_door(3);
+    floor.rooms.extend(wing);
+    true
+}
+
+/// Dig only the paid tavern footprint. Durable research settlements reserve
+/// this cell separately; the ordinary home's loft and muster cells belong to
+/// their recorded excavation wing and must not alter existing plans or saved
+/// maps.
+pub fn dig_tavern_reserved(floor: &mut Floor) -> bool {
+    #[cfg(any(test, feature = "testing"))]
+    if crate::scripted::answers_natively(RULES) {
+        return oracle::dig_tavern_reserved(floor);
+    }
+    use super::tavern::{BAR, BOARD, STAGE, TABLES};
+    let ask = TavernAsk {
+        op: "tavern",
+        depth: floor.depth,
+        kinds: floor.rooms.iter().map(|room| kind_id(room.kind)).collect(),
+        cells_x: floor
+            .rooms
+            .iter()
+            .map(|room| room.cell.0 + CELL_BIAS)
+            .collect(),
+        cells_y: floor
+            .rooms
+            .iter()
+            .map(|room| room.cell.1 + CELL_BIAS)
+            .collect(),
+        bar: rect(BAR),
+        board: rect(BOARD),
+        stage: rect(STAGE),
+        tables: TABLES.iter().copied().map(rect).collect(),
+    };
+    let answer: DigAnswer = crate::scripted::step(RULES, &ask)
+        .unwrap_or_else(|error| panic!("layout-rules refused the dig: {error}"));
+    if !answer.dug {
+        return false;
+    }
+    let Some(hall) = floor.rooms.get_mut(answer.hall) else {
+        panic!("layout-rules named hall {} of {}", answer.hall, floor.rooms.len());
+    };
+    hall.open_door(3);
+    let mut room = answer
+        .room
+        .into_room(answer.hall)
+        .unwrap_or_else(|error| panic!("layout-rules refused the tavern: {error}"));
+    room.cell = (room.cell.0 - CELL_BIAS, room.cell.1 - CELL_BIAS);
+    floor.rooms.push(room);
+    true
+}
+
+/// The rules the Bend leg replaced, kept verbatim as the parity oracle and as
+/// what a Delve build with no rules engine (`cfg(test)`, the `testing` feature)
+/// still lays its floors with. A shipped cockpit compiles none of this: its
+/// floors, tavern and wing come from `layout-rules.bend`.
+#[cfg(any(test, feature = "testing"))]
+pub mod oracle {
+    use super::*;
+
+pub fn undercroft(pack: Pack) -> Floor {
+    use crate::rules::home::{BOUNTY_BOARD, SPOTS, STAIR_MOUTH, STAIRWELL};
     let mut room = Room {
         cell: (GRID / 2, GRID / 2),
         kind: RoomKind::Home,
@@ -2061,9 +2651,9 @@ pub fn undercroft(pack: Pack) -> Floor {
             }
         }
     }
-    fill(&mut hall, super::fortune::WHEEL_STAND, Tile::Block);
-    fill(&mut hall, super::fortune::COFFER, Tile::Block);
-    for bench in super::fortune::BENCHES {
+    fill(&mut hall, crate::rules::fortune::WHEEL_STAND, Tile::Block);
+    fill(&mut hall, crate::rules::fortune::COFFER, Tile::Block);
+    for bench in crate::rules::fortune::BENCHES {
         fill(&mut hall, bench, Tile::Block);
     }
     hall.open_door(3);
@@ -2083,7 +2673,7 @@ pub fn undercroft(pack: Pack) -> Floor {
             }
         }
     }
-    fill(&mut yard, super::yard::STALL, Tile::Block);
+    fill(&mut yard, crate::rules::yard::STALL, Tile::Block);
     yard.open_door(2);
     // The Trophy Hall, south down the runner: plinths along its walls, the
     // dragon's in the middle, the Grail's dais at the far end.
@@ -2101,7 +2691,7 @@ pub fn undercroft(pack: Pack) -> Floor {
             }
         }
     }
-    for plinth in &super::trophies::PLINTHS {
+    for plinth in &crate::rules::trophies::PLINTHS {
         fill(&mut trophies, plinth.at, Tile::Block);
     }
     trophies.open_door(0);
@@ -2112,6 +2702,7 @@ pub fn undercroft(pack: Pack) -> Floor {
         pack,
         rooms: vec![room, hall, yard, trophies],
         secret: None,
+        altar_at: BTreeMap::new(),
     }
 }
 
@@ -2150,7 +2741,7 @@ pub fn dig_tavern(floor: &mut Floor) -> bool {
 /// cell separately; the ordinary home's loft and muster cells belong to their
 /// recorded excavation wing and must not alter existing plans or saved maps.
 pub fn dig_tavern_reserved(floor: &mut Floor) -> bool {
-    use super::tavern::{BAR, BOARD, STAGE, TABLES};
+    use crate::rules::tavern::{BAR, BOARD, STAGE, TABLES};
     if floor.depth != 0 || floor.rooms.iter().any(|r| r.kind == RoomKind::Tavern) {
         return false;
     }
@@ -2200,6 +2791,7 @@ pub fn dig_tavern_reserved(floor: &mut Floor) -> bool {
     room.open_door(1);
     floor.rooms.push(room);
     true
+}
 }
 
 /// Floor `depth` as the wheel's mode lays it out: a horde's great hall, a
@@ -2302,8 +2894,75 @@ fn horde(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         pack,
         rooms: vec![start, hall],
         secret: None,
+        altar_at: BTreeMap::new(),
     }
 }
+
+/// The identity start's first floor (`identity`): character creation in
+/// three rooms straight north, a wish each as the party first walks in.
+/// The body's room is the landing, with nothing in it; the weapon's is a
+/// fight; the ultimate's holds the stairs and the floor's guardian. Drawn
+/// as the Atari board.
+pub fn identity_floor(pack: Pack, party: usize, rng: &mut Rng) -> Floor {
+    let mid = GRID / 2;
+    let mut body = room((mid, mid + 1), RoomKind::Start, [true, false, false, false], 1, pack, party, rng);
+    body.roster.clear();
+    body.cleared = true;
+    let weapon = room((mid, mid), RoomKind::Fight, [true, false, true, false], 1, pack, party, rng);
+    let ultimate = room((mid, mid - 1), RoomKind::Stairs, [false, false, true, false], 1, pack, party, rng);
+    Floor {
+        world_revision: 0,
+        open: None,
+        depth: 1,
+        pack,
+        rooms: vec![body, weapon, ultimate],
+        secret: None,
+        altar_at: BTreeMap::new(),
+    }
+}
+
+/// The identity start's streamlined first floor (`identity::simple`): one
+/// plain room with the stairs, nothing in it to fight, no blocks or
+/// hazards, every wish given as the party walks in. Drawn as the Atari
+/// board, and small enough that its whole frame shows on the view above
+/// the HUD's band: its walls all round, the stairs in a gap at the head of
+/// the court.
+pub fn identity_room(pack: Pack, party: usize, rng: &mut Rng) -> Floor {
+    let mid = GRID / 2;
+    let mut only = room((mid, mid), RoomKind::Stairs, [false; 4], 1, pack, party, rng);
+    only.roster.clear();
+    only.items.clear();
+    only.chest = None;
+    only.cleared = true;
+    only.laid = None;
+    (only.cols, only.rows) = (COLS, IDENTITY_ROWS);
+    only.tiles = vec![Tile::Floor; COLS * IDENTITY_ROWS];
+    for row in 0..IDENTITY_ROWS {
+        for col in 0..COLS {
+            if row == 0 || col == 0 || row == IDENTITY_ROWS - 1 || col == COLS - 1 {
+                only.set(col, row, Tile::Wall);
+            }
+        }
+    }
+    // The way down, against the head wall at the middle of the court.
+    let centre = COLS / 2 - 1;
+    for (dc, dr) in [(0, 0), (1, 0), (0, 1), (1, 1)] {
+        only.set(centre + dc, 1 + dr, Tile::Stairs);
+    }
+    Floor {
+        world_revision: 0,
+        open: None,
+        depth: 1,
+        pack,
+        rooms: vec![only],
+        secret: None,
+        altar_at: BTreeMap::new(),
+    }
+}
+
+/// The streamlined first floor's rows: two short of a room's, so its foot
+/// wall stands above the HUD's band.
+pub const IDENTITY_ROWS: usize = ROWS - 2;
 
 /// Gauntlet of Guardians: the entrance, one passage, then the guardian's
 /// stairs (the dragon's lair on the last floor), straight north.
@@ -2355,6 +3014,7 @@ fn gauntlet(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         pack,
         rooms: vec![start, hall, guardian],
         secret: None,
+        altar_at: BTreeMap::new(),
     }
 }
 
@@ -2459,3 +3119,10 @@ fn great_quadrant(w: usize, h: usize, kind: RoomKind, rng: &mut Rng) -> Vec<Vec<
     }
     q
 }
+
+#[cfg(all(test, feature = "bend-cases-world"))]
+#[path = "../../tests/rules/world_bend_cases__tests.rs"]
+pub(crate) mod bend_cases;
+#[cfg(all(test, feature = "bend-cases-world"))]
+#[path = "../../tests/rules/layout_bend_cases__tests.rs"]
+mod layout_bend_cases_tests;

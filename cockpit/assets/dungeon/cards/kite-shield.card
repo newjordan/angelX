@@ -1,9 +1,9 @@
 name   Kite Shield
 kind   guard
 rarity rare
-text   Hold space to raise it: shots from the front glance off. Slow going.
-drop   3
-chest  3
+text   Hold space to raise it: shots from the front glance off. Slow.
+drop   1
+chest  1
 guard  shield
 art
 ..uVVVVVVu..

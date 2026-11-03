@@ -1,4 +1,4 @@
-power wish:bounce 3
+power wish:ricochet 3
 teacher Old Carom
 place the skittle alley beside Maud's taps
 room Tavern

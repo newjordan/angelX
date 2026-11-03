@@ -1,0 +1,27 @@
+{
+  "api_version": 1,
+  "id": "swarm-route",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "blank": false,
+    "stripped_blank": false,
+    "bytes": 34,
+    "chars": 34,
+    "open_hits": 1,
+    "enum_lines": 0,
+    "trivial": false,
+    "moa_exact": false,
+    "moa_prefix": false,
+    "open_phrase": true,
+    "open_word": false,
+    "action_word": false,
+    "live_phrase": false,
+    "live_word": false
+  },
+  "bend": {
+    "entry": "swarm-route.bend",
+    "proof": "PROOF.bend",
+    "output": "swarm-route.compiled.js"
+  }
+}

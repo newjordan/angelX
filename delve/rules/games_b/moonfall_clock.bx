@@ -1,0 +1,95 @@
+# crates/delve/src/rules/moonfall/clock.rs — the town's clock: a loop of
+# three days, `day` ticks to each, all of it integer arithmetic.
+
+def moonfall.clock.DAYS() -> U32:
+  3
+
+def moonfall.clock.SPAN() -> U32:
+  72
+
+def moonfall.clock.FINAL() -> U32:
+  66
+
+def moonfall.clock.end(+day: U32) -> U32:
+  (day * 3 : U32)
+
+# ticks(day, h2): the tick of half-hour mark h2, rounded to nearest.
+def moonfall.clock.ticks(+day: U32, +h2: U32) -> U32:
+  W.lo32(W.div_u32(W.add(W.mul32(h2, day), W.of_u32(24)), 48))
+
+def moonfall.clock.half(+clock: U32, +day: U32) -> U32:
+  W.lo32(W.div_u32(W.mul_u32(W.of_u32(clock), 48), U32.max(day, 1)))
+
+def moonfall.clock.final_start(+day: U32) -> U32:
+  moonfall.clock.ticks(day, 132)
+
+# The clock's minutes into the loop.
+def moonfall.clock.minutes(+clock: U32, +day: U32) -> U32:
+  W.lo32(W.div_u32(W.mul_u32(W.of_u32(clock), 1440), U32.max(day, 1)))
+
+# stamp(clock, day) -> {day, hour, minute}
+def moonfall.clock.stamp(+clock: U32, +day: U32) -> J.Val:
+  minutes: U32 = moonfall.clock.minutes(clock, day)
+  since: U32 = (minutes + 360 : U32)
+  gb.su(gb.su(gb.su(J.obj(), "day", U32.min((U32.div(minutes, 1440) + 1 : U32), 3)), "hour", U32.mod(U32.div(since, 60), 24)), "minute", U32.mod(since, 60))
+
+def moonfall.clock.night(+clock: U32, +day: U32) -> Bool:
+  h: U32 = gb.u(moonfall.clock.stamp(clock, day), "hour")
+  Bool.not(Bool.and(U32.is_ge(h, 6), U32.is_lt(h, 18)))
+
+def moonfall.clock.bridge_up(+clock: U32, +day: U32) -> Bool:
+  h: U32 = gb.u(moonfall.clock.stamp(clock, day), "hour")
+  Bool.not(Bool.and(U32.is_ge(h, 6), U32.is_lt(h, 20)))
+
+def moonfall.clock.remaining_minutes(+clock: U32, +day: U32) -> U32:
+  W.lo32(W.div_u32(W.mul_u32(W.of_u32(gb.ssub(moonfall.clock.end(day), clock)), 1440), U32.max(day, 1)))
+
+def moonfall.clock.next_dusk(+clock: U32, +day: U32) -> U32:
+  moonfall.clock.next_mark(clock, day, 12)
+
+def moonfall.clock.next_dawn(+clock: U32, +day: U32) -> U32:
+  moonfall.clock.next_mark(clock, day, 24)
+
+def moonfall.clock.next_mark(+clock: U32, +day: U32, +hour: U32) -> U32:
+  t: U32 = moonfall.clock.ticks(day, (hour * 2 : U32))
+  if Bool.or(U32.is_gt(t, clock), U32.is_ge(hour, 96)):
+    t
+  else:
+    moonfall.clock.next_mark(clock, day, (hour + 24 : U32))
+
+# light(clock, day): 0 (midnight) to 16 (noon).
+def moonfall.clock.light(+clock: U32, +day: U32) -> U32:
+  m0: U32 = (moonfall.clock.minutes(clock, day) + 360 : U32)
+  m: U32 = U32.mod(m0, 1440)
+  d: U32 = Bool.pick(U32, U32.is_gt(m, 720), (1440 - m : U32), m)
+  U32.min(U32.div((d * 16 : U32), 720), 16)
+
+def moonfall.clock.case.ret(+v: U32) -> J.Val:
+  J.set(J.obj(), "ret", J.JU{v})
+
+def case.moonfall.clock.ticks(+i: J.Val) -> J.Val:
+  moonfall.clock.case.ret(moonfall.clock.ticks(gb.u(i, "day"), gb.u(i, "h2")))
+
+def case.moonfall.clock.half(+i: J.Val) -> J.Val:
+  moonfall.clock.case.ret(moonfall.clock.half(gb.u(i, "clock"), gb.u(i, "day")))
+
+def case.moonfall.clock.stamp(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", moonfall.clock.stamp(gb.u(i, "clock"), gb.u(i, "day")))
+
+def case.moonfall.clock.night(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JBool{moonfall.clock.night(gb.u(i, "clock"), gb.u(i, "day"))})
+
+def case.moonfall.clock.bridge_up(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JBool{moonfall.clock.bridge_up(gb.u(i, "clock"), gb.u(i, "day"))})
+
+def case.moonfall.clock.remaining_minutes(+i: J.Val) -> J.Val:
+  moonfall.clock.case.ret(moonfall.clock.remaining_minutes(gb.u(i, "clock"), gb.u(i, "day")))
+
+def case.moonfall.clock.next_dusk(+i: J.Val) -> J.Val:
+  moonfall.clock.case.ret(moonfall.clock.next_dusk(gb.u(i, "clock"), gb.u(i, "day")))
+
+def case.moonfall.clock.next_dawn(+i: J.Val) -> J.Val:
+  moonfall.clock.case.ret(moonfall.clock.next_dawn(gb.u(i, "clock"), gb.u(i, "day")))
+
+def case.moonfall.clock.light(+i: J.Val) -> J.Val:
+  moonfall.clock.case.ret(moonfall.clock.light(gb.u(i, "clock"), gb.u(i, "day")))

@@ -139,12 +139,20 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
     let active = run.pastimes.round.as_ref().filter(|r| r.game == Game::Pot);
     for (i, tx) in TARGETS.into_iter().enumerate() {
         let (x, y) = at(tx as f32 * 2.0, 7.0 * 2.0);
-        let ink = if active.is_some_and(|r| usize::from(r.progress) > i) {
+        let base_ink = if active.is_some_and(|r| usize::from(r.progress) > i) {
             '9'
         } else if active.is_some_and(|r| usize::from(r.progress) == i) {
             'O'
         } else {
             '9'
+        };
+        // Target glow: the active target pulses 'O' when the pot approaches.
+        let ink = if active.is_some_and(|r| usize::from(r.progress) == i)
+            && active.unwrap().put.as_ref().is_some_and(|p| p.target_glow > 0)
+        {
+            if (run.tick / 2) % 2 == 0 { 'O' } else { base_ink }
+        } else {
+            base_ink
         };
         // Sand/speckles must not compete with the target's landing bracket.
         cv.rect(x - TILE - 2, y + 1, 2 * TILE + 5, 11, 'k');
@@ -167,7 +175,19 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
             'O',
         );
         cv.rect(x - 11, y + 19, 22, 3, 'r');
-        cv.rect(x - 11, y + 19, (p.charge * 22 / HZ) as i32, 3, '9');
+        // Charge bar flash: when in optimal range for the current target,
+        // cycle the fill ink between '6' and 'O' to guide the player.
+        let target_dist = (TARGETS[usize::from(r.progress)] - 4) * 256;
+        let optimal = (target_dist as f32 / 136.8).clamp(0.0, HZ as f32) as u32;
+        let bar_ink = if p.charge > 0
+            && p.charge.abs_diff(optimal) <= 3
+            && (run.tick / 4) % 2 == 0
+        {
+            'O'
+        } else {
+            '9'
+        };
+        cv.rect(x - 11, y + 19, (p.charge * 22 / HZ) as i32, 3, bar_ink);
         let (wx, wy) = at(9.0 * 2.0, 5.0 * 2.0);
         let wind = Put::wind(r.progress);
         cv.line(wx, wy - 12, wx, wy + 3, 'o');
@@ -175,14 +195,24 @@ pub(super) fn put_figures(cv: &mut Img, run: &Run) {
         cv.line(wx, wy - 9, wx + wind * 9, wy - 8, 'R');
         if let Some(pot) = &p.flight {
             let (px, py) = at(pot.x as f32 / 128.0, 14.0);
-            cv.ellipse(px as f32, (py + 4) as f32, 4.0, 1.5, 'k');
+            cv.ellipse(px as f32, (py + 5) as f32, 4.0, 1.0, 'k');
             // At full charge/70 degrees, a physical peak is 2053 fixed units.
             // Fit even that arc below the top board (bottom at y45). Compress
             // only screen height; physics, landing range and shadows unchanged.
             let y = py - pot.z.min(2053) * TILE / 640 - 7;
-            cv.rect(px - 4, y, 8, 6, 'h');
-            cv.line(px - 5, y, px + 5, y, 'O');
-            cv.line(px + 4, y + 2, px + 6, y + 2, 'h');
+            cv.ellipse(px as f32, (y + 2) as f32, 5.0, 3.0, 'h');
+            cv.line(px - 4, y - 1, px + 4, y - 1, 'O');
+            cv.line(px - 5, y, px - 6, y + 2, 'n');
+            cv.line(px - 6, y + 2, px - 5, y + 4, 'n');
+            cv.line(px + 5, y, px + 6, y + 2, 'n');
+            cv.line(px + 6, y + 2, px + 5, y + 4, 'n');
+        }
+        // Landing impact: expanding dust ring + bright flash at the landing x.
+        if p.landing_flash > 0 {
+            let (lx, ly) = at(p.landing_x as f32 / 128.0, 14.0);
+            let radius = (6 - p.landing_flash) as f32 * 3.0 + 4.0;
+            ring(cv, lx, ly + 5, if p.landing_flash > 3 { 'O' } else { 'k' });
+            cv.ellipse(lx as f32, (ly + 5) as f32, radius as f32, (radius * 0.4) as f32, 'h');
         }
     }
 }

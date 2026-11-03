@@ -6,10 +6,11 @@ use super::super::ink::{Img, hash};
 use super::super::light::Light;
 use super::{TILE, at, fire, home, props};
 use super::super::material as mat;
+use std::f32::consts::PI;
 use crate::rules::{
     RoomKind, Run,
     bowcountry::{self as b, BOOTH, BUTTS, CLIENT, CLOTHES, COACH, FLETCHER, LINE, PEN, POLES, QUIVERS, RACK, ROPE, SHED, STOOKS},
-    pastimes::{Game, LONGBOW_ARROWS, LONGBOW_FLIGHT, LONGBOW_FULL_DRAW, Longbow},
+    pastimes::{Game, LONGBOW_ARROWS, LONGBOW_FLIGHT, LONGBOW_FULL_DRAW, LONGBOW_HIT_BURST, Longbow},
 };
 
 type Rect = (i32, i32, i32, i32);
@@ -277,16 +278,31 @@ fn arrow(cv: &mut Img, x: i32, y: i32) {
 
 /// The archer's longbow across their front, bent as far as it is drawn,
 /// and the draw beside them: gold when it will carry to the rope.
-fn bow(cv: &mut Img, x: i32, y: i32, draw: u32) {
+/// At full draw the bow tips tremble and glow.
+fn bow(cv: &mut Img, x: i32, y: i32, draw: u32, tick: u64) {
     let pull = (draw.min(LONGBOW_FULL_DRAW) * 6 / LONGBOW_FULL_DRAW) as i32;
     let top = y - 28;
+    // Full draw tremble: offset bow tips by sin(tick) * 1 pixel.
+    let tremble = if draw >= LONGBOW_FULL_DRAW {
+        ((tick as f32 * 0.8).sin()) as i32
+    } else {
+        0
+    };
     for dx in -11i32..=11 {
         let bend = 4 - (dx * dx) / 30;
         cv.put(x + dx, top - bend, 'O');
         cv.put(x + dx, top - bend + 1, 'r');
     }
-    cv.line(x - 11, top, x, top + pull, 'h');
-    cv.line(x + 11, top, x, top + pull, 'h');
+    cv.line(x - 11 + tremble, top, x, top + pull, 'h');
+    cv.line(x + 11 + tremble, top, x, top + pull, 'h');
+    // Full draw glow on bow tips.
+    if draw >= LONGBOW_FULL_DRAW {
+        let glow_ink = if tick % 4 < 2 { '5' } else { 'J' };
+        cv.put(x - 11 + tremble, top - 1, glow_ink);
+        cv.put(x + 11 + tremble, top - 1, glow_ink);
+        cv.put(x - 12 + tremble, top, glow_ink);
+        cv.put(x + 12 + tremble, top, glow_ink);
+    }
     if draw > 0 {
         arrow(cv, x, top - 9 + pull);
         let full = draw >= LONGBOW_FULL_DRAW;
@@ -522,6 +538,12 @@ fn green(cv: &mut Img, run: &Run) {
         return;
     };
     popinjay(cv, Longbow::target(r) * TILE / 256, rope_y - 2);
+    // Particle burst when an arrow has just struck the popinjay.
+    if bw.hit_burst > 0 {
+        let impact_x = Longbow::target(r) * TILE / 256;
+        let impact_y = rope_y - 2;
+        hit_burst_particles(cv, impact_x, impact_y, LONGBOW_HIT_BURST - bw.hit_burst, bw.hit_burst);
+    }
     // Where an arrow loosed now would come down, wind and all.
     if bw.flight.is_none() && bw.wait == 0 {
         let land = (bw.aim + wind * LONGBOW_FLIGHT as i32) * TILE / 256;
@@ -530,17 +552,86 @@ fn green(cv: &mut Img, run: &Run) {
         }
     }
     if let Some(a) = &bw.flight {
+        // Fading trail behind the arrow in flight (last 6 positions).
+        for (i, &(tx, ty)) in bw.arrow_trail.iter().enumerate() {
+            let alpha = (i + 1) as f32 / (bw.arrow_trail.len() + 1) as f32;
+            let ink = if alpha > 0.6 { 'h' } else if alpha > 0.3 { 'j' } else { 'n' };
+            cv.put(tx * TILE / 256, ty * TILE / 256, ink);
+        }
         arrow(cv, a.x * TILE / 256, a.y() * TILE / 256);
+    }
+    // Arrow stuck in ground after a miss, with a small dust puff.
+    if bw.ground_arrow > 0 {
+        let gx = bw.ground_x * TILE / 256;
+        let gy = bw.ground_y * TILE / 256;
+        // The arrow shaft stuck in the ground, angled.
+        cv.line(gx, gy, gx + 2, gy - 8, 'O');
+        cv.put(gx + 2, gy - 9, 'V');
+        // Dust puff: fades over the 6 ticks.
+        let dust = bw.ground_arrow;
+        for d in 0..3 {
+            let dx = (d as i32 - 1) * (4 - dust as i32);
+            let dy = -(dust as i32) / 2;
+            let ink = if dust > 3 { 'U' } else { 'h' };
+            cv.put(gx + dx, gy + dy, ink);
+        }
     }
     if let Some(hero) = run.players.get(&bw.owner) {
         let (x, y) = at(hero.x, hero.y);
-        bow(cv, x, y, bw.draw);
+        bow(cv, x, y, bw.draw, run.tick);
     }
     // Arrows left, as fletchings on the quiver stand.
     let left = LONGBOW_ARROWS.saturating_sub(bw.arrows);
     let (qx, qy, _, _) = px(QUIVERS);
     for k in 0..left as i32 {
         cv.rect(qx + 2 + k * 4, qy - 10, 2, 4, '5');
+    }
+}
+
+/// A burst of feathers and wood chips where the arrow struck the popinjay.
+/// `age` ticks since the hit, `left` ticks remaining in the burst.
+fn hit_burst_particles(cv: &mut Img, cx: i32, cy: i32, age: u8, left: u8) {
+    let t = f32::from(age);
+    let seed = hash(cx, cy, 77);
+    // The first two ticks: a bright star at the impact point.
+    if age <= 1 {
+        let reach = 3 - i32::from(age);
+        for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1)] {
+            for r in 1..=reach {
+                cv.put(cx + dx * r, cy + dy * r, if age == 0 { 'J' } else { 'U' });
+            }
+        }
+        cv.put(cx, cy, 'W');
+    }
+    // Feathers and chips thrown outward, drifting down.
+    let n = 10;
+    for i in 0..n {
+        let h = |s: u32| (hash(i, seed as i32, s) % 1024) as f32 / 1024.0;
+        let angle = h(1) * PI * 2.0;
+        let speed = 1.2 + h(2) * 2.5;
+        let drag = 1.0 - t * 0.06;
+        let px_ = cx + (angle.cos() * speed * t * drag) as i32;
+        let gravity = 0.15 + h(3) * 0.1;
+        let py_ = cy + (angle.sin() * speed * t * drag + gravity * t * t) as i32;
+        // Feathers are light and slow; chips are heavier and drop faster.
+        let ink = if i % 3 == 0 {
+            // A wood chip: tan/brown, falls faster.
+            if age % 3 == 0 { 'o' } else { 'T' }
+        } else {
+            // A feather: white/cream, drifts.
+            if age % 2 == 0 { 'J' } else { 'U' }
+        };
+        // Only draw while the particle would still be visible (within the burst lifetime).
+        if left > 0 || age < 3 {
+            cv.put(px_, py_, ink);
+            // A trailing pixel behind fast-moving chips.
+            if i % 3 == 0 && t > 1.0 {
+                let prev_drag = 1.0 - (t - 1.0) * 0.06;
+                let tx = cx + (angle.cos() * speed * (t - 1.0) * prev_drag) as i32;
+                let ty = cy + (angle.sin() * speed * (t - 1.0) * prev_drag + gravity * (t - 1.0) * (t - 1.0)) as i32;
+                cv.put(tx, ty, 'h');
+            }
+        }
     }
 }
 

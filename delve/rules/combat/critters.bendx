@@ -1,0 +1,387 @@
+# crates/delve/src/rules/critters.rs: the third company (biters, moles, pavises,
+# leeches, marksmen, mirrorlings, spitters, ringers, geodes, hounds).
+import Base
+
+def critters.EnemyKind.critter(kind: String) -> Bool:
+  Bool.or(Bool.or(Bool.or(String.eq(kind, "biter"), String.eq(kind, "shard")), Bool.or(String.eq(kind, "mole"), String.eq(kind, "pavise"))),
+    Bool.or(Bool.or(Bool.or(String.eq(kind, "leech"), String.eq(kind, "marksman")), Bool.or(String.eq(kind, "mirrorling"), String.eq(kind, "spitter"))),
+      Bool.or(Bool.or(String.eq(kind, "ringer"), String.eq(kind, "geode")), String.eq(kind, "hound"))))
+
+# A bog hand under the mire (horrors::sunk).
+def horrors.Enemy.sunk(enemy: Enemy) -> Bool:
+  Bool.and(String.eq(enemy.kind, "bog_hand"), U32.is_lt(enemy.stage, 2))
+
+def critters.Enemy.buried(enemy: Enemy) -> Bool:
+  Bool.or(Bool.and(String.eq(enemy.kind, "mole"), Bool.or(U32.is_eq(enemy.stage, 1), U32.is_eq(enemy.stage, 2))), horrors.Enemy.sunk(enemy))
+
+def critters.Enemy.touch(enemy: Enemy) -> U32:
+  if String.eq(enemy.kind, "biter"):
+    return 5
+  if String.eq(enemy.kind, "shard"):
+    return 7
+  12
+
+def critters.Enemy.latched(enemy: Enemy) -> Bool:
+  Bool.and(String.eq(enemy.kind, "leech"), U32.is_eq(enemy.stage, 3))
+
+def critters.Enemy.hurts_by_touch(enemy: Enemy) -> Bool:
+  charge: Bool = Bool.and(U32.is_ne(enemy.signature.blow, 0), U32.is_eq(enemy.stage, signatures.DASH()))
+  busy: Bool = Bool.and(enemy.signature.active, Bool.or(Bool.or(U32.is_eq(enemy.stage, signatures.TELL()), U32.is_eq(enemy.stage, signatures.JUMP())), Bool.or(U32.is_eq(enemy.stage, signatures.DAZED()), U32.is_eq(enemy.stage, signatures.WIND()))))
+  Bool.and(Bool.and(Bool.not(critters.Enemy.buried(enemy)), Bool.not(critters.Enemy.latched(enemy))), Bool.and(Bool.not(charge), Bool.not(busy)))
+
+# The way a raised tower shield faces, if it is up.
+def critters.Enemy.shield_up(enemy: Enemy) -> (F32, F32)?:
+  if Bool.and(String.eq(enemy.kind, "pavise"), U32.is_lt(enemy.stage, 3)):
+    return Some{enemy.dir}
+  None{}
+
+# A blow struck the raised shield; true if it knocked the shield aside.
+def critters.guard_struck(enemy: Enemy, damage: U32) -> (Enemy, Bool):
+  enemy.guard = RS.u_sat_add(enemy.guard, RS.u_max(damage, 1))
+  if U32.is_lt((enemy.guard * 100 : U32), (RS.u_max(enemy.max_hp, 1) * critters.GUARD_BREAK() : U32)):
+    return (enemy, False{})
+  enemy.guard = 0
+  enemy.stage = 3
+  enemy.timer = RS.u_sat_sub(critters.PAVISE_PANT(), critters.GUARD_DOWN())
+  (enemy, True{})
+
+# Does the raised shield turn a shot flying (vx, vy)?
+def critters.blocks(enemy: Enemy, vx: F32, vy: F32) -> Bool:
+  match (critters.Enemy.shield_up(enemy) : (F32, F32)?):
+    case None{}:
+      return False{}
+    case Some{f: (F32, F32)}:
+      (fx: F32, fy: F32) = f
+      speed: F32 = RS.f_max(cb.hyp(vx, vy), 0.001)
+      return (RS.f_neg((vx * fx + vy * fy : F32)) / speed >= F32.cos(RS.f_to_radians(critters.PAVISE_ARC())) : F32)
+
+# A ring of bell strikes quickens a monster: it covers half again its step.
+def critters.quicken(enemy: Enemy, fx: F32, fy: F32, room: Room, barred: Bool) -> Enemy:
+  if U32.is_eq(enemy.rung, 0):
+    return enemy
+  enemy.rung = (enemy.rung - 1 : U32)
+  keep: Bool = Bool.or(Bool.not(J.is_null(J.get(enemy, "boss"))), Bool.or(Bool.or(String.eq(enemy.kind, "mole"), String.eq(enemy.kind, "leech")), Bool.or(String.eq(enemy.kind, "ward"), String.eq(enemy.kind, "dummy"))))
+  if keep:
+    return enemy
+  dx: F32 = (enemy.x - fx : F32)
+  dy: F32 = (enemy.y - fy : F32)
+  if Bool.and(F32.is_eq(dx, 0.0), F32.is_eq(dy, 0.0)):
+    return enemy
+  &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), ((dx * 0.5 : F32), (dy * 0.5 : F32)), monsters.Enemy.radius(enemy), foes.mover(enemy.kind))
+  enemy.x = nx
+  enemy.y = ny
+  enemy
+
+# Is the straight line a to b free of props and stone?
+def critters.clear_line(room: Room, barred: Bool, ax: F32, ay: F32, bx: F32, by: F32) -> Bool:
+  steps: U32 = RS.f_as_i32(RS.f_max(F32.ceil((cb.hyp((bx - ax : F32), (by - ay : F32)) / 0.5 : F32)), 1.0))
+  for k0: U32 in cb.range(RS.u_sat_sub(steps, 1)):
+    t: F32 = (cb.f((k0 + 1 : U32)) / cb.f(steps) : F32)
+    if rules.Grid.stops_body(room, barred, (ax + (bx - ax : F32) * t : F32), (ay + (by - ay : F32) * t : F32), patterns.BODY()):
+      return False{}
+  True{}
+
+# Like foes.keep_off, but it stands still when it sees nobody.
+def critters.keep_off(enemy: Enemy, room: Room, barred: Bool, mover: U32, r: F32, seen: Bool, dist: F32, cx: F32, cy: F32, near: F32, far: F32, speed: F32) -> Enemy:
+  side: F32 = Bool.pick(F32, U32.is_eq(U32.mod(enemy.id, 2), 0), 1.0, F32.neg(1.0))
+  wx: F32 = (RS.f_neg(cy) * side : F32)
+  wy: F32 = (cx * side : F32)
+  if Bool.not(seen):
+    wx = 0.0
+    wy = 0.0
+  elif (dist < near : F32):
+    wx = RS.f_neg(cx)
+    wy = RS.f_neg(cy)
+  elif (dist > far : F32):
+    wx = cx
+    wy = cy
+  (e2: Enemy, moved: F32) = foes.walk(enemy, room, barred, mover, r, wx, wy, speed)
+  e2
+
+def critters.fire(shots: J.Val, x: F32, y: F32, angle: F32, speed: F32, kind: String, damage: U32, ttl: U32) -> J.Val:
+  J.push(shots, patterns.Projectile.fresh(x, y, (F32.cos(angle) * speed : F32), (F32.sin(angle) * speed : F32), True{}, kind, damage, ttl, patterns.ShotTraits.default()))
+
+def critters.crit_push(deeds: Deeds, key: String, v: J.Val) -> Deeds:
+  deeds.crit = J.set(deeds.crit, key, J.push(J.get(deeds.crit, key), v))
+  deeds
+
+# The last shot a knight made that a mirrorling can copy.
+def critters.seen_shot(shots: J.Val) -> J.Val:
+  items: [J.Val] = List.reverse(&2, J.Val, J.items(shots))
+  for s: Projectile in items:
+    if Bool.and(Bool.and(Bool.not(s.hostile), U32.is_gt(s.ttl, 0)), Bool.and(U32.is_eq(s.traits.back, 0), Bool.not(String.eq(s.kind, "sacred")))):
+      return s
+  J.JNull{}
+
+# One of the third company's steps. False for any other monster.
+# Answers (enemy, shots, deeds, handled).
+def critters.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds, Bool):
+  kind: String = enemy.kind
+  if Bool.not(critters.EnemyKind.critter(kind)):
+    return (enemy, shots, deeds, False{})
+  target: (F32, F32)? = cb.nearest2(heroes, enemy.x, enemy.y)
+  seen: Bool = Maybe.is_some(&2, Sigma<&2, &2, F32, _ => F32>, target)
+  tx: F32 = enemy.x
+  ty: F32 = (enemy.y + 1.0 : F32)
+  match (target : (F32, F32)?):
+    case Some{t: (F32, F32)}:
+      (tx, ty) = t
+    case None{}:
+      tx = tx
+  &(cx: F32, cy: F32) = rules.unit((tx - enemy.x : F32), (ty - enemy.y : F32))
+  dist: F32 = cb.hyp((tx - enemy.x : F32), (ty - enemy.y : F32))
+  mover: U32 = foes.mover(kind)
+  r: F32 = monsters.Enemy.radius(enemy)
+  enemy.timer = RS.u_sat_add(enemy.timer, 1)
+  beat: U32 = RS.u_sat_add(enemy.timer, RS.u_sat_mul(enemy.id, 7))
+  if Bool.or(String.eq(kind, "biter"), String.eq(kind, "shard")):
+    circle: F32 = Bool.pick(F32, String.eq(kind, "biter"), 3.6, 4.5)
+    speed: F32 = Bool.pick(F32, String.eq(kind, "biter"), 5.2, 7.2)
+    pounce: F32 = Bool.pick(F32, String.eq(kind, "biter"), 17.0, 19.0)
+    if U32.is_eq(enemy.stage, 0):
+      wobble: F32 = (F32.sin((cb.f(enemy.age) * 0.25 + cb.f(enemy.id) : F32)) * 0.9 : F32)
+      side: F32 = Bool.pick(F32, U32.is_eq(U32.mod(enemy.id, 2), 0), 1.0, F32.neg(1.0))
+      wx: F32 = (RS.f_neg(cy) * side + cx * 0.2 : F32)
+      wy: F32 = (cx * side + cy * 0.2 : F32)
+      if (dist > (circle + 1.0 : F32) : F32):
+        wx = (cx - cy * wobble : F32)
+        wy = (cy + cx * wobble : F32)
+      &(ux: F32, uy: F32) = rules.unit(wx, wy)
+      if seen:
+        (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, ux, uy, speed)
+      if Bool.and(Bool.and(U32.is_ge(enemy.timer, (60 + U32.mod(enemy.id, 7) * 8 : U32)), seen), (dist < 10.0 : F32)):
+        enemy.stage = 1
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_lt(enemy.timer, (critters.BITER_CROUCH() - 2 : U32)):
+        enemy.dir = (cx, cy)
+      if U32.is_ge(enemy.timer, critters.BITER_CROUCH()):
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      (ddx: F32, ddy: F32) = enemy.dir
+      (enemy, moved: F32) = foes.walk(enemy, room, barred, mover, r, ddx, ddy, pounce)
+      if Bool.or(U32.is_ge(enemy.timer, critters.BITER_POUNCE()), (moved < (pounce * rules.DT() * 0.3 : F32) : F32)):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "mole"):
+    if U32.is_eq(enemy.stage, 0):
+      if Bool.and(U32.is_ge(enemy.timer, 44), seen):
+        enemy.stage = 1
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 1):
+      (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, cx, cy, 7.0)
+      if Bool.or(U32.is_ge(enemy.timer, 36), Bool.and(seen, (dist < 1.2 : F32))):
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, critters.MOLE_TELL()):
+        deeds = critters.crit_push(deeds, "erupts", cb.of_pair(enemy.x, enemy.y))
+        deeds = foes.cue(deeds, "mole_erupt")
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "pavise"):
+    if U32.is_eq(enemy.stage, 0):
+      if seen:
+        enemy.dir = (cx, cy)
+        (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, cx, cy, 2.3)
+      if Bool.and(Bool.and(U32.is_ge(enemy.timer, 45), seen), (dist < 3.4 : F32)):
+        enemy.stage = 1
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_ge(enemy.timer, critters.PAVISE_WINDUP()):
+        enemy.stage = 2
+        enemy.timer = 0
+        deeds = critters.crit_push(deeds, "bashes", J.JA{[cb.of_pair(enemy.x, enemy.y), cb.pair_j(enemy.dir)]})
+    elif U32.is_eq(enemy.stage, 2):
+      (ddx: F32, ddy: F32) = enemy.dir
+      (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, ddx, ddy, 9.0)
+      if U32.is_ge(enemy.timer, 6):
+        enemy.stage = 3
+        enemy.timer = 0
+    else:
+      enemy.guard = 0
+      if U32.is_ge(enemy.timer, critters.PAVISE_PANT()):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "leech"):
+    if U32.is_eq(enemy.stage, 0):
+      if seen:
+        (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, cx, cy, 3.2)
+      if Bool.and(Bool.and(U32.is_ge(enemy.timer, 40), seen), (dist < 5.0 : F32)):
+        enemy.stage = 1
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_lt(enemy.timer, (critters.LEECH_REAR() - 3 : U32)):
+        enemy.dir = (cx, cy)
+      if U32.is_ge(enemy.timer, critters.LEECH_REAR()):
+        enemy.stage = 2
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 2):
+      (ddx: F32, ddy: F32) = enemy.dir
+      (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, ddx, ddy, 15.0)
+      if Bool.and(seen, (dist < (r + rules.HERO_RADIUS() + 0.2 : F32) : F32)):
+        enemy.stage = 3
+        enemy.timer = 0
+      elif U32.is_ge(enemy.timer, critters.LEECH_LUNGE()):
+        enemy.stage = 0
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 3):
+      if seen:
+        enemy.x = (tx + 0.15 : F32)
+        enemy.y = (ty - 0.25 : F32)
+      else:
+        enemy.stage = 0
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, 40):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "marksman"):
+    if U32.is_eq(enemy.stage, 0):
+      blind: Bool = Bool.and(seen, Bool.not(critters.clear_line(room, barred, enemy.x, enemy.y, tx, ty)))
+      if blind:
+        (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, cx, cy, 2.4)
+      else:
+        enemy = critters.keep_off(enemy, room, barred, mover, r, seen, dist, cx, cy, 10.0, 16.0, 2.0)
+      if Bool.and(Bool.and(U32.is_ge(enemy.timer, (80 + U32.mod(enemy.id, 5) * 8 : U32)), seen), Bool.and((dist < 24.0 : F32), critters.clear_line(room, barred, enemy.x, enemy.y, tx, ty))):
+        enemy.stage = 1
+        enemy.timer = 0
+        enemy.dir = (cx, cy)
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_lt(enemy.timer, critters.AIM_LOCK()):
+        enemy.dir = (cx, cy)
+      if U32.is_ge(enemy.timer, critters.AIM_TICKS()):
+        (ddx: F32, ddy: F32) = enemy.dir
+        shots = critters.fire(shots, enemy.x, enemy.y, RS.f_atan2(ddy, ddx), 30.0, "bolt", 26, (3 * rules.HZ() : U32))
+        deeds = foes.cue(deeds, "marksman_shot")
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, 22):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "mirrorling"):
+    held: U32 = U32.and(enemy.stage, 7)
+    casting: Bool = U32.is_ne(U32.and(enemy.stage, 8), 0)
+    if Bool.not(casting):
+      enemy = critters.keep_off(enemy, room, barred, mover, r, seen, dist, cx, cy, 7.0, 11.0, 3.0)
+      seen_shot: Projectile = critters.seen_shot(shots)
+      if Bool.not(J.is_null(seen_shot)):
+        code: U32 = 1
+        if String.eq(seen_shot.kind, "bolt"):
+          code = 2
+        if String.eq(seen_shot.kind, "ball"):
+          code = 3
+        enemy.stage = code
+        enemy.dir = (cb.hyp(seen_shot.vx, seen_shot.vy), cb.f(seen_shot.damage))
+      elif Bool.and(Bool.and(U32.is_ne(held, 0), U32.is_ge(enemy.timer, 100)), Bool.and(seen, (dist < 20.0 : F32))):
+        enemy.stage = U32.or(enemy.stage, 8)
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, critters.MIRROR_FLASH()):
+        skind: String = "arrow"
+        if U32.is_eq(held, 2):
+          skind = "bolt"
+        if U32.is_eq(held, 3):
+          skind = "ball"
+        (d0: F32, d1: F32) = enemy.dir
+        speed: F32 = RS.f_clamp(d0, 8.0, 20.0)
+        damage: U32 = RS.u_clamp((RS.f_as_u32(d1) / 2 : U32), 8, 18)
+        aim: F32 = RS.f_atan2((ty - enemy.y : F32), (tx - enemy.x : F32))
+        shots = critters.fire(shots, enemy.x, enemy.y, aim, speed, skind, damage, (4 * rules.HZ() : U32))
+        deeds = foes.cue(deeds, "mirror_copy")
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "spitter"):
+    if U32.is_eq(enemy.stage, 0):
+      enemy = critters.keep_off(enemy, room, barred, mover, r, seen, dist, cx, cy, 6.5, 10.0, 2.4)
+      if Bool.and(Bool.and(U32.is_ge(enemy.timer, (72 + U32.mod(enemy.id, 5) * 7 : U32)), seen), (dist < 17.0 : F32)):
+        enemy.stage = 1
+        enemy.timer = 0
+        enemy.dir = (tx, ty)
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_ge(enemy.timer, critters.SPIT_SWELL()):
+        deeds = critters.crit_push(deeds, "globs", J.JA{[cb.of_pair(enemy.x, enemy.y), cb.pair_j(enemy.dir)]})
+        deeds = foes.cue(deeds, "spitter_spit")
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, 18):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "ringer"):
+    if U32.is_eq(enemy.stage, 0):
+      enemy = critters.keep_off(enemy, room, barred, mover, r, seen, dist, cx, cy, 9.0, 13.0, 2.2)
+      if Bool.and(U32.is_ge(enemy.timer, (100 + U32.mod(enemy.id, 4) * 9 : U32)), seen):
+        enemy.stage = 1
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_ge(enemy.timer, critters.BELL_RAISE()):
+        deeds = critters.crit_push(deeds, "rings", J.JA{[J.of_f32(enemy.x), J.of_f32(enemy.y), J.of_u32(enemy.id)]})
+        deeds = foes.cue(deeds, "bell_rung")
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, 22):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "geode"):
+    if U32.is_eq(enemy.stage, 0):
+      if seen:
+        (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, cx, cy, 1.6)
+      if Bool.and(Bool.and(U32.is_ge(enemy.timer, (96 + U32.mod(enemy.id, 5) * 8 : U32)), seen), (dist < 15.0 : F32)):
+        enemy.stage = 1
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_ge(enemy.timer, critters.GEODE_GLOW()):
+        turn: F32 = (cb.f(U32.mod(beat, 12)) * 0.1 : F32)
+        for i: U32 in cb.range(8):
+          a: F32 = (turn + cb.f(i) * cb.TAU() / 8.0 : F32)
+          shots = critters.fire(shots, enemy.x, enemy.y, a, 6.5, "orb", 11, (5 * rules.HZ() : U32))
+        deeds = foes.cue(deeds, "geode_burst")
+        enemy.stage = 2
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, 24):
+        enemy.stage = 0
+        enemy.timer = 0
+  elif String.eq(kind, "hound"):
+    if U32.is_eq(enemy.stage, 0):
+      side: F32 = Bool.pick(F32, U32.is_eq(U32.mod(enemy.id, 2), 0), 1.0, F32.neg(1.0))
+      wx: F32 = (RS.f_neg(cy) * side : F32)
+      wy: F32 = (cx * side : F32)
+      if Bool.not(seen):
+        wx = 0.0
+        wy = 0.0
+      elif (dist > 9.0 : F32):
+        wx = cx
+        wy = cy
+      elif (dist < 5.0 : F32):
+        wx = RS.f_neg(cx)
+        wy = RS.f_neg(cy)
+      (enemy, mv: F32) = foes.walk(enemy, room, barred, mover, r, wx, wy, 5.2)
+      if Bool.and(Bool.and(U32.is_ge(enemy.timer, (66 + U32.mod(enemy.id, 5) * 6 : U32)), seen), (dist < 17.0 : F32)):
+        enemy.stage = 1
+        enemy.timer = 0
+        enemy.dir = (cx, cy)
+    elif U32.is_eq(enemy.stage, 1):
+      if U32.is_lt(enemy.timer, critters.HOUND_LOCK()):
+        enemy.dir = (cx, cy)
+      if U32.is_ge(enemy.timer, critters.HOUND_CROUCH()):
+        enemy.stage = 2
+        enemy.timer = 0
+    elif U32.is_eq(enemy.stage, 2):
+      (ddx: F32, ddy: F32) = enemy.dir
+      (enemy, moved: F32) = foes.walk(enemy, room, barred, mover, r, ddx, ddy, 22.0)
+      deeds = critters.crit_push(deeds, "rams", J.JA{[J.of_f32(enemy.x), J.of_f32(enemy.y), J.of_f32((r + 0.7 : F32)), cb.of_pair(ddx, ddy)]})
+      if U32.is_eq(U32.mod(enemy.timer, 4), 0):
+        shots = critters.fire(shots, enemy.x, enemy.y, 0.0, 0.0, "ember", 8, 50)
+      if Bool.or(U32.is_ge(enemy.timer, critters.HOUND_RUSH()), (moved < (22.0 * rules.DT() * 0.3 : F32) : F32)):
+        enemy.stage = 3
+        enemy.timer = 0
+    else:
+      if U32.is_ge(enemy.timer, 38):
+        enemy.stage = 0
+        enemy.timer = 0
+  (enemy, shots, deeds, True{})

@@ -1,0 +1,76 @@
+# crates/delve/src/rules/knights.rs — the knights a player may take into the Delve.
+# `knights::COMPANY` is generated into knights_data.bend (`knights.company(i)`).
+
+# The index of the company's knight `id`, or the length when none.
+def knights.index(id: String) -> U32:
+    i: U32 = 0
+    while U32.is_lt(i, knights.company.len()):
+        if String.eq(J.str(J.get(knights.company(i), "id")), id):
+            return i
+        i = (i + 1 : U32)
+    return knights.company.len()
+
+# `knight(id)`: the company's knight (an object), or null.
+def knights.knight(id: String) -> J.Val:
+    return knights.company(knights.index(id))
+
+def knights.knight_max_hp(id: String) -> U32?:
+    k: J.Val = knights.knight(id)
+    if J.is_null(k):
+        return None{}
+    return Some{core.u(k, "max_hp")}
+
+# Whether spell `id` is one a kit of the company carries in.
+def knights.kit_spell(id: String) -> Bool:
+    i: U32 = 0
+    while U32.is_lt(i, knights.company.len()):
+        for s: J.Val in J.items(J.get(knights.company(i), "spells")):
+            if String.eq(J.str(s), id):
+                return True{}
+        i = (i + 1 : U32)
+    return False{}
+
+# Which of a house's knights wears this kit.
+def knights.Knight.slot(k: J.Val) -> U32:
+    i: U32 = knights.index(core.s(k, "id"))
+    if U32.is_ge(i, knights.company.len()):
+        return 0
+    return i
+
+# The kit as a calling, for a house knight who wears it.
+def knights.Knight.class(k: J.Val) -> String:
+    if String.starts_with(core.s(k, "name"), "the "):
+        return core.s(k, "name")
+    return core.s(k, "title")
+
+# The wearer's name: the house's knight, or the Keep's own.
+def knights.Knight.name_for(k: J.Val, house: String?) -> String:
+    match (house : String?):
+        case Some{key: String}:
+            match (houses.knight_name(key, knights.Knight.slot(k)) : String?):
+                case Some{n: String}:
+                    return n
+                case None{}:
+                    return core.s(k, "name")
+        case None{}:
+            return core.s(k, "name")
+
+# The knight's own name, from their house (or the Keep's household).
+def knights.Hero.knight_name(h: J.Val) -> String?:
+    id: J.Val = J.get(h, "knight")
+    if J.is_null(id):
+        return None{}
+    kit: J.Val = knights.knight(J.str(id))
+    if J.is_null(kit):
+        return None{}
+    house: J.Val = J.get(h, "house")
+    if J.is_null(house):
+        return Some{knights.Knight.name_for(kit, None{})}
+    return Some{knights.Knight.name_for(kit, Some{J.str(house)})}
+
+# The colours this knight wears over the realm's red.
+def knights.Hero.colours(h: J.Val) -> J.Val:
+    id: J.Val = J.get(h, "knight")
+    if J.is_null(id):
+        return J.JA{Nil{}}
+    return core.or_else(J.get(knights.knight(J.str(id)), "colours"), J.JA{Nil{}})

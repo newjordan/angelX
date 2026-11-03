@@ -4,7 +4,6 @@ angelX is a terminal coding agent. It works inside your repository with the
 models you choose, asks before it runs a command or edits a file, checks its
 work before it reports done, and keeps what it learns about your project.
 
-
 ![angelX starting on GLM-5.3: Excalibur raised, the knight on the summit](docs/images/intro.png)
 
 ```sh
@@ -19,6 +18,11 @@ connects one: Ollama, LM Studio, llama.cpp or vLLM on this machine, an API key,
 or a ChatGPT or Grok plan login. Type `/setup` in angelX (or run `angelX setup`) to change it later,
 and `angelX update` installs the latest release.
 
+Every prebuilt install also installs glass, angelX's own terminal
+([crates/term](crates/term)), linked as `glass` next to `angelX`. The installer
+never replaces a `glass` you already have. Run angelX inside glass and pictures,
+video and charts show in the terminal too.
+
 To build from source instead, you need Rust/Cargo, C/C++ tools, Bash, Node.js
 and Python 3 (on macOS: `xcode-select --install`, then Rust from https://rustup.rs):
 
@@ -28,155 +32,18 @@ cd angelX
 ./bin/angelX
 ```
 
+Source launches use the incremental `fast` profile. Use `ANGEL_FAST=0 ./bin/angelX`
+for a release build, or `ANGEL_NO_BUILD=1 ./bin/angelX` to reopen the existing fast
+binary without compiling. The first fast build warms its own cache; later edits
+reuse it. See the [development workflow](CONTRIBUTING.md#setup).
+
+To compile with Blaze instead of Cargo, install it once with
+`python3 scripts/runtime/install-blaze.py`, then launch with
+`ANGEL_BUILD_BACKEND=blaze ./bin/angelX`.
+
 [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
-[Feature evidence](docs/FEATURES.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE) ·
+[Feature evidence](docs/FEATURES.md) · [Backup and peer watch](docs/BACKUP.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE) ·
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
-
-## New in 0.2.5
-
-angelX opens in its own window. Whatever the agent shows (a picture, a video
-with its sound, a page, a chart, a 3D model) opens full size in a clear panel
-above the work, and the Delve goes back to the black dungeon.
-[Release notes](docs/RELEASE_0.2.5.md).
-
-![The showcase over the cockpit: Knight Shift playing in a clear glass panel, a squire seated on its roof](docs/images/release-0.2.5.png)
-
-**Glass.** On a desktop `angelX` opens in a GPU window of its own, drawn by
-angelX with Vulkan on Linux and Metal on macOS, from a launcher or a terminal;
-`--term` keeps it in the terminal, and where no window can open it stays there
-and says why.
-
-**The showcase.** Pictures zoom and pan, video plays with sound and seeks,
-pages scroll, data becomes a chart and models turn on a lit turntable. A squire
-of the serving house kicks the panel open and rides on its roof; the wizard
-brings the charts and points out their values. [How it works](docs/SHOWCASE.md).
-
-![The wizard points his staff at a point of a chart: its tip reads step 4, loss 1.31](docs/images/showcase/wizard-chart.png)
-
-**The black dungeon.** Dark floors lit by fire and doors, 3D from the fourth
-floor down, three wishes a delve held in check, guardians in stages, a map, a
-party of six, the Peasant and the Bard, the Swamp of Horrors and five Round
-Table adventures: Lanternward, Moonfall, Bannerpeak, Griffinwing and
-Lightgallop.
-
-![The first floor of the Mines in the window: the party band above, the skills bar and map below, the floor lit only by its braziers](docs/images/delve/black-dungeon.png)
-
-**`/dig`.** A cartridge (Linux x86_64) that finds files by what they show or
-say, on this machine. See [Cartridges](docs/CARTRIDGES.md).
-
-## New in 0.2.4
-
-Connecting a model is one menu with a recruit to show the way. The Delve and
-the kingdom are redrawn in one lit, rounded hand, the browser seat gains a card
-sheet, wishes and a volume, and the harness keeps its provider connections and
-stops retrying what cannot succeed. [Release notes](docs/RELEASE_0.2.4.md).
-
-![The /setup menu on its torch-lit scroll, a recruit pointing at the choices, in front of two browser seats: the lit kingdom and Grinwick, the Last Service](docs/images/release-0.2.4.png)
-
-**Connect a model from one menu.** `/setup` lists what this computer already
-has, signs in to a plan through the browser, checks a pasted key before saving
-it, and switches models without a restart. The one-line install adds angelX to
-your PATH itself.
-
-**A new look.** Trees, stones, roofs, fences, water and roads are lit and worn
-at the edges, every plaque, board and health bar is rounded and softly lit,
-and the 3D rooms and race halls shade softly into black.
-
-**Cartridges carry commands.** A cartridge can add a slash command that costs
-nothing until it is typed. The REA cartridge plugs in reverse engineering as
-`/rea <target>`; see [Cartridges](docs/CARTRIDGES.md).
-
-## New in 0.2.3
-
-The Delve moved onto an engine of its own. One link seats a friend in a
-browser or in their own angelX, every player's machine draws its own screen,
-and the same engine holds a crowd of two hundred. Above it, the kingdom became
-one world to walk. [Release notes](docs/RELEASE_0.2.3.md).
-
-![Three browser seats: the kingdom map, a crypt fight with four knights, and a muster of 201 knights](docs/images/engine/seats.png)
-
-**One link plays anywhere.** `/dungeon_host --3` gives one link: opened in a
-browser it is a playable seat with nothing to install, and pasted into angelX
-it plays from the terminal. No picture crosses the network; each seat draws the
-run itself, and your own knight answers your key on the next frame.
-
-**The kingdom is one world.** Walk it from the Keep to the Colosseum, take up a
-class at its hall, race chariots and joust with friends, buy holdings at the
-Court of Deeds, and find a small game around every corner. Below ground the
-first two floors teach before they test, and each floor fights with its own
-patterns.
-
-## New in 0.2.1
-
-The realm grew outward: a castle for every model that serves, rooms of the
-world above the Delve with a dwarf king under it, and a friend can join from a
-browser with nothing installed. [Release notes](docs/RELEASE_0.2.1.md).
-
-<table>
-  <tr>
-    <td width="50%"><img alt="Five castles of the March, a knight at the gate of the serving house" src="docs/images/realm/castles.png"><br><b>The March</b> · sixteen castles, one for each model family. Each model named its castle and six knights, and the knight who serves rides out of the serving model's gate.</td>
-    <td width="50%"><img alt="The Delve's gate: the stair down, the signpost to the mines, the stables and the lists" src="docs/images/realm/gate.png"><br><b>The world above the Delve</b> · every delve starts at the gate. Walk to the stables, the lists and the mine-head, and down.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img alt="King Brannoc on his throne in the King's Hall, the war table of the forges and the Great Forge" src="docs/images/realm/kings-hall.png"><br><b>King Brannoc Onehorn</b> · the last dwarf king of Caer Dwfn gives missions, and the realm pays to rebuild his hall and relight his forges.</td>
-    <td width="50%"><img alt="Two knights charging at each other down the tilt, lances levelled" src="docs/images/realm/joust.png"><br><b>The joust plays</b> · spur, aim high or low, strike as the lances meet, and unhorse Sir Kay, Sir Palamedes and Sir Lancelot.</td>
-  </tr>
-</table>
-
-**A browser link plays.** `/dungeon_host --N --view` gives each friend a link
-that opens a playable seat in a browser: their knight's own view, streamed over
-one connection, keyboard or gamepad. And nine small finds wait in the Delve,
-each calling a companion to walk with you.
-
-## New in 0.2.0
-
-The Delve grew into a realm worth coming home to. Your loops walk it now, and
-the harness underneath got a full repair pass.
-[Release notes](docs/RELEASE_0.2.0.md).
-
-<table>
-  <tr>
-    <td width="50%"><img alt="The Undercroft: Tobbin's forge offers Tobbin's Edge IV, 32% more damage for every knight, for 800 gold, 8 ore and 6 gems" src="docs/images/delve/undercroft.png"><br><b>The Undercroft</b> · every delve starts at home. Spoils carried up the Winding Stair build the forge, the hearth, the chapel and Wren's map table, and what is built stays built.</td>
-    <td width="50%"><img alt="Dame Fortune's wheel mid-spin, her audience on the benches" src="docs/images/delve/fortune-wheel.png"><br><b>Dame Fortune's Wheel</b> · one spin a delve picks how it goes: Lights Out, Giant's Feast, the Collapse, Ironman and ten more ways down.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img alt="Two knights in a sanctuary of the Fungal Deep, among the mushrooms" src="docs/images/delve/fungal-deep.png"><br><b>The deep</b> · the dragon is no longer the bottom. Below it: the Drowned Archive, the Fungal Deep, and the Unknown, where the Grail is.</td>
-    <td width="50%"><img alt="Maud's tavern: the bar, the rumour board, Sir Dinadan's stage and the Siege Perilous" src="docs/images/delve/tavern.png"><br><b>The Siege Perilous</b> · dig out the west wing for Maud's tavern: rounds and songs for the next delve, a knight for hire, rumours, and a chair only the worthy may sit in.</td>
-  </tr>
-  <tr>
-    <td width="50%"><img alt="The Trophy Hall: bronze statuettes on their plinths; the Waxen Warden, felled 12 times, is gilded" src="docs/images/delve/trophy-hall.png"><br><b>The Trophy Hall</b> · every guardian the realm fells stands on its plinth. Fell one ten times and it is gilded.</td>
-    <td width="50%"><img alt="Wren's bounty board: Bone Collector 17 of 25, Ratings 640K of 1.5M, Here Be Dragons 0 of 1" src="docs/images/delve/bounties.png"><br><b>Wren's bounties</b> · three jobs on a board by the stair, paid on the nail.</td>
-  </tr>
-</table>
-
-**Your loop walks the crawl.** While `/loop` runs, the Realm pane walks the
-Delve first-person, floor by floor, with the loop's numbers under it. A
-measurement is a chest found, a stall a guttering torch, and a judged
-submission brings the floor's guardian out of the stone: a beaten record wins
-the fight, anything else is a retreat.
-
-<p>
-  <img alt="The crawl: a skeleton archer in the Mines" src="docs/images/crawl/fight.png" width="32%">
-  <img alt="The crawl: a measurement's chest opens, gold rising" src="docs/images/crawl/chest.png" width="32%">
-  <img alt="The crawl: the floor's guardian blocks the corridor" src="docs/images/crawl/guardian.png" width="32%">
-</p>
-
-**More in the realm**
-
-- **Knights that grow.** Sir Ector teaches a talent at every level, and every knight carries an ultimate on R.
-- **More to find.** Power runes, cracked walls with vaults behind them, cages to open, and the Pit, where the Pit Tyrant keeps the Talisman.
-- **More to fight.** A second company of monsters, the deep's hunters, and floor chiefs whose strength comes from the resources of their floor.
-- **A realm that keeps score.** The Herald's achievements and coffer, Fortune's dares and audience, the Bestiary, and Merlin, who tells you what is worth doing next.
-- **The stables and the lists.** Pick Bramble, Cinder or Mist, tend your mount, and ride three passes against the rival knight: `/dungeon tournament`, or `/world visit stables` in the mini-world.
-- **Loops leave a settlement.** Long loops dig out and furnish new rooms off your hall, and a worker's research report can stand there as an exhibit you walk up to and read: `/dungeon settlement`, `/dungeon deposit <name>`.
-
-**Under the hood**
-
-- **A repair pass across the harness.** 34 reviewed fixes in cancellation, persistence, sandbox boundaries, platform identity, tools and the interface, qualified on macOS and Linux.
-- **A cut-off reply is asked again.** A reply stopped at the output cap goes back to the model instead of standing as the answer.
-- **The compaction helper keeps the turn moving.** With a Treebeard helper model set up, its digests roll in without holding the step, and a helper host that disappears no longer freezes the turn.
-- **A watch on long loops.** A wedged iteration gets a soft check at 30 minutes and a harness-only review at 60.
-- **The research labyrinth.** `/labyrinth` keeps questions, evidence, proofs and refutations on one map that Deli, `/loop`, Sloptomizer and RL campaigns write to. A campaign runs the whole method natively: literature, then attack, then an independent referee who re-runs the checks, then a writer whose edits are checked before they land. The map also picks which rooms your loops dig out next. [Guide](docs/LABYRINTH.md).
 
 ## How it works
 
@@ -208,6 +75,55 @@ the fight, anything else is a retreat.
   <img alt="Loop workshop: time, iterations and token cap" src="docs/images/ui/loop-workshop.png" width="49%">
 </p>
 
+## New in 0.2.7: the Muse Hackathon update
+
+Same model, the maker's own coding agent, all 136 polyglot tasks side by side:
+angelX finishes faster on a fraction of the tokens.
+[Release notes](docs/RELEASE_0.2.7.md).
+
+| polyglot-v1, 2026-11-01 | solved | agent time | median task | input tokens |
+|---|---:|---:|---:|---:|
+| **angelX 0.2.7** · Muse Spark 1.3 | **136 / 136** | **37.2 min** | **14.3 s** | **6.58 M** |
+| Muse Code 1.4.14 · Muse Spark 1.3 | 136 / 136 | 119.8 min | 41.9 s | 26.33 M |
+| **angelX 0.2.7** · Grok 4.7 low | **136 / 136** | **45.6 min** | **16.9 s** | **5.38 M** |
+| Grok CLI 1.0.70 · Grok 4.7 | 135 / 136 | 74.9 min | 28.3 s | 13.68 M |
+
+<sub>Prime Intellect Verifiers v0.3.1 · one attempt per task, 600 s, fresh environment · each tool as it ships; method in the [release notes](docs/RELEASE_0.2.7.md#results).</sub>
+
+**Hands.** On Omarchy the agent sees and works the desktop and a real browser;
+every action asks first. See [Hands](docs/HANDS.md).
+
+**glass, the terminal, in every install.** angelX's own GPU terminal: first
+output in 46 ms (kitty 185), a key reaching the program mid-flood in 3.0 ms
+(kitty 38.6). It ships in the prebuilts and opens media and the mini-viz
+inline. See [glass](docs/GLASS_TERM.md).
+
+**Engineering.** Edit-to-tested went from 24 s to half a second, the
+harness's judgement lives in 44 Bend modules you can change while it runs, and
+Blaze arrives as an experimental build backend.
+
+## From 0.2.5: its own window
+
+angelX opens in its own window, and whatever the agent shows opens full size
+above the work. [Release notes](docs/RELEASE_0.2.5.md).
+
+![The showcase over the cockpit: Knight Shift playing in a clear glass panel, a squire seated on its roof](docs/images/release-0.2.5.png)
+
+**Glass.** On a desktop `angelX` opens in a GPU window of its own, drawn by
+angelX with Vulkan on Linux and Metal on macOS, from a launcher or a terminal;
+`--term` keeps it in the terminal, and where no window can open it stays there
+and says why.
+
+**The showcase.** A picture, a video with its sound, a page, a chart or a 3D
+model opens in a clear panel over the cockpit: pictures zoom and pan, video
+plays and seeks, pages scroll, data becomes a chart and models turn on a lit
+turntable. [How it works](docs/SHOWCASE.md).
+
+![The wizard points his staff at a point of a chart: its tip reads step 4, loss 1.31](docs/images/showcase/wizard-chart.png)
+
+**`/dig`.** A cartridge (Linux x86_64) that finds files by what they show or
+say, on this machine. See [Cartridges](docs/CARTRIDGES.md).
+
 ## In the cockpit
 
 <table>
@@ -228,6 +144,7 @@ the fight, anything else is a retreat.
 ## Features
 
 - **Models and formations** — Choose models and thinking levels, configure teams, and run agent graphs.
+- **Connect a model from one menu** — `/setup` finds what this computer already has, signs in to a plan through the browser, checks a pasted key before saving it, and switches models without a restart.
 - **Repository tools** — Search files, inspect symbols, follow definitions, and review diffs.
 - **Content-checked edits** — Hashline editing checks file content before applying anchored changes.
 - **Programmable tools** — Run tool calls, loops, and filters locally in JavaScript with `code_mode`.
@@ -237,22 +154,12 @@ the fight, anything else is a retreat.
 - **Headless runs** — Record task settings, source identity, tool activity, and acceptance evidence.
 - **Measured campaigns** — Evaluate isolated attempts with verifiers and independent review.
 - **Research loops** — Use Sloptomizer suggestions, Deli deliberation, and paired experiments.
-- **Research labyrinth · 0.2.0** — Native Legend literature, attack, independent referee and checked writer campaigns share research with Deli, measured RL and saved mining plans; gallery, warren and karst variants use the lower tunnels' bounded router. [Guide](docs/LABYRINTH.md).
+- **Research labyrinth** — `/labyrinth` keeps questions, evidence, proofs and refutations on one map; a campaign runs literature, attack, an independent referee and a checked writer. [Guide](docs/LABYRINTH.md).
 - **Measured benchmarks** — Calculate measured changes from paired benchmark samples.
 - **Book of behaviors** — The harness steers the model with compact braille stamps; each stamp's English is taught the first time it appears.
-- **Adventure world model TUI** — Introducing the early stages of Cyberdynamic world tui for reviewing work, presenting data graphs, adventure, and model behavior.
-- **Graph garden · 0.1.9** — Farmers and sprites turn actual `graph` calls into bar, line, and scatter crops on the fields. Visit with `/world visit garden`, inspect with `/world crops`, and begin again to regrow the bed. [Guide and preview](docs/GRAPH_GARDEN.md).
-- **Calibrated seats · 0.1.9** — Muse Spark runs at minimal effort and Grok 4.7 at low, each picked on its hardest benchmark tasks, and playbook hints no longer send a model after a procedure its task rules out.
-- **Live research memory · 0.1.9 line** — Sloptomizer connects ordinary checks and measured experiments through compact `⚠` braille advice. Used legends return when the model changes or context is compacted. Ships in 0.1.92; [ship notes](docs/RELEASE_0.1.9.md).
-- **A working adventure · 0.1.9 line** — The knight follows real loop work through a [3D mine journey](docs/world-adventure.md), with a [School of Magic](docs/world-school.md), study, and underground archive reflecting actual research evidence.
-- **The Delve · 0.1.92** — `/dungeon` walks your knight to the Delve's gate: a co-op knights-vs-monsters dungeon drawn in the realm's own pixel art. Friends join from their own angelX with `/dungeon join`, and cards, spells and wishes load while you play. [Guide](docs/DELVE.md).
-- **Cartridges · 0.1.93** — Plug a competition into the loop as a folder: a `cartridge.toml`, and Rust when it needs more. Yours stay outside the tree. [Guide and figures](docs/CARTRIDGES.md).
-- **The realm under the Delve · 0.2.0** — The Undercroft, Fortune's wheel, the deep and the Grail, Maud's tavern, Sir Ector's lessons, ultimates, runes, the Pit and floor chiefs. [Guide](docs/DELVE.md).
-- **The loop's crawl · 0.2.0** — `/loop` walks the Delve first-person in the Realm pane: measurements are chests, stalls are guttering torches, and a judged submission brings out the floor's guardian. [How it walks](docs/world-adventure.md).
-- **Connected settlement · 0.2.0** — Loops excavate and furnish rooms off your hall; workers' research reports stand there as exhibits. [Release notes](docs/RELEASE_0.2.0.md#loops-leave-a-settlement).
-- **The March · 0.2.1** — One castle for each model family, named with its knights by the model itself; the serving model's knight rides out of its gate. [Model castles](docs/CASTLES.md).
-- **The world above the Delve · 0.2.1** — The gate, the stables, the lists and the mine-head are rooms of the world; King Brannoc's missions, hall and forges; a joust that plays. [Guide](docs/DELVE.md#the-world-above-the-delve).
-- **Browser seats · 0.2.1** — With `/dungeon_host --N --view`, an invitation link plays in a browser with nothing installed. [Guide](docs/DELVE.md).
+- **Cartridges** — Plug a competition, a tool or a slash command into angelX as a folder: a `cartridge.toml`, and Rust when it needs more. Yours stay outside the tree. [Guide](docs/CARTRIDGES.md).
+- **Graph garden** — Farmers and sprites turn actual `graph` calls into bar, line, and scatter crops; `/world crops` reports the exact values. [Guide](docs/GRAPH_GARDEN.md).
+- **World view** — The overworld beside the code shows the agent's work as it happens: the knight rides to what it reads, and a loop's measurements, stalls and judged results walk the Delve. [How it walks](docs/world-adventure.md).
 
 ## Benchmarks
 
@@ -327,6 +234,26 @@ The full GLM cohort took 34.5% longer than OpenCode in the September 21 comparis
 </picture>
 
 <sub>Evaluator: <a href="https://github.com/PrimeIntellect-ai/verifiers">Prime Intellect Verifiers</a> v0.3.1 · angelX 98d7340 · OpenCode 1.18.31 · oh-my-pi 18.2.4 · DeepSeek V4.1 Flash, thinking off · GLM-5.3-Flash, thinking low (lowest available) · temperature 0 · 8,192-token output cap · 600 s per attempt · fresh environment per attempt · 2026-09-21</sub>
+
+## Earlier releases
+
+- **0.2.6** — The Heartglass campaign panel (`/heart`) and the post-edit logic review back as harness advice; settled harness systems under an operator lock. Shipped inside 0.2.7. [Release notes](docs/RELEASE_0.2.6.md).
+- **0.2.5** — angelX opens in its own GPU window, the showcase opens presented work full size above the cockpit, and the Delve returns to the black dungeon with 3D deeper floors. [Release notes](docs/RELEASE_0.2.5.md).
+- **0.2.4** — Connecting a model is one menu (`/setup`), cartridges can carry slash commands (the REA cartridge plugs in reverse engineering as `/rea <target>`), and the harness keeps its provider connections between calls and replaces dead idle ones without a failed call. [Release notes](docs/RELEASE_0.2.4.md).
+- **0.2.3** — Model calls trust Mozilla's bundled roots with the system's, a turn with a deadline can name what it must deliver and the harness holds the answer until it is there, and `proc_run` can start a service that outlives the run. [Release notes](docs/RELEASE_0.2.3.md).
+- **0.2.1** — A spawned seat has no default clock: nothing cuts a seat's train of thought unless you set `timeout_secs`. [Release notes](docs/RELEASE_0.2.1.md).
+- **0.2.0** — A repair pass across the harness: 34 reviewed fixes in cancellation, persistence, sandbox boundaries, platform identity, tools and the interface, qualified on macOS and Linux. A reply cut off at the output cap is asked again, the compaction helper no longer holds the turn, long loops get a soft check at 30 minutes and a review at 60, and the research labyrinth arrives. [Release notes](docs/RELEASE_0.2.0.md).
+
+## Knights Wish
+
+angelX has a game in it: Knights Wish. `/dungeon` walks your knight to the
+Delve, a co-op knights-vs-monsters dungeon in the realm's own pixel art, with a
+kingdom above it, a castle for every model family, and wishes that a model
+writes into the game while you play. A friend joins from a link, in a browser or in their own
+angelX. None of it is needed to use angelX; it is there for when the work is
+done. [The Delve](docs/DELVE.md) · [Model castles](docs/CASTLES.md).
+
+![The first floor of the Mines in the window: the party band above, the skills bar and map below, the floor lit only by its braziers](docs/images/delve/black-dungeon.png)
 
 ## Research and credits
 

@@ -4,6 +4,11 @@
 # name them so: `sfx hit`, `sfx knights-a_cheer_1`, `music music-crypt`.
 # The shell fetches each the first time it is asked for: none of them is
 # part of the first load.
+#
+# A third word `beside` keeps that folder out of the `angel` binary: the
+# binary's host reads it from disk when it opens its door (the package
+# carries the folder beside the binary), and serves what it finds there.
+# crates/web/build.sh copies every folder into its bundle either way.
 - ../../../cockpit/assets/dungeon/sfx
 knights- ../../../cockpit/assets/dungeon/sfx/knights
-music- ../../../cockpit/assets/dungeon/music
+music- ../../../cockpit/assets/dungeon/music beside

@@ -69,6 +69,8 @@ fn a_raised_shot_is_its_low_self_grown_lifted_and_rolling() {
         form: super::super::room_scene::ShotForm::Kind(crate::rules::Shot::Arrow),
         dimension: Dimension::Low,
         mark: super::super::Img::new(1, 1),
+        paint: None,
+        scale: 1.0,
     };
     let (mut low, mut raised) = (Vec::new(), Vec::new());
     super::super::shot_meshes::build(&mut low, 0, &shot, (0.0, 0.0));

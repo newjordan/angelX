@@ -10,8 +10,9 @@
 //! percentile of: making the stage frame (`make`), the core's CPU side of
 //! drawing it (`render`: layers, instances, scenes, the post pass, encoded
 //! and submitted) and the wait for the GPU to finish it (`gpu`), and the
-//! frame's layers, nodes and picture bytes. With `<out.png>` the last frame
-//! is written there.
+//! frame's layers, nodes and picture bytes: those the frame sends, and
+//! those the core writes to the GPU of them (only what changed). With
+//! `<out.png>` the last frame is written there.
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -84,7 +85,7 @@ fn run() -> Result<(), String> {
                 let (x, y) = (hx + dx as f32 * 1.4, hy + dy as f32 * 1.2);
                 if room.tile((x / 2.0) as i32, (y / 2.0) as i32) == Tile::Floor {
                     let card = book.cards[(n * 7) % book.cards.len()].id.clone();
-                    room.items.push(Item { card, x, y, held_off: None, took: Vec::new() });
+                    room.items.push(Item { card, x, y, held_off: None, took: Vec::new(), dropped: 0, owner: None });
                     n += 1;
                     if n >= 16 {
                         break 'rows;
@@ -100,6 +101,7 @@ fn run() -> Result<(), String> {
     let (mut layers, mut nodes, mut bytes, mut shots) = (0usize, 0usize, 0usize, 0usize);
     let warm = 30;
     let mut total_bytes = 0usize;
+    let mut written_from = 0u64;
     let mut by_id: BTreeMap<u32, (usize, usize, (u32, u32))> = BTreeMap::new();
     let mut last = None;
     for k in 0..frames + warm {
@@ -132,6 +134,9 @@ fn run() -> Result<(), String> {
         layers = frame.layers.len();
         nodes = frame.props.as_ref().map_or(0, |p| p.nodes.len());
         bytes = frame.pictures.iter().map(|p| p.rgba.len()).sum();
+        if k == warm {
+            written_from = gpu.core.written_bytes();
+        }
         if k >= warm {
             total_bytes += bytes;
             for p in &frame.pictures {
@@ -181,6 +186,7 @@ fn run() -> Result<(), String> {
         pct(&mut gpu_ms, 0.95),
     );
     println!("pictures uploaded: {:.0} bytes a frame on average; by picture (frames, bytes, size): {:x?}", total_bytes as f64 / frames as f64, by_id);
+    println!("written to the GPU: {:.0} bytes a frame on average", (gpu.core.written_bytes() - written_from) as f64 / frames as f64);
     println!("last frame: {layers} layers, {nodes} prop nodes, {shots} shots, {bytes} picture bytes uploaded");
     if let (Some(out), Some(size)) = (out, last) {
         let pixels = gpu.core.read_back(gpu.target.as_ref().map(|(_, t)| t).ok_or("no target")?, size);

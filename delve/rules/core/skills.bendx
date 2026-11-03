@@ -1,0 +1,11 @@
+# crates/delve/src/rules/skills.rs — the skills every knight carries, beside the weapon and the guard.
+
+# `Kit::default()` as serde writes it.
+def skills.Kit.default() -> J.Val:
+    k: J.Val = J.obj()
+    k = J.set(k, "rest", J.JA{[J.JU{0}, J.JU{0}, J.JU{0}, J.JU{0}, J.JU{0}]})
+    k = core.set_u(k, "held", 0)
+    k = core.set_b(k, "duck", False{})
+    k = core.set_u(k, "valour", 0)
+    k = core.set_u(k, "burning", 0)
+    return core.set_u(k, "fart", 0)

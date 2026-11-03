@@ -25,9 +25,9 @@ pub mod deeds;
 pub mod dressing;
 pub mod glass;
 pub mod ground;
-pub mod ink;
-pub mod kit;
+pub use crate::ink;
 pub mod kingdom;
+pub mod kit;
 pub mod landmarks;
 pub mod light;
 pub mod material;
@@ -360,7 +360,7 @@ pub fn frame_at(scene: &Scene, view: View) -> Img {
             view.h,
         );
     }
-    let mut f = if arena::art_v2::enabled() {arena::art_v2::walk_frame(scene,view)} else {render_view(scene, view)};
+    let mut f = render_view(scene, view);
     light::vignette(&mut f, 0);
     if let Some(g) = &scene.glass {
         let knight = (scene.knight.x, scene.knight.y);
@@ -389,7 +389,7 @@ pub fn frame_cached(scene: &Scene, w: i32, h: i32) -> std::rc::Rc<Img> {
         static LAST: std::cell::RefCell<Option<(u64, std::rc::Rc<Img>)>> =
             const { std::cell::RefCell::new(None) };
     }
-    let key = scene.key() ^ u64::from(arena::art_v2::enabled()).rotate_left(59) ^ ((w as u64) << 40 | (h as u64) << 20).rotate_left(7);
+    let key = scene.key() ^ ((w as u64) << 40 | (h as u64) << 20).rotate_left(7);
     LAST.with(|last| {
         let mut last = last.borrow_mut();
         if let Some((k, img)) = last.as_ref()

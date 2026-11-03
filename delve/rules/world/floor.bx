@@ -1,0 +1,650 @@
+# crates/delve/src/rules/layout.rs — a floor: its rooms and how they join
+# (`impl Floor`), and how a floor is laid (`floor_party`, `build`, the side
+# halls, the vault, the home floor). A Floor is its serde J object.
+
+def layout.Floor.rooms(+floor: J.Val) -> J.Val:
+  J.get(floor, "rooms")
+
+def layout.Floor.room(+floor: J.Val, +i: U32) -> J.Val:
+  J.nth(J.get(floor, "rooms"), i)
+
+def layout.Floor.len(+floor: J.Val) -> U32:
+  J.len(J.get(floor, "rooms"))
+
+# A room's cell on the floor's grid.
+def layout.Room.cell(+room: J.Val) -> LayCell:
+  LayCell{J.u32(J.nth(J.get(room, "cell"), 0)), J.u32(J.nth(J.get(room, "cell"), 1))}
+
+# The index of the room at (x, y), or usize::MAX.
+def layout.Floor.position(+floor: J.Val, +x: U32, +y: U32) -> U32:
+  layout.Floor.position.go(J.items(J.get(floor, "rooms")), x, y, 0)
+
+def layout.Floor.position.go(+rooms: List<&2, J.Val>, +x: U32, +y: U32, +i: U32) -> U32:
+  match rooms as List<&2, J.Val>:
+    case Nil{}:
+      4294967295
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if layout.cell.is(layout.Room.cell(h), x, y):
+        i
+      else:
+        layout.Floor.position.go(t, x, y, (i + 1 : U32))
+
+def layout.Floor.taken(+floor: J.Val, +x: U32, +y: U32) -> Bool:
+  U32.is_ne(layout.Floor.position(floor, x, y), 4294967295)
+
+# The room through door `dir` of room `from`: none where that side has no
+# doorway. (usize::MAX for none; `neighbour` is the Option.)
+def layout.Floor.neighbour_or_max(+floor: J.Val, +from: U32, +dir: U32) -> U32:
+  room: J.Val = layout.Floor.room(floor, from)
+  if Bool.not(layout.Room.door(room, dir)):
+    4294967295
+  else:
+    open: J.Val = J.get(floor, "open")
+    if J.is_null(open):
+      layout.Floor.step_to(floor, room, dir)
+    else:
+      if U32.is_eq(from, J.u32(J.get(open, "map"))):
+        4294967295
+      else:
+        if layout.Floor.open_back(J.items(J.get(open, "doors")), from, dir):
+          J.u32(J.get(open, "map"))
+        else:
+          layout.Floor.step_to(floor, room, dir)
+
+def layout.Floor.step_to(+floor: J.Val, +room: J.Val, +dir: U32) -> U32:
+  LayCell{x: U32, y: U32} of LayCell = layout.Room.cell(room)
+  layout.Floor.position(floor, (x + layout.DX(dir) : U32), (y + layout.DY(dir) : U32))
+
+# A side door of the open map leads from `room` back through `dir`.
+def layout.Floor.open_back(+doors: List<&2, J.Val>, +from: U32, +dir: U32) -> Bool:
+  match doors as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if Bool.and(U32.is_eq(J.u32(J.get(h, "room")), from), U32.is_eq(U32.mod((J.u32(J.get(h, "dir")) + 2 : U32), 4), dir)):
+        True{}
+      else:
+        layout.Floor.open_back(t, from, dir)
+
+def layout.Floor.neighbour(+floor: J.Val, +from: U32, +dir: U32) -> Maybe<&2, U32>:
+  layout.Floor.some_or_none(layout.Floor.neighbour_or_max(floor, from, dir))
+
+def layout.Floor.some_or_none(+i: U32) -> Maybe<&2, U32>:
+  if U32.is_eq(i, 4294967295):
+    None{}
+  else:
+    Some{i}
+
+# Doors from the entrance to every room (usize::MAX where no door leads).
+def layout.Floor.steps(+floor: J.Val) -> List<&2, U32>:
+  n: U32 = layout.Floor.len(floor)
+  if U32.is_eq(n, 0):
+    Nil{}
+  else:
+    layout.Floor.steps.bfs(floor, layout.list.u32_set(layout.list.u32_fill(n, 4294967295), 0, 0), [0], 0)
+
+def layout.Floor.steps.bfs(+floor: J.Val, +dist: List<&2, U32>, +frontier: List<&2, U32>, +d: U32) -> List<&2, U32>:
+  match frontier as List<&2, U32>:
+    case Nil{}:
+      dist
+    case Con{h: U32, t: List<&2, U32>}:
+      (dist2: List<&2, U32>, next: List<&2, U32>) = layout.Floor.steps.level(floor, dist, frontier, d, Nil{})
+      layout.Floor.steps.bfs(floor, dist2, next, (d + 1 : U32))
+
+def layout.Floor.steps.level(+floor: J.Val, +dist: List<&2, U32>, +frontier: List<&2, U32>, +d: U32, +next: List<&2, U32>) -> List<&2, U32> & List<&2, U32>:
+  match frontier as List<&2, U32>:
+    case Nil{}:
+      (dist, next)
+    case Con{h: U32, t: List<&2, U32>}:
+      layout.Floor.steps.dirs(floor, dist, t, d, next, h, 0)
+
+def layout.Floor.steps.dirs(+floor: J.Val, +dist: List<&2, U32>, +rest: List<&2, U32>, +d: U32, +next: List<&2, U32>, +at: U32, +k: U32) -> List<&2, U32> & List<&2, U32>:
+  if U32.is_ge(k, 4):
+    layout.Floor.steps.level(floor, dist, rest, d, next)
+  else:
+    j: U32 = layout.Floor.neighbour_or_max(floor, at, k)
+    if Bool.and(U32.is_ne(j, 4294967295), U32.is_eq(layout.list.u32_nth(dist, j), 4294967295)):
+      layout.Floor.steps.dirs(floor, layout.list.u32_set(dist, j, (d + 1 : U32)), rest, d, List.append(&2, U32, next, [j]), at, (k + 1 : U32))
+    else:
+      layout.Floor.steps.dirs(floor, dist, rest, d, next, at, (k + 1 : U32))
+
+# The room the floor's guardian holds: its stairs, lair or threshold (usize::MAX for none).
+def layout.Floor.guardian_or_max(+floor: J.Val) -> U32:
+  layout.Floor.first_kind(J.items(J.get(floor, "rooms")), 0, ["stairs", "lair", "threshold"])
+
+def layout.Floor.first_kind(+rooms: List<&2, J.Val>, +i: U32, +kinds: List<&2, String>) -> U32:
+  match rooms as List<&2, J.Val>:
+    case Nil{}:
+      4294967295
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if layout.is_kind_in(J.str(J.get(h, "kind")), kinds):
+        i
+      else:
+        layout.Floor.first_kind(t, (i + 1 : U32), kinds)
+
+def layout.Floor.guardian(+floor: J.Val) -> Maybe<&2, U32>:
+  layout.Floor.some_or_none(layout.Floor.guardian_or_max(floor))
+
+# Doors from the entrance to the guardian's room.
+def layout.Floor.stairs_doors(+floor: J.Val) -> U32:
+  g: U32 = layout.Floor.guardian_or_max(floor)
+  if U32.is_eq(g, 4294967295):
+    0
+  else:
+    d: U32 = layout.list.u32_nth(layout.Floor.steps(floor), g)
+    Bool.pick(U32, U32.is_eq(d, 4294967295), 0, d)
+
+def layout.Floor.beside(+floor: J.Val, +room: U32, +showdown: Bool, +guardian: U32, +dir: U32) -> Bool:
+  if U32.is_ge(dir, 4):
+    False{}
+  else:
+    n: U32 = layout.Floor.neighbour_or_max(floor, room, dir)
+    if Bool.and(U32.is_ne(n, 4294967295), layout.Floor.beside.hit(floor, n, showdown, guardian)):
+      True{}
+    else:
+      layout.Floor.beside(floor, room, showdown, guardian, (dir + 1 : U32))
+
+def layout.Floor.beside.hit(+floor: J.Val, +n: U32, +showdown: Bool, +guardian: U32) -> Bool:
+  if showdown:
+    layout.is_kind_in(J.str(J.get(layout.Floor.room(floor, n), "kind")), ["wanted", "pit"])
+  else:
+    U32.is_eq(n, guardian)
+
+# Whether fight room `room` may hold the floor's chief, and how well: lower is
+# better (`chief_rank`).
+def layout.Floor.chief_rank(+floor: J.Val, +room: U32, +steps: List<&2, U32>) -> LayChief:
+  g: U32 = layout.Floor.guardian_or_max(floor)
+  at: U32 = layout.list.u32_nth(steps, room)
+  deep: U32 = Bool.pick(U32, U32.is_eq(g, 4294967295), 0, layout.list.u32_nth(steps, g))
+  doubled: U32 = Bool.pick(U32, U32.is_ge(at, 2147483648), 4294967295, (at * 2 : U32))
+  LayChief{layout.Floor.beside(floor, room, False{}, g, 0), layout.Floor.beside(floor, room, True{}, g, 0), U32.is_lt(at, 2), layout.absdiff(doubled, deep)}
+
+# Whether the floor can ramp (`pacing`): its stairs lie far enough in, and a
+# fight room lies mid-floor for its chief.
+def layout.Floor.ramps(+floor: J.Val) -> Bool:
+  steps: List<&2, U32> = layout.Floor.steps(floor)
+  late: Bool = layout.Floor.showdowns_late(floor, steps, 0, layout.Floor.len(floor))
+  if Bool.and(U32.is_ge(layout.Floor.stairs_doors(floor), 4), late):
+    layout.Floor.ramps.chief(floor, steps, 0, layout.Floor.len(floor))
+  else:
+    False{}
+
+def layout.Floor.showdowns_late(+floor: J.Val, +steps: List<&2, U32>, +i: U32, +n: U32) -> Bool:
+  if U32.is_ge(i, n):
+    True{}
+  else:
+    if layout.is_kind_in(J.str(J.get(layout.Floor.room(floor, i), "kind")), ["wanted", "pit"]):
+      s: U32 = layout.list.u32_nth(steps, i)
+      Bool.and(Bool.and(U32.is_ne(s, 4294967295), U32.is_gt(s, 2)), layout.Floor.showdowns_late(floor, steps, (i + 1 : U32), n))
+    else:
+      layout.Floor.showdowns_late(floor, steps, (i + 1 : U32), n)
+
+def layout.Floor.ramps.chief(+floor: J.Val, +steps: List<&2, U32>, +i: U32, +n: U32) -> Bool:
+  if U32.is_ge(i, n):
+    False{}
+  else:
+    if Bool.and(String.eq(J.str(J.get(layout.Floor.room(floor, i), "kind")), "fight"), U32.is_ne(layout.list.u32_nth(steps, i), 4294967295)):
+      if layout.Floor.ramps.none(layout.Floor.chief_rank(floor, i, steps)):
+        True{}
+      else:
+        layout.Floor.ramps.chief(floor, steps, (i + 1 : U32), n)
+    else:
+      layout.Floor.ramps.chief(floor, steps, (i + 1 : U32), n)
+
+def layout.Floor.ramps.none(+c: LayChief) -> Bool:
+  match c as LayChief:
+    case LayChief{guard: Bool, show: Bool, early: Bool, mid: U32}:
+      Bool.and(Bool.and(Bool.not(guard), Bool.not(show)), Bool.not(early))
+
+# Rooms
+# -----
+
+# A blank room: walls round open floor, the one given doors left shut.
+def layout.room_blank(+cell: LayCell, +kind: String, +cols: U32, +rows: U32, +visited: Bool, +cleared: Bool, +roster: List<&2, String>) -> J.Val:
+  layout.room_json(cell, kind, J.JA{[J.JBool{False{}}, J.JBool{False{}}, J.JBool{False{}}, J.JBool{False{}}]}, cols, rows, layout.grid.rle(layout.grid.walled(cols, rows)), visited, cleared, layout.roster_json(roster), J.JNull{})
+
+def layout.doors_one(+door: U32) -> J.Val:
+  J.JA{[J.JBool{U32.is_eq(door, 0)}, J.JBool{U32.is_eq(door, 1)}, J.JBool{U32.is_eq(door, 2)}, J.JBool{U32.is_eq(door, 3)}]}
+
+# Lay `rows` of art into a grid as ledge halls read them.
+def layout.hall.tile(+c: Char) -> LayTile:
+  match c:
+    case '#':
+      TileBlock{}
+    case '=':
+      TileLedge{}
+    case '~':
+      TileHazard{}
+    case 'D':
+      TileDoor{}
+    case _:
+      TileFloor{}
+
+def layout.hall.row(+s: String) -> List<&2, LayTile>:
+  match s as String:
+    case SNil{}:
+      Nil{}
+    case SCon{c: Char, t: String}:
+      Con{layout.hall.tile(c), layout.hall.row(t)}
+
+def layout.hall.rows(+rows: List<&2, String>) -> List<&2, List<&2, LayTile>>:
+  match rows as List<&2, String>:
+    case Nil{}:
+      Nil{}
+    case Con{h: String, t: List<&2, String>}:
+      Con{layout.hall.row(h), layout.hall.rows(t)}
+
+# The side-on hall at `cell`, its one doorway leading back through `door`.
+def layout.ledge(+cell: LayCell, +door: U32) -> J.Val:
+  art: List<&2, String> = layout.LEDGE()
+  cols: U32 = layout.quad.width(art)
+  g: LayGrid = LayGrid{cols, 14, layout.hall.rows(art)}
+  layout.room_json(cell, "ledge", layout.doors_one(door), cols, 14, layout.grid.rle(g), False{}, False{}, layout.roster_json(["skeleton", "bat", "skeleton", "bat", "bat"]), J.JNull{})
+
+# The Wanted hall at `cell`: the stage in `outlaw::STAGE`, nobody in it yet.
+def layout.wanted(+cell: LayCell, +door: U32) -> J.Val:
+  art: List<&2, String> = layout.OUTLAW_STAGE()
+  cols: U32 = layout.quad.width(art)
+  g: LayGrid = LayGrid{cols, 14, layout.hall.rows(art)}
+  layout.room_json(cell, "wanted", layout.doors_one(door), cols, 14, layout.grid.rle(g), False{}, False{}, layout.roster_json(Nil{}), J.JNull{})
+
+def layout.fill_rects(+g: LayGrid, +rects: List<&2, LayRect>, +t: LayTile) -> LayGrid:
+  match rects as List<&2, LayRect>:
+    case Nil{}:
+      g
+    case Con{h: LayRect, rest: List<&2, LayRect>}:
+      LayRect{c: U32, r: U32, w: U32, hh: U32} of LayRect = h
+      layout.fill_rects(layout.grid.fill_rect(g, c, r, (c + w : U32), (r + hh : U32), t), rest, t)
+
+def layout.set_all(+g: LayGrid, +cells: List<&2, LayCell>, +t: LayTile) -> LayGrid:
+  match cells as List<&2, LayCell>:
+    case Nil{}:
+      g
+    case Con{h: LayCell, rest: List<&2, LayCell>}:
+      LayCell{x: U32, y: U32} of LayCell = h
+      layout.set_all(layout.grid.set(g, x, y, t), rest, t)
+
+# The Pit at `cell`: a plain chamber, bones at its four corners, the Pit Tyrant.
+def layout.pit(+cell: LayCell, +door: U32) -> J.Val:
+  g: LayGrid = layout.set_all(layout.grid.walled(24, 14), [LayCell{3, 2}, LayCell{20, 2}, LayCell{3, 11}, LayCell{20, 11}], TileBlock{})
+  room: J.Val = layout.room_json(cell, "pit", layout.doors_one(4), 24, 14, layout.grid.rle(g), False{}, False{}, layout.roster_json(["pit_tyrant"]), J.JNull{})
+  layout.Room.open_door(room, door)
+
+# The vault at `cell`, its one doorway on `door`: a small treasure room,
+# pillars at its corners, and a chest in its middle with gold heaped round it,
+# or (`snibbet`) only Snibbet, sitting on his sack.
+def layout.vault(+cell: LayCell, +door: U32, +snibbet: Bool) -> J.Val:
+  g: LayGrid = layout.set_all(layout.grid.walled(24, 14), [LayCell{4, 3}, LayCell{19, 3}, LayCell{4, 10}, LayCell{19, 10}], TileBlock{})
+  room: J.Val = layout.room_json(cell, "secret", layout.doors_one(4), 24, 14, layout.grid.rle(g), False{}, True{}, layout.roster_json(Nil{}), J.JNull{})
+  opened: J.Val = layout.Room.open_door(room, door)
+  if snibbet:
+    opened
+  else:
+    layout.vault.furnished(opened)
+
+def layout.vault.furnished(+room: J.Val) -> J.Val:
+  cx: F32 = 24.0
+  cy: F32 = 14.0
+  chest: J.Val = J.set(J.set(J.set(J.obj(), "x", J.JF{cx}), "y", J.JF{cy}), "open", J.JBool{False{}})
+  J.set(J.set(room, "chest", chest), "items", J.JA{layout.vault.gold(0, cx, cy)})
+
+# Eight gold pieces ringed round (cx, cy).
+def layout.vault.gold(+k: U32, +cx: F32, +cy: F32) -> List<&2, J.Val>:
+  if U32.is_ge(k, 8):
+    Nil{}
+  else:
+    a: F32 = (((U32.to_f32(k) / 8.0 : F32) * 6.2831855 : F32))
+    x: F32 = (cx + (F32.cos(a) * 6.0 : F32) : F32)
+    y: F32 = (cy + (F32.sin(a) * 4.0 : F32) : F32)
+    item: J.Val = J.set(J.set(J.set(J.set(J.obj(), "card", J.JS{"gold"}), "x", J.JF{x}), "y", J.JF{y}), "held_off", J.JNull{})
+    Con{item, layout.vault.gold((k + 1 : U32), cx, cy)}
+
+# Whether the Wanted hall and the Ledge hall are laid. In play they are off
+# unless the host's environment asks (`ANGEL_DELVE_WANTED=1`, `ANGEL_DELVE_LEDGE=1`);
+# the Rust tests keep both on. The case harness flips these two.
+def layout.wanted_on() -> Bool:
+  False{}
+
+def layout.ledge_on() -> Bool:
+  False{}
+
+# Whether a room of `kind` may be walked into.
+def layout.hall_open(+kind: String) -> Bool:
+  if String.eq(kind, "ledge"):
+    layout.ledge_on()
+  else:
+    if String.eq(kind, "wanted"):
+      layout.wanted_on()
+    else:
+      True{}
+
+# Hanging a room off a floor
+# --------------------------
+
+def layout.near(+v: U32) -> Bool:
+  U32.is_lt((v + 1 : U32), 7)
+
+def layout.hang_room(+which: U32, +cell: LayCell, +door: U32) -> J.Val:
+  match which:
+    case 0:
+      layout.ledge(cell, door)
+    case 1:
+      layout.wanted(cell, door)
+    case _:
+      layout.pit(cell, door)
+
+def layout.floor_with_rooms(+floor: J.Val, +rooms: List<&2, J.Val>) -> J.Val:
+  J.set(floor, "rooms", J.JA{rooms})
+
+# The fight rooms (not the far room, the treasure or a hall) in index order.
+def layout.hang.fights(+floor: J.Val, +far: U32, +treasure: U32, +halls: List<&2, U32>, +i: U32, +n: U32) -> List<&2, U32>:
+  if U32.is_ge(i, n):
+    Nil{}
+  else:
+    if Bool.and(Bool.and(U32.is_ne(i, far), U32.is_ne(i, treasure)), Bool.and(Bool.not(layout.list.u32_has(halls, i)), String.eq(J.str(J.get(layout.Floor.room(floor, i), "kind")), "fight"))):
+      Con{i, layout.hang.fights(floor, far, treasure, halls, (i + 1 : U32), n)}
+    else:
+      layout.hang.fights(floor, far, treasure, halls, (i + 1 : U32), n)
+
+# Spots a room could hang at: key = rank * 8 + (touches more than one) * 4 + side.
+def layout.hang.spots(+floor: J.Val, +parents: List<&2, U32>, +rank: U32, +acc: List<&2, U32>) -> List<&2, U32>:
+  match parents as List<&2, U32>:
+    case Nil{}:
+      acc
+    case Con{h: U32, t: List<&2, U32>}:
+      layout.hang.spots(floor, t, (rank + 1 : U32), layout.hang.spots.dirs(floor, layout.Room.cell(layout.Floor.room(floor, h)), rank, 0, acc))
+
+def layout.hang.spots.dirs(+floor: J.Val, +cell: LayCell, +rank: U32, +d: U32, +acc: List<&2, U32>) -> List<&2, U32>:
+  if U32.is_ge(d, 4):
+    acc
+  else:
+    LayCell{x: U32, y: U32} of LayCell = cell
+    nx: U32 = (x + layout.DX(d) : U32)
+    ny: U32 = (y + layout.DY(d) : U32)
+    if Bool.or(Bool.or(Bool.not(layout.near(nx)), Bool.not(layout.near(ny))), layout.Floor.taken(floor, nx, ny)):
+      layout.hang.spots.dirs(floor, cell, rank, (d + 1 : U32), acc)
+    else:
+      touching: U32 = layout.hang.touching(floor, nx, ny, 0)
+      key: U32 = (rank * 8 + Bool.to_u32(U32.is_gt(touching, 1)) * 4 + d : U32)
+      layout.hang.spots.dirs(floor, cell, rank, (d + 1 : U32), layout.u32_insert(key, acc))
+
+# How many of the four cells beside (x, y) hold a room.
+def layout.hang.touching(+floor: J.Val, +x: U32, +y: U32, +e: U32) -> U32:
+  if U32.is_ge(e, 4):
+    0
+  else:
+    (Bool.to_u32(layout.Floor.taken(floor, (x + layout.DX(e) : U32), (y + layout.DY(e) : U32))) + layout.hang.touching(floor, x, y, (e + 1 : U32)) : U32)
+
+# Insert into an ascending list.
+def layout.u32_insert(+v: U32, +xs: List<&2, U32>) -> List<&2, U32>:
+  match xs as List<&2, U32>:
+    case Nil{}:
+      [v]
+    case Con{h: U32, t: List<&2, U32>}:
+      if U32.is_le(v, h):
+        Con{v, xs}
+      else:
+        Con{h, layout.u32_insert(v, t)}
+
+def layout.u32_nth_of(+xs: List<&2, U32>, +i: U32) -> U32:
+  layout.list.u32_nth(xs, i)
+
+# Try each spot in order: open the parent's door; if it stays connected, hang
+# the room and stop.
+def layout.hang.try(+floor: J.Val, +parents: List<&2, U32>, +spots: List<&2, U32>, +which: U32) -> J.Val:
+  match spots as List<&2, U32>:
+    case Nil{}:
+      floor
+    case Con{key: U32, rest: List<&2, U32>}:
+      i: U32 = layout.list.u32_nth(parents, U32.shrn(key, 3n))
+      d: U32 = U32.and(key, 3)
+      parent: J.Val = layout.Room.open_door(layout.Floor.room(floor, i), d)
+      if layout.connected(parent):
+        LayCell{x: U32, y: U32} of LayCell = layout.Room.cell(parent)
+        rooms0: J.Val = J.set_nth(layout.Floor.rooms(floor), i, parent)
+        layout.floor_with_rooms(floor, List.append(&2, J.Val, J.items(rooms0), [layout.hang_room(which, LayCell{(x + layout.DX(d) : U32), (y + layout.DY(d) : U32)}, U32.and((d + 2 : U32), 3))]))
+      else:
+        layout.hang.try(floor, parents, rest, which)
+
+# Hang a room off the deepest fight room with a free cell beside it.
+def layout.hang(+floor: J.Val, +dist: List<&2, U32>, +far: U32, +treasure: U32, +halls: List<&2, U32>, +which: U32) -> J.Val:
+  fights: List<&2, U32> = layout.hang.fights(floor, far, treasure, halls, 1, layout.Floor.len(floor))
+  parents: List<&2, U32> = layout.Plan.halls_top(dist, fights, layout.list.u32_len(fights))
+  layout.hang.try(floor, parents, layout.hang.spots(floor, parents, 0, Nil{}), which)
+
+# The Pit: on floors two to five, about half of them.
+def layout.add_pit(+floor: J.Val, +dist: List<&2, U32>, +far: U32, +treasure: U32, +halls: List<&2, U32>) -> J.Val:
+  shape: W.W = layout.pit_shape(J.items(layout.Floor.rooms(floor)), W.of_u32(J.u32(J.get(floor, "depth"))))
+  if U32.is_eq(W.rem_u32(layout.mix(shape), 2), 0):
+    layout.hang(floor, dist, far, treasure, halls, 2)
+  else:
+    floor
+
+def layout.pit_shape(+rooms: List<&2, J.Val>, +h: W.W) -> W.W:
+  match rooms as List<&2, J.Val>:
+    case Nil{}:
+      h
+    case Con{r: J.Val, t: List<&2, J.Val>}:
+      LayCell{x: U32, y: U32} of LayCell = layout.Room.cell(r)
+      layout.pit_shape(t, W.add(W.mul(h, W.of_u32(31)), layout.sext((x * 17 + y : U32))))
+
+# The secret vault
+# ----------------
+
+def layout.secret_shape(+rooms: List<&2, J.Val>, +h: W.W) -> W.W:
+  match rooms as List<&2, J.Val>:
+    case Nil{}:
+      h
+    case Con{r: J.Val, t: List<&2, J.Val>}:
+      LayCell{x: U32, y: U32} of LayCell = layout.Room.cell(r)
+      layout.secret_shape(t, W.add(W.mul(h, W.of_u32(37)), layout.sext((x * 19 + y : U32))))
+
+def layout.Floor.secret_shape(+floor: J.Val) -> W.W:
+  layout.secret_shape(J.items(layout.Floor.rooms(floor)), W.xor(W.of_u32(J.u32(J.get(floor, "depth"))), W.of_u32(6210279)))
+
+# Whether the shape makes a vault with a Snibbet in it.
+def layout.snibbet(+shape: W.W) -> Bool:
+  U32.is_eq(W.rem_u32(layout.mix(W.xor(shape, W.of_u32(94485479))), 3), 0)
+
+# Hang a vault behind a wall of the first of `hosts` with a free side the room
+# can open without cutting itself off.
+def layout.hang_vault(+floor: J.Val, +hosts: List<&2, U32>, +shape: W.W) -> J.Val:
+  match hosts as List<&2, U32>:
+    case Nil{}:
+      floor
+    case Con{i: U32, rest: List<&2, U32>}:
+      f: J.Val = layout.hang_vault.sides(floor, i, 0, shape)
+      layout.hang_vault.next(f, floor, rest, shape)
+
+def layout.hang_vault.next(+f: J.Val, +floor: J.Val, +rest: List<&2, U32>, +shape: W.W) -> J.Val:
+  if J.is_null(f):
+    layout.hang_vault(floor, rest, shape)
+  else:
+    f
+
+# Null if no side of room `i` takes a vault.
+def layout.hang_vault.sides(+floor: J.Val, +i: U32, +side: U32, +shape: W.W) -> J.Val:
+  if U32.is_ge(side, 4):
+    J.JNull{}
+  else:
+    room: J.Val = layout.Floor.room(floor, i)
+    LayCell{x: U32, y: U32} of LayCell = layout.Room.cell(room)
+    nx: U32 = (x + layout.DX(side) : U32)
+    ny: U32 = (y + layout.DY(side) : U32)
+    if Bool.or(Bool.or(layout.Room.door(room, side), Bool.not(layout.near(nx))), Bool.or(Bool.not(layout.near(ny)), layout.Floor.taken(floor, nx, ny))):
+      layout.hang_vault.sides(floor, i, (side + 1 : U32), shape)
+    else:
+      if layout.connected(layout.Room.open_door(room, side)):
+        sn: Bool = layout.snibbet(shape)
+        rooms: List<&2, J.Val> = List.append(&2, J.Val, J.items(layout.Floor.rooms(floor)), [layout.vault(LayCell{nx, ny}, U32.and((side + 2 : U32), 3), sn)])
+        s0: J.Val = J.set(J.set(J.set(J.obj(), "host", J.JU{i}), "side", J.JU{side}), "vault", J.JU{(U32.from_nat(List.length(&2, J.Val, rooms)) - 1 : U32)})
+        secret: J.Val = J.set(J.set(J.set(s0, "found", J.JBool{False{}}), "snibbet", J.JBool{sn}), "paid", J.JBool{False{}})
+        J.set(layout.floor_with_rooms(floor, rooms), "secret", secret)
+      else:
+        layout.hang_vault.sides(floor, i, (side + 1 : U32), shape)
+
+# The first host of the least distance.
+def layout.hosts.sorted(+dist: List<&2, U32>, +xs: List<&2, U32>) -> List<&2, U32>:
+  match xs as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{h: U32, t: List<&2, U32>}:
+      layout.hosts.insert(dist, h, layout.hosts.sorted(dist, t))
+
+def layout.hosts.insert(+dist: List<&2, U32>, +c: U32, +sorted: List<&2, U32>) -> List<&2, U32>:
+  match sorted as List<&2, U32>:
+    case Nil{}:
+      [c]
+    case Con{h: U32, t: List<&2, U32>}:
+      if U32.is_le(layout.list.u32_nth(dist, c), layout.list.u32_nth(dist, h)):
+        Con{c, sorted}
+      else:
+        Con{h, layout.hosts.insert(dist, c, t)}
+
+# Now and then, a vault behind a cracked wall: whether a floor has one is down
+# to the floor's shape.
+def layout.add_secret(+floor: J.Val, +dist: List<&2, U32>, +far: U32, +treasure: U32, +halls: List<&2, U32>) -> J.Val:
+  shape: W.W = layout.Floor.secret_shape(floor)
+  if U32.is_ge(W.rem_u32(layout.mix(shape), 100), 45):
+    floor
+  else:
+    hosts: List<&2, U32> = layout.hang.fights(floor, far, treasure, halls, 1, layout.Floor.len(floor))
+    layout.hang_vault(floor, layout.hosts.sorted(dist, hosts), shape)
+
+# Hollow Walls: a vault on this floor, whatever its shape says.
+def layout.force_secret(+floor: J.Val) -> J.Val:
+  if Bool.or(Bool.not(J.is_null(J.get(floor, "secret"))), U32.is_ge(J.u32(J.get(floor, "depth")), 6)):
+    floor
+  else:
+    layout.hang_vault(floor, layout.kinds_from(floor, 1, "fight"), layout.Floor.secret_shape(floor))
+
+# Indices from `i` of rooms of `kind`.
+def layout.kinds_from(+floor: J.Val, +i: U32, +kind: String) -> List<&2, U32>:
+  if U32.is_ge(i, layout.Floor.len(floor)):
+    Nil{}
+  else:
+    if String.eq(J.str(J.get(layout.Floor.room(floor, i), "kind")), kind):
+      Con{i, layout.kinds_from(floor, (i + 1 : U32), kind)}
+    else:
+      layout.kinds_from(floor, (i + 1 : U32), kind)
+
+# Laying a floor
+# --------------
+
+def layout.floor_new(+depth: U32, +pack: String, +rooms: List<&2, J.Val>) -> J.Val:
+  f0: J.Val = J.set(J.obj(), "depth", J.JU{depth})
+  f1: J.Val = J.set(J.set(J.set(f0, "world_revision", J.JU{0}), "pack", J.JS{pack}), "rooms", J.JA{rooms})
+  J.set(f1, "secret", J.JNull{})
+
+# The kind of cell `i`.
+def layout.build.kind(+i: U32, +depth: U32, +pack: String, +far: U32, +treasure: U32, +halls: List<&2, U32>) -> String:
+  if Bool.and(U32.is_eq(i, 0), U32.is_ge(depth, 2)):
+    "sanctuary"
+  else:
+    if U32.is_eq(i, 0):
+      "start"
+    else:
+      if U32.is_eq(i, far):
+        if U32.is_ge(depth, 6):
+          "threshold"
+        else:
+          if Bool.and(U32.is_eq(depth, 3), Bool.not(String.eq(pack, "swamp"))):
+            "lair"
+          else:
+            "stairs"
+      else:
+        if U32.is_eq(i, treasure):
+          "treasure"
+        else:
+          if layout.list.u32_has(halls, i):
+            "hall"
+          else:
+            "fight"
+
+# The doors of a cell: a neighbouring cell on that side.
+def layout.cell_doors(+cells: List<&2, LayCell>, +x: U32, +y: U32) -> J.Val:
+  J.JA{[J.JBool{layout.cells.has(cells, x, (y + layout.DY(0) : U32))}, J.JBool{layout.cells.has(cells, (x + layout.DX(1) : U32), y)}, J.JBool{layout.cells.has(cells, x, (y + layout.DY(2) : U32))}, J.JBool{layout.cells.has(cells, (x + layout.DX(3) : U32), y)}]}
+
+# Every cell's room, in cell order.
+def layout.build.rooms(+all: List<&2, LayCell>, +rest: List<&2, LayCell>, +i: U32, +depth: U32, +pack: String, +party: U32, +far: U32, +treasure: U32, +halls: List<&2, U32>, +rng: W.W) -> List<&2, J.Val> & W.W:
+  match rest as List<&2, LayCell>:
+    case Nil{}:
+      (Nil{}, rng)
+    case Con{cell: LayCell, t: List<&2, LayCell>}:
+      LayCell{x: U32, y: U32} of LayCell = cell
+      (room: J.Val, rng1: W.W) = layout.room(cell, layout.build.kind(i, depth, pack, far, treasure, halls), layout.cell_doors(all, x, y), depth, pack, party, rng)
+      (rooms: List<&2, J.Val>, rng2: W.W) = layout.build.rooms(all, t, (i + 1 : U32), depth, pack, party, far, treasure, halls, rng1)
+      (Con{room, rooms}, rng2)
+
+# Floor `depth` of `pack` for a party of `party` on the given cells, the
+# entrance first.
+def layout.build(+depth: U32, +pack: String, +party: U32, +rng: W.W, +cells: List<&2, LayCell>) -> J.Val & W.W:
+  plan: LayPlan = layout.Plan.of(cells)
+  LayPlan{dist: List<&2, U32>, far: U32, treasure: U32, halls: List<&2, U32>} of LayPlan = plan
+  (rooms: List<&2, J.Val>, rng1: W.W) = layout.build.rooms(cells, cells, 0, depth, pack, party, far, treasure, halls, rng)
+  floor0: J.Val = layout.floor_new(depth, pack, rooms)
+  floor1: J.Val = layout.build.hang(floor0, depth, dist, far, treasure, halls)
+  (floor1, rng1)
+
+def layout.build.hang(+floor: J.Val, +depth: U32, +dist: List<&2, U32>, +far: U32, +treasure: U32, +halls: List<&2, U32>) -> J.Val:
+  f1: J.Val = layout.build.side(floor, depth, dist, far, treasure, halls)
+  f2: J.Val = if layout.wanted_on():
+    layout.hang(f1, dist, far, treasure, halls, 1)
+  else:
+    f1
+  if U32.is_lt(depth, 6):
+    layout.add_secret(f2, dist, far, treasure, halls)
+  else:
+    f2
+
+# Floor one's ledge hall (when on), the Pit below it.
+def layout.build.side(+floor: J.Val, +depth: U32, +dist: List<&2, U32>, +far: U32, +treasure: U32, +halls: List<&2, U32>) -> J.Val:
+  if U32.is_eq(depth, 1):
+    if layout.ledge_on():
+      layout.hang(floor, dist, far, treasure, halls, 0)
+    else:
+      floor
+  else:
+    if U32.is_lt(depth, 6):
+      layout.add_pit(floor, dist, far, treasure, halls)
+    else:
+      floor
+
+# A floor's cells: tunnels from the third floor, the approach floors' stream above.
+def layout.grow_cells(+depth: U32, +rng: W.W) -> List<&2, LayCell> & W.W:
+  want: U32 = (8 + depth : U32)
+  if U32.is_ge(depth, 3):
+    (rng1: W.W, seed: W.W) = layout.rng.next(rng)
+    (layout.tunnel_cells(layout.tunnel_variant(depth), seed, 5, want), rng1)
+  else:
+    layout.approach_cells(want, rng)
+
+# Lay out floor `depth` of the given pack for a party of `party` knights: its
+# fight rooms and stairs rooms at least `party_room` in size. A floor that
+# cannot ramp is grown again; the first that ramps stands, else the deepest of
+# the tries.
+def layout.floor_party(+depth: U32, +pack: String, +party: U32, +rng: W.W) -> J.Val & W.W:
+  (cells: List<&2, LayCell>, rng1: W.W) = layout.grow_cells(depth, rng)
+  (best: J.Val, rng2: W.W) = layout.build(depth, pack, party, rng1, cells)
+  layout.floor_party.tries(depth, pack, party, best, rng2, 48)
+
+def layout.floor_party.tries(+depth: U32, +pack: String, +party: U32, +best: J.Val, +rng: W.W, +left: U32) -> J.Val & W.W:
+  if U32.is_eq(left, 0):
+    (best, rng)
+  else:
+    if layout.Floor.ramps(best):
+      (best, rng)
+    else:
+      (cells: List<&2, LayCell>, rng1: W.W) = layout.grow_cells(depth, rng)
+      (again: J.Val, rng2: W.W) = layout.build(depth, pack, party, rng1, cells)
+      take: Bool = layout.floor_party.take(again, best)
+      layout.floor_party.tries(depth, pack, party, Bool.pick(J.Val, take, again, best), rng2, (left - 1 : U32))
+
+def layout.floor_party.take(+again: J.Val, +best: J.Val) -> Bool:
+  if layout.Floor.ramps(again):
+    True{}
+  else:
+    U32.is_gt(layout.Floor.stairs_doors(again), layout.Floor.stairs_doors(best))
+
+def layout.floor(+depth: U32, +pack: String, +rng: W.W) -> J.Val & W.W:
+  layout.floor_party(depth, pack, 1, rng)

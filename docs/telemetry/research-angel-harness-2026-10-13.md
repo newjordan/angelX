@@ -37,7 +37,7 @@ forced found a bug no score could name.
   135/136 in 6.9M input tokens vs 67.7M for a peer harness at 132/136).
   Steering moved to Terminal-Bench 2: a frozen selection of 20 tasks +
   `fix-git` smoke + 5 never-tune holdouts, run sharded across two local
-  rigs (Apollo, Turbo) with a glibc-floor binary (cargo-zigbuild
+  rigs (both x86_64 Linux) with a glibc-floor binary (cargo-zigbuild
   `gnu.2.31`, max `GLIBC_2.30`) so the same bytes run in bookworm task
   images. Every trial's agent env pins binary sha256 and source sha256,
   fail-closed, verified again inside the task box.

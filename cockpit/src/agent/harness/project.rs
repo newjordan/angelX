@@ -297,7 +297,7 @@ pub(crate) fn ensure_git_workspace(workspace: &Path) -> Result<PathBuf, String> 
 
     run_git(&canonical_workspace, &["init", "-q"])?;
     let marker = canonical_workspace.join(".angel-workspace");
-    std::fs::write(&marker, "angel shared workspace\n")
+    crate::platform::workspace_store::write_atomic(&marker, b"angel shared workspace\n")
         .map_err(|e| format!("write marker: {e}"))?;
     run_git(&canonical_workspace, &["add", "-A"])?;
     run_git(

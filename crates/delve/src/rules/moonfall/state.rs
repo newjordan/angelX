@@ -204,6 +204,15 @@ impl Knight {
 
 /// Candles a knight starts each dawn with.
 pub const CANDLES: u8 = 3;
+/// Ticks a stout knight leans on a crate before it moves a tile.
+pub const PUSH_TICKS: u32 = 10;
+/// A sidestep: ticks, and the rest before the next.
+pub const ROLL: u32 = 6;
+pub const ROLL_REST: u32 = 40;
+/// Ticks a knight is warded after a wisp's touch.
+pub const WARDED: u32 = 75;
+/// Ticks a snuffed knight lies before the well carries them back.
+pub const DOWN: u32 = 90;
 
 /// Where the knights stand at each dawn: around the Moonwell.
 pub const SPAWN: [(i32, i32); 6] = [(16, 15), (19, 15), (15, 17), (20, 17), (16, 19), (19, 19)];

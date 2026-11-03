@@ -1,6 +1,12 @@
 //! Explicitly configured submission status observation and tool activity classification.
 //! Activity classification supports loop accounting; it does not judge research intent.
 
+#[path = "comp_watch_native.rs"]
+mod activity_native;
+
+pub(super) use activity_native::competition_inventory;
+pub(super) use activity_native::recursive_listing;
+
 use super::*;
 use crate::agent::club::ToolCall;
 use std::io::{self, Write};
@@ -433,8 +439,7 @@ impl SubmissionWatcher {
                     .unwrap_or_default();
                 match status.as_str() {
                     "timeout" | "timed_out" | "timed-out" => SubmissionSlotPhase::TimedOut,
-                    "rejected" | "failed" | "error" | "cancelled" | "canceled"
-                    | "superseded" => {
+                    "rejected" | "failed" | "error" | "cancelled" | "canceled" | "superseded" => {
                         SubmissionSlotPhase::Rejected
                     }
                     _ => SubmissionSlotPhase::Accepted,
@@ -560,11 +565,9 @@ pub(crate) fn open_configured_status_source(workspace: &Path) -> Option<Configur
 /// hex that is not UUID-shaped.
 /// Cheap receipt sniff: only the first 8 KiB, so megabyte `cargo test`
 /// tails never enter UUID extraction on the ordinary hop path.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) const SLOT_HINT_SCAN: usize = 8192;
 
 /// First `SLOT_HINT_SCAN` bytes, backed up to a char boundary. No copy.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn slot_hint_head(text: &str) -> &str {
     if text.len() <= SLOT_HINT_SCAN {
         return text;
@@ -597,7 +600,6 @@ pub(crate) fn ascii_contains_ignore_case(hay: &str, needle: &str) -> bool {
 
 /// True when the first 8 KiB looks like a submit receipt. Ordinary compile
 /// and test logs stay false — no 8 KiB lowercase allocation on that path.
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) fn text_may_carry_slot(text: &str) -> bool {
     let head = slot_hint_head(text);
     ascii_contains_ignore_case(head, "submission queued")
@@ -727,324 +729,19 @@ pub(crate) fn shell_hay_is_git_status(hay: &str) -> bool {
         || hay.contains("git-status ")
 }
 
-fn skip_shell_assignments(hay: &str) -> &str {
-    let mut rest = hay.trim();
-    while let Some((head, tail)) = rest.split_once(char::is_whitespace) {
-        if head.contains('=') && !head.starts_with('-') {
-            rest = tail.trim_start();
-            continue;
-        }
-        break;
-    }
-    rest
-}
-
-fn looks_like_git_ref(token: &str) -> bool {
-    let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
-    if token.is_empty() {
-        return false;
-    }
-    if matches!(
-        token,
-        "HEAD" | "ORIG_HEAD" | "FETCH_HEAD" | "MERGE_HEAD" | "main" | "master"
-    ) {
-        return true;
-    }
-    if token.starts_with("refs/")
-        || token.starts_with("origin/")
-        || token.starts_with("upstream/")
-        || token.contains("..")
-        || token.contains("@{")
-    {
-        return true;
-    }
-
-    token.len() >= 7 && token.len() <= 40 && token.chars().all(|c| c.is_ascii_hexdigit())
-}
-
-/// `git log -- src/kernel.cu` / `git blame src/kernel.cu` /
-/// `git annotate src/kernel.cu` / `git ls-files -- src/kernel.cu` /
-/// `git ls-tree HEAD src/kernel.cu` / `git rev-list HEAD -- src/kernel.cu` /
-/// `git shortlog -- src/kernel.cu` / `git reflog -- src/kernel.cu` /
-/// `git whatchanged -- src/kernel.cu` / `git hash-object src/kernel.cu` /
-/// `git describe -- src/kernel.cu` / `git archive HEAD src/kernel.cu` /
-/// `git diff-tree HEAD -- src/kernel.cu` / `git diff-index HEAD -- src/kernel.cu` /
-/// `git diff-files -- src/kernel.cu` / `git check-attr -- src/kernel.cu` /
-/// `git name-rev HEAD -- src/kernel.cu` / `git check-ignore src/kernel.cu`
-/// is candidate inspect. Pathless `git log` / `git ls-files` / `git ls-tree` /
-/// `git rev-list` / `git shortlog` / `git hash-object` / `git annotate` /
-/// `git diff-index`, refs-only walks, compounds, and board history stay recon.
+#[cfg(test)]
 pub(crate) fn shell_hay_is_product_git_history(hay: &str) -> bool {
-    let hay = hay.trim();
-    if hay.is_empty() || hay_names_board_meta(hay) {
-        return false;
-    }
-    if hay.contains('|')
-        || hay.contains("&&")
-        || hay.contains("||")
-        || hay.contains(';')
-        || hay.contains('`')
-        || hay.contains('\n')
-    {
-        return false;
-    }
-    let rest = skip_shell_assignments(hay);
-    let mut tokens = rest.split_whitespace();
-    let Some(first) = tokens.next() else {
-        return false;
-    };
-    if first.rsplit('/').next().unwrap_or(first) != "git" {
-        return false;
-    }
-    let mut sub = None;
-    let mut skip_next = false;
-    let mut saw_product = false;
-    for token in tokens {
-        let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
-        if skip_next {
-            skip_next = false;
-            continue;
-        }
-        if sub.is_none() {
-            if token == "-C" || token == "--git-dir" || token == "--work-tree" {
-                skip_next = true;
-                continue;
-            }
-            if token.starts_with('-') {
-                continue;
-            }
-            sub = Some(token);
-            continue;
-        }
-        if token.is_empty() || token == "--" || token.starts_with('-') || looks_like_git_ref(token)
-        {
-            continue;
-        }
-        if hay_names_board_meta(token) || is_meta_note_mutation_path(token) {
-            return false;
-        }
-        if shell_inspect_path_is_product(token) {
-            saw_product = true;
-        }
-    }
-    matches!(
-        sub,
-        Some("log")
-            | Some("blame")
-            | Some("annotate")
-            | Some("ls-files")
-            | Some("ls-tree")
-            | Some("shortlog")
-            | Some("rev-list")
-            | Some("reflog")
-            | Some("whatchanged")
-            | Some("hash-object")
-            | Some("describe")
-            | Some("archive")
-            | Some("diff-tree")
-            | Some("diff-index")
-            | Some("diff-files")
-            | Some("check-attr")
-            | Some("name-rev")
-            | Some("check-ignore")
-    ) && saw_product
+    activity_native::classify(hay, 0)
 }
 
-fn git_grep_flag_takes_value(token: &str) -> bool {
-    matches!(
-        token,
-        "-e" | "-f"
-            | "-O"
-            | "-A"
-            | "-B"
-            | "-C"
-            | "-j"
-            | "--max-count"
-            | "--max-depth"
-            | "--threads"
-            | "--open-files-in-pager"
-    ) || token.starts_with("--max-count=")
-        || token.starts_with("--max-depth=")
-        || token.starts_with("--threads=")
-        || (token.starts_with('-')
-            && !token.starts_with("--")
-            && token
-                .bytes()
-                .any(|c| matches!(c, b'e' | b'f' | b'O' | b'A' | b'B' | b'C' | b'j')))
-}
-
-fn git_grep_flag_is_pattern(token: &str) -> bool {
-    token == "-e"
-        || token == "-f"
-        || (token.starts_with('-') && !token.starts_with("--") && token.contains('e'))
-}
-
-/// `git grep stream -- src/kernel.cu` is candidate inspect (submit then
-/// search the file). Pathless `git grep TODO`, a path used as the pattern,
-/// compounds, and board names stay recon.
+#[cfg(test)]
 pub(crate) fn shell_hay_is_product_git_grep(hay: &str) -> bool {
-    let hay = hay.trim();
-    if hay.is_empty() || hay_names_board_meta(hay) {
-        return false;
-    }
-    if hay.contains('|')
-        || hay.contains("&&")
-        || hay.contains("||")
-        || hay.contains(';')
-        || hay.contains('`')
-        || hay.contains('\n')
-    {
-        return false;
-    }
-    let rest = skip_shell_assignments(hay);
-    let mut tokens = rest.split_whitespace();
-    let Some(first) = tokens.next() else {
-        return false;
-    };
-    if first.rsplit('/').next().unwrap_or(first) != "git" {
-        return false;
-    }
-    let mut sub = None;
-    let mut skip_next = false;
-    let mut after_double_dash = false;
-    let mut pattern_consumed = false;
-    let mut saw_product = false;
-    for token in tokens {
-        let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
-        if skip_next {
-            skip_next = false;
-            continue;
-        }
-        if sub.is_none() {
-            if token == "-C" || token == "--git-dir" || token == "--work-tree" {
-                skip_next = true;
-                continue;
-            }
-            if token.starts_with('-') {
-                continue;
-            }
-            sub = Some(token);
-            continue;
-        }
-        if token.is_empty() {
-            continue;
-        }
-        if token == "--" {
-            after_double_dash = true;
-            continue;
-        }
-        if !after_double_dash && token.starts_with('-') {
-            if git_grep_flag_takes_value(token) {
-                skip_next = !token.contains('=');
-            }
-            if git_grep_flag_is_pattern(token) {
-                pattern_consumed = true;
-            }
-            continue;
-        }
-        if !after_double_dash && !pattern_consumed {
-            pattern_consumed = true;
-            continue;
-        }
-        if hay_names_board_meta(token) || is_meta_note_mutation_path(token) {
-            return false;
-        }
-        if shell_inspect_path_is_product(token) {
-            saw_product = true;
-        }
-    }
-    sub == Some("grep") && saw_product
+    activity_native::classify(hay, 1)
 }
 
-fn git_show_is_inventory_listing(hay: &str) -> bool {
-    const LIST_FLAGS: &[&str] = &[
-        "--stat",
-        "--name-only",
-        "--name-status",
-        "--numstat",
-        "--shortstat",
-        "--dirstat",
-        "--summary",
-        "--raw",
-        "--batch",
-        "--batch-check",
-    ];
-    LIST_FLAGS.iter().any(|flag| hay.contains(flag)) || hay.contains(" -- ")
-}
-
-fn git_show_blob_path(token: &str) -> Option<&str> {
-    let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
-    if token.is_empty() || token.starts_with('-') || token.contains("://") {
-        return None;
-    }
-    let (rev, path) = token.split_once(':')?;
-    if rev.is_empty() || path.is_empty() || rev.contains('/') {
-        return None;
-    }
-    Some(path)
-}
-
-/// `git show HEAD:src/kernel.cu` / `git cat-file -p HEAD:src/kernel.cu` /
-/// `git rev-parse HEAD:src/kernel.cu` is candidate inspect (submit then
-/// review the blob). Inventory (`--stat`, `--batch`, `REV -- path`),
-/// pathless dumps, and board blobs stay recon / wait and cannot arm submit.
+#[cfg(test)]
 pub(crate) fn shell_hay_is_product_git_show(hay: &str) -> bool {
-    let hay = hay.trim();
-    if hay.is_empty() || hay_names_board_meta(hay) {
-        return false;
-    }
-    if hay.contains('|')
-        || hay.contains("&&")
-        || hay.contains("||")
-        || hay.contains(';')
-        || hay.contains('`')
-        || hay.contains('\n')
-        || git_show_is_inventory_listing(hay)
-    {
-        return false;
-    }
-    let rest = skip_shell_assignments(hay);
-    let mut tokens = rest.split_whitespace();
-    let Some(first) = tokens.next() else {
-        return false;
-    };
-    if first.rsplit('/').next().unwrap_or(first) != "git" {
-        return false;
-    }
-    let mut sub = None;
-    let mut skip_next = false;
-    let mut saw_product = false;
-    for token in tokens {
-        let token = token.trim_matches(|c| matches!(c, '"' | '\'' | '`'));
-        if skip_next {
-            skip_next = false;
-            continue;
-        }
-        if sub.is_none() {
-            if token == "-C" || token == "--git-dir" || token == "--work-tree" {
-                skip_next = true;
-                continue;
-            }
-            if token.starts_with('-') {
-                continue;
-            }
-            sub = Some(token);
-            continue;
-        }
-        if token.is_empty() || token.starts_with('-') {
-            continue;
-        }
-        let Some(path) = git_show_blob_path(token) else {
-            continue;
-        };
-        if hay_names_board_meta(path) || is_meta_note_mutation_path(path) {
-            return false;
-        }
-        if shell_inspect_path_is_product(path) {
-            saw_product = true;
-        }
-    }
-    matches!(sub, Some("show") | Some("cat-file") | Some("rev-parse")) && saw_product
+    activity_native::classify(hay, 2)
 }
 
 const RUNNER_MARKERS: &[&str] = &[
@@ -1194,25 +891,8 @@ pub(crate) fn is_local_preflight_call(call: &ToolCall) -> bool {
     if is_shell && (shell_hay_is_git_diff(&hay) || shell_hay_is_git_status(&hay)) {
         return !hay_names_board_meta(&hay);
     }
-    // `git log -- src/kernel.cu` / `git blame src/kernel.cu` /
-    // `git annotate src/kernel.cu` / `git ls-files -- src/kernel.cu` /
-    // `git ls-tree HEAD src/kernel.cu` / `git rev-list HEAD -- src/kernel.cu` /
-    // `git shortlog -- src/kernel.cu` / `git hash-object src/kernel.cu` /
-    // `git describe -- src/kernel.cu` / `git diff-index HEAD -- src/kernel.cu` /
-    // `git diff-files -- src/kernel.cu` is the same class as path-scoped
-    // git_log. Pathless dumps and board history stay recon.
-    if is_shell && shell_hay_is_product_git_history(&hay) {
-        return true;
-    }
-    // `git show HEAD:src/kernel.cu` / `git cat-file -p HEAD:src/kernel.cu` /
-    // `git rev-parse HEAD:src/kernel.cu` is candidate blob inspect.
-    // Inventory listings and board blobs stay recon / wait.
-    if is_shell && shell_hay_is_product_git_show(&hay) {
-        return true;
-    }
-    // `git grep stream -- src/kernel.cu` is the same class as path-scoped
-    // grep. Pathless dumps, path-as-pattern, and board names stay recon.
-    if is_shell && shell_hay_is_product_git_grep(&hay) {
+    // Git history, blob inspection and scoped grep share one parse.
+    if is_shell && activity_native::classify(&hay, -1) {
         return true;
     }
     // `cat`/`head` of a product path is the same class as path-scoped read_file.
@@ -1490,7 +1170,7 @@ pub(crate) fn shell_hay_is_product_ls(hay: &str) -> bool {
     {
         return false;
     }
-    if ls_cmd_is_recursive_listing(hay) {
+    if ls_cmd_is_recursive_listing_live(hay) {
         return false;
     }
     let mut tokens = hay.split_whitespace();

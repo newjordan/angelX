@@ -332,8 +332,8 @@ fn frame_of(room: &crate::rules::Room, pack: Pack) -> (Frame, Ripple) {
     let lit = rooms_lit::lit_for(room, pack).expect("lit");
     let size = (room.cols as i32 * 16, room.rows as i32 * 16);
     let world = RoomWorld::lit_world(Arc::clone(&lit), size);
-    let world = RoomWorld { moment: Moment { activity: Activity::Fought, chest: None, time: 0.0, rise: 1.0 }, ..world };
-    let staged = world.lit_staged((8.0, 4.0), ([0.0, 0.0], 1.0), (544.0, 320.0), &[], &|_, _| true).expect("lit");
+    let world = RoomWorld { moment: Moment { activity: Activity::Fought, chest: None, time: 0.0, rise: 1.0, ..Moment::default() }, ..world };
+    let staged = world.lit_staged((8.0, 4.0), ([0.0, 0.0], 1.0), (544.0, 320.0), &[], &|_, _| true);
     let world = World { floor: staged.floor, blocks: staged.blocks, extra: staged.flames, look: Some(staged.look), meshes: staged.meshes, ..Default::default() };
     let frame = Frame { size: (544, 320), tilt: 0.3, props: Some(Props { at: 0, grain: 2, nodes: Vec::new(), world: Some(world) }), ..Default::default() };
     (frame, Ripple::centre(size.0 as f32, size.1 as f32))

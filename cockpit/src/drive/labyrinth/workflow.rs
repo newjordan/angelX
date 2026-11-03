@@ -318,6 +318,7 @@ fn publish(workspace: &Path, path: &str, bytes: &[u8]) -> Result<(), String> {
 
 /// Retain the final message byte-for-byte and every named piece of agent code
 /// and data. The index is published last; no incomplete archive is consumable.
+#[allow(dead_code)] // campaign tests call this; the bin's live path does not yet
 pub(crate) fn archive_report(
     workspace: &Path,
     campaign_id: &str,
@@ -2080,11 +2081,13 @@ pub(crate) fn frontier_status(frontier: &Value, sota: Option<&Value>) -> Result<
                 "frontier needs bounded sizes",
             )
         })?;
-    let mut seen = BTreeSet::new();
+    // The validated size index also avoids scanning all rows for each SOTA
+    // binding. Keep it local to this exact frontier snapshot.
+    let mut sizes_by_value = BTreeMap::new();
     let mut summary = Vec::new();
     for row in sizes {
         let size = integer(&row["size"], "size")?;
-        if !seen.insert(size) {
+        if sizes_by_value.insert(size, row).is_some() {
             return Err(error("frontier_schema", None, "duplicate frontier size"));
         }
         let lo = integer(&row["lo"], "lo")?;
@@ -2245,9 +2248,8 @@ pub(crate) fn frontier_status(frontier: &Value, sota: Option<&Value>) -> Result<
                         )
                     })?;
                 let value = integer(&binding["value"], "SOTA bound")?;
-                let row = sizes
-                    .iter()
-                    .find(|row| row["size"] == size)
+                let row = sizes_by_value
+                    .get(&size)
                     .ok_or_else(|| {
                         error(
                             "sota_frontier",

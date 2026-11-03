@@ -66,7 +66,7 @@
     "delivery crop warnings",
     "piece-count mismatch"
   ],
-  "map_sha256": "df8466db2f45ee25671eb0a7caa9adb8740929260fdf2cfb9b928662c978790e",
+  "map_sha256": "6271ce1756a72078b8d80f42e55917f81102ca872c513328297c50e68e1f8521",
   "metadata_sha256": "c90636f86bbac6e79e6bfe37ece6e958ee27a56486be26c10289288ba81012b4",
   "notes_sha256": "b43ecfb6ffa6c160dbeb39791cc2f3f4ff820830bfa77d71c9a44a318984d569",
   "outputs": {
@@ -533,7 +533,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "cinder.impact",
-  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.impact/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/slot-int-a/prepared/cinder.impact/source-sheet.png",
   "source_sha256": "6e41ab1944e9acb9f21a3bac47ed589586b394ec3bdfb2d19f0cfeef1ef393fb",
   "tool_version": 2
 }

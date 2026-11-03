@@ -68,7 +68,7 @@
     "weak v1 cell silhouette",
     "weak v2 silhouette"
   ],
-  "map_sha256": "6bddbca34cbf8f4021439823c595609990eab117a7aefcc40ceae9663f4bde79",
+  "map_sha256": "c2d3b0cc614fd3f77acc926c8e5a2b750e1961b9748983c8fefb0dcdf824354a",
   "metadata_sha256": "8a38f603d35a7aef0c6c408ab99feeb231e97bc77a24a80719134d585776d44f",
   "notes_sha256": "220084adfe8bd75eb71079424d810ca31a428d58e057dd864c14ef8189628f41",
   "outputs": {
@@ -535,7 +535,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "latch.clash",
-  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/latch.clash/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/slot-int-a/prepared/latch.clash/source-sheet.png",
   "source_sha256": "a9a982d1b937ce3bfef42d1d3ed7ad34bf7bc8c5bfa5c909c9b62672cdfd1508",
   "tool_version": 2
 }

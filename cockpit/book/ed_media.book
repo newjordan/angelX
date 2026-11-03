@@ -1,0 +1,114 @@
+@@book-page 1@@
+Use this when asked to show work, images, videos, or reports: image/video displays a local artifact; resource/report displays a local UTF-8 document (including Markdown, source, CSV, or JSON).
+@@book-page 1@@
+Keep the artifact's actual path and a descriptive label; do not substitute example work.
+@@book-page 1@@
+image/video = local terminal-native preview; resource/report = local UTF-8 document; link/graph = exact URL or local report
+@@book-page 1@@
+Short label shown on the card.
+@@book-page 1@@
+Actual local artifact path (relative to the active workspace or absolute), or an exact http(s) URL for a link.
+@@book-page 2@@
+Use before planning an edit so clip math is grounded in real container facts.
+@@book-page 2@@
+media file, workspace-relative
+@@book-page 3@@
+Cut points should snap to these beats — music owns time.
+@@book-page 3@@
+Analyze a music track and return its beat grid as JSON: estimated BPM, beat timestamps, onset (transient) timestamps, and windowed RMS energy so you can hear where phrases and the crescendo live.
+@@book-page 3@@
+audio file, workspace-relative
+@@book-page 3@@
+seconds per energy window (default 5)
+@@book-page 4@@
+Beat-snap the boundaries yourself using video_beats output — this tool renders exactly what you specify.
+@@book-page 4@@
+Give clips as {path, in, out} (seconds) in timeline order; segment boundaries are joined with a crossfade of `fade` seconds (0 = hard cuts).
+@@book-page 4@@
+source in-point, seconds
+@@book-page 4@@
+source out-point, seconds
+@@book-page 4@@
+destination mp4, workspace-relative
+@@book-page 4@@
+optional audio bed, workspace-relative
+@@book-page 4@@
+seconds into the music to start (default 0)
+@@book-page 4@@
+crossfade seconds between clips (default 0 = hard cuts)
+@@book-page 4@@
+audio fade-out length at the end (default 1.0)
+@@book-page 4@@
+output width (default: first clip's)
+@@book-page 5@@
+Feed the sheet to video_look for a machine read, or present() it to the director for circle/selects decisions.
+@@book-page 5@@
+video file, workspace-relative
+@@book-page 5@@
+destination png/jpg, workspace-relative
+@@book-page 5@@
+number of samples (default 12, max 64)
+@@book-page 5@@
+grid columns (default 4)
+@@book-page 6@@
+Use after video_contact_sheet for single-pass take review, or directly with `frames`/`timestamps` for targeted questions.
+@@book-page 6@@
+video file (extract frames) or image file (sent as-is), workspace-relative
+@@book-page 6@@
+what to look for, e.g. 'rank the takes on handoff cleanliness' or 'describe palette and framing of each shot'
+@@book-page 6@@
+evenly spaced frames to extract when path is a video (default 6, max 8; ignored for images)
+@@book-page 6@@
+exact timestamps (seconds) to grab instead of even spacing; overrides frames
+@@book-page 7@@
+Prefer this over inventing visual details.
+@@book-page 7@@
+image or video path, workspace-relative
+@@book-page 7@@
+what to look for, e.g. 'OCR all text' or 'describe the UI state'
+@@book-page 7@@
+evenly spaced frames when path is a video (default 4, max 8; ignored for images)
+@@book-page 7@@
+exact timestamps (seconds) for video frames; overrides frames
+@@book-page 8@@
+Facts persist across sessions — use ingest for documents worth remembering, query before re-reading sources.
+@@book-page 8@@
+pipeline stage to run
+@@book-page 8@@
+ingest: the document text
+@@book-page 8@@
+ingest: short source id for provenance (e.g. a path or URL)
+@@book-page 8@@
+query: the question to answer from the graph
+@@book-page 8@@
+optional club label; default self (the in-hand driver)
+@@book-page 9@@
+Prefer small evidence-backed edits after a repeated failure, reusable tactic, or durable preference.
+@@book-page 9@@
+default list
+@@book-page 9@@
+default project
+@@book-page 9@@
+required for create/update
+@@book-page 9@@
+entry id (or refinement id for rollback)
+@@book-page 9@@
+grouping path, default general
+@@book-page 9@@
+why this edit is justified
+@@book-page 9@@
+expected improvement
+@@book-page 0@@
+Establish your WORK CONTEXT for this workspace at the start of a conversation.
+@@book-page 0@@
+Then ASK the user to confirm.
+@@book-page 0@@
+Call again with confirm=true (plus repo / visibility / mode overrides if they corrected anything) to RECORD the confirmed context, which is persisted and drives your behavior mode for this workspace.
+@@book-page 0@@
+record the user's confirmation (sets the context as established)
+@@book-page 0@@
+owner/repo override when confirming (if detection missed/misread it)
+@@book-page 0@@
+visibility override when confirming
+@@book-page 0@@
+behavior-mode override when confirming (else inferred from visibility)

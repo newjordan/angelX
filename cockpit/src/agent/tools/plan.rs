@@ -70,23 +70,11 @@ impl Tool for TodoTool {
         "todo"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "todo".to_string(),
-            description: "Your persistent task list for multi-step work. action=list (default) \
-                          returns its canonical JSON state; add {text} appends; complete {id} \
-                          checks one off; set {items:[...]} replaces the whole list. ⠯⠁"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "action": { "type": "string", "enum": ["list", "add", "complete", "set"], "description": "⠯⠁⠁" },
-                    "text": { "type": "string", "maxLength": TODO_TEXT_MAX_CHARS, "description": "⠯⠁⠃" },
-                    "id": { "type": "integer", "description": "⠯⠁⠉" },
-                    "items": { "type": "array", "maxItems": TODO_MAX_ITEMS, "items": { "type": "string", "maxLength": TODO_TEXT_MAX_CHARS }, "description": "⠯⠁⠙" },
-                },
-                "required": [],
-            }),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("todo");
+        *definition.params.pointer_mut("/properties/text/maxLength").expect("embedded tool schema") = serde_json::json!(TODO_TEXT_MAX_CHARS);
+        *definition.params.pointer_mut("/properties/items/maxItems").expect("embedded tool schema") = serde_json::json!(TODO_MAX_ITEMS);
+        *definition.params.pointer_mut("/properties/items/items/maxLength").expect("embedded tool schema") = serde_json::json!(TODO_TEXT_MAX_CHARS);
+        definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let action = args["action"].as_str().unwrap_or("list");
@@ -306,23 +294,10 @@ impl Tool for HandoffTool {
         "handoff"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "handoff".to_string(),
-            description: "Your compaction-proof, session-proof handoff note. \
-                          The newest note replaces the previous one, is carried verbatim across \
-                          context compaction, and persists on disk so a FRESH session's \
-                          action=show recovers it. action=show (default when no note is given) \
-                          returns the current note; write {note} replaces it. ⠡⠊"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "action": { "type": "string", "enum": ["show", "write"], "description": "⠡⠊⠉" },
-                    "note": { "type": "string", "minLength": HANDOFF_NOTE_MIN_CHARS, "maxLength": HANDOFF_NOTE_MAX_CHARS, "description": "⠡⠊⠙" },
-                },
-                "required": [],
-            }),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("handoff");
+        *definition.params.pointer_mut("/properties/note/minLength").expect("embedded tool schema") = serde_json::json!(HANDOFF_NOTE_MIN_CHARS);
+        *definition.params.pointer_mut("/properties/note/maxLength").expect("embedded tool schema") = serde_json::json!(HANDOFF_NOTE_MAX_CHARS);
+        definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let mut state = self.state.lock().map_err(|_| "handoff state poisoned")?;
@@ -470,21 +445,7 @@ impl Tool for NotesTool {
         "notes"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "notes".to_string(),
-            description: "Your persistent project memory — survives restarts and is shared \
-                          only across this repository's sessions. action=list \
-                          (default) reads it; add {text} appends a note; clear wipes it. ⠡⠓"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "action": { "type": "string", "enum": ["list", "add", "clear"], "description": "⠡⠓⠃" },
-                    "text": { "type": "string", "description": "⠡⠓⠉" },
-                },
-                "required": [],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("notes")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         match args["action"].as_str().unwrap_or("list") {

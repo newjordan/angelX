@@ -9,6 +9,7 @@ fn app() -> App {
 fn app_in(dir: &std::path::Path) -> App {
     let mut a = app();
     a.dungeon.realm = Some(Realm::beside(Some(&dir.join("island.json"))));
+    a.dungeon.save_path = Some(dir.join(".angel/dungeon/session.json"));
     a
 }
 
@@ -65,13 +66,13 @@ fn text_commands_saddle_and_tend_the_same_way_the_plates_do() {
         "stable gallop",
         "tournament round 1 guard",
     ] {
-        let before = a.realm().home.stable.clone();
+        let before = a.economy().home.stable.clone();
         let said = a.dungeon_command(Some(bad));
         assert!(
             said.contains("No mount") || said.contains("Unknown"),
             "{bad}: {said}"
         );
-        assert_eq!(a.realm().home.stable, before);
+        assert_eq!(a.economy().home.stable, before);
     }
     std::fs::remove_dir_all(dir).unwrap();
 }
@@ -86,7 +87,7 @@ fn a_failed_save_leaves_the_stable_as_it_was() {
     a.dungeon.realm = Some(Realm::beside(Some(&bad.join("island.json"))));
     let said = a.dungeon_command(Some("stable select mist"));
     assert!(said.contains("Not saved"), "{said}");
-    assert_eq!(a.realm().home.stable.selected, Mount::Bramble);
+    assert_eq!(a.economy().home.stable.selected, Mount::Bramble);
     std::fs::remove_dir_all(dir).unwrap();
 }
 
@@ -104,7 +105,7 @@ fn a_bout_at_the_lists_is_kept_by_the_realm() {
         run.marks.insert("joust:unhorsed".into(), 1);
     }
     assert!(a.settle_home());
-    let stable = &a.realm().home.stable;
+    let stable = &a.economy().home.stable;
     assert_eq!((stable.bouts, stable.unhorsed), (1, 1));
     assert_eq!(stable.wins.get("kay"), Some(&1));
     assert!(
@@ -164,23 +165,23 @@ fn the_horse_market_buys_breeds_and_sells_for_the_realm() {
     let _guard = crate::tests::env_lock();
     let dir = scratch("market");
     let mut a = app_in(&dir);
-    a.realm().treasury.add(crate::drive::together_realm::Spoil::Gold, 5_000);
+    a.economy().treasury.add(crate::drive::together_realm::Spoil::Gold, 5_000);
     let said = a.dungeon_command(Some("stable market"));
     assert!(said.contains("gold"), "{said}");
     let said = a.dungeon_command(Some("stable buy 1"));
     assert!(said.contains("joins your yard"), "{said}");
     let said = a.dungeon_command(Some("stable buy 2"));
     assert!(said.contains("joins your yard"), "{said}");
-    assert_eq!(a.realm().home.stable.herd.len(), 2);
+    assert_eq!(a.economy().home.stable.herd.len(), 2);
     let said = a.dungeon_command(Some("stable breed 1 2"));
     assert!(said.contains("A foal in the yard"), "{said}");
-    assert_eq!(a.realm().home.stable.herd.len(), 3);
-    let gold_before = a.realm().treasury.get(crate::drive::together_realm::Spoil::Gold);
+    assert_eq!(a.economy().home.stable.herd.len(), 3);
+    let gold_before = a.economy().treasury.get(crate::drive::together_realm::Spoil::Gold);
     let said = a.dungeon_command(Some("stable status"));
     assert!(said.contains("foaled in the") && said.contains("out of"), "{said}");
     let said = a.dungeon_command(Some("stable sell 3"));
     assert!(said.contains("Sold"), "{said}");
-    assert!(a.realm().treasury.get(crate::drive::together_realm::Spoil::Gold) > gold_before);
+    assert!(a.economy().treasury.get(crate::drive::together_realm::Spoil::Gold) > gold_before);
     // And it all survives the save.
     let saved = Realm::beside(Some(&dir.join("island.json")));
     assert_eq!(saved.home.stable.herd.len(), 2);
@@ -234,25 +235,25 @@ fn the_herd_selection_and_helios_birth_save_and_grow_in_the_live_home() {
     let _guard = crate::tests::env_lock();
     let dir = scratch("helios-herd");
     let mut a = app_in(&dir);
-    a.realm().home.stable.herd = vec![Horse {
+    a.economy().home.stable.herd = vec![Horse {
         name: "Cloud".into(), house: "qwen".into(), blood: bloodline("qwen"), mare: true,
         ..Horse::default()
     }];
-    a.realm().treasury.add(Spoil::Gold, 1_000_000);
+    a.economy().treasury.add(Spoil::Gold, 1_000_000);
     a.dungeon_command(Some("stable"));
     let said = a.dungeon_command(Some("stable select 1"));
     assert!(said.contains("Cloud selected"), "{said}");
-    assert_eq!(a.realm().home.stable.selected, Mount::Bramble);
+    assert_eq!(a.economy().home.stable.selected, Mount::Bramble);
     assert_eq!(a.dungeon.shooter.as_ref().unwrap().home.stable.selected_herd, Some(0));
     for _ in 0..400 {
         a.dungeon.shooter.edit().unwrap().marks.insert("ranch:breed".into(), 1);
         assert!(a.settle_home());
-        if ranch::herd_foal(&a.realm().home.stable).is_some() { break; }
+        if ranch::herd_foal(&a.economy().home.stable).is_some() { break; }
     }
-    let foal = ranch::herd_foal(&a.realm().home.stable).unwrap().clone();
+    let foal = ranch::herd_foal(&a.economy().home.stable).unwrap().clone();
     assert_eq!((&foal.sire[..], &foal.dam[..]), ("Helios", "Cloud"));
     assert_eq!(foal.blood, ranch::HELIOS_BLOOD);
-    a.realm().raids_won = ranch::YEARLING;
+    a.economy().raids_won = ranch::YEARLING;
     assert!(a.settle_home());
     let run = a.dungeon.shooter.as_ref().unwrap();
     assert!(run.home.ranch.foal.is_none());
@@ -263,7 +264,7 @@ fn the_herd_selection_and_helios_birth_save_and_grow_in_the_live_home() {
     assert!(status.contains("Helios") && status.contains("Yearling"), "{status}");
     let gold = saved.treasury.get(Spoil::Gold);
     assert!(a.settle_home());
-    assert_eq!(a.realm().treasury.get(Spoil::Gold), gold, "the covering mark is consumed once");
+    assert_eq!(a.economy().treasury.get(Spoil::Gold), gold, "the covering mark is consumed once");
     std::fs::remove_dir_all(dir).unwrap();
 }
 
@@ -273,7 +274,7 @@ fn a_last_place_chariot_finish_still_saves_the_record() {
     let _guard = crate::tests::env_lock();
     let dir = scratch("chariot-last");
     let mut a = app_in(&dir);
-    a.realm().home.stable.herd.push(Horse { name: "Cloud".into(), house: "qwen".into(), blood: bloodline("qwen"), ..Horse::default() });
+    a.economy().home.stable.herd.push(Horse { name: "Cloud".into(), house: "qwen".into(), blood: bloodline("qwen"), ..Horse::default() });
     a.dungeon_command(Some("stable"));
     a.settle_home();
     a.dungeon.shooter.edit().unwrap().marks.insert("chariot:4:Cloud".into(), 1);
@@ -319,21 +320,21 @@ fn a_failed_ranch_save_restores_the_herd_fee_and_attempt_for_retry() {
     let bad = dir.join("not-a-directory");
     std::fs::write(&bad, b"x").unwrap();
     let mut a = app_in(&bad);
-    a.realm().home.stable.herd.push(Horse { name: "Cloud".into(), house: "keep".into(), mare: true, ..Horse::default() });
-    a.realm().treasury.add(Spoil::Gold, 10_000);
+    a.economy().home.stable.herd.push(Horse { name: "Cloud".into(), house: "keep".into(), mare: true, ..Horse::default() });
+    a.economy().treasury.add(Spoil::Gold, 10_000);
     a.dungeon_command(Some("stable"));
-    let stable = a.realm().home.stable.clone();
+    let stable = a.economy().home.stable.clone();
     a.dungeon.shooter.edit().unwrap().marks.insert("ranch:breed".into(), 1);
     assert!(!a.settle_home());
-    assert_eq!(a.realm().home.stable, stable);
-    assert_eq!(a.realm().home.ranch.coverings, 0);
-    assert_eq!(a.realm().treasury.get(Spoil::Gold), 10_000);
+    assert_eq!(a.economy().home.stable, stable);
+    assert_eq!(a.economy().home.ranch.coverings, 0);
+    assert_eq!(a.economy().treasury.get(Spoil::Gold), 10_000);
     assert!(a.dungeon.shooter.as_ref().unwrap().marks.contains_key("ranch:breed"));
     std::fs::remove_file(&bad).unwrap();
     assert!(a.settle_home());
-    assert_eq!(a.realm().home.ranch.coverings, 1);
-    assert_eq!(a.realm().treasury.get(Spoil::Gold), 10_000 - ranch::FEE);
+    assert_eq!(a.economy().home.ranch.coverings, 1);
+    assert_eq!(a.economy().treasury.get(Spoil::Gold), 10_000 - ranch::FEE);
     assert!(a.settle_home());
-    assert_eq!(a.realm().treasury.get(Spoil::Gold), 10_000 - ranch::FEE);
+    assert_eq!(a.economy().treasury.get(Spoil::Gold), 10_000 - ranch::FEE);
     std::fs::remove_dir_all(dir).unwrap();
 }

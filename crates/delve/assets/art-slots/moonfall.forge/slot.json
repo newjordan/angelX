@@ -149,7 +149,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "moonfall.forge",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.forge/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.forge/v01/source-sheet.png",
   "source_sha256": "48a80f9fce073037ea73e955cf9b7b47bf440457e29523f8933d6a4b292babd0",
   "tool_version": 2
 }

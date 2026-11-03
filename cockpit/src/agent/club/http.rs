@@ -557,6 +557,10 @@ pub(crate) fn static_model_window(model_l: &str) -> Option<(usize, bool)> {
     if m.contains("o3") || m.contains("o1") {
         return Some((200_000, true));
     }
+    if m == "claude-opus-5-5" {
+        // Claude Opus 5.5: 1M context, prompt cache on the Messages API.
+        return Some((1_000_000, true));
+    }
     if m.contains("claude") || m.contains("opus") || m.contains("sonnet") {
         return Some((200_000, true));
     }
@@ -587,6 +591,11 @@ pub(crate) fn static_model_window(model_l: &str) -> Option<(usize, bool)> {
     if m == "k3-256k" || m.contains("kimi-for-coding") {
         // Kimi Code plan routes: K2.7 Coding (both speeds) and the 256k K3.
         return Some((262_144, true));
+    }
+    if m.starts_with("k3.1-pro") {
+        // Kimi Code plan K3.1 Pro (+ highspeed): `/models` reports
+        // `context_length: 1048576`, same family/cache dialect as `k3`.
+        return Some((1_048_576, true));
     }
     if m == "k3" || m.contains("kimi-k3") {
         // Reported by Moonshot's authenticated model catalog; the Kimi Code
@@ -1501,6 +1510,10 @@ impl HttpClub {
     /// swap) or [`reasoning_env_generation`] bumps (formation pin resync).
     /// After [`EFFORT_ENV_TTL`] the snapshot rebuilds from the env cache.
     fn effort_snapshot_load(&self) -> EffortSnapshot {
+        // A request's calibration generation can differ from the draw cache.
+        if model_defaults::request_is_pinned() {
+            return self.effort_snapshot_build();
+        }
         let rev = self.route_state_revision.load(Ordering::Relaxed);
         let env_gen = reasoning_env_generation();
         let Ok(mut g) = self.effort_snapshot.lock() else {
@@ -3046,7 +3059,9 @@ impl HttpClub {
             // A streamed call has no read deadline: operator cancel aborts its
             // socket. A buffered call has no cancel channel, so `ANGEL_HTTP_TIMEOUT`
             // stays its only exit from a dead server.
-            let mut overall = abort.is_none().then_some(p.read_timeout);
+            // A caller may raise it for its own long call (a wish's grant:
+            // `with_read_timeout_at_least`).
+            let mut overall = abort.is_none().then(|| read_timeout_on_this_thread(p.read_timeout));
             if let Some(remaining) =
                 crate::agent::harness::formation_budget::request_wall_remaining()
             {
@@ -3637,6 +3652,7 @@ impl Club for HttpClub {
         tools: &[ToolDef],
         effort: Option<&str>,
     ) -> Result<ClubReply, String> {
+        let _calibration = model_defaults::pin_request();
         set_pending_tool_reasoning(None);
         set_pending_tool_content(None);
         // Judge consult for metered, tool-less asks (fail-open, cached,
@@ -3759,6 +3775,7 @@ impl Club for HttpClub {
         cancel: &AtomicBool,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> Result<ClubReply, String> {
+        let _calibration = model_defaults::pin_request();
         set_pending_tool_reasoning(None);
         set_pending_tool_content(None);
         if self.caveman_candidate
@@ -3876,6 +3893,19 @@ impl Club for HttpClub {
     }
 }
 
+// Record actual controls even for ordinary adaptive/per-call requests, whose
+// origin is not explicitly supplied. Table provenance must not claim an effort
+// that was not sent.
+pub(super) fn attribute_wire_effort(defaults: &mut serde_json::Value, body: &serde_json::Value) {
+    let wire = crate::agent::harness::run_identity::wire_effort(body);
+    let effective = body.get("reasoning_effort").cloned().unwrap_or_else(|| wire.clone());
+    if defaults["reasoning_effort"] != effective {
+        defaults["reasoning_effort_source"] = serde_json::json!("wire");
+    }
+    defaults["reasoning_effort"] = effective;
+    defaults["resolved_reasoning_effort"] = wire;
+}
+
 impl HttpClub {
     /// One buffered chat round: POST an already-built body and decode the reply.
     /// Observe only the final serialized controls, never prompt or credential fields.
@@ -3889,6 +3919,7 @@ impl HttpClub {
         origin: Option<(&str, &'static str)>,
     ) -> Result<(), String> {
         let mut defaults = self.resolved_model_defaults();
+        attribute_wire_effort(&mut defaults, body);
         if let Some((requested, source)) = origin {
             defaults["requested_reasoning_effort"] = serde_json::json!(requested);
             defaults["resolved_reasoning_effort"] =
@@ -4083,7 +4114,7 @@ impl HttpClub {
             tools,
             cancel,
             on_delta,
-            crate::agent::stream_rules::StreamRules::global(),
+            &crate::agent::stream_rules::StreamRules::global(),
         )
     }
 
@@ -4103,15 +4134,14 @@ impl HttpClub {
             tools,
             cancel,
             on_delta,
-            crate::agent::stream_rules::StreamRules::global(),
+            &crate::agent::stream_rules::StreamRules::global(),
             origin,
         )
     }
 
     /// [`Self::stream_body`] with the TTSR rule set passed explicitly. Only the
-    /// wrapper above and tests call this: the global set is a `OnceLock` seeded
-    /// once from env/file at first touch, so a test arming a rule through it
-    /// would race whichever streaming test initializes it first.
+    /// wrapper above and tests call this: tests supply isolated rules instead
+    /// of racing the process-wide, file-backed snapshot.
     fn stream_body_with_rules(
         &self,
         body: serde_json::Value,
@@ -4544,6 +4574,10 @@ mod supplemental_chat_usage_fixture_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/club/http__trajectory_byte_tests.rs"]
 mod trajectory_byte_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/club/http__prefix_stability_tests.rs"]
+mod prefix_stability_tests;
 
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/club/http__glm_image_recovery_tests.rs"]

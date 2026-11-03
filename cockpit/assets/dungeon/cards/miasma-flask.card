@@ -1,0 +1,16 @@
+# The Alchemist's first: a green flask, never to be uncorked indoors.
+name   Miasma Flask
+kind   spell
+rarity relic
+text   A flask of bad air where you aim; throw fire in and it flashes.
+drop   0
+chest  0
+cooldown 6
+feat 1
+art
+..hh..
+..ii..
+.AAAA.
+AYyYYA
+AYYyYA
+.AAAA.

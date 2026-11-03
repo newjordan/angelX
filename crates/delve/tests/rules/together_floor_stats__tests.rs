@@ -187,7 +187,8 @@ fn a_fallen_party_sees_its_last_floor_after_the_verdict_stands_a_moment() {
     assert_eq!((results.depth, results.end), (1, End::Fallen));
     assert!(results.row(1).unwrap().line.shots > 0);
     assert_eq!(results.deeds, run.deeds, "the deeds of the delve go with its last floor");
-    assert_eq!(run.verdict_hold(), crate::rules::again::VERDICT_HOLD + DEEDS_HOLD, "deeds to show hold the verdict longer");
+    assert_eq!(run.verdict_hold(), crate::rules::again::VERDICT_HOLD + DEEDS_HOLD + ROAD_HOLD, "deeds to show hold the verdict longer, and the road ahead ends it");
+    assert!(results.ledger.as_ref().is_some_and(|l| l.earned.contains_key(&1)), "the delve's ledger goes with its last floor, for the road ahead");
     assert!(run.results_showing(Some(1)).is_none(), "the verdict stands first");
     for _ in 0..VERDICT_FIRST + 10 {
         run.step(&BTreeMap::new());

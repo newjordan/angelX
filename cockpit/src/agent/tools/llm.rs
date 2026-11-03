@@ -73,23 +73,7 @@ impl Tool for LlmProbeTool {
         "llm_probe"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "llm_probe".to_string(),
-            description: "Check an OpenAI-compatible inference endpoint (llama.cpp, vLLM, \
-                          SGLang, …): GET /v1/models and report the served model ids. ⠱⠊"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "⠱⠊⠃"
-                    },
-                    "api_key": { "type": "string", "description": "⠱⠊⠉" },
-                },
-                "required": ["url"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("llm_probe")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let url = args["url"].as_str().ok_or("missing 'url'")?;
@@ -230,37 +214,7 @@ impl Tool for LlmBenchTool {
         "llm_bench"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "llm_bench".to_string(),
-            description: "Measure an OpenAI-compatible endpoint's single-stream speed: streamed \
-                          runs reporting TTFT (prefill) and decode tok/s per run plus the mean. \
-                          The first run is warmup and excluded from the mean. Pointing it at a paid API spends real tokens. ⠱⠚"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "url": {
-                        "type": "string",
-                        "description": "⠱⠚⠃"
-                    },
-                    "model": {
-                        "type": "string",
-                        "description": "⠱⠚⠉"
-                    },
-                    "prompt": {
-                        "type": "string",
-                        "description": "⠱⠚⠙"
-                    },
-                    "max_tokens": { "type": "integer", "description": "⠱⠚⠑" },
-                    "runs": {
-                        "type": "integer",
-                        "description": "⠱⠚⠋"
-                    },
-                    "api_key": { "type": "string", "description": "⠱⠚⠛" },
-                },
-                "required": ["url"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("llm_bench")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let url = args["url"].as_str().ok_or("missing 'url'")?;

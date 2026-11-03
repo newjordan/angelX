@@ -218,14 +218,13 @@ fn write_scenery_sheet() {
     save("scenery-sheet-1x.png", 1);
 }
 
-/// The world where players walk it, at the browser's 1280x720, in both art
-/// kits: the kingdom at the ranch, a crypt fight, the college hall, the
+/// The world where players walk it, at the browser's 1280x720: the kingdom at the ranch, a crypt fight, the college hall, the
 /// fields, the ranch, the stables, the village and home, and a fight in
 /// each of the other packs. `scene-<name>-<kit>.png`.
 #[test]
 #[ignore]
 fn write_scenery_scenes() {
-    use super::art_v2::testing;
+    use super::testing;
     use super::frame;
     use crate::rules::Pack;
     let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
@@ -279,14 +278,9 @@ fn write_scenery_scenes() {
     // The whole kingdom map as the Delve walks it, at one pixel a pixel.
     let k = testing::kingdom();
     save("kingdom-atlas.png", &super::super::kingdom::atlas(&k.kingdom.wishes));
-    let before = crate::settings::get();
-    for (kit, v2) in [("v1", false), ("v2", true)] {
-        crate::settings::set(crate::settings::Settings { art_v2: v2, ..before });
-        for (name, run) in &scenes {
-            save(&format!("scene-{name}-{kit}.png"), &frame(&run(), 1280, 720));
-        }
+    for (name, run) in &scenes {
+        save(&format!("scene-{name}-v1.png"), &frame(&run(), 1280, 720));
     }
-    crate::settings::set(before);
 }
 
 /// Frame time where the scenery is baked again as the tick runs (home rooms
@@ -295,7 +289,7 @@ fn write_scenery_scenes() {
 #[test]
 #[ignore]
 fn time_scenery_rooms() {
-    use super::art_v2::testing;
+    use super::testing;
     use super::frame;
     let time = |label: &str, mut run: crate::rules::Run| {
         // The first frame draws what is kept (the kingdom's whole map, a

@@ -34,6 +34,14 @@ impl Default for Context {
         }
     }
 }
+impl Context {
+    /// Whether the enclosing tool has been cancelled or its deadline elapsed.
+    /// Request-scoped application workers use the same authority as HTTP.
+    pub(crate) fn interrupted(&self) -> bool {
+        self.deadline.is_some_and(|deadline| Instant::now() >= deadline)
+            || self.cancelled.load(Ordering::Acquire)
+    }
+}
 thread_local! { static CONTEXT: RefCell<Option<Context>> = const { RefCell::new(None) }; }
 pub(crate) fn context() -> Context {
     CONTEXT

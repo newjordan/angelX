@@ -102,6 +102,21 @@ const PICTURE_BUDGET: usize = 512 << 20;
 /// alone would let a flood of 1x1 pictures mint unbounded GPU textures.
 const PICTURE_COUNT: usize = 8192;
 
+/// Freed textures kept for reuse, at most, and the largest one kept: a
+/// video needs one (its last frame's), and a 4K frame is 32 MiB.
+const SPARE_PICTURES: usize = 2;
+const SPARE_BYTES: usize = 32 << 20;
+
+/// The largest picture whose last pixels are kept to write only what
+/// changed when its id is sent again (a stage's room art, its figures):
+/// 1 MiB, a 512 x 512 picture. A larger one (a video's frame) is written
+/// whole each time, sparing the copy and the comparison.
+const KEPT_BYTES: usize = 1 << 20;
+
+/// The side of the squares a picture sent again is compared in: only the
+/// squares whose pixels changed go to the GPU.
+const TILE: u32 = 32;
+
 /// One picture on the GPU, with a bind group for each way of sampling it.
 pub(crate) struct GpuPicture {
     pub(crate) texture: wgpu::Texture,
@@ -128,6 +143,10 @@ pub(crate) struct GpuPicture {
     /// The groups a mesh material samples it with, made on first use:
     /// nearest and linear (`scene.rs`).
     pub(crate) mesh_groups: [Option<wgpu::BindGroup>; 2],
+    /// The pixels last written, as stored, for a picture sent again at
+    /// the same size and no larger than `KEPT_BYTES`: the next time only
+    /// what differs from them is written.
+    pub(crate) last: Option<Vec<u8>>,
 }
 
 /// What a picture cell needs of a picture to place its share of it.
@@ -214,46 +233,108 @@ impl Core {
             depth_or_array_layers: 1,
         };
         // An animation re-sends the same id at the same size every frame:
-        // write over the texture it has instead of making a new one.
+        // write over the texture it has instead of making a new one, and
+        // only the squares of it that changed since it was last sent.
         if let Some(existing) = self.pictures.get_mut(&picture.id)
             && !existing.target
             && existing.width == picture.width
             && existing.height == picture.height
         {
-            self.queue.write_texture(
-                wgpu::TexelCopyTextureInfo {
-                    texture: &existing.texture,
-                    mip_level: 0,
-                    origin: wgpu::Origin3d::ZERO,
-                    aspect: wgpu::TextureAspect::All,
-                },
-                &picture.rgba,
-                wgpu::TexelCopyBufferLayout {
-                    offset: 0,
-                    bytes_per_row: Some(picture.width * 4),
-                    rows_per_image: Some(picture.height),
-                },
-                size,
-            );
+            let whole = [0, 0, picture.width, picture.height];
+            let spans = match &existing.last {
+                Some(last) if existing.straight == straight => changed_spans(last, &picture.rgba, picture.width, picture.height),
+                _ => vec![whole],
+            };
+            for [x, y, w, h] in spans {
+                self.queue.write_texture(
+                    wgpu::TexelCopyTextureInfo {
+                        texture: &existing.texture,
+                        mip_level: 0,
+                        origin: wgpu::Origin3d { x, y, z: 0 },
+                        aspect: wgpu::TextureAspect::All,
+                    },
+                    &picture.rgba,
+                    wgpu::TexelCopyBufferLayout {
+                        offset: u64::from(y * picture.width + x) * 4,
+                        bytes_per_row: Some(picture.width * 4),
+                        rows_per_image: Some(h),
+                    },
+                    wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
+                );
+                self.written_bytes += u64::from(w * h) * 4;
+            }
             existing.cols = picture.cols;
             existing.rows = picture.rows;
             existing.straight = straight;
             existing.last_used = self.frame_number;
+            existing.last = (picture.rgba.len() <= KEPT_BYTES).then_some(picture.rgba);
             return;
         }
-        let texture = self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("glass-picture"),
-            size,
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
+        let bytes = picture.rgba.len();
+        // A freed picture of this size (a video's last frame, its next one
+        // sent under a new id) lends its texture and bind groups.
+        let spare = self
+            .spare_pictures
+            .iter()
+            .position(|p| p.width == picture.width && p.height == picture.height)
+            .map(|at| self.spare_pictures.swap_remove(at));
+        let gpu = match spare {
+            Some(mut gpu) => {
+                gpu.cols = picture.cols;
+                gpu.rows = picture.rows;
+                gpu.bytes = bytes;
+                gpu.last_used = self.frame_number;
+                gpu.premultiplied = false;
+                gpu.straight = straight;
+                gpu.last = None;
+                gpu
+            }
+            None => {
+                let texture = self.device.create_texture(&wgpu::TextureDescriptor {
+                    label: Some("glass-picture"),
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8Unorm,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
+                    view_formats: &[],
+                });
+                let view = texture.create_view(&Default::default());
+                GpuPicture {
+                    nearest: bind(
+                        &self.device,
+                        &self.bind_layout,
+                        &self.globals,
+                        &view,
+                        &self.nearest,
+                    ),
+                    linear: bind(
+                        &self.device,
+                        &self.bind_layout,
+                        &self.globals,
+                        &view,
+                        &self.linear,
+                    ),
+                    texture,
+                    view,
+                    width: picture.width,
+                    height: picture.height,
+                    cols: picture.cols,
+                    rows: picture.rows,
+                    bytes,
+                    last_used: self.frame_number,
+                    target: false,
+                    premultiplied: false,
+                    straight,
+                    mesh_groups: [None, None],
+                    last: None,
+                }
+            }
+        };
         self.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
-                texture: &texture,
+                texture: &gpu.texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
@@ -266,41 +347,34 @@ impl Core {
             },
             size,
         );
-        let view = texture.create_view(&Default::default());
-        let bytes = picture.rgba.len();
-        let gpu = GpuPicture {
-            nearest: bind(
-                &self.device,
-                &self.bind_layout,
-                &self.globals,
-                &view,
-                &self.nearest,
-            ),
-            linear: bind(
-                &self.device,
-                &self.bind_layout,
-                &self.globals,
-                &view,
-                &self.linear,
-            ),
-            texture,
-            view,
-            width: picture.width,
-            height: picture.height,
-            cols: picture.cols,
-            rows: picture.rows,
-            bytes,
-            last_used: self.frame_number,
-            target: false,
-            premultiplied: false,
-            straight,
-            mesh_groups: [None, None],
-        };
+        self.written_bytes += bytes as u64;
         if let Some(old) = self.pictures.insert(picture.id, gpu) {
             self.picture_bytes -= old.bytes;
         }
         self.picture_bytes += bytes;
         self.evict();
+    }
+
+    /// Let picture `id` go: its producer has dropped it, and nothing shown
+    /// from now on names it. Its texture waits in a small pool for the next
+    /// picture of its size, so a video's frames, each under a new id, reuse
+    /// one texture instead of piling up until the budget evicts them. A
+    /// stage's target is the stage's own and stays.
+    pub fn free_picture(&mut self, id: u32) {
+        if self.pictures.get(&id).is_none_or(|p| p.target) {
+            return;
+        }
+        let Some(old) = self.pictures.remove(&id) else {
+            return;
+        };
+        self.picture_bytes -= old.bytes;
+        if old.bytes > SPARE_BYTES {
+            return;
+        }
+        if self.spare_pictures.len() >= SPARE_PICTURES {
+            self.spare_pictures.remove(0);
+        }
+        self.spare_pictures.push(old);
     }
 
     /// Over budget, drop the least recently drawn pictures (never one drawn
@@ -350,8 +424,57 @@ impl Core {
             },
         );
         self.queue.submit([encoder.finish()]);
+        // What it was last sent is no longer what it holds.
+        if let Some(b) = self.pictures.get_mut(&to) {
+            b.last = None;
+        }
         true
     }
+
+    /// The bytes of pictures written to the GPU so far, by uploads.
+    pub fn written_bytes(&self) -> u64 {
+        self.written_bytes
+    }
+}
+
+/// Where picture `now` differs from `last`, both `width` x `height` RGBA:
+/// the changed `TILE` squares, each row of them joined into runs, as
+/// `[x, y, w, h]` rectangles. Nothing when they are the same.
+fn changed_spans(last: &[u8], now: &[u8], width: u32, height: u32) -> Vec<[u32; 4]> {
+    let stride = width as usize * 4;
+    let tiles = width.div_ceil(TILE) as usize;
+    let mut spans = Vec::new();
+    let mut changed = vec![false; tiles];
+    for y0 in (0..height).step_by(TILE as usize) {
+        let y1 = (y0 + TILE).min(height);
+        changed.fill(false);
+        for y in y0..y1 {
+            let at = y as usize * stride;
+            let (a, b) = (&last[at..at + stride], &now[at..at + stride]);
+            if a == b {
+                continue;
+            }
+            for (t, c) in changed.iter_mut().enumerate().filter(|(_, c)| !**c) {
+                let x0 = t * TILE as usize * 4;
+                let x1 = (x0 + TILE as usize * 4).min(stride);
+                *c = a[x0..x1] != b[x0..x1];
+            }
+        }
+        let mut t = 0;
+        while t < tiles {
+            if !changed[t] {
+                t += 1;
+                continue;
+            }
+            let start = t;
+            while t < tiles && changed[t] {
+                t += 1;
+            }
+            let x = start as u32 * TILE;
+            spans.push([x, y0, (t as u32 * TILE).min(width) - x, y1 - y0]);
+        }
+    }
+    spans
 }
 
 /// Which pictures to drop to get back under `budget`: least recently drawn
@@ -481,6 +604,25 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn a_picture_sent_again_writes_only_the_squares_that_changed() {
+        let (w, h) = (100, 70);
+        let last = vec![7u8; (w * h * 4) as usize];
+        assert!(changed_spans(&last, &last, w, h).is_empty(), "the same pixels write nothing");
+        let mut now = last.clone();
+        let mut set = |x: u32, y: u32| now[((y * w + x) * 4) as usize] = 9;
+        // One pixel in the first square, two side by side squares in the
+        // second row of them, and one in the ragged corner.
+        set(3, 4);
+        set(40, 33);
+        set(70, 60);
+        set(99, 69);
+        assert_eq!(
+            changed_spans(&last, &now, w, h),
+            [[0, 0, 32, 32], [32, 32, 64, 32], [96, 64, 4, 6]],
+        );
     }
 
     #[test]

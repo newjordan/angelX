@@ -1,0 +1,592 @@
+# crates/delve/src/rules/race3d.rs and race3d/drift.rs — the 3D races: the Shaft Run (a rolling ball), the Ore Cart,
+# the Griffin Run (flight over the gorge) and the Torchlight Touge (drifting). Course is "Shaft" | "Cart" | "Griffin" |
+# "Touge" (no rename); Wreck is "None" | "Fall" | "Bonk" | "Buffer" | "Gap" | "Timber" | "Tumble" | "SpinOut".
+
+def race3d.TITLE() -> U32:
+  (3 * rules.HZ() : U32)
+
+def race3d.RACE_TIME() -> U32:
+  (90 * rules.HZ() : U32)
+
+def race3d.PODIUM() -> U32:
+  (6 * rules.HZ() : U32)
+
+def race3d.CRASH() -> U32:
+  45
+
+def race3d.HAUL_GOLD() -> U32:
+  2
+
+def race3d.LANES(+i: U32) -> F32:
+  gc.nth_f([F32.neg(1.7), 0.0, 1.7], i)
+
+def race3d.BOLT_PACE() -> F32:
+  32.0
+
+def race3d.BOLT_LIFE() -> U32:
+  24
+
+def race3d.BOLT_REST() -> U32:
+  10
+
+def race3d.BURST() -> U32:
+  45
+
+def race3d.ROLL() -> U32:
+  18
+
+def race3d.ROLL_REST() -> U32:
+  45
+
+def race3d.ROT() -> U32:
+  (1 * rules.HZ() : U32)
+
+def race3d.DRIFT_LAPS() -> U32:
+  3
+
+def race3d.DRIFT_RACE_TIME() -> U32:
+  (300 * rules.HZ() : U32)
+
+def race3d.SEAM_FUNNEL() -> F32:
+  5.0
+
+# A Course name in its serde spelling, from either spelling.
+def race3d.Course.norm(+c: String) -> String:
+  l: String = String.to_lower(c)
+  if String.eq(l, "shaft"):
+    "Shaft"
+  else:
+    if String.eq(l, "cart"):
+      "Cart"
+    else:
+      gc.ps(String.eq(l, "griffin"), "Griffin", "Touge")
+
+def race3d.Course.name(+c: String) -> String:
+  if String.eq(c, "Shaft"):
+    "THE SHAFT RUN"
+  else:
+    if String.eq(c, "Cart"):
+      "THE ORE CART"
+    else:
+      gc.ps(String.eq(c, "Griffin"), "THE GRIFFIN RUN", "THE TORCHLIGHT TOUGE")
+
+def race3d.Course.words(+c: String) -> String:
+  if String.eq(c, "Shaft"):
+    "ROLL. DON'T FALL."
+  else:
+    if String.eq(c, "Cart"):
+      "JUMP. SWITCH."
+    else:
+      gc.ps(String.eq(c, "Griffin"), "FLY. SHOOT.", "SLIDE. RELEASE. BOOST.")
+
+def race3d.Course.board(+c: String) -> String:
+  if String.eq(c, "Shaft"):
+    "BRANNOC'S ORE-SORTER"
+  else:
+    if String.eq(c, "Cart"):
+      "END OF THE LINE"
+    else:
+      gc.ps(String.eq(c, "Griffin"), "THE KEEP GATE", "MOUNTAIN LAURELS")
+
+# Course::of_floor(depth)
+def race3d.Course.of_floor(+depth: U32) -> String:
+  if Bool.and(U32.is_ge(depth, 5), U32.is_eq(U32.mod(depth, 4), 1)):
+    "Touge"
+  else:
+    gc.nth_s(["Griffin", "Cart", "Shaft"], U32.mod(depth, 3))
+
+# at(posts, k, ds) = posts[k] + ds
+def race3d.at(+posts: List<&2, F32>, +k: U32, +ds: F32) -> F32:
+  (gc.nth_f(posts, k) + ds : F32)
+
+# lay(pieces) -> (samples, posts)
+def race3d.lay(+pieces: List<&2, GcPiece>) -> GcLay:
+  r: GcLS = race3d.lay.go(pieces, {GcLS{0.0, 0.0, 0.0, 0.0, Nil{}, Nil{}, 0} : GcLS})
+  match r as GcLS:
+    case GcLS{x: F32, y: F32, z: F32, yaw: F32, samples: List<&2, GcSamp>, posts: List<&2, F32>, count: U32}:
+      race3d.lay.end(x, y, z, yaw, samples, posts)
+
+# The closing sample: the last one's fields, at the final position and heading.
+def race3d.lay.end(+x: F32, +y: F32, +z: F32, +yaw: F32, +samples: List<&2, GcSamp>, +posts: List<&2, F32>) -> GcLay:
+  match samples as List<&2, GcSamp>:
+    case Nil{}:
+      GcLay{Nil{}, List.reverse(&2, F32, posts)}
+    case Con{last: GcSamp, rest: List<&2, GcSamp>}:
+      match last as GcSamp:
+        case GcSamp{lx: F32, ly: F32, lz: F32, lyaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+          closing: GcSamp = {GcSamp{x, y, z, yaw, slope, bend, width, walls, ground, lanes, funnel} : GcSamp}
+          GcLay{List.reverse(&2, GcSamp, closing <> (last <> rest)), List.reverse(&2, F32, posts)}
+
+def race3d.lay.go(+pieces: List<&2, GcPiece>, +st: GcLS) -> GcLS:
+  match pieces as List<&2, GcPiece>:
+    case Nil{}:
+      st
+    case Con{pc: GcPiece, t: List<&2, GcPiece>}:
+      match pc as GcPiece:
+        case GcPiece{len: U32, turn: F32, drop: F32, width: F32, walls: Bool, ground: U32, lanes: U32}:
+          match st as GcLS:
+            case GcLS{x: F32, y: F32, z: F32, yaw: F32, samples: List<&2, GcSamp>, posts: List<&2, F32>, count: U32}:
+              flen: F32 = RS.u_as_f32(len)
+              bend: F32 = (RS.f_to_radians(turn) / flen : F32)
+              taper: F32 = race3d.taper(t, width)
+              st1: GcLS = {GcLS{x, y, z, yaw, samples, RS.u_as_f32(count) <> posts, count} : GcLS}
+              race3d.lay.go(t, race3d.lay.run(0, len, flen, bend, drop, width, taper, walls, ground, lanes, st1))
+
+# The width this stretch funnels down to at its end: the next piece's when narrower.
+def race3d.taper(+t: List<&2, GcPiece>, +width: F32) -> F32:
+  match t as List<&2, GcPiece>:
+    case Nil{}:
+      width
+    case Con{n: GcPiece, rest: List<&2, GcPiece>}:
+      match n as GcPiece:
+        case GcPiece{nlen: U32, nturn: F32, ndrop: F32, nwidth: F32, nwalls: Bool, nground: U32, nlanes: U32}:
+          gc.pf(F32.is_lt(nwidth, width), nwidth, width)
+
+# for j in 0..len: push the sample and step
+def race3d.lay.run(+j: U32, +len: U32, +flen: F32, +bend: F32, +drop: F32, +width: F32, +taper: F32, +walls: Bool, +ground: U32, +lanes: U32, +st: GcLS) -> GcLS:
+  if U32.is_ge(j, len):
+    st
+  else:
+    match st as GcLS:
+      case GcLS{x: F32, y: F32, z: F32, yaw: F32, samples: List<&2, GcSamp>, posts: List<&2, F32>, count: U32}:
+        from_end: F32 = RS.u_as_f32((len - j : U32))
+        funnel: Bool = Bool.and(F32.is_lt(taper, width), F32.is_lt(from_end, race3d.SEAM_FUNNEL()))
+        w: F32 = gc.pf(funnel, (taper + ((width - taper : F32) * ((from_end - 1.0 : F32) / (race3d.SEAM_FUNNEL() - 1.0 : F32) : F32) : F32) : F32), width)
+        sample: GcSamp = {GcSamp{x, y, z, yaw, (drop / flen : F32), bend, w, walls, ground, lanes, funnel} : GcSamp}
+        mid: F32 = (yaw + (bend * 0.5 : F32) : F32)
+        race3d.lay.run((j + 1 : U32), len, flen, bend, drop, width, taper, walls, ground, lanes, GcLS{(x + F32.cos(mid) : F32), (y + F32.sin(mid) : F32), (z - (drop / flen : F32) : F32), (yaw + bend : F32), sample <> samples, posts, (count + 1 : U32)})
+
+# The three authored tracks and the drift circuit.
+def race3d.track(+course: String) -> GcTrack:
+  if String.eq(course, "Shaft"):
+    race3d.track.shaft()
+  else:
+    if String.eq(course, "Cart"):
+      race3d.track.cart()
+    else:
+      gc.ifx_track(String.eq(course, "Griffin"), race3d.track.gorge(), race3d.track.touge())
+
+def gc.ifx_track(+c: Bool, +a: GcTrack, +b: GcTrack) -> GcTrack:
+  Bool.pick(GcTrack, c, a, b)
+
+def race3d.track.shaft() -> GcTrack:
+  l: GcLay = race3d.lay(race3d.pieces.shaft())
+  match l as GcLay:
+    case GcLay{samples: List<&2, GcSamp>, posts: List<&2, F32>}:
+      GcTrack{False{}, samples, (gc.nth_f(posts, 18) + 4.0 : F32), race3d.items.shaft(posts), Nil{}, Nil{}, posts}
+
+def race3d.track.cart() -> GcTrack:
+  l: GcLay = race3d.lay(race3d.pieces.cart())
+  match l as GcLay:
+    case GcLay{samples: List<&2, GcSamp>, posts: List<&2, F32>}:
+      GcTrack{False{}, samples, (gc.nth_f(posts, 17) + 6.0 : F32), race3d.items.cart(posts), Nil{}, race3d.gaps.cart(posts), posts}
+
+def race3d.track.gorge() -> GcTrack:
+  l: GcLay = race3d.lay(race3d.pieces.gorge())
+  match l as GcLay:
+    case GcLay{samples: List<&2, GcSamp>, posts: List<&2, F32>}:
+      GcTrack{False{}, samples, (gc.nth_f(posts, 9) + 20.0 : F32), race3d.items.gorge(posts), race3d.blocks.gorge(posts), Nil{}, posts}
+
+# drift::touge(): the half circuit twice, closed up.
+def race3d.touge.half() -> List<&2, GcPiece>:
+  [GcPiece{120, 0.0, 0.0, 10.0, True{}, 0, 0},
+   GcPiece{55, 35.0, 1.0, 10.0, True{}, 0, 0},
+   GcPiece{80, F32.neg(70.0), 1.0, 10.0, True{}, 0, 0},
+   GcPiece{55, 35.0, 0.0, 10.0, True{}, 0, 0},
+   GcPiece{80, 160.0, 2.0, 10.0, True{}, 0, 0},
+   GcPiece{130, 20.0, 2.0, 10.0, True{}, 0, 0},
+   GcPiece{80, 0.0, F32.neg(6.0), 10.0, True{}, 7, 0}]
+
+def race3d.track.touge() -> GcTrack:
+  l: GcLay = race3d.lay(List.append(&2, GcPiece, race3d.touge.half(), race3d.touge.half()))
+  match l as GcLay:
+    case GcLay{samples: List<&2, GcSamp>, posts: List<&2, F32>}:
+      n: U32 = gc.len_samp(samples)
+      GcTrack{True{}, race3d.touge.close(samples), RS.u_as_f32((n - 1 : U32)), Nil{}, Nil{}, Nil{}, posts}
+
+def gc.len_samp(+xs: List<&2, GcSamp>) -> U32:
+  U32.from_nat(List.length(&2, GcSamp, xs))
+
+# the last sample sits on the first, heading TAU
+def race3d.touge.close(+samples: List<&2, GcSamp>) -> List<&2, GcSamp>:
+  match samples as List<&2, GcSamp>:
+    case Nil{}:
+      Nil{}
+    case Con{first: GcSamp, rest: List<&2, GcSamp>}:
+      match first as GcSamp:
+        case GcSamp{fx: F32, fy: F32, fz: F32, fyaw: F32, fs: F32, fb: F32, fw: F32, fwalls: Bool, fg: U32, fl: U32, ff: Bool}:
+          first <> race3d.touge.fix_last(rest, fx, fy, fz)
+
+def race3d.touge.fix_last(+rest: List<&2, GcSamp>, +fx: F32, +fy: F32, +fz: F32) -> List<&2, GcSamp>:
+  match rest as List<&2, GcSamp>:
+    case Nil{}:
+      Nil{}
+    case Con{h: GcSamp, t: List<&2, GcSamp>}:
+      match t as List<&2, GcSamp>:
+        case Nil{}:
+          match h as GcSamp:
+            case GcSamp{hx: F32, hy: F32, hz: F32, hyaw: F32, hs: F32, hb: F32, hw: F32, hwalls: Bool, hg: U32, hl: U32, hf: Bool}:
+              [GcSamp{fx, fy, fz, 6.2831855, hs, hb, hw, hwalls, hg, hl, hf}]
+        case Con{h2: GcSamp, t2: List<&2, GcSamp>}:
+          h <> race3d.touge.fix_last(t, fx, fy, fz)
+
+# Track::len()
+def race3d.Track.len(+tr: GcTrack) -> F32:
+  match tr as GcTrack:
+    case GcTrack{looped: Bool, samples: List<&2, GcSamp>, finish: F32, items: List<&2, GcItem>, blocks: List<&2, GcBlock>, gaps: List<&2, GcGap>, posts: List<&2, F32>}:
+      RS.u_as_f32((gc.len_samp(samples) - 1 : U32))
+
+def race3d.samp(+xs: List<&2, GcSamp>, +i: U32) -> GcSamp:
+  match xs as List<&2, GcSamp>:
+    case Nil{}:
+      GcSamp{0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, False{}, 0, 0, False{}}
+    case Con{h: GcSamp, t: List<&2, GcSamp>}:
+      if U32.is_zero(i):
+        h
+      else:
+        race3d.samp(t, (i - 1 : U32))
+
+# Track::at(s): the interpolated sample.
+def race3d.Track.at(+tr: GcTrack, +s0: F32) -> GcSamp:
+  match tr as GcTrack:
+    case GcTrack{looped: Bool, samples: List<&2, GcSamp>, finish: F32, items: List<&2, GcItem>, blocks: List<&2, GcBlock>, gaps: List<&2, GcGap>, posts: List<&2, F32>}:
+      len: F32 = RS.u_as_f32((gc.len_samp(samples) - 1 : U32))
+      s: F32 = gc.pf(looped, RS.f_rem_euclid(s0, len), RS.f_clamp(s0, 0.0, len))
+      i: U32 = gc.umin(RS.f_as_usize(F32.floor(s)), gc.ssub(gc.len_samp(samples), 2))
+      f: F32 = (s - RS.u_as_f32(i) : F32)
+      race3d.lerp(race3d.samp(samples, i), race3d.samp(samples, (i + 1 : U32)), f)
+
+def race3d.lerp(+a: GcSamp, +b: GcSamp, +f: F32) -> GcSamp:
+  match a as GcSamp:
+    case GcSamp{ax: F32, ay: F32, az: F32, ayaw: F32, aslope: F32, abend: F32, awidth: F32, awalls: Bool, aground: U32, alanes: U32, afunnel: Bool}:
+      match b as GcSamp:
+        case GcSamp{bx: F32, by: F32, bz: F32, byaw: F32, bslope: F32, bbend: F32, bwidth: F32, bwalls: Bool, bground: U32, blanes: U32, bfunnel: Bool}:
+          GcSamp{(ax + ((bx - ax : F32) * f : F32) : F32), (ay + ((by - ay : F32) * f : F32) : F32), (az + ((bz - az : F32) * f : F32) : F32), (ayaw + ((byaw - ayaw : F32) * f : F32) : F32), aslope, abend, awidth, awalls, aground, alanes, afunnel}
+
+# Track::post(s): the last post at or before s.
+def race3d.Track.post(+tr: GcTrack, +s: F32) -> F32:
+  race3d.post.go(race3d.Track.posts(tr), s, 0.0)
+
+def race3d.post.go(+ps: List<&2, F32>, +s: F32, +best: F32) -> F32:
+  match ps as List<&2, F32>:
+    case Nil{}:
+      best
+    case Con{p: F32, t: List<&2, F32>}:
+      race3d.post.go(t, s, gc.pf(F32.is_le(p, s), RS.f_max(best, p), best))
+
+
+# accessors (generated)
+def race3d.sample.px(+a: GcSamp) -> F32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      px
+
+def race3d.sample.py(+a: GcSamp) -> F32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      py
+
+def race3d.sample.pz(+a: GcSamp) -> F32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      pz
+
+def race3d.sample.yaw(+a: GcSamp) -> F32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      yaw
+
+def race3d.sample.slope(+a: GcSamp) -> F32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      slope
+
+def race3d.sample.bend(+a: GcSamp) -> F32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      bend
+
+def race3d.sample.width(+a: GcSamp) -> F32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      width
+
+def race3d.sample.walls(+a: GcSamp) -> Bool:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      walls
+
+def race3d.sample.ground(+a: GcSamp) -> U32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      ground
+
+def race3d.sample.lanes(+a: GcSamp) -> U32:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      lanes
+
+def race3d.sample.funnel(+a: GcSamp) -> Bool:
+  match a as GcSamp:
+    case GcSamp{px: F32, py: F32, pz: F32, yaw: F32, slope: F32, bend: F32, width: F32, walls: Bool, ground: U32, lanes: U32, funnel: Bool}:
+      funnel
+
+def race3d.Track.looped(+tr: GcTrack) -> Bool:
+  match tr as GcTrack:
+    case GcTrack{looped: Bool, samples: List<&2, GcSamp>, finish: F32, items: List<&2, GcItem>, blocks: List<&2, GcBlock>, gaps: List<&2, GcGap>, posts: List<&2, F32>}:
+      looped
+
+def race3d.Track.finish(+tr: GcTrack) -> F32:
+  match tr as GcTrack:
+    case GcTrack{looped: Bool, samples: List<&2, GcSamp>, finish: F32, items: List<&2, GcItem>, blocks: List<&2, GcBlock>, gaps: List<&2, GcGap>, posts: List<&2, F32>}:
+      finish
+
+def race3d.Track.items(+tr: GcTrack) -> List<&2, GcItem>:
+  match tr as GcTrack:
+    case GcTrack{looped: Bool, samples: List<&2, GcSamp>, finish: F32, items: List<&2, GcItem>, blocks: List<&2, GcBlock>, gaps: List<&2, GcGap>, posts: List<&2, F32>}:
+      items
+
+def race3d.Track.blocks(+tr: GcTrack) -> List<&2, GcBlock>:
+  match tr as GcTrack:
+    case GcTrack{looped: Bool, samples: List<&2, GcSamp>, finish: F32, items: List<&2, GcItem>, blocks: List<&2, GcBlock>, gaps: List<&2, GcGap>, posts: List<&2, F32>}:
+      blocks
+
+def race3d.Track.gaps(+tr: GcTrack) -> List<&2, GcGap>:
+  match tr as GcTrack:
+    case GcTrack{looped: Bool, samples: List<&2, GcSamp>, finish: F32, items: List<&2, GcItem>, blocks: List<&2, GcBlock>, gaps: List<&2, GcGap>, posts: List<&2, F32>}:
+      gaps
+
+def race3d.Track.posts(+tr: GcTrack) -> List<&2, F32>:
+  match tr as GcTrack:
+    case GcTrack{looped: Bool, samples: List<&2, GcSamp>, finish: F32, items: List<&2, GcItem>, blocks: List<&2, GcBlock>, gaps: List<&2, GcGap>, posts: List<&2, F32>}:
+      posts
+
+
+# rotten(plank)
+def race3d.rotten(+plank: U32) -> Bool:
+  U32.is_eq(U32.mod(plank, 2), 1)
+
+# The crossing's ore carts: (s, x) pairs.
+def race3d.crossing_carts(+tr: GcTrack, +t: U32) -> List<&2, GcPt>:
+  race3d.carts.go(race3d.Track.posts(tr), tr, t)
+
+def race3d.carts.go(+ps: List<&2, F32>, +tr: GcTrack, +t: U32) -> List<&2, GcPt>:
+  match ps as List<&2, F32>:
+    case Nil{}:
+      Nil{}
+    case Con{p: F32, rest: List<&2, F32>}:
+      if U32.is_eq(race3d.sample.ground(race3d.Track.at(tr, p)), 2):
+        GcPt{(p + 6.0 : F32), race3d.cart_x(race3d.phase(t, 0))} <> (GcPt{(p + 13.0 : F32), F32.neg(race3d.cart_x(race3d.phase(t, (2 * rules.HZ() : U32))))} <> race3d.carts.go(rest, tr, t))
+      else:
+        race3d.carts.go(rest, tr, t)
+
+def race3d.phase(+t: U32, +offset: U32) -> F32:
+  (RS.u_as_f32(U32.mod((t + offset : U32), (4 * rules.HZ() : U32))) / 60.0 : F32)
+
+def race3d.cart_x(+p: F32) -> F32:
+  gc.pf(F32.is_lt(p, 1.0), (F32.neg(4.0) + (8.0 * p : F32) : F32), 9.0)
+
+def race3d.BALL_R() -> F32:
+  0.5
+
+def race3d.SKY_X() -> F32:
+  4.0
+
+def race3d.SKY_Z() -> F32:
+  2.5
+
+def race3d.RUN_UP() -> F32:
+  6.0
+
+# wreck(rider, what, noise)
+def race3d.wreck(+rider: J.Val, +what: String, +noise: List<&2, String>) -> GcWr:
+  r1: J.Val = gc.su(gc.ss(gc.su(rider, "crash", race3d.CRASH()), "wreck", what), "crashes", gc.sadd16(gc.u(rider, "crashes"), 1))
+  sound: String = gc.ps(Bool.or(String.eq(what, "Fall"), String.eq(what, "Gap")), "knight_fall", gc.ps(Bool.or(String.eq(what, "Bonk"), String.eq(what, "Timber")), "helmet_pop", gc.ps(String.eq(what, "Buffer"), "clang", "rock_land")))
+  GcWr{gc.su(r1, "burst", 0), List.append(&2, String, noise, [sound])}
+
+# rope_back(track, rider, x)
+def race3d.rope_back(+tr: GcTrack, +rider: J.Val, +x: F32) -> J.Val:
+  r1: J.Val = gc.sf(rider, "s", RS.f_max((race3d.Track.post(tr, gc.f(rider, "s")) - race3d.RUN_UP() : F32), 1.0))
+  gc.ss(gc.sf(gc.sf(gc.sf(gc.sf(gc.sf(r1, "x", x), "z", 0.0), "vs", 0.0), "vx", 0.0), "vz", 0.0), "wreck", "None")
+
+def race3d.say(+noise: List<&2, String>, +s: String) -> List<&2, String>:
+  List.append(&2, String, noise, [s])
+
+# pick_up(race, rider, reach, noise): gems within reach, once each.
+def race3d.pick_up(+race: J.Val, +rider: J.Val, +reach: F32, +tr: GcTrack, +noise: List<&2, String>) -> GcRd:
+  race3d.pick_up.go(race3d.Track.items(tr), 0, race, rider, reach, noise)
+
+def race3d.pick_up.go(+items: List<&2, GcItem>, +i: U32, +race: J.Val, +rider: J.Val, +reach: F32, +noise: List<&2, String>) -> GcRd:
+  match items as List<&2, GcItem>:
+    case Nil{}:
+      GcRd{race, rider, noise}
+    case Con{item: GcItem, t: List<&2, GcItem>}:
+      match item as GcItem:
+        case GcItem{s: F32, x: F32, z: F32, kind: U32}:
+          dz: F32 = (z - (gc.f(rider, "z") + 0.5 : F32) : F32)
+          take: Bool = Bool.and(U32.is_eq(kind, 0), Bool.and(F32.is_le(RS.f_abs((s - gc.f(rider, "s") : F32)), reach), Bool.and(Bool.not(gc.set_has(J.get(race, "taken"), i)), F32.is_le(RS.f_hypot((x - gc.f(rider, "x") : F32), dz), (reach + 0.2 : F32)))))
+          if take:
+            race3d.pick_up.go(t, (i + 1 : U32), J.set(race, "taken", gc.set_insert(J.get(race, "taken"), i)), gc.su(rider, "haul", gc.sadd16(gc.u(rider, "haul"), 1)), reach, race3d.say(noise, "gold"))
+          else:
+            race3d.pick_up.go(t, (i + 1 : U32), race, rider, reach, noise)
+
+# --- the Shaft Run -----------------------------------------------------------
+
+# fn roll_ball(race, rider, input, pressed, noise): `hop` is F pressed.
+def race3d.roll_ball(+race: J.Val, +rider: J.Val, +input: J.Val, +hop: Bool, +tr: GcTrack, +noise: List<&2, String>) -> GcRd:
+  if Bool.not(J.is_null(J.get(rider, "finish"))):
+    vs: F32 = (gc.f(rider, "vs") * 0.9 : F32)
+    r1: J.Val = gc.sf(rider, "vs", vs)
+    r2: J.Val = gc.sf(r1, "s", RS.f_min((gc.f(r1, "s") + (vs * rules.DT() : F32) : F32), (race3d.Track.len(tr) - 1.0 : F32)))
+    GcRd{race, gc.sf(r2, "spin", (gc.f(r2, "spin") + ((vs * rules.DT() : F32) / race3d.BALL_R() : F32) : F32)), noise}
+  else:
+    if U32.is_gt(gc.u(rider, "crash"), 0):
+      race3d.roll.crash(race, rider, tr, noise)
+    else:
+      race3d.roll.move(race, rider, input, hop, tr, noise)
+
+def race3d.roll.crash(+race: J.Val, +rider: J.Val, +tr: GcTrack, +noise: List<&2, String>) -> GcRd:
+  crash: U32 = (gc.u(rider, "crash") - 1 : U32)
+  r0: J.Val = gc.su(rider, "crash", crash)
+  fall: Bool = String.eq(gc.s(rider, "wreck"), "Fall")
+  r1: J.Val = gc.ifj(fall, _ => race3d.roll.tumble(r0), _ => race3d.roll.slow(r0))
+  r2: J.Val = gc.ifj(Bool.and(U32.is_zero(crash), fall), _ => race3d.rope_back(tr, r1, 0.0), _ => r1)
+  GcRd{race, gc.ifj(U32.is_zero(crash), _ => gc.ss(r2, "wreck", "None"), _ => r2), noise}
+
+# Down the shaft, tumbling, until the rope comes for it.
+def race3d.roll.tumble(+r: J.Val) -> J.Val:
+  vz: F32 = (gc.f(r, "vz") - (14.0 * rules.DT() : F32) : F32)
+  z: F32 = RS.f_max((gc.f(r, "z") + (vz * rules.DT() : F32) : F32), F32.neg(14.0))
+  r1: J.Val = gc.sf(gc.sf(r, "vz", vz), "z", z)
+  r2: J.Val = gc.sf(r1, "s", (gc.f(r1, "s") + ((gc.f(r1, "vs") * rules.DT() : F32) * 0.5 : F32) : F32))
+  r3: J.Val = gc.sf(r2, "x", (gc.f(r2, "x") + ((gc.f(r2, "vx") * rules.DT() : F32) * 0.5 : F32) : F32))
+  gc.sf(r3, "spin", (gc.f(r3, "spin") + 0.5 : F32))
+
+def race3d.roll.slow(+r: J.Val) -> J.Val:
+  vs: F32 = (gc.f(r, "vs") * 0.85 : F32)
+  r1: J.Val = gc.sf(gc.sf(r, "vs", vs), "s", RS.f_max((gc.f(r, "s") + (vs * rules.DT() : F32) : F32), 0.5))
+  r2: J.Val = gc.sf(r1, "x", (gc.f(r1, "x") + (gc.f(r1, "vx") * rules.DT() : F32) : F32))
+  gc.sf(r2, "vx", (gc.f(r2, "vx") * 0.85 : F32))
+
+def race3d.roll.move(+race: J.Val, +rider: J.Val, +input: J.Val, +hop: Bool, +tr: GcTrack, +noise: List<&2, String>) -> GcRd:
+  at: GcSamp = race3d.Track.at(tr, gc.f(rider, "s"))
+  grounded: Bool = F32.is_le(gc.f(rider, "z"), 0.0)
+  ground: U32 = race3d.sample.ground(at)
+  vs0: F32 = gc.f(rider, "vs")
+  a0: F32 = (9.0 * race3d.sample.slope(at) : F32)
+  a1: F32 = gc.ifm(Bool.and(U32.is_zero(gc.u(rider, "stun")), gc.neg(gc.u(input, "move_y"))), (a0 + 3.2 : F32), a0)
+  a2: F32 = gc.ifm(Bool.and(U32.is_zero(gc.u(rider, "stun")), Bool.or(Bool.and(U32.is_ne(gc.u(input, "move_y"), 0), Bool.not(gc.neg(gc.u(input, "move_y")))), gc.b(input, "interact"))), (a1 - (7.0 * RS.f_signum(vs0) : F32) : F32), a1)
+  sluice: Bool = U32.is_eq(ground, 4)
+  a3: F32 = gc.ifm(sluice, (a2 + 2.0 : F32), a2)
+  n1: List<&2, String> = gc.ifl_s(Bool.and(sluice, U32.is_zero(U32.mod(gc.u(race, "t"), 20))), noise, "step_wet")
+  off: F32 = (1.3 - gc.f(rider, "x") : F32)
+  lode: Bool = Bool.and(U32.is_eq(ground, 3), grounded)
+  ax1: F32 = gc.ifm(Bool.and(lode, F32.is_lt(RS.f_abs(off), 1.8)), (3.2 * RS.f_signum(off) : F32), 0.0)
+  a4: F32 = gc.ifm(Bool.and(lode, F32.is_lt(RS.f_abs(off), 0.35)), (a3 + 3.0 : F32), a3)
+  ax2: F32 = gc.ifm(sluice, (ax1 + (4.0 * F32.sin((gc.f(rider, "s") * 0.35 : F32)) : F32) : F32), ax1)
+  a5: F32 = (a4 - (0.12 * vs0 : F32) : F32)
+  vs: F32 = RS.f_clamp((vs0 + (a5 * rules.DT() : F32) : F32), F32.neg(4.0), 11.0)
+  ax3: F32 = gc.ifm(U32.is_zero(gc.u(rider, "stun")), (ax2 + (7.0 * RS.i_as_f32(gc.u(input, "move_x")) : F32) : F32), ax2)
+  r1: J.Val = gc.sf(gc.su(rider, "stun", gc.ssub(gc.u(rider, "stun"), 1)), "vs", vs)
+  ax4: F32 = (ax3 - ((vs * vs : F32) * race3d.sample.bend(at) : F32) : F32)
+  vx: F32 = ((gc.f(r1, "vx") + (ax4 * rules.DT() : F32) : F32) * gc.pf(grounded, 0.97, 1.0) : F32)
+  r2: J.Val = gc.sf(r1, "vx", vx)
+  hopped: Bool = Bool.and(hop, grounded)
+  r3: J.Val = gc.ifj(hopped, _ => gc.sf(r2, "vz", 4.6), _ => r2)
+  n2: List<&2, String> = gc.ifl_s(hopped, n1, "roll")
+  r4: GcWr = race3d.roll.air(r3, Bool.or(Bool.not(grounded), F32.is_gt(gc.f(r3, "vz"), 0.0)), n2)
+  match r4 as GcWr:
+    case GcWr{r5: J.Val, n3: List<&2, String>}:
+      race3d.roll.slide(race, r5, tr, n3)
+
+def gc.ifl_s(+c: Bool, +noise: List<&2, String>, +s: String) -> List<&2, String>:
+  match c:
+    case True{}:
+      List.append(&2, String, noise, [s])
+    case False{}:
+      noise
+
+# The hop: gravity on the ball's wall; landing sounds.
+def race3d.roll.air(+r: J.Val, +air: Bool, +noise: List<&2, String>) -> GcWr:
+  if air:
+    vz: F32 = (gc.f(r, "vz") - (14.0 * rules.DT() : F32) : F32)
+    z: F32 = (gc.f(r, "z") + (vz * rules.DT() : F32) : F32)
+    if F32.is_le(z, 0.0):
+      GcWr{gc.sf(gc.sf(r, "z", 0.0), "vz", 0.0), race3d.say(noise, "wheel_land")}
+    else:
+      GcWr{gc.sf(gc.sf(r, "z", z), "vz", vz), noise}
+  else:
+    GcWr{r, noise}
+
+def race3d.roll.slide(+race: J.Val, +r: J.Val, +tr: GcTrack, +noise: List<&2, String>) -> GcRd:
+  s: F32 = (gc.f(r, "s") + (gc.f(r, "vs") * rules.DT() : F32) : F32)
+  x: F32 = (gc.f(r, "x") + (gc.f(r, "vx") * rules.DT() : F32) : F32)
+  spin: F32 = (gc.f(r, "spin") + ((gc.f(r, "vs") * rules.DT() : F32) / race3d.BALL_R() : F32) : F32)
+  r1: J.Val = gc.sf(gc.sf(gc.sf(r, "s", s), "x", x), "spin", spin)
+  r2: J.Val = gc.ifj(F32.is_lt(s, 0.5), _ => gc.sf(gc.sf(r1, "s", 0.5), "vs", (RS.f_abs(gc.f(r1, "vs")) * 0.4 : F32)), _ => r1)
+  race3d.roll.walls(race, r2, tr, noise)
+
+def race3d.roll.walls(+race: J.Val, +r: J.Val, +tr: GcTrack, +noise: List<&2, String>) -> GcRd:
+  at: GcSamp = race3d.Track.at(tr, gc.f(r, "s"))
+  half: F32 = (race3d.sample.width(at) * 0.5 : F32)
+  x: F32 = gc.f(r, "x")
+  if race3d.sample.walls(at):
+    if F32.is_gt(RS.f_abs(x), (half - race3d.BALL_R() : F32)):
+      vx: F32 = gc.pf(race3d.sample.funnel(at), 0.0, F32.neg((gc.f(r, "vx") * 0.45 : F32)))
+      r1: J.Val = gc.sf(gc.sf(gc.sf(r, "x", (RS.f_signum(x) * (half - race3d.BALL_R() : F32) : F32)), "vx", vx), "vs", (gc.f(r, "vs") * 0.94 : F32))
+      race3d.roll.planks(race, r1, tr, at, gc.ifl_s(F32.is_gt(RS.f_abs(vx), 1.5), noise, "clang"))
+    else:
+      race3d.roll.planks(race, r, tr, at, noise)
+  else:
+    if Bool.and(F32.is_gt(RS.f_abs(x), half), F32.is_le(gc.f(r, "z"), 0.05)):
+      w: GcWr = race3d.wreck(gc.sf(gc.sf(r, "vx", (RS.f_signum(x) * 2.0 : F32)), "vz", 0.0), "Fall", noise)
+      match w as GcWr:
+        case GcWr{r1: J.Val, n1: List<&2, String>}:
+          GcRd{race, r1, n1}
+    else:
+      race3d.roll.planks(race, r, tr, at, noise)
+
+# Rotten planks fall away a second after the first ball over them.
+def race3d.roll.planks(+race: J.Val, +r: J.Val, +tr: GcTrack, +at: GcSamp, +noise: List<&2, String>) -> GcRd:
+  plank: U32 = gc.umin(RS.f_as_u32((gc.f(r, "s") / 2.0 : F32)), 65535)
+  if Bool.and(U32.is_eq(race3d.sample.ground(at), 5), race3d.rotten(plank)):
+    key: String = gc.key(plank)
+    began: U32 = gc.ifu(J.has(J.get(race, "planks"), key), _ => J.u32(J.get(J.get(race, "planks"), key)), _ => gc.u(race, "t"))
+    race1: J.Val = J.set(race, "planks", J.set(J.get(race, "planks"), key, J.JU{began}))
+    if Bool.and(U32.is_ge(gc.u(race, "t"), (began + race3d.ROT() : U32)), F32.is_le(gc.f(r, "z"), 0.05)):
+      w: GcWr = race3d.wreck(gc.sf(r, "vz", 0.0), "Fall", noise)
+      match w as GcWr:
+        case GcWr{r1: J.Val, n1: List<&2, String>}:
+          GcRd{race1, r1, n1}
+    else:
+      race3d.roll.cross(race1, r, tr, at, noise)
+  else:
+    race3d.roll.cross(race, r, tr, at, noise)
+
+# The crossing ore carts bonk a ball that is low; a bonked ball is let through the rest of the crossing.
+def race3d.roll.cross(+race: J.Val, +r0: J.Val, +tr: GcTrack, +at: GcSamp, +noise: List<&2, String>) -> GcRd:
+  r: J.Val = gc.su(r0, "rest", gc.ssub(gc.u(r0, "rest"), 1))
+  if Bool.and(U32.is_eq(race3d.sample.ground(at), 2), Bool.and(F32.is_lt(gc.f(r, "z"), 1.0), U32.is_zero(gc.u(r, "rest")))):
+    hit: GcPt = race3d.cart_hit(race3d.crossing_carts(tr, gc.u(race, "t")), gc.f(r, "s"), gc.f(r, "x"))
+    if F32.is_lt(gc.f_pt_x(hit), 1000.0):
+      cx: F32 = gc.f_pt_y(hit)
+      r1: J.Val = gc.sf(gc.sf(r, "vs", F32.neg(3.0)), "vx", gc.pf(F32.is_lt(cx, gc.f(r, "x")), 5.0, F32.neg(5.0)))
+      w: GcWr = race3d.wreck(r1, "Bonk", noise)
+      match w as GcWr:
+        case GcWr{r2: J.Val, n1: List<&2, String>}:
+          GcRd{race, gc.su(gc.su(r2, "crash", 20), "rest", race3d.ROLL_REST()), n1}
+    else:
+      race3d.pick_up(race, r, 0.9, tr, noise)
+  else:
+    race3d.pick_up(race, r, 0.9, tr, noise)
+
+# The first cart that hits the ball: GcPt{s, x} with s < 1000, else GcPt{1000, 0}.
+def race3d.cart_hit(+cs: List<&2, GcPt>, +s: F32, +x: F32) -> GcPt:
+  match cs as List<&2, GcPt>:
+    case Nil{}:
+      GcPt{1000.0, 0.0}
+    case Con{c: GcPt, t: List<&2, GcPt>}:
+      if Bool.and(F32.is_lt(RS.f_abs((gc.f_pt_x(c) - s : F32)), 1.3), F32.is_lt(RS.f_abs((gc.f_pt_y(c) - x : F32)), 1.6)):
+        c
+      else:
+        race3d.cart_hit(t, s, x)

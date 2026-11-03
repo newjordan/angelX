@@ -311,6 +311,13 @@ impl crate::App {
         let Some(club) = club else {
             return self.loop_watchdog_apply(quiet, None, "no reviewer seat");
         };
+        let owner = Arc::as_ptr(&thinking.cancel) as usize;
+        let Some(book_catalog) = crate::agent::harness::book::catalog::for_owner(owner) else {
+            // A reviewer must not consult a different book generation while
+            // the foreground turn is preparing or has already finished.
+            self.loop_watch.next_review_secs = quiet.saturating_add(1);
+            return None;
+        };
         let by = club.label().to_string();
         self.messages.push(Message::new(
             Role::Activity,
@@ -328,6 +335,7 @@ impl crate::App {
         let _ = std::thread::Builder::new()
             .name("loop-watchdog-review".into())
             .spawn(move || {
+                let _book_catalog = crate::agent::harness::book::catalog::enter(book_catalog);
                 let answer = crate::agent::harness::book::connect::chat(
                     &*club,
                     &workspace,

@@ -8,6 +8,8 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
+
+const BOOK_PAGES_CATALOG: &str = include_str!("../../../../book/u_skills.book");
 pub(crate) const CELL: char = '⠥';
 pub(crate) const CATALOG: Route = Route::new(CELL, '⠁');
 pub(crate) const REFERRAL: Route = Route::new(CELL, '⠃');
@@ -45,10 +47,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the playbook catalog (names below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Skills — focused playbooks you can load on demand.",
-                "Call `skill(name)` to get a skill's full instructions before doing that kind of task:",
-            ],
+            pages: &super::catalog_pages::<2>(BOOK_PAGES_CATALOG, b'1'),
         },
         Sub {
             route: REFERRAL,
@@ -56,10 +55,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the playbook referral card (count below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Playbooks: {count} available.",
-                "Use `tool_search` to discover the `skill` tool and its available names, then `skill(name)` to load a relevant procedure when needed.",
-            ],
+            pages: &super::catalog_pages::<2>(BOOK_PAGES_CATALOG, b'2'),
         },
         Sub {
             route: HINT,
@@ -67,11 +63,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a harness-selected playbook for this task (name below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[skill hint — harness-selected playbook]",
-                "Relevant playbook: `{name}`.",
-                "Call `skill(name=\"{name}\")` before acting if it fits this task.",
-            ],
+            pages: &super::catalog_pages::<3>(BOOK_PAGES_CATALOG, b'3'),
         },
         Sub {
             route: TOOL_SEARCH,
@@ -79,7 +71,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "tool_search activated schemas for the next request",
             action: "",
             ideas: "",
-            pages: &["Call a tool labelled active-next-request directly:"],
+            pages: &super::catalog_pages::<1>(BOOK_PAGES_CATALOG, b'4'),
         },
         Sub {
             route: HANDLE,
@@ -87,7 +79,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a large output was parked under a handle",
             action: "",
             ideas: "",
-            pages: &["read: handle_read tool (tool_search it if unlisted)"],
+            pages: &super::catalog_pages::<1>(BOOK_PAGES_CATALOG, b'5'),
         },
         Sub {
             route: RUNNER,
@@ -95,7 +87,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the verifier the harness chose failed (its reason above)",
             action: "",
             ideas: "",
-            pages: &["pin another runner with `runner` or use `shell`"],
+            pages: &super::catalog_pages::<1>(BOOK_PAGES_CATALOG, b'6'),
         },
         Sub {
             route: TYPED_CARGO,
@@ -103,10 +95,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "typed Cargo verification refused workspace-controlled semantics",
             action: "",
             ideas: "",
-            pages: &[
-                "this only blocks TYPED (reward-labeled) verifier evidence, not compilation.",
-                "Run the same check through the `shell` tool instead (e.g. `cargo +<pinned> check`), which is legal unlabeled verification for this workspace.",
-            ],
+            pages: &super::catalog_pages::<2>(BOOK_PAGES_CATALOG, b'7'),
         },
         Sub {
             route: SKILL_LABELS,
@@ -114,10 +103,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a label on the loaded skill (its base and files below)",
             action: "",
             ideas: "",
-            pages: &[
-                "[skill instructions truncated by the harness at 65536 UTF-8 bytes; inspect the source skill before treating this playbook as complete]",
-                "[skill resources — contents not loaded]",
-            ],
+            pages: &super::catalog_pages::<2>(BOOK_PAGES_CATALOG, b'8'),
         },
         Sub {
             route: HANDLE_READS,
@@ -125,12 +111,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a parked result is read through agent:// or handle_read (the handle above)",
             action: "",
             ideas: "",
-            pages: &[
-                "Read it with `agent://{rel}` or call handle_read with handle `{rel}`",
-                "Read agent://hnd_… for a capped body slice.",
-                "re-call handle_read with a higher budget if enabled",
-                "use agent://id without a path",
-            ],
+            pages: &super::catalog_pages::<4>(BOOK_PAGES_CATALOG, b'9'),
         },
         Sub {
             route: TOOL_NOTES,
@@ -138,10 +119,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "an operator switch bounds this tool (the fact above)",
             action: "",
             ideas: "",
-            pages: &[
-                "The operator's ANGEL_TOOL_SEARCH_ACTIVE_MAX setting limits activation; repeating the search cannot raise it.",
-                "operator must set ANGEL_CODE_MODE_EFFECTS=1 in addition to allow_effects=true (or enable /yolos / /yolo)",
-            ],
+            pages: &super::catalog_pages::<2>(BOOK_PAGES_CATALOG, b'0'),
         },
     ],
 };

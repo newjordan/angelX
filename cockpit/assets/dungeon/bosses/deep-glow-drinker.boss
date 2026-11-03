@@ -1,0 +1,39 @@
+name THE GLOW-DRINKER
+text It drank the spore-lamps dry and wears their light in its belly.
+by angelX
+where swamp
+hp 640
+size 1.8
+move hover speed=1.5
+attack fan shots=5 arc=60 speed=5 every=90 damage=10 shot=spore
+phases lob drift every=110 volleys=2 damage=10 shot=spore
+windup inhale wind=42 every=260 damage=13 shots=8 speed=5 shot=spore from=middle cry=SLURRRP
+windup leap wind=36 every=300 damage=15 shots=6 speed=5 shot=spore from=middle cry=SKREEE
+rage 35%
+drops gold 150, gem 2
+art
+..........kJkk.....kkk..........
+k.........hkhh...khkkh.........k
+KJk...........hJhk...........kJk
+kKgJk........kkhkkk........kJgK.
+.KjjgJkk....kkkkkkk.....kkJggKk.
+.kKjjjgJgk...kkggk....kgJggggK..
+.kKggggggJjk.iihhJ..kjJggggggK..
+kKgggKKKgjjJGiiihhgjJjggKKKgggKk
+jgjjKqzqgGJJJiihhGgJJJjKqzqjjggK
+JJjjKqqKggGGJhKKKGgJGgjKqqKgggJJ
+KKgggggggggGJqqqqqKJgGjjjjgggKKk
+.kKgjjgggJgjqq1111qKjjJggjjjKk..
+..kKgggjgggKqzzzz11qJjjgggggK...
+..KgggJjjggqqqzzzzqqKjjggJggKk..
+.kKgjJjjjjkq1zzzzz1qKgggggJggK..
+.KgJKKKjjJkq1zzzzz1qKkJgKKKgJKk.
+.kJkkkKjjk.Kqqzzzzqqk.kgKkkkKJk.
+.k....KgJ..Kq11111qKk..JKk....k.
+......KJ....Kqq1qqqk...kJk......
+......kk.....KGqqGk.....kk......
+.............kkkkkk.............
+.............G....G.............
+.............G....G.............
+............kk....kk............
+...........kk......kk...........

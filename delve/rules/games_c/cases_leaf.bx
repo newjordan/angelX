@@ -1,0 +1,51 @@
+# Case wrappers for knight_racers.rs, race_wagers.rs and votes.rs.
+
+def gcase.knight_racers.Session.join_ids(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "s", knight_racers.Session.join_ids(J.get(i, "s"), gc.us(J.get(i, "ids"))))
+
+def gcase.knight_racers.Session.step(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "s", knight_racers.Session.step(J.get(i, "s"), J.get(i, "inputs")))
+
+def gcase.knight_racers.pose(+i: J.Val) -> J.Val:
+  p: F32 & F32 & F32 = knight_racers.pose(gc.f(i, "s"))
+  (x: F32, rest: F32 & F32) = p
+  (y: F32, h: F32) = rest
+  J.set(J.obj(), "ret", J.JA{[J.JF{x}, J.JF{y}, J.JF{h}]})
+
+def gcase.knight_racers.curve(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JF{knight_racers.curve(gc.f(i, "s"))})
+
+def gcase.race_wagers.draw(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JU{race_wagers.draw(W.of_j(J.get(i, "seed")), W.of_j(J.get(i, "raid_id")), gc.u(i, "heat"))})
+
+def gcase.race_wagers.distance(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JU{race_wagers.distance(gc.u(i, "draw"), gc.u(i, "racer"), gc.u(i, "tick"))})
+
+def gcase.race_wagers.winner(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JU{race_wagers.winner(gc.u(i, "draw"))})
+
+def gcase.race_wagers.finished(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JU{race_wagers.finished(gc.u(i, "heat"), gc.u(i, "mark"))})
+
+def gcase.race_wagers.next(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JU{race_wagers.next(J.get(i, "country"))})
+
+def gcase.race_wagers.settle(+i: J.Val) -> J.Val:
+  r: J.Val & J.Val & J.Val = race_wagers.settle(J.get(i, "country"), J.get(i, "treasury"), J.get(i, "marks"), J.get(i, "news"))
+  (country: J.Val, rest: J.Val & J.Val) = r
+  (treasury: J.Val, news: J.Val) = rest
+  J.set(J.set(J.set(J.obj(), "country", country), "treasury", treasury), "news", news)
+
+def gcase.votes.State.command(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "st", votes.State.command(J.get(i, "st"), gc.u(i, "id"), gc.s(i, "name"), J.get(i, "command")))
+
+def gcase.votes.State.arrive(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "st", votes.State.arrive(J.get(i, "st"), gc.u(i, "id"), gc.s(i, "name")))
+
+def gcase.votes.State.average(+i: J.Val) -> J.Val:
+  r: F32 & U32 = votes.State.average(J.get(i, "st"), gc.s(i, "item"))
+  (avg: F32, n: U32) = r
+  J.set(J.obj(), "ret", J.JA{[J.JF{avg}, J.JU{n}]})
+
+def gcase.votes.Command.valid(+i: J.Val) -> J.Val:
+  J.set(J.obj(), "ret", J.JBool{votes.Command.valid(J.get(i, "c"))})

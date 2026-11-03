@@ -55,6 +55,17 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
 }
 
 fn scene(run: &Run, focus: Option<u32>) -> Scene {
+    scene_drawn(run, focus, true)
+}
+
+/// The words a frame settles, without the paint that goes on after them.
+/// Label checks read only those words, the keep-outs and what was left out.
+#[cfg(test)]
+fn scene_words(run: &Run, focus: Option<u32>) -> Scene {
+    scene_drawn(run, focus, false)
+}
+
+fn scene_drawn(run: &Run, focus: Option<u32>, paint_over: bool) -> Scene {
     let mut im = Img::black(384, 224);
     let mut fx = Img::new(384, 224);
     let Some(s) = run.moonfall.as_ref() else {
@@ -74,7 +85,7 @@ fn scene(run: &Run, focus: Option<u32>) -> Scene {
     // A touch jolts the screen, and so does the moon landing.
     let amount = match s.phase {
         rules::state::Phase::Rewind { t, fell: true, .. } if (8..26).contains(&t) => 3,
-        _ if me.hurt + 4 >= rules::wisps::WARDED => 2,
+        _ if me.hurt + 4 >= rules::state::WARDED => 2,
         _ => 0,
     };
     if amount > 0 {
@@ -98,6 +109,9 @@ fn scene(run: &Run, focus: Option<u32>) -> Scene {
     hud::keep_outs(&mut words, s, me, shown);
     let keep = words.keeps();
     let labels::Placement { placed, left_out } = words.place();
+    if !paint_over {
+        return Scene { base: im, fx, labels: placed, left_out, keep };
+    }
     // Over the sky's light and the moon, so they read at any hour; not over
     // the moon's wipe, which hides the whole town.
     if !sky::disc(s, shown).4 {

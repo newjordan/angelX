@@ -41,7 +41,7 @@ fn grok_tool_prompt_frames_a_scout_brief() {
     // search: the scout has no tool channel, so `⡸⠑` is recited in full.
     assert!(p.contains("who won the match last night"));
     let scout = crate::agent::harness::book::d4567_briefs::GROK_RESEARCH;
-    assert!(p.starts_with(scout.sub().pages[0]), "{p}");
+    assert!(p.starts_with(&scout.sub().pages[0]), "{p}");
     assert!(p.ends_with("Request:\nwho won the match last night"), "{p}");
     assert!(p.contains("web and X"));
     assert!(p.to_ascii_lowercase().contains("cite source"));

@@ -166,16 +166,16 @@ checkout-only helper; it is not added to the public release inventory.
 | --- | --- |
 | Durable loop confirmation; worker brief | [`loop_ctl.rs`](../../cockpit/src/drive/loop_ctl.rs) |
 | Receipt-to-site bridge | [`turn_io.rs`](../../cockpit/src/app/control/turn_io.rs) |
-| Site identity, excavation, stock/craft accounting, save transactions | [`together_settlement.rs`](../../cockpit/src/drive/together_settlement.rs) |
+| Site identity, excavation, stock/craft accounting, save transactions | [`together_settlement.rs`](../../crates/realm-host/src/together_settlement.rs) |
 | Pure worker-side manifest rules | [`lib/settlement/exhibits.mjs`](../../lib/settlement/exhibits.mjs) |
 | Optional immutable publication CLI and filesystem boundary | [`settlement-exhibits.mjs`](../../scripts/runtime/settlement-exhibits.mjs) |
-| Native manifest validation, source confinement, exhibit placement/inspection | [`exhibits.rs`](../../cockpit/src/drive/together_settlement/exhibits.rs) |
-| Shared room vocabulary and floor construction | [`layout.rs`](../../cockpit/src/drive/together_shooter/layout.rs) |
-| Playable hall admission | [`home.rs`](../../cockpit/src/drive/together_shooter/home.rs) |
-| Commands and local-only inspection controls | [`dungeon_shooter.rs`](../../cockpit/src/app/control/dungeon_shooter.rs) |
-| Camera/site bridge | [`crawl.rs`](../../cockpit/src/stage/world_viz/crawl.rs) |
-| Survey paths, work poses and workshop/exhibit staging | [`crawl/settlement.rs`](../../cockpit/src/stage/world_viz/crawl/settlement.rs) |
-| Shared collision projection | [`crawl/dungeon.rs`](../../cockpit/src/stage/world_viz/crawl/dungeon.rs) |
+| Native manifest validation, source confinement, exhibit placement/inspection | [`exhibits.rs`](../../crates/realm-host/src/together_settlement/exhibits.rs) |
+| Shared room vocabulary and floor construction | [`layout.rs`](../../crates/delve/src/rules/layout.rs) |
+| Playable hall admission | [`home.rs`](../../crates/delve/src/rules/home.rs) |
+| Commands and local-only inspection controls | [`dungeon_shooter.rs`](../../crates/realm-host/src/control/dungeon_shooter.rs) |
+| Camera/site bridge | [`crawl.rs`](../../crates/realm-host/src/world_viz/crawl.rs) |
+| Survey paths, work poses and workshop/exhibit staging | [`crawl/settlement.rs`](../../crates/realm-host/src/world_viz/crawl/settlement.rs) |
+| Shared collision projection | [`crawl/dungeon.rs`](../../crates/realm-host/src/world_viz/crawl/dungeon.rs) |
 | What each seat is sent of the run | [`wire.rs`](../../crates/delve/src/wire.rs) |
 
 Regression coverage is in

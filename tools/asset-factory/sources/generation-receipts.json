@@ -1,0 +1,101 @@
+[
+  {
+    "call": "8abbe474deeac0f7",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3901,
+    "prompt": "One isolated body game sprite: Marsh watchman monster, hunched humanoid in a torn grey reed coat, broad head, two visible arms and separated boots, no weapon, small ochre neck cord. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. ",
+    "prompt_id": "4eea7ea4-424a-4831-9506-969b494f9cc9",
+    "seconds": 28.07945784399635,
+    "sha256": "5f8808e85e78b9ad2f8c98c5de7f7c6a5ceae022d9f2f293f6fdf6f4eef30c91",
+    "source": "marsh-watchman.png"
+  },
+  {
+    "call": "d84339d580bb5a38",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3902,
+    "prompt": "One isolated body game sprite: Cinder knave monster, lean goblin humanoid with a broad wedge head and long pointed nose, grey padded vest, exposed bent elbows clearly separated from torso, short separated legs and large boots. Small dull ochre belt buckle. No cloak, no weapon, no background details.. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. ",
+    "prompt_id": "38ad7403-c9ce-4b14-b22d-da8615d7ef8e",
+    "seconds": 10.043665462988429,
+    "sha256": "00cc920d0de0100cad961ac2bf1ad49113b30b2b67745e39c11206ae155fdbb7",
+    "source": "cinder-knave.png"
+  },
+  {
+    "call": "75c607a10cd60f0b",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3903,
+    "prompt": "One isolated weapon game sprite: Medieval flail alone, thick short dark grey grip at bottom, a clearly visible linked chain curving to the right and a large spiked iron ball at the top. Three bold spikes. Tiny ochre pommel. Simple chunky shapes.. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. Weapon alone upright, blade or shaft pointing up, handle at bottom, no hands or character.",
+    "prompt_id": "c3cc53c4-e32f-4a7b-84b7-52be020ea6a0",
+    "seconds": 10.039987224998185,
+    "sha256": "12505553f60ec212c714681b0603c69221ecf5dcee5e4ab68581de414c0ae071",
+    "source": "chain-flail.png"
+  },
+  {
+    "call": "6115081ae3524fa5",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3904,
+    "prompt": "One isolated weapon game sprite: Heavy medieval greatsword alone, upright broad long grey steel blade with angled tip and dark fuller, wide cruciform crossguard, dark leather grip at bottom, tiny ochre pommel. Big readable blade.. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. Weapon alone upright, blade or shaft pointing up, handle at bottom, no hands or character.",
+    "prompt_id": "cce7a788-ce70-44cd-b95b-508f2107f5a5",
+    "seconds": 10.034341088990914,
+    "sha256": "7797926a3ce881c5aebecd2965797a76eef07ac6619eeb89898cf851305fa1f7",
+    "source": "hearth-greatsword.png"
+  },
+  {
+    "call": "be4b3c6c076043a9",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3905,
+    "prompt": "One isolated weapon game sprite: Medieval spear alone, upright long ash-grey straight shaft with broad leaf shaped steel point at top, small ochre binding below spearhead, grip near bottom. Bold simple silhouette.. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. Weapon alone upright, blade or shaft pointing up, handle at bottom, no hands or character.",
+    "prompt_id": "d0afb4ee-1200-4784-8a22-e412f1b82641",
+    "seconds": 10.033026688994141,
+    "sha256": "dc7c474c9224141dab9cdc8ebe4936589582a078b9497bfc5b355f5d85b47a88",
+    "source": "ash-spear.png"
+  },
+  {
+    "call": "fe59f64daa6ac632",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3906,
+    "prompt": "One isolated worn game sprite: Empty steel torso cuirass with two rounded pauldrons, wide angular breastplate with dark inset centre, three small dull ochre rivets and a waist band. No body inside. Horizontal short broad armour only.. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. Only empty torso armour breastplate with shoulder plates, no person, no head, no legs, no arms. Wide and short, 2:1 aspect.",
+    "prompt_id": "31912abb-f68e-435b-9fdd-71c9d481c4f4",
+    "seconds": 10.035276072012493,
+    "sha256": "dba80d5736f2bafedb4c1271ac05597ff561cca6772ccc6430796bb0c1f0705e",
+    "source": "rivet-cuirass.png"
+  },
+  {
+    "call": "4a09b53417785784",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3907,
+    "prompt": "One isolated worn game sprite: Empty medieval lamellar torso armour, wide short rectangular steel vest with two shoulder straps, three bold horizontal overlapping grey plate rows, small dull ochre lacing on one side. No person, head, arms or legs.. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. Only empty torso armour breastplate with shoulder plates, no person, no head, no legs, no arms. Wide and short, 2:1 aspect.",
+    "prompt_id": "fb3bc207-5776-4d26-9482-bd43c12c2611",
+    "seconds": 10.032873055984965,
+    "sha256": "079aa5d7ae175351fdc1bfe1e80c8d018f7a4929968decf46e15d667bfe006ad",
+    "source": "lamellar-vest.png"
+  },
+  {
+    "call": "fabff20822528185",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3908,
+    "prompt": "One isolated vfx game sprite: A compact radial burst of five short chunky muted steel grey impact sparks, centre dark and small, two tiny ochre fragments, isolated in empty space. No white glow, no fireball, no gradients.. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. ",
+    "prompt_id": "9ef722f3-9eb5-4dbc-9b96-1a06ebba5ff6",
+    "seconds": 10.031622359005269,
+    "sha256": "158e333f6b0aa91a1134394e24f90e676011306ab0e21f7b08c862513650dab7",
+    "source": "iron-hit-sparks.png"
+  },
+  {
+    "call": "806024964dbd0ea5",
+    "backend": "local Qwen-Image 2.1",
+    "paid": false,
+    "seed": 3909,
+    "prompt": "One isolated prop game sprite: A squat medieval tavern ale cask, bulging muted grey timber staves, two thick grey iron hoops, small dull ochre tap on lower right and round bung near top. Front side view, no ground shadow.. Side view facing right. Delve medieval dungeon pixel art. Readable simple silhouette, deliberately coarse square pixel clusters, 16 pixel tall design enlarged without smoothing. Tonal muted grey stone and steel, one small dull ochre accent. No pure white, no glow, no hypercontrast. Flat solid magenta background, no shadow, no floor, no text. ",
+    "prompt_id": "8b5009f8-1663-4535-8fb1-2cb1ee780f99",
+    "seconds": 10.03737305800314,
+    "sha256": "ca828d73a88ee6f7d4098b60a307233a1b66362e22b969accb96322f0e9f6e22",
+    "source": "tavern-cask.png"
+  }
+]

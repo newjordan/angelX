@@ -40,8 +40,6 @@
 //! verify command; `ANGEL_CUT_VERIFY_TIMEOUT_SECS` (default 60) bounds it.
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
@@ -71,12 +69,6 @@ const AUTHORED_MAX_BYTES: usize = 64 * 1024;
 /// row). The head, not the tail: compilers print the first — most actionable —
 /// error first.
 const VERIFY_ERR_MAX_BYTES: usize = 2_500;
-/// `/cut` skips a shard larger than this rather than loading it into the TUI.
-const STATUS_SHARD_MAX_BYTES: u64 = 32 * 1024 * 1024;
-/// A single JSONL line past this bound is treated as torn, not as a row.
-const STATUS_LINE_MAX_BYTES: usize = 512 * 1024;
-/// Compact slices print at most this many keys per dimension.
-const STATUS_SLICE_TOP: usize = 5;
 /// Pending rows never survive their hop, but a pathological path (a code-mode
 /// script writing in a loop) must not grow the buffer without bound.
 const MAX_PENDING: usize = 64;
@@ -1131,15 +1123,7 @@ fn next_seq() -> u64 {
 }
 
 /// Stable SHA-256 content identity using the already-linked platform implementation.
-pub(crate) fn sha256_hex(data: &[u8]) -> String {
-    use std::fmt::Write as _;
-    let digest = ring::digest::digest(&ring::digest::SHA256, data);
-    let mut hex = String::with_capacity(64);
-    for byte in digest.as_ref() {
-        let _ = write!(hex, "{byte:02x}");
-    }
-    hex
-}
+pub(crate) use angel_live::host::sha256_hex;
 
 // ---------------------------------------------------------------------------
 // T4 — `/cut` morning read
@@ -1170,405 +1154,53 @@ pub(crate) fn status_text(arg: Option<&str>, workspace: &Path) -> String {
     morning_read(&cfg.dir, workspace)
 }
 
+/// The projection is replaceable code. Capture, verification and shard
+/// ownership remain native; the report never emits authored bodies.
 fn morning_read(dir: &Path, workspace: &Path) -> String {
-    let mut out = format!(
-        "the cut — morning read\nworkspace: {}\n",
-        workspace.display()
-    );
-    if !dir.exists() {
-        out.push_str(&format!(
-            "manifest: {} (missing — signal density is zero)\n",
-            dir.display()
-        ));
-        push_zero_body(&mut out);
-        return out;
-    }
-    let shards = authored_shards(dir);
-    if shards.is_empty() {
-        out.push_str(&format!(
-            "manifest: {} (empty — signal density is zero)\n",
-            dir.display()
-        ));
-        push_zero_body(&mut out);
-        return out;
-    }
-
-    let mut authored = 0u64;
-    let mut labeled = 0u64;
-    let mut passed = 0u64;
-    let mut skipped = 0u64;
-    let mut timed_out = 0u64;
-    let mut unverified = 0u64;
-    let mut kept = 0u64;
-    let mut edited = 0u64;
-    let mut discarded = 0u64;
-    let mut human_fields = false;
-    let mut huge_shards = 0u64;
-    let mut repair_hits: Vec<RepairHit> = Vec::new();
-    let mut labeled_unpairable = 0u64;
-    let mut drivers: HashMap<String, u64> = HashMap::new();
-    let mut models: HashMap<String, u64> = HashMap::new();
-    let mut repos: HashMap<String, u64> = HashMap::new();
-    let mut paths: HashMap<String, u64> = HashMap::new();
-    let mut hours: HashMap<String, u64> = HashMap::new();
-
-    for shard in &shards {
-        let len = match std::fs::metadata(shard) {
-            Ok(meta) => meta.len(),
-            Err(_) => continue,
-        };
-        if len > STATUS_SHARD_MAX_BYTES {
-            huge_shards += 1;
-            continue;
-        }
-        let Ok(file) = File::open(shard) else {
-            continue;
-        };
-        for line in BufReader::new(file).lines() {
-            let Ok(line) = line else { continue };
-            if line.trim().is_empty() {
-                continue;
-            }
-            if line.len() > STATUS_LINE_MAX_BYTES {
-                continue;
-            }
-            let Ok(mut v) = serde_json::from_str::<Value>(&line) else {
-                continue;
-            };
-            if !v.is_object() {
-                continue;
-            }
-            if let Some(obj) = v.as_object_mut() {
-                obj.remove("authored");
-            }
-            authored += 1;
-            bump_slice(&mut drivers, string_field(&v, "driver"));
-            bump_slice(&mut models, string_field(&v, "model"));
-            bump_slice(
-                &mut repos,
-                v.get("repo")
-                    .and_then(|r| r.get("key"))
-                    .and_then(|k| k.as_str())
-                    .map(str::trim)
-                    .filter(|s| !s.is_empty()),
-            );
-            bump_slice(
-                &mut paths,
-                path_kind(v.get("path").and_then(|p| p.as_str())),
-            );
-            if let Some(ts) = v.get("ts").and_then(|t| t.as_u64()) {
-                let hour = hour_utc(ts);
-                bump_slice(&mut hours, Some(&hour));
-            }
-            match machine_stat(&v) {
-                MachineStat::Skipped => skipped += 1,
-                MachineStat::TimedOut => timed_out += 1,
-                MachineStat::Pass => {
-                    labeled += 1;
-                    passed += 1;
-                    note_repair(&v, true, &mut repair_hits, &mut labeled_unpairable);
-                }
-                MachineStat::Fail => {
-                    labeled += 1;
-                    note_repair(&v, false, &mut repair_hits, &mut labeled_unpairable);
-                }
-                MachineStat::Unverified => unverified += 1,
-            }
-            match human_of(&v) {
-                Human::Absent => {}
-                Human::Keep => {
-                    human_fields = true;
-                    kept += 1;
-                }
-                Human::Edited => {
-                    human_fields = true;
-                    edited += 1;
-                }
-                Human::Discarded => {
-                    human_fields = true;
-                    discarded += 1;
-                }
-                Human::Other => human_fields = true,
-            }
-        }
-    }
-
-    out.push_str(&format!("manifest: {} · {authored} row(s)", dir.display()));
-    if huge_shards > 0 {
-        out.push_str(&format!(" · skipped {huge_shards} oversized shard(s)"));
-    }
-    if authored == 0 {
-        out.push_str(" — signal density is zero");
-    }
-    out.push('\n');
-    out.push_str(&format!("  authored: {authored}\n"));
-    out.push_str(&format!(
-        "  machine: labeled {labeled} · skipped {skipped} · timed_out {timed_out} · unverified {unverified}\n"
-    ));
-    if labeled == 0 {
-        out.push_str("  pass rate: n/a (no labeled rows)\n");
-    } else {
-        out.push_str(&format!("  pass rate: {passed}/{labeled}\n"));
-    }
-    if human_fields {
-        let judged = kept + edited + discarded;
-        out.push_str(&format!(
-            "  human: KEPT {kept} / EDITED {edited} / DISCARDED {discarded} (judged {judged})\n"
-        ));
-    } else {
-        out.push_str("  judged corpus is empty\n");
-    }
-    let pairable = labeled.saturating_sub(labeled_unpairable);
-    if labeled > 0 && pairable == 0 {
-        out.push_str("  repair trajectories: n/a (manifest has no fail→pass pairing)\n");
-    } else {
-        out.push_str(&format!(
-            "  repair trajectories: {}\n",
-            count_repairs(&mut repair_hits)
-        ));
-    }
-    let judged = if human_fields {
-        kept + edited + discarded
-    } else {
-        0
-    };
-    out.push_str(&format!(
-        "  signal density: {authored} authored · {labeled} labeled · {judged} judged\n"
-    ));
-    out.push_str("  slices (counts only; observational — not a ranking)\n");
-    out.push_str(&format!("    driver: {}\n", format_slice(&drivers)));
-    out.push_str(&format!("    model: {}\n", format_slice(&models)));
-    out.push_str(&format!("    repo: {}\n", format_slice(&repos)));
-    out.push_str(&format!("    path: {}\n", format_slice(&paths)));
-    out.push_str(&format!("    hour: {}", format_slice(&hours)));
-    out
-}
-
-fn push_zero_body(out: &mut String) {
-    out.push_str("  authored: 0\n");
-    out.push_str("  machine: labeled 0 · skipped 0 · timed_out 0 · unverified 0\n");
-    out.push_str("  pass rate: n/a (no labeled rows)\n");
-    out.push_str("  judged corpus is empty\n");
-    out.push_str("  repair trajectories: 0\n");
-    out.push_str("  signal density: 0 authored · 0 labeled · 0 judged\n");
-    out.push_str("  slices (counts only; observational — not a ranking)\n");
-    out.push_str("    driver: (empty)\n");
-    out.push_str("    model: (empty)\n");
-    out.push_str("    repo: (empty)\n");
-    out.push_str("    path: (empty)\n");
-    out.push_str("    hour: (empty)");
-}
-
-fn authored_shards(dir: &Path) -> Vec<PathBuf> {
-    let mut names = Vec::new();
-    let Ok(rd) = std::fs::read_dir(dir) else {
-        return names;
-    };
-    for ent in rd.flatten() {
-        let name = ent.file_name();
-        let Some(s) = name.to_str() else { continue };
-        if !s.starts_with("authored-") || !s.ends_with(".jsonl") {
-            continue;
-        }
-        let date = &s["authored-".len()..s.len() - ".jsonl".len()];
-        if date.len() == 8 && date.bytes().all(|b| b.is_ascii_digit()) {
-            names.push(ent.path());
-        }
-    }
-    names.sort();
-    names
-}
-
-fn string_field<'a>(v: &'a Value, key: &str) -> Option<&'a str> {
-    v.get(key)
-        .and_then(|x| x.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-}
-
-fn bump_slice(map: &mut HashMap<String, u64>, key: Option<&str>) {
-    let Some(key) = key.filter(|s| !s.is_empty()) else {
-        return;
-    };
-    *map.entry(key.to_string()).or_insert(0) += 1;
-}
-
-fn path_kind(path: Option<&str>) -> Option<&str> {
-    let path = path.filter(|s| !s.is_empty())?;
-    if let Some(kind) = source_kind(path) {
-        return Some(kind);
-    }
-    Path::new(path)
-        .extension()
-        .and_then(|e| e.to_str())
-        .filter(|e| !e.is_empty())
-}
-
-fn hour_utc(ts: u64) -> String {
-    format!("{:02}h", (ts / 3600) % 24)
-}
-
-fn format_slice(counts: &HashMap<String, u64>) -> String {
-    if counts.is_empty() {
-        return "(empty)".to_string();
-    }
-    let mut items: Vec<(&String, &u64)> = counts.iter().collect();
-    items.sort_by(|a, b| b.1.cmp(a.1).then_with(|| a.0.cmp(b.0)));
-    let extra = items.len() > STATUS_SLICE_TOP;
-    items.truncate(STATUS_SLICE_TOP);
-    let body = items
-        .into_iter()
-        .map(|(k, n)| format!("{k} {n}"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    if extra { format!("{body} …") } else { body }
-}
-
-#[derive(Clone, Copy)]
-enum MachineStat {
-    Unverified,
-    Skipped,
-    TimedOut,
-    Pass,
-    Fail,
-}
-
-fn machine_stat(v: &Value) -> MachineStat {
-    let Some(m) = v.get("machine") else {
-        return MachineStat::Unverified;
-    };
-    if !m.is_object() {
-        return MachineStat::Unverified;
-    }
-    if m.get("skipped").is_some() {
-        return MachineStat::Skipped;
-    }
-    if m.get("timed_out").and_then(|t| t.as_bool()) == Some(true) {
-        return MachineStat::TimedOut;
-    }
-    match m.get("exit").and_then(|e| e.as_i64()) {
-        Some(0) => MachineStat::Pass,
-        Some(_) => MachineStat::Fail,
-        None => MachineStat::Unverified,
+    match report_module(dir, workspace) {
+        Ok(report) => report,
+        Err(error) => format!("the cut — report unavailable: {error}"),
     }
 }
 
-#[derive(Clone, Copy)]
-enum Human {
-    Absent,
-    Keep,
-    Edited,
-    Discarded,
-    Other,
+#[cfg(unix)]
+fn report_module(dir: &Path, workspace: &Path) -> Result<String, String> {
+    report_module_with_timeout(dir, workspace, Duration::from_secs(10))
 }
 
-fn human_of(v: &Value) -> Human {
-    if let Some(s) = v
-        .pointer("/cut/verdict")
-        .and_then(|x| x.as_str())
-        .or_else(|| v.get("verdict").and_then(|x| x.as_str()))
-    {
-        return classify_human(s);
-    }
-    let keep = v.get("keep").or_else(|| v.get("kept"));
-    let edited = v.get("edited");
-    let discarded = v.get("discarded");
-    if keep.is_none() && edited.is_none() && discarded.is_none() {
-        return Human::Absent;
-    }
-    if truthy(keep) {
-        return Human::Keep;
-    }
-    if truthy(edited) {
-        return Human::Edited;
-    }
-    if truthy(discarded) {
-        return Human::Discarded;
-    }
-    Human::Other
+#[cfg(unix)]
+fn report_module_with_timeout(
+    dir: &Path,
+    workspace: &Path,
+    timeout: Duration,
+) -> Result<String, String> {
+    use std::process::Command;
+
+    let node = crate::agent::tools::runtime_missing::resolve("node")
+        .map_err(|_| "Node.js unavailable (install Node or set ANGEL_NODE_BIN)".to_string())?;
+    let script = crate::platform::runtime_paths::script("runtime/cut-report.mjs");
+    let mut command = Command::new(node);
+    command
+        .arg(script)
+        .arg("--dir")
+        .arg(dir)
+        .arg("--workspace")
+        .arg(workspace);
+    let bytes = crate::platform::worker::run_cancellable(
+        command,
+        &[],
+        timeout,
+        0,
+        256 * 1024,
+        || false,
+    )
+    .map_err(|error| format!("report module: {error}"))?;
+    String::from_utf8(bytes).map_err(|_| "report output was not UTF-8".to_string())
 }
 
-fn classify_human(s: &str) -> Human {
-    match s.trim().to_ascii_uppercase().as_str() {
-        "KEPT" | "KEEP" => Human::Keep,
-        "EDITED" | "EDIT" => Human::Edited,
-        "DISCARDED" | "DISCARD" => Human::Discarded,
-        _ => Human::Other,
-    }
-}
-
-fn truthy(v: Option<&Value>) -> bool {
-    match v {
-        Some(Value::Bool(b)) => *b,
-        Some(Value::Number(n)) => n.as_i64().is_some_and(|i| i != 0),
-        Some(Value::String(s)) => {
-            let t = s.trim();
-            !t.is_empty()
-                && !t.eq_ignore_ascii_case("false")
-                && t != "0"
-                && !t.eq_ignore_ascii_case("no")
-        }
-        _ => false,
-    }
-}
-
-struct RepairHit {
-    session: u64,
-    path: String,
-    cmd: String,
-    ts: u64,
-    seq: u64,
-    pass: bool,
-}
-
-fn note_repair(v: &Value, pass: bool, hits: &mut Vec<RepairHit>, unpairable: &mut u64) {
-    let session = v.get("session").and_then(|s| s.as_u64());
-    let path = v
-        .get("path")
-        .and_then(|p| p.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
-    let cmd = v
-        .get("machine")
-        .and_then(|m| m.get("cmd"))
-        .and_then(|c| c.as_str())
-        .map(str::trim)
-        .filter(|s| !s.is_empty());
-    let (Some(session), Some(path), Some(cmd)) = (session, path, cmd) else {
-        *unpairable += 1;
-        return;
-    };
-    hits.push(RepairHit {
-        session,
-        path: path.to_string(),
-        cmd: cmd.to_string(),
-        ts: v.get("ts").and_then(|t| t.as_u64()).unwrap_or(0),
-        seq: v.get("seq").and_then(|s| s.as_u64()).unwrap_or(0),
-        pass,
-    });
-}
-
-fn count_repairs(hits: &mut [RepairHit]) -> u64 {
-    hits.sort_by(|a, b| {
-        a.session
-            .cmp(&b.session)
-            .then_with(|| a.path.cmp(&b.path))
-            .then_with(|| a.cmd.cmp(&b.cmd))
-            .then_with(|| a.ts.cmp(&b.ts))
-            .then_with(|| a.seq.cmp(&b.seq))
-    });
-    let mut n = 0u64;
-    for w in hits.windows(2) {
-        if w[0].session == w[1].session
-            && w[0].path == w[1].path
-            && w[0].cmd == w[1].cmd
-            && !w[0].pass
-            && w[1].pass
-        {
-            n += 1;
-        }
-    }
-    n
+#[cfg(not(unix))]
+fn report_module(_dir: &Path, _workspace: &Path) -> Result<String, String> {
+    Err("report module is unavailable on this platform".into())
 }
 
 #[cfg(test)]

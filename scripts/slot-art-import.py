@@ -6,14 +6,21 @@ from functools import lru_cache
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import re
 import statistics
 from PIL import Image, ImageDraw, ImageFilter, ImageChops, ImageEnhance
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCES = Path('/work/artifacts/art-prod/slots')
+# Art deliveries and review output live outside the checkout, under
+# ANGEL_ART_ARTIFACTS (default ~/angel-art).
+SOURCES = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')/'art-prod/slots'
 OUTPUT = ROOT / 'crates/delve/assets/art-slots'
+# The source art left the repository on 2026-10-20 for the archive (its
+# README.md says what each folder is); ANGEL_SOURCE_ART names it
+# (default ~/angelX-archive/2026-10-20/source-art).
+SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
 VERSION = 2
 
 
@@ -376,7 +383,8 @@ def run(slot, req, args, status, duplicate):
         for i,p in enumerate(chunk):
             im=Image.open(dest/'v1'/(p['name']+'.png')).convert('RGBA');im.thumbnail((cw-8,ch-28),Image.Resampling.NEAREST)
             x=i%4*cw;y=i//4*ch;review.paste(im,(x+4,y+24),im);d.text((x+4,y+4),f'{p["piece"]}: {p["name"]}'[:50],fill='#b0b2a8')
-        write(dest/f'review-{start//12+1}.png',png(review),args.check)
+        # The review sheets are for eyes, not the game: they sit with the source art.
+        write(SOURCE_ART/'art-slots'/slot/f'review-{start//12+1}.png',png(review),args.check)
     if not args.check and (dest/'review.png').exists():(dest/'review.png').unlink()
     print(f'{slot}: {verdict}; {len(crops)} pieces; '+', '.join(sorted(set(flags))))
     return record

@@ -33,6 +33,44 @@ fn the_third_floors_folly_is_the_powder_room() {
 }
 
 #[test]
+fn powder_crates_do_not_paint_a_screen_overlay() {
+    let mut run = third_floor();
+    run.pick_folly();
+    run.enter_for_test(run.folly_room.unwrap());
+    run.powder.as_mut().unwrap().t = folly::TITLE;
+    let frame = crate::render::overworld::arena::frame_for(&run, 768, 448, Some(1));
+    // Keep the room tiles unchanged: crate bookkeeping alone must not
+    // change the picture or paint over actors.
+    run.powder.as_mut().unwrap().crates.clear();
+    let without_overlay = crate::render::overworld::arena::frame_for(&run, 768, 448, Some(1));
+    assert!(frame == without_overlay, "crate bookkeeping must not paint over actors");
+}
+
+#[test]
+fn powder_finished_board_clears_for_progress_and_repairs_old_saves() {
+    let mut run = third_floor();
+    run.pick_folly();
+    run.enter_for_test(run.folly_room.unwrap());
+    let index = run.at;
+    let room = &run.dungeon.rooms[index];
+    let blocks = |run: &Run| {
+        let r = &run.dungeon.rooms[index];
+        (1..r.rows as i32 - 1).flat_map(|y| (1..r.cols as i32 - 1).map(move |x| (x, y)))
+            .filter(|&(x, y)| r.tile(x, y) == Tile::Block).count()
+    };
+    assert!(room.visited && blocks(&run) > 0);
+    run.powder.as_mut().unwrap().t = folly::TITLE + powder::POWDER_TIME - 1;
+    run.tick_powder(&BTreeMap::new());
+    assert!(run.powder.as_ref().unwrap().done);
+    assert_eq!(blocks(&run), 0, "finished game must not obstruct exits");
+    // A pre-fix save may already have discarded its activity state.
+    run.dungeon.rooms[index].set(2, 2, Tile::Block);
+    run.powder = None;
+    run.clear_finished_powder_board();
+    assert_eq!(blocks(&run), 0, "repair old finished rooms on the next step");
+}
+
+#[test]
 fn a_keg_breaks_the_crates_in_its_cross_and_soots_a_knight_in_it() {
     let mut run = third_floor();
     run.pick_folly();

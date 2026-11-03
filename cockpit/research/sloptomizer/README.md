@@ -76,7 +76,40 @@ do not yet establish a measured task-success or token-cost improvement; that
 requires matched task-level trials with the live path enabled and disabled.
 
 Python 3 is required; the runtime and its standard-library-only modules are
-embedded in the cockpit binary. `ANGEL_RESEARCH_PYTHON` selects the interpreter.
+embedded in the cockpit binary as the default generation.
+`ANGEL_RESEARCH_PYTHON` selects the interpreter.
+
+### Reloading the research runtime
+
+Copy the shipped `sloptomizer` tree to an operator-owned directory, edit its
+runtime files, and publish the complete set after saving:
+
+```sh
+python3 cockpit/research/sloptomizer/publish_runtime.py /path/to/sloptomizer
+ANGEL_RESEARCH_RUNTIME_DIR=/path/to/sloptomizer angel
+```
+
+The publisher writes `generation.json` last. It records a digest for every
+required dependency; a partial save, missing file or mismatched digest cannot
+activate. The host snapshots the full set into a content-addressed directory
+and checks syntax and direct imports without executing candidate code. The
+first real request trials the candidate; only a valid response and successful
+state publication make it last-known-good. Static checks cannot prove dynamic
+imports or runtime behavior. A failed trial reports an error and keeps the
+previous generation; the next request uses that generation before a later
+request retries the candidate. Existing requests keep their original generation.
+Failed validation or a removed manifest produces a `runtime_warning` on
+advisories. The embedded generation is the startup fallback, including after a
+restart; a published candidate must pass validation again in the new process.
+The installed bundle's `cockpit/research/sloptomizer` directory is the default
+source if it has a published manifest; `ANGEL_RESEARCH_RUNTIME_DIR` selects a
+separate source.
+
+The native controller continues to lock, validate and atomically publish each
+learning store. Published Python is trusted operator code and runs with the
+cockpit's local authority when a real request trials it; publication is not a
+sandbox for untrusted modules. Keep shipped upstream copies and their receipt
+unchanged: experiment in a separate directory.
 
 ## Provenance and the duplicated copy
 

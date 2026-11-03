@@ -1,0 +1,207 @@
+# crates/delve/src/rules.rs — `Grid`: the current room's tiles as movement and
+# shots see them. A Grid is its two fields as leading arguments: the `room`
+# object and `barred`. A mover is a number: 0 Hero, 1 Walker, 2 Flier, 3 Wader.
+
+# `unit`: x and y as a unit vector, or (0, 0).
+def rules.unit(x: F32, y: F32) -> (F32, F32):
+    length: F32 = RS.f_hypot(x, y)
+    if F32.is_gt(length, 0.0):
+        return ((x / length : F32), (y / length : F32))
+    return (0.0, 0.0)
+
+# Off the edge reads as the edge tile, so an open doorway lets a knight step
+# through it and out of the room.
+def rules.Grid.tile_at(room: J.Val, x: F32, y: F32) -> LayTile:
+    cols: U32 = layout.Room.cols(room)
+    rows: U32 = layout.Room.rows(room)
+    col: U32 = RS.i_clamp(RS.f_as_i32(F32.floor((x / layout.TILE_UNITS() : F32))), 0, RS.i_sub(cols, 1))
+    row: U32 = RS.i_clamp(RS.f_as_i32(F32.floor((y / layout.TILE_UNITS() : F32))), 0, RS.i_sub(rows, 1))
+    return layout.Room.tile_t(room, col, row)
+
+def rules.Grid.open_tile(t: LayTile, barred: Bool, mover: U32) -> Bool:
+    match (t : LayTile):
+        case TileFloor{}:
+            return True{}
+        case TileStairs{}:
+            return True{}
+        case TileLedge{}:
+            return True{}
+        case TileBog{}:
+            return True{}
+        case TileWall{}:
+            return False{}
+        case TileBlock{}:
+            return False{}
+        case TileHazard{}:
+            return U32.is_eq(mover, 2)
+        case TileDoor{}:
+            return Bool.and(U32.is_zero(mover), Bool.not(barred))
+
+def rules.Grid.open(room: J.Val, barred: Bool, x: F32, y: F32, mover: U32) -> Bool:
+    return rules.Grid.open_tile(rules.Grid.tile_at(room, x, y), barred, mover)
+
+def rules.Grid.clear(room: J.Val, barred: Bool, x: F32, y: F32, r: F32, mover: U32) -> Bool:
+    a: Bool = rules.Grid.open(room, barred, (x + F32.neg(r) : F32), (y + F32.neg(r) : F32), mover)
+    b: Bool = rules.Grid.open(room, barred, (x + r : F32), (y + F32.neg(r) : F32), mover)
+    c: Bool = rules.Grid.open(room, barred, (x + F32.neg(r) : F32), (y + r : F32), mover)
+    d: Bool = rules.Grid.open(room, barred, (x + r : F32), (y + r : F32), mover)
+    return Bool.and(Bool.and(a, b), Bool.and(c, d))
+
+# Whether the tile is the bog (a mover wading it is slowed).
+def rules.Grid.is_bog(t: LayTile) -> Bool:
+    match (t : LayTile):
+        case TileBog{}:
+            return True{}
+        case _:
+            return False{}
+
+def rules.Grid.is_door(t: LayTile) -> Bool:
+    match (t : LayTile):
+        case TileDoor{}:
+            return True{}
+        case _:
+            return False{}
+
+def rules.Grid.is_block(t: LayTile) -> Bool:
+    match (t : LayTile):
+        case TileBlock{}:
+            return True{}
+        case _:
+            return False{}
+
+# Move with wall sliding, one axis at a time. Feet in the bog go at
+# `swamp::BOG_PACE`; wings and the swamp's own waders do not.
+def rules.Grid.slide(room: J.Val, barred: Bool, p: (F32, F32), d: (F32, F32), r: F32, mover: U32) -> (F32, F32):
+    (x: F32, y: F32) = p
+    (dx: F32, dy: F32) = d
+    if Bool.and(Bool.or(U32.is_zero(mover), U32.is_eq(mover, 1)), rules.Grid.is_bog(rules.Grid.tile_at(room, x, y))):
+        dx = (dx * swamp.BOG_PACE() : F32)
+        dy = (dy * swamp.BOG_PACE() : F32)
+    # A knight already in stone walks out toward the room's middle.
+    if Bool.and(U32.is_zero(mover), Bool.not(rules.Grid.clear(room, barred, x, y, r, mover))):
+        cx: F32 = (U32.to_f32(layout.Room.cols(room)) * layout.TILE_UNITS() / 2.0 : F32)
+        cy: F32 = (U32.to_f32(layout.Room.rows(room)) * layout.TILE_UNITS() / 2.0 : F32)
+        if F32.is_gt((dx * (cx - x : F32) : F32), 0.0):
+            x = (x + dx : F32)
+        if F32.is_gt((dy * (cy - y : F32) : F32), 0.0):
+            y = (y + dy : F32)
+        return (x, y)
+    if rules.Grid.clear(room, barred, (x + dx : F32), y, r, mover):
+        x = (x + dx : F32)
+    if rules.Grid.clear(room, barred, x, (y + dy : F32), r, mover):
+        y = (y + dy : F32)
+    return (x, y)
+
+# A knight's displacement, stopped at walls and barred doors the way walking is.
+def rules.Grid.halted(room: J.Val, barred: Bool, from: (F32, F32), d: (F32, F32)) -> (F32, F32):
+    (fx: F32, fy: F32) = from
+    (dx: F32, dy: F32) = d
+    dist: F32 = RS.f_hypot(dx, dy)
+    if F32.is_lt(dist, 0.000001):
+        return (fx, fy)
+    if Bool.not(rules.Grid.clear(room, barred, (fx + dx : F32), (fy + dy : F32), rules.HERO_RADIUS(), 0)):
+        return rules.Grid.slide(room, barred, (fx, fy), (dx, dy), rules.HERO_RADIUS(), 0)
+    ux: F32 = (dx / dist : F32)
+    uy: F32 = (dy / dist : F32)
+    ax: F32 = fx
+    ay: F32 = fy
+    gone: F32 = 0.0
+    while F32.is_lt(gone, (dist - 0.0001 : F32)):
+        hop: F32 = RS.f_min(0.4, (dist - gone : F32))
+        (nx: F32, ny: F32) = rules.Grid.slide(room, barred, (ax, ay), ((ux * hop : F32), (uy * hop : F32)), rules.HERO_RADIUS(), 0)
+        if Bool.and(F32.is_lt(F32.abs((nx - ax : F32)), 0.00001), F32.is_lt(F32.abs((ny - ay : F32)), 0.00001)):
+            return (ax, ay)
+        ax = nx
+        ay = ny
+        gone = (gone + hop : F32)
+    return (ax, ay)
+
+# Whether a point in a doorway tile is met a step along the way (for `across_bar`).
+def rules.Grid.in_door(room: J.Val, nx: F32, ny: F32, r: F32) -> Bool:
+    a: Bool = rules.Grid.is_door(rules.Grid.tile_at(room, nx, ny))
+    b: Bool = rules.Grid.is_door(rules.Grid.tile_at(room, (nx + r : F32), ny))
+    c: Bool = rules.Grid.is_door(rules.Grid.tile_at(room, (nx + F32.neg(r) : F32), ny))
+    d: Bool = rules.Grid.is_door(rules.Grid.tile_at(room, nx, (ny + r : F32)))
+    e: Bool = rules.Grid.is_door(rules.Grid.tile_at(room, nx, (ny + F32.neg(r) : F32)))
+    return Bool.or(Bool.or(Bool.or(a, b), Bool.or(c, d)), e)
+
+# Where a placed knight lands: a rider sits on its carrier and a risen knight
+# takes the body's place, but a barred door on the straight way stops them.
+def rules.Grid.across_bar(room: J.Val, barred: Bool, from: (F32, F32), to: (F32, F32)) -> (F32, F32):
+    (fx: F32, fy: F32) = from
+    (tx: F32, ty: F32) = to
+    dx: F32 = (tx - fx : F32)
+    dy: F32 = (ty - fy : F32)
+    dist: F32 = RS.f_hypot(dx, dy)
+    if Bool.or(Bool.not(barred), F32.is_lt(dist, 0.000001)):
+        return (tx, ty)
+    ux: F32 = (dx / dist : F32)
+    uy: F32 = (dy / dist : F32)
+    gone: F32 = 0.0
+    hits: Bool = False{}
+    while F32.is_lt(gone, (dist - 0.0001 : F32)):
+        gone = (gone + RS.f_min(0.2, (dist - gone : F32)) : F32)
+        if rules.Grid.is_door(rules.Grid.tile_at(room, (fx + ux * gone : F32), (fy + uy * gone : F32))):
+            hits = True{}
+            break
+    if Bool.not(hits):
+        return (tx, ty)
+    ax: F32 = fx
+    ay: F32 = fy
+    gone = 0.0
+    while F32.is_lt(gone, (dist - 0.0001 : F32)):
+        hop: F32 = RS.f_min(0.2, (dist - gone : F32))
+        nx: F32 = (ax + ux * hop : F32)
+        ny: F32 = (ay + uy * hop : F32)
+        if rules.Grid.in_door(room, nx, ny, rules.HERO_RADIUS()):
+            return (ax, ay)
+        ax = nx
+        ay = ny
+        gone = (gone + hop : F32)
+    return (ax, ay)
+
+def rules.Grid.stops_shot(room: J.Val, barred: Bool, x: F32, y: F32) -> Bool:
+    if Bool.or(Bool.or(F32.is_lt(x, 0.0), F32.is_ge(x, layout.Room.width(room))), Bool.or(F32.is_lt(y, 0.0), F32.is_ge(y, layout.Room.height(room)))):
+        return True{}
+    match (rules.Grid.tile_at(room, x, y) : LayTile):
+        case TileWall{}:
+            return True{}
+        case TileBlock{}:
+            return True{}
+        case TileDoor{}:
+            return barred
+        case _:
+            return False{}
+
+# A shot whose body is `body` units round its middle: stopped by stone at its
+# middle, and by a prop wherever its body touches one.
+def rules.Grid.stops_body(room: J.Val, barred: Bool, x: F32, y: F32, body: F32) -> Bool:
+    if rules.Grid.stops_shot(room, barred, x, y):
+        return True{}
+    if Bool.not(F32.is_gt(body, 0.0)):
+        return False{}
+    a: Bool = rules.Grid.is_block(rules.Grid.tile_at(room, (x + body : F32), y))
+    b: Bool = rules.Grid.is_block(rules.Grid.tile_at(room, (x + F32.neg(body) : F32), y))
+    c: Bool = rules.Grid.is_block(rules.Grid.tile_at(room, x, (y + body : F32)))
+    d: Bool = rules.Grid.is_block(rules.Grid.tile_at(room, x, (y + F32.neg(body) : F32)))
+    return Bool.or(Bool.or(a, b), Bool.or(c, d))
+
+# `shot_stop_body`: where it first touches stone or a prop on its way from `from` to `to`.
+def rules.Grid.shot_stop_body(room: J.Val, barred: Bool, from: (F32, F32), to: (F32, F32), body: F32) -> (F32, F32)?:
+    (fx: F32, fy: F32) = from
+    (tx: F32, ty: F32) = to
+    dx: F32 = (tx - fx : F32)
+    dy: F32 = (ty - fy : F32)
+    steps: U32 = RS.f_as_u32(RS.f_clamp(F32.ceil((RS.f_hypot(dx, dy) / 0.25 : F32)), 1.0, 256.0))
+    i: U32 = 1
+    while U32.is_le(i, steps):
+        t: F32 = (RS.u_as_f32(i) / RS.u_as_f32(steps) : F32)
+        ax: F32 = (fx + dx * t : F32)
+        ay: F32 = (fy + dy * t : F32)
+        if rules.Grid.stops_body(room, barred, ax, ay, body):
+            return Some{(ax, ay)}
+        i = (i + 1 : U32)
+    return None{}
+
+def rules.Grid.shot_stop(room: J.Val, barred: Bool, from: (F32, F32), to: (F32, F32)) -> (F32, F32)?:
+    return rules.Grid.shot_stop_body(room, barred, from, to, 0.0)

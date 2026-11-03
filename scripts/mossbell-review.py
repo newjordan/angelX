@@ -2,7 +2,7 @@
 """Review native Mossbell rooms beside the real half-block/braille terminal buffer."""
 from pathlib import Path
 from PIL import Image, ImageChops, ImageDraw, ImageFont
-import argparse, importlib.util, re, json, subprocess
+import argparse, importlib.util, re, json, os, subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
 spec=importlib.util.spec_from_file_location('review',Path(__file__).with_name('cinder-review.py'))
@@ -179,7 +179,7 @@ def run(a):
 
 if __name__=='__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('root',type=Path)
-    p.add_argument('--before',type=Path,default=Path('/work/artifacts/boss-art-20261015/game-3c'))
+    p.add_argument('--before',type=Path,default=Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')/'boss-art-20261015/game-3c')
     p.add_argument('--gates',type=Path,default=Path('scripts/boss-art.py'))
     p.add_argument('--tells-only',action='store_true')
     run(p.parse_args())

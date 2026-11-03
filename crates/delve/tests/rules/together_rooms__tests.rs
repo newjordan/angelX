@@ -1,6 +1,7 @@
 use super::*;
-use super::super::layout::{self, COLS, ROWS, Room, RoomKind, Tile, DIRS};
 use std::collections::VecDeque;
+use super::super::layout::DIRS;
+use super::super::layout::{self, COLS, ROWS, RoomKind};
 
 const PACKS: [Pack; 6] = [Pack::Crypt, Pack::Cavern, Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown];
 
@@ -63,7 +64,7 @@ fn fault(quadrant: &[&str]) -> Option<String> {
         return Some(format!("floor at {c},{r} that no one can walk to"));
     }
     let interior = (cols - 2) * (rows - 2);
-    if floor.len() * 100 < interior * LEAST_FLOOR {
+    if floor.len() * 100 < interior * least_floor() {
         return Some(format!("only {}% floor", floor.len() * 100 / interior));
     }
     None
@@ -78,7 +79,7 @@ fn every_hand_drawn_room_is_whole_and_open() {
         }
         for (i, q) in all_great(pack).iter().enumerate() {
             let size = (q.first().map_or(0, |r| r.len()), q.len());
-            assert!(SIZES.contains(&size), "{pack:?} great {i}: {size:?} is no room's size");
+            assert!(sizes().contains(&size), "{pack:?} great {i}: {size:?} is no room's size");
             assert_eq!(fault(q), None, "{pack:?} great {i}");
         }
     }

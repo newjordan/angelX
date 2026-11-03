@@ -1,0 +1,22 @@
+name Windrun
+kind spell
+rarity relic
+text Run swiftly and evade incoming blows for three seconds.
+drop 0
+chest 0
+cooldown 14
+feat 1
+art
+...ffffffff..
+..flYCYYYllf.
+.flYllllllYlf
+fllfffffffYlf
+.ff......fYlf
+...ffffffYlf.
+..flYCYYllf..
+.flYllllff...
+fllfffff.....
+flYlffffff...
+.flYCYYYYlf..
+..ffffffYlf..
+.......fff...

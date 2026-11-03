@@ -20,11 +20,39 @@
 //! hands over plain data. Threads are only a native speed-up; a wasm build
 //! draws the same pixels on one thread.
 
+#[cfg(feature = "renderer")]
 pub mod client;
+// A beginner's first session, played and measured (docs/FIRST-SESSION.md).
+#[cfg(all(feature = "renderer", any(test, feature = "testing")))]
+#[path = "../tests/first_session__bot.rs"]
+pub mod first_session;
+#[cfg(feature = "renderer")]
+pub mod garage;
 pub mod realm;
+
+#[cfg(feature = "renderer")]
 pub mod render;
 pub mod rules;
+pub mod scripted;
 pub mod settings;
+#[cfg(test)]
+mod test_alloc;
+#[cfg(feature = "renderer")]
 pub mod wire;
 pub mod world;
+#[cfg(feature = "renderer")]
 pub mod world3d;
+
+/// A stand-in for a wish handler: one number the rules hand a running game.
+pub fn probe_value() -> u32 {
+    2
+}
+
+// Shared palette/noise primitives are also used by model-free rules and map
+// generation. The worker builds these without compiling the renderer.
+#[path = "render/overworld/ink.rs"]
+pub mod ink;
+// The motion foundation's eases, beats, springs and curves (docs/MOTION.md)
+// are pure arithmetic, so the rules may time things by them too.
+#[path = "render/motion.rs"]
+pub mod motion;

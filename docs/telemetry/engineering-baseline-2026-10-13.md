@@ -143,17 +143,17 @@ and are terminally blocked in this agent session: Docker (`harbor run` exit
 terminated), and subprocess (refused by design for image tasks, EnvError in
 traces). Resolved the same day via the local fleet instead of Prime (evaluators are
 MIT/open-source; only Prime's hosted runtime is paid, and it is not used):
-Apollo (x86_64, Docker 29.1.3) ran the `fix-git` smoke with the floor
+Rig A (x86_64, Docker 29.1.3) ran the `fix-git` smoke with the floor
 binary — **reward 1.0, 1/1 trials, 2m10s job wall** (job
-`smoke-jobs/2026-10-13__10-52-18` on Apollo; Harbor token/cost fields are
-null, so TB token accounting must come from Angel envelopes). Turbo
+`smoke-jobs/2026-10-13__10-52-18` on Rig A; Harbor token/cost fields are
+null, so TB token accounting must come from Angel envelopes). Rig B
 (x86_64, 32 cores, 67 GB) is staged identically with in-container hash and
 `--build-info` verification. The aarch64 rigs and arm64 Mac are excluded:
 TB images are amd64 (fix-git: arch amd64, glibc 2.36) and the floor binary
-is x86_64. Steering-20 then ran sharded 10/10 across Apollo (`-n 2`) and Turbo
+is x86_64. Steering-20 then ran sharded 10/10 across Rig A (`-n 2`) and Rig B
 (`-n 4`), one attempt per task, two model cells. **Kimi K3 medium: 11/20**
-(Apollo 5/10 in 23m43s, Turbo 6/10 in 31m25s). **Grok 4.7 low: 13/20**
-(Apollo 7/10 in 24m41s, Turbo 6/10 in 15m29s; fix-git smoke 49s vs Kimi
+(Rig A 5/10 in 23m43s, Rig B 6/10 in 31m25s). **Grok 4.7 low: 13/20**
+(Rig A 7/10 in 24m41s, Rig B 6/10 in 15m29s; fix-git smoke 49s vs Kimi
 2m10s). Paired flips are one-directional: Grok alone passes
 `cancel-async-tasks` and `pypi-server`; Kimi alone passes nothing. Seven
 tasks fail under both models (`configure-git-webserver`, `kv-store-grpc`,
@@ -177,9 +177,9 @@ token as `XAI_API_KEY` ("Not signed in" — first smoke job
 `grokbuild-control-jobs/2026-10-13__12-26-54`, errored, not scored). A local
 host crash/reboot interrupted the session, but both rig shards completed
 server-side and were harvested read-only afterward; no rerun was needed and
-no new load was placed on the rigs. Jobs: Apollo
+no new load was placed on the rigs. Jobs: Rig A
 `grokbuild-control-jobs/2026-10-13__12-29-23` (kv-store smoke, 11m01s) and
-`__12-40-55` (2 tasks, 3m10s), Turbo `__12-44-21` (4 tasks, 10m51s), zero
+`__12-40-55` (2 tasks, 3m10s), Rig B `__12-44-21` (4 tasks, 10m51s), zero
 errored trials in the scored jobs.
 
 | Task | Angel (Grok 4.7 low) | GrokBuild (grok-4.7 low) |
@@ -208,9 +208,9 @@ grok-api club vs grok CLI OAuth). Retained Angel trial artifacts are
 nearly empty (34-byte `trial.log`, empty `agent/`), so *what* the Angel
 loop did for 900s is unobservable until the adapter downloads the Angel
 envelope before container teardown — that follow-up is now the critical
-path for timeout diagnosis. Rig notes from the same harvest: Apollo
+path for timeout diagnosis. Rig notes from the same harvest: Rig A
 healthy (31d uptime, load 0.2; pre-existing unrelated containers left
-untouched); Turbo healthy but root disk at 85% (134G free) — no cleanup
+untouched); Rig B healthy but root disk at 85% (134G free) — no cleanup
 performed.
 
 ## Sentinel v1 (built 2026-10-13, uncommitted)
@@ -236,7 +236,7 @@ touched files, anchors unchanged (2 pre-existing fenced game files).
 Measured the same day as a candidate cell on all 7 fail-both tasks (clean
 candidate source `c184ac86…` = HEAD + sentinel only, floor exe `518aa1dc…`
 in `bin-sentinel/`, detached bench commit `3662081e`; Grok 4.7 low,
-`ANGELX_SENTINEL=intervene`, k=1, Apollo/Turbo at `-n 2`; `fix-git` smoke
+`ANGELX_SENTINEL=intervene`, k=1, Rig A/Rig B at `-n 2`; `fix-git` smoke
 1.0 in 53 s first). Result: **1/7 solved** — `query-optimize` flipped to a
 full 6/6 pass (it had failed identically at 4/6 in every prior cell,
 including GrokBuild), while the three targeted harness-gap tasks
@@ -325,8 +325,8 @@ Per the operator, after the harness handoff (`9e3456aa`): the preserved v5
 binary (exe `d937deea…`, source `7c316b4c…`) reran only the two strict-v5
 misses at **Grok 4.7 medium**, k=1, with the exact v5 per-task sentinel
 configs recovered from the rig launch scripts (`configure-git-webserver`
-on Apollo with `/git/server` artifact + :8080 liveness; `query-optimize`
-on Turbo plain). Launched in parallel 2026-10-14T00:52:44Z as
+on Rig A with `/git/server` artifact + :8080 liveness; `query-optimize`
+on Rig B plain). Launched in parallel 2026-10-14T00:52:44Z as
 `sentinel5-medium-jobs/2026-10-13__19-52-44` on each rig
 (`run-sentinel5-medium.sh`, staged beside the v5 scripts); the route token
 expired 01:21:24Z and both agent phases finished before it (00:57:00Z /
@@ -364,13 +364,13 @@ before use.
 ## Query-optimize low k=3 pass-rate cell (2026-10-13 night, measured)
 
 The operator authorized the handoff's query-only pass-rate cell: exact v5
-binary, Grok 4.7 **low**, k=3 sequential on Turbo (-k 3 -n 1), v5 query
+binary, Grok 4.7 **low**, k=3 sequential on Rig B (-k 3 -n 1), v5 query
 config. The route token had expired, so it was refreshed via the grok CLI
 (expiry 2026-10-14T07:19Z) and restaged; `fix-git` smoke passed at low
 before the cell. The adapter gained opt-in `ANGELX_RETAIN_FILES`
 (sha `f07291e5…`, fake-env test extended and passing) so each attempt
 retained `/app/sol.sql`. The first launch is **invalid and not scored**:
-Turbo rebooted externally at 01:27Z, ~3 min into attempt 1 (container
+Rig B rebooted externally at 01:27Z, ~3 min into attempt 1 (container
 exit 137, `OOMKilled=false`, no envelope); after post-reboot
 reverification the cell relaunched as
 `sentinel5-lowk3r2-jobs/2026-10-13__20-31-44` and the smoke passed again.

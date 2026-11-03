@@ -1,0 +1,54 @@
+# crates/delve/src/rules/hell.rs: the circles of Hell's pressure.
+import Base
+
+# A circle's row of a table (0 is no circle at all: none).
+def hell.by_circle.ix(table_len: U32, circle: U32) -> U32:
+  RS.u_min((circle - 1 : U32), (table_len - 1 : U32))
+
+def hell.horde(circle: U32) -> U32:
+  if U32.is_eq(circle, 0):
+    return 0
+  patterns.nth_u([2, 2, 3, 3, 4], hell.by_circle.ix(5, circle))
+
+def hell.embers_every(circle: U32) -> U32:
+  patterns.nth_u([0, (4 * rules.HZ() : U32), (4 * rules.HZ() : U32), (3 * rules.HZ() : U32), (5 * rules.HZ() / 2 : U32)], hell.by_circle.ix(5, circle))
+
+# A rock of fire falls near a living knight now and then.
+def hell.Run.rain_embers(run: Run) -> Run:
+  circle: U32 = run.spectacle.circle
+  if U32.is_eq(circle, 0):
+    return run
+  every: U32 = hell.embers_every(circle)
+  if U32.is_eq(every, 0):
+    return run
+  if Bool.or(Bool.or(U32.is_eq(J.u32(J.get(run.dungeon, "depth")), 0), Bool.not(depths.Run.fighting(run))), Bool.not(U32.is_eq(W.rem_u32(W.add(run.tick, W.of_u32(7)), every), 0))):
+    return run
+  falling: U32 = 0
+  for r: J.Val in J.items(run.rocks):
+    if Bool.and(J.bool(J.get(r, "ember")), U32.is_gt(J.u32(J.get(r, "fall")), 0)):
+      falling = (falling + 1 : U32)
+  if U32.is_ge(falling, hell.EMBERS_AT_ONCE()):
+    return run
+  living: J.Val = J.JA{Nil{}}
+  for (k: String, h: Hero) in J.int_fields(run.players):
+    if Bool.and(Bool.and(U32.is_gt(h.hp, 0), Bool.not(h.stone)), Bool.not(J.bool(J.get(h, "absent")))):
+      living = J.push(living, cb.of_pair(h.x, h.y))
+  if U32.is_eq(J.len(living), 0):
+    return run
+  &(r1: W.W, pick: U32) = loot.Rng.below(run.rng, J.len(living))
+  (hx: F32, hy: F32) = cb.pair(J.nth(living, pick))
+  &(r2: W.W, jx: U32) = loot.Rng.below(r1, 51)
+  w: F32 = layout.Room.width(J.nth(J.get(run.dungeon, "rooms"), run.at))
+  h: F32 = layout.Room.height(J.nth(J.get(run.dungeon, "rooms"), run.at))
+  x: F32 = RS.f_clamp((hx + ((cb.f(jx) / 10.0 : F32) - 2.5 : F32) : F32), 3.0, (w - 3.0 : F32))
+  &(r3: W.W, jy: U32) = loot.Rng.below(r2, 51)
+  y: F32 = RS.f_clamp((hy + ((cb.f(jy) / 10.0 : F32) - 2.5 : F32) : F32), 3.0, (h - 3.0 : F32))
+  run.rng = r3
+  rock: J.Val = J.obj()
+  rock = J.set(rock, "x", J.of_f32(x))
+  rock = J.set(rock, "y", J.of_f32(y))
+  rock = J.set(rock, "fall", J.of_u32(hazards.ROCK_FALL()))
+  rock = J.set(rock, "dust", J.of_u32(0))
+  rock = J.set(rock, "ember", J.of_bool(True{}))
+  run.rocks = J.push(run.rocks, rock)
+  run

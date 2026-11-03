@@ -47,13 +47,16 @@ fn idle(run: &mut Run, ticks: u32) {
     }
 }
 
+/// The recruits' are wished by the first to take them up
+/// (`recruit_ults`).
 #[test]
 fn every_knight_of_the_company_has_their_own_ultimate() {
-    let ults: std::collections::BTreeSet<&str> = knights::COMPANY
+    let owned: Vec<&str> = knights::COMPANY
         .iter()
-        .map(|k| Ult::of(Some(k.id)).word())
+        .filter_map(|k| Ult::own(k.id).map(Ult::word))
         .collect();
-    assert_eq!(ults.len(), knights::COMPANY.len());
+    let ults: std::collections::BTreeSet<&str> = owned.iter().copied().collect();
+    assert_eq!(ults.len(), owned.len());
 }
 
 #[test]
@@ -266,12 +269,12 @@ fn phantasm_images_fire_with_their_knight_and_take_shots_for_them() {
             ..Input::default()
         },
     )]));
-    let arrows = run
+    let shots = run
         .projectiles
         .iter()
-        .filter(|p| !p.hostile && p.kind == Shot::Arrow)
+        .filter(|p| !p.hostile)
         .count();
-    assert_eq!(arrows, 3, "the knight's arrow and each image's");
+    assert_eq!(shots, 3, "the knight's shot and each image's");
     let (px, py) = (run.phantoms[0].x, run.phantoms[0].y);
     run.projectiles.push(Projectile {
         x: px + 1.0,
@@ -290,4 +293,20 @@ fn phantasm_images_fire_with_their_knight_and_take_shots_for_them() {
     });
     run.step(&BTreeMap::new());
     assert_eq!(run.phantoms.len(), 1, "an image takes the shot and is gone");
+}
+
+#[test]
+fn a_cast_is_remembered_for_its_look_a_while_and_then_let_go() {
+    let mut run = arena("lynette", &[(EnemyKind::Skeleton, 20.0, 14.0)]);
+    press(&mut run);
+    let cast: Vec<_> = run.feel.ults.iter().map(|c| (c.owner, c.ult)).collect();
+    assert_eq!(cast, vec![(1, Ult::LadysVeil)], "the veil's cast is kept for its look");
+    assert!(run.feel.valid());
+    // Cast again on a fresh charge: still one record for the knight's veil.
+    run.players.get_mut(&1).unwrap().ult_charge = ULT_FULL;
+    idle(&mut run, 2);
+    press(&mut run);
+    assert_eq!(run.feel.ults.len(), 1);
+    idle(&mut run, u32::from(crate::rules::feel::ULT_TICKS) + 2);
+    assert!(run.feel.ults.is_empty(), "and let go once its look is over");
 }

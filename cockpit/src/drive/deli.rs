@@ -419,10 +419,17 @@ impl DeliClub {
             "stale_count": st.stale_count,
             "status": status,
         });
-        let _ = std::fs::write(dir.join("progress.json"), progress.to_string());
-        let _ = std::fs::write(
-            dir.join("directions_tried.json"),
-            serde_json::to_string(&st.directions_tried).unwrap_or_default(),
+        // Bulk tier: rewritten every iteration and polled by readers, so
+        // atomic publish (never torn JSON) matters; fsync does not.
+        let _ = crate::platform::workspace_store::write_atomic(
+            &dir.join("progress.json"),
+            progress.to_string().as_bytes(),
+        );
+        let _ = crate::platform::workspace_store::write_atomic(
+            &dir.join("directions_tried.json"),
+            serde_json::to_string(&st.directions_tried)
+                .unwrap_or_default()
+                .as_bytes(),
         );
         let findings = st
             .findings
@@ -430,14 +437,20 @@ impl DeliClub {
             .map(|f| serde_json::json!({ "finding": f }).to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        let _ = std::fs::write(dir.join("findings.jsonl"), findings);
+        let _ = crate::platform::workspace_store::write_atomic(
+            &dir.join("findings.jsonl"),
+            findings.as_bytes(),
+        );
         let hypotheses = st
             .hypotheses
             .iter()
             .map(|h| serde_json::json!({ "hypothesis": h }).to_string())
             .collect::<Vec<_>>()
             .join("\n");
-        let _ = std::fs::write(dir.join("hypotheses.jsonl"), hypotheses);
+        let _ = crate::platform::workspace_store::write_atomic(
+            &dir.join("hypotheses.jsonl"),
+            hypotheses.as_bytes(),
+        );
         let log = st
             .log
             .iter()
@@ -453,7 +466,10 @@ impl DeliClub {
             })
             .collect::<Vec<_>>()
             .join("\n");
-        let _ = std::fs::write(dir.join("iteration_log.jsonl"), log);
+        let _ = crate::platform::workspace_store::write_atomic(
+            &dir.join("iteration_log.jsonl"),
+            log.as_bytes(),
+        );
     }
 
     /// Drive a turn: iterate, then synthesize. Streams the final answer in one

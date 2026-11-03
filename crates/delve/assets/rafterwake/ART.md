@@ -21,7 +21,7 @@ The contact puff, chain crown and low wedge each have four native frames.
 The native recipe is authoritative; the PNGs are reviewable copies. Reproduce:
 `python scripts/rafterwake-art.py SOURCE_DIRECTORY REVIEW_DIRECTORY`
 Sources are keeper.png, knight.png and effects.png in the task's source folder.
-Requests and source images: /work/artifacts/boss-art-20261015/game-5/source/.
+Requests and source images: artifacts/boss-art-20261015/game-5/source/.
 The converter uses nearest sampling, keeps the principal silhouette, merges
 small tone islands, places coloured contours and authors curved 3x2 lens lights.
 It runs the shared singleton and signature gates. Minimum floor edge 15.6 L*;

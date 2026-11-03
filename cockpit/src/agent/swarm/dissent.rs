@@ -223,7 +223,8 @@ pub(crate) fn dissent_verify_rounds() -> usize {
 }
 
 /// What the gate decided for one turn.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub(crate) enum GateAction {
     /// Drafts diverged: buy scrutiny — judge on, verify round(s) on.
     Escalate,

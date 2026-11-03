@@ -138,12 +138,12 @@ fn the_reticle_answers_at_once_and_stays_where_it_is_put() {
     );
     assert_eq!(
         (craft(&s).rx, craft(&s).rz),
-        (flight::RX_MAX, flight::RZ_MAX)
+        (oracle::RX_MAX, oracle::RZ_MAX)
     );
     go(&mut s, &h, 30, Input::default());
     assert_eq!(
         (craft(&s).rx, craft(&s).rz),
-        (flight::RX_MAX, flight::RZ_MAX),
+        (oracle::RX_MAX, oracle::RZ_MAX),
         "it stays"
     );
 }
@@ -478,7 +478,7 @@ fn a_gate_scores_a_ring_mends_and_an_arch_takes_a_scrape() {
     s.seats.get_mut(&1).unwrap().craft.shield = 40;
     s.seats.get_mut(&1).unwrap().craft.hurt = 0;
     go(&mut s, &h, 120, Input::default());
-    assert_eq!(craft(&s).pts, things::GATE, "the gate paid");
+    assert_eq!(craft(&s).pts, oracle::GATE, "the gate paid");
     assert_eq!(craft(&s).gates, 1);
     assert_eq!(craft(&s).shield, 90, "the ring mended fifty");
     // An arch whose opening is off to the side: a craft in the middle scrapes it.
@@ -634,7 +634,7 @@ fn a_kite_latches_onto_a_rider_and_shooting_the_chaser_saves_it() {
     for w in &mut s.wing {
         w.lost = false;
     }
-    s.act(script::Act::Hunter { side: -1 });
+    s.act(oracle::Act::Hunter { side: -1 });
     let mut latched = None;
     for _ in 0..400 {
         step1(&mut s, &h, Input::default());
@@ -688,7 +688,7 @@ fn an_unsaved_rider_is_lost_and_a_roll_shakes_a_kite_off_a_knight() {
     for w in &mut s.wing {
         w.lost = false;
     }
-    s.act(script::Act::Hunter { side: 1 });
+    s.act(oracle::Act::Hunter { side: 1 });
     for _ in 0..1200 {
         step1(&mut s, &h, Input::default());
         if s.beat.lost > 0 {
@@ -726,7 +726,7 @@ fn wyrm_beat(seats: u32) -> (BTreeMap<u32, Hero>, Session) {
     let (h, mut s) = sky(seats);
     s.stage = 2;
     s.t = rail::BOSS_AT - 1;
-    s.next = script::resume(2, rail::BOSS_AT);
+    s.next = oracle::resume(2, rail::BOSS_AT);
     for _ in 0..2 {
         s.step(&BTreeMap::new(), &h, &Nums::default());
     }
@@ -844,7 +844,7 @@ fn a_reflected_bolt_opens_the_lit_lamp_and_only_a_charged_lock_breaks_it() {
         assert_eq!(foe(&s, id).unwrap().hp < before, hurt, "full {full}");
     }
     // The lamp's shield closes again after its ticks, hurt kept.
-    go(&mut s, &h, boss::OPEN + 5, Input::default());
+    go(&mut s, &h, oracle::OPEN + 5, Input::default());
     assert_eq!(foe(&s, id).unwrap().st, St::Shut);
     assert!(foe(&s, id).unwrap().hp < foe(&s, id).unwrap().full);
 }
@@ -861,7 +861,7 @@ fn breaking_the_three_lamps_in_turn_brings_the_wyrm_down() {
         {
             let f = s.foes.iter_mut().find(|f| f.id == id).unwrap();
             f.st = St::Open;
-            f.ticks = boss::OPEN;
+            f.ticks = oracle::OPEN;
             f.hp = 10;
         }
         s.push_bolt(Bolt {
@@ -1168,7 +1168,7 @@ fn a_wipe_starts_the_beat_over_in_under_a_second_with_the_progress_kept() {
         gates: 5,
     };
     s.t = 400;
-    s.next = script::resume(1, 400);
+    s.next = oracle::resume(1, 400);
     for w in &mut s.wing {
         w.lost = false;
     }
@@ -1305,7 +1305,7 @@ fn both_knights_at_a_table_of_two_have_something_to_do() {
 fn more_knights_mean_more_foes_each_with_more_health_never_less() {
     let wave = |seats: u32| {
         let (_, mut s) = sky(seats);
-        s.act(script::Act::Wisps {
+        s.act(oracle::Act::Wisps {
             n: 5,
             plus: 2,
             shape: 0,
@@ -1313,7 +1313,7 @@ fn more_knights_mean_more_foes_each_with_more_health_never_less() {
             z: 20,
             mode: 0,
         });
-        s.act(script::Act::Turret { x: -95, z: -20 });
+        s.act(oracle::Act::Turret { x: -95, z: -20 });
         let wisps: Vec<_> = s.foes.iter().filter(|f| f.kind == Kind::Wisp).collect();
         let turret = s.foes.iter().find(|f| f.kind == Kind::Turret).unwrap();
         (
@@ -1357,7 +1357,7 @@ fn a_knight_who_joins_mid_run_flies_in_at_once_and_scales_the_beat_up_by_a_share
     assert!(s.seats[&2].joined > 0 && s.seats[&1].joined == 0);
     assert_eq!(s.wing.len(), 2, "a rider gives up the seat");
     let c = &s.seats[&2].craft;
-    assert_eq!((c.x, c.z), flight::slot(2), "at the formation");
+    assert_eq!((c.x, c.z), slot(2), "at the formation");
     assert!(c.shield == SHIELD && c.hurt > 0, "unhurt for a moment");
     for f in &s.foes {
         let was = before.foes.iter().find(|g| g.id == f.id);
@@ -1494,7 +1494,7 @@ fn each_of_the_five_numbers_moves_the_thing_it_names() {
     // tell: a turret shows its footprint this long, and never under forty.
     for tell in [40u32, 50, 120] {
         let (h, mut s) = sky(1);
-        s.act(script::Act::Turret { x: 0, z: 0 });
+        s.act(oracle::Act::Turret { x: 0, z: 0 });
         s.foes[0].s = s.anchor() + dm(300);
         s.foes[0].ticks = 0;
         let n = Nums {

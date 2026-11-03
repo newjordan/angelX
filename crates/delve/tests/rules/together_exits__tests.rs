@@ -479,6 +479,56 @@ fn together_exits_real_door_retreat_does_not_bounce_back_into_the_hall() {
     assert_eq!(r.at, parent, "must step back across the door deliberately");
 }
 
+/// One step of seat 1 holding the walk key toward side `dir`.
+fn hold(r: &mut Run, dir: usize) {
+    let (dx, dy) = DIRS[dir];
+    r.step(&BTreeMap::from([(1, Input { move_x: dx as i8, move_y: dy as i8, ..Default::default() })]));
+}
+
+#[test]
+fn together_exits_holding_west_out_of_a_side_on_hall_does_not_walk_back_in() {
+    // A side-on hall is left west, by its one low doorway, whichever side
+    // its room lies on. With the room to its east the knight came out by
+    // that room's west door still holding west, and walked straight back
+    // in ("fix the room walkouts we bounce back on accident", 2026-10-19).
+    let (mut r, hall) = (0..64)
+        .find_map(|seed| {
+            let r = Run::new(seed, 1, None);
+            let hall = r.dungeon.rooms.iter().position(|room| room.kind == RoomKind::Ledge)?;
+            (r.dungeon.rooms[hall].way_back() == Some(1)).then_some((r, hall))
+        })
+        .expect("a ledge hall with its room to the east");
+    let parent = r.dungeon.neighbour(hall, 1).unwrap();
+    r.enter(parent, None);
+    r.clear_for_test();
+    let h = r.room().height();
+    let hero = r.players.get_mut(&1).unwrap();
+    (hero.x, hero.y) = (0.4, h / 2.0);
+    r.travel();
+    assert_eq!(r.at, hall);
+    r.clear_for_test();
+    for _ in 0..HZ * 6 {
+        if r.at == parent {
+            break;
+        }
+        hold(&mut r, 3);
+    }
+    assert_eq!(r.at, parent, "west out of the hall");
+    for _ in 0..HZ {
+        hold(&mut r, 3);
+        assert_eq!(r.at, parent, "west held through the doorway walks nowhere back");
+    }
+    // Let go, then west again: back into the hall on purpose.
+    r.step(&BTreeMap::new());
+    for _ in 0..HZ {
+        if r.at == hall {
+            break;
+        }
+        hold(&mut r, 3);
+    }
+    assert_eq!(r.at, hall, "a fresh press walks back in");
+}
+
 #[test]
 fn together_exits_disconnect_of_the_last_participant_cleans_up_for_returned_knights() {
     let mut r = surface(2);

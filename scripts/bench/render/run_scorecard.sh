@@ -10,7 +10,8 @@
 #   run_scorecard.sh keyframe /path/to/angel A1: glass, then kitty
 #   run_scorecard.sh all /path/to/angel
 #
-# Results land in /work/tmp/render-scorecard/<timestamp>/.
+# Results land in $SCORECARD_RUN, else $TMPDIR/render-scorecard/<timestamp>/.
+# GLASS_KIT names the glass test kit (its glass-run.sh, seat and configs).
 set -u
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../../.." && pwd)
@@ -22,8 +23,8 @@ if [ "$WAYLAND_DISPLAY" = "wayland-1" ] && [ "${SCORECARD_ALLOW_WAYLAND1:-}" != 
   echo "refusing wayland-1 (the operator's desktop); set SCORECARD_WAYLAND" >&2
   exit 2
 fi
-KIT=${GLASS_KIT:-/work/artifacts/glass-test-kit}
-RUN=${SCORECARD_RUN:-/work/tmp/render-scorecard/$(date +%Y%m%d-%H%M%S)}
+KIT=${GLASS_KIT:?set GLASS_KIT to the glass test kit folder}
+RUN=${SCORECARD_RUN:-${TMPDIR:-/tmp}/render-scorecard/$(date +%Y%m%d-%H%M%S)}
 mkdir -p "$RUN"
 echo "run dir: $RUN (load:$(cut -d' ' -f1-3 /proc/loadavg))" | tee "$RUN/environment.txt"
 git -C "$ROOT" rev-parse HEAD >> "$RUN/environment.txt" 2>/dev/null

@@ -21,16 +21,16 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
         Building::Observatory,
     ] {
         let mut app = App::preview(crate::ui::viewer::Viewer::new());
-        app.world = crate::stage::world_viz::World::new(71);
-        app.world.settle_at_for_test(building);
+        app.realm.world = crate::stage::world_viz::World::new(71);
+        app.realm.world.settle_at_for_test(building);
         app.scryglass = crate::ui::scryglass::Scryglass::for_world(building);
         app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
-        assert!(app.world.enter_interior());
+        assert!(app.realm.world.enter_interior());
         for (width, height) in [(48, 18), (96, 40), (48, 18)] {
             let mut terminal =
                 ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
             for tick in 0..80 {
-                app.world.tick();
+                app.realm.world.tick();
                 terminal
                     .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
                     .unwrap();
@@ -58,9 +58,9 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
                 std::thread::sleep(std::time::Duration::from_millis(3));
             }
         }
-        assert!(app.world.leave_interior());
-        assert!(!app.world.ambient_interior_visible());
-        assert!(app.world.enter_interior());
+        assert!(app.realm.world.leave_interior());
+        assert!(!app.realm.world.ambient_interior_visible());
+        assert!(app.realm.world.enter_interior());
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(48, 18)).unwrap();
         terminal
@@ -86,13 +86,13 @@ fn default_realm_animates_the_expedition_and_map_visits_still_win() {
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     use crate::stage::world_viz::{AdventureEvent, Building, LoopKind, World};
     let mut app = App::preview(crate::ui::viewer::Viewer::new());
-    app.world = World::new(42);
-    app.world.settle_at_for_test(Building::Keep);
-    app.world.note_adventure(AdventureEvent::LoopStarted {
+    app.realm.world = World::new(42);
+    app.realm.world.settle_at_for_test(Building::Keep);
+    app.realm.world.note_adventure(AdventureEvent::LoopStarted {
         kind: LoopKind::Coding,
         task: "presentation fixture".into(),
     });
-    app.world.note_adventure(AdventureEvent::Iteration { n: 1 });
+    app.realm.world.note_adventure(AdventureEvent::Iteration { n: 1 });
     app.scryglass = crate::ui::scryglass::Scryglass::default();
     app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(48, 18)).unwrap();
@@ -116,7 +116,7 @@ fn default_realm_animates_the_expedition_and_map_visits_still_win() {
             > 40
     );
     for _ in 0..80 {
-        app.world.tick();
+        app.realm.world.tick();
     }
     terminal
         .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
@@ -126,18 +126,18 @@ fn default_realm_animates_the_expedition_and_map_visits_still_win() {
         terminal.backend().buffer(),
         "real Realm camera must travel"
     );
-    assert!(app.world.toggle_adventure_map());
+    assert!(app.realm.world.toggle_adventure_map());
     terminal
         .draw(|frame| render_artifacts(frame, &mut app, frame.area()))
         .unwrap();
-    assert!(!app.world.live_adventure_view());
+    assert!(!app.realm.world.live_adventure_view());
     assert!(terminal.backend().buffer().content.iter().any(|cell| {
         cell.symbol()
             .chars()
             .any(|ch| matches!(ch, '▀' | '▄' | '█'))
     }));
-    assert!(app.world.toggle_adventure_map());
-    assert!(app.world.live_adventure_view());
+    assert!(app.realm.world.toggle_adventure_map());
+    assert!(app.realm.world.live_adventure_view());
 }
 
 #[test]
@@ -222,7 +222,7 @@ fn object_dock_every_action_gets_real_mouse_clicks_even_when_called_to_delve() {
         let mut app = seed_preview_app();
         app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
         app.scryglass.return_to_world();
-        app.world.delve_called = true;
+        app.realm.world.delve_called = true;
         let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(96, 36)).unwrap();
         terminal.draw(|frame| {
             render_artifacts(frame, &mut app, frame.area());
@@ -253,9 +253,9 @@ fn object_dock_every_action_gets_real_mouse_clicks_even_when_called_to_delve() {
             crate::ui::object_dock::render_overlay(frame, &mut app);
         }).unwrap();
         assert_eq!(app.scryglass.surface, expected.scryglass.surface, "{button:?} routed to the wrong stage");
-        assert_eq!(app.world.inside_interior(), expected.world.inside_interior(), "{button:?} lost its room action");
-        assert_eq!(app.world.interior_building(), expected.world.interior_building(), "{button:?} entered the wrong room");
-        assert!(app.dungeon.shooter.is_none(), "{button:?} must not launch a run");
-        assert!(app.dungeon.intro.is_none(), "{button:?} must not trigger the gate");
+        assert_eq!(app.realm.world.inside_interior(), expected.world.inside_interior(), "{button:?} lost its room action");
+        assert_eq!(app.realm.world.interior_building(), expected.world.interior_building(), "{button:?} entered the wrong room");
+        assert!(app.realm.dungeon.shooter.is_none(), "{button:?} must not launch a run");
+        assert!(app.realm.dungeon.intro.is_none(), "{button:?} must not trigger the gate");
     }
 }

@@ -29,6 +29,26 @@ scratch space, background jobs (`proc_run`) and every registered tool.
 
 - Use Linux x86_64 and the Rust toolchain pinned in `rust-toolchain.toml`.
 - Start with `ANGEL_VIDEO=0 bin/angelX`; this includes portraits and images.
+- Source launches default to the incremental `fast` profile: cockpit and Delve
+  use lighter optimization, dependencies stay optimized, and the native and
+  nested browser builds skip cross-crate LTO. The first build populates a
+  separate cache; keep using the same checkout, profile and features to reuse it.
+- `ANGEL_NO_BUILD=1 bin/angelX` reopens the existing fast binary without building;
+  source edits will not appear until the next build. To run the existing release
+  binary, use `ANGEL_FAST=0 ANGEL_NO_BUILD=1 bin/angelX`.
+- Use `ANGEL_FAST=0 bin/angelX` for a release build and `ANGEL_DEV=1 bin/angelX`
+  for unoptimized debugging. Prebuilt installs use their shipped release binary.
+- Fast/debug images are source-unbound by default: changing a live module's Git
+  tree does not change baked Rust metadata and trigger a native rebuild. Use
+  `ANGEL_BIND_SOURCE=1` when a development image needs committed source identity;
+  release builds continue to bind clean source by default.
+- For cockpit composition, game tuning, tool-routing policy, reports, guardian
+  presentation and next-turn guidance, edit
+  `cockpit/live/` with the host running. Use `/reload status` to inspect the active
+  generation. The [live-module contract](cockpit/README.md#live-application-modules)
+  explains the directory layout, dependencies and failure behavior.
+- Test the isolated loader with `npm run test:live`; this does not compile the
+  cockpit, graphics stack, V8 archive or embedded browser page.
 - Use Node.js for release-tool tests. The Rust trace-validator tests also need
   Python 3 with `jsonschema` available in the selected Python environment.
 - Keep fixes focused and preserve reproducible failure evidence.
@@ -48,10 +68,14 @@ cargo fmt --manifest-path cockpit/Cargo.toml --check
 
 - The fast runner starts test processes with both YOLO authority flags off;
   individual fixtures may opt in explicitly. Do not time builds as model work.
+- Development builds and tests use the same incremental `fast` profile as
+  source launches, rather than creating another debug target tree. The gate
+  omits video/window features, so Cargo may retain separate feature artifacts
+  within that profile; release qualification remains an explicit `--release`.
 - The development gate keeps a private copy of the test executable and its CLI
   and sandbox-helper siblings, so concurrent builds can replace shared target
   files while tests run. It removes its own temporary directory on exit;
-  `TMPDIR` selects the parent and must have room for the copied debug images.
+  `TMPDIR` selects the parent and must have room for the copied test images.
 - A no-video test pass does not qualify video support or an optimized release.
   Follow the [release guide](docs/release-evidence.md) for those checks.
 - Keep credentials, personal configuration, raw sessions and machine-specific

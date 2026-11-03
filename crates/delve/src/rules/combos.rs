@@ -73,7 +73,7 @@ impl Family {
                 "snake", "serpent", "rat", "bat", "bird", "crow", "raven", "owl", "dog", "hound",
                 "wolf", "cat", "fox", "bear", "pony", "horse", "unicorn", "dragon", "imp", "devil",
                 "demon", "goblin", "spider", "bee", "wasp", "fly", "fish", "shark", "eel", "squid",
-                "sperm", "swimmer", "monkey", "goose", "duck", "pig", "cow", "chicken", "slime",
+                "tadpole", "swimmer", "monkey", "goose", "duck", "pig", "cow", "chicken", "slime",
             ],
             Family::Projectile => &[
                 "bullet", "shot", "arrow", "bolt", "missile", "dart", "ball", "projectile",
@@ -215,3 +215,6 @@ pub fn list(families: &BTreeSet<Family>) -> String {
 #[cfg(test)]
 #[path = "../../tests/rules/together_combos__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-home"))]
+#[path = "../../tests/rules/combos_bend_cases__tests.rs"]
+mod combos_bend_cases_tests;

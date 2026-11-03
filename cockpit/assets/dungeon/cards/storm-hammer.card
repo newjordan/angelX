@@ -1,0 +1,17 @@
+# The Hammerer's first: the maul's little brother, thrown.
+name   Storm Hammer
+kind   spell
+rarity relic
+text   A thrown hammer stuns the first foe it meets, bursting round it.
+drop   0
+chest  0
+cooldown 8
+feat 1
+art
+..zzzz..
+.zWWWWz.
+.zWiiWz.
+.zWWWWz.
+..zBBz..
+...BB...
+...bb...

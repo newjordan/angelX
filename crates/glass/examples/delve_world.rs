@@ -4,12 +4,11 @@
 //! game puts them, a knight half behind the tallest block and one in front
 //! of one, made into a stage by the Delve (`StageMaker`) and drawn by the GPU
 //! core offscreen, as the window draws the Delve's stage. Once with rooms in
-//! 3D (lit, in the monolith look, the default; painted with
-//! `ANGEL_WORLD3D_PLATES=1`) and once without.
+//! 3D (lit, in the monolith look) and once without.
 //!
 //! cargo run -p angel-glass --example delve_world -- <outdir> [--scale N] [--item ID]...
 //!
-//! Writes, for each item (every one compiled in, unless `--item` names
+//! Writes, for each item (every one, unless `--item` names
 //! some), `<item>.png` and `<item>-flat.png` (the stage at `N` window pixels
 //! to a stage pixel, 3 unless said), and `<item>-behind.png` and
 //! `<item>-front.png`, crops round each knight.
@@ -19,7 +18,7 @@ use std::process::ExitCode;
 use std::sync::Arc;
 
 use angel_delve::render::overworld::arena::{self, stage_frame::StageMaker};
-use angel_delve::world3d::{self, assets, room};
+use angel_delve::world3d::{self, room};
 use angel_gpu::{Core, Draw, Frame, Instance, Picture, Stage};
 
 /// The stage's picture id, as the cockpit names the Delve's.
@@ -36,30 +35,23 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), String> {
-    let usage = "usage: delve_world <outdir> [--scale N] [--item ID]... [--variant ID]...";
+    let usage = "usage: delve_world <outdir> [--scale N] [--item ID]...";
     let mut words = std::env::args().skip(1);
-    let (mut out, mut scale, mut items, mut variants) = (None, 3u32, Vec::new(), Vec::new());
+    let (mut out, mut scale, mut items) = (None, 3u32, Vec::new());
     while let Some(word) = words.next() {
         match word.as_str() {
             "--scale" => {
                 scale = words.next().and_then(|w| w.parse().ok()).filter(|&s| (1..=8).contains(&s)).ok_or("--scale takes 1 to 8")?;
             }
             "--item" => items.push(words.next().ok_or(usage)?),
-            // The item's proof room laid otherwise (`room::proof_variant`):
-            // a doorway walled up, a boulder rolled in.
-            "--variant" => variants.push(words.next().ok_or(usage)?),
             _ if out.is_none() => out = Some(PathBuf::from(word)),
             other => return Err(format!("`{other}`: {usage}")),
         }
     }
     let out = out.ok_or(usage)?;
-    if items.is_empty() && variants.is_empty() {
-        // Lit, every item stands up with no plate; painted, those with one.
-        items = if world3d::rooms_lit::on() {
-            world3d::pilot::all().iter().map(|i| i.id().to_string()).collect()
-        } else {
-            assets::ids().into_iter().map(String::from).collect()
-        };
+    if items.is_empty() {
+        // Lit, every item stands up with no plate.
+        items = world3d::pilot::all().iter().map(|i| i.id().to_string()).collect();
     }
     std::fs::create_dir_all(&out).map_err(|e| format!("{}: {e}", out.display()))?;
     let mut gpu = Gpu::new()?;
@@ -68,11 +60,9 @@ fn run() -> Result<(), String> {
     arena::draw_parts_outside(true);
     arena::props_meshes(true);
     let (w, h) = arena::seat_size();
-    let shots = items.iter().map(|id| (id.clone(), false)).chain(variants.iter().map(|id| (id.clone(), true)));
-    for (item, varied) in shots {
-        let proof = if varied { room::proof_variant(&item) } else { room::proof(&item) }
-            .ok_or_else(|| format!("{item}: no such item, or it does not read"))?;
-        let id = if varied { format!("{item}-variant") } else { item.clone() };
+    for item in items {
+        let proof = room::proof(&item).ok_or_else(|| format!("{item}: no such item, or it does not read"))?;
+        let id = item.clone();
         for on in [false, true] {
             world3d::set_enabled(on);
             let scene = Arc::new(arena::seat_scene(&proof.run, w as i32, h as i32, Some(1)));

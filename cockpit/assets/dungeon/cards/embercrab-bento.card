@@ -1,0 +1,25 @@
+name Embercrab Bento
+kind play
+rarity rare
+text Open the claw-box: heal 10 and blast the room for 24.
+drop 2
+chest 3
+heal 10
+nova 24
+art
+................
+...hh......hh...
+..hRRh....hRRh..
+..hRYRh..hRYRh..
+...hRRhhhhRRh...
+....hhRRRRhh....
+...hhhhhhhhhh...
+..hYYYYYYYYYYh..
+..hYhhhhhhhhYh..
+..hYhWWRRWWhYh..
+..hYhWRYYRWhYh..
+..hYhWWRRWWhYh..
+..hYhhhhhhhhYh..
+..hYYYYYYYYYYh..
+...hhhhhhhhhh...
+................

@@ -5,6 +5,8 @@
 
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/o_orchestration.book");
 pub(crate) const CELL: char = '⠕';
 pub(crate) const NO_ROUTES: Route = Route::new(CELL, '⠁');
 pub(crate) const ROUTES: Route = Route::new(CELL, '⠃');
@@ -28,10 +30,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "no delegate routes are configured",
             action: "",
             ideas: "",
-            pages: &[
-                "No delegate routes are configured for this session; do the work yourself.",
-                "Be concise.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'1'),
         },
         Sub {
             route: ROUTES,
@@ -39,9 +38,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the configured delegate routes (evidence below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Configured delegate routes — use the structured `delegate` tool with `club`, `task`, and optional `mode` args only when that route is appropriate and reachable:",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'2'),
         },
         Sub {
             route: DELEGATE,
@@ -49,12 +46,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the delegate tool",
             action: "",
             ideas: "",
-            pages: &[
-                "`delegate` runs that teammate in an isolated git worktree and returns a summary, a branch name, and a diff.",
-                "Use `mode=review` or `mode=read_only` for inspection-only reviewers.",
-                "Use `mode=write` for implementation, then call `integrate` with the returned branch afterwards (one branch at a time).",
-                "Be concise.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'3'),
         },
         Sub {
             route: SPAWN,
@@ -62,10 +54,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the spawn tool",
             action: "",
             ideas: "",
-            pages: &[
-                "`spawn` fans a question across parallel sub-agents mid-turn — copies of yourself (club=self) or the fleet (club=auto) — in a formation (panel / moa / quorum), each seat optionally wearing a persona and a scoped tool grant.",
-                "Reach for it when independent perspectives, adversarial review, or breadth beat working alone; it returns a labeled digest, never file changes.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'4'),
         },
         Sub {
             route: SWARM_COMPILE,
@@ -73,12 +62,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the swarm_compile tool",
             action: "",
             ideas: "",
-            pages: &[
-                "`swarm_compile` is the proof-carrying coding path: it freezes a base commit, isolates investigation/test/implementation/review contributions, requires an intentional red regression marker followed by green targeted and full gates, parks the candidate branch, and learns routing only from post-action outcomes.",
-                "Prefer direct action when a trustworthy red verifier already exists.",
-                "Use `swarm_compile` when a green base needs an independently authored regression, adversarial review, or a durable audit trail, and the task has a concrete test scope plus a green baseline acceptance command.",
-                "Integration remains an explicit later action.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'5'),
         },
         Sub {
             route: ROUTES_COMPACT,
@@ -86,10 +70,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the configured delegate routes, compact core (evidence below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Delegate routes: {}.",
-                "Use structured `delegate` calls; integrate returned implementation branches one at a time.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'6'),
         },
         Sub {
             route: SEAT_SKIPPED,
@@ -97,7 +78,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the requested seat is not reachable (live seats above)",
             action: "",
             ideas: "",
-            pages: &["Do the work yourself; do not retry {wanted}."],
+            pages: &super::catalog_pages::<1>(CATALOG, b'7'),
         },
         Sub {
             route: DELI_CONSULT,
@@ -105,7 +86,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a deli-method consult",
             action: "",
             ideas: "",
-            pages: &["[method=deli; proposals require actual checks]"],
+            pages: &super::catalog_pages::<1>(CATALOG, b'8'),
         },
         Sub {
             route: ALIGNMENT,
@@ -113,15 +94,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the campaign's final alignment gate for the parked candidate (contract below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Read and obey the repository scope instructions.",
-                "Review only; never edit, create, delete, format, commit, or change refs.",
-                "You are the final alignment gate for the exact parked candidate below.",
-                "Contract digest:",
-                "Candidate OID:",
-                "Target criteria:",
-                "Authorized technical proofs:",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'9'),
         },
         Sub {
             route: ALIGNMENT_VERDICT,
@@ -129,14 +102,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the alignment gate's verdict contract",
             action: "",
             ideas: "",
-            pages: &[
-                "Inspect the candidate and decide whether it actually satisfies every criterion without scope regressions or proof gaming.",
-                "Return exactly one raw JSON object (no markdown fence or surrounding prose) with keys: schema, contract_digest, candidate_oid, criteria, cited_proof_sha256, summary.",
-                "`schema` must be `campaign-review/v1`.",
-                "Each criteria item must contain criterion_id, verdict (`pass` or `block`), and non-empty concrete citations.",
-                "Cite every listed criterion and every proof SHA exactly once.",
-                "Then end with exactly one final line `CAMPAIGN_REVIEW: PASS` only if every criterion passes, otherwise `CAMPAIGN_REVIEW: BLOCK`.",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'0'),
         },
     ],
 };

@@ -1,10 +1,144 @@
 use super::*;
+use crate::agent::harness::live_policy;
+
+/// The live leg that classifies one tool result or provider reply
+/// (`cockpit/live/result-classify`). The host reduces the text to the flags
+/// below; the leg only combines them.
+const RESULT_CLASSIFY_LEG: &str = "result-classify";
+
+/// The prefix every tool error result carries.
+const TOOL_ERROR_PREFIX: &str = "tool error:";
+
+/// A reply that arrived structurally intact but carried nothing usable.
+const EMPTY_REPLY_MARKER: &str = "empty reply (no text and no tool calls)";
+const CLUB_STREAM_MARKER: &str = "club stream produced no data";
+
+/// One tool result as the leg reads it: the text reduced to prefix/marker
+/// flags, the call's kind, and the exit-code class. Every scan stays here; the
+/// leg decides from numbers, enums and booleans.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct ResultFeatures {
+    /// The result text starts with [`TOOL_ERROR_PREFIX`].
+    error: bool,
+    /// The call is a verifier (test or compiler) run.
+    verifier: bool,
+    /// The first line carried a parseable `failed (exit N)` code.
+    has_exit: bool,
+    /// That code, as the native i32's unsigned bit pattern.
+    exit: u32,
+    /// The provider text carries one of the two no-content markers.
+    empty_marker: bool,
+    club_stream: bool,
+}
+
+/// What the leg decided about those features.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+pub(crate) struct ResultVerdict {
+    error: bool,
+    red_verifier: bool,
+    dispatch_failure: bool,
+    empty_reply: bool,
+}
+
+impl ResultFeatures {
+    /// The result text alone, for a caller with no tool call in hand.
+    fn of_result(result: &str) -> Self {
+        Self {
+            error: carries_error_prefix(result),
+            ..Self::default()
+        }
+    }
+
+    /// A tool result and the call that produced it.
+    fn of_call(call: &ToolCall, result: &str) -> Self {
+        let (has_exit, exit) = exit_code_class(result);
+        Self {
+            error: carries_error_prefix(result),
+            verifier: is_verification_call(call),
+            has_exit,
+            exit,
+            ..Self::default()
+        }
+    }
+
+    /// Provider error text, for the two no-content markers.
+    fn of_error_text(error: &str) -> Self {
+        Self {
+            empty_marker: error.contains(EMPTY_REPLY_MARKER),
+            club_stream: error.contains(CLUB_STREAM_MARKER),
+            ..Self::default()
+        }
+    }
+
+    fn input(&self) -> Value {
+        serde_json::json!({
+            "error": self.error,
+            "verifier": self.verifier,
+            "has_exit": self.has_exit,
+            "exit": self.exit,
+            "empty_marker": self.empty_marker,
+            "club_stream": self.club_stream,
+        })
+    }
+}
+
+impl ResultVerdict {
+    /// The leg contract: a verdict may only claim what the features carry, and
+    /// an error result is a red run or a dispatch failure, never both.
+    fn check(&self, features: &ResultFeatures) -> Result<(), String> {
+        if self.red_verifier && !self.error {
+            return Err("a red verifier run must be an error result".into());
+        }
+        if self.dispatch_failure && !self.error {
+            return Err("a dispatch failure must be an error result".into());
+        }
+        if self.error && self.dispatch_failure == self.red_verifier {
+            return Err("an error result is a red run or a dispatch failure, not both".into());
+        }
+        if self.empty_reply && !(features.empty_marker || features.club_stream) {
+            return Err("an empty reply needs one of its two markers".into());
+        }
+        Ok(())
+    }
+}
+
+/// The exit-code class: `(has_exit, code)`. The native parser reads an i32; the
+/// leg compares the unsigned bit pattern, which keeps 126 and 127 distinct from
+/// every negative code exactly as the native comparison does.
+fn exit_code_class(result: &str) -> (bool, u32) {
+    result
+        .lines()
+        .next()
+        .and_then(|header| header.split_once(" failed (exit "))
+        .and_then(|(_, rest)| rest.split_once(')'))
+        .and_then(|(code, _)| code.parse::<i32>().ok())
+        .map_or((false, 0), |code| (true, code as u32))
+}
+
+/// The lexical scan the error flag rests on: an error result is the tool
+/// reporting a failure behind [`TOOL_ERROR_PREFIX`].
+fn carries_error_prefix(result: &str) -> bool {
+    result.starts_with(TOOL_ERROR_PREFIX)
+}
+
+/// One decision from the `result-classify` leg: the newest live generation when
+/// it answers within the contract, else the generation shipped in this binary.
+/// A bad hot edit never blocks a turn or changes what the model is told.
+fn decide(features: &ResultFeatures) -> ResultVerdict {
+    let input = features.input();
+    live_policy::decide_shipped(RESULT_CLASSIFY_LEG, &input, |verdict: &ResultVerdict| {
+        verdict.check(features)
+    })
+    .0
+}
+
 /// A tool error: the tool itself failed (bad path, missing arg, spawn failure,
 /// panic), or a command it ran exited non-zero. The shell and test runners
 /// report a red run this way too, so the model cannot read it as success;
 /// [`is_red_verifier_run`] separates the two where that matters.
 pub(crate) fn is_error_result(s: &str) -> bool {
-    s.starts_with("tool error:")
+    let features = ResultFeatures::of_result(s);
+    decide(&features).error
 }
 
 /// A verifier that ran and came back red: the tests or the compiler reported,
@@ -12,16 +146,8 @@ pub(crate) fn is_error_result(s: &str) -> bool {
 /// evidence about the code, not a call that failed to run. Exit 126/127 (not
 /// executable, not found) and deaths by signal never reached a verdict.
 pub(crate) fn is_red_verifier_run(call: &ToolCall, result: &str) -> bool {
-    if !is_error_result(result) || !is_verification_call(call) {
-        return false;
-    }
-    result
-        .lines()
-        .next()
-        .and_then(|header| header.split_once(" failed (exit "))
-        .and_then(|(_, rest)| rest.split_once(')'))
-        .and_then(|(code, _)| code.parse::<i32>().ok())
-        .is_some_and(|code| code != 126 && code != 127)
+    let features = ResultFeatures::of_call(call, result);
+    decide(&features).red_verifier
 }
 
 /// A call that gave the model nothing to act on: a tool error that is not a
@@ -30,7 +156,8 @@ pub(crate) fn is_red_verifier_run(call: &ToolCall, result: &str) -> bool {
 /// Flash) at 67 s of 600 s, telling it to fix a path while its tests were
 /// simply failing.
 pub(crate) fn is_dispatch_failure(call: &ToolCall, result: &str) -> bool {
-    is_error_result(result) && !is_red_verifier_run(call, result)
+    let features = ResultFeatures::of_call(call, result);
+    decide(&features).dispatch_failure
 }
 
 /// Provider errors that mean retrying the exact same serialized request cannot
@@ -56,8 +183,8 @@ pub(crate) fn is_context_overflow_error(error: &str) -> bool {
 /// can repeat deterministically on identical bytes from a greedy local backend,
 /// so the retry path re-prompts once instead of only replaying the request.
 pub(crate) fn is_empty_reply_error(error: &str) -> bool {
-    error.contains("empty reply (no text and no tool calls)")
-        || error.contains("club stream produced no data")
+    let features = ResultFeatures::of_error_text(error);
+    decide(&features).empty_reply
 }
 
 /// Provider failures for which replaying the same request cannot help. The
@@ -70,17 +197,8 @@ pub(crate) fn is_permanent_provider_error(error: &str) -> bool {
     // The provider itself vetoed a retry of this request, or this process's
     // trust store rejected the provider's certificate (the same chain fails
     // the same way on every attempt).
-    if error.contains(crate::agent::club::PROVIDER_RETRY_VETO)
-        // Only trust the locally generated envelope, not a marker quoted in
-        // a transient provider response body or arbitrary diagnostic context.
-        || error
-            .strip_prefix("transport error after ")
-            .and_then(|tail| tail.split_once(" attempt(s): "))
-            .is_some_and(|(attempts, detail)| {
-                !attempts.is_empty()
-                    && attempts.bytes().all(|byte| byte.is_ascii_digit())
-                    && detail.starts_with(crate::agent::club::PERMANENT_TRANSPORT_CONFIGURATION)
-            })
+    if carries_provider_veto(error)
+        || carries_permanent_transport_configuration(error)
         || crate::agent::club::error_indicates_certificate_rejected(error)
     {
         return true;
@@ -91,19 +209,57 @@ pub(crate) fn is_permanent_provider_error(error: &str) -> bool {
         return true;
     }
     let lower = error.to_ascii_lowercase();
-    if lower.contains("invalid api key")
+    rejected_request_text(&lower) || provider_error_status(&lower).is_some_and(is_client_fault)
+}
+
+/// A quoted veto in a transient response body is not a response header.
+/// HttpClub emits the trusted header as `HTTP <status> <veto>: <detail>`.
+pub(crate) fn carries_provider_veto(error: &str) -> bool {
+    error
+        .strip_prefix("HTTP ")
+        .and_then(|tail| tail.split_once(' '))
+        .is_some_and(|(status, detail)| {
+            status.len() == 3
+                && status.bytes().all(|byte| byte.is_ascii_digit())
+                && detail
+                    .strip_prefix(crate::agent::club::PROVIDER_RETRY_VETO)
+                    .is_some_and(|tail| tail.starts_with(": "))
+        })
+}
+
+/// Only trust the locally generated envelope, not a marker quoted in a
+/// transient provider response body or arbitrary diagnostic context.
+pub(crate) fn carries_permanent_transport_configuration(error: &str) -> bool {
+    error
+        .strip_prefix("transport error after ")
+        .and_then(|tail| tail.split_once(" attempt(s): "))
+        .is_some_and(|(attempts, detail)| {
+            !attempts.is_empty()
+                && attempts.bytes().all(|byte| byte.is_ascii_digit())
+                && detail.starts_with(crate::agent::club::PERMANENT_TRANSPORT_CONFIGURATION)
+        })
+}
+
+/// Lower-cased provider text that names a rejected credential or model.
+pub(crate) fn rejected_request_text(lower: &str) -> bool {
+    lower.contains("invalid api key")
         || lower.contains("invalid_api_key")
         || lower.contains("model not found")
         || lower.contains("unknown model")
         || lower.contains("does not exist or you do not have access")
-    {
-        return true;
-    }
-    let status = lower
+}
+
+/// The first `http <status>` in lower-cased provider text.
+pub(crate) fn provider_error_status(lower: &str) -> Option<u16> {
+    lower
         .split_once("http ")
         .and_then(|(_, tail)| tail.get(..3))
-        .and_then(|digits| digits.parse::<u16>().ok());
-    status.is_some_and(|status| (400..=499).contains(&status) && !matches!(status, 408 | 425 | 429))
+        .and_then(|digits| digits.parse::<u16>().ok())
+}
+
+/// A 4xx other than the timeout, too-early and rate-limit statuses.
+pub(crate) fn is_client_fault(status: u16) -> bool {
+    (400..=499).contains(&status) && !matches!(status, 408 | 425 | 429)
 }
 
 /// A stream that died without a terminal event: the connection broke or the
@@ -852,3 +1008,80 @@ pub(crate) fn is_prose_only_path(raw: &str) -> bool {
                     .any(|base| name.eq_ignore_ascii_case(base))
             })
 }
+
+// --- the parity oracle: the classifiers this leg replaced, kept verbatim ---
+//
+// Test builds only. The parity tests compare the shipped leg against these, so
+// the product binary carries no second implementation of the decision.
+
+/// The native classification of one result text, for a call kind we were not
+/// given: not a verifier, so an error can only be a dispatch failure.
+#[cfg(test)]
+fn native_of_result(result: &str) -> ResultVerdict {
+    let error = is_error_result_native(result);
+    ResultVerdict {
+        error,
+        red_verifier: false,
+        dispatch_failure: error,
+        empty_reply: false,
+    }
+}
+
+/// The native classification of one tool result and its call.
+#[cfg(test)]
+fn native_of_call(call: &ToolCall, result: &str) -> ResultVerdict {
+    ResultVerdict {
+        error: is_error_result_native(result),
+        red_verifier: is_red_verifier_run_native(call, result),
+        dispatch_failure: is_dispatch_failure_native(call, result),
+        empty_reply: false,
+    }
+}
+
+/// The native classification of one provider error text.
+#[cfg(test)]
+fn native_of_error_text(error: &str) -> ResultVerdict {
+    ResultVerdict {
+        error: false,
+        red_verifier: false,
+        dispatch_failure: false,
+        empty_reply: is_empty_reply_error_native(error),
+    }
+}
+
+/// Parity oracle for [`is_error_result`].
+#[cfg(test)]
+fn is_error_result_native(s: &str) -> bool {
+    s.starts_with(TOOL_ERROR_PREFIX)
+}
+
+/// Parity oracle for [`is_red_verifier_run`].
+#[cfg(test)]
+fn is_red_verifier_run_native(call: &ToolCall, result: &str) -> bool {
+    if !is_error_result_native(result) || !is_verification_call(call) {
+        return false;
+    }
+    result
+        .lines()
+        .next()
+        .and_then(|header| header.split_once(" failed (exit "))
+        .and_then(|(_, rest)| rest.split_once(')'))
+        .and_then(|(code, _)| code.parse::<i32>().ok())
+        .is_some_and(|code| code != 126 && code != 127)
+}
+
+/// Parity oracle for [`is_dispatch_failure`].
+#[cfg(test)]
+fn is_dispatch_failure_native(call: &ToolCall, result: &str) -> bool {
+    is_error_result_native(result) && !is_red_verifier_run_native(call, result)
+}
+
+/// Parity oracle for [`is_empty_reply_error`].
+#[cfg(test)]
+fn is_empty_reply_error_native(error: &str) -> bool {
+    error.contains(EMPTY_REPLY_MARKER) || error.contains(CLUB_STREAM_MARKER)
+}
+
+#[cfg(test)]
+#[path = "../../../../../tests/cockpit/harness/result_classify__tests.rs"]
+mod tests;

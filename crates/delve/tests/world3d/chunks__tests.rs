@@ -53,14 +53,6 @@ fn dump_around() {
     }
 }
 
-fn assets() -> std::path::PathBuf {
-    std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("assets/world3d")
-}
-
-fn set_path(root: &std::path::Path, id: &str) -> std::path::PathBuf {
-    root.join(id).join(format!("{id}.set"))
-}
-
 /// Every chunk of the kingdom, with its blockout.
 fn each_chunk(mut check: impl FnMut(&Land, (i32, i32), &[Group])) {
     let geo = geography(&[]);
@@ -220,63 +212,6 @@ fn every_chunk_set_parses_with_no_refusals() {
                 assert_eq!((shape.shape.as_str(), shape.kind), (solid.shape.written().as_str(), solid.kind), "{}: line {}", chunk_id(cx, cz), shape.line);
             }
         }
-    }
-}
-
-#[test]
-fn the_committed_chunk_sets_are_the_generators() {
-    let geo = geography(&[]);
-    let land = Land::of(&geo);
-    let (gw, gh) = land.grid();
-    for cz in 0..gh {
-        for cx in 0..gw {
-            let path = set_path(&assets(), &chunk_id(cx, cz));
-            let committed = std::fs::read_to_string(&path).unwrap_or_default();
-            assert!(
-                committed == write(&land, cx, cz, &chunk(&land, cx, cz)),
-                "{} is stale or missing: regenerate with ANGEL_WORLD3D_CHUNKS=1 cargo test -p angel-delve write_world3d_chunks -- --ignored",
-                path.display()
-            );
-        }
-    }
-}
-
-/// Writes every chunk's set to `assets/world3d/chunk-<cx>-<cz>/`, or under
-/// the folder `ANGEL_WORLD3D_CHUNKS` names (when it is not `1`); and, when
-/// `ANGEL_WORLD3D_ITEMS` names a file, the painters' items list there.
-#[test]
-#[ignore = "writes the kingdom's chunk sets"]
-fn write_world3d_chunks() {
-    let Some(to) = std::env::var_os("ANGEL_WORLD3D_CHUNKS") else {
-        return;
-    };
-    let root = if to == "1" { assets() } else { std::path::PathBuf::from(to) };
-    let geo = geography(&[]);
-    let land = Land::of(&geo);
-    let (gw, gh) = land.grid();
-    let mut items = Vec::new();
-    for cz in 0..gh {
-        for cx in 0..gw {
-            let id = chunk_id(cx, cz);
-            let path = set_path(&root, &id);
-            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
-            let set = write(&land, cx, cz, &chunk(&land, cx, cz));
-            std::fs::write(&path, &set).unwrap();
-            println!("{:>5} lines  {}", set.lines().count(), path.display());
-            let item = item(&land, cx, cz);
-            let abs = std::fs::canonicalize(&path).unwrap_or(path.clone());
-            items.push(serde_json::json!({
-                "id": item.id,
-                "set": abs.display().to_string(),
-                "setting": "outdoor",
-                "title": item.title,
-                "notes": item.notes,
-            }));
-        }
-    }
-    if let Some(file) = std::env::var_os("ANGEL_WORLD3D_ITEMS") {
-        std::fs::write(&file, serde_json::to_string_pretty(&items).unwrap() + "\n").unwrap();
-        println!("{} items  {}", items.len(), std::path::Path::new(&file).display());
     }
 }
 

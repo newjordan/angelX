@@ -1,0 +1,16 @@
+{
+  "api_version": 1,
+  "id": "rewards",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "select",
+    "bindings": [false, true],
+    "shaping": [true, false]
+  },
+  "bend": {
+    "entry": "rewards.bend",
+    "proof": "PROOF.bend",
+    "output": "rewards.compiled.js"
+  }
+}

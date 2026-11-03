@@ -317,7 +317,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "lanternward.beacon",
-  "source_path": "/work/artifacts/monolith-private/art-import-lw/prepared/lanternward.beacon/source-sheet.png",
+  "source_path": "artifacts/monolith-private/art-import-lw/prepared/lanternward.beacon/source-sheet.png",
   "source_sha256": "4d0396d52ee242f144859106f606a9e68ee8d61c35b4e60546991ef6d541056f",
   "tool_version": 2
 }

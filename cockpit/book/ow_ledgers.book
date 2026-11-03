@@ -1,0 +1,75 @@
+@@book-page 1@@
+[files changed so far this run (git diff --stat) — build on these; do not re-make or blindly revert them]
+@@book-page 2@@
+[measurements and submissions this run — newest first, as the harness recorded them]
+@@book-page 3@@
+[operator steering — notes the user sent earlier in this run, already answered; keep honoring them, do not answer or act on them again]
+@@book-page 4@@
+[operator message — sent mid-run and not yet answered; answer it once while pursuing the task]
+@@book-page 5@@
+[background process outcomes — inspect the retained logs and actual verifier; an exit is not a solve]
+@@book-page 6@@
+[RL campaigns]
+rl_campaign is available throughout this loop: run starts asynchronous measured attempts on the current route; status, results, and stop manage them.
+@@book-page 6@@
+Use it when comparing approaches or improving a policy would help.
+@@book-page 6@@
+Continue useful work while it runs.
+@@book-page 6@@
+Inspect actual verifier outcomes and retained attempt artifacts; apply a useful candidate to the main workspace and verify it there.
+@@book-page 6@@
+Submit a verified winner when ready.
+@@book-page 6@@
+Campaign availability does not require you to launch one.
+@@book-page 6@@
+Campaigns without an independent audit are measured exploration; they do not install validated learning.
+@@book-page 7@@
+Optional research paths: consult_model(method="deli", club="self") explores directions and returns a synthesis to this turn; spawn(formation="moa") compares parallel approaches; continual_harness retains useful supplemental notes.
+@@book-page 7@@
+Choose them when helpful, return to ordinary tools when ready, and check proposals against actual evidence.
+@@book-page 8@@
+Optional loop_research: Sloptomizer suggest offers pareto, bandit and memory advice; run tries your chosen idea asynchronously on this route.
+@@book-page 8@@
+compare=true measures a baseline and candidate from the same source.
+@@book-page 8@@
+status/results/stop let you step out and back into ordinary work.
+@@book-page 8@@
+Verifier receipts update exploratory memory; no forced research step or policy install.
+@@book-page 8@@
+Submit a verified winner when ready.
+@@book-page 9@@
+Inspect proc_status id={id} for captured output (retained log {log}).
+@@book-page 9@@
+Process exit is not benchmark acceptance or a verified solve.
+@@book-page 9@@
+Owner was interrupted; inspect retained working source and logs before choosing another experiment.
+@@book-page 9@@
+inspect candidate and evaluation receipts before integration
+@@book-page 9@@
+Research history unavailable:
+@@book-page 9@@
+History unavailable:
+@@book-page 9@@
+experiment worker disconnected; inspect retained artifacts
+@@book-page 9@@
+an rl_campaign is already running; continue useful work or request stop and inspect status
+@@book-page 0@@
+Optional isolated attempt on the current loop route.
+@@book-page 0@@
+compare=true adds a baseline attempt from the same frozen source.
+@@book-page 0@@
+No extra hop, time or thinking caps; explicit loop budgets and cancellation apply.
+@@book-page 0@@
+Physical verifier receipts update original Sloptomizer UCB, Pareto and MicroLearner state.
+@@book-page 0@@
+Exploratory advice, not an audited policy install or provider weight training.
+@@book-page 0@@
+Bundled algorithms; requires Python 3 standard library.
+@@book-page 0@@
+suggest checks the runtime without a model call.
+@@book-page 0@@
+Continue useful work.
+@@book-page 0@@
+status/results expose evidence and learning; stop exits this research run without ending the main loop.
+@@book-page 0@@
+a research run is already active; continue useful work or request stop and inspect status

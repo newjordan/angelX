@@ -11,7 +11,7 @@ use angel_gpu::{Core, Draw, Frame, Instance, Picture};
 use angel_gpu::Stage;
 use angel_stage::scene::{
     AMBIENT_LIGHT, AlphaMode, Camera, FACE_SHADES, GRAZING, KEY_LIGHT, Material, MeshData, MeshError, MeshRef, Node, Patch,
-    Projection, Projector, Props, Sampling, Scene, TextureSource, Transform, mat_mul,
+    Projection, Projector, Props, Sampling, Scene, Skin, TextureSource, Transform, mat_mul,
 };
 use angel_stage::{Layer, LayerKind, Placement, Stand, Tilt};
 
@@ -1327,5 +1327,144 @@ fn the_depth_a_scene_leaves_is_read_back() {
         assert_eq!(at(1, 1), 1.0, "nothing drawn is the far plane");
     }
     assert!(gpu.core.scene_depth(&scene, (0, 4)).is_empty());
+    gpu.clean();
+}
+
+// ---- skins and finishes ----
+
+/// A unit quad every vertex of which joint 0 pulls wholly.
+fn skinned_quad() -> MeshData {
+    let mut quad = MeshData::quad();
+    quad.joints = vec![[0, 0, 0, 0]; 4];
+    quad.weights = vec![[1.0, 0.0, 0.0, 0.0]; 4];
+    quad
+}
+
+#[test]
+fn a_skinned_mesh_is_bent_by_its_joints_on_the_gpu() {
+    let Some(mut gpu) = gpu() else {
+        println!("no GPU adapter: skipped");
+        return;
+    };
+    gpu.core.upload_mesh(40, &skinned_quad()).expect("a valid skinned mesh");
+    let red = Material::color([1.0, 0.0, 0.0, 1.0]);
+    // Joint 7 half a unit right of the quad's node; bound at the origin.
+    let mut joint = Node::empty(7);
+    joint.transform = Transform::from_translation([0.5, 0.0, 0.0]);
+    let mut quad = Node::new(1, MeshRef::Uploaded(40), red);
+    let skin = Skin { joints: std::sync::Arc::from([7u64]), inverse_bind: std::sync::Arc::from([angel_stage::scene::IDENTITY_MATRIX]) };
+    quad.skin = Some(skin.clone());
+    let scene = Scene { camera: ortho(), nodes: vec![joint.clone(), quad.clone()], look: None };
+    let pixels = gpu.render(&scene);
+    // A unit is 32 pixels: the quad, moved half a unit, spans x 32..64.
+    expect("bent: its right half (56, 32)", at(&pixels, 56, 32), rgba(255, 0, 0), 0);
+    expect("bent: left of it (24, 32)", at(&pixels, 24, 32), rgba(0, 0, 0), 0);
+    // Turning the joint a quarter about z turns the quad with it, about the
+    // joint: the quad's +x edge (x 0.5 local) goes to y 0.5 over x 0.5.
+    let mut turned = joint.clone();
+    turned.transform.rotation = angel_stage::scene::quat_axis_angle([0.0, 0.0, 1.0], std::f32::consts::FRAC_PI_2);
+    let scene = Scene { camera: ortho(), nodes: vec![turned, quad.clone()], look: None };
+    let pixels = gpu.render(&scene);
+    expect("turned: still over x 0.5 (48, 32)", at(&pixels, 48, 32), rgba(255, 0, 0), 0);
+    // Without its skin the same mesh draws where its node is.
+    let mut plain = quad.clone();
+    plain.skin = None;
+    let scene = Scene { camera: ortho(), nodes: vec![joint.clone(), plain], look: None };
+    let pixels = gpu.render(&scene);
+    expect("unbent (24, 32)", at(&pixels, 24, 32), rgba(255, 0, 0), 0);
+    expect("unbent: right of it (56, 32)", at(&pixels, 56, 32), rgba(0, 0, 0), 0);
+    // A skin whose joint is not there draws it as it lies, too.
+    let mut lost = quad.clone();
+    lost.skin = Some(Skin { joints: std::sync::Arc::from([99u64]), ..skin });
+    let scene = Scene { camera: ortho(), nodes: vec![joint, lost], look: None };
+    let pixels = gpu.render(&scene);
+    expect("a lost joint: as it lies (24, 32)", at(&pixels, 24, 32), rgba(255, 0, 0), 0);
+    gpu.clean();
+}
+
+#[test]
+fn chrome_reflects_a_studio_without_any_light_and_liquid_moves_it() {
+    let Some(mut gpu) = gpu() else {
+        println!("no GPU adapter: skipped");
+        return;
+    };
+    let camera = Camera { clear: Some([0.0, 0.0, 0.0, 1.0]), ..Camera::default() };
+    let chrome = Material { chrome: 1.0, ..Material::color([0.95, 0.95, 1.0, 1.0]) };
+    let ball = node_at(1, MeshRef::Sphere { segments: 48 }, chrome, [0.0; 3], 1.6);
+    let scene = Scene { camera, nodes: vec![ball.clone()], look: None };
+    let pixels = gpu.render(&scene);
+    // Unlit, it is not its flat tint: the studio's floor, horizon and sky
+    // across it, darker below than above, and bright somewhere.
+    let column: Vec<[u8; 4]> = (8..56).map(|y| at(&pixels, 32, y)).collect();
+    let luma = |p: [u8; 4]| u32::from(p[0]) + u32::from(p[1]) + u32::from(p[2]);
+    let (lo, hi) = (column.iter().map(|p| luma(*p)).min().unwrap(), column.iter().map(|p| luma(*p)).max().unwrap());
+    println!("chrome down the middle: {column:?}");
+    assert!(hi > 500 && lo < 300, "a mirror's range, not a flat colour: {lo}..{hi}");
+    assert!(column.iter().all(|p| p[3] == 255));
+    // A tint colours it, the rim staying near white.
+    let gold = Material { chrome: 1.0, ..Material::color([1.0, 0.75, 0.3, 1.0]) };
+    let scene = Scene { camera, nodes: vec![node_at(1, MeshRef::Sphere { segments: 48 }, gold, [0.0; 3], 1.6)], look: None };
+    let tinted = gpu.render(&scene);
+    let middle = at(&tinted, 32, 26);
+    assert!(middle[0] > middle[2], "gold reflects warm: {middle:?}");
+    // Liquid moves with the scene's clock.
+    let liquid = Material { liquid: 1.0, ..chrome };
+    let scene = Scene { camera, nodes: vec![node_at(1, MeshRef::Sphere { segments: 48 }, liquid, [0.0; 3], 1.6)], look: None };
+    gpu.core.set_scene_clock(1.0);
+    let a = gpu.render(&scene);
+    gpu.core.set_scene_clock(1.5);
+    let b = gpu.render(&scene);
+    assert_ne!(a, b, "the ripples run");
+    gpu.clean();
+}
+
+#[test]
+fn a_round_cube_shows_its_faces_and_its_glowing_edges_with_a_halo() {
+    let Some(mut gpu) = gpu() else {
+        println!("no GPU adapter: skipped");
+        return;
+    };
+    gpu.solid(120, [0, 0, 255, 255]);
+    let mesh = MeshRef::RoundCube { radius: 150, segments: 6 };
+    let mut cube = node_at(1, mesh, Material::color([1.0, 1.0, 1.0, 1.0]), [0.0; 3], 1.0);
+    let face = Material { sampling: Sampling::Linear, ..Material::picture(120) };
+    let edge = Material { emissive: 1.0, glow: 1.0, ..Material::color([0.0, 0.8, 0.0, 1.0]) };
+    // +Z (group 4) faces the camera with the picture; group 6 the edges.
+    cube.face_materials = vec![cube.material, cube.material, cube.material, cube.material, face, cube.material, edge];
+    let scene = Scene { camera: ortho(), nodes: vec![cube.clone()], look: None };
+    let pixels = gpu.render(&scene);
+    // The unit cube spans x 16..48; its flat face 0.35 each side of the
+    // middle, its rounded edge the 0.15 outside that.
+    expect("the +Z face's picture (32, 32)", at(&pixels, 32, 32), rgba(0, 0, 255), 0);
+    let rim = at(&pixels, 18, 32);
+    println!("the glowing edge (18, 32): {rim:?}");
+    assert!(rim[1] > 220 && rim[1] > rim[0] && rim[1] > rim[2], "bright green, brighter than its colour: {rim:?}");
+    // The halo: light past the cube's outline, nothing at all with no glow.
+    let past = at(&pixels, 15, 32);
+    println!("past the outline (15, 32): {past:?}");
+    assert!(past[1] > 8, "the halo reaches past the edge: {past:?}");
+    let mut dull = cube.clone();
+    dull.face_materials[6] = Material::color([0.0, 0.8, 0.0, 1.0]);
+    let pixels = gpu.render(&Scene { camera: ortho(), nodes: vec![dull], look: None });
+    expect("no glow: no halo (15, 32)", at(&pixels, 15, 32), rgba(0, 0, 0), 0);
+    // Liquid on it: no seam opens between its faces and its edges.
+    let mut wet = cube.clone();
+    for m in wet.face_materials.iter_mut() {
+        m.liquid = 1.0;
+    }
+    gpu.core.set_scene_clock(2.0);
+    let pixels = gpu.render(&Scene { camera: ortho(), nodes: vec![wet], look: None });
+    let holes = (17..47).flat_map(|y| (17..47).map(move |x| (x, y))).filter(|&(x, y)| at(&pixels, x, y)[..3] == [0, 0, 0]).count();
+    assert_eq!(holes, 0, "no gap inside the cube's outline");
+    // Nor on the plain cube, whose normals split at every edge: turned to
+    // show three faces, liquid, at several moments.
+    let mut cube = node_at(2, MeshRef::Cube, Material { liquid: 1.0, ..Material::color([1.0, 1.0, 1.0, 1.0]) }, [0.0; 3], 1.0);
+    cube.transform.rotation = angel_stage::scene::quat_normalize([0.28, 0.36, 0.0, 0.89]);
+    for t in [0.5, 1.7, 3.3] {
+        gpu.core.set_scene_clock(t);
+        let pixels = gpu.render(&Scene { camera: ortho(), nodes: vec![cube.clone()], look: None });
+        let holes = (24..40).flat_map(|y| (24..40).map(move |x| (x, y))).filter(|&(x, y)| at(&pixels, x, y)[..3] == [0, 0, 0]).count();
+        assert_eq!(holes, 0, "a liquid cube's seams hold at {t}");
+    }
     gpu.clean();
 }

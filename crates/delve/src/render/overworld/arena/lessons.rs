@@ -6,7 +6,7 @@ use super::super::ink::Img;
 use super::{TILE, at, home, stand};
 use crate::rules::Run;
 use crate::rules::home::{BUY_HOLD, numeral};
-use crate::rules::talents::{ECTOR_AT, LECTERNS, LEVELS, knight_key, lectern_at};
+use crate::rules::talents::{ECTOR_AT, LECTERNS, LEVELS, profile_key, lectern_at};
 
 /// The lecterns and their plates, as the yard's scenery has them.
 pub(super) fn furniture(cv: &mut Img) {
@@ -48,23 +48,23 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
 
 /// The lesson a knight standing at a lectern reads: its talent, what it
 /// does, and whether it is theirs to learn yet.
-pub(super) fn boards(cv: &mut Img, run: &Run) {
-    let Some((hero, side)) = run
-        .players
-        .values()
+pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
+    // The seat's own knight at a lectern (`shoppers`).
+    let Some((hero, side)) = super::shoppers(run, focus)
+        .map(|(_, h)| h)
         .filter(|h| h.hp > 0)
         .find_map(|h| Some((h, lectern_at(h.x, h.y)?)))
     else {
         return;
     };
-    let prowess = run.home.prowess(&knight_key(hero));
+    let prowess = run.home.prowess(&profile_key(hero));
     let mut lines = vec![(
         format!("{}, LEVEL {}", hero.name.to_uppercase(), prowess.level()),
         'h',
     )];
     let ready = prowess.waiting() > 0;
     match prowess.next() {
-        None => lines.push(("ALL FOUR LESSONS LEARNED".to_string(), '9')),
+        None => lines.push(("ALL LESSONS LEARNED".to_string(), '9')),
         Some(lesson) => {
             let talent = &lesson[side];
             let n = prowess.learned.len();

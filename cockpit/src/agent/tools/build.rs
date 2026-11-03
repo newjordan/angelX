@@ -1652,7 +1652,6 @@ impl TestOutcome {
     pub fn ran(&self) -> usize {
         self.passed + self.failed
     }
-    #[allow(dead_code)] // public predicate on the outcome; reward()/ran() are the current callers
     pub fn all_passed(&self) -> bool {
         self.failed == 0 && self.passed > 0
     }
@@ -1726,18 +1725,29 @@ impl RunTestsTool {
         }
     }
 }
-/// Operator cap for one managed foreground process, read from
+/// Default cap for one managed foreground process in headless `--task` mode.
+/// A sealed task keeps foreground ownership (no background hand-off), so
+/// without it one hung command (`find /`, a test binary that never exits)
+/// holds the call until the evaluator's wall kills the whole rollout:
+/// polyglot-v1 rust-bowling and cpp-zebra-puzzle on 2026-11-01, both 600 s.
+/// Interactive turns get no default; long task work uses `proc_run` or an
+/// explicit `ANGEL_TASK_CALL_TIMEOUT_SECS` (`0` turns the cap off).
+pub(crate) const TASK_CALL_TIMEOUT_SECS: u64 = 120;
+
+/// Cap for one managed foreground process, read from
 /// `ANGEL_TASK_CALL_TIMEOUT_SECS` (or the deprecated
-/// `ANGEL_TEST_RUN_TIMEOUT_SECS`). Unset or `0` is no cap. There is no
-/// task-mode default.
+/// `ANGEL_TEST_RUN_TIMEOUT_SECS`). `0` is no cap. Unset is no cap
+/// interactively and [`TASK_CALL_TIMEOUT_SECS`] in headless task mode.
 pub(crate) fn task_call_budget() -> Option<Duration> {
     let knob = std::env::var("ANGEL_TASK_CALL_TIMEOUT_SECS")
         .or_else(|_| std::env::var("ANGEL_TEST_RUN_TIMEOUT_SECS"))
         .ok()
         .and_then(|value| value.trim().parse::<u64>().ok());
+    let task_mode = std::env::var("ANGEL_TASK_ACTIVE").is_ok_and(|value| value.trim() == "1");
     match knob {
-        Some(0) | None => None,
+        Some(0) => None,
         Some(secs) => Some(Duration::from_secs(secs)),
+        None => task_mode.then(|| Duration::from_secs(TASK_CALL_TIMEOUT_SECS)),
     }
 }
 
@@ -1773,33 +1783,7 @@ impl Tool for RunTestsTool {
         "run_tests"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "run_tests".to_string(),
-            description: "Run the workspace test suite under the sandbox and return a \
-                          structured pass/fail summary plus a [0,1] reward. Typed (pinned, \
-                          reward-labeled) native runners come first: Cargo for Rust, Node's \
-                          builtin test runner for JavaScript, isolated stdlib unittest for \
-                          Python. When the typed route declines (mixed roots, package scripts, \
-                          other frameworks, YOLO) the suite still runs through the runner the \
-                          workspace's own files choose — `npm test` / `node --test`, `pytest` / \
-                          `unittest discover`, `go test`, `swift test` — and the receipt says \
-                          why the reward is unlabeled. Reports observed tests; project tests do \
-                          not replace an independent evaluator. ⠾⠁"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "runtime": { "type": "string", "enum": ["auto", "rust", "node", "python", "go"],
-                        "description": "⠾⠁⠁" },
-                    "entrypoint": { "type": "string", "enum": ["", "node", "unittest", "pytest"], "description": "⠾⠁⠃" },
-                    "runner": { "type": "string", "description": "⠾⠁⠉" },
-                    "args": { "type": "string", "description": "⠾⠁⠙⠾⠁⠑⠾⠁⠋⠾⠁⠛" },
-                    "dir": { "type": "string", "description": "⠾⠁⠓" },
-                    "crate": { "type": "string", "description": "⠾⠁⠊" }
-                },
-                "required": [],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("run_tests")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         self.call_with_cancel(args, None)
@@ -2325,11 +2309,6 @@ impl RunTestsTool {
             },
             &self.workspace,
         );
-        let counts = crate::platform::workspace_lang::parse_runner_output(
-            plan.lang,
-            &out.stdout,
-            &out.stderr,
-        );
         let label = &plan.label;
         let both = || tail(&format!("{}\n{}", out.stdout, out.stderr), 1500);
         if out.cancelled {
@@ -2338,7 +2317,6 @@ impl RunTestsTool {
         if out.timed_out {
             return Ok(format!("tests: {}\n{}", timeout_detail(&out), both()));
         }
-        let ran = counts.passed + counts.failed;
         // A project-controlled runner can print any counts it likes. Its
         // actual unsuccessful exit always wins over the report on stdout.
         if !out.success {
@@ -2353,6 +2331,26 @@ impl RunTestsTool {
                 failure_detail(&format!("{}\n{}", out.stdout, out.stderr), 1500)
             ));
         }
+        let counts = match crate::platform::workspace_lang::parse_runner_output(
+            plan.lang,
+            &out.stdout,
+            &out.stderr,
+            cancel,
+        ) {
+            Ok(counts) => counts,
+            Err(_)
+                if cancel.is_some_and(|flag| flag.load(std::sync::atomic::Ordering::Acquire)) =>
+            {
+                return Err(format!("{label} cancelled during test summary\n{}", both()));
+            }
+            Err(error) => {
+                return Ok(format!(
+                    "{label} exited successfully, but test summary is unavailable: {error} — reward unlabeled\n{}",
+                    both()
+                ));
+            }
+        };
+        let ran = counts.passed + counts.failed;
         if ran == 0 {
             return Ok(format!(
                 "no tests ran ({label}, chosen because of {}) — reward unlabeled\n{}",
@@ -2976,18 +2974,7 @@ impl Tool for FmtTool {
         "fmt"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "fmt".to_string(),
-            description: "Run `cargo fmt` in the workspace (sandboxed). With check=true, runs \
-                          `cargo fmt --check` and reports whether the tree is rustfmt-clean \
-                          without modifying files; otherwise formats in place. ⠾⠉"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": { "check": { "type": "boolean", "description": "⠾⠉⠁" } },
-                "required": [],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("fmt")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         self.call_with_cancel(args, None)

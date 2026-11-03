@@ -266,7 +266,7 @@
     "alpha_threshold": 128,
     "effect_value_cap": 224,
     "metadata_sha256": "8b89f74bcfa30a1c11616e5e99b3486d4a478dafcf1a41848cd6e432a4b88089",
-    "original_path": "/work/artifacts/art-prod/slots/latch.parry/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/latch.parry/v01/source-sheet.png",
     "original_sha256": "f2b1a62fb2d43a834069299593a0e2011a566bfa720edef1555d9927a75c56d0",
     "room_gain": null,
     "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",

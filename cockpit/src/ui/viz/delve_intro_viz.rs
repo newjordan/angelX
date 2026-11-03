@@ -3,7 +3,7 @@
 //! reaches the Delve's gate on the map and the player clicks through.
 
 use crate::drive::together_realm::{Realm, Status};
-use crate::drive::together_shooter::knights::{COMPANY, Knight};
+pub(crate) use angel_realm_host::delve_intro::{DELVES, Field, Intro, PARTIES};
 use crate::stage::world_viz::overworld::{Img, arena};
 use ratatui::{
     Frame,
@@ -17,102 +17,6 @@ const PARCHMENT: Color = Color::Rgb(0xc7, 0xb4, 0x8f);
 const GOLD: Color = Color::Rgb(0xd8, 0xa9, 0x5e);
 const TEXT: Color = Color::Rgb(0x8f, 0xa3, 0xa8);
 const DIM: Color = Color::Rgb(0x6e, 0x8a, 0x8e);
-
-/// Where the party begins.
-pub(crate) const DELVES: [(&str, &str); 2] = [
-    (
-        "The Crypt",
-        "slate halls under the chapel · bone and candle-wax · the Waxen Warden",
-    ),
-    (
-        "The Mines",
-        "timber and iron under the hill · ore and gems · Cinderjaw",
-    ),
-];
-
-/// Who comes along.
-pub(crate) const PARTIES: [(&str, &str); 3] = [
-    ("Alone", "one knight, your keyboard"),
-    (
-        "A friend, here",
-        "player 2 on this keyboard: IJKL, Enter fires, O rolls",
-    ),
-    (
-        "Friends, invited",
-        "an invitation line for a friend's angelX · /dungeon_host --3 for three",
-    ),
-];
-
-/// One row of the menu.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Field {
-    /// Back into the run under way.
-    Continue,
-    Knight,
-    Delve,
-    Party,
-    Voices,
-    /// A new delve with the choices above.
-    Begin,
-}
-
-/// The Delve's menu: continue the run under way, or choose for a new one.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) struct Intro {
-    pub(crate) row: usize,
-    pub(crate) knight: usize,
-    pub(crate) delve: usize,
-    pub(crate) party: usize,
-    pub(crate) quiet: bool,
-    /// The run under way, in a line, when there is one to continue.
-    pub(crate) resume: Option<String>,
-    /// Seats open to invited friends, while hosting.
-    pub(crate) hosting: Option<usize>,
-}
-
-impl Intro {
-    pub(crate) fn chosen(&self) -> &'static Knight {
-        &COMPANY[self.knight % COMPANY.len()]
-    }
-
-    pub(crate) fn fields(&self) -> &'static [Field] {
-        use Field::*;
-        if self.resume.is_some() {
-            &[Continue, Knight, Delve, Party, Voices, Begin]
-        } else {
-            &[Knight, Delve, Party, Voices, Begin]
-        }
-    }
-
-    pub(crate) fn field(&self) -> Field {
-        let fields = self.fields();
-        fields[self.row % fields.len()]
-    }
-
-    pub(crate) fn step(&mut self, by: isize) {
-        let n = self.fields().len() as isize;
-        self.row = (self.row as isize + by).rem_euclid(n) as usize;
-    }
-
-    /// Put the cursor on `field`.
-    pub(crate) fn go(&mut self, field: Field) {
-        if let Some(row) = self.fields().iter().position(|&f| f == field) {
-            self.row = row;
-        }
-    }
-
-    /// ←/→ on the current row.
-    pub(crate) fn turn(&mut self, step: isize) {
-        let cycle = |v: usize, n: usize| (v as isize + step).rem_euclid(n as isize) as usize;
-        match self.field() {
-            Field::Knight => self.knight = cycle(self.knight, COMPANY.len()),
-            Field::Delve => self.delve = cycle(self.delve, DELVES.len()),
-            Field::Party => self.party = cycle(self.party, PARTIES.len()),
-            Field::Voices => self.quiet = !self.quiet,
-            Field::Continue | Field::Begin => {}
-        }
-    }
-}
 
 fn text(frame: &mut Frame, area: Rect, s: &str, color: Color) {
     frame.render_widget(

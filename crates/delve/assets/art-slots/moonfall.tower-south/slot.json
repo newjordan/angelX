@@ -149,7 +149,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": false,
   "slot": "moonfall.tower-south",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.tower-south/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.tower-south/v01/source-sheet.png",
   "source_sha256": "ac014fe0591a6b85cdf2b61a889b622a75d73d626d803ca283fc182ae724e803",
   "tool_version": 2
 }

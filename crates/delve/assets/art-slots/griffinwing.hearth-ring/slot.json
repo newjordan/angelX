@@ -421,7 +421,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "griffinwing.hearth-ring",
-  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.hearth-ring/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/griffinwing.hearth-ring/v01/source-sheet.png",
   "source_sha256": "7b324f5ea8c9c2e154b15c8b57a9d5865ee43d532b89ba0b64f04a4945b20b49",
   "tool_version": 2
 }

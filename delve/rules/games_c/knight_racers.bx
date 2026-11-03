@@ -1,0 +1,214 @@
+# crates/delve/src/rules/knight_racers.rs — one lap on the 864-unit oval, shared by six seats.
+
+def knight_racers.LAP() -> F32:
+  864.0
+
+def knight_racers.BEND() -> F32:
+  50.0
+
+def knight_racers.PI() -> F32:
+  3.1415927
+
+# STRAIGHT = (LAP - 2.0 * PI * BEND) / 2.0
+def knight_racers.STRAIGHT() -> F32:
+  ((knight_racers.LAP() - (2.0 * knight_racers.PI() * knight_racers.BEND() : F32) : F32) / 2.0 : F32)
+
+def knight_racers.GRID.d(+slot: U32) -> F32:
+  gc.nth_f([F32.neg(6.0), F32.neg(10.0), F32.neg(22.0), F32.neg(26.0), F32.neg(38.0), F32.neg(42.0)], slot)
+
+def knight_racers.GRID.y(+slot: U32) -> F32:
+  gc.nth_f([F32.neg(3.6), 3.6, F32.neg(3.6), 3.6, F32.neg(3.6), 3.6], slot)
+
+# pub fn pose(s) -> (x, y, heading)
+def knight_racers.pose(+s0: F32) -> F32 & F32 & F32:
+  s: F32 = RS.f_rem_euclid(s0, knight_racers.LAP())
+  arc: F32 = (knight_racers.PI() * knight_racers.BEND() : F32)
+  st: F32 = knight_racers.STRAIGHT()
+  if F32.is_lt(s, st):
+    (s, 0.0, 0.0)
+  else:
+    if F32.is_lt(s, (st + arc : F32)):
+      f: F32 = ((s - st : F32) / knight_racers.BEND() : F32)
+      ((st + (knight_racers.BEND() * F32.sin(f) : F32) : F32), (knight_racers.BEND() * (1.0 - F32.cos(f) : F32) : F32), f)
+    else:
+      if F32.is_lt(s, (2.0 * st + arc : F32)):
+        ((st - (s - st - arc : F32) : F32), (2.0 * knight_racers.BEND() : F32), knight_racers.PI())
+      else:
+        g: F32 = ((s - 2.0 * st - arc : F32) / knight_racers.BEND() : F32)
+        (F32.neg((knight_racers.BEND() * F32.sin(g) : F32)), (knight_racers.BEND() * (1.0 + F32.cos(g) : F32) : F32), (knight_racers.PI() + g : F32))
+
+def knight_racers.curve(+s0: F32) -> F32:
+  s: F32 = RS.f_rem_euclid(s0, knight_racers.LAP())
+  st: F32 = knight_racers.STRAIGHT()
+  if Bool.or(Bool.and(F32.is_ge(s, st), F32.is_lt(s, (st + (knight_racers.PI() * knight_racers.BEND() : F32) : F32))), F32.is_ge(s, (2.0 * st + (knight_racers.PI() * knight_racers.BEND() : F32) : F32))):
+    (1.0 / knight_racers.BEND() : F32)
+  else:
+    0.0
+
+# Car::grid(slot)
+def knight_racers.Car.grid(+slot: U32) -> J.Val:
+  c0: J.Val = gc.sf(J.obj(), "d", knight_racers.GRID.d(slot))
+  c1: J.Val = gc.sf(c0, "y", knight_racers.GRID.y(slot))
+  c2: J.Val = gc.sf(gc.sf(c1, "v", 0.0), "vy", 0.0)
+  gc.snull(gc.sf(c2, "boost", 1.0), "finish")
+
+# Session::new(players) and join_ids(ids)
+def knight_racers.Session.new(+players: J.Val) -> J.Val:
+  s0: J.Val = gc.sb(gc.su(J.set(J.obj(), "cars", J.obj()), "ticks", 0), "finished", False{})
+  knight_racers.Session.join_ids(s0, gc.ids(players))
+
+def knight_racers.Session.join_ids(+s: J.Val, +ids0: List<&2, U32>) -> J.Val:
+  ids: List<&2, U32> = knight_racers.valid_ids(ids0, 0)
+  cars: J.Val = knight_racers.cars_for(J.get(s, "cars"), ids, 0)
+  s1: J.Val = J.set(s, "cars", cars)
+  gc.sb(s1, "finished", Bool.and(Bool.not(J.is_null(J.get(cars, "1"))), knight_racers.all_finished(gc.vals(cars))))
+
+def knight_racers.all_finished(+cars: List<&2, J.Val>) -> Bool:
+  match cars as List<&2, J.Val>:
+    case Nil{}:
+      True{}
+    case Con{h, t}:
+      Bool.and(Bool.not(J.is_null(J.get(h, "finish"))), knight_racers.all_finished(t))
+
+# The ids in 1..=MAX_PLAYERS, first six (the input is a sorted set of ids).
+def knight_racers.valid_ids(+ids: List<&2, U32>, +n: U32) -> List<&2, U32>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      if Bool.and(U32.is_ge(id, 1), U32.is_le(id, rules.MAX_PLAYERS())):
+        if U32.is_ge(n, rules.MAX_PLAYERS()):
+          Nil{}
+        else:
+          id <> knight_racers.valid_ids(t, (n + 1 : U32))
+      else:
+        knight_racers.valid_ids(t, n)
+
+# cars.retain(in ids); then the missing ones take their grid slot.
+def knight_racers.cars_for(+old: J.Val, +ids: List<&2, U32>, +unused: U32) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      J.obj()
+    case Con{id, t}:
+      car: J.Val = gc.seat(old, id)
+      J.set(knight_racers.cars_for(old, t, 0), gc.key(id), gc.pj(J.is_null(car), knight_racers.Car.grid(gc.ssub(id, 1)), car))
+
+# Session::step(inputs)
+def knight_racers.Session.step(+s: J.Val, +inputs: J.Val) -> J.Val:
+  if gc.b(s, "finished"):
+    knight_racers.Session.reset(s, inputs)
+  else:
+    ticks: U32 = gc.sadd(gc.u(s, "ticks"), 1)
+    s1: J.Val = gc.su(s, "ticks", ticks)
+    if U32.is_le(ticks, 90):
+      s1
+    else:
+      time: F32 = ((RS.u_as_f32((ticks - 90 : U32)) * rules.DT() : F32))
+      cars: J.Val = knight_racers.drive(J.int_fields(J.get(s1, "cars")), inputs, time, J.obj())
+      gc.sb(J.set(s1, "cars", cars), "finished", Bool.and(Bool.not(J.is_null(J.get(cars, "1"))), knight_racers.all_finished(gc.vals(cars))))
+
+# A finished race: E from any car's seat resets the whole field.
+def knight_racers.Session.reset(+s: J.Val, +inputs: J.Val) -> J.Val:
+  if knight_racers.any_interact(gc.ids(J.get(s, "cars")), inputs):
+    gc.sb(gc.su(J.set(s, "cars", knight_racers.regrid(gc.ids(J.get(s, "cars")))), "ticks", 0), "finished", False{})
+  else:
+    s
+
+def knight_racers.any_interact(+ids: List<&2, U32>, +inputs: J.Val) -> Bool:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      False{}
+    case Con{id, t}:
+      Bool.or(gc.b(gc.seat(inputs, id), "interact"), knight_racers.any_interact(t, inputs))
+
+def knight_racers.regrid(+ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      J.obj()
+    case Con{id, t}:
+      J.set(knight_racers.regrid(t), gc.key(id), knight_racers.Car.grid(gc.ssub(id, 1)))
+
+def knight_racers.drive(+cars: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +inputs: J.Val, +time: F32, +acc: J.Val) -> J.Val:
+  match cars as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
+    case Nil{}:
+      acc
+    case Con{(id: String, car: J.Val), t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
+      knight_racers.drive(t, inputs, time, J.set(acc, id, knight_racers.Car.step(car, gc.seat(inputs, gc.id(id)), time)))
+
+# One car's physics for the tick (a car that has finished is left alone).
+def knight_racers.Car.step(+c: J.Val, +input: J.Val, +time: F32) -> J.Val:
+  if Bool.not(J.is_null(J.get(c, "finish"))):
+    c
+  else:
+    knight_racers.Car.drive(c, input, time, RS.i_clamp(gc.u(input, "move_x"), RS.i_neg(1), 1), RS.i_gt(gc.u(input, "move_y"), 0))
+
+def knight_racers.Car.drive(+c: J.Val, +input: J.Val, +time: F32, +steer: U32, +brake: Bool) -> J.Val:
+  dt: F32 = rules.DT()
+  boosting: Bool = Bool.and(gc.b(input, "dash"), Bool.and(F32.is_gt(gc.f(c, "boost"), 0.0), Bool.not(brake)))
+  gas: Bool = Bool.or(RS.i_lt(gc.u(input, "move_y"), 0), boosting)
+  boost: F32 = knight_racers.boost(gc.f(c, "boost"), boosting, dt)
+  top: F32 = gc.pf(boosting, 56.0, 40.0)
+  v: F32 = knight_racers.speed(gc.f(c, "v"), brake, gas, boosting, top, dt)
+  knight_racers.Car.slide(c, time, steer, boosting, boost, top, gc.pf(F32.is_gt(v, top), RS.f_max((v - (16.0 * dt : F32) : F32), top), v), dt)
+
+def knight_racers.boost(+boost: F32, +boosting: Bool, +dt: F32) -> F32:
+  if boosting:
+    RS.f_max((boost - (0.30 * dt : F32) : F32), 0.0)
+  else:
+    RS.f_min((boost + (0.11 * dt : F32) : F32), 1.0)
+
+def knight_racers.speed(+v: F32, +brake: Bool, +gas: Bool, +boosting: Bool, +top: F32, +dt: F32) -> F32:
+  if brake:
+    RS.f_max((v - (46.0 * dt : F32) : F32), 0.0)
+  else:
+    if gas:
+      if F32.is_lt(v, top):
+        (v + (((gc.pf(boosting, 62.4, 26.0) * (1.0 - (v / top : F32) : F32) : F32) * dt) : F32) : F32)
+      else:
+        v
+    else:
+      RS.f_max((v - ((3.0 + ((0.004 * v : F32) * v : F32) : F32) * dt : F32) : F32), 0.0)
+
+def knight_racers.Car.slide(+c: J.Val, +time: F32, +steer: U32, +boosting: Bool, +boost: F32, +top: F32, +v: F32, +dt: F32) -> J.Val:
+  lat: F32 = ((13.0 * (0.4 + (0.6 * RS.f_min((v / 16.0 : F32), 1.0) : F32) : F32) : F32) * gc.pf(boosting, 0.8, 1.0) : F32)
+  cmd: F32 = (RS.i_as_f32(steer) * lat : F32)
+  vy: F32 = (gc.f(c, "vy") + RS.f_clamp((cmd - gc.f(c, "vy") : F32), F32.neg((90.0 * dt : F32)), (90.0 * dt : F32)) : F32)
+  k: F32 = knight_racers.curve(gc.f(c, "d"))
+  y: F32 = (gc.f(c, "y") + ((vy - (((0.30 * v : F32) * v : F32) * k : F32) : F32) * dt : F32) : F32)
+  knight_racers.Car.wall(c, time, boost, v, vy, y, k, dt)
+
+def knight_racers.Car.wall(+c: J.Val, +time: F32, +boost: F32, +v: F32, +vy: F32, +y: F32, +k: F32, +dt: F32) -> J.Val:
+  if F32.is_gt(RS.f_abs(y), 8.0):
+    knight_racers.Car.advance(c, time, boost, (v * 0.88 : F32), F32.neg((RS.f_signum((RS.f_signum(y) * 8.0 : F32)) * 4.0 : F32)), (RS.f_signum(y) * 8.0 : F32), k, dt)
+  else:
+    knight_racers.Car.advance(c, time, boost, v, vy, y, k, dt)
+
+def knight_racers.Car.advance(+c: J.Val, +time: F32, +boost: F32, +v: F32, +vy: F32, +y: F32, +k: F32, +dt: F32) -> J.Val:
+  d: F32 = (gc.f(c, "d") + ((v * dt : F32) / RS.f_max((1.0 - (k * y : F32) : F32), 0.4) : F32) : F32)
+  c1: J.Val = gc.sf(gc.sf(gc.sf(gc.sf(c, "boost", boost), "v", v), "vy", vy), "y", y)
+  if F32.is_ge(d, knight_racers.LAP()):
+    gc.sf(gc.sf(c1, "finish", (time - ((d - knight_racers.LAP() : F32) / RS.f_max(v, 1.0) : F32) : F32)), "d", knight_racers.LAP())
+  else:
+    gc.sf(c1, "d", d)
+
+# fn knight_racers_showing(&self)
+def knight_racers.Run.knight_racers_showing(+run: J.Val) -> Bool:
+  Bool.and(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "forest"), Bool.not(J.is_null(J.get(run, "knight_racers"))))
+
+# pub fn start_knight_racers(&mut self)
+def knight_racers.Run.start_knight_racers(+run: J.Val) -> J.Val:
+  if String.eq(J.str(J.get(rules.Run.room(run), "kind")), "forest"):
+    r1: J.Val = J.set(run, "forest", forest.Forest.leave(J.get(run, "forest")))
+    r2: J.Val = J.set(r1, "knight_racers", knight_racers.Session.new(J.get(r1, "players")))
+    gc.found(r2, 0, "Knight Racer: arrows/WASD drive, Space boosts. Hold Esc to leave; E after the flag to race again.")
+  else:
+    run
+
+# fn tick_knight_racers(&mut self, inputs)
+def knight_racers.Run.tick_knight_racers(+run: J.Val, +inputs: J.Val) -> J.Val:
+  if J.is_null(J.get(run, "knight_racers")):
+    run
+  else:
+    ids: List<&2, U32> = gc.ids_outside(J.get(run, "players"), J.get(J.get(run, "exits"), "outside"))
+    s1: J.Val = knight_racers.Session.join_ids(J.get(run, "knight_racers"), ids)
+    J.set(run, "knight_racers", knight_racers.Session.step(s1, inputs))

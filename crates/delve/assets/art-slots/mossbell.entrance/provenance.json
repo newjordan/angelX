@@ -14,6 +14,6 @@
   },
   "prepared_sha256": "001d9ff36fc749363dd5b3cd078de179a3b58cc251b5dd869038426c90ace101",
   "recipe_sha256": "de72e31fe08a3bd8607fe5ff4eae81b04bbcbe63f0920762a58149ec60959fa6",
-  "source_path": "/work/artifacts/art-prod/slots/mossbell.entrance.room-1/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/mossbell.entrance.room-1/v01/source-sheet.png",
   "source_sha256": "0ce2c2107ea42e08dc54203d833f07e3a2750f13658927926a1def1516cd0f0d"
 }

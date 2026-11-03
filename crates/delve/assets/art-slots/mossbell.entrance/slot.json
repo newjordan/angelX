@@ -62,7 +62,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "mossbell.entrance",
-  "source_path": "/work/tmp/int-4-prepared/mossbell.entrance/source-sheet.png",
+  "source_path": "tmp/int-4-prepared/mossbell.entrance/source-sheet.png",
   "source_sha256": "001d9ff36fc749363dd5b3cd078de179a3b58cc251b5dd869038426c90ace101",
   "tool_version": 2
 }

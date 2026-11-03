@@ -1,0 +1,34 @@
+[package]
+name = "angel-delve-system"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+swap-test = []
+
+[[bin]]
+name = "angel-delve-system-fixture"
+path = "tests/fixtures/alternate.rs"
+required-features = ["swap-test"]
+
+# Runs a scripted rule inside the worker, over the real protocol.
+[[bin]]
+name = "angel-delve-system-scripted"
+path = "tests/fixtures/scripted.rs"
+required-features = ["swap-test"]
+
+[dependencies]
+angel-delve = { path = "../delve", default-features = false, features = ["bend-engine"] }
+# The worker carries the Kernel's V8 backend and the shipped policy generations,
+# so rules authored as Bend modules (`angel_delve::scripted`) run here too.
+angel-live = { path = "../live", features = ["v8"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+# The corpus recorder (tests/record_corpus.rs) starts the games the way the
+# tests do; only test targets see these fixtures, the worker does not.
+angel-delve = { path = "../delve", default-features = false, features = ["bend-engine", "renderer", "testing"] }

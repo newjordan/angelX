@@ -60,7 +60,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.plate.unknown",
-  "source_path": "/work/artifacts/art-prod/slots/dgn.plate.unknown/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/dgn.plate.unknown/v01/source-sheet.png",
   "source_sha256": "69e38bffc52905f21c95faa1f1b2c8911fc46ccd936f084b892def9500db1a40",
   "tool_version": 2
 }

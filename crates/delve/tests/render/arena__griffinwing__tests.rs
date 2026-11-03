@@ -1008,7 +1008,7 @@ fn a_painted_gate_and_ring_stand_at_the_sims_radius_and_leave_the_hole_clear() {
         // The hole: along rays that miss a lantern, the first dot the piece
         // paints is at the sim's radius less the tenth of a unit a painted
         // piece may look smaller by, to within a quarter unit.
-        let offset = if between { 0.3927 } else { 0.0 };
+        let offset = if between { std::f32::consts::FRAC_PI_8 } else { 0.0 };
         let radii: Vec<f32> = (0..16)
             .filter_map(|i| {
                 let angle = offset + i as f32 * std::f32::consts::TAU / 16.0;

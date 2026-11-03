@@ -106,9 +106,27 @@ pub fn warning_target(run: &Run, enemy: &Enemy) -> Option<(f32, f32)> {
                 .filter(|h| !h.down())
                 .map(|h| (h.x, h.y)),
         )
+        .chain(
+            run.squire_field.companions.values()
+                .filter(|s| s.targetable())
+                .map(|s| (s.actor.x, s.actor.y)),
+        )
+        .chain(run.minions.decoys())
+        .chain(run.squire_hall.decoys(run))
+        .chain(super::countryside_squires::decoys(&run.countryside_squires))
+        .chain(run.squire_decoys())
         .collect();
     let mut seen = Vec::new();
     peasant::sights(run.tick, &run.scarecrows, enemy, &knights, &decoys, &mut seen);
+    run.minions.roared(enemy, &mut seen);
+    super::countryside_squires::roared(&run.countryside_squires, enemy, &mut seen);
+    run.squire_academy.roared(enemy, &mut seen);
+    if let Some((door, guests)) = run.garden_lure()
+        && guests.contains(&enemy.id)
+    {
+        seen.clear();
+        seen.push(door);
+    }
     seen.into_iter().min_by(|a, b| {
         (a.0 - enemy.x)
             .hypot(a.1 - enemy.y)

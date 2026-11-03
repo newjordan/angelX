@@ -229,7 +229,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": false,
   "slot": "griffinwing.shutter",
-  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.shutter/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/griffinwing.shutter/v01/source-sheet.png",
   "source_sha256": "fbff24397963f72d11ba9d51cf5a8a903bafd3ead98d8eef198f1729534b6f6e",
   "tool_version": 2
 }

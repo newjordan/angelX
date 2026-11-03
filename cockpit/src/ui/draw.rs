@@ -36,22 +36,8 @@ pub(crate) use transcript_view::{
     tool_strip_height, transcript_roll_in_allowed, transcript_text_and_rail,
 };
 
-fn cockpit_side_width(width: u16) -> u16 {
-    let transcript_target = if width >= 180 {
-        105
-    } else if width >= 140 {
-        80
-    } else {
-        64
-    };
-    let realm_target = if width >= 180 {
-        80
-    } else if width >= 140 {
-        64
-    } else {
-        48
-    };
-    realm_target.min(width.saturating_sub(transcript_target).saturating_add(1))
+fn cockpit_side_width(width: u16, policy: &angel_live::UiPolicy) -> u16 {
+    policy.side_width(width)
 }
 
 // reasoning_agent_height lives in `surfaces` (layout is role-aware).
@@ -308,7 +294,8 @@ pub(crate) fn render_cockpit_with_agent_panels(
         return;
     }
 
-    let agent_active = app.module_host.is_running("agent");
+    let policy = std::sync::Arc::clone(&app.live_modules.ui);
+    let agent_active = app.module_host.is_running("agent") && policy.show_agent;
     let raytrace_active =
         app.scryglass.controller.route() == crate::ui::scryglass::StageRoute::Raytrace;
     // The Reinforce stage holds the column while routed-to, and a live RL run
@@ -316,13 +303,14 @@ pub(crate) fn render_cockpit_with_agent_panels(
     let reinforce_active = app.scryglass.controller.route()
         == crate::ui::scryglass::StageRoute::Reinforce
         || app.tools.rl().running();
-    let artifacts_active = stage_view::artifacts_pane_active(
-        app.module_host.is_running("artifacts"),
-        raytrace_active,
-        app.lifecycle_ceremony_active(),
-        crate::ui::viz::loop_viz::visible(&app.loop_ctl),
-        reinforce_active,
-    );
+    let artifacts_active = policy.show_artifacts
+        && stage_view::artifacts_pane_active(
+            app.module_host.is_running("artifacts"),
+            raytrace_active,
+            app.lifecycle_ceremony_active(),
+            crate::ui::viz::loop_viz::visible(&app.loop_ctl),
+            reinforce_active,
+        );
 
     // Expand the trace pane when it has content (live or previous-turn, or a
     // background job), up to 80% of the column. Empty traces stay capped so a
@@ -333,8 +321,8 @@ pub(crate) fn render_cockpit_with_agent_panels(
             .as_ref()
             .and_then(control::BackgroundJob::live_output)
             .is_some_and(|output| !output.trim().is_empty());
-    let side_w = cockpit_side_width(cockpit_area.width);
-    let idle_agent_cap = if cockpit_area.width >= 150 { 14 } else { 13 };
+    let side_w = cockpit_side_width(cockpit_area.width, &policy);
+    let idle_agent_cap = policy.band(cockpit_area.width).idle_agent_height;
     let layout_input = crate::ui::surfaces::CockpitLayoutInput {
         area: cockpit_area,
         agent_active,
@@ -345,7 +333,8 @@ pub(crate) fn render_cockpit_with_agent_panels(
         backdrop,
         join,
     };
-    let target_plan = crate::ui::surfaces::plan_cockpit_surfaces(layout_input);
+    let target_plan =
+        crate::ui::surfaces::plan_cockpit_surfaces_with_policy(layout_input, None, &policy);
     let target_height = target_plan.agent_frame().map_or(0, |r| r.height);
     let animate = target_plan.agent_frame().is_some()
         && target_plan.artifacts_frame().is_some()
@@ -360,7 +349,8 @@ pub(crate) fn render_cockpit_with_agent_panels(
         app.visual_motion,
         animate,
     );
-    let plan = crate::ui::surfaces::plan_cockpit_surfaces_at_height(layout_input, Some(height));
+    let plan =
+        crate::ui::surfaces::plan_cockpit_surfaces_with_policy(layout_input, Some(height), &policy);
 
     let left_area = plan.transcript_frame().unwrap_or(cockpit_area);
     let agent_area = plan.agent_frame();
@@ -458,11 +448,26 @@ pub(crate) fn render_selection_and_approval_overlays(frame: &mut Frame, app: &mu
         // Loop input owns the keyboard ahead of every picker. Match that
         // precedence in the final compositor pass, independent of Stage route,
         // media overlays, focus, and the side column's available height.
-        if let Some(dialog) = app.loop_dialog.as_ref() {
-            app.loop_dialog_hits = crate::drive::loop_dialog::render(frame, frame.area(), dialog);
+        crate::ui::views::loop_view::render(frame, app);
+        if app.browser_picker.is_some() {
+            render_browser_picker(frame, app);
         }
     }
 
+    app.approval_hits.clear();
+    #[cfg(feature = "glass")]
+    if let Some(pa) = &app.pending_approval
+        && crate::ui::glass::active()
+        && let Some((card, hits)) = crate::ui::views::approval_view::card(
+            frame.area(),
+            &pa.prompt,
+            pa.scope_label.as_deref(),
+        )
+    {
+        app.approval_hits = hits;
+        crate::ui::glass::set_card(Some(card));
+        return;
+    }
     if let Some(pa) = &app.pending_approval {
         let area = crate::ui::views::approval_view::modal_area(
             frame.area(),
@@ -541,19 +546,41 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         !app.input.is_empty(),
         app.visual_motion,
     );
+    app.overwatch.set_peer_activity(
+        if app.thinking.is_some() || app.pending_turn.is_some() {
+            "turn"
+        } else {
+            "idle"
+        },
+    );
     app.overwatch.refresh();
-    let root = frame.area();
+    // The sleeping giant in the realm mirrors the same peer scan.
+    let peer_now_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    app.realm.world
+        .note_guardian_peers(&app.overwatch.peers, peer_now_ms);
+    // Peer transitions belong to the ambient world, not the conversation.
+    // Drain them into diagnostics so routine activity never adds chat rows.
+    for event in app.overwatch.peer_events.drain(..) {
+        tracing::debug!("{}", event.notice_text());
+    }
+    let root = crate::ui::loop_rail_live::frame(app, frame.area());
     // Name this frame's dialogs before any pane paints: a Kitty image
     // re-sends whole placeholder rows whenever it changes, repainting over a
     // dialog's unchanged cells, so image panes under a dialog draw in plain
     // cells instead. The model menu keeps last frame's box; it does not move.
     app.image_occluders.clear();
     crate::ui::views::setup_view::register_image_occlusion(root, app);
-    if app.loop_dialog.is_some() {
-        app.image_occluders
-            .push(crate::drive::loop_dialog::modal_area(root));
+    if let Some(area) = crate::ui::views::loop_view::occluder(root, app) {
+        app.image_occluders.push(area);
     }
-    if let Some(pa) = &app.pending_approval {
+    // The window's approval card is drawn over its pictures; only the
+    // terminal modal needs the panes under it downgraded.
+    if let Some(pa) = &app.pending_approval
+        && !crate::ui::glass::active()
+    {
         app.image_occluders
             .push(crate::ui::views::approval_view::modal_area(
                 root,
@@ -573,12 +600,12 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // return too: a resize, shell, image, or compact Core frame must pause
     // hidden reveal lifetime and cannot retain the preceding fast tick.
     app.world_pane_visible = false;
-    app.overworld_map = None;
+    app.realm.overworld_map = None;
     app.scryglass.begin_frame();
     app.panes.clear();
-    app.dungeon.controls_visible = false;
+    app.realm.dungeon.controls_visible = false;
     #[cfg(feature = "glass")]
-    crate::ui::glass::set_scroll(None);
+    crate::ui::glass::set_card(None);
     if root.width == 0 || root.height == 0 {
         app.scryglass_drag = None;
         app.scryglass.finish_frame();
@@ -603,38 +630,48 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     app.object_dock.visible = false;
     app.tool_herald_area = None;
     app.loop_dialog_hits.clear();
+    crate::ui::glass::game_surface(app.dungeon_view_active());
     // Setup is a foreground object; the ordinary workspace keeps painting.
     if app.dungeon_view_active() {
         let now = Instant::now();
         // The host's delve as its newest tick stands (the words around the
         // room read it), and the seat whose own client draws the room.
-        let screen = app.dungeon_screen();
+        let screen = app.realm.view().screen();
         let deck = app
             .dungeon
             .forge
             .draft
             .as_ref()
-            .map(|d| app.wish_deck(d.player))
+            .map(|d| app.realm.dungeon.wish_deck(d.player))
             .unwrap_or_default();
-        let known = crate::app::control::known_wishes(&deck);
+        let player = app.realm.dungeon.forge.draft.as_ref().map(|d| d.player);
+        let (making, depth) = app.with_realm(|r, cx| { let session = r.session(cx); (player.and_then(|id| session.wish_making(id)), session.wish_depth()) });
+        let known = crate::app::control::known_wishes(&deck, making.as_ref(), depth);
+        let (upgrades, upgrade_note) = app
+            .dungeon
+            .forge
+            .draft
+            .as_ref()
+            .map(|d| app.realm.dungeon.wish_upgrades(d.player))
+            .unwrap_or_default();
         // The room goes out as the terminal's own picture this frame: its
         // cells under it need not be drawn.
         let native = app.viewer.kitty()
             && app.viewer.map_pixels_native()
             && !app.dungeon_controls_blocked()
-            && app.dungeon.intro.is_none()
-            && app.dungeon.forge.draft.is_none()
-            && !app.dungeon.cards_open
-            && app.dungeon.exhibit_text.is_none()
-            && app.dungeon.activity_menu.is_none();
+            && app.realm.dungeon.intro.is_none()
+            && app.realm.dungeon.forge.draft.is_none()
+            && !app.realm.dungeon.cards_open
+            && app.realm.dungeon.exhibit_text.is_none()
+            && app.realm.dungeon.activity_menu.is_none();
         app.image_occluders.push(root);
         app.viewer.clear_still();
-        app.dungeon.controls_visible = if let Some(intro) = &app.dungeon.intro {
-            crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.dungeon.realm.as_ref());
+        app.realm.dungeon.controls_visible = if let Some(intro) = &app.realm.dungeon.intro {
+            crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.realm.dungeon.realm.as_ref());
             true
-        } else if let Some(seat) = app.dungeon.activity_menu {
+        } else if let Some(seat) = app.realm.dungeon.activity_menu {
             frame.render_widget(ratatui::widgets::Clear, root);
-            let couch = app.dungeon.joined.is_none() && app.dungeon.hosting.is_none();
+            let couch = app.realm.dungeon.joined.is_none() && app.realm.dungeon.hosting.is_none();
             let help = if couch {
                 "1 / 2 selects a knight · Tab switches"
             } else {
@@ -644,7 +681,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                 "PAUSED · Knight {seat}\n\n[ LEAVE ]  Enter / Backspace\n\nEsc resumes · F2 returns to the composer\n{help}"
             )).block(ratatui::widgets::Block::bordered().title("Activity menu")), root);
             true
-        } else if let Some(text) = &app.dungeon.exhibit_text {
+        } else if let Some(text) = &app.realm.dungeon.exhibit_text {
             frame.render_widget(ratatui::widgets::Clear, root);
             frame.render_widget(
                 ratatui::widgets::Paragraph::new(text.as_str())
@@ -653,11 +690,11 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                             .title("Host-local research · ↑/↓ scroll · E/Esc close"),
                     )
                     .wrap(ratatui::widgets::Wrap { trim: false })
-                    .scroll((app.dungeon.exhibit_scroll, 0)),
+                    .scroll((app.realm.dungeon.exhibit_scroll, 0)),
                 root,
             );
             true
-        } else if let Some(joined) = &app.dungeon.joined {
+        } else if let Some(joined) = &app.realm.dungeon.joined {
             // Cells drawn from the seat's own picture, made off this thread.
             if !native {
                 joined.seat.request(now);
@@ -668,9 +705,9 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                 joined,
                 picture.as_ref(),
                 root,
-                &app.dungeon.notice,
-                app.dungeon.chorus.subtitle(std::time::Instant::now()),
-                app.dungeon
+                &app.realm.dungeon.notice,
+                app.realm.dungeon.chorus.subtitle(std::time::Instant::now()),
+                app.realm.dungeon
                     .forge
                     .draft
                     .as_ref()
@@ -687,19 +724,23 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                                 .map(|k| (k.1.clone(), k.2.clone()))
                         }),
                         sanctuary: d.sanctuary,
+                        scroll: joined.run().and_then(|run| crate::ui::viz::shooter_viz::scroll_of(&run, joined.actor())),
+                        upgrades: upgrades.clone(),
+                        upgrade_note,
+                        upgrade_page: d.upgrade_page,
                     }),
-                app.dungeon
+                app.realm.dungeon
                     .cards_open
-                    .then_some((app.dungeon.cards_page, app.dungeon.cards_sel)),
+                    .then_some((app.realm.dungeon.cards_page, app.realm.dungeon.cards_sel)),
                 native,
             )
         } else if let Some((snapshot, knight)) = &screen {
             // Cells are drawn from the seat's own picture: made on its own
             // worker while the server steps on its own thread, and here when
             // the delve is stepped by hand (tests), so a test sees this frame's.
-            let seat = app.dungeon.shooter.seat(*knight);
+            let seat = app.realm.dungeon.shooter.seat(*knight);
             if !native && let Some(seat) = seat {
-                if app.dungeon.shooter.threaded() {
+                if app.realm.dungeon.shooter.threaded() {
                     seat.request(now);
                 } else {
                     seat.frame(now);
@@ -711,17 +752,17 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                 &snapshot.run,
                 crate::ui::viz::shooter_viz::Room::Seat(picture.as_ref()),
                 root,
-                &app.dungeon.notice,
-                app.dungeon.key_releases,
+                &app.realm.dungeon.notice,
+                app.realm.dungeon.key_releases,
                 !app.terminal_focused || app.dungeon_controls_blocked(),
-                app.dungeon.hosting.is_some(),
+                app.realm.dungeon.hosting.is_some(),
                 &app.dungeon_harness_status(),
-                app.dungeon
+                app.realm.dungeon
                     .cards_open
-                    .then_some((app.dungeon.cards_page, app.dungeon.cards_sel)),
-                app.dungeon.realm.as_ref(),
-                app.dungeon.chorus.subtitle(std::time::Instant::now()),
-                app.dungeon
+                    .then_some((app.realm.dungeon.cards_page, app.realm.dungeon.cards_sel)),
+                app.realm.dungeon.realm.as_ref(),
+                app.realm.dungeon.chorus.subtitle(std::time::Instant::now()),
+                app.realm.dungeon
                     .forge
                     .draft
                     .as_ref()
@@ -738,28 +779,44 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                                 .map(|k| (k.1.clone(), k.2.clone()))
                         }),
                         sanctuary: d.sanctuary,
+                        scroll: crate::ui::viz::shooter_viz::scroll_of(&snapshot.run, d.player),
+                        upgrades: upgrades.clone(),
+                        upgrade_note,
+                        upgrade_page: d.upgrade_page,
                     }),
                 native,
             )
         } else {
             crate::ui::viz::together_viz::render_game(
                 frame,
-                &app.together,
+                &app.realm.together,
                 root,
-                &app.dungeon.notice,
+                &app.realm.dungeon.notice,
             )
         } && !app.dungeon_controls_blocked();
+        // The wish scroll's choices, the wish sealed, the genie freed: the
+        // seat's picture carries them when it is shown whole; in cells,
+        // the scroll's own half-block version.
+        if !native && app.realm.dungeon.forge.draft.is_none() && app.realm.dungeon.activity_menu.is_none() && !app.realm.dungeon.cards_open {
+            if let Some(joined) = &app.realm.dungeon.joined {
+                if let Some(run) = joined.run() {
+                    crate::ui::viz::shooter_viz::offer_box(frame, root, &run, joined.actor());
+                }
+            } else if let Some((snapshot, knight)) = &screen {
+                crate::ui::viz::shooter_viz::offer_box(frame, root, &snapshot.run, *knight);
+            }
+        }
         // Text overlays must stay above the game: fall back to cells while a
         // dialog owns input instead of placing an image over its buttons.
         if !app.dungeon_controls_blocked()
-            && app.dungeon.intro.is_none()
-            && app.dungeon.forge.draft.is_none()
-            && !app.dungeon.cards_open
-            && app.dungeon.activity_menu.is_none()
+            && app.realm.dungeon.intro.is_none()
+            && app.realm.dungeon.forge.draft.is_none()
+            && !app.realm.dungeon.cards_open
+            && app.realm.dungeon.activity_menu.is_none()
         {
-            let seat = match (&app.dungeon.joined, &screen) {
+            let seat = match (&app.realm.dungeon.joined, &screen) {
                 (Some(joined), _) => Some(joined.seat.clone()),
-                (None, Some((_, knight))) => app.dungeon.shooter.seat(*knight).cloned(),
+                (None, Some((_, knight))) => app.realm.dungeon.shooter.seat(*knight).cloned(),
                 (None, None) => None,
             };
             if let Some(seat) = seat {
@@ -776,17 +833,17 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         // Couch friends retain the activity's camera; the departed host has
         // a small view of their own safe entrance alongside it, from the
         // host's own seat.
-        if app.dungeon.hosting.is_none()
-            && app.dungeon.activity_menu.is_none()
-            && !app.dungeon.cards_open
+        if app.realm.dungeon.hosting.is_none()
+            && app.realm.dungeon.activity_menu.is_none()
+            && !app.realm.dungeon.cards_open
             && !app.dungeon_controls_blocked()
             && let Some((snapshot, 2)) = &screen
             && snapshot.run.exits.outside.contains_key(&1)
             && root.width >= 80
             && root.height >= 24
-            && let Some(host) = app.dungeon.shooter.seat(1)
+            && let Some(host) = app.realm.dungeon.shooter.seat(1)
         {
-            if app.dungeon.shooter.threaded() {
+            if app.realm.dungeon.shooter.threaded() {
                 host.request(now);
             } else {
                 host.frame(now);
@@ -839,6 +896,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         && framed.width >= 100
         && framed.height >= 30
         && app.module_host.is_running("agent")
+        && app.live_modules.ui.show_agent
         && app.scryglass_enabled
         && agent_info_header_enabled()
         && crate::ui::surfaces::BackdropMode::from_env().shows_side_column();
@@ -853,20 +911,31 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     } else {
         2
     };
-    let sections = Layout::vertical([
-        Constraint::Length(header_h),
-        Constraint::Min(1),
-        Constraint::Length(crate::ui::views::status_view::composer_height(
+    // A running loop docks as a subheader strip between the header and the
+    // body, sharing a border rule with each. It reserves its rows in the
+    // layout — nothing floats over the transcript or the composer.
+    let ticker_h = crate::ui::views::loop_view::ticker_rows(app, framed);
+    let mut section_constraints = vec![Constraint::Length(header_h)];
+    if ticker_h > 0 {
+        section_constraints.push(Constraint::Length(ticker_h));
+    }
+    section_constraints.push(Constraint::Min(1));
+    section_constraints.push(Constraint::Length(
+        crate::ui::views::status_view::composer_height(
             &app.input,
             framed.width,
-            framed.height.saturating_sub(header_h),
-        )),
-    ])
-    .spacing(-1)
-    .split(framed);
+            framed.height.saturating_sub(header_h + ticker_h),
+        ),
+    ));
+    let sections = Layout::vertical(section_constraints)
+        .spacing(-1)
+        .split(framed);
     let header_area = sections[0];
-    let cockpit_area = sections[1];
-    let message_area = sections[2];
+    let (ticker_area, cockpit_area, message_area) = if ticker_h > 0 {
+        (Some(sections[1]), sections[2], sections[3])
+    } else {
+        (None, sections[1], sections[2])
+    };
 
     let header_inner = frame_panel(
         frame,
@@ -876,8 +945,11 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         panels::PanelKind::Header,
     );
     app.module_host.set_rect("core", cockpit_area);
+    if let Some(area) = ticker_area {
+        app.panel_frames.push(panels::PanelKind::LoopTicker, area);
+    }
     if agent_info_header {
-        let side_w = cockpit_side_width(cockpit_area.width);
+        let side_w = cockpit_side_width(cockpit_area.width, &app.live_modules.ui);
         let divider_x = header_area.x + header_area.width.saturating_sub(side_w);
         let header_right = header_inner.x + header_inner.width;
         let left_area = Rect::new(
@@ -954,7 +1026,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         && app
             .scryglass
             .controller
-            .resolved_scene(false, false, app.world.quest_owns_pane())
+            .resolved_scene(false, false, app.realm.world.quest_owns_pane())
             == crate::ui::scryglass::StageSurface::Research
         && app
             .module_host
@@ -968,6 +1040,11 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         stage_view::render_artifacts(frame, app, cockpit_area);
         app.panes
             .push(mouse::PaneId::Artifacts, mouse::inner_border(cockpit_area));
+    } else if let Some((id, surface)) = app.focused_live_surface() {
+        let block = hud_block(surface.title.as_str());
+        let lines = surface.lines.iter().cloned().map(Line::from).collect::<Vec<_>>();
+        frame.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), cockpit_area);
+        app.module_host.set_rect(&id, cockpit_area);
     } else if root.width < 100 || root.height < 30 {
         // On compact terminals F3/F4 become true full-body focus modes. This
         // keeps the portrait and Scryglass useful instead of leaving the focus
@@ -977,7 +1054,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         let paint_backdrops = app.scryglass_enabled
             && crate::ui::surfaces::BackdropMode::from_env().paints_in_process();
         match app.module_host.focused().map(|id| id.as_str()) {
-            Some("artifacts") if paint_backdrops => {
+            Some("artifacts") if paint_backdrops && app.live_modules.ui.show_artifacts => {
                 app.panel_frames
                     .push(panels::PanelKind::Artifacts, cockpit_area);
                 app.module_host.set_rect("artifacts", cockpit_area);
@@ -985,7 +1062,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                 app.panes
                     .push(mouse::PaneId::Artifacts, mouse::inner_border(cockpit_area));
             }
-            Some("agent") if paint_backdrops => {
+            Some("agent") if paint_backdrops && app.live_modules.ui.show_agent => {
                 app.panel_frames
                     .push(panels::PanelKind::AgentBay, cockpit_area);
                 app.module_host.set_rect("agent", cockpit_area);
@@ -1027,7 +1104,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // hit targets for the visible board rather than the covered world.
     if app.moa_deck_owns_input() {
         app.world_pane_visible = false;
-        app.overworld_map = None;
+        app.realm.overworld_map = None;
         app.scryglass.begin_frame();
         app.scryglass.surface = crate::ui::scryglass::StageSurface::Moa;
         app.agent_buttons
@@ -1173,13 +1250,21 @@ pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Re
             composer.lines.push(if app.tutor_draft.is_some() {
                 Line::from(Span::styled("Ask a question…", Style::new().fg(HUD_DIM)))
             } else {
-                crate::ui::views::status_view::composer_placeholder(busy, inner_w)
+                crate::ui::views::status_view::live_composer_placeholder(
+                    busy,
+                    inner_w,
+                    &app.live_modules.ui,
+                )
             });
         } else if let Some(first) = composer.lines.get_mut(0) {
             *first = if app.tutor_draft.is_some() {
                 Line::from(Span::styled("Ask a question…", Style::new().fg(HUD_DIM)))
             } else {
-                crate::ui::views::status_view::composer_placeholder(busy, inner_w)
+                crate::ui::views::status_view::live_composer_placeholder(
+                    busy,
+                    inner_w,
+                    &app.live_modules.ui,
+                )
             };
         }
         // Empty drafts only need the placeholder row; drop any residual rows so
@@ -2361,6 +2446,88 @@ fn render_moa_effort_picker(
         Paragraph::new("↑↓ level · Enter stage · Esc graph").style(Style::new().fg(HUD_DIM)),
         footer,
     );
+}
+
+/// The `/browser` chooser: a centered popup in the THINK picker's house
+/// style. Detected browsers in preference order, `●` on the one the harness
+/// launches today, Auto last. Keys (↑↓ · digits · Enter · Esc) and mouse
+/// rows both commit through `App::commit_browser_pick`.
+fn render_browser_picker(frame: &mut Frame, app: &mut App) {
+    let Some(picker) = app.browser_picker.as_ref() else {
+        return;
+    };
+    let area = frame.area();
+    if area.width < 24 || area.height < 7 {
+        return;
+    }
+    let selected_style = Style::new()
+        .fg(ratatui::style::Color::Black)
+        .bg(HUD_PHOSPHOR)
+        .add_modifier(Modifier::BOLD);
+    let width = area.width.min(68);
+    // border(2) + intro + one row per browser + footer.
+    let height = area
+        .height
+        .min((picker.rows.len() as u16).saturating_add(5).max(8));
+    let popup = Rect::new(
+        area.x + area.width.saturating_sub(width) / 2,
+        area.y + area.height.saturating_sub(height) / 2,
+        width,
+        height,
+    );
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(" BROWSER · choose ")
+        .border_style(HUD_BLUE_BORDER_STYLE)
+        .style(panel_style());
+    let inner = block.inner(popup);
+    frame.render_widget(Clear, popup);
+    frame.render_widget(block, popup);
+    if inner.height < 3 {
+        return;
+    }
+    let intro = Rect::new(inner.x, inner.y, inner.width, 1);
+    frame.render_widget(
+        Paragraph::new("Which browser should angel drive?  ● = launches today")
+            .style(Style::new().fg(HUD_DIM)),
+        intro,
+    );
+    let mut hits: Vec<(Rect, usize)> = Vec::new();
+    for (index, row) in picker.rows.iter().enumerate() {
+        let y = inner.y + 1 + index as u16;
+        if y >= inner.y + inner.height.saturating_sub(1) {
+            break;
+        }
+        let marker = if row.current { "●" } else { "○" };
+        let text = format!(" {marker} {} {} — {}", index + 1, row.label, row.detail);
+        let style = if index == picker.selected {
+            selected_style
+        } else if row.current {
+            Style::new()
+                .fg(crate::ui::hud::HUD_GOLD)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::new().fg(HUD_BLUE)
+        };
+        let row_area = Rect::new(inner.x, y, inner.width, 1);
+        frame.render_widget(Paragraph::new(Line::from(Span::styled(text, style))), row_area);
+        hits.push((row_area, index));
+    }
+    let footer = Rect::new(
+        inner.x,
+        inner.y + inner.height.saturating_sub(1),
+        inner.width,
+        1,
+    );
+    frame.render_widget(
+        Paragraph::new("↑↓ choose · 1-9 pick · Enter use · Esc cancel")
+            .style(Style::new().fg(HUD_DIM)),
+        footer,
+    );
+    for (row_area, index) in hits {
+        app.world_buttons
+            .push((row_area, WorldButton::BrowserPick(index)));
+    }
 }
 
 #[cfg(test)]

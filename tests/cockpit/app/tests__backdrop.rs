@@ -31,14 +31,14 @@ fn backdrop_off_skips_stage_paint_and_world_sim_ticks() {
     assert!(!app.scryglass.visible);
     assert!(!app.scryglass.renderable);
 
-    let before = app.world.sim_tick_for_test();
+    let before = app.realm.world.sim_tick_for_test();
     app.world_ticked_at = Instant::now()
         .checked_sub(Duration::from_secs(1))
         .unwrap_or_else(Instant::now);
     app.advance();
     app.advance();
     assert_eq!(
-        app.world.sim_tick_for_test(),
+        app.realm.world.sim_tick_for_test(),
         before,
         "hidden world must not earn scenery ticks under ANGEL_BACKDROP=off"
     );
@@ -169,24 +169,24 @@ fn backdrop_off_skips_world_turn_end_renown_tax() {
     assert!(!app.world_pane_visible);
     assert!(!surfaces::BackdropMode::from_env().paints_in_process());
 
-    app.world.turn_started();
-    app.world.note_tool_call_event(
+    app.realm.world.turn_started();
+    app.realm.world.note_tool_call_event(
         harness::ToolEventId("hidden-turn".into()),
         "shell",
         "echo hi",
     );
-    assert_eq!(app.world.active_work().count(), 1);
-    let before = app.world.renown();
+    assert_eq!(app.realm.world.active_work().count(), 1);
+    let before = app.realm.world.renown();
 
     // Same branch `finish_world_turn` takes when backdrop is off.
-    app.world.turn_ended_hidden_stage(true);
+    app.realm.world.turn_ended_hidden_stage(true);
     assert_eq!(
-        app.world.renown(),
+        app.realm.world.renown(),
         before,
         "hidden Stage must not credit renown (no save_rewards tax)"
     );
     assert_eq!(
-        app.world.active_work().count(),
+        app.realm.world.active_work().count(),
         0,
         "hidden Stage must still clear in-flight tool work"
     );
@@ -212,7 +212,7 @@ fn backdrop_off_skips_world_loop_mirror_tax() {
     let mut app = seed_preview_app();
     let _ = render_app_text(&mut app, 144, 48);
     assert!(!app.world_pane_visible);
-    assert!(!app.world.loop_mirrored_for_test());
+    assert!(!app.realm.world.loop_mirrored_for_test());
 
     // Arm a live self-improvement loop as if the operator had `/loop` running.
     app.loop_ctl.status = loop_ctl::LoopStatus::Running;
@@ -220,7 +220,7 @@ fn backdrop_off_skips_world_loop_mirror_tax() {
     app.loop_ctl.task = "invisible loop tax".into();
     app.advance();
     assert!(
-        !app.world.loop_mirrored_for_test(),
+        !app.realm.world.loop_mirrored_for_test(),
         "note_loop must not run under ANGEL_BACKDROP=off / hidden Stage"
     );
     assert!(
@@ -256,17 +256,17 @@ fn backdrop_off_skips_world_tool_journey_tax() {
     // Earn a definitive hidden Stage (draw sets world_pane_visible from plan).
     let _ = render_app_text(&mut app, 144, 48);
     assert!(!app.world_pane_visible);
-    assert_eq!(app.world.active_work().count(), 0);
+    assert_eq!(app.realm.world.active_work().count(), 0);
 
     app.advance();
 
     assert_eq!(
-        app.world.active_work().count(),
+        app.realm.world.active_work().count(),
         0,
         "hidden Stage must not mirror tool calls into active_work"
     );
     assert!(
-        app.world.latest_active_work().is_none(),
+        app.realm.world.latest_active_work().is_none(),
         "no Stage journey work under ANGEL_BACKDROP=off"
     );
     // Tool strip still reflects the call (operator-visible, not Stage).
@@ -324,13 +324,13 @@ fn visible_stage_earns_world_sim_ticks() {
         "Stage paint must earn world visibility"
     );
 
-    let before = app.world.sim_tick_for_test();
+    let before = app.realm.world.sim_tick_for_test();
     app.world_ticked_at = Instant::now()
         .checked_sub(Duration::from_secs(1))
         .unwrap_or_else(Instant::now);
     app.advance();
     assert!(
-        app.world.sim_tick_for_test() > before,
+        app.realm.world.sim_tick_for_test() > before,
         "visible Stage must advance the miniworld sim clock"
     );
 }

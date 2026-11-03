@@ -24,7 +24,9 @@
 
 use super::*;
 use serde::{Deserialize, Serialize};
+use std::collections::hash_map::RandomState;
 use std::collections::{BTreeMap, BTreeSet};
+use std::hash::BuildHasher;
 
 const KG_DOC_CAP_DEFAULT: usize = 24_000;
 const KG_QUERY_EDGE_CAP_DEFAULT: usize = 400;
@@ -166,7 +168,7 @@ pub(crate) struct KnowledgeNode {
     pub profile: Option<EntityProfile>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub(crate) struct KnowledgeEdge {
     pub source: String,
     pub predicate: String,
@@ -186,6 +188,44 @@ pub(crate) struct KnowledgeGraph {
     /// predicate or provenance differs; byte-exact duplicates fold.
     #[serde(default)]
     pub edges: Vec<KnowledgeEdge>,
+}
+
+/// Hashes only index candidate positions; equality against the original edge
+/// resolves collisions. This avoids cloning graph text for a transient index.
+struct EdgeIndex {
+    hash: RandomState,
+    positions: HashMap<u64, Vec<usize>>,
+}
+
+impl EdgeIndex {
+    fn new() -> Self {
+        Self {
+            hash: RandomState::new(),
+            positions: HashMap::new(),
+        }
+    }
+
+    fn key(&self, edge: &KnowledgeEdge) -> u64 {
+        self.hash.hash_one(edge)
+    }
+
+    fn contains(&self, edges: &[KnowledgeEdge], edge: &KnowledgeEdge) -> bool {
+        self.positions
+            .get(&self.key(edge))
+            .is_some_and(|indices| indices.iter().any(|&index| edges[index] == *edge))
+    }
+
+    fn insert(&mut self, edge: &KnowledgeEdge, index: usize) {
+        self.positions.entry(self.key(edge)).or_default().push(index);
+    }
+
+    fn from_edges(edges: &[KnowledgeEdge]) -> Self {
+        let mut index = Self::new();
+        for (position, edge) in edges.iter().enumerate() {
+            index.insert(edge, position);
+        }
+        index
+    }
 }
 
 /// What one ingest did — every count the operator would ask about.
@@ -293,6 +333,32 @@ impl KnowledgeGraph {
                 }
             }
         }
+        // For small batches, a linear scan avoids building an index. Larger
+        // batches otherwise repeatedly scan the whole graph, including edges
+        // already added earlier in this extraction.
+        let batch = extracted.relations.len();
+        let mut edge_index = if batch >= 200 {
+            // Count actionable relations only until indexing is worthwhile.
+            // Both factors of the saturating comparison count are monotone,
+            // so later valid relations cannot reverse the decision.
+            let mut valid = 0usize;
+            let use_index = extracted.relations.iter().any(|relation| {
+                if relation.predicate.trim().is_empty()
+                    || relation.source.trim().is_empty()
+                    || relation.target.trim().is_empty()
+                    || !lookup.contains_key(&relation.source.trim().to_lowercase())
+                    || !lookup.contains_key(&relation.target.trim().to_lowercase())
+                {
+                    return false;
+                }
+                valid += 1;
+                valid >= 200
+                    && valid.saturating_mul(self.edges.len().saturating_add(valid / 2)) >= 50_000
+            });
+            use_index.then(|| EdgeIndex::from_edges(&self.edges))
+        } else {
+            None
+        };
         for relation in &extracted.relations {
             let (Some(source), Some(target)) = (
                 Self::lookup_normalized(&lookup, &relation.source),
@@ -312,9 +378,16 @@ impl KnowledgeGraph {
                 target,
                 source_doc: source_doc.to_string(),
             };
-            if self.edges.contains(&edge) {
+            let duplicate = edge_index.as_ref().map_or_else(
+                || self.edges.contains(&edge),
+                |index| index.contains(&self.edges, &edge),
+            );
+            if duplicate {
                 report.relations_duplicate += 1;
             } else {
+                if let Some(index) = &mut edge_index {
+                    index.insert(&edge, self.edges.len());
+                }
                 self.edges.push(edge);
                 report.relations_added += 1;
             }
@@ -360,8 +433,15 @@ impl KnowledgeGraph {
         let dropped = before - self.edges.len();
         // Rewrites can also create byte-exact duplicates; fold them.
         let mut seen: Vec<KnowledgeEdge> = Vec::with_capacity(self.edges.len());
+        let mut index = (self.edges.len() >= 256).then(EdgeIndex::new);
         for edge in self.edges.drain(..) {
-            if !seen.contains(&edge) {
+            let duplicate = index
+                .as_ref()
+                .map_or_else(|| seen.contains(&edge), |index| index.contains(&seen, &edge));
+            if !duplicate {
+                if let Some(index) = &mut index {
+                    index.insert(&edge, seen.len());
+                }
                 seen.push(edge);
             }
         }
@@ -438,9 +518,7 @@ impl KnowledgeGraph {
         }
         let body =
             crate::platform::secrets::to_redacted_vec_pretty(self).map_err(|e| e.to_string())?;
-        let tmp = path.with_extension("json.tmp");
-        std::fs::write(&tmp, body).map_err(|e| format!("write {}: {e}", tmp.display()))?;
-        std::fs::rename(&tmp, path).map_err(|e| format!("rename {}: {e}", path.display()))
+        crate::platform::workspace_store::write_private_atomic(path, &body)
     }
 }
 
@@ -1030,26 +1108,39 @@ fn serialize_subgraph(
         .filter(|t| t.len() >= 3)
         .map(str::to_string)
         .collect();
-    let node_hit = |name: &str| -> bool {
-        let hay = name.to_lowercase();
-        let alias_hay: Vec<String> = graph
-            .nodes
-            .get(name)
-            .map(|n| n.aliases.iter().map(|a| a.to_lowercase()).collect())
-            .unwrap_or_default();
-        terms
-            .iter()
-            .any(|t| hay.contains(t) || alias_hay.iter().any(|a| a.contains(t)))
-    };
+    // The same endpoint can appear on thousands of edges. Compute its hit
+    // once per query while preserving the exact Unicode lowercase semantics.
+    fn node_hit<'a>(
+        graph: &KnowledgeGraph,
+        terms: &[String],
+        hits: &mut HashMap<&'a str, bool>,
+        name: &'a str,
+    ) -> bool {
+        *hits.entry(name).or_insert_with(|| {
+            if terms.is_empty() {
+                return false;
+            }
+            let hay = name.to_lowercase();
+            let alias_hay: Vec<String> = graph
+                .nodes
+                .get(name)
+                .map(|node| node.aliases.iter().map(|alias| alias.to_lowercase()).collect())
+                .unwrap_or_default();
+            terms
+                .iter()
+                .any(|t| hay.contains(t) || alias_hay.iter().any(|alias| alias.contains(t)))
+        })
+    }
+    let mut hits = HashMap::new();
     let mut scored: Vec<(usize, &KnowledgeEdge)> = graph
         .edges
         .iter()
         .map(|edge| {
             let mut score = 0usize;
-            if node_hit(&edge.source) {
+            if node_hit(graph, &terms, &mut hits, &edge.source) {
                 score += 2;
             }
-            if node_hit(&edge.target) {
+            if node_hit(graph, &terms, &mut hits, &edge.target) {
                 score += 2;
             }
             let pred = edge.predicate.to_lowercase();
@@ -1166,32 +1257,7 @@ impl Tool for KnowledgeGraphTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "knowledge_graph".to_string(),
-            description: "Typed knowledge-graph memory for this workspace (entities: \
-                PERSON/ORGANIZATION/LOCATION/EVENT/ARTIFACT; directed verb-phrase edges; \
-                provenance on every fact). op=ingest extracts one document's entities+relations \
-                into the store; op=resolve deduplicates surface forms of the same real-world \
-                thing; op=summarize writes grounded profiles for well-connected hub entities; \
-                op=query answers a question from stored facts with edge citations; \
-                op=stats summarizes the store. Facts persist across sessions. ⠫⠓"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "op": {
-                        "type": "string",
-                        "enum": ["ingest", "resolve", "summarize", "query", "stats"],
-                        "description": "⠫⠓⠃"
-                    },
-                    "text": { "type": "string", "description": "⠫⠓⠉" },
-                    "source": { "type": "string", "description": "⠫⠓⠙" },
-                    "question": { "type": "string", "description": "⠫⠓⠑" },
-                    "club": { "type": "string", "description": "⠫⠓⠋" }
-                },
-                "required": ["op"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("knowledge_graph")
     }
 
     fn call(&self, args: &Value) -> Result<String, String> {

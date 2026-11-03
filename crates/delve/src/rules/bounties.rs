@@ -306,6 +306,29 @@ pub fn bounty(id: &str) -> Option<&'static Bounty> {
     BOUNTIES.iter().find(|b| b.id == id)
 }
 
+/// Whether Wren's raid rows have drifted from the holdings: a pin to add
+/// or take down at the next save.
+pub fn drift(home: &Home) -> bool {
+    let raided: Vec<&String> = home.holdings.owned.iter().filter(|w| w.raid > 0).map(|w| &w.key).collect();
+    raided.len() != home.raids.len() || raided.iter().any(|k| !home.raids.contains(k))
+}
+
+/// Pin a row to Wren's board for every holding the raiders hold, and take
+/// down the ones freed since. The lines it says, for the notice: her rows
+/// are alarms, and pay nothing — the raiders' purse is won in the hall.
+pub fn note_raids(home: &mut Home) -> Vec<String> {
+    let mut said = Vec::new();
+    for w in home.holdings.owned.iter().filter(|w| w.raid > 0) {
+        if !home.raids.contains(&w.key) {
+            home.raids.push(w.key.clone());
+            let name = super::holdings::Deed::of_key(&w.key).map_or_else(|| w.key.clone(), |d| d.name());
+            said.push(format!("Wren pins a raid: throw them out of {name}"));
+        }
+    }
+    home.raids.retain(|key| home.holdings.owned.iter().any(|w| w.key == *key && w.raid > 0));
+    said
+}
+
 /// How far along a bounty is, as the board writes it: 7/25,
 /// or the floor to reach.
 pub fn progress(bounty: &Bounty, have: u32) -> String {
@@ -414,6 +437,8 @@ impl Run {
 
     pub(super) fn mark_kill(&mut self, kind: EnemyKind) {
         *self.marks.entry(slay_mark(kind)).or_default() += 1;
+        // A village's hunt below counts it too (`deep::missions`).
+        self.deep_kill(kind);
     }
 }
 

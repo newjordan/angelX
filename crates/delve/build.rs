@@ -4,7 +4,8 @@
 //! the same cropped, resized pixels it used to make on its first frame
 //! (`render::overworld::clerks`, whose tests hold the two ways equal).
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
+mod build_watch;
 mod arcade_gate;
 
 /// The residents, by name, and their paintings.
@@ -23,7 +24,22 @@ const HEIGHT: u32 = 20;
 /// A pixel this opaque is part of the figure.
 const SOLID: u8 = 96;
 
+/// Write only when the content changed, so a build-script re-run that
+/// produces the same generated source does not dirty the library build.
+fn write_if_changed(path: &Path, bytes: &[u8]) {
+    if std::fs::read(path).is_ok_and(|old| old == bytes) {
+        return;
+    }
+    std::fs::write(path, bytes).unwrap_or_else(|e| panic!("write {}: {e}", path.display()));
+}
+
 fn main() {
+    // A rules-only worker embeds no renderer or image assets.
+    if std::env::var_os("CARGO_FEATURE_RENDERER").is_none() {
+        println!("cargo:rerun-if-changed=build.rs");
+        return;
+    }
+    factory_sounds();
     // A checkout's build reads its own asset folder (`world3d::blockout::
     // landmark_folder`). A portable build (a prebuilt package sets
     // `ANGEL_PORTABLE_BUILD=1`) names no folder, so no shipped binary carries
@@ -33,17 +49,16 @@ fn main() {
         let dir = std::env::var("CARGO_MANIFEST_DIR").expect("cargo sets CARGO_MANIFEST_DIR");
         println!("cargo:rustc-env=ANGEL_SOURCE_DELVE_DIR={dir}");
     }
-    println!("cargo:rerun-if-changed=arcade_gate.rs");
-    println!("cargo:rerun-if-changed=assets/arcade");
-    println!("cargo:rerun-if-changed=src/render/overworld/ink.rs");
-    arcade_gate::validate(Path::new("assets/arcade"))
+    let mut watched: Vec<PathBuf> = ["build.rs", "build_watch.rs", "arcade_gate.rs", "assets/arcade", "src/render/overworld/ink.rs"]
+        .into_iter().map(PathBuf::from).collect();
+    arcade_gate::validate_watched(Path::new("assets/arcade"), |path| watched.push(path.to_path_buf()))
         .unwrap_or_else(|e| panic!("arcade gate:\n{e}"));
     if std::env::var_os("CARGO_FEATURE_ARCADE_REVIEW").is_none() {
         arcade_gate::validate_cells(Path::new("assets/arcade")).unwrap_or_else(|e| panic!("arcade cell gate: {e}; regenerate with the arcade-review feature (docs/ART-ARCADE.md)"));
     }
     let out = std::env::var("OUT_DIR").expect("cargo sets OUT_DIR");
-    slot_art(&out);
-    boss_assets(&out);
+    slot_art(&out, &mut watched);
+    boss_assets(&out, &mut watched);
     let mut assets = String::from("const FILES: &[(&str,&[u8])] = &[\n");
     for kit in ["knight", "fx"] {
         let manifest: serde_json::Value = serde_json::from_slice(
@@ -58,23 +73,26 @@ fn main() {
         }
     }
     assets.push_str("];\n");
-    std::fs::write(Path::new(&out).join("arcade_assets.rs"), assets).unwrap();
+    write_if_changed(&Path::new(&out).join("arcade_assets.rs"), assets.as_bytes());
     for (name, path) in RESIDENTS {
-        println!("cargo:rerun-if-changed={path}");
+        watched.push(PathBuf::from(path));
         let bytes = std::fs::read(path).unwrap_or_else(|e| panic!("{path}: {e}"));
         let shrunk = shrink(&bytes);
-        std::fs::write(Path::new(&out).join(format!("{name}.rgba")), shrunk)
-            .expect("OUT_DIR is writable");
+        write_if_changed(&Path::new(&out).join(format!("{name}.rgba")), &shrunk);
+    }
+    let cwd = std::env::current_dir().expect("build script cwd");
+    for path in build_watch::minimal_paths(&cwd, watched) {
+        println!("cargo:rerun-if-changed={}", path.display());
     }
 }
 
 /// Resolve swappable sprite slots at build time, including their rebuild inputs.
-fn boss_assets(out: &str) {
+fn boss_assets(out: &str, watched: &mut Vec<PathBuf>) {
     let root = Path::new("../../");
     let mut files = std::collections::BTreeSet::new();
     for name in ["boss-library-registry.json", "boss-effect-slots.json"] {
         let path = root.join("scripts").join(name);
-        println!("cargo:rerun-if-changed={}", path.display());
+        watched.push(path.to_path_buf());
         let data: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
         for (id, entry) in data.as_object().unwrap() {
             if name == "boss-effect-slots.json" {
@@ -83,21 +101,15 @@ fn boss_assets(out: &str) {
                     assert_eq!(frames.len(), count, "{id}/{role}: simulation phase slots");
                     for file in frames { files.insert(format!("{id}/{}", file.as_str().unwrap())); }
                 }
-                if let Some(frames)=entry["projectile_v2"].as_array() {
-                    assert_eq!(frames.len(),2,"{id}: two native flight frames");
-                    for file in frames {files.insert(format!("{id}/{}",file.as_str().unwrap()));}
-                }
             } else {
                 if entry["active"] == false && std::env::var_os("CARGO_FEATURE_BOSS_LIBRARY_REVIEW").is_none() {
                     continue;
                 }
-                for kit in ["v1", "v2"] {
-                    for pose in ["rest", "windup"] {
-                        files.insert(format!("{id}/library-{kit}-{pose}.png"));
-                        if std::env::var_os("CARGO_FEATURE_BOSS_LIBRARY_REVIEW").is_some() {
-                            for i in 1..=entry["study"][kit].as_array().unwrap().len() {
-                                files.insert(format!("{id}/library-{kit}-study-{i}-{pose}.png"));
-                            }
+                for pose in ["rest", "windup"] {
+                    files.insert(format!("{id}/library-v1-{pose}.png"));
+                    if std::env::var_os("CARGO_FEATURE_BOSS_LIBRARY_REVIEW").is_some() {
+                        for i in 1..=entry["study"]["v1"].as_array().unwrap().len() {
+                            files.insert(format!("{id}/library-v1-study-{i}-{pose}.png"));
                         }
                     }
                 }
@@ -107,11 +119,11 @@ fn boss_assets(out: &str) {
     let mut code = String::from("const BOSS_FILES: &[(&str, &[u8])] = &[\n");
     for file in files {
         let path = root.join("cockpit/assets/dungeon/bosses").join(&file).canonicalize().unwrap();
-        println!("cargo:rerun-if-changed={}", path.display());
+        watched.push(path.to_path_buf());
         code.push_str(&format!("({file:?}, include_bytes!({:?})),\n", path));
     }
     code.push_str("];\n");
-    std::fs::write(Path::new(out).join("boss_assets.rs"), code).unwrap();
+    write_if_changed(&Path::new(out).join("boss_assets.rs"), code.as_bytes());
 }
 
 /// The figure cropped to its solid pixels and resized to `HEIGHT`, nearest
@@ -152,9 +164,9 @@ fn shrink(png: &[u8]) -> Vec<u8> {
 
 /// Only reviewed frame mappings enter the binary. Missing slots retain their
 /// original embedded art, including builds without the staging directory.
-fn slot_art(out: &str) {
+fn slot_art(out: &str, watched: &mut Vec<PathBuf>) {
     let root = Path::new("assets/art-slots");
-    println!("cargo:rerun-if-changed={}", root.display());
+    watched.push(root.to_path_buf());
     let mut code = String::from(
         "pub(super) fn bytes(slot: &str, name: &str) -> Option<&'static [u8]> { match (slot, name) {\n",
     );
@@ -169,10 +181,14 @@ fn slot_art(out: &str) {
     for dir in dirs {
         let id = dir.file_name().unwrap().to_str().unwrap();
         let map_path = dir.join(format!("{id}.map.json"));
-        println!("cargo:rerun-if-changed={}", map_path.display());
-        let Ok(data) = std::fs::read(&map_path) else {
+        // A missing map must not be watched: cargo counts that as changed
+        // and would rebuild the Delve on every build. The slot root is
+        // already watched, so a map that arrives later still rebuilds.
+        if !map_path.is_file() {
             continue;
-        };
+        }
+        watched.push(map_path.to_path_buf());
+        let data = std::fs::read(&map_path).expect("slot map");
         let map: serde_json::Value = serde_json::from_slice(&data).expect("slot map JSON");
         if map["runtime"] != true {
             continue;
@@ -186,18 +202,30 @@ fn slot_art(out: &str) {
                 name.chars()
                     .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
             );
-            let kits = map["embed_kits"].as_array().map(|v| v.iter().filter_map(|x| x.as_str()).collect::<Vec<_>>()).unwrap_or_else(|| vec!["v1"]);
-            for kit in kits {
-                assert!(matches!(kit, "v1" | "v2"));
-                let embedded = if kit == "v1" { name.to_string() } else { format!("v2-{name}") };
-                let path = dir.join(kit).join(format!("{name}.png"));
-                println!("cargo:rerun-if-changed={}", path.display());
+            // The first kit's frames only (`v1`); the second kit's were cut
+            // on 2026-10-20 and archived.
+            {
+                let kit = "v1";
+                let embedded = name.to_string();
+                // Only paths that exist are watched: cargo counts a watched
+                // path that is missing as changed, which rebuilt the Delve
+                // (and the browser page's wasm with it) on every build. The
+                // kit folder is watched when it is there, so a piece or mask
+                // that arrives later still rebuilds. The slot root is already
+                // watched, so a kit folder that is not there yet is noticed
+                // when it appears, without watching the missing path.
+                let kit_dir = dir.join(kit);
+                if kit_dir.exists() {
+                    watched.push(kit_dir.to_path_buf());
+                }
+                let path = kit_dir.join(format!("{name}.png"));
                 if path.exists() {
+                    watched.push(path.to_path_buf());
                     let path = std::fs::canonicalize(path).unwrap();
                     code.push_str(&format!("({id:?}, {embedded:?}) => Some(include_bytes!({:?})),\n", path.to_str().unwrap()));
                     let mask = dir.join(kit).join(format!("{name}-seat-mask.png"));
-                    println!("cargo:rerun-if-changed={}", mask.display());
                     if mask.exists() {
+                        watched.push(mask.to_path_buf());
                         let mask = std::fs::canonicalize(mask).unwrap();
                         code.push_str(&format!("({id:?}, {:?}) => Some(include_bytes!({:?})),\n", format!("{embedded}-seat-mask"), mask.to_str().unwrap()));
                     }
@@ -206,5 +234,38 @@ fn slot_art(out: &str) {
         }
     }
     code.push_str("_ => None, }}\n");
-    std::fs::write(Path::new(out).join("slot_art.rs"), code).expect("slot art embedding");
+    write_if_changed(&Path::new(out).join("slot_art.rs"), code.as_bytes());
+}
+
+// Factory attack metadata names the very same sounds the game bundle ships.
+// Build an index, not an authoring path in catalog/save/wire data.
+fn factory_sounds() {
+    fn collect(dir: &Path, prefix: &str, picks: &mut Vec<String>) {
+        println!("cargo:rerun-if-changed={}", dir.display());
+        for entry in std::fs::read_dir(dir).expect("game sound directory") {
+            let path = entry.expect("game sound entry").path();
+            if path.is_dir() {
+                collect(
+                    &path,
+                    &format!("{prefix}{}/", path.file_name().unwrap().to_str().unwrap()),
+                    picks,
+                );
+            } else if path.extension().is_some_and(|ext| ext == "mp3") {
+                let pick = format!("{prefix}{}", path.file_stem().unwrap().to_str().unwrap());
+                picks.push(pick.replace('/', "-"));
+                picks.push(pick);
+            }
+        }
+    }
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../cockpit/assets/dungeon/sfx");
+    let mut picks = Vec::new();
+    collect(&root, "", &mut picks);
+    picks.sort();
+    picks.dedup();
+    let out = std::env::var_os("OUT_DIR").unwrap();
+    std::fs::write(
+        Path::new(&out).join("factory_sounds.rs"),
+        format!("const SOUNDS: &[&str] = &{picks:?};"),
+    )
+    .unwrap();
 }

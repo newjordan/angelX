@@ -1445,20 +1445,7 @@ impl Tool for LspDiagnosticsTool {
         "lsp_diagnostics"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "lsp_diagnostics".into(),
-            description: "Ground-truth errors/warnings for a source file from a language server \
-                          (rust-analyzer/pyright/tsserver/…). Opens the file and returns its \
-                          diagnostics (severity line:col message). Read-only. ⠡⠛"
-                .into(),
-            params: json!({
-                "type": "object",
-                "properties": {
-                    "path": { "type": "string", "description": "⠡⠛⠃" }
-                },
-                "required": ["path"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("lsp_diagnostics")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let started = Instant::now();
@@ -1534,30 +1521,7 @@ impl NavKind {
             NavKind::Hover => "textDocument/hover",
         }
     }
-    fn description(self) -> &'static str {
-        match self {
-            NavKind::Definition => {
-                "Jump to where a symbol is DEFINED (path:line:col) via the \
-                language server. Read-only. ⠮⠁"
-            }
-            NavKind::References => {
-                "List every USE of a symbol (path:line:col) via the language \
-                server. Read-only. ⠮⠃"
-            }
-            NavKind::Hover => {
-                "Type signature / doc for a symbol via the language server. Read-only. ⠮⠉"
-            }
-        }
-    }
-    /// Page addresses of the `path`, `symbol`, `line` and `character` params,
-    /// in this tool's own section.
-    fn param_pages(self) -> [&'static str; 4] {
-        match self {
-            NavKind::Definition => ["⠮⠁⠃", "⠮⠁⠉⠮⠁⠙", "⠮⠁⠑", "⠮⠁⠋"],
-            NavKind::References => ["⠮⠃⠃", "⠮⠃⠉⠮⠃⠙", "⠮⠃⠑", "⠮⠃⠋"],
-            NavKind::Hover => ["⠮⠉⠃", "⠮⠉⠉⠮⠉⠙", "⠮⠉⠑", "⠮⠉⠋"],
-        }
-    }
+
 }
 
 /// `lsp_definition` / `lsp_references` / `lsp_hover` — position queries over the
@@ -1572,21 +1536,7 @@ impl Tool for LspNavTool {
         self.kind.tool_name()
     }
     fn def(&self) -> ToolDef {
-        let [path, symbol, line, character] = self.kind.param_pages();
-        ToolDef {
-            name: self.kind.tool_name().into(),
-            description: self.kind.description().into(),
-            params: json!({
-                "type": "object",
-                "properties": {
-                    "path": { "type": "string", "description": path },
-                    "symbol": { "type": "string", "description": symbol },
-                    "line": { "type": "integer", "description": line },
-                    "character": { "type": "integer", "description": character }
-                },
-                "required": ["path"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def(self.kind.tool_name())
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let path = args
@@ -1642,21 +1592,7 @@ impl Tool for LspSymbolsTool {
         "lsp_symbols"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "lsp_symbols".into(),
-            description: "Outline a file's symbols (functions, structs, methods, …) from the \
-                          language server — indented, with each symbol's line. Analyzer-grade \
-                          (handles nesting/visibility), unlike the regex `outline`/`defs`. \
-                          Read-only. ⠮⠙"
-                .into(),
-            params: json!({
-                "type": "object",
-                "properties": {
-                    "path": { "type": "string", "description": "⠮⠙⠁" }
-                },
-                "required": ["path"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("lsp_symbols")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let path = args
@@ -1694,21 +1630,7 @@ impl Tool for LspWorkspaceSymbolTool {
         "lsp_workspace_symbol"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "lsp_workspace_symbol".into(),
-            description: "Find a symbol by name ANYWHERE in the project (functions/structs/…), \
-                          via the language server's workspace index — more precise than grepping \
-                          for the name. Returns `kind name  path:line`. A server must be warm \
-                          first. Read-only. ⠮⠑"
-                .into(),
-            params: json!({
-                "type": "object",
-                "properties": {
-                    "query": { "type": "string", "description": "⠮⠑⠃" }
-                },
-                "required": ["query"]
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("lsp_workspace_symbol")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let query = args

@@ -151,7 +151,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "moonfall.herald-house",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.herald-house/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.herald-house/v01/source-sheet.png",
   "source_sha256": "b005eff2a0f603d33babaf3f2574640c646f2a521fc8c2ce32c01e24efe35c93",
   "tool_version": 2
 }

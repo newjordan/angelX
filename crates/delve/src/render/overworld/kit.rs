@@ -1419,12 +1419,29 @@ pub fn door_sign(name: &str, opens: bool) -> Img {
         im.text(3, 2, &text, 'h');
         return im;
     }
-    let ew = super::ink::text_width("ENTER");
+    keyed_sign("ENTER", &text)
+}
+
+/// `door_sign` at a door a knight goes in by `key`: the key and ENTER
+/// above the name, so ENTER never reads as the key to press.
+pub fn door_key_sign(name: &str, key: &str) -> Img {
+    let text: String = name.to_uppercase().chars().take(20).collect();
+    keyed_sign(&format!("{key} ENTER"), &text)
+}
+
+/// Away from a door with wishmotes banked: the rod is in reach (`raisings`).
+pub fn survey_sign(key: &str) -> Img {
+    keyed_sign(&format!("{key} SURVEY"), "RAISE THE KINGDOM")
+}
+
+/// A framed gold board: `top` in brass over `text`.
+fn keyed_sign(top: &str, text: &str) -> Img {
+    let (tw, ew) = (super::ink::text_width(text), super::ink::text_width(top));
     let w = tw.max(ew) + 8;
     let mut im = Img::new(w + 1, 21);
     chrome::panel(&mut im, (0, 0, w, 20), chrome::Tone::FRAMED);
-    im.text((w - ew) / 2, 3, "ENTER", 'O');
-    im.text((w - tw) / 2, 11, &text, 'i');
+    im.text((w - ew) / 2, 3, top, 'O');
+    im.text((w - tw) / 2, 11, text, 'i');
     im
 }
 
@@ -1433,9 +1450,9 @@ pub fn door_sign(name: &str, opens: bool) -> Img {
 pub fn waiting_sign(place: &str, at_door: bool) -> Img {
     let name: String = place.to_uppercase().chars().take(20).collect();
     let (top, bottom, frame) = if at_door {
-        ("E: REJOIN THE PARTY".to_string(), name, '4')
+        ("E REJOIN".to_string(), name, '4')
     } else {
-        (format!("YOUR PARTY IS IN {name}"), "E AT ITS DOOR TO REJOIN".to_string(), 'B')
+        (format!("PARTY IN {name}"), "E AT ITS DOOR".to_string(), 'B')
     };
     let (tw, bw) = (super::ink::text_width(&top), super::ink::text_width(&bottom));
     let w = tw.max(bw) + 8;

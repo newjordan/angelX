@@ -210,29 +210,46 @@ impl Run {
             if hook.back {
                 let (ux, uy) = unit(bx - hook.x, by - hook.y);
                 let step = REEL_SPEED * DT;
-                (hook.x, hook.y) = (hook.x + ux * step, hook.y + uy * step);
-                let home = (bx - hook.x).hypot(by - hook.y) < br + 1.0;
-                if let Some(hero) = hook.caught.and_then(|id| self.players.get_mut(&id)) {
-                    (hero.x, hero.y) = (hook.x, hook.y);
-                    if home {
-                        hero.invulnerable = 0;
-                        hero.hurt(HOOK_DAMAGE);
-                        self.room_hurt = true;
-                        self.fx.push(Fx::Shake(6));
-                        self.sounds.push("hero_hurt");
+                let next = (hook.x + ux * step, hook.y + uy * step);
+                let home = (bx - next.0).hypot(by - next.1) < br + 1.0;
+                // A reeled knight stops at a barred door or a wall. The hook
+                // may go on; the knight does not follow through stone.
+                if let Some(id) = hook.caught {
+                    let room = &self.dungeon.rooms[self.at];
+                    let grid = Grid { room, barred: self.barred() };
+                    if let Some(hero) = self.players.get_mut(&id) {
+                        let was = (hero.x, hero.y);
+                        let stopped = grid.halted(was, (next.0 - was.0, next.1 - was.1));
+                        let followed = (stopped.0 - next.0).hypot(stopped.1 - next.1) < 0.08;
+                        (hero.x, hero.y) = stopped;
+                        if followed && home {
+                            // A ward after a hit holds against the hook too: no
+                            // reel-in lands on a blow just taken.
+                            hero.hurt(HOOK_DAMAGE);
+                            self.room_hurt = true;
+                            self.fx.push(Fx::Shake(6));
+                            self.sounds.push("hero_hurt");
+                        }
+                        if !followed {
+                            hook.caught = None;
+                        }
                     }
                 }
+                (hook.x, hook.y) = next;
                 if home {
                     done.push(i);
                 }
             } else {
                 let step = HOOK_SPEED * DT;
-                (hook.x, hook.y) = (hook.x + hook.dir.0 * step, hook.y + hook.dir.1 * step);
-                hook.out += step;
+                let next = (hook.x + hook.dir.0 * step, hook.y + hook.dir.1 * step);
                 let room = &self.dungeon.rooms[self.at];
-                let tile = room.tile((hook.x / TILE_UNITS) as i32, (hook.y / TILE_UNITS) as i32);
-                if hook.out >= HOOK_RANGE || matches!(tile, Tile::Wall | Tile::Block) {
+                let tile = room.tile((next.0 / TILE_UNITS) as i32, (next.1 / TILE_UNITS) as i32);
+                let sealed = self.barred() && matches!(tile, Tile::Door);
+                if hook.out + step >= HOOK_RANGE || matches!(tile, Tile::Wall | Tile::Block) || sealed {
                     hook.back = true;
+                } else {
+                    (hook.x, hook.y) = next;
+                    hook.out += step;
                 }
                 // The first knight it touches, unless rolling clear.
                 let caught = self
@@ -273,3 +290,7 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/together_hunters__tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "bend-cases-games-a-small"))]
+#[path = "../../tests/rules/hunters_bend_cases__tests.rs"]
+mod hunters_bend_cases_tests;

@@ -102,11 +102,18 @@ pub fn camera(s: &Siege) -> ((i32, i32), i32) {
 }
 
 pub(super) fn siege_stage(cv: &mut Img, run: &Run, w: i32, h: i32) {
+    let scene = scene_flat(run, w, h);
+    cv.stamp(&scene, 0, 0);
+}
+
+/// The siege field as the arena's scene layer — the single source of truth
+/// the Glass parts split composes back to. The camera: paint the whole
+/// field at design scale into an offscreen design-sized buffer, then look
+/// through a window at it — wide for aiming, close for the reload, the
+/// flight and the landing.
+fn scene_flat(run: &Run, w: i32, h: i32) -> Img {
     let round = run.pastimes.round.as_ref().unwrap();
     let s = round.siege.as_ref().unwrap();
-    // The camera: draw the whole field at design scale into an offscreen
-    // design-sized buffer, then look through a window at it — wide for
-    // aiming, close for the reload, the flight and the landing.
     let mut fb = Img::black(FIELD_W, FIELD_H);
     let ox = 0;
     let oy = 0;
@@ -121,18 +128,33 @@ pub(super) fn siege_stage(cv: &mut Img, run: &Run, w: i32, h: i32) {
     } else {
         trail_screen(&mut fb, ox, oy, s, run, round);
     }
-    let cam = camera(s);
-    let ((wx, wy), wz) = cam;
-    // Scale by nearest neighbour: each design pixel in the window becomes
-    // a `wz` x `wz` cell, so the crew and the loads triple in the close.
+    let ((wx, wy), wz) = camera(s);
+    let mut out = zoom(&fb, (wx, wy), wz, true);
+    hud(&mut out, 0, 0, s, w);
+    let mut scene = Img::black(w, h);
+    let (px, py) = ((w - out.w) / 2, (h - out.h) / 2);
+    scene.stamp(&out, px, py);
+    scene
+}
+
+/// The window and its nearest-neighbour enlargement. `opaque` picks between
+/// a solid backdrop (the flat scene's `out`) and a transparent actor canvas
+/// (an isolated shot lifted to a `Figure`). `src.get` returns `None` for
+/// transparent pixels, so a transparent source leaves the window CLEAR;
+/// an opaque source fills every cell.
+fn zoom(src: &Img, (wx, wy): (i32, i32), wz: i32, opaque: bool) -> Img {
     let win_w = FIELD_W / wz;
     let win_h = FIELD_H / wz;
     let out_w = win_w * wz;
     let out_h = win_h * wz;
-    let mut out = Img::black(out_w, out_h);
+    let mut out = if opaque {
+        Img::black(out_w, out_h)
+    } else {
+        Img::new(out_w, out_h)
+    };
     for y in 0..win_h {
         for x in 0..win_w {
-            let Some(c) = fb.get(wx + x, wy + y) else { continue };
+            let Some(c) = src.get(wx + x, wy + y) else { continue };
             for dy in 0..wz {
                 for dx in 0..wz {
                     out.set(x * wz + dx, y * wz + dy, c);
@@ -140,10 +162,84 @@ pub(super) fn siege_stage(cv: &mut Img, run: &Run, w: i32, h: i32) {
             }
         }
     }
-    hud(&mut out, 0, 0, s, w);
-    let px = (w - out_w) / 2;
-    let py = (h - out_h) / 2;
-    cv.stamp(&out, px, py);
+    out
+}
+
+/// The siege field split for Glass. The backdrop stays the flat scene (so
+/// parity is guaranteed even before any figure lifts); the shot in the air
+/// is stood up as a `Figure` so a GPU window shadows the arc. Lifting is
+/// opportunistic: if the isolated sprite disagrees with the flat scene at
+/// any of its opaque pixels — another actor painted over it — no figure is
+/// emitted that frame and the shot stays baked into the backdrop.
+pub(super) fn siege_parts(run: &Run, w: i32, h: i32) -> (Img, Vec<super::room_scene::Figure>) {
+    let scene = scene_flat(run, w, h);
+    let mut figures = Vec::new();
+    let Some(round) = run.pastimes.round.as_ref() else {
+        return (scene, figures);
+    };
+    let Some(s) = round.siege.as_ref() else {
+        return (scene, figures);
+    };
+    if !(s.fighting && s.shot.is_some()) {
+        return (scene, figures);
+    }
+    let mut fb = Img::new(FIELD_W, FIELD_H);
+    flying_shot(&mut fb, 0, 0, s, run.tick as u32);
+    let ((wx, wy), wz) = camera(s);
+    let out = zoom(&fb, (wx, wy), wz, false);
+    let (px, py) = ((w - out.w) / 2, (h - out.h) / 2);
+    // Tight bounding box of the shot's opaque pixels.
+    let (mut x0, mut y0, mut x1, mut y1) = (out.w, out.h, 0i32, 0i32);
+    for y in 0..out.h {
+        for x in 0..out.w {
+            if out.get(x, y).is_some() {
+                if x < x0 { x0 = x; }
+                if x >= x1 { x1 = x + 1; }
+                if y < y0 { y0 = y; }
+                if y >= y1 { y1 = y + 1; }
+            }
+        }
+    }
+    if x0 >= x1 || y0 >= y1 {
+        return (scene, figures);
+    }
+    // The sprite: only the shot's pixels, transparent elsewhere.
+    let (bw, bh) = (x1 - x0, y1 - y0);
+    let mut sprite = Img::new(bw, bh);
+    for dy in 0..bh {
+        for dx in 0..bw {
+            if let Some(c) = out.get(x0 + dx, y0 + dy) {
+                sprite.set(dx, dy, c);
+            }
+        }
+    }
+    // Parity guard: every opaque sprite pixel must already be the flat
+    // scene's pixel at the same room position. If any differ, another
+    // actor painted over the shot after `shots` — leave it baked.
+    for dy in 0..bh {
+        for dx in 0..bw {
+            if let Some(c) = sprite.get(dx, dy) {
+                if scene.get(px + x0 + dx, py + y0 + dy) != Some(c) {
+                    return (scene, figures);
+                }
+            }
+        }
+    }
+    figures.push(super::room_scene::Figure {
+        img: sprite,
+        x: px + x0,
+        y: py + y0,
+        frac: (0.0, 0.0),
+        depth: (py + y0) as f32,
+        // A lifted shot casts a shadow under itself on the GPU window and
+        // reads with a small glow: the arc gains real air over the field.
+        height: 12.0,
+        additive: true,
+        bodies: Vec::new(),
+        foe: false,
+        paints: Vec::new(),
+    });
+    (scene, figures)
 }
 
 fn sx(ox: i32, x: i32) -> i32 {
@@ -509,35 +605,42 @@ fn ammo(cv: &mut Img, ox: i32, oy: i32, (x, y): (i32, i32), a: Ammo) {
 /// a crater for the boulder, a moo bubble and legs up for the cow, a
 /// little swarm for the beehive, a squeal bubble for the pig, eels
 /// flopping in a wet ring for the barrel.
-fn shots(cv: &mut Img, ox: i32, oy: i32, s: &Siege, tick: u32) {
-    if let Some(sh) = &s.shot {
-        let (px, py) = (sh.x / 16, sh.y / 16);
-        ammo(cv, ox, oy, (px, py), sh.ammo);
-        // A beehive trails its bees across the sky: a wake of motes
-        // behind it, weaving, so the load reads at any scale.
-        if sh.ammo == Ammo::Beehive {
-            for k in 1..=4 {
-                let wob = ((tick + k * 3) % 5) as i32 - 2;
-                let wob2 = ((tick / 2 + k * 2) % 5) as i32 - 2;
-                cv.put(sx(ox, px - k as i32 * 2), sy(oy, py + 1 + wob + wob2 / 2), '6');
-            }
-            cv.put(sx(ox, px + 1), sy(oy, py - 2), '6');
+/// The knight's shot in the air: the load, a beehive's wake, and — if the
+/// last man rode it out — his windmilling legs. Split out so `siege_parts`
+/// can render it on a transparent canvas and stand it up as a `Figure`
+/// without disturbing the backdrop's paint order.
+fn flying_shot(cv: &mut Img, ox: i32, oy: i32, s: &Siege, tick: u32) {
+    let Some(sh) = &s.shot else { return };
+    let (px, py) = (sh.x / 16, sh.y / 16);
+    ammo(cv, ox, oy, (px, py), sh.ammo);
+    // A beehive trails its bees across the sky: a wake of motes
+    // behind it, weaving, so the load reads at any scale.
+    if sh.ammo == Ammo::Beehive {
+        for k in 1..=4 {
+            let wob = ((tick + k * 3) % 5) as i32 - 2;
+            let wob2 = ((tick / 2 + k * 2) % 5) as i32 - 2;
+            cv.put(sx(ox, px - k as i32 * 2), sy(oy, py + 1 + wob + wob2 / 2), '6');
         }
-        if sh.flung {
-            // Legs windmilling: a small body above the load, legs cycling.
-            let f = (tick / 3) % 4;
-            cv.put(sx(ox, px + 2), sy(oy, py - 4), '9');
-            cv.put(sx(ox, px + 2), sy(oy, py - 3), 'P');
-            let (l1, l2) = match f {
-                0 => ((1, -1), (3, 1)),
-                1 => ((2, 0), (2, 0)),
-                2 => ((3, 1), (1, -1)),
-                _ => ((2, 0), (2, 0)),
-            };
-            cv.put(sx(ox, px + l1.0), sy(oy, py - 2 + l1.1), 'n');
-            cv.put(sx(ox, px + l2.0), sy(oy, py - 2 + l2.1), 'n');
-        }
+        cv.put(sx(ox, px + 1), sy(oy, py - 2), '6');
     }
+    if sh.flung {
+        // Legs windmilling: a small body above the load, legs cycling.
+        let f = (tick / 3) % 4;
+        cv.put(sx(ox, px + 2), sy(oy, py - 4), '9');
+        cv.put(sx(ox, px + 2), sy(oy, py - 3), 'P');
+        let (l1, l2) = match f {
+            0 => ((1, -1), (3, 1)),
+            1 => ((2, 0), (2, 0)),
+            2 => ((3, 1), (1, -1)),
+            _ => ((2, 0), (2, 0)),
+        };
+        cv.put(sx(ox, px + l1.0), sy(oy, py - 2 + l1.1), 'n');
+        cv.put(sx(ox, px + l2.0), sy(oy, py - 2 + l2.1), 'n');
+    }
+}
+
+fn shots(cv: &mut Img, ox: i32, oy: i32, s: &Siege, tick: u32) {
+    flying_shot(cv, ox, oy, s, tick);
     // The keep's pot-shot: a dark arcing blob.
     if let Some(sh) = &s.castle_shot {
         let (px, py) = (sh.x / 16, sh.y / 16);

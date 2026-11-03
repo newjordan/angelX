@@ -3,7 +3,7 @@
 //! Level 3 and above of any wish, and level III of any skill, is never
 //! found, bought or wished for: the power's teacher must be found at their
 //! place in the realm, and their questline walked to its end. The rule's
-//! gate is the second rank — a teacher opens only to a knight already
+//! gate is the second level — a teacher opens only to a knight already
 //! holding the power's second tier, so nobody meets a teacher early by
 //! accident.
 //!
@@ -12,13 +12,22 @@
 //! lines, hook, steps (each with a counter and a target), trial, reward
 //! and ties. Each file also carries the teacher's figure (`art` lines,
 //! the cards' own ink alphabet) and where they stand (`room`, `at`).
-//! Progress is kept per knight name in the realm save, beside the school's
-//! rank, so an old save loads with no progress and loses nothing.
+//! Progress is kept per knight name in the realm save, so an old save loads
+//! with no progress and loses nothing.
 //!
 //! A questline whose counters the realm does not count yet says so in its
 //! file (`missing <counter>` for each) and stays unfinishable, but still
 //! loads, still draws its teacher and still speaks its hook.
+//!
+//! A kingdom questline (`power kingdom:<id>`) teaches no power and opens to
+//! every knight. Its steps count the campaign (`campaign`): real work done
+//! outside the realm, read from the campaign's board by the host and never
+//! raised by anything in the game. Its progress is the campaign's, one for
+//! the whole realm; each knight keeps only what the teacher has told them
+//! and the keepsake handed over (`docs/HEART-QUEST.md`). Its teacher may
+//! keep a realm hall of the kingdom's own (`room realm-hall`, `hall <name>`).
 
+use super::campaign::Campaign;
 use super::home::Home;
 use super::*;
 use std::collections::BTreeSet;
@@ -47,10 +56,14 @@ static FILES: &[(&str, &str)] = &[
     ("mine", include_str!("../../../../cockpit/assets/dungeon/questlines/mine.txt")),
     ("wall", include_str!("../../../../cockpit/assets/dungeon/questlines/wall.txt")),
     ("shield", include_str!("../../../../cockpit/assets/dungeon/questlines/shield.txt")),
+    // The kingdom's own line: no power, every knight, the campaign's counts.
+    ("heart", include_str!("../../../../cockpit/assets/dungeon/questlines/heart.txt")),
 ];
 
 /// The most steps a questline may ask, and the most a counter may need.
 pub const MAX_STEPS: usize = 8;
+/// How near a teacher's spot a knight stands to be heard, in tiles each way.
+pub const TEACHER_REACH: f32 = 2.0;
 /// The figure's bounds, in ink cells (the cards' own art alphabet).
 pub const ART_W: usize = 9;
 pub const ART_H: usize = 7;
@@ -91,6 +104,10 @@ pub struct Questline {
     pub room: String,
     /// Where they stand, in tiles (`at <x> <y>`).
     pub at: (i32, i32),
+    /// The realm hall they keep, by its kingdom door's name (`hall`): the
+    /// realm's halls share one room, so a teacher in one names which.
+    #[serde(default)]
+    pub hall: String,
     pub place: String,
     pub look: String,
     /// The teacher's two lines: idle, and teaching (`line`, `teach`).
@@ -109,7 +126,11 @@ pub struct Questline {
     /// questline stays unfinishable until they exist.
     pub missing: Vec<String>,
     /// Parse-only: the art block is open (rows follow bare).
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub art_open: bool,
 }
 
@@ -131,6 +152,7 @@ impl Default for Questline {
             teacher: String::new(),
             room: String::new(),
             at: (0, 0),
+            hall: String::new(),
             place: String::new(),
             look: String::new(),
             idle: String::new(),
@@ -199,6 +221,12 @@ impl Questline {
                     }
                     q.room = rest.to_string();
                 }
+                "hall" => {
+                    if rest.is_empty() || rest.len() > 64 {
+                        notes.push(format!("{id}:{n}: hall wants the hall's name, like `hall Lantern Hall`"));
+                    }
+                    q.hall = rest.to_string();
+                }
                 "at" => match rest.split_once(' ') {
                     Some((x, y)) if x.parse::<i32>().is_ok() && y.parse::<i32>().is_ok() => {
                         q.at = (x.parse().unwrap(), y.parse().unwrap());
@@ -245,6 +273,9 @@ impl Questline {
                         notes.push(format!(
                             "{id}:{n}: the step wants a counter, like `one_leg_stands`"
                         ));
+                    }
+                    if let Some(note) = campaign_note(&counter) {
+                        notes.push(format!("{id}:{n}: {note}"));
                     }
                     let need = match need.parse::<u32>() {
                         Ok(v) if (1..10_000).contains(&v) => v,
@@ -317,6 +348,9 @@ impl Questline {
                     q.trial.need = need.parse().unwrap_or(1);
                     if q.trial.counter.is_empty() {
                         notes.push(format!("{id}:{n}: the trial wants a counter"));
+                    }
+                    if let Some(note) = campaign_note(&q.trial.counter) {
+                        notes.push(format!("{id}:{n}: {note}"));
                     }
                 }
                 "reward" => {
@@ -391,6 +425,27 @@ impl Questline {
         if trial && q.trial.counter.is_empty() {
             notes.push(format!("{id}: the trial has no counter"));
         }
+        // The realm's halls share one room: a teacher in one names which,
+        // and only a teacher in one names a hall.
+        if q.kind() == RoomKind::RealmHall && q.hall.is_empty() {
+            notes.push(format!("{id}: a teacher in a realm hall wants `hall <name>`: the halls are many"));
+        }
+        if !q.hall.is_empty() && q.kind() != RoomKind::RealmHall {
+            notes.push(format!("{id}: a hall is a realm hall's: `room realm-hall`"));
+        }
+        // The campaign's counters are a kingdom questline's, and a kingdom
+        // questline counts nothing else: no deed of the realm can walk it,
+        // and no power's line can be walked by work done outside.
+        let kingdom = q.is_kingdom();
+        for counter in q.steps.iter().map(|s| &s.counter).chain([&q.trial.counter]) {
+            let theirs = super::campaign::reserved(counter);
+            if theirs && !kingdom {
+                notes.push(format!("{id}: `{counter}` is the campaign's: only a kingdom questline counts it"));
+            }
+            if kingdom && !theirs {
+                notes.push(format!("{id}: a kingdom questline counts the campaign's counters only, not `{counter}`"));
+            }
+        }
         if notes.is_empty() {
             Ok(q)
         } else {
@@ -416,6 +471,23 @@ impl Questline {
     pub fn kind(&self) -> RoomKind {
         room_of(&self.room).unwrap_or(RoomKind::Kingdom)
     }
+
+    /// A kingdom questline: no power taught, open to every knight, its
+    /// steps the campaign's (`power kingdom:<id>`).
+    pub fn is_kingdom(&self) -> bool {
+        self.power.starts_with("kingdom:")
+    }
+}
+
+/// What is wrong with naming `counter` in a step or a trial, as far as the
+/// campaign is concerned: one of its words that it does not keep.
+fn campaign_note(counter: &str) -> Option<String> {
+    (super::campaign::reserved(counter) && !super::campaign::is_counter(counter)).then(|| {
+        format!(
+            "`{counter}` is not one of the campaign's counters ({})",
+            super::campaign::COUNTERS.join(", ")
+        )
+    })
 }
 
 /// The realm's room names, as the files say them.
@@ -444,6 +516,9 @@ fn room_of(word: &str) -> Option<RoomKind> {
         "drowned-archive" | "Archive" => Lair,
         "hedge-maze" | "HedgeMaze" => HedgeMaze,
         "gate" | "Gate" => Gate,
+        // A landmark's or the kingdom's own hall: the file names which
+        // (`hall`).
+        "realm-hall" | "RealmHall" => RealmHall,
         _ => return None,
     })
 }
@@ -501,8 +576,28 @@ impl Walk {
     }
 }
 
+/// A kingdom questline's walk as the campaign stands: one for the whole
+/// realm, the same whoever asks. Its counts are the campaign's; a step is
+/// done once its count has reached its need, and the trial passed once
+/// every step is done and its own count has reached its need. Made fresh
+/// from the campaign each time, never saved, so nothing a save holds can
+/// walk it.
+pub fn campaign_walk(q: &Questline, campaign: &Campaign) -> Walk {
+    let mut walk = Walk::default();
+    for counter in q.steps.iter().map(|s| &s.counter).chain([&q.trial.counter]) {
+        walk.counters.insert(counter.clone(), campaign.count(counter));
+    }
+    for (i, s) in q.steps.iter().enumerate() {
+        if walk.count(&s.counter) >= s.need {
+            walk.done.insert(i as u32 + 1);
+        }
+    }
+    walk.trial_done = walk.trial_ready(q);
+    walk
+}
+
 /// The realm's questline records: every knight by name, each questline by
-/// its power id, exactly as the school keeps its ranks.
+/// its power id.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Ledger {
     #[serde(default)]
@@ -569,17 +664,45 @@ impl Book {
     }
 }
 
+/// A questline's note on the sheet for a walk of it: done and the title,
+/// the trial and how far, or the step and where.
+pub fn quest_note(q: &Questline, walk: &Walk) -> String {
+    if walk.finished() {
+        return format!("done — {}", q.title);
+    }
+    match walk.at(q) {
+        None => format!(
+            "the trial: {} ({}/{})",
+            q.trial.name,
+            walk.count(&q.trial.counter).min(q.trial.need),
+            q.trial.need
+        ),
+        Some((n, step)) => format!(
+            "step {n}/{} — {} ({}/{}) at {}",
+            q.steps.len(),
+            step.name,
+            walk.count(&step.counter).min(step.need),
+            step.need,
+            q.place
+        ),
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/rules/together_questline__tests.rs"]
 mod tests;
 
+#[cfg(test)]
+#[path = "../../tests/rules/heart_quest__tests.rs"]
+mod heart_tests;
+
 /// One knight's whole questline record, all powers at once: what the realm
-/// save keeps beside the school's standing, by knight name.
+/// save keeps, by knight name.
 pub type Progress = Ledger;
 
 /// The run's own questline state: whose reading is open at which teacher,
 /// and counter notes queued from inside the tick, paid in at the tick's
-/// safe point (the school's board shape).
+/// safe point.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Board {
     /// The reading knight.
@@ -589,16 +712,29 @@ pub struct Board {
     #[serde(default)]
     pub power: Option<String>,
     /// Counters counted this tick, waiting for `flush`: (knight, counter, n).
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub pending: Vec<(u32, String, u32)>,
     /// Cued steps already served this visit, so a cue counts once: the
     /// step counter's name, by knight.
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub served: BTreeSet<(u32, String)>,
 }
 
 impl Board {
     pub fn note(&mut self, id: u32, counter: &str, n: u32) {
+        // The campaign's counters are counted outside the realm: no deed in
+        // it adds to them.
+        if super::campaign::reserved(counter) {
+            return;
+        }
         if n > 0 && self.pending.len() < 128 {
             self.pending.push((id, counter.to_string(), n));
         }
@@ -617,9 +753,59 @@ impl Board {
 
 impl Run {
     /// Queue a counter note from inside a loop that holds the knights or
-    /// the foes, like the school's board.
+    /// the foes.
     pub fn note_quest(&mut self, id: u32, counter: &str, n: u32) {
         self.questline.note(id, counter, n);
+    }
+
+    /// Whether `q`'s teacher stands in the room the party is in: their
+    /// room, and for a realm hall, the hall the party came in by (the
+    /// realm's halls share one room).
+    pub fn teacher_here(&self, q: &Questline) -> bool {
+        q.kind() == self.room().kind
+            && (q.hall.is_empty()
+                || self.kingdom.return_to.as_ref().is_some_and(|back| back.name == q.hall))
+    }
+
+    /// Knight `key`'s walk of `q` as the realm reads it: a power's from the
+    /// save; a kingdom questline's the campaign's (`campaign_walk`), with
+    /// only the keepsake taken from the save.
+    pub fn quest_walk(&self, key: &str, q: &Questline) -> Walk {
+        let saved = self.home.questlines.walk(key, &q.power);
+        if !q.is_kingdom() {
+            return saved;
+        }
+        let mut walk = campaign_walk(q, &self.campaign);
+        walk.keepsake = saved.keepsake;
+        walk
+    }
+
+    /// Whether a kingdom questline's teacher has news for knight `key`: a
+    /// step the campaign has reached that they have not been told, or the
+    /// trial passed and the keepsake not yet in their hand.
+    pub fn quest_news(&self, key: &str, q: &Questline) -> bool {
+        if !q.is_kingdom() {
+            return false;
+        }
+        let told = self.home.questlines.walk(key, &q.power);
+        let now = campaign_walk(q, &self.campaign);
+        now.done.iter().any(|n| !told.done.contains(n)) || (now.trial_done && !told.keepsake)
+    }
+
+    /// The sheet's questline note for knight `hero` on `power`'s line, as
+    /// the realm reads it (`quest_walk`).
+    pub fn quest_sheet(&self, hero: &Hero, power: &str) -> Option<String> {
+        let q = book().get(power)?;
+        Some(quest_note(q, &self.quest_walk(&Home::profile_key(hero), q)))
+    }
+
+    /// The kingdom door of a realm hall, by its name (`HALLS`).
+    pub fn hall_door(&self, hall: &str) -> Option<(i32, i32)> {
+        map::geography(&self.kingdom.wishes)
+            .sites
+            .iter()
+            .find(|s| s.room == RoomKind::RealmHall && s.name == hall)
+            .map(|s| s.stand)
     }
 
     /// E at a teacher: the knight standing within reach of a teacher in
@@ -641,12 +827,12 @@ impl Run {
             if !i.valid() || !i.interact {
                 continue;
             }
-            let kind = self.room().kind;
-            // Near a teacher of this room: within two paces of their spot.
+            // Near a teacher of this room: within two tiles of their spot.
+            // A knight stands in units and a teacher's spot is in tiles.
             let near = book().lines.iter().find(|q| {
-                q.kind() == kind
-                    && (x - q.at.0 as f32).abs() <= 4.0
-                    && (y - q.at.1 as f32).abs() <= 4.0
+                self.teacher_here(q)
+                    && (x / TILE_UNITS - q.at.0 as f32).abs() <= TEACHER_REACH
+                    && (y / TILE_UNITS - q.at.1 as f32).abs() <= TEACHER_REACH
             });
             let Some(q) = near else {
                 continue;
@@ -682,12 +868,17 @@ impl Run {
             let Some(hero) = self.players.get(&id) else {
                 continue;
             };
-            let key = Home::school_key(hero);
+            let key = Home::profile_key(hero);
             let walks = self.home.questlines.knights.entry(key).or_default();
             for (counter, n) in counts {
                 // Every questline that names this counter hears it, so
                 // shared counters (beans, punt, ore) pool across lines.
                 for q in &book.lines {
+                    // A kingdom questline's counts are the campaign's, never
+                    // the realm's.
+                    if q.is_kingdom() {
+                        continue;
+                    }
                     if !q.steps.iter().any(|s| s.counter == counter)
                         && q.trial.counter != counter
                     {
@@ -732,13 +923,13 @@ impl Run {
     /// finished steps in whenever the walk is read (the walk's `done` set
     /// is a cache the counters drive).
     pub fn quest_step_done(&mut self, id: u32, power: &str) {
-        let Some(q) = book().get(power).cloned() else {
+        let Some(q) = book().get(power).cloned().filter(|q| !q.is_kingdom()) else {
             return;
         };
         let Some(hero) = self.players.get(&id) else {
             return;
         };
-        let key = Home::school_key(hero);
+        let key = Home::profile_key(hero);
         let Some(walk) = self.home.questlines.knights.get_mut(&key) else {
             return;
         };
@@ -757,8 +948,11 @@ impl Run {
     /// and the keepsake. One line, host-authoritative.
     pub fn speak(&mut self, id: u32, power: &str) -> Option<String> {
         let q = book().get(power).cloned()?;
+        if q.is_kingdom() {
+            return self.speak_kingdom(id, &q);
+        }
         let hero = self.players.get(&id)?;
-        let key = Home::school_key(hero);
+        let key = Home::profile_key(hero);
         let walk = self.home.questlines.walk(&key, power);
         if walk.finished() {
             let keepsake = if walk.keepsake {
@@ -783,10 +977,10 @@ impl Run {
                 if keepsake.is_empty() { "" } else { "" }
             ));
         }
-        // The rule's gate: the second rank, held.
+        // The rule's gate: the second level, held.
         if !self.quest_gate(id, &q) {
             return Some(format!(
-                "\"{}\" (the gift opens to the power's second rank, already burning in the hand)"
+                "\"{}\" (the gift opens to the power's second level, already burning in the hand)"
                 , q.idle
             ));
         }
@@ -818,8 +1012,61 @@ impl Run {
         ))
     }
 
-    /// The rule's gate: the knight holds the power's second rank. For a
+    /// E at a kingdom questline's teacher: one line for where the campaign
+    /// stands, as this knight hears it. The hook at the first meeting;
+    /// then, oldest first, one at each press, every step the campaign has
+    /// reached since they last heard (its own line); then the closing line,
+    /// with the keepsake the first time; else the step the campaign is on
+    /// and how far it has come. Only what this knight has been told is
+    /// kept: the counts are the campaign's, and nothing here moves them.
+    fn speak_kingdom(&mut self, id: u32, q: &Questline) -> Option<String> {
+        let key = Home::profile_key(self.players.get(&id)?);
+        let now = campaign_walk(q, &self.campaign);
+        let walks = self.home.questlines.knights.entry(key).or_default();
+        let met = walks.contains_key(&q.power);
+        let told = walks.entry(q.power.clone()).or_default();
+        if !met {
+            return Some(q.hook.clone());
+        }
+        if let Some(&n) = now.done.iter().find(|n| !told.done.contains(n)) {
+            told.done.insert(n);
+            let step = &q.steps[n as usize - 1];
+            return Some(format!("\"{} — {}/{}. {}\"", step.name, step.need, step.need, step.say));
+        }
+        if now.trial_done {
+            told.trial_done = true;
+            let first = !told.keepsake;
+            told.keepsake = true;
+            return Some(if first {
+                format!(
+                    "\"{} — {}/{}. {}\" {} presses {} into your hand: you are {}.",
+                    q.trial.name, q.trial.need, q.trial.need, q.trial.line, q.teacher, q.keepsake, q.title
+                )
+            } else {
+                format!("\"{} — the line is walked. {}\"", q.title, q.teach)
+            });
+        }
+        Some(match now.at(q) {
+            Some((_, step)) => format!(
+                "\"{} — {}/{}. {}\"",
+                step.name,
+                now.step_count(step),
+                step.need,
+                step.line
+            ),
+            None => format!(
+                "\"{} — {}/{}. {}\"",
+                q.trial.name,
+                now.count(&q.trial.counter).min(q.trial.need),
+                q.trial.need,
+                q.trial.line
+            ),
+        })
+    }
+
+    /// The rule's gate: the knight holds the power's second level. For a
     /// wish, the second tier is in the deck; for a skill, its level is II.
+    /// A kingdom questline teaches no power: it opens to every knight.
     pub fn quest_gate(&self, id: u32, q: &Questline) -> bool {
         let Some(hero) = self.players.get(&id) else {
             return false;
@@ -837,36 +1084,11 @@ impl Run {
                 let which = skill_of(word).unwrap_or(usize::MAX);
                 which != usize::MAX && self.skill_level(id, which) >= 2
             }
+            Some(("kingdom", _)) => true,
             _ => false,
         }
     }
 
-    /// The tier a wish's grant stops at: 3 needs the questline finished.
-    pub fn wish_quest_finished(&self, hero: &Hero, wish: &str) -> bool {
-        self.home
-            .questlines
-            .walk(&Home::school_key(hero), &format!("wish:{wish}"))
-            .finished()
-    }
-
-    /// A skill's level III needs its questline finished.
-    pub fn skill_quest_finished(&self, hero: &Hero, word: &str) -> bool {
-        self.home
-            .questlines
-            .walk(&Home::school_key(hero), &format!("skill:{word}"))
-            .finished()
-    }
-
-    /// Every teacher standing in `room` this tick, with where they stand.
-    /// Teachers do not move: their questline says where they live.
-    pub fn teachers_in(&self, room: RoomKind) -> Vec<(String, (i32, i32))> {
-        book()
-            .lines
-            .iter()
-            .filter(|q| q.kind() == room)
-            .map(|q| (q.power.clone(), q.at))
-            .collect()
-    }
 }
 
 /// The skill bar's words, as the files say them.

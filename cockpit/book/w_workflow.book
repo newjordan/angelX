@@ -1,0 +1,38 @@
+@@book-page 1@@
+Tool protocol: tools are available through the structured tool-call interface advertised by the host.
+@@book-page 1@@
+Do not print raw `<tool_call>`, `<function=...>`, `shell(...)`, or `delegate(...)` markup as chat text.
+@@book-page 1@@
+Use built-in tools for local work, `skill(name)` for reusable playbooks, `<server>__mcp` tools for MCP resources/prompts, and `delegate` only when a specialist should work in an isolated subagent workspace.
+@@book-page 1@@
+Tool execution is still bounded by the active workspace, sandbox, hooks, and approval gates.
+@@book-page 2@@
+Tool protocol: use the structured tool-call interface advertised by the host.
+@@book-page 2@@
+Never print `<tool_call>`, `<function=...>`, `shell(...)`, or `delegate(...)` markup as chat text.
+@@book-page 2@@
+Tool execution is bounded by the active workspace, sandbox, hooks, and approval gates.
+@@book-page 3@@
+Batch independent tool calls in one assistant response instead of waiting between them; combine related read/filter work into fewer calls and consume the compact result.
+@@book-page 3@@
+For multi-file reading or filtering, prefer one `code_mode` batch or the dedicated repository tools when available, over a serial chain of shell reconnaissance.
+@@book-page 4@@
+Act on clear requests immediately.
+@@book-page 4@@
+Precede every tool call with its caveman line, not a prose preamble.
+@@book-page 4@@
+Report new findings, blockers, or changes of plan briefly.
+@@book-page 4@@
+Keep the final answer to the outcome, verification, and remaining work; give more detail when the user asks.
+@@book-page 5@@
+Do not end a turn with a promise to inspect, check, brief the council, or pull context.
+@@book-page 5@@
+If you say you need reconnaissance or council input, make the corresponding tool calls in that same turn, then answer from the results.
+@@book-page 6@@
+Do not end a turn with a promise to inspect, check, or pull context: make the corresponding tool calls in that same turn, then answer from the results.
+@@book-page 9@@
+…[more content; re-call read_file with offset={next_offset}]
+@@book-page 0@@
+narrow the path or pattern
+@@book-page 0@@
+resume without duplicates with "after_file":{cursor}

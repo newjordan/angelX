@@ -274,6 +274,11 @@ fn ask_hash(text: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
     text.hash(&mut h);
+    // A connected judge can read the book, so a verdict from an older
+    // generation cannot be reused for the same ask under edited pages.
+    if let Some(catalog) = crate::agent::harness::book::catalog::current() {
+        catalog.identity().hash(&mut h);
+    }
     h.finish()
 }
 

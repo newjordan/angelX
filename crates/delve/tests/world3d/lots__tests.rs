@@ -15,29 +15,6 @@ fn run_with(ids: &[&str], near: &str) -> Run {
     run
 }
 
-/// A swatches.png with every kind's patch a flat colour of its own: kind
-/// `k` is `[k * 9, 255 - k * 9, 40]`, `side` pixels square.
-fn flat_swatches(side: u32) -> Vec<u8> {
-    swatches_of_kinds(side, &Kind::ALL)
-}
-
-/// The same, with patches of `kinds` only.
-fn swatches_of_kinds(side: u32, kinds: &[Kind]) -> Vec<u8> {
-    use angel_stage::set::{SWATCH_ATLAS, swatch_cell};
-    let mut img = image::RgbaImage::new(SWATCH_ATLAS.0, SWATCH_ATLAS.1);
-    for (k, kind) in Kind::ALL.into_iter().enumerate().filter(|(_, kind)| kinds.contains(kind)) {
-        let (x0, y0) = swatch_cell(kind);
-        for y in 0..side {
-            for x in 0..side {
-                img.put_pixel(x0 + x, y0 + y, image::Rgba([k as u8 * 9, 255 - k as u8 * 9, 40, 255]));
-            }
-        }
-    }
-    let mut png = Vec::new();
-    img.write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
-    png
-}
-
 #[test]
 fn the_catalog_reads_and_each_wish_finds_its_nearest_piece() {
     let wishes = proof_wishes(&["tavern", "wayside-shrine", "fellowship-stone", "beacon-tower", "miners-lodge", "hall-of-the-dragonslayers", "grail-chapel"], "village");
@@ -95,7 +72,7 @@ fn a_built_wish_stands_on_its_lots_building_rows_and_clears_the_lot() {
 }
 
 #[test]
-fn what_a_chunk_stands_on_a_lot_is_cut_and_its_plate_kept_as_its_own() {
+fn what_a_chunk_stands_on_a_lot_is_cut() {
     // The first grove of the Greenwood's corner chunk, and a box (a hedge
     // or a step of rock) somewhere: cleared, as a lot clears its ground.
     let registry = kingdom::chunks();
@@ -121,7 +98,6 @@ fn what_a_chunk_stands_on_a_lot_is_cut_and_its_plate_kept_as_its_own() {
     let cut = lots.chunk(&chunk);
     assert!(!Arc::ptr_eq(&cut, &chunk), "cut");
     assert_ne!(cut.key, chunk.key, "its own set, its own key");
-    assert_eq!(cut.plate_key, chunk.key, "the same plate, kept as the chunk's");
     assert_eq!(cut.set.id, chunk.set.id);
     let tree_at = |set: &Set| set.shapes.iter().any(|s| s.shape == tree.shape && s.at == tree.at);
     assert!(tree_at(&chunk.set) && !tree_at(&cut.set), "the tree on the lot is gone");
@@ -163,87 +139,6 @@ fn the_runs_finds_stand_on_their_tiles_and_change_as_they_are_found() {
     run.kingdom.found |= 1 << i;
     let after = of(&run).unwrap();
     assert_eq!(after.share(index).unwrap().extras.len(), before - 1, "the cache taken");
-}
-
-#[test]
-fn extras_wear_their_chunks_patches_or_their_kinds_colours() {
-    let at = kingdom::index(3, 5).unwrap();
-    let text = kingdom::set_text(at);
-    let none: Arc<[u8]> = Arc::from(&[][..]);
-    let bare = Arc::new(Chunk::new(at, Arc::clone(&text), Arc::clone(&none), Arc::clone(&none)).unwrap());
-    let swatched = Arc::new(Chunk::new(at, text, none, flat_swatches(32).into()).unwrap());
-    let (cx, cz) = kingdom::cell(at);
-    let mid = chunks::centre(cx, cz);
-    let solids = vec![
-        Solid::block(Kind::Stone, [mid[0] - 10.0, mid[1] - 8.0, mid[0] + 10.0, mid[1] + 8.0], 0.0, 14.0),
-        Solid::new(blockout::Shape::Cone, Kind::Slate, [mid[0], 14.0, mid[1]], [22.0, 10.0, 18.0]),
-    ];
-    let lots = assemble(vec![Piece { chunk: (cx, cz), lines: solids.iter().map(fit::line_of).collect(), ..Piece::default() }], Vec::new());
-    let share = lots.share(at).unwrap();
-    // With no patches: each its kind's capture colour two shades down its
-    // bank, lit, as a chunk with no plate draws its own.
-    let plain = share.nodes(&bare, &|_| 7);
-    assert_eq!(plain.len(), 2);
-    assert!(plain.iter().all(|n| n.material.lit && n.material.projector.is_none()));
-    let stone = kingdom::darker(Kind::Stone.capture());
-    assert!((0..3).all(|k| (plain[0].material.tint[k] * 255.0 - f32::from(stone[k])).abs() < 0.6));
-    // With patches: a box's faces cut into cells of its kind's, the cone
-    // wearing its own whole; never the plate.
-    let worn = share.nodes(&swatched, &|kind| 1000 + kind as u32);
-    assert!(worn.len() > 4, "the box's faces in cells");
-    let pictures: Vec<u32> = worn
-        .iter()
-        .filter_map(|n| match n.material.source {
-            angel_stage::scene::TextureSource::Picture(id) => Some(id),
-            angel_stage::scene::TextureSource::None => None,
-        })
-        .collect();
-    assert_eq!(pictures.len(), worn.len());
-    assert!(pictures.contains(&(1000 + Kind::Stone as u32)) && pictures.contains(&(1000 + Kind::Slate as u32)));
-    assert!(worn.iter().all(|n| n.material.projector.is_none()), "the plate never cast on them");
-    // Their ids are the chunk's, clear of its set's.
-    let mut ids: Vec<u64> = worn.iter().map(|n| n.id).collect();
-    ids.sort_unstable();
-    ids.dedup();
-    assert_eq!(ids.len(), worn.len());
-    assert!(ids.iter().all(|&id| id >> 32 == u64::from(at) + 1 && id & 0xffff_ffff >= EXTRA_IDS));
-    // A terminal paints the tiles they stand on with the tallest's patch.
-    let lots = assemble(
-        vec![Piece {
-            chunk: (cx, cz),
-            lines: vec![fit::line_of(&Solid::block(Kind::Stone, blockout::px((cx * 24 + 4, cz * 16 + 4, 2, 2)), 0.0, 14.0))],
-            tiles: vec![(cx * 24 + 4, cz * 16 + 4)],
-            ..Piece::default()
-        }],
-        Vec::new(),
-    );
-    let origin = (cx * 384, cz * 256);
-    let mut img = Img::new(384, 256);
-    lots.share(at).unwrap().paint(&mut img, origin, &swatched);
-    let k = Kind::ALL.iter().position(|&kind| kind == Kind::Stone).unwrap() as u8;
-    assert_eq!(img.get(4 * 16 + 3, 4 * 16 + 9), Some([k * 9, 255 - k * 9, 40]), "the stone's patch");
-    assert_eq!(img.get(6 * 16 + 3, 4 * 16 + 9), None, "the tile beside left as it was");
-}
-
-#[test]
-fn a_kind_a_chunk_has_no_patch_of_wears_a_near_standing_kinds_or_its_own_colour() {
-    let at = kingdom::index(7, 2).unwrap();
-    let none: Arc<[u8]> = Arc::from(&[][..]);
-    let chunk = Chunk::new(at, kingdom::set_text(at), none, swatches_of_kinds(16, &[Kind::Path, Kind::Rock]).into()).unwrap();
-    let worn = |kind| wears(&chunk, kind).map(|s| s.kind);
-    assert_eq!(worn(Kind::Rock), Some(Kind::Rock), "its own");
-    assert_eq!(worn(Kind::Slate), Some(Kind::Rock), "a slate roof in the rock's");
-    assert_eq!(worn(Kind::Thatch), None, "never the path's, which it would vanish into");
-    assert_eq!(worn(Kind::Door), None, "no doorway in the rock's");
-    assert_eq!(worn(Kind::Fire), None, "a fire shines in its own colour");
-    let (cx, cz) = kingdom::cell(at);
-    let mid = chunks::centre(cx, cz);
-    let lots = assemble(
-        vec![Piece { chunk: (cx, cz), lines: vec![fit::line_of(&Solid::new(blockout::Shape::Cone, Kind::Fire, [mid[0], 0.0, mid[1]], [4.0, 6.0, 4.0]))], ..Piece::default() }],
-        Vec::new(),
-    );
-    let nodes = lots.share(at).unwrap().nodes(&chunk, &|_| 9);
-    assert!(nodes[0].material.emissive >= 1.0 && nodes[0].material.lit, "the fire shines");
 }
 
 #[test]
@@ -346,41 +241,5 @@ fn lots_dump() {
     let lots = of(&run).unwrap();
     for s in &lots.shares {
         println!("chunk {:?}: {} extras, {} cleared, {} tiles", kingdom::cell(s.index), s.extras.len(), s.clear.len(), s.tiles.len());
-    }
-}
-
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve --release lots_terminal
-/// -- --ignored --nocapture`: the catalog's wishes built beside the Village
-/// as a terminal draws them, flat and with the world in 3D (each chunk's
-/// plate laid down, each lot's tiles painted with what stands tallest there,
-/// its name on its door row).
-#[test]
-#[ignore = "writes the lots' terminal shots"]
-fn lots_terminal() {
-    use crate::render::overworld::arena;
-    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS").map(std::path::PathBuf::from) else {
-        return;
-    };
-    std::fs::create_dir_all(&dir).unwrap();
-    let wishes = proof_wishes(&BUILT, "village");
-    let placed = wish_lots(&wishes);
-    for (name, at) in [("tavern-shrine", 0), ("stone-tower", 2)] {
-        let lot = placed[at].expect("its lot");
-        let feet = [(lot.tx * 16 + lot.tw * 8 + 10) as f32, ((lot.ty + lot.th) * 16 + 6) as f32];
-        let run = kingdom::proof_run_built(&[feet], wishes.clone());
-        for on in [false, true] {
-            crate::world3d::set_enabled(on);
-            if on {
-                for c in kingdom::near([feet[0] - 192.0, feet[1] - 120.0, feet[0] + 192.0, feet[1] + 104.0]).into_iter().filter_map(|i| kingdom::chunks().chunk(i)) {
-                    let _ = kingdom::chunks().plate_now(&c).map(|_| kingdom::laid(&c));
-                }
-            }
-            let img = arena::frame_for(&run, arena::NATIVE_W, arena::NATIVE_H, Some(1));
-            let k = 3u32;
-            let file = dir.join(format!("terminal-lots-{name}-{}.png", if on { "3d" } else { "flat" }));
-            image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, img.rgba_scaled(k)).unwrap().save(&file).unwrap();
-            println!("wrote {}", file.display());
-        }
-        crate::world3d::set_enabled(false);
     }
 }

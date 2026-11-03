@@ -67,6 +67,7 @@
 // launches its own Chromium on port 8808 with a throwaway profile.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
+import os from 'node:os';
 
 const RUNS = {
   // A desktop browser on a 1x screen.
@@ -210,7 +211,7 @@ for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
 }
 
 async function chromium(name) {
-  const dir = `${process.env.TMPDIR || '/work/tmp'}/angel-web-probe-${name}-${process.pid}`;
+  const dir = `${process.env.TMPDIR || os.tmpdir()}/angel-web-probe-${name}-${process.pid}`;
   const proc = spawn('/usr/bin/chromium', ['--headless=new', `--remote-debugging-port=${PORT}`,
     `--user-data-dir=${dir}`, '--no-first-run', '--no-default-browser-check',
     '--autoplay-policy=no-user-gesture-required', '--window-size=1600,1000',

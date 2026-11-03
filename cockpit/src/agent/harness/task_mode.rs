@@ -628,6 +628,81 @@ pub(crate) fn apply_task_runtime_defaults(prompt: &str) -> TaskPaceResolution {
     pace
 }
 
+/// Names the private cache root a headless task installed in place of the
+/// shared `~/.cache`. [`crate::agent::sandbox::SandboxPolicy::permissive`]
+/// reads it to stop granting the shared cache.
+pub(crate) const TASK_CACHE_HOME_ENV: &str = "ANGEL_TASK_CACHE_HOME";
+
+/// Give a headless task its own empty `XDG_CACHE_HOME`.
+///
+/// The shared `~/.cache` is a sandbox writable root, and every sandboxed launch
+/// alias-scans its writable roots. Once a tool cache there hard-links files
+/// to paths outside the grants (`~/.cache/mise` → `~/.local/share/mise/installs`,
+/// 8,190 aliases on 2026-10-28), each launch takes the Bubblewrap alias path:
+/// 0.93 s per process against 0.01 s for an empty root, paid by every shell
+/// call, test run and post-write check. A private cache keeps that protection
+/// and drops the cost. An operator `XDG_CACHE_HOME` that names some other
+/// directory is kept; `ANGEL_TASK_PRIVATE_CACHE=0` keeps the shared cache.
+pub(crate) fn install_private_task_cache() -> Option<PathBuf> {
+    let dir = install_private_task_cache_in(&std::env::temp_dir())?;
+    remove_at_exit(dir.clone());
+    Some(dir)
+}
+
+pub(crate) fn install_private_task_cache_in(base: &Path) -> Option<PathBuf> {
+    let off = std::env::var("ANGEL_TASK_PRIVATE_CACHE").is_ok_and(|value| {
+        matches!(
+            value.trim().to_ascii_lowercase().as_str(),
+            "0" | "off" | "false" | "no"
+        )
+    });
+    // A nested task inherits its parent's private cache; it never owns it.
+    if off || std::env::var_os(TASK_CACHE_HOME_ENV).is_some_and(|value| !value.is_empty()) {
+        return None;
+    }
+    let shared = PathBuf::from(std::env::var_os("HOME")?).join(".cache");
+    if let Some(current) = std::env::var_os("XDG_CACHE_HOME").filter(|value| !value.is_empty()) {
+        let current = PathBuf::from(current);
+        let same = current == shared
+            || matches!(
+                (current.canonicalize(), shared.canonicalize()),
+                (Ok(a), Ok(b)) if a == b
+            );
+        if !same {
+            return None;
+        }
+    }
+    let dir = base.join(format!("angel-task-cache-{}", std::process::id()));
+    {
+        use std::os::unix::fs::DirBuilderExt;
+        std::fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&dir)
+            .ok()?;
+    }
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe {
+        std::env::set_var("XDG_CACHE_HOME", &dir);
+        std::env::set_var(TASK_CACHE_HOME_ENV, &dir);
+    }
+    Some(dir)
+}
+
+/// Remove the private task cache when the process exits normally
+/// (`std::process::exit` and a return from `main` both run `atexit`).
+fn remove_at_exit(dir: PathBuf) {
+    static DIR: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+    extern "C" fn remove() {
+        if let Some(dir) = DIR.get() {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+    if DIR.set(dir).is_ok() {
+        unsafe { libc::atexit(remove) };
+    }
+}
+
 /// Optional headless Treebeard (RLM/HiQ) activation when `ANGEL_LANE` is unset.
 ///
 /// `ANGEL_TASK_TREEBEARD`:

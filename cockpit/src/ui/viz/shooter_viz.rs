@@ -1,6 +1,10 @@
 //! The dungeon delve's surface: native pixel art with a half-block fallback,
 //! with the party, the floor map and the controls in text around it.
 mod race3d;
+mod scroll;
+
+pub(crate) use scroll::{Scroll, offer_box, scroll_of};
+pub(super) use scroll::reforge_box;
 
 use super::delve_hud;
 use crate::drive::together_realm::{Realm, Status};
@@ -106,13 +110,13 @@ pub(crate) fn paint_pixels(frame: &mut Frame, area: Rect, img: &Img) {
 /// (live play draws each seat's picture on its own client).
 #[cfg(test)]
 pub(crate) fn paint_room(frame:&mut Frame,area:Rect,run:&Run,focus:Option<u32>) {
-    if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.pennon_showing() || run.rafterwake_showing() || arena::art_v2::enabled() {
-        if let Some((base,fx))=arena::art_v2::terminal_layers_live(run,focus) {
+    if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.pennon_showing() || run.rafterwake_showing() {
+        if let Some((base,fx))=arena::terminal_layers_live(run,focus) {
             if run.pennon_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::pennon_contour_colour(run,focus));} else if run.rafterwake_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::rafterwake_contour_colour(run,focus));} else {crate::stage::world_viz::art::paint_cells(frame,area,&base,&fx);}
             return;
         }
     }
-    let img=if arena::art_v2::enabled() {arena::frame_for_live(run,area.width as i32,area.height as i32*2,focus)} else {arena::frame_for(run,area.width as i32,area.height as i32*2,focus)};
+    let img=arena::frame_for(run,area.width as i32,area.height as i32*2,focus);
     paint_pixels(frame,area,&img);
 }
 
@@ -140,7 +144,7 @@ pub(crate) fn paint_picture(frame: &mut Frame, area: Rect, picture: &Picture) {
 /// with the tray and panels over it as the cell route draws them.
 pub(crate) fn paint_picture_ui(frame: &mut Frame, area: Rect, run: &Run, picture: Option<&Picture>, focus: Option<u32>) {
     if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.rafterwake_showing() || run.pennon_showing() {
-        let (base, fx) = arena::art_v2::terminal_layers_live(run, focus).expect("Mini-game cell layers");
+        let (base, fx) = arena::terminal_layers_live(run, focus).expect("Mini-game cell layers");
         if run.pennon_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::pennon_contour_colour(run,focus));} else if run.rafterwake_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::rafterwake_contour_colour(run,focus));} else {crate::stage::world_viz::art::paint_cells(frame,area,&base,&fx);}
     } else {
         match picture {
@@ -205,10 +209,9 @@ fn paint_game_panels(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32
         return;
     }
     let id=focus.unwrap_or_else(||run.playtest.local_seat());
-    if run.floor_plate(focus).is_none() && (!arena::art_v2::enabled() || (run.chariot.is_none() && !run.playtest.seats.get(&id).is_some_and(|s|s.open))) {
+    if run.floor_plate(focus).is_none() {
         delve_hud::paint_tray(frame,area,run,id,Keys::of(id,focus.is_none()));
     }
-    if arena::art_v2::enabled() {crate::stage::world_viz::art::paint_panels(frame,area,run,id);}
 }
 
 /// Small fixed-cost wrapping for the narrow status panel; no renderer layout expansion.
@@ -920,9 +923,6 @@ pub(crate) fn render_room(
         line(frame, Rect::new(side.x, y, side.width, 1), &text, color);
     }
 
-    if let Some(wish) = reforge {
-        reforge_box(frame, room, &wish);
-    }
     let found = run.found_line();
     let footer = inner.bottom() - 5;
     let spoken = said.map(|line| {
@@ -991,13 +991,14 @@ pub(crate) fn render_room(
             color,
         );
     }
+    if let Some(wish) = reforge {
+        reforge_box(frame, inner, &wish);
+    }
     true
 }
 
-/// Parchment and arcane inks for the Scroll of One Wish.
-const SCROLL_BG: Color = Color::Rgb(0x2a, 0x21, 0x16);
+/// Inks for the sealing pop-up.
 const SCROLL_INK: Color = Color::Rgb(0xd8, 0xc9, 0xa8);
-const SCROLL_ROLL: Color = Color::Rgb(0x92, 0x4f, 0x1d);
 const ARCANE: Color = Color::Rgb(0x50, 0xc6, 0xb3);
 
 /// What the wish prompt shows: which part, the words, and the confirm
@@ -1014,128 +1015,17 @@ pub(crate) struct Wish<'a> {
     pub(crate) resolved: Option<(String, String)>,
     /// At a Sanctuary's dais: any words may be wished for.
     pub(crate) sanctuary: bool,
-}
-
-/// The Scroll of One Wish over the room, and the ONE WISH pop-up over it
-/// when the wish is read back for sealing.
-pub(super) fn reforge_box(frame: &mut Frame, room: Rect, wish: &Wish) {
-    let w = room.width.saturating_sub(8).min(76);
-    let list = wish
-        .known
-        .len()
-        .min(usize::from(room.height.saturating_sub(13)))
-        .min(8) as u16;
-    let h = (11 + list + u16::from(list > 0)).min(room.height);
-    let scroll = Rect::new(
-        room.x + (room.width - w) / 2,
-        room.y + (room.height - h) / 2,
-        w,
-        h,
-    );
-    frame.render_widget(Clear, scroll);
-    frame.render_widget(Block::default().style(Style::new().bg(SCROLL_BG)), scroll);
-    // The rolled ends, top and bottom.
-    let roll = |frame: &mut Frame, y: u16, glyph: &str| {
-        let bar: String = std::iter::once("◖")
-            .chain(std::iter::repeat_n(glyph, usize::from(w.saturating_sub(2))))
-            .chain(std::iter::once("◗"))
-            .collect();
-        frame.render_widget(
-            Paragraph::new(bar).style(Style::new().fg(SCROLL_ROLL).bg(Color::Rgb(0, 0, 0))),
-            Rect::new(scroll.x, y, w, 1),
-        );
-    };
-    roll(frame, scroll.y, "▀");
-    roll(frame, scroll.bottom() - 1, "▄");
-    let row = |frame: &mut Frame, dy: u16, text: &str, style: Style| {
-        frame.render_widget(
-            Paragraph::new(text.to_string())
-                .alignment(ratatui::layout::Alignment::Center)
-                .style(style.bg(SCROLL_BG)),
-            Rect::new(scroll.x + 2, scroll.y + dy, w.saturating_sub(4), 1),
-        );
-    };
-    row(
-        frame,
-        1,
-        "✦  THE SCROLL OF ONE WISH  ✦",
-        Style::new().fg(GOLD).add_modifier(Modifier::BOLD),
-    );
-    row(frame, 2, "· · ✧ · ·", Style::new().fg(ARCANE));
-    if wish.sanctuary {
-        let (weapon, guard) = if wish.part.starts_with("off") {
-            ("‹ YOUR WEAPON ›", "your guard")
-        } else {
-            ("your weapon", "‹ YOUR GUARD ›")
-        };
-        row(
-            frame,
-            4,
-            &format!("Any wish, for   {weapon}   {guard}   (Tab) — or a known one below"),
-            Style::new().fg(SCROLL_INK),
-        );
-    } else {
-        row(
-            frame,
-            4,
-            "The room is won: one wish, granted at once",
-            Style::new().fg(SCROLL_INK),
-        );
-    }
-    let picked = wish
-        .pick
-        .as_ref()
-        .and_then(|p| wish.known.iter().find(|k| &k.0 == p))
-        .map(|k| k.1.as_str());
-    let shown = if wish.words.is_empty() {
-        picked.unwrap_or("")
-    } else {
-        wish.words
-    };
-    row(
-        frame,
-        6,
-        &format!("“{shown}▏”"),
-        Style::new().fg(PARCHMENT).add_modifier(Modifier::BOLD),
-    );
-    // The known wishes, a line each: ↑/↓ picks one.
-    for (i, (index, name, says)) in wish.known.iter().take(usize::from(list)).enumerate() {
-        let on = wish.pick.as_ref() == Some(index);
-        let text = format!("{} {name} — {says}", if on { "▸" } else { " " });
-        frame.render_widget(
-            Paragraph::new(text).style(if on {
-                Style::new()
-                    .fg(GOLD)
-                    .bg(SCROLL_BG)
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::new().fg(SCROLL_INK).bg(SCROLL_BG)
-            }),
-            Rect::new(
-                scroll.x + 4,
-                scroll.y + 8 + i as u16,
-                w.saturating_sub(8),
-                1,
-            ),
-        );
-    }
-    row(
-        frame,
-        8 + list + u16::from(list > 0),
-        if wish.sanctuary {
-            "↑/↓ a known wish · or your own words · Enter: read it back · Esc: roll it up"
-        } else {
-            "↑/↓ pick · or say it · Enter: read it back · Esc: roll it up"
-        },
-        Style::new().fg(DIM),
-    );
-    if let Some(seal) = wish.confirm {
-        wish_confirm(frame, room, wish, seal);
-    }
+    /// The knight's wishes held, the genie's gauge (`scroll_of`).
+    pub(crate) scroll: Option<Scroll>,
+    /// The ladders the knight holds, each climbed with its number key
+    /// (`Run::upgrades`), and the line under them when none can be.
+    pub(crate) upgrades: Vec<crate::drive::together_shooter::genie::Upgrade>,
+    pub(crate) upgrade_note: Option<&'static str>,
+    pub(crate) upgrade_page: usize,
 }
 
 /// The ONE WISH pop-up: plain about what sealing means, two clear choices.
-fn wish_confirm(frame: &mut Frame, room: Rect, wish: &Wish, seal: bool) {
+pub(super) fn wish_confirm(frame: &mut Frame, room: Rect, wish: &Wish, seal: bool) {
     let w = 56u16.min(room.width);
     let h = 12u16.min(room.height);
     let pop = Rect::new(
@@ -1260,24 +1150,9 @@ fn wish_confirm(frame: &mut Frame, room: Rect, wish: &Wish, seal: bool) {
     );
 }
 
-/// Cards on one page of the book.
-const BOOK_PAGE: usize = 8;
+pub(crate) use angel_realm_host::card_pages::{BOOK_PAGE, REALM_PAGE, bestiary_page, book_pages, card_pages};
 const CARD_W: u16 = 20;
 const CARD_H: u16 = 13;
-
-/// The card screen's second page: the treasury and the wishing stone.
-pub(crate) const REALM_PAGE: usize = 1;
-
-/// Pages of the card screen: your cards, the realm, the book, and last the
-/// Herald's Bestiary.
-pub(crate) fn card_pages(run: &Run) -> usize {
-    3 + book_pages(&run.book)
-}
-
-/// The Bestiary's page: the last.
-pub(crate) fn bestiary_page(run: &Run) -> usize {
-    card_pages(run) - 1
-}
 
 fn rarity_color(rarity: Rarity) -> Color {
     match rarity {
@@ -1340,6 +1215,7 @@ fn card_screen(frame: &mut Frame, run: &Run, area: Rect, page: usize, selected: 
     let mine = run.players.get(&1).map(|hero| Mine {
         hand: &hero.hand,
         spells: &hero.spells,
+        tiers: &hero.spell_tiers,
         arm: hero.arm.as_deref(),
         deck: &hero.deck,
     });
@@ -1350,13 +1226,9 @@ fn card_screen(frame: &mut Frame, run: &Run, area: Rect, page: usize, selected: 
 pub(crate) struct Mine<'a> {
     pub(crate) hand: &'a [String],
     pub(crate) spells: &'a [Option<String>],
+    pub(crate) tiers: &'a std::collections::BTreeMap<String, u8>,
     pub(crate) arm: Option<&'a str>,
     pub(crate) deck: &'a [String],
-}
-
-/// Pages of a book's card screen past the knight's own and the realm's.
-pub(crate) fn book_pages(book: &crate::drive::together_shooter::Book) -> usize {
-    book.cards.len().div_ceil(BOOK_PAGE)
 }
 
 /// The card screen: page 0 is the knight's own cards, pages 2 on the book
@@ -1389,7 +1261,11 @@ pub(crate) fn cards_of(
             }
             for (slot, id) in hero.spells.iter().enumerate() {
                 if let Some(card) = id.as_deref().and_then(|id| book.get(id)) {
-                    shown.push((format!("{} {}", Keys::FIRST.spells[slot], card.name), card));
+                    let tier = usize::from(hero.tiers.get(&card.id).copied().unwrap_or(0)).min(2);
+                    let name = if card.id.starts_with("wish-") { card.name.clone() } else {
+                        format!("{} {}", card.name, ["I", "II", "III"][tier])
+                    };
+                    shown.push((format!("{} {name}", Keys::FIRST.spells[slot]), card));
                 }
             }
             if let Some(card) = hero.arm.and_then(|id| book.get(id)) {
@@ -1817,7 +1693,6 @@ mod escape_review {
     fn write_escape_hold_review() {
         let dir = std::path::PathBuf::from(std::env::var_os("ANGEL_ESCAPE_SHOTS").unwrap());
         std::fs::create_dir_all(&dir).unwrap();
-        angel_delve::settings::set(angel_delve::settings::Settings { art_v2: true, feel_ledger: false, open_floors: false });
         for (name, make) in [("brasswake", Run::brasswake_for_test as fn() -> Run), ("mossbell", Run::mossbell_for_test)] {
             let mut run = make();
             for id in 2..=4 { run.join_seat(id, &format!("Knight {id}")); }

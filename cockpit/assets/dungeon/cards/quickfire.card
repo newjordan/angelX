@@ -1,0 +1,17 @@
+# The Alchemist's second: the big red one.
+name   Quickfire
+kind   spell
+rarity relic
+text   A great flask of quickfire: a wide burst and a field of flame.
+drop   0
+chest  0
+cooldown 9
+feat 1
+art
+...hh...
+...ii...
+.RRRRRR.
+RTTTTTTR
+RTToTTTR
+RTTTToTR
+.RRRRRR.

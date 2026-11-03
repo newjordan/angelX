@@ -70,8 +70,13 @@ fn halos() -> &'static [Halo; 3] {
 }
 /// A quiet halo below a crisp core. Signal pixels already drawn always win.
 pub(super) fn glow(cv: &mut Img, x: i32, y: i32, hue: Hue) {
+    glow_within(cv, x, y, hue, 25);
+}
+/// `glow` held to dots within `reach2` (square pixels) of its middle: a
+/// small shot's halo is small (25 is the whole of it).
+pub(super) fn glow_within(cv: &mut Img, x: i32, y: i32, hue: Hue, reach2: i32) {
     let h = &halos()[hue as usize];
-    for &(dx, dy, l) in &h.dots {
+    for &(dx, dy, l) in h.dots.iter().filter(|d| d.0 * d.0 + d.1 * d.1 <= reach2) {
         let c = cv.get(x + dx, y + dy).unwrap_or(BLACK);
         if let Some(ramp) = h.colours.get(&c) {
             cv.set(x + dx, y + dy, ramp[l]);

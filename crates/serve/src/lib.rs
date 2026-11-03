@@ -70,10 +70,13 @@ pub mod limits {
 
     /// A request head, or the WebSocket handshake, is at most this long.
     pub const MAX_HANDSHAKE: usize = 4096;
-    /// ...and must arrive within this long; so must the `Hello` after it.
-    pub const HANDSHAKE_TIME: Duration = Duration::from_secs(5);
-    /// Messages (and control frames) a client may send in a second.
-    pub const MAX_MESSAGES_PER_SEC: u32 = 120;
+    /// ...and must arrive within this long; so must the `Hello` after it. A
+    /// page busy loading its pictures sends its hello late, and five seconds
+    /// turned live players away mid-game.
+    pub const HANDSHAKE_TIME: Duration = Duration::from_secs(20);
+    /// Messages (and control frames) a client may send in a second. A page
+    /// catching up after a stall sends a burst; 120 cut players off.
+    pub const MAX_MESSAGES_PER_SEC: u32 = 1000;
     /// The server pings each client this often.
     pub const PING_EVERY: Duration = Duration::from_secs(1);
     /// A client heard nothing from for this long is closed.
@@ -133,6 +136,7 @@ pub enum To {
 pub struct Event {
     pub to: To,
     pub bytes: Vec<u8>,
+    pub assets: Vec<std::sync::Arc<http::LiveAsset>>,
 }
 
 /// One tick's events, as the game makes them.
@@ -143,15 +147,19 @@ pub struct Events {
 
 impl Events {
     pub fn all(&mut self, bytes: impl Into<Vec<u8>>) {
-        self.list.push(Event { to: To::All, bytes: bytes.into() });
+        self.list.push(Event { to: To::All, bytes: bytes.into(), assets:Vec::new() });
     }
 
     pub fn seat(&mut self, seat: u32, bytes: impl Into<Vec<u8>>) {
-        self.list.push(Event { to: To::Seat(seat), bytes: bytes.into() });
+        self.list.push(Event { to: To::Seat(seat), bytes: bytes.into(), assets:Vec::new() });
     }
 
     pub fn near(&mut self, x: i32, y: i32, bytes: impl Into<Vec<u8>>) {
-        self.list.push(Event { to: To::Near(x, y), bytes: bytes.into() });
+        self.list.push(Event { to: To::Near(x, y), bytes: bytes.into(), assets:Vec::new() });
+    }
+
+    pub fn lease_last(&mut self, asset: std::sync::Arc<http::LiveAsset>) {
+        if let Some(event) = self.list.last_mut() { event.assets.push(asset); }
     }
 
     pub fn list(&self) -> &[Event] {

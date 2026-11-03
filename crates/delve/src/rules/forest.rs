@@ -48,6 +48,11 @@ pub struct Forest {
 }
 
 impl Forest {
+    #[cfg(all(test, feature = "bend-cases-games-a-griffinwing"))]
+    pub(crate) fn set_held_for_griffinwing_cases(&mut self, held: u8) {
+        self.held = held;
+    }
+
     pub fn valid(&self) -> bool {
         self.hunt_left <= HUNT_TIME
             && self.caught & !ALL_FLIES == 0
@@ -194,3 +199,6 @@ impl Run {
         }
     }
 }
+#[cfg(all(test, feature = "bend-cases-games-b"))]
+#[path = "../../tests/rules/forest_bend_cases__tests.rs"]
+mod forest_bend_cases_tests;

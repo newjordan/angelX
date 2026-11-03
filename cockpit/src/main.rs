@@ -7,13 +7,19 @@
 //!
 //! Later increments: dotmax braille charts, ratatui-image photos, PTY shell.
 
+// Import native link metadata even though ABI declarations live with callers.
+extern crate angel_native;
+
 mod agent;
 mod app;
 mod drive;
 mod interactive_launch;
 mod knowledge;
 mod platform;
+#[cfg(feature = "glass")]
+mod remote;
 mod stage;
+mod telemetry;
 mod ui;
 
 // Short names for the buckets this shell reaches into directly. These also keep
@@ -21,7 +27,6 @@ mod ui;
 // so the non-test build sees a few of them as unused.
 #[allow(unused_imports)]
 use agent::{approval, club, compaction, formations, harness, lsp, sandbox, steer, tools, turn};
-#[allow(unused_imports)]
 use app::{bootstrap, control};
 #[allow(unused_imports)]
 use drive::{comp_mode, competition, conductor, goal, habits, loop_ctl, loop_dialog, reinforce};
@@ -29,7 +34,6 @@ use drive::{comp_mode, competition, conductor, goal, habits, loop_ctl, loop_dial
 use knowledge::{atlas, caddy, cut, memory, session};
 #[allow(unused_imports)]
 use platform::{overwatch, pty, runtime, runtime_paths, workspace_store, yolo};
-#[allow(unused_imports)]
 use stage::{raytrace, village, world_viz};
 #[allow(unused_imports)]
 use ui::{
@@ -249,7 +253,7 @@ fn apply_terminal_input(
                 Event::FocusLost => app.set_terminal_focused(false),
                 Event::Resize(_, _) => {
                     app.viewer.invalidate_still_layout();
-                    app.dungeon.controls_visible = false;
+                    app.realm.dungeon.controls_visible = false;
                     app.clear_dungeon_controls();
                 }
             }
@@ -333,6 +337,7 @@ where
         // SAFETY: single-threaded startup, before the event loop; the flag is
         // for this launch only and must not reach the shells it starts.
         unsafe { std::env::remove_var("ANGEL_OPEN_SETUP") };
+        app.setup.title_entrance();
         app.open_setup();
     }
     app.bag.warm_background();
@@ -340,10 +345,10 @@ where
     // and run the heavy turn pre-flight one tick later (see `PendingTurn`).
     app.submit_deferral = true;
     // `--resume [id]` (the phoenix relight): reload a saved session before the
-    // first frame so a restarted self continues the same conversation.
-    // SessionStart fires once: source `resume` when that load succeeds,
-    // otherwise `startup` (a fresh launch, or a resume that found nothing).
-    app.establish_launch_session(launch.resume.clone());
+    // first frame so a restarted self continues the same conversation. One
+    // SessionStart follows — `resume` when that load landed, otherwise
+    // `startup` for the fresh session.
+    app.announce_startup_session(launch.resume);
     eprintln!("RUN: entering event loop");
     let mut applied_title: Option<String> = None;
     let mut game_keyboard_active = false;
@@ -389,9 +394,7 @@ where
             // ticks a second. A walk on the map draws one frame per world
             // tick. Both are paced to a deadline, so the time spent drawing
             // comes out of the wait, not on top.
-            let pace = if app.setup.scroll_is_moving() {
-                Some(std::time::Duration::from_nanos(16_666_667))
-            } else if app.needs_fast_tick() && app.dungeon_view_active() {
+            let pace = if app.needs_fast_tick() && app.dungeon_view_active() {
                 Some(game_tick())
             } else if app.scryglass.video_playing() {
                 Some(VIDEO_TICK)
@@ -499,6 +502,9 @@ where
                 // leave the last displayed game stage intact.
                 crate::ui::glass::frame_done,
             )?;
+            // A remote session says who is at work, for kingdoms watching it.
+            #[cfg(feature = "glass")]
+            crate::remote::presence_tick(&app);
             sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let post_draw_started =
                 if let (Some(timing), Some(start)) = (&mut frame_timing, draw_started) {
@@ -596,6 +602,9 @@ USAGE
                             --source SRC --contract CTR
   angel --build-info --json
   angel --atlas --workspace DIR JSON
+  angel --backup <run|restore|status|prune> [OPTIONS]  Tiered state snapshots (~/.angelX)
+  angel --guardian [--watch-only] [--once]   Sleeping giant: resurrect dead peers' sessions
+  angel --resurrect <session-id> --workspace DIR  One-shot session resurrection
   angel --labyrinth [--workspace DIR] <init|status|check|frontier|plan|route…>
   angel --labyrinth [--workspace DIR] run --task TASK --idea IDEA --score-file PATH
   angel --labyrinth [--workspace DIR] campaign <start SPEC.json|run ID|status|cancel ID|check|recover>
@@ -858,10 +867,21 @@ pub(crate) const BUILD_CAPABILITIES: &[&str] = &[
 ];
 
 fn main() -> std::io::Result<()> {
+    crate::agent::harness::live_policy::install_scripted_rules();
+    // The build's resource paths reach the Kernel's host services before any
+    // thread (the realm host reads them there).
+    runtime_paths::install();
+    // And what the realm host asks of the cockpit (its model, its owned child
+    // processes, the window's door for a joined host's paintings).
+    drive::realm_services::install();
+    // And the cockpit's answers the realm host asks for (posture, stage,
+    // repository identity, the village's HTTP).
+    stage::realm_hooks::install();
     // Complete interactive syntax before process ownership, terminal, route,
     // adapter/auth or warming effects. Existing machine grammars stay opaque.
     let entry_args = std::env::args_os().skip(1).collect::<Vec<_>>();
     let interactive = interactive_launch::parse(&entry_args)?;
+    let _media_retirement = drive::together_media::RetirementGuard;
     let workspace = interactive
         .as_ref()
         .map(|launch| {
@@ -889,11 +909,51 @@ fn main() -> std::io::Result<()> {
         }
     }
     match mode_args.first().and_then(|arg| arg.to_str()) {
+        // `parse` has already rejected trailing arguments and duplicate globals.
+        // Read-only inspection must not start reapers, hash this large executable,
+        // or probe a sandbox it will never use. The source launcher still checks
+        // compiler freshness before reaching this image.
+        Some("--version" | "-V") => {
+            println!("angelX-cockpit {}", env!("CARGO_PKG_VERSION"));
+            return Ok(());
+        }
+        Some("--help" | "-h") => {
+            print_cli_help();
+            return Ok(());
+        }
         Some("--atlas") => return atlas::cli(mode_args.iter().skip(1).cloned()),
+        Some("--backup") => {
+            return crate::platform::backup::cli(mode_args.iter().skip(1).cloned());
+        }
+        Some("--guardian") => {
+            return drive::guardian::cli_guardian(
+                mode_args
+                    .iter()
+                    .skip(1)
+                    .map(|arg| arg.to_string_lossy().into_owned())
+                    .collect(),
+            );
+        }
+        Some("--resurrect") => {
+            return drive::guardian::cli_resurrect(
+                mode_args
+                    .iter()
+                    .skip(1)
+                    .map(|arg| arg.to_string_lossy().into_owned())
+                    .collect(),
+            );
+        }
         Some("--labyrinth") => return drive::labyrinth::cli(mode_args.iter().skip(1).cloned()),
         Some("--look-image") => return tools::vision::image_cli(mode_args.iter().skip(1).cloned()),
         Some("--tool-http-helper") => return tools::http_transport::helper_main(),
         Some("--sandbox-exec") => return sandbox::exec_helper(mode_args.iter().skip(1).cloned()),
+        // Remote glass (docs/REMOTE_GLASS.md): attach a window to a session
+        // on another machine, list or end sessions, or be the far end of an
+        // attach.
+        #[cfg(feature = "glass")]
+        Some("--session-host" | "--attach" | "--sessions" | "--kill-session") => {
+            return remote::cli(&mode_args);
+        }
         Some("--audit-coding-eval-training") => {
             if mode_args.len() != 3 || mode_args[1] != "--store" {
                 return Err(std::io::Error::new(
@@ -964,14 +1024,7 @@ fn main() -> std::io::Result<()> {
         }
         raw_args.remove(0);
     }
-    if raw_args.as_slice() == ["--help"] || raw_args.as_slice() == ["-h"] {
-        print_cli_help();
-        return Ok(());
-    }
-    if raw_args.as_slice() == ["--version"] || raw_args.as_slice() == ["-V"] {
-        println!("angelX-cockpit {}", env!("CARGO_PKG_VERSION"));
-        return Ok(());
-    }
+
     if yolo::enabled() {
         eprintln!("[angel] {}", yolo::status_text());
     }
@@ -1004,6 +1057,7 @@ fn main() -> std::io::Result<()> {
                     "resources": runtime_paths::status(),
                     "capabilities": BUILD_CAPABILITIES,
                     "video_decode": cfg!(feature = "scryglass-video"),
+                    "builtin_native_abi_versions": angel_native::builtin_abi_versions(),
                 })
             );
             return Ok(());
@@ -1112,7 +1166,7 @@ fn main() -> std::io::Result<()> {
             if path == "-" {
                 print!("{text}");
             } else {
-                std::fs::write(path, text)?;
+                crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), text.as_bytes()).map_err(std::io::Error::other)?;
             }
             return Ok(());
         }
@@ -1140,7 +1194,7 @@ fn main() -> std::io::Result<()> {
             if path == "-" {
                 print!("{text}");
             } else {
-                std::fs::write(path, text)?;
+                crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), text.as_bytes()).map_err(std::io::Error::other)?;
             }
             return Ok(());
         }
@@ -1164,7 +1218,7 @@ fn main() -> std::io::Result<()> {
             if path == "-" {
                 print!("{text}");
             } else {
-                std::fs::write(path, text)?;
+                crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), text.as_bytes()).map_err(std::io::Error::other)?;
             }
             return Ok(());
         }
@@ -1214,7 +1268,7 @@ fn main() -> std::io::Result<()> {
                 {
                     std::fs::create_dir_all(parent)?;
                 }
-                std::fs::write(path, format!("{json}\n"))?;
+                crate::platform::workspace_store::write_atomic(&path, format!("{json}\n").as_bytes()).map_err(std::io::Error::other)?;
             }
             return Ok(());
         }
@@ -1407,6 +1461,10 @@ fn main() -> std::io::Result<()> {
             // Ordinary headless coding uses the same bounded anti-stall policy
             // as the Prime adapter.
             let task_pace = harness::apply_task_runtime_defaults(prompt);
+            // A private, empty cache root keeps every sandboxed launch off the
+            // alias path that the shared ~/.cache's hard-linked tool caches
+            // force (about 0.9 s per process).
+            harness::install_private_task_cache();
             // Bounded task runs automatically use the discoverable essential
             // schema set. Explicit `full` and `essential` remain reproducible
             // overrides; `auto` is the ordinary task-aware default.
@@ -1542,6 +1600,7 @@ fn main() -> std::io::Result<()> {
             // Headless action profiles can advertise the lean core without
             // making the remaining built-ins or LSP tools undiscoverable.
             registry.enable_tool_search();
+            crate::agent::hotload::start_headless();
             harness::note_task_startup_phase("registry_ms", registry_started.elapsed().as_millis());
             let recon_started = std::time::Instant::now();
             let task_recon = harness::task_recon_message(&registry, prompt);
@@ -1813,6 +1872,12 @@ fn main() -> std::io::Result<()> {
         || launch.model.is_some()
         || launch.effort.is_some()
         || launch.prompt.is_some();
+    // A session's own process (`--session-host` started it): the cockpit
+    // under a host with no window, drawn by the windows that attach.
+    #[cfg(feature = "glass")]
+    if let Some(name) = remote::serve_requested() {
+        return remote::serve(&name, launch, workspace);
+    }
     #[cfg(feature = "glass")]
     if crate::ui::glass::requested() {
         return run_glass(launch, workspace);
@@ -1855,47 +1920,67 @@ fn run_glass(
     workspace: PathBuf,
 ) -> std::io::Result<()> {
     let options = angel_glass::Options::from_environment();
+    glass_drawing();
+    let result = angel_glass::run(options, move |host| {
+        // The window is up and drawn: the launcher waiting on it (bin/angelX)
+        // leaves it be instead of running the cockpit in the terminal.
+        if let Some(path) = std::env::var_os("ANGEL_GLASS_READY") {
+            let _ = crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), b"");
+        }
+        cockpit_on_host(host, launch, workspace)
+    })
+    .map_err(std::io::Error::other)?;
+    phoenix(result)
+}
+
+/// The cockpit drawing through a glass host: a window's, or a remote
+/// session's host with no window of its own (`remote::serve`).
+#[cfg(feature = "glass")]
+fn glass_drawing() {
     // Thrown things in the Delve fly in the window, lifted toward the camera,
     // instead of in the game's picture.
     crate::stage::world_viz::overworld::arena::draw_lifted_outside(true);
     // The window draws the Delve's frames from their parts (a stage); only a
     // terminal is handed the finished picture.
     crate::stage::world_viz::overworld::arena::draw_parts_outside(true);
-    let result = angel_glass::run(options, move |host| {
-        crate::ui::glass::install(host.clone());
-        // The window is up and drawn: the launcher waiting on it (bin/angelX)
-        // leaves it be instead of running the cockpit in the terminal.
-        if let Some(path) = std::env::var_os("ANGEL_GLASS_READY") {
-            let _ = std::fs::write(path, b"");
-        }
-        // The Orrery floats over the terminal on its own thread when the
-        // launch asked for it; the cockpit's loop never draws it.
-        crate::ui::orrery::launch_if_requested();
-        let mut terminal = Terminal::new(host.backend())?;
-        let viewer = Viewer::glass();
-        let (bag, binding) = crate::app::launch::prepare(&launch, &workspace)?;
-        let terminal_input = input::TerminalInput::spawn(host.input_reader()?)?;
-        match run(
-            &mut terminal,
-            terminal_input,
-            viewer,
-            launch,
-            workspace,
-            bag,
-            binding,
-        ) {
-            Err(error) if angel_glass::window_closed(&error) => Ok(None),
-            other => other,
-        }
-    })
-    .map_err(std::io::Error::other)?;
-    phoenix(result)
+}
+
+/// The cockpit on a glass host's thread, until it quits.
+#[cfg(feature = "glass")]
+fn cockpit_on_host(
+    host: angel_glass::Host,
+    launch: interactive_launch::InteractiveLaunch,
+    workspace: PathBuf,
+) -> std::io::Result<Option<(std::path::PathBuf, String)>> {
+    crate::ui::glass::install(host.clone());
+    // The Orrery floats over the terminal on its own thread when the
+    // launch asked for it; the cockpit's loop never draws it.
+    crate::ui::orrery::launch_if_requested();
+    // So does the Heartglass, the Virtual Embryo campaign's panel
+    // (`ANGEL_GLASS_HEART=1`, or `/heart` later).
+    crate::ui::heartglass::launch_if_requested();
+    let mut terminal = Terminal::new(host.backend())?;
+    let viewer = Viewer::glass();
+    let (bag, binding) = crate::app::launch::prepare(&launch, &workspace)?;
+    let terminal_input = input::TerminalInput::spawn(host.input_reader()?)?;
+    match run(
+        &mut terminal,
+        terminal_input,
+        viewer,
+        launch,
+        workspace,
+        bag,
+        binding,
+    ) {
+        Err(error) if angel_glass::window_closed(&error) => Ok(None),
+        other => other,
+    }
 }
 
 /// The phoenix step: `/self reborn` staged a freshly-built binary — replace
 /// this process with the new self, resuming the same session. Must happen
 /// after terminal teardown; the new process sets the terminal up again.
-fn phoenix(result: std::io::Result<Option<(std::path::PathBuf, String)>>) -> std::io::Result<()> {
+pub(crate) fn phoenix(result: std::io::Result<Option<(std::path::PathBuf, String)>>) -> std::io::Result<()> {
     match result {
         Ok(Some((exe, session_id))) => {
             eprintln!("PHOENIX: exec {} --resume {session_id}", exe.display());
@@ -1923,3 +2008,15 @@ mod d06b_tests;
 #[cfg(test)]
 #[path = "../../tests/cockpit/app/retained_world_tests.rs"]
 mod retained_world_tests;
+
+#[cfg(test)]
+#[path = "../../tests/cockpit/app/lanternward_oracle/mod.rs"]
+mod lanternward_oracle;
+
+#[cfg(test)]
+#[path = "../../tests/cockpit/app/lanternward_parity_tests.rs"]
+mod lanternward_parity_tests;
+
+#[cfg(test)]
+#[path = "../../tests/cockpit/app/lanternward_review_tests.rs"]
+mod lanternward_review_tests;

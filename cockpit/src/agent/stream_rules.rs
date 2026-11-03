@@ -10,7 +10,9 @@
 //! Rules are **opt-in**: with none configured (the default) the streaming loop's
 //! check is a single `is_empty()` short-circuit, so the hot path is untouched.
 //! Configure via `ANGEL_STREAM_RULES` (a path to a JSON file) or, failing that,
-//! `~/.angelX/stream_rules.json`. Format:
+//! `~/.angelX/stream_rules.json`. Each stream uses one snapshot; valid edits
+//! apply to the next stream. Missing or malformed replacements keep the last
+//! valid snapshot for that path. Format:
 //!
 //! ```json
 //! [
@@ -19,9 +21,11 @@
 //! ]
 //! ```
 
-use regex::Regex;
+use regex::{Regex, RegexBuilder};
 use std::collections::HashSet;
-use std::sync::OnceLock;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex, OnceLock};
 
 pub(crate) struct StreamRule {
     pattern: Regex,
@@ -33,19 +37,15 @@ pub(crate) struct StreamRules {
 }
 
 impl StreamRules {
-    /// Process-global rules, loaded once.
-    pub(crate) fn global() -> &'static StreamRules {
-        static RULES: OnceLock<StreamRules> = OnceLock::new();
-        RULES.get_or_init(StreamRules::load)
-    }
-
-    pub(crate) fn load() -> StreamRules {
-        let Some(text) = read_rules_source() else {
-            return StreamRules { rules: Vec::new() };
-        };
-        StreamRules {
-            rules: parse_rules(&text),
-        }
+    /// Snapshot the current file once per streaming request. In-flight retries
+    /// retain their original set even if another request observes an edit.
+    pub(crate) fn global() -> Arc<StreamRules> {
+        static CACHE: OnceLock<Mutex<RulesCache>> = OnceLock::new();
+        let mut cache = CACHE
+            .get_or_init(|| Mutex::new(RulesCache::default()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        cache.snapshot(rules_source().as_deref())
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -74,46 +74,125 @@ impl StreamRules {
     }
 }
 
-fn read_rules_source() -> Option<String> {
-    if let Some(path) = std::env::var_os("ANGEL_STREAM_RULES") {
-        return std::fs::read_to_string(path).ok();
-    }
-    let home = std::env::var_os("HOME")?;
-    let default = std::path::Path::new(&home)
-        .join(".angelX")
-        .join("stream_rules.json");
-    std::fs::read_to_string(default).ok()
+#[derive(Default)]
+struct RulesCache {
+    source: Option<PathBuf>,
+    accepted: Option<String>,
+    rejected: Option<String>,
+    active: Arc<StreamRules>,
 }
 
-/// Parse a rules JSON array. Malformed entries (bad regex, missing fields) are
-/// skipped rather than failing the whole file, so one typo can't disarm TTSR
-/// entirely — the skipped rule is simply inert.
+impl Default for StreamRules {
+    fn default() -> Self {
+        Self { rules: Vec::new() }
+    }
+}
+
+impl RulesCache {
+    fn snapshot(&mut self, source: Option<&Path>) -> Arc<StreamRules> {
+        // A different configured path is a different policy, not a replacement
+        // of the previous file. Do not carry rules across that boundary.
+        if self.source.as_deref() != source {
+            self.source = source.map(Path::to_path_buf);
+            self.accepted = None;
+            self.rejected = None;
+            self.active = Arc::new(StreamRules::default());
+        }
+        if let Some(text) = source.and_then(read_bounded_rules) {
+            if self.accepted.as_deref() != Some(&text) && self.rejected.as_deref() != Some(&text) {
+                if let Some(rules) = parse_candidate(&text, self.accepted.is_some()) {
+                    self.active = Arc::new(StreamRules { rules });
+                    self.accepted = Some(text);
+                    self.rejected = None;
+                } else {
+                    self.rejected = Some(text);
+                }
+            }
+        }
+        Arc::clone(&self.active)
+    }
+}
+
+const MAX_RULES_BYTES: u64 = 1024 * 1024;
+const MAX_RULES: usize = 256;
+const MAX_PATTERN_BYTES: usize = 4096;
+const MAX_REMINDER_BYTES: usize = 16384;
+
+fn read_bounded_rules(path: &Path) -> Option<String> {
+    if !std::fs::metadata(path).ok()?.is_file() {
+        return None;
+    }
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    // A configured path may be replaced with a FIFO between metadata and open.
+    // Never wait for a writer while holding the process-wide cache lock.
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.custom_flags(libc::O_NONBLOCK);
+    }
+    let file = options.open(path).ok()?;
+    if !file.metadata().ok()?.is_file() {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_RULES_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .ok()?;
+    if bytes.len() as u64 > MAX_RULES_BYTES {
+        return None;
+    }
+    String::from_utf8(bytes).ok()
+}
+
+fn rules_source() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("ANGEL_STREAM_RULES") {
+        return Some(path.into());
+    }
+    let home = std::env::var_os("HOME")?;
+    Some(Path::new(&home).join(".angelX").join("stream_rules.json"))
+}
+
+/// At startup preserve the legacy behavior of skipping malformed entries. Once
+/// a file has been accepted, every replacement must validate as a whole.
+#[cfg(test)]
 fn parse_rules(json: &str) -> Vec<StreamRule> {
-    let value: serde_json::Value = match serde_json::from_str(json) {
-        Ok(v) => v,
-        Err(_) => return Vec::new(),
-    };
-    let Some(array) = value.as_array() else {
-        return Vec::new();
-    };
+    parse_candidate(json, false).unwrap_or_default()
+}
+
+fn parse_candidate(json: &str, strict: bool) -> Option<Vec<StreamRule>> {
+    let value: serde_json::Value = serde_json::from_str(json).ok()?;
+    let array = value.as_array()?;
+    if array.len() > MAX_RULES {
+        return None;
+    }
     let mut rules = Vec::new();
     for entry in array {
-        let Some(pattern_src) = entry.get("pattern").and_then(|v| v.as_str()) else {
-            continue;
-        };
-        let reminder = entry
-            .get("reminder")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
-        if reminder.is_empty() {
-            continue;
-        }
-        if let Ok(pattern) = Regex::new(pattern_src) {
-            rules.push(StreamRule { pattern, reminder });
+        let rule = (|| {
+            let source = entry.get("pattern")?.as_str()?;
+            let reminder = entry.get("reminder")?.as_str()?;
+            if source.len() > MAX_PATTERN_BYTES
+                || reminder.is_empty()
+                || reminder.len() > MAX_REMINDER_BYTES
+            {
+                return None;
+            }
+            let pattern = RegexBuilder::new(source)
+                .size_limit(1024 * 1024)
+                .build()
+                .ok()?;
+            Some(StreamRule {
+                pattern,
+                reminder: reminder.to_owned(),
+            })
+        })();
+        match rule {
+            Some(rule) => rules.push(rule),
+            None if strict => return None,
+            None => {}
         }
     }
-    rules
+    Some(rules)
 }
 
 #[cfg(test)]

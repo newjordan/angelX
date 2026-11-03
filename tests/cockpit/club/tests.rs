@@ -57,6 +57,7 @@ impl Drop for ScopedEnv {
 /// otherwise leaks profile pins into the verdict, and a partial per-test scrub
 /// rots silently as knobs are added.
 const SOTA_MOA_ENV_KEYS: &[&str] = &[
+    "ANGEL_MOA_PREFERENCES",
     "ANGEL_SOTA_MOA_AGG_CLUB",
     "ANGEL_SOTA_MOA_ALLOW_DEGRADED",
     "ANGEL_SOTA_MOA_ALLOW_SINGLE",
@@ -352,11 +353,16 @@ fn sota_label_covers_metered_provider_names() {
         "thinkingmachines/inkling-small:free",
         "longcat",
         "daybreak",
+        "anthropic",
+        "claude-opus-5-5",
+        "claude-sonnet-5-5",
     ] {
         assert!(is_sota_label(label), "{label} should be treated as SOTA");
     }
     assert!(!is_sota_label("practice"));
     assert!(!is_sota_label("atlas"));
+    assert!(!is_sota_label("claude-local"));
+    assert!(!is_sota_label("qwopus-coder"));
     assert!(
         !is_sota_label("qwen3.6-27b-mtp-pi-tune"),
         "local Qwen checkpoints must stay local-eligible"
@@ -610,6 +616,38 @@ fn meta_route_serves_muse_spark_from_the_meta_model_api() {
         optional_meta_http_club().is_none(),
         "the allowlist omits meta"
     );
+}
+
+/// Muse Wonder 1.0 is its own club beside the configured `meta` seat, by its
+/// model id, and is not duplicated when the `meta` seat is pinned to it.
+#[test]
+fn meta_clubs_seat_muse_wonder_beside_the_configured_seat() {
+    let _guard = env_lock();
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "meta");
+    let _key = ScopedEnv::set("ANGEL_META_KEY", "test-key");
+    let _model = ScopedEnv::unset("ANGEL_META_MODEL");
+    let _api = ScopedEnv::unset("ANGEL_META_API");
+    let links = optional_meta_http_clubs();
+    let seats: Vec<_> = links
+        .iter()
+        .map(|(alias, club, _)| (alias.as_str(), club.model_identity()))
+        .collect();
+    assert_eq!(
+        seats,
+        vec![
+            ("meta", Some("muse-spark-1.3".to_string())),
+            ("muse-wonder-1.0", Some("muse-wonder-1.0".to_string())),
+        ]
+    );
+    assert!(is_sota_label("muse-wonder-1.0"));
+
+    let _pinned = ScopedEnv::set("ANGEL_META_MODEL", "muse-wonder-1.0");
+    assert_eq!(optional_meta_http_clubs().len(), 1, "pinned seat is not duplicated");
+
+    let _chat = ScopedEnv::set("ANGEL_META_API", "chat");
+    let _unpin = ScopedEnv::unset("ANGEL_META_MODEL");
+    let _scope = ScopedEnv::set("ANGEL_API_CLUBS", "meta,muse-wonder-1.0");
+    assert_eq!(optional_meta_http_clubs().len(), 2, "chat route seats both");
 }
 
 /// The Muse seat speaks the Responses API (reasoning summaries reach the
@@ -1376,30 +1414,30 @@ fn parse_tailnet_disambiguates_by_dns_name() {
             "k1": {
                 "HostName": "Gpubox",
                 "DNSName": "gpubox-1.tail.ts.net.",
-                "TailscaleIPs": ["100.64.0.2", "fd7a::2"],
+                "TailscaleIPs": ["192.0.2.2", "fd7a::2"],
                 "Online": true
             },
             "k2": {
                 "HostName": "Gpubox",
                 "DNSName": "gpubox.tail.ts.net.",
-                "TailscaleIPs": ["100.64.0.5", "fd7a::3"],
+                "TailscaleIPs": ["192.0.2.5", "fd7a::3"],
                 "Online": false
             },
             "k3": {
                 "HostName": "compute-a",
                 "DNSName": "compute-a.tail.ts.net.",
-                "TailscaleIPs": ["100.64.0.3"],
+                "TailscaleIPs": ["192.0.2.3"],
                 "Online": true
             }
         }
     });
     let m = parse_tailnet(&v);
-    assert_eq!(m.get("gpubox-1").map(|h| h.ip.as_str()), Some("100.64.0.2"));
-    assert_eq!(m.get("gpubox").map(|h| h.ip.as_str()), Some("100.64.0.5"));
+    assert_eq!(m.get("gpubox-1").map(|h| h.ip.as_str()), Some("192.0.2.2"));
+    assert_eq!(m.get("gpubox").map(|h| h.ip.as_str()), Some("192.0.2.5"));
     assert!(m["gpubox-1"].online && !m["gpubox"].online);
     assert!(m["workstation"].online, "Self defaults to online");
     // IPv4 picked, not the IPv6 that follows it.
-    assert_eq!(m["compute-a"].ip, "100.64.0.3");
+    assert_eq!(m["compute-a"].ip, "192.0.2.3");
 }
 
 #[test]
@@ -1408,13 +1446,13 @@ fn url_from_uses_tailnet_then_fallback() {
     m.insert(
         "compute-a".to_string(),
         TailHost {
-            ip: "100.64.0.3".into(),
+            ip: "192.0.2.3".into(),
             online: true,
         },
     );
     assert_eq!(
         url_from("compute-a", 8000, "9.9.9.9", &m),
-        "http://100.64.0.3:8000/v1"
+        "http://192.0.2.3:8000/v1"
     );
     // Unknown host uses the caller-provided fallback.
     assert_eq!(
@@ -1427,21 +1465,21 @@ fn url_from_uses_tailnet_then_fallback() {
 fn every_discovered_host_folds_into_the_local_box() {
     // No machine is a box of its own: whatever peer serves a model, the model
     // is another mode of `local`.
-    for host in ["spark", "turbo", "toymaker", "Some-Peer", ""] {
+    for host in ["spark", "gpu-host", "workstation", "Some-Peer", ""] {
         assert_eq!(canonical_fleet_box(host), "local", "{host:?}");
     }
     let mut m = std::collections::HashMap::new();
     m.insert(
         "compute-a".to_string(),
         TailHost {
-            ip: "100.64.0.9".into(),
+            ip: "192.0.2.9".into(),
             online: true,
         },
     );
     // A tailnet label still resolves case-insensitively to its address.
     assert_eq!(
         url_from(" Compute-A ", 8001, "127.0.0.1", &m),
-        "http://100.64.0.9:8001/v1"
+        "http://192.0.2.9:8001/v1"
     );
     assert!(host_online("compute-a", &m));
     assert_eq!(
@@ -1458,7 +1496,7 @@ fn resolve_club_url_local_env_pin_wins_over_tailnet() {
     m.insert(
         "compute-a".to_string(),
         TailHost {
-            ip: "100.64.0.3".into(),
+            ip: "192.0.2.3".into(),
             online: true,
         },
     );
@@ -1470,7 +1508,7 @@ fn resolve_club_url_local_env_pin_wins_over_tailnet() {
     let _clear = ScopedEnv::unset("ANGEL_LOCAL_URL");
     assert_eq!(
         resolve_club_url("LOCAL", "compute-a", 8000, "127.0.0.1", &m),
-        "http://100.64.0.3:8000/v1"
+        "http://192.0.2.3:8000/v1"
     );
 }
 
@@ -2845,7 +2883,7 @@ fn endpoint_host_port_parses_only_plain_http() {
 fn hydra_targets_take_only_chat_surfaces() {
     let v = serde_json::json!({"ok": true, "surfaces": [
         {"surface_id": "peer-a:8090", "host_id": "peer-a",
-         "endpoint": "http://100.64.0.4:8090/v1",
+         "endpoint": "http://192.0.2.4:8090/v1",
          "model_id": "qwen3.6-35b", "roles": ["chat"]},
         {"surface_id": "peer-b:8001", "host_id": "Peer-B",
          "endpoint": "http://127.0.0.1:8001/v1",
@@ -2859,15 +2897,15 @@ fn hydra_targets_take_only_chat_surfaces() {
          "endpoint": "https://api.example.com/v1", "roles": ["chat"]},
         // Chat, bare endpoint, blank host_id.
         {"surface_id": "x", "host_id": "",
-         "endpoint": "http://100.66.1.2:8012", "roles": ["chat"]},
+         "endpoint": "http://198.51.100.2:8012", "roles": ["chat"]},
     ]});
     // Every chat surface is another mode of the one `local` box.
     assert_eq!(
         parse_hydra_chat_targets(&v),
         vec![
-            ("local".to_string(), "100.64.0.4".to_string(), 8090),
+            ("local".to_string(), "192.0.2.4".to_string(), 8090),
             ("local".to_string(), "127.0.0.1".to_string(), 8001),
-            ("local".to_string(), "100.66.1.2".to_string(), 8012),
+            ("local".to_string(), "198.51.100.2".to_string(), 8012),
         ]
     );
     // Degenerate replies parse to nothing rather than erroring.
@@ -2973,20 +3011,20 @@ fn model_serving_exclusion_policy_is_explicit_and_exact() {
     let _excluded = ScopedEnv::unset("ANGEL_MODEL_SERVING_EXCLUDE_HOSTS");
 
     // No machine name is special by default, including Atlas-shaped names.
-    assert!(model_serving_target_allowed("turbo", "100.64.0.4"));
-    assert!(model_serving_target_allowed("atlas", "100.64.0.2"));
-    assert!(model_serving_target_allowed("atlas-1", "100.64.0.3"));
-    assert!(model_serving_target_allowed("atlas-10", "100.64.0.4"));
-    assert!(model_serving_target_allowed("custom", "100.64.0.2"));
+    assert!(model_serving_target_allowed("turbo", "192.0.2.4"));
+    assert!(model_serving_target_allowed("atlas", "192.0.2.2"));
+    assert!(model_serving_target_allowed("atlas-1", "192.0.2.3"));
+    assert!(model_serving_target_allowed("atlas-10", "192.0.2.4"));
+    assert!(model_serving_target_allowed("custom", "192.0.2.2"));
 
-    let _excluded = ScopedEnv::set("ANGEL_MODEL_SERVING_EXCLUDE_HOSTS", " Atlas , 100.64.0.3 ");
-    assert!(!model_serving_target_allowed("atlas", "100.64.0.2"));
-    assert!(!model_serving_target_allowed("other", "100.64.0.3"));
-    assert!(model_serving_target_allowed("atlas-1", "100.64.0.4"));
-    assert!(model_serving_target_allowed("atlas-10", "100.64.0.5"));
+    let _excluded = ScopedEnv::set("ANGEL_MODEL_SERVING_EXCLUDE_HOSTS", " Atlas , 192.0.2.3 ");
+    assert!(!model_serving_target_allowed("atlas", "192.0.2.2"));
+    assert!(!model_serving_target_allowed("other", "192.0.2.3"));
+    assert!(model_serving_target_allowed("atlas-1", "192.0.2.4"));
+    assert!(model_serving_target_allowed("atlas-10", "192.0.2.5"));
 
     let _legacy_enabled = ScopedEnv::set("ANGEL_ATLAS_MODEL_SERVING", "1");
-    assert!(!model_serving_target_allowed("atlas", "100.64.0.2"));
+    assert!(!model_serving_target_allowed("atlas", "192.0.2.2"));
 }
 
 #[test]
@@ -3024,6 +3062,71 @@ fn short_label_strips_path_and_ext() {
 fn short_label_truncates_non_ascii_on_char_boundary() {
     let label = short_model_label("aaaaaaaaaaaaaaaaaaaaaaaើ-tail.gguf");
     assert_eq!(label, "aaaaaaaaaaaaaaaaaaaaaaa");
+}
+
+#[test]
+fn anthropic_opus_55_seat_uses_the_env_key_and_stays_explicit() {
+    let _guard = env_lock();
+    let _clubs = ScopedEnv::set("ANGEL_API_CLUBS", "anthropic");
+    let _angel_key = ScopedEnv::unset("ANGEL_ANTHROPIC_KEY");
+    let _key = ScopedEnv::set("ANTHROPIC_API_KEY", "sk-ant-test");
+    let _model = ScopedEnv::unset("ANGEL_ANTHROPIC_MODEL");
+    let _url = ScopedEnv::unset("ANGEL_ANTHROPIC_URL");
+
+    assert_eq!(
+        static_model_window("claude-opus-5-5"),
+        Some((1_000_000, true))
+    );
+    let links = optional_anthropic_http_clubs();
+    let routes = links
+        .iter()
+        .map(|(alias, club, _)| (alias.as_str(), club.model_identity().unwrap()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        routes,
+        vec![
+            ("anthropic", "claude-sonnet-5-5".to_string()),
+            ("claude-opus-5-5", "claude-opus-5-5".to_string()),
+        ]
+    );
+
+    let mut meta = Vec::new();
+    let mut agents = vec![direct_sota_agent(0, &links, &mut meta)];
+    assert!(
+        meta.is_empty(),
+        "Anthropic seats are chosen by name, never auto-elected"
+    );
+    assert_eq!(resolve_driver(&mut agents, "opus"), Some(0));
+    assert_eq!(agents[0].active, 1);
+    assert_eq!(agents[0].slots[1].club.label(), "claude-opus-5-5");
+    assert_eq!(resolve_driver(&mut agents, "opus 5.5"), Some(0));
+    assert_eq!(agents[0].active, 1);
+    assert_eq!(resolve_driver(&mut agents, "claude-opus-5.5"), Some(0));
+    assert_eq!(resolve_driver(&mut agents, "anthropic"), Some(0));
+    assert_eq!(agents[0].active, 0);
+    assert_eq!(agents[0].slots[0].club.label(), "claude-sonnet-5-5");
+
+    let _pinned = ScopedEnv::set("ANGEL_ANTHROPIC_MODEL", "claude-opus-5-5");
+    let pinned = optional_anthropic_http_clubs();
+    assert_eq!(pinned.len(), 1);
+    assert_eq!(pinned[0].0, "anthropic");
+    assert_eq!(
+        pinned[0].1.model_identity().as_deref(),
+        Some("claude-opus-5-5")
+    );
+    let mut pinned_agents = vec![direct_sota_agent(0, &pinned, &mut Vec::new())];
+    assert_eq!(resolve_driver(&mut pinned_agents, "opus-5.5"), Some(0));
+    assert_eq!(pinned_agents[0].slots[0].club.label(), "claude-opus-5-5");
+    drop(_pinned);
+
+    {
+        let _hidden = ScopedEnv::set("ANGEL_API_CLUBS", "glm");
+        assert!(optional_anthropic_http_clubs().is_empty());
+    }
+    {
+        let _no_key = ScopedEnv::unset("ANTHROPIC_API_KEY");
+        assert!(optional_anthropic_http_clubs().is_empty());
+    }
 }
 
 #[test]
@@ -3505,6 +3608,97 @@ fn glm_catalog_lists_current_and_previous_models_without_duplicates() {
 }
 
 #[test]
+fn kimi_code_plan_catalog_serves_its_own_k3_1_ids() {
+    let _guard = env_lock();
+    let _enabled = ScopedEnv::set("ANGEL_API_CLUBS", "kimi");
+    let _key = ScopedEnv::set("ANGEL_KIMI_KEY", "test-key");
+    let _url = ScopedEnv::set("ANGEL_KIMI_URL", "https://api.kimi.ai/coding/v1");
+    let _model = ScopedEnv::set("ANGEL_KIMI_MODEL", "k3");
+    let _kimi_model = ScopedEnv::unset("KIMI_MODEL");
+    let _moonshot_model = ScopedEnv::unset("MOONSHOT_MODEL");
+
+    assert!(is_kimi_code_url("https://api.kimi.com/coding/v1"));
+    assert!(!is_kimi_code_url("https://api.moonshot.ai/v1"));
+    // Moonshot's `kimi-k3.1` is a 400 on the plan; nicknames land on `k3.1-pro`.
+    assert_eq!(resolve_kimi_model_alias_for("k3.1", true), "k3.1-pro");
+    assert_eq!(resolve_kimi_model_alias_for("kimi-k3.1", true), "k3.1-pro");
+    assert_eq!(resolve_kimi_model_alias_for("kimi-k3", true), "k3");
+    assert_eq!(static_model_window("k3.1-pro"), Some((1_048_576, true)));
+    let routes = optional_kimi_http_clubs()
+        .iter()
+        .map(|(alias, club, _)| (alias.clone(), club.model_identity().unwrap()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        routes,
+        vec![
+            ("kimi".to_string(), "k3".to_string()),
+            ("k3.1-pro".to_string(), "k3.1-pro".to_string()),
+            ("k3.1-pro-highspeed".to_string(), "k3.1-pro-highspeed".to_string()),
+        ]
+    );
+    // A K3.1 pin on the plan's own seat canonicalizes instead of 400ing.
+    unsafe { std::env::set_var("ANGEL_KIMI_MODEL", "kimi-k3.1") };
+    let pinned = optional_kimi_http_clubs();
+    assert_eq!(pinned[0].1.model_identity().as_deref(), Some("k3.1-pro"));
+}
+
+#[test]
+fn kimi_catalog_lists_current_and_new_models_without_duplicates() {
+    let _guard = env_lock();
+    let _enabled = ScopedEnv::set("ANGEL_API_CLUBS", "kimi");
+    let _key = ScopedEnv::set("ANGEL_KIMI_KEY", "test-key");
+    let _model = ScopedEnv::unset("ANGEL_KIMI_MODEL");
+    let _kimi_model = ScopedEnv::unset("KIMI_MODEL");
+    let _moonshot_model = ScopedEnv::unset("MOONSHOT_MODEL");
+    // Hermetic against an operator's own Kimi Code plan URL.
+    let _url = ScopedEnv::unset("ANGEL_KIMI_URL");
+    let _kimi_url = ScopedEnv::unset("KIMI_API_URL");
+    let _moonshot_url = ScopedEnv::unset("MOONSHOT_API_URL");
+
+    assert_eq!(KIMI_API_MODEL_OPTIONS, &["kimi-k3", "kimi-k3.1"]);
+    assert_eq!(resolve_kimi_model_alias("k3.1"), "kimi-k3.1");
+    assert_eq!(resolve_kimi_model_alias("Kimi-K3.1"), "kimi-k3.1");
+    // Provider-authored ids and the Kimi Code plan's `k3` pass through.
+    assert_eq!(resolve_kimi_model_alias("k3"), "k3");
+    assert_eq!(resolve_kimi_model_alias("kimi-k3"), "kimi-k3");
+    assert_eq!(
+        resolve_kimi_model_alias("private/kimi-next"),
+        "private/kimi-next"
+    );
+    assert_eq!(static_model_window("kimi-k3.1"), Some((1_048_576, true)));
+    let links = optional_kimi_http_clubs();
+    let routes = links
+        .iter()
+        .map(|(alias, club, _)| (alias.as_str(), club.model_identity().unwrap()))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        routes,
+        vec![
+            ("kimi", "kimi-k3".to_string()),
+            ("kimi-k3.1", "kimi-k3.1".to_string()),
+        ]
+    );
+
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("ANGEL_KIMI_MODEL", "kimi-k3.1") };
+    let pinned = optional_kimi_http_clubs();
+    assert_eq!(pinned.len(), 2);
+    assert_eq!(pinned[0].0, "kimi");
+    assert_eq!(pinned[0].1.model_identity().as_deref(), Some("kimi-k3.1"));
+    assert_eq!(pinned[1].0, "kimi-k3");
+    assert_eq!(pinned[1].1.model_identity().as_deref(), Some("kimi-k3"));
+
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("ANGEL_KIMI_MODEL", "k3.1") };
+    let nickname = optional_kimi_http_clubs();
+    assert_eq!(nickname.len(), 2);
+    assert_eq!(nickname[0].0, "kimi");
+    assert_eq!(nickname[0].1.model_identity().as_deref(), Some("kimi-k3.1"));
+    assert_eq!(nickname[0].1.label(), "kimi-k3.1");
+    assert_eq!(nickname[1].0, "kimi-k3");
+}
+
+#[test]
 fn sota_moa_judge_defaults_to_codex_oauth_before_longcat() {
     let _guard = env_lock();
     let _scrub = scrub_sota_moa_env();
@@ -3520,7 +3714,7 @@ fn sota_moa_judge_defaults_to_codex_oauth_before_longcat() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let judge = pick_sota_role(&links, "ANGEL_SOTA_MOA_JUDGE_CLUB", SOTA_MOA_JUDGE_PREFS);
+    let judge = pick_sota_role(&links, "ANGEL_SOTA_MOA_JUDGE_CLUB", &baseline_preferences().standard);
     assert_eq!(judge.label(), "openai");
 }
 
@@ -3572,7 +3766,7 @@ fn sota_moa_verify_defaults_to_codex_oauth_before_longcat() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let verify = pick_sota_role(&links, "ANGEL_SOTA_MOA_VERIFY_CLUB", SOTA_MOA_VERIFY_PREFS);
+    let verify = pick_sota_role(&links, "ANGEL_SOTA_MOA_VERIFY_CLUB", &baseline_preferences().standard);
     assert_eq!(verify.label(), "openai");
 }
 
@@ -3622,19 +3816,19 @@ fn cheap_moa_pool_excludes_metered_frontier_links_and_routes_expected_roles() {
         vec!["openrouter", "longcat"]
     );
     assert_eq!(
-        pick_sota_role(&cheap, keys[0], SOTA_MOA_CHEAP_PROPOSE_PREFS).label(),
+        pick_sota_role(&cheap, keys[0], &baseline_preferences().cheap_propose).label(),
         "longcat"
     );
     assert_eq!(
-        pick_sota_role(&cheap, keys[1], SOTA_MOA_CHEAP_JUDGE_PREFS).label(),
+        pick_sota_role(&cheap, keys[1], &baseline_preferences().cheap_judge).label(),
         "longcat"
     );
     assert_eq!(
-        pick_sota_role(&cheap, keys[2], SOTA_MOA_CHEAP_VERIFY_PREFS).label(),
+        pick_sota_role(&cheap, keys[2], &baseline_preferences().cheap_verify).label(),
         "tencent/hy3:free"
     );
     assert_eq!(
-        pick_sota_role(&cheap, keys[3], SOTA_MOA_CHEAP_AGG_PREFS).label(),
+        pick_sota_role(&cheap, keys[3], &baseline_preferences().cheap_aggregate).label(),
         "longcat"
     );
 }
@@ -3736,7 +3930,7 @@ fn sota_moa_role_can_be_pinned_by_live_grok_model_name() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let agg = pick_sota_role(&links, key, SOTA_MOA_AGG_PREFS);
+    let agg = pick_sota_role(&links, key, &baseline_preferences().standard);
     assert_eq!(agg.label(), "grok-research");
 }
 
@@ -3763,7 +3957,7 @@ fn sota_moa_aggregate_defaults_to_smartest_link_codex_oauth() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let agg = pick_sota_role(&links, "ANGEL_SOTA_MOA_AGG_CLUB", SOTA_MOA_AGG_PREFS);
+    let agg = pick_sota_role(&links, "ANGEL_SOTA_MOA_AGG_CLUB", &baseline_preferences().standard);
     assert_eq!(agg.label(), "openai");
 }
 
@@ -3790,7 +3984,7 @@ fn sota_moa_aggregate_degrades_to_next_smartest_without_codex() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let agg = pick_sota_role(&links, "ANGEL_SOTA_MOA_AGG_CLUB", SOTA_MOA_AGG_PREFS);
+    let agg = pick_sota_role(&links, "ANGEL_SOTA_MOA_AGG_CLUB", &baseline_preferences().standard);
     assert_eq!(agg.label(), "kimi-k3");
 }
 
@@ -8468,4 +8662,36 @@ fn econ_contract_rides_as_its_route_when_the_request_offers_tools() {
     // Either form counts as already spliced.
     let spliced = [ChatMsg::system(route.as_str()), ask[0].clone()];
     assert!(crate::agent::club::provision::econ_contract(&spliced, true).is_none());
+}
+
+#[test]
+fn reordered_cheap_generation_cannot_expand_the_native_pool() {
+    let _guard = env_lock();
+    let _scrub = scrub_sota_moa_env();
+    let _unset = ScopedEnv::unset("ANGEL_SOTA_MOA_TEST_UNSET");
+    let dir = std::env::temp_dir().join(format!(
+        "angel-moa-cheap-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("preferences.json");
+    let mut config: serde_json::Value = serde_json::from_str(include_str!("../../../lib/club/moa-preferences.json")).unwrap();
+    config["cheap_fallback"].as_array_mut().unwrap().reverse();
+    std::fs::write(&path, serde_json::to_vec(&config).unwrap()).unwrap();
+    let generation = test_preferences(&path);
+    let links: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = [
+        ("codex-run", "openai"), ("kimi", "kimi-k3"),
+        ("openrouter", "tencent/hy3:free"), ("longcat", "longcat"),
+    ].into_iter().map(|(name, model)| (
+        name.to_string(), Arc::new(LabelClub(model)) as Arc<dyn Club>, Arc::new(AtomicBool::new(true))
+    )).collect();
+    let cheap = ordered_cheap_links_for_test(&links, &generation);
+    assert_eq!(cheap.iter().map(|(name, _, _)| name.as_str()).collect::<Vec<_>>(), vec!["longcat", "openrouter"]);
+    for preferences in [&generation.cheap_propose, &generation.cheap_judge, &generation.cheap_verify, &generation.cheap_aggregate] {
+        let selected = pick_sota_role(&cheap, "ANGEL_SOTA_MOA_TEST_UNSET", preferences);
+        assert!(matches!(selected.label(), "longcat" | "tencent/hy3:free"));
+    }
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(dir).unwrap();
 }

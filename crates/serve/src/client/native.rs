@@ -278,6 +278,16 @@ impl<G: GameClient> NativeLink<G> {
         self.stop(LinkStatus::Closed);
     }
 
+    /// The socket a remote link dials and what its certificate must chain
+    /// to, for what its host serves beside it (`client::http_get`); `None`
+    /// in process.
+    pub fn remote(&self) -> Option<(&str, &Trust)> {
+        match &self.door {
+            Door::Remote { url, trust } => Some((url, trust)),
+            Door::Local(_) => None,
+        }
+    }
+
     pub fn status(&self) -> &LinkStatus {
         &self.status
     }

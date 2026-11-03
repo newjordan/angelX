@@ -45,6 +45,21 @@
       "file": "labyrinth-exploration-LICENSE.txt",
       "source": "https://raw.githubusercontent.com/nasqret/labyrinth-exploration/019a93da59313e697dc6f28bcfe1588a376c7565/LICENSE",
       "sha256": "602458a6e05605d07b67c553087ea8d4bf21e3824b531d986f6be7fdc18b6dda"
+    },
+    {
+      "file": "share-tech-mono-OFL.txt",
+      "source": "https://raw.githubusercontent.com/google/fonts/90abd17b4f97671435798b6147b698aa9087612f/ofl/sharetechmono/OFL.txt",
+      "sha256": "9d96f445b6e9c701428811d0177f894874f8d6f07ecc30d568c506542368f3ff"
+    },
+    {
+      "file": "../cockpit/assets/fonts/ShareTechMono-Regular.ttf",
+      "source": "https://raw.githubusercontent.com/google/fonts/1b86e1e716445daccc346253911955073b0d254a/ofl/sharetechmono/ShareTechMono-Regular.ttf",
+      "sha256": "9ceab1f87414829af259c0f537573ae03ef7dd3147c0b27a36a1a0beb6732677"
+    },
+    {
+      "file": "bend-LICENSE.txt",
+      "source": "https://raw.githubusercontent.com/bendlang/bend/221a350c2f7f7134884740018e6e90001fb6d230/LICENSE",
+      "sha256": "0beb288abd3d067e231f3fbe7df1f8ee37344061fc67f22018150a19e4b26c35"
     }
   ]
 }

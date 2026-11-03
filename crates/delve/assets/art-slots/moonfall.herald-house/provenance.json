@@ -11,6 +11,6 @@
   "prompt_sha256": "64f5279795dda2f6f1910fcf494c30dc57a7695aaaf56265908d626a18ac242e",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "source-sheet.png (generation 2)",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.herald-house/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.herald-house/v01/source-sheet.png",
   "source_sha256": "b005eff2a0f603d33babaf3f2574640c646f2a521fc8c2ce32c01e24efe35c93"
 }

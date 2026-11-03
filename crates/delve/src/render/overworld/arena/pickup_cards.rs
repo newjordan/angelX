@@ -244,33 +244,39 @@ pub fn lift(tick: u32) -> f32 {
 /// in from the edge, a hairline inside that, the corners cut back.
 fn blank(shine: bool) -> Vec<u8> {
     let (w, h) = FACE;
+    let im = paper(w as i32, h as i32, shine);
+    im.rgba_bytes()
+}
+
+/// The pickup card's paper and cut corners, also used by the crossroads.
+pub(super) fn paper(w: i32, h: i32, shine: bool) -> super::super::ink::Img {
     let rim = rim_tone(shine);
+    let rim_width = if w == FACE.0 as i32 { 2 } else { 1 };
     let hair = rim.map(|c| (u16::from(c) * 2 / 5) as u8);
-    let mut px = vec![0u8; (w * h * 4) as usize];
+    let mut im = super::super::ink::Img::new(w, h);
     for y in 0..h {
         for x in 0..w {
             let edge = x.min(w - 1 - x).min(y).min(h - 1 - y);
             let corner = x.min(w - 1 - x) + y.min(h - 1 - y);
             let c = if corner < 2 {
                 CUT_INK
-            } else if edge < 2 || corner < 4 {
+            } else if edge < rim_width || corner < 4 {
                 rim
             } else if edge == 4 {
                 hair
             } else {
                 FACE_INK
             };
-            let at = ((y * w + x) * 4) as usize;
-            px[at..at + 4].copy_from_slice(&[c[0], c[1], c[2], 255]);
+            im.set(x, y, c);
         }
     }
-    px
+    im
 }
 
 /// The face of a card: drawing `index` (`picture`) fitted to the middle of
 /// it over its dark, a small diamond of the rim's tone under it.
 pub fn face(index: u8, shine: bool) -> Vec<u8> {
-    let (w, h) = FACE;
+    let (w, _) = FACE;
     let mut px = blank(shine);
     if let Some((pw, ph, src)) = picture(index) {
         // Each pixel of the fitted drawing is the mean of what it covers.

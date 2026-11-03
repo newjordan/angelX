@@ -2,9 +2,12 @@
 //! input draws the same bytes.
 
 pub mod art;
+pub use crate::motion;
 pub mod escape;
+pub mod genie;
 pub mod braille;
 pub mod overworld;
+pub mod racers;
 pub mod world3d;
 
 #[cfg(any(test, feature = "testing"))]
@@ -16,3 +19,5 @@ mod arcade_floor;
 #[cfg(test)]
 #[path = "../tests/render/arcade__gates.rs"]
 mod arcade_tests;
+
+pub mod viewer;

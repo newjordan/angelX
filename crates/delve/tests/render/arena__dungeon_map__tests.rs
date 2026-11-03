@@ -447,6 +447,7 @@ fn every_icon_is_a_five_pixel_mark_on_the_palette_and_each_one_differs() {
         Icon::Nook,
         Icon::Forge,
         Icon::Hold,
+        Icon::Mission,
     ];
     let mut seen = BTreeSet::new();
     for icon in icons {
@@ -614,6 +615,7 @@ fn write_map_shots() {
         Icon::Nook,
         Icon::Forge,
         Icon::Hold,
+        Icon::Mission,
     ]
     .into_iter()
     .enumerate()

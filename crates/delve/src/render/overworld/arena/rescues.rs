@@ -39,11 +39,6 @@ pub(super) fn cage(cv: &mut Img, run: &Run) {
     cv.stamp(&im, x - im.w / 2, y - im.h + 3);
 }
 
-/// The cage's bars, shut or open (the swamp's pen borrows them for now).
-pub(super) fn cage_bars(open: bool) -> Img {
-    Img::from_rows(if open { &OPEN } else { &CAGE })
-}
-
 /// The people at home, each where they like to stand.
 pub(super) fn residents(cv: &mut Img, run: &Run) {
     // Once the tavern is dug, Maud keeps its bar instead.

@@ -32,7 +32,8 @@ pub const CLASSES: [Class; 9] = [
         hall: "Labyrinth College",
         kit: "scryglass",
         ink: 'z',
-        spells: &["cabbage-storm", "hedge-maze"],
+        // The Mage weaves its spells (`weave`): none sit in its slots.
+        spells: &[],
         hand: Some(&["thunder-scroll", "rime-whistle"]),
     },
     Class {
@@ -53,7 +54,7 @@ pub fn shot_look(hero: &Hero) -> Option<(String, String)> {
     let (colour, shape) = match of(hero)?.name {
         "Mage" => (ARCANE, "bolt"),
         "Healer" => (HOLY, "spark"),
-        "Bard" => ("gold", "note"),
+        "Bard" => (SONG, "note"),
         _ => return None,
     };
     Some((colour.to_string(), shape.to_string()))
@@ -62,13 +63,16 @@ pub fn shot_look(hero: &Hero) -> Option<(String, String)> {
 /// The class shots' looks, as the renderer reads them.
 pub const ARCANE: &str = "arcane";
 pub const HOLY: &str = "holy";
+/// The Bard's notes: gold, dancing, a neon wake behind them.
+pub const SONG: &str = "song";
 
-/// What a class's own shot sounds like as it leaves.
+/// What a class's own shot sounds like as it leaves: the Bard's is the next
+/// stab of its riff (`bard::RIFF`; the kick under it is `bard::pulse`).
 pub fn shot_sound(hero: &Hero) -> Option<&'static str> {
     match of(hero)?.name {
         "Mage" => Some("shot_arcane"),
         "Healer" => Some("shot_spark"),
-        "Bard" => Some("shot_spark"),
+        "Bard" => Some(super::bard::riff_note(hero.loosed)),
         _ => None,
     }
 }
@@ -85,8 +89,11 @@ pub fn next_class(hero: &Hero) -> &'static Class {
     &CLASSES[at.map_or(0, |i| (i + 1) % CLASSES.len())]
 }
 
-/// Each class's banner stone on the kingdom map (tiles): open ground a few
-/// tiles beside its hall's door, clear of every other door.
+/// The lot each class's banner stone stood on in the kingdom (tiles): open
+/// ground a few tiles beside its hall's door, clear of every other door. No
+/// banner stands there now: a class is taken up in the Sozzled Griffin, at
+/// its patron's table (`alehouse`). The lots stay, so the kingdom's other
+/// things (trinkets, the herald) keep their places.
 pub fn stones(geo: &map::Geography) -> Vec<(usize, (i32, i32))> {
     CLASSES
         .iter()
@@ -122,7 +129,8 @@ pub fn of(hero: &Hero) -> Option<&'static Class> {
 }
 
 impl Run {
-    /// E at a banner stone: that class, at once.
+    /// E on the kingdom's open ground: the trinket there, if any. (E at a
+    /// door is the door's.)
     pub(super) fn tick_class_stones(&mut self, inputs: &BTreeMap<u32, Input>) {
         self.tick_sitters(inputs);
         if self.room().kind != RoomKind::Kingdom {
@@ -130,8 +138,7 @@ impl Run {
             return;
         }
         let geo = map::geography(&self.kingdom.wishes);
-        let stones = stones(&geo);
-        let mut changes = Vec::new();
+        let mut users = Vec::new();
         for (&id, hero) in &self.players {
             let down = inputs.get(&id).is_some_and(|i| i.valid() && i.interact);
             if !down {
@@ -141,26 +148,14 @@ impl Run {
             if hero.hp == 0 || hero.stone || !self.kingdom.class_held.insert(id) {
                 continue;
             }
-            let at = stones.iter().find(|&&(_, (sx, sy))| {
-                (hero.x - (sx as f32 + 0.5) * TILE_UNITS).hypot(hero.y - (sy as f32 + 0.5) * TILE_UNITS)
-                    < REACH * TILE_UNITS
-            });
-            // A press at a door is for the door.
-            let at_door = geo.sites.iter().any(|s| {
-                let (x, y) = ((s.stand.0 as f32 + 0.5) * TILE_UNITS, (s.stand.1 as f32 + 0.7) * TILE_UNITS);
-                (hero.x - x).hypot(hero.y - y) < 2.1
-            });
-            if at.is_some() || !at_door {
-                changes.push((id, at.map(|&(i, _)| i)));
+            // A press at a door is for the door: where its ENTER sign
+            // shows, the door is nearer than any trinket (`kingdom::door_at`).
+            if super::kingdom::door_at(&geo, hero.x, hero.y).is_none() {
+                users.push(id);
             }
         }
-        for (id, class) in changes {
-            match class {
-                Some(i) => self.become_class(id, &CLASSES[i]),
-                None => {
-                    self.use_trinket(id, &geo);
-                }
-            }
+        for id in users {
+            self.use_trinket(id, &geo);
         }
     }
 
@@ -214,19 +209,39 @@ impl Run {
         if of(hero).is_some_and(|c| c.name == class.name) {
             return;
         }
+        // A knight wishing themselves into being takes up a class as a
+        // calling (its banner), not as a kit: the
+        // weapon and the spells are theirs to wish (`identity`).
+        if hero.shape.is_some() {
+            hero.class = Some(class.name.to_string());
+            let name = hero.name.to_uppercase();
+            self.sounds.push("play_card");
+            self.found = Some((self.tick, id, format!("{name}: CALLED TO THE {}S", class.name.to_uppercase())));
+            return;
+        }
+        // A Mage's woven essences and spells' cooldowns stay with the Mage.
+        hero.weave = weave::Weave::default();
         let share = hero.hp as f32 / hero.max_hp.max(1) as f32;
         if let Some(arm) = arm {
             hero.equip(&arm);
         }
+        // A calling comes with its harness: a knight who takes one up on a
+        // naked start is dressed as that knight, not left bare (the operator,
+        // 2026-10-24: "when people pick a hero they get the naked guy").
+        hero.owned.body = true;
+        hero.owned.helmet = true;
         if let Some(guard) = guard {
             hero.guard = guard.guard.unwrap_or_default();
             hero.guard_card = Some(guard.id.clone());
         }
         hero.hand = class.hand.unwrap_or(kit.hand).iter().map(|c| c.to_string()).collect();
-        // A class's spells go with the class: those of every class come
-        // out of the slots, and this one's go in.
+        // A class's spells go with the class: those of every class (and of
+        // every kit) come out of the slots, and this one's go in.
         for slot in hero.spells.iter_mut() {
-            if slot.as_deref().is_some_and(|id| CLASSES.iter().any(|c| c.spells.contains(&id))) {
+            if slot
+                .as_deref()
+                .is_some_and(|id| CLASSES.iter().any(|c| c.spells.contains(&id)) || knights::kit_spell(id))
+            {
                 *slot = None;
             }
         }

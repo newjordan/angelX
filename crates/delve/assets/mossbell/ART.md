@@ -33,7 +33,7 @@ front. Hood flecks are removed, and damage-1 gains a second shorter fracture.
 The first crown source was rejected at native room size: thin branches sank
 into the Keeper. The broader replacement preserves an open chest while adding
 large amber hooks and teal jaw planes. Retained sources and full prompts live
-in `/work/artifacts/boss-art-20261015/game-3c/source/`: `root.png`,
+in `artifacts/boss-art-20261015/game-3c/source/`: `root.png`,
 `crown-broad.png`, `root-prompt.txt` and `crown-broad-prompt.txt`.
 
 Rejected the first palette conversion's tiny bronze flecks, then a second cleanup

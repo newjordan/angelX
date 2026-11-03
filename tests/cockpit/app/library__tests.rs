@@ -326,7 +326,7 @@ fn every_lesson_closes_with_deterministic_recall_practice() {
             TUTOR_HANDOFF
                 .sub()
                 .pages
-                .contains(&"End the lesson with retrieval practice — ask me to answer these before you confirm understanding:"),
+                .iter().any(|page| page == "End the lesson with retrieval practice — ask me to answer these before you confirm understanding:"),
             "handoff schedules the recall check"
         );
         assert!(

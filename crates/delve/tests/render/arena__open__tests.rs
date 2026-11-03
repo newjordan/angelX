@@ -147,6 +147,12 @@ fn write_open_floor_shots() {
             run.step(&aim);
         }
         save("open-guardian-fight", &seat_scene(&run, w, h, Some(1)).compose(), 3);
+        // Worn down: its name plate's fill short and burning.
+        if let Some(boss) = run.enemies.iter_mut().find(|e| e.is_boss() && e.hp > 0) {
+            boss.hp = boss.max_hp / 5;
+        }
+        run.step(&BTreeMap::new());
+        save("open-guardian-worn", &seat_scene(&run, w, h, Some(1)).compose(), 3);
     }
     save("open-map-fog", &overview(&run, true), 4);
     for (party, depth) in [(1usize, 3u32), (2, 4), (4, 5), (1, 6)] {
@@ -199,4 +205,35 @@ fn open_floor_frame_cost() {
         }) / f64::from(n);
         println!("{name}: {pw}x{ph} px, scenery bake {bake:.1} ms, a seat's frame in parts {frame:.2} ms, as one picture {flat:.2} ms");
     }
+}
+
+
+/// Seat frames of seeded open floors, pinned so a cheaper frame cannot
+/// change a pixel. Recorded on the base before the seat-frame speedup.
+#[test]
+fn open_floor_seat_frames_pinned() {
+    // Freeze the legacy art contract; quick-rig geometry is tested separately.
+    super::super::quick_rig::with_legacy_knight(|| {
+        // (seed, depth, content hash of the composed seat frame).
+        let pinned = [
+            // Re-pinned 2026-10-30: depth 2 is the Mines, laid in the
+            // Demonic Dungeon's cave (`pack_tiles.py`, `pack_kit.py`).
+            // Re-pinned 2026-11-02: an open floor's still art is frozen at
+            // its first bake (torch flicker rides the stage lights), and the
+            // hostile shot's marker gained its rim, ring and core.
+            (17u64, 2u32, 15614235350978121210u64),
+            (17, 5, 11999715618831162729u64),
+            // Re-pinned 2026-10-30 for the same Mines.
+            (3, 2, 3758677056487941284u64),
+            (9, 8, 14451530309162988504u64),
+            (42, 4, 18029879710025752528u64),
+        ];
+        for (seed, depth, expect) in pinned {
+            let mut run = party(seed, depth);
+            run.join_seat(4, "Ysolde");
+            let (w, h) = seat();
+            let hash = seat_scene(&run, w, h, Some(1)).compose().content_hash();
+            assert_eq!(hash, expect, "seed {seed} depth {depth}");
+        }
+    });
 }

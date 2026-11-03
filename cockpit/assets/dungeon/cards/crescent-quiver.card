@@ -1,0 +1,12 @@
+name   Crescent Quiver
+kind   hold
+rarity relic
+text   A quiver cut crescent, so every arrow flies a little wider.
+drop   1
+chest  1
+volley 6
+art
+W8.8W.8.8W
+8.lW8.Wl8
+8.l8.8l8
+..W...W..

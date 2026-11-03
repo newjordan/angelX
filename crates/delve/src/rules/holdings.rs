@@ -8,6 +8,13 @@
 //! holding has ten room bays to build out, a steward to hire, a charter to
 //! raise (its stars) and a coffer that fills with rent.
 //!
+//! Its crew does the work, and the realm watches them do it: two hands and
+//! one more for each room that quarters folk, walking a trip a shift from
+//! the stockpile to the work — courses on the room going up, courses on the
+//! walls, sacks into the granary. The steward's standing order (turned at
+//! the Court's order plate) says which comes first; what there is none of,
+//! they fall through to the next. Unrest halves a crew, a riot stops it.
+//!
 //! Gold only ever comes from play: rent falls due each time the party
 //! clears a floor of a delve (a rent day), and a knight collects it at the
 //! Court or from a floor's steward below. angelX's own work keeps the
@@ -15,12 +22,22 @@
 //!
 //! - cache hits fill the granary; fresh tokens spent pay wages out of it;
 //! - a passing test run mends the most worn walls;
-//! - a commit lays courses on the room being built;
+//! - a commit lays courses on the first room being built;
 //! - a compaction copies a scroll in the scriptorium (charters need one);
 //! - a subagent is a retainer hired to garrison a holding;
 //! - a loop iteration is a patrol that calms unrest;
 //! - a failed or slow turn stirs unrest, which halves rents and then stops
 //!   them.
+//!
+//! And the holdings are lived in (`super::villagers`): named folk
+//! migrate to a stewarded holding with a free bed and grain, eat from
+//! the same granary, lay labour, guard walls, and leave when the
+//! realm lets them go hungry or afraid; guests — merchants,
+//! pilgrims, troubadours, hunters — lodge a few rent days and pay in
+//! kind. The countryside closes the loop: each built larder plot
+//! (bakery, bothy, harbour) has its own named keeper and sends a
+//! sack to this granary every rent day (`note_country`), so building
+//! in the upper world feeds the villages above and below.
 //!
 //! Each mapping is one fixed number below. The run only marks
 //! (`holdings:*`); the cockpit settles through `settle`, `rent_day` and
@@ -50,8 +67,24 @@ pub const COFFER_CAP: u32 = 3000;
 pub const ROOM_LABOUR: u32 = 6;
 /// Labour one commit lays.
 pub const COMMIT_LABOUR: u32 = 3;
-/// Realm seconds between the builders' shifts in play (one labour each).
+/// Realm seconds a hand's trip takes: out to the stockpile, back with a
+/// load, set it down.
 pub const SHIFT_SECS: u32 = 10;
+/// Every holding is bought with a crew of `HANDS`; each standing room that
+/// quarters folk brings one more, to `CREW_CAP`.
+pub const HANDS: u32 = 2;
+pub const QUARTERS: [&str; 4] = ["inn", "barracks", "greathall", "garrison"];
+pub const CREW_CAP: u32 = 6;
+/// Trips a course of a room takes (a room is `ROOM_LABOUR` courses), a
+/// course of wall, and a sack for the granary. A floor takes a bot four to
+/// eight minutes (BARONY.md's haul probe), so a crew of two makes 48 to 96
+/// trips a floor: two to four rooms, or four to eight courses or sacks.
+/// That is the pace a floor's gold buys rooms at (562 to 845 gold, a room
+/// 400 to 500), so labour binds with gold, and a siege's broken courses
+/// compete with the next room.
+pub const COURSE_TRIPS: u32 = 4;
+pub const MEND_TRIPS: u32 = 12;
+pub const STOCK_TRIPS: u32 = 12;
 /// Fresh tokens (input not read from cache, and output) a sack of wages pays for.
 pub const TOKENS_PER_SACK: u64 = 50_000;
 /// Cached input tokens that fill a sack in the granary.
@@ -81,6 +114,139 @@ pub const RAID_MAX: u8 = 3;
 pub const RAIDERS: [u32; 4] = [0, 4, 6, 8];
 pub const RAID_MEND: u32 = 3;
 pub const RAID_PURSE: [u32; 4] = [0, 120, 200, 300];
+/// The storyteller (RimWorld's, cut to fixed numbers). Once the realm's
+/// holdings stand `WORTH` rooms between them, raiders muster against the
+/// richest, `WARN_DAYS` rent days off, and the Court is told. Each band is
+/// stronger than the last (`BANDS`), and once one is dealt with the realm
+/// has `CALM_DAYS` rent days of quiet — counted only while no raiders hold
+/// anything. A band that meets walls and a garrison as strong as it is
+/// breaks on them, and batters `BATTER` courses off the walls; one that
+/// does not takes the holding, and carries off its coffer.
+pub const WORTH: usize = 3;
+pub const WARN_DAYS: u8 = 2;
+pub const CALM_DAYS: u32 = 4;
+pub const BANDS: [u32; 8] = [6, 8, 10, 12, 14, 16, 18, 20];
+pub const BATTER: u32 = 3;
+/// What each standing room of the barracks family, and a brave steward,
+/// add to a holding's walls against a band.
+pub const GARRISON: u32 = 2;
+
+/// Raiders on the road to a holding: the storyteller's warning.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Muster {
+    /// The holding they come for, by its deed key.
+    pub key: String,
+    /// Rent days until they reach it.
+    pub days: u8,
+    /// How strong the band is, set against the walls and the garrison.
+    pub strength: u32,
+}
+
+/// A crew's work. The steward's standing order says which comes first;
+/// work there is none of (nothing rising, walls whole, the granary full)
+/// the crew falls through to the next, in this order — RimWorld's work
+/// priorities, one list a holding.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Work {
+    /// Courses on the room going up.
+    #[default]
+    Build,
+    /// Courses on the walls.
+    Mend,
+    /// Sacks into the realm's granary.
+    Stock,
+}
+
+impl Work {
+    pub const ALL: [Work; 3] = [Work::Build, Work::Mend, Work::Stock];
+
+    pub fn word(self) -> &'static str {
+        match self {
+            Work::Build => "BUILD",
+            Work::Mend => "MEND",
+            Work::Stock => "STOCK",
+        }
+    }
+
+    pub fn doing(self) -> &'static str {
+        match self {
+            Work::Build => "BUILDING",
+            Work::Mend => "MENDING",
+            Work::Stock => "STOCKING",
+        }
+    }
+
+    /// The order after this one, as the Court's plate turns it.
+    pub fn next(self) -> Work {
+        match self {
+            Work::Build => Work::Mend,
+            Work::Mend => Work::Stock,
+            Work::Stock => Work::Build,
+        }
+    }
+
+    /// Trips one course or sack of it takes.
+    pub fn trips(self) -> u32 {
+        match self {
+            Work::Build => COURSE_TRIPS,
+            Work::Mend => MEND_TRIPS,
+            Work::Stock => STOCK_TRIPS,
+        }
+    }
+
+    fn is_first(&self) -> bool {
+        *self == Work::Build
+    }
+}
+
+fn is_zero(n: &u32) -> bool {
+    *n == 0
+}
+
+/// Where a hand is on its trip: how far from the work toward the
+/// stockpile (0 at the work, 1 at the pile), whether it carries a load,
+/// and whether it is working (setting a load down at the work, or taking
+/// one up at the pile).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Leg {
+    pub along: f32,
+    pub laden: bool,
+    pub working: bool,
+}
+
+/// How far into the shift hand `hand` of `hands` starts: a crew's hands
+/// are spread across it so they never walk in step.
+pub fn trip_offset(hand: u32, hands: u32) -> u64 {
+    u64::from(hand) * u64::from(SHIFT_SECS * HZ) / u64::from(hands.max(1))
+}
+
+/// Where hand `hand` of `hands` is at `tick`. A trip lands — the course
+/// laid, the sack stored — the tick a hand is back at the work, the tick
+/// the run marks it (`lands`), so the picture and the rules keep one clock.
+pub fn leg(tick: u64, hand: u32, hands: u32) -> Leg {
+    let shift = u64::from(SHIFT_SECS * HZ);
+    let s = ((tick + trip_offset(hand, hands)) % shift) as f32 / shift as f32;
+    // Setting it down, walking out, taking up a load, walking back.
+    const SET: f32 = 0.15;
+    const OUT: f32 = 0.55;
+    const LOAD: f32 = 0.65;
+    if s < SET {
+        Leg { along: 0.0, laden: true, working: true }
+    } else if s < OUT {
+        Leg { along: (s - SET) / (OUT - SET), laden: false, working: false }
+    } else if s < LOAD {
+        Leg { along: 1.0, laden: false, working: true }
+    } else {
+        Leg { along: 1.0 - (s - LOAD) / (1.0 - LOAD), laden: true, working: false }
+    }
+}
+
+/// Whether hand `hand` of `hands` is back at the work this tick, its trip
+/// landing.
+pub fn lands(tick: u64, hand: u32, hands: u32) -> bool {
+    (tick + trip_offset(hand, hands)).is_multiple_of(u64::from(SHIFT_SECS * HZ))
+}
 
 /// A room family: what a holding is known for.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -146,6 +312,9 @@ pub enum Boon {
     Brawler,
     /// A kennel hound at the party's side for the rest of the delve.
     Hound,
+    /// Nothing for the party: the room's work is the realm's own (the
+    /// Waypoint's stair).
+    None,
 }
 
 /// A room a holding can build.
@@ -159,26 +328,36 @@ pub struct RoomDef {
     pub boon: Boon,
     /// The boon in a word and a number (eight letters at most), on its bay.
     pub says: &'static str,
+    /// A relic from the deep the room also wants, if it is one of the
+    /// great works: found, never bought.
+    pub relic: Option<Spoil>,
 }
 
-/// Three rooms a family, built in this order: ten bays hold ten of the
-/// fifteen, so a holding is what its owners chose to leave out.
-pub const ROOMS: [RoomDef; 15] = [
-    RoomDef { id: "taproom", name: "Taproom", family: Family::Tavern, price: 400, rent: 20, boon: Boon::Brawler, says: "BRAWLER" },
-    RoomDef { id: "brewery", name: "Brewery", family: Family::Tavern, price: 450, rent: 25, boon: Boon::Bomb, says: "BOMB +1" },
-    RoomDef { id: "inn", name: "Inn Rooms", family: Family::Tavern, price: 500, rent: 30, boon: Boon::FullHeal, says: "FULL HP" },
-    RoomDef { id: "smithy", name: "Smithy", family: Family::Forge, price: 400, rent: 20, boon: Boon::Armor(1), says: "MAIL +1" },
-    RoomDef { id: "fletcher", name: "Fletcher", family: Family::Forge, price: 450, rent: 25, boon: Boon::Bomb, says: "FIREBOMB" },
-    RoomDef { id: "armory", name: "Armory", family: Family::Forge, price: 500, rent: 30, boon: Boon::Armor(2), says: "MAIL +2" },
-    RoomDef { id: "shrine", name: "Shrine", family: Family::Chapel, price: 400, rent: 20, boon: Boon::Mana, says: "BLESS" },
-    RoomDef { id: "infirmary", name: "Infirmary", family: Family::Chapel, price: 450, rent: 25, boon: Boon::Raise(40), says: "RAISE" },
-    RoomDef { id: "belltower", name: "Bell Tower", family: Family::Chapel, price: 500, rent: 30, boon: Boon::Ward(150), says: "WARD 5S" },
-    RoomDef { id: "stall", name: "Market Stall", family: Family::Trade, price: 400, rent: 20, boon: Boon::Gold(15), says: "GOLD +15" },
-    RoomDef { id: "counting", name: "Counting House", family: Family::Trade, price: 450, rent: 25, boon: Boon::Gold(30), says: "GOLD +30" },
-    RoomDef { id: "warehouse", name: "Warehouse", family: Family::Trade, price: 500, rent: 30, boon: Boon::Grain(2), says: "GRAIN +2" },
-    RoomDef { id: "barracks", name: "Barracks", family: Family::Barracks, price: 400, rent: 15, boon: Boon::Heal(30), says: "RATIONS" },
-    RoomDef { id: "kennels", name: "Kennels", family: Family::Barracks, price: 450, rent: 15, boon: Boon::Hound, says: "HOUND" },
-    RoomDef { id: "range", name: "Archery Range", family: Family::Barracks, price: 500, rent: 20, boon: Boon::Armor(1), says: "BRACERS" },
+/// Three rooms a family, built in this order, and a great work at each
+/// family's end that also wants a relic from the deep: ten bays hold ten
+/// of the twenty-one, so a holding is what its owners chose to leave out.
+pub const ROOMS: [RoomDef; 21] = [
+    RoomDef { id: "taproom", name: "Taproom", family: Family::Tavern, price: 400, rent: 20, boon: Boon::Brawler, says: "BRAWLER", relic: None },
+    RoomDef { id: "brewery", name: "Brewery", family: Family::Tavern, price: 450, rent: 25, boon: Boon::Bomb, says: "BOMB +1", relic: None },
+    RoomDef { id: "inn", name: "Inn Rooms", family: Family::Tavern, price: 500, rent: 30, boon: Boon::FullHeal, says: "FULL HP", relic: None },
+    RoomDef { id: "greathall", name: "Great Hall", family: Family::Tavern, price: 800, rent: 40, boon: Boon::FullHeal, says: "MEND ALL", relic: Some(Spoil::Hearthstone) },
+    RoomDef { id: "smithy", name: "Smithy", family: Family::Forge, price: 400, rent: 20, boon: Boon::Armor(1), says: "MAIL +1", relic: None },
+    RoomDef { id: "fletcher", name: "Fletcher", family: Family::Forge, price: 450, rent: 25, boon: Boon::Bomb, says: "FIREBOMB", relic: None },
+    RoomDef { id: "armory", name: "Armory", family: Family::Forge, price: 500, rent: 30, boon: Boon::Armor(2), says: "MAIL +2", relic: None },
+    RoomDef { id: "greatforge", name: "Great Forge", family: Family::Forge, price: 800, rent: 40, boon: Boon::Armor(3), says: "MAIL +3", relic: Some(Spoil::Forgeheart) },
+    RoomDef { id: "shrine", name: "Shrine", family: Family::Chapel, price: 400, rent: 20, boon: Boon::Mana, says: "BLESS", relic: None },
+    RoomDef { id: "infirmary", name: "Infirmary", family: Family::Chapel, price: 450, rent: 25, boon: Boon::Raise(40), says: "RAISE", relic: None },
+    RoomDef { id: "belltower", name: "Bell Tower", family: Family::Chapel, price: 500, rent: 30, boon: Boon::Ward(150), says: "WARD 5S", relic: None },
+    RoomDef { id: "greatnave", name: "Great Nave", family: Family::Chapel, price: 800, rent: 40, boon: Boon::Mana, says: "SPELLS", relic: Some(Spoil::Bellmetal) },
+    RoomDef { id: "stall", name: "Market Stall", family: Family::Trade, price: 400, rent: 20, boon: Boon::Gold(15), says: "GOLD +15", relic: None },
+    RoomDef { id: "counting", name: "Counting House", family: Family::Trade, price: 450, rent: 25, boon: Boon::Gold(30), says: "GOLD +30", relic: None },
+    RoomDef { id: "warehouse", name: "Warehouse", family: Family::Trade, price: 500, rent: 30, boon: Boon::Grain(2), says: "GRAIN +2", relic: None },
+    RoomDef { id: "bourse", name: "Bourse", family: Family::Trade, price: 800, rent: 40, boon: Boon::Gold(60), says: "GOLD +60", relic: Some(Spoil::Ledgerglass) },
+    RoomDef { id: "waypoint", name: "Waypoint", family: Family::Trade, price: 1000, rent: 0, boon: Boon::None, says: "WAY DOWN", relic: Some(Spoil::Waystone) },
+    RoomDef { id: "barracks", name: "Barracks", family: Family::Barracks, price: 400, rent: 15, boon: Boon::Heal(30), says: "RATIONS", relic: None },
+    RoomDef { id: "kennels", name: "Kennels", family: Family::Barracks, price: 450, rent: 15, boon: Boon::Hound, says: "HOUND", relic: None },
+    RoomDef { id: "range", name: "Archery Range", family: Family::Barracks, price: 500, rent: 20, boon: Boon::Armor(1), says: "BRACERS", relic: None },
+    RoomDef { id: "garrison", name: "Garrison", family: Family::Barracks, price: 800, rent: 35, boon: Boon::Ward(300), says: "WARD 10S", relic: Some(Spoil::Warhorn) },
 ];
 
 /// What a room does for its neighbours in the next bay (the same row of
@@ -362,11 +541,55 @@ pub struct Holding {
     /// the party fights it off in the steward's hall.
     #[serde(default)]
     pub raid: u8,
+    /// The steward's standing order: the work its crew does first.
+    #[serde(default, skip_serializing_if = "Work::is_first")]
+    pub order: Work,
+    /// The crew's trips toward the next course or sack of its work.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub toil: u32,
+    /// The named folk who live and work here (`super::villagers`).
+    /// Unwritten while nobody lives here, so a folk-less realm's save
+    /// and seat streams stay byte for byte what they were.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub folk: Vec<super::villagers::Villager>,
+    /// Guests lodging here for a few rent days.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub visitors: Vec<super::villagers::Visitor>,
 }
 
 impl Holding {
     pub fn deed(&self) -> Option<Deed> {
         Deed::of_key(&self.key)
+    }
+
+    /// Its crew: the hands it was bought with, and one for each standing
+    /// room that quarters folk. Raiders holding it have scattered them.
+    pub fn crew(&self) -> u32 {
+        if self.raid > 0 {
+            return 0;
+        }
+        let quartered = self.rooms.iter().filter(|r| r.standing() && QUARTERS.contains(&r.id.as_str())).count() as u32;
+        (HANDS + quartered).min(CREW_CAP)
+    }
+
+    /// What the crew does now: the order if there is any of it, else the
+    /// next work there is, else nothing (they rest). The granary is the
+    /// realm's, so its sacks come in.
+    pub fn work(&self, stores: u32) -> Option<Work> {
+        if self.raid > 0 {
+            return None;
+        }
+        let can = |w: Work| match w {
+            Work::Build => self.rooms.iter().any(|r| !r.standing()),
+            Work::Mend => self.walls < WALLS,
+            Work::Stock => stores < STORES_CAP,
+        };
+        std::iter::once(self.order).chain(Work::ALL).find(|&w| can(w))
+    }
+
+    /// The bay its crew builds in now, if a room is going up.
+    pub fn rising(&self) -> Option<usize> {
+        self.rooms.iter().position(|r| !r.standing())
     }
 
     pub fn standing(&self) -> usize {
@@ -492,6 +715,34 @@ pub struct Holdings {
     pub card: Option<u8>,
     #[serde(default)]
     pub card_next: u8,
+    /// The Foreman of the Court, and the petitions on his ledge.
+    #[serde(default)]
+    pub foreman: super::foreman::Foreman,
+    /// Migrants ever received, realm-wide: seeds the next one's name,
+    /// so equal realms name equal folk.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub folk_next: u32,
+    /// Rent days the road was watched for guests, realm-wide: seeds
+    /// who comes visiting, fixed arithmetic rather than dice.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub visitor_next: u32,
+    /// Countryside larder plots standing, as last noted by the
+    /// cockpit: each sends a sack to the granary every rent day.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub larders: u32,
+    /// The band of raiders on the road, if the storyteller has sent one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub muster: Option<Muster>,
+    /// Rent days of quiet left before the storyteller sends the next band.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub calm: u32,
+    /// Bands sent, all told: each comes stronger.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub sieges: u32,
+}
+
+fn is_zero_u32(n: &u32) -> bool {
+    *n == 0
 }
 
 impl Holdings {
@@ -506,13 +757,18 @@ impl Holdings {
             && self.favour.abs() <= FAVOUR_CAP
             && self.card.is_none_or(|c| usize::from(c) < super::crown::CARDS.len())
             && self.owned.iter().all(|h| h.raid <= RAID_MAX)
+            && self.owned.iter().all(|h| h.folk.len() <= super::villagers::MAX_VILLAGERS && h.folk.iter().all(|f| f.valid()))
+            && self.owned.iter().all(|h| h.visitors.len() <= super::villagers::MAX_VISITORS && h.visitors.iter().all(|v| v.valid()))
+            && self.larders <= super::countryside::LARDERS.len() as u32
+            && self.foreman.valid()
+            && self.muster.as_ref().is_none_or(|m| m.key.len() <= 64 && m.days <= WARN_DAYS)
     }
 
     pub fn holding(&self, key: &str) -> Option<&Holding> {
         self.owned.iter().find(|h| h.key == key)
     }
 
-    fn holding_mut(&mut self, key: &str) -> Option<&mut Holding> {
+    pub fn holding_mut(&mut self, key: &str) -> Option<&mut Holding> {
         self.owned.iter_mut().find(|h| h.key == key)
     }
 
@@ -549,7 +805,163 @@ impl Holdings {
             .find_map(|h| h.rooms.iter().find(|r| !r.standing()).map(|r| (h, r)))
     }
 
-    fn say(&mut self, line: String) {
+    /// The hands at work at `w` now: its crew, half of it (rounded up)
+    /// while the realm is restless, none in a riot — they down tools.
+    pub fn hands(&self, w: &Holding) -> u32 {
+        let crew = w.crew();
+        if self.unrest >= UNREST_CAP {
+            0
+        } else if self.unrest >= RESTLESS {
+            crew.div_ceil(2)
+        } else {
+            crew
+        }
+    }
+
+    /// What `w`'s crew is at now, if it works at all.
+    pub fn crew_work(&self, w: &Holding) -> Option<Work> {
+        if self.hands(w) == 0 {
+            return None;
+        }
+        w.work(self.stores)
+    }
+
+    /// One trip of `key`'s crew has landed: its work moves a trip on, and
+    /// once the trips add up a course is laid, a course of wall set, or a
+    /// sack stored. A shrewd steward drives the builders twice as hard. The
+    /// line it says, if a room stood.
+    pub fn trip(&mut self, key: &str) -> Option<String> {
+        let stores = self.stores;
+        let w = self.holding_mut(key)?;
+        let job = w.work(stores)?;
+        let shrewd = w.steward.as_deref() == Some("vell");
+        w.toil += if shrewd && job == Work::Build { 2 } else { 1 };
+        if w.toil < job.trips() {
+            return None;
+        }
+        w.toil = 0;
+        match job {
+            Work::Build => {
+                let name = w.deed().map_or_else(|| w.key.clone(), Deed::name);
+                let r = w.rooms.iter_mut().find(|r| !r.standing())?;
+                r.labour += 1;
+                if r.standing() {
+                    let room = room_def(&r.id).map_or("A room", |d| d.name);
+                    let line = format!("{room} stands at {name}");
+                    self.say(line.clone());
+                    return Some(line);
+                }
+            }
+            Work::Mend => w.walls = (w.walls + 1).min(WALLS),
+            Work::Stock => self.stores = (self.stores + 1).min(STORES_CAP),
+        }
+        None
+    }
+
+    /// The garrison `w` sets beside its walls against a band: two for each
+    /// standing room of the barracks family, two for a brave steward.
+    pub fn garrison(&self, w: &Holding) -> u32 {
+        let barracks = w
+            .rooms
+            .iter()
+            .filter(|r| r.standing() && room_def(&r.id).is_some_and(|d| d.family == Family::Barracks))
+            .count() as u32;
+        GARRISON * (barracks + u32::from(w.steward.as_deref() == Some("gwen")))
+    }
+
+    /// What `w` sets against a band: walls, garrison, and the retainers
+    /// waiting at the Court, who ride to it.
+    pub fn defence(&self, w: &Holding) -> u32 {
+        w.walls + self.garrison(w) + self.retainers
+    }
+
+    /// The richest holding: the most rooms standing, then the fullest
+    /// coffer, then the first bought.
+    fn richest(&self) -> Option<String> {
+        self.owned
+            .iter()
+            .enumerate()
+            .max_by_key(|&(i, w)| (w.standing(), w.coffer, std::cmp::Reverse(i)))
+            .map(|(_, w)| w.key.clone())
+    }
+
+    /// The storyteller's rent day: a band on the road comes a day nearer
+    /// and arrives; quiet counts down while no raiders hold anything; and a
+    /// realm worth robbing gets the next band, warned. The lines it says.
+    fn storyteller(&mut self) -> Vec<String> {
+        let mut said = Vec::new();
+        if let Some(m) = self.muster.as_mut() {
+            m.days = m.days.saturating_sub(1);
+            if m.days == 0 {
+                let m = self.muster.take().expect("on the road");
+                said.extend(self.arrive(&m));
+                self.calm = CALM_DAYS;
+            }
+            return said;
+        }
+        if self.owned.iter().any(|w| w.raid > 0) {
+            return said;
+        }
+        if self.calm > 0 {
+            self.calm -= 1;
+            return said;
+        }
+        let worth: usize = self.owned.iter().map(Holding::standing).sum();
+        if worth < WORTH {
+            return said;
+        }
+        let Some(key) = self.richest() else {
+            return said;
+        };
+        let strength = BANDS[(self.sieges as usize).min(BANDS.len() - 1)];
+        self.sieges += 1;
+        let name = Deed::of_key(&key).map_or_else(|| key.clone(), Deed::name);
+        self.muster = Some(Muster { key, days: WARN_DAYS, strength });
+        let line = format!("Scouts: {strength} raiders muster against {name}, {WARN_DAYS} rent days off");
+        self.say(line.clone());
+        said.push(line);
+        said
+    }
+
+    /// A band reaches its holding. Walls, garrison and retainers as strong
+    /// as it is break it — the walls battered, the retainers it took spent;
+    /// weaker, and it takes the holding and carries off the coffer. Raiders
+    /// already there are joined.
+    fn arrive(&mut self, m: &Muster) -> Vec<String> {
+        let Some(i) = self.owned.iter().position(|w| w.key == m.key) else {
+            return Vec::new();
+        };
+        let name = self.owned[i].deed().map_or_else(|| m.key.clone(), Deed::name);
+        let held = self.owned[i].walls + self.garrison(&self.owned[i]);
+        let line = if self.owned[i].raid > 0 {
+            let w = &mut self.owned[i];
+            w.raid = (w.raid + 1).min(RAID_MAX);
+            format!("{} more raiders join those holding {name}", m.strength)
+        } else if held + self.retainers >= m.strength {
+            let spent = m.strength.saturating_sub(held).min(self.retainers);
+            self.retainers -= spent;
+            let w = &mut self.owned[i];
+            w.walls = w.walls.saturating_sub(BATTER);
+            if spent > 0 {
+                format!("{name} held: {} raiders broke on its walls and {spent} retainers", m.strength)
+            } else {
+                format!("{name} held: {} raiders broke on its walls", m.strength)
+            }
+        } else {
+            let w = &mut self.owned[i];
+            let lost = std::mem::take(&mut w.coffer);
+            w.raid = 1;
+            if lost > 0 {
+                format!("{name} fell to {} raiders: they carried off {lost} gold", m.strength)
+            } else {
+                format!("{name} fell to {} raiders: fight them in its hall", m.strength)
+            }
+        };
+        self.say(line.clone());
+        vec![line]
+    }
+
+    pub(crate) fn say(&mut self, line: String) {
         self.news.push(line);
         let over = self.news.len().saturating_sub(NEWS);
         self.news.drain(..over);
@@ -749,6 +1161,15 @@ pub fn feed(h: &mut Holdings, ops: &Ops) -> Vec<String> {
 pub fn rent_day(h: &mut Holdings, floors: usize) -> Vec<String> {
     let mut said = Vec::new();
     for _ in 0..floors.min(8) {
+        // The countryside's larders send their sacks first, so a
+        // rent day's wages and dinners can be paid from them.
+        if h.larders > 0 && !h.owned.is_empty() && h.stores < STORES_CAP {
+            let sent = h.larders.min(STORES_CAP - h.stores);
+            h.stores += sent;
+            let line = format!("The countryside's keepers send {sent} sacks to the granary");
+            h.say(line.clone());
+            said.push(line);
+        }
         // Patrols out first: each calms one.
         let calmed = h.patrols.min(h.unrest);
         h.patrols -= calmed;
@@ -783,8 +1204,12 @@ pub fn rent_day(h: &mut Holdings, floors: usize) -> Vec<String> {
                 taken += tithe;
             }
             w.coffer = (w.coffer + rent).min(COFFER_CAP);
-            // A brave steward or a standing barracks keeps the walls.
-            let brave = w.steward.as_deref() == Some("gwen") || w.stands("barracks");
+            // A brave steward, a standing barracks or a fed guard of
+            // the folk keeps the walls.
+            let brave = w.steward.as_deref() == Some("gwen")
+                || w.stands("barracks")
+                || w.folk.iter().any(|f| f.trade == super::villagers::Trade::Guard && f.hunger == 0 && f.age < super::villagers::ELDER)
+                || w.visitors.iter().any(|v| v.kind == super::villagers::VisitorKind::Hunter);
             let pious = w.steward.as_deref() == Some("aled");
             let greedy = w.steward.as_deref() == Some("wynn");
             let steward = w.steward.is_some();
@@ -822,6 +1247,8 @@ pub fn rent_day(h: &mut Holdings, floors: usize) -> Vec<String> {
             h.say(line.clone());
             said.push(line);
         }
+        // The villages eat, work and take the realm's measure.
+        said.extend(super::villagers::keep(h));
         // The King sends a card when the realm holds something and none
         // waits.
         if h.card.is_none() && !h.owned.is_empty() {
@@ -838,10 +1265,16 @@ pub fn rent_day(h: &mut Holdings, floors: usize) -> Vec<String> {
         if taken > 0 {
             h.say(format!("The King took {taken} gold in tithes"));
         }
+        said.extend(h.storyteller());
     }
     let waiting: u32 = h.owned.iter().map(|w| w.coffer).sum();
     if !h.owned.is_empty() && floors > 0 {
         said.push(format!("Rent day: {waiting} gold waits in the coffers"));
+    }
+    // The Foreman fills his ledge with the rent day's petitions.
+    super::foreman::draft(h);
+    if !h.foreman.queue.is_empty() {
+        said.push("The Foreman has petitions at the Land Office".into());
     }
     said
 }
@@ -853,14 +1286,19 @@ pub fn pick_mark(step: i32) -> String {
 pub fn buy_mark(deed: Deed, fief: bool) -> String {
     format!("holdings:{}:{}", if fief { "fief" } else { "claim" }, deed.key())
 }
-pub fn build_mark(key: &str, family: Family) -> String {
-    format!("holdings:build:{}:{key}", family.word())
-}
 pub fn steward_mark(key: &str) -> String {
     format!("holdings:steward:{key}")
 }
 pub fn charter_mark(key: &str) -> String {
     format!("holdings:charter:{key}")
+}
+/// The Court's order plate turns a holding's standing order.
+pub fn order_mark(key: &str) -> String {
+    format!("holdings:order:{key}")
+}
+/// A hand of a holding's crew back at the work.
+pub fn trip_mark(key: &str) -> String {
+    format!("holdings:trip:{key}")
 }
 pub const COLLECT: &str = "holdings:collect";
 pub const LABOUR: &str = "holdings:labour";
@@ -877,19 +1315,6 @@ pub fn buy_open(h: &Holdings, deed: Deed, fief: bool, gold: u32, marks: &BTreeMa
         return Err("PURSE SHORT");
     }
     Ok(price)
-}
-
-/// Why a holding can't build the next room of `family`, or its price.
-pub fn build_open(h: &Holdings, key: &str, family: Family, gold: u32) -> Result<&'static RoomDef, &'static str> {
-    let w = h.holding(key).ok_or("NOT OURS")?;
-    if w.rooms.len() >= SLOTS {
-        return Err("BAYS FULL");
-    }
-    let def = w.next_of(family).ok_or("ALL THREE BUILT")?;
-    if gold < room_price(h, def) {
-        return Err("PURSE SHORT");
-    }
-    Ok(def)
 }
 
 /// A room's price: the King's masons build for less while his favour is
@@ -962,20 +1387,30 @@ pub fn settle(h: &mut Holdings, treasury: &mut Spoils, marks: &BTreeMap<String, 
                 out.said.push(("holding_bought".into(), line));
                 out.changed = true;
             }
-            "build" => {
-                let Some((family, key)) = key.split_once(':') else { continue };
-                let Some(family) = Family::from_word(family) else { continue };
-                for _ in 0..n.min(SLOTS as u32) {
-                    let Ok(def) = build_open(h, key, family, gold(treasury)) else { break };
-                    let price = room_price(h, def);
-                    pay(treasury, price);
-                    let w = h.holding_mut(key).expect("open");
-                    w.rooms.push(Built { id: def.id.to_string(), labour: 0 });
-                    let name = w.deed().map_or_else(|| key.to_string(), Deed::name);
-                    let line = format!("A {} is going up at {name} ({price} gold)", def.name);
-                    h.say(line.clone());
-                    out.said.push(("holding_build".into(), line));
-                    out.changed = true;
+            "petition" => {
+                let aye = key == "aye";
+                for _ in 0..n.min(super::foreman::QUEUE as u32) {
+                    match super::foreman::answer(h, treasury, aye) {
+                        Ok(line) => {
+                            h.say(line.clone());
+                            out.said.push(("holding_petition".into(), line));
+                            out.changed = true;
+                        }
+                        // A petition the realm can no longer answer (its
+                        // holding raided, its bay filled) lapses off the
+                        // ledge rather than jamming it.
+                        Err(why) if why != "NO PETITIONS" => {
+                            if let Some(p) = h.foreman.queue.first().cloned() {
+                                h.foreman.queue.remove(0);
+                                let name = p.key.split_once(':').map_or(p.key.as_str(), |(_, k)| k);
+                                let line = format!("The Foreman's petition for {name} lapses: {why}");
+                                h.say(line.clone());
+                                out.said.push(("holding_petition".into(), line));
+                                out.changed = true;
+                            }
+                        }
+                        Err(_) => {}
+                    }
                 }
             }
             "steward" => {
@@ -1023,6 +1458,30 @@ pub fn settle(h: &mut Holdings, treasury: &mut Spoils, marks: &BTreeMap<String, 
                 out.said.push(("holding_rent".into(), line));
                 out.changed = true;
             }
+            "order" => {
+                let Some(w) = h.holding_mut(key) else { continue };
+                for _ in 0..n % Work::ALL.len() as u32 {
+                    w.order = w.order.next();
+                }
+                let name = w.deed().map_or_else(|| key.to_string(), Deed::name);
+                let line = format!("{name}'s crew will {} first", w.order.word().to_lowercase());
+                h.say(line.clone());
+                out.said.push(("holding_order".into(), line));
+                out.changed = true;
+            }
+            "trip" => {
+                if h.holding(key).is_none() {
+                    continue;
+                }
+                // The run marks each trip as it lands and the cockpit
+                // settles four times a second: a few shifts' worth at most.
+                for _ in 0..n.min(CREW_CAP * 8) {
+                    if let Some(line) = h.trip(key) {
+                        out.said.push(("holding_built".to_string(), line));
+                    }
+                }
+                out.changed = true;
+            }
             "labour" => {
                 // A shrewd steward on the room being built drives it twice
                 // as hard.
@@ -1033,6 +1492,22 @@ pub fn settle(h: &mut Holdings, treasury: &mut Spoils, marks: &BTreeMap<String, 
             }
             "raid" => {
                 let Some((how, key)) = key.split_once(':') else { continue };
+                // The band met in the hall before it came: it scatters.
+                if how == "won"
+                    && h.holding(key).is_some_and(|w| w.raid == 0)
+                    && h.muster.as_ref().is_some_and(|m| m.key == key)
+                {
+                    h.muster = None;
+                    h.calm = CALM_DAYS;
+                    let purse = RAID_PURSE[1];
+                    treasury.add(Spoil::Gold, purse);
+                    let name = Deed::of_key(key).map_or_else(|| key.to_string(), Deed::name);
+                    let line = format!("The raiders were met at {name}: the band scatters, {purse} gold to the treasury");
+                    h.say(line.clone());
+                    out.said.push(("holding_raid_won".into(), line));
+                    out.changed = true;
+                    continue;
+                }
                 let Some(w) = h.holding_mut(key).filter(|w| w.raid > 0) else { continue };
                 let name = w.deed().map_or_else(|| key.to_string(), Deed::name);
                 let line = if how == "won" {
@@ -1079,6 +1554,15 @@ pub fn settle(h: &mut Holdings, treasury: &mut Spoils, marks: &BTreeMap<String, 
 
 /// Bring the realm's record into the holdings: which floors are cleared,
 /// which houses have served. True if anything changed.
+/// The cockpit notes the countryside before a rent day, as with
+/// `note_realm`: how many larder plots stand to feed the granary.
+pub fn note_country(h: &mut Holdings, country: &super::countryside::Country) -> bool {
+    let n = country.larders();
+    let changed = h.larders != n;
+    h.larders = n;
+    changed
+}
+
 pub fn note_realm(h: &mut Holdings, reclaimed: &BTreeMap<String, u32>, yards: &BTreeMap<String, u32>) -> bool {
     let mut changed = false;
     for pack in FLOORS {
@@ -1096,15 +1580,21 @@ pub fn note_realm(h: &mut Holdings, reclaimed: &BTreeMap<String, u32>, yards: &B
 
 // ── The Court of Deeds (the Land Office) ──────────────────────────────────
 
-/// The Court's plates (tiles): the board's arrows, the four terms, the four
-/// families, and the strongbox.
+/// The Court's plates (tiles): the board's arrows, the four terms, the
+/// Foreman's two posts, and the strongbox.
 pub const PREV: (i32, i32, i32, i32) = (7, 5, 2, 1);
 pub const NEXT: (i32, i32, i32, i32) = (15, 5, 2, 1);
 pub const CLAIM: (i32, i32, i32, i32) = (8, 7, 2, 1);
 pub const FIEF: (i32, i32, i32, i32) = (11, 7, 2, 1);
 pub const STEWARD: (i32, i32, i32, i32) = (14, 7, 2, 1);
 pub const CHARTER: (i32, i32, i32, i32) = (17, 7, 2, 1);
-pub const BUILD: [(i32, i32, i32, i32); 5] = [(8, 10, 2, 1), (11, 10, 2, 1), (14, 10, 2, 1), (17, 10, 2, 1), (20, 10, 2, 1)];
+/// The Foreman's answer posts: aye pays his quote, nay refuses it.
+pub const AYE: (i32, i32, i32, i32) = (8, 10, 2, 1);
+pub const NAY: (i32, i32, i32, i32) = (11, 10, 2, 1);
+/// The crew's order plate: the board's holding's work, turned.
+pub const ORDER: (i32, i32, i32, i32) = (14, 10, 2, 1);
+/// The Foreman's ledge, where his petitions wait.
+pub const LEDGE: (i32, i32, i32, i32) = (17, 9, 5, 2);
 pub const STRONGBOX: (i32, i32, i32, i32) = (20, 7, 2, 1);
 /// Solid furniture: the great board, the ledger wall, the clerk's desk,
 /// the strongbox.
@@ -1122,12 +1612,17 @@ pub enum Plate {
     Fief,
     Steward,
     Charter,
-    Build(Family),
+    /// Answer the Foreman's head petition: pay his quote.
+    Aye,
+    /// Refuse it.
+    Nay,
+    /// Turn the board's holding's standing order.
+    Orders,
     Collect,
 }
 
 impl Plate {
-    pub fn all() -> [(Plate, (i32, i32, i32, i32)); 12] {
+    pub fn all() -> [(Plate, (i32, i32, i32, i32)); 10] {
         [
             (Plate::Prev, PREV),
             (Plate::Next, NEXT),
@@ -1135,11 +1630,9 @@ impl Plate {
             (Plate::Fief, FIEF),
             (Plate::Steward, STEWARD),
             (Plate::Charter, CHARTER),
-            (Plate::Build(Family::Tavern), BUILD[0]),
-            (Plate::Build(Family::Forge), BUILD[1]),
-            (Plate::Build(Family::Chapel), BUILD[2]),
-            (Plate::Build(Family::Trade), BUILD[3]),
-            (Plate::Build(Family::Barracks), BUILD[4]),
+            (Plate::Aye, AYE),
+            (Plate::Nay, NAY),
+            (Plate::Orders, ORDER),
             (Plate::Collect, STRONGBOX),
         ]
     }
@@ -1179,7 +1672,18 @@ pub fn plate_open(run: &Run, plate: Plate) -> Result<(String, u32), &'static str
             }
             Ok((charter_mark(&key), price))
         }
-        Plate::Build(family) => build_open(h, &key, family, gold).map(|d| (build_mark(&key, family), room_price(h, d))),
+        Plate::Aye => {
+            let (price, _) = super::foreman::open(h, &run.treasury)?;
+            Ok((super::foreman::aye_mark(), price))
+        }
+        Plate::Nay => {
+            h.foreman.queue.first().ok_or("NO PETITIONS")?;
+            Ok((super::foreman::nay_mark(), 0))
+        }
+        Plate::Orders => {
+            owned.ok_or("NOT OURS")?;
+            Ok((order_mark(&key), 0))
+        }
         Plate::Collect => {
             let total: u32 = h.owned.iter().map(|w| w.coffer).sum();
             if total == 0 { Err("COFFERS EMPTY") } else { Ok((COLLECT.into(), total)) }
@@ -1210,7 +1714,7 @@ pub fn land_office_room(cell: (i32, i32)) -> Room {
             room.set(col, row, Tile::Floor);
         }
     }
-    for rect in [BOARD, LEDGER, DESK, CHEST] {
+    for rect in [BOARD, LEDGER, DESK, CHEST, LEDGE] {
         let (c, r, w, h) = rect;
         for row in r..r + h {
             for col in c..c + w {
@@ -1328,7 +1832,7 @@ pub fn castle_here(run: &Run) -> Option<u8> {
 pub const CASTLE_PLATE: (i32, i32, i32, i32) = (11, 10, 2, 1);
 
 impl Run {
-    /// One tick of the holdings: builders' shifts wherever the party is,
+    /// One tick of the holdings: the crews' trips wherever the party is,
     /// the Court's plates, a held floor's bays and steward, a castle's
     /// deed plate.
     pub(super) fn tick_holdings(&mut self, inputs: &BTreeMap<u32, Input>) {
@@ -1338,11 +1842,31 @@ impl Run {
                 hero.buy_spent = false;
             }
         }
-        if self.home.holdings.building().is_some() && self.tick.is_multiple_of(u64::from(SHIFT_SECS * HZ)) {
-            *self.marks.entry(LABOUR.into()).or_default() += 1;
+        // The crews: a hand back at its work lands a trip. A crew with
+        // nothing to do rests and marks nothing.
+        let h = &self.home.holdings;
+        let tick = self.tick;
+        let landed: Vec<String> = h
+            .owned
+            .iter()
+            .filter(|w| h.crew_work(w).is_some())
+            .flat_map(|w| {
+                let hands = h.hands(w);
+                (0..hands).filter(move |&j| lands(tick, j, hands)).map(|_| trip_mark(&w.key))
+            })
+            .collect();
+        for mark in landed {
+            *self.marks.entry(mark).or_default() += 1;
         }
         self.tick_raid();
         self.tick_crown(inputs);
+        // Petitions wait for no herald, and raiders on the road for no
+        // one: the way-on arrow leads to the Court while either does.
+        if (!self.home.holdings.foreman.queue.is_empty() || self.home.holdings.muster.is_some())
+            && self.kingdom.moments.errand.is_none()
+        {
+            self.kingdom.moments.errand = Some(RoomKind::LandOffice);
+        }
         match self.room().kind {
             RoomKind::LandOffice => self.court(inputs),
             RoomKind::Holding => self.steward_hall(inputs),
@@ -1476,7 +2000,7 @@ impl Run {
                 Boon::FullHeal => {
                     hero.mend(hero.max_hp, stakes::Mend::Rest);
                 }
-                Boon::Bomb => hero.bombs += 1,
+                Boon::Bomb => hero.give_bombs(1),
                 Boon::Armor(n) => hero.armor += n,
                 Boon::Mana => hero.mana = MAX_MANA,
                 Boon::Raise(n) => {
@@ -1488,7 +2012,7 @@ impl Run {
                 }
                 Boon::Ward(t) => hero.invulnerable = hero.invulnerable.max(t),
                 Boon::Gold(n) => hero.carried.add(Spoil::Gold, n),
-                Boon::Grain(_) | Boon::Brawler | Boon::Hound => {}
+                Boon::Grain(_) | Boon::Brawler | Boon::Hound | Boon::None => {}
             }
         }
         if let Boon::Grain(_) = boon {
@@ -1500,6 +2024,14 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/together_holdings__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/together_crews__tests.rs"]
+mod crew_tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/together_storyteller__tests.rs"]
+mod storyteller_tests;
 
 #[cfg(any(test, feature = "testing"))]
 #[path = "../../tests/rules/together_holdings__fixtures.rs"]

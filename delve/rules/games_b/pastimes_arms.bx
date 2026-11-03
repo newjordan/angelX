@@ -1,0 +1,440 @@
+# crates/delve/src/rules/pastimes.rs — play_round's `match round.game` arms.
+# Each answers (run, (round, still_going)).
+
+def pastimes.play.game(+run: J.Val, +round: J.Val, +gi: U32, +shown: U32, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  match gi:
+    case 0:
+      pastimes.arm.broadsheet(run, round, elig, tapped)
+    case 1:
+      pastimes.arm.barrel(run, round, inputs, elig, 1)
+    case 2:
+      pastimes.arm.turnip(run, round, shown, elig, tapped)
+    case 3:
+      pastimes.arm.barrel(run, round, inputs, elig, 3)
+    case 4:
+      pastimes.arm.cheese(run, round, inputs, elig, tapped)
+    case 5:
+      pastimes.arm.hobbyhorse(run, round, elig, tapped)
+    case 6:
+      pastimes.arm.sled(run, round, inputs, elig)
+    case 7:
+      pastimes.put.Run.tick_put(run, round, inputs, elig)
+    case 8:
+      pastimes.cart.Run.tick_cart(run, round, inputs, elig, tapped)
+    case 9:
+      pastimes.arm.surf(run, round, inputs, elig, tapped)
+    case 10:
+      pastimes.arm.volley(run, round, inputs, elig, tapped)
+    case 11:
+      pastimes.arm.halfpipe(run, round, inputs, elig, tapped)
+    case 12:
+      pastimes.arm.chariot(run, round, inputs, elig, tapped)
+    case 13:
+      pastimes.trencher.Run.tick_trencher(run, round, inputs, elig, tapped)
+    case 14:
+      pastimes.arm.duckshoot(run, round, inputs, elig, tapped)
+    case 15:
+      pastimes.longbow.Run.tick_longbow(run, round, inputs, elig)
+    case 16:
+      pastimes.powder.Run.tick_kegs(run, round, inputs, elig, tapped)
+    case 17:
+      (run, (round, True{}))
+    case _:
+      pastimes.siege.Run.tick_siege(run, round, inputs, elig)
+
+# ---- Broadsheet Boy: deliver the paper to the right doors ------------------
+
+def pastimes.arm.broadsheet(+run: J.Val, +round: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  pastimes.broadsheet.each(run, round, elig, tapped)
+
+def pastimes.broadsheet.each(+run: J.Val, +round: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  match tapped:
+    case Nil{}:
+      (run, (round, True{}))
+    case Con{id: U32, rest: List<&2, U32>}:
+      me: J.Val = pastimes.find_el(elig, id)
+      if J.is_null(me):
+        pastimes.broadsheet.each(run, round, elig, rest)
+      else:
+        (run2: J.Val, round2: J.Val) = pastimes.broadsheet.one(run, round, id, gb.f(me, "x"), gb.f(me, "y"))
+        pastimes.broadsheet.each(run2, round2, elig, rest)
+
+# The nearest mailbox within 3.0, as an index, or 5 for none.
+def pastimes.broadsheet.mailbox(+x: F32, +y: F32, +i: U32, +best: U32, +bd: F32) -> U32:
+  match i:
+    case 5:
+      best
+    case _:
+      d: F32 = RS.f_hypot((x - (pastimes.MAILBOX_X(i) * 2.0 : F32) : F32), (y - (pastimes.MAILBOX_Y(i) * 2.0 : F32) : F32))
+      take: Bool = Bool.and(F32.is_lt(d, 3.0), Bool.or(U32.is_eq(best, 5), F32.is_lt(d, bd)))
+      pastimes.broadsheet.mailbox(x, y, (i + 1 : U32), Bool.pick(U32, take, i, best), Bool.pick(F32, take, d, bd))
+
+def pastimes.broadsheet.one(+run: J.Val, +round: J.Val, +id: U32, +x: F32, +y: F32) -> J.Val & J.Val:
+  i: U32 = pastimes.broadsheet.mailbox(x, y, 0, 5, 0.0)
+  bit: U32 = U32.shln(1, U32.to_nat(i))
+  if Bool.and(U32.is_lt(i, 5), U32.is_eq(U32.and(gb.u(round, "tried"), bit), 0)):
+    r1: J.Val = gb.su(round, "tried", U32.or(gb.u(round, "tried"), bit))
+    if U32.is_ne(U32.and(gb.u(round, "recipients"), bit), 0):
+      r2: J.Val = pastimes.popup(pastimes.progress1(r1), "+75", RS.f_as_i32(pastimes.MAILBOX_X(i)), RS.f_as_i32(pastimes.MAILBOX_Y(i)))
+      (gb.found(gb.sound(run, "card_pickup"), id, "Delivered: 'Local knight mistakes goose for dragon'."), r2)
+    else:
+      (gb.found(gb.sound(run, "clang"), id, "Not a subscriber! -25"), pastimes.mistake(r1))
+  else:
+    (run, round)
+
+# ---- Barrel-board Derby / Washtub Regatta: reach the next mark -------------
+
+def pastimes.arm.barrel(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +gi: U32) -> J.Val & (J.Val & Bool):
+  run1: J.Val = Bool.pick(J.Val, U32.is_eq(gi, 3), pastimes.washtub.stroke(run, inputs, elig), run)
+  i: U32 = gb.u(round, "progress")
+  (tx: F32, ty: F32) = Bool.pick(F32 & F32, U32.is_eq(gi, 1), (pastimes.FLAG_X(i), pastimes.FLAG_Y(i)), pastimes.wake(i, gb.tick(run)))
+  if pastimes.near(elig, tx, ty, 1.5):
+    r1: J.Val = pastimes.popup(pastimes.progress1(round), Bool.pick(String, U32.is_eq(gi, 1), "FLAG!", "RING!"), RS.f_as_i32(tx), RS.f_as_i32(ty))
+    (gb.sound(run1, "spoil_pickup"), (r1, True{}))
+  else:
+    (run1, (round, True{}))
+
+# The paddle's stroke sound: every half second while someone moves.
+def pastimes.washtub.stroke(+run: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>) -> J.Val:
+  if Bool.and(U32.is_eq(W.rem_u32(gb.tick(run), 15), 0), pastimes.washtub.moving(inputs, elig)):
+    gb.sound(run, "wave_gate")
+  else:
+    run
+
+def pastimes.washtub.moving(+inputs: J.Val, +elig: List<&2, J.Val>) -> Bool:
+  match elig:
+    case Nil{}:
+      False{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      i: J.Val = J.get(inputs, U32.show(gb.u(e, "id")))
+      Bool.or(Bool.and(Bool.and(Bool.not(J.is_null(i)), rules.Input.valid(i)), Bool.or(Bool.or(U32.is_ne(gb.i(i, "move_x"), 0), U32.is_ne(gb.i(i, "move_y"), 0)), Bool.or(U32.is_ne(gb.i(i, "aim_x"), 0), U32.is_ne(gb.i(i, "aim_y"), 0)))), pastimes.washtub.moving(inputs, t))
+
+# ---- Turnip Keepy-uppy: kick it as it lands ---------------------------------
+
+def pastimes.arm.turnip(+run: J.Val, +round: J.Val, +shown: U32, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  elapsed: U32 = gb.ssub(600, shown)
+  beat: U32 = U32.div(elapsed, 30)
+  phase: U32 = U32.mod(elapsed, 30)
+  hit: Bool = pastimes.turnip.hit(tapped, elig)
+  if Bool.and(hit, Bool.not(Bool.and(Bool.not(J.is_null(J.get(round, "last_beat"))), U32.is_eq(gb.u(round, "last_beat"), beat)))):
+    r1: J.Val = gb.su(round, "last_beat", beat)
+    run1: J.Val = gb.sound(run, "swing")
+    if U32.is_le(phase, 6):
+      (gb.sound(run1, "spoil_pickup"), (pastimes.popup(pastimes.progress1(r1), "PERFECT!", 19, 10), True{}))
+    else:
+      (gb.found(run1, 0, "Too soon! Kick as it lands."), (pastimes.mistake(r1), True{}))
+  else:
+    (run, (round, True{}))
+
+# Some tapping knight stands within 2.2 of the turnip's pad.
+def pastimes.turnip.hit(+tapped: List<&2, U32>, +elig: List<&2, J.Val>) -> Bool:
+  match tapped:
+    case Nil{}:
+      False{}
+    case Con{id: U32, rest: List<&2, U32>}:
+      me: J.Val = pastimes.find_el(elig, id)
+      Bool.or(Bool.and(Bool.not(J.is_null(me)), F32.is_lt(RS.f_hypot((gb.f(me, "x") - 38.0 : F32), (gb.f(me, "y") - 20.0 : F32)), 2.2)), pastimes.turnip.hit(rest, elig))
+
+# ---- Cheese Chuck: throw the cheese at the basket ----------------------------
+
+def pastimes.arm.cheese(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  cheese: J.Val = J.get(round, "cheese")
+  if J.is_null(cheese):
+    pastimes.cheese.throw(run, round, inputs, elig, tapped)
+  else:
+    (run1: J.Val, round1: J.Val) = pastimes.cheese.fly(run, J.set(round, "cheese", J.JNull{}), cheese)
+    pastimes.cheese.throw(run1, round1, inputs, elig, tapped)
+
+def pastimes.cheese.fly(+run: J.Val, +round: J.Val, +cheese: J.Val) -> J.Val & J.Val:
+  cx: U32 = RS.i_add(gb.i(cheese, "x"), gb.i(cheese, "dx"))
+  cy: U32 = RS.i_add(gb.i(cheese, "y"), gb.i(cheese, "dy"))
+  left: U32 = gb.ssub(gb.u(cheese, "left"), 1)
+  x: F32 = (RS.i_as_f32(cx) / 256.0 : F32)
+  y: F32 = (RS.i_as_f32(cy) / 256.0 : F32)
+  (bx: F32, by: F32) = pastimes.cheese_target(round)
+  c1: J.Val = gb.su(gb.si(gb.si(cheese, "x", cx), "y", cy), "left", left)
+  if F32.is_le(RS.f_hypot((x - bx : F32), (y - by : F32)), 0.75):
+    r1: J.Val = pastimes.popup(gb.su(pastimes.progress1(round), "hazard_left", 10), "HIT!", RS.f_as_i32(bx), RS.f_as_i32(by))
+    (gb.sound(run, "hit"), r1)
+  else:
+    tile: String = J.str(layout.Room.tile(rules.Run.room(run), RS.f_as_i32(F32.floor(x)), RS.f_as_i32(F32.floor(y))))
+    if Bool.or(Bool.not(pastimes.cheese.valid(c1)), Bool.or(String.eq(tile, "wall"), String.eq(tile, "block"))):
+      (gb.sound(run, "rock_land"), gb.su(round, "mistakes", (gb.u(round, "mistakes") + 1 : U32)))
+    else:
+      (run, J.set(round, "cheese", c1))
+
+# Cheese::valid
+def pastimes.cheese.valid(+c: J.Val) -> Bool:
+  ax: U32 = RS.i_abs(gb.i(c, "dx"))
+  ay: U32 = RS.i_abs(gb.i(c, "dy"))
+  Bool.and(Bool.and(Bool.and(RS.i_ge(gb.i(c, "x"), 0), RS.i_lt(gb.i(c, "x"), 6144)), Bool.and(RS.i_ge(gb.i(c, "y"), 0), RS.i_lt(gb.i(c, "y"), 3584))), Bool.and(Bool.and(U32.is_le(ax, 108), U32.is_le(ay, 108)), Bool.and(U32.is_gt((ax + ay : U32), 0), Bool.and(U32.is_gt(gb.u(c, "left"), 0), U32.is_le(gb.u(c, "left"), 60)))))
+
+# A fresh throw: from the first tapping knight at the line.
+def pastimes.cheese.throw(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  can: Bool = Bool.and(Bool.and(J.is_null(J.get(round, "cheese")), U32.is_lt(gb.u(round, "shots"), 12)), U32.is_lt(gb.u(round, "progress"), 5))
+  who: J.Val = pastimes.cheese.thrower(elig, tapped)
+  if Bool.and(can, Bool.not(J.is_null(who))):
+    pastimes.cheese.launch(run, round, J.get(inputs, U32.show(gb.u(who, "id"))), gb.f(who, "x"), gb.f(who, "y"))
+  else:
+    pastimes.cheese.end(run, round)
+
+def pastimes.cheese.thrower(+elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val:
+  match elig:
+    case Nil{}:
+      J.JNull{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      if Bool.and(pastimes.tapped_has(tapped, gb.u(e, "id")), F32.is_lt(RS.f_hypot((gb.f(e, "x") - 8.0 : F32), (gb.f(e, "y") - 12.0 : F32)), 2.4)):
+        e
+      else:
+        pastimes.cheese.thrower(t, tapped)
+
+def pastimes.cheese.launch(+run: J.Val, +round: J.Val, +input: J.Val, +x: F32, +y: F32) -> J.Val & (J.Val & Bool):
+  ax0: F32 = RS.i_as_f32(gb.i(input, "aim_x"))
+  ay0: F32 = RS.i_as_f32(gb.i(input, "aim_y"))
+  length: F32 = RS.f_hypot(ax0, ay0)
+  big: Bool = F32.is_gt(length, 0.1)
+  ax: F32 = Bool.pick(F32, big, (ax0 / length : F32), 1.0)
+  ay: F32 = Bool.pick(F32, big, (ay0 / length : F32), 0.0)
+  c: J.Val = gb.su(gb.si(gb.si(gb.si(gb.si(J.obj(), "x", RS.f_as_i32(RS.f_round((x / 2.0 * 256.0 : F32)))), "y", RS.f_as_i32(RS.f_round((y / 2.0 * 256.0 : F32)))), "dx", RS.f_as_i32(RS.f_round((ax * 108.0 : F32)))), "dy", RS.f_as_i32(RS.f_round((ay * 108.0 : F32)))), "left", 60)
+  pastimes.cheese.end(gb.sound(run, "play_card"), gb.su(J.set(round, "cheese", c), "shots", (gb.u(round, "shots") + 1 : U32)))
+
+def pastimes.cheese.end(+run: J.Val, +round: J.Val) -> J.Val & (J.Val & Bool):
+  if Bool.and(Bool.and(U32.is_eq(gb.u(round, "shots"), 12), J.is_null(J.get(round, "cheese"))), U32.is_lt(gb.u(round, "progress"), 5)):
+    (gb.found(run, 0, "Out of cheese!"), (round, False{}))
+  else:
+    (run, (round, True{}))
+
+# ---- Hobbyhorse Hurdles: jump the fences -------------------------------------
+
+def pastimes.arm.hobbyhorse(+run: J.Val, +round: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  fence: U32 = RS.i_mul(RS.i_add(6, RS.i_mul(gb.u(round, "progress"), 3)), 256)
+  riders: J.Val = pastimes.hobby.retain(gb.entries(J.get(round, "riders")), elig, J.obj())
+  (run2: J.Val, rest: J.Val & Bool) = pastimes.hobby.each(run, J.set(round, "riders", riders), fence, elig, tapped, False{})
+  (round2: J.Val, cleared: Bool) = rest
+  if cleared:
+    p: U32 = gb.u(round2, "progress")
+    (gb.sound(run2, "spoil_pickup"), (pastimes.popup(pastimes.progress1(round2), "CLEAR!", (6 + p * 3 : U32), 7), True{}))
+  else:
+    (run2, (round2, True{}))
+
+def pastimes.hobby.retain(+rs: List<&2, J.Val>, +elig: List<&2, J.Val>, +m: J.Val) -> J.Val:
+  match rs:
+    case Nil{}:
+      m
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      if pastimes.has_el(elig, gb.id(gb.s(e, "k"))):
+        pastimes.hobby.retain(t, elig, J.set(m, gb.s(e, "k"), J.get(e, "v")))
+      else:
+        pastimes.hobby.retain(t, elig, m)
+
+def pastimes.hobby.each(+run: J.Val, +round: J.Val, +fence: U32, +elig: List<&2, J.Val>, +tapped: List<&2, U32>, +cleared: Bool) -> J.Val & (J.Val & Bool):
+  match elig:
+    case Nil{}:
+      (run, (round, cleared))
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      id: U32 = gb.u(e, "id")
+      x: U32 = RS.f_as_i32((gb.f(e, "x") / 2.0 * 256.0 : F32))
+      y: U32 = RS.f_as_i32((gb.f(e, "y") / 2.0 * 256.0 : F32))
+      rider0: J.Val = J.get(J.get(round, "riders"), U32.show(id))
+      rider: J.Val = Bool.pick(J.Val, J.is_null(rider0), gb.su(gb.su(gb.si(gb.si(J.obj(), "x", x), "y", y), "air_left", 0), "rest_left", 0), rider0)
+      air0: U32 = gb.ssub(gb.u(rider, "air_left"), 1)
+      rest0: U32 = gb.ssub(gb.u(rider, "rest_left"), 1)
+      jump: Bool = Bool.and(pastimes.tapped_has(tapped, id), U32.is_eq(rest0, 0))
+      air: U32 = Bool.pick(U32, jump, 10, air0)
+      rest: U32 = Bool.pick(U32, jump, 12, rest0)
+      run1: J.Val = Bool.pick(J.Val, jump, gb.sound(run, "roll"), run)
+      rx: U32 = gb.i(rider, "x")
+      ry: U32 = gb.i(rider, "y")
+      cross: Bool = Bool.and(Bool.and(Bool.not(cleared), RS.i_lt(rx, fence)), Bool.and(Bool.and(RS.i_ge(x, fence), U32.is_le(RS.u_abs_diff(x, rx), 256)), Bool.and(Bool.and(U32.is_le(RS.u_abs_diff(y, ry), 256), pastimes.in_lane(y)), pastimes.in_lane(ry))))
+      cleared2: Bool = Bool.or(cleared, Bool.and(cross, U32.is_gt(air, 0)))
+      slip: Bool = Bool.and(Bool.and(cross, U32.is_eq(air, 0)), U32.is_eq(gb.u(round, "hazard_left"), 0))
+      round1: J.Val = Bool.pick(J.Val, slip, gb.su(pastimes.mistake(round), "hazard_left", 15), round)
+      run2: J.Val = Bool.pick(J.Val, slip, gb.sound(run1, "clang"), run1)
+      r2: J.Val = gb.su(gb.su(gb.si(gb.si(J.obj(), "x", x), "y", y), "air_left", air), "rest_left", rest)
+      pastimes.hobby.each(run2, J.set(round1, "riders", J.set(J.get(round1, "riders"), U32.show(id), r2)), fence, t, tapped, cleared2)
+
+def pastimes.in_lane(+y: U32) -> Bool:
+  Bool.and(RS.i_ge(y, 1408), RS.i_le(y, 2176))
+
+# ---- Squire Sled Slalom --------------------------------------------------------
+
+def pastimes.arm.sled(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>) -> J.Val & (J.Val & Bool):
+  sled: J.Val = J.get(round, "sled")
+  if Bool.not(pastimes.has_el(elig, gb.u(sled, "driver"))):
+    (gb.found(run, 0, "Squire parked."), (round, False{}))
+  else:
+    pastimes.sled.steer(run, round, sled, pastimes.input_of(inputs, gb.u(sled, "driver")))
+
+def pastimes.sled.steer(+run: J.Val, +round: J.Val, +sled: J.Val, +input: J.Val) -> J.Val & (J.Val & Bool):
+  steer: U32 = gb.axis(input, "aim_y", "move_y")
+  dy0: U32 = gb.i(sled, "dy")
+  dy1: U32 = Bool.pick(U32, U32.is_eq(steer, 0), RS.i_div(RS.i_mul(dy0, 7), 8), RS.i_clamp(RS.i_add(dy0, RS.i_mul(steer, 4)), RS.i_neg(32), 32))
+  fire: Bool = gb.b(input, "fire")
+  dy2: U32 = Bool.pick(U32, fire, RS.i_div(RS.i_mul(dy1, 3), 4), dy1)
+  x: U32 = RS.i_add(gb.i(sled, "x"), Bool.pick(U32, fire, 6, 12))
+  y0: U32 = RS.i_add(gb.i(sled, "y"), dy2)
+  out: Bool = Bool.or(RS.i_lt(y0, 1024), RS.i_gt(y0, 2560))
+  y: U32 = Bool.pick(U32, out, RS.i_clamp(y0, 1024, 2560), y0)
+  dy: U32 = Bool.pick(U32, out, 0, dy2)
+  bump: Bool = Bool.and(out, U32.is_eq(gb.u(round, "hazard_left"), 0))
+  s1: J.Val = gb.si(gb.si(gb.si(sled, "x", x), "y", y), "dy", dy)
+  r1: J.Val = Bool.pick(J.Val, bump, gb.su(pastimes.mistake(round), "hazard_left", 30), round)
+  run1: J.Val = Bool.pick(J.Val, bump, gb.sound(run, "clang"), run)
+  pastimes.sled.gate(run1, J.set(r1, "sled", s1), s1)
+
+def pastimes.sled.gate(+run: J.Val, +round: J.Val, +sled: J.Val) -> J.Val & (J.Val & Bool):
+  p: U32 = gb.u(round, "progress")
+  gx: U32 = pastimes.SLED_GATE_X(p)
+  gy: U32 = pastimes.SLED_GATE_Y(p)
+  if RS.i_ge(gb.i(sled, "x"), RS.i_mul(gx, 256)):
+    if U32.is_gt(RS.u_abs_diff(gb.i(sled, "y"), RS.i_mul(gy, 256)), 256):
+      (gb.found(gb.sound(run, "clang"), 0, "Missed gate " ++ U32.show((p + 1 : U32)) ++ "!"), (round, False{}))
+    else:
+      (gb.sound(run, "spoil_pickup"), (pastimes.popup(pastimes.progress1(round), "GATE!", RS.i_clamp(gx, 2, 22), RS.i_clamp(gy, 2, 12)), True{}))
+  else:
+    (run, (round, True{}))
+
+# ---- Shield Surf ---------------------------------------------------------------
+
+def pastimes.arm.surf(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  surf: J.Val = J.get(round, "surf")
+  owner: U32 = gb.u(surf, "owner")
+  if Bool.not(pastimes.has_el(elig, owner)):
+    (gb.found(run, 0, "Surfer retired."), (round, False{}))
+  else:
+    (s1: J.Val, ret: J.Val) = pastimes.surf.Surf.step(surf, pastimes.input_of(inputs, owner), pastimes.tapped_has(tapped, owner), gb.u(round, "progress"))
+    r1: J.Val = J.set(round, "surf", s1)
+    if J.is_null(ret):
+      (run, (r1, True{}))
+    else:
+      if gb.b(J.set(J.obj(), "v", ret), "v"):
+        (gb.sound(run, "spoil_pickup"), (pastimes.popup(pastimes.progress1(r1), "WAVE!", 12, 6), True{}))
+      else:
+        (gb.sound(gb.found(run, owner, "Wipeout on wave " ++ U32.show((gb.u(r1, "progress") + 1 : U32)) ++ "!"), "hit"), (r1, False{}))
+
+# ---- Belfry Bat-and-Ball -----------------------------------------------------------
+
+def pastimes.arm.volley(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  v: J.Val = J.get(round, "volley")
+  owner: U32 = gb.u(v, "owner")
+  if Bool.not(pastimes.has_el(elig, owner)):
+    (gb.found(run, 0, "Bat retired."), (round, False{}))
+  else:
+    (v1: J.Val, ret: J.Val) = pastimes.volley.Volley.step(v, pastimes.input_of(inputs, owner), pastimes.tapped_has(tapped, owner))
+    pastimes.volley.after(run, round, v, v1)
+
+def pastimes.volley.after(+run: J.Val, +round: J.Val, +v: J.Val, +v1: J.Val) -> J.Val & (J.Val & Bool):
+  run1: J.Val = Bool.pick(J.Val, Bool.and(U32.is_eq(gb.u(v, "paddle_flash"), 0), U32.is_gt(gb.u(v1, "paddle_flash"), 0)), gb.sound(run, "swing"), run)
+  r1: J.Val = gb.su(J.set(round, "volley", v1), "progress", gb.popcount(gb.u(v1, "bells")))
+  rung: Bool = U32.is_ne(gb.u(v, "bells"), gb.u(v1, "bells"))
+  r2: J.Val = Bool.pick(J.Val, rung, pastimes.popup(r1, "DING!", 12, 6), r1)
+  run2: J.Val = Bool.pick(J.Val, rung, gb.sound(run1, "circle_toll"), run1)
+  lost: Bool = U32.is_ne(gb.u(v, "lives"), gb.u(v1, "lives"))
+  r3: J.Val = Bool.pick(J.Val, lost, pastimes.mistake(r2), r2)
+  run3: J.Val = Bool.pick(J.Val, lost, gb.sound(run2, "clang"), run2)
+  if U32.is_eq(gb.u(v1, "lives"), 0):
+    (gb.found(run3, gb.u(v1, "owner"), "Three turnips lost!"), (r3, False{}))
+  else:
+    (run3, (r3, True{}))
+
+# ---- Jester's Half-pipe --------------------------------------------------------------
+
+def pastimes.arm.halfpipe(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  h: J.Val = J.get(round, "halfpipe")
+  owner: U32 = gb.u(h, "owner")
+  if Bool.not(pastimes.has_el(elig, owner)):
+    (gb.found(run, 0, "Jester retired."), (round, False{}))
+  else:
+    input: J.Val = pastimes.input_of(inputs, owner)
+    direction: U32 = pastimes.halfpipe.Halfpipe.direction(gb.u(round, "progress"), gb.u(round, "mistakes"))
+    tap: Bool = pastimes.tapped_has(tapped, owner)
+    pump: U32 = RS.i_signum(gb.axis(input, "aim_x", "move_x"))
+    was_ground: Bool = U32.is_eq(gb.u(h, "flight"), 0)
+    (h1: J.Val, ret: J.Val) = pastimes.halfpipe.Halfpipe.step(h, input, tap, direction)
+    pastimes.halfpipe.landed(run, J.set(round, "halfpipe", h1), h1, ret, Bool.and(Bool.and(was_ground, Bool.not(tap)), U32.is_eq(pump, direction)))
+
+def pastimes.halfpipe.landed(+run: J.Val, +round: J.Val, +h: J.Val, +ret: J.Val, +pumped: Bool) -> J.Val & (J.Val & Bool):
+  if J.is_null(ret):
+    pastimes.halfpipe.pumped(run, round, h, pumped)
+  else:
+    if gb.b(J.set(J.obj(), "v", ret), "v"):
+      pastimes.halfpipe.pumped(gb.sound(run, "spoil_pickup"), pastimes.popup(pastimes.progress1(round), "NICE!", 12, 6), h, pumped)
+    else:
+      r1: J.Val = gb.su(round, "mistakes", (gb.u(round, "mistakes") + 1 : U32))
+      run1: J.Val = gb.sound(run, "hero_hurt")
+      if U32.is_eq(gb.u(r1, "mistakes"), 3):
+        (gb.found(run1, gb.u(h, "owner"), "Three helmets dented! Step off J, then retry."), (r1, False{}))
+      else:
+        pastimes.halfpipe.pumped(run1, r1, h, pumped)
+
+def pastimes.halfpipe.pumped(+run: J.Val, +round: J.Val, +h: J.Val, +pumped: Bool) -> J.Val & (J.Val & Bool):
+  (Bool.pick(J.Val, pumped, gb.sound(run, "roll"), run), (J.set(round, "halfpipe", pastimes.halfpipe.Halfpipe.tick_vfx(J.get(round, "halfpipe"))), True{}))
+
+# ---- Cabbage and Roll Racing ------------------------------------------------------------
+
+def pastimes.arm.chariot(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  c: J.Val = J.get(round, "chariot")
+  owner: U32 = gb.u(c, "owner")
+  if Bool.not(pastimes.has_el(elig, owner)):
+    (gb.found(run, 0, "Driver retired."), (round, False{}))
+  else:
+    (c1: J.Val, ret: J.Val) = pastimes.chariot.Chariot.step(c, pastimes.input_of(inputs, owner), pastimes.tapped_has(tapped, owner))
+    pastimes.chariot.after(run, round, c, c1, ret)
+
+def pastimes.chariot.after(+run: J.Val, +round: J.Val, +c: J.Val, +c1: J.Val, +ret: J.Val) -> J.Val & (J.Val & Bool):
+  run1: J.Val = Bool.pick(J.Val, Bool.and(U32.is_gt(gb.u(c1, "reload"), 0), U32.is_eq(gb.u(c, "reload"), 0)), gb.sound(run, "vent_fire"), run)
+  bogged: Bool = U32.is_gt(gb.u(c1, "bog"), gb.u(c, "bog"))
+  r1: J.Val = Bool.pick(J.Val, bogged, pastimes.mistake(round), round)
+  run2: J.Val = Bool.pick(J.Val, bogged, gb.sound(run1, "hero_hurt"), run1)
+  r2: J.Val = gb.su(J.set(r1, "chariot", c1), "progress", U32.div(gb.u(c1, "distance"), 4096))
+  lap: Bool = U32.is_gt(U32.div(gb.u(c1, "distance"), 4096), U32.div(gb.u(c, "distance"), 4096))
+  r3: J.Val = Bool.pick(J.Val, lap, pastimes.popup(r2, "LAP!", 12, 6), r2)
+  run3: J.Val = Bool.pick(J.Val, lap, gb.sound(run2, "spoil_pickup"), run2)
+  if U32.is_eq(J.u32(ret), 0):
+    (run3, (r3, True{}))
+  else:
+    if J.is_null(J.set(J.obj(), "n", ret)):
+      (run3, (r3, True{}))
+    else:
+      pastimes.chariot.verdict(run3, r3, ret, gb.u(c1, "owner"))
+
+def pastimes.chariot.verdict(+run: J.Val, +round: J.Val, +ret: J.Val, +owner: U32) -> J.Val & (J.Val & Bool):
+  match ret:
+    case J.JI{n}:
+      (gb.found(run, owner, "Outraced by a goat!"), (round, False{}))
+    case _:
+      (run, (round, True{}))
+
+# ---- Carnival Duck Range ---------------------------------------------------------------------
+
+def pastimes.arm.duckshoot(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>, +tapped: List<&2, U32>) -> J.Val & (J.Val & Bool):
+  d: J.Val = J.get(round, "duckshoot")
+  owner: U32 = gb.u(d, "owner")
+  if Bool.not(pastimes.has_el(elig, owner)):
+    (gb.found(run, 0, "Gun retired."), (round, False{}))
+  else:
+    tap: Bool = pastimes.tapped_has(tapped, owner)
+    (d1: J.Val, ret: J.Val) = pastimes.duckshoot.DuckShoot.step(d, pastimes.input_of(inputs, owner), tap)
+    pastimes.duck.after(run, J.set(round, "duckshoot", d1), d1, ret, tap)
+
+def pastimes.duck.after(+run: J.Val, +round: J.Val, +d: J.Val, +ret: J.Val, +tap: Bool) -> J.Val & (J.Val & Bool):
+  run1: J.Val = pastimes.duck.hit(run, ret, tap)
+  r1: J.Val = pastimes.duck.score(round, ret)
+  if Bool.and(Bool.and(U32.is_ge(gb.u(d, "shots"), 40), U32.is_lt(gb.u(r1, "progress"), 10)), U32.is_eq(gb.u(d, "shots"), 40)):
+    (gb.found(run1, gb.u(d, "owner"), "Out of BBs!"), (r1, False{}))
+  else:
+    (run1, (r1, True{}))
+
+def pastimes.duck.hit(+run: J.Val, +ret: J.Val, +tap: Bool) -> J.Val:
+  if J.is_null(ret):
+    Bool.pick(J.Val, tap, gb.sound(gb.sound(run, "shot_handgonne"), "clang"), run)
+  else:
+    gb.sound(run, "hit")
+
+def pastimes.duck.score(+round: J.Val, +ret: J.Val) -> J.Val:
+  if J.is_null(ret):
+    round
+  else:
+    far: Bool = U32.is_eq(J.u32(ret), 2)
+    r1: J.Val = gb.su(round, "progress", U32.min((gb.u(round, "progress") + Bool.pick(U32, far, 2, 1) : U32), 10))
+    pastimes.popup(r1, Bool.pick(String, far, "LONG!", "HIT!"), 12, 4)

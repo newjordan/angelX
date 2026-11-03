@@ -352,6 +352,7 @@ never follows into the Delve. The Herald keeps his page in the Bestiary.
 | Shield Surf (U, Royal Dog-Paddle) | Step onto **U** to send a volunteer squire surfing on a borrowed shield. Use **left/right aim** (arrow keys) to move the gold balance pointer into the green zone. Release the arrow to keep that lean. When the moving wave turns gold, **tap F, then release it**. Keep the pointer green until the wave clears. Six waves in 20 seconds. | Only the starting knight controls the board; the knight stays safely on foot. Targets change after every wave. Movement keys can steer too, but aim lets you stand still. An early tap or held F cannot catch the next crest. A missed crest or bad balance causes a wipeout, not damage or a treasury charge. Step off U and back to retry. Plays, wins and best score are saved separately from older games. |
 
 | Belfry Bat-and-Ball (V, Bashful Belfry) | Step onto **V**. Use **left/right arrows** to slide the shield paddle; **tap F** to serve a turnip. Catch its return and shift the paddle to change its ricochet. Ring **four different tax bells**, three turnips, **40 seconds**. | Only the starting knight controls the shield; the knight remains safely on foot. A missed catch costs a life and 25 points. Release F before serving a replacement; held F cannot auto-serve after a miss. Three lost turnips end the round. Step off V and back to retry. No treasury charge or farming reward; best, wins, plays and an airborne turnip survive checkpoints. |
+| Change Ringing (R, Bashful Belfry) | Step onto **R** and stand at the rope. A thirteen-strike peal swings over the practice bell, each swing quicker than the last; **tap F as the closing ring turns gold** to ring that strike true. Ring **ten strikes** before the peal runs out. Board: "RING ON GOLD". | Every knight rings the same peal in their own round; the first home is crowned and the rest wear the spare bell. An early pull is a clanger and spoils that strike; a fourth spoiled or missed strike ends the peal. Pulls only count at the rope. Free practice gives score, never treasury gold; best, wins and plays keep their own records. |
 | Jester's Half-Pipe (J, Mummers' Hollow) | Step onto **J**. Hold the **right/left arrow shown on the board** to pump toward the lip. **Tap and release F when the lip turns gold**, hold the same arrow to spin, then **release arrows when the spin turns green** to land. Four tricks, **30 seconds**, three helmets. The pumping direction alternates after each pass. | Only the starting knight controls the barrel-board; the knight stays safely on foot. Early F, a missed lip or an unstraightened landing dents a helmet. Holding F cannot auto-launch. Three dents or timeout end the round; step off J and return to retry. Medal payout is once-only, while best/wins/plays and airborne rotation survive checkpoints. |
 | Trencher Toss (D, Goose Green) | Tap/release F to toss; left/right steer goose to the gold landing ring. 3 catches, 30 seconds, 3 misses. Fixed-point plate drift and separate saved records; free score-only practice. |
 | Cabbage and Roll Racing (C, Rusty Hippodrome) | Three laps, three rivals, 35 seconds. Up whips / down brakes / left-right steers; tap F throws a lane-targeted cabbage. Avoid barrels. Free practice saves records, not gold; B nearby runs the separate 10-gold spectator card. |
@@ -735,6 +736,70 @@ stands on its dais. An empty plinth wears a dust sheet. Walk up to a
 plinth to read its plaque: how often its guardian has fallen. Every plinth
 filled is **A Full Hall**.
 
+## Squire company
+
+The Training Yard has three squire stations along its north wall. Each
+sign names its level and the three floor plates below it. Stand at a plate,
+**hold E**, then release before the next action. Costs use the shared
+**treasury**, not the coins in a knight's tavern purse.
+
+| Station | Left plate | Middle plate | Right plate |
+|---|---|---|---|
+| Recruit | Next offer | Hire recruit | Upgrade recruiting |
+| Hiring | Select active | Rest active | Upgrade hiring |
+| Train | Train active | Select roster | Upgrade training |
+
+Each named knight keeps a permanent roster: three places initially, up to
+nine with hiring-hall improvements. **One active squire per knight** follows
+into the dungeon; Rest chooses none. Hiring the first recruit selects them.
+The board starts with three named offers, refreshes once per delve, and
+recruiting improvements add offers and innate talent. Hiring improvements
+add roster space and lower hiring prices. Training improvements lower
+lesson prices and raise the level ceiling from 3 to 9. Each building has
+three paid improvements (displayed levels 1–4), saved with the realm.
+
+Lessons are instant gold-paid training: health and power increase each
+level. The training board previews the next stats and ability unlock.
+
+- **Ninja:** flanks and throws stars; backstab at level 2, smoke at level 3.
+- **Healer:** keeps distance and mends the lowest-health knight; cleanse at
+  level 2, fallen-skull revival assistance at level 3.
+- **Ranger:** ranged arrows; target marks at level 2, quicker fire at level 3.
+- **Shield-bearer:** guards the owner and catches hostile shots; stronger
+  protection as training rises.
+- **Alchemist:** bombs and nearby potion aid; stronger support with training.
+
+Small companion figures use their owner's colour. Downed squires recover
+with the next room; no permanent death, loot-taking, summon-slot cost or
+extra player controls. An absent/departed owner's companion does not act as
+a decoy or intercept attacks. Selection and all treasury spending stay in
+town; there is no mid-fight roster swap.
+
+## The starting tavern: the Sozzled Griffin
+
+The free **weapons wall** south of the tables has exactly six public arms:
+Bow, Crossbow, Handgonne, Stock Blade, Stock Staff and Stock Maul. Stand at
+a peg and **hold E** to equip or swap; stock never runs out and each seat
+holds independently. It changes only the arm, not the knight's kit.
+
+Blade, staff and maul are common, plain stock, not renamed champion weapons.
+They use the existing card-art and checked-rune pipelines, without special
+effects, throws or ultimates. Their modest attacks are:
+
+| Stock arm | Damage | Reach / range | Arc | Ticks between attacks |
+|---|---:|---:|---:|---:|
+| Blade | 18 | 2.4 | 100° | 18 |
+| Staff | 8 | 24 | one straight bolt | 15 |
+| Maul | 26 | 2.8 | 120° | 26 |
+
+These three cards have no monster/chest drops. The established Bow, Crossbow
+and Handgonne cards keep their stats and rarity (common, rare and rare).
+There are **no relic, champion-private or hero-private exceptions** on the
+wall. Cleaver, Sigil Staff, Great Maul and Grave Staff are not wall stock;
+champion/hero loadouts remain unchanged and are selected through their
+patrons. The notice board pages through ordinary company benches while
+Farwatch, Galeweaver and Cinderheart remain visible.
+
 ## The west wing: Maud's tavern
 
 The Trophy Hall's west doorway is full of rubble, planks nailed across it.
@@ -864,6 +929,23 @@ Delves have no viewer counts, fan-box drops, sponsor mode or broadcast-rating
 rewards. Old viewer fields are ignored when loading saves; an old sponsor-mode
 save resumes as The Long Way Down. Retired viewer bounties are removed from the
 board rather than carrying their scores into the new exploration jobs.
+
+## The first floor as an Atari board (experimental)
+
+Experimental, `ANGEL_DELVE_ATARI=1` (or `ANGEL_DELVE_IDENTITY=1`, whose three-room first floor it draws: "The identity start"); off by default, and floor one keeps
+today's look without it. With it on, the first floor is drawn as the rung
+below the flat pixel Delve (docs/WORLD-TIERS.md, "A0 the Atari board"): a
+black field in a few flat inks, walls as plain grey bars, doorways as gaps
+(a rust bar across one while the fight lasts), the stairs as pale treads
+(dim while the guardian holds them), spike plates as outlined squares,
+pits and water as dim rust blocks, and a dashed Pong line down the middle
+of each room. Foes and the floor's guardian are blocky sprites in one rust
+hue, loot in gold, pots and pillars grey, two room pixels to a block. No
+light, no dither, and the window and the browser lay it flat (no tilt).
+The rules are untouched: the layout, doors, stairs, missions, the wish
+scroll and the HUD are as they were. Floor two and down keep their look,
+so going down the stairs is the world's first step up in fidelity. The
+host sends the switch to every page with its welcome (`wire::Params`).
 
 ## Fortune's dares
 
@@ -1145,15 +1227,25 @@ fights cost somebody the clothes, and now and then a knight falls.
   party; it meets more pressure instead (`together_shooter/press.rs`, the
   head-count tables in `stakes.rs`):
 
-  | Knights | 1 | 2 | 3 | 4 |
-  |---|---|---|---|---|
-  | What monsters deal, floors 1–2 (`EARLY_PARTY_HIT`) | 100% | 115% | 130% | 145% |
-  | What monsters deal, floor 3 down (`PARTY_HIT`) | 60% | 100% | 120% | 135% |
-  | More gunners in every room (`EXTRA_PER_KNIGHT`) | 0 | 2 | 4 | 6 |
-  | A wave through a door | 2 + floor (floors 1–3) | +2 | +4 | +6 |
-  | Extra shot pairs beside each shot of a volley, guardians too (`PARTY_FURY`) | 0 | 1 | 2 | 3 |
-  | A wave's cap | 6 | 8 | 10 | 12 |
-  | Extra bodies a floor may raise past its provision (`HEAD_PROVISION`) | 0 | 32 | 64 | 96 |
+  | Knights | 1 | 2 | 3 | 4 | 5 | 6 |
+  |---|---|---|---|---|---|---|
+  | What monsters deal, floors 1–2 (`EARLY_PARTY_HIT`) | 100% | 115% | 130% | 145% | 150% | 155% |
+  | What monsters deal, floor 3 down (`PARTY_HIT`) | 60% | 100% | 120% | 135% | 140% | 145% |
+  | More gunners in every room (`PARTY_EXTRA`) | 0 | 2 | 4 | 6 | 7 | 8 |
+  | An open chamber's company fighting at once (`OPEN_WAVE`) | all | all | all | all | 8 | 8 |
+  | A wave through a door | 2 + floor (floors 1–3) | +2 | +4 | +6 | +7 | +8 |
+  | Extra shot pairs beside each shot of a volley, guardians too (`PARTY_FURY`) | 0 | 1 | 2 | 3 | 3 | 3 |
+  | A wave's cap | 6 | 8 | 10 | 12 | 13 | 14 |
+  | Extra bodies a floor may raise past its provision (`HEAD_PROVISION`) | 0 | 32 | 64 | 96 | 128 | 160 |
+
+  Past four knights the tables climb slowly: every monster's health is
+  already sized to the whole party, so a full table's rooms grow as their
+  count times their health, and on the 2026-10-20 play-test five friends
+  were felled two blows each in their first room. On floors 1–2 the first
+  fight off the stairs brings none of the party's gunners
+  (`GENTLE_FIRST_TO`). `party_scale_sim` and
+  `five_and_six_knights_with_the_starting_kit_clear_the_first_rooms`
+  (`together_party_scale__tests.rs`) hold one to six knights to it.
 
   - **Aggro spreads.** Each monster hunts its own knight (its share of the
     party) and turns on whoever last hurt it. It still sees Phantasm's
@@ -1464,8 +1556,8 @@ motion traits default to empty when loading an older shot.
 Review pictures are written without a live game or any API calls:
 
 ```sh
-CARGO_TARGET_DIR=/work/build-cache/angelx-patterns TMPDIR=/work/tmp \
-  ANGEL_ARENA_SHOTS=/work/tmp/review-shots/patterns \
+CARGO_TARGET_DIR=<build-cache>/angelx-patterns TMPDIR=<scratch> \
+  ANGEL_ARENA_SHOTS=<scratch>/review-shots/patterns \
   cargo test --manifest-path cockpit/Cargo.toml --bin angel write_pattern_shots -- --ignored
 ```
 
@@ -1796,6 +1888,46 @@ steady, and maps pixels to realm inks. PNG references become checked ink rows
 before sharing: saves and friends carry the frames, with no local file dependency.
 A missing or malformed sheet rejects that wish and reports why.
 
+A `paint` line is a sheet kept whole: `paint <slot> <file.png> [frames=N]
+[size=N] [at=place] [move=words]` reads a PNG from the same sheets folder, on a
+transparent background, at most 4 MiB and 2048 pixels per side. It is cut into
+ink rows exactly as `sheet` cuts it, and the PNG is also stored in the host's
+paint store, `.angel/dungeon/paint/<sha256>.png`. The card then carries
+`draw <slot> paint=<sha256>` over its rows: what saves and travels is still
+checked text and a hash. The rows draw in the terminal, at a wish's lower
+levels and on any client without the picture; the top level of a wish shows
+the painting itself, sharp, in the rows' place.
+
+A `paint` line may add `normal=<file_n.png>`: the painting's normal map, a PNG
+in the same folder and of the painting's exact size (red right, green up, blue
+out toward the eye). It is checked and kept in the paint store by its sha256 as
+the painting is, and the header carries `normal=<sha256>` after the `paint=`;
+a joined seat fetches it from the host's `/paint/` beside the painting. In a
+lit room the painting takes the light pixel by pixel by it; a painting without
+one is lit by a map made from it (docs/WORLD-TIERS.md, "Normal maps"). It goes
+with the painting: a header with `normal=` and no `paint=` is a card error, and
+a wish's lower levels lose both.
+
+A `draw` header or a `paint` line may add `move=` with motion words, commas
+between: `stretch` (squash along a shot's flight), `bob` (rise and fall),
+`wobble` (rock side to side), `spin` (turn round), `jiggle` (a two-lobe
+squash-bounce), `wiggle` (a wave down its length, the trailing end swinging
+most), `pulse` (swell and settle) and `shake` (a fast small jitter). They move
+the inks and the painting alike; an unknown word is a card error.
+
+Where a painted sprite is drawn on the field (a shot, a worn piece, an orbit,
+a summoned creature, an aura), the frame taken apart notes the painting, the
+frame its inks show, their square and whether they are flipped
+(`arena::paintings`); a window with the picture draws it there at its own
+resolution, moved as the inks are, and takes the inks out from under it. The
+native window reads paintings from the host's paint store; the host serves
+the store at `/paint/<sha256>.png` (nothing else, kept for good), where a
+browser page and a seat joined from another machine fetch them, the seat into
+`~/.angelX/cache/paint`. Each is cut once to about twice the size it shows.
+Motion is a function of the tick and of each sprite's own phase, so every
+client moves it alike; a wiggle bends the inks, and swings a painting about
+its head.
+
 `kind spell` and `kind play` can use `summon N <behaviour>`:
 
 | Behaviour | Count cap | Fixed combat behaviour | Minimum spell cooldown |
@@ -1879,6 +2011,63 @@ decided by the run's seed, the floor, the knight and the two cards, so every
 seat sees the same. Brews are ordinary checked spell cards
 (`rules/cauldron.rs`), at most about two Cabbage Storms' worth a second.
 
+## The identity start
+
+Experimental, off unless the host sets `ANGEL_DELVE_IDENTITY=1`. The Atari
+board (the first floor's flat look, docs/WORLD-TIERS.md) comes on with it.
+
+A knight begins a delve as a plain shape in their seat's colour: a square,
+a triangle, a circle, a diamond, a hexagon or a star, one for each of the
+six seats. The shape is only a look. Every shape has the same health (100,
+and the hearth's warmth), the same speed and the same arm: **the Ball**, a
+small square ball thrown straight (14 every 12 ticks), as the old
+bat-and-ball games threw it. The dodge roll is the guard. There is no class
+kit, no spell, no ultimate, no potion or bomb from a kit, no gear kept from
+the last delve, and no cache of arms.
+
+The first floor is character creation: three rooms straight north, drawn as
+the Atari board, and no more. Each room gives every knight one wish as the
+party first walks in, and its sign and the wish scroll ask its question:
+
+1. **What are you?** (the landing, nothing in it): the body. A held card
+   worn on the knight, whose words are the frame it gives: health, armour,
+   speed, and whatever else such a body has.
+2. **What do you fight with?** (a fight): the weapon, an arm, drawn in the
+   hand.
+3. **What is your ultimate?** (the stairs and the floor's guardian): a held
+   card naming one of the ultimates (`ult <name>`, see "Ultimates"), cast
+   with R. Until it is wished a shape has no ultimate to charge.
+
+The questions are answered in that order; while a knight is unmade the
+scroll grants nothing else (no spell, no wish of power), and a super wish
+waits. A knight with a body, a weapon and an ultimate is **whole**, and the
+party hears it. From the second floor on the game is the ordinary one:
+two wishes a floor, spells, power, and more parts at their places.
+
+What a wish bestows is decided by whatever grants it, as a game master
+rolls up a character from what the player says. The scroll knows answers
+of its own (Plain Frame, Great Helm, Breastplate, Buckler, Iron Gauntlet,
+Swift Boots, Iron Skin; Yew Bow, War Crossbow, Hand Cannon, Bright Blade;
+every ultimate by name). Words of the player's own go to the host's model,
+which is asked to read them for the character's attributes and skills,
+good and bad, and to give its reasons on the scroll's line ("Ogre's frame:
++30 health, armour, too big for speed"). The card checker and the wish caps
+bound it as they bound every wish, and a learned wish's drawing still sets
+its grade. With no model to ask (the stub route), the scroll grants its
+plain answer to the question: Plain Frame, Yew Bow, Pilgrim's Arrow.
+
+A head guards like the helmet and a body (or shoulders) like the mail. The
+figure is the shape with every part drawn at its place; a body wished goes
+over the shape, which stays on the chest as the knight's mark. A part shows
+coarse at its first level and as drawn at its last, and a painted part
+keeps its painting at its top tier. Friends see each other's shapes and
+parts in the terminal, the window and the browser. Party cards say MAKE ME
+while a knight's wishes are for making them, and the Tab sheet lists what
+each wish bestowed. A class taken up at a hall is a calling (its school,
+trials and banner), not a kit.
+
+Old saves load as knights begun with a kit.
+
 ## Wishes
 
 Win a room and an **Overclass window** opens: each knight standing gets one wish
@@ -1916,7 +2105,9 @@ card id fits without cutting off its ladder marker.
 `kind hold` is the default; `kind spell` offers active casts and summons, every
 tier including `cooldown`; `kind guard` offers a guard skill. A `draw` block
 applies to all tiers, or add a tier number (`draw worn at=left 3`) to grow the
-look from that tier. PNG references may use `tier=3` the same way. For example:
+look from that tier. PNG references (`sheet` and `paint`) may use `tier=3` the
+same way. Only a wish's last level keeps a `paint=`; the lower levels show its
+inks, coarse to plain, and every level keeps its `move=`. For example:
 
 ```text
 wish golden-devils | Golden Devils
@@ -1970,9 +2161,18 @@ so strong it was basically kill everything, then we die").
   Machine + Projectile, volley = Swift + Projectile, orbit = Creature + Body.
   Till then the wish gives 5% more damage, and the grant names what it waits on
   and the families held.
-- **Cover** (`cover`). The party's shots may cover 12% of the screen (or a
-  smaller room); past it the oldest go first. A knight's shot lives at most 3 s
-  and comes off the stone at most twice.
+- **Cover** (`cover`). A knight's shot lives at most 3 s and comes off the
+  stone at most twice. The party's shots were also held to 12% of the screen (or
+  a smaller room), the oldest going first; that share is switched off for now
+  (`PARTY_COVER_ON`, 2026-10-22), and one change brings it back.
+- **Shot size** (`wishcraft`). A knight's shot is drawn and strikes at
+  `scale = 0.55 x clamp(sqrt(beat / 12), 0.5, 1.5) x (1 + 0.5 x size)`, never
+  under 0.3 of what shots were drawn at. `beat` is the ticks between two pulls
+  of the arm that loosed it, rate and quick draws counted (stamped on the shot
+  as `ShotTraits::beat`, off the wire at 0): a fast arm's shots are small and a
+  slow arm's big. A shot at the base size or under strikes as a point (the
+  monster's body is its target); over it, it strikes `1.2` for each whole scale
+  over `0.55` wider. A monster's shot is as it was.
 
 A wish the phrasebook doesn't know is **learned while you play**: angelX gets a
 short brief to append one entry to the workspace's phrasebook, the game never
@@ -2068,7 +2268,7 @@ says so on the status line.
   seat; `/dungeon kick` ends them all.
 - In the browser: WASD moves, the arrows aim, F fires, Space rolls, Q is the
   sword, E interacts, X throws a bomb, 1–4 cast spells, Z quaffs, R is the
-  ultimate, and a gamepad works.
+  ultimate, C climbs on a friend's shoulders, and a gamepad works.
 - Behind a public `https` door (a tunnel or a relay), set
   `ANGEL_DUNGEON_PUBLIC_URL` to it and the link names it, so a friend
   anywhere needs nothing installed; the page and the socket share the
@@ -2141,6 +2341,51 @@ Offline visual review: set `ANGEL_ARENA_SHOTS` and run the ignored
 seat views, the opening/closing transitions and `contact_sheet.png`.
 
 
+## Shoulder rides
+
+The party can ride on each other's shoulders (`rules::shoulders`). One key
+does it all, C (LT+LB on a pad; outside the ballot 5 too):
+
+- **Climb on.** Next to another knight, C climbs onto their shoulders. A
+  knight already carrying someone is climbed to the top: up to five riders
+  on one carrier, the whole party of six in one tower, drawn as a swaying
+  totem of knights each stood on the one below.
+- **Ride.** A rider stops walking, rolling and meeting the world, goes where
+  the carrier goes and only aims, shoots, swings, casts and plays cards. The
+  carrier walks, rolls and fights as usual.
+- **Hop off.** A rider's C hops down onto clear ground beside the tower.
+  Everyone comes off when the carrier is downed, turns to stone, is tossed
+  by a Ravage, goes into the privy, is hexed, goes side-on (a ledge hall's
+  pits) or onto a ride; a rider felled falls off and the ones above drop
+  down. Through doors, down stairs and across an open floor the tower stays
+  whole: the riders are carried.
+- **Throw.** A carrier's C throws the top rider along the carrier's aim, up
+  in a high arc (a trail of dust behind, their shadow on the floor, bigger
+  as they rise, tumbling) over monsters, props, pits and shots, untouchable
+  all the way. A clear throw carries one hallway: the open floors' passages
+  measured mouth to mouth, a median of 12 tiles (24 units). It stops short
+  of the first wall or doorway and comes down on the last floor a knight
+  can stand on, never in a wall, a pit, a doorway or another room.
+- **The slam.** The landing strikes the monsters within 4.5 units for 45 as
+  one stroke (whole on the three nearest, a quarter past them: `aoe`),
+  throws them 4 units back, stuns them for 0.4 s and pops the monsters'
+  shots there: a throw cracks a crowd or clears a hallway. A carrier throws
+  once every 3 s; the thrown knight lands with half a second of grace.
+
+**Who takes the hits.** A tower is one body to the monsters: only the
+carrier can be struck. Each rider takes a third (33%) of every hit the
+carrier takes, then has their own grace (the run's hit ward), so a rider
+is hurt at most once a ward. The carrier walks 6% slower for each rider (a
+five-high tower at 70%). A tower trades feet for guns: five knights
+shooting from one spot, one knight dodging for all of them.
+
+Over the wire the towers and flights are the run's (`Run::shoulders`) and
+the ride key one bit of the command. A client draws its own carrier ahead
+at the tower's pace with the riders sat on it; a rider or a thrown knight
+is drawn from the server's ticks, the tower always in one piece. The
+sounds are `shoulder_climb`, `shoulder_hop`, `shoulder_throw` and
+`shoulder_slam` (hooks for the SFX to come).
+
 ## Floor transition paintings
 
 Each arrival below the surface has a 384×224 dark-deco intertitle, fitted to
@@ -2171,21 +2416,35 @@ searchlight phases; interior plates cache one painting. Playback clones a
 cached painting and adds only a few flicker, ember, spore or reflection pixels.
 Crypt 1 shows the chapel graveyard, Crypt 2 its candlelit ossuary; Mines 1 shows
 the pit-head winding gear, Mines 2 the mountain's great forge hall.
-Frames are pure and deterministic; no runtime asset loading is involved. Three
-inks are appended to the master palette: crimson **#741017**, navy **#293e69**
-and mustard **#c9ac3a**. These live outside the five material/signal banks and
-are excluded from `nearest_plain`, so room and world quantization is unchanged.
-The corresponding sprite ink characters are χ, ν and μ, used only by plates.
-All remaining plate colors come from the existing palette.
+Frames are pure and deterministic; no runtime asset loading is involved. The
+three transition inks the plates once added (crimson **#741017**, navy
+**#293e69** and mustard **#c9ac3a**, as χ, ν and μ) are retired: the plates are
+painted in the existing palette. The master palette's only additions since are
+the two dyes, violet (`d ( ) [ ] ^`, aubergine to lilac) and pink (`! ? ; % +`,
+wine to blush), banks 5 and 6 of `cockpit/assets/realm/palette.json`. Like the
+transition inks they live outside the five material/signal banks and are
+excluded from `nearest_plain` and the frame snap, so room and world
+quantization is unchanged and a dye shows only where it is inked.
 
 Offline review (from `cockpit/`):
 
 ```sh
-CARGO_TARGET_DIR=/work/build-cache/angelx-plates TMPDIR=/work/tmp \
-ANGEL_PLATE_SHOTS=/work/tmp/review-shots/plates-v2 \
-ANGEL_PLATE_MOODBOARD=/work/tmp/plates-moodboard.png \
+CARGO_TARGET_DIR=<build-cache>/angelx-plates TMPDIR=<scratch> \
+ANGEL_PLATE_SHOTS=<scratch>/review-shots/plates-v2 \
+ANGEL_PLATE_MOODBOARD=<scratch>/plates-moodboard.png \
 cargo test --bin angel write_floor_plate_shots -- --ignored
 ```
 
 The ignored writer emits each painting, terminal-sized samples, three iris
 frames and `contact-sheet.png` with the reference board beside the paintings.
+
+## Cut and archived
+
+- **The second art kit** (`ANGEL_ART=v2`, the dev host's `--art v2`), cut on
+  2026-10-20: its art is in `<archive>/2026-10-20/art-v2/`
+  and its code at `refs/archive/cut-20261020/before-art-cuts`.
+- **The painted-plate world** (`ANGEL_WORLD3D_PLATES=1`, `ANGEL_WORLD3D_PLAIN=1`:
+  rooms in 3D with a painted plate cast on their blocks, or stood up plain in a
+  theme's patches), cut on 2026-10-20: its sets and plate records are in
+  `<archive>/2026-10-20/plate-world/`, its code at the same
+  ref. Rooms in 3D are lit, in the monolith look.

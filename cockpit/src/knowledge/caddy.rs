@@ -649,10 +649,15 @@ fn recipe_card_line(recipe: &Recipe, count: usize, state: &serde_json::Value) ->
 }
 
 fn hazard_card_line(hazard: &Hazard) -> String {
+    // The diagnostic (the "why") leads; a long command — a heredoc script,
+    // say — is clipped to its first line so it can never crowd the reason out
+    // of the bounded line.
+    let command = hazard.command.lines().next().unwrap_or("").trim();
+    let command = bound_chars(command, MAX_HAZARD_COMMAND_CHARS);
     bound_line(&format!(
-        "- {}: {} — {}",
-        hazard.command,
-        hazard.diagnostic,
+        "- {} — `{}` ({})",
+        hazard.diagnostic.trim(),
+        command,
         iso_day(hazard.ts_ms)
     ))
 }
@@ -1371,6 +1376,9 @@ fn bound_chars(text: &str, max_chars: usize) -> String {
 }
 
 /// One card line: assembled, then hard-bounded to MAX_LINE_CHARS.
+/// Visible budget for a hazard's command inside its card line.
+const MAX_HAZARD_COMMAND_CHARS: usize = 72;
+
 fn bound_line(line: &str) -> String {
     bound_chars(line, MAX_LINE_CHARS)
 }

@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+# angelY — angelX in Yukon competition posture, on a pinned binary.
+#
+#   angely [workspace] [driver]
+#
+#   workspace  a Yukon checkout (default: the current directory)
+#   driver     glm | kimi | deepseek | sol | sol-low | local
+#              (default: $ANGELY_DRIVER, else glm)
+#
+# Posture: ANGEL_COMP_PACKAGE=yukon, ANGEL_COMPETITION_MODE=1 (competition routes,
+# research tools, confirm-green runs), ANGEL_COMP_MODE=1 (lean frames), ANGEL_YOLO=1.
+# Runs the binary in $ANGELY_HOME/pin (built by scripts/angely/pin.sh, never the live
+# cargo target), in its own memory-capped systemd scope where one exists, with wire
+# logs and trajectories under $ANGELY_HOME/logs/<seat>/.
+#
+# Knobs: ANGELY_HOME (pin + logs, default <checkout>/.angelY), ANGELY_SEAT (log/tab
+#        name, default: workspace basename), ANGELY_MEM (MemoryMax, default 24G).
+set -euo pipefail
+ANGEL_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+HOME_Y="${ANGELY_HOME:-$ANGEL_DIR/.angelY}"
+ws="$(readlink -f "${1:-$PWD}")"
+driver="${2:-${ANGELY_DRIVER:-glm}}"
+seat="${ANGELY_SEAT:-$(basename "$ws")}"
+mem="${ANGELY_MEM:-24G}"
+[[ -d "$ws" ]] || { echo "angelY: no workspace at $ws" >&2; exit 2; }
+[[ -x "$HOME_Y/pin/angel" && -f "$HOME_Y/pin/angel.sha256" ]] \
+  || { echo "angelY: no pin in $HOME_Y/pin (run scripts/angely/pin.sh)" >&2; exit 2; }
+
+# Keys first, so the driver block below wins over any host default.
+for envf in "$HOME/.config/host_env/system.env" "$HOME/.config/host_env/api_keys.sh"; do
+  # shellcheck disable=SC1090
+  [[ -f "$envf" ]] && { set -a; . "$envf"; set +a; }
+done
+unset ANGEL_HOST_ENV
+
+case "$driver" in
+  glm)
+    export ANGEL_DRIVER=glm ANGEL_GLM_MODEL=glm-5.3 ANGEL_GLM_URL=https://api.z.ai/api/coding/paas/v4
+    export ANGEL_GLM_KEY="${ZAI_API_KEY:?ZAI_API_KEY missing}" ANGEL_GLM_REASONING_EFFORT=high
+    model_name="GLM 5.3"; effort=high ;;
+  kimi)
+    export ANGEL_DRIVER=kimi ANGEL_KIMI_MODEL="${ANGEL_KIMI_MODEL:-k3}"
+    model_name="Kimi K3"; effort=default ;;
+  deepseek)
+    export ANGEL_DRIVER=deepseek ANGEL_DEEPSEEK_MODEL="${ANGEL_DEEPSEEK_MODEL:-deepseek-v4-pro}"
+    export ANGEL_DEEPSEEK_REASONING_EFFORT="${ANGEL_DEEPSEEK_REASONING_EFFORT:-high}"
+    model_name="DeepSeek V4 Pro"; effort="$ANGEL_DEEPSEEK_REASONING_EFFORT" ;;
+  sol|sol-low)
+    # Sol 6.1 only: the older gpt-6-sol is not to be used, so no inherited model pin.
+    export ANGEL_DRIVER=openai ANGEL_OPENAI_MODEL=gpt-6.1-sol
+    effort=xhigh; [[ "$driver" == sol-low ]] && effort=low
+    export ANGEL_OPENAI_REASONING_EFFORT="$effort"
+    model_name="GPT-6.1-Sol" ;;
+  local)
+    export ANGEL_DRIVER=local
+    model_name="${ANGEL_LOCAL_MODEL:-local}"; effort=default ;;
+  *) echo "angelY: unknown driver '$driver'" >&2; exit 2 ;;
+esac
+
+export ANGEL_CARTRIDGE=yukon ANGEL_COMP_PACKAGE=yukon ANGEL_COMPETITION_MODE=1 ANGEL_COMP_MODE=1 ANGEL_YOLO=1
+export ANGEL_NO_BUILD=1 ANGEL_LAUNCH_BINARY="$HOME_Y/pin/angel"
+export ANGEL_LAUNCH_BINARY_SHA256="$(cat "$HOME_Y/pin/angel.sha256")"
+export ANGEL_WORKSPACE="$ws" ANGELY_SEAT="$seat" ANGELY_MODEL_NAME="$model_name" ANGELY_EFFORT="$effort"
+export ANGEL_WIRE_LOG_DIR="$HOME_Y/logs/$seat/wire" ANGEL_TRAJECTORY_LOG=1 ANGEL_TRAJECTORY_DIR="$HOME_Y/logs/$seat/traj"
+export TMPDIR="${ANGELY_TMPDIR:-${TMPDIR:-/tmp}}"
+mkdir -p "$ANGEL_WIRE_LOG_DIR" "$ANGEL_TRAJECTORY_DIR" "$TMPDIR"
+
+# Standing orders for this seat, kept out of the checkout's git status.
+mkdir -p "$ws/.angelY"
+sed -e "s/{{MODEL}}/$model_name/g" -e "s/{{EFFORT}}/$effort/g" "$ANGEL_DIR/scripts/angely/ORDERS.md" > "$ws/.angelY/ORDERS.md"
+[[ -f "$ANGEL_DIR/scripts/angely/boards/$seat.md" ]] && cat "$ANGEL_DIR/scripts/angely/boards/$seat.md" >> "$ws/.angelY/ORDERS.md"
+if [[ -d "$ws/.git" ]]; then
+  for p in .angelY/ NOTEBOOK.md; do
+    grep -qxF "$p" "$ws/.git/info/exclude" 2>/dev/null || echo "$p" >> "$ws/.git/info/exclude"
+  done
+fi
+
+echo "angelY · seat $seat · $driver ($model_name, $effort) · pin $(cut -c1-12 "$HOME_Y/pin/angel.sha256") · $ws"
+cd "$ws"
+if command -v systemd-run >/dev/null 2>&1; then
+  exec systemd-run --user --scope -q --unit="angelY-$seat-$$" -p MemoryMax="$mem" "$ANGEL_DIR/bin/angelX"
+fi
+exec "$ANGEL_DIR/bin/angelX"

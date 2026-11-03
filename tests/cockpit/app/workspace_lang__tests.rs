@@ -1,5 +1,264 @@
 use super::*;
 
+// Cases are read at test time so runner formats can be extended without a Rust rebuild.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct RunnerCase {
+    id: String,
+    lang: String,
+    stdout: String,
+    stderr: String,
+    passed: Option<usize>,
+    failed: Option<usize>,
+    skipped: Option<usize>,
+}
+
+fn assert_runner_cases(group: &str, expected_cases: usize) {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/runner-output-cases.json");
+    let bytes = std::fs::read(path).expect("runner output fixture");
+    let all: std::collections::BTreeMap<String, Vec<RunnerCase>> =
+        serde_json::from_slice(&bytes).expect("valid runner output fixture");
+    let cases = all.get(group).expect("known runner output group");
+    assert_eq!(cases.len(), expected_cases, "{group}: case count");
+    let mut ids = std::collections::HashSet::new();
+    for case in cases {
+        assert!(ids.insert(&case.id), "{group}: duplicate case {}", case.id);
+        let lang = match case.lang.as_str() {
+            "js" => Lang::Js,
+            "python" => Lang::Python,
+            "go" => Lang::Go,
+            "cpp" => Lang::Cpp,
+            _ => panic!("{group}/{}: unknown language", case.id),
+        };
+        let actual = parse_runner_output(lang, &case.stdout, &case.stderr);
+        assert!(case.passed.is_some() || case.failed.is_some() || case.skipped.is_some());
+        if let Some(expected) = case.passed {
+            assert_eq!(actual.passed, expected, "{group}/{}: passed", case.id);
+        }
+        if let Some(expected) = case.failed {
+            assert_eq!(actual.failed, expected, "{group}/{}: failed", case.id);
+        }
+        if let Some(expected) = case.skipped {
+            assert_eq!(actual.skipped, expected, "{group}/{}: skipped", case.id);
+        }
+    }
+}
+
+
+fn parse_runner_output(lang: Lang, stdout: &str, stderr: &str) -> RunnerCounts {
+    let _guard = crate::tests::env_lock();
+    super::parse_runner_output(lang, stdout, stderr, None).expect("test summary module")
+}
+
+#[test]
+fn changed_embedded_runner_sources_do_not_take_the_inline_path() {
+    let wrapper = include_str!("../../../scripts/runtime/test-runner-report.mjs");
+    let module = include_str!("../../../lib/test-runner/report.mjs");
+    assert!(!inline_runner_generation_compatible(
+        wrapper,
+        &module.replace("export function project", "export const project = function")
+    ));
+    assert!(!inline_runner_generation_compatible(
+        wrapper,
+        &format!("import 'other';\n{module}")
+    ));
+    assert!(!inline_runner_generation_compatible(
+        &format!("{wrapper}\n// changed"),
+        module
+    ));
+}
+
+#[test]
+fn runner_timeout_fallback_uses_the_captured_generation() {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    let _guard = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("runner-pinned-fallback");
+    let _resource =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let _node = crate::tests::TestEnvGuard::unset("ANGEL_NODE_BIN");
+    let wrapper = root.path().join("scripts/runtime/test-runner-report.mjs");
+    let module = root.path().join("lib/test-runner/report.mjs");
+    std::fs::create_dir_all(wrapper.parent().unwrap()).unwrap();
+    std::fs::create_dir_all(module.parent().unwrap()).unwrap();
+    std::fs::write(
+        &wrapper,
+        include_str!("../../../scripts/runtime/test-runner-report.mjs"),
+    )
+    .unwrap();
+    let baseline = include_str!("../../../lib/test-runner/report.mjs");
+    for error in ["projection capacity timed out", "projection timed out"] {
+        std::fs::write(&module, baseline).unwrap();
+        let result = super::parse_runner_output_with(
+            Lang::Python, "=== 3 passed in 0.1s ===", "", None,
+            |_, _, _| {
+                std::fs::write(&module, "export function project() { return {version:1,passed:'99',failed:'0',skipped:'0'}; }").unwrap();
+                Err(error.to_string())
+            },
+        ).unwrap();
+        assert_eq!(result.passed, 3, "fallback must use the captured parser");
+    }
+
+    std::fs::write(&module, baseline).unwrap();
+    let error = super::parse_runner_output_with(Lang::Python, "", "", None, |_, _, _| {
+        Err("projection failed".to_string())
+    })
+    .unwrap_err();
+    assert!(error.contains("projection failed"), "{error}");
+    let cancelled = AtomicBool::new(false);
+    let error =
+        super::parse_runner_output_with(Lang::Python, "", "", Some(&cancelled), |_, _, _| {
+            cancelled.store(true, Ordering::Release);
+            Err("projection timed out".to_string())
+        })
+        .unwrap_err();
+    assert!(error.contains("interrupted"), "{error}");
+}
+
+#[test]
+fn embedded_runner_report_matches_pinned_node_for_real_summaries() {
+    let _guard = crate::tests::env_lock();
+    let _resource = crate::tests::TestEnvGuard::unset("ANGEL_RESOURCE_DIR");
+    let _node = crate::tests::TestEnvGuard::unset("ANGEL_NODE_BIN");
+    let node = crate::agent::tools::runtime_missing::resolve("node").unwrap();
+    let cases = [
+        (Lang::Js, "# pass 9\n# fail 1\n# skipped 2\n", ""),
+        (
+            Lang::Python,
+            "=== 3 passed, 1 failed, 2 skipped in 0.1s ===",
+            "",
+        ),
+        (Lang::Go, "--- PASS: café\n--- FAIL: test\n", ""),
+        (
+            Lang::Cpp,
+            "100% tests passed out of 18446744073709551615",
+            "",
+        ),
+        (Lang::Swift, "Executed 3 tests, with 1 failures", ""),
+        (Lang::Js, "# pass 18446744073709551615\n# fail 1\n", ""),
+    ];
+    let fast: Vec<_> = cases
+        .iter()
+        .map(|(lang, out, err)| super::parse_runner_output(*lang, out, err, None))
+        .collect();
+    let _pin = crate::tests::TestEnvGuard::set("ANGEL_NODE_BIN", node.to_str().unwrap());
+    for ((lang, out, err), expected) in cases.into_iter().zip(fast) {
+        let legacy = super::parse_runner_output(lang, out, err, None);
+        assert_eq!(legacy.is_ok(), expected.is_ok());
+        if let (Ok(legacy), Ok(expected)) = (legacy, expected) {
+            assert_eq!(legacy, expected);
+        }
+    }
+}
+
+#[test]
+fn test_summary_reload_and_fail_closed() {
+    let _guard = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("test-summary-reload");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/test-runner");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/test-runner-report.mjs"),
+        scripts.join("test-runner-report.mjs"),
+    )
+    .unwrap();
+    let module = library.join("report.mjs");
+    let write_generation = |value: &str| {
+        std::fs::write(&module, format!(
+            "export function project() {{ return {{version:1,passed:'{value}',failed:'0',skipped:'0'}} }}"
+        )).unwrap();
+    };
+    let _resource =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let _node = crate::tests::TestEnvGuard::unset("ANGEL_NODE_BIN");
+    write_generation("7");
+    assert_eq!(
+        super::parse_runner_output(Lang::Python, "", "", None)
+            .unwrap()
+            .passed,
+        7
+    );
+    write_generation("8");
+    assert_eq!(
+        super::parse_runner_output(Lang::Python, "", "", None)
+            .unwrap()
+            .passed,
+        8
+    );
+    // A hotloaded wrapper remains authoritative too: the fast path must
+    // notice it changed and run the existing Node worker protocol.
+    let wrapper = scripts.join("test-runner-report.mjs");
+    std::fs::write(
+        &wrapper,
+        "import {readFileSync} from 'node:fs'; readFileSync(0, 'utf8'); process.stdout.write(JSON.stringify({version:1,passed:'9',failed:'0',skipped:'0'}));",
+    )
+    .unwrap();
+    assert_eq!(
+        super::parse_runner_output(Lang::Python, "", "", None)
+            .unwrap()
+            .passed,
+        9
+    );
+    std::fs::copy(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../scripts/runtime/test-runner-report.mjs"),
+        &wrapper,
+    )
+    .unwrap();
+    write_generation("-1");
+    assert!(super::parse_runner_output(Lang::Python, "", "", None).is_err());
+    std::fs::write(&module, "invalid javascript {").unwrap();
+    assert!(super::parse_runner_output(Lang::Python, "", "", None).is_err());
+    let cancelled = std::sync::atomic::AtomicBool::new(true);
+    assert!(
+        super::parse_runner_output(Lang::Python, "", "", Some(&cancelled))
+            .unwrap_err()
+            .contains("interrupted")
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn test_summary_cancellation_terminates_inflight_worker() {
+    use std::os::unix::fs::PermissionsExt;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::time::{Duration, Instant};
+    let _guard = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("test-summary-cancel");
+    let fake = root.path().join("node-stall");
+    let marker = root.path().join("worker-started");
+    let quoted = marker.to_string_lossy().replace('\'', "'\\''");
+    std::fs::write(
+        &fake,
+        format!("#!/bin/sh\nprintf started > '{quoted}'\nsleep 5\n"),
+    )
+    .unwrap();
+    std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let _node = crate::tests::TestEnvGuard::set("ANGEL_NODE_BIN", fake.to_str().unwrap());
+    let _resource = crate::tests::TestEnvGuard::unset("ANGEL_RESOURCE_DIR");
+    let cancel = AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        let notifier = scope.spawn(|| {
+            let deadline = Instant::now() + Duration::from_secs(2);
+            while !marker.exists() && Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            let started = marker.exists();
+            cancel.store(true, Ordering::Release);
+            started
+        });
+        let started = Instant::now();
+        let error = super::parse_runner_output(Lang::Python, "", "", Some(&cancel)).unwrap_err();
+        assert!(error.contains("interrupted"), "{error}");
+        assert!(
+            notifier.join().unwrap(),
+            "worker did not start before cancellation"
+        );
+        assert!(started.elapsed() < Duration::from_secs(3));
+    });
+}
+
 fn scratch(name: &str) -> PathBuf {
     let dir = std::env::temp_dir().join(format!("angel-wslang-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -92,121 +351,17 @@ fn package_json_test_script_plans_npm_test() {
 
 #[test]
 fn parses_node_tap_and_spec() {
-    let c = parse_runner_output(
-        Lang::Js,
-        "TAP version 13\nok 1 - a\nnot ok 2 - b\n# tests 2\n# pass 1\n# fail 1\n# skipped 0\n",
-        "",
-    );
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 1,
-            failed: 1,
-            skipped: 0
-        }
-    );
-    let c = parse_runner_output(
-        Lang::Js,
-        "✔ a (1ms)\nℹ tests 3\nℹ pass 3\nℹ fail 0\nℹ skipped 1\n",
-        "",
-    );
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 3,
-            failed: 0,
-            skipped: 1
-        }
-    );
-    let c = parse_runner_output(Lang::Js, "ok 1 - a\nok 2 - b\n", "");
-    assert_eq!(c.passed, 2);
+    assert_runner_cases("node", 3);
 }
 
 #[test]
 fn parses_jest_vitest_mocha() {
-    let c = parse_runner_output(Lang::Js, "", "Tests:       1 failed, 3 passed, 4 total\n");
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 3,
-            failed: 1,
-            skipped: 0
-        }
-    );
-    let c = parse_runner_output(Lang::Js, "      Tests  3 passed | 1 failed (4)\n", "");
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 3,
-            failed: 1,
-            skipped: 0
-        }
-    );
-    let c = parse_runner_output(
-        Lang::Js,
-        "  3 passing (12ms)\n  1 failing\n  2 pending\n",
-        "",
-    );
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 3,
-            failed: 1,
-            skipped: 2
-        }
-    );
+    assert_runner_cases("jest", 3);
 }
 
 #[test]
 fn parses_pytest_and_unittest() {
-    let c = parse_runner_output(
-        Lang::Python,
-        "=== 3 passed, 1 failed, 2 skipped in 0.12s ===\n",
-        "",
-    );
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 3,
-            failed: 1,
-            skipped: 2
-        }
-    );
-    let c = parse_runner_output(
-        Lang::Python,
-        "",
-        "test_a ... ok\ntest_b ... FAIL\n\nRan 4 tests in 0.001s\n\nFAILED (failures=1, errors=1)\n",
-    );
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 2,
-            failed: 2,
-            skipped: 0
-        }
-    );
-    let c = parse_runner_output(
-        Lang::Python,
-        "",
-        "Ran 4 tests in 0.001s\n\nOK (skipped=1)\n",
-    );
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 3,
-            failed: 0,
-            skipped: 1
-        }
-    );
-    let c = parse_runner_output(Lang::Python, "", "Ran 2 tests in 0.001s\n\nOK\n");
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 2,
-            failed: 0,
-            skipped: 0
-        }
-    );
+    assert_runner_cases("python", 4);
 }
 
 #[test]
@@ -293,21 +448,7 @@ fn runtime_shims_dir_links_python_to_python3_when_python_is_absent() {
 
 #[test]
 fn parses_go() {
-    let c = parse_runner_output(
-        Lang::Go,
-        "--- PASS: TestA (0.00s)\n--- FAIL: TestB (0.00s)\n--- SKIP: TestC\nFAIL\n",
-        "",
-    );
-    assert_eq!(
-        c,
-        RunnerCounts {
-            passed: 1,
-            failed: 1,
-            skipped: 1
-        }
-    );
-    let c = parse_runner_output(Lang::Go, "ok  \texample.com/x\t0.003s\n", "");
-    assert_eq!(c.passed, 1);
+    assert_runner_cases("go", 2);
 }
 
 #[test]
@@ -341,150 +482,32 @@ fn cmake_never_outranks_another_manifest_in_the_same_directory() {
 
 #[test]
 fn cpp_runner_output_reads_catch2_ctest_and_googletest() {
-    let catch_pass = "All tests passed (2004 assertions in 5 test cases)\n";
-    assert_eq!(
-        parse_runner_output(Lang::Cpp, catch_pass, ""),
-        RunnerCounts {
-            passed: 5,
-            failed: 0,
-            skipped: 0
-        }
-    );
-    let catch_fail =
-        "test cases:    5 |    4 passed | 1 failed\nassertions: 1821 | 1820 passed | 1 failed\n";
-    assert_eq!(
-        parse_runner_output(Lang::Cpp, catch_fail, ""),
-        RunnerCounts {
-            passed: 4,
-            failed: 1,
-            skipped: 0
-        }
-    );
-    // CTest's summary counts registered tests and wins over the binary's own.
-    let ctest = "All tests passed (9 assertions in 3 test cases)\n67% tests passed, 1 tests failed out of 3\n";
-    assert_eq!(
-        parse_runner_output(Lang::Cpp, ctest, ""),
-        RunnerCounts {
-            passed: 2,
-            failed: 1,
-            skipped: 0
-        }
-    );
-    let gtest =
-        "[  PASSED  ] 3 tests.\n[  FAILED  ] 1 test, listed below:\n[  FAILED  ] Suite.Case\n";
-    assert_eq!(
-        parse_runner_output(Lang::Cpp, gtest, ""),
-        RunnerCounts {
-            passed: 3,
-            failed: 1,
-            skipped: 0
-        }
-    );
+    assert_runner_cases("cpp", 4);
 }
 
 #[test]
 fn given_ctest_all_pass_when_parsed_then_registered_totals_win() {
-    // Given a nested binary and either supported CTest all-pass summary,
-    // When counts are parsed, Then registered tests (not assertions) win.
-    for summary in [
-        "100% tests passed out of 1",
-        "100% tests passed, 0 tests failed out of 1",
-    ] {
-        let output = format!("All tests passed (9 assertions in 3 test cases)\n{summary}\n");
-        assert_eq!(
-            parse_runner_output(Lang::Cpp, &output, ""),
-            RunnerCounts {
-                passed: 1,
-                failed: 0,
-                skipped: 0
-            },
-            "{summary}"
-        );
-    }
+    assert_runner_cases("ctest_pass", 2);
 }
 
 #[test]
 fn given_ctest_malformed_when_parsed_then_nested_success_is_not_substituted() {
-    // Given recognizable but malformed authoritative CTest output,
-    // When it follows a successful nested binary, Then no success is inferred.
-    for summary in [
-        "0% tests passed, garbage tests failed out of 3",
-        "100% tests passed out of garbage",
-        "100% tests passed out of +1",
-        "100% tests passed out of 184467440737095516160",
-        "100% tests passed, 4 tests failed out of 3",
-        "100% tests passed, 1 tests failed out of 3",
-        "101% tests passed out of 1",
-        "-1% tests passed out of 1",
-        "100% tests passed, 0 invented words out of 3",
-        "prefix 100% tests passed out of 1",
-        "100% tests passed out of 1 trailing",
-    ] {
-        let output = format!("All tests passed (9 assertions in 3 test cases)\n{summary}\n");
-        assert_eq!(
-            parse_runner_output(Lang::Cpp, &output, ""),
-            RunnerCounts::default(),
-            "{summary}"
-        );
-    }
+    assert_runner_cases("ctest_malformed", 11);
 }
 
 #[test]
 fn given_ctest_conflicting_streams_when_parsed_then_no_all_pass_is_reported() {
-    // Given summaries disagree across streams with no reliable chronology,
-    // When parsed, Then neither a first-success nor a last-success rule applies.
-    let passed = "100% tests passed out of 3";
-    let failed = "67% tests passed, 1 tests failed out of 3";
-    for (stdout, stderr) in [(passed, failed), (failed, passed)] {
-        assert_eq!(
-            parse_runner_output(Lang::Cpp, stdout, stderr),
-            RunnerCounts::default()
-        );
-    }
-    assert_eq!(
-        parse_runner_output(Lang::Cpp, passed, passed),
-        RunnerCounts {
-            passed: 3,
-            failed: 0,
-            skipped: 0
-        }
-    );
+    assert_runner_cases("ctest_conflict", 3);
 }
 
 #[test]
 fn given_ctest_zero_registered_when_parsed_then_no_nested_tests_are_counted() {
-    // Given an explicit empty registered suite, When parsed, Then zero is not
-    // replaced by a nested binary's positive count.
-    for summary in [
-        "0% tests passed, 0 tests failed out of 0",
-        "100% tests passed out of 0",
-    ] {
-        let output = format!("All tests passed (9 assertions in 3 test cases)\n{summary}\n");
-        assert_eq!(
-            parse_runner_output(Lang::Cpp, &output, ""),
-            RunnerCounts::default()
-        );
-    }
+    assert_runner_cases("ctest_zero", 2);
 }
 
 #[test]
 fn given_ctest_failed_suite_when_parsed_then_failure_and_rounded_totals_survive() {
-    // Given complete valid failure summaries, When parsed, Then failures never
-    // disappear and ordinary rounded CTest percentages remain compatible.
-    for (summary, passed, failed) in [
-        ("0% tests passed, 1 tests failed out of 1", 0, 1),
-        ("33% tests passed, 2 tests failed out of 3", 1, 2),
-        ("67% tests passed, 1 tests failed out of 3", 2, 1),
-    ] {
-        assert_eq!(
-            parse_runner_output(Lang::Cpp, "", summary),
-            RunnerCounts {
-                passed,
-                failed,
-                skipped: 0
-            }
-        );
-    }
+    assert_runner_cases("ctest_failed", 3);
 }
 
 #[test]

@@ -26,7 +26,7 @@ pub fn lay(run: &mut Run, card: &str, x: f32, y: f32) {
         card: card.into(),
         x,
         y,
-        held_off: None, took: Vec::new(),
+        held_off: None, took: Vec::new(), dropped: 0, owner: None,
     });
 }
 

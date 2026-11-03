@@ -19,6 +19,7 @@
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::sync::Arc;
 
 use crate::Tilt;
 pub use crate::look::{Dither, Fog, Lamp, Look, LookError, Reveal, Shadow, Sun, Zone};
@@ -149,6 +150,7 @@ fn quat_columns(q: [f32; 4]) -> [[f32; 3]; 3] {
 
 /// Where a node is, relative to its parent: scaled, then turned, then moved.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Transform {
     pub translation: [f32; 3],
     /// A unit quaternion `[x, y, z, w]`; one that is not unit is normalized
@@ -244,6 +246,7 @@ impl Transform {
 /// producer writes. Each is one more way to name a texture; nothing else in a
 /// material changes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TextureSource {
     /// No picture: white.
     #[default]
@@ -255,6 +258,7 @@ pub enum TextureSource {
 
 /// How a texture is read between its texels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Sampling {
     /// Crisp texels: pixel art.
     #[default]
@@ -264,6 +268,7 @@ pub enum Sampling {
 
 /// How a surface's alpha is used.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AlphaMode {
     /// Fully covers what is behind it (the texture's alpha is ignored); drawn
     /// first, with depth.
@@ -289,6 +294,7 @@ impl AlphaMode {
 /// What a surface looks like: `texture x vertex colour x tint`, unlit unless
 /// it says [`lit`](Material::lit).
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Material {
     pub source: TextureSource,
     /// Straight RGBA, 0..1, multiplied into the texture and the vertex
@@ -335,10 +341,33 @@ pub struct Material {
     /// lifts the surface past step `ceiling - 1` of an eight-step ramp
     /// (scaled to the look's). 0: no ceiling but the ramp's top.
     pub ceiling: u8,
+    /// A card's normal map (`normals`, docs/WORLD-TIERS.md "Lit cards"):
+    /// the picture of which way each of its picture's pixels faces, so a
+    /// look that lights cards (`Look::cards`) lights it pixel by pixel.
+    /// `None`, or a picture the drawer does not have: each pixel faces the
+    /// eye. Ignored but for a card lit by a look.
+    pub normals: Option<u32>,
+    /// How much of a mirror the surface is, 0 to 1: at 1 it shows only a
+    /// studio's reflection (a procedural one, no picture), tinted by
+    /// `tint` and brightened toward white at its rim; between, that is
+    /// mixed over the surface as it is otherwise drawn. It needs no light
+    /// (`lit` or not). 0: none.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub chrome: f32,
+    /// How molten the surface is, 0 to 1: its normals ripple and its
+    /// vertices wobble a little along them, moving with the scene's clock
+    /// (with `chrome`, flowing mercury). 0: still.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub liquid: f32,
+    /// How far the surface shines past its own colour, 0 to 1, with a soft
+    /// halo drawn round it in the same pass (a glowing edge). 0: none.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub glow: f32,
 }
 
 /// What a surface is to a look that lights its scene ([`Look::lights`]).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Role {
     /// Lit, then put on its place's ramp by its brightness.
     #[default]
@@ -372,6 +401,7 @@ pub enum Role {
 /// `origin`. It moves with the blocks it is on (`set::place`). A picture
 /// that is not there yet is the tint meanwhile.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Patch {
     pub picture: u32,
     pub rect: [u32; 4],
@@ -412,6 +442,7 @@ pub const GRAZING: f32 = 0.5;
 /// no further than the projector does). A matrix that is not finite casts
 /// nothing.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Projector {
     pub view_projection: Mat4,
 }
@@ -454,6 +485,10 @@ impl Default for Material {
             patch: None,
             role: Role::Plain,
             ceiling: 0,
+            normals: None,
+            chrome: 0.0,
+            liquid: 0.0,
+            glow: 0.0,
         }
     }
 }
@@ -503,14 +538,25 @@ impl Material {
 
     /// The emissive part as a number in 0..1 (a bad one is 0).
     pub fn emissive_clamped(&self) -> f32 {
-        if self.emissive.is_finite() { self.emissive.clamp(0.0, 1.0) } else { 0.0 }
+        unit(self.emissive)
     }
+
+    /// `chrome`, `liquid` and `glow`, each a number in 0..1 (a bad one is 0).
+    pub fn finish_clamped(&self) -> [f32; 3] {
+        [unit(self.chrome), unit(self.liquid), unit(self.glow)]
+    }
+}
+
+/// `v` in 0..1; 0 for a number that is not one.
+fn unit(v: f32) -> f32 {
+    if v.is_finite() { v.clamp(0.0, 1.0) } else { 0.0 }
 }
 
 // ----------------------------------------------------------------- mesh ----
 
 /// A mesh a node draws.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum MeshRef {
     /// A 1 x 1 square in XY, centred, facing +Z.
     Quad,
@@ -562,6 +608,12 @@ pub enum MeshRef {
     /// A fence of this many posts (clamped to `FENCE_POSTS`) evenly along X
     /// with two rails, thin in Z.
     Fence { posts: u16 },
+    /// A 1 x 1 x 1 cube, centred, its edges and corners rounded to `radius`
+    /// thousandths of a unit (at most [`ROUND_RADIUS`]) in `segments` steps
+    /// (clamped to [`ROUND_SEGMENTS`]): groups 0 to 5 its flat faces in the
+    /// order of [`CUBE_FACES`], group 6 its rounded edges and corners
+    /// ([`MeshData::round_cube`]).
+    RoundCube { radius: u16, segments: u16 },
     /// A mesh the host uploaded (`Core::upload_mesh`) under this id.
     Uploaded(u32),
 }
@@ -587,12 +639,28 @@ impl MeshRef {
             MeshRef::Rock { seed } => Some(MeshData::rock(seed)),
             MeshRef::Blob { seed } => Some(MeshData::blob(seed)),
             MeshRef::Fence { posts } => Some(MeshData::fence(posts)),
+            MeshRef::RoundCube { radius, segments } => Some(MeshData::round_cube(radius, segments)),
             MeshRef::Uploaded(_) => None,
         }
     }
 }
 
-/// The faces of [`MeshData::cube`], in order: the outward normal, and the
+/// A vertex of a grid a mesh is made from: its position, normal and uv.
+type GridVertex = ([f32; 3], [f32; 3], [f32; 2]);
+
+/// The most a rounded cube's edges are rounded, in thousandths of a unit:
+/// half its side, which makes it a ball with flat spots of no size.
+pub const ROUND_RADIUS: u16 = 500;
+
+/// The fewest and most steps a rounded cube's edges are rounded in.
+pub const ROUND_SEGMENTS: std::ops::RangeInclusive<u16> = 1..=16;
+
+/// The most joints one skin has: as many matrices as one draw's palette
+/// holds on the GPU.
+pub const MAX_JOINTS: usize = 256;
+
+/// The faces of [`MeshData::cube`] (and the flat faces of
+/// [`MeshData::round_cube`]), in order: the outward normal, and the
 /// directions a viewer outside the face sees as right and as up when the
 /// picture on it is upright.
 pub const CUBE_FACES: [CubeFace; 6] = [
@@ -605,6 +673,7 @@ pub const CUBE_FACES: [CubeFace; 6] = [
 ];
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CubeFace {
     pub name: &'static str,
     pub normal: [f32; 3],
@@ -656,6 +725,7 @@ impl std::error::Error for MeshError {}
 /// Triangles with attributes. `normals`, `uvs` and `colors` are each either
 /// empty (a default: +Z, (0, 0), white) or one entry per position.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MeshData {
     pub positions: Vec<[f32; 3]>,
     pub normals: Vec<[f32; 3]>,
@@ -671,6 +741,15 @@ pub struct MeshData {
     /// (the node's `material` where it has none): the six faces of a cube,
     /// or the parts of a model.
     pub groups: Vec<(u32, u32)>,
+    /// For a mesh a [`Skin`] bends: each vertex's four joints, by their
+    /// place in the skin's `joints`. Empty, or one per position, as
+    /// `weights` is.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub joints: Vec<[u16; 4]>,
+    /// How much each of a vertex's four joints pulls it (glTF's rule: they
+    /// sum to 1; they are scaled to when drawn). Empty, or one per position.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub weights: Vec<[f32; 4]>,
 }
 
 impl MeshData {
@@ -690,10 +769,16 @@ impl MeshData {
             ("normals", self.normals.len()),
             ("uvs", self.uvs.len()),
             ("colors", self.colors.len()),
+            ("joints", self.joints.len()),
+            ("weights", self.weights.len()),
         ] {
             if len != 0 && len != n {
                 return Err(MeshError::AttributeLength(name));
             }
+        }
+        // A skinned mesh has both, or it is not one.
+        if self.joints.len() != self.weights.len() {
+            return Err(MeshError::AttributeLength(if self.joints.is_empty() { "joints" } else { "weights" }));
         }
         if !self.indices.len().is_multiple_of(3) {
             return Err(MeshError::NotTriangles);
@@ -704,7 +789,8 @@ impl MeshData {
         let finite = self.positions.iter().flatten().all(|v| v.is_finite())
             && self.normals.iter().flatten().all(|v| v.is_finite())
             && self.uvs.iter().flatten().all(|v| v.is_finite())
-            && self.colors.iter().flatten().all(|v| v.is_finite());
+            && self.colors.iter().flatten().all(|v| v.is_finite())
+            && self.weights.iter().flatten().all(|v| v.is_finite());
         if !finite {
             return Err(MeshError::NotFinite);
         }
@@ -829,6 +915,148 @@ impl MeshData {
         }
         mesh
     }
+
+    /// A 1 x 1 x 1 cube centred on the origin with its edges and corners
+    /// rounded: `radius` thousandths of a unit (at most [`ROUND_RADIUS`]),
+    /// rounded in `segments` steps (clamped to [`ROUND_SEGMENTS`]).
+    ///
+    /// Groups 0 to 5 are its flat faces in the order of [`CUBE_FACES`],
+    /// four vertices and two triangles each, every one carrying the whole
+    /// picture across its flat part, upright as the cube's are. Group 6 is
+    /// its twelve rounded edges (quarter cylinders, `segments + 1` vertices
+    /// round and two along) and eight corners (sphere octants, `(segments +
+    /// 1)^2` vertices, one triangle a step at the pole), together. Every
+    /// normal is the rounded box's own, so the flat faces and the round
+    /// meet smoothly and share their seams exactly.
+    pub fn round_cube(radius: u16, segments: u16) -> Self {
+        let r = f32::from(radius.min(ROUND_RADIUS)) / 1000.0;
+        let n = usize::from(segments.clamp(*ROUND_SEGMENTS.start(), *ROUND_SEGMENTS.end()));
+        let h = 0.5 - r;
+        let mut mesh = Self::default();
+        for face in &CUBE_FACES {
+            let scaled = |v: [f32; 3], k: f32| [v[0] * k, v[1] * k, v[2] * k];
+            mesh.push_face(scaled(face.normal, 0.5), face.normal, scaled(face.right, h), scaled(face.up, h));
+        }
+        mesh.groups = (0..6).map(|i| (i * 6, 6)).collect();
+        let round = mesh.indices.len() as u32;
+        // A quarter turn in `n` steps, as (cos, sin): mirrored about its
+        // middle so step `n - k` is step `k` swapped, and the ends exact, so
+        // edges and corners that meet compute the same points.
+        let arc: Vec<(f32, f32)> = (0..=n)
+            .map(|k| {
+                let (c, s) = if 2 * k <= n {
+                    let a = k as f32 / n as f32 * std::f32::consts::FRAC_PI_2;
+                    (a.cos(), a.sin())
+                } else {
+                    let a = (n - k) as f32 / n as f32 * std::f32::consts::FRAC_PI_2;
+                    (a.sin(), a.cos())
+                };
+                if k == 0 { (1.0, 0.0) } else if k == n { (0.0, 1.0) } else { (c, s) }
+            })
+            .collect();
+        let axis = |a: usize, sign: f32| {
+            let mut v = [0.0f32; 3];
+            v[a] = sign;
+            v
+        };
+        let at = |centre: [f32; 3], normal: [f32; 3]| {
+            [centre[0] + r * normal[0], centre[1] + r * normal[1], centre[2] + r * normal[2]]
+        };
+        // Edges: along axis `a`, at the signs `s1`, `s2` of the other two,
+        // the normal turning from the one to the other.
+        for a in 0..3 {
+            let (b, c) = ((a + 1) % 3, (a + 2) % 3);
+            for (s1, s2) in [(1.0f32, 1.0f32), (1.0, -1.0), (-1.0, 1.0), (-1.0, -1.0)] {
+                let (eb, ec) = (axis(b, s1), axis(c, s2));
+                let rows: Vec<Vec<GridVertex>> = (0..=n)
+                    .map(|k| {
+                        let (cos, sin) = arc[k];
+                        let normal = [cos * eb[0] + sin * ec[0], cos * eb[1] + sin * ec[1], cos * eb[2] + sin * ec[2]];
+                        [-h, h]
+                            .iter()
+                            .enumerate()
+                            .map(|(end, &along)| {
+                                let mut centre = [0.0f32; 3];
+                                centre[a] = along;
+                                centre[b] = s1 * h;
+                                centre[c] = s2 * h;
+                                (at(centre, normal), normal, [k as f32 / n as f32, end as f32])
+                            })
+                            .collect()
+                    })
+                    .collect();
+                mesh.push_grid(&rows, false);
+            }
+        }
+        // Corners: a sphere's octant, the normal from the x side round to
+        // the y side, then up to the z side's pole.
+        for sx in [1.0f32, -1.0] {
+            for sy in [1.0f32, -1.0] {
+                for sz in [1.0f32, -1.0] {
+                    let centre = [sx * h, sy * h, sz * h];
+                    let rows: Vec<Vec<GridVertex>> = (0..=n)
+                        .map(|j| {
+                            let (ct, st) = arc[j];
+                            (0..=n)
+                                .map(|i| {
+                                    let (cp, sp) = arc[i];
+                                    let normal = [ct * (cp * sx), ct * (sp * sy), st * sz];
+                                    (at(centre, normal), normal, [i as f32 / n as f32, j as f32 / n as f32])
+                                })
+                                .collect()
+                        })
+                        .collect();
+                    mesh.push_grid(&rows, true);
+                }
+            }
+        }
+        mesh.groups.push((round, mesh.indices.len() as u32 - round));
+        mesh
+    }
+
+    /// Rows of vertices (position, normal, uv) as a grid of quads, each two
+    /// triangles wound counter-clockwise as seen from the side the normals
+    /// face; with `pole`, the last row is one point and its quads one
+    /// triangle each.
+    fn push_grid(&mut self, rows: &[Vec<GridVertex>], pole: bool) {
+        let base = self.positions.len() as u32;
+        let width = rows.first().map_or(0, Vec::len) as u32;
+        for row in rows {
+            for &(p, normal, uv) in row {
+                self.positions.push(p);
+                self.normals.push(normal);
+                self.uvs.push(uv);
+                self.colors.push([1.0; 4]);
+            }
+        }
+        let rows_n = rows.len() as u32;
+        let tri = |mesh: &mut Self, a: u32, b: u32, c: u32| {
+            let p = |i: u32| mesh.positions[(base + i) as usize];
+            let (pa, pb, pc) = (p(a), p(b), p(c));
+            let u = [pb[0] - pa[0], pb[1] - pa[1], pb[2] - pa[2]];
+            let v = [pc[0] - pa[0], pc[1] - pa[1], pc[2] - pa[2]];
+            let cross = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+            let n = |i: u32| mesh.normals[(base + i) as usize];
+            let (na, nb, nc) = (n(a), n(b), n(c));
+            let out = [na[0] + nb[0] + nc[0], na[1] + nb[1] + nc[1], na[2] + nb[2] + nc[2]];
+            let facing = cross[0] * out[0] + cross[1] * out[1] + cross[2] * out[2];
+            if facing < 0.0 {
+                mesh.indices.extend([base + a, base + c, base + b]);
+            } else {
+                mesh.indices.extend([base + a, base + b, base + c]);
+            }
+        };
+        for j in 0..rows_n.saturating_sub(1) {
+            for i in 0..width.saturating_sub(1) {
+                let (tl, tr) = (j * width + i, j * width + i + 1);
+                let (bl, br) = ((j + 1) * width + i, (j + 1) * width + i + 1);
+                tri(self, tl, tr, br);
+                if !(pole && j + 2 == rows_n) {
+                    tri(self, tl, br, bl);
+                }
+            }
+        }
+    }
 }
 
 impl MeshData {
@@ -910,6 +1138,7 @@ impl MeshData {
 
 /// One thing in a scene: a place, and perhaps a mesh with a look.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Node {
     /// Unique in its scene (a later node with an id already taken is not
     /// drawn). Parents are named by it.
@@ -926,6 +1155,72 @@ pub struct Node {
     pub face_materials: Vec<Material>,
     /// Hides the node and everything placed in it.
     pub visible: bool,
+    /// The joints that bend its mesh, when the mesh is a skinned one (it
+    /// has `joints` and `weights`): the mesh is then placed by them, and
+    /// this node's own place only stands in for a vertex no joint pulls.
+    /// `None`, or a skin a joint of which cannot be placed: the mesh as it
+    /// is, where the node is.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub skin: Option<Skin>,
+}
+
+/// A skin (glTF's): the nodes that are a skinned mesh's joints, and where
+/// the mesh lay against each of them when it was bound to it.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Skin {
+    /// Joint `j` of a vertex (`MeshData::joints`) is the node with id
+    /// `joints[j]`, of the same scene. At most [`MAX_JOINTS`].
+    pub joints: Arc<[u64]>,
+    /// Per joint: from the mesh's own space into the joint's, as the mesh
+    /// was bound (glTF's inverse bind matrices). One per joint.
+    pub inverse_bind: Arc<[Mat4]>,
+}
+
+/// The matrices that place a skinned mesh's vertices: per joint, its world
+/// (`world_of` its id) times its inverse bind matrix, so a vertex pulled by
+/// that joint alone goes from the mesh's space to the world. `None` when
+/// the skin has no joints or more than [`MAX_JOINTS`], its two lists differ
+/// in length, or a joint cannot be placed.
+pub fn skin_matrices(skin: &Skin, mut world_of: impl FnMut(u64) -> Option<Mat4>) -> Option<Vec<Mat4>> {
+    if skin.joints.is_empty() || skin.joints.len() > MAX_JOINTS || skin.joints.len() != skin.inverse_bind.len() {
+        return None;
+    }
+    let mut out = Vec::with_capacity(skin.joints.len());
+    for (&joint, bind) in skin.joints.iter().zip(skin.inverse_bind.iter()) {
+        let m = mat_mul(&world_of(joint)?, bind);
+        if !mat_finite(&m) {
+            return None;
+        }
+        out.push(m);
+    }
+    Some(out)
+}
+
+/// The one matrix a skinned vertex goes through: its joints' matrices
+/// (from [`skin_matrices`]) blended by its weights, scaled to sum to 1
+/// (linear blend skinning, as the mesh shader does it). A joint past the
+/// matrices, or a weight that is not a positive number, pulls nothing; a
+/// vertex nothing pulls stays with `fallback` (its node's world).
+pub fn skin_matrix(matrices: &[Mat4], joints: [u16; 4], weights: [f32; 4], fallback: &Mat4) -> Mat4 {
+    let mut out = [[0.0f32; 4]; 4];
+    let mut total = 0.0f32;
+    for (&j, &w) in joints.iter().zip(&weights) {
+        let Some(m) = matrices.get(usize::from(j)) else { continue };
+        if !(w.is_finite() && w > 0.0) {
+            continue;
+        }
+        total += w;
+        for (column, from) in out.iter_mut().zip(m) {
+            for (value, v) in column.iter_mut().zip(from) {
+                *value += w * v;
+            }
+        }
+    }
+    if total <= 1e-6 {
+        return *fallback;
+    }
+    out.map(|column| column.map(|v| v / total))
 }
 
 impl Node {
@@ -939,6 +1234,7 @@ impl Node {
             material,
             face_materials: Vec::new(),
             visible: true,
+            skin: None,
         }
     }
 
@@ -952,12 +1248,14 @@ impl Node {
             material: Material::default(),
             face_materials: Vec::new(),
             visible: true,
+            skin: None,
         }
     }
 }
 
 /// How a camera sees.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Projection {
     /// A pyramid of sight: `fov_y` is the whole vertical angle, in radians.
     Perspective { fov_y: f32, near: f32, far: f32 },
@@ -1023,6 +1321,7 @@ impl Projection {
 
 /// The eye. Its `transform` places it in the scene (its scale is ignored).
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Camera {
     pub transform: Transform,
     pub projection: Projection,
@@ -1156,6 +1455,7 @@ pub const MAX_GRAIN: u8 = 8;
 /// not the window's. (A stage is itself drawn at the density of the window,
 /// so drawing into it directly would give them none.)
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Props {
     /// How many of the stage's layers lie under the props: they are laid
     /// over layers `0..at` and under the rest (a shot's shadow and glow under
@@ -1191,6 +1491,7 @@ pub struct Props {
 /// shadow, lies on the floor as it is painted). What stands is drawn with
 /// depth among itself.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct World {
     /// What lies on the floor: the ground, paths, water level with it.
     pub floor: Vec<Node>,
@@ -1230,6 +1531,7 @@ pub struct World {
 /// A set's blocks by reference (docs/WORLD-3D.md): which set, the picture
 /// its plate is, and how it is placed on the stage (`Set::placed_nodes`).
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SetRef {
     /// The set's own number: the same text and plate, the same key.
     pub key: u64,
@@ -1270,6 +1572,7 @@ pub struct Drawable {
 
 /// A camera and the nodes it sees.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Scene {
     pub camera: Camera,
     pub nodes: Vec<Node>,
@@ -1351,6 +1654,20 @@ impl Scene {
             }
         }
         out
+    }
+
+    /// Node `index`'s skin's matrices ([`skin_matrices`]), its joints
+    /// found among this scene's nodes by id (the first node with an id, as
+    /// placing does); `None` for a node with no skin or one that cannot be
+    /// bent.
+    pub fn skin_matrices(&self, index: usize) -> Option<Vec<Mat4>> {
+        let skin = self.nodes.get(index)?.skin.as_ref()?;
+        let worlds = self.world_matrices();
+        let mut by_id: HashMap<u64, usize> = HashMap::with_capacity(worlds.len());
+        for (i, node) in self.nodes.iter().enumerate().take(MAX_NODES) {
+            by_id.entry(node.id).or_insert(i);
+        }
+        skin_matrices(skin, |id| by_id.get(&id).and_then(|&i| worlds.get(i).copied().flatten()))
     }
 
     /// The nodes to draw, in node order: those with a mesh that are shown
@@ -1887,6 +2204,205 @@ mod tests {
     fn a_bad_tint_is_made_usable() {
         let m = Material { tint: [2.0, -1.0, f32::NAN, 0.5], ..Material::default() };
         assert_eq!(m.tint_clamped(), [1.0, 0.0, 1.0, 0.5]);
+    }
+
+    // ---- the rounded cube ----
+
+    #[test]
+    fn a_round_cube_is_six_flat_faces_then_its_rounded_edges_and_corners() {
+        for (radius, segments) in [(120u16, 4u16), (250, 1), (40, 16), (499, 7), (500, 3)] {
+            let m = MeshData::round_cube(radius, segments);
+            if radius < ROUND_RADIUS {
+                well_made(&m);
+            } else {
+                // A ball: its flat faces and its edges' lengths are nothing.
+                assert_eq!(m.validate(), Ok(()));
+            }
+            let n = usize::from(segments);
+            // Four vertices a flat face, two rows of n + 1 an edge, and an
+            // (n + 1)^2 grid a corner.
+            assert_eq!(m.positions.len(), 6 * 4 + 12 * 2 * (n + 1) + 8 * (n + 1) * (n + 1), "{radius} {segments}");
+            // Two triangles a flat face and an edge's step; a corner's last
+            // row of steps meets at its pole, one triangle each.
+            let round = 12 * 6 * n + 8 * 3 * (2 * n * n - n);
+            assert_eq!(m.indices.len(), 36 + round, "{radius} {segments}");
+            assert_eq!(m.groups.len(), 7);
+            assert_eq!(&m.groups[..6], &[(0, 6), (6, 6), (12, 6), (18, 6), (24, 6), (30, 6)]);
+            assert_eq!(m.groups[6], (36, round as u32), "group 6 is every rounded triangle");
+            let r = f32::from(radius) / 1000.0;
+            let h = 0.5 - r;
+            for (i, face) in CUBE_FACES.iter().enumerate() {
+                // Face i is its flat part: on its side, its normal, the whole
+                // picture across it, upright as the cube's.
+                for v in 4 * i..4 * i + 4 {
+                    assert_eq!(m.normals[v], face.normal);
+                    let p = m.positions[v];
+                    assert!((p[0] * face.normal[0] + p[1] * face.normal[1] + p[2] * face.normal[2] - 0.5).abs() < 1e-6);
+                }
+                assert_eq!(&m.uvs[4 * i..4 * i + 4], &[[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]]);
+                let (tl, tr, bl) = (m.positions[4 * i], m.positions[4 * i + 1], m.positions[4 * i + 3]);
+                for k in 0..3 {
+                    assert!((tr[k] - tl[k] - 2.0 * h * face.right[k]).abs() < 1e-6, "{} right", face.name);
+                    assert!((tl[k] - bl[k] - 2.0 * h * face.up[k]).abs() < 1e-6, "{} up", face.name);
+                }
+            }
+            // The round: every point a radius out from the inner box, along
+            // its normal, inside the unit cube, its uvs in 0..1.
+            for (p, nrm) in m.positions.iter().zip(&m.normals).skip(24) {
+                let inner = p.map(|v| v.clamp(-h, h));
+                for k in 0..3 {
+                    assert!((p[k] - inner[k] - r * nrm[k]).abs() < 1e-5, "{p:?} {nrm:?}");
+                    assert!(p[k].abs() <= 0.5 + 1e-6);
+                }
+            }
+            assert!(m.uvs.iter().flatten().all(|v| (0.0..=1.0).contains(v)));
+            assert!(m.uvs[24..].iter().any(|uv| uv[0] == 1.0) && m.uvs[24..].iter().any(|uv| uv[1] == 1.0));
+            // It reaches the unit cube's sides and no further.
+            let reach = m.positions.iter().flatten().fold(0.0f32, |a, v| a.max(v.abs()));
+            assert!((reach - 0.5).abs() < 1e-6);
+        }
+        // Past the ends is clamped, and still a mesh; no rounding at all is
+        // a cube with seams of no size.
+        assert_eq!(MeshData::round_cube(9999, 99), MeshData::round_cube(500, 16));
+        assert_eq!(MeshData::round_cube(120, 0), MeshData::round_cube(120, 1));
+        let sharp = MeshData::round_cube(0, 4);
+        assert_eq!(sharp.validate(), Ok(()));
+        assert_eq!(sharp.groups.len(), 7);
+        assert_eq!(MeshRef::RoundCube { radius: 120, segments: 4 }.generate(), Some(MeshData::round_cube(120, 4)));
+    }
+
+    // ---- skins ----
+
+    /// Joint A (10) at the origin, joint B (11) a unit up from it, and a
+    /// mesh (12) bent by them, bound where they stand.
+    fn two_joints() -> Scene {
+        let a = Node::empty(10);
+        let mut b = Node::empty(11);
+        b.parent = Some(10);
+        b.transform = Transform::from_translation([0.0, 1.0, 0.0]);
+        let mut mesh = Node::new(12, MeshRef::Uploaded(1), Material::default());
+        mesh.skin = Some(Skin {
+            joints: Arc::from([10u64, 11]),
+            inverse_bind: Arc::from([IDENTITY_MATRIX, Transform::from_translation([0.0, -1.0, 0.0]).matrix()]),
+        });
+        scene(vec![a, b, mesh])
+    }
+
+    #[test]
+    fn a_two_joint_skin_bends_as_worked_by_hand() {
+        let mut s = two_joints();
+        // Bound where they stand: every joint's matrix is the identity.
+        let rest = s.skin_matrices(2).expect("a skin");
+        for m in &rest {
+            assert!((0..4).all(|c| (0..4).all(|r| near(m[c][r], IDENTITY_MATRIX[c][r]))));
+        }
+        // B turned a quarter about z. Its matrix is T(0,1,0) R T(0,-1,0):
+        // (1, 1, 0) -> (1, 0, 0) -> (0, 1, 0) -> (0, 2, 0).
+        s.nodes[1].transform.rotation = quat_axis_angle([0.0, 0.0, 1.0], FRAC_PI_2);
+        let m = s.skin_matrices(2).expect("a skin");
+        let fallback = IDENTITY_MATRIX;
+        let v = [1.0, 1.0, 0.0];
+        let at = |joints: [u16; 4], weights: [f32; 4]| mat_point(&skin_matrix(&m, joints, weights, &fallback), v);
+        assert!(near3(at([1, 0, 0, 0], [1.0, 0.0, 0.0, 0.0]), [0.0, 2.0, 0.0]));
+        assert!(near3(at([0, 0, 0, 0], [1.0, 0.0, 0.0, 0.0]), [1.0, 1.0, 0.0]));
+        // Half each: half of (1, 1, 0) and half of (0, 2, 0).
+        assert!(near3(at([0, 1, 0, 0], [0.5, 0.5, 0.0, 0.0]), [0.5, 1.5, 0.0]));
+        // A quarter and three quarters.
+        assert!(near3(at([0, 1, 0, 0], [0.25, 0.75, 0.0, 0.0]), [0.25, 1.75, 0.0]));
+        // Weights that do not sum to 1 are scaled to.
+        assert!(near3(at([0, 1, 0, 0], [2.0, 2.0, 0.0, 0.0]), [0.5, 1.5, 0.0]));
+        // A joint past the skin, or a weight that is no number, pulls nothing.
+        assert!(near3(at([1, 9, 0, 0], [0.5, 0.5, 0.0, 0.0]), [0.0, 2.0, 0.0]));
+        assert!(near3(at([0, 1, 0, 0], [f32::NAN, 1.0, 0.0, 0.0]), [0.0, 2.0, 0.0]));
+        // Nothing pulling it: the vertex stays with its node.
+        let node = Transform::from_translation([5.0, 0.0, 0.0]).matrix();
+        assert!(near3(mat_point(&skin_matrix(&m, [0; 4], [0.0; 4], &node), v), [6.0, 1.0, 0.0]));
+        // Moving the root moves everything it bends.
+        s.nodes[0].transform.translation = [2.0, 0.0, 0.0];
+        let m = s.skin_matrices(2).expect("a skin");
+        assert!(near3(mat_point(&skin_matrix(&m, [0, 0, 0, 0], [1.0, 0.0, 0.0, 0.0], &fallback), v), [3.0, 1.0, 0.0]));
+        assert!(near3(mat_point(&skin_matrix(&m, [1, 0, 0, 0], [1.0, 0.0, 0.0, 0.0], &fallback), v), [2.0, 2.0, 0.0]));
+    }
+
+    #[test]
+    fn a_skin_at_rest_draws_the_mesh_where_its_node_would() {
+        // A model's way: a root turned and scaled (0.01, a quarter about x),
+        // the joints and the mesh under it, each joint's inverse bind the
+        // inverse of where it stands under the root.
+        // A joint's transform undone (unscaled, as a joint here is).
+        let invert = |t: &Transform| {
+            let inv_q = [-t.rotation[0], -t.rotation[1], -t.rotation[2], t.rotation[3]];
+            let back = Transform { rotation: inv_q, ..Transform::IDENTITY }.matrix();
+            mat_mul(&back, &Transform::from_translation(t.translation.map(|v| -v)).matrix())
+        };
+        let mut root = Node::empty(1);
+        root.transform = Transform { translation: [3.0, 0.0, -2.0], rotation: quat_axis_angle([1.0, 0.0, 0.0], FRAC_PI_2), scale: [0.01; 3] };
+        let mut hip = Node::empty(2);
+        hip.parent = Some(1);
+        hip.transform = Transform { translation: [0.0, 0.0, 95.0], rotation: quat_axis_angle([0.3, 1.0, 0.2], 0.7), scale: [1.0; 3] };
+        let mut arm = Node::empty(3);
+        arm.parent = Some(2);
+        arm.transform = Transform { translation: [20.0, 5.0, 40.0], rotation: quat_axis_angle([0.0, 0.0, 1.0], -1.1), scale: [1.0; 3] };
+        // The inverse of each joint's place under the root: (hip arm)^-1 is
+        // arm^-1 hip^-1.
+        let hip_ibm = invert(&hip.transform);
+        let arm_ibm = mat_mul(&invert(&arm.transform), &invert(&hip.transform));
+        let mut mesh = Node::new(4, MeshRef::Uploaded(1), Material::default());
+        mesh.parent = Some(1);
+        mesh.skin = Some(Skin { joints: Arc::from([2u64, 3]), inverse_bind: Arc::from([hip_ibm, arm_ibm]) });
+        let s = scene(vec![root, hip, arm, mesh]);
+        let m = s.skin_matrices(3).expect("a skin");
+        let mesh_world = s.world_matrices()[3].expect("placed");
+        for (p, joints, weights) in [
+            ([10.0, -4.0, 120.0], [0, 1, 0, 0], [0.3, 0.7, 0.0, 0.0]),
+            ([-25.0, 2.0, 60.0], [1, 0, 0, 0], [1.0, 0.0, 0.0, 0.0]),
+            ([0.0, 0.0, 0.0], [0, 1, 1, 0], [0.2, 0.4, 0.4, 0.0]),
+        ] {
+            let bent = mat_point(&skin_matrix(&m, joints, weights, &mesh_world), p);
+            let still = mat_point(&mesh_world, p);
+            assert!((0..3).all(|k| (bent[k] - still[k]).abs() < 1e-4), "{bent:?} != {still:?}");
+        }
+    }
+
+    #[test]
+    fn a_skin_that_cannot_bend_says_so() {
+        let s = two_joints();
+        let worlds = s.world_matrices();
+        let world_of = |id: u64| worlds.get(id.checked_sub(10)? as usize).copied().flatten();
+        let skin = s.nodes[2].skin.clone().expect("a skin");
+        assert!(skin_matrices(&skin, world_of).is_some());
+        // A joint that is not there.
+        let missing = Skin { joints: Arc::from([10u64, 99]), ..skin.clone() };
+        assert_eq!(skin_matrices(&missing, world_of), None);
+        // Lists of two lengths, none, and past the cap.
+        let short = Skin { inverse_bind: Arc::from([IDENTITY_MATRIX]), ..skin.clone() };
+        assert_eq!(skin_matrices(&short, world_of), None);
+        let none = Skin { joints: Arc::from([]), inverse_bind: Arc::from([]) };
+        assert_eq!(skin_matrices(&none, world_of), None);
+        let many = Skin { joints: vec![10u64; MAX_JOINTS + 1].into(), inverse_bind: vec![IDENTITY_MATRIX; MAX_JOINTS + 1].into() };
+        assert_eq!(skin_matrices(&many, world_of), None);
+        let most = Skin { joints: vec![10u64; MAX_JOINTS].into(), inverse_bind: vec![IDENTITY_MATRIX; MAX_JOINTS].into() };
+        assert_eq!(skin_matrices(&most, world_of).map(|m| m.len()), Some(MAX_JOINTS));
+        // A node with no skin has no matrices.
+        assert_eq!(s.skin_matrices(0), None);
+        assert_eq!(s.skin_matrices(99), None);
+        // A skinned mesh carries both lists, one per position, or neither.
+        let mut m = triangle();
+        m.joints = vec![[0; 4]; 3];
+        assert_eq!(m.validate(), Err(MeshError::AttributeLength("weights")));
+        m.weights = vec![[1.0, 0.0, 0.0, 0.0]; 2];
+        assert_eq!(m.validate(), Err(MeshError::AttributeLength("weights")));
+        m.weights = vec![[1.0, 0.0, 0.0, 0.0]; 3];
+        assert_eq!(m.validate(), Ok(()));
+        m.weights[1][2] = f32::INFINITY;
+        assert_eq!(m.validate(), Err(MeshError::NotFinite));
+    }
+
+    #[test]
+    fn a_finish_is_made_usable() {
+        let m = Material { chrome: 2.0, liquid: f32::NAN, glow: 0.25, ..Material::default() };
+        assert_eq!(m.finish_clamped(), [1.0, 0.0, 0.25]);
+        assert_eq!(Material::default().finish_clamped(), [0.0; 3]);
     }
 
     #[test]

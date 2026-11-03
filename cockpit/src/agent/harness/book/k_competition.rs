@@ -14,6 +14,8 @@
 //! rapid first write.
 
 use super::{Primary, Raise, Route, Sub};
+const BOOK_PRIMARY: &str = include_str!("../../../../book/competition_primary.book");
+const BOOK_SHELF: &str = include_str!("../../../../book/competition_shelf.book");
 use crate::agent::harness::{TaskPace, WatchNotify};
 
 pub(crate) const CELL: char = '⠅';
@@ -49,18 +51,7 @@ pub(crate) const PRIMARY: Primary = Primary {
                     submission is a competition failure.\n\
                     - Long monologues or passive waiting do not count.\n\
                     - Report only new results; do not restate the board, the slot or the plan.",
-            pages: &[
-                "COMPETITION CHALLENGE PACE — RAPID. ALWAYS BE IMPROVING.",
-                "Revolving door: mutate → local preflight → the current BEST goes up to bat (SUBMIT, receipt/ID) → immediately improve the next best.",
-                "Start from the current promoted leader source, preserving useful local work in a separate branch or checkout. Compare optimized baseline and candidate builds on the same hardware and evaluator protocol; retain the source identities and measured results.",
-                "Keep the exact submission ID and check its official result; automatic tracking is not connected to ordinary submissions.",
-                "Use the platform CLI for status, score, rejection reason and metrics. A configured watcher is supplementary; a missing notification is not evidence that a job is pending.",
-                "Sitting on a prepped submission is a competition failure.",
-                "Constant output: one bat in flight, the next best being prepped.",
-                "After notify, one receipt check is optional; then submit-next (best to bat) or improve-candidate.",
-                "Long monologues or passive waiting do not count.",
-                "Never wrap builds, engine boots, or benchmarks in `timeout`: the harness has no tool ceiling and reports long tools live; a self-imposed timeout that kills a load mid-flight is the most common cause of \"no verifier result\".",
-            ],
+            pages: &super::catalog_pages::<10>(BOOK_PRIMARY, b'1'),
         },
         Sub {
             route: DEEP,
@@ -71,19 +62,10 @@ pub(crate) const PRIMARY: Primary = Primary {
                     that passes the local gate is submitted (receipt/ID) and then improved.\n\
                     - Depth is a reason to measure more, never to withhold a measured candidate.\n\
                     - Report only new results; do not restate the board, the slot or the plan.",
-            pages: &[
-                "COMPETITION CHALLENGE PACE — DEEP.",
-                "This is a slow-burn solve: build a coherent evidence chain, test distinct hypotheses, and converge only when the candidate is defensible.",
-                "Hop count, first-write pressure, and watcher state are never instructions to submit — but a candidate that passes the local gate IS submitted (receipt/ID) and then improved; depth is a reason to measure more, never a reason to withhold a measured candidate.",
-                "Never wrap builds, engine boots, or benchmarks in `timeout`: the harness has no tool ceiling, long tools are reported live, and a self-imposed timeout that kills a load mid-flight is the most common cause of \"no verifier result\".",
-            ],
+            pages: &super::catalog_pages::<4>(BOOK_PRIMARY, b'2'),
         },
         Sub {
-            pages: &[
-                "Read officialMetrics and rejectionReason as well as officialScore. Compare verified work with self-reported work when both exist. A discrepancy needs investigation; self-reported peak throughput is not proof of tested candidates or lost hits.",
-                "Historical briefs and handoffs are evidence, not new restrictions. Recheck inherited prohibitions against current user instructions and actual tool capabilities. Inspect the leader source before deciding to keep an older local lineage.",
-                "Use the optimized build and only the validation needed for the changed candidate. Reuse a valid receipt for unchanged bytes and inputs; do not delay an eligible winner with broad repeated checks.",
-            ],
+            pages: &super::catalog_pages::<3>(BOOK_PRIMARY, b'3'),
             route: WATCHER,
             name: "submission-status",
             signal: "inspect the official submission result or current frontier",
@@ -122,13 +104,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the always-driving competition doctrine (local GPU MoA)",
             action: "",
             ideas: "",
-            pages: &[
-                "[always driving competition doctrine] ALWAYS BE IMPROVING.",
-                "The competition loop is a revolving door of constant output: the current BEST goes up to bat immediately, and the next best is prepped while that slot is in flight.",
-                "Submit a verified competitive candidate promptly; inspect pending results when useful.",
-                "Once a submission is in play, immediately branch the winning baseline, formulate the next hypothesis, run local preflights, and push the frontier.",
-                "The agent owns result follow-through. Inspect the exact ID with the platform CLI.",
-            ],
+            pages: &super::catalog_pages::<5>(BOOK_PRIMARY, b'7'),
         },
         Sub {
             route: LIVING_PEER,
@@ -228,12 +204,7 @@ pub(crate) const SHELF: Primary = Primary {
             signal: "a local check passed on the candidate in a competition turn",
             action: "",
             ideas: "",
-            pages: &[
-                "COMPETITION CANDIDATE VERIFIED. A local check passed on this candidate.",
-                "Preserve the passing candidate and its existing preflight receipt before further edits.",
-                "Check eligibility against the current promoted leader and submit promptly within the operator's instructions. Additional checks need a specific unresolved concern; do not repeat passing checks on unchanged bytes and inputs.",
-                "A local pass is not proof of a leaderboard win; read the official submission result.",
-            ],
+            pages: &super::catalog_pages::<4>(BOOK_SHELF, b'1'),
         },
         Sub {
             route: CANDIDATE_CHANGED,
@@ -241,11 +212,7 @@ pub(crate) const SHELF: Primary = Primary {
             signal: "the workspace changed after a passing check in a competition turn",
             action: "",
             ideas: "",
-            pages: &[
-                "VERIFIED CANDIDATE CHANGED: The workspace changed after a passing check.",
-                "Check whether candidate code, inputs, or the evaluator changed. Reuse the existing receipt when only notes or unrelated files changed; rerun only the affected required check.",
-                "Follow the operator-authorized submission plan; a local pass alone does not prove a competitive win.",
-            ],
+            pages: &super::catalog_pages::<3>(BOOK_SHELF, b'2'),
         },
         Sub {
             route: FIRST_WRITE_RAPID,
@@ -253,12 +220,7 @@ pub(crate) const SHELF: Primary = Primary {
             signal: "the armed inspection budget is spent in a rapid competition turn",
             action: "",
             ideas: "",
-            pages: &[
-                "RAPID COMPETITION CANDIDATE PROGRESS. Inspection has not yet produced candidate progress.",
-                "The next tool must mutate the candidate or follow the explicitly armed submission contract; a board receipt remains legal.",
-                "Do not wrap another source read in a build/check.",
-                "If no defensible edit exists, report the concrete blocker.",
-            ],
+            pages: &super::catalog_pages::<4>(BOOK_SHELF, b'3'),
         },
     ],
 };

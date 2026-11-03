@@ -1,0 +1,34 @@
+1	path inside the workspace (relative or absolute)
+2	filename fragment to rank first (exact, substring, then fuzzy); does not filter
+2	basename glob to rank first; does not filter
+2	zero-based entry offset in the sorted listing
+2	page size (default 700); 24000-byte page window also applies; omitted counts and continuation are reported
+2	include ignored/generated paths (default false); credential and quarantine exclusions still apply
+2	include hidden paths (default false); .git and credential files remain excluded
+2	workspace-relative directory (default '.')
+3	include ignored/generated paths (default false); credential and quarantine exclusions still apply
+3	include hidden paths (default false); .git and credential files remain excluded
+3	regular expression
+3	file or directory inside the workspace, relative or absolute (default '.'); may be combined with `paths` — both are merged and deduplicated
+3	1-8 files/directories to search as one sorted, deduplicated union; both `path` and `paths` together are accepted (merged, deduplicated)
+3	deterministic continuation cursor from a prior grep receipt; only files lexically after this workspace-relative path are considered
+3	workspace-relative files to omit (maximum 128); useful for bounded explicit resumption/exclusion
+3	case-insensitive (default false)
+3	lines before and after each match (default 0, maximum 10); overlapping windows are merged
+4	include ignored/generated paths (default false); credential and quarantine exclusions still apply
+4	include hidden paths (default false); .git and credential files remain excluded
+4	glob pattern, matched against workspace-relative paths
+5	Set include_source with 1-8 discovered file paths to collect bounded definition and reference windows with file hashes in one read per file.
+5	Provide exactly one of name/names.
+5	optional workspace file or directory to scope; outside targets are refused
+5	one symbol name to locate
+5	1-8 symbol names to resolve in one workspace scan
+5	case-insensitive symbol matching (default false)
+5	return JSON source windows from explicit paths (default false)
+5	discovered source files for include_source; no directories
+5	total returned source text bytes, excluding JSON metadata (default 16384)
+6	A compact orientation before editing or committing; complements git_diff (which shows the actual changes).
+7	Use this to understand or plan changes to yourself.
+7	source module stem, e.g. agent/harness/registry (the layer prefix is optional)
+7	a module stem (e.g. "harness", "swarm", "tools/nav") for its outline only
+7	also persist the full map to SELF.md at the crate root

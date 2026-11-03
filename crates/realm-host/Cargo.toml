@@ -1,0 +1,47 @@
+[package]
+name = "angel-realm-host"
+version = "0.1.0"
+description = "The realm's host side, cut out of the cockpit: the Delve's browser page (built and embedded here), the miniworld and the host modules that need nothing of the cockpit"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+build = "build.rs"
+# The tests are modules of the library (`#[path]` under `tests/`), not
+# integration test targets.
+autotests = false
+
+[features]
+# The test-only helpers on the world (`*_for_test`, the ride-compose counter) and
+# on the grant runners' scripted model that the cockpit's own tests reach for.
+testing = ["angel-delve/testing"]
+
+[dependencies]
+angel-delve = { path = "../delve", features = ["bend-engine"] }
+angel-live = { path = "../live" }
+angel-net = { path = "../net" }
+angel-serve = { path = "../serve" }
+# Sprite frames read as PNG; a joined seat's avatar also reads JPEG and WebP.
+# The cockpit's own `image` dependency (the same version) adds the other
+# formats to the one build.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp"] }
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+tracing = "0.1"
+libc = "0.2"
+url = "2"
+# The key events the game's controls read: the cockpit's own (ratatui's) crossterm.
+crossterm = { version = "0.29", default-features = false, features = ["events"] }
+# The cell types the stage draws with (Buffer, Rect, Style, Color, Line, Span);
+# the same requirement the window and the terminal crates make.
+ratatui-core = { version = "0.1.2", features = ["std", "underline-color"] }
+# The overworld's terrain noise: the cockpit's own `terrain-forge` requirement.
+terrain-forge = "0.7.0"
+
+[dev-dependencies]
+# The avatar tests build a GIF to be turned away.
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
+angel-delve = { path = "../delve", features = ["testing", "bend-engine"] }
+# The atomic writers' one-shot fault hooks, for the realm save's regression
+# tests only; a shipped build carries none.
+angel-live = { path = "../live", features = ["fault-hooks"] }

@@ -2,6 +2,7 @@
 """Reproduce the identity-prop cleanup and retain nearest concept candidates."""
 import argparse
 import json
+import os
 import runpy
 import subprocess
 from pathlib import Path
@@ -9,7 +10,10 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
 A = runpy.run_path(str(ROOT/'scripts/boss-art.py'))
-OUT = Path('/work/artifacts/boss-art-20261015/boss-3c')
+# Art deliveries and review output live outside the checkout, under
+# ANGEL_ART_ARTIFACTS (default ~/angel-art).
+ART = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')
+OUT = ART/'boss-art-20261015/boss-3c'
 PALS = [
  dict(s='#2e2240',S='#4a3466',U='#6e5288', **{'6':'#8a6aa8','@':'#160f20','2':'#4ac0b0'},o='#6a3a1c',O='#8a4e24',t='#c89a3a',T='#d0b060'),
  dict(s='#5a1e34',S='#7e2c48',R='#a84a5a',h='#9aa4b0',H='#c4ccd2',o='#120a10',O='#8a6a2a',t='#d0b878', **{'2':'#369c90','3':'#63c8b0'}),
@@ -301,7 +305,7 @@ def author():
    'props':[['locked treasure chest','dark hood and teal eyes','spilled coins'],['cool bone skull','gold crown','heart cage'],['jaw tusks','domed iron helm','mining pick']][i],
    'source_text':(ROOT/e['boss']).read_text().split('\nart\n')[0].split('\ntext ',1)[1].split('\n')[0],
    'compared_original_1x':True,'compared_original_cells':True,'inspected_cells_2x':True,
-   'evidence':[str(OUT/'review'/f'{Path(e["boss"]).stem}-v{kit}.png') for kit in (1,2)]}}
+   'evidence':[str(OUT.relative_to(ART)/'review'/f'{Path(e["boss"]).stem}-v{kit}.png') for kit in (1,2)]}}
   entries.append(e)
  A['write_changed'](ROOT/'scripts/boss-art-reliquary.json',(json.dumps(entries,indent=2)+'\n').encode())
 

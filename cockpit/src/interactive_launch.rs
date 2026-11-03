@@ -37,6 +37,9 @@ pub(crate) fn machine_mode(arg: &OsStr) -> bool {
         arg.to_str(),
         Some(
             "--atlas"
+                | "--backup"
+                | "--guardian"
+                | "--resurrect"
                 | "--labyrinth"
                 | "--look-image"
                 | "--tool-http-helper"
@@ -61,6 +64,10 @@ pub(crate) fn machine_mode(arg: &OsStr) -> bool {
                 | "--board-sync"
                 | "--task"
                 | "--task-json"
+                | "--session-host"
+                | "--attach"
+                | "--sessions"
+                | "--kill-session"
         )
     )
 }

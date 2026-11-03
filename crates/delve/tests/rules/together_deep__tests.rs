@@ -50,6 +50,11 @@ fn the_light_takes_the_party_home_with_everything() {
     hero.carried.add(Spoil::Gold, 40);
     (hero.x, hero.y) = (lx, ly);
     run.step_sim_for_test(&BTreeMap::new());
+    // 2026-10-24: the party-wide light (639972239) waits for the friend.
+    assert_eq!(run.phase, Phase::Exploring);
+    let friend = run.players.get_mut(&2).unwrap();
+    (friend.x, friend.y) = (lx, ly);
+    run.step_sim_for_test(&BTreeMap::new());
     assert_eq!(run.phase, Phase::Won);
     assert!(run.cues.iter().any(|c| c == "homeward"));
     assert!(
@@ -72,6 +77,8 @@ fn the_stairs_go_down_into_the_archive_the_fungal_deep_and_the_unknown() {
         (hero.x, hero.y) = (w / 2.0, h / 2.0 + 3.0);
     }
     run.step_sim_for_test(&BTreeMap::new());
+    assert!(run.crossroads_voting());
+    crate::rules::crossroads::testing::finish(&mut run);
     assert_eq!(run.floor(), 4);
     assert_eq!(run.dungeon.pack, Pack::Archive);
     assert_eq!(run.room().kind, RoomKind::Sanctuary);

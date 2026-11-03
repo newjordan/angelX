@@ -10,6 +10,7 @@
 #   index.html     the shell page, {{asset:NAME}} left for the server to fill
 #                  with /a/<hash>.<ext>; the sounds manifest is inline in it
 #   *.js, *.css    the shell
+#   knight.ttf     the shell's pixel hand (shell/art/font.py)
 #   <game>.wasm    the game's client
 #   render-webgpu.js, render-webgpu_bg.wasm, render-webgl.js, render-webgl_bg.wasm
 #                  the renderer (crates/web/render), in the two builds the page
@@ -43,7 +44,30 @@ out="$here/dist/$game"
 rm -rf "$out"
 mkdir -p "$out"
 cp "$target_dir/wasm32-unknown-unknown/web/$lib.wasm" "$out/$game.wasm"
-cp "$here/shell/"*.js "$here/shell/shell.css" "$out/"
+cp "$here/shell/"*.js "$here/shell/"*.css "$here/shell/"*.ttf "$out/"
+
+# The page's rules modules (rules.js, as crates/web/rules_js.rs writes it):
+# the Bend modules <game-crate-dir>/rules.list names (a folder a line), a
+# function per file, run by the page as a native host runs them in V8.
+{
+  printf '%s\n' "// The game's rules modules (crates/web/rules_js.rs): its rules.list's Bend modules, a function per file." \
+    '"use strict";' 'globalThis.angelRules = Object.create(null);'
+  if [ -f "$crate_dir/rules.list" ]; then
+    while read -r folder _; do
+      case "$folder" in ''|'#'*) continue ;; esac
+      dir="$crate_dir/$folder"
+      [ -f "$dir/module.json" ] || { echo "rules.list: no module $folder" >&2; exit 1; }
+      entry=$(sed -n 's/.*"entry" *: *"\([^"]*\)".*/\1/p' "$dir/module.json" | head -n 1)
+      printf 'angelRules["%s"] = {entry: "%s", files: {\n' "$(basename "$dir")" "$entry"
+      (cd "$dir" && find . -name '*.js' ! -path '*/.*' | sed 's|^\./||' | LC_ALL=C sort) | while read -r name; do
+        printf '"%s": function (module, exports, require, asset, resource) {\n' "$name"
+        cat "$dir/$name"
+        printf '\n},\n'
+      done
+      printf '}};\n'
+    done < "$crate_dir/rules.list"
+  fi
+} > "$out/rules.js"
 
 # The renderer, twice: WebGPU only (what a browser with navigator.gpu loads),
 # and with wgpu's WebGL2 backend too (what one without loads). Each is the
@@ -90,7 +114,7 @@ if [ -d "$crate_dir/sounds" ]; then
   add_sounds "$crate_dir/sounds" ""
 fi
 if [ -f "$crate_dir/sounds.list" ]; then
-  while read -r prefix folder; do
+  while read -r prefix folder _; do
     case "$prefix" in ''|'#'*) continue ;; esac
     [ "$prefix" = "-" ] && prefix=""
     [ -d "$crate_dir/$folder" ] || { echo "sounds.list: no folder $folder" >&2; exit 1; }

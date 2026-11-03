@@ -9,6 +9,258 @@ substrate for software-dev tasks.
 > miniviz, image viewing, shell, and transcripts must all work without an
 > external renderer or terminal fork.
 
+## Hot-swappable executable systems
+
+The full Delve `Run::step` implementation runs in its own supervised executable.
+The cockpit owns the committed game state, seats, sockets, terminal, sessions and
+realm effects. Replacing the rules executable transfers complete live state and
+switches dispatch between requests; the cockpit and existing game stay alive.
+
+After updating the cockpit once, keep this running while editing Rust rules:
+
+```sh
+npm run dev:systems
+```
+
+The source launcher builds and publishes the initial worker automatically.
+The watcher builds only `angel-delve-system` and its rules dependencies, then
+atomically publishes `cockpit/systems/delve/engine`. It does not build the
+cockpit, renderer, browser page, providers or V8. A failed build leaves the
+running implementation available. `/reload status` shows the active content
+identity, worker PID, successful handoffs, rejected candidates and current run.
+
+A candidate first prepares on a background thread. At a request boundary it
+restores a copied, versioned checkpoint, validates it, and activates. Only then
+does dispatch switch and the old process retire. Failed preparation, state
+conversion or activation keeps the existing implementation. A timed-out or
+crashed active request retains the host's committed state and pauses rules;
+publishing corrected code recovers from that state. The request is not replayed.
+
+Live checkpoints include pending purchases, achievements, sound/notice queues,
+input latches, private counters and minigame histories. Ordinary save files and
+public wire payloads keep their existing serialization. Unsupported live-state
+schemas are rejected explicitly. Host phrasebook and settings accompany rules
+requests. Runtime resources remain host-owned, so workers cannot accidentally
+restart a terminal or a multiplayer seat during handoff.
+
+`ANGEL_DELVE_SYSTEM` selects a published executable; `ANGEL_HOT_SYSTEMS=0`
+selects the embedded implementation. New prebuilt packages ship the worker;
+older packages retain their embedded engine. The reusable supervisor and framed
+protocol live in `crates/live/src/system.rs`; the Delve executable and its stable
+boundary live in `crates/delve-system`.
+
+Run the process lifecycle suite with `npm run test:live`. Test the two separately
+compiled native implementations and complete state parity with:
+
+```sh
+cargo test --manifest-path crates/Cargo.toml -p angel-delve-system --profile fast --features swap-test
+```
+
+The native terminal suite also has an explicit
+`ordinary_cockpit_real_pty_native_system_swap_preserves_the_host_and_run` case;
+set `ANGEL_SYSTEM_TEST_WORKER` and `ANGEL_SYSTEM_TEST_REPLACEMENT` to those two
+built binaries and run that case with `--ignored`.
+
+The terminal renderer and provider/tool execution remain compiled into the host.
+The JavaScript boundaries below cover composition and agent selection policy;
+they have a separate, smaller contract from executable system handoff.
+
+## Live application modules
+
+Build this native host once, then leave it running while editing `cockpit/live/`.
+The live boundary covers these production behaviors:
+
+| Edit | What changes in the running host |
+|---|---|
+| `ui/index.js` | Responsive pane widths, idle/reasoning heights, side-panel order and visibility, idle/busy composer text. Existing chat, focus and hit-test geometry survive. |
+| `game/index.js` | The authoritative Delve's movement, roll/attack/shot speed, enemy pace/damage/health/count, hit-stop, camera and adventure rules exposed by `/dungeon tune`. The run, knights and joined seats stay alive. |
+| `tool-router/index.js`, `rank.js` | Actual per-turn tool shortlisting and ranking. The shipped BM25 algorithm matches the native fallback. A generation is pinned for each decision; edits apply at the next tool-bubble turn, including a cached-prefix seat. |
+| `effort/effort.bend`, `index.js` | The reasoning effort chosen for each model request, authored in Bend (kind `policy`). The shipped `choose` returns the native effort. A choice the seat does not accept keeps the native one, and `LAWS.bend` states that for every edit. A generation is pinned per turn; an edit applies from the next turn, and the request receipt carries `effort_leg` (`live:<digest>`). |
+| `errors/errors.bend`, `index.js` | How a failed provider request is classed (permanent, transient, quota, context), whether the turn replays it and how long it waits first. Its laws, checked on every build, say a rejected certificate or provider veto never replays; the host bounds every answer by the native cap, attempt budget and 2 s wait, and a looser answer falls back to native. Edits apply at the next turn. |
+| `realm/index.js` | Miniworld guardian size, labels and animation durations. |
+| `agent/index.js` | Optional next-turn guidance; empty text preserves the normal prompt. |
+| `peers/`, `world-help/` | Explicit report presentation. |
+| `characters/` | Registered `/character` command, `live.characters` surface, per-player appearance choices and animated character frames. State and choices survive implementation replacement. |
+| `abilities/` | Registered `/ability` command, `live.abilities` surface and executable per-player spell timelines. Existing casts lease original code/assets while new casts use replacement code. |
+
+For example, set `game`'s `knobs` to `{ hero_speed: 20, fire_rate: 150 }` while
+playing. The whole rule set is checked against the engine's names, ranges and
+steps before activation; one unknown rule rejects the complete edit. These are
+an overlay on the workspace's saved tuning, not writes to its tuning file.
+Removing a name restores its saved/native setting. `/dungeon tune` identifies
+live overrides; ordinary tuning beneath an override remains available.
+
+UI and game tuning modules generate validated native policy on reload. Executable
+ability instances run one bounded JS call per active generation per simulation
+tick, batching its casts. Tool routing runs on the agent worker, once
+per eligible turn; it ranks the admitted catalogue and cannot register tools or
+execute them. Native authorization, model streams and in-flight work retain their
+owners. API 2 modules can register commands, cached text surfaces, services and prepared
+resources through the shared kernel. Glass scene primitives, new physics
+primitives and provider/tool implementations still have native dependencies;
+their extraction remains listed in the modularity inventory.
+
+Changes activate automatically after a stable capture and 120 ms debounce;
+the watcher polls every 100 ms. Idle polls inspect metadata and reuse captured
+bundles, so large unchanged asset packs are not reread or rehashed.
+`/reload` validates immediately; `/reload status` shows active generations,
+source digests and rejected edits. Routine reloads stay out of the transcript.
+`/live <module-id> [JSON input]` invokes a module directly, so a new report can
+be added without another native command implementation.
+
+Each directory contains `module.json` and JavaScript:
+
+```json
+{"api_version":1,"id":"example","kind":"text","entry":"index.js","probe":{}}
+```
+
+```js
+const helper = require('./helper.js')
+module.exports = { apiVersion: 1, render(input) { return helper.describe(input) } }
+```
+
+For a stateful system use API 2:
+
+```json
+{"api_version":2,"id":"counter","kind":"system","entry":"index.js","state_schema":1,"exports":[{"kind":"command","name":"count","contract":"command/1"},{"kind":"surface","name":"counter","contract":"surface/1"}]}
+```
+
+```js
+module.exports = {
+  apiVersion: 2,
+  initialize: () => ({ count: 0 }),
+  reduce: (state, event) => ({ state: { count: state.count + 1 }, output: 'counted' }),
+  view: state => ({ counter: { title: 'Counter', lines: [String(state.count)] } })
+}
+```
+
+Install the directory while AngelX runs. `/count` dispatches the registered
+command; `/open live.counter` opens its cached Glass surface. Editing its code
+preserves the state. Add `migrate(previousCheckpoint, {schema})` when changing
+state shape; a schema change without migration rejects the candidate. Candidate
+initialization/migration, views and resource preparation run on copied state on
+the loader worker, before an atomic dependency-group commit. Rendering reads
+cached views. API 1 projections retain their smaller contract below.
+
+`resources(state)` publishes named `resource` exports. Native resource adapters
+prepare decoded data before commit and expose it through reference-counted
+bindings. Declare local binary files in manifest `assets`; `asset('idle.png')`
+returns their content identity. Source and asset edits form one captured
+generation; missing files or failed decoding retain the working generation.
+Each asset is at most 2 MiB, with 16 MiB/64 assets per module. Consumers lease
+immutable bytes/prepared data until they retire. API 2 state and resource data
+are each limited to 512 KiB, views/output to 64 KiB each, with a 1,152 KiB total
+serialized evaluator envelope.
+
+For character appearance, `/character violet 1`, `/character gold 2` and
+`/character off 1` select options for a player. `/open live.characters` shows
+the choices. Edit `characters/looks.js` or add an option to its catalogue; new
+options do not require a Rust variant. Frames may contain 1,024 RGBA pixels or
+a declared 32×32 image asset. Up to eight frames and a tick interval define the
+animation. Compatible replacements preserve normalized phase and do not reset
+health, position or cooldowns. Appearances remain in full saves and replication, while the rules RPC excludes
+those bytes and the host reattaches its prepared appearance after validation.
+The remaining Run still crosses that bridge; module-owned state/view deltas are
+still open.
+Art, executable abilities, sounds and effects are independent module catalogues.
+The `abilities` module resolves player choices into one `character-loadout/1`
+resource per player; `/loadout` inspects choices. Art and slots install together
+under the simulation lock. Invalid selected options reject the complete closure.
+
+For executable spells, `/ability spark 1 1` or `/ability bloom 2 3` binds an
+authored ability to a player's slot; `/ability off [player] [slot]` restores the
+ordinary spell. `/open live.abilities` shows the current catalogue. Edit or add
+behavior in `ability-code/spells.js` while playing. The native port supports actual
+projectile, heal and collision-aware move commands. Mana/cooldowns remain paid
+across replacements. Pending and running casts retain their original executable
+generation; new casts use the replacement. `/ability cancel [player]` explicitly
+abandons pending/running module casts, including quarantined runtime failures.
+`/reload status` shows active/pending casts, generations, accepted starts,
+applied actions and faults. A rejected candidate retains the working generation.
+
+Ability sounds are module resources too: `/ability sound crystal|warm|quiet
+[player]` selects a bank for future casts. Already-running casts retain their
+original cue map, volume and captured bytes. Replace a declared WAV or edit its
+mapping in `ability-sounds/sounds.js`; invalid audio rejects the complete candidate. The current
+port supports complete PCM16 WAV files, mono/stereo, 8–48 kHz and at most ten
+seconds. Native helpers, browser sources and remote native clients retain their
+own playback data while generations retire. `sounds=` in `/reload status` counts
+committed sound events; ordinary audio throttling can coalesce playback.
+
+Ability VFX are authored in `ability-effects/effects.js`: `/ability effect
+crystal|ember|quiet [player]` selects a graph bank. Ring, disc, particle and
+captured sprite nodes have timed position, scale, colour and opacity keys.
+Sprite frames share the character decoder. The same bounded painter runs in
+native and browser Glass; painting performs no JS, image decode or file access.
+Effects retain their original graph, assets and source generation after a cast
+finishes and across code, image or player-choice changes. New casts take the new
+selection. `/ability cancel [player]` also retires that player's active VFX.
+
+Graph/instance publication changes only at admission, expiry or cancellation;
+unchanged views reuse their serialized scene. Graph payloads travel once while
+instances refer to them by content identity and birth tick. Rules-only RPC omits
+this presentation data, which the host retains. Full live checkpoints use schema
+3 with explicit schema-1/2 migration; durable saves omit transient effects.
+`vfx=`, `vfx-active=` and `vfx-generations=` in `/reload status` inspect ownership.
+Each cast retains its resolved selections and executes through its selected code
+provider. Sound/art/effect edits rebind player loadouts without restarting that
+code instance. Existing casts keep their old media; future casts use replacements.
+Adding another declared provider or composing slots from different providers
+requires authored module changes, with no native spell or App branch.
+Character-event hooks, trails/lighting/shake and richer animation/physics ports
+remain open.
+
+Services declare `service` exports and consumers declare exact module/contract
+imports. A reducer can return `effects: [{service, method, arguments}]`; the
+kernel pins both generations, dispatches each call once and returns a
+`completion` event to the issuing module. The worker drives these calls off the
+UI thread. A failed completion is retained for diagnosis; `/reload cancel <id>`
+explicitly abandons it without replaying the service. Host tool/model/network
+execution is still owned by the existing host and is not exposed by this API.
+
+The id matches the directory name. `text` returns a string; `ui`, `game`, `realm`,
+`agent` and `tool-router` use the schemas shown in their shipped examples. The
+probe must exercise the module with representative input. Relative CommonJS
+dependencies within the directory are captured as one immutable generation;
+Node builtins, npm packages, ES-module imports and background callbacks are
+outside this first host contract. Each call uses a fresh isolate in the existing
+V8 engine, with a 200 ms deadline and a 32 MiB heap budget. JSON input is bounded
+at 512 KiB and output at 64 KiB. Modules transform JSON;
+native code continues to own tool execution, processes, streams and persistence.
+
+File capture and validation run on one background thread, with no JavaScript or
+filesystem polling in the draw loop. Unchanged generations do not re-evaluate.
+Bad syntax, missing dependencies and invalid results retain the working code.
+Removing files retains the previous generation and reports the missing source;
+it does not silently unload a live feature. Sessions and work are never restarted.
+
+`ANGEL_LIVE_DIR` selects an operator-owned module root instead of
+`<resource-root>/cockpit/live`; `ANGEL_HOTLOAD=0` disables the loader. Runtime
+modules ship with the resource bundle and do not need the producing checkout.
+The source root is selected by the launcher, not by the current project.
+
+An agent file tool (`write_file`, `str_replace`, `multi_edit`, `apply_patch`)
+that writes inside the module root returns the loader's verdict with its own
+result: the `/reload status` line of each module it touched plus the time the
+verdict took, which is the new generation, or the kept generation with the
+compiler, proof or contract error. A verdict slower than two seconds rides the
+next tool result, or the next turn's context. The session's workspace context
+names the root as `live_dir`.
+
+The loader is the independent `angel-live` crate. Run its small suite with
+`npm run test:live`; the wrapper pins the repository toolchain and uses a
+separate small build cache. Node is used as the test evaluator. The cockpit's
+`agent::hotload::tests` also exercises the production embedded-V8 adapter. The
+`interactive_terminal_smoke` target's
+`ordinary_cockpit_real_pty_live_module_replacement_and_bad_edit_smoke` test
+checks automatic replacement and a rejected edit inside the running terminal
+host, including a composer repaint. `ordinary_cockpit_real_pty_live_game_rules_smoke`
+checks a running Delve's rules, atomic rejection and override removal. Set
+`ANGEL_PTY_SMOKE_STRICT=1` to require an available PTY. Native surface, simulation
+and context/tool-selection suites cover layout/copy geometry, actual movement,
+schema preservation and ranking parity.
+Changing native Rust rendering or execution still needs a native build.
+
 ## Model routes
 
 The default club list uses ChatGPT/Grok OAuth and reachable local models.

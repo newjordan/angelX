@@ -11,6 +11,6 @@
   "prompt_sha256": "b822df2144b64c10328bf5e376168a1025ddc0a6be9d407f9e9b7d4f0f99d0e6",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "source-sheet.png (the re-run; v01-first, which had three peg levels, is kept outside the repo and not used). The delivery's generation.json is the first run's record; the producer note accepts this re-run",
-  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.great-pole/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/bannerpeak.great-pole/v01/source-sheet.png",
   "source_sha256": "a9467e8233f4f1568eb877e9273de48368a211224d53f2f884346699dab49662"
 }

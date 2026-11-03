@@ -1,0 +1,115 @@
+# crates/delve/src/rules.rs — the Run's orbits, sparks and the other small rules.
+
+# The shared orbit layout: where `id`'s morningstars are at `tick` about the knight.
+def rules.orbit_points(h: J.Val, id: U32, tick: W.W) -> [J.Val]:
+    n: U32 = U32.min(core.u(J.get(h, "bonus"), "orbit"), cards.cap("orbit"))
+    out: [J.Val] = []
+    k: U32 = 0
+    while U32.is_lt(k, n):
+        a: F32 = ((W.as_f32(tick) * rules.ORBIT_SPIN() : F32) * rules.DT() : F32)
+        a = (a + ((RS.u_as_f32(k) * core.TAU() : F32) / RS.u_as_f32(n) : F32) : F32)
+        a = (a + RS.u_as_f32(id) : F32)
+        p: J.Val = core.pair_f((core.f(h, "x") + (F32.cos(a) * rules.ORBIT_RADIUS() : F32) : F32), (core.f(h, "y") + (F32.sin(a) * rules.ORBIT_RADIUS() : F32) : F32))
+        out = List.append(&2, J.Val, out, [p])
+        k = (k + 1 : U32)
+    return out
+
+# Where knight `id`'s morningstars were (or are) at `tick`, about where the knight stands now.
+def rules.Run.orbits_at(run: J.Val, id: U32, tick: W.W) -> [J.Val]:
+    h: J.Val = core.hero(run, id)
+    if Bool.or(J.is_null(h), Bool.or(U32.is_zero(core.u(h, "hp")), core.b(h, "stone"))):
+        return []
+    return rules.orbit_points(h, id, tick)
+
+def rules.Run.orbits(run: J.Val, id: U32) -> [J.Val]:
+    return rules.Run.orbits_at(run, id, W.of_j(J.get(run, "tick")))
+
+# Chain hits spark on: each to the nearest monsters within reach that it has not
+# touched, for half its damage. A chain is [first, x, y, damage, links, owner].
+def rules.Run.spark(run: J.Val, chains: J.Val) -> J.Val:
+    for c: J.Val in J.items(chains):
+        touched: [U32] = [J.u32(J.nth(c, 0))]
+        ax: F32 = J.f32(J.nth(c, 1))
+        ay: F32 = J.f32(J.nth(c, 2))
+        damage: U32 = J.u32(J.nth(c, 3))
+        links: U32 = J.u32(J.nth(c, 4))
+        owner: U32 = J.u32(J.nth(c, 5))
+        l: U32 = 0
+        while U32.is_lt(l, links):
+            # the nearest monster it has not touched, within reach (the first of equals)
+            best: U32 = 4294967295
+            best_d: F32 = 0.0
+            i: U32 = 0
+            for e: J.Val in J.items(J.get(run, "enemies")):
+                d: F32 = RS.f_hypot((core.f(e, "x") - ax : F32), (core.f(e, "y") - ay : F32))
+                if Bool.and(U32.is_ne(core.u(e, "hp"), 0), Bool.and(Bool.not(core.has_u32(touched, core.u(e, "id"))), F32.is_le(d, rules.CHAIN_REACH()))):
+                    if Bool.or(U32.is_eq(best, 4294967295), F32.is_lt(d, best_d)):
+                        best = i
+                        best_d = d
+                i = (i + 1 : U32)
+            if U32.is_eq(best, 4294967295):
+                break
+            e: J.Val = J.nth(J.get(run, "enemies"), best)
+            actual: U32 = U32.min(U32.max(damage, 1), core.u(e, "hp"))
+            e = core.set_u(e, "hp", core.usub(core.u(e, "hp"), U32.max(damage, 1)))
+            e = J.set(e, "wits", core.set_u(J.get(e, "wits"), "foe", owner))
+            run = J.set(run, "enemies", J.set_nth(J.get(run, "enemies"), best, e))
+            run = feel.Run.credit(run, owner, core.u(e, "id"), actual)
+            touched = List.append(&2, U32, touched, [core.u(e, "id")])
+            spark: J.Val = J.obj()
+            spark = J.set(spark, "from", core.pair_f(ax, ay))
+            spark = J.set(spark, "to", core.pair_f(core.f(e, "x"), core.f(e, "y")))
+            spark = core.set_u(spark, "ttl", 6)
+            run = J.set(run, "fx", J.push(J.get(run, "fx"), J.set(J.obj(), "Spark", spark)))
+            ax = core.f(e, "x")
+            ay = core.f(e, "y")
+            l = (l + 1 : U32)
+    return run
+
+# The mask of monsters any of `balls` touches: within radius + 0.8 of one.
+def rules.orbit_mask(enemies: J.Val, balls: [J.Val]) -> [Bool]:
+    mask: [Bool] = []
+    for e: J.Val in J.items(enemies):
+        hit: Bool = False{}
+        for b: J.Val in balls:
+            if F32.is_le(RS.f_hypot((core.f(e, "x") - J.f32(J.nth(b, 0)) : F32), (core.f(e, "y") - J.f32(J.nth(b, 1)) : F32)), (monsters.Enemy.radius(e) + 0.8 : F32)):
+                hit = True{}
+        mask = List.append(&2, Bool, mask, [hit])
+    return mask
+
+# Morningstars knock monsters' shots out of the air on every tick, and strike on
+# the beat: each monster they touched since the last beat, once, as one stroke
+# from the knight.
+def rules.Run.swing_orbits(run: J.Val) -> J.Val:
+    tick: W.W = W.of_j(J.get(run, "tick"))
+    beat: Bool = U32.is_zero(W.rem_u32(tick, rules.ORBIT_EVERY()))
+    for (k: String, hh: J.Val) in J.int_fields(J.get(run, "players")):
+        id: U32 = rules.Run.step.id(k)
+        balls: [J.Val] = rules.Run.orbits(run, id)
+        if Bool.not(U32.is_zero(U32.from_nat(List.length(&2, J.Val, balls)))):
+            for b: J.Val in balls:
+                shots: [J.Val] = []
+                for s: J.Val in J.items(J.get(run, "projectiles")):
+                    if Bool.and(core.b(s, "hostile"), F32.is_le(RS.f_hypot((core.f(s, "x") - J.f32(J.nth(b, 0)) : F32), (core.f(s, "y") - J.f32(J.nth(b, 1)) : F32)), 0.9)):
+                        s = core.set_u(s, "ttl", 0)
+                    shots = List.append(&2, J.Val, shots, [s])
+                run = J.set(run, "projectiles", J.JA{shots})
+            if beat:
+                swept: [J.Val] = []
+                back: U32 = 0
+                while U32.is_lt(back, rules.ORBIT_EVERY()):
+                    swept = List.append(&2, J.Val, swept, rules.Run.orbits_at(run, id, W.sat_sub(tick, W.of_u32(back))))
+                    back = (back + 1 : U32)
+                h: J.Val = core.hero(run, id)
+                enemies: J.Val = J.get(run, "enemies")
+                (enemies2: J.Val, struck: J.Val) = aoe.strike(enemies, core.f(h, "x"), core.f(h, "y"), hero.Hero.scaled(h, rules.ORBIT_DAMAGE()), rules.orbit_mask(enemies, swept))
+                run = J.set(run, "enemies", enemies2)
+                if U32.is_ne(core.count(struck), 0):
+                    run = core.push_sound(run, "hit")
+                for st: J.Val in J.items(struck):
+                    i: U32 = J.u32(J.nth(st, 0))
+                    e: J.Val = J.nth(J.get(run, "enemies"), i)
+                    e = J.set(e, "wits", core.set_u(J.get(e, "wits"), "foe", id))
+                    run = J.set(run, "enemies", J.set_nth(J.get(run, "enemies"), i, e))
+                    run = feel.Run.credit(run, id, core.u(e, "id"), J.u32(J.nth(st, 1)))
+    return run

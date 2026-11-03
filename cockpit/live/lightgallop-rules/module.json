@@ -1,0 +1,17 @@
+{
+  "api_version": 1,
+  "id": "lightgallop-rules",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "start",
+    "present": [
+      1
+    ]
+  },
+  "bend": {
+    "entry": "lightgallop-rules.bend",
+    "proof": "PROOF.bend",
+    "output": "lightgallop-rules.compiled.js"
+  }
+}

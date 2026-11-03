@@ -1,0 +1,37 @@
+{
+  "api_version": 1,
+  "id": "episode-reducer",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "durable",
+    "state": {
+      "has_episode": true,
+      "has_terminal": false,
+      "seq_hi": 0,
+      "seq_lo": 7,
+      "journal_hi": 0,
+      "journal_lo": 2
+    },
+    "event": {
+      "kind": "evidence",
+      "schema_ok": true,
+      "sha_ok": true,
+      "sequence_ok": true,
+      "previous_ok": true,
+      "episode_ok": true,
+      "start_episode_equal": false,
+      "start_valid": true,
+      "link_valid": true,
+      "link_post_terminal": false,
+      "terminal_valid": true,
+      "end_hi": 0,
+      "end_lo": 12
+    }
+  },
+  "bend": {
+    "entry": "episode-reducer.bend",
+    "proof": "PROOF.bend",
+    "output": "episode-reducer.compiled.js"
+  }
+}

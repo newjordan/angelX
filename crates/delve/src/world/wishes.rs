@@ -5,8 +5,8 @@
 use std::sync::{Arc, Mutex, OnceLock};
 
 use super::map::{MAP_H, MAP_W, Place, Realm, STRUCTURES, TILE, place_tile};
+use crate::ink::Img;
 use crate::realm::Wish;
-use crate::render::overworld::ink::Img;
 
 /// A wish's lot, in realm tiles: the building on top, its plaque on the
 /// bottom row.
@@ -21,6 +21,13 @@ pub struct Lot {
 impl Lot {
     pub fn contains(&self, x: i32, y: i32) -> bool {
         x >= self.tx && y >= self.ty && x < self.tx + self.tw && y < self.ty + self.th
+    }
+
+    pub fn overlaps(&self, other: &Lot) -> bool {
+        self.tx < other.tx + other.tw
+            && other.tx < self.tx + self.tw
+            && self.ty < other.ty + other.th
+            && other.ty < self.ty + self.th
     }
 
     fn near(&self, x: i32, y: i32, margin: i32) -> bool {
@@ -73,7 +80,7 @@ pub fn plaque_word(name: &str) -> String {
 /// paper, no board, so the landmark — not its label — carries the screen.
 pub fn label(wish: &Wish) -> Img {
     let word = plaque_word(&wish.name);
-    let mut im = Img::new(crate::render::overworld::ink::text_width(&word) + 1, 8);
+    let mut im = Img::new(crate::ink::text_width(&word) + 1, 8);
     im.text(0, 0, &word, 'u');
     im
 }
@@ -83,7 +90,7 @@ pub fn art(wish: &Wish) -> Img {
 }
 
 /// Tiles a building of `w`x`h` pixels covers, with a plaque row beneath.
-fn footprint(wish: &Wish) -> (i32, i32) {
+pub fn footprint(wish: &Wish) -> (i32, i32) {
     let im = art(wish);
     let plaque = label(wish);
     let tw = (im.w.max(plaque.w) + TILE - 1) / TILE;
@@ -123,9 +130,46 @@ pub fn find(tw: i32, th: i32, goal: (i32, i32), taken: &[Lot]) -> Option<Lot> {
     find_in(tw, th, goal, taken, 1, false).or_else(|| find_in(tw, th, goal, taken, 0, false))
 }
 
-/// A fixed gate-side landmark prioritizes proximity over tree-clearing cost.
-pub fn find_nearest(tw: i32, th: i32, goal: (i32, i32), taken: &[Lot]) -> Option<Lot> {
-    find_in(tw, th, goal, taken, 1, true).or_else(|| find_in(tw, th, goal, taken, 0, true))
+/// Whether a lot may stand on its ground with `margin` tiles round it, and the
+/// trees and rocks it would clear if so.
+fn ground(lot: Lot, taken: &[Lot], margin: i32) -> Option<i64> {
+    let realm = Realm::get();
+    let Lot { tx, ty, tw, th } = lot;
+    let mut obstacles = 0;
+    for y in ty..ty + th {
+        for x in tx..tx + tw {
+            let t = realm.at(x, y);
+            if (margin > 0 && !wild(x, y)) || !buildable(t) {
+                return None;
+            }
+            obstacles += i64::from(matches!(t, b'T' | b'^' | b'd'));
+        }
+    }
+    // A tile of open ground around every lot keeps landmarks apart.
+    if taken.iter().any(|l| {
+        (ty - margin..ty + th + margin)
+            .any(|y| (tx - margin..tx + tw + margin).any(|x| l.contains(x, y)))
+    }) {
+        return None;
+    }
+    if structures().iter().any(|&(sx, sy, sw, sh)| {
+        (sy..sy + sh).any(|y| (sx..sx + sw).any(|x| lot.near(x, y, margin)))
+    }) {
+        return None;
+    }
+    Some(obstacles)
+}
+
+/// Whether a knight may set a lot here among `wishes`: the wild ground a wish
+/// would stand on, with a tile of open ground all round it.
+pub fn open_for(wishes: &[Wish], lot: Lot) -> bool {
+    let inside = lot.tx >= 1
+        && lot.ty >= 1
+        && lot.tx + lot.tw < MAP_W - 1
+        && lot.ty + lot.th < MAP_H - 1;
+    let mut taken = reserved();
+    taken.extend(lots(wishes).iter().flatten().copied());
+    inside && ground(lot, &taken, 1).is_some()
 }
 
 fn find_in(
@@ -141,33 +185,9 @@ fn find_in(
     for ty in 1..MAP_H - th - 1 {
         for tx in 1..MAP_W - tw - 1 {
             let lot = Lot { tx, ty, tw, th };
-            let mut obstacles = 0;
-            let mut ok = true;
-            'tiles: for y in ty..ty + th {
-                for x in tx..tx + tw {
-                    let t = realm.at(x, y);
-                    if (margin > 0 && !wild(x, y)) || !buildable(t) {
-                        ok = false;
-                        break 'tiles;
-                    }
-                    obstacles += i64::from(matches!(t, b'T' | b'^' | b'd'));
-                }
-            }
-            if !ok {
+            let Some(obstacles) = ground(lot, taken, margin) else {
                 continue;
-            }
-            // A tile of open ground around every lot keeps landmarks apart.
-            if taken.iter().any(|l| {
-                (ty - margin..ty + th + margin)
-                    .any(|y| (tx - margin..tx + tw + margin).any(|x| l.contains(x, y)))
-            }) {
-                continue;
-            }
-            if structures().iter().any(|&(sx, sy, sw, sh)| {
-                (sy..sy + sh).any(|y| (sx..sx + sw).any(|x| lot.near(x, y, margin)))
-            }) {
-                continue;
-            }
+            };
             // Facing a road reads as built, not dropped.
             let road = (tx - 1..tx + tw + 1)
                 .flat_map(|x| (ty + th..ty + th + 2).map(move |y| (x, y)))
@@ -183,6 +203,15 @@ fn find_in(
         }
     }
     best.map(|(_, lot)| lot)
+}
+
+/// The Delve's gate holds its own ground and the castles theirs; wishes
+/// build around them.
+fn reserved() -> Vec<Lot> {
+    let (tx, ty, tw, th) = crate::rules::squires_town::YARD;
+    let mut taken: Vec<Lot> = vec![delve_gate(), super::college::lot(), Lot { tx, ty, tw, th }];
+    taken.extend(super::castles::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th }));
+    taken
 }
 
 /// Each standing wish's lot, in raised order. Memoized on the wishes'
@@ -203,7 +232,7 @@ pub fn lots(wishes: &[Wish]) -> Arc<Vec<Option<Lot>>> {
                 w.raised,
                 w.art.len(),
                 w.art.iter().map(|r| r.chars().count()).max().unwrap_or(0),
-                format!("{}|{}", w.near, w.name),
+                format!("{}|{}|{:?}", w.near, w.name, w.lot),
             )
         })
         .collect();
@@ -214,12 +243,20 @@ pub fn lots(wishes: &[Wish]) -> Arc<Vec<Option<Lot>>> {
     {
         return Arc::clone(lots);
     }
-    // The Delve's gate holds its own ground and the castles theirs; wishes
-    // build around them.
-    let mut taken: Vec<Lot> = vec![delve_gate(), super::college::lot()];
-    taken.extend(super::castles::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th }));
+    // The lots knights chose stand first, whatever order they were raised in:
+    // the realm finds the others ground around them.
+    let chosen = |wish: &Wish| {
+        let (tw, th) = footprint(wish);
+        wish.lot.map(|(tx, ty)| Lot { tx, ty, tw, th })
+    };
+    let mut taken = reserved();
+    taken.extend(wishes.iter().filter_map(chosen));
     let mut out = Vec::with_capacity(wishes.len());
     for wish in wishes {
+        if let Some(lot) = chosen(wish) {
+            out.push(Some(lot));
+            continue;
+        }
         let (tw, th) = footprint(wish);
         let goal = place_of(&wish.near).stand_world();
         let lot = find(tw, th, goal, &taken);

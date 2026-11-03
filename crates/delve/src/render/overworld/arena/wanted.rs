@@ -786,34 +786,66 @@ fn banner(cv: &mut Img, run: &Run, fall: &outlaw::Fall) {
     coin(cv, x0 + (w - sum_w) / 2 - 4, y0 + 25);
 }
 
-/// A boss's name over its health bar. (The Boss Key's carrier is an elite,
-/// marked over its own bar: `marks::key_mark`.)
-pub(super) fn nameplates(cv: &mut Img, run: &Run, view: (i32, i32), modern: bool) {
-    if super::boss_art::library_hidden() { return; }
-    for e in run.enemies.iter().filter(|e| e.hp > 0 && e.boss.is_some()) {
-        let Some(index) = e.boss else { continue };
-        let Some(boss) = run.bosses.get(usize::from(index)) else {
+/// Whether boss `e` wears its name plate (`nameplates`), its health the
+/// bar under it: then `marks::enemy_bar` draws no bar of its own.
+pub(super) fn plated(run: &Run, e: &Enemy) -> bool {
+    !super::boss_art::library_hidden() && !run.poster_up() && e.boss.is_some_and(|i| run.bosses.get(usize::from(i)).is_some())
+}
+
+/// Ticks a guardian's plate takes to come up after it does.
+pub(super) const ENTRANCE: u32 = 28;
+
+/// A guardian's plate `age` ticks after it came: how far its banner has
+/// unrolled, how much of its name is up, and how full its bar is shown
+/// (all 1 from `ENTRANCE` on).
+pub(super) fn entrance(age: u32) -> (f32, f32, f32) {
+    use crate::motion::{ease, share};
+    let a = age as f32;
+    (ease::out(share(a, 0.0, 8.0)), share(a, 5.0, 9.0), ease::out(share(a, 10.0, (ENTRANCE - 10) as f32)))
+}
+
+/// A boss's name and its health: its name on a dark red banner over its
+/// head, its health on a bar hung under the banner (`guardian_bar`). (The
+/// Boss Key's carrier is an elite, marked over its own bar:
+/// `marks::key_mark`.)
+pub(super) fn nameplates(cv: &mut Img, run: &Run, view: (i32, i32)) {
+    for e in run.enemies.iter().filter(|e| e.hp > 0 && plated(run, e)) {
+        let Some(boss) = e.boss.and_then(|i| run.bosses.get(usize::from(i))) else {
             continue;
         };
-        if run.poster_up() {
-            continue;
-        }
         let (x, feet) = if run.side_on() {
             at(e.x, e.y + e.radius())
         } else {
             at(e.x, e.y + super::signatures::foot_lift(run, e))
         };
-        let height = super::foe_figure_with(run, e, run.tick as u32, modern).h;
+        let height = super::foe_figure_with(run, e, run.tick as u32).h;
         let top = super::marks::enemy_top(run,e,feet,height,view);
         let name = boss.name.to_uppercase();
-        let w = text_width(&name);
-        // Whole on this seat's screen while the boss is in its view.
-        let x0 = super::in_view_x(x, w + 6, view, cv.w) + 3;
-        let y0 = super::in_view_y(top - 20, feet, view);
-        // The name on a slate plate, in the steel rim of the realm's names.
-        super::super::chrome::panel(cv, (x0 - 3, y0 - 2, w + 6, 11), super::super::chrome::Tone::SLATE);
-        if super::hud_art::enabled(run) {super::hud_art::plate(cv,"toast",(x0-3,y0-2,w+6,11));}
-        cv.text(x0, y0, &name, '$');
+        let (w, h) = ((text_width(&name) + 8).max(40), 11);
+        // Whole on this seat's screen while the boss is in its view, where
+        // its name always stood (`marks::enemy_top` keeps that room).
+        let x0 = super::in_view_x(x, w, view, cv.w);
+        let y0 = super::in_view_y(top - 20, feet, view) - 2;
+        let delivered = super::hud_art::enabled(run);
+        // Its entrance (`ENTRANCE`): the banner unrolls from its middle,
+        // the name comes up a letter at a time, and the bar fills.
+        let (open, typed, fill) = entrance(e.age);
+        // The banner, in the health bar's own rim, whole while it stands.
+        let bw = ((w - 2) as f32 * open).round() as i32;
+        if bw >= 2 {
+            let bx = x0 + 1 + (w - 2 - bw) / 2;
+            super::marks::bar(cv, bx, y0 + 1, bw, h - 2, 1.0, '8', delivered);
+            cv.rect(bx, y0 + 1, bw, 1, '7');
+        }
+        // Its health, hung under the banner once it is open.
+        if open >= 1.0 {
+            super::guardian_bar::draw(cv, e, boss, (x0, y0 + h - 1, w), run.tick, delivered, fill);
+        }
+        // The name, shadowed, its letters in their places as they come.
+        let tx = x0 + (w - text_width(&name)) / 2;
+        let shown: String = name.chars().take((name.chars().count() as f32 * typed).ceil() as usize).collect();
+        cv.text(tx + 1, y0 + 3, &shown, 'k');
+        cv.text(tx, y0 + 2, &shown, '$');
     }
     let _ = (UNIT, FOOT);
 }

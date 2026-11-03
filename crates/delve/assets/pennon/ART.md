@@ -6,7 +6,7 @@ The knight has twelve articulated bodies, seat-coloured plume and tabard, and a
 one-native-pixel seat contour through overlaps. No sprite is scaled against another.
 
 The retained concepts and exact requests are in
-`/work/artifacts/boss-art-20261015/game-6/source/`: captain.png, knight.png,
+`artifacts/boss-art-20261015/game-6/source/`: captain.png, knight.png,
 sentry.png, effects.png and prompts.md. Concepts use the built-in image tool.
 Direct nearest reduction was rejected for fragmented armour. Broad-tone cleanup
 alone erased faces, plumes and banner fills and was also rejected. The selected
@@ -26,7 +26,7 @@ and exact fixed danger edges, followed by distinct four-frame solid effects.
 Reproduce with:
 `python scripts/pennon-art.py SOURCE_DIRECTORY REVIEW_DIRECTORY`
 `python scripts/pennon-art.py --check`
-`python scripts/pennon-review.py /work/artifacts/boss-art-20261015/game-6`
+`python scripts/pennon-review.py artifacts/boss-art-20261015/game-6`
 The shared boss gates check palette, four-tone masses, explicit narrow features,
 signatures and singleton provenance. Native sheets show every asset at 1x and 3x;
 the cockpit writer supplies actual half-block/braille buffers and cell-difference gates.

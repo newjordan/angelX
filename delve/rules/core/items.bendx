@@ -1,0 +1,45 @@
+# crates/delve/src/rules/items.rs — items as play cards a knight keeps in hand.
+
+# A Fae Dagger's blink: you are where you were aiming.
+def items.blink(h: J.Val, room: J.Val, barred: Bool) -> J.Val:
+    if U32.is_zero(core.u(h, "blink")):
+        return h
+    (ax: F32, ay: F32) = rules.unit(core.f(h, "aim_x"), core.f(h, "aim_y"))
+    left: F32 = RS.u_as_f32(core.u(h, "blink"))
+    while F32.is_gt(left, 0.0):
+        step: F32 = RS.f_min(left, 0.5)
+        wx: F32 = core.f(h, "x")
+        wy: F32 = core.f(h, "y")
+        (nx: F32, ny: F32) = rules.Grid.slide(room, barred, (wx, wy), ((ax * step : F32), (ay * step : F32)), rules.HERO_RADIUS(), 0)
+        h = core.set_f(core.set_f(h, "x", nx), "y", ny)
+        if F32.is_lt(RS.f_hypot((nx - wx : F32), (ny - wy : F32)), (step * 0.5 : F32)):
+            break
+        left = (left - step : F32)
+    h = core.set_u(h, "blink", 0)
+    return core.set_u(h, "invulnerable", U32.max(core.u(h, "invulnerable"), 6))
+
+# Censers pulse, and the Sceptre's immunity runs down.
+def items.Run.tick_items(run: J.Val) -> J.Val:
+    pulses: [J.Val] = []
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.int_fields(players):
+        if U32.is_gt(core.u(h, "censer"), 0):
+            pulses = List.append(&2, J.Val, pulses, [J.JA{[J.JU{rules.Run.step.id(k)}, J.JF{core.f(h, "x")}, J.JF{core.f(h, "y")}, J.JU{core.u(h, "censer")}]}])
+            players = J.set(players, k, core.set_u(h, "censer", 0))
+    run = J.set(run, "players", players)
+    for p: J.Val in pulses:
+        x: F32 = J.f32(J.nth(p, 1))
+        y: F32 = J.f32(J.nth(p, 2))
+        players = J.get(run, "players")
+        for (k: String, h: J.Val) in J.int_fields(players):
+            if Bool.and(Bool.and(U32.is_ne(core.u(h, "hp"), 0), Bool.not(core.b(h, "stone"))), F32.is_lt(RS.f_hypot((core.f(h, "x") - x : F32), (core.f(h, "y") - y : F32)), items.CENSER_REACH())):
+                (h2: J.Val, gained: U32) = stakes.Hero.mend(h, J.u32(J.nth(p, 3)), 2)
+                players = J.set(players, k, h2)
+        run = J.set(run, "players", players)
+        if U32.is_lt(core.count(J.get(run, "boons")), 8):
+            run = J.set(run, "boons", J.push(J.get(run, "boons"), J.JA{[J.nth(p, 0), J.get(run, "tick")]}))
+        run = core.push_cue(run, "censer")
+    players = J.get(run, "players")
+    for (k: String, h: J.Val) in J.fields(players):
+        players = J.set(players, k, core.set_u(h, "immune", core.usub(core.u(h, "immune"), 1)))
+    return J.set(run, "players", players)

@@ -649,12 +649,11 @@ fn near(run: &Run, x: f32, y: f32, reach: f32) -> bool {
 
 /// Over everything: the ledger of the station a knight is reading, or
 /// else where the stair goes when a knight stands at its mouth.
-pub(super) fn boards(cv: &mut Img, run: &Run) {
-    let reading = run
-        .players
-        .iter()
+pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
+    // The seat's own knight's ledger and hold bar (`shoppers`).
+    let reading = super::shoppers(run, focus)
         .filter(|(_, h)| h.hp > 0)
-        .find_map(|(&id, h)| {
+        .find_map(|(id, h)| {
             let station = home::plate_at(run.room().kind, h.x, h.y)?;
             Some((id, SPOTS.iter().find(|s| s.station == station)?))
         });
@@ -689,6 +688,19 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     if near(run, mx, my, 3.2) {
         let landing = run.home.landing();
         let mut lines = vec![(format!("DOWN TO FLOOR {landing}"), '9')];
+        // Below the Unknown: the Deep Road, or a village lit before.
+        if landing > crate::rules::DEEPEST {
+            let floor = landing;
+            lines.push((
+                if crate::rules::deep::is_village(floor) {
+                    let culture = run.home.deep.culture_at(floor);
+                    format!("{}, A VILLAGE OF THE DEEP", culture.town(crate::rules::deep::chapter(floor)))
+                } else {
+                    "THE DEEP ROAD, BELOW THE UNKNOWN".to_string()
+                },
+                '2',
+            ));
+        }
         if run.home.landings().len() > 1 {
             lines.push(("TAP E: ANOTHER LANDING".to_string(), 'O'));
         }
@@ -814,6 +826,13 @@ pub(super) fn spoil_mark(spoil: Spoil) -> Img {
         Spoil::Ember => &["..7..", ".7@7.", "7@6@7", ".7@7.", "..8.."],
         Spoil::Scale => &[".CYC.", "CYmYC", "CmAmC", ".CmC.", "..C.."],
         Spoil::Bond => &[".2..3.", "2.23.3", "2.23.3", ".2..3."],
+        Spoil::Hearthstone => &[".444.", "47@74", "4@6@4", "47@74", ".444."],
+        Spoil::Forgeheart => &["66666", ".666.", ".6@6.", "..6..", "..6.."],
+        Spoil::Bellmetal => &["..5..", ".555.", ".555.", ".555.", ".5.5."],
+        Spoil::Ledgerglass => &["wwwww", "w23.w", "w.3.w", "w..3w", "wwwww"],
+        Spoil::Warhorn => &["5....", "55...", ".55..", "..55.", "...55"],
+        Spoil::Waystone => &["..3..", ".3.3.", ".3w3.", ".3.3.", "..3.."],
+        Spoil::Wishmote => &["..w..", ".wCw.", "wCYCw", ".wCw.", "..w.."],
     })
 }
 

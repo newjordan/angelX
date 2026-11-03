@@ -203,7 +203,7 @@ binary until it is restarted (the launcher rebuilds from HEAD).
 
 ## BUG-0003..0007 — the five overwatch harness problems (triaged 2026-09-26; reviewed 2026-09-30)
 
-Source: `/work/artifacts/overwatch-handoff-20260925.md` § "angelX harness problems seen today (fix after
+Source: `<artifacts>/overwatch-handoff-20260925.md` § "angelX harness problems seen today (fix after
 the comp)". Triage landed in that file; seams repeated here so the repo carries them. Separately verified:
 the five *polyglot harness-root* fixes (`angel_tests/HANDOFF-harness-roots-20260923.md`, branch
 `dev-harness-roots`) are all in `dev` already (`b205b31` is an ancestor of `dev`). The statuses below

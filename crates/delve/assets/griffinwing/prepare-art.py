@@ -24,14 +24,15 @@ bottom); the six texture swatches are pasted into one 3 x 2 sheet unscaled.
 import argparse
 import hashlib
 import json
+import os
 import shutil
 from collections import deque
 from pathlib import Path
 
 from PIL import Image, ImageFilter
 
-DELIVERY = Path('/work/artifacts/art-prod-rt/slots')
-OUTPUT = Path('/work/artifacts/monolith-private/art-import-gw/sources')
+DELIVERY = os.environ.get('ART_PROD_RT_SLOTS')
+OUTPUT = os.environ.get('GRIFFINWING_PREPARED')
 SLOTS = ['sky', 'canyon-tex', 'arch', 'ridge', 'shutter', 'beacon', 'gate', 'hearth-ring']
 COPIES = ['notes.md', 'prompt.txt', 'generation.json', 'PRODUCER-NOTE.md']
 SWATCHES = ['rock', 'stone', 'causeway', 'bone', 'lava', 'mist']
@@ -183,6 +184,10 @@ def main():
     p.add_argument('--output', type=Path, default=OUTPUT)
     p.add_argument('slots', nargs='*', default=SLOTS)
     a = p.parse_args()
+    if a.delivery is None:
+        p.error('pass --delivery or set ART_PROD_RT_SLOTS')
+    if a.output is None:
+        p.error('pass --output or set GRIFFINWING_PREPARED')
     for slot in a.slots:
         prepare(slot, a.delivery, a.output)
 

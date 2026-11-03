@@ -5,6 +5,7 @@
 
 pub mod chivalry;
 pub mod forge;
+pub mod squires;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -12,7 +13,13 @@ use std::collections::BTreeMap;
 pub const MAX_WISHES: usize = 64;
 
 /// What a delve yields. Each pack has its own; gold is everywhere; a bond is
-/// earned only by clearing a room with two knights standing.
+/// earned only by clearing a room with two knights standing. The relics of
+/// the deep (a hearthstone, a forgeheart, bellmetal, ledgerglass, a warhorn,
+/// a waystone) are found rarely below Dragon Keep and never bought: the
+/// great works at the realm's holdings each want one. A wishmote is what is
+/// left of a wish: a floor boss's fall gives one, and a delve's end turns the
+/// wishes left unspent into them (`overclass::Run::wishes_home`). It is what
+/// the kingdom is raised with (`raisings`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Spoil {
@@ -24,10 +31,17 @@ pub enum Spoil {
     Ember,
     Scale,
     Bond,
+    Hearthstone,
+    Forgeheart,
+    Bellmetal,
+    Ledgerglass,
+    Warhorn,
+    Waystone,
+    Wishmote,
 }
 
 impl Spoil {
-    pub const ALL: [Spoil; 8] = [
+    pub const ALL: [Spoil; 15] = [
         Spoil::Gold,
         Spoil::Bone,
         Spoil::Wax,
@@ -36,6 +50,13 @@ impl Spoil {
         Spoil::Ember,
         Spoil::Scale,
         Spoil::Bond,
+        Spoil::Hearthstone,
+        Spoil::Forgeheart,
+        Spoil::Bellmetal,
+        Spoil::Ledgerglass,
+        Spoil::Warhorn,
+        Spoil::Waystone,
+        Spoil::Wishmote,
     ];
 
     pub fn word(self) -> &'static str {
@@ -48,6 +69,13 @@ impl Spoil {
             Spoil::Ember => "ember",
             Spoil::Scale => "scale",
             Spoil::Bond => "bond",
+            Spoil::Hearthstone => "hearthstone",
+            Spoil::Forgeheart => "forgeheart",
+            Spoil::Bellmetal => "bellmetal",
+            Spoil::Ledgerglass => "ledgerglass",
+            Spoil::Warhorn => "warhorn",
+            Spoil::Waystone => "waystone",
+            Spoil::Wishmote => "wishmote",
         }
     }
 
@@ -66,6 +94,10 @@ impl Spoil {
             Spoil::Ember => "Dragon Keep",
             Spoil::Scale => "slaying the dragon",
             Spoil::Bond => "clearing a room together",
+            Spoil::Hearthstone | Spoil::Forgeheart | Spoil::Ledgerglass => "the flooded Archive",
+            Spoil::Bellmetal | Spoil::Warhorn => "the Fungal deep",
+            Spoil::Waystone => "the Unknown floor",
+            Spoil::Wishmote => "floor bosses, and wishes left unspent",
         }
     }
 
@@ -77,6 +109,13 @@ impl Spoil {
             Spoil::Gem | Spoil::Ember => 60,
             Spoil::Bond => 80,
             Spoil::Scale => 600,
+            Spoil::Wishmote => 150,
+            Spoil::Hearthstone
+            | Spoil::Forgeheart
+            | Spoil::Bellmetal
+            | Spoil::Ledgerglass
+            | Spoil::Warhorn
+            | Spoil::Waystone => 300,
         }
     }
 }
@@ -196,6 +235,10 @@ pub struct Wish {
     /// Built wishes keep the order they were raised in.
     #[serde(default)]
     pub raised: u32,
+    /// The tile a knight chose for it (`raisings`). Left out, the realm
+    /// finds it a lot near `near` (`world::wishes::lots`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lot: Option<(i32, i32)>,
 }
 
 /// One knight's spoils banked at once, with why.
@@ -210,6 +253,10 @@ pub struct Haul {
 /// normalised by the host).
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Avatar {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub source_id: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub animation: Option<appearance::Animation>,
     /// 32×32 PNG for the arena.
     pub sprite: Vec<u8>,
     /// 128×128 PNG for the player cards.
@@ -219,3 +266,18 @@ pub struct Avatar {
     /// Decoded, normalized sprite; avoids PNG decoding on every game frame.
     pub pixels: Vec<[u8; 4]>,
 }
+
+pub mod appearance;
+pub mod effects;
+impl Avatar {
+    pub fn pixels_at(&self, tick: u64) -> &[[u8; 4]] {
+        self.animation
+            .as_ref()
+            .and_then(|animation| animation.pixels(tick))
+            .unwrap_or(&self.pixels)
+    }
+}
+
+#[cfg(all(test, feature = "bend-cases-world"))]
+#[path = "../tests/rules/realm_bend_cases__tests.rs"]
+mod realm_bend_cases_tests;

@@ -1,0 +1,97 @@
+[
+  [
+    "shell",
+    "read_only must be a boolean",
+    "Argument"
+  ],
+  [
+    "shell",
+    "write_paths must be an array of at most 128 existing source files",
+    "Argument"
+  ],
+  [
+    "read_file",
+    "missing 'path'",
+    "Argument"
+  ],
+  [
+    "read_file",
+    "'offset' must be a one-based positive integer",
+    "Argument"
+  ],
+  [
+    "read_file",
+    "index 3 out of range at segment \"3\"",
+    "Argument"
+  ],
+  [
+    "imaginary",
+    "unknown tool: imaginary",
+    "Routing"
+  ],
+  [
+    "other",
+    "unknown tool: other",
+    "Routing"
+  ],
+  [
+    "shell",
+    "read-only execution cannot grant write_paths",
+    "Policy"
+  ],
+  [
+    "shell",
+    "write_paths must stay inside the workspace",
+    "Policy"
+  ],
+  [
+    "shell",
+    "spawn failed: No such file or directory (os error 2)",
+    "Environment"
+  ],
+  [
+    "run_tests",
+    "cargo command failed (exit 127)",
+    "Environment"
+  ],
+  [
+    "shell",
+    "[timed out after 120s — process killed; raise/disable via ANGEL_TOOL_TIMEOUT]",
+    "Transient"
+  ],
+  [
+    "shell",
+    "wait thread died",
+    "Transient"
+  ],
+  [
+    "cargo",
+    "cargo command failed (exit 101)",
+    "Verifier"
+  ],
+  [
+    "run_tests",
+    "pytest failed (exit 1) — chosen because of pytest.ini; pin another runner with `runner` or use `shell`",
+    "Verifier"
+  ],
+  [
+    "shell",
+    "unrecoverable tool arguments (3 bytes, digest unavailable); reissue `shell` with valid JSON",
+    "Model"
+  ],
+  [
+    "read_file",
+    "unrecoverable tool arguments (7 bytes, digest unavailable); reissue `read_file` with valid JSON",
+    "Model"
+  ],
+  [
+    "shell",
+    "execution cancelled before spawn",
+    "Unknown"
+  ],
+  [
+    "cargo",
+    "internal error: non-verifier requested trusted Cargo mode",
+    "Unknown"
+  ]
+]

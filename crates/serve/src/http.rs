@@ -8,6 +8,9 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::Path;
 
+pub mod live;
+pub use live::{LiveAsset, LiveAssets};
+
 /// Every response says where scripts, sockets and media may come from.
 /// Scripts only from this host, and wasm may compile; sockets to any host
 /// (`ws:`/`wss:` are named because older Safari does not count a socket
@@ -136,6 +139,8 @@ pub fn mime_for(name: &str) -> &'static str {
         "wasm" => "application/wasm",
         "svg" => "image/svg+xml",
         "png" => "image/png",
+        "ttf" => "font/ttf",
+        "woff2" => "font/woff2",
         "webp" => "image/webp",
         "ico" => "image/x-icon",
         "ogg" | "oga" => "audio/ogg",
@@ -147,14 +152,15 @@ pub fn mime_for(name: &str) -> &'static str {
     }
 }
 
-/// Whether gzip is worth trying: text and wasm shrink; images and sound
-/// are compressed already.
+/// Whether gzip is worth trying: text, wasm and a TrueType font shrink;
+/// images and sound are compressed already.
 fn compressible(mime: &str) -> bool {
     mime.starts_with("text/")
         || mime.starts_with("application/wasm")
         || mime.starts_with("application/json")
         || mime.starts_with("application/manifest")
         || mime.starts_with("image/svg")
+        || mime.starts_with("font/ttf")
 }
 
 /// A body ready to send, and its gzip when that is smaller.
@@ -269,6 +275,98 @@ pub fn body(req: &Request, body: &Body, cache: &str, keep_alive: bool) -> Vec<u8
     let mut out = head("200 OK", &headers, bytes.len(), keep_alive);
     if req.method != "HEAD" {
         out.extend_from_slice(bytes);
+    }
+    out
+}
+
+/// The most a painting may be (a game's paint store keeps no bigger).
+pub const MAX_PAINTING: u64 = 4 * 1024 * 1024;
+
+/// Whether `name` names a painting: `<sha256>.png`, the hash in 64 lower-case
+/// hex digits (as the Delve's `looks::paint_name` has it), and nothing else.
+pub fn painting_name(name: &str) -> bool {
+    name.strip_suffix(".png")
+        .is_some_and(|sha| sha.len() == 64 && sha.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')))
+}
+
+/// The painting `name` from `dir` (`/paint/<sha256>.png`): named by its
+/// content, so kept for good; 404 for any other name, or none there.
+pub fn painting(req: &Request, dir: Option<&Path>, name: &str, keep_alive: bool) -> Vec<u8> {
+    let missing = || plain("404 Not Found", "not here", keep_alive, &[]);
+    let Some(dir) = dir.filter(|_| painting_name(name)) else {
+        return missing();
+    };
+    let etag = format!("\"{}\"", &name[..16]);
+    if req.header("if-none-match").is_some_and(|tag| tag == etag) {
+        return head("304 Not Modified", &[("Cache-Control", IMMUTABLE), ("ETag", &etag)], 0, keep_alive);
+    }
+    let path = dir.join(name);
+    let Some(bytes) = std::fs::metadata(&path)
+        .ok()
+        .filter(|m| m.is_file() && m.len() <= MAX_PAINTING)
+        .and_then(|_| std::fs::read(&path).ok())
+    else {
+        return missing();
+    };
+    let headers = [("Content-Type", "image/png"), ("Cache-Control", IMMUTABLE), ("ETag", etag.as_str())];
+    let mut out = head("200 OK", &headers, bytes.len(), keep_alive);
+    if req.method != "HEAD" {
+        out.extend_from_slice(&bytes);
+    }
+    out
+}
+
+/// The most an HD pack's file may be: its manifest, or one drawing.
+pub const MAX_HD_FILE: u64 = 4 * 1024 * 1024;
+
+/// Whether `name` is a file an HD pack serves (`/hd/<name>`): its
+/// `pack.json`, or a PNG in its folder, by a path of lower-case letters,
+/// digits, `-`, `_`, `@` and `.`, in folders, none of them `.` or `..`.
+pub fn hd_name(name: &str) -> bool {
+    name == "pack.json"
+        || (name.len() <= 256
+            && name.ends_with(".png")
+            && name.split('/').all(|part| {
+                !part.is_empty()
+                    && part != "."
+                    && part != ".."
+                    && part.bytes().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'@' | b'.'))
+            }))
+}
+
+/// The HD pack's file `name` from `dir` (`/hd/<name>`), checked again each
+/// time by its size and age (a pack is redrawn in place); 404 for any other
+/// name, or none there.
+pub fn hd_file(req: &Request, dir: Option<&Path>, name: &str, keep_alive: bool) -> Vec<u8> {
+    let missing = || plain("404 Not Found", "not here", keep_alive, &[]);
+    let Some(dir) = dir.filter(|_| hd_name(name)) else {
+        return missing();
+    };
+    let path = dir.join(name);
+    let Some(meta) = std::fs::metadata(&path).ok().filter(|m| m.is_file() && m.len() <= MAX_HD_FILE) else {
+        return missing();
+    };
+    let age = meta.modified().ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map_or(0, |d| d.as_secs());
+    let etag = format!("\"{:x}-{age:x}\"", meta.len());
+    if req.header("if-none-match").is_some_and(|tag| tag == etag) {
+        return head("304 Not Modified", &[("Cache-Control", REVALIDATE), ("ETag", &etag)], 0, keep_alive);
+    }
+    let Ok(bytes) = std::fs::read(&path) else {
+        return missing();
+    };
+    if !name.ends_with(".png") {
+        // The manifest is text that shrinks well (a thousand entries are a
+        // couple of hundred KB plain): gzip for a page that takes it.
+        return match Body::new("application/json", bytes) {
+            Ok(manifest) => body(req, &manifest, REVALIDATE, keep_alive),
+            Err(_) => missing(),
+        };
+    }
+    let kind = "image/png";
+    let headers = [("Content-Type", kind), ("Cache-Control", REVALIDATE), ("ETag", etag.as_str())];
+    let mut out = head("200 OK", &headers, bytes.len(), keep_alive);
+    if req.method != "HEAD" {
+        out.extend_from_slice(&bytes);
     }
     out
 }

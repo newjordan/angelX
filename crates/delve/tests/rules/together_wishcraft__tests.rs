@@ -66,7 +66,8 @@ fn the_new_words_are_card_lines_with_caps_and_add_up_on_the_bonus() {
         (2, 2, 3, 3, 1, 60)
     );
     let rules = cards::hold_effects();
-    for word in ["size 1-3", "knock 1-3", "burn 1-3", "chill 1-3", "poison 1-3", "boomerang 1-1", "velocity 10-60"] {
+    // The brief offers each word up to what a wish can give of it.
+    for word in ["size 1-2", "knock 1-2", "burn 1-2", "chill 1-2", "poison 1-2", "boomerang 1-1", "velocity 10-40"] {
         assert!(rules.contains(word), "the brief's list offers {word}");
     }
     // The traits a knight's shot takes from that bonus.
@@ -91,7 +92,8 @@ fn a_bigger_shot_strikes_what_a_plain_one_flies_past_and_is_drawn_bigger() {
     assert_eq!(foe(&plain, a).hp, 5000, "a plain arrow flies past");
     assert!(foe(&big, b).hp < 5000, "a bigger arrow strikes it");
     let shot = arrow(0.0, 0.0, ShotTraits { size: 2, ..Default::default() });
-    assert_eq!(shot.shot_scale(), 4, "drawn at four times its sprite, not two");
+    assert!((shot.scale() - 1.1).abs() < 1e-6, "twice the plain shot's size: {}", shot.scale());
+    assert_eq!(arrow(0.0, 0.0, ShotTraits::default()).scale(), 0.55);
     assert!(shot.wished());
 }
 
@@ -380,4 +382,113 @@ fn write_learned_shots() {
         }
         save(&frame(&run), &dir, &wish.id);
     }
+}
+
+/// A knight's shot loosed on a beat of `beat` ticks, with `size` steps of the
+/// size wish.
+fn beaten(beat: u8, size: u8) -> Projectile {
+    arrow(0.0, 0.0, ShotTraits { beat, size, ..Default::default() })
+}
+
+#[test]
+fn a_shot_is_smaller_the_faster_its_arm_fires_and_bigger_the_slower() {
+    // The arms as they stand, ticks between pulls: notes 4, bow 10, stones
+    // 12, crossbow 23, handgonne 25.
+    let scales: Vec<f32> = [4u8, 10, 12, 23, 25].iter().map(|&b| beaten(b, 0).scale()).collect();
+    assert!(scales.windows(2).all(|w| w[0] < w[1]), "slower is bigger: {scales:?}");
+    // At its reference beat a shot is the base size, about half what it was.
+    assert_eq!(beaten(12, 0).scale(), BASE_PCT as f32 / 100.0);
+    // Every one is well under what shots were drawn at, but the slowest.
+    assert!(scales[0] < 0.35 && scales[1] < 0.55, "fast shots are small: {scales:?}");
+    assert!(scales[3] < 0.8 && scales[4] < 0.8, "even the heavy ones are smaller than they were: {scales:?}");
+    // A bow on a quick draw (half the beat) is smaller than the plain bow.
+    assert!(beaten(5, 0).scale() < beaten(10, 0).scale());
+}
+
+#[test]
+fn the_beats_say_is_clamped_and_a_needle_never_vanishes() {
+    assert_eq!(rate_pct(0), 100, "no arm behind it: as it was");
+    assert_eq!(rate_pct(1), RATE_MIN_PCT);
+    assert_eq!(rate_pct(255), RATE_MAX_PCT);
+    assert_eq!(rate_pct(12), 100);
+    let least = beaten(1, 0).scale();
+    assert_eq!(least, FLOOR_PCT as f32 / 100.0, "the floor");
+    assert!(least > 0.0);
+    assert_eq!(beaten(255, 3).scale(), 2.0625, "the slowest arm's biggest wish");
+}
+
+#[test]
+fn each_size_step_is_half_again_and_a_monsters_shot_is_never_scaled() {
+    let plain = beaten(12, 0).scale();
+    assert!((beaten(12, 1).scale() - plain * 1.5).abs() < 1e-6);
+    assert!((beaten(12, 2).scale() - plain * 2.0).abs() < 1e-6);
+    let mut hostile = beaten(4, 2);
+    hostile.hostile = true;
+    assert_eq!((hostile.scale(), hostile.reach()), (1.0, SIZE_REACH * 2.0), "a monster's shot is as it was");
+    let mut borrowed = beaten(4, 0);
+    borrowed.traits.borrowed = true;
+    assert_eq!(borrowed.scale(), 1.0, "a monster's shot a knight loosed from its body is as it was");
+}
+
+#[test]
+fn what_is_drawn_is_what_hits_a_small_shot_a_point_and_a_big_one_wide() {
+    // At the base size and under it a shot strikes as a point (the monster
+    // is its target), so a fast needle still connects and a plain bow hits
+    // as it always did.
+    for beat in [1u8, 4, 10, 12] {
+        assert_eq!(beaten(beat, 0).reach(), 0.0, "beat {beat}");
+    }
+    // Over it, it strikes as wide as it looks, a whole scale at a time.
+    let (slow, slower) = (beaten(23, 0), beaten(25, 0));
+    assert!(slow.reach() > 0.0 && slower.reach() > slow.reach());
+    assert_eq!(slow.reach(), HIT_REACH * (slow.scale() - BASE_PCT as f32 / 100.0));
+    // A wished shot strikes about as wide as the size wish always said
+    // (0.3 a step: 0.6 for two).
+    assert!((beaten(12, 2).reach() - 0.66).abs() < 1e-5);
+    assert!(beaten(12, 1).reach() < beaten(12, 2).reach());
+    // Its body against a prop follows: a small shot comes in closer.
+    assert!(patterns::body(&beaten(4, 0)) < patterns::body(&beaten(12, 0)));
+    assert_eq!(patterns::body(&beaten(12, 0)), patterns::KNIGHT_BODY);
+}
+
+#[test]
+fn the_size_is_the_traits_alone_so_every_seat_agrees_and_it_rides_the_wire_cheaply() {
+    let shot = beaten(10, 1);
+    let sent = serde_json::to_value(&shot.traits).unwrap();
+    assert_eq!(sent["beat"], 10);
+    let read: ShotTraits = serde_json::from_value(sent).unwrap();
+    assert_eq!(read, shot.traits);
+    assert_eq!(
+        Projectile { traits: read, ..shot.clone() }.scale().to_bits(),
+        shot.scale().to_bits(),
+        "bit for bit"
+    );
+    // A shot with no beat leaves the field off, and one from before it
+    // reads as no beat.
+    let plain = serde_json::to_value(ShotTraits::default()).unwrap();
+    assert!(plain.get("beat").is_none());
+    let old: ShotTraits = serde_json::from_value(plain).unwrap();
+    assert_eq!(old.beat, 0);
+}
+
+#[test]
+fn an_arm_stamps_its_beat_on_every_shot_and_a_quick_draw_makes_them_smaller() {
+    let beat_of = |weapon: Weapon, rate: u32| {
+        let mut run = quiet();
+        bare(&mut run);
+        a_foe(&mut run, EnemyKind::Skeleton, 44.0, 3.0);
+        let hero = run.players.get_mut(&1).unwrap();
+        hero.weapon = weapon;
+        hero.bonus.rate = rate;
+        run.step(&BTreeMap::from([(1, fire(1, 0))]));
+        let shot = run.projectiles.iter().find(|p| p.traits.owner == 1).expect("a shot");
+        (shot.traits.beat, shot.scale())
+    };
+    let (bow, bow_scale) = beat_of(Weapon::Bow, 0);
+    let (quick, quick_scale) = beat_of(Weapon::Bow, 100);
+    let (cross, cross_scale) = beat_of(Weapon::Crossbow, 0);
+    assert_eq!(bow, Weapon::Bow.arms().cooldown as u8);
+    assert_eq!(cross, Weapon::Crossbow.arms().cooldown as u8);
+    assert_eq!(quick, bow / 2, "rate shortens the beat");
+    assert!(quick_scale < bow_scale && bow_scale < cross_scale);
 }

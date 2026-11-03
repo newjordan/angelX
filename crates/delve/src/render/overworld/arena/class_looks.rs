@@ -13,6 +13,9 @@
 //! hem, the Healer's scapular, the Archer's feather and belt, the plume and
 //! tabard, the shield's field, the Gunner's neckerchief, the dwarf's belt.
 //! Those are the `7 8 5` inks, recoloured per seat like the knight's.
+//!
+//! One kit that is no class has a figure of its own all the same: the
+//! Gravecaller, a hero half a head over the rest (`gravecaller`).
 
 use super::super::ink::Img;
 use super::knights::Facing;
@@ -20,6 +23,7 @@ use crate::rules::{Hero, classes};
 
 mod art;
 pub(super) mod bard;
+pub(super) mod gravecaller;
 pub(super) mod peasant;
 
 /// One way of seeing a class: the body, and the held thing at rest and in
@@ -51,6 +55,8 @@ pub enum Look {
     Healer,
     Bard,
     Peasant,
+    /// No class: the Gravecaller's own (`Look::own`).
+    Gravecaller,
 }
 
 /// Where a figure is in its movement.
@@ -93,10 +99,13 @@ impl Look {
         })
     }
 
-    /// The class a knight is, by hall or by kit; `None` for a kit that is
-    /// no class (the posse), who stays the realm's knight.
+    /// The class a knight is, by hall or by kit; the look of a kit that
+    /// has its own though it is no class; `None` for the rest (the posse),
+    /// who stay the realm's knight.
     pub fn of(hero: &Hero) -> Option<Look> {
-        classes::of(hero).and_then(|c| Look::named(c.name))
+        classes::of(hero)
+            .and_then(|c| Look::named(c.name))
+            .or_else(|| Look::own(hero.knight.as_deref()?))
     }
 
     /// The class a company kit makes its wearer, for the intro's portraits.
@@ -105,6 +114,12 @@ impl Look {
             .iter()
             .find(|c| c.kit == kit)
             .and_then(|c| Look::named(c.name))
+            .or_else(|| Look::own(kit))
+    }
+
+    /// A kit's own look, though it is no class.
+    pub fn own(kit: &str) -> Option<Look> {
+        (kit == crate::rules::minions::GRAVECALLER).then_some(Look::Gravecaller)
     }
 
     pub fn name(self) -> &'static str {
@@ -118,6 +133,7 @@ impl Look {
             Look::Healer => "Healer",
             Look::Bard => "Bard",
             Look::Peasant => "Peasant",
+            Look::Gravecaller => "Gravecaller",
         }
     }
 
@@ -132,6 +148,7 @@ impl Look {
             Look::Healer => &art::HEALER,
             Look::Bard => bard::views(),
             Look::Peasant => peasant::views(),
+            Look::Gravecaller => gravecaller::views(),
         }
     }
 
@@ -143,7 +160,7 @@ impl Look {
 
     /// A robe to the ground: the hem sways where legs would step.
     fn robed(self) -> bool {
-        matches!(self, Look::Mage | Look::Healer)
+        matches!(self, Look::Mage | Look::Healer | Look::Gravecaller)
     }
 
     /// The shield on her arm is the Shieldmaiden's held thing; it comes
@@ -166,7 +183,22 @@ fn view_of(facing: Facing) -> usize {
 /// `held`: whether the held thing is drawn at all (not while the dwarf's
 /// axes spin, not when the shield is thrown or raised).
 pub(super) fn figure(look: Look, facing: Facing, pose: Pose, held: bool) -> Img {
+    figure_shielded(look, facing, pose, held, false)
+}
+
+/// As `figure`, with the knight's own shield at rest on the arm when
+/// `shield`: a class whose drawings carry none, holding one
+/// (`Hero::holds_shield`). It sits where the realm's knight wears it, its
+/// foot on the body's feet, under the held thing.
+pub(super) fn figure_shielded(look: Look, facing: Facing, pose: Pose, held: bool, shield: bool) -> Img {
+    use super::super::kit::hero::{self as realm, View as Seen};
+    // The Gravecaller is his own drawing, staff and all; a shield he
+    // picks up is not shown on him.
+    if look == Look::Gravecaller {
+        return gravecaller::figure(facing, pose, held);
+    }
     let view = &look.views()[view_of(facing)];
+    let standing = Img::from_rows(view.body).h;
     let body = step(look, facing, Img::from_rows(view.body), pose);
     let layer = (pose == Pose::Strike).then_some(&view.strike).unwrap_or(&view.item);
     let item = held.then(|| Img::from_rows(layer.rows));
@@ -176,10 +208,93 @@ pub(super) fn figure(look: Look, facing: Facing, pose: Pose, held: bool) -> Img 
     // What is held at the back is drawn first: the archer's bow across
     // his cloak, the staff beside the robe.
     im.stamp(&body, MARGIN, -top);
+    if shield {
+        let seen = match facing {
+            Facing::Down => Seen::Toward,
+            Facing::Side => Seen::Across,
+            Facing::Up => Seen::Away,
+        };
+        let (rows, (x, y)) = realm::shield(seen);
+        im.stamp(&rows, MARGIN + x, y + standing - 16 - top);
+    }
     if let Some(item) = item {
         im.stamp(&item, MARGIN + layer.at.0, layer.at.1 - top);
     }
     im
+}
+
+/// Live equipment moves subtly at its grip. Portraits keep their compact pose.
+pub(super) fn floating_figure(look: Look, facing: Facing, pose: Pose, held: bool, shield: bool, tick: u64, phase: u32, aim: (f32, f32)) -> Img {
+    if look == Look::Gravecaller { return gravecaller::floating_figure(facing, pose, held, tick, phase, aim); }
+    let body = figure_shielded(look, facing, pose, false, shield);
+    if !held { return body; }
+    if look.shielded() {
+        let view = &look.views()[view_of(facing)];
+        let layer = if pose == Pose::Strike { &view.strike } else { &view.item };
+        return super::wear::floating(&body, &Img::from_rows(layer.rows),
+            (MARGIN + layer.at.0, layer.at.1), tick, phase, pose == Pose::Strike);
+    }
+    use std::f32::consts::FRAC_PI_2;
+    let strike = pose == Pose::Strike;
+    let (item, grip, forward) = match look {
+        Look::Archer => {
+            // The broad front drawing already has the string behind the
+            // wooden curve. Never swap it for the reversed side/back art.
+            let view = &look.views()[0];
+            let layer = if strike { &view.strike } else { &view.item };
+            (Img::from_rows(layer.rows), if strike { (4, 4) } else { (3, 4) }, 0.0)
+        },
+        Look::Gunner | Look::Swordsman => {
+            let held = if look == Look::Gunner { super::super::kit::hero::Held::Handgonne }
+                else { super::super::kit::hero::Held::Sword };
+            let (item, grip) = super::super::kit::hero::clock_equipment(held, strike).unwrap();
+            (item, grip, 0.0)
+        },
+        Look::Berserker => (Img::from_rows(&[".vV.", "vWWu", "VWVu", ".uu.", "..B.", "..B.", "..r.", "..B."]), (2, 6), -FRAC_PI_2),
+        _ => {
+            let item = Img::from_rows(look.views()[1].item.rows);
+            let grip = (item.w / 2, item.h * 2 / 3);
+            (item, grip, -FRAC_PI_2)
+        },
+    };
+    super::wear::clocked(&body, &item, grip, forward,
+        (body.w / 2 + 4, body.h - 7), aim)
+}
+
+/// Attachments follow the drawn body, excluding staff headroom. The
+/// mage's tall hat puts his brow lower than a plate knight's.
+pub(super) fn fit(look: Look, hero: &Hero, figure: &Img) -> crate::rules::looks::Body {
+    if look == Look::Gravecaller { return gravecaller::fit(figure, hero); }
+    let face = super::knights::facing(hero.aim_x, hero.aim_y);
+    let height = look.views()[view_of(face)].body.len() as i32;
+    let top = figure.h - height;
+    let margin = (figure.w - (W - MARGIN * 2)) / 2;
+    let view = match face { Facing::Down => "front", Facing::Side => "right", Facing::Up => "back" };
+    let name = match look {
+        Look::Archer => "archer", Look::Shieldmaiden => "shieldmaiden", Look::Gunner => "gunner",
+        Look::Swordsman => "swordsman", Look::Berserker => "berserker", Look::Mage => "mage",
+        Look::Healer => "healer", Look::Bard => "bard", Look::Peasant => "peasant", Look::Gravecaller => unreachable!(),
+    };
+    // Passing adds a blank floor row, not headroom. Worn art must ride up
+    // with the drawing, rather than interpreting that row as a lower head.
+    let lift = i32::from(matches!(stride(hero), Some(1 | 3)) && pose(hero) != Pose::Strike);
+    let mut fit = crate::rules::looks::profile(&format!("{name}_{view}")).shifted(margin, top - lift);
+    let layer = if pose(hero) == Pose::Strike { &look.views()[view_of(face)].strike } else { &look.views()[view_of(face)].item };
+    // Authored hand ink in the held layer is the actual grip. It moves
+    // with a strike; deriving it from the canvas's width put staves on
+    // the opposite arm and left wished blades floating beside the hand.
+    let grips: Vec<_> = layer.rows.iter().enumerate().flat_map(|(y,row)| row.chars().enumerate()
+        .filter(|(_,c)| matches!(c, 'O' | 'o' | 't' | 'T'))
+        .map(move |(x,_)| (x as i32, y as i32))).collect();
+    if !grips.is_empty() {
+        let (gx,gy) = grips.iter().fold((0,0), |(x,y),(a,b)| (x+a,y+b));
+        fit.right.anchor = (margin + layer.at.0 + gx / grips.len() as i32,
+            top - lift + layer.at.1 + gy / grips.len() as i32);
+    }
+    if hero.shielding {
+        fit.left.anchor = match face { Facing::Down => (margin + 8, figure.h - 4), Facing::Side => (margin + 12, figure.h - 6), Facing::Up => (margin + 6, figure.h - 8) };
+    }
+    fit
 }
 
 /// The walk, four drawings to a footstep: a foot planted, passing, the
@@ -298,6 +413,10 @@ pub(super) fn saddle(look: Look, seat: u32) -> (Img, Img) {
             &[".T...T.", ".TiHHiT", "..iHhH.", "..Jjjjt", "..ptkt.", ".rRpOt.", ".rRRoRR"],
             &["RRoRR", "RRRoR", "hRRoR", "JRRrR", "hRoRR", "B8777", "jGGjG", "jjjjj"],
         ),
+        Look::Gravecaller => (
+            &["..xxx..", ".xSuSx.", "xSuUuxk", "xSuxhiY", "xSuxhkh", "xSSxihi", ".xSSxkx"],
+            &["gJhJ7", "gJhJ7", "SSuS7", "SSuS8", "IbbbB", "SSuS7", "SSuS7", "88777"],
+        ),
     };
     let trim = super::knights::seat_colours(seat);
     let steel = steel(look);
@@ -375,26 +494,36 @@ pub(super) fn driver_head(look: Look, facing: Facing, seat: u32) -> Img {
         (Look::Berserker, Facing::Down) => &["....", "ThhT", ".tt.", ".RR.", "...."],
         (Look::Berserker, Facing::Side) => &["....", "ThhT", ".pt.", ".RRt", "...."],
         (Look::Berserker, Facing::Up) => &["....", "ThhT", ".RR.", ".RR.", "...."],
+        (Look::Gravecaller, Facing::Down) => &[".xx.", "xuSx", "xhhx", "xYYx", "...."],
+        (Look::Gravecaller, Facing::Side) => &[".xx.", "xuSx", "xxhh", "xxhY", "...."],
+        (Look::Gravecaller, Facing::Up) => &[".xx.", "xuSx", "xSSx", "xSSx", "...."],
     };
     Img::from_rows(rows).recolor(steel(look)).recolor(super::knights::seat_colours(seat))
 }
 
 /// Which class's own shot `colour` names, if it names one.
 pub(super) fn class_of(colour: &str) -> Option<super::room_scene::ClassShot> {
-    use crate::rules::classes::{ARCANE, HOLY};
+    use crate::rules::classes::{ARCANE, HOLY, SONG};
     match colour {
         c if c == ARCANE => Some(super::room_scene::ClassShot::Arcane),
         c if c == HOLY => Some(super::room_scene::ClassShot::Holy),
+        c if c == SONG => Some(super::room_scene::ClassShot::Song),
         _ => None,
     }
 }
 
 /// A class's own shot at `(x, y)` flying along `(vx, vy)`, if `colour` is
-/// one (`classes::ARCANE`, `classes::HOLY`): the Mage's arcane bolt, a pale
-/// orb with a wavering cold tail and motes about it; the Healer's spark, a
-/// warm twinkling star trailing embers. `false` for any other look.
+/// one (`classes::ARCANE`, `classes::HOLY`, `classes::SONG`): the Mage's
+/// arcane bolt, a pale orb with a wavering cold tail and motes about it;
+/// the Healer's spark, a warm twinkling star trailing embers; the Bard's
+/// note, dancing on its way with a neon wake (`bard::note_shot`). `false`
+/// for any other look.
 pub(super) fn shot(cv: &mut Img, (x, y): (i32, i32), (vx, vy): (f32, f32), colour: &str, tick: u64) -> bool {
-    use crate::rules::classes::{ARCANE, HOLY};
+    use crate::rules::classes::{ARCANE, HOLY, SONG};
+    if colour == SONG {
+        bard::note_shot(cv, (x, y), (vx, vy), tick);
+        return true;
+    }
     let len = vx.hypot(vy).max(1e-3);
     let (ux, uy) = (vx / len, vy / len);
     let (px, py) = (-uy, ux);

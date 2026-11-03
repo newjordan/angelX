@@ -864,38 +864,66 @@ impl KnowledgeBroker {
     }
 
     /// Turn-start refresh must not remove evidence from a prefix already sent
-    /// to the provider. Append changed selections; identical or empty selections
-    /// leave the existing bytes intact until a compaction/explicit replacement.
+    /// to the provider. Append changed manifests, referencing bodies still visible
+    /// in earlier broker blocks instead of serializing them again.
     pub(crate) fn append(history: &mut Vec<ChatMsg>, selection: &BrokerSelection) {
         let Some(block) = selection.block.as_ref() else {
             return;
         };
-        let previous = history.iter().rev().find(|message| {
+        let previous_block = history.iter().rev().find(|message| {
             message.role == crate::agent::club::ChatRole::Harness
                 && is_broker_message(&message.content)
         });
-        if previous.is_some_and(|message| message.content.as_ref() == block) {
+        if previous_block.is_some_and(|message| message.content.as_ref() == block) {
             return;
         }
-        history.push(ChatMsg::harness(block.clone()));
+        let (previous, visible) = visible_broker_candidates(history, "");
+        let selected = parse_broker_candidates(block, "", &mut BTreeMap::new());
+        // The previous manifest may contain references rather than full bodies.
+        // Only resolved entries count: a dangling reference must not suppress a
+        // body that needs to be emitted again after history pruning.
+        if !selected.is_empty()
+            && previous
+                .iter()
+                .map(|candidate| (&candidate.source_id, &candidate.digest))
+                .eq(selected
+                    .iter()
+                    .map(|candidate| (&candidate.source_id, &candidate.digest)))
+        {
+            return;
+        }
+
+        let mut appended = String::with_capacity(block.len());
+        let mut lines = block.split_inclusive('\n');
+        while let Some(line) = lines.next() {
+            let Some(source) = parse_broker_source(line.trim_end_matches(['\r', '\n'])) else {
+                appended.push_str(line);
+                continue;
+            };
+            if !visible.contains_key(source.digest) {
+                appended.push_str(line);
+                continue;
+            }
+            appended.push_str(&format!(
+                "[source id={} digest={} unchanged]\n",
+                source.id, source.digest
+            ));
+            if !source.unchanged {
+                for body_line in lines.by_ref() {
+                    if body_line.trim_end_matches(['\r', '\n']) == "[/source]" {
+                        break;
+                    }
+                }
+            }
+        }
+        history.push(ChatMsg::harness(appended));
     }
 
     pub(crate) fn existing_candidates(
         history: &[ChatMsg],
         project_key: &str,
     ) -> Vec<KnowledgeCandidate> {
-        history
-            .iter()
-            // Older blocks remain serialized cache history, not current input
-            // to reselection; otherwise superseded facts can be resurrected.
-            .rev()
-            .find(|message| {
-                message.role == crate::agent::club::ChatRole::Harness
-                    && is_broker_message(&message.content)
-            })
-            .into_iter()
-            .flat_map(|message| parse_broker_candidates(&message.content, project_key))
-            .collect()
+        visible_broker_candidates(history, project_key).0
     }
 }
 
@@ -1063,30 +1091,80 @@ fn push_context_receipt(
     digests.push(crate::knowledge::cut::sha256_hex(content.as_bytes()));
 }
 
-fn parse_broker_candidates(block: &str, project_key: &str) -> Vec<KnowledgeCandidate> {
+/// Only the latest manifest nominates candidates. Earlier, still-visible
+/// bodies can resolve its references, but cannot resurrect omitted sources.
+fn visible_broker_candidates(
+    history: &[ChatMsg],
+    project_key: &str,
+) -> (
+    Vec<KnowledgeCandidate>,
+    BTreeMap<String, KnowledgeCandidate>,
+) {
+    let mut visible = BTreeMap::new();
+    let mut latest = Vec::new();
+    for message in history.iter().filter(|message| {
+        message.role == crate::agent::club::ChatRole::Harness && is_broker_message(&message.content)
+    }) {
+        latest = parse_broker_candidates(&message.content, project_key, &mut visible);
+    }
+    (latest, visible)
+}
+
+struct BrokerSource<'a> {
+    id: &'a str,
+    kind: &'a str,
+    authority: KnowledgeAuthority,
+    digest: &'a str,
+    unchanged: bool,
+}
+
+fn parse_broker_source(line: &str) -> Option<BrokerSource<'_>> {
+    let attributes = line.strip_prefix("[source ")?.strip_suffix(']')?;
+    let mut source = BrokerSource {
+        id: "",
+        kind: "context",
+        authority: KnowledgeAuthority::ReviewedShared,
+        digest: "",
+        unchanged: false,
+    };
+    for attribute in attributes.split_ascii_whitespace() {
+        if let Some(value) = attribute.strip_prefix("id=") {
+            source.id = value;
+        } else if let Some(value) = attribute.strip_prefix("kind=") {
+            source.kind = value;
+        } else if let Some(value) = attribute.strip_prefix("authority=") {
+            source.authority = parse_authority(value);
+        } else if let Some(value) = attribute.strip_prefix("digest=") {
+            source.digest = value;
+        } else if attribute == "unchanged" {
+            source.unchanged = true;
+        }
+    }
+    Some(source)
+}
+
+fn parse_broker_candidates(
+    block: &str,
+    project_key: &str,
+    visible: &mut BTreeMap<String, KnowledgeCandidate>,
+) -> Vec<KnowledgeCandidate> {
     let mut candidates = Vec::new();
     let mut lines = block.lines();
     while let Some(line) = lines.next() {
-        let Some(attributes) = line
-            .strip_prefix("[source ")
-            .and_then(|line| line.strip_suffix(']'))
-        else {
+        let Some(source) = parse_broker_source(line) else {
             continue;
         };
-        let mut id = "";
-        let mut kind = "context";
-        let mut authority = KnowledgeAuthority::ReviewedShared;
-        let mut digest = "";
-        for attribute in attributes.split_ascii_whitespace() {
-            if let Some(value) = attribute.strip_prefix("id=") {
-                id = value;
-            } else if let Some(value) = attribute.strip_prefix("kind=") {
-                kind = value;
-            } else if let Some(value) = attribute.strip_prefix("authority=") {
-                authority = parse_authority(value);
-            } else if let Some(value) = attribute.strip_prefix("digest=") {
-                digest = value;
+        if source.unchanged {
+            // A reference has no body or closing tag. In particular, a dangling
+            // one must not consume the next source while looking for a body.
+            if !source.id.is_empty() {
+                if let Some(candidate) = visible.get(source.digest) {
+                    let mut candidate = candidate.clone();
+                    candidate.source_id = source.id.to_string();
+                    candidates.push(candidate);
+                }
             }
+            continue;
         }
         let mut content = String::new();
         for content_line in lines.by_ref() {
@@ -1098,19 +1176,20 @@ fn parse_broker_candidates(block: &str, project_key: &str) -> Vec<KnowledgeCandi
             }
             content.push_str(content_line);
         }
-        if id.is_empty() || content.trim().is_empty() {
+        if source.id.is_empty() || content.trim().is_empty() {
             continue;
         }
         let mut candidate = KnowledgeCandidate::new(
-            id,
+            source.id,
             project_key,
-            kind,
-            authority,
+            source.kind,
+            source.authority,
             crate::knowledge::evidence::unfence(&content),
         );
-        if !digest.is_empty() {
-            candidate.digest = digest.to_string();
+        if !source.digest.is_empty() {
+            candidate.digest = source.digest.to_string();
         }
+        visible.insert(candidate.digest.clone(), candidate.clone());
         candidates.push(candidate);
     }
     candidates
@@ -1279,7 +1358,6 @@ fn safe_receipt(receipt: String) -> String {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub(crate) struct EvidenceHeader {
     pub(crate) id: String,
     pub(crate) created_ms: u64,
@@ -1308,7 +1386,6 @@ pub(crate) struct PolicyCandidate {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-#[allow(dead_code)]
 pub(crate) enum AdapterFamily {
     CodingAgent,
     AtlasClerk,
@@ -1316,7 +1393,6 @@ pub(crate) enum AdapterFamily {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub(crate) struct BehaviorGate {
     pub(crate) name: String,
     pub(crate) score: f32,
@@ -1325,7 +1401,6 @@ pub(crate) struct BehaviorGate {
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-#[allow(dead_code)]
 pub(crate) struct AdapterCandidate {
     pub(crate) evidence: EvidenceHeader,
     pub(crate) family: AdapterFamily,

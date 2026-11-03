@@ -1,0 +1,59 @@
+@@book-page 1@@
+[VERIFICATION PATH BLOCKED — restore it before anything else] {diagnostic}.
+@@book-page 1@@
+Do not propose a new optimization direction.
+@@book-page 1@@
+This iteration's only acceptable outcomes: (1) the official benchmark/verify command runs to completion, or (2) a direct local measurement via the repository's own benchmark script, or (3) an exact, minimal operator action (command + why) if neither is possible.
+@@book-page 1@@
+Notes in the repository are not a blocker; missing inputs that a script in the repository can fetch are not a blocker.
+@@book-page 2@@
+[SUBMISSION OVERDUE — {measured} measured candidate(s), {since} iterations since the first measurement after the last submission; continue with a concrete submission action]
+@@book-page 2@@
+The board is the instrument.
+@@book-page 2@@
+This iteration's only acceptable outcomes: (1) submit the best measured candidate through the official submit command (a candidate that measures at or ahead of the leader on the same local corpus goes in NOW), or (2) if every measured candidate measures behind the leader, say so in one line (score vs leader, same corpus) and produce and measure a new candidate this iteration, or (3) the exact blocking command and its error for the operator.
+@@book-page 2@@
+Do not open a new research direction, do not re-measure what is already measured, and do not treat local-vs-hidden corpus doubt as a reason to withhold: the board settles it.
+@@book-page 3@@
+[window: the {f_skip} oldest findings and {d_skip} oldest directions are elided; restating them still counts as stale ground, not new]
+@@book-page 4@@
+[EVIDENCE REVIEW CHECKPOINT] This is the mandatory 15-iteration audit.
+@@book-page 4@@
+Reconcile every active claim against primary artifacts, identify contradictions and measured negative results, and state the literal target delta.
+@@book-page 4@@
+Do not launch another costly benchmark/submit/deploy action until the existing evidence is reconciled.
+@@book-page 4@@
+Unsupported novelty is not progress.
+@@book-page 5@@
+[previous iteration setback — address the cause below first; do not re-declare done until it is fixed]
+@@book-page 6@@
+You are improving the cockpit's OWN source code in an isolated git worktree (the current workspace root is that worktree's crate).
+@@book-page 6@@
+Use the file and cargo tools to make the change, keep the crate building and its test suite green, and when the goal is fully achieved end your reply with a line containing exactly: LOOP_DONE
+A build+test gate with a pass-count regression guard verifies that claim; only a green gate can be integrated into the live tree, so never delete or disable tests to get there.
+@@book-page 7@@
+If the goal is fully achieved, run the verifiable check and confirm it passes, then end your reply with a line containing exactly: LOOP_DONE
+@@book-page 8@@
+No verifiable acceptance command is bound.
+@@book-page 8@@
+Do not declare the loop complete on your own; keep surfacing concrete progress, blockers, or the next necessary action.
+@@book-page 8@@
+If the operator has asked you to wrap up or stop, finish what is in flight and end your reply with a line containing exactly: LOOP_DONE
+@@book-page 9@@
+[DEEP EXPERIMENT — {status}] Hypothesis: {hypothesis}.
+@@book-page 9@@
+Artifacts: {artifacts}.
+@@book-page 9@@
+Cancelled reply discarded; inspect retained source and logs before resuming the hypothesis.
+@@book-page 9@@
+An isolated worker owns this hypothesis; preserve its unfinished work.
+@@book-page 9@@
+Keep the fast lane moving with distinct validated candidates.
+@@book-page 9@@
+Do not duplicate or replace the active experiment.
+@@book-page 9@@
+On return, inspect its patch and actual evaluation receipts; integrate only after checking against the current parent workspace.
+@@book-page 9@@
+A child result does not establish acceptance or a percentage improvement.
+@@book-page 0@@
+[loop note — information, not an order]

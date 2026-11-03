@@ -12,6 +12,6 @@
   "prompt_sha256": "ba56f7ec34d2e0e1677eeb0fe2677c40763be78d33bf29d7e96481ca3e299018",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "source-sheet.png",
-  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.ridge/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/griffinwing.ridge/v01/source-sheet.png",
   "source_sha256": "cae5b369ee20a2d0197489a197ff51290bd84766968913117724419b6058f9dc"
 }

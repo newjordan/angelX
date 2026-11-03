@@ -6,15 +6,18 @@
 //! an org chart, not a job queue.
 
 use crate::agent::club::Club;
-use crate::agent::harness::{AgentGraphEngine, find_graph, load_graphs};
+use crate::agent::harness::{AgentGraphEngine, GraphRunError, find_graph, load_graphs};
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
 pub(crate) struct GraphState {
     cancel: Option<Arc<AtomicBool>>,
     worker: Option<std::thread::JoinHandle<()>>,
+    preflight_error: Arc<Mutex<Option<(String, String)>>>,
+    run_name: Option<String>,
+    previous_episode: Option<String>,
 }
 
 impl GraphState {
@@ -47,17 +50,32 @@ impl GraphState {
         let node_count = spec.nodes.len();
         let name = spec.name.clone();
         let task_owned = task.to_string();
+        let previous_episode =
+            crate::agent::harness::current_graph_snapshot().map(|snapshot| snapshot.episode_id);
+        // Keep failures that occur before the engine publishes a snapshot
+        // scoped to this run rather than displaying an earlier run's status.
+        let preflight_error = Arc::new(Mutex::new(None));
+        let worker_error = Arc::clone(&preflight_error);
+        let worker_name = name.clone();
         let worker = std::thread::Builder::new()
             .name(format!("graph-run-{name}"))
             .spawn(move || {
                 let engine = AgentGraphEngine::new(workspace, self_club, roster);
                 // Outcome (answer or speaking failure) lands in the published
                 // snapshot + the persisted run record; the stage shows both.
-                let _ = engine.run(&spec, &task_owned, &worker_cancel);
+                if let Err(GraphRunError::Preflight(error)) =
+                    engine.run(&spec, &task_owned, &worker_cancel)
+                    && let Ok(mut slot) = worker_error.lock()
+                {
+                    *slot = Some((worker_name, error));
+                }
             })
             .map_err(|e| format!("graph worker thread failed to start: {e}"))?;
         self.cancel = Some(cancel);
         self.worker = Some(worker);
+        self.preflight_error = preflight_error;
+        self.run_name = Some(name.clone());
+        self.previous_episode = previous_episode;
         Ok(format!(
             "graph · '{name}' launched — {node_count} node(s) · watch the Round Table stage; /graph status · /graph stop"
         ))
@@ -113,7 +131,22 @@ pub(crate) fn list_text() -> String {
 pub(crate) fn status_text(state: &GraphState) -> String {
     use crate::agent::harness::{GraphNodePhase, GraphRunPhase, current_graph_snapshot};
     let mut lines = Vec::new();
-    let Some(snapshot) = current_graph_snapshot() else {
+    if let Ok(slot) = state.preflight_error.lock()
+        && let Some((name, error)) = slot.as_ref()
+    {
+        return format!("graph · '{name}' · FAILED\n  ✗ {error}");
+    }
+    let snapshot = current_graph_snapshot();
+    if let Some(name) = state.run_name.as_deref()
+        && snapshot.as_ref().map(|snapshot| &snapshot.episode_id) == state.previous_episode.as_ref()
+    {
+        return if state.running() {
+            format!("graph · '{name}' · starting")
+        } else {
+            format!("graph · '{name}' · FAILED\n  ✗ worker ended before publishing a snapshot")
+        };
+    }
+    let Some(snapshot) = snapshot else {
         return "graph · idle — no run yet (/graph list to see the catalog)".to_string();
     };
     let status = match snapshot.phase {
@@ -159,3 +192,7 @@ pub(crate) fn status_text(state: &GraphState) -> String {
     }
     lines.join("\n")
 }
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/graph_ctl__tests.rs"]
+mod tests;

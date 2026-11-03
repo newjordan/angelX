@@ -759,11 +759,7 @@ fn draw(run: &Run, focus: Option<u32>, labels: bool) -> (Img, Img) {
         .or_else(|| s.boards.keys().next().copied())
         .unwrap();
     let b = &s.boards[&id];
-    let shake = match b.impact {
-        11..=12 => -2,
-        9..=10 => 2,
-        _ => 0,
-    };
+    let shake = super::camera::smooth_shake(run.tick, u32::from(b.impact), 12, 2.0).0;
     let mut base = room(shake, !labels).clone();
     if super::slot_art::enabled() && super::slot_art::bytes("cinder.room", "room").is_some() {
         for (x, y, w, h) in [

@@ -119,6 +119,8 @@ pub(crate) fn observe(history: &[ChatMsg]) {
             if state.outputs.is_empty() {
                 return;
             }
+            #[cfg(test)]
+            OBSERVE_SCANS.with(|scans| scans.set(scans.get().saturating_add(1)));
             let mut current: HashMap<&str, Vec<u64>> = HashMap::new();
             for message in history.iter().filter(|m| m.role == ChatRole::Tool) {
                 if let Some(id) = message.tool_call_id.as_deref() {
@@ -155,6 +157,23 @@ pub(crate) fn observe(history: &[ChatMsg]) {
             super::super::trajectory::retain_tools_output(state.output.clone());
         }
     });
+}
+
+#[cfg(test)]
+std::thread_local! {
+    static OBSERVE_SCANS: std::cell::Cell<usize> = const {
+        std::cell::Cell::new(0)
+    };
+}
+
+#[cfg(test)]
+pub(crate) fn count_observe_scans<T>(run: impl FnOnce() -> T) -> (T, usize) {
+    OBSERVE_SCANS.with(|probe| {
+        let prior = probe.replace(0);
+        let result = run();
+        let scans = probe.replace(prior);
+        (result, scans)
+    })
 }
 
 #[cfg(test)]

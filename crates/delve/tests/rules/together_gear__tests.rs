@@ -32,6 +32,11 @@ fn together_fresh_knight_is_naked_and_f_punches_quickly() {
     assert_eq!((h.gear, h.bombs), (2, 0));
     assert!(h.hand.is_empty() && h.arm.is_none() && h.forged.is_none());
     run.descend_for_test();
+    // The first floor's opening room is bare of foes now (the wishing room,
+    // 2026-11-02): bring one to the knight's side for the punch.
+    if run.enemies.is_empty() {
+        run.spawn_at_for_test(EnemyKind::Slime, 0.0, 0.0);
+    }
     run.enemies.truncate(1);
     let (hx, hy) = (run.players[&1].x, run.players[&1].y);
     let e = &mut run.enemies[0];
@@ -47,6 +52,27 @@ fn together_fresh_knight_is_naked_and_f_punches_quickly() {
 }
 
 #[test]
+fn an_empty_seats_knight_is_owed_no_early_gear() {
+    // The host who plays no knight keeps an empty seat, bare: a friend
+    // who has it all is dropped nothing for it.
+    let mut run = naked(3, 1, Home::default());
+    run.join_seat(2, "Harry");
+    run.descend_for_test();
+    run.players.get_mut(&1).unwrap().absent = true;
+    run.players.get_mut(&2).unwrap().owned = gear::Owned::equipped();
+    for room in &mut run.dungeon.rooms {
+        room.items.retain(|i| !gear::piece(&i.card));
+    }
+    for _ in 0..12 { run.early_gear_drop(20.0, 20.0); }
+    let lying = run.dungeon.rooms.iter().flat_map(|r| &r.items).filter(|i| gear::piece(&i.card)).count();
+    assert_eq!(lying, 0, "nothing for the empty seat");
+    // Seated again, bare: the next kill drops them their first piece.
+    run.players.get_mut(&1).unwrap().absent = false;
+    run.early_gear_drop(20.0, 20.0);
+    assert_eq!(run.room().items.iter().filter(|i| gear::piece(&i.card)).count(), 1);
+}
+
+#[test]
 fn together_first_two_floors_supply_every_naked_knight_without_weakening_foes() {
     for seed in 0..32 {
         let mut run = naked(seed, 1, Home::default());
@@ -55,9 +81,10 @@ fn together_first_two_floors_supply_every_naked_knight_without_weakening_foes() 
         let weapons = run.dungeon.rooms[0].items.iter().filter(|i| run.book.get(&i.card).unwrap().kind == cards::Kind::Arm).count();
         assert_eq!(weapons, 4, "seed {seed}");
         assert!(run.dungeon.rooms[0].chest.is_some());
+        // Shared loot: one of each piece lies for the four of them.
         for _ in 0..12 { run.early_gear_drop(20.0, 20.0); }
         for piece in ["iron-helm", "body-armour", "kite-shield"] {
-            assert_eq!(run.room().items.iter().filter(|i| i.card == piece).count(), 4);
+            assert_eq!(run.room().items.iter().filter(|i| i.card == piece).count(), 1);
         }
         let before: Vec<_> = run.enemies.iter().map(|e| e.hp).collect();
         take(&mut run, "bow");
@@ -65,7 +92,7 @@ fn together_first_two_floors_supply_every_naked_knight_without_weakening_foes() 
         run.dungeon = layout::floor(2, Pack::Cavern, &mut run.rng);
         run.stock_gear_cache();
         for piece in ["iron-helm", "body-armour", "kite-shield"] {
-            assert_eq!(run.dungeon.rooms[0].items.iter().filter(|i| i.card == piece).count(), 4);
+            assert_eq!(run.dungeon.rooms[0].items.iter().filter(|i| i.card == piece).count(), 1);
         }
     }
 }
@@ -162,4 +189,127 @@ fn together_each_owned_piece_gives_real_protection() {
         dressed.hurt(20);
         assert!(dressed.hp > bare.hp, "{piece}");
     }
+}
+
+#[test]
+fn together_a_fresh_ranger_rolls_even_with_a_shield_kept_at_home() {
+    // A ranger who went home with a kite shield in hand.
+    let mut home = Home::default();
+    let kept = Kept { guard: Some("kite-shield".into()), ..Kept::equipped() };
+    home.wardrobe.knights.insert("Ranger".into(), kept.clone());
+    home.wardrobe.knights.insert("Maiden".into(), kept);
+    let mut run = naked(11, 1, home);
+    run.join_seat(2, "Ranger");
+    run.outfit(2, knights::knight("percival").unwrap());
+    let h = &run.players[&2];
+    assert_eq!(classes::of(h).map(|c| c.name), Some("Archer"));
+    assert_eq!(h.guard, cards::Guard::Roll);
+    assert_eq!(h.guard_card.as_deref(), Some("dodge-roll"));
+    // And a new one, with nothing kept.
+    run.join_seat(3, "Greenhorn");
+    run.outfit(3, knights::knight("percival").unwrap());
+    assert_eq!(run.players[&3].guard, cards::Guard::Roll);
+    // Another class keeps the shield it brought home.
+    run.join_seat(4, "Maiden");
+    run.outfit(4, knights::knight("lynette").unwrap());
+    assert_eq!(run.players[&4].guard, cards::Guard::Shield);
+}
+
+#[test]
+fn together_a_friend_takes_knight_one_and_the_host_keeps_its_gear() {
+    let mut run = naked(17, 1, Home::default());
+    let host = run.players[&1].name.clone();
+    run.players.get_mut(&1).unwrap().owned.helmet = true;
+    run.seat_first("Ywain");
+    assert_eq!(run.players[&1].name, "Ywain");
+    assert!(!run.players[&1].owned.helmet, "the friend comes in their own gear");
+    assert!(run.home.wardrobe.knights[&host].owned.helmet, "the host's gear is kept");
+    // The same name again changes nothing.
+    run.players.get_mut(&1).unwrap().owned.body = true;
+    run.seat_first("Ywain");
+    assert!(run.players[&1].owned.body);
+}
+
+#[test]
+fn together_a_shield_taken_leaves_the_old_guard_for_its_knight_alone_and_walking_back_never_swaps() {
+    let mut run = naked(4, 1, Home::default());
+    run.join_seat(2, "Ann");
+    run.calm_for_test();
+    run.dungeon.rooms[run.at].items.clear();
+    let (x, y) = (run.players[&1].x, run.players[&1].y);
+    run.drop_item("kite-shield".into(), x, y, None);
+    // A knight on the roll keeps it, standing on a shield: a guard of
+    // another kind is taken with the key (2026-10-22).
+    run.step(&BTreeMap::new());
+    assert_eq!(run.players[&1].guard_card.as_deref(), Some("dodge-roll"), "a roll knight never takes a shield by walking over it");
+    press(&mut run);
+    assert_eq!(run.players[&1].guard_card.as_deref(), Some("kite-shield"));
+    // The shield lies on for Ann; the old roll is knight 1's alone.
+    let items = &run.room().items;
+    assert_eq!(items.len(), 2, "{items:?}");
+    let shield = items.iter().find(|i| i.card == "kite-shield").unwrap();
+    assert!(shield.took.contains(&1) && !shield.seen_by(Some(1)) && shield.seen_by(Some(2)));
+    let roll = items.iter().find(|i| i.card == "dodge-roll").unwrap();
+    assert_eq!(roll.owner, Some(1));
+    assert!(roll.seen_by(Some(1)) && !roll.seen_by(Some(2)));
+    // Walking off and back over it never swaps the roll back in.
+    for dx in [4.0, 0.0, 4.0, 0.0] {
+        run.players.get_mut(&1).unwrap().x = x + dx;
+        run.step(&BTreeMap::new());
+    }
+    assert_eq!(run.players[&1].guard_card.as_deref(), Some("kite-shield"));
+    assert_eq!(run.room().items.len(), 2, "no card made by walking about");
+    // A second shield for a knight who holds one stays where it lies.
+    run.drop_item("kite-shield".into(), x, y, None);
+    run.step(&BTreeMap::new());
+    assert_eq!(run.room().items.iter().filter(|i| i.card == "kite-shield").count(), 2);
+    // The take key takes the roll back, and the shield goes down as theirs.
+    press(&mut run);
+    assert_eq!(run.players[&1].guard_card.as_deref(), Some("dodge-roll"));
+    assert!(run.room().items.iter().any(|i| i.card == "kite-shield" && i.owner == Some(1)));
+    run.step(&BTreeMap::new());
+    assert_eq!(run.players[&1].guard_card.as_deref(), Some("dodge-roll"), "standing there never undoes the swap");
+}
+
+#[test]
+fn together_a_bottle_says_how_it_is_drunk_and_a_full_hand_says_so() {
+    let mut run = naked(6, 1, Home::default());
+    run.calm_for_test();
+    run.dungeon.rooms[run.at].items.clear();
+    let (x, y) = (run.players[&1].x, run.players[&1].y);
+    run.drop_item("potion".into(), x, y, None);
+    run.step(&BTreeMap::new());
+    assert_eq!(run.found.as_ref().unwrap().2, "Potion: Z to drink");
+    assert!(crate::rules::take_line(&run.found.as_ref().unwrap().2));
+    run.players.get_mut(&1).unwrap().hand = vec!["potion".into(); cards::HAND];
+    run.drop_item("holy-water".into(), x, y, None);
+    run.step(&BTreeMap::new());
+    assert_eq!(run.found.as_ref().unwrap().2, crate::rules::HAND_FULL);
+    let said = run.found.clone();
+    run.step(&BTreeMap::new());
+    assert_eq!(run.found, said, "said once, not every tick");
+}
+
+#[test]
+fn together_a_guard_of_another_kind_underfoot_waits_for_the_take_key() {
+    let mut run = naked(4, 1, Home::default());
+    run.calm_for_test();
+    run.dungeon.rooms[run.at].items.clear();
+    let (x, y) = (run.players[&1].x, run.players[&1].y);
+    // A knight on the roll walks over a shield: it stays, and the HUD offers it on the key.
+    run.drop_item("kite-shield".into(), x, y, None);
+    for _ in 0..3 {
+        run.step(&BTreeMap::new());
+    }
+    assert_eq!(run.players[&1].guard, cards::Guard::Roll);
+    assert_eq!(run.weapon_beside(1).map(|c| c.id.as_str()), Some("kite-shield"));
+    press(&mut run);
+    assert_eq!(run.players[&1].guard, cards::Guard::Shield);
+    // A knight with a shield walks over a roll that is no one's: the shield stays.
+    run.dungeon.rooms[run.at].items.clear();
+    run.drop_item("dodge-roll".into(), x, y, None);
+    for _ in 0..3 {
+        run.step(&BTreeMap::new());
+    }
+    assert_eq!(run.players[&1].guard, cards::Guard::Shield, "a shield is never lost to a roll card underfoot");
 }

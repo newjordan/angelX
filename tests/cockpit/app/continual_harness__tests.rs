@@ -204,3 +204,97 @@ fn a_mid_session_entry_reaches_the_next_turn_once() {
     assert_eq!(carried(&booted), 1, "{booted:?}");
     cleanup(root);
 }
+
+fn memory(id: &str, title: &str, content: &str) -> RefinementEdit {
+    RefinementEdit {
+        action: "create".into(),
+        kind: EntryKind::Memory,
+        id: Some(id.into()),
+        title: Some(title.into()),
+        content: Some(content.into()),
+        path: Some("general".into()),
+        reason: None,
+    }
+}
+
+fn seed_eight(ws: &Path) {
+    let mut edits: Vec<RefinementEdit> = (0..7)
+        .map(|i| {
+            memory(
+                &format!("a{i}"),
+                &format!("A ledger lesson {i}"),
+                "Price the cap band before banking a work saving.",
+            )
+        })
+        .collect();
+    edits.push(memory(
+        "zz",
+        "Zz payload trap",
+        "The submission ships the working tree, so a regenerated __pycache__ goes with it.",
+    ));
+    apply_edits(ws, Scope::Project, "seed", "unit test", "entries exist", &edits).unwrap();
+}
+
+#[test]
+fn the_block_shows_the_entries_the_turn_is_about() {
+    let _g = crate::tests::env_lock();
+    let (ws, root) = tmp_ws("ranked");
+    seed_eight(&ws);
+
+    // Past the six-per-kind window, the name-last entry still rides when the
+    // turn is about it.
+    let ranked = context_block_for(&ws, "why did the pycache ship in the payload?");
+    assert!(ranked.contains("Zz payload trap"), "{ranked}");
+    assert!(ranked.contains("+2 more memory entries"), "{ranked}");
+    assert_eq!(ranked.matches("- [project:").count(), 6, "{ranked}");
+
+    let unrelated = context_block_for(&ws, "ledger lesson cap band");
+    assert!(!unrelated.contains("Zz payload trap"), "{unrelated}");
+    cleanup(root);
+}
+
+#[test]
+fn search_returns_full_text_of_matching_entries_best_first() {
+    let _g = crate::tests::env_lock();
+    let (ws, root) = tmp_ws("search");
+    seed_eight(&ws);
+    let tool = ContinualHarnessTool::new(&ws);
+    let found = tool
+        .call(&serde_json::json!({"action": "search", "query": "pycache working tree", "limit": 3}))
+        .unwrap();
+    assert!(found.contains("1 of 8 entries"), "{found}");
+    assert!(
+        found.contains("so a regenerated __pycache__ goes with it."),
+        "{found}"
+    );
+
+    let none = tool
+        .call(&serde_json::json!({"action": "search", "query": "blake3"}))
+        .unwrap();
+    assert!(none.contains("0 of 8 entries"), "{none}");
+    assert!(
+        tool.call(&serde_json::json!({"action": "search"}))
+            .unwrap_err()
+            .contains("query")
+    );
+    cleanup(root);
+}
+
+#[test]
+fn the_entry_cap_is_an_env_knob() {
+    let _g = crate::tests::env_lock();
+    let (ws, root) = tmp_ws("cap");
+    let _cap = crate::tests::TestEnvGuard::set("ANGEL_CONTINUAL_HARNESS_MAX_ENTRIES", "2");
+    let msg = apply_edits(
+        &ws,
+        Scope::Project,
+        "seed",
+        "unit test",
+        "entries exist",
+        &[memory("m1", "One", "first"), memory("m2", "Two", "second"), memory("m3", "Three", "third")],
+    )
+    .unwrap();
+    assert!(msg.contains("m3: harness full (2 entries)"), "{msg}");
+    assert_eq!(load_project(&ws).entry_count(), 2);
+    cleanup(root);
+}

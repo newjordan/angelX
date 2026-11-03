@@ -5,9 +5,9 @@ where crypt
 hp 700
 size 1.4
 move hover speed=1.4
-attack aimed shots=3 speed=6 every=75 damage=11 shot=orb
-attack ring shots=8 speed=4 every=150 damage=10 shot=bone from=rage
-phases gap_ring darts flower every=95 volleys=2 damage=10 shot=bone
+attack aimed shots=3 speed=6 every=81 damage=11 shot=orb
+attack ring shots=8 speed=4 every=162 damage=10 shot=bone from=rage
+phases gap_ring darts flower every=103 volleys=2 damage=10 shot=bone
 windup inhale every=200 damage=14 shots=8 speed=5 shot=bone cry=AAAAH
 rage 35%
 drops bone 6, wax 3, gold 190

@@ -101,6 +101,45 @@ fn stage_frame_bench() {
     }
 }
 
+/// `cargo test --release stage_parts_bench -- --ignored --nocapture`: ms the
+/// parts path takes for the same screens — `seat_scene` (RoomScene split)
+/// plus `stage_frame` (the layers a Glass window consumes). The frame bench
+/// above only times `frame_for`; this one catches a lift in cost from the
+/// pastime's per-layer work (figures, backdrop, screen canvas).
+#[test]
+#[ignore]
+fn stage_parts_bench() {
+    for game in [Game::DuckShoot, Game::Halfpipe] {
+        let mut run = fair();
+        if game.room() != RoomKind::Fairground {
+            let room = world::room_of(&run.dungeon, game.room()).unwrap();
+            run.arrive(room, (12.0, 11.0));
+        }
+        place(&mut run, 1, (12.0, 11.0));
+        run.tick_pastimes(&BTreeMap::new());
+        place(&mut run, 1, game.start());
+        run.tick_pastimes(&BTreeMap::new());
+        for _ in 0..10 {
+            run.step(&BTreeMap::new());
+        }
+        for (w, h) in [(384, 224), (768, 448)] {
+            let _ = crate::render::overworld::arena::seat_scene(&run, w, h, Some(1));
+            let _ = crate::render::overworld::arena::seat_frame(&run, w, h, Some(1));
+            let n = 60;
+            let start = std::time::Instant::now();
+            let mut layers = 0usize;
+            for _ in 0..n {
+                run.step(&BTreeMap::new());
+                let scene = crate::render::overworld::arena::seat_scene(&run, w, h, Some(1));
+                layers = layers.max(scene.figures.len());
+                let _ = crate::render::overworld::arena::seat_frame(&run, w, h, Some(1));
+            }
+            let ms = start.elapsed().as_secs_f64() * 1000.0 / f64::from(n);
+            eprintln!("{game:?} {w}x{h}: {ms:.2} ms a seat step, peak {layers} figures");
+        }
+    }
+}
+
 /// Plates of a heat from each knight's own screen, and the crowned and
 /// booby-prized knights after: `ANGEL_ARENA_SHOTS=<dir> cargo test
 /// write_heat_shots -- --ignored`.

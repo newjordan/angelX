@@ -15,10 +15,11 @@
 //! | bytes | what |
 //! |---|---|
 //! | 1 | the four axes, two bits each (`move_x`, `move_y`, `aim_x`, `aim_y` from the low bits), each its value + 1 |
-//! | varint | the flags (`FLAGS`, in order from bit 0), then bit 12: slots, bit 13: vote, bit 14: Latch sample, bit 15: leave held |
+//! | varint | the flags (`FLAGS`, in order from bit 0), then bit 12: slots, bit 13: vote, bit 14: Latch sample, bit 15: leave held, bit 16: the ride key, bit 17: the next-card key, bit 18: team, bit 19: mirror action |
 //! | varint, if slots | `play`, `cast << 3`, `skill << 6` |
 //! | varint + 1, if a vote | the vote's serial, then its action (`action_code`) |
 //! | varint, if a Latch counter | the tick visible at its client sample |
+//! | byte, if mirror action | creator action 1..=6 |
 //!
 //! A command is `held` then `pressed`: four bytes while walking and
 //! firing, more only when a card, a spell, a skill or a vote is pressed.
@@ -48,13 +49,20 @@ const HAS_VOTE: u64 = 1 << (FLAGS + 1);
 const HAS_LATCH_TICK: u64 = 1 << (FLAGS + 2);
 // Keep the existing slot, vote and sample bits stable.
 const LEAVE_HELD: u64 = 1 << (FLAGS + 3);
+/// The ride key (`Input::ride`, `shoulders`).
+const RIDE: u64 = 1 << (FLAGS + 4);
+/// The next-card key (`Input::cycle`, `Hero::cycle_hand`).
+const CYCLE: u64 = 1 << (FLAGS + 5);
+const TEAM: u64 = 1 << (FLAGS + 6);
+/// Optional creator action; absent keeps all existing command bytes unchanged.
+const HAS_MIRROR: u64 = 1 << (FLAGS + 7);
 /// Bits a slot value takes in the slots varint (`play`, `cast`, `skill`
 /// are each at most 5).
 const SLOT_BITS: u32 = 3;
 /// The longest a command's bytes can be: two inputs of an axes byte, a
 /// three-byte flags varint, a two-byte slots varint, a ten-byte serial, an
-/// action byte and a ten-byte optional Latch sample tick.
-pub const MAX_BYTES: usize = 2 * (1 + 3 + 2 + 10 + 1 + 10);
+/// action byte, a ten-byte optional Latch sample tick, and a mirror action byte.
+pub const MAX_BYTES: usize = 2 * (1 + 3 + 2 + 10 + 1 + 10 + 1);
 
 impl DelveCmd {
     /// What the step sees: `held` with `pressed` laid over it.
@@ -91,6 +99,7 @@ impl Command for DelveCmd {
         DelveCmd {
             held: Input {
                 latch_tick: None,
+                mirror: 0,
                 vote: None,
                 leave_activity: false,
                 activity_menu: false,
@@ -114,6 +123,7 @@ pub(super) fn lay_over(under: Input, over: &Input) -> Input {
     let slot = |u: u8, o: u8| if o != 0 { o } else { u };
     Input {
         latch_tick: over.latch_tick.or(under.latch_tick),
+        mirror: slot(under.mirror, over.mirror),
         leave_activity: under.leave_activity || over.leave_activity,
         leave_held: under.leave_held,
         activity_menu: under.activity_menu || over.activity_menu,
@@ -133,6 +143,9 @@ pub(super) fn lay_over(under: Input, over: &Input) -> Input {
         take: under.take || over.take,
         interact: under.interact || over.interact,
         skill: slot(under.skill, over.skill),
+        ride: under.ride || over.ride,
+        team: under.team || over.team,
+        cycle: under.cycle || over.cycle,
         skip_plate: under.skip_plate || over.skip_plate,
         again: under.again || over.again,
     }
@@ -168,6 +181,15 @@ fn put_input(out: &mut Vec<u8>, input: &Input) {
     if input.leave_held {
         bits |= LEAVE_HELD;
     }
+    if input.ride {
+        bits |= RIDE;
+    }
+    if input.team {
+        bits |= TEAM;
+    }
+    if input.cycle {
+        bits |= CYCLE;
+    }
     if slots != 0 {
         bits |= HAS_SLOTS;
     }
@@ -176,6 +198,9 @@ fn put_input(out: &mut Vec<u8>, input: &Input) {
     }
     if input.latch_tick.is_some() {
         bits |= HAS_LATCH_TICK;
+    }
+    if input.mirror != 0 {
+        bits |= HAS_MIRROR;
     }
     put_varint(out, bits);
     if slots != 0 {
@@ -188,6 +213,9 @@ fn put_input(out: &mut Vec<u8>, input: &Input) {
     if let Some(tick) = input.latch_tick {
         put_varint(out, tick);
     }
+    if input.mirror != 0 {
+        out.push(input.mirror);
+    }
 }
 
 fn read_input(b: &mut Bytes) -> Option<Input> {
@@ -197,7 +225,7 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
         (code != NO_AXIS).then_some(code as i8 - 1)
     };
     let bits = b.varint().ok()?;
-    if bits >> (FLAGS + 4) != 0 {
+    if bits >> (FLAGS + 8) != 0 {
         return None;
     }
     let on = |i: usize| bits >> i & 1 == 1;
@@ -218,8 +246,14 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
         None
     };
     let latch_tick = if bits & HAS_LATCH_TICK != 0 { Some(b.varint().ok()?) } else { None };
+    let mirror = if bits & HAS_MIRROR != 0 {
+        let action = b.byte().ok()?;
+        if !(1..=6).contains(&action) { return None; }
+        action
+    } else { 0 };
     Some(Input {
         latch_tick,
+        mirror,
         move_x: axis(0)?,
         move_y: axis(2)?,
         aim_x: axis(4)?,
@@ -234,6 +268,9 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
         interact: on(7),
         leave_activity: on(8),
         leave_held: bits & LEAVE_HELD != 0,
+        ride: bits & RIDE != 0,
+        team: bits & TEAM != 0,
+        cycle: bits & CYCLE != 0,
         activity_menu: on(9),
         skip_plate: on(10),
         again: on(11),

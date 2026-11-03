@@ -315,3 +315,52 @@ fn write_skull_shots() {
     save(&run, "d-raised", 1);
     save(&run, "e-raised-own", 2);
 }
+
+/// Raising a fallen knight in the chief's key carrier is that carrier's
+/// fall to its camp: the route is won, the Boss Key drops, the room clears
+/// (2026-10-30: a raised carrier left the room fighting forever).
+#[test]
+fn a_knight_raised_in_the_key_carrier_wins_its_chiefs_route() {
+    let mut cleared = 0;
+    for seed in [3u64, 41, 7] {
+        let mut run = Run::new(seed, 17, Some("Friend"));
+        let room = run.boss_gates.as_ref().unwrap().leaders[0].room;
+        run.enter(room, Some(2));
+        let carrier = run.enemies.iter().find(|e| run.carries_key(e)).expect("a key carrier").clone();
+        run.enemies.retain(|e| e.camp_slot == carrier.camp_slot);
+        let (cx, cy) = (carrier.x, carrier.y);
+        {
+            let e = &mut run.enemies[0];
+            e.hp = (e.max_hp / 20).max(1);
+            e.frozen = 1000;
+            e.age = e.age.max(10 * HZ);
+        }
+        // Knight two falls beside knight one, who takes the skull up and
+        // stands at the weakened carrier.
+        for hero in run.players.values_mut() {
+            hero.invulnerable = 100_000;
+        }
+        let two = run.players.get_mut(&2).unwrap();
+        (two.x, two.y, two.hp, two.fell) = (cx - 2.0, cy, 0, run.tick.max(1));
+        for _ in 0..=skulls::SKULL_SETTLE {
+            idle(&mut run);
+        }
+        let one = run.players.get_mut(&1).unwrap();
+        (one.x, one.y) = (cx - 2.0, cy);
+        idle(&mut run);
+        assert!(run.players[&1].carrying_skull.is_some(), "seed {seed}: the skull is taken up");
+        let one = run.players.get_mut(&1).unwrap();
+        (one.x, one.y) = (cx - 1.0, cy);
+        idle(&mut run);
+        press(&mut run, 1);
+        assert!(run.players[&2].possessed.is_some(), "seed {seed}: knight two rises in the carrier");
+        let g = run.boss_gates.as_ref().unwrap();
+        assert!(g.leaders.iter().find(|l| l.room == room).unwrap().defeated, "seed {seed}: its chief's route is won");
+        for _ in 0..30 {
+            idle(&mut run);
+        }
+        assert!(run.room().cleared, "seed {seed}: the room clears");
+        cleared += 1;
+    }
+    assert_eq!(cleared, 3);
+}

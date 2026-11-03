@@ -266,7 +266,7 @@
     "alpha_threshold": 128,
     "effect_value_cap": 224,
     "metadata_sha256": "db52d30ab0ec8d4ccd1ef2fee8fd8f6b78b65c337906ef2731504bcb65652b10",
-    "original_path": "/work/artifacts/art-prod/slots/latch.clash/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/latch.clash/v01/source-sheet.png",
     "original_sha256": "1323c063963787750c74ca0b8389b6e8494dfc5f186d7356ba591434d17c2aa9",
     "room_gain": null,
     "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",

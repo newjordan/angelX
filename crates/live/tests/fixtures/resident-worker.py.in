@@ -1,0 +1,102 @@
+#!/usr/bin/env python3
+# A fake worker that speaks BJ1 (an independent implementation of the codec and
+# the delta ops) and, in "resident" mode, keeps the state between applies.
+import copy, json, os, re, struct, sys
+
+MODE = '__MODE__'
+JOURNAL = __JOURNAL__
+
+def to_bj(v):
+    if v is None: return 'null'
+    if v is True: return 'true'
+    if v is False: return 'false'
+    if isinstance(v, int):
+        if 0 <= v < 2**32 or -2**32 < v < 0: return str(v)
+        assert 2**32 <= v < 2**64
+        return 'w%016x' % v
+    if isinstance(v, float): return 'f%08x' % struct.unpack('>I', struct.pack('>f', v))[0]
+    if isinstance(v, str): return json.dumps(v)
+    if isinstance(v, list): return '[' + ','.join(map(to_bj, v)) + ']'
+    return '{' + ','.join(json.dumps(k) + ':' + to_bj(x) for k, x in v.items()) + '}'
+
+TOKEN = re.compile(r'"(?:[^"\\]|\\.)*"|\bw([0-9a-f]{16})\b|\bf([0-9a-f]{8})\b')
+def from_bj(text):
+    def token(m):
+        if m.group(1): return str(int(m.group(1), 16))
+        if m.group(2): return repr(struct.unpack('>f', bytes.fromhex(m.group(2)))[0])
+        return m.group(0)
+    return json.loads(TOKEN.sub(token, text))
+
+def patch(root, ops):
+    for kind, path, *rest in ops:
+        if kind == 't':
+            target = root
+            for k in path: target = target[k]
+            del target[rest[0]:]
+            continue
+        target = root
+        for k in path[:-1]: target = target[k]
+        k = path[-1]
+        if kind == 'd': del target[k]
+        elif isinstance(target, list) and k == len(target): target.append(rest[0])
+        else: target[k] = rest[0]
+    return root
+
+resident = None
+applies = 0
+
+def journal(method, raw, body):
+    with open(JOURNAL, 'a') as output:
+        output.write(json.dumps({'method': method, 'raw': raw, 'keys': sorted(body) if isinstance(body, dict) else None,
+                                 'delta': body.get('delta') if isinstance(body, dict) else None}) + '\n')
+
+def dispatch(method, body, raw):
+    global resident, applies
+    journal(method, raw, body)
+    if method == 'prepare':
+        return {'id': 'resident', 'api': 1, 'contracts': {}, 'codec': 'bj1', 'resident': MODE == 'resident'}
+    if method == 'restore':
+        resident = body
+        return body
+    if method in ('activate', 'dispose'):
+        return None
+    if method == 'apply':
+        event = body['event']
+        if MODE == 'resident':
+            state = patch(resident, body['delta'])
+        else:
+            state = body['state']
+        applies += 1
+        if 'err' in event: raise ValueError('worker refuses')
+        ops = []
+        if 'add' in event:
+            state['count'] += event['add']
+            state['tick'] += 2**32
+            state['pos']['x'] = state['count'] * 0.25
+            ops = [['s', ['count'], state['count']], ['s', ['tick'], state['tick']], ['s', ['pos', 'x'], state['pos']['x']]]
+        if 'push' in event:
+            state['items'].append(event['push'])
+            ops = [['s', ['items', len(state['items']) - 1], event['push']]]
+        if 'bad' in event:
+            ops = [['t', ['items'], 99]]
+        output = {'pid': os.getpid(), 'applies': applies}
+        return {'delta': ops, 'output': output} if MODE == 'resident' else {'state': state, 'output': output}
+    raise ValueError('unknown method')
+
+plain = True
+while True:
+    header = sys.stdin.buffer.read(4)
+    if not header: break
+    size, = struct.unpack('>I', header)
+    raw = sys.stdin.buffer.read(size).decode()
+    request = json.loads(raw) if plain else from_bj(raw)
+    try:
+        result = {'Ok': dispatch(request['method'], request['body'], raw)}
+    except Exception as error:
+        result = {'Err': str(error)}
+    reply = {'api': 1, 'generation': request['generation'], 'request': request['request'], 'result': result}
+    text = json.dumps(reply) if plain else to_bj(reply)
+    sys.stdout.buffer.write(struct.pack('>I', len(text.encode())) + text.encode())
+    sys.stdout.buffer.flush()
+    if request['method'] == 'prepare': plain = False
+    if request['method'] == 'dispose': break

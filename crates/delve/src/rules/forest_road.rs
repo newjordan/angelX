@@ -836,14 +836,21 @@ impl Run {
             if let Some(k) = s.knights.get(&id) {
                 if k.cooldown > cooldown {
                     if let Some(hero) = self.players.get(&id) {
-                        self.sounds
-                            .push(classes::shot_sound(hero).unwrap_or(match hero.weapon {
+                        if hero.weapon == Weapon::Notes
+                            || classes::shot_sound(hero).is_some_and(|s| s.starts_with("sax_"))
+                        {
+                            // Heard after the volley flew: its own stab.
+                            super::bard::volley_sounds(hero.loosed.wrapping_sub(1), hero.groove, &mut self.sounds);
+                        } else {
+                            self.sounds.push(classes::shot_sound(hero).unwrap_or(match hero.weapon {
                                 Weapon::Bow => "shot_bow",
                                 Weapon::Crossbow => "shot_crossbow",
                                 Weapon::Handgonne => "shot_handgonne",
-                                Weapon::Notes | Weapon::Stones => "shot_spark",
+                                Weapon::Notes => unreachable!("the riff above"),
+                                Weapon::Stones => "shot_spark",
                                 Weapon::Fists => "clang",
                             }));
+                        }
                     }
                 }
                 if k.hp < hp {

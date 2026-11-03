@@ -535,6 +535,7 @@ fn boss_gates_gauntlet_boss_rush_and_hold_the_stair_stay_deliberately_ungated() 
             finish_room(&mut run);
             if depth < DEEPEST {
                 run.descend();
+                crate::rules::crossroads::testing::finish(&mut run);
                 assert_eq!(run.dungeon.depth, depth + 1);
             }
         }
@@ -563,7 +564,14 @@ fn boss_gates_giants_feast_keeps_native_boss_scaling_and_normal_giant_mobs() {
     let apex = run.boss_gates.as_ref().unwrap().guardian_boss.unwrap();
     run.enter(gate, Some(2));
     let boss = run.enemies.iter().find(|e| e.boss == Some(apex)).unwrap();
-    assert_eq!(boss.max_hp, run.bosses[usize::from(apex)].hp);
+    let scaled = u64::from(run.bosses[usize::from(apex)].hp) * u64::from(run.guardian_toughness()) / 100
+        * u64::from(run.boss_health())
+        / 100;
+    // Re-pinned 2026-11-02: native scaling at the operator's boss tuning, a
+    // guardian standing at 70% of its scaled health (`Run::spawn_boss`),
+    // times the party; no giant's multiplier on top.
+    let native = (scaled * 70 / 100).max(1) as u32 * run.party_len().max(1) as u32;
+    assert_eq!(boss.max_hp, native);
     assert!(run.valid_snapshot());
 }
 
@@ -1023,9 +1031,12 @@ fn boss_ecology_secret_transition_and_immutable_geography_survive_guest_deltas()
 fn boss_ecology_rarity_and_all_supported_pack_routes_across_both_starting_packs() {
     let mut apex = 0;
     for seed in 0..32 {
-        for first in [Pack::Crypt, Pack::Cavern] {
-            for depth in 1..=DEEPEST {
-                let mut run = on_floor(depth, seed, Mode::LongWayDown);
+        for depth in 1..=DEEPEST {
+            // `on_floor` does not depend on the starting pack. Build it once
+            // and clone; the second floor still uses that run's rng.
+            let base = on_floor(depth, seed, Mode::LongWayDown);
+            for first in [Pack::Crypt, Pack::Cavern] {
+                let mut run = base.clone();
                 run.dungeon = layout::floor(depth, Pack::at(depth, first), &mut run.rng);
                 run.populate_boss_gates();
                 run.enter(0, None);

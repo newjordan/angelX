@@ -80,11 +80,12 @@ impl Enemy {
 
 /// What the swamp's company did this tick.
 #[derive(Default)]
+#[cfg_attr(test, derive(Serialize))]
 pub(super) struct Doings {
     /// Hands rising: where.
-    grabs: Vec<(f32, f32)>,
+    pub(super) grabs: Vec<(f32, f32)>,
     /// Wisps luring: where.
-    lures: Vec<(f32, f32)>,
+    pub(super) lures: Vec<(f32, f32)>,
 }
 
 /// One of the swamp company's steps. False for any other monster.

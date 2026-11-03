@@ -226,3 +226,225 @@ fn raw_observation_is_persisted_before_comparator_failure() {
     assert!(matches!(error, BoardReduceErrorV1::Adapter(_)));
     assert_eq!(journal.observations().len(), 1);
 }
+
+/// Every feature combination the disposition reads, including sequences above
+/// a U32 and the saturated end of the cursor.
+fn decision_table() -> Vec<ObservationDecisionInputV1> {
+    let kinds = [BoardObservationKindV1::Full, BoardObservationKindV1::Delta];
+    let priors = [
+        None,
+        Some(0),
+        Some(1),
+        Some(41),
+        Some(u64::from(u32::MAX)),
+        Some(u64::from(u32::MAX) + 1),
+        Some(u64::MAX),
+    ];
+    let incomings = [
+        None,
+        Some(0),
+        Some(1),
+        Some(41),
+        Some(42),
+        Some(u64::from(u32::MAX)),
+        Some(u64::from(u32::MAX) + 1),
+        Some(u64::MAX),
+    ];
+    let mut rows = Vec::new();
+    for kind in kinds {
+        for prior in priors {
+            for incoming in incomings {
+                for refresh_pending in [false, true] {
+                    for has_board in [false, true] {
+                        for duplicate in [false, true] {
+                            for identity_conflict in [false, true] {
+                                rows.push(ObservationDecisionInputV1::new(
+                                    identity_conflict,
+                                    duplicate,
+                                    kind,
+                                    prior,
+                                    incoming,
+                                    refresh_pending,
+                                    has_board,
+                                ));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    rows
+}
+
+/// The shipped leg and the native rule must agree on every disposition, and the
+/// leg must be the one that answered.
+#[test]
+fn live_board_reducer_leg_matches_every_native_disposition() {
+    use crate::agent::harness::live_policy::{LegSource, decide_shipped};
+    let rows = decision_table();
+    assert!(rows.len() >= 30, "the parity table needs real coverage");
+    let mut checked = 0;
+    for row in &rows {
+        let features = serde_json::to_value(row).unwrap();
+        let (verdict, source) =
+            decide_shipped("board-reducer", &features, |wire: &ObservationVerdictV1| {
+                row.check(wire.decision)
+            });
+        assert_eq!(
+            verdict.decision,
+            row.native(),
+            "{row:?} left the native disposition"
+        );
+        assert!(
+            matches!(source, LegSource::Shipped { .. }),
+            "{row:?} kept the {} leg: {source:?}",
+            source.as_str()
+        );
+        checked += 1;
+    }
+    assert!(checked >= 30, "only {checked} inputs were compared");
+}
+
+/// A throwaway policy module, so a deliberately out-of-contract leg can be
+/// pinned without touching the shipped one.
+fn temporary_board_leg(id: &str, render: &str) -> angel_live::Program {
+    let root = std::env::temp_dir().join(format!("angel-board-leg-{}-{id}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let module = root.join(id);
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(
+        module.join("module.json"),
+        format!(
+            r#"{{"api_version":1,"id":"{id}","kind":"policy","entry":"index.js","probe":{{}}}}"#
+        ),
+    )
+    .unwrap();
+    std::fs::write(module.join("index.js"), render).unwrap();
+    let mut registry =
+        angel_live::Registry::validated(root, crate::agent::hotload::evaluate, |_, _| Ok(()));
+    registry.refresh(true);
+    registry
+        .snapshot()
+        .policies
+        .get(id)
+        .cloned()
+        .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
+}
+
+/// A verdict outside the contract is rejected and the native rule answers, so a
+/// bad hot edit never moves the canonical board.
+#[test]
+fn an_out_of_contract_disposition_falls_back_to_the_native_rule() {
+    use crate::agent::harness::live_policy::{LegSource, decide_with};
+    let leg = temporary_board_leg(
+        "board-reducer-gap",
+        "module.exports={apiVersion:1,render:()=>({decision:'gap'})}",
+    );
+    // A full snapshot rebuilds the board, so `gap` is not an admissible verdict.
+    let row = ObservationDecisionInputV1::new(
+        false,
+        false,
+        BoardObservationKindV1::Full,
+        None,
+        Some(9),
+        false,
+        true,
+    );
+    let features = serde_json::to_value(row).unwrap();
+    let (verdict, source) = decide_with(
+        Some(leg),
+        "board-reducer-gap",
+        &features,
+        |wire: &ObservationVerdictV1| row.check(wire.decision),
+        || ObservationVerdictV1 {
+            decision: row.native(),
+        },
+    );
+    assert_eq!(verdict.decision, ObservationDecisionV1::Replace);
+    assert!(
+        matches!(source, LegSource::LiveFallback { .. }),
+        "the out-of-contract leg answered: {}",
+        source.as_str()
+    );
+}
+
+#[test]
+fn board_reducer_leg_decides_in_microseconds() {
+    use crate::agent::harness::live_policy::decide_shipped;
+    let row = ObservationDecisionInputV1::new(
+        false,
+        false,
+        BoardObservationKindV1::Delta,
+        Some(41),
+        Some(42),
+        false,
+        true,
+    );
+    let features = serde_json::to_value(row).unwrap();
+    let mut samples: Vec<std::time::Duration> = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        let (verdict, source) =
+            decide_shipped("board-reducer", &features, |wire: &ObservationVerdictV1| {
+                row.check(wire.decision)
+            });
+        samples.push(started.elapsed());
+        assert_eq!(source.as_str(), "shipped");
+        assert_eq!(verdict.decision, ObservationDecisionV1::Replace);
+    }
+    samples.sort();
+    eprintln!(
+        "board-reducer leg: {:.1} µs median, {:.1} µs p95 over 200 decisions",
+        samples[100].as_secs_f64() * 1e6,
+        samples[190].as_secs_f64() * 1e6
+    );
+}
+
+// --- the parity oracle ------------------------------------------------------
+//
+// The native disposition rule, moved here out of production: the shipped
+// `board-reducer` leg decides every disposition now, and this copy exists so
+// the parity table can prove the two still agree.
+
+impl ObservationDecisionInputV1 {
+    fn sequence(hi: u32, lo: u32) -> u64 {
+        (u64::from(hi) << 32) | u64::from(lo)
+    }
+
+    /// The native rule, in the order the reducer applies it: duplicate, then
+    /// stale ordering, then a sequence gap, then replacement.
+    fn native(&self) -> ObservationDecisionV1 {
+        if self.identity_conflict {
+            return ObservationDecisionV1::Conflict;
+        }
+        if self.duplicate {
+            return ObservationDecisionV1::Duplicate;
+        }
+        let ordered = (self.has_prior && self.has_incoming).then(|| {
+            (
+                Self::sequence(self.prior_hi, self.prior_lo),
+                Self::sequence(self.incoming_hi, self.incoming_lo),
+            )
+        });
+        if let Some((prior, incoming)) = ordered {
+            let reordered = if self.full_snapshot {
+                incoming < prior
+            } else {
+                incoming <= prior
+            };
+            if reordered {
+                return ObservationDecisionV1::Stale;
+            }
+        }
+        let delta = !self.full_snapshot;
+        let gapped = delta
+            && (self.refresh_pending
+                || ordered.is_some_and(|(prior, incoming)| incoming > prior.saturating_add(1))
+                || !self.has_board);
+        if gapped {
+            return ObservationDecisionV1::Gap;
+        }
+        ObservationDecisionV1::Replace
+    }
+}

@@ -43,20 +43,9 @@ pub(super) fn scenery(cv: &mut Img, run: &Run) {
                 let _ = k;
                 m::sign(cv, x + 22, y - 12, "LOGS", 'T');
             }
-            // The grass lane has one full-width log at each numbered jump.
-            for (i, log) in pastimes::CART_LOGS.iter().enumerate() {
-                let x = log * TILE;
-                for y in 4 * TILE..10 * TILE {
-                    for (dx, ch) in [(-3, 'P'), (-2, 'r'), (-1, 'o'), (0, 'r'), (1, 'B'), (2, 'b'), (3, 'n')] {
-                        let ch = if hash(x + dx, y / 3, 160) % 7 == 0 { 'b' } else { ch };
-                        cv.put(x + dx, y, ch);
-                    }
-                    cv.put(x + 4, y + 1, 'K');
-                }
-                cv.ellipse(x as f32, (4 * TILE) as f32, 3.5, 2.0, 'o');
-                cv.put(x, 4 * TILE, 'B');
-                cv.text(x - 2, 10 * TILE + 5, &(i + 1).to_string(), 'O');
-            }
+            // The four jump-logs stand in the crowd (`pastimes::crowd`)
+            // so a window tilts them with the lane and shrinks them with
+            // distance; only the ruts stay baked into the floor.
             for (x, y) in pastimes::CART_RUTS {
                 let (x, y) = (x * TILE, y * TILE);
                 cv.ellipse(x as f32, y as f32, 6.5, 3.0, 'n');
@@ -210,13 +199,28 @@ pub(super) fn cart_figures(cv: &mut Img, run: &Run) {
     let lift = (c.air_left.min(pastimes::CART_AIR - c.air_left) * 3) as i32;
     cv.line(x - 9, y + 3, x + 8, y + 3, 'b');
     let y = y - lift;
-    cv.rect(x - 7, y - 7, 14, 7, 'o');
-    cv.line(x - 9, y - 9, x + 9, y - 9, 'O');
-    cv.rect(x + 5, y + 1, 5, 5, 'b');
-    cv.put(x + 7, y + 3, 'h');
-    cv.rect(x - 10, y - 12, 6, 7, 'h');
-    cv.rect(x - 11, y - 15, 8, 4, 'u');
-    cv.line(x - 10, y - 5, x - 14, y + 1, 'h');
+    // Cart bed (timber brown)
+    cv.rect(x - 7, y - 3, 14, 7, 'n');
+    // Cargo barrel on the cart
+    cv.ellipse(x as f32, (y - 5) as f32, 3.0, 2.0, 'o');
+    cv.rect(x - 3, y - 5, 6, 4, 'o');
+    // Left wheel with spokes
+    cv.ellipse((x - 5) as f32, (y + 4) as f32, 3.0, 3.0, 'k');
+    cv.line(x - 5, y + 1, x - 5, y + 7, 'n');
+    cv.line(x - 8, y + 4, x - 2, y + 4, 'n');
+    // Right wheel with spokes
+    cv.ellipse((x + 5) as f32, (y + 4) as f32, 3.0, 3.0, 'k');
+    cv.line(x + 5, y + 1, x + 5, y + 7, 'n');
+    cv.line(x + 2, y + 4, x + 8, y + 4, 'n');
+    // Driver body
+    cv.rect(x + 6, y - 5, 4, 5, 'B');
+    // Driver round head
+    cv.ellipse((x + 8) as f32, (y - 8) as f32, 3.0, 3.0, 'h');
+    // Driver hat
+    cv.rect(x + 6, y - 11, 5, 2, 'k');
+    // Driver arms
+    cv.line(x + 6, y - 3, x + 4, y - 1, 'h');
+    cv.line(x + 10, y - 3, x + 12, y - 1, 'h');
     ring(
         cv,
         pastimes::CART_LOGS[usize::from(round.progress)] * TILE,
@@ -232,7 +236,7 @@ pub(super) fn board_visible(run: &Run) -> bool {
     if (1..5).contains(&s) && run.room().kind == RoomKind::HedgeMaze {
         let already = usize::from(s - 1).min(3);
         let carried = run.forage.as_ref().map_or([0; 3], |f| f.carried);
-        return carried[already..].iter().any(|&c| c == 0);
+        return carried[already..].contains(&0);
     }
     let (kind, (x, y)) = if s == 0 { wood::ERRAND[0] } else { wood::ERRAND[4] };
     kind == run.room().kind

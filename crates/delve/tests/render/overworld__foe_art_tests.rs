@@ -48,7 +48,7 @@ fn write_foe_art_review() {
         }
         manifest.push(serde_json::json!({"group":group,"pose":pose,"file":name,"w":im.w,"h":im.h,"hash":hash}));
     };
-    let mut run = art_v2::testing::fight();
+    let mut run = testing::fight();
     run.enemies.clear();
     let mut kinds: Vec<_> = ENTRIES.iter().map(|e| e.kind).collect();
     kinds.extend([
@@ -175,7 +175,7 @@ fn write_foe_art_review() {
         serde_json::to_vec_pretty(&approved_foe_hashes()).unwrap(),
     )
     .unwrap();
-    let fight = art_v2::testing::fight();
+    let fight = testing::fight();
     for (name, r) in [
         ("crypt", fight.clone()),
         ("boss", {
@@ -198,17 +198,11 @@ fn write_foe_art_review() {
             r
         }),
     ] {
-        for kit in [1, 2] {
-            let im = if kit == 1 {
-                frame_v1(&r, 768, 448, Some(1))
-            } else {
-                art_v2::frame(&r, 768, 448, Some(1))
-            };
-            image::RgbImage::from_raw(im.w as u32, im.h as u32, im.rgb_bytes())
-                .unwrap()
-                .save(dir.join(format!("play-{name}-v{kit}.png")))
-                .unwrap();
-        }
+        let im = frame_v1(&r, 768, 448, Some(1));
+        image::RgbImage::from_raw(im.w as u32, im.h as u32, im.rgb_bytes())
+            .unwrap()
+            .save(dir.join(format!("play-{name}-v1.png")))
+            .unwrap();
     }
 }
 
@@ -256,7 +250,7 @@ fn baked_cycles_keep_every_animation_and_attack_state() {
 
 fn approved_foe_hashes() -> std::collections::BTreeMap<String, u64> {
     let mut hashes = std::collections::BTreeMap::new();
-    let mut run = art_v2::testing::fight();
+    let mut run = testing::fight();
     run.enemies.clear();
     let fold = |sum: u64, im: Img| (sum ^ im.content_hash()).wrapping_mul(0x100000001b3);
     for kind in ENTRIES.iter().map(|e| e.kind).chain([EnemyKind::Dummy]) {
@@ -318,7 +312,7 @@ fn write_approved_foe_hashes() {
     std::fs::write(path, serde_json::to_vec_pretty(&approved_foe_hashes()).unwrap()).unwrap();
 }
 
-/// Same pose and tick through each existing hit interval, in both kits.
+/// Same pose and tick through each existing hit interval.
 #[test]
 #[ignore]
 fn write_foe_hit_shots() {
@@ -327,7 +321,7 @@ fn write_foe_hit_shots() {
     };
     let dir = std::path::PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
-    let mut fixtures = art_v2::testing::matching::fixtures()
+    let mut fixtures = testing::matching::fixtures()
         .into_iter()
         .filter(|(n, _)| matches!(*n, "ripper" | "grinwick"))
         .collect::<Vec<_>>();
@@ -339,7 +333,7 @@ fn write_foe_hit_shots() {
         ("dragon", EnemyKind::Dragon),
         ("oathbound", EnemyKind::Oathbound),
     ] {
-        let mut run = art_v2::testing::fight();
+        let mut run = testing::fight();
         run.enemies.clear();
         run.spawn_at_for_test(kind, 15.0, 10.0);
         fixtures.push((name, run));
@@ -357,13 +351,6 @@ fn write_foe_hit_shots() {
                 .unwrap()
                 .save(dir.join(format!("{name}-v1-{hurt}.png")))
                 .unwrap();
-            if art_v2::foe_supported(&run, &run.enemies[0]) {
-                let im = art_v2::foe_hit_sample(&run);
-                image::RgbaImage::from_raw(im.w as u32, im.h as u32, im.rgba_bytes())
-                    .unwrap()
-                    .save(dir.join(format!("{name}-v2-{hurt}.png")))
-                    .unwrap();
-            }
         }
     }
 }
@@ -371,7 +358,7 @@ fn write_foe_hit_shots() {
 #[test]
 fn foe_hits_keep_material_detail_coverage_and_the_existing_intervals() {
     use super::super::ink::{BANK, bank_of, palette_index};
-    let mut fixtures = art_v2::testing::matching::fixtures();
+    let mut fixtures = testing::matching::fixtures();
     fixtures.retain(|(n, _)| matches!(*n, "ripper" | "grinwick"));
     for (name, kind) in [
         ("ghost", EnemyKind::Wraith),
@@ -380,7 +367,7 @@ fn foe_hits_keep_material_detail_coverage_and_the_existing_intervals() {
         ("imp", EnemyKind::Imp),
         ("dragon", EnemyKind::Dragon),
     ] {
-        let mut run = art_v2::testing::fight();
+        let mut run = testing::fight();
         run.enemies.clear();
         run.spawn_at_for_test(kind, 15.0, 10.0);
         fixtures.push((name, run));

@@ -9,6 +9,8 @@
 //! cockpit.
 
 use super::{Primary, Raise, Route, Sub, m_method, n_environment, o_orchestration, warpath};
+
+const CATALOG: &str = include_str!("../../../../book/y_types.book");
 use std::path::Path;
 
 pub(crate) const CELL: char = '⠽';
@@ -31,7 +33,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the Driver, no delegate routes configured",
             action: "",
             ideas: "",
-            pages: &["⠞⠁", "⠺⠁⠺⠉⠁⠺⠙⠺⠉⠃", "⠺⠑", "⠞⠉⠞⠑", "⠧⠊", "⠕⠁", "⠞⠋"],
+            pages: &super::catalog_pages::<7>(CATALOG, b'1'),
         },
         Sub {
             route: DRIVER_TEAM,
@@ -39,18 +41,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the Driver with configured delegate routes",
             action: "",
             ideas: "",
-            pages: &[
-                "⠞⠁",
-                "⠺⠁⠺⠉⠁⠺⠙⠺⠉⠃",
-                "⠺⠑",
-                "⠞⠉⠞⠑",
-                "⠧⠊",
-                "⠕⠃",
-                "⠕⠉",
-                "⠕⠙",
-                "⠕⠑",
-                "⠞⠋",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'2'),
         },
         Sub {
             route: COMPACT,
@@ -58,7 +49,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the compact task core, no delegate routes configured",
             action: "",
             ideas: "",
-            pages: &["⠞⠃", "⠺⠃⠺⠉⠁⠺⠙", "⠺⠋", "⠞⠙⠧⠚", "⠞⠋"],
+            pages: &super::catalog_pages::<5>(CATALOG, b'3'),
         },
         Sub {
             route: COMPACT_TEAM,
@@ -66,7 +57,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the compact task core with configured delegate routes",
             action: "",
             ideas: "",
-            pages: &["⠞⠃", "⠺⠃⠺⠉⠁⠺⠙", "⠺⠋", "⠞⠙⠧⠚", "⠕⠋", "⠞⠋"],
+            pages: &super::catalog_pages::<6>(CATALOG, b'4'),
         },
         Sub {
             route: REPAIR,
@@ -74,7 +65,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the coding repair discipline",
             action: "",
             ideas: "",
-            pages: &["⠍⠉", "⠍⠙", "⠍⠑", "⠍⠋", "⠍⠛"],
+            pages: &super::catalog_pages::<5>(CATALOG, b'5'),
         },
         Sub {
             route: COCKPIT,
@@ -82,17 +73,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the Driver in the interactive cockpit, no delegate routes configured",
             action: "",
             ideas: "",
-            pages: &[
-                "⠞⠁",
-                "⠺⠁⠺⠉⠁⠺⠙⠺⠉⠃",
-                "⠺⠑",
-                "⠞⠉⠞⠑",
-                "⠧⠊",
-                "⠕⠁",
-                "⠞⠋",
-                "⠝⠁",
-                "⠝⠃",
-            ],
+            pages: &super::catalog_pages::<9>(CATALOG, b'6'),
         },
         Sub {
             route: COCKPIT_TEAM,
@@ -100,18 +81,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the Driver in the interactive cockpit with configured delegate routes",
             action: "",
             ideas: "",
-            pages: &[
-                "⠞⠁",
-                "⠺⠁⠺⠉⠁⠺⠙⠺⠉⠃",
-                "⠺⠑",
-                "⠞⠉⠞⠑",
-                "⠧⠊",
-                "⠕⠃⠕⠉",
-                "⠕⠙⠕⠑",
-                "⠞⠋",
-                "⠝⠁",
-                "⠝⠃",
-            ],
+            pages: &super::catalog_pages::<10>(CATALOG, b'7'),
         },
     ],
 };

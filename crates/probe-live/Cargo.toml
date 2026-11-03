@@ -1,0 +1,9 @@
+[package]
+name = "probe-live"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+angel-delve = { path = "../delve" }
+ra-jit-live = "0.1"

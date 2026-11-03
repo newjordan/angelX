@@ -157,15 +157,7 @@ impl Tool for GpuStatTool {
         "gpu_stat"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "gpu_stat".to_string(),
-            description: "Read-only snapshot of the local GPUs: utilization, VRAM used/total, \
-                          temperature, power draw, driver, and the compute processes holding \
-                          VRAM. Tries nvidia-smi, then rocm-smi, then xpu-smi. Never mutates \
-                          anything."
-                .to_string(),
-            params: serde_json::json!({ "type": "object", "properties": {} }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("gpu_stat")
     }
     fn call(&self, _args: &Value) -> Result<String, String> {
         let mut attempts = Vec::new();
@@ -225,13 +217,7 @@ impl Tool for FleetStatusTool {
         "fleet_status"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "fleet_status".to_string(),
-            description: "Read-only Tailscale fleet snapshot: each peer's hostname, tailnet IP, \
-                          OS, and online/offline state. ⠱⠛"
-                .to_string(),
-            params: serde_json::json!({ "type": "object", "properties": {} }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("fleet_status")
     }
     fn call(&self, _args: &Value) -> Result<String, String> {
         run_recon("tailscale", &["status"], 15).map_err(|e| {
@@ -251,13 +237,7 @@ impl Tool for VastInstancesTool {
         "vast_instances"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "vast_instances".to_string(),
-            description: "Read-only list of the account's Vast.ai instances (id, machine, GPU, \
-                          status, $/hr). ⠱⠓"
-                .to_string(),
-            params: serde_json::json!({ "type": "object", "properties": {} }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("vast_instances")
     }
     fn call(&self, _args: &Value) -> Result<String, String> {
         run_recon("vastai", &["show", "instances"], 20).map_err(|e| {

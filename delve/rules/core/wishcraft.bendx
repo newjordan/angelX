@@ -1,0 +1,104 @@
+# crates/delve/src/rules/wishcraft.rs — wishes made literal: what a player's words promise, done in the game.
+
+def wishcraft.rate_pct(beat: U32) -> U32:
+    if U32.is_zero(beat):
+        return 100
+    return RS.u_clamp(RS.u_isqrt(U32.div((10000 * beat : U32), wishcraft.BEAT_REF())), wishcraft.RATE_MIN_PCT(), wishcraft.RATE_MAX_PCT())
+
+# A wished shot carries one of the wish words.
+def wishcraft.Projectile.wished(p: J.Val) -> Bool:
+    t: J.Val = J.get(p, "traits")
+    return Bool.or(Bool.or(U32.is_gt(core.u(t, "size"), 0), U32.is_gt(core.u(t, "burn"), 0)), Bool.or(Bool.or(U32.is_gt(core.u(t, "chill"), 0), U32.is_gt(core.u(t, "poison"), 0)), core.b(t, "boomerang")))
+
+def wishcraft.Projectile.sized(p: J.Val) -> Bool:
+    t: J.Val = J.get(p, "traits")
+    return Bool.and(Bool.not(core.b(p, "hostile")), Bool.and(U32.is_gt(core.u(t, "owner"), 0), Bool.not(core.b(t, "borrowed"))))
+
+def wishcraft.Projectile.scale(p: J.Val) -> F32:
+    if Bool.not(wishcraft.Projectile.sized(p)):
+        return 1.0
+    t: J.Val = J.get(p, "traits")
+    size: U32 = (100 + wishcraft.SIZE_STEP_PCT() * U32.min(core.u(t, "size"), 3) : U32)
+    pct: U32 = (wishcraft.BASE_PCT() * wishcraft.rate_pct(core.u(t, "beat")) * size : U32)
+    return (RS.u_as_f32(U32.max(pct, (wishcraft.FLOOR_PCT() * 10000 : U32))) / 1000000.0 : F32)
+
+def wishcraft.Projectile.reach(p: J.Val) -> F32:
+    t: J.Val = J.get(p, "traits")
+    if Bool.not(wishcraft.Projectile.sized(p)):
+        return (wishcraft.SIZE_REACH() * RS.u_as_f32(U32.min(core.u(t, "size"), 3)) : F32)
+    return (wishcraft.HIT_REACH() * RS.f_max((wishcraft.Projectile.scale(p) - (RS.u_as_f32(wishcraft.BASE_PCT()) / 100.0 : F32) : F32), 0.0) : F32)
+
+def wishcraft.Projectile.tint(p: J.Val) -> String?:
+    t: J.Val = J.get(p, "traits")
+    if U32.is_gt(core.u(t, "burn"), 0):
+        return Some{"burn"}
+    if U32.is_gt(core.u(t, "chill"), 0):
+        return Some{"chill"}
+    if U32.is_gt(core.u(t, "poison"), 0):
+        return Some{"poison"}
+    return None{}
+
+# This tick's knights' shots as they leave, shaped by their wishes.
+def wishcraft.shape(shots: J.Val) -> J.Val:
+    out: [J.Val] = []
+    for s: J.Val in J.items(shots):
+        t: J.Val = J.get(s, "traits")
+        if Bool.and(Bool.not(core.b(s, "hostile")), U32.is_gt(core.u(t, "owner"), 0)):
+            if U32.is_gt(core.u(t, "burn"), 0):
+                t = core.set_b_skip(t, "fire", True{})
+            if U32.is_gt(core.u(t, "velocity"), 0):
+                k: F32 = ((100.0 + RS.u_as_f32(core.u(t, "velocity")) : F32) / 100.0 : F32)
+                s = core.set_f(core.set_f(s, "vx", (core.f(s, "vx") * k : F32)), "vy", (core.f(s, "vy") * k : F32))
+                s = core.set_u(s, "ttl", RS.f_as_u32(F32.ceil((RS.u_as_f32(core.u(s, "ttl")) / k : F32))))
+            if Bool.and(core.b(t, "boomerang"), U32.is_zero(core.u(t, "back"))):
+                o: U32 = RS.u_clamp(core.u(s, "ttl"), 4, 65535)
+                t = core.set_u(t, "back", 1)
+                t = core.set_u(t, "out", o)
+                s = core.set_u(s, "ttl", (o * 2 + wishcraft.BOOMERANG_HOME() : U32))
+            s = J.set(s, "traits", t)
+        out = List.append(&2, J.Val, out, [s])
+    return J.JA{out}
+
+# How far a hit shoves, past its kind's own kick.
+def wishcraft.knock(p: J.Val) -> F32:
+    return (feel.knock(core.s(p, "kind")) + (wishcraft.KNOCK_STEP() * RS.u_as_f32(U32.min(core.u(J.get(p, "traits"), "knock"), 3)) : F32) : F32)
+
+# A chilling hit: the monster walks slowly for a while. A guardian shrugs it.
+def wishcraft.chill(enemy: J.Val, bullet: J.Val) -> J.Val:
+    c: U32 = core.u(J.get(bullet, "traits"), "chill")
+    if Bool.and(U32.is_gt(c, 0), Bool.not(desperate.Enemy.is_boss(enemy))):
+        ticks: U32 = (wishcraft.CHILL_FOE() * U32.min(c, 3) : U32)
+        return core.set_u(enemy, "chilled", U32.max(core.u(enemy, "chilled"), ticks))
+    return enemy
+
+# A chilled monster's step: part of the way it went, and its chill wears off a tick.
+def wishcraft.slow(enemy: J.Val, fx: F32, fy: F32, room: J.Val, barred: Bool) -> J.Val:
+    if U32.is_zero(core.u(enemy, "chilled")):
+        return enemy
+    enemy = core.set_u(enemy, "chilled", (core.u(enemy, "chilled") - 1 : U32))
+    return tune.foe_step(enemy, fx, fy, wishcraft.CHILL_PACE(), room, barred)
+
+# A boomerang that stops on a monster turns for home instead of falling. (bullet, turned)
+def wishcraft.turn_home(bullet: J.Val) -> (J.Val, Bool):
+    t: J.Val = J.get(bullet, "traits")
+    if Bool.and(core.b(t, "boomerang"), U32.is_eq(core.u(t, "back"), 1)):
+        t = core.set_u(core.set_u(t, "back", 2), "out", 0)
+        return (J.set(bullet, "traits", t), True{})
+    return (bullet, False{})
+
+# A homing boomerang's speed back to the hand: its own (the thrown blade's is the blade's).
+def wishcraft.home_speed(bullet: J.Val, blade: F32) -> F32:
+    if core.b(J.get(bullet, "traits"), "boomerang"):
+        return RS.f_max(RS.f_hypot(core.f(bullet, "vx"), core.f(bullet, "vy")), 1.0)
+    return blade
+
+# Poisoning hits this tick: (the foe, the knight, how strong). The gas skill's poison, N times over.
+def wishcraft.Run.poison_hits(run: J.Val, hits: J.Val) -> J.Val:
+    for hit: J.Val in J.items(hits):
+        foe: U32 = J.u32(J.nth(hit, 0))
+        owner: U32 = J.u32(J.nth(hit, 1))
+        n: U32 = J.u32(J.nth(hit, 2))
+        h: J.Val = core.hero(run, owner)
+        base: U32 = Bool.pick(U32, J.is_null(h), skills.POISON_BASE(), hero.Hero.scaled(h, skills.POISON_BASE()))
+        run = J.set(run, "works", J.set(J.get(run, "works"), "banes", skills.afflict(J.get(J.get(run, "works"), "banes"), foe, "poison", (base * RS.u_clamp(n, 1, 3) : U32), owner)))
+    return run

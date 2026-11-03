@@ -315,7 +315,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "bannerpeak.tiles",
-  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.tiles/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/bannerpeak.tiles/v01/source-sheet.png",
   "source_sha256": "2030b019a65f1ea1af610ff431310b61ad7e676bd42d49655988ffce2e638844",
   "tool_version": 2
 }

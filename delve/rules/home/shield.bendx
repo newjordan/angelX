@@ -1,0 +1,153 @@
+# crates/delve/src/rules/shield.rs — a raised shield is a barrier at its face. Written in
+# bendx (structured Bend, delve/rules/core/_tools/bendx.py); shield.bend is generated from it.
+# A Hero is its J value; `shield_wear` is left out of it while the wear is fresh.
+
+# `SHIELD_REACH`, `SHIELD_DOWN`, `SHIELD_CALM`, `SHIELD_MEND`, `critters::GUARD_BREAK`.
+def shield.REACH() -> F32:
+    return 0.9
+
+def shield.DOWN() -> U32:
+    return 30
+
+def shield.CALM() -> U32:
+    return 30
+
+def shield.MEND() -> U32:
+    return 60
+
+def shield.GUARD_BREAK() -> U32:
+    return 34
+
+# `SHIELD_ARC.to_radians().cos()`: 65 degrees, `RADS_PER_DEG` = PI / 180 in f32.
+def shield.cos_arc() -> F32:
+    return F32.cos(F32.mul(65.0, F32.div(3.1415927, 180.0)))
+
+# Whether `h`'s raised shield faces what comes along (dx, dy) (the way it travels).
+def shield.turns(h: J.Val, dx: F32, dy: F32) -> Bool:
+    speed: F32 = RS.f_hypot(dx, dy)
+    if Bool.not(core.b(h, "shielding")):
+        return False{}
+    if Bool.not(F32.is_gt(speed, 0.0)):
+        return False{}
+    along: F32 = F32.neg(F32.add(F32.mul(dx, core.f(h, "aim_x")), F32.mul(dy, core.f(h, "aim_y"))))
+    return F32.is_ge(F32.div(along, speed), shield.cos_arc())
+
+# The point on `h`'s shield face (round the centre) that looks toward a point; the face's
+# middle when that is off the arc.
+def shield.face(h: J.Val, cx: F32, cy: F32, tx: F32, ty: F32) -> (F32, F32):
+    (ux: F32, uy: F32) = rules.unit(F32.sub(tx, cx), F32.sub(ty, cy))
+    if F32.is_lt(F32.add(F32.mul(ux, core.f(h, "aim_x")), F32.mul(uy, core.f(h, "aim_y"))), shield.cos_arc()):
+        ux = core.f(h, "aim_x")
+        uy = core.f(h, "aim_y")
+    return (F32.add(cx, F32.mul(ux, shield.REACH())), F32.add(cy, F32.mul(uy, shield.REACH())))
+
+# Where a step from a to b first comes within `r` of c, as a share of the step.
+def shield.entry(ax: F32, ay: F32, bx: F32, by: F32, cx: F32, cy: F32, r: F32) -> F32?:
+    dx: F32 = F32.sub(bx, ax)
+    dy: F32 = F32.sub(by, ay)
+    fx: F32 = F32.sub(ax, cx)
+    fy: F32 = F32.sub(ay, cy)
+    start: F32 = F32.sub(F32.add(F32.mul(fx, fx), F32.mul(fy, fy)), F32.mul(r, r))
+    if F32.is_le(start, 0.0):
+        return Some{0.0}
+    along: F32 = F32.add(F32.mul(dx, dx), F32.mul(dy, dy))
+    if F32.is_le(along, 0.0):
+        return None{}
+    half: F32 = F32.add(F32.mul(fx, dx), F32.mul(fy, dy))
+    disc: F32 = F32.sub(F32.mul(half, half), F32.mul(along, start))
+    if F32.is_lt(disc, 0.0):
+        return None{}
+    t: F32 = F32.div(F32.sub(F32.neg(half), F32.sqrt(disc)), along)
+    if Bool.and(F32.is_ge(t, 0.0), F32.is_le(t, 1.0)):
+        return Some{t}
+    return None{}
+
+# What a hostile shot stepping from a to b meets at `h`, whose middle is at (cx, cy) and whose
+# body a shot touches within `body`: the raised shield's face first, or the body. None if it
+# passes them by. {t, shield, at: [x, y]}.
+def shield.meets(h: J.Val, cx: F32, cy: F32, ax: F32, ay: F32, bx: F32, by: F32, body: F32) -> J.Val?:
+    # The face: crossing into the shield's reach within its arc.
+    if core.b(h, "shielding"):
+        match (shield.entry(ax, ay, bx, by, cx, cy, shield.REACH()) : F32?):
+            case Some{tt: F32}:
+                if F32.is_gt(tt, 0.0):
+                    px: F32 = F32.add(ax, F32.mul(F32.sub(bx, ax), tt))
+                    py: F32 = F32.add(ay, F32.mul(F32.sub(by, ay), tt))
+                    (ux: F32, uy: F32) = rules.unit(F32.sub(px, cx), F32.sub(py, cy))
+                    if F32.is_ge(F32.add(F32.mul(ux, core.f(h, "aim_x")), F32.mul(uy, core.f(h, "aim_y"))), shield.cos_arc()):
+                        return Some{shield.meet_json(tt, True{}, px, py)}
+            case None{}:
+                tt0: F32 = 0.0
+    if Bool.not(rules.hit_segment(ax, ay, bx, by, cx, cy, body)):
+        return None{}
+    tt: F32 = 0.0
+    match (shield.entry(ax, ay, bx, by, cx, cy, body) : F32?):
+        case Some{e: F32}:
+            tt = e
+        case None{}:
+            tt = 0.0
+    if shield.turns(h, F32.sub(bx, ax), F32.sub(by, ay)):
+        # Already inside the face's reach, coming at it: stopped on the face, toward where it
+        # came from.
+        (fx: F32, fy: F32) = shield.face(h, cx, cy, ax, ay)
+        return Some{shield.meet_json(tt, True{}, fx, fy)}
+    return Some{shield.meet_json(tt, False{}, bx, by)}
+
+def shield.meet_json(t: F32, shield: Bool, x: F32, y: F32) -> J.Val:
+    return J.set(J.set(J.set(J.obj(), "t", J.JF{t}), "shield", J.JBool{shield}), "at", J.JA{[J.JF{x}, J.JF{y}]})
+
+# `Wear::most`: the most a knight of `max_hp` health's shield turns before it is knocked aside,
+# in hundredths of a point.
+def shield.Wear.most(max_hp: U32) -> U32:
+    return (U32.max(max_hp, 1) * shield.GUARD_BREAK() : U32)
+
+# `Wear::fresh`: unworn and in hand.
+def shield.Wear.fresh(w: J.Val) -> Bool:
+    return Bool.and(U32.is_zero(core.u(w, "worn")), Bool.and(U32.is_zero(core.u(w, "calm")), U32.is_zero(core.u(w, "down"))))
+
+# `Wear::left`: how much more it can turn, 1 unworn to 0 knocked aside.
+def shield.Wear.left(w: J.Val, max_hp: U32) -> F32:
+    if U32.is_gt(core.u(w, "down"), 0):
+        return 0.0
+    return F32.sub(1.0, F32.min(F32.div(U32.to_f32(core.u(w, "worn")), U32.to_f32(shield.Wear.most(max_hp))), 1.0))
+
+# `Wear::back`: knocked aside, how far it has come back.
+def shield.Wear.back(w: J.Val) -> F32:
+    return F32.sub(1.0, F32.div(U32.to_f32(U32.min(core.u(w, "down"), shield.DOWN())), U32.to_f32(shield.DOWN())))
+
+# `Wear::rest`: a tick: a shield knocked aside comes back to hand, and once calm the wear drains.
+def shield.Wear.rest(w: J.Val, max_hp: U32) -> J.Val:
+    if U32.is_gt(core.u(w, "down"), 0):
+        return core.set_u_skip(w, "down", (core.u(w, "down") - 1 : U32))
+    if U32.is_gt(core.u(w, "calm"), 0):
+        return core.set_u_skip(w, "calm", (core.u(w, "calm") - 1 : U32))
+    return core.set_u_skip(w, "worn", core.usub(core.u(w, "worn"), core.div_ceil(shield.Wear.most(max_hp), shield.MEND())))
+
+# `Wear::take`: it turned `damage`; the wear after, and whether that knocked it aside.
+def shield.Wear.take(w: J.Val, damage: U32, max_hp: U32) -> (J.Val, Bool):
+    w = core.set_u(w, "turned", core.uadd(core.u(w, "turned"), damage))
+    w = core.set_u_skip(w, "worn", core.uadd(core.u(w, "worn"), (U32.max(damage, 1) * 100 : U32)))
+    w = core.set_u_skip(w, "calm", shield.CALM())
+    if U32.is_lt(core.u(w, "worn"), shield.Wear.most(max_hp)):
+        return (w, False{})
+    w = core.set_u_skip(core.set_u_skip(core.set_u_skip(w, "worn", 0), "calm", 0), "down", shield.DOWN())
+    return (w, True{})
+
+# `Hero::shield_turned`: this knight's raised shield turned `damage`: it wears. The knight after,
+# and whether that knocked it aside (then it drops).
+def shield.Hero.shield_turned(h: J.Val, damage: U32) -> (J.Val, Bool):
+    w: J.Val = J.get(h, "shield_wear")
+    if Bool.not(String.eq(core.s(h, "guard"), "shield")):
+        w = core.set_u(w, "turned", core.uadd(core.u(w, "turned"), damage))
+        return (shield.Hero.put_wear(h, w), False{})
+    (w2: J.Val, knocked: Bool) = shield.Wear.take(w, damage, core.u(h, "max_hp"))
+    h = shield.Hero.put_wear(h, w2)
+    if knocked:
+        h = core.set_b(h, "shielding", False{})
+    return (h, knocked)
+
+# The hero with its wear written back (left out while fresh).
+def shield.Hero.put_wear(h: J.Val, w: J.Val) -> J.Val:
+    if shield.Wear.fresh(w):
+        return J.del(h, "shield_wear")
+    return J.set(h, "shield_wear", w)

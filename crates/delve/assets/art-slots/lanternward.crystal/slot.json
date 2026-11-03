@@ -229,7 +229,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "lanternward.crystal",
-  "source_path": "/work/artifacts/art-prod-rt/slots/lanternward.crystal/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/lanternward.crystal/v01/source-sheet.png",
   "source_sha256": "facce1627165f33b8527bca8d694c96a1d33dc0001df5392856471284515cf5c",
   "tool_version": 2
 }

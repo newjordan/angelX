@@ -1,0 +1,36 @@
+==================== A_ground_open
+  e-save-decoy truth=nothing happened       -> NO   | 'ter_use", "arguments": {"action": "click", "coordinate": [697, 630], "button": "left"}}\n</tool_call>'
+  e-save-real  truth=miss: clicked Export report -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [491, 750], "button": "left"}}\n</tool_call>'
+  e-print-decoy truth=nothing happened       -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [563, 366], "button": "left"}}\n</tool_call>'
+  e-print-real truth=activated              -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [498, 748], "button": "left"}}\n</tool_call>'
+  e-share-real truth=activated              -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [460, 250], "button": "left"}}\n</tool_call>'
+==================== B_neutral_open
+  e-save-decoy truth=nothing happened       -> NO   | ' changed, NO if it did not. One word only: YES or NO.\n</think>\n\nThe click landed at the exact centre'
+  e-save-real  truth=miss: clicked Export report -> NO   | ' "click", "arguments": {"action": "click", "coordinate": [491, 750], "button": "left"}}\n</tool_call>'
+  e-print-decoy truth=nothing happened       -> YES  | 'eled buttons. In the top toolbar, I can see buttons for Sv, Pr, Sh, Un, Re, Zm, plus At, Se, St, and'
+  e-print-real truth=activated              -> NO   | 'k", "arguments": {"name": "click", "coordinate": [500, 749], "coordinate": [500, 749]}}\n</tool_call>'
+  e-share-real truth=activated              -> YES  | 'the share action is already engaged, the click may simply confirm it; either way, the immediate next'
+==================== C_neutral_prefill
+  e-save-decoy truth=nothing happened       -> ???  | '<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>\n\n<think>\n<think>'
+  e-save-real  truth=miss: clicked Export report -> ???  | '<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>'
+  e-print-decoy truth=nothing happened       -> ???  | '<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>'
+  e-print-real truth=activated              -> ???  | '<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>'
+  e-share-real truth=activated              -> ???  | '<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>\n\n<think>\n</think>'
+==================== D_ground_labelled
+  e-save-decoy truth=nothing happened       -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [219, 512], "button": "left"}}\n</tool_call>'
+  e-save-real  truth=miss: clicked Export report -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [491, 750], "button": "left"}}\n</tool_call>'
+  e-print-decoy truth=nothing happened       -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [563, 364], "button": "left"}}\n</tool_call>'
+  e-print-real truth=activated              -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [498, 748], "button": "left"}}\n</tool_call>'
+  e-share-real truth=activated              -> ???  | 'ter_use", "arguments": {"action": "click", "coordinate": [458, 176], "button": "left"}}\n</tool_call>'
+==================== E_neutral_labelled
+  e-save-decoy truth=nothing happened       -> NO   | 'nel, I can’t confidently say the click activated Save. So I’ll answer NO for this step.\n</think>\n\nNO'
+  e-save-real  truth=miss: clicked Export report -> ???  | 'tended action for the current step.\n\nBecause the click is centered and the target is a button rather'
+  e-print-decoy truth=nothing happened       -> ???  | 'print-related action from the visible controls.\n\nBecause the click is supposed to land at the center'
+  e-print-real truth=activated              -> ???  | 'tied to that toolbar control, this should trigger the print action; if not, the next screenshot will'
+  e-share-real truth=activated              -> YES  | 'f the icon changed or the panel responded; NO if nothing happened.\n</think>\nThe image has two panels'
+==================== F_neutral_plain
+  e-save-decoy truth=nothing happened       -> NO   | 'us modal or confirmation dialog.\n\nGiven the instruction that the click is centered and the region is'
+  e-save-real  truth=miss: clicked Export report -> NO   | ' and three buttons in each panel. In the lower panel, the “Export report” button is visibly outlined'
+  e-print-decoy truth=nothing happened       -> NO   | "'t show any print-specific controls or a print dialog, I can't confirm that Print was activated from"
+  e-print-real truth=activated              -> ???  | 'sking whether clicking activates Print, and the only clear “Pr” control on the screen is the one I’m'
+  e-share-real truth=activated              -> ???  | 'ng at the current screen and it shows two identical “TOOLBAR” panels stacked vertically, each with a'

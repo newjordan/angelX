@@ -1,0 +1,72 @@
+# crates/delve/src/rules/gear.rs — what a knight still wears.
+
+# Pieces of mail and helm as the knight's health stands: 0 whole, 1 bare-headed, 2 in smallclothes.
+def gear.stage(hp: U32, max_hp: U32) -> U32:
+    if U32.is_le((hp * 100 : U32), (max_hp * gear.SMALLCLOTHES() : U32)):
+        return 2
+    if U32.is_le((hp * 100 : U32), (max_hp * gear.HELM_OFF() : U32)):
+        return 1
+    return 0
+
+def gear.Hero.unarmed(h: J.Val) -> Bool:
+    return Bool.and(String.eq(core.s(h, "weapon"), "fists"), J.is_null(J.get(h, "forged")))
+
+def gear.Hero.holds_shield(h: J.Val) -> Bool:
+    return gear.guard_is(J.get(h, "guard"), "shield")
+
+# `cards::Guard` in its serde shape: a unit variant is its snake_case name, `Wall` carries its stats.
+def gear.guard_is(g: J.Val, name: String) -> Bool:
+    return String.eq(J.str(g), name)
+
+def gear.Hero.helmet_worn(h: J.Val) -> Bool:
+    own: Bool = core.b(J.get(h, "owned"), "helmet")
+    bare: U32 = gear.pit_bare(J.get(h, "pit"))
+    return Bool.and(own, Bool.and(U32.is_zero(gear.stage(core.u(h, "hp"), core.u(h, "max_hp"))), U32.is_zero(bare)))
+
+# `pit.bare().unwrap_or(0)`
+def gear.pit_bare(pit: J.Val) -> U32:
+    match (pitstop.Pit.bare(pit) : U32?):
+        case Some{n: U32}:
+            return n
+        case None{}:
+            return 0
+
+def gear.Hero.dress(h: J.Val) -> J.Val:
+    h = core.set_u(h, "pop", core.usub(core.u(h, "pop"), 1))
+    h = J.set(h, "pit", pitstop.Pit.tick(J.get(h, "pit")))
+    if U32.is_zero(core.u(h, "hp")):
+        return h
+    # Mid pit stop the straps decide, if they have come off further.
+    health: U32 = U32.max(gear.stage(core.u(h, "hp"), core.u(h, "max_hp")), gear.pit_bare(J.get(h, "pit")))
+    owned: J.Val = J.get(h, "owned")
+    now: U32 = health
+    if Bool.not(core.b(owned, "body")):
+        now = 2
+    elif Bool.not(core.b(owned, "helmet")):
+        now = U32.max(health, 1)
+    was: U32 = core.u(h, "gear")
+    if U32.is_gt(now, was):
+        h = core.set_u(h, "gear_was", was)
+        h = core.set_u(h, "pop", gear.POP_TICKS())
+    elif U32.is_lt(now, was):
+        h = core.set_u(h, "pop", 0)
+    return core.set_u(h, "gear", now)
+
+# `wear_piece`: a piece of kit put on.
+def gear.Hero.wear_piece(h: J.Val, id: String) -> J.Val:
+    owned: J.Val = J.get(h, "owned")
+    if String.eq(id, "iron-helm"):
+        return gear.Hero.dress(J.set(h, "owned", core.set_b(owned, "helmet", True{})))
+    if String.eq(id, "body-armour"):
+        return gear.Hero.dress(J.set(h, "owned", core.set_b(owned, "body", True{})))
+    if String.eq(id, "kite-shield"):
+        return gear.Hero.dress(J.set(h, "owned", core.set_b(owned, "shield", True{})))
+    return h
+
+# `Hero::kept`: what a knight carries home.
+def gear.Hero.kept(h: J.Val) -> J.Val:
+    k: J.Val = J.obj()
+    k = J.set(k, "owned", J.get(h, "owned"))
+    k = J.set(k, "weapon", J.get(h, "weapon"))
+    k = J.set(k, "arm", J.get(h, "arm"))
+    return J.set(k, "guard", J.get(h, "guard_card"))

@@ -1,0 +1,41 @@
+# crates/delve/src/rules/pit.rs: the beast in the Pit.
+import Base
+
+def pit.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds, Bool):
+  if Bool.not(String.eq(enemy.kind, "pit_tyrant")):
+    return (enemy, shots, deeds, False{})
+  target: (F32, F32)? = cb.nearest2(heroes, enemy.x, enemy.y)
+  tx: F32 = enemy.x
+  ty: F32 = enemy.y
+  match (target : (F32, F32)?):
+    case Some{t: (F32, F32)}:
+      (tx, ty) = t
+    case None{}:
+      tx = tx
+  seen: Bool = Maybe.is_some(&2, Sigma<&2, &2, F32, _ => F32>, target)
+  &(cx: F32, cy: F32) = rules.unit((tx - enemy.x : F32), (ty - enemy.y : F32))
+  dist: F32 = cb.hyp((tx - enemy.x : F32), (ty - enemy.y : F32))
+  enemy.timer = (enemy.timer + 1 : U32)
+  enraged: Bool = U32.is_lt((enemy.hp * 3 : U32), enemy.max_hp)
+  every: U32 = Bool.pick(U32, enraged, pit.SLAM_EVERY_ENRAGED(), pit.SLAM_EVERY())
+  if U32.is_eq(enemy.stage, 0):
+    &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), ((cx * 1.6 * rules.DT() : F32), (cy * 1.6 * rules.DT() : F32)), monsters.Enemy.radius(enemy), 1)
+    enemy.x = nx
+    enemy.y = ny
+    if Bool.and(Bool.and(U32.is_ge(enemy.timer, every), seen), (dist < (pit.SLAM_REACH() + 5.0 : F32) : F32)):
+      enemy.stage = 1
+      enemy.timer = 0
+      deeds.slams = J.push(deeds.slams, cb.of_pair(enemy.x, enemy.y))
+      deeds = foes.cue(deeds, "pit_slam")
+  elif U32.is_ge(enemy.timer, pit.SLAM_WINDUP()):
+    enemy.stage = 0
+    enemy.timer = 0
+  beat: U32 = (enemy.timer + enemy.id * 7 : U32)
+  every = desperate.Enemy.beat(enemy, 90)
+  if Bool.and(Bool.and(U32.is_eq(enemy.stage, 0), U32.is_eq(U32.mod(beat, every), (every / 2 : U32))), seen):
+    aim: F32 = RS.f_atan2((ty - enemy.y : F32), (tx - enemy.x : F32))
+    for k0: U32 in cb.range(5):
+      angle: F32 = (aim + RS.i_as_f32(RS.i_sub(k0, 2)) * 0.18 : F32)
+      shots = J.push(shots, patterns.Projectile.fresh(enemy.x, enemy.y, (F32.cos(angle) * 7.0 : F32), (F32.sin(angle) * 7.0 : F32), True{}, "ember", 14, (8 * rules.HZ() : U32), patterns.ShotTraits.default()))
+  (enemy, shots, deeds) = desperate.last_stand(enemy, target, shots, deeds)
+  (enemy, shots, deeds, True{})

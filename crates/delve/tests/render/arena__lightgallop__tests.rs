@@ -27,8 +27,9 @@ fn the_road_draws_on_both_routes_and_at_every_seat_count() {
     }
 }
 
-use super::super::{art_v2, frame_for};
-use crate::rules::lightgallop::{bot::Route, rider::Numbers};
+use super::super::frame_for;
+use crate::rules::lightgallop::legacy::{RiderOracle, SessionOracle};
+use crate::rules::lightgallop::{oracle::Route, rider::Numbers};
 
 /// Step the table with bots until `done`, at most `limit` ticks.
 fn ride_until(r: &mut Run, route: Route, limit: u32, done: impl Fn(&Run) -> bool) {
@@ -596,7 +597,7 @@ fn write_lightgallop_review() {
                 let s = r.lightgallop.as_ref().unwrap();
                 let nn = Numbers::default();
                 let inputs: BTreeMap<u32, crate::rules::Input> =
-                    s.seats.keys().map(|&id| (id, s.drive_as(id, Route::Upper, &nn, crate::rules::lightgallop::bot::Skill::FIRST_RIDE))).collect();
+                    s.seats.keys().map(|&id| (id, s.drive_as(id, Route::Upper, &nn, crate::rules::lightgallop::oracle::Skill::FIRST_RIDE))).collect();
                 r.step(&inputs);
             }
         }
@@ -606,7 +607,7 @@ fn write_lightgallop_review() {
             let s = r.lightgallop.as_ref().unwrap();
             let nn = Numbers::default();
             let inputs: BTreeMap<u32, crate::rules::Input> =
-                s.seats.keys().map(|&id| (id, s.drive_as(id, Route::Upper, &nn, crate::rules::lightgallop::bot::Skill::FIRST_RIDE))).collect();
+                s.seats.keys().map(|&id| (id, s.drive_as(id, Route::Upper, &nn, crate::rules::lightgallop::oracle::Skill::FIRST_RIDE))).collect();
             r.step(&inputs);
             if t == 24 || t == 50 {
                 let k = &r.lightgallop.as_ref().unwrap().seats[&1].rider;
@@ -726,7 +727,7 @@ fn write_lightgallop_review() {
         let mut r = party(seats);
         ride_until(&mut r, Route::Upper, 900, |_| false);
         save(&format!("seats{seats}-1x"), &frame_for(&r, 384, 224, Some(2.min(seats))));
-        let (base, _) = art_v2::terminal_layers(&r, Some(1)).unwrap();
+        let (base, _) = super::super::terminal_layers(&r, Some(1)).unwrap();
         save(&format!("seats{seats}-terminal-layers"), &base);
     }
     // The words: the title card and the keys, a fall, the bell, and the tally

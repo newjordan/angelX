@@ -1,0 +1,21 @@
+# The Reaver's own: a bearded axe in each fist.
+name   Raider Axes
+kind   arm
+rarity relic
+text   Hold F: quick double chops, left blade then right.
+drop   0
+chest  0
+look   steel blade
+melee  damage=23 reach=2.6 arc=150 every=10
+art
+.xx.......xx.
+xHix.....xiHx
+xHhix...xihHx
+xhhhix.xihhhx
+.xxhxBxBxhxx.
+...xxbBbxx...
+....xBxBx....
+...xBx.xBx...
+..xBx...xBx..
+.xbx.....xbx.
+.xx.......xx.

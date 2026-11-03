@@ -45,8 +45,7 @@ pub struct MapView {
 pub const KEY: &str = "N";
 
 /// The panels' tone: a well of the realm's UI paper (the near-black `K`,
-/// which the second art kit restyles and lets its mist tint, and which no
-/// cue is ever drawn in) in a dim brass rim.
+/// which no cue is ever drawn in) in a dim brass rim.
 const PANEL_TONE: Tone = Tone {
     lip: None,
     fill: &[rgb(0x151614)],
@@ -133,7 +132,23 @@ pub(super) fn band_minimap(run: &Run, focus: Option<u32>) -> Option<Img> {
     if !shown(run, focus) {
         return None;
     }
-    minimap_panel(&run.floor_map(focus), false)
+    let mut im = minimap_panel(&run.floor_map(focus), false)?;
+    // On the delivered HUD kit, the panel wears the action plates' rim, so
+    // the band's plates and its map are one set of frames.
+    if super::hud_art::enabled(run) {
+        let (w, h) = (im.w, im.h);
+        super::hud_art::rim(&mut im, "ready", (0, 0, w, h), 3);
+    }
+    Some(im)
+}
+
+/// Whether the HUD's band shows the minimap (`band_minimap` draws one),
+/// without drawing it.
+pub(super) fn band_minimap_shown(run: &Run, focus: Option<u32>) -> bool {
+    shown(run, focus) && {
+        let map = run.floor_map(focus);
+        map.here.and_then(|here| map.node(here)).is_some()
+    }
 }
 
 /// The minimap's panel, with the caption that names its key or without.
@@ -189,9 +204,13 @@ fn minimap_panel(map: &FloorMap, caption: bool) -> Option<Img> {
 /// A room on the minimap: nine pixels, its corners cut.
 fn mini_node(im: &mut Img, (x, y, w, h): (i32, i32, i32, i32), node: &Node, here: bool) {
     // Rims bright enough to be a cue's; the well inside is UI paper.
+    // A room the seat's own mission names keeps the pennant's amber rim,
+    // whatever its mark: the minimap shows only one mark a room.
+    let mission = node.icons.contains(&Icon::Mission);
     let (rim, fill) = match (node.state, here) {
         (_, true) => ('O', Some('k')),
         (NodeState::Seen, _) => ('G', None),
+        _ if mission => ('@', Some('k')),
         (NodeState::Visited, _) => ('r', Some('k')),
         _ => ('u', Some('k')),
     };
@@ -454,6 +473,7 @@ fn name_of(icon: Icon) -> &'static str {
         Icon::Nook => "NOOK",
         Icon::Forge => "FORGE",
         Icon::Hold => "STEWARD",
+        Icon::Mission => "MISSION",
     }
 }
 
@@ -631,6 +651,8 @@ pub fn glyph(icon: Icon) -> Img {
         Icon::Forge => &["JJJJJ", ".JJJ.", "..J..", ".JJJ.", "....."],
         // A banner.
         Icon::Hold => &["ooooo", "oOOOo", "ooooo", "o.ooo", "o...."],
+        // A pennant on its pole, in the missions' amber (`missions`).
+        Icon::Mission => &["J@@@.", "J@@@@", "J444.", "J....", "J...."],
     })
 }
 

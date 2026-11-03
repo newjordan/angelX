@@ -7,6 +7,322 @@ const MAX_MANIFEST_BYTES: u64 = 128 * 1024;
 const MAX_FILES: usize = 256;
 const MAX_ENTRIES: usize = 10_000;
 
+/// The live leg that owns the verifier's planning decision. Every filesystem and
+/// lexical job stays in Rust: manifest reads, confinement, globbing, source
+/// discovery, argv text and the byte limits become the facts below, and the leg
+/// answers which step runs and which request is refused.
+const VERIFY_PLAN: &str = "verify-plan";
+
+/// Step codes shared with `cockpit/live/verify-plan`; `step_contract` keeps a
+/// live answer inside this table.
+const ROUTE_RUST: u32 = 0;
+const ROUTE_GO: u32 = 1;
+const ROUTE_VERIFY: u32 = 2;
+const ROUTE_REJECT: u32 = 3;
+
+const RUNTIME_NONE: u32 = 0;
+const RUNTIME_NODE: u32 = 1;
+const RUNTIME_PYTHON: u32 = 2;
+const RUNTIME_GO: u32 = 3;
+
+const MODE_NONE: u32 = 0;
+const MODE_CHECK: u32 = 1;
+const MODE_TESTS: u32 = 2;
+
+const DRIVER_NONE: u32 = 0;
+const DRIVER_NODE_TESTS: u32 = 1;
+const DRIVER_PYTEST: u32 = 2;
+const DRIVER_UNITTEST: u32 = 3;
+
+const REJECT_NONE: u32 = 0;
+const REJECT_AMBIGUOUS_LANGUAGE: u32 = 1;
+const REJECT_LINT_UNSUPPORTED: u32 = 2;
+const REJECT_GO_NEEDS_TESTS: u32 = 3;
+
+const RUNTIME_REQUEST: &str = "runtime must be auto, rust, node, or python";
+const AMBIGUOUS_LANGUAGE: &str = "root language is absent or ambiguous; set runtime explicitly to rust, node, or python (subprojects need their own workspace)";
+const LINT_UNSUPPORTED: &str = "no trusted {} linter adapter is installed; syntax checking is available through check, while custom linters can run through shell without trusted verification credit";
+const GO_NEEDS_TESTS: &str = "Go adapter supports tests only";
+
+/// One planning decision's inputs: the request the tool call made, and the
+/// workspace facts the native planner would have read.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize)]
+pub(super) struct PlanFacts {
+    pub(super) requested: &'static str,
+    pub(super) entrypoint: &'static str,
+    pub(super) kind: &'static str,
+    pub(super) has_cargo_toml: bool,
+    pub(super) has_package_json: bool,
+    pub(super) has_pyproject_toml: bool,
+    pub(super) has_python_setup: bool,
+    pub(super) has_pytest_config: bool,
+}
+
+/// The `verify-plan` leg's answer: which route the plan takes, and the step it
+/// runs when there is one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+pub(super) struct Step {
+    pub(super) route: u32,
+    pub(super) runtime: u32,
+    pub(super) mode: u32,
+    pub(super) driver: u32,
+    pub(super) reject: u32,
+}
+
+impl Step {
+    fn run(route: u32, runtime: u32, mode: u32, driver: u32) -> Self {
+        Self {
+            route,
+            runtime,
+            mode,
+            driver,
+            reject: REJECT_NONE,
+        }
+    }
+
+    fn refuse(reject: u32, runtime: u32) -> Self {
+        Self {
+            route: ROUTE_REJECT,
+            runtime,
+            mode: MODE_NONE,
+            driver: DRIVER_NONE,
+            reject,
+        }
+    }
+}
+
+/// The language a plan may run in, or the fact that the workspace settles none.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Language {
+    Rust,
+    Go,
+    Node,
+    Python,
+    Ambiguous,
+}
+
+fn requested_code(args: &Value) -> Result<&'static str, String> {
+    let Some(value) = args.get("runtime") else {
+        return Ok("auto");
+    };
+    match value.as_str() {
+        Some("auto") => Ok("auto"),
+        Some("rust") => Ok("rust"),
+        Some("go") => Ok("go"),
+        Some("node") => Ok("node"),
+        Some("python") => Ok("python"),
+        _ => Err(RUNTIME_REQUEST.into()),
+    }
+}
+
+fn entrypoint_code(args: &Value) -> &'static str {
+    match args.get("entrypoint") {
+        None => "none",
+        Some(Value::String(value)) => match value.as_str() {
+            "node" => "node",
+            "unittest" => "unittest",
+            "pytest" => "pytest",
+            _ => "other",
+        },
+        Some(_) => "other",
+    }
+}
+
+fn kind_code(kind: Kind) -> &'static str {
+    match kind {
+        Kind::Tests => "tests",
+        Kind::Check => "check",
+        Kind::Lint => "lint",
+    }
+}
+
+/// A workspace with exactly one recognizable language plans for it; none at all,
+/// or several, is refused rather than guessed.
+fn detected(facts: &PlanFacts) -> Language {
+    let python = facts.has_pyproject_toml || facts.has_python_setup;
+    match (facts.has_cargo_toml, facts.has_package_json, python) {
+        (true, false, false) => Language::Rust,
+        (false, true, false) => Language::Node,
+        (false, false, true) => Language::Python,
+        _ => Language::Ambiguous,
+    }
+}
+
+fn auto_language(facts: &PlanFacts) -> Language {
+    match facts.entrypoint {
+        "node" => Language::Node,
+        "unittest" | "pytest" => Language::Python,
+        _ => detected(facts),
+    }
+}
+
+/// pytest is selected by an explicit request, or by a configured pytest when the
+/// entrypoint is not an explicit unittest one.
+fn python_driver(facts: &PlanFacts) -> u32 {
+    if facts.entrypoint == "pytest"
+        || (facts.entrypoint != "unittest" && facts.has_pytest_config)
+    {
+        DRIVER_PYTEST
+    } else {
+        DRIVER_UNITTEST
+    }
+}
+
+/// Native oracle: the planning decision the live leg must reproduce. The
+/// language is settled first, then the kind; an explicit `rust` request never
+/// reaches a verifier plan.
+#[cfg(test)]
+fn step_native(facts: &PlanFacts) -> Step {
+    let language = match facts.requested {
+        "rust" => Language::Rust,
+        "go" => Language::Go,
+        "node" => Language::Node,
+        "python" => Language::Python,
+        _ => auto_language(facts),
+    };
+    match language {
+        Language::Rust => Step::run(ROUTE_RUST, RUNTIME_NONE, MODE_NONE, DRIVER_NONE),
+        Language::Ambiguous => Step::refuse(REJECT_AMBIGUOUS_LANGUAGE, RUNTIME_NONE),
+        Language::Go => match facts.kind {
+            "tests" => Step::run(ROUTE_GO, RUNTIME_GO, MODE_TESTS, DRIVER_NONE),
+            _ => Step::refuse(REJECT_GO_NEEDS_TESTS, RUNTIME_NONE),
+        },
+        Language::Node | Language::Python => {
+            let runtime = if language == Language::Node {
+                RUNTIME_NODE
+            } else {
+                RUNTIME_PYTHON
+            };
+            match facts.kind {
+                "lint" => Step::refuse(REJECT_LINT_UNSUPPORTED, runtime),
+                "check" => Step::run(ROUTE_VERIFY, runtime, MODE_CHECK, DRIVER_NONE),
+                _ => Step::run(
+                    ROUTE_VERIFY,
+                    runtime,
+                    MODE_TESTS,
+                    if runtime == RUNTIME_NODE {
+                        DRIVER_NODE_TESTS
+                    } else {
+                        python_driver(facts)
+                    },
+                ),
+            }
+        }
+    }
+}
+
+/// Reject a live step the facts cannot justify, so a bad edit keeps the native
+/// plan instead of steering a run. Each clause states an invariant the native
+/// planner already holds, without restating how it decides.
+fn step_contract(facts: &PlanFacts, step: &Step) -> Result<(), String> {
+    if step.route > ROUTE_REJECT
+        || step.runtime > RUNTIME_GO
+        || step.mode > MODE_TESTS
+        || step.driver > DRIVER_UNITTEST
+        || step.reject > REJECT_GO_NEEDS_TESTS
+    {
+        return Err(format!(
+            "verify plan returned a step outside its code table: {step:?}"
+        ));
+    }
+    if (step.route == ROUTE_REJECT) != (step.reject != REJECT_NONE) {
+        return Err("verify plan did not tie its refusal to a reject code".into());
+    }
+    match step.route {
+        ROUTE_RUST => {
+            if step.runtime != RUNTIME_NONE
+                || step.mode != MODE_NONE
+                || step.driver != DRIVER_NONE
+                || facts.requested == "go"
+            {
+                return Err("verify plan routed an explicit non-Cargo request to Cargo".into());
+            }
+        }
+        ROUTE_GO => {
+            if step.runtime != RUNTIME_GO
+                || step.mode != MODE_TESTS
+                || step.driver != DRIVER_NONE
+                || facts.requested != "go"
+                || facts.kind != "tests"
+            {
+                return Err("verify plan gave Go a step its adapter cannot run".into());
+            }
+        }
+        ROUTE_VERIFY => {
+            if facts.requested == "rust" || facts.requested == "go" || facts.kind == "lint" {
+                return Err("verify plan ran a verifier for an explicit non-verifier request".into());
+            }
+            match (step.mode, step.runtime, step.driver) {
+                (MODE_CHECK, RUNTIME_NODE | RUNTIME_PYTHON, DRIVER_NONE) => {}
+                (MODE_TESTS, RUNTIME_NODE, DRIVER_NODE_TESTS) => {}
+                (MODE_TESTS, RUNTIME_PYTHON, DRIVER_PYTEST | DRIVER_UNITTEST) => {}
+                (MODE_TESTS, RUNTIME_GO, DRIVER_NONE) => {}
+                _ => {
+                    return Err(
+                        "verify plan paired a mode with an impossible runtime or driver".into(),
+                    );
+                }
+            }
+            if (step.mode == MODE_CHECK && facts.kind != "check")
+                || (step.mode == MODE_TESTS && facts.kind != "tests")
+            {
+                return Err("verify plan ran a step the caller's tool did not ask for".into());
+            }
+        }
+        _ => {
+            let allowed = match step.reject {
+                REJECT_AMBIGUOUS_LANGUAGE => facts.requested == "auto",
+                REJECT_LINT_UNSUPPORTED => {
+                    facts.kind == "lint" && matches!(step.runtime, RUNTIME_NODE | RUNTIME_PYTHON)
+                }
+                REJECT_GO_NEEDS_TESTS => facts.requested == "go" && facts.kind != "tests",
+                _ => false,
+            };
+            if !allowed || step.mode != MODE_NONE || step.driver != DRIVER_NONE {
+                return Err("verify plan refused a request its facts allow".into());
+            }
+        }
+    }
+    Ok(())
+}
+
+fn refusal(step: &Step) -> String {
+    match step.reject {
+        REJECT_AMBIGUOUS_LANGUAGE => AMBIGUOUS_LANGUAGE.into(),
+        REJECT_LINT_UNSUPPORTED => {
+            let runtime = if step.runtime == RUNTIME_NODE {
+                Runtime::Node
+            } else {
+                Runtime::Python
+            };
+            LINT_UNSUPPORTED.replace("{}", runtime.label())
+        }
+        _ => GO_NEEDS_TESTS.into(),
+    }
+}
+
+/// The shipped leg's answer for one feature record, for the parity tests.
+#[cfg(test)]
+pub(super) fn plan_step_with(
+    facts: &PlanFacts,
+    program: Option<angel_live::Program>,
+) -> (Step, crate::agent::harness::live_policy::LegSource) {
+    let input = serde_json::to_value(facts).unwrap_or(Value::Null);
+    crate::agent::harness::live_policy::decide_with(
+        program,
+        VERIFY_PLAN,
+        &input,
+        |step: &Step| step_contract(facts, step),
+        || step_native(facts),
+    )
+}
+
+/// The native oracle alone, for comparison.
+#[cfg(test)]
+pub(super) fn plan_step_native(facts: &PlanFacts) -> Step {
+    step_native(facts)
+}
+
 pub(super) enum Selection {
     Rust,
     Native(Plan),
@@ -64,18 +380,60 @@ fn manifest(root: &Path, name: &str) -> Result<Option<String>, String> {
 }
 
 pub(super) fn select(kind: Kind, args: &Value, root: &Path) -> Result<Selection, String> {
-    let requested = match args.get("runtime") {
-        None => "auto",
-        Some(Value::String(value)) => value.as_str(),
-        _ => return Err("runtime must be auto, rust, node, or python".into()),
+    let requested = requested_code(args)?;
+    let entrypoint = entrypoint_code(args);
+    // An explicit language settles the plan without reading the workspace; only
+    // `auto` reads the manifests it decides from.
+    let mut facts = PlanFacts {
+        requested,
+        entrypoint,
+        kind: kind_code(kind),
+        has_cargo_toml: false,
+        has_package_json: false,
+        has_pyproject_toml: false,
+        has_python_setup: false,
+        has_pytest_config: false,
     };
-    if requested == "rust" {
+    let mut workspace = None;
+    if !matches!(requested, "rust" | "go") {
+        let resolved =
+            std::fs::canonicalize(root).map_err(|e| format!("resolve verifier workspace: {e}"))?;
+        let package = manifest(&resolved, "package.json")?
+            .map(|text| serde_json::from_str::<Value>(&text))
+            .transpose()
+            .map_err(|e| format!("invalid package.json: {e}"))?;
+        let pyproject = manifest(&resolved, "pyproject.toml")?
+            .map(|text| text.parse::<toml::Value>())
+            .transpose()
+            .map_err(|e| format!("invalid pyproject.toml: {e}"))?;
+        facts.has_cargo_toml = resolved.join("Cargo.toml").is_file();
+        facts.has_package_json = package.is_some();
+        facts.has_pyproject_toml = pyproject.is_some();
+        facts.has_python_setup = ["setup.py", "setup.cfg", "pytest.ini"]
+            .iter()
+            .any(|name| resolved.join(name).is_file());
+        // pytest is configured by an ini, a conftest, or a pyproject table.
+        facts.has_pytest_config = resolved.join("pytest.ini").exists()
+            || resolved.join("conftest.py").exists()
+            || pyproject
+                .as_ref()
+                .and_then(|value| value.get("tool"))
+                .and_then(|value| value.get("pytest"))
+                .is_some();
+        workspace = Some((resolved, package));
+    }
+    let (step, _source) = crate::agent::harness::live_policy::decide_shipped(
+        VERIFY_PLAN,
+        &serde_json::to_value(&facts).unwrap_or(Value::Null),
+        |step: &Step| step_contract(&facts, step),
+    );
+    if step.route == ROUTE_RUST {
         return Ok(Selection::Rust);
     }
-    if requested == "go" {
-        if kind != Kind::Tests {
-            return Err("Go adapter supports tests only".into());
-        }
+    if step.route == ROUTE_REJECT {
+        return Err(refusal(&step));
+    }
+    if step.route == ROUTE_GO {
         let extra =
             crate::agent::tools::build::parse_direct_argv(args["args"].as_str().unwrap_or(""))?;
         let mut argv = vec!["test".into(), "-json".into()];
@@ -109,46 +467,15 @@ pub(super) fn select(kind: Kind, args: &Value, root: &Path) -> Result<Selection,
             checked_files: 0,
         }));
     }
-    let root =
-        std::fs::canonicalize(root).map_err(|e| format!("resolve verifier workspace: {e}"))?;
-    let package = manifest(&root, "package.json")?
-        .map(|text| serde_json::from_str::<Value>(&text))
-        .transpose()
-        .map_err(|e| format!("invalid package.json: {e}"))?;
-    let pyproject = manifest(&root, "pyproject.toml")?
-        .map(|text| text.parse::<toml::Value>())
-        .transpose()
-        .map_err(|e| format!("invalid pyproject.toml: {e}"))?;
-    let runtime = match requested {
-        "node" => Runtime::Node,
-        "python" => Runtime::Python,
-        "auto" if args["entrypoint"] == "node" => Runtime::Node,
-        "auto" if matches!(args["entrypoint"].as_str(), Some("unittest" | "pytest")) => {
-            Runtime::Python
-        }
-        "auto" => {
-            let rust = root.join("Cargo.toml").is_file();
-            let node = package.is_some();
-            let python = pyproject.is_some()
-                || ["setup.py", "setup.cfg", "pytest.ini"]
-                    .iter()
-                    .any(|name| root.join(name).is_file());
-            if usize::from(rust) + usize::from(node) + usize::from(python) != 1 {
-                return Err("root language is absent or ambiguous; set runtime explicitly to rust, node, or python (subprojects need their own workspace)".into());
-            }
-            if rust {
-                return Ok(Selection::Rust);
-            }
-            if node { Runtime::Node } else { Runtime::Python }
-        }
-        _ => return Err("runtime must be auto, rust, node, or python".into()),
+    let Some((root, package)) = workspace else {
+        return Err("verifier planning read no workspace for a plan that needs one".into());
     };
-    if kind == Kind::Lint {
-        return Err(format!(
-            "no trusted {} linter adapter is installed; syntax checking is available through check, while custom linters can run through shell without trusted verification credit",
-            runtime.label()
-        ));
-    }
+    let runtime = match step.runtime {
+        RUNTIME_NODE => Runtime::Node,
+        RUNTIME_PYTHON => Runtime::Python,
+        RUNTIME_GO => Runtime::Go,
+        _ => return Err("verifier planning lost the runtime its step needs".into()),
+    };
     let extra = match args.get("args") {
         None => Vec::new(),
         Some(Value::String(raw)) => parse_direct_argv(raw)?,
@@ -160,7 +487,7 @@ pub(super) fn select(kind: Kind, args: &Value, root: &Path) -> Result<Selection,
         argvs: Vec::new(),
         checked_files: 0,
     };
-    if kind == Kind::Check {
+    if step.mode == MODE_CHECK {
         let files = sources(&root, runtime, &extra)?;
         plan.checked_files = files.len();
         plan.argvs = match runtime {
@@ -194,22 +521,10 @@ pub(super) fn select(kind: Kind, args: &Value, root: &Path) -> Result<Selection,
                 extra,
             )?,
             Runtime::Go => unreachable!("Go selected before manifest discovery"),
-            Runtime::Python => {
-                let configured_pytest = root.join("pytest.ini").exists()
-                    || root.join("conftest.py").exists()
-                    || pyproject
-                        .as_ref()
-                        .and_then(|v| v.get("tool"))
-                        .and_then(|v| v.get("pytest"))
-                        .is_some();
-                let pytest = args["entrypoint"] == "pytest"
-                    || (args["entrypoint"] != "unittest" && configured_pytest);
-                if pytest {
-                    python_pytest(&root, extra)?
-                } else {
-                    python_tests(&root, extra)?
-                }
-            }
+            Runtime::Python => match step.driver {
+                DRIVER_PYTEST => python_pytest(&root, extra)?,
+                _ => python_tests(&root, extra)?,
+            },
         });
     }
     let argv_bytes = plan.argvs.iter().flatten().map(String::len).sum::<usize>();

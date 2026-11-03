@@ -379,7 +379,7 @@ fn write_latch_review() {
     }
     for (name,ticks,freeze) in [("thrust-brace",18,4),("thrust-contact",18,2),("thrust-recover",5,0)] {
         let d = r.latch.as_mut().unwrap().duels.get_mut(&1).unwrap();
-        d.beat=Beat::Clean; d.height=-1; d.guard=-1; d.counters=1; d.chain=1;
+        d.beat=Beat::Clean; d.height = -1; d.guard = -1; d.counters=1; d.chain=1;
         d.ticks=ticks; d.freeze=freeze;
         save(name,&r,1);
     }

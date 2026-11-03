@@ -1,0 +1,5 @@
+# Operator-locked systems. Sealed by scripts/check/check-locks.sh --seal.
+# A mismatch means a locked file changed without operator re-seal.
+e43954a0bcf81d9649b42c7fb20c0327a038ad0595e7178b1c7cffcd9ca89999  cockpit/src/agent/harness/book/d3456_advisories.rs
+c5fb1562ccad4ff15fd49d6aa399d5bebcb0b5739e951865a6733bce087d7148  cockpit/src/drive/loop_ctl.rs
+3ce84e90c3674151cad2491768e2eb6dbc9936b81006c72e80dae5e0ccee4285  cockpit/src/drive/loop_ctl/evidence.rs

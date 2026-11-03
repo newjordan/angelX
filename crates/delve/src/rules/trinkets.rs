@@ -389,8 +389,8 @@ impl Run {
                         hero.hand.push("thunder-scroll".into());
                         "A THUNDER SCROLL"
                     }
-                    _ if hero.bombs < MAX_BOMBS => {
-                        hero.bombs += 1;
+                    _ if hero.bombs < hero.bomb_limit() => {
+                        hero.give_bombs(1);
                         "A BOMB"
                     }
                     _ => {
@@ -428,7 +428,7 @@ impl Run {
                     boon = match (i + k) % 3 {
                         0 if hero.hp < hero.max_hp => Some("YOU ARE MENDED"),
                         1 if hero.hand.len() < cards::HAND => Some("A POTION"),
-                        2 if hero.bombs < MAX_BOMBS => Some("A BOMB"),
+                        2 if hero.bombs < hero.bomb_limit() => Some("A BOMB"),
                         _ => None,
                     };
                     if boon.is_some() {
@@ -443,7 +443,7 @@ impl Run {
                     match boon {
                         "YOU ARE MENDED" => hero.hp = hero.max_hp,
                         "A POTION" => hero.hand.push("potion".into()),
-                        _ => hero.bombs += 1,
+                        _ => hero.give_bombs(1),
                     }
                     self.sounds.push("wish_grant");
                     format!("A COIN DOWN THE WELL: {boon}")

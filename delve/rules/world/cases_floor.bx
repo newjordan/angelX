@@ -1,0 +1,145 @@
+# Case wrappers for the generation functions (recorded by
+# crates/delve/tests/rules/layout_bend_cases__tests.rs).
+
+def layout.j.cells(+cells: List<&2, LayCell>) -> J.Val:
+  J.JA{layout.j.cells.go(cells)}
+
+def layout.j.cells.go(+cells: List<&2, LayCell>) -> List<&2, J.Val>:
+  match cells as List<&2, LayCell>:
+    case Nil{}:
+      Nil{}
+    case Con{h: LayCell, t: List<&2, LayCell>}:
+      LayCell{x: U32, y: U32} of LayCell = h
+      Con{J.JA{[J.of_i32(x), J.of_i32(y)]}, layout.j.cells.go(t)}
+
+def layout.j.cell(+j: J.Val) -> LayCell:
+  LayCell{J.u32(J.nth(j, 0)), J.u32(J.nth(j, 1))}
+
+def layout.j.pair(+a: String, +x: J.Val, +b: String, +y: J.Val) -> J.Val:
+  J.set(J.set(J.obj(), a, x), b, y)
+
+def case.layout.approach_cells(+input: J.Val) -> J.Val:
+  (cells: List<&2, LayCell>, rng: W.W) = layout.approach_cells(J.u32(J.get(input, "requested")), W.of_j(J.get(input, "rng")))
+  layout.j.pair("cells", layout.j.cells(cells), "rng", W.to_j(rng))
+
+def case.layout.tunnel_cells(+input: J.Val) -> J.Val:
+  layout.j.cells(layout.tunnel_cells(layout.tunnel_variant(J.u32(J.get(input, "depth"))), W.of_j(J.get(input, "seed")), J.u32(J.get(input, "width")), J.u32(J.get(input, "requested"))))
+
+def layout.j.rows(+g: LayGrid) -> J.Val:
+  match g as LayGrid:
+    case LayGrid{cols: U32, rows: U32, tiles: List<&2, List<&2, LayTile>>}:
+      J.JA{layout.j.rows.go(tiles)}
+
+def layout.j.rows.go(+rows: List<&2, List<&2, LayTile>>) -> List<&2, J.Val>:
+  match rows as List<&2, List<&2, LayTile>>:
+    case Nil{}:
+      Nil{}
+    case Con{h: List<&2, LayTile>, t: List<&2, List<&2, LayTile>>}:
+      Con{J.JS{layout.quad.glyphs(h)}, layout.j.rows.go(t)}
+
+# A quadrant row back to its characters.
+def layout.quad.glyphs(+row: List<&2, LayTile>) -> String:
+  match row as List<&2, LayTile>:
+    case Nil{}:
+      ""
+    case Con{h: LayTile, t: List<&2, LayTile>}:
+      SCon{layout.quad.glyph(h), layout.quad.glyphs(t)}
+
+def layout.quad.glyph(+t: LayTile) -> Char:
+  match t:
+    case TileBlock{}:
+      '#'
+    case TileHazard{}:
+      '~'
+    case TileBog{}:
+      ','
+    case _:
+      '.'
+
+def layout.j.strings(+j: J.Val) -> List<&2, String>:
+  layout.j.strings.go(J.items(j))
+
+def layout.j.strings.go(+xs: List<&2, J.Val>) -> List<&2, String>:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      Con{J.str(h), layout.j.strings.go(t)}
+
+def case.layout.great_quadrant(+input: J.Val) -> J.Val:
+  (g: LayGrid, rng: W.W) = layout.great_quadrant(J.u32(J.get(input, "w")), J.u32(J.get(input, "h")), J.str(J.get(input, "kind")), W.of_j(J.get(input, "rng")))
+  layout.j.pair("rows", layout.j.rows(g), "rng", W.to_j(rng))
+
+def case.layout.swamp.salt(+input: J.Val) -> J.Val:
+  W.to_j(layout.swamp.salt(layout.j.cell(J.get(input, "cell")), J.u32(J.get(input, "depth"))))
+
+def case.layout.swamp.mire(+input: J.Val) -> J.Val:
+  layout.j.rows(layout.swamp.mire(layout.quad.of_rows(layout.j.strings(J.get(input, "rows"))), J.u32(J.get(input, "depth")), W.of_j(J.get(input, "salt"))))
+
+def case.layout.connected(+input: J.Val) -> J.Val:
+  J.JBool{layout.connected(J.get(input, "room"))}
+
+def case.layout.room(+input: J.Val) -> J.Val:
+  (room: J.Val, rng: W.W) = layout.room(layout.j.cell(J.get(input, "cell")), J.str(J.get(input, "kind")), J.get(input, "doors"), J.u32(J.get(input, "depth")), J.str(J.get(input, "pack")), J.u32(J.get(input, "party")), W.of_j(J.get(input, "rng")))
+  layout.j.pair("room", room, "rng", W.to_j(rng))
+
+def case.layout.floor_party(+input: J.Val) -> J.Val:
+  (floor: J.Val, rng: W.W) = layout.floor_party(J.u32(J.get(input, "depth")), J.str(J.get(input, "pack")), J.u32(J.get(input, "party")), W.of_j(J.get(input, "rng")))
+  layout.j.pair("floor", floor, "rng", W.to_j(rng))
+
+def case.layout.floor_for_party(+input: J.Val) -> J.Val:
+  (floor: J.Val, rng: W.W) = layout.floor_for_party(J.str(J.get(input, "mode")), J.u32(J.get(input, "depth")), J.str(J.get(input, "pack")), J.u32(J.get(input, "party")), W.of_j(J.get(input, "rng")))
+  layout.j.pair("floor", floor, "rng", W.to_j(rng))
+
+def case.layout.identity_floor(+input: J.Val) -> J.Val:
+  (floor: J.Val, rng: W.W) = layout.identity_floor(J.str(J.get(input, "pack")), J.u32(J.get(input, "party")), W.of_j(J.get(input, "rng")))
+  layout.j.pair("floor", floor, "rng", W.to_j(rng))
+
+def case.layout.identity_room(+input: J.Val) -> J.Val:
+  (floor: J.Val, rng: W.W) = layout.identity_room(J.str(J.get(input, "pack")), J.u32(J.get(input, "party")), W.of_j(J.get(input, "rng")))
+  layout.j.pair("floor", floor, "rng", W.to_j(rng))
+
+def case.layout.undercroft(+input: J.Val) -> J.Val:
+  layout.undercroft(J.str(J.get(input, "pack")))
+
+def case.layout.dig_tavern(+input: J.Val) -> J.Val:
+  (floor: J.Val, ok: Bool) = layout.dig_tavern(J.get(input, "floor"))
+  layout.j.pair("floor", floor, "ok", J.JBool{ok})
+
+def layout.j.u32s(+xs: List<&2, U32>) -> J.Val:
+  J.JA{layout.j.u32s.go(xs)}
+
+def layout.j.u32s.go(+xs: List<&2, U32>) -> List<&2, J.Val>:
+  match xs as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{h: U32, t: List<&2, U32>}:
+      Con{J.JU{h}, layout.j.u32s.go(t)}
+
+def case.layout.Floor.steps(+input: J.Val) -> J.Val:
+  layout.j.u32s(layout.Floor.steps(J.get(input, "floor")))
+
+def case.layout.Floor.ramps(+input: J.Val) -> J.Val:
+  J.JBool{layout.Floor.ramps(J.get(input, "floor"))}
+
+def case.layout.Floor.stairs_doors(+input: J.Val) -> J.Val:
+  J.JU{layout.Floor.stairs_doors(J.get(input, "floor"))}
+
+def case.layout.Floor.guardian(+input: J.Val) -> J.Val:
+  layout.j.maybe_u32(layout.Floor.guardian(J.get(input, "floor")))
+
+def case.layout.Floor.neighbour(+input: J.Val) -> J.Val:
+  layout.j.maybe_u32(layout.Floor.neighbour(J.get(input, "floor"), J.u32(J.get(input, "from")), J.u32(J.get(input, "dir"))))
+
+def case.layout.Floor.chief_rank(+input: J.Val) -> J.Val:
+  floor: J.Val = J.get(input, "floor")
+  layout.j.chief(layout.Floor.chief_rank(floor, J.u32(J.get(input, "room")), layout.Floor.steps(floor)))
+
+def layout.j.chief(+c: LayChief) -> J.Val:
+  match c as LayChief:
+    case LayChief{guard: Bool, show: Bool, early: Bool, mid: U32}:
+      o1: J.Val = layout.j.pair("guard", J.JBool{guard}, "show", J.JBool{show})
+      J.set(J.set(o1, "early", J.JBool{early}), "mid", J.JU{mid})
+
+def case.layout.force_secret(+input: J.Val) -> J.Val:
+  layout.force_secret(J.get(input, "floor"))

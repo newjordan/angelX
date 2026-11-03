@@ -125,7 +125,7 @@ runtime asset loader. Retained unused files are called out explicitly.
 - Deliver original source sheets plus a neighbouring JSON for **each sheet**,
   and a top-level `manifest.json` and `production-plan.json`. Follow the measured
   irregular-crop convention in the read-only
-  [boss library handoff](./cockpit/assets/boss-library/HANDOFF.md).
+  boss library handoff (`cockpit/assets/boss-library/HANDOFF.md`, not published).
   Do not assume a regular grid. The library's roster production plan is under
   `boss-library/existing/production-plan.json`; there is no root plan in this checkout.
 - Each frame record needs `asset_id`, `state`, `frame_index`, `camera`, `facing`,
@@ -195,7 +195,7 @@ Alchemy Lab: drop matching pots to crack a mischievous kiln spirit. Each seat
 owns its board. Sources: [rules](../crates/delve/src/rules/cinder.rs),
 [renderer](../crates/delve/src/render/overworld/arena/cinder.rs),
 [current art notes](../crates/delve/assets/cinder/ART.md),
-[GAME-1C report](/work/artifacts/boss-art-20261015/game-1c/REPORT.md).
+GAME-1C report (`<artifacts>/boss-art-20261015/game-1c/REPORT.md`, not published).
 The lore's guardians/helping tone applies; Crock is not Cinderjaw, the separate
 Mines guardian in [DELVE-LORE.md](DELVE-LORE.md).
 
@@ -335,7 +335,7 @@ The Dented Anvil practice bay: catch the closing beat and buckle Clasp's bellows
 Sources: [rules](../crates/delve/src/rules/latch.rs),
 [renderer](../crates/delve/src/render/overworld/arena/latch.rs),
 [brief](../crates/delve/assets/latch/BRIEF.md),
-[GAME-2C report](/work/artifacts/boss-art-20261015/game-2c/REPORT.md).
+GAME-2C report (`<artifacts>/boss-art-20261015/game-2c/REPORT.md`, not published).
 Defaults: TELL=36, WINDOW=7, REST=24, RECOVER=18, STOP=4; clean freeze pauses
 the beat timer. Rest after a clean beat is 24−3×counters; miss returns directly
 to tell. This is a stationary timing duel, **no spatial fighter hitboxes**.
@@ -439,7 +439,7 @@ and a stubborn seed-pod Keeper. Sources:
 [renderer](../crates/delve/src/render/overworld/arena/mossbell.rs),
 [native metadata](../crates/delve/assets/mossbell/native.json),
 [brief](../crates/delve/assets/mossbell/BRIEF.md),
-[GAME-3D report](/work/artifacts/boss-art-20261015/game-3d/REPORT.md).
+GAME-3D report (`<artifacts>/boss-art-20261015/game-3d/REPORT.md`, not published).
 Table physics is 160×140, Q=256 fixed units/px; display x maps through
 floor(x×5/4), origin (114,46), plus shake. **Do not widen physics with art.**
 
@@ -633,7 +633,7 @@ rival aisles, then the vat keeper. Sources:
 [renderer](../crates/delve/src/render/overworld/arena/brasswake.rs),
 [brief](../crates/delve/assets/brasswake/BRIEF.md),
 [art notes](../crates/delve/assets/brasswake/ART.md),
-[GAME-4B report](/work/artifacts/boss-art-20261015/game-4b/REPORT.md).
+GAME-4B report (`<artifacts>/boss-art-20261015/game-4b/REPORT.md`, not published).
 Side view with shallow belt depth. World x is in native pixels; visible stage
 x=[12,266), y=[34,180). Draw translation: x−camera+12+shake, y−18.
 Foot sorting and a cached seat contour preserve the local body during overlaps.
@@ -776,7 +776,7 @@ keeper between chain-drop and floor-sweep commitments. Sources:
 [renderer](../crates/delve/src/render/overworld/arena/rafterwake.rs),
 [recipe](../crates/delve/assets/rafterwake/native.json),
 [brief](../crates/delve/assets/rafterwake/BRIEF.md),
-[GAME-5C report](/work/artifacts/boss-art-20261015/game-5c/REPORT.md).
+GAME-5C report (`<artifacts>/boss-art-20261015/game-5c/REPORT.md`, not published).
 Side camera, Q=256 fixed units/px. Visible stage 254×144 at (12,38); transform
 (world x+12+shake, world y−camera+38). Floor=540, top=108.
 Native recipe, rather than neighbouring PNGs, is the **runtime source** here.
@@ -932,7 +932,7 @@ and the pennant captain. Sources:
 [renderer](../crates/delve/src/render/overworld/arena/pennon.rs),
 [recipe](../crates/delve/assets/pennon/native.json),
 [brief](../crates/delve/assets/pennon/BRIEF.md),
-[GAME-6 report](/work/artifacts/boss-art-20261015/game-6/REPORT.md).
+GAME-6 report (`<artifacts>/boss-art-20261015/game-6/REPORT.md`, not published).
 Side camera, Q=256; world 1200 px wide, FLOOR=112. Visible stage 254×144 at
 (12,38), transform (world x−camera+12+shake,world y+38). Native recipe is the
 runtime source; PNGs are matching review companions, not loaded textures.
@@ -1323,7 +1323,7 @@ The runtime reads `scripts/boss-effect-slots.json`: per boss, 2 projectile / 4 t
 | crypt-tithe-marshal/tell | Delve / outgoing rage rays | 11×11 master, centre; exact outgoing ray reach, stone clipping and safe gap | 4 stages over36-tick rage ring; arms24; no new aimed-volley windup | Staff/seal anticipation with clear outgoing directions; staff art does not grant melee reach |
 | crypt-tithe-marshal/impact | Delve / hit burst | 28×28; contact-centre, cosmetic | 5 frames over6 ticks:2,1,1,1,1 | Chunky brass/bone seal impact with dark contours and restrained steel glints |
 
-Delivery BOSSFX-1: all 21 slots above are integrated through `fx-v1-*` filenames (and native `fx-v2-projectile-*` flight banks). The source crops, full-sheet/crop hashes, cell mappings, raw/prepared fidelity and old/new active-file hashes are retained in `crates/delve/assets/boss-effect-src/` and each boss's `effect-import.json`. Normal builds include Waxen/Choir effects independently of their inactive library bodies. Flight2×4 ticks, tell4 stages and impact2/1/1/1/1 are unchanged. Heavy Tusk flight cells6/8 replace the unreadable compact pair; no extra trails or shot count. Other variants stay unwired.
+Delivery BOSSFX-1: all 21 slots above are integrated through `fx-v1-*` filenames (and native `fx-v2-projectile-*` flight banks). The source crops, full-sheet/crop hashes, cell mappings, raw/prepared fidelity and old/new active-file hashes are retained in the source-art archive (`angelX-archive/2026-10-20/source-art/boss-effect-src/`) and each boss's `effect-import.json`. Normal builds include Waxen/Choir effects independently of their inactive library bodies. Flight2×4 ticks, tell4 stages and impact2/1/1/1/1 are unchanged. Heavy Tusk flight cells6/8 replace the unreadable compact pair; no extra trails or shot count. Other variants stay unwired.
 
 Next effect requests follow the body rollout order below. Each row requests three separate assets `bossfx.<id>.{projectile,tell,impact}`: east-facing2×4-tick centre-registered flight; four warning stages only on the listed real patterns (36-tick rage,24-tick held shot,51-tick mine,21-tick beam as applicable); five contact-centred impact frames over6 ticks (2/1/1/1/1). Deliver rich transparent source + measured crop JSON/SHA, native v1/v2 masters, anchors and material regions. Projectile size is per-boss review data; point collision stays9×9/0.16. Tells must skin exact rays/stone clipping/safe gaps,11×11 point marks or24×11 lane tiles; impacts28×28 are cosmetic. Existing designs, `.boss` definitions and signatures own identity and timing; no new windup or danger circle.
 
@@ -1406,15 +1406,15 @@ rejected earlier delivery. Rules, radii, ray/lane clipping and timing stay exact
 - Measured failure: in its generated Crypt guardian Stairs room (depth2, seed17), four seats, rest native v1 has1107/1395 samples at local floor+15 L* (79.35%); v2 has3272/4397 (74.41%). The retained threshold is80%: deficits9/246 samples, or0.65/5.59 percentage points. Native medians already pass at27.70 L* above the floor; decoded cells pass99.50%/95.00%.
 - Required value change: raise interior robe/bone-shadow values so at least9 additional v1 opaque samples and246 additional v2 samples reach **their own graded floor L*+15**, while retaining the outline, red hue family, source alpha and existing passing samples. These are measured native-sample requirements after import and the current grade, not permission to paint extra pixels. Retest the shared palette/fidelity and both poses. Keep the three native skulls distinct; their light cell mass currently merges, so separate readable value groups where the source geometry permits it.
 - Delivery: transparent lossless RGBA source sheet plus measured crop JSON, SHA-256, foot/socket and opaque bounds, and labelled skull/robe/contour material regions; native v1/v2 validation renders. No baked floor, labels or bars. Source library remains read-only to integration.
-- Evidence: `/work/artifacts/delve-int-20261015/value-1/review/the-bone-choir-rest-rooms.png`, `the-bone-choir-windup-rooms.png`, `the-bone-choir-identity.png`; complete measurements in `candidate-metrics.json` beside `review/`.
+- Evidence: `<artifacts>/delve-int-20261015/value-1/review/the-bone-choir-rest-rooms.png`, `the-bone-choir-windup-rooms.png`, `the-bone-choir-identity.png`; complete measurements in `candidate-metrics.json` beside `review/`.
 
 ### Merged guardian-floor value correction (INT-2)
 
 - Asset ids: `bossbody.{iron-tusk-chief,cinderjaw,mother-of-spores,the-index,waxen-warden,the-bone-choir,crypt-tithe-marshal}.int-2`; Delve guardian/chief bodies, existing oblique overhead arena camera. Revise the delivered library designs, preserving their identity props, hues and contours.
 - Preserve each `scripts/boss-library-registry.json` v1/v2 native size, bottom-centre anchor, alpha/footprint and authoritative `.boss` radius. Rest and anticipation masters retain existing 18-tick breathing, 36-tick rage ring and 24-tick arms warning; no timing or gameplay change.
-- The merged dungeon floor invalidates VALUE-1's black-floor measurements above. All seven candidates fail the unchanged local graded-floor rule. Native rest presence v1/v2: Tusk 46.17/50.09%, Cinder 47.56/51.66%, Mother 52.70/60.80%, Index 27.28/36.27%, Waxen 57.95/64.17%, Choir 26.74/34.00%, Marshal 34.09/43.14%. Full 56 measurements, per-kit pixel deficits and edge/median failures: `/work/artifacts/delve-int-20261015/int-2/candidate-metrics.json`.
+- The merged dungeon floor invalidates VALUE-1's black-floor measurements above. All seven candidates fail the unchanged local graded-floor rule. Native rest presence v1/v2: Tusk 46.17/50.09%, Cinder 47.56/51.66%, Mother 52.70/60.80%, Index 27.28/36.27%, Waxen 57.95/64.17%, Choir 26.74/34.00%, Marshal 34.09/43.14%. Full 56 measurements, per-kit pixel deficits and edge/median failures: `<artifacts>/delve-int-20261015/int-2/candidate-metrics.json`.
 - Required: source-derived value grouping that passes local signed median ΔL* ≥15 in both poses, ≥80% rest opaque samples at their own floor+15 L*, and ≥50% outer-two-logical-pixel samples at absolute floor contrast ≥10 L*, native RGB and actual cells in both kits. Preserve existing source fidelity/palette limits; do not paint extra alpha or alter the floor to pass. All seven earlier production bodies remain selected pending acceptance.
-- Delivery: transparent lossless RGBA source sheets plus measured crop JSON, SHA-256, foot/socket and opaque bounds, labelled identity/material regions and native v1/v2 validation renders. No baked floor, labels or bars. Read-only source library is unchanged. Review sheets: `/work/artifacts/delve-int-20261015/int-2/contrast-review/`.
+- Delivery: transparent lossless RGBA source sheets plus measured crop JSON, SHA-256, foot/socket and opaque bounds, labelled identity/material regions and native v1/v2 validation renders. No baked floor, labels or bars. Read-only source library is unchanged. Review sheets: `<artifacts>/delve-int-20261015/int-2/contrast-review/`.
 
 ## Dungeon integration follow-ups, 15 October evening
 
@@ -1442,7 +1442,7 @@ source-colour silhouette rim. All seven pass the unchanged contrast rule in
 both kits, both poses and both output paths. No source redraw is required for
 this integration. Source design, alpha, anchors, sizes and gameplay stay fixed.
 See `docs/BOSS-LIBRARY-IMPORT.md` (BOSS-READ-1) and
-`/work/artifacts/delve-int-20261015/boss-read-1/after-metrics.json` for evidence.
+`<artifacts>/delve-int-20261015/boss-read-1/after-metrics.json` for evidence.
 The terminal still merges Choir's skulls and Waxen's small candle tips; passing
 floor contrast does not claim those fine identity details survive reduction.
 

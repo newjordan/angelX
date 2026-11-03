@@ -97,6 +97,31 @@ fn reinforce_config(group: usize) -> ReinforceConfig {
     }
 }
 
+/// A campaign is a single long-lived model workflow. Carry its caller's book
+/// generation into the worker, or pin one published generation for an
+/// independently launched UI campaign before making any campaign artifacts.
+fn campaign_book() -> Result<Arc<crate::agent::harness::book::catalog::Catalog>, String> {
+    use crate::agent::harness::book::catalog::{Catalog, current};
+    current()
+        .map(Ok)
+        .unwrap_or_else(|| Catalog::fresh().map(Arc::new))
+        .map(crate::agent::harness::core_catalog::bind_book)
+        .map_err(|error| format!("book generation: {error}"))
+}
+
+fn spawn_book_worker(
+    name: &str,
+    book: Arc<crate::agent::harness::book::catalog::Catalog>,
+    work: impl FnOnce() + Send + 'static,
+) -> std::io::Result<std::thread::JoinHandle<()>> {
+    std::thread::Builder::new()
+        .name(name.into())
+        .spawn(move || {
+            let _book = crate::agent::harness::book::catalog::enter(book);
+            work();
+        })
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum RlMode {
     #[default]
@@ -993,6 +1018,7 @@ impl RlState {
                 "an RL campaign is already in progress (/rl stop first)".into()
             });
         }
+        let book = campaign_book()?;
         let workspace = crate::platform::workspace_store::repo_identity(workspace).root;
         let run_id = new_run_id();
         let run_dir = workspace_run_root(&workspace).join(&run_id);
@@ -1040,31 +1066,29 @@ impl RlState {
         let failed_run_dir = run_dir.clone();
         let mut failed_record = record.clone();
         let tokens = Arc::clone(&self.loop_tokens);
-        let spawn = std::thread::Builder::new()
-            .name("angel-rl-campaign".into())
-            .spawn(move || {
-                let (club, budget) =
-                    loop_campaign::campaign_club(club, owner.as_ref(), tokens, &cancel);
-                let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    run_plan(&plan, &workspace, club, route, &run_dir, &progress, &cancel)
-                }))
-                .unwrap_or_else(|_| {
-                    Err("RL campaign worker panicked; inspect retained artifacts".into())
-                });
-                let outcome = budget.finish(outcome);
-                record.outcome = Some(outcome.clone());
-                let outcome = match record.write(&run_dir) {
-                    Ok(()) => outcome,
-                    Err(error) => Err(format!(
-                        "campaign settled but result persistence failed: {error}"
-                    )),
-                };
-                if let Ok(mut guard) = progress.lock()
-                    && guard.outcome.is_none()
-                {
-                    guard.outcome = Some(outcome);
-                }
+        let spawn = spawn_book_worker("angel-rl-campaign", book, move || {
+            let (club, budget) =
+                loop_campaign::campaign_club(club, owner.as_ref(), tokens, &cancel);
+            let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                run_plan(&plan, &workspace, club, route, &run_dir, &progress, &cancel)
+            }))
+            .unwrap_or_else(|_| {
+                Err("RL campaign worker panicked; inspect retained artifacts".into())
             });
+            let outcome = budget.finish(outcome);
+            record.outcome = Some(outcome.clone());
+            let outcome = match record.write(&run_dir) {
+                Ok(()) => outcome,
+                Err(error) => Err(format!(
+                    "campaign settled but result persistence failed: {error}"
+                )),
+            };
+            if let Ok(mut guard) = progress.lock()
+                && guard.outcome.is_none()
+            {
+                guard.outcome = Some(outcome);
+            }
+        });
         if let Err(error) = spawn {
             let error = format!("could not start the RL campaign thread: {error}");
             failed_record.outcome = Some(Err(error.clone()));
@@ -1768,9 +1792,7 @@ fn write_run_record(run_dir: &Path, record: &RunRecord) -> Result<(), String> {
     std::fs::create_dir_all(run_dir).map_err(|error| error.to_string())?;
     let bytes = serde_json::to_vec_pretty(record).map_err(|error| error.to_string())?;
     let path = run_dir.join("report.json");
-    let temporary = run_dir.join(format!("report.json.tmp.{}", std::process::id()));
-    std::fs::write(&temporary, &bytes).map_err(|error| error.to_string())?;
-    std::fs::rename(&temporary, &path).map_err(|error| error.to_string())
+    crate::platform::workspace_store::write_private_atomic(&path, &bytes)
 }
 
 /// Newest campaign record for this workspace, so the stage opens on real

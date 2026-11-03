@@ -28,6 +28,7 @@ impl Run {
         };
         // The merchant's camp keeps its crockery on the cart.
         if self.dungeon.depth == 0
+            || self.simple_creation()
             || !potted(room.kind)
             || room.laid.map_or(room.great(), |(c, r)| c > COLS || r > ROWS)
             || self.merchant_camp().is_some_and(|c| c.room == index)

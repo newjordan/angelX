@@ -10,6 +10,7 @@
 
 use super::{Primary, Route, Sub};
 
+const CATALOG: &str = include_str!("../../../../book/wh_world.book");
 pub(crate) const CELL: char = '⠱';
 
 pub(crate) const PRIMARY: Primary = Primary {
@@ -23,14 +24,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `web_search`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use for current information, documentation, error messages, or anything outside the workspace.",
-                "Research search origin: {origin}; fetch document URLs returned by web_search with web_fetch.",
-                "Do not probe the host with shell.",
-                "Research search origin: {origin}; fetch document URLs with web_fetch.",
-                "search query",
-                "max results (default 5)",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'1'),
         },
         Sub {
             route: Route::new(CELL, '⠃'),
@@ -38,14 +32,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `web_fetch`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use to read documentation, APIs, or pages found via web_search.",
-                "Research search origin: {origin}; fetch document URLs returned by web_search with web_fetch.",
-                "Do not probe the host with shell.",
-                "Research search origin: {origin}; fetch document URLs with web_fetch.",
-                "http(s) URL to fetch",
-                "cap on returned text bytes (default 20000, max 200000)",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'2'),
         },
         Sub {
             route: Route::new(CELL, '⠉'),
@@ -53,11 +40,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `science_search`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use for papers, prior work, citation counts, or a literature review in ML, biology, physics or chemistry.",
-                "the research question or topic",
-                "papers per source (default 8, max 25)",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'3'),
         },
         Sub {
             route: Route::new(CELL, '⠙'),
@@ -65,12 +48,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `repo_search`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use when a report or answer should point at real, maintained projects: reference implementations, libraries, tools, or the freshest work in a fast-moving area.",
-                "topic or GitHub search query (supports GitHub qualifiers like language:rust, stars:>1000)",
-                "best = most-starred (default); latest = most-recently-pushed",
-                "repositories to return (default 10, max 25)",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'4'),
         },
         Sub {
             route: Route::new(CELL, '⠑'),
@@ -78,10 +56,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `grok_research`",
             action: "",
             ideas: "",
-            pages: &[
-                "Prefer over web_search when recency, breaking news, or social/X signal matters — it runs Grok's own agentic web + X search and brings back cited context.",
-                "what to research (a question or topic)",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'5'),
         },
         Sub {
             route: Route::new(CELL, '⠋'),
@@ -89,14 +64,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `http_request`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use for JSON APIs — local inference servers, webhooks, REST services; use web_fetch for reading pages.",
-                "HTTP method (default GET)",
-                "http(s) URL",
-                "header name → value",
-                "request body (verbatim)",
-                "cap on returned body bytes (default 20000, max 200000)",
-            ],
+            pages: &super::catalog_pages::<6>(CATALOG, b'6'),
         },
         Sub {
             route: Route::new(CELL, '⠛'),
@@ -104,9 +72,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `fleet_status`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use to find which rigs are reachable before SSHing or probing an endpoint on one.",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'7'),
         },
         Sub {
             route: Route::new(CELL, '⠓'),
@@ -114,9 +80,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `vast_instances`",
             action: "",
             ideas: "",
-            pages: &[
-                "Recon only — report an idle instance, never destroy or restart one; that is the operator's call.",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'8'),
         },
         Sub {
             route: Route::new(CELL, '⠊'),
@@ -124,11 +88,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `llm_probe`",
             action: "",
             ideas: "",
-            pages: &[
-                "Use after starting a server with proc_run to confirm it's ready, or to discover what a fleet box serves.",
-                "endpoint base, e.g. http://host:8000 (with or without /v1)",
-                "authentication credential if required",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'9'),
         },
         Sub {
             route: Route::new(CELL, '⠚'),
@@ -136,15 +96,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "using `llm_bench`",
             action: "",
             ideas: "",
-            pages: &[
-                "Meant for local/self-hosted endpoints — pointing it at a paid API spends real tokens.",
-                "endpoint base, e.g. http://host:8000 (with or without /v1)",
-                "model id (default: first id from /v1/models)",
-                "fixed prompt (default: a ~40-token instruction)",
-                "per run (default 128)",
-                "measured runs after warmup (default 3, max 10)",
-                "authentication credential if required",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'0'),
         },
     ],
 };

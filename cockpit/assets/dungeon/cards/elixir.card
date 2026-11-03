@@ -1,0 +1,16 @@
+# The Alchemist's third: the one he never sells.
+name   Elixir
+kind   spell
+rarity relic
+text   Smash an elixir at your feet: every friend close by mends.
+drop   0
+chest  0
+cooldown 16
+feat 1
+art
+..hh..
+..ii..
+.zzzz.
+zVWVVz
+zVVWVz
+.zzzz.

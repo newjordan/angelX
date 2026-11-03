@@ -1,0 +1,71 @@
+# crates/delve/src/rules/fx.rs — what a tick shows rather than decides: the
+# screen's shake and the chain sparks. `Run::fx` is a list of events
+# (`{"Shake": n}` or `{"Spark": {from, to, ttl}}`).
+
+# The tick's start, after a ride has played: what it showed, then the shake eases.
+def fx.Run.fade(run: J.Val) -> J.Val:
+    run = fx.Run.show_fx(run)
+    return core.set_u(run, "shake", core.usub(core.u(run, "shake"), 1))
+
+# Shakes take the strongest; sparks come in under the cap.
+def fx.Run.show_fx(run: J.Val) -> J.Val:
+    for e: J.Val in J.items(J.get(run, "fx")):
+        if J.has(e, "Shake"):
+            run = core.set_u(run, "shake", U32.max(core.u(run, "shake"), J.u32(J.get(e, "Shake"))))
+        if J.has(e, "Spark"):
+            if U32.is_lt(core.count(J.get(run, "sparks")), fx.MAX_SPARKS()):
+                run = J.set(run, "sparks", J.push(J.get(run, "sparks"), J.get(e, "Spark")))
+    return J.set(run, "fx", J.JA{Nil{}})
+
+# The tick's end: the rest of its events into the picture, and the sparks age.
+def fx.Run.present(run: J.Val) -> J.Val:
+    run = fx.Run.show_fx(run)
+    sparks: [J.Val] = []
+    for s: J.Val in J.items(J.get(run, "sparks")):
+        ttl: U32 = core.usub(core.u(s, "ttl"), 1)
+        if U32.is_gt(ttl, 0):
+            sparks = List.append(&2, J.Val, sparks, [core.set_u(s, "ttl", ttl)])
+    run = J.set(run, "sparks", J.JA{sparks})
+    return gore.Run.age_gore(run)
+
+# Whether one more spark fits under the cap, counting this tick's sparks still
+# waiting for `present`.
+def fx.sparks_room(sparks: J.Val, fx: J.Val) -> Bool:
+    n: U32 = core.count(sparks)
+    for e: J.Val in J.items(fx):
+        if J.has(e, "Spark"):
+            n = (n + 1 : U32)
+    return U32.is_lt(n, fx.MAX_SPARKS())
+
+# A knight's pace on the ground under them, in units a second, before what they are doing:
+# their speed bonus, a privy's waddle, a web, haste, a frog's hop, a chill, a kingdom road and
+# the Lay of Haste. The step walks by it.
+def fx.ground_pace(h: J.Val, tune: J.Val, webs: J.Val, song: J.Val, on_road: Bool) -> F32:
+    pace: F32 = ((tune.Tune.hero_speed(tune) * RS.u_as_f32((100 + core.u(J.get(h, "bonus"), "speed") : U32)) : F32) / 100.0 : F32)
+    pace = (pace * pitstop.Pit.pace(J.get(h, "pit")) : F32)
+    if classes.Hero.peasant(h):
+        pace = (pace * peasant.PACE() : F32)
+    pace = (pace * curios.Hero.curio_pace(h) : F32)
+    if Bool.and(U32.is_zero(core.u(h, "immune")), hunters.Run.webbed(webs, core.f(h, "x"), core.f(h, "y"))):
+        pace = (pace * hunters.WEB_PACE() : F32)
+    if runes.Hero.has_rune(h, "haste"):
+        pace = (pace * runes.HASTE() : F32)
+    if hexer.Hero.frog(h):
+        pace = (pace * hexer.FROG_PACE() : F32)
+    if U32.is_gt(core.u(h, "chilled"), 0):
+        pace = (pace * lich.CHILL_PACE() : F32)
+    if U32.is_gt(core.u(h, "mired"), 0):
+        pace = (pace * horrors.GRIP_PACE() : F32)
+    if on_road:
+        pace = (pace * tune.Tune.road_pace(tune) : F32)
+    if Bool.and(core.b(h, "singing"), String.eq(J.str(song), "haste")):
+        pace = (pace * tavern.SONG_HASTE() : F32)
+    return pace
+
+# `ground_pace` for knight `h` in the party's room: the party's webs and song, the kingdom's roads.
+def fx.ground_pace_of(run: J.Val, h: J.Val) -> F32:
+    room: J.Val = rules.Run.room(run)
+    on_road: Bool = False{}
+    if String.eq(layout.Room.kind(room), "kingdom"):
+        on_road = kingdom.Run.on_road_at(run, core.f(h, "x"), core.f(h, "y"))
+    return fx.ground_pace(h, J.get(run, "tune"), J.get(run, "webs"), J.get(run, "song"), on_road)

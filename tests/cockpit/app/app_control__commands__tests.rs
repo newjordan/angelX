@@ -17,7 +17,7 @@ fn together_commands_are_local_and_the_mode_joins_replaceable_turn_context() {
         assert!(app.pending_turn.is_none());
     }
     assert_eq!(
-        app.together
+        app.realm.together
             .room
             .as_ref()
             .unwrap()

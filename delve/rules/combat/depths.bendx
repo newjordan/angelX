@@ -1,0 +1,55 @@
+# crates/delve/src/rules/depths.rs: the open map (so far: the leashes).
+import Base
+
+# The open map, when the party stands on it (null otherwise).
+def depths.Run.open_here(run: Run) -> J.Val:
+  open: J.Val = J.get(J.get(run.dungeon, "open"), "map")
+  rooms: J.Val = J.get(run.dungeon, "rooms")
+  room: Room = J.nth(rooms, run.at)
+  if J.is_null(J.get(run.dungeon, "open")):
+    return J.JNull{}
+  if Bool.and(U32.is_eq(J.u32(open), run.at), String.eq(room.kind, "depths")):
+    return J.get(run.dungeon, "open")
+  J.JNull{}
+
+# The leash rect of each chamber: its stone and LEASH round it. An array of
+# [x0, y0, x1, y1].
+def depths.Run.leashes(run: Run) -> J.Val:
+  open: J.Val = depths.Run.open_here(run)
+  out: J.Val = J.JA{Nil{}}
+  if J.is_null(open):
+    return out
+  chambers: J.Val = J.get(open, "chambers")
+  n: U32 = RS.u_min(J.len(chambers), 25)
+  for i: U32 in cb.range(n):
+    rect: J.Val = J.get(J.nth(chambers, i), "rect")
+    c: F32 = cb.f(J.u32(J.nth(rect, 0)))
+    r: F32 = cb.f(J.u32(J.nth(rect, 1)))
+    w: F32 = cb.f(J.u32(J.nth(rect, 2)))
+    h: F32 = cb.f(J.u32(J.nth(rect, 3)))
+    u: F32 = layout.TILE_UNITS()
+    x0: F32 = (c * u : F32)
+    y0: F32 = (r * u : F32)
+    x1: F32 = (cb.f((J.u32(J.nth(rect, 0)) + J.u32(J.nth(rect, 2)) : U32)) * u : F32)
+    y1: F32 = (cb.f((J.u32(J.nth(rect, 1)) + J.u32(J.nth(rect, 3)) : U32)) * u : F32)
+    out = J.push(out, J.JA{[J.of_f32((x0 - depths.LEASH() : F32)), J.of_f32((y0 - depths.LEASH() : F32)), J.of_f32((x1 + depths.LEASH() : F32)), J.of_f32((y1 + depths.LEASH() : F32))]})
+  out
+
+# The party stands on an open floor's map.
+def depths.Run.open_map(run: Run) -> Bool:
+  Bool.not(J.is_null(depths.Run.open_here(run)))
+
+# Something fights the party: in a room, anything left in it; on an open map,
+# a company awake.
+def depths.Run.fight_on(run: Run) -> Bool:
+  if depths.Run.open_map(run):
+    for e: Enemy in J.items(run.enemies):
+      if Bool.and(Bool.and(U32.is_gt(e.hp, 0), Bool.not(e.dormant)), Bool.not(String.eq(e.kind, "dummy"))):
+        return True{}
+    return False{}
+  rules.Run.foes_left(run)
+
+# The moment is a fight: a room's Phase::Fighting, or a company awake on an
+# open map.
+def depths.Run.fighting(run: Run) -> Bool:
+  Bool.or(String.eq(run.phase, "fighting"), Bool.and(depths.Run.open_map(run), depths.Run.fight_on(run)))

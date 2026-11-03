@@ -32,39 +32,8 @@ impl Tool for GoalTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "goal".to_string(),
-            description: "Read or set the durable standing objective for this project (the same \
-                store the operator's /goal drives). action=show (default) reads it; action=set \
-                replaces it with `text`, plus optional `accept_cmd` (a command whose success \
-                means the goal is truly met) and optional `criteria` (acceptance criteria); \
-                action=clear removes it. A set goal is re-injected into future turns so the \
-                session keeps steering toward it. This does NOT start an autonomous loop. ⠯⠃"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "action": {
-                        "type": "string",
-                        "enum": ["show", "set", "clear"],
-                        "description": "⠯⠃⠃"
-                    },
-                    "text": { "type": "string", "description": "⠯⠃⠉" },
-                    "accept_cmd": {
-                        "type": "string",
-                        "description": "⠯⠃⠙"
-                    },
-                    "criteria": {
-                        "type": "array",
-                        "items": { "type": "string" },
-                        "description": "⠯⠃⠑"
-                    }
-                },
-                "required": []
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("goal")
     }
-
     fn call(&self, args: &Value) -> Result<String, String> {
         match args["action"].as_str().unwrap_or("show") {
             "show" => match crate::drive::goal::load_for(&self.workspace) {

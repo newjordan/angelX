@@ -9,6 +9,8 @@ use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 const MAX_MATH_BYTES: usize = 16 * 1024;
 const MAX_PARSE_DEPTH: usize = 32;
+const MAX_OUTPUT_BYTES: usize = 16 * 1024 * 1024;
+const MAX_RENDER_CHARS: usize = 262_144;
 
 #[derive(Clone, Debug)]
 enum Node {
@@ -40,6 +42,7 @@ impl Node {
 struct Parser {
     chars: Vec<char>,
     at: usize,
+    overflow: bool,
 }
 
 impl Parser {
@@ -47,14 +50,19 @@ impl Parser {
         Self {
             chars: source.chars().collect(),
             at: 0,
+            overflow: false,
         }
     }
 
-    fn parse(mut self) -> Node {
-        self.row(None, 0)
+    fn parse(mut self) -> Option<Node> {
+        let node = self.row(None, 0);
+        (!self.overflow).then_some(node)
     }
 
     fn row(&mut self, stop: Option<char>, depth: usize) -> Node {
+        if depth >= MAX_PARSE_DEPTH {
+            return self.remaining();
+        }
         let mut nodes = Vec::new();
         while let Some(ch) = self.peek() {
             if Some(ch) == stop {
@@ -104,18 +112,14 @@ impl Parser {
                     nodes.push(Node::Text(ch.to_string()));
                 }
             }
-            if depth >= MAX_PARSE_DEPTH {
-                let tail: String = self.chars[self.at..].iter().collect();
-                if !tail.is_empty() {
-                    nodes.push(Node::Text(tail));
-                }
-                self.at = self.chars.len();
-            }
         }
         Node::row(nodes)
     }
 
     fn atom(&mut self, depth: usize) -> Node {
+        if depth >= MAX_PARSE_DEPTH {
+            return self.remaining();
+        }
         match self.peek() {
             Some('{') => {
                 self.at += 1;
@@ -123,7 +127,7 @@ impl Parser {
             }
             Some('\\') => {
                 self.at += 1;
-                self.command(depth)
+                self.command(depth.saturating_add(1))
                     .unwrap_or_else(|| Node::Text(String::new()))
             }
             Some(ch) => {
@@ -145,6 +149,12 @@ impl Parser {
     }
 
     fn command(&mut self, depth: usize) -> Option<Node> {
+        if depth >= MAX_PARSE_DEPTH {
+            let mut remaining = String::from("\\");
+            remaining.extend(self.chars[self.at..].iter());
+            self.at = self.chars.len();
+            return Some(Node::Text(remaining));
+        }
         let Some(first) = self.peek() else {
             return Some(Node::Text("\\".into()));
         };
@@ -199,11 +209,13 @@ impl Parser {
             }
             "mathbb" => {
                 let body = self.required_group(depth);
-                Some(Node::Text(to_math_blackboard(&inline_node(&body))))
+                let text = self.inline_body(&body);
+                Some(Node::Text(self.convert_body(&text, to_math_blackboard)))
             }
             "mathcal" | "mathscr" => {
                 let body = self.required_group(depth);
-                Some(Node::Text(to_math_script(&inline_node(&body))))
+                let text = self.inline_body(&body);
+                Some(Node::Text(self.convert_body(&text, to_math_script)))
             }
             "hat" | "widehat" | "bar" | "overline" | "vec" | "dot" | "ddot" | "underline" => {
                 let mark = match name.as_str() {
@@ -236,6 +248,25 @@ impl Parser {
         }
     }
 
+    fn inline_body(&mut self, body: &Node) -> String {
+        match checked_inline(body) {
+            Some(text) => text,
+            None => {
+                self.overflow = true;
+                String::new()
+            }
+        }
+    }
+
+    fn convert_body(&mut self, text: &str, convert: fn(&str) -> String) -> String {
+        if text.len().saturating_mul(3) > MAX_OUTPUT_BYTES {
+            self.overflow = true;
+            String::new()
+        } else {
+            convert(text)
+        }
+    }
+
     fn skip_spaces(&mut self) {
         while self.peek().is_some_and(char::is_whitespace) {
             self.at += 1;
@@ -244,6 +275,12 @@ impl Parser {
 
     fn peek(&self) -> Option<char> {
         self.chars.get(self.at).copied()
+    }
+
+    fn remaining(&mut self) -> Node {
+        let text = self.chars[self.at..].iter().collect();
+        self.at = self.chars.len();
+        Node::Text(text)
     }
 }
 
@@ -263,10 +300,15 @@ fn attach_script(nodes: &mut Vec<Node>, kind: char, script: Node) {
 
 /// Render inline LaTeX as compact Unicode mathematical notation.
 pub fn inline(source: &str) -> String {
-    if source.len() > MAX_MATH_BYTES {
-        return source.to_string();
+    if source.len() <= MAX_MATH_BYTES {
+        if let Some(text) = Parser::new(source)
+            .parse()
+            .and_then(|node| checked_inline(&node))
+        {
+            return text;
+        }
     }
-    inline_node(&Parser::new(source).parse())
+    bounded_source(source).to_owned()
 }
 
 /// Render display LaTeX as centered terminal rows. Fractions retain a stacked
@@ -277,19 +319,88 @@ pub fn display(source: &str, width: usize) -> Vec<String> {
         return vec![String::new()];
     }
     if source.len() > MAX_MATH_BYTES {
-        return wrap_cells(source, width);
+        return wrap_cells(bounded_source(source), width);
     }
-    let node = Parser::new(source).parse();
-    let layout = layout_node(&node);
+    let Some(node) = Parser::new(source).parse() else {
+        return wrap_cells(bounded_source(source), width);
+    };
+    let mut budget = LayoutBudget::default();
+    let Some(layout) = layout_node(&node, &mut budget) else {
+        return wrap_cells(bounded_source(source), width);
+    };
     if layout.width <= width {
         let left = (width - layout.width) / 2;
+        let bytes = layout.rows.iter().fold(0usize, |n, row| {
+            n.saturating_add(row.len()).saturating_add(left)
+        });
+        if !budget.reserve(bytes) {
+            return wrap_cells(bounded_source(source), width);
+        }
         return layout
             .rows
             .into_iter()
             .map(|row| format!("{}{}", " ".repeat(left), row))
             .collect();
     }
-    wrap_cells(&inline_node(&node), width)
+    wrap_cells(
+        &checked_inline(&node).unwrap_or_else(|| bounded_source(source).to_owned()),
+        width,
+    )
+}
+
+// Bound intermediate strings before rendering, including the multiplicative
+// growth of nested accents and scripts. Oversized expressions fall back to source.
+// Track scalar count separately: accents add one mark per character, not per
+// UTF-8 byte. This remains conservative for conditional script/fraction syntax.
+fn inline_bound(node: &Node) -> (usize, usize) {
+    match node {
+        Node::Text(text) => (text.len(), text.chars().count()),
+        Node::Row(nodes) => nodes.iter().fold((0usize, 0usize), |(bytes, chars), node| {
+            let (b, c) = inline_bound(node);
+            (bytes.saturating_add(b), chars.saturating_add(c))
+        }),
+        Node::Fraction(a, b) => {
+            let (ab, ac) = inline_bound(a);
+            let (bb, bc) = inline_bound(b);
+            (
+                ab.saturating_add(bb).saturating_add(5),
+                ac.saturating_add(bc).saturating_add(5),
+            )
+        }
+        Node::Root(body) => {
+            let (bytes, chars) = inline_bound(body);
+            (bytes.saturating_add(5), chars.saturating_add(3))
+        }
+        Node::Script { base, sub, sup } => {
+            let (mut bytes, mut chars) = inline_bound(base);
+            for script in [sub, sup].into_iter().flatten() {
+                let (b, c) = inline_bound(script);
+                bytes = bytes.saturating_add(b.saturating_add(3).max(c.saturating_mul(3)));
+                chars = chars.saturating_add(c.saturating_add(3));
+            }
+            (bytes, chars)
+        }
+        Node::Accent { body, mark } => {
+            let (bytes, chars) = inline_bound(body);
+            (
+                bytes.saturating_add(chars.saturating_mul(mark.len_utf8())),
+                chars.saturating_mul(2),
+            )
+        }
+    }
+}
+
+fn checked_inline(node: &Node) -> Option<String> {
+    let (bytes, chars) = inline_bound(node);
+    (bytes <= MAX_OUTPUT_BYTES && chars <= MAX_RENDER_CHARS).then(|| inline_node(node))
+}
+
+fn bounded_source(source: &str) -> &str {
+    let mut end = source.len().min(MAX_OUTPUT_BYTES);
+    while !source.is_char_boundary(end) {
+        end -= 1;
+    }
+    &source[..end]
 }
 
 fn inline_node(node: &Node) -> String {
@@ -352,43 +463,83 @@ struct Layout {
     rows: Vec<String>,
     width: usize,
     baseline: usize,
+    bytes: usize,
 }
 
-fn layout_node(node: &Node) -> Layout {
+#[derive(Default)]
+struct LayoutBudget {
+    held: usize,
+}
+impl LayoutBudget {
+    fn reserve(&mut self, bytes: usize) -> bool {
+        match self.held.checked_add(bytes) {
+            Some(total) if total <= MAX_OUTPUT_BYTES => {
+                self.held = total;
+                true
+            }
+            _ => false,
+        }
+    }
+    fn release(&mut self, bytes: usize) {
+        self.held -= bytes;
+    }
+}
+
+fn layout_node(node: &Node, budget: &mut LayoutBudget) -> Option<Layout> {
     match node {
-        Node::Row(nodes) => compose_row(nodes.iter().map(layout_node).collect()),
+        Node::Row(nodes) => {
+            let mut parts = Vec::new();
+            for node in nodes {
+                parts.push(layout_node(node, budget)?);
+            }
+            compose_row(parts, budget)
+        }
         Node::Fraction(top, bottom) => {
-            let top = layout_node(top);
-            let bottom = layout_node(bottom);
+            let top = layout_node(top, budget)?;
+            let bottom = layout_node(bottom, budget)?;
             let width = top.width.max(bottom.width).saturating_add(2);
+            let bytes = padded_size(&top, width)
+                .saturating_add(padded_size(&bottom, width))
+                .saturating_add(width.saturating_mul("─".len()));
+            if !budget.reserve(bytes) {
+                return None;
+            }
+            let previous = top.bytes.saturating_add(bottom.bytes);
             let mut rows = pad_layout(top, width);
             let baseline = rows.len();
             rows.push("─".repeat(width));
             rows.extend(pad_layout(bottom, width));
-            Layout {
+            budget.release(previous);
+            Some(Layout {
                 rows,
                 width,
                 baseline,
-            }
+                bytes,
+            })
         }
         _ => {
-            let text = inline_node(node);
-            Layout {
+            let text = checked_inline(node)?;
+            if !budget.reserve(text.len()) {
+                return None;
+            }
+            Some(Layout {
                 width: UnicodeWidthStr::width(text.as_str()),
+                bytes: text.len(),
                 rows: vec![text],
                 baseline: 0,
-            }
+            })
         }
     }
 }
 
-fn compose_row(parts: Vec<Layout>) -> Layout {
+fn compose_row(parts: Vec<Layout>, budget: &mut LayoutBudget) -> Option<Layout> {
     if parts.is_empty() {
-        return Layout {
+        return Some(Layout {
             rows: vec![String::new()],
             width: 0,
             baseline: 0,
-        };
+            bytes: 0,
+        });
     }
     let baseline = parts.iter().map(|part| part.baseline).max().unwrap_or(0);
     let below = parts
@@ -397,7 +548,23 @@ fn compose_row(parts: Vec<Layout>) -> Layout {
         .max()
         .unwrap_or(0);
     let height = baseline + 1 + below;
-    let width = parts.iter().map(|part| part.width).sum();
+    let width = parts
+        .iter()
+        .fold(0usize, |n, part| n.saturating_add(part.width));
+    let mut bytes = width.saturating_mul(height);
+    let mut previous = 0usize;
+    for part in &parts {
+        previous = previous.saturating_add(part.bytes);
+        for row in &part.rows {
+            bytes = bytes.saturating_add(
+                row.len()
+                    .saturating_sub(UnicodeWidthStr::width(row.as_str())),
+            );
+        }
+    }
+    if parts.len().saturating_mul(height) > MAX_OUTPUT_BYTES || !budget.reserve(bytes) {
+        return None;
+    }
     let mut rows = vec![String::new(); height];
     for part in parts {
         let top = baseline.saturating_sub(part.baseline);
@@ -415,11 +582,20 @@ fn compose_row(parts: Vec<Layout>) -> Layout {
             }
         }
     }
-    Layout {
+    budget.release(previous);
+    Some(Layout {
         rows,
         width,
         baseline,
-    }
+        bytes,
+    })
+}
+
+fn padded_size(layout: &Layout, width: usize) -> usize {
+    layout.rows.iter().fold(0usize, |n, row| {
+        n.saturating_add(row.len())
+            .saturating_add(width.saturating_sub(UnicodeWidthStr::width(row.as_str())))
+    })
 }
 
 fn pad_layout(layout: Layout, width: usize) -> Vec<String> {
@@ -443,6 +619,9 @@ fn wrap_cells(text: &str, width: usize) -> Vec<String> {
     let mut row = String::new();
     let mut used = 0usize;
     for ch in text.chars() {
+        if rows.len() >= MAX_OUTPUT_BYTES / std::mem::size_of::<String>() {
+            break;
+        }
         let cells = UnicodeWidthChar::width(ch).unwrap_or(0);
         if cells > 0 && used.saturating_add(cells) > width {
             rows.push(std::mem::take(&mut row));
@@ -453,7 +632,9 @@ fn wrap_cells(text: &str, width: usize) -> Vec<String> {
             used += cells;
         }
     }
-    if !row.is_empty() || rows.is_empty() {
+    if (!row.is_empty() || rows.is_empty())
+        && rows.len() < MAX_OUTPUT_BYTES / std::mem::size_of::<String>()
+    {
         rows.push(row);
     }
     rows

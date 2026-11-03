@@ -11,7 +11,7 @@
 # GitHub release: install.sh fetches them by these fixed names.
 #
 # A package is the source release unpacked, plus the binaries in
-# cockpit/target/release/ and PREBUILT.json at the top. bin/angelX sees
+# cockpit/target/release/, glass in bin/, and PREBUILT.json at the top. bin/angelX sees
 # PREBUILT.json and runs the shipped binaries instead of building them.
 set -euo pipefail
 
@@ -79,6 +79,14 @@ mkdir -p "$stage/$top/cockpit/target/release"
 for name in angel angel-sandbox; do
   install -m 0755 "$bin_dir/$name" "$stage/$top/cockpit/target/release/$name"
 done
+if python3 -c 'import json,sys; sys.exit(0 if "angel-delve-system" in json.load(open(sys.argv[1]))["binaries"] else 1)' "$bin_dir/build.json"; then
+  mkdir -p "$stage/$top/cockpit/systems/delve"
+  install -m 0755 "$bin_dir/angel-delve-system" "$stage/$top/cockpit/systems/delve/engine"
+fi
+# glass, the terminal, beside the launcher: install.sh puts it on the PATH.
+if python3 -c 'import json,sys; sys.exit(0 if "glass" in json.load(open(sys.argv[1]))["binaries"] else 1)' "$bin_dir/build.json"; then
+  install -m 0755 "$bin_dir/glass" "$stage/$top/bin/glass"
+fi
 
 python3 - "$stage/$top/PREBUILT.json" "$manifest" "$bin_dir/build.json" <<'PY'
 import json, os, sys
@@ -102,7 +110,7 @@ prebuilt = {
     "features": b["features"],
     # bin/angelX opens the window only for a binary that carries it.
     "glass": b.get("glass") is True,
-    "binaries": {f"cockpit/target/release/{k}": v for k, v in b["binaries"].items()},
+    "binaries": {({"angel-delve-system": "cockpit/systems/delve/engine", "glass": "bin/glass"}.get(k, f"cockpit/target/release/{k}")): v for k, v in b["binaries"].items()},
 }
 with open(out, "w") as f:
     json.dump(prebuilt, f, indent=2)

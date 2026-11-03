@@ -25,6 +25,12 @@ pub struct Tune {
     pub hitstop_phase: u32,
     pub hitstop_heavy: u32,
     pub hitstop_cooldown: u32,
+    /// A minion's best finisher (`gore`): off by default, since a real hold
+    /// stands the rules' time still.
+    pub hitstop_finisher: u32,
+    /// A knight's blow that lands solid, and one that kills (`melee`).
+    pub hitstop_melee: u32,
+    pub hitstop_melee_kill: u32,
     pub cinder_fall: u32,
     pub cinder_slide: u32,
     pub cinder_lock: u32,
@@ -69,6 +75,12 @@ pub struct Tune {
     pub shot_speed: f32,
     /// Every monster's step, times this.
     pub foe_pace: f32,
+    /// Monsters' bullets that fly, in percent: 50 lets every other one go
+    /// (the operator, 2026-10-24: "50% less bullets but faster from the
+    /// enemies ... the bullethell needs to feel fast and crispy").
+    pub foe_shots: u32,
+    /// Monsters' bullets fly at this times their speed.
+    pub foe_shot_speed: f32,
     /// What monsters deal, in percent.
     pub foe_hit: u32,
     /// Monsters' health, in percent. Never below 100: a party that finds
@@ -81,11 +93,37 @@ pub struct Tune {
     /// After a hit, how long a knight can't be hurt again, in seconds
     /// (`HIT_WARD` ticks): it blinks while it lasts.
     pub hit_ward: f32,
+    /// The first floors' breather (docs/FIRST-SESSION.md): the share of
+    /// their health, in percent, every knight standing mends when a
+    /// chamber's company falls, on floors down to `clear_rest_floors`
+    /// (`CLEAR_REST`, `CLEAR_REST_FLOORS`).
+    pub clear_rest: u32,
+    pub clear_rest_floors: u32,
+    /// How long Fortune's dare waits, in seconds, as the party arrives on a
+    /// floor: behind its title card and its wish sign, one board at a time
+    /// (`DARE_AFTER`).
+    pub dare_after: f32,
 }
+
+/// A chamber's company put down on the first floor mends every knight
+/// standing this share of their health, in percent: measured 2026-10-29,
+/// a lone beginner walked into the next chamber on a fifth of their health
+/// and fell there three times in ten minutes (`first_session`).
+pub const CLEAR_REST: u32 = 30;
+pub const CLEAR_REST_FLOORS: u32 = 1;
+/// Seconds Fortune's dare waits as the party arrives: behind the floor's
+/// title card (1.8 s) and its wish sign (3 s). Measured 2026-10-29, the
+/// three came up on the same tick, and the wish's sign went unread.
+pub const DARE_AFTER: f32 = 5.0;
 
 use super::kingdom::{CAMERA_FOLLOW, ROAD_PACE};
 use super::{HERO_SPEED, HZ, ROLL_SPEED};
 use super::hero::HIT_WARD;
+
+/// The longest ward after a hit the panel may set, in seconds.
+const HIT_WARD_MOST: f32 = 2.5;
+/// The longest the dare may wait behind the wish sign, in seconds.
+const DARE_AFTER_MOST: f32 = 10.0;
 
 impl Default for Tune {
     fn default() -> Tune {
@@ -97,6 +135,9 @@ impl Default for Tune {
             hitstop_phase: 4,
             hitstop_heavy: 2,
             hitstop_cooldown: 14,
+            hitstop_finisher: 0,
+            hitstop_melee: 2,
+            hitstop_melee_kill: 3,
             cinder_fall: super::cinder::FALL,
             cinder_slide: super::cinder::SLIDE,
             cinder_lock: super::cinder::LOCK,
@@ -133,11 +174,16 @@ impl Default for Tune {
             fire_rate: 100,
             shot_speed: 1.0,
             foe_pace: 1.0,
+            foe_shots: 100,
+            foe_shot_speed: 1.0,
             foe_hit: 100,
             foe_health: 100,
             foe_count: 100,
             camera_follow: CAMERA_FOLLOW,
             hit_ward: HIT_WARD as f32 / HZ as f32,
+            clear_rest: CLEAR_REST,
+            clear_rest_floors: CLEAR_REST_FLOORS,
+            dare_after: DARE_AFTER,
         }
     }
 }
@@ -181,6 +227,14 @@ impl Tune {
                 .range(0.25, 3.0, 0.05)
                 .default(shown(d.foe_pace))
                 .at(shown(self.foe_pace)),
+            server("foe_shots", "foes", "Monster bullets (%)", "the share of monsters' bullets that fly (rules/flight.rs)")
+                .range(10.0, 100.0, 5.0)
+                .default(f64::from(d.foe_shots))
+                .at(f64::from(self.foe_shots)),
+            server("foe_shot_speed", "foes", "Monster bullet speed, times", "monsters' bullets' speed (rules/flight.rs)")
+                .range(0.5, 3.0, 0.05)
+                .default(shown(d.foe_shot_speed))
+                .at(shown(self.foe_shot_speed)),
             server("foe_hit", "foes", "Monster damage (%)", "DEPTH_HIT and PARTY_HIT (crates/delve/src/rules/stakes.rs)")
                 .range(25.0, 400.0, 5.0)
                 .default(f64::from(d.foe_hit))
@@ -198,9 +252,21 @@ impl Tune {
                 .default(shown(d.camera_follow))
                 .at(shown(self.camera_follow)),
             server("hit_ward_s", "knight", "Ward after a hit (s)", "HIT_WARD (crates/delve/src/rules/hero.rs)")
-                .range(0.0, 1.0, 0.05)
+                .range(0.0, f64::from(HIT_WARD_MOST), 0.05)
                 .default(shown(d.hit_ward))
                 .at(shown(self.hit_ward)),
+            server("clear_rest", "first floors", "Breather: a chamber won mends (% health)", "CLEAR_REST (crates/delve/src/rules/tune.rs)")
+                .range(0.0, 100.0, 5.0)
+                .default(f64::from(d.clear_rest))
+                .at(f64::from(self.clear_rest)),
+            server("clear_rest_floors", "first floors", "Breather down to floor", "CLEAR_REST_FLOORS (crates/delve/src/rules/tune.rs)")
+                .range(0.0, 10.0, 1.0)
+                .default(f64::from(d.clear_rest_floors))
+                .at(f64::from(self.clear_rest_floors)),
+            server("dare_after_s", "first floors", "Fortune's dare after the wish sign (s)", "DARE_AFTER (crates/delve/src/rules/tune.rs)")
+                .range(0.0, f64::from(DARE_AFTER_MOST), 0.5)
+                .default(shown(d.dare_after))
+                .at(shown(self.dare_after)),
             server("cinder_fall", "Cinder Stack", "Fall (ticks/cell)", "cinder::FALL").range(6.0, 60.0, 1.0).default(d.cinder_fall as f64).at(self.cinder_fall as f64),
             server("cinder_slide", "Cinder Stack", "Slide repeat (ticks)", "cinder::SLIDE").range(2.0, 15.0, 1.0).default(d.cinder_slide as f64).at(self.cinder_slide as f64),
             server("cinder_lock", "Cinder Stack", "Grounded lock (ticks)", "cinder::LOCK").range(3.0, 30.0, 1.0).default(d.cinder_lock as f64).at(self.cinder_lock as f64),
@@ -237,6 +303,9 @@ impl Tune {
             server("hitstop_phase", "hit-stop", "Boss phase or stagger (ticks)", "rules::hitstop").range(0.0, 12.0, 1.0).default(d.hitstop_phase as f64).at(self.hitstop_phase as f64),
             server("hitstop_heavy", "hit-stop", "Heavy boss hit (ticks)", "rules::hitstop").range(0.0, 12.0, 1.0).default(d.hitstop_heavy as f64).at(self.hitstop_heavy as f64),
             server("hitstop_cooldown", "hit-stop", "Impact cooldown (ticks)", "rules::hitstop").range(0.0, 60.0, 1.0).default(d.hitstop_cooldown as f64).at(self.hitstop_cooldown as f64),
+            server("hitstop_finisher", "hit-stop", "Minion finisher (ticks)", "rules::gore").range(0.0, 12.0, 1.0).default(d.hitstop_finisher as f64).at(self.hitstop_finisher as f64),
+            server("hitstop_melee", "hit-stop", "Solid melee blow (ticks)", "rules::melee").range(0.0, 12.0, 1.0).default(d.hitstop_melee as f64).at(self.hitstop_melee as f64),
+            server("hitstop_melee_kill", "hit-stop", "Melee kill (ticks)", "rules::melee").range(0.0, 12.0, 1.0).default(d.hitstop_melee_kill as f64).at(self.hitstop_melee_kill as f64),
         ];
         knobs.extend(super::roundtable::knobs(self));
         knobs
@@ -253,6 +322,9 @@ impl Tune {
             "hitstop_phase" => self.hitstop_phase = pct.min(12),
             "hitstop_heavy" => self.hitstop_heavy = pct.min(12),
             "hitstop_cooldown" => self.hitstop_cooldown = pct.min(60),
+            "hitstop_finisher" => self.hitstop_finisher = pct.min(12),
+            "hitstop_melee" => self.hitstop_melee = pct.min(12),
+            "hitstop_melee_kill" => self.hitstop_melee_kill = pct.min(12),
             "moss_launch" => self.moss_launch = pct.clamp(1000, 1800),
             "moss_nudge" => self.moss_nudge = pct.clamp(80, 320),
             "moss_bounce" => self.moss_bounce = pct.clamp(60, 95),
@@ -290,11 +362,16 @@ impl Tune {
             "fire_rate" => self.fire_rate = pct.max(1),
             "shot_speed" => self.shot_speed = f,
             "foe_pace" => self.foe_pace = f,
+            "foe_shots" => self.foe_shots = pct.clamp(10, 100),
+            "foe_shot_speed" => self.foe_shot_speed = f,
             "foe_hit" => self.foe_hit = pct,
             "foe_health" => self.foe_health = pct.max(100),
             "foe_count" => self.foe_count = pct.max(100),
             "camera_follow" => self.camera_follow = f,
             "hit_ward_s" => self.hit_ward = f.max(0.0),
+            "clear_rest" => self.clear_rest = pct.min(100),
+            "clear_rest_floors" => self.clear_rest_floors = pct.min(10),
+            "dare_after_s" => self.dare_after = f.clamp(0.0, DARE_AFTER_MOST),
             _ => return super::roundtable::set(self, name, pct),
         }
         true
@@ -322,11 +399,12 @@ impl Tune {
     /// Whether every number a run reads is a number: what a run read off a
     /// save or a wire must be before it plays.
     pub fn valid(&self) -> bool {
-        [self.hero_speed, self.road_pace, self.roll_speed, self.shot_speed, self.foe_pace, self.camera_follow]
+        [self.hero_speed, self.road_pace, self.roll_speed, self.shot_speed, self.foe_pace, self.foe_shot_speed, self.camera_follow]
             .iter()
             .all(|v| v.is_finite() && *v > 0.0 && *v <= 100.0)
+            && (10..=100).contains(&self.foe_shots)
             && self.hitstop <= 1
-            && [self.hitstop_boss_kill, self.hitstop_elite_kill, self.hitstop_phase, self.hitstop_heavy].iter().all(|&n| n <= 12)
+            && [self.hitstop_boss_kill, self.hitstop_elite_kill, self.hitstop_phase, self.hitstop_heavy, self.hitstop_finisher, self.hitstop_melee, self.hitstop_melee_kill].iter().all(|&n| n <= 12)
             && self.hitstop_cooldown <= 60
             && (800..=1800).contains(&self.moss_flipper)
             && (16..=48).contains(&self.moss_gravity)
@@ -363,7 +441,17 @@ impl Tune {
             && self.foe_health >= 100
             && self.foe_count >= 100
             && self.hit_ward.is_finite()
-            && (0.0..=1.0).contains(&self.hit_ward)
+            && (0.0..=HIT_WARD_MOST).contains(&self.hit_ward)
+            && self.clear_rest <= 100
+            && self.clear_rest_floors <= 10
+            && self.dare_after.is_finite()
+            && (0.0..=DARE_AFTER_MOST).contains(&self.dare_after)
+    }
+
+    /// What a chamber won on floor `depth` mends a knight, in percent of
+    /// their health (`clear_rest`).
+    pub fn clear_rest_at(&self, depth: u32) -> u32 {
+        if (1..=self.clear_rest_floors).contains(&depth) { self.clear_rest } else { 0 }
     }
 }
 

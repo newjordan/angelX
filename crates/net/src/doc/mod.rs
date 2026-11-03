@@ -3,5 +3,9 @@
 //! (the Delve); a crowd uses entity replication instead.
 
 pub mod delta;
+pub mod kept;
 pub mod value;
 pub mod wire;
+
+#[cfg(test)]
+mod tests;

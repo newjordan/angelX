@@ -1,0 +1,15 @@
+{ "fx": 0, "name": "arcane nova", "canvas": [48, 40], "pivot": [24, 22], "fps": 12, "seed": 71,
+  "beats": { "anticipation": 5, "action": 1, "follow": 5, "settle": 5 },
+  "layers": [
+    { "type": "glyph", "ramp": "arcane", "y": 4, "r1": 12, "squash": 0.42, "count": 5, "spin": 3, "z": "back", "t0": 0, "t1": "settle+2" },
+    { "type": "particles", "form": "spark", "ramp": "arcane", "motion": "gather", "area": [16, 12], "count": 14, "life": [4, 4],
+      "t0": 1, "t1": "action" },
+    { "type": "orb", "ramp": "arcane", "r0": 0.8, "r1": 3, "ease": "in", "t0": 0, "t1": "action+1" },
+    { "type": "star", "ramp": "arcane", "r1": 8, "count": 8, "t0": "action", "t1": "follow+1" },
+    { "type": "ring", "ramp": "arcane", "r0": 2, "r1": 22, "th": 1.8, "squash": 0.75, "t0": "action", "t1": "settle" },
+    { "type": "ring", "ramp": "void", "r0": 2, "r1": 15, "th": 1, "squash": 0.75, "t0": "follow", "t1": "settle" },
+    { "type": "rays", "ramp": "arcane", "count": 12, "r0": 3, "r1": 18, "th": 0.8, "angle": 15, "squash": 0.8, "t0": "action", "t1": "follow+3" },
+    { "type": "particles", "form": "mote", "ramp": "arcane", "count": 18, "speed": [2, 4], "squash": 0.8, "life": [5, 9], "t0": "action", "t1": "end" },
+    { "type": "particles", "form": "star", "ramp": "arcane", "spawn": "disc", "area": [18, 12], "count": 0, "rate": 1.5, "speed": 0,
+      "life": [4, 6], "size": 1.1, "t0": "follow", "t1": "end-1" }
+  ] }

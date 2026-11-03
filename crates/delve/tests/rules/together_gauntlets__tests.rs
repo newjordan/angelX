@@ -284,7 +284,7 @@ fn hammers_stand_across_the_whole_passage_in_gates_that_fall_one_after_another()
         let room = run.room();
         let mut gates: BTreeMap<u32, Vec<(f32, f32)>> = BTreeMap::new();
         for g in &run.works.gauntlets {
-            let Gauntlet::Hammer { x, y, phase, .. } = *g else { unreachable!() };
+            let Gauntlet::Hammer { x, y, .. } = *g else { unreachable!() };
             let along = if upright { y } else { x };
             gates.entry(along.to_bits()).or_default().push((x, y));
             // Its footprint is all passage floor.

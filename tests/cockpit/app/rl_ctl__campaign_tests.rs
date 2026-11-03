@@ -241,6 +241,116 @@ impl Club for BlockingFixtureClub {
     }
 }
 
+/// The real connected reflector asks for a book page, then records exactly
+/// what the ledger supplied before returning a policy proposal.
+struct CatalogReflectionClub {
+    observed: Mutex<Option<String>>,
+}
+
+impl Club for CatalogReflectionClub {
+    fn label(&self) -> &str {
+        "catalog-reflection-fixture"
+    }
+
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Err("fixture must use the connected chat path".into())
+    }
+
+    fn chat_streaming(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        _cancel: &AtomicBool,
+        _on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        if let Some(receipt) = messages
+            .iter()
+            .find(|message| message.role == ChatRole::Tool)
+        {
+            *self.observed.lock().unwrap() = Some(receipt.content.to_string());
+            return Ok(ClubReply::Text("policy proposal".into()));
+        }
+        assert!(tools.iter().any(|tool| tool.name == "read_file"));
+        Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
+            id: "catalog-page".into(),
+            name: "read_file".into(),
+            args: json!({"path": "ledger://⠣⠁⠁"}),
+        }]))
+    }
+}
+
+#[test]
+fn campaign_and_research_workers_carry_parent_book_into_connected_reflector() {
+    use crate::agent::harness::book::{Route, catalog};
+
+    let workspace = TestGitWorkspace::new("rl-campaign-book");
+    for name in [
+        "angel-rl-campaign",
+        "angel-loop-research",
+        "angel-labyrinth-research",
+    ] {
+        let mut edited = catalog::Catalog::baseline();
+        edited.set_test_page(Route::new('⠣', '⠁'), 0, "parent campaign generation");
+        let parent = catalog::enter(Arc::new(edited));
+        let book = campaign_book().unwrap();
+        drop(parent);
+        // The caller may now be in another generation. The launched worker
+        // must continue using the snapshot captured at launch.
+        let _other = catalog::enter(Arc::new(catalog::Catalog::baseline()));
+        let fixture = Arc::new(CatalogReflectionClub {
+            observed: Mutex::new(None),
+        });
+        let club: Arc<dyn Club> = fixture.clone();
+        let path = workspace.path().to_path_buf();
+        let worker = spawn_book_worker(name, book, move || {
+            let reflector = CancellableReflector {
+                club,
+                workspace: path,
+                cancel: Arc::new(AtomicBool::new(false)),
+                progress: Arc::new(Mutex::new(RunProgress::default())),
+                verdicts: Arc::new(Mutex::new(BTreeMap::new())),
+            };
+            assert_eq!(
+                reflector
+                    .improve("current", "task", "best", "worst")
+                    .unwrap(),
+                "policy proposal"
+            );
+        })
+        .unwrap();
+        worker.join().unwrap();
+        let observed = fixture.observed.lock().unwrap();
+        assert!(
+            observed
+                .as_deref()
+                .is_some_and(|text| text.contains("parent campaign generation")),
+            "{name} reflector received {observed:?}"
+        );
+    }
+}
+
+#[test]
+fn ui_campaign_reports_partial_book_before_creating_artifacts() {
+    let env = FixtureEnv::new("book-preflight");
+    let workspace = env.workspace();
+    let resources = env.root.join("resources");
+    let book = resources.join("cockpit/book");
+    std::fs::create_dir_all(&book).unwrap();
+    std::fs::write(book.join("gh_navigation.tsv"), "incomplete").unwrap();
+    let _resources = TestEnvGuard::set("ANGEL_RESOURCE_DIR", resources.to_str().unwrap());
+    let mut state = RlState::default();
+    let error = state
+        .start_campaign(
+            workspace.path(),
+            ObjectiveFixtureClub::new(NOTE),
+            &args(&[]),
+        )
+        .unwrap_err();
+    assert!(error.contains("book generation"), "{error}");
+    assert!(!state.running());
+    assert!(state.run_dir().is_none());
+}
+
 struct FixtureEnv {
     _authority: TestEnvGuard,
     _harness: TestEnvGuard,
@@ -850,4 +960,29 @@ fn app_entry_launches_the_advertised_quoted_command_intact() {
         "the rejected line does not replace the recorded objective"
     );
     let _ = std::fs::remove_dir_all(&env.root);
+}
+
+#[test]
+fn direct_campaign_book_pins_tool_generation_for_late_workers() {
+    use crate::agent::harness::{book::catalog, core_catalog};
+    let _guard = env_lock();
+    let workspace = TestGitWorkspace::new("rl-campaign-tool-catalog");
+    let path = workspace.path().join("definitions.json");
+    let resource = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("lib/tools/definitions.json");
+    let mut data: serde_json::Value = serde_json::from_slice(&std::fs::read(resource).unwrap()).unwrap();
+    data["tools"]["git_diff"]["description"] = "rl generation one".into();
+    std::fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
+    let _catalog = TestEnvGuard::set("ANGEL_CORE_TOOL_CATALOG", path.to_str().unwrap());
+    let book = campaign_book().unwrap();
+    data["tools"]["git_diff"]["description"] = "rl generation two".into();
+    std::fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
+    let (tx, rx) = mpsc::channel();
+    let worker = spawn_book_worker("rl-tool-generation", book, move || {
+        let mut def = core_catalog::baseline_def("git_diff");
+        core_catalog::current().unwrap().overlay(&mut def);
+        tx.send(def.description).unwrap();
+    }).unwrap();
+    worker.join().unwrap();
+    assert_eq!(rx.recv().unwrap(), "rl generation one");
+    assert!(catalog::current().is_none());
 }

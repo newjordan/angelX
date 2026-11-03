@@ -17,7 +17,7 @@ Several efforts built toward that on 2026-10-16/17. This is where each one lande
 | **Object dock.** The mini-viz's seven actions as turning solids that float up and out of the pane, each a different shape. The expand arrow reveals them; a click on the solid itself runs its action, and the empty space between solids falls through. Labels stay text, paging keeps all seven reachable, and reduced motion snaps. | angel, main tree | `cockpit/src/ui/object_dock.rs`. Its solids are `LayerKind::Primitive` layers, ray-marched by the window. |
 | **Turning solids as a layer kind.** Cube, sphere, pyramid, cylinder, cone, torus and octahedron, lit, with a rim and a turn. A host that only draws quads gets a bounded projection. | angel, main tree | `angel-stage` (`LayerKind::Primitive`, `primitive.rs`), `angel-gpu` (kinds 16 to 22 in `glass.wgsl`, one instance per solid). |
 | **Gold coins.** One toss per whole million input tokens, staggered, at most eight live. A milestone during a toss extends the burst rather than restarting it. | angel, main tree | `cockpit/src/ui/viz/spend_viz.rs`. In the window, coins are cached flip frames placed over the cockpit. |
-| **The `/setup` scroll.** A foreground paper that unrolls with fixed 1/120 s physics. The rollers turn by released length over radius, and it reverses mid-motion. Its text is native atlas glyphs bent with the paper. The rollers are the TRELLIS mesh exported on Spark. | angel, main tree | glass: `scroll.rs`, `scroll_mesh.rs`, `render_scroll*.rs`. `angel-gpu`: parchment (kind 11) and mesh triangles (kind 12). Cockpit: `setup_menu.rs`, `views/setup_view.rs`. The roller texture is an `angel-gpu` picture. |
+| **The `/setup` card** (was the scroll). On 2026-10-20 the paper scroll gave way to the glass card: the showcase's clear glass, the squire on its roof, the title set large, each page's words coming up into place and a pill gliding under the chosen row. A first launch opens on a short title: the name over a line that grows, the squire walking it, the card unfolding under him. Approvals use the same card, popping in at once with the squire on guard. | angel, main tree | glass: `card.rs` (what the card says, its timeline), `render_card.rs` (drawn over the cockpit, under the showcase). Cockpit: `setup_menu.rs`, `views/setup_view.rs`, `views/approval_view.rs`. |
 | **Floor pickups as solids.** Dropped cards and runes as lit solids with a contact shadow; a rune keeps its sign. | main tree | `delve`: `cards::pickup_image`, `runes::solid_orb`, `RoomScene::solids`. Drawn beside the play line's 3D pickups (below). |
 | **The Orrery.** The live agent graph as a leaning holo-panel in the window's top right, on its own thread. While no graph runs it holds a gold sun and orbits. `ANGEL_GLASS_ORRERY=1`. | GLM, `feat/fourth-wall` | `cockpit/src/ui/orrery.rs`, on dev. |
 | **The Stereopticon.** The artifacts pane's videos play as a glass plate in the window, with a progress track, pause bars and an ended replay that restarts. | GLM, `feat/fourth-wall` | `cockpit/src/ui/stereopticon.rs`, on dev. |
@@ -32,7 +32,7 @@ There are now several ways something 3D reaches the window. Each has its place:
 
 1. **`angel-gpu` scenes** (`docs/GLASS_CORE.md`): meshes, depth, a camera and the world's look. They draw the Delve's shots and pickups as props, the cube and the shore.
 2. **Ray-marched solids** (`LayerKind::Primitive`): one quad each, shaded in the fragment shader. They draw the dock's buttons, and the pickups on a stage that draws no props.
-3. **The scroll's paper and rollers**: instances in the window's own pass, drawn over everything the cockpit drew.
+3. **The card**: instances and layers in the window's own pass, drawn over everything the cockpit drew.
 4. **Leaned 2D panels** (the Orrery, the Stereopticon): layers turned together about a panel's centre.
 5. **The CPU rasterizer**: the terminal's own path, unchanged.
 
@@ -59,5 +59,4 @@ A floor pickup shows how they stack. A page that draws props gets the play line'
 ## Not done
 
 - The Orrery has no command yet: it is `ANGEL_GLASS_ORRERY=1` only, with no "show while a graph runs" policy.
-- The scroll still draws its rollers in painter's order inside the window's pass, not through an `angel-gpu` scene with depth. Moving it there would let the scroll share the scenes' light and the world's look.
 - The coins are flip frames, not a mesh.

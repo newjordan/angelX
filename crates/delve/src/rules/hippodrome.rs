@@ -87,3 +87,7 @@ pub fn settle(country:&mut countryside::Country, treasury:&mut Spoils, marks:&BT
         news.push("Coach commission: 85 gold, 2 ore.".into());
     }
 }
+
+#[cfg(all(test, feature = "bend-cases-games-c"))]
+#[path = "../../tests/rules/games_c_bend_cases__tests.rs"]
+pub(crate) mod games_c_bend_cases_tests;

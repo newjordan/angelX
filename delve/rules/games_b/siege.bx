@@ -1,0 +1,383 @@
+# crates/delve/src/rules/pastimes/siege.rs — the Siege Trail: a march of five
+# legs over three castles, a trebuchet to aim, and the keeps to breach.
+# Positions are in 1/16 pixel steps (i32).
+
+def pastimes.siege.GROUND() -> List<&2, J.Val>:
+  [J.JU{6}, J.JU{7}, J.JU{8}, J.JU{9}, J.JU{10}, J.JU{11}, J.JU{12}, J.JU{11}, J.JU{10}, J.JU{9}, J.JU{10}, J.JU{11}, J.JU{12}, J.JU{13}, J.JU{12}, J.JU{11}, J.JU{10}, J.JU{9}, J.JU{8}, J.JU{9}, J.JU{10}, J.JU{11}, J.JU{12}, J.JU{13}, J.JU{14}, J.JU{13}, J.JU{12}, J.JU{11}, J.JU{10}, J.JU{9}, J.JU{8}, J.JU{7}, J.JU{8}, J.JU{9}, J.JU{10}, J.JU{11}, J.JU{12}, J.JU{11}, J.JU{10}, J.JU{9}, J.JU{8}, J.JU{7}, J.JU{6}, J.JU{6}, J.JU{7}, J.JU{8}, J.JU{9}, J.JU{8}]
+
+def pastimes.siege.POT_LAND(+i: U32) -> U32:
+  match i:
+    case 0:
+      0
+    case 1:
+      12
+    case 2:
+      RS.i_neg(9)
+    case 3:
+      20
+    case _:
+      RS.i_neg(15)
+
+def pastimes.siege.WIND(+i: U32) -> U32:
+  match i:
+    case 0:
+      2
+    case 1:
+      4
+    case _:
+      8
+
+# castle_of(leg): which castle a leg besieges (0 for none).
+def pastimes.siege.castle_of(+leg: U32) -> U32:
+  match leg:
+    case 2:
+      1
+    case 3:
+      2
+    case 5:
+      3
+    case _:
+      0
+
+def pastimes.siege.blank_graves() -> J.Val:
+  J.JA{[J.JU{255}, J.JU{255}, J.JU{255}, J.JU{255}, J.JU{255}]}
+
+def pastimes.siege.zeros48() -> J.Val:
+  J.JA{pastimes.gander.zeros(48)}
+
+# Keep::new(castle)
+def pastimes.siege.Keep.new(+castle: U32) -> J.Val:
+  rows: U32 = (3 + gb.ssub(castle, 1) : U32)
+  k0: J.Val = J.set(J.obj(), "blocks", J.JA{pastimes.siege.fill(3, (3 * rows : U32))})
+  gb.su(gb.su(gb.su(gb.sb(gb.su(k0, "rows", rows), "banner", True{}), "defenders", (2 + gb.ssub(castle, 1) : U32)), "shot_left", 90), "volleys", 0)
+
+def pastimes.siege.fill(+v: U32, +n: U32) -> List<&2, J.Val>:
+  match n:
+    case 0:
+      []
+    case _:
+      J.JU{v} <> pastimes.siege.fill(v, (n - 1 : U32))
+
+# Siege::new(owner)
+def pastimes.siege.Siege.new(+owner: U32) -> J.Val:
+  s0: J.Val = gb.su(gb.sb(gb.su(J.obj(), "owner", owner), "fighting", False{}), "leg", 1)
+  s1: J.Val = J.set(J.set(J.set(s0, "graves", pastimes.siege.blank_graves()), "keep", pastimes.siege.Keep.new(1)), "shot", J.JNull{})
+  s2: J.Val = gb.su(gb.su(gb.su(gb.su(gb.su(s1, "soldiers", 7), "stones", 9), "food", 3), "aim", 5), "power", 5)
+  s3: J.Val = gb.si(gb.si(gb.su(gb.su(J.set(s2, "castle_shot", J.JNull{}), "reload", 0), "volley_left", 60), "pot_land", 36), "wind", 2)
+  s4: J.Val = gb.sb(gb.su(gb.su(gb.su(gb.su(s3, "volleys", 0), "damage", 0), "lost", 0), "taken", 0), "flung", False{})
+  s5: J.Val = gb.sb(gb.su(J.set(gb.su(s4, "limp", 0), "craters", pastimes.siege.zeros48()), "event_left", 60), "event_f", False{})
+  s6: J.Val = gb.sb(gb.si(gb.su(gb.su(gb.su(s5, "notice", 0), "grave", 255), "splat", 0), "splat_x", 36), "splat_miss", False{})
+  gb.su(gb.su(gb.su(gb.su(gb.su(gb.su(s6, "felled", 0), "mourn", 0), "cheer", 0), "retreat", 0), "moon", 0), "pot", 0)
+
+# Siege::ground_at(x): the ground's height at a column, less its craters.
+def pastimes.siege.ground_at(+s: J.Val, +x: U32) -> U32:
+  seg: U32 = RS.i_clamp(RS.i_div(x, 8), 0, 47)
+  gb.ssub(J.u32(J.nth(J.JA{pastimes.siege.GROUND()}, seg)), gb.ag(J.get(s, "craters"), seg))
+
+def pastimes.siege.next_wind(+s: J.Val) -> U32:
+  w: U32 = pastimes.siege.WIND(U32.min(gb.ssub(gb.u(s, "leg"), 1), 2))
+  Bool.pick(U32, U32.is_eq(U32.mod(gb.u(s, "volleys"), 2), 1), RS.i_neg(w), w)
+
+def pastimes.siege.reload_ticks(+s: J.Val) -> U32:
+  (20 + gb.ssub(7, gb.u(s, "soldiers")) * 12 : U32)
+
+# Keep::top_of(col): the first standing row of a column (rows for none).
+def pastimes.siege.Keep.top_of(+k: J.Val, +col: U32) -> U32:
+  pastimes.siege.top.go(k, col, 0)
+
+def pastimes.siege.top.go(+k: J.Val, +col: U32, +row: U32) -> U32:
+  if U32.is_ge(row, gb.u(k, "rows")):
+    gb.u(k, "rows")
+  else:
+    if U32.is_gt(gb.ag(J.get(k, "blocks"), (col * gb.u(k, "rows") + row : U32)), 0):
+      row
+    else:
+      pastimes.siege.top.go(k, col, (row + 1 : U32))
+
+# Keep::hit(col, row, dmg) -> (keep, done)
+def pastimes.siege.Keep.hit(+k: J.Val, +col: U32, +row: U32, +dmg: U32) -> J.Val & U32:
+  rows: U32 = gb.u(k, "rows")
+  i: U32 = (col * rows + row : U32)
+  n: U32 = J.len(J.get(k, "blocks"))
+  if U32.is_lt(i, n):
+    before: U32 = gb.ag(J.get(k, "blocks"), i)
+    after: U32 = gb.ssub(before, dmg)
+    k1: J.Val = J.set(k, "blocks", gb.as(J.get(k, "blocks"), i, after))
+    (k2: J.Val, d2: U32) = pastimes.siege.splash(k1, (i - rows : U32), n, (before - after : U32))
+    (k3: J.Val, d3: U32) = pastimes.siege.splash(k2, (i + rows : U32), n, d2)
+    (pastimes.siege.banner(k3), d3)
+  else:
+    (pastimes.siege.banner(k), 0)
+
+def pastimes.siege.splash(+k: J.Val, +j: U32, +n: U32, +done: U32) -> J.Val & U32:
+  if Bool.and(U32.is_lt(j, n), U32.is_gt(gb.ag(J.get(k, "blocks"), j), 0)):
+    b: U32 = gb.ag(J.get(k, "blocks"), j)
+    nb: U32 = gb.ssub(b, 1)
+    (J.set(k, "blocks", gb.as(J.get(k, "blocks"), j, nb)), (done + (b - nb) : U32))
+  else:
+    (k, done)
+
+def pastimes.siege.banner(+k: J.Val) -> J.Val:
+  rows: U32 = gb.u(k, "rows")
+  Bool.pick(J.Val, U32.is_eq(gb.ag(J.get(k, "blocks"), (2 * rows - 1 : U32)), 0), gb.sb(k, "banner", False{}), k)
+
+def pastimes.siege.shot(+x: U32, +y: U32, +vx: U32, +vy: U32, +wind: U32, +ammo: String, +flung: Bool) -> J.Val:
+  s0: J.Val = gb.sb(gb.si(gb.si(gb.si(gb.si(J.obj(), "x", x), "y", y), "vx", vx), "vy", vy), "flung", flung)
+  gb.ss(gb.si(s0, "wind", wind), "ammo", ammo)
+
+def pastimes.siege.ammo_of(+i: U32) -> String:
+  match U32.mod(i, 5) as U32:
+    case 0:
+      "boulder"
+    case 1:
+      "cow"
+    case 2:
+      "beehive"
+    case 3:
+      "pig"
+    case _:
+      "eels"
+
+def pastimes.siege.ammo_damage(+ammo: String) -> U32:
+  Bool.pick(U32, String.eq(ammo, "boulder"), 3, 2)
+
+# Siege::loose: the next shot from the engine and the engine with it.
+def pastimes.siege.loose(+s: J.Val) -> J.Val & J.Val:
+  ammo: String = pastimes.siege.ammo_of(gb.u(s, "volleys"))
+  flung: Bool = Bool.and(gb.b(s, "flung"), U32.is_eq(gb.u(s, "limp"), 0))
+  s1: J.Val = gb.sb(gb.su(s, "volleys", (gb.u(s, "volleys") + 1 : U32)), "flung", Bool.and(gb.b(s, "flung"), Bool.not(flung)))
+  y: U32 = RS.i_sub(RS.i_sub(176, 26), pastimes.siege.ground_at(s, 36))
+  (s1, pastimes.siege.shot(RS.i_mul(44, 16), RS.i_mul(y, 16), RS.i_add(20, RS.i_mul(gb.u(s, "power"), 14)), RS.i_neg(RS.i_add(30, RS.i_mul(gb.u(s, "aim"), 10))), gb.i(s, "wind"), ammo, flung))
+
+# Siege::step -> (self, Some(true) | Some(false) as 1 / 0, None as null).
+def pastimes.siege.Siege.step(+s: J.Val, +input: J.Val, +tapped: Bool) -> J.Val & J.Val:
+  if U32.is_gt(gb.u(s, "mourn"), 0):
+    pastimes.siege.count_down(s, "mourn", True{})
+  else:
+    if U32.is_gt(gb.u(s, "cheer"), 0):
+      pastimes.siege.count_down(s, "cheer", False{})
+    else:
+      if U32.is_gt(gb.u(s, "retreat"), 0):
+        pastimes.siege.count_down(s, "retreat", False{})
+      else:
+        if Bool.not(gb.b(s, "fighting")):
+          (pastimes.siege.step_trail(s, tapped), J.JBool{True{}})
+        else:
+          pastimes.siege.fight(s, input, tapped)
+
+# The mourning / cheering / retreat counts down; at 0 the next stage opens.
+def pastimes.siege.count_down(+s: J.Val, +k: String, +walls: Bool) -> J.Val & J.Val:
+  n: U32 = (gb.u(s, k) - 1 : U32)
+  s1: J.Val = gb.su(s, k, n)
+  if U32.is_eq(n, 0):
+    (Bool.pick(J.Val, walls, pastimes.siege.to_the_walls(s1), pastimes.siege.march_on(s1)), J.JBool{True{}})
+  else:
+    (s1, J.JBool{True{}})
+
+def pastimes.siege.to_the_walls(+s: J.Val) -> J.Val:
+  s1: J.Val = gb.su(gb.sb(J.set(s, "keep", pastimes.siege.Keep.new(Bool.pick(U32, U32.is_eq(pastimes.siege.castle_of(gb.u(s, "leg")), 0), 1, pastimes.siege.castle_of(gb.u(s, "leg"))))), "fighting", True{}), "soldiers", U32.min((gb.u(s, "soldiers") + 2 : U32), 7))
+  s2: J.Val = gb.su(gb.su(gb.su(s1, "stones", 9), "reload", 0), "volley_left", 60)
+  s3: J.Val = gb.si(s2, "wind", pastimes.siege.next_wind(s2))
+  gb.su(gb.su(J.set(J.set(s3, "shot", J.JNull{}), "castle_shot", J.JNull{}), "grave", 255), "notice", 255)
+
+def pastimes.siege.march_on(+s: J.Val) -> J.Val:
+  leg: U32 = (gb.u(s, "leg") + 1 : U32)
+  notice: U32 = Bool.pick(U32, U32.is_ne(pastimes.siege.castle_of((leg + 1 : U32)), 0), U32.min((leg - 1 : U32), 2), Bool.pick(U32, U32.is_eq(leg, 3), 3, 4))
+  gb.su(gb.su(gb.su(gb.su(gb.su(gb.sb(gb.su(s, "leg", leg), "fighting", False{}), "event_left", 60), "notice", notice), "grave", 255), "splat", 0), "felled", 0)
+
+# The trail between castles: wait out the event, or take it.
+def pastimes.siege.step_trail(+s: J.Val, +tapped: Bool) -> J.Val:
+  if U32.is_gt(gb.u(s, "event_left"), 0):
+    s1: J.Val = gb.su(s, "event_left", (gb.u(s, "event_left") - 1 : U32))
+    if tapped:
+      pastimes.siege.event(gb.su(gb.sb(s1, "event_f", True{}), "event_left", 0))
+    else:
+      s1
+  else:
+    pastimes.siege.event(s)
+
+def pastimes.siege.event(+s: J.Val) -> J.Val:
+  leg: U32 = gb.u(s, "leg")
+  paid: Bool = Bool.and(Bool.and(U32.is_eq(leg, 1), gb.b(s, "event_f")), U32.is_gt(gb.u(s, "stones"), 0))
+  loss0: U32 = Bool.pick(U32, paid, 0, Bool.pick(U32, gb.b(s, "event_f"), 2, 1))
+  hungry: Bool = U32.is_eq(gb.u(s, "food"), 0)
+  loss: U32 = (loss0 + Bool.to_u32(hungry) : U32)
+  before: U32 = gb.u(s, "soldiers")
+  after: U32 = gb.ssub(before, loss)
+  gone: U32 = (before - after : U32)
+  lost: U32 = (gb.u(s, "lost") + gone : U32)
+  leg_notice: U32 = Bool.pick(U32, U32.is_eq(leg, 1), 3, Bool.pick(U32, U32.is_eq(leg, 2), 4, Bool.pick(U32, U32.is_eq(leg, 3), 5, Bool.pick(U32, U32.is_eq(leg, 4), 8, 9))))
+  notice: U32 = Bool.pick(U32, paid, 6, Bool.pick(U32, Bool.and(hungry, U32.is_gt(gone, 0)), 6, Bool.pick(U32, U32.is_gt(gone, 0), leg_notice, 7)))
+  s1: J.Val = gb.su(gb.su(gb.su(gb.su(gb.su(s, "soldiers", after), "lost", lost), "food", gb.ssub(gb.u(s, "food"), 1)), "stones", Bool.pick(U32, paid, (gb.u(s, "stones") - 1 : U32), gb.u(s, "stones"))), "notice", notice)
+  s2: J.Val = gb.sb(gb.su(gb.su(s1, "grave", Bool.pick(U32, U32.is_gt(gone, 0), U32.min(lost, 7), 255)), "mourn", 45), "event_f", False{})
+  Bool.pick(J.Val, U32.is_gt(gone, 0), J.set(s2, "graves", gb.as(J.get(s2, "graves"), U32.min(gb.ssub(leg, 1), 4), gb.ssub(U32.min(lost, 7), 1))), s2)
+
+# The siege proper: the dial, the reload, the volley, the flight of stones.
+def pastimes.siege.fight(+s: J.Val, +input: J.Val, +tapped: Bool) -> J.Val & J.Val:
+  aim_up: Bool = Bool.or(RS.i_lt(gb.i(input, "aim_y"), 0), RS.i_lt(gb.i(input, "move_y"), 0))
+  aim_dn: Bool = Bool.or(RS.i_gt(gb.i(input, "aim_y"), 0), RS.i_gt(gb.i(input, "move_y"), 0))
+  pw_up: Bool = Bool.or(RS.i_gt(gb.i(input, "aim_x"), 0), RS.i_gt(gb.i(input, "move_x"), 0))
+  pw_dn: Bool = Bool.or(RS.i_lt(gb.i(input, "aim_x"), 0), RS.i_lt(gb.i(input, "move_x"), 0))
+  aim1: U32 = Bool.pick(U32, aim_up, U32.min((gb.u(s, "aim") + 1 : U32), 10), gb.u(s, "aim"))
+  aim2: U32 = Bool.pick(U32, aim_dn, gb.ssub(aim1, 1), aim1)
+  pow1: U32 = Bool.pick(U32, pw_up, U32.min((gb.u(s, "power") + 1 : U32), 10), gb.u(s, "power"))
+  pow2: U32 = Bool.pick(U32, pw_dn, gb.ssub(pow1, 1), pow1)
+  s1: J.Val = gb.su(gb.su(s, "aim", aim2), "power", pow2)
+  pastimes.siege.fight.reload(s1, tapped)
+
+def pastimes.siege.fight.reload(+s: J.Val, +tapped: Bool) -> J.Val & J.Val:
+  reload: U32 = gb.u(s, "reload")
+  r1: U32 = gb.ssub(reload, 1)
+  fling: Bool = Bool.and(Bool.and(U32.is_gt(reload, 0), U32.is_eq(r1, 0)), Bool.and(Bool.and(U32.is_le(gb.u(s, "soldiers"), 2), U32.is_gt(gb.u(s, "soldiers"), 0)), Bool.not(gb.b(s, "flung"))))
+  s1: J.Val = gb.sb(gb.su(gb.su(gb.su(gb.su(gb.su(s, "reload", r1), "limp", gb.ssub(gb.u(s, "limp"), 1)), "splat", gb.ssub(gb.u(s, "splat"), 1)), "moon", gb.ssub(gb.u(s, "moon"), 1)), "felled", gb.ssub(gb.u(s, "felled"), 1)), "flung", Bool.or(gb.b(s, "flung"), fling))
+  vl: U32 = (gb.u(s1, "volley_left") - 1 : U32)
+  s2: J.Val = gb.su(s1, "volley_left", vl)
+  s3: J.Val = Bool.pick(J.Val, U32.is_eq(vl, 0), gb.si(gb.su(s2, "volley_left", 60), "wind", pastimes.siege.next_wind(s2)), s2)
+  loaded: Bool = Bool.and(Bool.and(U32.is_eq(gb.u(s3, "reload"), 0), J.is_null(J.get(s3, "shot"))), U32.is_gt(gb.u(s3, "stones"), 0))
+  if Bool.and(tapped, loaded):
+    (s4: J.Val, shot: J.Val) = pastimes.siege.loose(s3)
+    pastimes.siege.fight.after(gb.su(gb.su(J.set(s4, "shot", shot), "stones", (gb.u(s4, "stones") - 1 : U32)), "reload", pastimes.siege.reload_ticks(s4)))
+  else:
+    pastimes.siege.fight.after(s3)
+
+def pastimes.siege.fight.after(+s: J.Val) -> J.Val & J.Val:
+  s1: J.Val = pastimes.siege.step_keep_shot(pastimes.siege.step_shot(s))
+  spent: Bool = Bool.or(U32.is_eq(gb.u(s1, "soldiers"), 0), Bool.and(U32.is_eq(gb.u(s1, "stones"), 0), J.is_null(J.get(s1, "shot"))))
+  if spent:
+    if U32.is_eq(pastimes.siege.castle_of(gb.u(s1, "leg")), 3):
+      (s1, J.JNull{})
+    else:
+      (gb.su(J.set(J.set(s1, "shot", J.JNull{}), "castle_shot", J.JNull{}), "retreat", 30), J.JBool{True{}})
+  else:
+    (s1, J.JBool{True{}})
+
+def pastimes.siege.dig(+s: J.Val, +px: U32) -> J.Val:
+  if RS.i_ge(px, 252):
+    s
+  else:
+    seg: U32 = RS.i_clamp(RS.i_div(px, 8), 0, 47)
+    g: U32 = J.u32(J.nth(J.JA{pastimes.siege.GROUND()}, seg))
+    J.set(s, "craters", gb.as(J.get(s, "craters"), seg, U32.min((gb.ag(J.get(s, "craters"), seg) + 3 : U32), g)))
+
+def pastimes.siege.landed(+s: J.Val, +sx: U32, +short: Bool) -> J.Val:
+  gb.sb(gb.si(gb.su(gb.su(s, "moon", Bool.pick(U32, short, 45, 0)), "splat", 6), "splat_x", RS.i_div(sx, 16)), "splat_miss", short)
+
+# The stone in flight: gravity, wind, a hit on the keep or the ground.
+def pastimes.siege.step_shot(+s: J.Val) -> J.Val:
+  sh: J.Val = J.get(s, "shot")
+  if J.is_null(sh):
+    s
+  else:
+    vy: U32 = RS.i_add(gb.i(sh, "vy"), 8)
+    x: U32 = RS.i_add(gb.i(sh, "x"), RS.i_add(gb.i(sh, "vx"), gb.i(sh, "wind")))
+    y: U32 = RS.i_add(gb.i(sh, "y"), vy)
+    sh1: J.Val = gb.si(gb.si(gb.si(sh, "vy", vy), "x", x), "y", y)
+    pastimes.siege.step_shot.go(J.set(s, "shot", J.JNull{}), sh1, RS.i_div(x, 16), RS.i_div(y, 16))
+
+def pastimes.siege.step_shot.go(+s: J.Val, +sh: J.Val, +px: U32, +py: U32) -> J.Val:
+  if Bool.and(RS.i_ge(px, 264), RS.i_lt(px, 300)):
+    col: U32 = RS.i_div(RS.i_sub(px, 264), 12)
+    base: U32 = RS.i_sub(176, pastimes.siege.ground_at(s, RS.i_add(264, RS.i_add(RS.i_mul(col, 12), 6))))
+    rows: U32 = gb.u(J.get(s, "keep"), "rows")
+    from_top: U32 = RS.i_sub(RS.i_div(RS.i_add(RS.i_sub(base, py), 9), 10), 1)
+    if Bool.and(RS.i_lt(py, base), Bool.and(RS.i_ge(from_top, 0), RS.i_lt(from_top, rows))):
+      i: U32 = (col * rows + from_top : U32)
+      if Bool.and(U32.is_lt(i, J.len(J.get(J.get(s, "keep"), "blocks"))), U32.is_gt(gb.ag(J.get(J.get(s, "keep"), "blocks"), i), 0)):
+        pastimes.siege.step_shot.hit(s, sh, col, from_top)
+      else:
+        pastimes.siege.step_shot.ground(s, sh, px, py)
+    else:
+      pastimes.siege.step_shot.ground(s, sh, px, py)
+  else:
+    pastimes.siege.step_shot.ground(s, sh, px, py)
+
+def pastimes.siege.step_shot.hit(+s: J.Val, +sh: J.Val, +col: U32, +row: U32) -> J.Val:
+  (keep: J.Val, done: U32) = pastimes.siege.Keep.hit(J.get(s, "keep"), col, row, pastimes.siege.ammo_damage(gb.s(sh, "ammo")))
+  s1: J.Val = gb.su(J.set(s, "keep", keep), "damage", (gb.u(s, "damage") + done : U32))
+  s2: J.Val = Bool.pick(J.Val, gb.b(sh, "flung"), gb.su(s1, "limp", 60), s1)
+  s3: J.Val = pastimes.siege.landed(s2, gb.i(sh, "x"), True{})
+  if Bool.and(Bool.not(gb.b(keep, "banner")), U32.is_eq(gb.u(s3, "cheer"), 0)):
+    gb.su(gb.su(s3, "taken", (gb.u(s3, "taken") + 1 : U32)), "cheer", 45)
+  else:
+    s3
+
+def pastimes.siege.step_shot.ground(+s: J.Val, +sh: J.Val, +px: U32, +py: U32) -> J.Val:
+  ground: U32 = RS.i_sub(176, pastimes.siege.ground_at(s, px))
+  if Bool.or(RS.i_ge(py, ground), RS.i_ge(px, 384)):
+    s1: J.Val = pastimes.siege.dig(s, px)
+    s2: J.Val = Bool.pick(J.Val, gb.b(sh, "flung"), gb.su(s1, "limp", 60), s1)
+    pastimes.siege.landed(s2, gb.i(sh, "x"), RS.i_lt(px, 264))
+  else:
+    J.set(s, "shot", sh)
+
+# The castle's pots: a timer, a toss at the engine's side, a wound if close.
+def pastimes.siege.step_keep_shot(+s: J.Val) -> J.Val:
+  s1: J.Val = gb.su(s, "pot", gb.ssub(gb.u(s, "pot"), 1))
+  cs: J.Val = J.get(s1, "castle_shot")
+  keep: J.Val = J.get(s1, "keep")
+  if J.is_null(cs):
+    if Bool.or(U32.is_eq(gb.u(keep, "defenders"), 0), Bool.not(gb.b(keep, "banner"))):
+      s1
+    else:
+      left: U32 = gb.ssub(gb.u(keep, "shot_left"), 1)
+      if U32.is_eq(left, 0):
+        off: U32 = pastimes.siege.POT_LAND(U32.mod(gb.u(keep, "volleys"), 5))
+        land: U32 = RS.i_add(36, off)
+        dist: U32 = RS.i_sub(276, land)
+        vx: U32 = RS.i_div(RS.i_mul(RS.i_neg(dist), 16), 45)
+        k2: J.Val = gb.su(gb.su(keep, "shot_left", 90), "volleys", (gb.u(keep, "volleys") + 1 : U32))
+        gb.si(gb.su(J.set(J.set(s1, "keep", k2), "castle_shot", pastimes.siege.shot(RS.i_mul(276, 16), RS.i_mul(126, 16), vx, RS.i_neg(180), 0, "boulder", False{})), "pot", 10), "pot_land", land)
+      else:
+        J.set(s1, "keep", gb.su(keep, "shot_left", left))
+  else:
+    vy: U32 = RS.i_add(gb.i(cs, "vy"), 8)
+    x: U32 = RS.i_add(gb.i(cs, "x"), gb.i(cs, "vx"))
+    y: U32 = RS.i_add(gb.i(cs, "y"), vy)
+    px: U32 = RS.i_div(x, 16)
+    py: U32 = RS.i_div(y, 16)
+    if Bool.or(RS.i_ge(py, RS.i_sub(176, pastimes.siege.ground_at(s1, px))), RS.i_le(px, 0)):
+      pastimes.siege.wound(J.set(s1, "castle_shot", J.JNull{}), px)
+    else:
+      J.set(s1, "castle_shot", gb.si(gb.si(gb.si(cs, "vy", vy), "x", x), "y", y))
+
+def pastimes.siege.wound(+s: J.Val, +px: U32) -> J.Val:
+  if Bool.and(U32.is_le(RS.u_abs_diff(px, gb.i(s, "pot_land")), 14), U32.is_gt(gb.u(s, "soldiers"), 0)):
+    lost: U32 = (gb.u(s, "lost") + 1 : U32)
+    slot: U32 = U32.min(gb.u(s, "taken"), 4)
+    pastimes.siege.grave_at(gb.su(gb.su(gb.su(s, "soldiers", (gb.u(s, "soldiers") - 1 : U32)), "lost", lost), "felled", 30), slot, lost)
+  else:
+    s
+
+def pastimes.siege.grave_at(+s: J.Val, +slot: U32, +lost: U32) -> J.Val:
+  J.set(s, "graves", gb.as(J.get(s, "graves"), slot, gb.ssub(U32.min(lost, 7), 1)))
+
+# Run::tick_siege
+def pastimes.siege.Run.tick_siege(+run: J.Val, +round: J.Val, +inputs: J.Val, +elig: List<&2, J.Val>) -> J.Val & (J.Val & Bool):
+  b: J.Val = J.get(round, "siege")
+  owner: U32 = gb.u(b, "owner")
+  if Bool.not(pastimes.has_el(elig, owner)):
+    (gb.found(run, 0, "ENGINE ABANDONED."), (round, False{}))
+  else:
+    inp: J.Val = pastimes.input_of(inputs, owner)
+    (b1: J.Val, ret: J.Val) = pastimes.siege.Siege.step(b, inp, gb.b(inp, "fire"))
+    pastimes.siege.tick.after(run, round, b, b1, Bool.and(Bool.not(J.is_null(ret)), gb.b(J.set(J.obj(), "v", ret), "v")))
+
+def pastimes.siege.tick.after(+run: J.Val, +round: J.Val, +b: J.Val, +b1: J.Val, +alive: Bool) -> J.Val & (J.Val & Bool):
+  run1: J.Val = Bool.pick(J.Val, Bool.and(J.is_null(J.get(b, "shot")), Bool.not(J.is_null(J.get(b1, "shot")))), gb.sound(run, "bomb_toss"), run)
+  run2: J.Val = Bool.pick(J.Val, U32.is_eq(gb.u(b1, "splat"), 6), gb.sound(run1, "bomb"), run1)
+  taken: U32 = gb.u(b1, "taken")
+  breach: Bool = U32.is_gt(taken, gb.u(round, "progress"))
+  r1: J.Val = Bool.pick(J.Val, breach, pastimes.popup(gb.su(round, "progress", taken), "BREACH!", 12, 6), gb.su(round, "progress", taken))
+  run3: J.Val = Bool.pick(J.Val, breach, gb.sound(run2, "wall_up"), run2)
+  r2: J.Val = Bool.pick(J.Val, Bool.or(Bool.not(J.is_null(J.get(b1, "shot"))), Bool.not(J.is_null(J.get(b1, "castle_shot")))), gb.su(r1, "hazard_left", 4), r1)
+  run4: J.Val = Bool.pick(J.Val, Bool.and(U32.is_eq(gb.u(b1, "cheer"), 45), U32.is_eq(taken, gb.u(r2, "progress"))), gb.sound(run3, "spoil_pickup"), run3)
+  run5: J.Val = Bool.pick(J.Val, U32.is_eq(gb.u(b1, "mourn"), 45), gb.sound(run4, "hero_hurt"), run4)
+  run6: J.Val = Bool.pick(J.Val, U32.is_eq(gb.u(b1, "moon"), 45), gb.sound(run5, "clang"), run5)
+  (run6, (J.set(r2, "siege", b1), alive))
+
+def pastimes.case.siege_step(+i: J.Val) -> J.Val:
+  (s: J.Val, ret: J.Val) = pastimes.siege.Siege.step(J.get(i, "s"), J.get(i, "input"), gb.b(i, "tapped"))
+  J.set(J.set(J.obj(), "s", s), "ret", ret)
+
+def case.pastimes.siege.Siege.step(+i: J.Val) -> J.Val:
+  pastimes.case.siege_step(i)

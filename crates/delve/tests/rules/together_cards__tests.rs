@@ -25,6 +25,13 @@ fn spell_cards_require_cooldown_and_accept_cast_shapes() {
 #[test]
 fn every_builtin_card_passes_its_own_checker_and_has_art() {
     let book = Book::builtin();
+    // Check the source registry before insertion can silently replace duplicates.
+    let mut ids = std::collections::BTreeSet::new();
+    for &(id, raw) in BUILTIN {
+        assert!(ids.insert(id), "duplicate built-in card id: {id}");
+        let checked = check(id, raw).unwrap_or_else(|e| panic!("{id}: {e:?}"));
+        assert_eq!(book.get(id), Some(&checked.card), "{id} survives registration");
+    }
     assert_eq!(book.cards.len(), BUILTIN.len());
     for card in &book.cards {
         assert!(!card.art.is_empty(), "{} draws its own art", card.id);
@@ -66,7 +73,7 @@ fn a_friend_card_is_checked_like_runes() {
         errors("name X\nkind hold\ndamage 5\nrate 5\nspeed 5\npierce 1\n").contains("at most 3")
     );
     assert!(
-        errors("name X\nkind hold\ndamage 5\nart\n................!\n").contains("unknown word")
+        errors("name X\nkind hold\ndamage 5\nart\n................*\n").contains("unknown word")
     );
     assert!(errors("name X\nkind hold\ndamage 5\nart\n.................\n").contains("16 by 16"));
 }
@@ -331,8 +338,11 @@ fn ordinary_three_floor_delves_find_two_or_three_distinct_spells() {
         "32 three-floor delves found {learned} distinct spells ({:.2} per delve)",
         learned as f32 / 32.0
     );
+    // Re-pinned 2026-11-02: Astra's art pass widened the spell book; the
+    // wish altars now offer from a richer deck and a delve finds one more
+    // spell every three floors. The band moves, the shape holds.
     assert!(
-        (64..=96).contains(&learned),
+        (64..=104).contains(&learned),
         "{learned} spells in 32 delves"
     );
 }
@@ -433,8 +443,24 @@ fn homing_needs_a_creature_and_a_projectile_wish() {
 
 #[test]
 fn a_creature_bullet_is_its_own_recipe() {
-    let sperm = wish_card("sperm", "Sperm Bullets", "homing 1");
-    assert_eq!(Bonus::of([&sperm]).homing, 1);
+    let tadpoles = wish_card("tadpoles", "Tadpole Bullets", "homing 1");
+    assert_eq!(Bonus::of([&tadpoles]).homing, 1);
+}
+
+#[test]
+fn a_card_not_safe_for_work_is_turned_away() {
+    let rude = check("wish-rude-1", "name Big Dick Energy\nkind hold\nhoming 1\n").unwrap_err();
+    assert!(rude.errors.iter().any(|e| e.contains("`dick` is not for this game")), "{:?}", rude.errors);
+    let said = check("wish-rude-1", "name Loud Bullets\nkind hold\ntext Bullets that swear like a sailor: fuck.\nhoming 1\n").unwrap_err();
+    assert!(said.errors.iter().any(|e| e.contains("`fuck`")), "{:?}", said.errors);
+    // Whole words only, and toilet humour stays.
+    for fine in ["Cocktail Bullets", "Fart Cannon", "Poop Armor", "Peacock Shot"] {
+        assert!(check("wish-fine-1", &format!("name {fine}\nkind hold\nhoming 1\n")).is_ok(), "{fine}");
+    }
+    // Every card the game ships is safe for work.
+    for card in &Book::builtin().cards {
+        assert_eq!(not_for_work(&format!("{} {} {}", card.id, card.name, card.text)), None, "{}", card.id);
+    }
 }
 
 #[test]
@@ -442,4 +468,174 @@ fn found_cards_need_no_recipe() {
     let book = Book::builtin();
     let fork = book.get("fork").unwrap();
     assert_eq!(Bonus::of([fork]).fork, 1);
+}
+
+/// The class pieces the school's trials once handed over: now found like
+/// any other rare card, on the floor and in chests, by whoever walks there.
+const CLASS_GEAR: [&str; 14] = [
+    "crescent-quiver",
+    "rookery-longbow",
+    "gate-aegis",
+    "oathshield",
+    "forge-matchcord",
+    "smithys-dragonmouth",
+    "table-gauntlet",
+    "round-table-blade",
+    "deeps-harness",
+    "grave-axes",
+    "college-orb",
+    "sigil-staff",
+    "chapel-cincture",
+    "vestal-censer",
+];
+
+#[test]
+fn class_gear_is_an_ordinary_find_in_the_book() {
+    let book = Book::builtin();
+    let mut dropped = 0;
+    for id in CLASS_GEAR {
+        let card = book.get(id).unwrap_or_else(|| panic!("{id} is in the book"));
+        assert!(card.drop + card.chest > 0, "{id} can be found");
+        assert!(card.rarity != Rarity::Common, "{id} is a rare find");
+        assert!(!card.is_spoil(), "{id} is a card, not a material");
+        dropped += u32::from(card.drop > 0);
+    }
+    // The stronger pieces turn up in chests alone; the lesser ones drop too.
+    assert_eq!(dropped, 7);
+    // A chest and a monster's drop can hold them.
+    let mut rng = Rng::new(7);
+    let mut seen = std::collections::BTreeSet::new();
+    for _ in 0..4000 {
+        for id in book.roll_chest(&mut rng, Pack::Crypt) {
+            seen.insert(id);
+        }
+        seen.extend(book.roll_drop(&mut rng, Pack::Crypt));
+    }
+    for id in CLASS_GEAR {
+        assert!(seen.contains(id), "{id} turns up in chests or drops");
+    }
+}
+
+#[test]
+fn closing_time_cards_are_checked_registered_and_untruncated() {
+    let book = Book::builtin();
+    for id in ["last-call-carom", "velvet-intermission"] {
+        let raw = BUILTIN.iter().find(|(key, _)| *key == id).unwrap().1;
+        let checked = check(id, raw).unwrap();
+        assert!(checked.notes.is_empty(), "{id}: {:?}", checked.notes);
+        assert_eq!(book.get(id), Some(&checked.card));
+        assert_eq!(checked.card.art.len(), 16);
+    }
+}
+
+/// Exercise the public loot entry points, not just positive source weights.
+/// Each channel is checked separately so chest rolls cannot hide broken drops.
+#[test]
+fn builtin_world_loot_reaches_every_eligible_card_in_each_region() {
+    use std::collections::BTreeSet;
+    let book = Book::builtin();
+    for pack in Pack::ALL {
+        let mut rng = Rng::new(0x51_121);
+        let mut drops = BTreeSet::new();
+        let mut spoils = BTreeSet::new();
+        let mut chests = BTreeSet::new();
+        for _ in 0..20_000 {
+            drops.extend(book.roll_drop(&mut rng, pack));
+            spoils.extend(book.roll_spoil(&mut rng, pack));
+            chests.extend(book.roll_chest(&mut rng, pack));
+        }
+        for card in &book.cards {
+            let eligible = card.only_in.is_none_or(|p| p == pack || p == pack.kin());
+            assert_eq!(drops.contains(&card.id), eligible && !card.is_spoil() && card.drop > 0,
+                "{} ordinary drop in {pack:?}", card.id);
+            assert_eq!(spoils.contains(&card.id), eligible && card.is_spoil() && card.drop > 0,
+                "{} material drop in {pack:?}", card.id);
+            let in_chest = eligible && (card.chest > 0 || (!card.is_spoil() && card.drop > 0));
+            assert_eq!(chests.contains(&card.id), in_chest,
+                "{} chest in {pack:?}", card.id);
+        }
+    }
+}
+
+#[test]
+fn hourglass_and_saltcellar_are_registered_distinct_relics() {
+    let book = Book::builtin();
+    for (id, kind, effects) in [
+        ("widowglass-hourglass", Kind::Hold, vec![Effect::Rate(10)]),
+        ("saints-saltcellar", Kind::Play, vec![Effect::Heal(12), Effect::Ward(3)]),
+    ] {
+        let card = book.get(id).expect("registered tavern relic");
+        assert_eq!(card.kind, kind);
+        assert_eq!(card.effects, effects);
+        assert_eq!((card.drop, card.chest), (2, 3));
+        assert_eq!(card.art.len(), 16);
+        assert!(card.art.iter().all(|r| r.chars().count() == 16));
+        assert_eq!(book.cards.iter().filter(|c| c.art == card.art).count(), 1);
+        let raw = BUILTIN.iter().find(|(key, _)| *key == id).unwrap().1;
+        assert!(check(id, raw).is_ok());
+    }
+}
+
+#[test]
+fn ricochet_decanter_is_registered_checked_and_has_unique_art() {
+    let raw = include_str!("../../../../cockpit/assets/dungeon/cards/ricochet-decanter.card");
+    let checked = check("ricochet-decanter", raw).expect("valid authored relic");
+    let book = Book::builtin();
+    let card = book.get("ricochet-decanter").expect("available in world loot");
+    assert_eq!(*card, checked.card);
+    assert_eq!(card.kind, Kind::Hold);
+    assert_eq!(card.effects, vec![Effect::Bounce(1)]);
+    assert_eq!((card.drop, card.chest), (2, 3));
+    assert_eq!(card.art.len(), 16);
+    assert!(card.art.iter().all(|row| row.chars().count() == 16));
+    for (id, _) in BUILTIN {
+        if *id != card.id { assert_ne!(book.get(id).unwrap().art, card.art, "duplicate art: {id}"); }
+    }
+}
+
+#[test]
+fn tavern_service_trio_has_checked_effects_and_distinct_art() {
+    let book = Book::builtin();
+    for (id, kind, effects) in [
+        ("storm-tab", Kind::Hold, vec![Effect::Chain(1)]),
+        ("velvet-rope", Kind::Play, vec![Effect::Ward(3)]),
+        ("cinder-service", Kind::Spell, vec![Effect::Nova(40)]),
+    ] {
+        let raw = BUILTIN.iter().find(|(key, _)| *key == id).unwrap().1;
+        let checked = check(id, raw).expect("valid tavern service card");
+        let card = book.get(id).unwrap();
+        assert_eq!(*card, checked.card);
+        assert_eq!(card.kind, kind);
+        assert_eq!(card.effects, effects);
+        assert_eq!((card.drop, card.chest), (2, 3));
+        assert_eq!(card.art.len(), 16);
+        assert!(card.art.iter().all(|row| row.chars().count() == 16));
+        assert_eq!(book.cards.iter().filter(|other| other.art == card.art).count(), 1);
+    }
+}
+
+#[test]
+fn allocation_free_loot_roll_preserves_weighted_table_replay() {
+    let book = Book::builtin();
+    for pack in Pack::ALL {
+        for mode in 0..4 {
+            let weight = |c: &Card| match mode {
+                0 if !c.is_spoil() && c.drops_in(pack) => c.drop,
+                1 if c.is_spoil() && c.drops_in(pack) => c.drop,
+                2 if c.drops_in(pack) => c.chest,
+                _ => 0,
+            };
+            let table: Vec<_> = book.cards.iter().enumerate()
+                .map(|(i, c)| (i, weight(c))).filter(|&(_, w)| w > 0).collect();
+            let mut reference = Rng::new(209);
+            let mut candidate = reference.clone();
+            for _ in 0..2048 {
+                let expected = (!table.is_empty())
+                    .then(|| book.cards[reference.pick(&table)].id.clone());
+                assert_eq!(book.roll(&mut candidate, weight), expected);
+                // Also catches accidental RNG consumption for empty tables.
+                assert_eq!(candidate.clone().next(), reference.clone().next());
+            }
+        }
+    }
 }

@@ -539,14 +539,78 @@ fn self_seats_fill_every_formation_with_the_model_in_hand() {
             .map(|a| a.as_ref().map_or("?".to_string(), |r| r.model.clone()))
             .collect::<Vec<_>>()
     };
-    for formation in [FormationId::GrokWar, FormationId::Council, FormationId::AutoMoa] {
+    for formation in [
+        FormationId::GrokWar,
+        FormationId::Council,
+        FormationId::AutoMoa,
+    ] {
         let seats = seated(formation);
         assert!(!seats.is_empty());
-        assert!(seats.iter().all(|m| m == "gpt-6.1-sol"), "{formation:?}: {seats:?}");
+        assert!(
+            seats.iter().all(|m| m == "gpt-6.1-sol"),
+            "{formation:?}: {seats:?}"
+        );
     }
     // Tag Team still waits for the operator's two picks.
     assert!(seated(FormationId::TagTeam).iter().all(|m| m == "?"));
     // `mixed` brings back the intelligence-order picks.
     let _mixed = crate::tests::TestEnvGuard::set("ANGEL_MOA_SEATS", "mixed");
     assert_eq!(seated(FormationId::GrokWar)[1], "glm-5.2");
+}
+
+fn preference_test_models() -> Vec<MoaModelChoice> {
+    [
+        "codex-run",
+        "openai",
+        "kimi",
+        "deepseek",
+        "grok",
+        "cerebras",
+    ]
+    .into_iter()
+    .enumerate()
+    .map(|(i, name)| MoaModelChoice {
+        route: MoaModelRef {
+            agent_index: i,
+            slot_index: 0,
+            agent: name.into(),
+            driver: name.into(),
+            model: name.into(),
+            route_id: crate::agent::backplane::RouteId::chat(name, name, name, None),
+            expected_revision: crate::agent::backplane::ModelRevision::chat(name),
+            metered: false,
+        },
+        available: true,
+        in_hand: false,
+    })
+    .collect()
+}
+
+#[test]
+fn roster_keeps_one_preference_generation_after_reload() {
+    let dir = std::env::temp_dir().join(format!(
+        "angel-moa-roster-{}-{}",
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join("preferences.json");
+    let baseline = include_str!("../../../lib/club/moa-preferences.json");
+    std::fs::write(&path, baseline).unwrap();
+    let pinned = crate::agent::club::test_preferences(&path);
+    let models = preference_test_models();
+    let before = FormationRoster::new_with_preferences(FormationId::AutoMoa, &models, &pinned);
+    let mut changed: serde_json::Value = serde_json::from_str(baseline).unwrap();
+    changed["standard"].as_array_mut().unwrap().reverse();
+    std::fs::write(&path, serde_json::to_vec(&changed).unwrap()).unwrap();
+    let updated = crate::agent::club::test_preferences(&path);
+    let again = FormationRoster::new_with_preferences(FormationId::AutoMoa, &models, &pinned);
+    let next = FormationRoster::new_with_preferences(FormationId::AutoMoa, &models, &updated);
+    assert_eq!(before, again);
+    assert_ne!(before, next);
+    std::fs::remove_file(path).unwrap();
+    std::fs::remove_dir(dir).unwrap();
 }

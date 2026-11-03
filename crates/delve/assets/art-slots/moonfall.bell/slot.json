@@ -329,7 +329,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "moonfall.bell",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bell/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.bell/v01/source-sheet.png",
   "source_sha256": "5768360cc0d716c61b0f3a3039106513ab8d85b28480719fcf451623b2646565",
   "tool_version": 2
 }

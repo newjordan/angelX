@@ -22,6 +22,9 @@
 //! Positions are along the course (`s`), across it (`x`) and above it (`z`),
 //! one unit a tile.
 mod drift;
+pub mod leg;
+#[cfg(test)]
+mod oracle;
 pub use drift::*;
 
 use super::*;
@@ -130,7 +133,7 @@ impl Course {
 }
 
 /// What the course is made of underfoot at a point.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum Ground {
     /// Timbered floor between rails.
     Floor,
@@ -154,10 +157,12 @@ pub enum Ground {
     Gorge,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct Sample {
-    /// The course's middle line at this point, and its heading.
+    /// The course's middle line at this point, and its heading (drawn only).
+    #[serde(skip)]
     pub p: [f32; 3],
+    #[serde(skip)]
     pub yaw: f32,
     /// Height lost per unit along (negative climbs).
     pub slope: f32,
@@ -174,7 +179,7 @@ pub struct Sample {
     pub funnel: bool,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 pub enum ItemKind {
     /// A gem shard (Shaft) or a gold nugget (Cart), for the first to it.
     Gem,
@@ -186,7 +191,7 @@ pub enum ItemKind {
     Timber,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct Item {
     pub s: f32,
     pub x: f32,
@@ -196,7 +201,7 @@ pub struct Item {
 
 /// Something solid in the gorge: a spire from the floor or a rampart
 /// across it, as a box in course space.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct Block {
     pub s: f32,
     pub len: f32,
@@ -205,12 +210,13 @@ pub struct Block {
 }
 
 /// A broken rail: a cart on `lane` must be off the ground from `s.0` to `s.1`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct Gap {
     pub lane: u8,
     pub s: (f32, f32),
 }
 
+#[derive(Serialize)]
 pub struct Track {
     pub looped: bool,
     pub samples: Vec<Sample>,
@@ -693,6 +699,9 @@ pub struct Race3d {
     /// A free practice flight at the Eyrie: no antes, no pot, no laurel.
     #[serde(default)]
     pub practice: bool,
+    /// A crossroads heat keeps even the Touge to ninety seconds.
+    #[serde(default)]
+    pub crossroads: bool,
 }
 
 impl Race3d {
@@ -713,7 +722,7 @@ impl Race3d {
         self.t < TITLE
     }
     pub fn time_limit(&self) -> u32 {
-        if self.course == Course::Touge { DRIFT_RACE_TIME } else { RACE_TIME }
+        if self.course == Course::Touge && !self.crossroads { DRIFT_RACE_TIME } else { RACE_TIME }
     }
     pub fn finish_distance(&self) -> f32 {
         track(self.course).finish * if self.course == Course::Touge { DRIFT_LAPS as f32 } else { 1.0 }
@@ -831,13 +840,20 @@ impl Run {
         self.start_race3d_course(index, Course::of_floor(self.dungeon.depth));
     }
 
-    fn start_race3d_course(&mut self, index: usize, course: Course) {
-        let (ante, scores) = folly::take_antes(&mut self.players);
+    pub(super) fn start_race3d_course(&mut self, index: usize, course: Course) {
+        let (ante, scores) = if let Some(c) = &self.crossroads {
+            (BTreeMap::new(), c.seats.iter().map(|&id| (id, 0u32)).collect())
+        } else {
+            folly::take_antes(&mut self.players)
+        };
         let riders = scores
             .keys()
             .enumerate()
             .map(|(k, &id)| {
-                let (s, x, lane) = grid(course, k);
+                let (s, mut x, lane) = grid(course, k);
+                if course == Course::Touge && self.crossroads.is_some() {
+                    x = (k as f32 - (scores.len() as f32 - 1.0) / 2.0) * 1.6;
+                }
                 (id, Rider::new(s, x, lane))
             })
             .collect();
@@ -854,6 +870,7 @@ impl Run {
             ended: 0,
             won: BTreeMap::new(),
             practice: false,
+            crossroads: self.crossroads.is_some(),
         });
         self.sounds.push("door_seal");
         self.cues.push("folly".into());
@@ -901,6 +918,7 @@ impl Run {
             ended: 0,
             won: BTreeMap::new(),
             practice: true,
+            crossroads: false,
         });
         self.sounds.push("swing");
         self.cues.push("folly".into());
@@ -930,7 +948,7 @@ impl Run {
         let standing: Vec<u32> = self
             .players
             .iter()
-            .filter(|(_, h)| h.hp > 0 && !h.stone)
+            .filter(|(id, h)| self.crossroads.as_ref().map_or(h.hp > 0 && !h.stone, |c| c.seats.contains(id)))
             .map(|(&id, _)| id)
             .collect();
         for &id in &standing {
@@ -946,6 +964,18 @@ impl Run {
             self.race3d = Some(race);
             return;
         }
+        if race.course != Course::Touge {
+            // The ball, the cart and the griffin tick in the module: no answer leaves the race standing.
+            if let Ok(ran) = leg::run(&mut race, inputs, &standing) {
+                self.sounds.extend(ran.sounds);
+                if ran.all_home || ran.timed_out {
+                    self.finish_race3d(&mut race);
+                }
+            }
+            self.race3d = Some(race);
+            return;
+        }
+        // The Touge reads libm's sine and cosine, which the module cannot reproduce: still native.
         let mut noise = Noise::default();
         let ids: Vec<u32> = race.riders.keys().copied().collect();
         for &id in &ids {
@@ -956,26 +986,15 @@ impl Run {
                 .filter(|i| i.valid() && standing.contains(&id))
                 .unwrap_or_default();
             let mut rider = race.riders[&id].clone();
-            let (f, e) = (input.fire, input.interact);
-            let pressed = (f && rider.keys & 1 == 0, e && rider.keys & 2 == 0);
-            rider.keys = u8::from(f) | u8::from(e) << 1;
-            match race.course {
-                Course::Shaft => roll_ball(&mut race, &mut rider, input, pressed, &mut noise),
-                Course::Cart => ride_cart(&mut race, &mut rider, input, pressed, &mut noise),
-                Course::Griffin => fly_griffin(&mut race, id, &mut rider, input, pressed.1, &mut noise),
-                Course::Touge => drift::drive(&race, &mut rider, input, &mut noise),
-            }
+            // F pressed this tick, not held, shifts the Touge's box.
+            let shift = input.fire && rider.keys & 1 == 0;
+            rider.keys = u8::from(input.fire) | u8::from(input.interact) << 1;
+            drift::drive(&race, &mut rider, input, shift, &mut noise);
             if rider.finish.is_none() && rider.crash == 0 && rider.s >= race.finish_distance() {
                 rider.finish = Some(race.t);
                 noise.sounds.push("wheel_land");
             }
             race.riders.insert(id, rider);
-        }
-        match race.course {
-            Course::Shaft => bump_balls(&mut race, &mut noise),
-            Course::Cart => bump_carts(&mut race, &mut noise),
-            Course::Griffin => fly_bolts(&mut race, &mut noise),
-            Course::Touge => {},
         }
         self.sounds.extend(noise.sounds);
         // Done when everyone still standing is home, or the clock is out.
@@ -1054,241 +1073,6 @@ fn wreck(rider: &mut Rider, what: Wreck, noise: &mut Noise) {
 /// whatever threw them off.
 pub const RUN_UP: f32 = 6.0;
 
-/// Back on the course after the rope: a run-up short of the last post,
-/// still, in the middle.
-fn rope_back(track: &Track, rider: &mut Rider, x: f32) {
-    rider.s = (track.post(rider.s) - RUN_UP).max(1.0);
-    (rider.x, rider.z, rider.vs, rider.vx, rider.vz) = (x, 0.0, 0.0, 0.0, 0.0);
-    rider.wreck = Wreck::None;
-}
-
-/// Pick up any shared gem within reach.
-fn pick_up(race: &mut Race3d, rider: &mut Rider, reach: f32, noise: &mut Noise) {
-    let track = track(race.course);
-    for (i, item) in track.items.iter().enumerate() {
-        if item.kind != ItemKind::Gem || (item.s - rider.s).abs() > reach {
-            continue;
-        }
-        let i = i as u16;
-        if race.taken.contains(&i) {
-            continue;
-        }
-        let dz = item.z - (rider.z + 0.5);
-        if (item.x - rider.x).hypot(dz) <= reach + 0.2 {
-            race.taken.insert(i);
-            rider.haul = rider.haul.saturating_add(1);
-            noise.sounds.push("gold");
-        }
-    }
-}
-
-// ─── the Shaft Run ──────────────────────────────────────────────────────────
-
-/// Gravity down a ramp, a knight's push, the brake, rolling drag, and how
-/// fast a ball may go.
-const FALL_G: f32 = 9.0;
-const PUSH: f32 = 3.2;
-const BRAKE: f32 = 7.0;
-const DRAG: f32 = 0.12;
-const TOP: f32 = 11.0;
-const STEER: f32 = 7.0;
-const HOP: f32 = 4.6;
-const HOP_G: f32 = 14.0;
-
-fn roll_ball(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool, bool), noise: &mut Noise) {
-    let track = track(race.course);
-    if rider.finish.is_some() {
-        // Into the sorter: the ball rolls to a stop at the bottom.
-        rider.vs *= 0.9;
-        rider.s = (rider.s + rider.vs * DT).min(track.len() - 1.0);
-        rider.spin += rider.vs * DT / BALL_R;
-        return;
-    }
-    if rider.crash > 0 {
-        rider.crash -= 1;
-        if rider.wreck == Wreck::Fall {
-            // Down the shaft, tumbling, until the rope comes for it.
-            rider.vz -= HOP_G * DT;
-            rider.z = (rider.z + rider.vz * DT).max(-14.0);
-            rider.s += rider.vs * DT * 0.5;
-            rider.x += rider.vx * DT * 0.5;
-            rider.spin += 0.5;
-        } else {
-            rider.vs *= 0.85;
-            rider.s = (rider.s + rider.vs * DT).max(0.5);
-            rider.x += rider.vx * DT;
-            rider.vx *= 0.85;
-        }
-        if rider.crash == 0 {
-            if rider.wreck == Wreck::Fall {
-                rope_back(track, rider, 0.0);
-            }
-            rider.wreck = Wreck::None;
-        }
-        return;
-    }
-    let at = track.at(rider.s);
-    let grounded = rider.z <= 0.0;
-    // Along: the slope, the knight's feet, the brake, drag.
-    let mut a = FALL_G * at.slope;
-    if rider.stun == 0 {
-        if input.move_y < 0 {
-            a += PUSH;
-        }
-        if input.move_y > 0 || input.interact {
-            a -= BRAKE * rider.vs.signum();
-        }
-    }
-    if at.ground == Ground::Sluice {
-        a += 2.0;
-        if race.t % 20 == 0 {
-            noise.sounds.push("step_wet");
-        }
-    }
-    // The lodestone: a pull toward its rail, and a ride along it.
-    let rail = 1.3;
-    let mut ax = 0.0;
-    if at.ground == Ground::Lodestone && grounded {
-        let off = rail - rider.x;
-        if off.abs() < 1.8 {
-            ax += 3.2 * off.signum();
-        }
-        if off.abs() < 0.35 {
-            a += 3.0;
-        }
-    }
-    if at.ground == Ground::Sluice {
-        ax += 4.0 * (rider.s * 0.35).sin();
-    }
-    a -= DRAG * rider.vs;
-    rider.vs = (rider.vs + a * DT).clamp(-4.0, TOP);
-    if rider.stun == 0 {
-        ax += STEER * f32::from(input.move_x);
-    }
-    rider.stun = rider.stun.saturating_sub(1);
-    // Round a bend the ball runs wide.
-    ax -= rider.vs * rider.vs * at.bend;
-    rider.vx = (rider.vx + ax * DT) * if grounded { 0.97 } else { 1.0 };
-    // The hop: the knight kicks off the ball's wall.
-    if pressed.0 && grounded {
-        rider.vz = HOP;
-        noise.sounds.push("roll");
-    }
-    if !grounded || rider.vz > 0.0 {
-        rider.vz -= HOP_G * DT;
-        rider.z += rider.vz * DT;
-        if rider.z <= 0.0 {
-            rider.z = 0.0;
-            rider.vz = 0.0;
-            noise.sounds.push("wheel_land");
-        }
-    }
-    rider.s += rider.vs * DT;
-    rider.x += rider.vx * DT;
-    rider.spin += rider.vs * DT / BALL_R;
-    if rider.s < 0.5 {
-        rider.s = 0.5;
-        rider.vs = rider.vs.abs() * 0.4;
-    }
-    let at = track.at(rider.s);
-    let half = at.width * 0.5;
-    if at.walls {
-        if rider.x.abs() > half - BALL_R {
-            rider.x = rider.x.signum() * (half - BALL_R);
-            // A narrowing funnel is a chute: the wall takes the ball's
-            // sideways pace instead of bouncing it back out over the edge
-            // the funnel is feeding it onto.
-            rider.vx = if at.funnel { 0.0 } else { -rider.vx * 0.45 };
-            rider.vs *= 0.94;
-            if rider.vx.abs() > 1.5 {
-                noise.sounds.push("clang");
-            }
-        }
-    } else if rider.x.abs() > half && rider.z <= 0.05 {
-        rider.vx = rider.x.signum() * 2.0;
-        rider.vz = 0.0;
-        wreck(rider, Wreck::Fall, noise);
-        return;
-    }
-    // Rotten planks: the first ball over one starts it going; a ball on a
-    // plank that has gone goes with it.
-    if at.ground == Ground::Collapse {
-        let plank = (rider.s / 2.0) as u16;
-        if rotten(plank) {
-            let began = *race.planks.entry(plank).or_insert(race.t);
-            if race.t >= began + ROT && rider.z <= 0.05 {
-                rider.vz = 0.0;
-                wreck(rider, Wreck::Fall, noise);
-                return;
-            }
-        }
-    }
-    // The crossing ore carts. A bonked ball is let through the rest of
-    // the crossing.
-    rider.rest = rider.rest.saturating_sub(1);
-    if at.ground == Ground::Crossing && rider.z < 1.0 && rider.rest == 0 {
-        for (cs, cx) in crossing_carts(track, race.t) {
-            if (cs - rider.s).abs() < 1.3 && (cx - rider.x).abs() < 1.6 {
-                rider.vs = -3.0;
-                rider.vx = if cx < rider.x { 5.0 } else { -5.0 };
-                wreck(rider, Wreck::Bonk, noise);
-                rider.crash = 20;
-                rider.rest = ROLL_REST;
-                return;
-            }
-        }
-    }
-    pick_up(race, rider, 0.9, noise);
-}
-
-/// Balls that meet bounce apart and trade their pace.
-fn bump_balls(race: &mut Race3d, noise: &mut Noise) {
-    let ids: Vec<u32> = race.riders.keys().copied().collect();
-    for (k, &a) in ids.iter().enumerate() {
-        for &b in &ids[k + 1..] {
-            let (ra, rb) = (&race.riders[&a], &race.riders[&b]);
-            if !ra.racing() || !rb.racing() || (ra.z - rb.z).abs() > 0.8 {
-                continue;
-            }
-            let (ds, dx) = (rb.s - ra.s, rb.x - ra.x);
-            let d = ds.hypot(dx);
-            if d >= 2.0 * BALL_R || d < 1e-4 {
-                continue;
-            }
-            let (ns, nx) = (ds / d, dx / d);
-            let push = (2.0 * BALL_R - d) * 0.5;
-            let along = (rb.vs - ra.vs) * ns + (rb.vx - ra.vx) * nx;
-            let mut ra = ra.clone();
-            let mut rb = rb.clone();
-            ra.s -= ns * push;
-            ra.x -= nx * push;
-            rb.s += ns * push;
-            rb.x += nx * push;
-            if along < 0.0 {
-                let j = -along * 0.9;
-                ra.vs -= j * ns;
-                ra.vx -= j * nx;
-                rb.vs += j * ns;
-                rb.vx += j * nx;
-                noise.sounds.push("clang");
-            }
-            race.riders.insert(a, ra);
-            race.riders.insert(b, rb);
-        }
-    }
-}
-
-// ─── the Ore Cart ───────────────────────────────────────────────────────────
-
-/// A cart's cruising pace, pumped and braked, how fast it gets there, the
-/// jump, and how quick a cart crosses to another line.
-const CRUISE: f32 = 8.5;
-const PUMPED: f32 = 11.0;
-const BRAKED: f32 = 4.0;
-const SPUR: f32 = 4.0;
-const JUMP: f32 = 5.6;
-const JUMP_G: f32 = 15.0;
-const SWITCH: f32 = 11.0;
 /// How high a fallen timber stands: a cart's wheels must clear it.
 pub const TIMBER_H: f32 = 0.6;
 
@@ -1302,290 +1086,12 @@ pub fn broken(track: &Track, s: f32, lane: u8) -> bool {
     track.gaps.iter().any(|g| g.lane == lane && s >= g.s.0 && s < g.s.1)
 }
 
-fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool, bool), noise: &mut Noise) {
-    let track = track(race.course);
-    if rider.finish.is_some() {
-        rider.vs *= 0.92;
-        rider.s = (rider.s + rider.vs * DT).min(track.len() - 1.0);
-        rider.spin += rider.vs * DT;
-        return;
-    }
-    if rider.crash > 0 {
-        rider.crash -= 1;
-        // The cart goes over and the knight goes up; then the rope.
-        rider.vz -= JUMP_G * DT;
-        rider.z = (rider.z + rider.vz * DT).max(if rider.wreck == Wreck::Gap { -12.0 } else { 0.0 });
-        rider.s += rider.vs * DT;
-        rider.vs *= 0.9;
-        rider.spin += 0.4;
-        if rider.crash == 0 {
-            let s = (track.post(rider.s) - RUN_UP).max(1.0);
-            // Back on a line that is laid there.
-            let lane = (0..3u8)
-                .min_by_key(|&l| (!laid(track, s, l), (i32::from(l) - 1).abs()))
-                .unwrap_or(1);
-            rider.lane = lane;
-            rope_back(track, rider, LANES[usize::from(lane)]);
-            // Set back on the rails rolling.
-            rider.vs = BRAKED;
-        }
-        return;
-    }
-    let at = track.at(rider.s);
-    let grounded = rider.z <= 0.0 && rider.vz <= 0.0;
-    let goal = if input.move_y < 0 {
-        PUMPED
-    } else if input.move_y > 0 {
-        BRAKED
-    } else {
-        CRUISE
-    };
-    let pull = (goal - rider.vs).clamp(-SPUR * DT * 2.0, SPUR * DT);
-    rider.vs = (rider.vs + pull + FALL_G * at.slope * DT * 0.5).clamp(0.0, PUMPED + 2.0);
-    // Switch lines: toward the arrow held, or else to the nearest other
-    // line laid ahead.
-    if pressed.1 {
-        let ahead = rider.s + 2.0;
-        let dir = i32::from(input.move_x);
-        let options: Vec<i32> = if dir != 0 { vec![dir] } else { vec![1, -1] };
-        for d in options {
-            let to = i32::from(rider.lane) + d;
-            if (0..3).contains(&to) && laid(track, ahead, to as u8) {
-                rider.lane = to as u8;
-                noise.sounds.push("wheel_spin");
-                break;
-            }
-        }
-    }
-    let target = LANES[usize::from(rider.lane)];
-    let step = SWITCH * DT;
-    rider.x += (target - rider.x).clamp(-step, step);
-    if pressed.0 && grounded {
-        rider.vz = JUMP;
-        noise.sounds.push("roll");
-    }
-    if !grounded || rider.vz > 0.0 {
-        rider.vz -= JUMP_G * DT;
-        rider.z += rider.vz * DT;
-        if rider.z <= 0.0 {
-            rider.z = 0.0;
-            rider.vz = 0.0;
-            noise.sounds.push("wheel_land");
-        }
-    }
-    let before = rider.s;
-    rider.s += rider.vs * DT;
-    rider.spin += rider.vs * DT;
-    let on_rail = (rider.x - target).abs() < 0.3;
-    // A line that ends at a buffer stop with the cart still on it.
-    if !laid(track, rider.s, rider.lane) && laid(track, before, rider.lane) {
-        rider.s = before;
-        rider.vz = 4.0;
-        wreck(rider, Wreck::Buffer, noise);
-        return;
-    }
-    if rider.z <= 0.0 && on_rail && broken(track, rider.s, rider.lane) {
-        rider.vz = 0.0;
-        wreck(rider, Wreck::Gap, noise);
-        return;
-    }
-    // A timber across the line: over it or into it.
-    for item in &track.items {
-        if item.kind == ItemKind::Timber
-            && (item.x - rider.x).abs() < 1.0
-            && before <= item.s
-            && rider.s > item.s - 0.6
-            && rider.z < TIMBER_H
-        {
-            rider.vz = 5.0;
-            rider.vs *= 0.5;
-            wreck(rider, Wreck::Timber, noise);
-            return;
-        }
-    }
-    pick_up(race, rider, 0.8, noise);
-}
-
-/// A cart that runs into the back of another on its line shunts it on and
-/// stops dead itself.
-fn bump_carts(race: &mut Race3d, noise: &mut Noise) {
-    let ids: Vec<u32> = race.riders.keys().copied().collect();
-    for (k, &a) in ids.iter().enumerate() {
-        for &b in &ids[k + 1..] {
-            let (ra, rb) = (&race.riders[&a], &race.riders[&b]);
-            if !ra.racing() || !rb.racing() || (ra.x - rb.x).abs() > 0.8 || (ra.z - rb.z).abs() > 0.8 {
-                continue;
-            }
-            if (ra.s - rb.s).abs() >= 1.4 {
-                continue;
-            }
-            let (back, front) = if ra.s < rb.s { (a, b) } else { (b, a) };
-            let mut rear = race.riders[&back].clone();
-            let mut lead = race.riders[&front].clone();
-            if rear.vs <= lead.vs {
-                continue;
-            }
-            lead.vs = rear.vs + 1.0;
-            rear.vs = (lead.vs - 4.0).max(1.0);
-            rear.s = lead.s - 1.4;
-            noise.sounds.push("clang");
-            race.riders.insert(back, rear);
-            race.riders.insert(front, lead);
-        }
-    }
-}
-
-// ─── the Griffin Run ────────────────────────────────────────────────────────
-
-/// The gorge's pace, a burst on top, a ruffled griffin's, how quick a
-/// griffin answers the reins, and how fast a roll throws it aside.
-const WING: f32 = 10.0;
-const WING_BURST: f32 = 5.0;
-const WING_RUFFLED: f32 = 5.0;
-const REIN: f32 = 16.0;
-const ROLL_THROW: f32 = 7.0;
-
-fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, rolled: bool, noise: &mut Noise) {
-    let track = track(race.course);
-    rider.spin += 0.35;
-    if rider.finish.is_some() {
-        rider.vs = (rider.vs - 0.2).max(4.0);
-        rider.s = (rider.s + rider.vs * DT).min(track.len() - 1.0);
-        rider.z += (1.5 - rider.z) * 0.05;
-        return;
-    }
-    if rider.crash > 0 {
-        // Tumbling: feathers everywhere, sinking to the line, slow.
-        rider.crash -= 1;
-        rider.vs = (rider.vs - 0.6).max(3.0);
-        rider.s += rider.vs * DT;
-        rider.x *= 0.95;
-        rider.z += (-1.0 - rider.z) * 0.08;
-        rider.spin += 0.6;
-        if rider.crash == 0 {
-            rider.wreck = Wreck::None;
-        }
-        return;
-    }
-    let goal = WING
-        + if rider.burst > 0 { WING_BURST } else { 0.0 }
-        - if rider.stun > 0 { WING_RUFFLED } else { 0.0 };
-    rider.vs += (goal - rider.vs).clamp(-0.5, 0.4);
-    rider.burst = rider.burst.saturating_sub(1);
-    rider.stun = rider.stun.saturating_sub(1);
-    rider.rest = rider.rest.saturating_sub(1);
-    rider.reload = rider.reload.saturating_sub(1);
-    // The reins: across and up, with the weight of a big bird.
-    let (wx, wz) = (f32::from(input.move_x), -f32::from(input.move_y));
-    rider.vx += (wx * 5.0 - rider.vx) * (REIN * DT).min(1.0) * 0.5;
-    rider.vz += (wz * 4.0 - rider.vz) * (REIN * DT).min(1.0) * 0.5;
-    if rolled && rider.rest == 0 {
-        rider.rolling = ROLL;
-        rider.rest = ROLL_REST;
-        rider.vx = if wx != 0.0 { wx } else { 1.0 } * ROLL_THROW;
-        noise.sounds.push("swing");
-    }
-    rider.rolling = rider.rolling.saturating_sub(1);
-    // Held, F looses a bolt every rest.
-    if input.fire && rider.reload == 0 {
-        rider.reload = BOLT_REST;
-        race.bolts.push(Bolt { owner: id, s: rider.s + 1.0, x: rider.x, z: rider.z, life: BOLT_LIFE });
-        noise.sounds.push("shot_bolt");
-    }
-    let before = rider.s;
-    rider.s += rider.vs * DT;
-    rider.x = (rider.x + rider.vx * DT).clamp(-SKY_X, SKY_X);
-    rider.z = (rider.z + rider.vz * DT).clamp(-SKY_Z, SKY_Z);
-    // Rings, each once for each griffin.
-    for (i, item) in track.items.iter().enumerate().take(64) {
-        let bit = 1u64 << i;
-        if item.kind == ItemKind::Ring
-            && rider.rings & bit == 0
-            && before <= item.s
-            && rider.s > item.s
-            && (item.x - rider.x).hypot(item.z - rider.z) < 1.3
-        {
-            rider.rings |= bit;
-            rider.haul = rider.haul.saturating_add(1);
-            rider.burst = BURST;
-            noise.sounds.push("gold");
-        }
-    }
-    // Stone and gargoyles met head-on.
-    let hit_block = track.blocks.iter().any(|b| {
-        rider.s + 0.5 > b.s
-            && before - 0.5 < b.s + b.len
-            && rider.x + 0.6 > b.x.0
-            && rider.x - 0.6 < b.x.1
-            && rider.z + 0.4 > b.z.0
-            && rider.z - 0.4 < b.z.1
-    });
-    let hit_goyle = track.items.iter().enumerate().any(|(i, item)| {
-        item.kind == ItemKind::Gargoyle
-            && !race.taken.contains(&(i as u16))
-            && before - 0.5 <= item.s
-            && rider.s + 0.5 > item.s
-            && (item.x - rider.x).hypot(item.z - rider.z) < 1.0
-    });
-    if hit_block || hit_goyle {
-        // Off the stone the way it came: beside a spire, under a rampart.
-        if let Some(b) = track.blocks.iter().find(|b| rider.s + 0.5 > b.s && before - 0.5 < b.s + b.len) {
-            if b.x.1 - b.x.0 > 2.0 * SKY_X {
-                rider.z = if b.z.0 - 0.6 > -SKY_Z { b.z.0 - 0.6 } else { (b.z.1 + 0.6).min(SKY_Z) };
-            } else {
-                let left = b.x.0 - 0.7;
-                let right = b.x.1 + 0.7;
-                rider.x = if (rider.x - left).abs() < (rider.x - right).abs() && left > -SKY_X { left } else { right.min(SKY_X) };
-            }
-        }
-        rider.vs = 4.0;
-        wreck(rider, Wreck::Tumble, noise);
-    }
-}
-
-/// Bolts fly on down the gorge; a gargoyle hit shatters (a burst for the
-/// shooter), a rival hit is ruffled.
-fn fly_bolts(race: &mut Race3d, noise: &mut Noise) {
-    let track = track(race.course);
-    let mut bolts = std::mem::take(&mut race.bolts);
-    bolts.retain_mut(|bolt| {
-        let pace = race.riders.get(&bolt.owner).map_or(WING, |r| r.vs) + BOLT_PACE;
-        let before = bolt.s;
-        bolt.s += pace * DT;
-        bolt.life = bolt.life.saturating_sub(1);
-        for (i, item) in track.items.iter().enumerate() {
-            let i = i as u16;
-            if item.kind == ItemKind::Gargoyle
-                && !race.taken.contains(&i)
-                && before <= item.s + 0.5
-                && bolt.s >= item.s - 0.5
-                && (item.x - bolt.x).hypot(item.z - bolt.z) < 1.3
-            {
-                race.taken.insert(i);
-                if let Some(shooter) = race.riders.get_mut(&bolt.owner) {
-                    shooter.haul = shooter.haul.saturating_add(1);
-                    shooter.burst = BURST;
-                }
-                noise.sounds.push("rock_land");
-                return false;
-            }
-        }
-        for (&id, rival) in race.riders.iter_mut() {
-            if id != bolt.owner
-                && rival.racing()
-                && rival.rolling == 0
-                && before <= rival.s + 0.5
-                && bolt.s >= rival.s - 0.5
-                && (rival.x - bolt.x).hypot(rival.z - bolt.z) < 1.1
-            {
-                rival.stun = RUFFLE;
-                noise.sounds.push("hit_arrow");
-                return false;
-            }
-        }
-        bolt.life > 0 && bolt.s < track.len()
-    });
-    race.bolts = bolts;
+/// The engine this crate's own tests tick against: the oracle answers the one
+/// op the shipped leg does, so `Run::tick_race3d` (which calls the leg) plays
+/// the Shaft Run here too.
+#[cfg(test)]
+fn install_oracle() {
+    crate::scripted::install_for_test(leg::LEG, oracle::answer);
 }
 
 #[cfg(test)]

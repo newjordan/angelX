@@ -12,14 +12,6 @@ const LEGACY_HOOK_BLOCKED_PREFIX: &str = "[angel-hook-blocked/v1] ";
 const HOOK_ENV_VALUE_MAX_BYTES: usize = 32 * 1024;
 const HOOK_COMMAND_MAX_BYTES: usize = 64 * 1024;
 
-/// `source` values for a SessionStart payload. Matchers use the same `*` / `|`
-/// rules as tool names, compared against this source.
-pub(crate) const SESSION_SOURCE_STARTUP: &str = "startup";
-pub(crate) const SESSION_SOURCE_RESUME: &str = "resume";
-pub(crate) const SESSION_SOURCE_CLEAR: &str = "clear";
-pub(crate) const SESSION_SOURCE_FORK: &str = "fork";
-pub(crate) const SESSION_SOURCE_WORKSPACE: &str = "workspace";
-
 pub(crate) fn is_hook_blocked_result(result: &str) -> bool {
     result.starts_with(HOOK_BLOCKED_PREFIX) || result.starts_with(LEGACY_HOOK_BLOCKED_PREFIX)
 }
@@ -33,13 +25,10 @@ pub(crate) fn is_hook_blocked_result(result: &str) -> bool {
 //       "PostToolUse":  [ { "matcher": "*",           "command": "..." } ],
 //       "SessionStart": [ { "matcher": "*",           "command": "..." } ] } }
 // Tool hooks run via `sh -c` with ANGEL_TOOL_NAME / ANGEL_TOOL_ARGS (and, for
-// PostToolUse, ANGEL_TOOL_RESULT) in the env, and stdin is `/dev/null`.
-// SessionStart uses the same `sh -c` launch. Its stdin is one JSON object:
-//   {"hook_event_name":"SessionStart","session_id":"<id>","cwd":"<workspace>","source":"startup|resume|clear|fork|workspace"}
-// and the child env sets ANGEL_SESSION_ID and ANGEL_WORKSPACE to that workspace.
-// The payload has no conversation content, credentials, or transcript path.
-// SessionStart is best-effort, like PostToolUse: a missing, failing, or slow
-// hook does not block or change the session.
+// PostToolUse, ANGEL_TOOL_RESULT) in the env, and stdin closed. SessionStart
+// instead reads one JSON object on stdin and sees ANGEL_SESSION_ID /
+// ANGEL_WORKSPACE. Its matcher is applied to the source
+// (`startup|resume|clear|fork|workspace`).
 // ---------------------------------------------------------------------------
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -48,12 +37,37 @@ pub(crate) struct HookRule {
     pub(crate) command: String,
 }
 
+/// Why the process's current session was established or replaced.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SessionStartSource {
+    /// Fresh process session, and `/new`.
+    Startup,
+    /// `--resume` / relight, and `/resume`.
+    Resume,
+    /// `/clear`.
+    Clear,
+    /// `/fork`.
+    Fork,
+    /// `/cd` / `/workspace`.
+    Workspace,
+}
+
+impl SessionStartSource {
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Startup => "startup",
+            Self::Resume => "resume",
+            Self::Clear => "clear",
+            Self::Fork => "fork",
+            Self::Workspace => "workspace",
+        }
+    }
+}
+
 #[derive(Clone, Default)]
 pub(crate) struct Hooks {
     pub(crate) pre: Vec<HookRule>,
     pub(crate) post: Vec<HookRule>,
-    /// Session announcements. Not a tool gate: [`Hooks::is_empty`] ignores them
-    /// so dispatch, approval, and tool-batch parallelism stay unchanged.
     pub(crate) session_start: Vec<HookRule>,
 }
 
@@ -123,8 +137,8 @@ impl Hooks {
         }
     }
 
-    /// Tool hooks only. SessionStart-only config must not serialize tool batches
-    /// or take the pre/post path.
+    /// Tool-lifecycle hooks only. SessionStart does not wrap tool dispatch, so a
+    /// SessionStart-only config keeps the parallel tool-batch fast path.
     pub(crate) fn is_empty(&self) -> bool {
         self.pre.is_empty() && self.post.is_empty()
     }
@@ -172,29 +186,68 @@ impl Hooks {
             }
         }
     }
-}
 
-/// Announce the session the process holds now. No-op when no SessionStart rule
-/// matches `source`. Hook failure, timeout, and a missing config do not change
-/// the session; callers invoke this only after that session is already current.
-pub(crate) fn emit_session_start(session_id: &str, workspace: &Path, source: &str) {
-    let hooks = Hooks::load();
-    if hooks.session_start.is_empty() {
-        return;
-    }
-    let cwd_path = std::fs::canonicalize(workspace).unwrap_or_else(|_| workspace.to_path_buf());
-    let cwd = path_for_hook(&cwd_path);
-    for rule in &hooks.session_start {
-        if hook_matches(&rule.matcher, source) {
-            let _ = run_session_start_hook(&rule.command, session_id, &cwd, source);
+    /// Best-effort SessionStart. A missing, failing, or slow command is ignored
+    /// so the session still starts. The payload is identity only: no transcript,
+    /// conversation, or credentials.
+    pub(crate) fn session_start(
+        &self,
+        session_id: &str,
+        workspace: &Path,
+        source: SessionStartSource,
+    ) {
+        if session_id.is_empty() || self.session_start.is_empty() {
+            return;
+        }
+        let cwd = canonical_workspace(workspace);
+        let payload = session_start_payload(session_id, &cwd, source);
+        for rule in &self.session_start {
+            if hook_matches(&rule.matcher, source.as_str()) {
+                let _ = run_session_start_hook(&rule.command, &payload, &cwd, session_id);
+            }
         }
     }
 }
 
-fn path_for_hook(path: &Path) -> String {
-    path.to_str()
-        .map(str::to_owned)
-        .unwrap_or_else(|| path.to_string_lossy().into_owned())
+/// Announce the process's current session. Tests opt in with `ANGEL_HOOKS_CONFIG`
+/// so a personal `~/.angelX/hooks.json` cannot run on every `/new` in the suite.
+pub(crate) fn fire_session_start(session_id: &str, workspace: &Path, source: SessionStartSource) {
+    #[cfg(test)]
+    if std::env::var_os("ANGEL_HOOKS_CONFIG").is_none() {
+        return;
+    }
+    if session_id.is_empty() {
+        return;
+    }
+    let hooks = Hooks::load();
+    if hooks.session_start.is_empty() {
+        return;
+    }
+    hooks.session_start(session_id, workspace, source);
+}
+
+fn canonical_workspace(workspace: &Path) -> PathBuf {
+    std::fs::canonicalize(workspace).unwrap_or_else(|_| {
+        if workspace.is_absolute() {
+            workspace.to_path_buf()
+        } else {
+            std::env::current_dir()
+                .map(|cwd| cwd.join(workspace))
+                .unwrap_or_else(|_| workspace.to_path_buf())
+        }
+    })
+}
+
+fn session_start_payload(session_id: &str, cwd: &Path, source: SessionStartSource) -> Vec<u8> {
+    let mut body = serde_json::to_vec(&serde_json::json!({
+        "hook_event_name": "SessionStart",
+        "session_id": session_id,
+        "cwd": cwd.to_string_lossy(),
+        "source": source.as_str(),
+    }))
+    .unwrap_or_default();
+    body.push(b'\n');
+    body
 }
 
 fn hook_reason(output: &str) -> &str {
@@ -261,11 +314,7 @@ pub(crate) fn run_hook(command: &str, name: &str, args: &Value, result: Option<&
         cmd.env("ANGEL_TOOL_RESULT", bounded_hook_env("result", r));
     }
     let timeout = Duration::from_secs(env_usize("ANGEL_HOOK_TIMEOUT", 10) as u64);
-    classify_hook_output(output_timed(cmd, Some(timeout)))
-}
-
-fn classify_hook_output(result: Result<(std::process::Output, bool), String>) -> HookRun {
-    match result {
+    match output_timed(cmd, Some(timeout)) {
         Ok((_, true)) => HookRun::TimedOut,
         Ok((out, false)) => {
             // A hook terminated by a signal did not succeed. Treat it as a
@@ -287,43 +336,75 @@ fn classify_hook_output(result: Result<(std::process::Output, bool), String>) ->
     }
 }
 
-/// One SessionStart command via `sh -c`. Stdin is the JSON object plus a
-/// trailing newline. `ANGEL_SESSION_ID` and `ANGEL_WORKSPACE` name the session
-/// the process holds now (the workspace overrides an inherited startup value).
-///
-/// The wait is `ANGEL_HOOK_TIMEOUT` and stays armed when YOLO lifts tool
-/// deadlines, so a slow hook cannot stall session establishment. A zero budget
-/// is already expired and does not spawn. Callers ignore this result.
+/// Run one SessionStart command. Stdin is the identity payload; stdout and stderr
+/// are discarded. The deadline is always `ANGEL_HOOK_TIMEOUT` (default 10s),
+/// including under YOLO — a slow hook must not hold the session open.
 pub(crate) fn run_session_start_hook(
     command: &str,
+    payload: &[u8],
+    cwd: &Path,
     session_id: &str,
-    cwd: &str,
-    source: &str,
 ) -> HookRun {
+    use crate::agent::sandbox::process_owner::OwnedCommandExt;
+    use std::io::Write;
+    use std::os::unix::process::CommandExt;
+    use std::process::Stdio;
+
     if command.len() > HOOK_COMMAND_MAX_BYTES {
         return HookRun::Unavailable(format!(
             "command is {} bytes (limit {HOOK_COMMAND_MAX_BYTES})",
             command.len()
         ));
     }
-    let timeout = Duration::from_secs(env_usize("ANGEL_HOOK_TIMEOUT", 10) as u64);
-    if timeout.is_zero() {
-        return HookRun::TimedOut;
-    }
-    let mut body = serde_json::json!({
-        "hook_event_name": "SessionStart",
-        "session_id": session_id,
-        "cwd": cwd,
-        "source": source,
-    })
-    .to_string();
-    body.push('\n');
+    let cwd_env = cwd.to_string_lossy();
     let mut cmd = Command::new("sh");
     cmd.arg("-c")
         .arg(command)
         .env("ANGEL_SESSION_ID", session_id)
-        .env("ANGEL_WORKSPACE", cwd);
-    classify_hook_output(output_timed_fixed_with_stdin(cmd, timeout, body.as_bytes()))
+        .env("ANGEL_WORKSPACE", cwd_env.as_ref())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0);
+    if cwd.is_dir() {
+        cmd.current_dir(cwd);
+    }
+    let timeout = Duration::from_secs(env_usize("ANGEL_HOOK_TIMEOUT", 10) as u64);
+    let mut child = match cmd.spawn_owned() {
+        Ok(child) => child,
+        Err(error) => return HookRun::Unavailable(error.to_string()),
+    };
+    if let Some(mut stdin) = child.stdin.take() {
+        let _ = stdin.write_all(payload);
+    }
+    let started = Instant::now();
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                let code = status.code().unwrap_or_else(|| {
+                    use std::os::unix::process::ExitStatusExt;
+                    status.signal().map(|signal| 128 + signal).unwrap_or(1)
+                });
+                return if code == 0 {
+                    HookRun::Passed {
+                        output: String::new(),
+                    }
+                } else {
+                    HookRun::Rejected {
+                        code,
+                        output: String::new(),
+                    }
+                };
+            }
+            Ok(None) if started.elapsed() >= timeout => {
+                kill_process_group(child.id());
+                let _ = child.wait();
+                return HookRun::TimedOut;
+            }
+            Ok(None) => std::thread::sleep(Duration::from_millis(10)),
+            Err(error) => return HookRun::Unavailable(error.to_string()),
+        }
+    }
 }
 
 /// Dispatch a tool through the hook pipeline: PreToolUse (may block) → dispatch →

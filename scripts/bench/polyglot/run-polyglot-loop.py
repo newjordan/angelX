@@ -198,6 +198,18 @@ def snapshot_resources(source_root: Path, target: Path) -> dict[str, str]:
     return tree_manifest(target)
 
 
+def snapshot_live(source: Path, target: Path) -> dict[str, str]:
+    """Freeze a live-module directory (the legs under test) into the cell.
+
+    The agent loads it through ANGEL_LIVE_DIR; a headless run loads no live
+    modules unless that variable is set. The directory stays outside the source
+    checkout, so editing a leg never dirties the binary's source pin.
+    """
+    if source.is_symlink() or not source.is_dir():
+        raise ValueError(f"live directory is not a plain directory: {source}")
+    return copy_tree_snapshot(source, target)
+
+
 def checked_build_info(binary: Path) -> dict:
     info = json.loads(subprocess.check_output(
         [str(binary), "--build-info", "--json"], text=True, timeout=30
@@ -366,6 +378,8 @@ def main() -> int:
                         help="explicit cohort instead of deterministic language-balanced pilot")
     parser.add_argument("--wall-secs", type=int, default=600)
     parser.add_argument("--max-hops", type=int, default=60)
+    parser.add_argument("--live-dir", type=Path,
+                        help="live-module directory to measure; copied into the cell and loaded as ANGEL_LIVE_DIR")
     parser.add_argument("--openai-replay", choices=("on", "off"),
                         help="explicit native Responses replay pin; omitted preserves the binary default")
     parser.add_argument("--execute", action="store_true",
@@ -419,6 +433,9 @@ def main() -> int:
     resource_files = snapshot_resources(resource_source, resources)
     if checked_resource_source(resource_source, build_info["cockpit_source_sha256"]) != resource_identity:
         raise ValueError("resource checkout identity changed while snapshotting")
+    live_files = None
+    if args.live_dir is not None:
+        live_files = snapshot_live(args.live_dir.expanduser().resolve(strict=True), output / "live")
     config = output / "client.toml"
     config.write_text(
         f"model = {json.dumps(args.model)}\n\n[client]\n"
@@ -449,6 +466,8 @@ def main() -> int:
         command += [f"--env.agent.harness.env.{key}", value]
     command += ["--env.agent.harness.env.ANGEL_RESOURCE_DIR", str(resources),
                 "--env.agent.harness.env.ANGEL_SANDBOX_HELPER", str(pinned_helper)]
+    if live_files is not None:
+        command += ["--env.agent.harness.env.ANGEL_LIVE_DIR", str(output / "live")]
     command += ["--env.agent.harness.env.ANGEL_WIRE_LOG_DIR", str(output / "run/wire"),
                 "-n", str(len(selected)), "-r", "1", "-c", "1",
                 "--no-serve", "--no-rich", "--no-push", "-o", str(output), "--run.dir", "run"]
@@ -470,6 +489,8 @@ def main() -> int:
         "harness_env": harness_env, "binary": build_info,
         "sandbox_sha256": sandbox_sha256,
         "resource_files_sha256": json_digest(resource_files),
+        "live_files_sha256": json_digest(live_files) if live_files is not None else None,
+        "live_source": str(args.live_dir.expanduser().resolve()) if live_files is not None else None,
         "resource_source": str(resource_source),
         "resource_source_identity": resource_identity,
         "resource_source_note": "The binary source digest binds the clean build-input inventory; copied auxiliary resources and evaluator inputs are hashed independently.",

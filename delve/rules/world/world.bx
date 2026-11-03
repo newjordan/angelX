@@ -1,0 +1,492 @@
+# crates/delve/src/rules/world.rs — the world above the Delve: rooms the party
+# walks with the Delve's own keys, and the entrances that lead down from them.
+# The tables (ROOMS, TRAILS, ENTRANCES) are world_tables.bend, written from the
+# Rust consts by _gen/tables.py.
+
+# A room of the world above the Delve.
+def world.RoomKind.in_world(+kind: String) -> Bool:
+  layout.is_kind_in(kind, ["kingdom", "realm_hall", "land_office", "gate", "stables", "lists", "mine_head", "kings_hall", "forest", "village", "fairground", "riverbank", "windmill", "ruins", "meadow", "orchard", "marsh", "downs", "cliffs", "causeway", "priory", "crag", "rookery", "observatory", "strand", "saltworks", "lighthouse", "timberyard", "hedge_maze", "bothy", "millpond", "sluice", "sunken_abbey", "belfry", "aqueduct", "aviary", "mummers", "laundry", "caravan", "hippodrome", "wheelwright", "toll_bridge", "goose_green", "kitewright", "signal_hill", "college_grounds", "college_hall", "college_class", "college_library", "college_lab", "tower_entry", "tower_stairs", "tower_stars", "wizard_study", "ranch", "pasture", "longbow_green", "fletchery", "scarecrow", "market", "bathhouse", "smithy", "eyrie", "colosseum_hall", "keg_yard", "gander_hall", "alehouse", "bazaar"])
+
+def world.HOME_ROOM_LIMIT() -> U32:
+  128
+
+# The entrance whose tiles hold tile (col, row): c <= col < c + w, r <= row < r + h
+# (i32 as U32: the signed range test needs the sign).
+def world.inside(+e: WorldEntrance, +col: U32, +row: U32) -> Bool:
+  match e as WorldEntrance:
+    case WorldEntrance{id: String, room: String, c: U32, r: U32, w: U32, h: U32, to_room: String, to_x: F32, to_y: F32, delve: String, label: String, needs: String}:
+      Bool.and(Bool.and(RS.i_ge(col, c), RS.i_lt(col, (c + w : U32))), Bool.and(RS.i_ge(row, r), RS.i_lt(row, (r + h : U32))))
+
+# The entrance of a room of `kind` whose tiles hold tile (col, row), or none.
+def world.entrance_at(+kind: String, +col: U32, +row: U32) -> Maybe<&2, WorldEntrance>:
+  world.entrance_at.go(world.ENTRANCES(), kind, col, row)
+
+def world.entrance_at.go(+es: List<&2, WorldEntrance>, +kind: String, +col: U32, +row: U32) -> Maybe<&2, WorldEntrance>:
+  match es as List<&2, WorldEntrance>:
+    case Nil{}:
+      None{}
+    case Con{e: WorldEntrance, t: List<&2, WorldEntrance>}:
+      if Bool.and(String.eq(world.Entrance.room(e), kind), world.inside(e, col, row)):
+        Some{e}
+      else:
+        world.entrance_at.go(t, kind, col, row)
+
+def world.Entrance.room(+e: WorldEntrance) -> String:
+  match e as WorldEntrance:
+    case WorldEntrance{id: String, room: String, c: U32, r: U32, w: U32, h: U32, to_room: String, to_x: F32, to_y: F32, delve: String, label: String, needs: String}:
+      room
+
+def world.Entrance.id(+e: WorldEntrance) -> String:
+  match e as WorldEntrance:
+    case WorldEntrance{id: String, room: String, c: U32, r: U32, w: U32, h: U32, to_room: String, to_x: F32, to_y: F32, delve: String, label: String, needs: String}:
+      id
+
+def world.Entrance.needs(+e: WorldEntrance) -> String:
+  match e as WorldEntrance:
+    case WorldEntrance{id: String, room: String, c: U32, r: U32, w: U32, h: U32, to_room: String, to_x: F32, to_y: F32, delve: String, label: String, needs: String}:
+      needs
+
+# The entrance by id.
+def world.entrance_by_id(+id: String) -> Maybe<&2, WorldEntrance>:
+  world.entrance_by_id.go(world.ENTRANCES(), id)
+
+def world.entrance_by_id.go(+es: List<&2, WorldEntrance>, +id: String) -> Maybe<&2, WorldEntrance>:
+  match es as List<&2, WorldEntrance>:
+    case Nil{}:
+      None{}
+    case Con{e: WorldEntrance, t: List<&2, WorldEntrance>}:
+      if String.eq(world.Entrance.id(e), id):
+        Some{e}
+      else:
+        world.entrance_by_id.go(t, id)
+
+# The middle of an entrance's tiles, in arena units.
+def world.entrance_centre(+e: WorldEntrance) -> Sigma<&2, &2, F32, _ => F32>:
+  match e as WorldEntrance:
+    case WorldEntrance{id: String, room: String, c: U32, r: U32, w: U32, h: U32, to_room: String, to_x: F32, to_y: F32, delve: String, label: String, needs: String}:
+      (((RS.i_as_f32(c) + (RS.i_as_f32(w) / 2.0 : F32) : F32) * 2.0 : F32), ((RS.i_as_f32(r) + (RS.i_as_f32(h) / 2.0 : F32) : F32) * 2.0 : F32))
+
+# Does the entrance stand open, by what the realm has built? A `country:` need
+# is a countryside plot; any other is a barony work.
+def world.Entrance.open(+e: WorldEntrance, +home: J.Val) -> Bool:
+  needs: String = world.Entrance.needs(e)
+  if String.eq(needs, ""):
+    True{}
+  else:
+    if String.starts_with(needs, "country:"):
+      countryside.Countryside.has_plot(J.get(home, "countryside"), String.drop(needs, 8n))
+    else:
+      barony.Barony.built(J.get(home, "barony"), needs)
+
+# The first knight (by id) standing on an entrance, and the entrance.
+def world.entrance_under(+run: J.Val) -> Maybe<&2, Sigma<&2, &2, WorldEntrance, _ => U32>>:
+  world.entrance_under.go(J.int_fields(J.get(run, "players")), J.str(J.get(rules.Run.room(run), "kind")))
+
+def world.entrance_under.go(+ps: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +kind: String) -> Maybe<&2, Sigma<&2, &2, WorldEntrance, _ => U32>>:
+  match ps as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
+    case Nil{}:
+      None{}
+    case Con{p: Sigma<&2, &2, String, _ => J.Val>, t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
+      h: J.Val = world.key_val(p)
+      if Bool.and(U32.is_gt(J.u32(J.get(h, "hp")), 0), Bool.not(J.bool(J.get(h, "stone")))):
+        world.entrance_under.hit(world.entrance_at(kind, RS.f_as_i32(F32.floor((J.f32(J.get(h, "x")) / 2.0 : F32))), RS.f_as_i32(F32.floor((J.f32(J.get(h, "y")) / 2.0 : F32)))), world.key_id(p), t, kind)
+      else:
+        world.entrance_under.go(t, kind)
+
+def world.entrance_under.hit(+m: Maybe<&2, WorldEntrance>, +id: U32, +t: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +kind: String) -> Maybe<&2, Sigma<&2, &2, WorldEntrance, _ => U32>>:
+  match m as Maybe<&2, WorldEntrance>:
+    case Some{e: WorldEntrance}:
+      Some{(e, id)}
+    case None{}:
+      world.entrance_under.go(t, kind)
+
+# The index of the room of this kind in the home floor (usize::MAX for none).
+def world.room_of(+floor: J.Val, +kind: String) -> U32:
+  layout.Floor.first_kind(J.items(J.get(floor, "rooms")), 0, [kind])
+
+# Rooms of the world (rooms.rs shapes)
+# ------------------------------------
+
+def world.walled(+cell: LayCell, +kind: String) -> J.Val:
+  layout.cellar.walled(cell, kind)
+
+def world.fill(+room: J.Val, +rects: List<&2, LayRect>, +t: LayTile) -> J.Val:
+  layout.grid.put(room, layout.fill_rects(layout.grid.of_room(room), rects, t))
+
+def world.rect(+c: U32, +r: U32, +w: U32, +h: U32) -> List<&2, LayRect>:
+  [LayRect{c, r, w, h}]
+
+def world.doors_open(+room: J.Val, +dirs: List<&2, U32>) -> J.Val:
+  match dirs as List<&2, U32>:
+    case Nil{}:
+      room
+    case Con{d: U32, t: List<&2, U32>}:
+      world.doors_open(layout.Room.open_door(room, d), t)
+
+# The Delve's gate courtyard: the gate's arch over its stair in the north west,
+# a well, the road in from the realm to the south, and doors to the mine-head
+# (north), the stables (west) and the lists (east).
+def world.gate_room(+cell: LayCell) -> J.Val:
+  r0: J.Val = world.walled(cell, "gate")
+  g: LayGrid = layout.grid.of_room(r0)
+  g1: LayGrid = layout.fill_rects(g, world.rect(4, 1, 5, 4), TileBlock{})
+  g2: LayGrid = layout.fill_rects(g1, world.rect(5, 4, 2, 1), TileStairs{})
+  g3: LayGrid = layout.fill_rects(layout.fill_rects(layout.fill_rects(g2, world.rect(15, 3, 2, 2), TileBlock{}), world.rect(18, 1, 5, 3), TileBlock{}), world.rect(15, 10, 1, 1), TileBlock{})
+  g4: LayGrid = layout.fill_rects(g3, world.rect(19, 10, 2, 1), TileStairs{})
+  world.doors_open(layout.grid.put(r0, g4), [0, 1, 3])
+
+def world.stables_room(+cell: LayCell) -> J.Val:
+  r0: J.Val = world.walled(cell, "stables")
+  g: LayGrid = layout.fill_rects(layout.fill_rects(layout.fill_rects(layout.grid.of_room(r0), world.rect(2, 1, 20, 3), TileBlock{}), world.rect(3, 6, 2, 1), TileBlock{}), world.rect(4, 10, 16, 1), TileBlock{})
+  world.doors_open(layout.grid.put(r0, g), [1])
+
+def world.lists_room(+cell: LayCell) -> J.Val:
+  r0: J.Val = world.walled(cell, "lists")
+  g: LayGrid = layout.fill_rects(layout.fill_rects(layout.fill_rects(layout.fill_rects(layout.grid.of_room(r0), world.rect(3, 7, 18, 1), TileBlock{}), world.rect(3, 1, 18, 2), TileBlock{}), world.rect(1, 10, 2, 2), TileBlock{}), world.rect(21, 1, 2, 2), TileBlock{})
+  world.doors_open(layout.grid.put(r0, g), [3])
+
+# The fallen gate-hall of Caer Dwfn at the mine-head, west of the adit.
+def world.mine_head_room(+cell: LayCell) -> J.Val:
+  r0: J.Val = world.walled(cell, "mine_head")
+  g1: LayGrid = layout.fill_rects(layout.fill_rects(layout.grid.of_room(r0), world.rect(10, 1, 4, 3), TileBlock{}), world.rect(11, 3, 2, 1), TileStairs{})
+  g2: LayGrid = layout.fill_rects(layout.fill_rects(layout.fill_rects(g1, world.rect(2, 2, 8, 5), TileBlock{}), world.rect(5, 6, 2, 1), TileStairs{}), world.rect(17, 2, 4, 2), TileBlock{})
+  g3: LayGrid = layout.fill_rects(g2, world.rect(11, 1, 3, 3), TileFloor{})
+  world.doors_open(layout.grid.put(r0, g3), [2])
+
+# The forest's trees (forest.rs TREES).
+def world.forest_room(+cell: LayCell) -> J.Val:
+  r0: J.Val = world.walled(cell, "forest")
+  g: LayGrid = layout.set_all(layout.grid.of_room(r0), world.TREES(), TileBlock{})
+  world.doors_open(layout.grid.put(r0, g), [0])
+
+def world.TREES() -> List<&2, LayCell>:
+  [LayCell{2, 2}, LayCell{8, 2}, LayCell{10, 5}, LayCell{2, 8}, LayCell{9, 11}, LayCell{14, 2}, LayCell{22, 3}, LayCell{22, 10}]
+
+# The room a world kind is built as (\`world_room\`).
+def world.world_room(+kind: String, +cell: LayCell) -> J.Val:
+  LayCell{cx: U32, cy: U32} of LayCell = cell
+  world.world_room.by(kind, cell, cx, cy)
+
+def world.world_room.by(+kind: String, +cell: LayCell, +cx: U32, +cy: U32) -> J.Val:
+  if layout.is_kind_in(kind, ["college_grounds", "college_hall", "college_class", "college_library", "college_lab", "tower_entry", "tower_stairs", "tower_stars", "wizard_study"]):
+    college.room(kind, cell)
+  else:
+    if layout.is_kind_in(kind, ["ranch", "pasture"]):
+      ranch.room(kind, cell)
+    else:
+      if layout.is_kind_in(kind, ["colosseum_hall", "keg_yard", "gander_hall"]):
+        colosseum.room(kind, cx, cy)
+      else:
+        world.world_room.own(kind, cell)
+
+def world.world_room.own(+kind: String, +cell: LayCell) -> J.Val:
+  if String.eq(kind, "alehouse"):
+    alehouse.room(cell)
+  else:
+    if String.eq(kind, "bazaar"):
+      bazaar.room(cell)
+    else:
+      if String.eq(kind, "gate"):
+        world.gate_room(cell)
+      else:
+        if String.eq(kind, "stables"):
+          world.stables_room(cell)
+        else:
+          if String.eq(kind, "lists"):
+            world.lists_room(cell)
+          else:
+            if String.eq(kind, "kings_hall"):
+              barony.kings_hall_room(cell)
+            else:
+              if String.eq(kind, "land_office"):
+                holdings.land_office_room(cell)
+              else:
+                if String.eq(kind, "forest"):
+                  world.forest_room(cell)
+                else:
+                  if layout.is_kind_in(kind, ["village", "fairground", "riverbank", "windmill", "ruins", "meadow", "orchard", "marsh", "downs", "cliffs", "causeway", "priory", "crag", "rookery", "observatory", "strand", "saltworks", "lighthouse", "timberyard", "hedge_maze", "bothy", "millpond", "sluice", "sunken_abbey", "belfry", "aqueduct", "aviary", "mummers", "laundry", "caravan", "hippodrome", "wheelwright", "toll_bridge", "goose_green", "kitewright", "signal_hill", "longbow_green", "fletchery", "scarecrow", "market", "bathhouse", "smithy", "eyrie"]):
+                    countryside.room(world.walled(cell, kind))
+                  else:
+                    world.mine_head_room(cell)
+
+# Add the world to a home floor that lacks it: its rooms, and the Undercroft's
+# stair up. True if anything was added.
+def world.raise_world(+floor: J.Val) -> J.Val & Bool:
+  cellar: U32 = layout.kinds_first(floor, "home")
+  if Bool.or(U32.is_ne(J.u32(J.get(floor, "depth")), 0), U32.is_eq(cellar, 4294967295)):
+    (floor, False{})
+  else:
+    (f1: J.Val, c1: Bool) = world.raise.stair(floor, cellar)
+    (f2: J.Val, c2: Bool) = world.raise.rooms(f1, world.ROOMS())
+    (f3: J.Val, c3: Bool) = world.raise.plates(f2, world.ENTRANCES())
+    (f4: J.Val, c4: Bool) = world.raise.trails(f3, world.TRAILS())
+    changed: Bool = Bool.or(Bool.or(c1, c2), Bool.or(c3, c4))
+    if changed:
+      (J.set(f4, "world_revision", J.JU{(J.u32(J.get(f4, "world_revision")) + 1 : U32)}), True{})
+    else:
+      (f4, False{})
+
+# Stairs tiles of the rect in room `i`; whether any changed.
+def world.stairs_rect(+floor: J.Val, +i: U32, +c: U32, +r: U32, +w: U32, +h: U32) -> J.Val & Bool:
+  room: J.Val = layout.Floor.room(floor, i)
+  g: LayGrid = layout.grid.of_room(room)
+  changed: Bool = world.rect_not(g, c, r, w, h, TileStairs{})
+  g2: LayGrid = layout.fill_rects(g, world.rect(c, r, w, h), TileStairs{})
+  (J.set(floor, "rooms", J.set_nth(layout.Floor.rooms(floor), i, layout.grid.put(room, g2))), changed)
+
+# Whether any tile of the rect is not \`t\`.
+def world.rect_not(+g: LayGrid, +c: U32, +r: U32, +w: U32, +h: U32, +t: LayTile) -> Bool:
+  world.rect_not.rows(g, c, r, w, r, (r + h : U32), t)
+
+def world.rect_not.rows(+g: LayGrid, +c: U32, +r: U32, +w: U32, +y: U32, +y2: U32, +t: LayTile) -> Bool:
+  if U32.is_ge(y, y2):
+    False{}
+  else:
+    if world.rect_not.cols(g, c, c, (c + w : U32), y, t):
+      True{}
+    else:
+      world.rect_not.rows(g, c, r, w, (y + 1 : U32), y2, t)
+
+def world.rect_not.cols(+g: LayGrid, +c: U32, +x: U32, +x2: U32, +y: U32, +t: LayTile) -> Bool:
+  if U32.is_ge(x, x2):
+    False{}
+  else:
+    if Bool.not(layout.Tile.eq(layout.grid.get(g, x, y), t)):
+      True{}
+    else:
+      world.rect_not.cols(g, c, (x + 1 : U32), x2, y, t)
+
+def world.raise.stair(+floor: J.Val, +cellar: U32) -> J.Val & Bool:
+  world.stairs_rect(floor, cellar, 13, 1, 2, 1)
+
+# Every authored room whose cell is free, up to the limit.
+def world.raise.rooms(+floor: J.Val, +rooms: List<&2, WorldRoom>) -> J.Val & Bool:
+  match rooms as List<&2, WorldRoom>:
+    case Nil{}:
+      (floor, False{})
+    case Con{wr: WorldRoom, t: List<&2, WorldRoom>}:
+      WorldRoom{kind: String, x: U32, y: U32} of WorldRoom = wr
+      if Bool.or(U32.is_ge(layout.Floor.len(floor), 128), layout.Floor.taken(floor, x, y)):
+        world.raise.rooms(floor, t)
+      else:
+        f1: J.Val = layout.floor_with_rooms(floor, List.append(&2, J.Val, J.items(layout.Floor.rooms(floor)), [world.world_room(kind, LayCell{x, y})]))
+        (f2: J.Val, c: Bool) = world.raise.rooms(f1, t)
+        (f2, True{})
+
+# New travel plates migrate into existing authored surface rooms.
+def world.raise.plates(+floor: J.Val, +es: List<&2, WorldEntrance>) -> J.Val & Bool:
+  match es as List<&2, WorldEntrance>:
+    case Nil{}:
+      (floor, False{})
+    case Con{e: WorldEntrance, t: List<&2, WorldEntrance>}:
+      WorldEntrance{id: String, room: String, c: U32, r: U32, w: U32, h: U32, to_room: String, to_x: F32, to_y: F32, delve: String, label: String, needs: String} of WorldEntrance = e
+      if world.RoomKind.in_world(room):
+        cell: LayCell = world.reserved(room)
+        i: U32 = world.room_at_kind(floor, room, cell)
+        if U32.is_eq(i, 4294967295):
+          world.raise.plates(floor, t)
+        else:
+          (f1: J.Val, c1: Bool) = world.stairs_rect(floor, i, c, r, w, h)
+          (f2: J.Val, c2: Bool) = world.raise.plates(f1, t)
+          (f2, Bool.or(c1, c2))
+      else:
+        world.raise.plates(floor, t)
+
+# The cell the authored table reserves for a kind.
+def world.reserved(+kind: String) -> LayCell:
+  world.reserved.go(world.ROOMS(), kind)
+
+def world.reserved.go(+rooms: List<&2, WorldRoom>, +kind: String) -> LayCell:
+  match rooms as List<&2, WorldRoom>:
+    case Nil{}:
+      LayCell{0, 0}
+    case Con{wr: WorldRoom, t: List<&2, WorldRoom>}:
+      WorldRoom{k: String, x: U32, y: U32} of WorldRoom = wr
+      if String.eq(k, kind):
+        LayCell{x, y}
+      else:
+        world.reserved.go(t, kind)
+
+# The index of the room of \`kind\` standing at \`cell\` (usize::MAX for none).
+def world.room_at_kind(+floor: J.Val, +kind: String, +cell: LayCell) -> U32:
+  world.room_at_kind.go(J.items(layout.Floor.rooms(floor)), kind, cell, 0)
+
+def world.room_at_kind.go(+rooms: List<&2, J.Val>, +kind: String, +cell: LayCell, +i: U32) -> U32:
+  match rooms as List<&2, J.Val>:
+    case Nil{}:
+      4294967295
+    case Con{r: J.Val, t: List<&2, J.Val>}:
+      LayCell{x: U32, y: U32} of LayCell = cell
+      if Bool.and(layout.Room.is_kind(r, kind), layout.cell.is(layout.Room.cell(r), x, y)):
+        i
+      else:
+        world.room_at_kind.go(t, kind, cell, (i + 1 : U32))
+
+# Join the authored roads: both rooms are the reserved ones and lie side by side.
+def world.raise.trails(+floor: J.Val, +ts: List<&2, Sigma<&2, &2, String, _ => String>>) -> J.Val & Bool:
+  match ts as List<&2, Sigma<&2, &2, String, _ => String>>:
+    case Nil{}:
+      (floor, False{})
+    case Con{p: Sigma<&2, &2, String, _ => String>, t: List<&2, Sigma<&2, &2, String, _ => String>>}:
+      world.raise.trails.pair(floor, p, t)
+
+def world.raise.trails.pair(+floor: J.Val, +p: Sigma<&2, &2, String, _ => String>, +t: List<&2, Sigma<&2, &2, String, _ => String>>) -> J.Val & Bool:
+  match p as Sigma<&2, &2, String, _ => String>:
+    case (a: String, b: String):
+      (f1: J.Val, c1: Bool) = world.raise.trail(floor, a, b)
+      (f2: J.Val, c2: Bool) = world.raise.trails(f1, t)
+      (f2, Bool.or(c1, c2))
+
+def world.raise.trail(+floor: J.Val, +a: String, +b: String) -> J.Val & Bool:
+  ai: U32 = world.room_at_kind(floor, a, world.reserved(a))
+  bi: U32 = world.room_at_kind(floor, b, world.reserved(b))
+  if Bool.or(U32.is_eq(ai, 4294967295), U32.is_eq(bi, 4294967295)):
+    (floor, False{})
+  else:
+    LayCell{ax: U32, ay: U32} of LayCell = layout.Room.cell(layout.Floor.room(floor, ai))
+    LayCell{bx: U32, by: U32} of LayCell = layout.Room.cell(layout.Floor.room(floor, bi))
+    dir: U32 = world.dir_toward(ax, ay, bx, by, 0)
+    if U32.is_eq(dir, 4294967295):
+      (floor, False{})
+    else:
+      (f1: J.Val, c1: Bool) = world.raise.side(floor, ai, dir)
+      (f2: J.Val, c2: Bool) = world.raise.side(f1, bi, U32.and((dir + 2 : U32), 3))
+      (f2, Bool.or(c1, c2))
+
+def world.dir_toward(+ax: U32, +ay: U32, +bx: U32, +by: U32, +d: U32) -> U32:
+  if U32.is_ge(d, 4):
+    4294967295
+  else:
+    if Bool.and(U32.is_eq((ax + layout.DX(d) : U32), bx), U32.is_eq((ay + layout.DY(d) : U32), by)):
+      d
+    else:
+      world.dir_toward(ax, ay, bx, by, (d + 1 : U32))
+
+# Open a side of room \`i\`, and clear the arrival fan a north road needs.
+def world.raise.side(+floor: J.Val, +i: U32, +side: U32) -> J.Val & Bool:
+  room: J.Val = layout.Floor.room(floor, i)
+  opened: Bool = Bool.not(layout.Room.door(room, side))
+  room1: J.Val = Bool.pick(J.Val, opened, layout.Room.open_door(room, side), room)
+  (room2: J.Val, cleared: Bool) = world.raise.fan(room1, side)
+  (J.set(floor, "rooms", J.set_nth(layout.Floor.rooms(floor), i, room2)), Bool.or(opened, cleared))
+
+# A north road must clear all four arriving knights\' width of the room it enters.
+def world.raise.fan(+room: J.Val, +side: U32) -> J.Val & Bool:
+  if U32.is_eq(side, 0):
+    if layout.Room.is_kind(room, "lists"):
+      world.clear_blocks(room, 9, 1, 15, 3)
+    else:
+      if layout.Room.is_kind(room, "cliffs"):
+        world.clear_blocks(room, 9, 1, 11, 4)
+      else:
+        if layout.Room.is_kind(room, "mine_head"):
+          world.clear_blocks(room, 9, 1, 15, 4)
+        else:
+          if layout.Room.is_kind(room, "stables"):
+            world.clear_blocks(room, 9, 1, 15, 5)
+          else:
+            (room, False{})
+  else:
+    (room, False{})
+
+# Block tiles in [x0, x1) x [y0, y1) become floor; whether any did.
+def world.clear_blocks(+room: J.Val, +x0: U32, +y0: U32, +x1: U32, +y1: U32) -> J.Val & Bool:
+  g: LayGrid = layout.grid.of_room(room)
+  any: Bool = world.rect_any_block(g, x0, y0, x1, y1)
+  (layout.grid.put(room, world.unblock(g, x0, y0, x1, y1)), any)
+
+def world.rect_any_block(+g: LayGrid, +x0: U32, +y0: U32, +x1: U32, +y1: U32) -> Bool:
+  if U32.is_ge(y0, y1):
+    False{}
+  else:
+    if world.row_any_block(g, x0, y0, x1):
+      True{}
+    else:
+      world.rect_any_block(g, x0, (y0 + 1 : U32), x1, y1)
+
+def world.row_any_block(+g: LayGrid, +x: U32, +y: U32, +x1: U32) -> Bool:
+  if U32.is_ge(x, x1):
+    False{}
+  else:
+    if layout.tile_is_block(layout.grid.get(g, x, y)):
+      True{}
+    else:
+      world.row_any_block(g, (x + 1 : U32), y, x1)
+
+# Walk the party into room \`index\` and stand them around \`at\` (tiles), side by side.
+def world.Run.arrive(+run: J.Val, +index: U32, +at_x: F32, +at_y: F32) -> J.Val:
+  run1: J.Val = floors.Run.enter(run, index, J.JNull{})
+  ids: List<&2, U32> = exits.ids_all(run1)
+  count: F32 = U32.to_f32(layout.list.u32_len(ids))
+  run2: J.Val = world.arrive.stand(run1, ids, 0, count, at_x, at_y)
+  run3: J.Val = hireling.Run.hireling_follows(cat.Run.tallow_follows(run2))
+  kingdom.Run.record_kingdom_visit(J.set(run3, "stairs_held", J.JBool{True{}}))
+
+def world.stand_apart(+count: F32) -> F32:
+  if F32.is_gt(count, 4.0):
+    (((3.0 * 2.4 : F32) / (count - 1.0 : F32)) : F32)
+  else:
+    2.4
+
+def world.arrive.stand(+run: J.Val, +ids: List<&2, U32>, +slot: U32, +count: F32, +at_x: F32, +at_y: F32) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      offset: F32 = ((U32.to_f32(slot) - ((count - 1.0 : F32) / 2.0 : F32) : F32) * world.stand_apart(count) : F32)
+      h: J.Val = J.set(J.set(exits.hero(run, id), "x", J.JF{((at_x * 2.0 : F32) + offset : F32)}), "y", J.JF{(at_y * 2.0 : F32)})
+      world.arrive.stand(exits.set_hero(run, id, h), t, (slot + 1 : U32), count, at_x, at_y)
+
+# Through an entrance: to another room, or down into a delve.
+def world.Run.take_entrance(+run: J.Val, +e: WorldEntrance) -> J.Val:
+  if kingdom.Run.returns_to_kingdom(run, world.Entrance.id(e)):
+    kingdom.Run.leave_kingdom_place(run)
+  else:
+    world.take_entrance.dest(run, e)
+
+def world.take_entrance.dest(+run: J.Val, +e: WorldEntrance) -> J.Val:
+  match e as WorldEntrance:
+    case WorldEntrance{id: String, room: String, c: U32, r: U32, w: U32, h: U32, to_room: String, to_x: F32, to_y: F32, delve: String, label: String, needs: String}:
+      if String.eq(to_room, ""):
+        world.take_entrance.delve(run, id, delve)
+      else:
+        index: U32 = world.room_of(J.get(run, "dungeon"), to_room)
+        if U32.is_eq(index, 4294967295):
+          run
+        else:
+          from_surface: Bool = world.RoomKind.in_world(J.str(J.get(rules.Run.room(run), "kind")))
+          run1: J.Val = world.Run.arrive(run, index, to_x, to_y)
+          run2: J.Val = Bool.pick(J.Val, Bool.and(String.eq(to_room, "home"), from_surface), floor_plates.Run.begin_floor_plate(run1, "gate"), run1)
+          run3: J.Val = exits.push_sound(run2, "door_open")
+          J.set(run3, "cues", J.push(J.get(run3, "cues"), J.JS{Bool.pick(String, String.eq(to_room, "home"), "home", String.append("entrance:", id))}))
+
+# The shaft goes to the first floor of its delve, whatever landing Wren has
+# drawn on the Winding Stair.
+def world.take_entrance.delve(+run: J.Val, +id: String, +pack: String) -> J.Val:
+  landing: J.Val = J.get(J.get(run, "home"), "landing")
+  run1: J.Val = J.set(run, "home", J.set(J.get(run, "home"), "landing", J.JU{1}))
+  run2: J.Val = J.set(run1, "dungeon", J.set(J.get(run1, "dungeon"), "pack", J.JS{pack}))
+  run3: J.Val = J.set(run2, "cues", J.push(J.get(run2, "cues"), J.JS{String.append("entrance:", id)}))
+  run4: J.Val = floors.Run.descend(run3)
+  J.set(run4, "home", J.set(J.get(run4, "home"), "landing", landing))
+
+# One tick in a room of the world: the kingdom, its rooms' games and the
+# pastimes, from the registry (activity::WORLD).
+def world.Run.tick_world(+run: J.Val, +inputs: J.Val) -> J.Val:
+  activity.Run.tick_world_games(run, inputs)
+
+# Block tiles in [x0, x1) x [y0, y1) become floor.
+def world.unblock(+g: LayGrid, +x0: U32, +y0: U32, +x1: U32, +y1: U32) -> LayGrid:
+  if U32.is_ge(y0, y1):
+    g
+  else:
+    world.unblock(world.unblock.row(g, x0, y0, x1), x0, (y0 + 1 : U32), x1, y1)
+
+def world.unblock.row(+g: LayGrid, +x: U32, +y: U32, +x1: U32) -> LayGrid:
+  if U32.is_ge(x, x1):
+    g
+  else:
+    if layout.tile_is_block(layout.grid.get(g, x, y)):
+      world.unblock.row(layout.grid.set(g, x, y, TileFloor{}), (x + 1 : U32), y, x1)
+    else:
+      world.unblock.row(g, (x + 1 : U32), y, x1)

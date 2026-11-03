@@ -16,7 +16,7 @@ one-ulp differences in display-only stuck-arrow directions in the wire,
 including with hit-stop off. Retain each platform's exact hashes.
 
 The original/off byte-stream checks, field-level diagnostic and reviewed
-captures are in /work/artifacts/delve-int-20261015/hitstop-1/.
+captures are in artifacts/delve-int-20261015/hitstop-1/.
 
 INT-3 re-recorded the three `on-*.json` reports and all six native/wasm ON
 CSVs after merging the hit-stop and dungeon finish into
@@ -27,4 +27,4 @@ fixtures remain the original recordings. The integration's OFF checks compare
 snapshots, 5,639 mini-game trace frames and six final mini-game snapshots.
 Only the six added tuning fields and verified default omission are normalized;
 every pre-existing field and nondefault tune value remains checked. Evidence:
-`/work/artifacts/delve-int-20261015/int-3/`.
+`artifacts/delve-int-20261015/int-3/`.

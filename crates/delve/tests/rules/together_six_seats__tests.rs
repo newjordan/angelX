@@ -53,8 +53,15 @@ fn a_party_has_six_seats_and_no_seventh() {
 
 #[test]
 fn the_per_head_tables_hold_six_and_clamp_past_them() {
-    assert_eq!(stakes::PARTY_HIT, [60, 100, 120, 135, 145, 155]);
-    assert_eq!(stakes::EARLY_PARTY_HIT, [100, 115, 130, 145, 160, 175]);
+    assert_eq!(stakes::PARTY_HIT, [60, 100, 120, 135, 140, 145]);
+    assert_eq!(stakes::EARLY_PARTY_HIT, [100, 115, 130, 145, 150, 155]);
+    assert_eq!(stakes::PARTY_EXTRA, [0, 2, 4, 6, 7, 8]);
+    // Past four a head adds less than the one before it: sub-linear.
+    for t in [&stakes::PARTY_HIT[..], &stakes::EARLY_PARTY_HIT[..]] {
+        assert!(t[4] - t[3] < t[3] - t[2] && t[5] - t[4] <= t[4] - t[3], "{t:?}");
+    }
+    assert_eq!(stakes::party_extra(0), 0);
+    assert_eq!(stakes::party_extra(1000), 8);
     assert_eq!(stakes::PARTY_FURY, [0, 1, 2, 3, 3, 3]);
     // The tables cover every seat, and a count past them is the last entry.
     assert_eq!(stakes::PARTY_HIT.len(), MAX_PLAYERS as usize);
@@ -255,11 +262,19 @@ fn the_host_and_five_friends_are_six_knights_in_one_fight() {
             assert!(run.valid_snapshot(), "tick {tick}");
         }
     }
-    // More monsters for more knights (the party's own two a head, the top of
-    // the table), and the volleys no thicker than three extra shots.
+    // More monsters for more knights (the party's own two a head, one past
+    // the fourth), and the volleys no thicker than three extra shots. The
+    // first fight off the stairs is gentle (`stakes::GENTLE_FIRST_TO`): a
+    // room further on.
+    let further = |run: &Run| {
+        let steps = run.dungeon.steps();
+        (0..run.dungeon.rooms.len())
+            .find(|&r| run.dungeon.rooms[r].kind == RoomKind::Fight && !run.dungeon.rooms[r].great() && steps[r] >= 2 && steps[r] != usize::MAX)
+            .unwrap()
+    };
     let alone = {
         let mut one = Run::new(33, 1, None);
-        let room = fight_room(&one);
+        let room = further(&one);
         one.enter_for_test(room);
         one.enemies.len()
     };
@@ -267,7 +282,7 @@ fn the_host_and_five_friends_are_six_knights_in_one_fight() {
     for id in 3..=6 {
         fresh.join_seat(id, &format!("K{id}"));
     }
-    let room = fight_room(&fresh);
+    let room = further(&fresh);
     fresh.enter_for_test(room);
     assert!(fresh.enemies.len() > alone, "{} against {alone}", fresh.enemies.len());
     assert!(fresh.enemies.iter().all(|e| e.fury <= 3));

@@ -1,5 +1,5 @@
 {
-  "note": "Master palette for the Adventure Realm. Every module plate must quantize to this palette. Bank 4 (signal) is reserved for game state and never decoration.",
+  "note": "Master palette for the Adventure Realm. Every module plate must quantize to this palette's first five banks. Bank 4 (signal) is reserved for game state and never decoration. Banks 5 and 6 (violet, pink) are the dyes: inked by hand, never a quantizer's target.",
   "banks": {
     "structure": {
       "index": 0,
@@ -104,6 +104,29 @@
         "#f4e1cb",
         "#431e0f",
         "#a8341f"
+      ]
+    },
+    "violet": {
+      "index": 5,
+      "role": "A dye: purple cloth, potions, arcane light and the void, from aubergine to lilac. Material, never signal, and never quantized to: it appears only where it is inked.",
+      "colors": [
+        "#220e20",
+        "#3c1d40",
+        "#563165",
+        "#734d8f",
+        "#9577b4",
+        "#cab0d4"
+      ]
+    },
+    "pink": {
+      "index": 6,
+      "role": "A dye: pink cloth, roses, hearts and flamingos, from wine to blush. Material, never signal, and never quantized to: it appears only where it is inked.",
+      "colors": [
+        "#39101e",
+        "#6d2542",
+        "#a84773",
+        "#de789e",
+        "#f1bcc9"
       ]
     }
   }

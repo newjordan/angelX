@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+import json, os, struct, sys, time
+
+VERSION = __VERSION__
+MODE = '__MODE__'
+JOURNAL = __JOURNAL__
+
+def record(method):
+    with open(JOURNAL, 'a') as output:
+        output.write(f'{os.getpid()} {VERSION} {method}\n')
+
+def dispatch(method, body):
+    record(method)
+    if method == 'prepare':
+        return {'id': 'counter', 'api': 999 if MODE == 'bad-api' else 1,
+                'contracts': {} if MODE == 'missing-contract' else {'counter.quote': 2 if MODE == 'bad-contract' else 1}}
+    if method == 'restore':
+        if MODE == 'bad-migration':
+            body['count'] = -1000
+            raise ValueError('migration rejected after mutating its copy')
+        if body['schema'] not in (1,2):
+            raise ValueError('unsupported schema')
+        body['schema'] = 2 if VERSION >= 2 else 1
+        return body
+    if method == 'activate' and MODE == 'bad-activation':
+        raise ValueError('activation failed')
+    if method in ('activate', 'dispose'):
+        return None
+    if method == 'compute':
+        if body['contract'] != 'counter.quote' or body['version'] != 1:
+            raise ValueError('unsupported computation contract')
+        if body['input'].get('delay'):
+            time.sleep(body['input']['delay'])
+        return {'value': -1 if MODE == 'bad-output' else body['input']['base'] * VERSION,
+                'version': VERSION, 'pid': os.getpid()}
+    if method == 'apply':
+        state, event = body['state'], body['event']
+        if event.get('delay'):
+            time.sleep(event['delay'])
+        if MODE == 'crash':
+            os._exit(73)
+        if MODE == 'hang':
+            time.sleep(120)
+        state['count'] += event['delta'] * (10 if VERSION >= 2 else 1)
+        return {'state': state, 'output': {'version': VERSION, 'pid': os.getpid()}}
+    raise ValueError('unknown method')
+
+while True:
+    header = sys.stdin.buffer.read(4)
+    if not header:
+        break
+    size, = struct.unpack('>I', header)
+    request = json.loads(sys.stdin.buffer.read(size))
+    try:
+        result = {'Ok': dispatch(request['method'], request['body'])}
+    except Exception as error:
+        result = {'Err': str(error)}
+    reply = json.dumps({'api':1, 'generation':request['generation'], 'request':request['request'], 'result':result}).encode()
+    sys.stdout.buffer.write(struct.pack('>I',len(reply)) + reply)
+    sys.stdout.buffer.flush()
+    if request['method'] == 'dispose':
+        break

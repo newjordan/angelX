@@ -9,7 +9,7 @@ attack fan shots=5 arc=70 speed=5 every=95 damage=10 shot=bone
 attack ravage shots=4 arc=50 speed=8 every=240 damage=16 from=middle
 attack aimed shots=2 speed=7 every=50 damage=12 shot=orb from=rage
 phases weave curve laser every=100 volleys=2 damage=12
-windup charge every=220 damage=16 speed=30 cry=OVERDUE
+windup charge every=220 damage=16 speed=30 cry=OVERDUE breaks
 rage 35%
 drops gem 4, bone 4, gold 260
 art

@@ -84,7 +84,7 @@ def negative_controls(output):
     assert any('near-white cluster' in error for error in errors)
     print('Near-white connected core: rejects')
     geometry = json.loads((output / 'terminal/review-layout.json').read_text())['bosses']
-    with tempfile.TemporaryDirectory(prefix='boss-art-frozen-', dir='/work/tmp') as temporary:
+    with tempfile.TemporaryDirectory(prefix='boss-art-frozen-') as temporary:
         target = Path(temporary)
         for path in (output / 'terminal').iterdir():
             (target / path.name).symlink_to(path)

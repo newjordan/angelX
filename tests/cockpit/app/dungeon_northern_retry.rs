@@ -3,13 +3,13 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     use crate::drive::together_realm::Spoil;
     use crate::drive::together_shooter::{RoomKind, Run, countryside as c, world};
     use std::collections::BTreeMap;
-    app.realm().treasury.add(Spoil::Ore, 3);
-    app.realm().treasury.add(Spoil::Wax, 2);
-    let before = app.realm().treasury.clone();
-    let home = app.realm().home.clone();
-    app.dungeon.shooter.set(Some(Run::at_home(12, 7, None, home, before.clone())));
+    app.economy().treasury.add(Spoil::Ore, 3);
+    app.economy().treasury.add(Spoil::Wax, 2);
+    let before = app.economy().treasury.clone();
+    let home = app.economy().home.clone();
+    app.realm.dungeon.shooter.set(Some(Run::at_home(12, 7, None, home, before.clone())));
     {
-        let r = app.dungeon.shooter.edit().unwrap();
+        let r = app.realm.dungeon.shooter.edit().unwrap();
         // Real interactions, ordered and spatially separate; no injected
         // completion bits. Restore has to carry all six pending requests.
         for &(kind, at) in &c::FORECAST {
@@ -44,14 +44,13 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
             .rooms
             .retain(|room| !c::NORTH_PLACES.contains(&room.kind));
     }
-    std::fs::remove_dir_all(fixture.home.join(".angelX")).unwrap();
-    std::fs::write(fixture.home.join(".angelX"), b"not a directory").unwrap();
+    fixture.block_saves();
     assert!(!app.settle_home());
-    assert_eq!(app.realm().treasury, before);
-    assert_eq!(app.realm().home.countryside.forecast, 0);
+    assert_eq!(app.economy().treasury, before);
+    assert_eq!(app.economy().home.countryside.forecast, 0);
     let path = fixture.workspace.join(".angel/dungeon/session.json");
-    app.dungeon.save_path = Some(path.clone());
-    app.dungeon
+    app.realm.dungeon.save_path = Some(path.clone());
+    app.realm.dungeon
         .checkpoint(std::time::Instant::now(), true)
         .unwrap();
     let bytes = std::fs::read(&path).unwrap();
@@ -151,48 +150,57 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert!(c::intent_key(&key));
         journal.insert(key, 1.into());
     }
-    assert_eq!(journal.len(), c::INTENT_LIMIT);
-    assert!(journal.len() > 32);
-    std::fs::write(&path, serde_json::to_vec(&full).unwrap()).unwrap();
-    app.dungeon.shooter.set(None);
-    app.dungeon.restore(&fixture.workspace).unwrap();
+    // The squire company's slots stay free: its intents stand only while a
+    // company holds them, and this fixture hires none.
     assert_eq!(
-        app.dungeon.shooter.as_ref().unwrap().marks.len(),
-        c::INTENT_LIMIT
+        journal.len(),
+        c::INTENT_LIMIT - crate::drive::together_shooter::countryside_squires::INTENT_SLOTS
+    );
+    assert!(journal.len() > 32);
+    full["home_outbox"]["marks"] = full["country_intents"].clone();
+    std::fs::write(&path, serde_json::to_vec(&full).unwrap()).unwrap();
+    app.realm.dungeon.shooter.set(None);
+    assert!(app.realm.dungeon.restore(&fixture.workspace).is_err(), "unreadable realm company");
+    fixture.allow_saves();
+    app.realm.dungeon.restore(&fixture.workspace).unwrap();
+    assert_eq!(
+        app.realm.dungeon.shooter.as_ref().unwrap().marks.len(),
+        c::INTENT_LIMIT - crate::drive::together_shooter::countryside_squires::INTENT_SLOTS
     );
     // An unknown key is rejected, never admitted by the larger finite limit.
     full["country_intents"]["country:unbounded-string"] = 1.into();
     std::fs::write(&path, serde_json::to_vec(&full).unwrap()).unwrap();
-    assert!(app.dungeon.restore(&fixture.workspace).is_err());
+    assert!(app.realm.dungeon.restore(&fixture.workspace).is_err());
     std::fs::write(&path, &bytes).unwrap();
-    app.dungeon.shooter.set(None);
-    app.dungeon.restore(&fixture.workspace).unwrap();
-    let r = app.dungeon.shooter.as_ref().unwrap();
+    app.realm.dungeon.shooter.set(None);
+    app.realm.dungeon.restore(&fixture.workspace).unwrap();
+    let r = app.realm.dungeon.shooter.as_ref().unwrap();
     assert!(r.valid_snapshot());
     for &kind in &c::NORTH_PLACES {
         assert!(world::room_of(&r.dungeon, kind).is_some());
     }
     assert_eq!(r.marks.get("country:forecast:5"), Some(&1));
+    fixture.block_saves();
     assert!(!app.settle_home());
-    assert_eq!(app.realm().treasury, before);
+    assert_eq!(app.economy().treasury, before);
     fixture.allow_saves();
     assert!(app.settle_home());
     assert_eq!(
-        app.realm().treasury.get(Spoil::Gold),
+        app.economy().treasury.get(Spoil::Gold),
         before.get(Spoil::Gold) + 55 - 110
     );
     assert_eq!(
-        app.realm().treasury.get(Spoil::Ore),
+        app.economy().treasury.get(Spoil::Ore),
         before.get(Spoil::Ore) + 3 - 3
     );
     assert_eq!(
-        app.realm().treasury.get(Spoil::Wax),
+        app.economy().treasury.get(Spoil::Wax),
         before.get(Spoil::Wax) - 2
     );
-    assert!(app.realm().home.countryside.forecast_paid);
-    assert!(app.realm().home.countryside.has(6));
-    assert!(app.dungeon.shooter.as_ref().unwrap().marks.is_empty());
-    let paid = app.realm().treasury.clone();
+    assert!(app.economy().home.countryside.forecast_paid);
+    assert!(app.economy().home.countryside.has(6));
+    assert!(app.realm.dungeon.shooter.as_ref().unwrap().marks.is_empty());
+    let paid = app.economy().treasury.clone();
     assert!(app.settle_home());
-    assert_eq!(app.realm().treasury, paid);
+    assert_eq!(app.economy().treasury, paid);
 }

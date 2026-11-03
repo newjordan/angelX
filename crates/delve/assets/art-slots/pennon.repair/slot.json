@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.repair",
-  "source_path": "/work/artifacts/art-prod/slots/pennon.repair/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/pennon.repair/v01/source-sheet.png",
   "source_sha256": "4b9251fb67c88cfd83e57bcb00d23eef987cd9c4912dcdc9a184339ee2b2b54f",
   "tool_version": 2
 }

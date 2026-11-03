@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Lightgallop's art import: measured pieces, reviewed maps, the shared importer.
 
-The wave-5 deliveries (/work/artifacts/art-prod-rt/slots/lightgallop.<slot>/v01)
+The wave-5 deliveries ($ART_PROD_RT_SLOTS/lightgallop.<slot>/v01)
 came without a source-sheet.json, so the pieces are measured here from each
 sheet's alpha (projection gaps), a few are merged or given a reviewed pivot, and
 a copy of the delivery plus that metadata is laid in a prepared folder outside
@@ -14,12 +14,13 @@ shared inks.
     python3 -I crates/delve/assets/lightgallop/art-import.py <slot> [--check]
     python3 -I crates/delve/assets/lightgallop/art-import.py --all [--check]
 
-`--prepared` moves the prepared folders (default
-/work/artifacts/monolith-private/art-import-lg/prepared).
+`--prepared` sets the prepared folders (default
+$LIGHTGALLOP_PREPARED).
 """
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -29,8 +30,8 @@ ROOT = Path(__file__).resolve().parents[4]
 ASSETS = ROOT / 'crates/delve/assets'
 SLOTS_JSON = ASSETS / 'lightgallop/slots.json'
 OUT = ASSETS / 'art-slots'
-DELIVERIES = Path('/work/artifacts/art-prod-rt/slots')
-PREPARED = Path('/work/artifacts/monolith-private/art-import-lg/prepared')
+DELIVERIES = None  # $ART_PROD_RT_SLOTS, set in main()
+PREPARED = os.environ.get('LIGHTGALLOP_PREPARED')
 IMPORTER = ROOT / 'scripts/slot-art-import.py'
 
 GEN = 'Luna (gpt-6-luna) via Codex CLI'
@@ -338,6 +339,12 @@ def main():
     p.add_argument('--check', action='store_true')
     p.add_argument('--prepared', type=Path, default=PREPARED)
     a = p.parse_args()
+    if not os.environ.get('ART_PROD_RT_SLOTS'):
+        p.error('set ART_PROD_RT_SLOTS to the art-production delivery slots directory')
+    global DELIVERIES
+    DELIVERIES = Path(os.environ['ART_PROD_RT_SLOTS'])
+    if a.prepared is None:
+        p.error('pass --prepared or set LIGHTGALLOP_PREPARED')
     assert bool(a.slot) != a.all, 'choose a slot or --all'
     for slot in (SPECS if a.all else [a.slot]):
         do(slot, a.prepared, a.check)

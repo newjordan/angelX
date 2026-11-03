@@ -86,8 +86,6 @@ pub const TAR_STUN: u8 = 6;
 pub const RESPAWN: u32 = 20;
 /// Unhorsings to take the heat early.
 pub const NEED: u8 = 8;
-/// The whole heat: 75 s of hall, then the podium.
-pub const TIME: u32 = 75 * HZ;
 /// The hall: ledges (x0, x1, row) and the tar's surface row, all tiles.
 pub const LEDGES: [(i32, i32, i32); 3] = [(4, 9, 4), (12, 18, 6), (7, 13, 8)];
 pub const TAR_ROW: i32 = 11;
@@ -154,9 +152,6 @@ impl GanderRider {
             down: WAVES[i].0,
             lane: lane * 256,
         }
-    }
-    fn seat_of(&self) -> Option<u32> {
-        (self.who == 0).then_some(u32::from(self.seat)).filter(|&s| s > 0)
     }
     pub fn resting_on(&self) -> Option<i32> {
         LEDGES.iter().find_map(|&(x0, x1, row)| {
@@ -236,7 +231,7 @@ impl Gander {
         for i in 0..3 {
             riders.push(GanderRider::rival(i));
         }
-        let mut g = Self {
+        let g = Self {
             seats: seats.to_vec(),
             riders,
             tally: vec![0; n],
@@ -249,11 +244,6 @@ impl Gander {
     /// The first knight's rider (the starter's).
     pub fn rider(&self) -> &GanderRider {
         &self.riders[0]
-    }
-    /// A seat's rider in the hall.
-    pub fn rider_of(&self, seat: u32) -> Option<&GanderRider> {
-        let i = self.seats.iter().position(|&s| s == seat)?;
-        self.riders.get(i)
     }
     pub fn valid(&self, r: &Round) -> bool {
         let n = self.seats.len();
@@ -355,6 +345,7 @@ impl Run {
                 // A press wins its whole tick: the goose leaves the stone
                 // at the full kick, gravity collecting from the next.
                 gander.riders[i].dy = gander.riders[i].dy.min(-FLAP_KICK);
+                if knight { self.sounds.push("swing"); }
             }
             let lean = if knight {
                 inputs
@@ -412,10 +403,10 @@ impl Run {
                 .riders
                 .iter()
                 .enumerate()
-                .find(|(i, k)| k.stun == 0 && k.down == 0 && k.y >= TAR_ROW * 256 - 26)
+                .find(|(_, k)| k.stun == 0 && k.down == 0 && k.y >= TAR_ROW * 256 - 26)
                 .map(|(i, k)| (i, k.who == 0, k.x));
             match (grabbed, gander.hand.as_mut()) {
-                (Some((i, is_knight, x)), Some(h)) => {
+                (Some((i, is_knight, _)), Some(h)) => {
                     // The rise is under way: keep after the same rider.
                     if h.frame < 4 {
                         h.frame += 1;
@@ -426,7 +417,7 @@ impl Run {
                         self.tar_takes(&mut gander, r, i, is_knight);
                     }
                 }
-                (Some((i, is_knight, x)), None) => {
+                (Some((_, _, x)), None) => {
                     gander.hand = Some(GanderHand { x, frame: 1 });
                     self.sounds.push("hero_hurt");
                 }
@@ -541,6 +532,10 @@ impl Run {
                 if gander.riders[t].who == 0 && t < count {
                     let seat = u32::from(gander.riders[t].seat);
                     gander.tally[t] = gander.tally[t].saturating_add(1).min(r.game.need());
+                    r.score_popup = 8;
+                    r.score_popup_text = "EGG!".to_string();
+                    r.score_popup_x = (gander.riders[t].x / 256) as i32;
+                    r.score_popup_y = (gander.riders[t].y / 256) as i32;
                     self.sounds.push("spoil_pickup");
                     self.found = Some((self.tick, seat, "EGG! A BONUS CLACK.".into()));
                 }
@@ -590,9 +585,13 @@ impl Run {
 
     /// A knight's lance came down on another rider: it scores, and the
     /// felled rider (friend or rival) drops an egg on the ledge below.
-    fn clack(&mut self, gander: &mut Gander, r: &Round, w: usize, v: usize) {
+    fn clack(&mut self, gander: &mut Gander, r: &mut Round, w: usize, v: usize) {
         let seat = u32::from(gander.riders[w].seat);
         gander.tally[w] = gander.tally[w].saturating_add(1).min(r.game.need());
+        r.score_popup = 8;
+        r.score_popup_text = "CLACK!".to_string();
+        r.score_popup_x = (gander.riders[w].x / 256) as i32;
+        r.score_popup_y = (gander.riders[w].y / 256) as i32;
         // The pair resolves once, then separates.
         gander.riders[w].clash = v as u8;
         gander.riders[v].clash = w as u8;
@@ -604,7 +603,7 @@ impl Run {
             gander.riders[v].down = RESPAWN;
             gander.riders[v].stun = 0;
         }
-        self.sounds.push("spoil_pickup");
+        self.sounds.push("clang");
         self.found = Some((self.tick, seat, "CLACK! OFF IT COMES.".into()));
         self.felled(gander, v);
     }
@@ -616,7 +615,8 @@ impl Run {
         gander.riders[v].clash = 0;
         gander.riders[v].dy = 0;
         r.mistakes = r.mistakes.saturating_add(1).min(20);
-        self.sounds.push("clang");
+        self.sounds.push("hit");
+        self.sounds.push("knight_fall");
         self.found = Some((self.tick, seat, "UNHORSED! CLIMB AGAIN.".into()));
         self.felled(gander, v);
     }

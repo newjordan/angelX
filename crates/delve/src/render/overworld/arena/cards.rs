@@ -21,9 +21,62 @@ mod pickup_3d_tests {
     }
 }
 
-/// A card's art as authored (or its kind's glyph), on black paper.
+#[cfg(test)]
+mod high_tier_tests {
+    use super::*;
+    use crate::render::overworld::ink::ink;
+
+    #[test]
+    fn a_wishs_fourth_and_fifth_cards_are_framed_and_the_lower_are_not() {
+        let ricochet = crate::rules::phrasebook::get("ricochet").unwrap();
+        let cards: Vec<Card> = (0..5).map(|t| ricochet.card(t).unwrap()).collect();
+        let art: Vec<Img> = cards.iter().map(card_art).collect();
+        for (t, card) in cards.iter().enumerate() {
+            let plain = super::super::fx::icon(&card.art_rows());
+            let out = if t >= 3 { 2 } else { 0 };
+            assert_eq!((art[t].w, art[t].h), (plain.w + out, plain.h + out), "tier {}", t + 1);
+        }
+        // The fourth's frame is cold silver, the fifth's gold, both bright
+        // at the corners.
+        assert_eq!(art[3].get(3, 0), ink('U'));
+        assert_eq!(art[4].get(3, 0), ink('4'));
+        assert_eq!(art[4].get(0, 0), ink('w'));
+        assert_eq!(art[4].get(art[4].w / 2, art[4].h - 1), ink('w'), "a spark mid-side");
+    }
+}
+
+/// A card's art as authored (or its kind's glyph), on black paper. A
+/// wish's fourth and fifth grants are framed (`high_frame`), so the high
+/// tiers stand out in every list their cards are shown in.
 pub fn card_art(card: &Card) -> Img {
-    super::fx::icon(&card.art_rows())
+    let art = super::fx::icon(&card.art_rows());
+    match crate::rules::tray::high_tier(Some(&card.id)) {
+        0 => art,
+        tier => high_frame(&art, tier),
+    }
+}
+
+/// `art` in the frame of a wish's high tier, a pixel out all round: the
+/// fourth's cold silver with bright corners; the fifth's gold, its corners
+/// glinting white and a spark at the middle of each side.
+fn high_frame(art: &Img, tier: u8) -> Img {
+    let (w, h) = (art.w + 2, art.h + 2);
+    let mut im = Img::new(w, h);
+    im.stamp(art, 1, 1);
+    let (edge, corner, glint) = if tier >= 5 { ('4', '6', 'w') } else { ('U', 'W', 'W') };
+    im.frame(0, 0, w, h, edge);
+    for (x, y) in [(0, 0), (w - 1, 0), (0, h - 1), (w - 1, h - 1)] {
+        im.put(x, y, glint);
+    }
+    for (x, y) in [(1, 0), (0, 1), (w - 2, 0), (w - 1, 1), (1, h - 1), (0, h - 2), (w - 2, h - 1), (w - 1, h - 2)] {
+        im.put(x, y, corner);
+    }
+    if tier >= 5 {
+        for (x, y) in [(w / 2, 0), (w / 2, h - 1), (0, h / 2), (w - 1, h / 2)] {
+            im.put(x, y, glint);
+        }
+    }
+    im
 }
 
 /// A physical pickup, projected through the same lit-solid sampler as the
@@ -155,3 +208,7 @@ pub(super) fn floor_plate(card: Option<&Card>, tick: u32) -> Img {
     }
     im
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__cards__wish_showcase.rs"]
+mod wish_showcase;

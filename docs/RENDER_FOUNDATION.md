@@ -8,7 +8,7 @@ WebGPU. That is the base for a multiplayer terminal.
 
 The plan from 2026-10-16 on, with everything WebGPU and 3D underneath, is
 [GLASS_CORE.md](GLASS_CORE.md). This is a design for the 0.3 line, written 2026-10-15. Work happens on the
-`render/foundation` branch (`/work/angelX-render`), behind a cargo
+`render/foundation` branch (its own worktree), behind a cargo
 feature, and reaches dev only through reviewed merges.
 
 ## Principles
@@ -235,7 +235,7 @@ To compare the two end to end, both cockpits ran in a private nested Hyprland
 seat, with the same release binary and environment. `keyframe` typed 30 keys
 from its own virtual keyboard and timed each key to the compositor frame
 that showed the character (screencopy with damage). The tool is in
-`/work/artifacts/glass-test-kit`.
+`<artifacts>/glass-test-kit`.
 
 | Keypress to compositor frame | p50 | p95 | worst |
 |---|---|---|---|
@@ -339,7 +339,7 @@ Still open before daily use:
 ### macOS (2026-10-15)
 
 The same build runs on the Mac mini (Apple M4 Pro, Metal; the release
-cockpit is built `--no-default-features --features glass`, since the mini has
+cockpit is built `--no-default-features --features glass`, since the Mac mini has
 no ffmpeg):
 - the cockpit, its realm art at full resolution, the portrait;
 - the assembly transition;
@@ -487,11 +487,16 @@ The list, in order. Each step ends with before and after shots and timing.
 - **6, HD art packs.** Each figure names the sprites stood up in it by look
   (`arena::look_key`, a hash of the sprite's pixels). The window draws a
   pack's HD picture of a look in that sprite's place and takes the sprite's
-  own pixels out from under it. The pack is a folder of `<look>.png`
-  (`ANGEL_GLASS_ART`, default `~/.angelX/art/delve`);
+  own pixels out from under it. The pack is a folder of drawings and its
+  manifest, `pack.json`, each entry a look's key, a readable name and the
+  drawing's scale (4 unless it says), loose `<look>.png` read too
+  (`ANGEL_GLASS_ART`, default `~/.angelX/art/delve`; `arena::hd_pack`). A
+  room whose kit the pack has tiles for is composed of them, finer, in its
+  still art's place (docs/WORLD-TIERS.md, "HD art packs").
   `ANGEL_GLASS_ART_EXPORT=<dir>` saves every look the game shows, once, with
-  `looks.jsonl`, as the list for the art pipeline to redraw. No pack exists
-  yet: the knights are the first to draw.
+  `looks.jsonl`, as the list for the art pipeline to redraw; the pilot's own
+  request (the first knight and the Crypt's fight room) is written by
+  `write_hd_request` (WORLD-TIERS.md).
 
   **Art request, the knights' pack.** Play a few rooms with
   `ANGEL_GLASS_ART_EXPORT=<dir>` and take the knights' looks from `<dir>`
@@ -678,7 +683,7 @@ two full-size and five small passes on the GPU; in the browser on WebGL2,
   rasterizer too. *M0 took the recommendation: swash under our atlas, no
   shaper yet; rustybuzz comes in when ligatures or complex scripts are needed.*
 - **Platform order.** Linux on Hyprland first (the daily machine), macOS second
-  (the mini), Windows after M3.
+  (the Mac mini), Windows after M3.
 - **When glass becomes the default.** Decided 2026-10-16: now, and it
   replaces the terminal emulator. On a desktop angelX opens in its own
   window however it is started; typed in a terminal, the window goes off on

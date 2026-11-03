@@ -10,6 +10,8 @@
 
 use super::{Primary, Raise, Route, Sub, v_verification};
 
+const CATALOG: &str = include_str!("../../../../book/w_workflow.book");
+
 pub(crate) const CELL: char = '⠺';
 pub(crate) const PROTOCOL: Route = Route::new(CELL, '⠁');
 pub(crate) const PROTOCOL_COMPACT: Route = Route::new(CELL, '⠃');
@@ -36,12 +38,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the tool protocol",
             action: "",
             ideas: "",
-            pages: &[
-                "Tool protocol: tools are available through the structured tool-call interface advertised by the host.",
-                "Do not print raw `<tool_call>`, `<function=...>`, `shell(...)`, or `delegate(...)` markup as chat text.",
-                "Use built-in tools for local work, `skill(name)` for reusable playbooks, `<server>__mcp` tools for MCP resources/prompts, and `delegate` only when a specialist should work in an isolated subagent workspace.",
-                "Tool execution is still bounded by the active workspace, sandbox, hooks, and approval gates.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'1'),
         },
         Sub {
             route: PROTOCOL_COMPACT,
@@ -49,11 +46,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the tool protocol, compact core",
             action: "",
             ideas: "",
-            pages: &[
-                "Tool protocol: use the structured tool-call interface advertised by the host.",
-                "Never print `<tool_call>`, `<function=...>`, `shell(...)`, or `delegate(...)` markup as chat text.",
-                "Tool execution is bounded by the active workspace, sandbox, hooks, and approval gates.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'2'),
         },
         Sub {
             route: BATCHING,
@@ -61,10 +54,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "batching tool calls",
             action: "",
             ideas: "",
-            pages: &[
-                "Batch independent tool calls in one assistant response instead of waiting between them; combine related read/filter work into fewer calls and consume the compact result.",
-                "For multi-file reading or filtering, prefer one `code_mode` batch or the dedicated repository tools when available, over a serial chain of shell reconnaissance.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'3'),
         },
         Sub {
             route: RESPONSE,
@@ -72,12 +62,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "how to respond",
             action: "",
             ideas: "",
-            pages: &[
-                "Act on clear requests immediately.",
-                "Precede every tool call with its caveman line, not a prose preamble.",
-                "Report new findings, blockers, or changes of plan briefly.",
-                "Keep the final answer to the outcome, verification, and remaining work; give more detail when the user asks.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'4'),
         },
         Sub {
             route: PROMISE,
@@ -85,10 +70,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "ending a turn on a promise",
             action: "",
             ideas: "",
-            pages: &[
-                "Do not end a turn with a promise to inspect, check, brief the council, or pull context.",
-                "If you say you need reconnaissance or council input, make the corresponding tool calls in that same turn, then answer from the results.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'5'),
         },
         Sub {
             route: PROMISE_COMPACT,
@@ -96,9 +78,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "ending a turn on a promise, compact core",
             action: "",
             ideas: "",
-            pages: &[
-                "Do not end a turn with a promise to inspect, check, or pull context: make the corresponding tool calls in that same turn, then answer from the results.",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'6'),
         },
         Sub {
             route: BATCH,
@@ -125,7 +105,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the read stopped at a page boundary (next offset above)",
             action: "",
             ideas: "",
-            pages: &["…[more content; re-call read_file with offset={next_offset}]"],
+            pages: &super::catalog_pages::<1>(CATALOG, b'9'),
         },
         Sub {
             route: GREP_CAP,
@@ -133,10 +113,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "grep's output cap was reached",
             action: "",
             ideas: "",
-            pages: &[
-                "narrow the path or pattern",
-                "resume without duplicates with \"after_file\":{cursor}",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'0'),
         },
     ],
 };

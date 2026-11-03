@@ -12,6 +12,111 @@ pub(crate) struct StaticIdentity {
     pub toolchain: Toolchain,
 }
 
+impl StaticIdentity {
+    /// Bound means the binary was built from clean, committed source. It is
+    /// fixed at build time: a live-module edit made afterwards cannot unbind it.
+    pub(crate) fn is_bound(&self) -> bool {
+        self.cockpit_source_sha256.len() == 64
+            && self
+                .cockpit_source_sha256
+                .bytes()
+                .all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+    }
+}
+
+/// Source and output digests from a Bend leg's build receipt.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub(crate) struct BendBuild {
+    pub source_digest: String,
+    pub output_digest: String,
+}
+
+/// One active live-module generation. `digest` is the bundle's content address
+/// (it covers a Bend module's receipt file); `bend` names the receipt's source
+/// and output digests directly.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub(crate) struct LiveLeg {
+    pub id: String,
+    pub generation: u64,
+    pub digest: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bend: Option<BendBuild>,
+    /// A rejected candidate; the generation above stays in force.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+/// The live-module generations a turn runs under. `sha256` covers each active
+/// leg's id, content digest and Bend digests, never generation counters or the
+/// directory path, so equal behavior hashes equal across runs.
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]
+pub(crate) struct LiveSet {
+    pub root: Option<String>,
+    pub legs: Vec<LiveLeg>,
+    pub sha256: String,
+}
+
+impl Default for LiveSet {
+    fn default() -> Self {
+        Self::new(None, Vec::new())
+    }
+}
+
+impl LiveSet {
+    pub(crate) fn new(root: Option<String>, mut legs: Vec<LiveLeg>) -> Self {
+        legs.sort_by(|a, b| a.id.cmp(&b.id));
+        let mut bytes = b"angel-live-set/v1".to_vec();
+        // A module that never activated (empty digest) runs no code.
+        for leg in legs.iter().filter(|leg| !leg.digest.is_empty()) {
+            let (source, output) = leg
+                .bend
+                .as_ref()
+                .map_or(("", ""), |b| (&b.source_digest, &b.output_digest));
+            for part in [leg.id.as_str(), &leg.digest, source, output] {
+                bytes.extend((part.len() as u64).to_le_bytes());
+                bytes.extend(part.as_bytes());
+            }
+        }
+        Self {
+            root,
+            legs,
+            sha256: crate::knowledge::cut::sha256_hex(&bytes),
+        }
+    }
+
+    pub(crate) fn from_statuses(root: Option<&Path>, statuses: &[angel_live::Status]) -> Self {
+        let legs = statuses
+            .iter()
+            .map(|status| LiveLeg {
+                id: status.id.clone(),
+                generation: status.generation,
+                digest: status.digest.clone(),
+                bend: status.build.as_ref().map(|build| BendBuild {
+                    source_digest: build.source_digest.clone(),
+                    output_digest: build.output_digest.clone(),
+                }),
+                error: status.error.as_ref().map(|e| e.chars().take(240).collect()),
+            })
+            .collect();
+        Self::new(root.map(|r| r.to_string_lossy().into_owned()), legs)
+    }
+}
+
+/// Binary identity plus the active legs. A leg edit changes this and leaves the
+/// build fields (and whether the binary is bound) alone.
+pub(crate) fn combined_sha256(build: &StaticIdentity, live: &LiveSet) -> String {
+    let mut text = String::from("angel-run-identity/v1");
+    for part in [
+        &build.executable_sha256,
+        &build.cockpit_source_sha256,
+        &live.sha256,
+    ] {
+        text.push('\n');
+        text.push_str(part);
+    }
+    crate::knowledge::cut::sha256_hex(text.as_bytes())
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct Toolchain {
     pub rustc: String,
@@ -39,6 +144,12 @@ pub(crate) struct RunIdentity {
     pub dataset: Dataset,
     pub budgets: Value,
     pub verifier: Value,
+    /// Live-module generations this turn pinned (empty when no loader runs).
+    #[serde(default)]
+    pub live: LiveSet,
+    /// `combined_sha256` of the build and `live`: the key paired runs group by.
+    #[serde(default)]
+    pub combined_sha256: String,
     pub bound_at_ms: u64,
     /// Original process provenance, retained when emitting the effective request.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -58,7 +169,9 @@ static BUILD: OnceLock<Result<StaticIdentity, String>> = OnceLock::new();
 static IDENTITY: OnceLock<Result<RunIdentity, String>> = OnceLock::new();
 static DATASET: OnceLock<Dataset> = OnceLock::new();
 static VERIFIER: OnceLock<Value> = OnceLock::new();
+static LIVE: std::sync::Mutex<Option<std::sync::Arc<LiveSet>>> = std::sync::Mutex::new(None);
 thread_local! {
+    static TURN_LIVE: std::cell::RefCell<Option<std::sync::Arc<LiveSet>>> = const { std::cell::RefCell::new(None) };
     static LIVE_MODEL: std::cell::RefCell<Option<String>> = const { std::cell::RefCell::new(None) };
     static MODEL_DEFAULTS: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
     static TURN_BUDGETS: std::cell::RefCell<Option<Value>> = const { std::cell::RefCell::new(None) };
@@ -67,8 +180,22 @@ thread_local! {
     static TURN_ACTIVE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
+/// The loader's owner publishes the active generations whenever they change.
+pub(crate) fn publish_live(set: LiveSet) {
+    *LIVE.lock().unwrap_or_else(|p| p.into_inner()) = Some(std::sync::Arc::new(set));
+}
+
+fn published_live() -> std::sync::Arc<LiveSet> {
+    LIVE.lock()
+        .unwrap_or_else(|p| p.into_inner())
+        .clone()
+        .unwrap_or_default()
+}
+
 pub(crate) fn reset_turn_identity() {
     TURN_ACTIVE.with(|slot| slot.set(true));
+    // A turn pins one generation of every leg; later edits apply to the next.
+    TURN_LIVE.with(|slot| *slot.borrow_mut() = Some(published_live()));
     REQUEST_IDENTITY.with(|slot| slot.borrow_mut().take());
     TURN_IDENTITY.with(|slot| slot.borrow_mut().take());
 }
@@ -377,6 +504,9 @@ fn capture(model: Model, effort: Value, output_tokens: Value) -> Result<RunIdent
         });
     budgets["turn_idle_timeout_secs"] =
         json!(crate::agent::turn::configured_turn_idle_timeout_secs().unwrap_or(0));
+    if std::env::var_os("ANGEL_CODEX_STREAM_STALL_SECS").is_some() {
+        budgets["codex_stream_stall_secs"] = json!(crate::agent::club::env_secs("ANGEL_CODEX_STREAM_STALL_SECS", 0).as_secs());
+    }
     let defaults = MODEL_DEFAULTS
         .with(|slot| slot.borrow_mut().take())
         .unwrap_or_else(|| crate::agent::club::model_defaults::budgets(&model.id, &model.club));
@@ -396,8 +526,16 @@ fn capture(model: Model, effort: Value, output_tokens: Value) -> Result<RunIdent
     } else {
         "none"
     };
+    let build = static_identity()?.clone();
+    let live = TURN_ACTIVE
+        .with(|slot| slot.get())
+        .then(|| TURN_LIVE.with(|slot| slot.borrow().clone()))
+        .flatten()
+        .unwrap_or_else(published_live);
     Ok(RunIdentity {
-        build: static_identity()?.clone(),
+        combined_sha256: combined_sha256(&build, &live),
+        live: (*live).clone(),
+        build,
         sandbox: crate::agent::sandbox::sealed::identity(),
         model,
         effort,
@@ -464,7 +602,7 @@ pub(crate) fn summary() -> String {
     current_for_turn()
         .map(|id| {
             format!(
-                "identity exe={} source={} model={} effort={}",
+                "identity exe={} source={} legs={} model={} effort={}",
                 id.build
                     .executable_sha256
                     .chars()
@@ -475,6 +613,7 @@ pub(crate) fn summary() -> String {
                     .chars()
                     .take(12)
                     .collect::<String>(),
+                id.live.sha256.chars().take(12).collect::<String>(),
                 id.model.id,
                 id.effort
             )

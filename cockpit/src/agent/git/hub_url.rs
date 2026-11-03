@@ -274,14 +274,7 @@ fn run_gh(workspace: &Path, repo: Option<&str>, args: &[&str]) -> Result<String,
     if text.trim().is_empty() {
         text = String::from_utf8_lossy(&out.stderr).into_owned();
     }
-    if text.len() > MAX_GH_OUT {
-        text.truncate(MAX_GH_OUT);
-        // Snap to char boundary.
-        while !text.is_char_boundary(text.len()) {
-            text.pop();
-        }
-        text.push_str("\n…[truncated pr:// / issue:// body]\n");
-    }
+    cap_gh_output(&mut text);
     if text.is_empty() {
         Ok("(empty gh response)\n".into())
     } else {
@@ -289,6 +282,18 @@ fn run_gh(workspace: &Path, repo: Option<&str>, args: &[&str]) -> Result<String,
             text.push('\n');
         }
         Ok(text)
+    }
+}
+
+/// Keep the maximum prefix on a UTF-8 boundary before appending the notice.
+fn cap_gh_output(text: &mut String) {
+    if text.len() > MAX_GH_OUT {
+        let mut end = MAX_GH_OUT;
+        while !text.is_char_boundary(end) {
+            end -= 1;
+        }
+        text.truncate(end);
+        text.push_str("\n…[truncated pr:// / issue:// body]\n");
     }
 }
 

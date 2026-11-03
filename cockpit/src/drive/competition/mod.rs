@@ -118,6 +118,9 @@ mod patterns_adversarial_tests;
 #[path = "../../../../tests/cockpit/competition/patterns_tests.rs"]
 mod patterns_tests;
 #[cfg(test)]
+#[path = "../../../../tests/cockpit/competition/patterns_reducer_tests.rs"]
+mod patterns_reducer_tests;
+#[cfg(test)]
 #[path = "../../../../tests/cockpit/competition/portability_review_tests.rs"]
 mod portability_review_tests;
 #[cfg(test)]

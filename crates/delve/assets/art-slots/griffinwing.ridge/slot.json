@@ -57,7 +57,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": false,
   "slot": "griffinwing.ridge",
-  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.ridge/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/griffinwing.ridge/v01/source-sheet.png",
   "source_sha256": "cae5b369ee20a2d0197489a197ff51290bd84766968913117724419b6058f9dc",
   "tool_version": 2
 }

@@ -250,7 +250,7 @@ pub const FEATS: &[Feat] = &[
     Feat {
         id: "master_of_arms",
         name: "Master of Arms",
-        says: "Learned all four of Sir Ector's lessons.",
+        says: "Learned all of Sir Ector's lessons.",
         tier: Tier::Gold,
     },
     Feat {
@@ -356,7 +356,9 @@ impl Run {
     /// The game noticed something worth an achievement (each is kept once
     /// by the realm; noticing it again does nothing there).
     pub(super) fn notice(&mut self, id: &'static str) {
-        if !self.feats.contains(&id) && feat(id).is_some() {
+        // Each escaped goblin is also an economy fact. Keeping an older
+        // notice pending must not suppress a later escape before settlement.
+        if (id == "sticky_fingers" || !self.feats.contains(&id)) && feat(id).is_some() {
             self.feats.push(id);
         }
     }

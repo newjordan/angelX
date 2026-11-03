@@ -281,3 +281,163 @@ fn semantic_archive_rejects_same_direction_then_accepts_fallback() {
     ));
     assert_eq!(state.direction_id, "direction-fallback");
 }
+
+fn worker_health_leg() -> angel_live::Program {
+    crate::agent::harness::live_policy::shipped_leg("worker-health")
+}
+
+// The parity oracle: the decision body the shipped leg replaced. It lives here
+// so production keeps only the features, the input and the contract check.
+fn native_recovery_step(
+    phase: &LeasePhaseV1,
+) -> crate::drive::competition::worker_policy::LiveRecoveryStep {
+    use crate::drive::competition::worker_policy::{phase_code, LiveRecoveryStep};
+    match phase {
+        LeasePhaseV1::Suspect => LiveRecoveryStep { state: 1, phase: 2 },
+        LeasePhaseV1::Nudged => LiveRecoveryStep { state: 2, phase: 3 },
+        LeasePhaseV1::Inspected => LiveRecoveryStep { state: 3, phase: 4 },
+        other => LiveRecoveryStep {
+            state: 0,
+            phase: phase_code(other),
+        },
+    }
+}
+
+fn native_semantic_step(
+    progress: bool,
+    stale_iterations: u8,
+) -> crate::drive::competition::worker_policy::LiveSemanticStep {
+    use crate::drive::competition::worker_policy::LiveSemanticStep;
+    if progress {
+        LiveSemanticStep {
+            state: 0,
+            stale_next: 0,
+        }
+    } else if stale_iterations == 2 {
+        LiveSemanticStep {
+            state: 1,
+            stale_next: u64::from(stale_iterations),
+        }
+    } else if stale_iterations == 4 {
+        LiveSemanticStep {
+            state: 3,
+            stale_next: 0,
+        }
+    } else {
+        LiveSemanticStep {
+            state: 2,
+            stale_next: u64::from(stale_iterations),
+        }
+    }
+}
+
+fn expected_recovery(phase: LeasePhaseV1) -> crate::drive::competition::worker_policy::LiveRecoveryStep {
+    native_recovery_step(&phase)
+}
+
+#[test]
+fn worker_health_leg_matches_native_for_every_feature_value() {
+    let leg = worker_health_leg();
+    let mut cases = 0;
+    let mut micros = Vec::new();
+    for code in 0..7u64 {
+        let phase = match code {
+            0 => LeasePhaseV1::Granted,
+            1 => LeasePhaseV1::Active,
+            2 => LeasePhaseV1::Suspect,
+            3 => LeasePhaseV1::Nudged,
+            4 => LeasePhaseV1::Inspected,
+            5 => LeasePhaseV1::Fenced,
+            _ => LeasePhaseV1::Released,
+        };
+        let expected = expected_recovery(phase);
+        let input = serde_json::json!({"kind": "recovery", "phase": code});
+        let started = std::time::Instant::now();
+        let (step, source) = crate::agent::harness::live_policy::decide_with(
+            Some(leg.clone()),
+            "worker-health",
+            &input,
+            |step: &crate::drive::competition::worker_policy::LiveRecoveryStep| {
+                match step.state {
+                    0..=3 => Ok(()),
+                    _ => Err("out of contract".into()),
+                }
+            },
+            || expected.clone(),
+        );
+        micros.push(started.elapsed().as_nanos() / 1_000);
+        assert!(matches!(
+            source,
+            crate::agent::harness::live_policy::LegSource::Live { .. }
+        ));
+        assert_eq!(step, expected);
+        cases += 1;
+    }
+    for progress in [true, false] {
+        for stale in 0..=6u8 {
+            for extra in [0u8, 1, 9] {
+                let expected = native_semantic_step(progress, stale + extra);
+                let input = serde_json::json!({"kind": "semantic", "progress": progress, "stale_next": stale + extra});
+                let started = std::time::Instant::now();
+                let (step, source) = crate::agent::harness::live_policy::decide_with(
+                    Some(leg.clone()),
+                    "worker-health",
+                    &input,
+                    |step: &crate::drive::competition::worker_policy::LiveSemanticStep| {
+                        match step.state {
+                            0..=3 => Ok(()),
+                            _ => Err("out of contract".into()),
+                        }
+                    },
+                    || expected.clone(),
+                );
+                micros.push(started.elapsed().as_nanos() / 1_000);
+                // Without progress the leg answers stale_next 0..=6 and
+                // refuses anything larger, falling back to native. With
+                // progress it resets the counter for any feature value.
+                if !progress && stale + extra > 6 {
+                    assert!(matches!(
+                        source,
+                        crate::agent::harness::live_policy::LegSource::LiveFallback { .. }
+                    ));
+                } else {
+                    assert!(matches!(
+                        source,
+                        crate::agent::harness::live_policy::LegSource::Live { .. }
+                    ));
+                }
+                assert_eq!(step, expected);
+                cases += 1;
+            }
+        }
+    }
+    assert!(cases >= 30, "parity table too small: {cases}");
+    micros.sort_unstable();
+    let median = micros[micros.len() / 2];
+    eprintln!("worker-health leg median {median} us over {cases} decisions");
+}
+
+#[test]
+fn worker_health_out_of_contract_step_falls_back_to_native() {
+    let leg = worker_health_leg();
+    let (step, source) = crate::agent::harness::live_policy::decide_with(
+        Some(leg),
+        "worker-health",
+        &serde_json::json!({"kind": "recovery", "phase": 9}),
+        |step: &crate::drive::competition::worker_policy::LiveRecoveryStep| {
+            match step.state {
+                0..=3 => Ok(()),
+                _ => Err("out of contract".into()),
+            }
+        },
+        || crate::drive::competition::worker_policy::LiveRecoveryStep { state: 7, phase: 9 },
+    );
+    assert!(matches!(
+        source,
+        crate::agent::harness::live_policy::LegSource::LiveFallback { .. }
+    ));
+    assert_eq!(
+        step,
+        crate::drive::competition::worker_policy::LiveRecoveryStep { state: 7, phase: 9 }
+    );
+}

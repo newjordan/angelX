@@ -61,6 +61,8 @@ const DEATHS: usize = 24;
 const TRACERS: usize = 16;
 const BLOCKS: usize = 16;
 const GLINTS: usize = 12;
+const TAKES: usize = 8;
+const BOLTS: usize = 16;
 /// Ticks a spark, a tracer, a muzzle flash and a puff of smoke last.
 pub const IMPACT_TICKS: u8 = 6;
 pub const TRACER_TICKS: u8 = 8;
@@ -71,6 +73,13 @@ pub const BLOCK_TICKS: u8 = 10;
 /// Ticks a roll's dust hangs, and a find's glint rises.
 pub const DUST_TICKS: u8 = 12;
 pub const GLINT_TICKS: u8 = 16;
+/// Ticks another seat sees a knight's take: long enough to read a name.
+pub const TAKE_TICKS: u8 = 45;
+/// Ticks a Thunder Scroll's bolt shows: the strike, then its afterglow.
+pub const BOLT_TICKS: u8 = 18;
+/// Ticks an ultimate's cast is remembered for its look, and how many are.
+pub const ULT_TICKS: u8 = 150;
+const ULTS: usize = 8;
 
 /// A knight's shot by its kind: how far a hit pushes a monster.
 pub fn knock(kind: Shot) -> f32 {
@@ -97,6 +106,9 @@ pub struct Impact {
     pub dy: f32,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub boss_art: Option<bosses::Art>,
+    /// A Bard's note landed: it bursts into notes, not sparks.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub note: bool,
 }
 
 /// An arrow or bolt stuck in the stone, pointing the way it flew.
@@ -164,6 +176,51 @@ pub struct Glint {
     pub ttl: u8,
 }
 
+/// A knight taking something off the floor, for every other seat to see
+/// who did (the operator, 2026-10-19: "we don't see if a friendly picked up
+/// a card or not"): where it lay, who, and the ticks left.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Take {
+    pub x: f32,
+    pub y: f32,
+    pub by: u32,
+    pub ttl: u8,
+}
+
+/// A Thunder Scroll's lightning (`nova`): a bolt down out of the dark onto
+/// a monster it struck, or (`call`) the crackle round the knight who read
+/// it, so the scroll shows even in an empty room.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Bolt {
+    pub x: f32,
+    pub y: f32,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub call: bool,
+    pub ttl: u8,
+}
+
+/// An ultimate just cast, for its wind-up, release and aftermath to be
+/// drawn (`render`'s `ults`): whose, which, when, and where its knight
+/// stood and aimed. The look's alone: nothing in the rules reads it.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct UltCast {
+    pub owner: u32,
+    pub ult: super::ults::Ult,
+    pub tick: u64,
+    pub x: f32,
+    pub y: f32,
+    pub ax: f32,
+    pub ay: f32,
+    pub ttl: u8,
+}
+
+impl Bolt {
+    /// Ticks since it struck: 0 the tick it is first drawn.
+    pub fn age(&self) -> u8 {
+        (BOLT_TICKS - 1).saturating_sub(self.ttl)
+    }
+}
+
 /// A shot stopped on a raised shield's face (`shield`): where, the way it
 /// was going (a unit step), the way the face looks out there, what it was,
 /// how heavy (1 to 3) and whose shield it was.
@@ -199,7 +256,7 @@ pub struct Coin {
 }
 
 /// One knight's room, for the feel ledger.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize, serde::Deserialize)]
 pub struct Tally {
     pub shots: u32,
     pub hits: u32,
@@ -217,6 +274,10 @@ pub struct Tally {
 /// The arms' feel, as the run keeps it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Feel {
+    #[serde(default, skip_serializing_if = "melee::State::quiet")]
+    pub melee: melee::State,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ranged: Vec<super::ranged::Event>,
     /// The tick of the last party-wide control ultimate (`press`).
     #[serde(default)]
     pub control: Option<u64>,
@@ -236,17 +297,54 @@ pub struct Feel {
     pub blocks: Vec<Block>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub glints: Vec<Glint>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub takes: Vec<Take>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub bolts: Vec<Bolt>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub ults: Vec<UltCast>,
     /// The ledger this room, by knight, and the tick each monster was first
     /// wounded; lines ready for the cockpit to write.
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub ledger: BTreeMap<u32, Tally>,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub wounded: BTreeMap<u32, u64>,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub lines: Vec<String>,
     /// Owned hits from skills and other blows this tick, beside the shots.
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub credits: Vec<(u32, u32)>,
+    /// The blows that killed a monster this tick, for the finishers
+    /// (`gore`), and the sounds of a finisher's later moments. The host's
+    /// alone: the picture is `Run::gore`.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
+    pub blows: Vec<gore::Blown>,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::timed_symbols"
+    )]
+    pub echoes: Vec<(u64, &'static str)>,
 }
 
 impl Feel {
@@ -261,7 +359,9 @@ impl Feel {
     }
 
     pub fn quiet(&self) -> bool {
-        self.control.is_none()
+        self.melee.swings.is_empty() && self.melee.hits.is_empty() && self.melee.chains.is_empty()
+            && self.ranged.is_empty()
+            && self.control.is_none()
             && self.coins.is_empty()
             && self.impacts.is_empty()
             && self.stuck.is_empty()
@@ -270,11 +370,16 @@ impl Feel {
             && self.deaths.is_empty()
             && self.blocks.is_empty()
             && self.glints.is_empty()
+            && self.takes.is_empty()
+            && self.bolts.is_empty()
+            && self.ults.is_empty()
     }
 
     pub fn valid(&self) -> bool {
         let point = |x: f32, y: f32| x.is_finite() && y.is_finite();
-        self.coins.len() <= COINS
+        self.melee.valid()
+            && self.ranged_valid()
+            && self.coins.len() <= COINS
             && self.impacts.len() <= IMPACTS
             && self.stuck.len() <= STUCK
             && self.tracers.len() <= TRACERS
@@ -282,6 +387,8 @@ impl Feel {
             && self.deaths.len() <= DEATHS
             && self.blocks.len() <= BLOCKS
             && self.glints.len() <= GLINTS
+            && self.takes.len() <= TAKES
+            && self.bolts.len() <= BOLTS
             && self.coins.iter().all(|c| point(c.x, c.y))
             && self
                 .impacts
@@ -306,11 +413,20 @@ impl Feel {
                 point(b.x, b.y) && point(b.dx, b.dy) && point(b.nx, b.ny) && b.ttl <= BLOCK_TICKS && (1..=3).contains(&b.weight)
             })
             && self.glints.iter().all(|g| point(g.x, g.y) && g.ttl <= GLINT_TICKS && g.tier <= 2)
+            && self.takes.iter().all(|t| point(t.x, t.y) && t.ttl <= TAKE_TICKS)
+            && self.bolts.iter().all(|b| point(b.x, b.y) && b.ttl <= BOLT_TICKS)
+            && self.ults.len() <= ULTS
+            && self.ults.iter().all(|u| point(u.x, u.y) && point(u.ax, u.ay) && u.ttl <= ULT_TICKS)
     }
 
     /// A shot of `kind` going `way` struck at `(x, y)`; `(0, 0)` for one
     /// popped where it hung.
     pub(super) fn impact(&mut self, x: f32, y: f32, kind: Shot, way: (f32, f32)) {
+        self.impact_as(x, y, kind, way, false);
+    }
+
+    /// A hit, `note` when a Bard's note landed (it bursts into notes).
+    pub(super) fn impact_as(&mut self, x: f32, y: f32, kind: Shot, way: (f32, f32), note: bool) {
         if self.impacts.len() < IMPACTS {
             let (dx, dy) = unit(way.0, way.1);
             self.impacts.push(Impact {
@@ -321,6 +437,7 @@ impl Feel {
                 dx,
                 dy,
                 boss_art: None,
+                note,
             });
         }
     }
@@ -337,6 +454,7 @@ impl Feel {
                     dx,
                     dy,
                     boss_art: Some(art),
+                    note: false,
                 });
             }
         }
@@ -408,6 +526,34 @@ impl Feel {
         });
     }
 
+    /// Knight `by` took what lay at `(x, y)`.
+    pub(super) fn take(&mut self, x: f32, y: f32, by: u32) {
+        if self.takes.len() >= TAKES {
+            self.takes.remove(0);
+        }
+        self.takes.push(Take { x, y, by, ttl: TAKE_TICKS });
+    }
+
+    /// Lightning at `(x, y)`: onto a monster, or (`call`) round the knight
+    /// who called it. The oldest gives way: the newest strike is the one
+    /// a knight is looking at.
+    pub(super) fn bolt(&mut self, x: f32, y: f32, call: bool) {
+        if self.bolts.len() >= BOLTS {
+            self.bolts.remove(0);
+        }
+        self.bolts.push(Bolt { x, y, call, ttl: BOLT_TICKS });
+    }
+
+    /// Knight `owner` cast `ult` at `tick`, standing at `at` and aiming
+    /// `aim`. The oldest gives way.
+    pub(super) fn ult_cast(&mut self, owner: u32, ult: super::ults::Ult, tick: u64, at: (f32, f32), aim: (f32, f32)) {
+        self.ults.retain(|u| u.owner != owner || u.ult != ult);
+        if self.ults.len() >= ULTS {
+            self.ults.remove(0);
+        }
+        self.ults.push(UltCast { owner, ult, tick, x: at.0, y: at.1, ax: aim.0, ay: aim.1, ttl: ULT_TICKS });
+    }
+
     pub(super) fn death(&mut self, x: f32, y: f32, kind: EnemyKind) {
         if self.deaths.len() < DEATHS {
             self.deaths.push(Death {
@@ -445,6 +591,8 @@ impl Feel {
 
     /// A new room: what stuck in the last one, and its ledger, are gone.
     pub(super) fn clear_room(&mut self) {
+        self.melee = melee::State::default();
+        self.ranged.clear();
         self.impacts.clear();
         self.stuck.clear();
         self.tracers.clear();
@@ -452,13 +600,20 @@ impl Feel {
         self.deaths.clear();
         self.blocks.clear();
         self.glints.clear();
+        self.takes.clear();
+        self.bolts.clear();
+        self.ults.clear();
         self.ledger.clear();
         self.wounded.clear();
         self.credits.clear();
+        self.blows.clear();
+        self.echoes.clear();
     }
 
     /// One tick of the visuals fading.
     fn fade(&mut self) {
+        self.melee.tick();
+        self.ranged.retain_mut(|e| { e.ttl = e.ttl.saturating_sub(1); e.ttl > 0 });
         for t in self.impacts.iter_mut().map(|i| &mut i.ttl) {
             *t = t.saturating_sub(1);
         }
@@ -483,7 +638,10 @@ impl Feel {
         for t in self.blocks.iter_mut().map(|b| &mut b.ttl) {
             *t = t.saturating_sub(1);
         }
-        for t in self.glints.iter_mut().map(|g| &mut g.ttl) {
+        for t in self.glints.iter_mut().map(|g| &mut g.ttl).chain(self.takes.iter_mut().map(|t| &mut t.ttl)) {
+            *t = t.saturating_sub(1);
+        }
+        for t in self.bolts.iter_mut().map(|b| &mut b.ttl).chain(self.ults.iter_mut().map(|u| &mut u.ttl)) {
             *t = t.saturating_sub(1);
         }
         self.impacts.retain(|i| i.ttl > 0);
@@ -492,6 +650,9 @@ impl Feel {
         self.deaths.retain(|i| i.ttl > 0);
         self.blocks.retain(|b| b.ttl > 0);
         self.glints.retain(|g| g.ttl > 0);
+        self.takes.retain(|t| t.ttl > 0);
+        self.bolts.retain(|b| b.ttl > 0);
+        self.ults.retain(|u| u.ttl > 0);
     }
 }
 
@@ -604,7 +765,8 @@ impl Run {
         });
         for id in &caught {
             if let Some(hero) = self.players.get_mut(id) {
-                hero.carried.add(Spoil::Gold, COIN_GOLD);
+                let gold = hero.curio_gold(COIN_GOLD);
+                hero.carried.add(Spoil::Gold, gold);
             }
         }
         if !caught.is_empty() {
@@ -626,7 +788,8 @@ impl Run {
                         .total_cmp(&(b.x - coin.x).hypot(b.y - coin.y))
                 })
             {
-                hero.carried.add(Spoil::Gold, COIN_GOLD);
+                let gold = hero.curio_gold(COIN_GOLD);
+                hero.carried.add(Spoil::Gold, gold);
                 self.score += COIN_GOLD;
             }
         }

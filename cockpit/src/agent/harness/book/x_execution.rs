@@ -6,6 +6,8 @@
 
 use super::{Primary, Raise, Route, Sub};
 
+const CATALOG: &str = include_str!("../../../../book/x_execution.book");
+
 pub(crate) const CELL: char = '⠭';
 pub(crate) const ERRORS: Route = Route::new(CELL, '⠁');
 pub(crate) const MARKUP: Route = Route::new(CELL, '⠃');
@@ -31,12 +33,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             ideas: "- Later errors are often echoes of the first.\n\
                     - Prerequisites: path, arguments, dependency, state (`list_dir` / `find_files` \
                     before reading).",
-            pages: &[
-                "Every tool call in your last several turns failed.",
-                "Stop and read the actual error messages — they usually name the cause (wrong path, missing file, bad arguments, wrong state).",
-                "Verify the precondition first (does the file/dir exist? `list_dir`/`find_files` before reading; check the working state) and then retry differently.",
-                "Repeating failing calls won't help.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'1'),
         },
         Sub {
             route: MARKUP,
@@ -44,10 +41,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "reply text held tool-call markup; nothing in it ran",
             action: "",
             ideas: "- Results described in prose never happened.",
-            pages: &[
-                "Your previous message printed raw tool markup as plain text — no tool was executed, and any results it described were invented.",
-                "Re-issue the action through the structured tool-call interface now (no tool markup in chat text), then answer from the real output.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'2'),
         },
         Sub {
             route: OUTPUT_CAP,
@@ -55,11 +49,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the last reply was cut off at the output token limit; nothing in it ran",
             action: "",
             ideas: "- Usually one tool call carried too much text; do not restate large content.",
-            pages: &[
-                "Your last reply was cut off at the output token limit before it finished, so nothing in it ran.",
-                "Usually one tool call carried too much text.",
-                "Split the work: write a large file in parts (create it with the first part, then add the rest with further edits), keep each tool call well under the limit, and do not restate large content.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'3'),
         },
         Sub {
             route: REASONING_CAP,
@@ -67,10 +57,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the last reply spent its whole output limit on reasoning; nothing ran",
             action: "",
             ideas: "- Run the tests, read the failing case, or make one small edit.",
-            pages: &[
-                "Your last reply spent its whole output limit on private reasoning and was cut off before it said or did anything, so nothing ran.",
-                "Do not work the problem out in your head: take the next concrete step now with one tool call (run the tests, read the failing case, or make one small edit) and keep your reasoning short.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'4'),
         },
         Sub {
             route: EMPTY,
@@ -78,10 +65,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the last reply arrived empty: no text and no tool calls",
             action: "",
             ideas: "",
-            pages: &[
-                "Your previous reply arrived empty — no text and no tool calls were received.",
-                "Respond now with either structured tool calls or answer text.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'5'),
         },
         Sub {
             pages: &[],
@@ -97,10 +81,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the reply held reasoning only; no tools were offered",
             action: "",
             ideas: "",
-            pages: &[
-                "Your previous turn produced only internal reasoning and no final answer.",
-                "Skip the reasoning this time: answer the request directly, without any think block.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'7'),
         },
         Sub {
             route: EMIT_TOOL_CALL,
@@ -108,12 +89,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the reply held reasoning only; tools were offered",
             action: "",
             ideas: "",
-            pages: &[
-                "Your previous turn produced only internal reasoning and no action.",
-                "Do not reason further.",
-                "Execute the next step NOW as a structured tool call through the tool interface — no prose, no think block.",
-                "Only if no tool applies, give the final answer directly.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'8'),
         },
         Sub {
             route: EDIT_RECOVERY,
@@ -121,17 +97,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "no edit was applied; the recovery fields follow",
             action: "",
             ideas: "",
-            pages: &[
-                "Exact source is JSON-escaped below; copy `old` and author `new` with the intended indentation.",
-                "Trimming is only a discovery hint, including for Python/YAML; it does not authorize re-indentation.",
-                "Retry str_replace on the same path with these old/expect_tag fields.",
-                "Retry the ENTIRE multi_edit list with this outer expect_tag; replace only the identified edit's old.",
-                "This old describes the buffer AFTER preceding edits, not the unchanged live file.",
-                "edit_index is one-based recovery metadata, not a tool argument.",
-                "Read the indicated region and choose a smaller unique edit.",
-                "add surrounding context before retrying.",
-                "Read this path with offset={offset} limit={limit} and choose a smaller unique edit.",
-            ],
+            pages: &super::catalog_pages::<9>(CATALOG, b'9'),
         },
         Sub {
             route: REISSUE,
@@ -139,7 +105,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the call's arguments were not valid JSON",
             action: "",
             ideas: "",
-            pages: &["reissue `{name}` with valid JSON"],
+            pages: &super::catalog_pages::<1>(CATALOG, b'0'),
         },
     ],
 };

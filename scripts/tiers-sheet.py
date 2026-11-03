@@ -2,8 +2,12 @@
 """Lay out the shots of `delve_tiers` (docs/WORLD-TIERS.md): `contact.png`, a
 row a room and a column a rung, labelled with the rung's dials, and `detail.png`,
 one patch of every room at every rung at the shots' own size, for the grain.
+With `--pairs`, the shots of `delve_tiers --pairs` instead: `pairs.png`, a row
+a room and lit rung and a column each way the two dials that follow the
+figures are set (both off, lit cards, depth of field, both), and
+`pairs-detail.png`, the same patch of each.
 
-    python3 scripts/tiers-sheet.py <dir> [--cell 520] [--detail x,y,w,h]
+    python3 scripts/tiers-sheet.py <dir> [--cell 520] [--detail x,y,w,h] [--pairs]
 """
 import argparse
 from pathlib import Path
@@ -15,7 +19,6 @@ RUNGS = [
     ('r2', 'R2 first light', 'blocks, a low sun and shadows, 4 colours'),
     ('r3', 'R3 the monolith', '8 colours, lamps, the ember ramp'),
     ('r4', 'R4 image-like', '768 x 448, 16 colours, the finest weave'),
-    ('r5', 'R5 painted plate', 'past the climb: where a pack has the plate'),
 ]
 # Rooms in the order the doc takes them; any other after.
 ORDER = ['crypt-fight', 'crypt-passage', 'crypt-bone-chapel', 'crypt-open-floor']
@@ -24,6 +27,7 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('directory', type=Path)
 parser.add_argument('--cell', type=int, default=520, help='a shot as wide as this on the contact sheet')
 parser.add_argument('--detail', default='600,380,480,300', help='the patch of each shot `detail.png` keeps, in the shots\' pixels')
+parser.add_argument('--pairs', action='store_true', help='lay out the --pairs shots: both off, lit cards, depth of field, both')
 args = parser.parse_args()
 try:
     font = ImageFont.truetype('/usr/share/fonts/TTF/DejaVuSans.ttf', 13)
@@ -32,7 +36,19 @@ except OSError:
     font = bold = ImageFont.load_default()
 ground, ink, dim = (12, 12, 14), (226, 226, 232), (150, 150, 162)
 
-found = {p.name.rsplit('-r', 1)[0] for p in args.directory.glob('*-r[0-9].png')}
+if args.pairs:
+    # Each lit rung's four shots stand in for the rungs: a "case" is a room
+    # and its rung, a "rung" each way the dials are set.
+    RUNGS = [
+        ('off', 'both off', 'the cards as drawn, all sharp'),
+        ('cards', 'lit cards', 'the figures take the room\'s light'),
+        ('dof', 'depth of field', 'near and far softened round the figures'),
+        ('both', 'both', 'as the lit rungs have them'),
+    ]
+    found = {p.name.rsplit('-', 1)[0] for p in args.directory.glob('*-r[0-9]-off.png')}
+    ORDER = [f'{c}-{r}' for c in ['crypt-brazier'] + ORDER for r in ('r3', 'r4')]
+else:
+    found = {p.name.rsplit('-r', 1)[0] for p in args.directory.glob('*-r[0-9].png')}
 cases = sorted(found, key=lambda c: (ORDER.index(c) if c in ORDER else len(ORDER), c))
 rungs = [r for r in RUNGS if any((args.directory / f'{c}-{r[0]}.png').exists() for c in cases)]
 if not cases or not rungs:
@@ -70,10 +86,12 @@ contact = sheet(
     lambda case: case,
     args.cell,
 )
-contact.save(args.directory / 'contact.png')
-print(args.directory / 'contact.png', contact.size)
+name = 'pairs' if args.pairs else 'contact'
+contact.save(args.directory / f'{name}.png')
+print(args.directory / f'{name}.png', contact.size)
 
 x, y, w, h = (int(v) for v in args.detail.split(','))
 detail = sheet(lambda im: im.crop((x, y, x + w, y + h)), lambda case: f'{case}: {w} x {h} of the shot, as drawn', w)
-detail.save(args.directory / 'detail.png')
-print(args.directory / 'detail.png', detail.size)
+name = 'pairs-detail' if args.pairs else 'detail'
+detail.save(args.directory / f'{name}.png')
+print(args.directory / f'{name}.png', detail.size)

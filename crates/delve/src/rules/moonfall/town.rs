@@ -114,19 +114,6 @@ pub fn tile_of(px: i32) -> i32 {
     px.div_euclid(TILE)
 }
 
-/// Whether a knight's feet (an 8 by 6 box, `x` and `y` in pixels times `Q`)
-/// stand clear of every solid tile and crate.
-pub fn clear(x: i32, y: i32, ground: Ground, crates: &[(i32, i32)]) -> bool {
-    let (px, py) = (x.div_euclid(Q), y.div_euclid(Q));
-    for (cx, cy) in [(-4, -3), (3, -3), (-4, 2), (3, 2)] {
-        let (tx, ty) = (tile_of(px + cx), tile_of(py + cy));
-        if !ground.open(tile(tx, ty)) || crates.contains(&(tx, ty)) {
-            return false;
-        }
-    }
-    true
-}
-
 /// A named place folk and knights go to, by tile.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Spot {
@@ -243,11 +230,11 @@ pub const HOUSES: [House; 10] = [
 /// `ground`, one entry per tile (`u16::MAX`: not reachable).
 pub type Field = Vec<u16>;
 
-fn index(tx: i32, ty: i32) -> usize {
+pub fn index(tx: i32, ty: i32) -> usize {
     (ty * COLS + tx) as usize
 }
 
-fn flood(goal: (i32, i32), ground: Ground, crate_at: Option<(i32, i32)>, folk: bool) -> Field {
+pub fn flood(goal: (i32, i32), ground: Ground, crate_at: Option<(i32, i32)>, folk: bool) -> Field {
     let mut field = vec![u16::MAX; (COLS * ROWS) as usize];
     let free = |tx: i32, ty: i32| {
         (0..COLS).contains(&tx)
@@ -271,29 +258,6 @@ fn flood(goal: (i32, i32), ground: Ground, crate_at: Option<(i32, i32)>, folk: b
         }
     }
     field
-}
-
-type FieldKey = ((i32, i32), u8, Option<(i32, i32)>, bool);
-
-/// The flood from `goal` (cached: a pure function of its arguments).
-pub fn field(goal: (i32, i32), ground: Ground, crate_at: Option<(i32, i32)>) -> std::sync::Arc<Field> {
-    static CACHE: OnceLock<Mutex<BTreeMap<FieldKey, std::sync::Arc<Field>>>> = OnceLock::new();
-    let key = (
-        goal,
-        u8::from(ground.bridge_up) | u8::from(ground.swift) << 1 | u8::from(ground.ditch_filled) << 2,
-        crate_at,
-        false,
-    );
-    if let Some(f) = CACHE.get_or_init(Default::default).lock().unwrap_or_else(|e| e.into_inner()).get(&key) {
-        return f.clone();
-    }
-    let made = std::sync::Arc::new(flood(goal, ground, crate_at, false));
-    CACHE
-        .get_or_init(Default::default)
-        .lock()
-        .unwrap_or_else(|e| e.into_inner())
-        .insert(key, made.clone());
-    made
 }
 
 /// The way from one spot to another a villager walks, as pixel points
@@ -388,12 +352,4 @@ mod tests {
         assert!(out.len() >= 3, "through the gate");
     }
 
-    #[test]
-    fn a_knights_feet_are_stopped_by_walls_and_water() {
-        let at = |t: i32| (t * TILE + 8) * Q;
-        assert!(clear(at(17), at(15), Ground::default(), &[]));
-        assert!(!clear(at(17), at(12), Ground::default(), &[]), "the well");
-        assert!(!clear(at(17), at(8), Ground { bridge_up: true, ..Ground::default() }, &[]));
-        assert!(!clear(at(20), at(17), Ground::default(), &[(20, 17)]), "a crate");
-    }
 }

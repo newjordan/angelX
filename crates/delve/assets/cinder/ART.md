@@ -4,7 +4,7 @@
 nearest sampled and snapped to sixteen existing realm colours. No new inks.
 `python3 scripts/cinder-art.py <crock-source> <slag-strip-source> --review <sheet.png>`
 rebuilds the sprites; no smoothing, dithering or per-frame recolouring.
-Source paintings and review sheets live in `/work/artifacts/boss-art-20261015/game-1/`.
+Source paintings and review sheets live in `artifacts/boss-art-20261015/game-1/`.
 
 The first converter crop was rejected: a neighbouring shard in the projectile
 third made its bounding box too wide and collapsed the slag silhouette.
@@ -35,8 +35,8 @@ Rebuild from the retained source sheets:
 
 ```
 python3 scripts/cinder-art.py \
-  --states /work/artifacts/boss-art-20261015/game-1b/source \
-  --review /work/artifacts/boss-art-20261015/game-1b/states-3x.png
+  --states artifacts/boss-art-20261015/game-1b/source \
+  --review artifacts/boss-art-20261015/game-1b/states-3x.png
 ```
 
 `--draft` shows the full variations before compositing. Rejected those full
@@ -69,7 +69,7 @@ base head by 2px, squint within its eye sockets and jolt the intact lid.
 The first upward lid jolt was rejected because it clipped the top rim.
 
 The lid reference is retained at
-`/work/artifacts/boss-art-20261015/game-1c/source/lid-reference.png`.
+`artifacts/boss-art-20261015/game-1c/source/lid-reference.png`.
 Its broad ceramic split informed the seam; its wider cap was rejected as a
 replacement for Crock's narrow lid. Reference prompt:
 

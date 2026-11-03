@@ -24,12 +24,8 @@ use std::sync::mpsc::{self, Receiver, Sender, TryRecvError};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-/// The guide's sheet and the scroll plate, under cockpit/.
-pub(crate) const GUIDE_SHEET: &str = "assets/onboarding/setup/guide.png";
-pub(crate) const SCROLL_PLATE: &str = "assets/onboarding/setup/scroll.png";
-
-/// The guide recruit's eight poses, in sheet order: the top row left to
-/// right, then the bottom row.
+/// The guide's mood on a page: the window's squire acts it out on the
+/// card's roof (`setup_view::knight`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Pose {
     Idle,
@@ -197,6 +193,12 @@ pub(crate) const ENV_SEATS: &[EnvSeat] = &[
         driver: "longcat",
         name: "LongCat",
         vars: &["ANGEL_LONGCAT_KEY", "LONGCAT_API_KEY"],
+        model_vars: &[],
+    },
+    EnvSeat {
+        driver: "claude-opus-5-5",
+        name: "Claude Opus 5.5",
+        vars: &["ANGEL_ANTHROPIC_KEY", "ANTHROPIC_API_KEY"],
         model_vars: &[],
     },
 ];
@@ -520,8 +522,6 @@ pub(crate) struct Menu {
     entered: Instant,
     /// The route in hand, or `None` while angelX has no model.
     pub(crate) current: Option<String>,
-    /// The guide's sheet, when its art is in place.
-    pub(crate) guide: Option<PathBuf>,
 }
 
 impl Menu {
@@ -542,7 +542,6 @@ impl Menu {
             opened: now,
             entered: now,
             current: None,
-            guide: None,
         }
     }
 
@@ -2114,10 +2113,13 @@ pub(crate) fn write_settings(path: &Path, pairs: &[(&str, String)]) -> std::io::
 pub(crate) struct Setup {
     pub(crate) menu: Option<Menu>,
     pub(crate) hits: Vec<(Rect, Hit)>,
+    /// The card last put up in the window, for the pointer to read.
     #[cfg(feature = "glass")]
-    pub(crate) scroll_motion: angel_glass::scroll::Motion,
+    pub(crate) card: Option<angel_glass::card::Card>,
+    /// How the card comes in: the title on a first launch, the squire's
+    /// kick otherwise.
     #[cfg(feature = "glass")]
-    pub(crate) scroll_page: Option<angel_glass::scroll::Page>,
+    pub(crate) entrance: angel_glass::card::Entrance,
     tx: Sender<(u64, Outcome)>,
     rx: Receiver<(u64, Outcome)>,
     rebuild: Option<(Receiver<Bag>, String)>,
@@ -2130,9 +2132,9 @@ impl Default for Setup {
             menu: None,
             hits: Vec::new(),
             #[cfg(feature = "glass")]
-            scroll_motion: angel_glass::scroll::Motion::default(),
+            card: None,
             #[cfg(feature = "glass")]
-            scroll_page: None,
+            entrance: angel_glass::card::Entrance::Kick,
             tx,
             rx,
             rebuild: None,
@@ -2146,14 +2148,16 @@ impl Setup {
     }
 
     pub(crate) fn wants_tick(&self) -> bool {
-        self.menu.is_some() || self.rebuild.is_some() || self.scroll_is_moving()
+        self.menu.is_some() || self.rebuild.is_some()
     }
 
-    pub(crate) fn scroll_is_moving(&self) -> bool {
+    /// Open on the title (the first launch, `angelX setup`) rather than
+    /// the squire's kick.
+    pub(crate) fn title_entrance(&mut self) {
         #[cfg(feature = "glass")]
-        { self.scroll_motion.moving() }
-        #[cfg(not(feature = "glass"))]
-        { false }
+        {
+            self.entrance = angel_glass::card::Entrance::Title;
+        }
     }
 }
 
@@ -2182,29 +2186,16 @@ impl App {
         };
         let mut menu = Menu::new(found, tools, now);
         menu.current = self.setup_current_route();
-        let guide = crate::platform::runtime_paths::cockpit_dir().join(GUIDE_SHEET);
-        menu.guide = guide.is_file().then_some(guide);
-        crate::ui::views::setup_view::warm_plate();
         let effect = menu.scan();
         self.setup.menu = Some(menu);
-        #[cfg(feature = "glass")]
-        if crate::ui::glass::active() {
-            if self.visual_motion == crate::ui::viz::lifecycle_viz::MotionMode::Full {
-                self.setup.scroll_motion.target(true, now);
-            } else { self.setup.scroll_motion.snap(true, now); }
-        }
         self.setup_apply(effect);
     }
 
     fn close_setup(&mut self) {
         #[cfg(feature = "glass")]
-        if crate::ui::glass::active() {
-            if self.visual_motion == crate::ui::viz::lifecycle_viz::MotionMode::Full {
-                self.setup.scroll_motion.target(false, Instant::now());
-            } else {
-                self.setup.scroll_motion.snap(false, Instant::now());
-                self.setup.scroll_page = None;
-            }
+        {
+            self.setup.card = None;
+            self.setup.entrance = angel_glass::card::Entrance::Kick;
         }
         if let Some(mut menu) = self.setup.menu.take() {
             menu.cancel();
@@ -2232,11 +2223,11 @@ impl App {
     }
 
     pub(crate) fn setup_mouse(&mut self, ev: MouseEvent) {
-        // The native page bends and travels independently of the cell grid.
-        // Ignore unreleased/suppressed paper rather than activating hidden rows.
+        // The window's card lies flat on its cells: a click off it is
+        // nothing, on it the cell itself.
         #[cfg(feature = "glass")]
-        let ev = if let Some(page) = self.setup.scroll_page.as_ref() {
-            let Some((column, row)) = page.hit(ev.column, ev.row) else {
+        let ev = if let Some(card) = self.setup.card.as_ref() {
+            let Some((column, row)) = card.hit(ev.column, ev.row) else {
                 return;
             };
             MouseEvent { column, row, ..ev }

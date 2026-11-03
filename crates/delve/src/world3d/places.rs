@@ -66,21 +66,23 @@ const fn tower(rect: Rect, walls: Kind, cap: Kind, height: f32) -> (Rect, Prop) 
     (rect, Prop::Tower { walls, cap, height, sails: false, lamp: false })
 }
 
-pub const PLACES: [Item; 58] = [
+pub const PLACES: [Item; 66] = [
     // ------------------------------------------------ the surface, west ----
     place!("gate", Gate, "Gate Courtyard", open(Edge::Wood(Leaf::Oak), Field::Grass),
-        "The Delve's gate courtyard: a stone arch over the stair down to the Undercroft in the north-west, a well, the notice post by the road, doors to the mine-head, the stables and the lists.";
+        "The Delve's gate courtyard: a stone arch over the stair down to the Undercroft in the north-west, a well, the Sozzled Griffin's great oak inn in the north-east, the notice post by the road, the peddler's cart in the south-west hedge, doors to the mine-head, the stables and the lists.";
         roads: &[(11, 0, 2, 14), (0, 6, 24, 2), (5, 5, 2, 1)],
         props: &[
             // The gate's arch hall, and the two piers either side of the stair, torches burning.
             cottage((4, 1, 5, 3), Kind::Stone, Kind::Slate, 0),
             column((4, 4, 1, 1), Kind::Stone, 26.0, true),
             column((7, 4, 2, 1), Kind::Stone, 26.0, true),
-            ((17, 3, 2, 2), Prop::Well),
+            ((15, 3, 2, 2), Prop::Well),
+            // The Sozzled Griffin: two storeys of oak, lit at every window.
+            cottage((18, 1, 5, 3), Kind::Wood, Kind::Wood, 4),
             column((15, 10, 1, 1), Kind::Wood, 18.0, false),
         ],
         notes: &[
-            "Painted on open ground, not blocks: the stair down under the arch (5,4), the College's school and tower facades over their door plate (20,4), the coach stop (19,10).",
+            "Painted on open ground, not blocks: the stair down under the arch (5,4), the inn's door plate (20,4) and the dragon's head over it, the coach stop (19,10).",
         ]),
     place!("lists", Lists, "Jousting Lists", OAK,
         "The jousting lists: raked sand inside a fence with a striped tilt down the middle, tiered stands along the north, a pavilion at each end, the realm's red and the rival's blue.";
@@ -94,11 +96,12 @@ pub const PLACES: [Item; 58] = [
         ],
         notes: &["Painted on open ground, not blocks: the sand of the lists, a canopy of red and gold over the stands, the pigeon post's plate (19,10)."]),
     place!("mine-head", MineHead, "Mine-Head", open(Edge::Rock, Field::Scree),
-        "The mine-head under the mountain: the adit's timbered mouth with rails and the shaft going down, the fallen gate-hall of Caer Dwfn to the west, spoil heaps and a cart to the east.";
+        "The mine-head under the mountain: the adit's timbered mouth with rails and the shaft going down, the fallen gate-hall of Caer Dwfn to the west, spoil heaps to the east and before them the recruits' striped muster tent, a cart beside it.";
         roads: &[(9, 0, 6, 3), (11, 4, 2, 10), (0, 6, 13, 2), (12, 9, 9, 2)],
         props: &[
             ((1, 1, 10, 6), Prop::Ruin),
-            ((16, 1, 6, 4), Prop::Boulder),
+            ((16, 1, 6, 3), Prop::Boulder),
+            ((13, 4, 6, 2), Prop::Tent(Kind::Cloth)),
         ],
         notes: &["Painted on open ground, not blocks: the adit's mouth and its rails, the shaft (11,3), the ore cart."]),
     place!("kings-hall", KingsHall, "King's Hall", Setting::Indoor,
@@ -117,12 +120,13 @@ pub const PLACES: [Item; 58] = [
         fixtures: &[(Fix::Lamp, 56.0), (Fix::Lamp, 328.0)],
         notes: &["Painted on open floor, not blocks: the runner from the great door to the dais, braziers along the walls."]),
     place!("land-office", LandOffice, "The Court of Deeds", Setting::Indoor,
-        "The realm's Court of Deeds: the great notice board on a timber frame along the north wall, the ledger wall of its own down the west, the clerk's desk, a banded strongbox; the door is in the south wall.";
+        "The realm's Court of Deeds: the great notice board on a timber frame along the north wall, the ledger wall of its own down the west, the clerk's desk, a banded strongbox, the Foreman's bench along the east; the door is in the south wall.";
         props: &[
             case((2, 1, 20, 3), Kind::Plaster, 28.0),
             case((1, 4, 6, 9), Kind::Cloth, 30.0),
             table((10, 5, 4, 1), Kind::Cloth, 11.0),
             ((20, 5, 2, 2), Prop::Crate),
+            table((17, 9, 5, 2), Kind::Wood, 8.0),
         ],
         notes: &["Painted on open floor, not blocks: the runner from the door to the desk, banners on the east wall, lamps by the door."]),
     place!("bathhouse", Bathhouse, "The Royal Soak", Setting::Indoor,
@@ -272,6 +276,87 @@ pub const PLACES: [Item; 58] = [
     place!("gander-hall", GanderHall, "Gander Joust Hall", Setting::Hall,
         "The Gander Joust hall: a long hall of coursed slate with arches along its back wall and the folk in a gallery above; the game is played side-on (ledges, a tar pit and riders are the game's), and the gate home is low in the west wall.";
         notes: &["The blockout is the hall's shell only: the game draws it side-on, so the ledges, the tar and the riders are not blocks. Pillars stand at both ends, the gallery rail above."]),
+    // ------------------------------------------------ the Sozzled Griffin ----
+    place!("alehouse", Alehouse, "The Sozzled Griffin", Setting::Hall,
+        "The Sozzled Griffin, the great tavern where every delve begins: a plank floor under a timber back wall, a stone hearth in the north-west, a long bar with its shelves, kegs stacked in the north-east corner, a stage in the east, five tables with the company on the benches behind them, an arm-wrestling table, crates, barrels and a notice board, the front door south and the bazaar's bead curtain east.";
+        props: &[
+            case((1, 1, 34, 2), Kind::Plaster, 36.0),
+            ((4, 1, 6, 3), Prop::Case { body: Kind::Slate, face: Kind::Stone, height: 36.0 }),
+            case((13, 4, 16, 2), Kind::Plaster, 14.0),
+            case((30, 1, 4, 3), Kind::Plaster, 22.0),
+            case(crate::rules::alehouse::BATHROOM_BASIN, Kind::Stone, 12.0),
+            case(crate::rules::alehouse::BATHROOM_BUCKET, Kind::Wood, 10.0),
+            case((29, 7, 6, 3), Kind::Plaster, 10.0),
+            table((8, 9, 4, 2), Kind::Plaster, 11.0),
+            table((15, 9, 4, 2), Kind::Plaster, 11.0),
+            table((22, 9, 4, 2), Kind::Plaster, 11.0),
+            table((11, 14, 4, 2), Kind::Plaster, 11.0),
+            table((18, 14, 4, 2), Kind::Plaster, 11.0),
+            table((30, 13, 3, 2), Kind::Plaster, 11.0),
+            case((1, 16, 3, 2), Kind::Plaster, 14.0),
+            case((1, 5, 2, 2), Kind::Plaster, 20.0),
+            case((5, 17, 2, 2), Kind::Plaster, 16.0),
+            case((27, 17, 2, 2), Kind::Plaster, 16.0),
+        ],
+        fixtures: &[(Fix::Lamp, 40.0), (Fix::Lamp, 300.0)],
+        notes: &["Painted on open floor, not blocks: the fire and its stew, the bottles, the dartboard, the rugs, the chandeliers, the company, the cat."]),
+    place!("muster-tent", MusterTent, "The Muster Tent", Setting::Hall,
+        "The recruits' muster tent on the mine-head: canvas in bands of madder and undyed cloth, a trodden floor strewn with straw, a bar of trestles under the ridge with casks beside it, the two tent poles down the middle aisle, three rows of long tables with the recruits on the benches behind them, the flap south.";
+        props: &[
+            case(crate::rules::muster_tent::BAR, Kind::Wood, 14.0),
+            case(crate::rules::muster_tent::CASKS, Kind::Wood, 16.0),
+            column((14, 8, 1, 1), Kind::Wood, 40.0, false),
+            column((14, 13, 1, 1), Kind::Wood, 40.0, false),
+            table((2, 6, 11, 2), Kind::Wood, 11.0),
+            table((17, 6, 11, 2), Kind::Wood, 11.0),
+            table((2, 11, 11, 2), Kind::Wood, 11.0),
+            table((17, 11, 11, 2), Kind::Wood, 11.0),
+            table((2, 15, 11, 2), Kind::Wood, 11.0),
+            table((17, 15, 11, 2), Kind::Wood, 11.0),
+        ],
+        fixtures: &[(Fix::Lamp, 120.0), (Fix::Lamp, 360.0)],
+        notes: &["Painted on open floor, not blocks: the straw, the lanterns on the poles, the recruits, the keeper."]),
+    place!("squire-guild", SquireGuild, "The Squires Guild", Setting::Hall,
+        "The Squires Guild off the Training Yard: a flagged hall, its board over the north wall, five plates for hiring and building its squires, the way back to the Yard in the south-west corner.";
+        props: &[],
+        fixtures: &[(Fix::Lamp, 64.0), (Fix::Lamp, 320.0)],
+        notes: &["Painted on open floor, not blocks: the plates, the board, the torches."]),
+    place!("squire-academy", SquireAcademy, "The Academy", Setting::Hall,
+        "The squires' Academy off the Training Yard: a flagged hall, recruiting, managing and building plates across its middle, the way back to the Yard in the south-west corner.";
+        props: &[],
+        fixtures: &[(Fix::Lamp, 64.0), (Fix::Lamp, 320.0)],
+        notes: &["Painted on open floor, not blocks: the plates, the board, the torches."]),
+    place!("squire-barracks", SquireBarracks, "The Barracks", Setting::Hall,
+        "The squires' company's barracks off the Training Yard: a flagged hall, recruiting plates along the north, selection, training and upgrades below, the way back to the Yard in the south-west corner.";
+        props: &[],
+        fixtures: &[(Fix::Lamp, 64.0), (Fix::Lamp, 320.0)],
+        notes: &["Painted on open floor, not blocks: the plates, the board, the torches."]),
+    place!("squire-hall", SquireHall, "The Squire Hall", Setting::Hall,
+        "The Squire Hall off the Training Yard: a flagged hall, nine plates along its north side for its three buildings, the way back to the Yard in the south-west corner.";
+        props: &[],
+        fixtures: &[(Fix::Lamp, 64.0), (Fix::Lamp, 320.0)],
+        notes: &["Painted on open floor, not blocks: the plates, the board, the torches."]),
+    place!("squire-lanes", SquireLanes, "The Lanes", Setting::Hall,
+        "The squires' lanes off the Training Yard: a flagged hall, hiring, building and selection plates in rows, the training plate below, the way back to the Yard in the south-west corner.";
+        props: &[],
+        fixtures: &[(Fix::Lamp, 64.0), (Fix::Lamp, 320.0)],
+        notes: &["Painted on open floor, not blocks: the plates, the board, the torches."]),
+    place!("bazaar", Bazaar, "The Bazaar", Setting::Hall,
+        "The bazaar, a night market of flagstones: six stalls of odd vendors under striped awnings, four along the north wall and two to the south, a well that grants nothing at the middle, a complaints box and an oracle in a fishbowl, the tavern's door west and the gate south.";
+        props: &[
+            case((1, 1, 30, 1), Kind::Plaster, 36.0),
+            ((2, 3, 6, 2), Prop::Stall { north: true, goods: Kind::Cloth }),
+            ((9, 3, 6, 2), Prop::Stall { north: true, goods: Kind::Cloth }),
+            ((16, 3, 6, 2), Prop::Stall { north: true, goods: Kind::Cloth }),
+            ((23, 3, 6, 2), Prop::Stall { north: true, goods: Kind::Cloth }),
+            ((5, 12, 6, 2), Prop::Stall { north: false, goods: Kind::Cloth }),
+            ((21, 12, 6, 2), Prop::Stall { north: false, goods: Kind::Cloth }),
+            case((14, 8, 4, 3), Kind::Plaster, 14.0),
+            case((1, 12, 1, 2), Kind::Plaster, 18.0),
+            case((29, 8, 2, 2), Kind::Plaster, 14.0),
+        ],
+        fixtures: &[(Fix::Lamp, 60.0), (Fix::Lamp, 260.0)],
+        notes: &["Painted on open floor, not blocks: the flagstones, the wares and their prices on the cloths, the vendors, the bunting, the well's water."]),
     // ---------------------------------------------------- the countryside ----
     place!("forest", Forest, "Firefly Grove", open(Edge::Wood(Leaf::Pine), Field::Grass),
         "The firefly grove, a woodland clearing: old dark oaks and yews standing alone in a meadow with a lantern pad and rune circles on the ground, roads crossing.";

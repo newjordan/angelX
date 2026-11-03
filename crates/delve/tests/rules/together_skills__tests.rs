@@ -849,11 +849,11 @@ fn finish_room(run: &mut Run) {
     for _ in 0..8 {
         run.clear_for_test();
         if run.room().cleared {
+            while run.hitstop.left > 0 { run.step(&BTreeMap::new()); }
             return;
         }
     }
     panic!("the room would not clear");
-    while run.hitstop.left > 0 { run.step(&BTreeMap::new()); }
 }
 
 /// Slay every route chief by the production path, each in its own room.

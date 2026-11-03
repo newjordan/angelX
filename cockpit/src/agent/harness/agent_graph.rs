@@ -189,7 +189,7 @@ impl GraphRouteConfigV1 {
                 self.max_output_tokens.is_some_and(|tokens| tokens > 0)
                     && matches!(
                         self.output_budget_source.as_deref(),
-                        Some("per_club_env" | "global_env")
+                        Some("per_club_env" | "global_env" | "model_card")
                     )
             }
             _ => false,
@@ -1863,6 +1863,14 @@ impl AgentGraphEngine {
         task: &str,
         cancel: &AtomicBool,
     ) -> Result<GraphRunOutcome, GraphRunError> {
+        // A direct UI graph has no parent turn. Capture one catalog for the
+        // whole run; tool-invoked graphs retain their caller's generation.
+        let book_catalog = match super::book::catalog::current() {
+            Some(catalog) => catalog,
+            None => Arc::new(super::book::catalog::Catalog::fresh()?),
+        };
+        let book_catalog = super::core_catalog::bind_book(book_catalog);
+        let _book_catalog = super::book::catalog::enter(book_catalog);
         // Tool dispatch normally inherits the root turn's allowance. Direct
         // engine callers (including tests) still receive one root scope, while
         // graph worker threads install this exact handle below.
@@ -2224,10 +2232,12 @@ impl AgentGraphEngine {
                             let grant = seats[idx].2;
                             let thread_budget = descendant_budget.clone();
                             let thread_allocation = token_allocation.clone();
+                            let book_catalog = super::book::catalog::current();
                             let budget_role = node.id.clone();
                             let spawn_result = std::thread::Builder::new()
                                 .name(format!("graph-{}", node.id))
                                 .spawn(move || {
+                                    let _book_catalog = book_catalog.map(super::book::catalog::enter);
                                     let _permit = permit;
                                     let _budget = DescendantBudgetScope::inherit(thread_budget);
                                     let _allocation =

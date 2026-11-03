@@ -1,0 +1,1 @@
+{"api_version":1,"id":"reasoning","kind":"policy","entry":"index.js","probe":{"op":"ladder","levels":["none","low","high"],"effort":"high","hop":1,"friction":false},"bend":{"entry":"reasoning.bend","proof":"PROOF.bend","output":"reasoning.compiled.js"}}

@@ -1,0 +1,95 @@
+# crates/delve/src/rules/wounds.rs — the knights' wounds on a tick.
+
+# The strongest touch among monsters at the knight: a monster that is awake,
+# past its telegraph, and close enough. (found, damage)
+def wounds.touch(run: J.Val, h: J.Val, tick: W.W) -> (Bool, U32):
+    best: U32 = 0
+    found: Bool = False{}
+    for e: J.Val in J.items(J.get(run, "enemies")):
+        k: String = core.s(e, "kind")
+        reach: F32 = (monsters.Enemy.radius(e) + 0.5 : F32)
+        near: Bool = F32.is_lt(RS.f_hypot((core.f(h, "x") - core.f(e, "x") : F32), (core.f(h, "y") - core.f(e, "y") : F32)), reach)
+        up: Bool = Bool.and(U32.is_ne(core.u(e, "hp"), 0), Bool.and(U32.is_ge(core.u(e, "age"), rules.TELEGRAPH()), Bool.and(Bool.not(core.b(e, "dormant")), U32.is_zero(core.u(e, "frozen")))))
+        awake: Bool = Bool.and(Bool.not(monsters.Enemy.asleep(e, tick)), Bool.and(Bool.not(String.eq(k, "dummy")), Bool.not(String.eq(k, "goblin"))))
+        if Bool.and(Bool.and(up, awake), Bool.and(critters.Enemy.hurts_by_touch(e), near)):
+            t: U32 = critters.Enemy.touch(e)
+            if Bool.or(Bool.not(found), U32.is_gt(t, best)):
+                best = t
+            found = True{}
+    return (found, best)
+
+# The knights' wounds: a monster's touch, the fallen marked, vigils and second
+# winds, and what each knight lost this tick (from `before`) told; a guardian's
+# rage and its beats (`boss_beats`).
+def wounds.Run.tally_wounds(run: J.Val, before: J.Val, boss_beats: J.Val) -> J.Val:
+    tick: W.W = W.of_j(J.get(run, "tick"))
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.int_fields(players):
+        if Bool.and(U32.is_ne(core.u(h, "hp"), 0), Bool.not(core.b(h, "stone"))):
+            (found: Bool, damage: U32) = wounds.touch(run, h, tick)
+            if found:
+                players = J.set(players, k, hero.Hero.hurt(h, damage))
+    run = J.set(run, "players", players)
+    # A knight keeping vigil mends the living knights within its reach.
+    if U32.is_zero(W.rem_u32(tick, rules.VIGIL_MEND_EVERY())):
+        players = J.get(run, "players")
+        for (k: String, h: J.Val) in J.int_fields(players):
+            if Bool.and(Bool.and(U32.is_ne(core.u(h, "hp"), 0), U32.is_lt(core.u(h, "hp"), core.u(h, "max_hp"))), Bool.not(core.b(h, "vigil"))):
+                if wounds.warded(J.get(run, "players"), h):
+                    (h2: J.Val, gained: U32) = stakes.Hero.mend(h, 1, 3)
+                    players = J.set(players, k, h2)
+        run = J.set(run, "players", players)
+    run = home.Run.second_winds(run)
+    players = J.get(run, "players")
+    for (k: String, h: J.Val) in J.fields(players):
+        players = J.set(players, k, gear.Hero.dress(h))
+    run = J.set(run, "players", players)
+    run = desperate.Run.mark_hits(run)
+    # What each knight lost this tick.
+    i: U32 = 0
+    for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+        was: U32 = J.u32(J.nth(J.nth(before, i), 0))
+        max: U32 = J.u32(J.nth(J.nth(before, i), 1))
+        hp: U32 = core.u(h, "hp")
+        if Bool.and(U32.is_lt(i, core.count(before)), U32.is_lt(hp, was)):
+            if U32.is_gt(rules.Run.floor(run), 0):
+                tally: J.Val = J.get(run, "floor_tally")
+                tally = floor_stats.Tally.bump(tally, rules.Run.step.id(k), "taken", (was - hp : U32))
+                tally = floor_stats.Tally.bump(tally, rules.Run.step.id(k), "falls", Bool.to_u32(U32.is_zero(hp)))
+                run = J.set(run, "floor_tally", tally)
+            run = core.set_b(run, "room_hurt", True{})
+            if U32.is_zero(hp):
+                run = core.push_cue(run, "knight_down")
+            elif Bool.and(U32.is_ge((was * 10 : U32), (max * 3 : U32)), U32.is_lt((hp * 10 : U32), (max * 3 : U32))):
+                run = core.push_cue(run, "low_hp")
+        i = (i + 1 : U32)
+    # A guardian's rage.
+    enemies: J.Val = J.get(run, "enemies")
+    n: U32 = 0
+    for e: J.Val in J.items(J.get(run, "enemies")):
+        if Bool.and(Bool.not(core.b(e, "raged")), U32.is_ne(core.u(e, "hp"), 0)):
+            if Bool.not(J.is_null(J.get(e, "boss"))):
+                boss: J.Val = J.nth(J.get(run, "bosses"), core.u(e, "boss"))
+                if Bool.and(Bool.not(J.is_null(boss)), Bool.and(F32.is_gt(core.f(boss, "rage"), 0.0), F32.is_lt(RS.u_as_f32(core.u(e, "hp")), (core.f(boss, "rage") * RS.u_as_f32(core.u(e, "max_hp")) : F32)))):
+                    enemies = J.set_nth(enemies, n, core.set_b(e, "raged", True{}))
+                    run = core.push_cue(run, String.append("boss_rage:", core.s(boss, "id")))
+        n = (n + 1 : U32)
+    run = J.set(run, "enemies", enemies)
+    # The guardians' beats: a rage, a stagger or a phase turning holds the room a moment.
+    for b: J.Val in J.items(boss_beats):
+        for e: J.Val in J.items(J.get(run, "enemies")):
+            if Bool.and(U32.is_eq(core.u(e, "id"), J.u32(J.nth(b, 0))), U32.is_ne(core.u(e, "hp"), 0)):
+                raged: Bool = J.bool(J.nth(b, 1))
+                frozen: U32 = J.u32(J.nth(b, 2))
+                turned: Bool = Bool.or(Bool.and(Bool.not(raged), core.b(e, "raged")), Bool.or(Bool.and(U32.is_zero(frozen), U32.is_gt(core.u(e, "frozen"), 0)), U32.is_ne(hitstop.Run.boss_phase(run, e), J.u32(J.nth(b, 3)))))
+                if turned:
+                    run = hitstop.State.put(run, hitstop.State.request(J.get(run, "hitstop"), J.get(run, "tune"), HitPhase{}))
+    return run
+
+# Whether a living knight keeping vigil stands within `VIGIL_REACH` of `h`.
+def wounds.warded(players: J.Val, h: J.Val) -> Bool:
+    for (k: String, w: J.Val) in J.fields(players):
+        if Bool.and(core.b(w, "vigil"), U32.is_ne(core.u(w, "hp"), 0)):
+            if F32.is_lt(RS.f_hypot((core.f(h, "x") - core.f(w, "x") : F32), (core.f(h, "y") - core.f(w, "y") : F32)), rules.VIGIL_REACH()):
+                return True{}
+    return False{}

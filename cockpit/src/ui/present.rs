@@ -44,7 +44,7 @@ pub(crate) enum Showing {
     /// presented under the mini-viz's stage id in the anchor's
     /// cells; the handed-over `id`, `cols` and `rows` are replaced.
     #[cfg(feature = "glass")]
-    Stage(angel_glass::Stage),
+    Stage(Box<angel_glass::Stage>),
     /// One frame of a video stream: pixels like [`Showing::Picture`],
     /// but uploaded on every showing — frames change, so Picture's
     /// upload-once would freeze the first one. `key` identifies the
@@ -72,7 +72,7 @@ pub(crate) fn show(showing: &Showing, anchor: Rect, buffer: &mut Buffer) -> bool
         #[cfg(feature = "glass")]
         Showing::Layers(layers) => show_layers(layers),
         #[cfg(feature = "glass")]
-        Showing::Stage(stage) => show_stage(stage.clone(), anchor, buffer),
+        Showing::Stage(stage) => show_stage(angel_glass::Stage::clone(stage), anchor, buffer),
         Showing::Video {
             key,
             width,
@@ -415,7 +415,6 @@ pub(crate) fn frame_done() {
 /// The mini-viz layer group ("MINI"): one showing at a time, swept
 /// with every other group when a frame stops drawing it.
 #[cfg(feature = "glass")]
-#[allow(dead_code)] // First Layers producer lands in a later slice.
 const GROUP: u32 = 0x4D49_4E49;
 
 /// The mini-viz stage's picture id: fits the placeholder's 24 bits
@@ -439,7 +438,6 @@ fn blank(buffer: &mut Buffer, area: Rect) {
 }
 
 #[cfg(feature = "glass")]
-#[allow(dead_code)] // First Layers producer lands in a later slice.
 fn show_layers(layers: &[angel_glass::Layer]) -> bool {
     let Some(host) = crate::ui::glass::host() else {
         return false;
@@ -449,7 +447,6 @@ fn show_layers(layers: &[angel_glass::Layer]) -> bool {
 }
 
 #[cfg(feature = "glass")]
-#[allow(dead_code)] // First Stage producer lands in a later slice.
 fn show_stage(mut stage: angel_glass::Stage, anchor: Rect, buffer: &mut Buffer) -> bool {
     let Some(host) = crate::ui::glass::host() else {
         return false;
@@ -710,5 +707,11 @@ mod tests {
             assert!(seen.insert(id), "ids are distinct per content");
         }
         assert!(STAGE_ID < 0x0100_0000 && STAGE_ID % 4 == 0);
+    }
+
+    #[test]
+    fn a_stage_does_not_inflate_showing() {
+        // Stage is boxed so a still or a video frame is not a 700-byte enum.
+        assert!(std::mem::size_of::<Showing>() < 128);
     }
 }

@@ -1,0 +1,534 @@
+# crates/delve/src/rules/floors.rs — the party's way through the dungeon: into a
+# room through its door, down the stairs onto a new floor, and out through an
+# open doorway, down the stairs or into the light home.
+#
+# The orchestrators call into most of the rules by their contract names
+# (delve/stubs/world.bend lists the ones not ported yet). Open floors
+# (`open_landing`, `enter_open`, `open_doors`) are called by name and not
+# ported here.
+
+def floors.ENTRY_WARD() -> U32:
+  30
+
+def floors.noop(+run: J.Val) -> J.Val:
+  run
+
+# Set each list field of the run empty.
+def floors.nil(+run: J.Val, +keys: List<&2, String>) -> J.Val:
+  exits.empty_lists(run, keys)
+
+def floors.sub(+run: J.Val, +key: String, +sub: String, +v: J.Val) -> J.Val:
+  J.set(run, key, J.set(J.get(run, key), sub, v))
+
+# `enter`'s clearing of what the room before left in the air.
+def floors.Run.leave_room(+run: J.Val) -> J.Val:
+  r1: J.Val = floors.nil(run, ["projectiles", "imps", "enemies", "strikes", "spheres", "phantoms", "bard_songs", "scarecrows"])
+  r2: J.Val = floors.set_heroes(r1, floors.hero_ids(r1), "flee_ticks")
+  r3: J.Val = J.set(r2, "champions", champions.Field.clear(J.get(r2, "champions")))
+  r4: J.Val = floors.reset_champ(r3, floors.hero_ids(r3))
+  r5: J.Val = floors.nil(r4, ["kegs", "lobs", "flings", "wells", "hooks", "webs", "slams", "ravages", "holes"])
+  r6: J.Val = J.set(r5, "critters", critters.Field.clear(J.get(r5, "critters")))
+  r7: J.Val = floors.sub(floors.sub(r6, "frogs", "wild", J.JA{Nil{}}), "frogs", "shown", J.JA{Nil{}})
+  J.set(r7, "slimes_slain", J.JU{0})
+
+def floors.hero_ids(+run: J.Val) -> List<&2, U32>:
+  exits.ids_all(run)
+
+# Every listed hero's field set to zero.
+def floors.set_heroes(+run: J.Val, +ids: List<&2, U32>, +field: String) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      floors.set_heroes(exits.set_hero(run, id, J.set(exits.hero(run, id), field, J.JU{0})), t, field)
+
+def floors.reset_champ(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = exits.hero(run, id)
+      floors.reset_champ(exits.set_hero(run, id, J.set(h, "champ", J.set(J.set(J.get(h, "champ"), "haul", J.JU{0}), "windup", J.JU{0}))), t)
+
+# Walk the party into room `index` through its door `from` (the side they
+# enter on; null for a new floor's entrance).
+def floors.Run.enter(+run: J.Val, +index: U32, +from: J.Val) -> J.Val:
+  came_from: U32 = J.u32(J.get(run, "at"))
+  run1: J.Val = floors.enter.open_park(run, index)
+  run2: J.Val = exits.Run.remember_activity_entry(run1, index)
+  run3: J.Val = floors.enter.fortune(run2, index)
+  run4: J.Val = floors.enter.forget(run3, index)
+  run5: J.Val = floors.Run.leave_room(floors.enter.bank(run4, index))
+  run6: J.Val = Bool.pick(J.Val, String.eq(J.str(J.get(layout.Floor.room(J.get(run5, "dungeon"), index), "kind")), "lair"), run5, J.set(run5, "light", J.JNull{}))
+  run7: J.Val = floors.enter.stand(run6, index, came_from, from)
+  run8: J.Val = floors.enter.side_on(run7, index)
+  run9: J.Val = hireling.Run.hireling_follows(cat.Run.tallow_follows(run8))
+  floors.enter.open_or_stage(run9, index, boss_gates.Run.guardian_locked(run9), Bool.not(J.bool(J.get(layout.Floor.room(J.get(run9, "dungeon"), index), "visited"))))
+
+# Off an open floor's map, its companies wait where they are.
+def floors.enter.open_park(+run: J.Val, +index: U32) -> J.Val:
+  if Bool.and(U32.is_ne(index, J.u32(J.get(run, "at"))), depths.Run.open_map(run)):
+    J.set(J.set(run, "parked", J.JA{floors.alive(J.items(J.get(run, "enemies")))}), "enemies", J.JA{Nil{}})
+  else:
+    run
+
+def floors.alive(+es: List<&2, J.Val>) -> List<&2, J.Val>:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      if U32.is_gt(J.u32(J.get(e, "hp")), 0):
+        Con{e, floors.alive(t)}
+      else:
+        floors.alive(t)
+
+# Leaving the Fortune room settles the wheel's wedge.
+def floors.enter.fortune(+run: J.Val, +index: U32) -> J.Val:
+  if Bool.and(layout.Room.is_kind(rules.Run.room(run), "fortune"), U32.is_ne(index, J.u32(J.get(run, "at")))):
+    spin: J.Val = J.get(run, "spin")
+    if J.is_null(spin):
+      run
+    else:
+      wedge: U32 = J.u32(J.get(spin, "wedge"))
+      run1: J.Val = J.set(run, "spin", J.set(spin, "settled", J.JBool{True{}}))
+      run2: J.Val = J.set(run1, "mode", J.JS{fortune.Mode.wheel(wedge)})
+      J.set(run2, "mode_said", J.get(spin, "started"))
+  else:
+    run
+
+# The room's games and stages end; the old room's company is dropped.
+def floors.enter.forget(+run: J.Val, +index: U32) -> J.Val:
+  r1: J.Val = J.set(J.set(J.set(J.set(J.set(J.set(J.set(run, "joust", J.JNull{}), "chariot", J.JNull{}), "latch", J.JNull{}), "brasswake", J.JNull{}), "rafterwake", J.JNull{}), "pennon", J.JNull{}), "mossbell", J.JNull{})
+  r2: J.Val = J.set(J.set(r1, "forest", forest.Forest.leave(J.get(r1, "forest"))), "forest_road", J.JNull{})
+  r3: J.Val = roundtable.clear(r2)
+  r4: J.Val = J.set(J.set(r3, "college", college.Dialogue.default()), "pastimes", pastimes.Pastimes.leave(J.get(r3, "pastimes")))
+  r5: J.Val = J.set(r4, "build_hold", J.JNull{})
+  r6: J.Val = floors.enter.retire(r5)
+  floors.enter.humphrey(r6, index)
+
+# Retire the room's bodies from the boss books.
+def floors.enter.retire(+run: J.Val) -> J.Val:
+  g: J.Val = J.get(run, "boss_gates")
+  if J.is_null(g):
+    run
+  else:
+    J.set(run, "boss_gates", boss_gates.Gates.retire_all(g, J.get(run, "enemies")))
+
+# Humphrey is never more than a room behind the party.
+def floors.enter.humphrey(+run: J.Val, +index: U32) -> J.Val:
+  if Bool.or(world.RoomKind.in_world(J.str(J.get(layout.Floor.room(J.get(run, "dungeon"), index), "kind"))), floors.any_kind(J.items(J.get(run, "enemies")), "risen")):
+    J.set(run, "home", J.set(J.get(run, "home"), "countryside", J.set(J.get(J.get(run, "home"), "countryside"), "humphrey_dig", J.JU{risen.FOLLOW()})))
+  else:
+    run
+
+def floors.any_kind(+es: List<&2, J.Val>, +kind: String) -> Bool:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      if String.eq(J.str(J.get(e, "kind")), kind):
+        True{}
+      else:
+        floors.any_kind(t, kind)
+
+# Coins are banked, the room's feel and gore forgotten, the party now `at` the room.
+def floors.enter.bank(+run: J.Val, +index: U32) -> J.Val:
+  r1: J.Val = J.set(rules.Run.bank_coins(run), "feel", feel.Feel.clear_room(J.get(run, "feel")))
+  r2: J.Val = J.set(r1, "gore", gore.Gore.clear(J.get(r1, "gore")))
+  J.set(r2, "at", J.JU{index})
+
+# Stand the party at the door they came by (or the foot of the room).
+def floors.enter.stand(+run: J.Val, +index: U32, +came_from: U32, +from: J.Val) -> J.Val:
+  room: J.Val = layout.Floor.room(J.get(run, "dungeon"), index)
+  delving: Bool = U32.is_gt(J.u32(J.get(J.get(run, "dungeon"), "depth")), 0)
+  ids: List<&2, U32> = exits.ids_all(run)
+  count: F32 = U32.to_f32(layout.list.u32_len(ids))
+  landing: J.Val = depths.Run.open_landing(run, index, came_from)
+  spots: List<&2, Sigma<&2, &2, F32, _ => F32>> = Bool.pick(List<&2, Sigma<&2, &2, F32, _ => F32>>, J.is_null(landing), Nil{}, depths.Run.open_spots(run, index, landing, layout.list.u32_len(ids)))
+  floors.enter.stand.go(run, ids, 0, count, spots, J.is_null(landing), layout.Room.width(room), layout.Room.height(room), from, delving, J.u32(J.get(J.get(run, "dungeon"), "depth")))
+
+def floors.enter.stand.go(+run: J.Val, +ids: List<&2, U32>, +slot: U32, +count: F32, +spots: List<&2, Sigma<&2, &2, F32, _ => F32>>, +free: Bool, +w: F32, +h: F32, +from: J.Val, +delving: Bool, +depth: U32) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      offset: F32 = ((U32.to_f32(slot) - ((count - 1.0 : F32) / 2.0 : F32) : F32) * world.stand_apart(count) : F32)
+      (x: F32, y: F32) = floors.enter.spot(free, spots, slot, from, w, h, offset, depth)
+      h0: J.Val = J.set(J.set(exits.hero(run, id), "x", J.JF{x}), "y", J.JF{y})
+      h1: J.Val = J.set(J.set(J.set(J.set(h0, "skull_at", J.JNull{}), "invulnerable", J.JU{U32.max(J.u32(J.get(h0, "invulnerable")), 30)}), "dash_ticks", J.JU{0}), "privy", J.JU{0})
+      h2: J.Val = hero.Hero.dress(J.set(h1, "pit", exits.pit_cleared(J.get(h1, "pit"))))
+      h3: J.Val = J.set(J.set(J.set(J.set(h2, "gear_was", J.get(h2, "gear")), "pop", J.JU{0}), "buying", J.JU{0}), "buy_spent", J.JBool{False{}})
+      floors.enter.stand.go(exits.set_hero(run, id, curios.Hero.curio_enters(h3, delving)), t, (slot + 1 : U32), count, spots, free, w, h, from, delving, depth)
+
+# Where a knight stands on entering: the open map's landing, the door's side, or home.
+def floors.enter.spot(+free: Bool, +spots: List<&2, Sigma<&2, &2, F32, _ => F32>>, +slot: U32, +from: J.Val, +w: F32, +h: F32, +offset: F32, +depth: U32) -> F32 & F32:
+  if Bool.not(free):
+    floors.enter.spot.nth(spots, slot)
+  else:
+    if J.is_null(from):
+      if U32.is_eq(depth, 0):
+        (((w / 2.0 : F32) + (offset * 1.4 : F32) : F32), (h - 4.5 : F32))
+      else:
+        (((w / 2.0 : F32) + (offset * 2.0 : F32) : F32), (h - 6.0 : F32))
+    else:
+      floors.enter.spot.side(J.u32(from), w, h, offset)
+
+def floors.enter.spot.side(+side: U32, +w: F32, +h: F32, +offset: F32) -> F32 & F32:
+  match side:
+    case 0:
+      (((w / 2.0 : F32) + offset : F32), 3.3)
+    case 1:
+      ((w - 3.3 : F32), ((h / 2.0 : F32) + offset : F32))
+    case 2:
+      (((w / 2.0 : F32) + offset : F32), (h - 3.3 : F32))
+    case _:
+      (3.3, ((h / 2.0 : F32) + offset : F32))
+
+def floors.enter.spot.nth(+spots: List<&2, Sigma<&2, &2, F32, _ => F32>>, +slot: U32) -> F32 & F32:
+  match spots as List<&2, Sigma<&2, &2, F32, _ => F32>>:
+    case Nil{}:
+      (0.0, 0.0)
+    case Con{p: Sigma<&2, &2, F32, _ => F32>, t: List<&2, Sigma<&2, &2, F32, _ => F32>>}:
+      if U32.is_eq(slot, 0):
+        floors.enter.spot.pair(p)
+      else:
+        floors.enter.spot.nth(t, (slot - 1 : U32))
+
+def floors.enter.spot.pair(+p: Sigma<&2, &2, F32, _ => F32>) -> F32 & F32:
+  match p as Sigma<&2, &2, F32, _ => F32>:
+    case (x: F32, y: F32):
+      (x, y)
+
+# A side-on hall has its own way of standing.
+def floors.enter.side_on(+run: J.Val, +index: U32) -> J.Val:
+  if layout.is_kind_in(J.str(J.get(layout.Floor.room(J.get(run, "dungeon"), index), "kind")), ["ledge", "wanted"]):
+    ledge.Run.arrive_side_on(run)
+  else:
+    run
+
+# An open map takes its own path; otherwise the room's stage and company.
+def floors.enter.open_or_stage(+run: J.Val, +index: U32, +sealed: Bool, +first_visit: Bool) -> J.Val:
+  if depths.Run.open_map(run):
+    depths.Run.enter_open(run, index, first_visit)
+  else:
+    floors.enter.games(run, index, sealed, first_visit)
+
+# The halls' follies, the gantry and the race: started on first entry.
+def floors.enter.games(+run: J.Val, +index: U32, +sealed: Bool, +first_visit: Bool) -> J.Val:
+  room: J.Val = layout.Floor.room(J.get(run, "dungeon"), index)
+  cleared: Bool = J.bool(J.get(room, "cleared"))
+  folly_here: Bool = Bool.and(Bool.and(floors.opt_is(run, "folly_room", index), Bool.not(cleared)), Bool.and(Bool.not(sealed), Bool.and(Bool.and(Bool.not(exits.is_some(run, "folly")), Bool.not(exits.is_some(run, "bats"))), Bool.and(Bool.not(exits.is_some(run, "powder")), Bool.not(exits.is_some(run, "hop"))))))
+  run1: J.Val = Bool.pick(J.Val, folly_here, floors.enter.folly(run, index), run)
+  gantry_here: Bool = Bool.and(Bool.and(floors.opt_is(run1, "gantry_room", index), Bool.not(J.bool(J.get(layout.Floor.room(J.get(run1, "dungeon"), index), "cleared")))), Bool.and(Bool.not(sealed), Bool.not(exits.is_some(run1, "gantry"))))
+  run2: J.Val = Bool.pick(J.Val, gantry_here, floors.enter.gantry(run1, index), run1)
+  race_here: Bool = Bool.and(Bool.and(floors.opt_is(run2, "race3d_room", index), Bool.not(J.bool(J.get(layout.Floor.room(J.get(run2, "dungeon"), index), "cleared")))), Bool.and(Bool.not(sealed), Bool.not(exits.is_some(run2, "race3d"))))
+  run3: J.Val = Bool.pick(J.Val, race_here, floors.enter.race(run2, index), run2)
+  floors.enter.company(run3, index, sealed, first_visit, folly_here, gantry_here, race_here)
+
+def floors.opt_is(+run: J.Val, +key: String, +index: U32) -> Bool:
+  exits.opt_is(run, key, index)
+
+def floors.set_visited(+run: J.Val, +index: U32) -> J.Val:
+  r: J.Val = J.set(layout.Floor.room(J.get(run, "dungeon"), index), "visited", J.JBool{True{}})
+  J.set(run, "dungeon", J.set(J.get(run, "dungeon"), "rooms", J.set_nth(layout.Floor.rooms(J.get(run, "dungeon")), index, r)))
+
+# The halls' follies take turns down the delve: the Wax Maze, the Belfry
+# Shoot, then the Powder Room and Book Hop by turns.
+def floors.enter.folly(+run: J.Val, +index: U32) -> J.Val:
+  r: J.Val = floors.set_visited(run, index)
+  depth: U32 = J.u32(J.get(J.get(r, "dungeon"), "depth"))
+  m: U32 = U32.mod(depth, 3)
+  if U32.is_eq(m, 1):
+    folly.Run.start_wax_maze(r, index, J.JNull{})
+  else:
+    if U32.is_eq(m, 2):
+      folly.Run.start_bat_shoot(r, index)
+    else:
+      if U32.is_eq(U32.mod(depth, 6), 0):
+        hop.Run.start_book_hop(r, index)
+      else:
+        powder.Run.start_powder(r, index)
+
+def floors.enter.gantry(+run: J.Val, +index: U32) -> J.Val:
+  gantry.Run.start_gantry(floors.set_visited(run, index), index)
+
+def floors.enter.race(+run: J.Val, +index: U32) -> J.Val:
+  race3d.Run.start_race3d(floors.set_visited(run, index), index)
+
+# The room raises its company unless cleared, sealed, or a game owns it.
+def floors.enter.company(+run: J.Val, +index: U32, +sealed: Bool, +first_visit: Bool, +folly_here: Bool, +gantry_here: Bool, +race_here: Bool) -> J.Val:
+  resumed: Bool = folly.Run.folly_running(run)
+  run1: J.Val = floors.set_visited(run, index)
+  room: J.Val = layout.Floor.room(J.get(run1, "dungeon"), index)
+  go: Bool = Bool.and(Bool.and(Bool.not(J.bool(J.get(room, "cleared"))), Bool.not(sealed)), Bool.and(Bool.and(Bool.not(folly_here), Bool.not(gantry_here)), Bool.and(Bool.not(race_here), Bool.not(resumed))))
+  run2: J.Val = Bool.pick(J.Val, go, floors.enter.raise(run1, index, room), run1)
+  floors.enter.settle(run2, index, sealed, first_visit)
+
+# Raise a room's company: a guardian, a camp's troops, or the room's own roster.
+def floors.enter.raise(+run: J.Val, +index: U32, +room: J.Val) -> J.Val:
+  kind: String = J.str(J.get(room, "kind"))
+  pack: String = J.str(J.get(J.get(run, "dungeon"), "pack"))
+  depth: U32 = J.u32(J.get(J.get(run, "dungeon"), "depth"))
+  roster: List<&2, String> = layout.j.strings(J.get(room, "roster"))
+  guarded: Bool = Bool.and(String.eq(kind, "stairs"), Bool.not(Bool.and(String.eq(pack, "swamp"), U32.is_lt(depth, 3))))
+  guardians: List<&2, U32> = floors.guardians_of(J.items(J.get(run, "bosses")), pack, 0)
+  pick: U32 = W.rem_u32(layout.mix(W.xor(W.of_j(J.get(run, "seed")), W.rotl(W.of_j(J.get(run, "raid_id")), 17))), U32.max(layout.list.u32_len(guardians), 1))
+  if String.eq(kind, "wanted"):
+    outlaw.Run.raise_outlaw(run)
+  else:
+    if floors.has_camp(run, index):
+      floors.enter.camp(run, index, kind, depth)
+    else:
+      if Bool.and(guarded, U32.is_lt(pick, layout.list.u32_len(guardians))):
+        floors.enter.guardian(run, layout.list.u32_nth(guardians, pick), roster, depth)
+      else:
+        floors.enter.plain(run, index, roster)
+
+# The boss files that belong to this pack, by index.
+def floors.guardians_of(+bosses: List<&2, J.Val>, +pack: String, +i: U32) -> List<&2, U32>:
+  match bosses as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{b: J.Val, t: List<&2, J.Val>}:
+      if String.eq(J.str(J.get(b, "only_in")), pack):
+        Con{i, floors.guardians_of(t, pack, (i + 1 : U32))}
+      else:
+        floors.guardians_of(t, pack, (i + 1 : U32))
+
+def floors.has_camp(+run: J.Val, +index: U32) -> Bool:
+  g: J.Val = J.get(run, "boss_gates")
+  Bool.and(Bool.not(J.is_null(g)), boss_gates.Economy.has_camp(g, index))
+
+# A delve meets one of its pack's guardians; below the first floors it keeps
+# a lighter escort, on them it stands alone with the escort's spoils.
+def floors.enter.guardian(+run: J.Val, +boss: U32, +roster: List<&2, String>, +depth: U32) -> J.Val:
+  r1: J.Val = rules.Run.spawn_boss(run, boss)
+  if U32.is_gt(depth, 2):
+    floors.spawn_all(r1, List.take(&2, String, roster, 2n))
+  else:
+    floors.set_last_enemy(r1, "hoard", layout.roster_json(List.take(&2, String, roster, 2n)))
+
+def floors.spawn_all(+run: J.Val, +kinds: List<&2, String>) -> J.Val:
+  match kinds as List<&2, String>:
+    case Nil{}:
+      run
+    case Con{k: String, t: List<&2, String>}:
+      floors.spawn_all(rules.Run.spawn(run, k), t)
+
+# Set a field on the last enemy raised.
+def floors.set_last_enemy(+run: J.Val, +field: String, +v: J.Val) -> J.Val:
+  es: List<&2, J.Val> = J.items(J.get(run, "enemies"))
+  n: U32 = U32.from_nat(List.length(&2, J.Val, es))
+  if U32.is_eq(n, 0):
+    run
+  else:
+    e: J.Val = J.set(J.nth(J.get(run, "enemies"), (n - 1 : U32)), field, v)
+    J.set(run, "enemies", J.set_nth(J.get(run, "enemies"), (n - 1 : U32), e))
+
+# The room's own company, with the knob's extra foes; a slain pit tyrant or
+# dragon is not raised again.
+def floors.enter.plain(+run: J.Val, +index: U32, +roster: List<&2, String>) -> J.Val:
+  more: List<&2, String> = tune.more_foes(roster, J.u32(J.get(J.get(run, "tune"), "foe_count")))
+  r1: J.Val = floors.enter.plain.go(run, index, roster)
+  floors.spawn_all(r1, more)
+
+def floors.enter.plain.go(+run: J.Val, +index: U32, +roster: List<&2, String>) -> J.Val:
+  match roster as List<&2, String>:
+    case Nil{}:
+      run
+    case Con{k: String, t: List<&2, String>}:
+      g: J.Val = J.get(run, "boss_gates")
+      skip_pit: Bool = Bool.and(String.eq(k, "pit_tyrant"), Bool.and(Bool.not(J.is_null(g)), Bool.and(floors.opt_is(g, "optional_pit", index), J.bool(J.get(g, "pit_defeated")))))
+      skip_dragon: Bool = Bool.and(String.eq(k, "dragon"), Bool.and(Bool.not(J.is_null(g)), Bool.and(U32.is_eq(J.u32(J.get(g, "guardian")), index), J.bool(J.get(g, "guardian_defeated")))))
+      if Bool.or(skip_pit, skip_dragon):
+        floors.enter.plain.go(run, index, t)
+      else:
+        floors.enter.plain.go(rules.Run.spawn(run, k), index, t)
+
+# A chief's camp deploys its troops (the boss books decide who and how).
+def floors.enter.camp(+run: J.Val, +index: U32, +kind: String, +depth: U32) -> J.Val:
+  boss_gates.Run.deploy_camp(run, index, kind, depth)
+
+# Frogs, the swarm, the goblin; the cage; the yard; the phase and its sounds;
+# the wishes; the rune and the room armed; the works; the crack; the hallow.
+def floors.enter.settle(+run: J.Val, +index: U32, +sealed: Bool, +first_visit: Bool) -> J.Val:
+  r1: J.Val = frogs.Run.maybe_frog(rules.Run.swarm_up(run), index, first_visit)
+  r2: J.Val = floors.enter.deepen(r1, first_visit)
+  r3: J.Val = floors.enter.caged(r2, index)
+  r4: J.Val = Bool.pick(J.Val, layout.Room.is_kind(layout.Floor.room(J.get(r3, "dungeon"), index), "yard"), yard.Run.raise_quintains(r3), r3)
+  r5: J.Val = floors.enter.phase(r4, index, sealed)
+  r6: J.Val = identity.Run.identity_room(r5, index, first_visit)
+  r7: J.Val = floors.enter.cues(r6)
+  r8: J.Val = floors.enter.arm(r7, sealed)
+  r9: J.Val = notice_crack(works.Run.works_enter(r8), first_visit)
+  r10: J.Val = Bool.pick(J.Val, layout.Room.is_kind(rules.Run.room(r9), "sanctuary"), rules.Run.hallow(r9), r9)
+  overclass.Run.choose_altars(r10)
+
+def floors.enter.deepen(+run: J.Val, +first_visit: Bool) -> J.Val:
+  if Bool.and(U32.is_ne(J.len(J.get(run, "enemies")), 0), Bool.or(J.is_null(J.get(run, "boss_gates")), first_visit)):
+    rules.Run.maybe_goblin(rules.Run.deepen(run))
+  else:
+    run
+
+def floors.enter.caged(+run: J.Val, +index: U32) -> J.Val:
+  c: J.Val = J.get(run, "captive")
+  if Bool.and(Bool.not(J.is_null(c)), Bool.and(U32.is_eq(J.u32(J.get(c, "room")), index), J.is_null(J.get(c, "freed")))):
+    J.set(run, "cues", J.push(J.get(run, "cues"), J.JS{String.append("caged:", J.str(J.get(c, "who")))}))
+  else:
+    run
+
+# Fighting while foes stand or a camp or the optional pit holds the room.
+def floors.enter.phase(+run: J.Val, +index: U32, +sealed: Bool) -> J.Val:
+  g: J.Val = J.get(run, "boss_gates")
+  camp_or_pit: Bool = Bool.and(Bool.not(J.is_null(g)), Bool.or(boss_gates.Economy.has_camp(g, index), floors.opt_is(g, "optional_pit", index)))
+  fighting: Bool = Bool.or(rules.Run.foes_left(run), Bool.and(Bool.and(Bool.not(sealed), Bool.not(J.bool(J.get(rules.Run.room(run), "cleared")))), camp_or_pit))
+  run1: J.Val = J.set(run, "phase", J.JS{Bool.pick(String, fighting, "fighting", "exploring")})
+  run2: J.Val = J.set(run1, "room_hurt", J.JBool{False{}})
+  if fighting:
+    J.set(exits.push_sound(run2, "door_seal"), "window", J.JNull{})
+  else:
+    run2
+
+# What the room's raising announces.
+def floors.enter.cues(+run: J.Val) -> J.Val:
+  es: List<&2, J.Val> = J.items(J.get(run, "enemies"))
+  boss: J.Val = floors.first_boss(es)
+  if Bool.not(J.is_null(boss)):
+    id: String = J.str(J.get(J.nth(J.get(run, "bosses"), J.u32(boss)), "id"))
+    exits.push_sound(floors.cue(run, String.append("boss_rise:", id)), "boss_rise")
+  else:
+    if floors.any_kind(es, "dragon"):
+      floors.cue(run, "lair")
+    else:
+      if floors.any_kind(es, "pit_tyrant"):
+        exits.push_sound(floors.cue(run, "pit_rise"), "boss_rise")
+      else:
+        if Bool.and(String.eq(J.str(J.get(run, "phase")), "fighting"), layout.Room.great(rules.Run.room(run))):
+          floors.cue(run, "great_hall")
+        else:
+          if String.eq(J.str(J.get(run, "phase")), "fighting"):
+            floors.cue(run, "room_fight")
+          else:
+            run
+
+def floors.cue(+run: J.Val, +cue: String) -> J.Val:
+  J.set(run, "cues", J.push(J.get(run, "cues"), J.JS{cue}))
+
+# The first enemy that carries a boss file (its index), or null.
+def floors.first_boss(+es: List<&2, J.Val>) -> J.Val:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      J.JNull{}
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      if J.is_null(J.get(e, "boss")):
+        floors.first_boss(t)
+      else:
+        J.get(e, "boss")
+
+# A sealed room shows its lock; otherwise the rune and the room's waves are set.
+def floors.enter.arm(+run: J.Val, +sealed: Bool) -> J.Val:
+  if sealed:
+    r1: J.Val = J.set(J.set(J.set(run, "rune", J.JNull{}), "window", J.JNull{}), "waves", hazards.Waves.default())
+    r2: J.Val = J.set(floors.nil(r1, ["traps", "rocks"]), "light", J.JNull{})
+    boss_gates.Run.show_boss_lock(r2)
+  else:
+    hazards.Run.arm_room(runes.Run.place_rune(run))
+
+def notice_crack(+run: J.Val, +first_visit: Bool) -> J.Val:
+  secrets.Run.notice_crack(run, first_visit)
+
+# Down the stairs
+# ---------------
+
+def floors.Run.descend(+run: J.Val) -> J.Val:
+  if U32.is_ne(world.obj_len(J.get(exits.state(run), "outside")), 0):
+    J.set(run, "found", J.JA{[J.get(run, "tick"), J.JU{0}, J.JS{"Friends are outside: E at their entry rejoins the party before taking the next floor."}]})
+  else:
+    run1: J.Val = exits.set_state(run, exits.State.default())
+    from_home: Bool = U32.is_eq(J.u32(J.get(J.get(run1, "dungeon"), "depth")), 0)
+    floors.descend.guard(run1, from_home)
+
+# Guard the transition itself, not just the stair tile.
+def floors.descend.guard(+run: J.Val, +from_home: Bool) -> J.Val:
+  g: J.Val = J.get(run, "boss_gates")
+  depth: U32 = J.u32(J.get(J.get(run, "dungeon"), "depth"))
+  if Bool.and(Bool.not(from_home), Bool.and(Bool.not(J.is_null(g)), Bool.or(Bool.not(boss_gates.Gates.unlocked(g)), Bool.not(J.bool(J.get(layout.Floor.room(J.get(run, "dungeon"), J.u32(J.get(g, "guardian"))), "cleared")))))):
+    Bool.pick(J.Val, boss_gates.Run.guardian_locked(run), boss_gates.Run.show_boss_lock(run), run)
+  else:
+    if Bool.and(Bool.not(from_home), U32.is_ge(depth, 6)):
+      run
+    else:
+      if Bool.and(Bool.not(from_home), Bool.and(String.eq(J.str(J.get(J.get(run, "dungeon"), "pack")), "swamp"), U32.is_ge(depth, 3))):
+        run
+      else:
+        floors.descend.pick(run, from_home, depth)
+
+def floors.descend.pick(+run: J.Val, +from_home: Bool, +depth: U32) -> J.Val:
+  if from_home:
+    landing: U32 = U32.clamp(home.Home.landing(J.get(run, "home")), 1, 5)
+    first: String = J.str(J.get(J.get(run, "dungeon"), "pack"))
+    run1: J.Val = J.set(run, "first", J.JS{first})
+    floors.descend.go(run1, landing, layout.Pack.at(landing, first), from_home)
+  else:
+    run1: J.Val = rules.Run.unwashed_toll(rules.Run.settle_dare(floor_stats.Run.close_floor(run, "cleared")))
+    run2: J.Val = rules.Run.lift_gifts(run1)
+    run3: J.Val = Bool.pick(J.Val, U32.is_ne(depth, 3), rules.Run.bank_all(J.set(run2, "reclaimed", J.push(J.get(run2, "reclaimed"), J.get(J.get(run2, "dungeon"), "pack"))), True{}, String.append(String.append("floor ", U32.show(depth)), " cleared")), run2)
+    next: U32 = Bool.pick(U32, J.bool(J.get(J.get(run3, "spectacle"), "circling")), 1, (depth + 1 : U32))
+    first: String = Bool.pick(String, U32.is_eq(depth, 1), J.str(J.get(J.get(run3, "dungeon"), "pack")), J.str(J.get(run3, "first")))
+    run4: J.Val = J.set(run3, "first", J.JS{first})
+    floors.descend.go(run4, next, layout.Pack.at(next, first), from_home)
+
+def floors.descend.go(+run: J.Val, +depth: U32, +pack: String, +from_home: Bool) -> J.Val:
+  if Bool.and(Bool.not(from_home), U32.is_eq(U32.mod(J.u32(J.get(J.get(run, "dungeon"), "depth")), 3), 0)):
+    crossroads.Run.begin_crossroads(run, depth, J.JS{pack})
+  else:
+    floors.Run.finish_descent(run, depth, pack, from_home)
+
+# The pack of floor `depth` of a delve whose first floor is `first`.
+def layout.Pack.at(+depth: U32, +first: String) -> String:
+  if String.eq(first, "swamp"):
+    "swamp"
+  else:
+    other: String = Bool.pick(String, String.eq(first, "crypt"), "cavern", "crypt")
+    match depth as U32:
+      case 0:
+        first
+      case 1:
+        first
+      case 2:
+        other
+      case 3:
+        "hellforge"
+      case 4:
+        "archive"
+      case 5:
+        "fungal"
+      case _:
+        "unknown"
+
+def layout.Pack.kin(+pack: String) -> String:
+  if String.eq(pack, "archive"):
+    "crypt"
+  else:
+    if String.eq(pack, "fungal"):
+      "cavern"
+    else:
+      Bool.pick(String, String.eq(pack, "unknown"), "hellforge", pack)
+
+def layout.Pack.name(+pack: String) -> String:
+  if String.eq(pack, "crypt"):
+    "The Crypt"
+  else:
+    if String.eq(pack, "cavern"):
+      "The Mines"
+    else:
+      if String.eq(pack, "hellforge"):
+        "Dragon Keep"
+      else:
+        if String.eq(pack, "archive"):
+          "The Drowned Archive"
+        else:
+          if String.eq(pack, "fungal"):
+            "The Fungal Deep"
+          else:
+            Bool.pick(String, String.eq(pack, "unknown"), "The Unknown", "The Swamp of Horrors")

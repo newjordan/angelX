@@ -104,6 +104,10 @@ fn parses_local_commands() {
         ParsedInput::Layout { action, name: Some(n) } if action == "save" && n == "night"
     ));
     assert!(matches!(
+        parse("/layout reload-manifests").unwrap(),
+        ParsedInput::Layout { action, name: None } if action == "reload-manifests"
+    ));
+    assert!(matches!(
         parse("/resume abc123").unwrap(),
         ParsedInput::Resume(Some(id)) if id == "abc123"
     ));
@@ -156,11 +160,7 @@ fn slash_catalog_is_unique_and_help_documented() {
 
 #[test]
 fn live_commands_are_completable_and_have_topic_help() {
-    for (prefix, expected) in [
-        ("/as", "ask"),
-        ("/campa", "campaign"),
-        ("/k", "kg"),
-    ] {
+    for (prefix, expected) in [("/as", "ask"), ("/campa", "campaign"), ("/k", "kg")] {
         assert!(
             slash_command_matches(prefix).contains(&expected),
             "completion for {prefix} is missing /{expected}"
@@ -438,74 +438,19 @@ fn slash_inline_hint_ghosts_unique_and_lists_ambiguity() {
 
 #[test]
 fn needs_idle_classifies_turn_starting_vs_local() {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/command-idle-cases.json");
+    let cases: std::collections::BTreeMap<String, Vec<String>> =
+        serde_json::from_slice(&std::fs::read(path).expect("command idle cases fixture"))
+            .expect("valid command idle cases fixture");
     // Turn-starting / history-rewriting inputs wait for the flight slot…
-    for raw in [
-        "hello there",
-        "/review",
-        "/retry",
-        "/undo",
-        "/new",
-        "/resume abc",
-        "/moa compare options",
-        "/mention src/main.rs",
-        "/skills refactor do it",
-        "/compact",
-        "/fork",
-        "/btw quick tangent",
-        "/cd /tmp",
-        // /self start re-roots the sandbox; integrate/discard rewrite git
-        // state; reborn rebuilds and replaces the process.
-        "/self fix a clippy finding",
-        "/self integrate",
-        "/self discard",
-        "/self reborn",
-    ] {
+    assert_eq!(cases["idle"].len(), 17);
+    assert_eq!(cases["local"].len(), 41);
+    for raw in cases["idle"].iter().map(String::as_str) {
         assert!(parse(raw).unwrap().needs_idle(), "{raw:?} needs idle");
     }
     // …local commands do not: they're the operator's mid-run control surface.
-    for raw in [
-        "/goal ship the cockpit",
-        "/goal",
-        "/goal cmd cargo test",
-        "/campaign pause",
-        "/campaign status",
-        "/loop status",
-        "/loop pause",
-        "/loop stop",
-        "/self",
-        "/self status",
-        "/status",
-        "/diagnostics src/main.rs",
-        "/build --workspace cockpit",
-        "/run --bin angel -- --help",
-        "/bench --bench parser",
-        "/doc --no-deps",
-        "/tree -i serde",
-        "/check --workspace cockpit",
-        "/test --workspace cockpit",
-        "/lint --workspace cockpit",
-        "/verify --workspace cockpit",
-        "/fmt check",
-        "/definition src/main.rs main",
-        "/hover src/main.rs main",
-        "/references src/main.rs main",
-        "/symbol App",
-        "/symbols src/main.rs",
-        "/skills",
-        "/skills check",
-        "/moa",
-        "/learn linear algebra",
-        "/help",
-        "/model",
-        "/model auto",
-        "/think high",
-        "/rate miss",
-        "/observatory campaign visual-verifier",
-        "/theme",
-        "/stop",
-        "/ps",
-        "exit",
-    ] {
+    for raw in cases["local"].iter().map(String::as_str) {
         assert!(!parse(raw).unwrap().needs_idle(), "{raw:?} is local");
     }
 }
@@ -690,9 +635,7 @@ fn parses_long_plain_and_moa_messages_without_truncating() {
 fn see_command_attaches_image_with_default_question() {
     let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("assets/agents/sparky-neutral.png");
-    let ParsedInput::Message(msg) =
-        parse(&format!("/see \"{}\"", path.display())).unwrap()
-    else {
+    let ParsedInput::Message(msg) = parse(&format!("/see \"{}\"", path.display())).unwrap() else {
         panic!("expected multimodal message");
     };
     assert_eq!(msg.role, ChatRole::User);

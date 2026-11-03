@@ -318,19 +318,17 @@ fn tokens_in(outcome: &serde_json::Value) -> u64 {
         .get("tokens")
         .and_then(serde_json::Value::as_object)
         .map(|tokens| {
-            tokens
-                .values()
-                .map(|usage| {
-                    usage
-                        .get("in")
-                        .and_then(serde_json::Value::as_u64)
-                        .unwrap_or(0)
-                        + usage
-                            .get("out")
-                            .and_then(serde_json::Value::as_u64)
-                            .unwrap_or(0)
-                })
-                .sum()
+            tokens.values().fold(0u64, |sum, usage| {
+                let input = usage
+                    .get("in")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
+                let output = usage
+                    .get("out")
+                    .and_then(serde_json::Value::as_u64)
+                    .unwrap_or(0);
+                sum.saturating_add(input.saturating_add(output))
+            })
         })
         .unwrap_or(0)
 }

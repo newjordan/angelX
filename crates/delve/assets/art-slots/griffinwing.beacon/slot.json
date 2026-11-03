@@ -229,7 +229,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "griffinwing.beacon",
-  "source_path": "/work/artifacts/art-prod-rt/slots/griffinwing.beacon/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/griffinwing.beacon/v01/source-sheet.png",
   "source_sha256": "13e55d6bcef122ffff434d799bed71acf4eec33ea8fec10ab4470114e2c9ccb7",
   "tool_version": 2
 }

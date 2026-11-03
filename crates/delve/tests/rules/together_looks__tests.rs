@@ -61,10 +61,11 @@ fn a_card_carries_its_looks_slot_by_slot() {
     let card = check("pavise", &raw).unwrap().card;
     let worn = card.looks.worn.as_ref().expect("worn");
     assert_eq!(worn.size(), (24, 24), "put on the 24x24 worn canvas");
-    // The shield arm: its boss lands left of the knight's middle.
-    let boss = worn.frames[0].iter().position(|r| r.contains('6')).unwrap();
-    let col = worn.frames[0][boss].find('6').unwrap();
-    assert!(col < 12 && (10..16).contains(&boss), "{col},{boss}");
+    // Its full silhouette fits the shield arm. An oversized source is
+    // sampled to the part, so a single source accent need not survive.
+    let [x, y, w, h] = ink_bounds(&worn.frames).unwrap();
+    assert!(w <= 8 && h <= 12, "{w}x{h}");
+    assert!((x + w / 2 - 6).abs() <= 1 && (y + h / 2 - 13).abs() <= 1);
     assert_eq!(card.looks.shot.as_ref().unwrap().frames.len(), 2);
     assert!(card.looks.orbit.is_some() && card.looks.aura.is_some());
     assert_eq!(
@@ -303,16 +304,17 @@ fn worn_layers_keep_the_body_underneath_for_kit_and_avatar_knights() {
     let body = knights::figure(hero, 1);
     let dressed = knights::dress(&body, &[&sprite], 0);
     assert!(
-        dressed.w > body.w && dressed.h > body.h,
-        "room for proud spikes"
+        dressed.w > body.w && dressed.h >= body.h,
+        "room for the fitted shield beside the body"
     );
-    assert_eq!(dressed.get(14, 5), body.get(10, 1), "head remains visible");
+    let pad = (dressed.w - body.w) / 2;
+    assert_eq!(dressed.get(pad + 10, 1), body.get(10, 1), "head remains visible");
     let pixels = vec![[80, 120, 160, 255]; 32 * 32];
     let avatar = knights::avatar_figure(hero, &pixels, false);
     let dressed_avatar = knights::dress(&avatar, &[&sprite], 0);
-    assert_eq!(dressed_avatar.get(14, 5), Some([80, 120, 160]));
+    assert_eq!(dressed_avatar.get(pad + 10, 1), Some([80, 120, 160]));
     assert_ne!(
-        dressed_avatar.get(5, 10),
+        dressed_avatar.get(pad + 2, 9),
         Some([80, 120, 160]),
         "shield covers avatar's arm"
     );
@@ -335,3 +337,166 @@ fn worn_layers_keep_the_body_underneath_for_kit_and_avatar_knights() {
     );
 }
 
+
+const SHA: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+#[test]
+fn motion_words_are_a_short_list() {
+    for m in Move::ALL {
+        assert_eq!(Move::parse(m.word()), Some(m));
+    }
+    assert_eq!(Move::parse("Bob"), Some(Move::Bob));
+    assert_eq!(Move::parse("twirl"), None);
+    assert_eq!(
+        Move::parse_list("stretch,bob").unwrap(),
+        [Move::Stretch, Move::Bob]
+    );
+    assert!(Move::parse_list("bob,twirl").unwrap_err().contains("move `twirl`: use stretch"));
+    assert!(Move::parse_list("bob,bob").unwrap_err().contains("twice"));
+    assert!(Move::parse_list("").is_err());
+    assert!(paint_name(SHA));
+    assert!(!paint_name(&SHA.to_uppercase()) && !paint_name(&SHA[1..]) && !paint_name("../x"));
+}
+
+#[test]
+fn a_painted_moving_sprite_reads_back_from_its_block() {
+    let raw = format!(
+        "name Comet\nkind hold\ndamage 5\ndraw shot move=stretch,bob paint={SHA}\n.5.|5.5\n555|555\n\ndraw worn at=head paint={SHA}\nH....H\n.HiiH.\n"
+    );
+    let card = check("comet", &raw).unwrap().card;
+    let shot = card.looks.shot.as_ref().unwrap();
+    assert_eq!(shot.paint.as_deref(), Some(SHA));
+    assert_eq!(shot.moves, [Move::Stretch, Move::Bob]);
+    assert_eq!(shot.frames.len(), 2);
+    let block = shot.to_block(Slot::Shot);
+    assert_eq!(
+        block,
+        format!("draw shot paint={SHA} move=stretch,bob\n.5.|5.5\n555|555\n")
+    );
+    let worn = card.looks.worn.as_ref().unwrap();
+    assert_eq!(worn.size(), (24, 24), "put on the body as before");
+    assert_eq!(worn.paint.as_deref(), Some(SHA));
+    // Written back and read again: the same sprites.
+    let again = check(
+        "comet",
+        &format!(
+            "name Comet\nkind hold\ndamage 5\n{block}\n{}",
+            worn.to_block(Slot::Worn)
+        ),
+    )
+    .unwrap()
+    .card;
+    assert_eq!(again.looks, card.looks);
+    // A sprite in inks alone writes the header it always did, and saves
+    // without the new fields.
+    let plain = check("p", "name P\nkind hold\ndamage 5\ndraw shot\n.5.\n")
+        .unwrap()
+        .card;
+    let sprite = plain.looks.shot.as_ref().unwrap();
+    assert_eq!(sprite.to_block(Slot::Shot), "draw shot\n.5.\n");
+    let json = serde_json::to_string(sprite).unwrap();
+    assert_eq!(json, r#"{"frames":[[".5."]]}"#);
+    assert_eq!(serde_json::from_str::<Sprite>(&json).unwrap(), *sprite);
+}
+
+#[test]
+fn a_bad_paint_or_move_is_a_card_error() {
+    let bad = |header: &str| errors(&format!("name X\nkind hold\ndamage 5\ndraw {header}\n.5.\n"));
+    assert!(bad("shot paint=abc").contains("64 hex digits"));
+    assert!(bad("shot move=twirl").contains("move `twirl`: use stretch, bob"));
+    assert!(bad(&format!("shot paint={SHA} paint={SHA}")).contains("`paint=` appears twice"));
+    assert!(bad("shot move=bob move=spin").contains("`move=` appears twice"));
+    assert!(bad("shot glow=1").contains("may add `paint=<sha256>` (and `pixel`) and `move=<words>`"));
+    assert!(bad("shot at=left").contains("at=<place>"));
+}
+
+#[test]
+fn a_painted_card_survives_the_save_and_the_wire() {
+    let mut run = Run::new(3, 1, None);
+    let card = check(
+        "comet",
+        &format!("name Comet\nkind hold\ndamage 5\ndraw shot paint={SHA} move=spin\n.5.\n555\n"),
+    )
+    .unwrap()
+    .card;
+    run.book.insert(card.clone());
+    let json = serde_json::to_string(&run).unwrap();
+    let saved: Run = serde_json::from_str(&json).unwrap();
+    assert_eq!(saved.book.get("comet"), Some(&card));
+    let tree = crate::wire::publish(&run).unwrap();
+    let sent = crate::wire::read(&tree).unwrap();
+    let shot = sent.book.get("comet").unwrap().looks.shot.clone().unwrap();
+    assert_eq!(shot.paint.as_deref(), Some(SHA));
+    assert_eq!(shot.moves, [Move::Spin]);
+}
+
+#[test]
+fn worn_rows_are_repaired_to_their_part_before_a_wish_is_accepted() {
+    for at in ["head", "face", "body", "back", "left", "right", "feet", "aura"] {
+        let rows = vec!["H".repeat(24); 24].join("\n");
+        let entry = format!("wish fitted | Fitted\nsay fitted\ntier armor 1 :: Fitted.\ndraw worn at={at}\n{rows}\n");
+        let (wishes, errors) = crate::rules::phrasebook::read_checked(&entry);
+        assert!(errors.is_empty(), "{at}: {errors:?}");
+        let sprite = wishes[0].card(0).unwrap().looks.worn.unwrap();
+        let [_, _, w, h] = ink_bounds(&sprite.frames).unwrap();
+        let size = Body::KNIGHT.part(at).unwrap().size;
+        assert!(w <= size.0 && h <= size.1, "{at}: {w}x{h} exceeds {size:?}");
+        assert!(sprite.frames[0].iter().any(|r| r.contains('H')));
+        let reread = check("fitted", &format!("name Fitted\nkind hold\narmor 1\n{}", sprite.to_block(Slot::Worn))).unwrap().card;
+        assert_eq!(sprite, reread.looks.worn.unwrap(), "fit survives save and reload");
+    }
+    assert!(errors("name X\nkind hold\narmor 1\ndraw worn at=head\nH\n".replace("H\n", &format!("{}\n", "H".repeat(25))).as_str()).contains("at most 24x24"));
+}
+
+#[test]
+fn worn_parts_distinguish_a_face_a_cape_and_a_ground_aura() {
+    assert_eq!(place("mask"), Some("face"));
+    assert_eq!(place("cape"), Some("back"));
+    assert_eq!(place("hands"), Some("right"));
+    assert!(Body::KNIGHT.part("back").unwrap().under);
+    assert!(Body::KNIGHT.part("aura").unwrap().under);
+    assert!(!Body::KNIGHT.part("face").unwrap().under);
+}
+
+#[test]
+fn a_sprite_may_colour_inks_of_its_own() {
+    // The player's own purple: any hue, named on the draw line. `%` and `+`
+    // are the realm's violet and pink dyes, so the own ink here is `~`.
+    let raw = "name Purple Drank\nkind hold\narmor 1\ndraw orbit pal=~7a2bd1,&e0b0ff\n.~.|.&.\n~&~|&~&\n.~.|.&.\n";
+    let card = check("drank", raw).unwrap().card;
+    let orbit = card.looks.orbit.as_ref().expect("orbit");
+    assert_eq!(orbit.pal, vec![('~', [0x7a, 0x2b, 0xd1]), ('&', [0xe0, 0xb0, 0xff])]);
+    assert_eq!(orbit.rgb('~'), Some([0x7a, 0x2b, 0xd1]));
+    assert_eq!(orbit.rgb('k'), crate::render::overworld::ink::ink('k'), "realm inks stay the realm's");
+    let rows: Vec<&str> = orbit.frame(0).iter().map(String::as_str).collect();
+    let im = crate::render::overworld::ink::Img::from_rows_pal(&rows, &orbit.pal);
+    assert_eq!(im.get(1, 0), Some([0x7a, 0x2b, 0xd1]), "drawn in its own colour");
+    assert_eq!(crate::render::overworld::ink::Img::from_rows(&rows).get(1, 0), None, "never a realm ink");
+    // Marked as the realm inks nearest it, so its drawing still grades.
+    let realm = realm_rows(&orbit.frames[0], &orbit.pal);
+    assert!(realm.concat().chars().all(|c| c == '.' || crate::rules::script::INKS.contains(c)));
+    // Back to the block that makes it, and as data.
+    assert!(orbit.to_block(Slot::Orbit).starts_with("draw orbit pal=~7a2bd1,&e0b0ff\n"));
+    let back: cards::Card = serde_json::from_str(&serde_json::to_string(&card).unwrap()).unwrap();
+    assert_eq!(back, card);
+    // An own ink with no colour, a colour that is not one, a realm ink.
+    assert!(errors("name X\nkind hold\narmor 1\ndraw orbit\n.~.\n~~~\n").contains("gives it no colour"));
+    assert!(errors("name X\nkind hold\narmor 1\ndraw orbit pal=~7a2bz1\n.~.\n").contains("six hex digits"));
+    assert!(errors("name X\nkind hold\narmor 1\ndraw orbit pal=a7a2bd1\n.a.\n").contains("own ink is one of"));
+}
+
+#[test]
+fn overlapping_palette_inks_fall_back_to_realm_or_use_the_override() {
+    let raw = "name Dye\nkind hold\narmor 1\ndraw orbit\n.%+\n";
+    let card = check("dye", raw).unwrap().card;
+    let orbit = card.looks.orbit.unwrap();
+    assert_eq!(orbit.unnamed_ink(), None);
+    assert_eq!(orbit.rgb('%'), crate::ink::ink('%'));
+    assert_eq!(orbit.rgb('+'), crate::ink::ink('+'));
+
+    let raw = "name Dye\nkind hold\narmor 1\ndraw orbit pal=%123456\n.%+\n";
+    let orbit = check("dye", raw).unwrap().card.looks.orbit.unwrap();
+    assert_eq!(orbit.rgb('%'), Some([0x12, 0x34, 0x56]));
+    assert_eq!(orbit.rgb('+'), crate::ink::ink('+'));
+    assert!(errors("name X\nkind hold\narmor 1\ndraw orbit\n.&.\n").contains("gives it no colour"));
+}

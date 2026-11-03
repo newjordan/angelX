@@ -47,6 +47,22 @@ fn module_symbols_counts_and_collects_types() {
 }
 
 #[test]
+fn module_symbol_projection_matches_native_navigation_classifier() {
+    let src = "\u{0085}pub(crate) async fn work() {}\r\n\
+               export default class Thing {\n\
+               static int run() {\n\
+               int field;\n\
+               foo(bar);\n\
+               macro_rules! test {}\n\
+               fn run() {}\n";
+    let expected = src
+        .lines()
+        .filter(|line| crate::agent::tools::nav::is_outline_decl(line))
+        .count();
+    assert_eq!(module_symbols(src).count, expected);
+}
+
+#[test]
 fn parse_crate_meta_reads_package_and_bin() {
     let toml = "[package]\nname = \"angelX-cockpit\"\nversion = \"0.1.0\"\nedition = \"2021\"\n\n\
                     [[bin]]\nname = \"angel\"\npath = \"src/main.rs\"\n";
@@ -172,6 +188,128 @@ fn self_context_disabled_by_env_flag() {
         None => unsafe { std::env::remove_var("ANGEL_SELF_MODEL") },
     }
     assert_eq!(ctx, "", "ANGEL_SELF_MODEL=0 disables injection");
+}
+
+#[test]
+fn self_context_reload_preserves_guidance_and_does_not_cache_failure() {
+    let _guard = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("self-map-reload");
+    let cockpit = root.path().join("cockpit");
+    std::fs::create_dir_all(cockpit.join("src")).unwrap();
+    std::fs::write(
+        cockpit.join("Cargo.toml"),
+        "[package]\nname = \"angelX-cockpit\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        cockpit.join("src/main.rs"),
+        "//! Main source.\npub struct Main;\n",
+    )
+    .unwrap();
+    let runtime = root.path().join("resources/scripts/runtime");
+    let library_dir = root.path().join("resources/lib/self-map");
+    std::fs::create_dir_all(&runtime).unwrap();
+    std::fs::create_dir_all(&library_dir).unwrap();
+    let source = Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let original = std::fs::read_to_string(source.join("scripts/runtime/self-map.mjs")).unwrap();
+    let original_rules = std::fs::read_to_string(source.join("lib/self-map/report.mjs")).unwrap();
+    let module = runtime.join("self-map.mjs");
+    let rules = library_dir.join("report.mjs");
+    std::fs::write(&module, &original).unwrap();
+    std::fs::write(&rules, &original_rules).unwrap();
+    let _resource = crate::tests::TestEnvGuard::set(
+        "ANGEL_RESOURCE_DIR",
+        root.path().join("resources").to_str().unwrap(),
+    );
+    let _on = crate::tests::TestEnvGuard::unset("ANGEL_SELF_MODEL");
+    let _pin = crate::tests::TestEnvGuard::set("ANGEL_SELF_SRC", cockpit.to_str().unwrap());
+    let first = self_context(root.path());
+    assert!(first.contains("Entry & TUI / display"), "{first}");
+    std::fs::write(
+        &rules,
+        original_rules.replace("Entry & TUI / display", "Changed display group"),
+    )
+    .unwrap();
+    let second = self_context(root.path());
+    assert!(second.contains("Changed display group"), "{second}");
+    // An in-flight call keeps the old entry and rules together after a save.
+    let pinned = self_map_module().unwrap();
+    std::fs::write(
+        &rules,
+        original_rules.replace("Entry & TUI / display", "New display group"),
+    )
+    .unwrap();
+    let request = serde_json::json!({"op":"group", "stem":"main"});
+    assert_eq!(
+        self_map_worker(&pinned, &request).unwrap()["group"],
+        "Changed display group"
+    );
+    assert_eq!(
+        self_map_worker(&self_map_module().unwrap(), &request).unwrap()["group"],
+        "New display group"
+    );
+    assert!(self_context(root.path()).contains("New display group"));
+
+    // Editing only the entry point must invalidate the same cached context.
+    let revised = original.replace(
+        "JSON.stringify(project(JSON.parse(readFileSync(0, 'utf8'))))",
+        "JSON.stringify({...project(JSON.parse(readFileSync(0, 'utf8'))), compact: 'entry changed\\n'})",
+    );
+    assert_ne!(revised, original);
+    std::fs::write(&module, revised).unwrap();
+    assert!(self_context(root.path()).contains("entry changed"));
+
+    std::fs::write(&rules, "invalid javascript {").unwrap();
+    let failed = self_context(root.path());
+    assert!(failed.contains("self-map unavailable"), "{failed}");
+    assert!(failed.contains(&crate::agent::harness::book::n_environment::SELF_MODEL.cells()));
+    assert!(
+        SelfMapTool::new()
+            .call(&serde_json::json!({"write": true}))
+            .is_err()
+    );
+    assert!(!cockpit.join("SELF.md").exists());
+    std::fs::write(&module, &original).unwrap();
+    std::fs::write(&rules, &original_rules).unwrap();
+    let recovered = self_context(root.path());
+    assert!(recovered.contains("Entry & TUI / display"), "{recovered}");
+}
+
+#[test]
+fn self_map_keeps_other_modules_when_one_source_is_not_utf8() {
+    let _guard = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("self-map-invalid-source");
+    let src = root.path().join("src");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::write(
+        root.path().join("Cargo.toml"),
+        "[package]\nname = \"angelX-cockpit\"\n",
+    )
+    .unwrap();
+    std::fs::write(src.join("main.rs"), "//! Main.\npub struct Main;\n").unwrap();
+    std::fs::write(src.join("bad.rs"), [0xff, 0xfe]).unwrap();
+    let map = generate_self_model_at(root.path()).unwrap();
+    assert!(map.contains("src/main.rs"), "{map}");
+    assert!(
+        map.contains("`src/bad.rs` (0 symbols) — (no module doc — see outline)"),
+        "{map}"
+    );
+    assert!(module_outline(root.path(), "bad").is_err());
+}
+
+#[test]
+fn self_map_rejects_source_over_the_input_limit() {
+    let _guard = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("self-map-large-source");
+    let src = root.path().join("src");
+    std::fs::create_dir_all(&src).unwrap();
+    std::fs::write(
+        src.join("large.rs"),
+        vec![b'x'; SELF_MAP_SOURCE_LIMIT as usize + 1],
+    )
+    .unwrap();
+    let error = generate_self_model_at(root.path()).unwrap_err();
+    assert!(error.contains("byte limit"), "{error}");
 }
 
 #[test]

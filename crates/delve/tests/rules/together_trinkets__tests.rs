@@ -37,7 +37,7 @@ fn the_bell_tolls_the_well_tells_and_the_bench_mends() {
     let find = |t: Thing| all.iter().find(|(k, _)| *k == t).unwrap().1;
     stand_at(&mut r, 1, find(Thing::Bell));
     r.step(&press(1));
-    assert!(r.sounds.iter().any(|s| *s == "circle_toll"));
+    assert!(r.sounds.contains(&"circle_toll"));
     r.step(&BTreeMap::new());
     stand_at(&mut r, 1, find(Thing::Well));
     r.step(&press(1));

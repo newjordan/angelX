@@ -1,0 +1,22 @@
+name Kiln Wave
+kind spell
+rarity relic
+text A broad wave of flame passes through foes.
+drop 0
+chest 0
+cooldown 7
+feat 1
+art
+.........bb..
+........bO6b.
+.......bO65b.
+......bO65Rb.
+.....bO65RRb.
+....bO65RRRb.
+...bO65R7RRb.
+..bO65R77RRb.
+.bO65R777ROb.
+bO65R777ROOb.
+b65R77ROOOb..
+.bRRROOOOb...
+..bbbbbbb....

@@ -76,25 +76,7 @@ impl Tool for GitDiffTool {
         "git_diff"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "git_diff".to_string(),
-            description: "Show workspace changes (read-only). By default this is the unstaged \
-                          worktree; staged=true shows the index. base compares the full current \
-                          worktree against one verified branch, tag, or commit (and cannot combine \
-                          with staged). stat=true returns a cheaper summary first. An optional path \
-                          confines the comparison. ⠡⠉"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "staged": { "type": "boolean", "description": "⠡⠉⠃" },
-                    "base": { "type": "string", "description": "⠡⠉⠉" },
-                    "stat": { "type": "boolean", "description": "⠡⠉⠙" },
-                    "path": { "type": "string", "description": "⠡⠉⠑" },
-                },
-                "required": [],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("git_diff")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let staged = args["staged"].as_bool().unwrap_or(false);
@@ -200,13 +182,7 @@ impl Tool for GitStatusTool {
         "git_status"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "git_status".to_string(),
-            description: "Show the workspace's git status (read-only): current branch + \
-                          ahead/behind, and the staged / modified / untracked files. ⠣⠋"
-                .to_string(),
-            params: serde_json::json!({ "type": "object", "properties": {} }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("git_status")
     }
     fn call(&self, _args: &Value) -> Result<String, String> {
         let out = run_git(&self.workspace, &["status", "--porcelain=v1", "--branch"])?;
@@ -238,21 +214,7 @@ impl Tool for GitLogTool {
         "git_log"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "git_log".to_string(),
-            description: "Show recent commits (read-only): one line each (short hash + subject). \
-                          count defaults to 15 (max 100); an optional path scopes history to that \
-                          file/dir. ⠡⠙"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "count": { "type": "integer", "description": "⠡⠙⠃" },
-                    "path": { "type": "string", "description": "⠡⠙⠉" },
-                },
-                "required": [],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("git_log")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         let count = args["count"].as_u64().unwrap_or(15) as usize;
@@ -287,39 +249,7 @@ impl Tool for GitCommitTool {
         "git_commit"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "git_commit".to_string(),
-            description: "Plan or create atomic git commits from the dirty worktree. \
-                          Default is plan-only (execute=false): classifies dirty paths \
-                          into source → test → docs → config → other → lock units and \
-                          suggests subjects. split=true (default) makes one commit \
-                          per class; split=false packs everything into one commit. \
-                          Optional message sets the subject (validated: ≤72 chars, \
-                          blank line before body). Never force-pushes; never amends. ⠷⠑"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "execute": {
-                        "type": "boolean",
-                        "description": "⠷⠑⠃"
-                    },
-                    "split": {
-                        "type": "boolean",
-                        "description": "⠷⠑⠉"
-                    },
-                    "message": {
-                        "type": "string",
-                        "description": "⠷⠑⠙⠷⠑⠑"
-                    },
-                    "include_untracked": {
-                        "type": "boolean",
-                        "description": "⠷⠑⠋"
-                    },
-                },
-                "required": [],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("git_commit")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         use crate::agent::git::commit_split::{

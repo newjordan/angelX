@@ -29,6 +29,76 @@ struct ResearchClub {
     root_calls: AtomicUsize,
     attempts: AtomicUsize,
 }
+
+struct ResearchCatalogClub {
+    observed: Mutex<Option<String>>,
+}
+
+impl Club for ResearchCatalogClub {
+    fn label(&self) -> &str {
+        "research-catalog-fixture"
+    }
+
+    fn respond(&self, _: &str) -> Result<String, String> {
+        Err("fixture requires the tool-calling path".into())
+    }
+
+    fn chat_streaming(
+        &self,
+        messages: &[ChatMsg],
+        tools: &[ToolDef],
+        _: &AtomicBool,
+        _: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        if let Some(receipt) = messages.iter().find(|message| {
+            message.role == ChatRole::Tool
+                && message.tool_call_id.as_deref() == Some("catalog-page")
+        }) {
+            *self.observed.lock().unwrap() = Some(receipt.content.to_string());
+            return Ok(ClubReply::Text("research attempt complete".into()));
+        }
+        assert!(tools.iter().any(|tool| tool.name == "read_file"));
+        Ok(ClubReply::Calls(vec![crate::agent::club::ToolCall {
+            id: "catalog-page".into(),
+            name: "read_file".into(),
+            args: json!({"path": "ledger://⠣⠁⠁"}),
+        }]))
+    }
+}
+
+#[test]
+fn loop_research_attempt_inherits_launching_conversations_book() {
+    use crate::agent::harness::book::{Route, catalog};
+
+    // env-lock-exempt: FixtureEnv holds the environment lock.
+    let env = FixtureEnv::new("slop-book-generation");
+    let workspace = env.workspace();
+    let club = Arc::new(ResearchCatalogClub {
+        observed: Mutex::new(None),
+    });
+    let registry =
+        ToolRegistry::with_team_self(workspace.path().into(), vec![], Some(club.clone()));
+    registry.rl().bind_loop(context(club.clone()));
+    let mut edited = catalog::Catalog::baseline();
+    edited.set_test_page(Route::new('⠣', '⠁'), 0, "launching research generation");
+    let scope = catalog::enter(Arc::new(edited));
+    let launched = call(
+        &registry,
+        json!({"action":"run", "idea":"inspect then work"}),
+    );
+    assert_eq!(launched["status"], "running", "{launched}");
+    drop(scope);
+    let _other = catalog::enter(Arc::new(catalog::Catalog::baseline()));
+    let result = settled(&registry);
+    assert_eq!(result["status"], "completed", "{result}");
+    let observed = club.observed.lock().unwrap();
+    assert!(
+        observed
+            .as_deref()
+            .is_some_and(|text| text.contains("launching research generation")),
+        "research attempt read {observed:?}; outcome {result}"
+    );
+}
 impl Club for ResearchClub {
     fn label(&self) -> &str {
         "sloptomizer-fixture"

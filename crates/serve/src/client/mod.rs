@@ -17,7 +17,7 @@ use crate::hash::base64;
 use crate::limits::WRITE_TIMEOUT;
 use crate::ws::{self, BINARY, CLOSE, Message, PONG, Parser, Role, close_payload};
 use std::io::{self, ErrorKind, Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpStream, ToSocketAddrs};
+use std::net::{Shutdown, SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 
 /// A server message is at most this (`angel_net::proto::MAX_SERVER_MESSAGE`).
@@ -138,8 +138,9 @@ fn target(url: &str) -> io::Result<Target<'_>> {
 /// TCP to the first of the host's addresses that answers before `deadline`
 /// (a name with an IPv6 address on a network that drops IPv6 still joins
 /// on its IPv4 one).
+mod resolver;
 fn dial(t: &Target, deadline: Instant) -> io::Result<TcpStream> {
-    let addrs: Vec<SocketAddr> = (t.host, t.port).to_socket_addrs()?.collect();
+    let addrs = resolver::resolve(t.host,t.port,deadline)?;
     let mut last = io::Error::new(ErrorKind::NotFound, "the host has no address");
     for addr in addrs {
         let left = deadline.saturating_duration_since(Instant::now());
@@ -406,6 +407,66 @@ impl WsClient {
     /// Two halves, for a thread that reads and another that writes.
     pub(crate) fn into_halves(self) -> (WsReader, WsWriter) {
         (self.reader, self.writer)
+    }
+}
+
+/// GET `path` from the host a socket `url` (`ws://` or `wss://`) is on, as
+/// the socket would reach it (plain, or TLS verified against `trust`): the
+/// body of a `200`, at most `max` bytes. For what a host serves beside its
+/// socket, its paintings (`/paint/<sha256>.png`).
+pub fn http_get(url: &str, path: &str, trust: &Trust, timeout: Duration, max: usize) -> io::Result<Vec<u8>> {
+    let t = target(url)?;
+    if !path.starts_with('/') || path.bytes().any(|b| b <= b' ' || b == 0x7f) {
+        return Err(bad("a path is one word from /"));
+    }
+    let deadline = Instant::now() + timeout;
+    let stream = dial(&t, deadline)?;
+    stream.set_write_timeout(Some(WRITE_TIMEOUT))?;
+    let (mut read, mut write) = if t.secure {
+        secure(stream, t.host, trust, deadline)?
+    } else {
+        (ReadWire::Plain(stream.try_clone()?, vec![0; CHUNK]), WriteWire::Plain(stream))
+    };
+    let request = format!("GET {path} HTTP/1.1\r\nHost: {}\r\nConnection: close\r\n\r\n", t.authority);
+    write.write_all(request.as_bytes())?;
+    let mut got = Vec::new();
+    let mut shut = false;
+    loop {
+        if let Some(at) = got.windows(4).position(|w| w == b"\r\n\r\n") {
+            let head = String::from_utf8_lossy(&got[..at]).into_owned();
+            let status = head.lines().next().unwrap_or("");
+            if !status.starts_with("HTTP/1.1 200") && !status.starts_with("HTTP/1.0 200") {
+                return Err(io::Error::new(ErrorKind::NotFound, format!("the host answered {status}")));
+            }
+            let length = head.lines().find_map(|l| {
+                let (name, value) = l.split_once(':')?;
+                name.trim().eq_ignore_ascii_case("content-length").then(|| value.trim().parse::<usize>().ok())?
+            });
+            if length.is_some_and(|n| n > max) {
+                return Err(bad("the body is too big"));
+            }
+            let body = &got[at + 4..];
+            match length {
+                Some(n) if body.len() >= n => return Ok(body[..n].to_vec()),
+                None if shut => return Ok(body.to_vec()),
+                _ => {}
+            }
+        }
+        if shut {
+            return Err(bad("the host closed before its answer was whole"));
+        }
+        if got.len() > max + MAX_HEAD {
+            return Err(bad("the body is too big"));
+        }
+        let left = deadline.saturating_duration_since(Instant::now());
+        if left.is_zero() {
+            return Err(io::Error::new(ErrorKind::TimedOut, "no answer in time"));
+        }
+        match read.fill(usize::MAX, left, &mut |bytes| got.extend_from_slice(bytes)) {
+            Ok(_) => {}
+            Err(e) if e.kind() == ErrorKind::UnexpectedEof => shut = true,
+            Err(e) => return Err(e),
+        }
     }
 }
 

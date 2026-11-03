@@ -26,7 +26,13 @@ pub const HOME_ROOM_LIMIT: usize = 128;
 
 /// World rooms sit north of the Undercroft, beyond a loop settlement's
 /// excavation (within six cells of the cellar, never reaching row -5).
-pub const ROOMS: [(RoomKind, (i32, i32)); 64] = [
+pub const ROOMS: [(RoomKind, (i32, i32)); 72] = [
+    super::muster_tent::CELL,
+    (super::squire_rooms::ROOMS[0].0, super::squire_rooms::ROOMS[0].2),
+    (super::squire_rooms::ROOMS[1].0, super::squire_rooms::ROOMS[1].2),
+    (super::squire_rooms::ROOMS[2].0, super::squire_rooms::ROOMS[2].2),
+    (super::squire_rooms::ROOMS[3].0, super::squire_rooms::ROOMS[3].2),
+    (super::squire_rooms::ROOMS[4].0, super::squire_rooms::ROOMS[4].2),
     super::ranch::CELLS[0],
     super::ranch::CELLS[1],
     (RoomKind::Gate, (2, -8)),
@@ -101,6 +107,9 @@ pub const ROOMS: [(RoomKind, (i32, i32)); 64] = [
     super::colosseum::CELLS[0],
     super::colosseum::CELLS[1],
     super::colosseum::CELLS[2],
+    // The Sozzled Griffin and its bazaar: where every delve begins.
+    super::alehouse::CELLS[0],
+    super::alehouse::CELLS[1],
 ];
 
 /// Authored two-way roads. Never dig into an occupied settlement cell.
@@ -218,7 +227,19 @@ pub const CELLAR_FRONT: (f32, f32) = (14.0, 3.4);
 pub const ADIT: (i32, i32, i32, i32) = (10, 1, 4, 3);
 pub const SHAFT: (i32, i32, i32, i32) = (11, 3, 2, 1);
 
-pub const ENTRANCES: [Entrance; 59] = [
+pub const ENTRANCES: [Entrance; 75] = [
+    super::squire_rooms::DOORS[0],
+    super::squire_rooms::DOORS[1],
+    super::squire_rooms::DOORS[2],
+    super::squire_rooms::DOORS[3],
+    super::squire_rooms::DOORS[4],
+    super::squire_rooms::DOORS[5],
+    super::squire_rooms::DOORS[6],
+    super::squire_rooms::DOORS[7],
+    super::squire_rooms::DOORS[8],
+    super::squire_rooms::DOORS[9],
+    super::muster_tent::DOORS[0],
+    super::muster_tent::DOORS[1],
     super::ranch::DOORS[0],
     super::ranch::DOORS[1],
     super::ranch::DOORS[2],
@@ -240,12 +261,15 @@ pub const ENTRANCES: [Entrance; 59] = [
     super::college::DOORS[14],
     super::college::DOORS[15],
     super::college::DOORS[16],
-    super::college::DOORS[17],
     super::colosseum::DOORS[0],
     super::colosseum::DOORS[1],
     super::colosseum::DOORS[2],
     super::colosseum::DOORS[3],
     super::colosseum::DOORS[4],
+    super::alehouse::DOORS[0],
+    super::alehouse::DOORS[1],
+    super::alehouse::DOORS[2],
+    super::alehouse::DOORS[3],
 
     Entrance { id: "race-coach", room: RoomKind::Hippodrome, at: super::hippodrome::COACH_GATE,
         to: Dest::Room(RoomKind::Stables, (19.5, 8.2)),
@@ -467,6 +491,7 @@ pub const ENTRANCES: [Entrance; 59] = [
     Entrance { id: "quiver-back", room: RoomKind::Village, at: super::bowcountry::VILLAGE_COACH,
         to: Dest::Room(RoomKind::Fletchery, (19.5, 8.2)),
         label: "QUIVER COACH TO THE FLETCHERY", needs: Some("country:quivercoach") },
+    super::alehouse::DOORS[4],
 ];
 
 /// Does the entrance stand open, by what the realm has built?
@@ -591,6 +616,14 @@ impl RoomKind {
                 | RoomKind::ColosseumHall
                 | RoomKind::KegYard
                 | RoomKind::GanderHall
+                | RoomKind::Alehouse
+                | RoomKind::Bazaar
+                | RoomKind::MusterTent
+                | RoomKind::SquireGuild
+                | RoomKind::SquireAcademy
+                | RoomKind::SquireBarracks
+                | RoomKind::SquireHall
+                | RoomKind::SquireLanes
         )
     }
 }
@@ -615,7 +648,7 @@ fn fill(room: &mut Room, (c, r, w, h): (i32, i32, i32, i32), tile: Tile) {
 }
 
 /// The well in the courtyard, and the notice post by the road.
-pub const WELL: (i32, i32, i32, i32) = (17, 3, 2, 2);
+pub const WELL: (i32, i32, i32, i32) = (15, 3, 2, 2);
 pub const POST: (i32, i32, i32, i32) = (15, 10, 1, 1);
 
 /// The Delve's gate courtyard: the gate's arch over its stair in the north
@@ -626,6 +659,7 @@ pub fn gate_room(cell: (i32, i32)) -> Room {
     fill(&mut room, GATE_ARCH, Tile::Block);
     fill(&mut room, GATE_STAIR, Tile::Stairs);
     fill(&mut room, WELL, Tile::Block);
+    fill(&mut room, super::alehouse::INN, Tile::Block);
     fill(&mut room, POST, Tile::Block);
     fill(&mut room, super::countryside::COACH, Tile::Stairs);
     room.open_door(0);
@@ -679,6 +713,7 @@ pub fn mine_head_room(cell: (i32, i32)) -> Room {
     fill(&mut room, super::barony::HALL_DOOR, Tile::Stairs);
     fill(&mut room, SPOIL, Tile::Block);
     fill(&mut room, (11, 1, 3, 3), Tile::Floor);
+    super::muster_tent::pitch(&mut room);
     room.open_door(2);
     room
 }
@@ -688,6 +723,10 @@ fn world_room(kind: RoomKind, cell: (i32, i32)) -> Room {
         kind if super::college::is_room(kind) => super::college::room(kind, cell),
         kind if super::ranch::is_room(kind) => super::ranch::room(kind, cell),
         kind if super::colosseum::is_room(kind) => super::colosseum::room(kind, cell),
+        RoomKind::Alehouse => super::alehouse::room(cell),
+        RoomKind::MusterTent => super::muster_tent::room(cell),
+        kind if super::squire_rooms::is_room(kind) => super::squire_rooms::room(kind, cell),
+        RoomKind::Bazaar => super::bazaar::room(cell),
         RoomKind::Gate => gate_room(cell),
         RoomKind::Stables => stables_room(cell),
         RoomKind::Lists => lists_room(cell),
@@ -775,6 +814,13 @@ pub fn raise_world(floor: &mut Floor) -> bool {
         }
         floor.rooms.push(world_room(kind, cell));
         changed = true;
+    }
+    // The Yard's doors to the squires' rooms, on any Undercroft's Yard.
+    changed |= super::squire_rooms::doors_in_yard(floor);
+    // The muster tent is pitched on an existing mine-head too.
+    let head = ROOMS.iter().find(|(k, _)| *k == RoomKind::MineHead).map(|(_, c)| *c);
+    if let Some(room) = floor.rooms.iter_mut().find(|r| r.kind == RoomKind::MineHead && Some(r.cell) == head) {
+        changed |= super::muster_tent::pitch(room);
     }
     // New travel plates also migrate into existing authored surface rooms.
     // Never touch an unrelated room that happens to occupy a reserved cell.
@@ -892,6 +938,19 @@ pub fn below_the_world(floor: &Floor) -> Floor {
             }
         }
     }
+    // The Yard's doors to the squires' rooms are the world's, as the
+    // cellar's stair is (`squire_rooms`).
+    for yard in below.rooms.iter_mut().filter(|r| r.kind == RoomKind::Yard) {
+        for (c, r, w, h) in super::squire_rooms::YARD_DOORS {
+            for row in r..r + h {
+                for col in c..c + w {
+                    if yard.tile(col, row) == Tile::Stairs {
+                        yard.set(col as usize, row as usize, Tile::Floor);
+                    }
+                }
+            }
+        }
+    }
     below
 }
 
@@ -906,6 +965,7 @@ impl Run {
     pub(super) fn tick_world(&mut self, inputs: &BTreeMap<u32, Input>) {
         // The kingdom, its rooms' games and the pastimes, from the registry
         // (`activity::WORLD`).
+        self.tick_squires_town(inputs);
         self.tick_world_games(inputs);
     }
 
@@ -957,7 +1017,7 @@ impl Run {
                 if kind == RoomKind::Home && from_surface {
                     self.begin_floor_plate(super::floor_plates::Kind::Gate);
                 }
-                self.sounds.push("door_open");
+                self.sounds.push("area_leave");
                 self.cues.push(if kind == RoomKind::Home {
                     "home".to_string()
                 } else {

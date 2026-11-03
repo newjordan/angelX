@@ -59,7 +59,6 @@ impl Run {
             nook.opened |= 1 << i;
             if nook.mimics & 1 << i != 0 {
                 if let Some(hero) = self.players.get_mut(&id) {
-                    hero.invulnerable = 0;
                     hero.hurt(BITE);
                 }
                 self.sounds.push("mimic");

@@ -41,9 +41,10 @@ function write(path, text, mode = 0o644) {
 }
 
 // A package shaped like package-prebuilt.sh output, with stub programs.
-function fakePackage(dir, version, { runs = true, prebuilt = true } = {}) {
+function fakePackage(dir, version, { runs = true, prebuilt = true, glass = false } = {}) {
   const top = join(dir, 'pkg', `angelX-${version}-${platform}`)
   write(join(top, 'bin/angelX'), '#!/bin/sh\necho launcher\n', 0o755)
+  if (glass) write(join(top, 'bin/glass'), '#!/bin/sh\necho glass\n', 0o755)
   write(
     join(top, 'cockpit/target/release/angel'),
     runs ? `#!/bin/sh\necho "angelX-cockpit ${version}"\n` : '#!/bin/sh\nexit 1\n',
@@ -90,6 +91,33 @@ test('install.sh installs a package and links the angelX command', { skip: !plat
     realpathSync(join(home, `.angelX/releases/9.9.1-${platform}/bin/angelX`)),
   )
   assert.ok(lstatSync(join(home, '.local/bin/angelx')).isSymbolicLink())
+})
+
+test('install.sh puts glass, its terminal, on the PATH', { skip: !platform }, (t) => {
+  const dir = scratch(t)
+  const home = join(dir, 'home')
+  mkdirSync(home)
+  const run = install(home, fakePackage(dir, '9.9.1', { glass: true }))
+  assert.equal(run.status, 0, run.stderr)
+  assert.match(run.stdout, /glass, its terminal, is installed too/)
+  assert.equal(readlinkSync(join(home, '.local/bin/glass')), join(home, '.angelX/current/bin/glass'))
+  // An upgrade keeps pointing through current at the new release.
+  const again = install(home, fakePackage(dir, '9.9.2', { glass: true }))
+  assert.equal(again.status, 0, again.stderr)
+  assert.equal(
+    realpathSync(join(home, '.local/bin/glass')),
+    realpathSync(join(home, `.angelX/releases/9.9.2-${platform}/bin/glass`)),
+  )
+})
+
+test('install.sh never replaces a glass the user already has', { skip: !platform }, (t) => {
+  const dir = scratch(t)
+  const home = join(dir, 'home')
+  write(join(home, '.local/bin/glass'), '#!/bin/sh\necho mine\n', 0o755)
+  const run = install(home, fakePackage(dir, '9.9.1', { glass: true }))
+  assert.equal(run.status, 0, run.stderr)
+  assert.match(run.stdout, /left as it is/)
+  assert.equal(readFileSync(join(home, '.local/bin/glass'), 'utf8'), '#!/bin/sh\necho mine\n')
 })
 
 test('install.sh puts the command on the PATH once, unless asked not to', { skip: !platform }, (t) => {
@@ -244,6 +272,17 @@ test('setup picks a key from the environment and keeps the rest of the file', as
   assert.match(text, /^ANGEL_DRIVER='deepseek'$/m)
   assert.doesNotMatch(text, /ANGEL_DRIVER='local'/)
   assert.doesNotMatch(text, /sk-test/)
+})
+
+test('setup offers Claude Opus 5.5 from the Anthropic env key without saving the key', async (t) => {
+  const dir = scratch(t)
+  const run = await runSetup(dir, '1\n', { ANTHROPIC_API_KEY: 'sk-ant-test' })
+  assert.equal(run.status, 0, run.stdout)
+  assert.match(run.stdout, /Claude Opus 5\.5, key in \$ANTHROPIC_API_KEY/)
+  const text = readFileSync(join(dir, '.angelX/angel.env'), 'utf8')
+  assert.match(text, /^ANGEL_DRIVER='claude-opus-5-5'$/m)
+  assert.doesNotMatch(text, /sk-ant-test/)
+  assert.doesNotMatch(text, /ANTHROPIC_API_KEY=/)
 })
 
 test('setup quotes saved values for the shell that loads them', async (t) => {

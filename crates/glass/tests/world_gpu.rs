@@ -18,6 +18,53 @@ struct Gpu {
     errors: Arc<Mutex<Vec<String>>>,
 }
 
+#[test]
+fn frozen_screen_survives_live_texture_replacement_and_dissolves_without_black() {
+    let Some(mut gpu) = gpu() else { eprintln!("SKIP: no GPU adapter"); return; };
+    let size = (32, 24);
+    let target = gpu.device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("handoff-test"),
+        size: wgpu::Extent3d { width: size.0, height: size.1, depth_or_array_layers: 1 },
+        mip_level_count: 1, sample_count: 1, dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::COPY_SRC,
+        view_formats: &[],
+    });
+    let view = target.create_view(&Default::default());
+    let quad = |id, alpha, width, height, kind| (Draw::Picture { id, linear: false }, vec![Instance {
+        rect: [0.0, 0.0, size.0 as f32, size.1 as f32],
+        uv: [0.0, 0.0, width as f32, height as f32],
+        color: [1.0, 1.0, 1.0, alpha], kind,
+        ..bytemuck::Zeroable::zeroed()
+    }]);
+    // Two differently coloured halves catch accidentally normalized UVs.
+    gpu.pixels(40, 2, 1, vec![255, 0, 0, 255, 0, 255, 0, 255]);
+    let mut frame = Frame::default();
+    frame.assemble_into(&mut vec![quad(40, 1.0, 2, 1, angel_gpu::PICTURE)], &mut Vec::new());
+    gpu.core.draw(&view, size, wgpu::Color::BLACK, &frame, "outgoing-screen");
+    gpu.core.keep_frame(frame);
+    assert!(gpu.core.freeze_frame(41, size, wgpu::Color::BLACK));
+    // The incoming screen reuses the source id; the frozen screen must not.
+    gpu.pixels(40, 2, 1, vec![0, 0, 255, 255, 0, 0, 255, 255]);
+    let frozen = gpu.core.use_picture(41).unwrap();
+    let mut frame = gpu.core.take_frame();
+    for alpha in [1.0, 0.5, 0.0] {
+        let mut parts = vec![quad(40, 1.0, 2, 1, angel_gpu::PICTURE), quad(41, alpha, frozen.width, frozen.height, frozen.kind)];
+        frame.assemble_into(&mut parts, &mut Vec::new());
+        gpu.core.draw(&view, size, wgpu::Color::BLACK, &frame, "handoff-midpoint");
+        let pixels = gpu.core.read_back(&target, size);
+        for (x, channel) in [(4, 0), (28, 1)] {
+            let pixel = &pixels[((12 * size.0 + x) * 4) as usize..][..4];
+            assert!((f32::from(pixel[channel]) - 255.0 * alpha).abs() < 3.0, "outgoing half: {pixel:?}");
+            assert!((f32::from(pixel[2]) - 255.0 * (1.0 - alpha)).abs() < 3.0, "incoming screen: {pixel:?}");
+            assert_eq!(pixel[3], 255);
+        }
+    }
+    gpu.core.drop_frozen_frame(41);
+    assert!(!gpu.core.has_picture(41));
+    gpu.clean();
+}
+
 fn gpu() -> Option<Gpu> {
     let instance = wgpu::Instance::default();
     let adapter = pollster::block_on(instance.request_adapter(&wgpu::RequestAdapterOptions {
@@ -317,5 +364,61 @@ fn a_lit_worlds_reveal_shows_a_figure_through_the_wall_before_it() {
     println!("behind a lit wall: {hidden} red pixels; kept in sight: {shown}; in the open: {open}");
     assert_eq!(hidden, 0, "without the reveal the wall hides it");
     assert!(shown > open / 2, "kept in sight, most of it shows through the opening: {shown} of {open}");
+    gpu.clean();
+}
+
+/// A lit card with a normal map (docs/WORLD-TIERS.md, "Normal maps"): a
+/// lamp to its left lights the half of it whose pixels turn left more than
+/// the half that turns away, where without the map, or with the look's
+/// `normals` at 0, both halves are lit alike.
+#[test]
+fn a_lit_cards_normal_map_lights_the_side_its_lamp_is_on() {
+    use angel_stage::look::{Cards, Lamp, Look};
+    let Some(mut gpu) = gpu() else {
+        println!("no GPU adapter: skipped");
+        return;
+    };
+    const SIDE: u32 = 8;
+    gpu.pixels(FIGURE, SIDE, SIDE, [120u8, 120, 120, 255].repeat((SIDE * SIDE) as usize));
+    // The left half of the card turned left, the right half right.
+    let map: Vec<u8> = (0..SIDE * SIDE)
+        .flat_map(|i| angel_stage::normals::encode([if i % SIDE < SIDE / 2 { -0.8 } else { 0.8 }, 0.0, 0.6]))
+        .collect();
+    gpu.pixels(angel_stage::normals::picture_of(FIGURE), SIDE, SIDE, map);
+    let mut shot = |normals: f32, with_map: bool| {
+        let mut look = Look::new(vec![[10, 10, 14], [40, 44, 60], [90, 96, 120], [170, 176, 200]]);
+        look.metre = 11.0;
+        look.lamps = vec![Lamp { at: [70.0, 16.0, 72.0], reach: 40.0, strength: 1.0 }];
+        look.cards = Some(Cards { normals, ..Cards::ROOM });
+        let mut card = card(1, (96.0, 70.0), (32.0, 32.0), 0.0);
+        card.material.normals = with_map.then(|| angel_stage::normals::picture_of(FIGURE));
+        let mut ground = ground();
+        ground.material = Material::lit([0.3, 0.3, 0.3, 1.0], 0.0);
+        let world = World { floor: vec![ground], blocks: Vec::new(), at: 0, figures: vec![card], figures_at: 0, look: Some(look), ..World::default() };
+        gpu.stage(a_stage(vec![], Some(Props { at: 0, grain: 2, nodes: Vec::new(), world: Some(world) })))
+    };
+    // The card's own pixels' brightness, left of its middle and right.
+    let halves = |pixels: &[u8]| {
+        let (mut left, mut right) = ((0u32, 0u32), (0u32, 0u32));
+        for (i, p) in pixels.chunks_exact(4).enumerate() {
+            let x = i as u32 % SIZE.0;
+            // Grey, not the ramp's blues: the card.
+            if p[0].abs_diff(p[2]) > 12 || p[0] < 50 {
+                continue;
+            }
+            let half = if x < 96 { &mut left } else { &mut right };
+            half.0 += u32::from(p[0]) + u32::from(p[1]) + u32::from(p[2]);
+            half.1 += 1;
+        }
+        (left.0 as f32 / left.1.max(1) as f32, right.0 as f32 / right.1.max(1) as f32, left.1 + right.1)
+    };
+    let (flat_l, flat_r, flat_n) = halves(&shot(1.0, false));
+    let (off_l, off_r, _) = halves(&shot(0.0, true));
+    let (on_l, on_r, on_n) = halves(&shot(1.0, true));
+    println!("no map: {flat_l:.0} | {flat_r:.0} ({flat_n} px); normals 0: {off_l:.0} | {off_r:.0}; normals 1: {on_l:.0} | {on_r:.0} ({on_n} px)");
+    assert!(flat_n > 200 && on_n == flat_n, "the card is drawn whole either way");
+    assert!((off_l - flat_l).abs() < 2.0 && (off_r - flat_r).abs() < 2.0, "at 0 the map changes nothing");
+    assert!(on_l > flat_l + 10.0, "the half turned to the lamp takes more of it");
+    assert!(on_r < on_l - 20.0, "and more than the half turned away");
     gpu.clean();
 }

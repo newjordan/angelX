@@ -5,6 +5,7 @@ use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use angel_gpu::{Core, Draw, Frame, Instance, PICTURE, Picture, Stage, target_size};
 use angel_stage::wire::{self, MAX_SIDE};
+use angel_stage::scene::MeshRef;
 use angel_stage::{Shape, layers_of};
 use wasm_bindgen::prelude::*;
 use web_sys::HtmlCanvasElement;
@@ -230,9 +231,9 @@ impl Renderer {
     /// `angel_stage` returns) at `now_ms` on the page's clock, which a new
     /// scene's slide is timed by. Returns 0 when the bytes are not a frame
     /// (nothing is drawn; the page may draw its finished frame instead), 1
-    /// when it was drawn, 2 when it was drawn but names a picture the
-    /// renderer no longer has (it drops the least recently drawn when the
-    /// budget is full): the page should ask the game to send them all again.
+    /// when it was drawn, 2 when it was drawn but names a picture or a mesh
+    /// the renderer no longer has (it drops the least recently drawn when
+    /// the budget is full): the page should ask the game to send them all again.
     pub fn present_stage(&mut self, bytes: &[u8], now_ms: f64) -> u32 {
         if self.lost() {
             return 0;
@@ -254,7 +255,16 @@ impl Renderer {
                 rows: 0,
             });
         }
-        let mut missing = quads
+        for (id, mesh) in frame.meshes.drain(..) {
+            // The wire took only meshes the GPU takes (`MeshData::validate`).
+            let _ = self.core.upload_mesh(id, &mesh);
+        }
+        // A model the props name that the GPU let go of: all again.
+        let lost_mesh = frame.props.as_ref().is_some_and(|props| {
+            props.nodes.iter().any(|n| matches!(n.mesh, Some(MeshRef::Uploaded(id)) if !self.core.has_mesh(id)))
+        });
+        let mut missing = lost_mesh
+            || quads
             .iter()
             .any(|q| q.picture != 0 && q.shape == Shape::Fill && !self.core.has_picture(q.picture));
         // A room in 3D: its floor and blocks made from its set (sent once),

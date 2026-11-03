@@ -211,7 +211,7 @@ fn write_arena_shots() {
             card,
             x: 4.0 + (i % 9) as f32 * 4.8,
             y: y - 6.0 + (i / 9) as f32 * 5.0,
-            held_off: None, took: Vec::new(),
+            held_off: None, took: Vec::new(), dropped: 0, owner: None,
         })
         .collect();
     save("loot.ppm", &frame(&start, NATIVE_W, NATIVE_H));
@@ -309,8 +309,11 @@ fn write_arena_shots() {
 
 #[test]
 fn dungeon_native_pixels_keep_opening_enemies_visible_and_lazy_frame_exact() {
-    let run = Run::new(17, 1, None);
-    assert_eq!(run.enemies.len(), 2);
+    // The first floor's opening room is bare of foes now (the wishing room,
+    // 2026-11-02): read the first fight room the fixture's own way, a
+    // second in, where its foes stand whole.
+    let mut run = scene(17, RoomKind::Fight, crate::rules::HZ);
+    assert!(!run.enemies.is_empty());
     let img = frame(&run, 480, 280);
     let lazy = LazyFrame::new(run.clone(), 480, 280, None);
     assert_eq!(lazy.as_ref(), img.rgba_bytes());
@@ -318,6 +321,7 @@ fn dungeon_native_pixels_keep_opening_enemies_visible_and_lazy_frame_exact() {
     empty.enemies.clear();
     let empty_img = frame(&empty, 480, 280);
     let field = Field::fit(480, 280);
+    eprintln!("AT={} kind={:?} phase={:?} n={} first=({:.0},{:.0}) px={:?}", run.at, run.room().kind, run.phase, run.enemies.len(), run.enemies[0].x, run.enemies[0].y, field.px(run.enemies[0].x, run.enemies[0].y));
     for enemy in &run.enemies {
         let (x, y) = field.px(enemy.x, enemy.y);
         let mut changed = 0;
@@ -494,41 +498,44 @@ fn every_foe_reads_beside_the_knight() {
 
 #[test]
 fn the_heroes_are_the_mini_viz_knight() {
-    let mut run = scene(11, RoomKind::Fight, 0);
-    run.enemies.clear();
-    run.projectiles.clear();
-    // Toward the viewer, at rest with nothing in hand, the arena's knight is
-    // the mini-viz's to the pixel; any other way they stand is the same
-    // hero turned, stepping or armed.
-    {
-        let hero = run.players.get_mut(&1).unwrap();
-        (hero.aim_x, hero.aim_y) = (0.0, 1.0);
-        hero.weapon = crate::rules::Weapon::Fists;
-        hero.forged = None;
-        hero.stride = 0.0;
-        hero.shielding = false;
-    }
-    assert_eq!(
-        knights::figure(&run.players[&1], 1).rgb_bytes(),
-        super::super::kit::knight().rgb_bytes(),
-        "the realm's knight at rest"
-    );
-    let img = native(&run);
-    let hero = &run.players[&1];
-    let (x, y) = at(hero.x, hero.y);
-    let knight = super::super::kit::knight();
-    let (ox, oy) = (x - knight.w / 2, y - knight.h + 1);
-    let mut same = 0;
-    for ky in 0..knight.h {
-        for kx in 0..knight.w {
-            if let Some(c) = knight.get(kx, ky)
-                && img.get(ox + kx, oy + ky) == Some(c)
-            {
-                same += 1;
+    // Freeze the legacy art contract; quick-rig geometry is tested separately.
+    quick_rig::with_legacy_knight(|| {
+        let mut run = scene(11, RoomKind::Fight, 0);
+        run.enemies.clear();
+        run.projectiles.clear();
+        // Toward the viewer, at rest with nothing in hand, the arena's knight is
+        // the mini-viz's to the pixel; any other way they stand is the same
+        // hero turned, stepping or armed.
+        {
+            let hero = run.players.get_mut(&1).unwrap();
+            (hero.aim_x, hero.aim_y) = (0.0, 1.0);
+            hero.weapon = crate::rules::Weapon::Fists;
+            hero.forged = None;
+            hero.stride = 0.0;
+            hero.shielding = false;
+        }
+        assert_eq!(
+            knights::figure(&run.players[&1], 1).rgb_bytes(),
+            super::super::kit::knight().rgb_bytes(),
+            "the realm's knight at rest"
+        );
+        let img = native(&run);
+        let hero = &run.players[&1];
+        let (x, y) = at(hero.x, hero.y);
+        let knight = super::super::kit::knight();
+        let (ox, oy) = (x - knight.w / 2, y - knight.h + 1);
+        let mut same = 0;
+        for ky in 0..knight.h {
+            for kx in 0..knight.w {
+                if let Some(c) = knight.get(kx, ky)
+                    && img.get(ox + kx, oy + ky) == Some(c)
+                {
+                    same += 1;
+                }
             }
         }
-    }
-    assert!(same > 100, "the realm's knight, pixel for pixel: {same}");
+        assert!(same > 100, "the realm's knight, pixel for pixel: {same}");
+    });
 }
 
 #[test]
@@ -1489,7 +1496,7 @@ fn write_tallow_shots() {
                 card: if k == 2 { "potion" } else { "gold" }.into(),
                 x,
                 y,
-                held_off: None, took: Vec::new(),
+                held_off: None, took: Vec::new(), dropped: 0, owner: None,
             });
     }
     for _ in 0..12 {
@@ -2062,7 +2069,7 @@ fn write_item_shots() {
             card: (*card).into(),
             x: 18.0 + k as f32 * 6.0,
             y: 10.0,
-            held_off: None, took: Vec::new(),
+            held_off: None, took: Vec::new(), dropped: 0, owner: None,
         });
     }
     let hero = run.players.get_mut(&1).unwrap();
@@ -2561,7 +2568,7 @@ fn write_world_shots() {
         let mut instructions = Img::new(r.room().cols as i32 * TILE, r.room().rows as i32 * TILE);
         super::countryside::boards(&mut instructions, &r);
         let before_tray = instructions.clone();
-        tray::corner(&mut instructions, &r, None, false);
+        tray::corner(&mut instructions, &r, None);
         for y in 0..instructions.h {
             for x in 0..instructions.w {
                 if before_tray.get(x, y).is_some() {
@@ -2644,7 +2651,7 @@ fn write_world_shots() {
         let mut instructions = Img::new(r.room().cols as i32 * TILE, r.room().rows as i32 * TILE);
         super::countryside::boards(&mut instructions, &r);
         let before = instructions.clone();
-        tray::corner(&mut instructions, &r, None, false);
+        tray::corner(&mut instructions, &r, None);
         for y in 0..instructions.h {
             for x in 0..instructions.w {
                 if before.get(x, y).is_some() {
@@ -3044,27 +3051,27 @@ fn frame_time_of_the_world() {
 
 #[test]
 fn merchant_art_and_price_boards_are_seeded_and_on_palette() {
-    use crate::rules::{TILE_UNITS, home::Home, merchant::PLATES};
+    use crate::rules::{TILE_UNITS, home::Home, merchant::plates};
     let mut run = Run::at_home(23, 7, None, Home::default(), Default::default());
     let camp = run.merchant_camp().unwrap();
     run.enter_for_test(camp.room);
     let mut camp_art = Img::new(NATIVE_W, NATIVE_H);
     merchant::figures(&mut camp_art, &run);
     let mut board = Img::new(NATIVE_W, NATIVE_H);
-    merchant::boards(&mut board, &run);
+    merchant::boards(&mut board, &run, None);
     assert!(
         board.pixels().all(|p| p == BLACK),
         "the price list waits for a knight at the cart"
     );
-    let cart = crate::rules::merchant::CART_AT;
+    let cart = crate::rules::merchant::cart(run.room().kind);
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = (cart.0 * TILE_UNITS, (cart.1 + 2.0) * TILE_UNITS);
-    merchant::boards(&mut board, &run);
+    merchant::boards(&mut board, &run, None);
     assert!(on_palette(&camp_art));
     assert!(on_palette(&board));
     assert!(camp_art.pixels().any(|p| p != BLACK));
     assert!(board.pixels().any(|p| p != BLACK));
-    let (c, r) = PLATES[0];
+    let (c, r) = plates(run.room().kind)[0];
     let hero = run.players.get_mut(&1).unwrap();
     (hero.x, hero.y) = ((c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS);
     let a = native(&run);
@@ -3072,7 +3079,7 @@ fn merchant_art_and_price_boards_are_seeded_and_on_palette() {
     assert_eq!(a.rgba_bytes(), b.rgba_bytes());
     assert!(on_palette(&a));
     let mut reading = Img::new(NATIVE_W, NATIVE_H);
-    merchant::boards(&mut reading, &run);
+    merchant::boards(&mut reading, &run, None);
     assert_ne!(
         board.rgba_bytes(),
         reading.rgba_bytes(),
@@ -3087,11 +3094,55 @@ fn merchant_art_and_price_boards_are_seeded_and_on_palette() {
     run.enter_for_test(cellar);
     let mut absent = Img::new(NATIVE_W, NATIVE_H);
     merchant::figures(&mut absent, &run);
-    merchant::boards(&mut absent, &run);
+    merchant::boards(&mut absent, &run, None);
     assert!(
         absent.pixels().all(|p| p == BLACK),
         "estate furniture left alone"
     );
+}
+
+#[test]
+fn a_purchase_at_the_peddler_shows_on_the_buyers_screen_alone() {
+    // 2026-10-19: "buying a potion should only show you your own popup".
+    use crate::rules::{TILE_UNITS, merchant::{Goods, STAND_TICKS, plates}};
+    let mut run = Run::new(23, 7, Some("Friend"));
+    let camp = run.merchant_camp().unwrap();
+    run.enter_for_test(camp.room);
+    let potion = camp.offers.iter().position(|o| o.goods == Goods::Potion).unwrap();
+    let (c, r) = plates(run.room().kind)[potion];
+    let buyer = run.players.get_mut(&1).unwrap();
+    (buyer.x, buyer.y) = ((c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS);
+    buyer.hand.clear();
+    buyer.carried.add(crate::realm::Spoil::Gold, 200);
+    let friend = run.players.get_mut(&2).unwrap();
+    (friend.x, friend.y) = (8.0, 16.0);
+    for _ in 0..STAND_TICKS {
+        run.step(&BTreeMap::new());
+    }
+    assert_eq!(run.players[&1].hand, ["potion"]);
+    let says = |run: &Run, seat| {
+        merchant::board_lines(run, seat)
+            .map(|lines| lines.into_iter().map(|(text, _)| text).collect::<Vec<_>>())
+    };
+    let mine = says(&run, Some(1)).expect("the buyer reads their board");
+    assert!(mine.iter().any(|l| l.starts_with("BOUGHT")), "{mine:?}");
+    assert!(mine.iter().any(|l| l == "POTION"), "{mine:?}");
+    // The friend across the room is shown nothing of it, in pixels too.
+    assert_eq!(says(&run, Some(2)), None);
+    let mut theirs = Img::new(NATIVE_W, NATIVE_H);
+    merchant::boards(&mut theirs, &run, Some(2));
+    assert!(theirs.pixels().all(|p| p == BLACK));
+    // At the next plate, the friend reads their own offer and purse, still
+    // to buy, never the buyer's purchase.
+    let other = (0..camp.offers.len()).find(|&i| i != potion).unwrap();
+    let (c, r) = plates(run.room().kind)[other];
+    let friend = run.players.get_mut(&2).unwrap();
+    (friend.x, friend.y) = ((c as f32 + 0.5) * TILE_UNITS, (r as f32 + 0.5) * TILE_UNITS);
+    let next = says(&run, Some(2)).expect("the friend reads their own board");
+    assert!(next.iter().any(|l| l == camp.offers[other].goods.name()), "{next:?}");
+    assert!(next.iter().any(|l| l.starts_with("STAND STILL")), "{next:?}");
+    assert!(!next.iter().any(|l| l.starts_with("BOUGHT")), "{next:?}");
+    assert!(says(&run, Some(1)).unwrap().iter().any(|l| l.starts_with("BOUGHT")));
 }
 
 include!("overworld__east_shots.rs");
@@ -4006,7 +4057,7 @@ fn write_naked_start_shots() {
     ] {
         let h = &run.players[&1];
         let (x, y) = (h.x, h.y);
-        run.dungeon.rooms[run.at].items.push(Item { card: card.into(), x, y, held_off: None, took: Vec::new() });
+        run.dungeon.rooms[run.at].items.push(Item { card: card.into(), x, y, held_off: None, took: Vec::new(), dropped: 0, owner: None });
         run.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
         run.step(&BTreeMap::new());
         review(&run).save(dir.join(name)).unwrap();
@@ -4191,17 +4242,13 @@ fn a_scene_in_parts_composes_to_the_frame() {
 
 #[test]
 fn the_still_art_is_the_same_while_nothing_changes() {
-    // The kept drawing is one slot every test shares, so another test's room
-    // drawn between the two looks would evict it: a drawing that is never
-    // kept fails every try, one that is kept holds on the first clear one.
+    // The one-slot drawing belongs to this test until both looks finish.
+    let _pin = scenery::pin_scene_cache();
     let mut run = scene(11, RoomKind::Fight, 0);
-    let kept = (0..16).any(|_| {
-        let a = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).ground.unwrap();
-        run.step(&BTreeMap::new());
-        let b = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).ground.unwrap();
-        std::sync::Arc::ptr_eq(&a, &b)
-    });
-    assert!(kept, "one upload for the room");
+    let a = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).ground.unwrap();
+    run.step(&BTreeMap::new());
+    let b = scene_for(&run, NATIVE_W, NATIVE_H, Some(1)).ground.unwrap();
+    assert!(std::sync::Arc::ptr_eq(&a, &b), "one upload for the room");
 }
 
 
@@ -4332,4 +4379,249 @@ fn the_wax_maze_keeps_to_the_palette() {
     let mut room = Img::new(pw, ph);
     wax_maze::wraiths(&mut room, &run);
     assert!(room.pixels().count() > 0 && (0..ph).any(|y| (0..pw).any(|x| room.get(x, y).is_some())));
+}
+
+/// Four knights in a cleared room of the first floor with a doorway north,
+/// three of them waiting in it and the fourth down by the south wall: the
+/// fourth is called to the fellowship (`Run::fellowship_call`).
+fn fellowship_called() -> Run {
+    let mut run = Run::new(31, 1, Some("Friend"));
+    for id in 3..=4 {
+        run.join_seat(id, &format!("Seat {id}"));
+    }
+    run.descend_for_test();
+    let room = (0..run.dungeon.rooms.len())
+        .find(|&i| run.dungeon.neighbour(i, 0).is_some())
+        .expect("a room with a doorway north");
+    run.enter_for_test(room);
+    run.hallowed = None;
+    run.calm_for_test();
+    run.enemies.clear();
+    run.dungeon.rooms[room].cleared = true;
+    run.phase = crate::rules::Phase::Exploring;
+    let (w, h) = (run.room().width(), run.room().height());
+    for (id, x) in [(1, -1.0), (2, 0.0), (3, 1.0)] {
+        let hero = run.players.get_mut(&id).unwrap();
+        (hero.x, hero.y) = (w / 2.0 + x * 0.4, 0.3);
+    }
+    let hero = run.players.get_mut(&4).unwrap();
+    (hero.x, hero.y) = (w / 2.0 - 4.0, h - 2.0);
+    run.step(&BTreeMap::new());
+    assert_eq!(run.fellowship.called, vec![4]);
+    run
+}
+
+/// A seat's whole screen, the band under the view included.
+fn fellowship_shot(run: &Run, focus: u32) -> Img {
+    let (w, h) = (NATIVE_W, NATIVE_H + party::BAND_H + party::HUD_H);
+    seat_scene(run, w, h, Some(focus)).compose()
+}
+
+#[test]
+fn the_knight_the_fellowship_calls_sees_a_blinking_arrow_and_the_rest_do_not() {
+    let mut run = fellowship_called();
+    let blink = u64::from(crate::rules::HZ / 3);
+    // On a lit beat: the called knight's screen has the arrow.
+    run.tick = run.tick / (2 * blink) * (2 * blink);
+    let mut unheard = run.clone();
+    unheard.fellowship.called.clear();
+    assert_ne!(fellowship_shot(&run, 4).rgb_bytes(), fellowship_shot(&unheard, 4).rgb_bytes());
+    // The three who wait see nothing new.
+    for id in 1..=3 {
+        assert_eq!(fellowship_shot(&run, id).rgb_bytes(), fellowship_shot(&unheard, id).rgb_bytes(), "knight {id}");
+    }
+    // On the dark beat it is gone: it blinks.
+    run.tick += blink;
+    unheard.tick += blink;
+    assert_eq!(fellowship_shot(&run, 4).rgb_bytes(), fellowship_shot(&unheard, 4).rgb_bytes());
+}
+
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_fellowship_call_shots -- --ignored`:
+/// the called knight's screen on the arrow's lit beat, three times native size.
+#[test]
+#[ignore]
+fn write_fellowship_call_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut run = fellowship_called();
+    let blink = u64::from(crate::rules::HZ / 3);
+    run.tick = run.tick / (2 * blink) * (2 * blink);
+    for (name, focus) in [("fellowship-call-called", 4), ("fellowship-call-waiting", 1)] {
+        let img = fellowship_shot(&run, focus);
+        let k = 3;
+        image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, img.rgba_scaled(k))
+            .unwrap()
+            .save(dir.join(format!("{name}.png")))
+            .unwrap();
+    }
+}
+
+/// The identity start in shots (`rules::identity`): the six shapes, the
+/// first floor's three rooms on the Atari board (the body, the weapon, the
+/// ultimate), the party as the wishes made them, and their sheets.
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve --lib write_identity_shots -- --ignored`
+#[test]
+#[ignore]
+fn write_identity_shots() {
+    use crate::rules::home::Home;
+    use crate::rules::identity::Shape;
+    use crate::rules::phrasebook;
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else { return; };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    atari::set(true);
+    let png = |img: &Img, k: u32| {
+        let raw = image::RgbaImage::from_raw(img.w as u32, img.h as u32, img.rgba_bytes()).unwrap();
+        image::imageops::resize(&raw, img.w as u32 * k, img.h as u32 * k, image::imageops::FilterType::Nearest)
+    };
+    // As the arena dresses a knight: the figure, what it wears, its mark.
+    let close = |run: &Run, id: u32| {
+        let hero = &run.players[&id];
+        let bodied = hero.making(&run.book).is_some_and(|m| m.parts.iter().any(|p| p == "body"));
+        let im = knights::identity_figure(hero, hero.shape.unwrap(), bodied, false, Default::default());
+        let mut im = knights::dress(&im, &hero.worn(&run.book), run.tick);
+        if bodied {
+            knights::emblem(&mut im, hero.shape.unwrap());
+        }
+        im
+    };
+    let row = |figures: &[Img]| {
+        let mut canvas = Img::new(figures.len() as i32 * 30 + 6, 34);
+        canvas.rect(0, 0, canvas.w, canvas.h, 'K');
+        for (n, f) in figures.iter().enumerate() {
+            canvas.stamp(f, 6 + n as i32 * 30 + (24 - f.w) / 2, 30 - f.h);
+        }
+        canvas
+    };
+    let mut run = Run::at_home(17, 1, None, Home::default(), Default::default());
+    run.naked_start = true;
+    run.identity = true;
+    run.rename_host("Ada");
+    for (id, name) in [(2, "Bors"), (3, "Cai"), (4, "Dag"), (5, "Ena"), (6, "Fen")] {
+        run.join_seat(id, name);
+    }
+    let all: Vec<Img> = Shape::ALL.iter().map(|&s| knights::shape_figure(&run.players[&1], s, false, Default::default())).collect();
+    png(&row(&all), 8).save(dir.join("00-six-shapes.png")).unwrap();
+    for id in [5, 6] {
+        run.players.remove(&id);
+    }
+    run.descend_for_test();
+    let line_up = |run: &mut Run| {
+        run.calm_for_test();
+        run.enemies.clear();
+        run.projectiles.clear();
+        let (w, h) = (run.room().width(), run.room().height());
+        for (n, id) in [1u32, 2, 3, 4].into_iter().enumerate() {
+            let k = run.players.get_mut(&id).unwrap();
+            (k.x, k.y, k.aim_x, k.aim_y, k.invulnerable) = (w / 2.0 - 6.0 + n as f32 * 4.0, h * 0.62, 1.0, 0.0, 0);
+        }
+    };
+    line_up(&mut run);
+    png(&frame(&run, 768, 448), 1).save(dir.join("01-room-one-the-body.png")).unwrap();
+    // The ball, thrown.
+    let mut thrown = run.clone();
+    let mut flying = 0;
+    for t in 0..40 {
+        if flying >= 4 {
+            break;
+        }
+        if !thrown.projectiles.is_empty() {
+            flying += 1;
+        }
+        for h in thrown.players.values_mut() {
+            (h.invulnerable, h.idle) = (0, false);
+        }
+        let aim = |id: u32| if t < 2 { (0, -1) } else { (if id % 2 == 0 { 1 } else { -1 }, -1) };
+        thrown.step(
+            &[1, 2, 3, 4]
+                .into_iter()
+                .map(|id| (id, Input { fire: t >= 2, aim_x: aim(id).0, aim_y: aim(id).1, move_y: i8::from(t < 2) * -1, ..Default::default() }))
+                .collect(),
+        );
+    }
+    png(&frame(&thrown, 768, 448), 1).save(dir.join("02-the-ball-thrown.png")).unwrap();
+    // What a model granting the wishes might write: three of the players'
+    // own words, decided and explained on the scroll's line.
+    let learned = phrasebook::read(concat!(
+        "## learned in this workspace\n",
+        "wish ogre-hide | Ogre Hide\nsay an ogre with a stone hide\n",
+        "tier max_hp 30; armor 1 :: Ogre's frame: +30 health, armour, too big for speed\n",
+        "draw worn at=body\n.jGGGGGj.\njGlllllGj\nGllAAAllG\nGlAAAAAlG\n.GlllllG.\n.jGGGGGj.\n\n",
+        "wish tree-club | Tree Club\nkind arm\nsay a club made of a tree\n",
+        "tier melee damage=50 reach=3 arc=120 every=30 :: A tree for a club: hits like a falling oak, slowly\n",
+        "draw worn at=right\n.rRr.\nrRORr\n.rRr.\n..B..\n..B..\n..B..\n..b..\n\n",
+        "wish dragon-roar | Dragon's Roar\nsay a dragon's roar\n",
+        "tier ult grand_chord :: Dragon's roar: foes pulled in and stunned, as dragons do\n",
+        "wish swift-wings | Swift Wings\nsay a bird with bright wings\n",
+        "tier speed 20 :: A bird's frame: +20 speed, light, no armour at all\n",
+        "draw worn at=shoulders\nz..........z\nzz........zz\n.zzQ....Qzz.\n..zQQ..QQz..\n",
+    ));
+    let known = |id: &str| learned.iter().find(|w| w.id == id).cloned().or_else(|| phrasebook::get(id)).unwrap();
+    let grant = |run: &mut Run, id: u32, wish: &str| {
+        run.wish(id, &known(wish)).unwrap_or_else(|e| panic!("{wish}: {e}"));
+    };
+    // Room one: the body. Ada and Dag in their own words; Bors with the
+    // scroll's plain answer (no model); Cai picks the Great Helm.
+    grant(&mut run, 1, "ogre-hide");
+    run.grant_neutral(2).unwrap();
+    run.players.get_mut(&2).unwrap().wishes -= 1;
+    grant(&mut run, 3, "great-helm");
+    grant(&mut run, 4, "swift-wings");
+    run.enter(1, Some(2));
+    line_up(&mut run);
+    png(&frame(&run, 768, 448), 1).save(dir.join("03-room-two-the-weapon.png")).unwrap();
+    let bodies: Vec<Img> = [1, 2, 3, 4].into_iter().map(|id| close(&run, id)).collect();
+    png(&row(&bodies), 8).save(dir.join("04-bodies-close.png")).unwrap();
+    // Room two: the weapon.
+    grant(&mut run, 1, "tree-club");
+    run.grant_neutral(2).unwrap();
+    run.players.get_mut(&2).unwrap().wishes -= 1;
+    grant(&mut run, 3, "hand-cannon");
+    grant(&mut run, 4, "war-crossbow");
+    run.enter(2, Some(2));
+    line_up(&mut run);
+    png(&frame(&run, 768, 448), 1).save(dir.join("05-room-three-the-ultimate.png")).unwrap();
+    // Room three: the ultimate. Then they are whole.
+    grant(&mut run, 1, "dragon-roar");
+    run.grant_neutral(2).unwrap();
+    run.players.get_mut(&2).unwrap().wishes -= 1;
+    grant(&mut run, 3, "stillhour");
+    grant(&mut run, 4, "phantasm");
+    assert!(run.players.values().all(|h| h.made));
+    let made: Vec<Img> = [1, 2, 3, 4].into_iter().map(|id| close(&run, id)).collect();
+    png(&row(&made), 8).save(dir.join("06-party-made-close.png")).unwrap();
+    png(&frame(&run, 768, 448), 1).save(dir.join("07-party-made-room-three.png")).unwrap();
+    let mut sheets = String::new();
+    for id in [1, 2, 3, 4] {
+        let h = &run.players[&id];
+        sheets.push_str(&format!("==== {} (seat {id}) health {}/{} armour {} ult {:?}\n", h.name, h.hp, h.max_hp, h.armor, h.ult));
+        sheets.push_str(&crate::client::sheet(&run, id));
+        sheets.push('\n');
+    }
+    std::fs::write(dir.join("08-character-sheets.txt"), sheets).unwrap();
+    // The second floor is the ordinary game, in its ordinary look.
+    run.descend_for_test();
+    line_up(&mut run);
+    png(&frame(&run, 768, 448), 1).save(dir.join("09-floor-two-ordinary.png")).unwrap();
+    atari::set(false);
+}
+
+// ── The holdings' rooms, drawn ─────────────────────────────────────────────
+
+#[test]
+fn every_holdings_room_has_sound_bespoke_art() {
+    // Sixteen by fourteen is the bay's own size; the blank fallback is
+    // one empty row, and ragged rows lose the width.
+    for room in crate::rules::holdings::ROOMS {
+        let art = holdings::room_art(room.id);
+        assert_eq!(
+            (art.w, art.h),
+            (16, 14),
+            "{} is drawn to the bay's size",
+            room.id
+        );
+    }
 }

@@ -1,0 +1,62 @@
+@@book-page 1@@
+Your last test run on this exact code failed, so the task is not finished, and there is budget left to fix it.
+@@book-page 1@@
+Read the failure below, change the code, and run the tests again.
+@@book-page 1@@
+If something outside the code blocks you, such as a missing tool or a broken environment, say what it is and answer again.
+@@book-page 2@@
+The task's operator-pinned acceptance command is still RED.
+@@book-page 2@@
+This is a hard completion contract, not an advisory verifier: fix the reported failure before claiming completion.
+@@book-page 2@@
+Do not redefine, bypass, mask, or replace the command.
+@@book-page 2@@
+If the contract cannot be satisfied, report the concrete blocker.
+@@book-page 4@@
+VERIFICATION RECOVERY: 3 consecutive verification failures detected.
+@@book-page 4@@
+Pause speculative edits and inspect the first failing diagnostic.
+@@book-page 4@@
+If errors span multiple functions, types, or borrow lifetimes, stop micro-patching with str_replace and use write_file to rewrite the module cleanly.
+@@book-page 4@@
+Do not re-run tests without changing code.
+@@book-page 4@@
+Report infrastructure failures honestly; never discard unrelated changes or assume a clean baseline exists.
+@@book-page 5@@
+Your last passing test run did not hold: angelX re-ran it on the same code and it failed.
+@@book-page 5@@
+The solution passes by luck; something depends on randomness, timing, iteration order or state shared between tests or runs.
+@@book-page 5@@
+Find that and fix it so the tests pass every run.
+@@book-page 5@@
+Re-running until green is not a fix.
+@@book-page 6@@
+You edited the workspace but have not run a verifier since the latest edit.
+@@book-page 6@@
+Before claiming completion, use `shell` to run the smallest relevant repository test, check, lint, or formatting command.
+@@book-page 6@@
+One relevant green verifier is sufficient; do not follow it with broader or overlapping checks unless the task explicitly requires them.
+@@book-page 6@@
+If verification cannot run, state the concrete blocker and the unverified risk in your final answer.
+@@book-page 6@@
+A real verifier attempt, even when red or unavailable, is sufficient evidence for an honest blocker report.
+@@book-page 7@@
+You changed test files that came with the task.
+@@book-page 7@@
+Those tests are the task's contract: leave them as they were.
+@@book-page 7@@
+Restore them (for example `git checkout -- <file>`) and keep your fix in the source.
+@@book-page 7@@
+To run tests that are skipped, run a copy or restore the file afterwards.
+@@book-page 7@@
+If the task asked you to change these tests, say so and answer again.
+@@book-page 9@@
+Verification posture: after editing code, run the smallest relevant verifier.
+@@book-page 9@@
+One conclusive green test or build on the unchanged workspace is enough; do not stack broader, overlapping tests, builds, lint, or vet commands unless the task explicitly requires distinct gates or the first verifier produced a diagnostic that demands one.
+@@book-page 0@@
+After editing code, run the smallest relevant verifier and fix failures from its diagnostics.
+@@book-page 0@@
+Respect explicit no-build or external-verification instructions and report pending checks honestly.
+@@book-page 0@@
+Complete all requested deliverables and distinct required gates; do not stack overlapping verifiers on unchanged code.

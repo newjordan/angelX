@@ -4,7 +4,12 @@
 
 use crate::Core;
 
+/// The atlas's largest side.
 const ATLAS_SIZE: u32 = 2048;
+/// The side it starts at: a terminal's glyphs fit with room to spare,
+/// and it grows to [`ATLAS_SIZE`] the first time it fills, so a window
+/// holds 4 MiB here, not 16, until it needs more.
+const ATLAS_START: u32 = 1024;
 
 /// Where one image sits in the atlas, and how the host places it.
 #[derive(Clone, Copy)]
@@ -49,31 +54,42 @@ impl AtlasHealth {
 pub(crate) struct Atlas {
     texture: wgpu::Texture,
     pub(crate) view: wgpu::TextureView,
+    /// The side now: [`ATLAS_START`], or [`ATLAS_SIZE`] once grown.
+    side: u32,
+    /// Set when the texture was replaced by a larger one, so the core
+    /// binds the new view before it draws.
+    pub(crate) grown: bool,
     x: u32,
     y: u32,
     row: u32,
 }
 
+fn atlas_texture(device: &wgpu::Device, side: u32) -> wgpu::Texture {
+    device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("glass-atlas"),
+        size: wgpu::Extent3d {
+            width: side,
+            height: side,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Rgba8Unorm,
+        usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST | wgpu::TextureUsages::COPY_SRC,
+        view_formats: &[],
+    })
+}
+
 impl Atlas {
     pub(crate) fn new(device: &wgpu::Device) -> Self {
-        let texture = device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("glass-atlas"),
-            size: wgpu::Extent3d {
-                width: ATLAS_SIZE,
-                height: ATLAS_SIZE,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Rgba8Unorm,
-            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-            view_formats: &[],
-        });
+        let texture = atlas_texture(device, ATLAS_START);
         let view = texture.create_view(&Default::default());
         Self {
             texture,
             view,
+            side: ATLAS_START,
+            grown: false,
             x: 0,
             y: 0,
             row: 0,
@@ -84,18 +100,44 @@ impl Atlas {
         (self.x, self.y, self.row) = (0, 0, 0);
     }
 
+    /// Replace the texture with one of the largest side, holding what the
+    /// old one held where it held it: entries are in pixels and the shader
+    /// divides by the texture's own size, so every entry stays good.
+    fn grow(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let texture = atlas_texture(device, ATLAS_SIZE);
+        let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: Some("glass-atlas-grow") });
+        encoder.copy_texture_to_texture(
+            self.texture.as_image_copy(),
+            texture.as_image_copy(),
+            wgpu::Extent3d { width: self.side, height: self.side, depth_or_array_layers: 1 },
+        );
+        // Writes already queued to the old texture land before this copy.
+        queue.submit([encoder.finish()]);
+        self.view = texture.create_view(&Default::default());
+        self.texture = texture;
+        self.side = ATLAS_SIZE;
+        self.grown = true;
+    }
+
     /// Shelf packing with a one-pixel gutter. `None` when full.
-    pub(crate) fn insert(&mut self, queue: &wgpu::Queue, w: u32, h: u32, rgba: &[u8]) -> Option<[u32; 2]> {
+    pub(crate) fn insert(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, w: u32, h: u32, rgba: &[u8]) -> Option<[u32; 2]> {
         if w + 1 > ATLAS_SIZE || h + 1 > ATLAS_SIZE {
             return None;
         }
-        if self.x + w + 1 > ATLAS_SIZE {
+        if self.x + w + 1 > self.side {
             self.x = 0;
             self.y += self.row + 1;
             self.row = 0;
         }
-        if self.y + h + 1 > ATLAS_SIZE {
-            return None;
+        let fits = |atlas: &Self| atlas.x + w < atlas.side && atlas.y + h < atlas.side;
+        if !fits(self) {
+            if self.side >= ATLAS_SIZE {
+                return None;
+            }
+            self.grow(device, queue);
+            if !fits(self) {
+                return None;
+            }
         }
         let origin = [self.x, self.y];
         queue.write_texture(
@@ -130,7 +172,22 @@ impl Atlas {
 impl Core {
     /// Pack an RGBA image into the atlas. `None` when it does not fit.
     pub fn atlas_insert(&mut self, w: u32, h: u32, rgba: &[u8]) -> Option<[u32; 2]> {
-        self.atlas.insert(&self.queue, w, h, rgba)
+        let at = self.atlas.insert(&self.device, &self.queue, w, h, rgba);
+        self.rebind_atlas();
+        at
+    }
+
+    /// The atlas's side and pixels, read back from the GPU: for tests.
+    #[doc(hidden)]
+    pub fn atlas_pixels(&self) -> (u32, Vec<u8>) {
+        (self.atlas.side, self.read_back(&self.atlas.texture, (self.atlas.side, self.atlas.side)))
+    }
+
+    /// Bind the atlas's new texture after it grew.
+    fn rebind_atlas(&mut self) {
+        if std::mem::take(&mut self.atlas.grown) {
+            self.bind_group = crate::draw::bind(&self.device, &self.bind_layout, &self.globals, &self.atlas.view, &self.nearest);
+        }
     }
 
     /// Whether the atlas filled and wants emptying before the next build.
@@ -174,7 +231,8 @@ impl Core {
                 rgba.extend_from_slice(&[a, a, a, a]);
             }
         }
-        let [ax, ay] = self.atlas.insert(&self.queue, size, size, &rgba)?;
+        let [ax, ay] = self.atlas.insert(&self.device, &self.queue, size, size, &rgba)?;
+        self.rebind_atlas();
         let entry = Entry {
             uv: [ax as f32, ay as f32, size as f32, size as f32],
             left: 0.0,
@@ -202,7 +260,8 @@ impl Core {
                 rgba.extend_from_slice(&[a, a, a, a]);
             }
         }
-        let [ax, ay] = self.atlas.insert(&self.queue, w, h, &rgba)?;
+        let [ax, ay] = self.atlas.insert(&self.device, &self.queue, w, h, &rgba)?;
+        self.rebind_atlas();
         let entry = Entry {
             uv: [ax as f32, ay as f32, w as f32, h as f32],
             left: 0.0,

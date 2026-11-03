@@ -343,21 +343,7 @@ impl Tool for JevTool {
         "jev_decide"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: self.name().into(),
-            description: "Ask Jev fast typed technical questions about explicit evidence: defect triage, hypothesis ranking, regression risk, or next diagnostic. Returns advisory probability percentages, choice confidence, rubric scores, latency and token usage. Sends only supplied state/questions to TypeSafe. No automatic retries. ⠹⠚".into(),
-            params: json!({"type":"object", "properties": {
-                "state": {"type":"string", "maxLength":24576, "description":"⠹⠚⠋⠹⠚⠙⠹⠚⠑"},
-                "questions": {"type":"array", "minItems":1, "maxItems":8, "items":{
-                    "type":"object", "properties":{
-                        "id":{"type":"string", "maxLength":64},
-                        "type":{"type":"string", "enum":["noul","choice","score"]},
-                        "instructions":{"type":"string", "maxLength":2048, "description":"⠹⠚⠛"},
-                        "options":{"type":"array", "maxItems":16, "items":{"type":"string", "maxLength":256}, "description":"⠹⠚⠓⠹⠚⠊⠹⠚⠚"}
-                    }, "required":["id","type","instructions"], "additionalProperties":false
-                }}
-            }, "required":["state","questions"], "additionalProperties":false}),
-        }
+        crate::agent::harness::core_catalog::baseline_def("jev_decide")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         self.decide(args).and_then(|result| {

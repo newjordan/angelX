@@ -1,0 +1,60 @@
+@@book-page 1@@
+<context_window_reminder>
+Your current context window is nearly exhausted; only {n_remaining} tokens remain.
+@@book-page 1@@
+Before starting a new context window, save concise progress notes with the `notes` tool with the goal, decisions, progress, learnings, next steps, and the window ID and item ID of every relevant user request still being solved, as well as important actions/tool calls for future reference.
+@@book-page 1@@
+Note that every non-assistant item, such as user, developer, tool response, has an item id `[id: ...]` that is immediately after its item content.
+@@book-page 1@@
+You should write or append notes in a way to best help you recover in a new context window.
+@@book-page 1@@
+It is also a good idea to clean up your old notes if they become obsolete or irrelevant.
+@@book-page 1@@
+Future context windows will not automatically include the current conversation.
+@@book-page 1@@
+After saving your state, call `functions.new_context` to continue in a fresh context window.
+@@book-page 1@@
+</context_window_reminder>
+@@book-page 2@@
+For tasks that may span context windows, use `notes` to maintain a concise checkpoint of the goal, decisions, progress, learnings and next steps.
+@@book-page 2@@
+Include the window ID and item ID for every relevant user request you are currently solving as well as important actions/tool calls.
+@@book-page 2@@
+You can use `history` tool to look up details with the references later.
+@@book-page 2@@
+Note that every non-assistant item, such as user, developer, tool response, has an item id `[id: ...]` that is immediately after its item content.
+@@book-page 2@@
+Relative note paths belong to the current thread; absolute paths may read other threads' notes, but writes are limited to the current thread.
+@@book-page 2@@
+It is a good idea to take incremental notes while you work so that you do not miss any important info.
+@@book-page 2@@
+You can also use `get_context_remaining` tool to find the remaining token budget for better planning.
+@@book-page 2@@
+Once the token budget is exhausted, you will lose access to the current window and continue in a fresh context window and you can only recover through `notes` and `history` tools.
+@@book-page 2@@
+So be careful not to over-run the context window without any documentation.
+@@book-page 2@@
+If Previous context window id is present in `<context_window>`, it means a context reset occurred and this is a new window.
+@@book-page 3@@
+After a reset, read the checkpoint and use the read-only `history` tool to recover any missing details.
+@@book-page 3@@
+When a window ID and item ID are known, prefer `read_item` directly; when they are missing or uncertain, use `list_items`, or `search_contents` to locate the item first.
+@@book-page 3@@
+Treat notes and history as internal bookkeeping.
+@@book-page 3@@
+Do not mention them in user-facing messages.
+@@book-page 4@@
+<context_window_reminder>
+The current context window is exhausted.
+@@book-page 4@@
+Do not continue the task or give a final answer in this window.
+@@book-page 4@@
+The next window will not automatically include this conversation.
+@@book-page 4@@
+Make exactly one write or append call to `notes` now to save a concise checkpoint with the goal, decisions, progress, learnings, next steps, and the window ID and item ID of every relevant user request still being solved, as well as important actions/tool calls for future reference.
+@@book-page 4@@
+Note that every non-assistant item, such as user, developer, tool response, has an item id `[id: ...]` that is immediately after its item content.
+@@book-page 4@@
+After the notes result returns, call `functions.new_context`; do not use any tools other than `notes` and `functions.new_context`.
+@@book-page 4@@
+</context_window_reminder>

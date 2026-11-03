@@ -1,0 +1,47 @@
+# TEMPLATE: a wish cast as a spell (keys 1 to 4): summoned helpers, a heal,
+# a ward, a nova, a bolt.
+# Copy this file, then change what it says. Check it with
+#   cargo run -p angel-delve --example content_check -- <your file>
+#
+# Change: the id, the Name, the `say` lines, the spell's lines (summon N
+#   swarm|guard|turret, cast bolt|ring|meteor, heal, ward, nova) and each tier's
+#   `cooldown <seconds>`, the scroll lines, the summoned creature's picture (at
+#   most 16x16, up to 4 frames side by side with `|` between), the card art.
+# Keep: `kind spell`; a cooldown on every tier; a summons' cooldown rising with
+#   its count (the game raises a short one, so a later tier must not rest on a
+#   shorter cooldown); five tiers that each give more.
+# The bar: pictures Fine or better (a template, Masterwork); each `say` finds
+#   this wish and no other.
+wish golden-devils | Golden Devils
+kind spell
+say tiny golden devils that explode | golden imps | exploding devils | a devil swarm
+tier summon 2 swarm; cooldown 8 :: Two golden devils hunt and burst.
+tier summon 3 swarm; cooldown 12 :: Three golden devils hunt and burst.
+tier summon 4 swarm; cooldown 16 :: Four golden devils hunt and burst.
+tier summon 5 swarm; cooldown 20 :: Five golden devils hunt and burst.
+tier summon 6 swarm; cooldown 24 :: Six golden devils, a whole swarm, hunt and burst.
+draw summon
+.I.....I.|.........
+.4I...I4.|.I.....I.
+..I444I..|.4I444I4.
+.I45554I.|..I555I..
+I4K55K54I|I4K55K54I
+.I46664I.|.I46664I.
+..I464I..|..I464I..
+.I4I.I4I.|..I4.4I..
+.II...II.|..II.II..
+
+art
+..I........I..
+..4I......I4..
+...4I4444I4...
+...I455554I...
+..I45555554I..
+..I4K55K554I..
+.I4456666544I.
+I44I466664I44I
+.II.I4664I.II.
+....I4444I....
+...I44II44I...
+..I44I..I44I..
+..III....III..

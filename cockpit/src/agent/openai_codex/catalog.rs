@@ -65,14 +65,13 @@ impl CodexClub {
             .reasoning_effort
             .lock()
             .map_err(|_| "OpenAI effort preference lock poisoned")?;
-        let requested = if self.route_state_revision.load(Ordering::Relaxed) == 0
+        if self.route_state_revision.load(Ordering::Relaxed) == 0
             && let Some(controls) = &self.api_controls
         {
-            controls.effort(&self.model)
+            Ok(controls.effort(&self.model))
         } else {
-            preference.clone()
-        };
-        Ok((requested, self.captured_effort_source()))
+            Ok((preference.clone(), self.captured_effort_source()))
+        }
     }
 
     pub(super) fn capture_selection(

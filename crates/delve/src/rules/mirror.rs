@@ -15,6 +15,7 @@ pub struct Pose {
     at: usize,
     players: Vec<(u32, f32, f32)>,
     enemies: Vec<(u32, f32, f32)>,
+    squires: Vec<(u32, u32, f32, f32)>,
     cameras: Vec<(u32, Option<(f32, f32)>)>,
     outside: BTreeMap<u32, usize>,
 }
@@ -34,6 +35,7 @@ impl Run {
             cameras: self.players.iter().map(|(&id, h)| (id, h.camera)).collect(),
             players: self.players.iter().map(|(&id, h)| (id, h.x, h.y)).collect(),
             enemies: self.enemies.iter().map(|e| (e.id, e.x, e.y)).collect(),
+            squires: self.lane_squires.iter().map(|s| (s.owner, s.recruit.id, s.x, s.y)).collect(),
         }
     }
 
@@ -74,26 +76,55 @@ impl Run {
         let places: Vec<(f32, f32)> = self.projectiles.iter().map(|p| (p.x, p.y)).collect();
         self.blend(before, alpha);
         let swapped = own.map(|(id, hero)| (id, self.players.insert(id, hero.clone())));
+        // Riders sit on their carrier as it is drawn: a client's own
+        // carrier ahead, or anyone's between two ticks (`shoulders`).
+        let grid = Grid {
+            room: &self.dungeon.rooms[self.at],
+            barred: self.barred(),
+        };
+        self.shoulders.seat_riders(&grid, &mut self.players);
         // The knight's own shots out (each with its place in the list), and
         // the ones given in, after everyone else's.
         let mut mine: Vec<(usize, Projectile)> = Vec::new();
         let theirs = self.projectiles.len();
         if let (Some((id, _)), Some(drawn)) = (own, shots) {
-            let mut i = 0;
-            while i < self.projectiles.len() {
-                if self.projectiles[i].loosed_by(id) {
-                    mine.push((i + mine.len(), self.projectiles.remove(i)));
-                } else {
-                    i += 1;
-                }
-            }
+            // One pass out, each with the place it had in the list (a
+            // removal apiece is a pass apiece: a crowd of one's own shots
+            // would be the square of the room's).
+            let mut seen = 0;
+            let mut places = Vec::new();
+            let taken: Vec<Projectile> = self
+                .projectiles
+                .extract_if(.., |p| {
+                    seen += 1;
+                    let own = p.loosed_by(id);
+                    if own {
+                        places.push(seen - 1);
+                    }
+                    own
+                })
+                .collect();
+            mine.extend(places.into_iter().zip(taken));
             self.projectiles.extend(drawn.iter().cloned());
         }
         let out = f(self);
         if shots.is_some() && own.is_some() {
             self.projectiles.truncate(theirs - mine.len());
-            for (at, shot) in mine {
-                self.projectiles.insert(at, shot);
+            if !mine.is_empty() {
+                // And back in one pass, each where it was.
+                let mut rest = std::mem::take(&mut self.projectiles).into_iter();
+                let mut mine = mine.into_iter().peekable();
+                self.projectiles.reserve(theirs);
+                while self.projectiles.len() < theirs {
+                    let next = match mine.next_if(|(at, _)| *at == self.projectiles.len()) {
+                        Some((_, shot)) => Some(shot),
+                        None => rest.next(),
+                    };
+                    match next {
+                        Some(shot) => self.projectiles.push(shot),
+                        None => break,
+                    }
+                }
             }
         }
         if let Some((id, was)) = swapped {
@@ -123,6 +154,11 @@ impl Run {
                 (enemy.x, enemy.y) = (*x, *y);
             }
         }
+        for &(owner, id, x, y) in &now.squires {
+            if let Some(squire) = self.lane_squires.iter_mut().find(|s| s.owner == owner && s.recruit.id == id) {
+                (squire.x, squire.y) = (x, y);
+            }
+        }
         for (shot, &(x, y)) in self.projectiles.iter_mut().zip(shots) {
             (shot.x, shot.y) = (x, y);
         }
@@ -137,6 +173,7 @@ impl Run {
     pub fn predictable(&self, id: u32) -> bool {
         let at = self.exits.outside.get(&id).map_or(self.at, |e| e.at);
         self.active()
+            && self.crossroads.is_none()
             && !self.hitstop.frozen()
             && !self.turbo_on()
             && !super::activity::RIDES.iter().any(|ride| (ride.on)(self))
@@ -150,6 +187,7 @@ impl Run {
                     && h.slashes == 0
                     && h.tossed == 0
             })
+            && !self.shoulders.carried(id)
     }
 
     /// Step knight `id` one tick on by `input`, as the sim steps it
@@ -184,9 +222,12 @@ impl Run {
         };
         let input = own_input(hero, input);
         let (walk, _) = hero.own_keys(&input, false, shield_free);
+        for cd in &mut hero.spell_cooldowns { *cd = cd.saturating_sub(1); }
         let ((dx, dy, speed), _) = hero.own_step(walk, &grid, tune.roll_speed, |h| {
             fx::ground_pace(h, webs, song, roads.as_deref(), tune)
         });
+        // A carrier goes slower for every rider, as the sim has it.
+        let speed = speed * self.shoulders.pace(id);
         // In the Wax Maze, the lanes' glide, as the sim steps it.
         let glided = self
             .folly
@@ -242,16 +283,19 @@ impl Run {
         let enemies: &[Enemy] = if outside.is_none() { &self.enemies } else { &[] };
         // What the server holds in flight of this knight's: a volley past
         // its budget leaves its middle, as the server's does.
-        let flying = in_flight(&self.projectiles, id);
+        let flying = volley_in_flight(&self.projectiles, id);
         // A borrowed body's volleys are the server's to draw (`bodies`).
         let Some(hero) = self.players.get_mut(&id).filter(|h| h.possessed.is_none()) else {
             return false;
         };
         let input = own_input(hero, input);
+        heroes::focus_aim(hero, enemies);
+        heroes::predict_stance(hero, &self.book, input);
+        if !hero.hero_kit.charging { hero.hero_kit.charge = 0; }
         let was = hero.fire_cooldown;
         hero.fire_cooldown = hero.fire_cooldown.saturating_sub(1);
         let (ax, ay) = unit(input.aim_x as f32, input.aim_y as f32);
-        let guarded = hero.dash_ticks > 0 || hero.shielding || hero.walling || hero.spin > 0;
+        let guarded = hero.dash_ticks > 0 || hero.shielding || hero.walling || hero.spin > 0 || hero.champ.busy() || hero.hero_kit.charging;
         if arcade || !(input.fire || ax != 0.0 || ay != 0.0) || hero.fire_cooldown != 0 || guarded {
             return true;
         }
@@ -261,18 +305,22 @@ impl Run {
         let melee = hero.forged.as_ref().and_then(|weapon| {
             weapon.melee.filter(|m| {
                 (weapon.bolt.is_none() && weapon.throw.is_none())
-                    || target.is_some_and(|e| (e.x - hero.x).hypot(e.y - hero.y) <= m.reach + e.radius())
+                    || target.is_some_and(|e| (e.x - hero.x).hypot(e.y - hero.y) <= melee::slash_reach(m.reach) + e.radius())
             })
         });
-        if hero.unarmed() {
+        if hero.arm.as_deref() == Some("flask-bandolier") {
+            // The Alchemist's flask is the server's to draw (`champions`).
+            hero.fire_cooldown = hero.cooldown(champions::FLASK_REARM);
+        } else if hero.unarmed() {
             hero.fire_cooldown = 9;
             hero.swing = 5;
             hero.sword = false;
         } else if let Some(melee) = melee {
-            if let Some(enemy) = target.filter(|e| (e.x - hero.x).hypot(e.y - hero.y) <= melee.reach + e.radius()) {
+            if let Some(enemy) = target.filter(|e| (e.x - hero.x).hypot(e.y - hero.y) <= melee::slash_reach(melee.reach) + e.radius()) {
                 (hero.aim_x, hero.aim_y) = unit(enemy.x - hero.x, enemy.y - hero.y);
             }
-            hero.fire_cooldown = hero.cooldown(melee.every);
+            let every = if hero.champ.fury > 0 { melee.every / 2 } else { melee.every };
+            hero.fire_cooldown = hero.cooldown(every);
             hero.swing = 6;
             hero.sword = false;
         } else {
@@ -374,6 +422,11 @@ impl Run {
                 hero.camera = Some((back(cx, px), back(cy, py)));
             }
         }
+        for &(owner, id, x, y) in &before.squires {
+            if let Some(squire) = view.lane_squires.iter_mut().find(|s| s.owner == owner && s.recruit.id == id) {
+                (squire.x, squire.y) = (back(squire.x, x), back(squire.y, y));
+            }
+        }
         for (id, x, y) in &before.enemies {
             if let Some(enemy) = view.enemies.iter_mut().find(|e| e.id == *id) {
                 (enemy.x, enemy.y) = (back(enemy.x, *x), back(enemy.y, *y));
@@ -390,7 +443,7 @@ impl Projectile {
     /// Whether knight `id` loosed this shot (its arm's, a forged weapon's,
     /// or a phantom's copy of them).
     pub fn loosed_by(&self, id: u32) -> bool {
-        !self.hostile && u32::from(self.traits.owner) == id
+        !self.hostile && !self.traits.squire && u32::from(self.traits.owner) == id
     }
 }
 

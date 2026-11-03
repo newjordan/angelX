@@ -1,3 +1,11 @@
+> **Cut on 2026-10-20.** The second art kit (`ANGEL_ART=v2`, `art_v2`) is gone
+> from the game. Its art is archived in
+> `<archive>/2026-10-20/art-v2/` (README there) and its code
+> at `refs/archive/cut-20261020/before-art-cuts`. What remains in the tree is
+> the shared grade and braille dots (`crates/delve/src/render/art.rs`) that the
+> arcade stage and the terminal cell painter use. The rest of this page is the
+> kit as it was.
+
 # Delve art v2 — black space and braille
 
 `ANGEL_ART=v2` opts into this renderer. An unset variable, `v1`, or any other
@@ -5,7 +13,7 @@ value keeps v1. Run Cargo from `cockpit/`; this work changes presentation, not
 simulation coordinates, collision, camera anchors, seat state or attack timing.
 
 ```sh
-CARGO_TARGET_DIR=/work/build-cache/angelx-artv2 TMPDIR=/work/tmp \
+CARGO_TARGET_DIR=<build-cache>/angelx-artv2 TMPDIR=<scratch> \
   ANGEL_ART=v2 cargo run --bin angel
 ```
 
@@ -163,7 +171,7 @@ from the same `tree`.
 Review: `ANGEL_ARENA_SHOTS=<dir> cargo test --bin angel write_art_pass_shots --
 --ignored` writes every countryside room, a fight and a start room for each
 dungeon pack, and kingdom views. Before/after sets for this pass are in
-`/work/artifacts/delve-world-20261013/art/`.
+`<artifacts>/delve-world-20261013/art/`.
 
 ## Coverage and layers
 
@@ -256,16 +264,16 @@ Mini-viz cached layers: **0.962 ms mean**. The complete CSVs also include
 The ignored Rust writer derives every pair from the original fixed `Run`
 fixtures. `moments.json` records tick, room/pack, actor positions and attack
 counts. Today v1 and last v2 reference frames are retained from HEAD `342d24a1`
-in `/work/tmp/review-shots/artv2-match/`. Native review streams use the real
+in `<scratch>/review-shots/artv2-match/`. Native review streams use the real
 `Viewer::render_game_img` encoder/upload/placeholder path. Fallback streams use
 the same `paint_room_ui`/`art::paint_cells` functions as gameplay.
 
 ```sh
 cd cockpit
-CARGO_TARGET_DIR=/work/build-cache/angelx-artv2 TMPDIR=/work/tmp \
+CARGO_TARGET_DIR=<build-cache>/angelx-artv2 TMPDIR=<scratch> \
   CARGO_PROFILE_TEST_OPT_LEVEL=3 CARGO_PROFILE_TEST_DEBUG=0 CARGO_INCREMENTAL=0 \
-  ANGEL_ART=v2 ANGEL_ART_SHOTS=/work/tmp/review-shots/artv2-black \
-  ANGEL_ART_PREVIOUS=/work/tmp/review-shots/artv2-match \
+  ANGEL_ART=v2 ANGEL_ART_SHOTS=<scratch>/review-shots/artv2-black \
+  ANGEL_ART_PREVIOUS=<scratch>/review-shots/artv2-match \
   cargo test --bin angel write_art_v2_shots -- --ignored --nocapture
 cd ..
 ```
@@ -277,7 +285,7 @@ and join it from the window.
 ```sh
 crates/target/release/delve-dev-host --port 8820 --bundle crates/web/dist/delve \
   --scene fight --key KEY &
-ANGEL_ART=v2 ANGEL_GLASS_SHOT=/work/tmp/review-shots/artv2-black/fight.png \
+ANGEL_ART=v2 ANGEL_GLASS_SHOT=<scratch>/review-shots/artv2-black/fight.png \
   ANGEL_GLASS_SHOT_DELAY_MS=20000 ANGEL_GLASS_SHOT_CLOSE=1 bin/angelX --glass
 # in the window: /dungeon join http://127.0.0.1:8820/#KEY
 ```

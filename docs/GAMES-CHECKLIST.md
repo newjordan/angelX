@@ -11,7 +11,7 @@ These are original short-room interpretations, not a list of commercial titles t
 | 2 | Close combat counter duel | have: Latch Duel | Each knight reads a personal Clasp's high hook or low rake in the Dented Anvil, guards and races to three clean counters; live progress, a seat-scaled purse, timing tiebreak and crown. |
 | 3 | Pinball | have: Mossbell | Each knight flips a personal seed-pod table inside the bathhouse conservatory; shared jackpot race, live scores, a seat-scaled purse and crown. |
 | 4 | Belt scrolling brawler | have: Brasswake | Every knight clears a personal brewery aisle, throws marked casks into the next rival lane, and fights the same vat keeper; three waves, pickups, live progress, a seat-scaled purse, crown and podium. |
-| 5 | Rhythm timing | todo | Each knight rings a separate bell part and the table shares a streak purse. |
+| 5 | Rhythm timing | have: Change Ringing | Each knight rings the same thirteen-strike peal in their own round at the Bashful Belfry: pull F on gold as each swing quickens, ten strikes true wins, an early pull is a clanger; first home takes the crown. |
 | 6 | Single-screen platformer | have: Rafterwake | Knights climb independent copies of the same seeded bellwright scaffold in the west-wing loft: lifts, ladders, falling bricks, a hoist keeper, live progress, seat-scaled gold and crown. |
 | 7 | Fixed-screen alien defence | todo | Each knight shields a personal orchard from a shared wave of hungry moths. |
 | 8 | Run and gun | have: Pennon Rush | Each knight runs a personal seeded battlement from the siege muster house, jumps breaches, aims a hook-bow and races to knock down the pennant captain; three sentry waves, repair shields, live progress, seat-scaled gold and crown. |
@@ -64,7 +64,7 @@ These are original short-room interpretations, not a list of commercial titles t
 | 55 | Kart and chariot racer | have: Cabbage and Roll Racing / horse race | Every knight drives a team and competes for the crown and purse. |
 | 56 | Marble momentum | have: Shaft Run | Every knight rolls a personal ball down the same shaft with a chase camera. |
 | 57 | Mine cart runner | have: Ore Cart / Wheelbarrow Cross | Each knight jumps and switches their own cart through the course. |
-| 58 | Bat and ball | have: Belfry Bat-and-Ball | Knights work personal paddles against the same bell targets. |
+| 58 | Bat and ball | reworked: Belfry Bell Rally | Tap to swing, time perfect returns, aim through four ordered bells; misses cost a turnip but keep the rally's progress. |
 | 59 | Board sports | have: Shield Surf / Jester's Half-Pipe | Every knight builds speed and times their own crest or trick. |
 | 60 | Light gun target range | have: Carnival Duck Range / Popinjay Shoot | Every knight aims independently at the same target sequence. |
 | 61 | Golf and precision throw | have: Chamber-Pot Put / Trencher Toss | Every knight lines up their own shot and races the shared score. |
@@ -92,13 +92,17 @@ Five feel knobs remain live in F2. See `crates/delve/assets/brasswake/BRIEF.md`
 and `ART.md`. The 75-second round ranks work, falls, then completion time; exact
 ties split 10G per seat and share the existing crown buff.
 
+Change Ringing (rank 5) shipped 2026-10-26 in the Bashful Belfry, on the
+generous-window rule the pick below called for: a 10-tick gold window on a
+30 Hz sim, swings quickening 42 to 18 ticks, the existing `circle_toll`
+and `clang` cues, and no music transport. Every knight rings the same
+peal in their own heat round, so the race stays honest. See
+`crates/delve/src/rules/pastimes/peal.rs` for the brief and five numbers.
+
 Next picks:
-1. Rhythm timing: separate bell parts add a shared streak purse.
-   Engine limit: 30 Hz gives 33ms tick precision; use generous host timing
-   windows and existing short cues before attempting a music transport.
-2. Fixed-screen defence: personal orchard shields under a common moth wave.
+1. Fixed-screen defence: personal orchard shields under a common moth wave.
    Engine work: per-seat shield contacts and a deterministic shared wave deck.
-3. Vertical scrolling shooter: personal falcon lanes, common rescues and a storm rook.
+2. Vertical scrolling shooter: personal falcon lanes, common rescues and a storm rook.
    Engine work: per-seat scrolling flight contacts and a shared rescue deck; reuse
    the integer aimed projectiles and sampled shot input from Pennon Rush.
 

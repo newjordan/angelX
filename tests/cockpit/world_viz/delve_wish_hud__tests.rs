@@ -2,7 +2,7 @@ use super::*;
 use angel_delve::rules::{Run, hud::Keys, phrasebook};
 
 fn party() -> Run {
-    let mut run = angel_delve::render::overworld::arena::art_v2::testing::fight();
+    let mut run = angel_delve::render::overworld::arena::testing::fight();
     run.players.get_mut(&1).unwrap().name = "Gawain".into();
     for id in 2..=4 { run.join_seat(id, &format!("Bot {}", id - 1)); }
     run.clear_for_test();
@@ -40,7 +40,6 @@ fn write_wish_hud_review() {
     let Some(dir) = std::env::var_os("ANGEL_WISH_SHOTS") else { return };
     let dir = std::path::PathBuf::from(dir);
     std::fs::create_dir_all(&dir).unwrap();
-    angel_delve::settings::set(angel_delve::settings::Settings { art_v2: true, feel_ledger: false, open_floors: false });
     let mut run = party();
     for state in ["before", "after"] {
         if state == "after" { run.grant(1, &phrasebook::get("volley").unwrap()).unwrap(); }

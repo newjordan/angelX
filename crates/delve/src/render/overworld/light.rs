@@ -12,7 +12,7 @@
 use std::sync::OnceLock;
 
 use super::ground::pool_ink;
-use super::ink::{BANK, BLACK, Img, PALETTE, Rgb, RgbMap, SIGNAL_BANK, bank_of, bayer, rgb, vnoise};
+use super::ink::{BANK, BLACK, Img, PALETTE, Rgb, RgbMap, SIGNAL_BANK, bank_colours, bank_of, bayer, every_colour, is_dye, rgb, vnoise};
 use super::map::Realm;
 
 /// A light in world pixels. `fire` lights warm what they touch.
@@ -57,7 +57,7 @@ pub fn darker(c: Rgb) -> Rgb {
     }
     let target = [c[0] as f32 * 0.66, c[1] as f32 * 0.66, c[2] as f32 * 0.66];
     let l0 = lum(c);
-    PALETTE[bank * BANK..(bank + 1) * BANK]
+    bank_colours(bank)
         .iter()
         .map(|&v| rgb(v))
         .filter(|&p| lum(p) < l0 - 1.0)
@@ -66,9 +66,11 @@ pub fn darker(c: Rgb) -> Rgb {
 }
 
 /// Firelight pulls a colour toward timber and structure — never toward
-/// foliage or stone blues, which read as a green cast.
+/// foliage or stone blues, which read as a green cast. A dye keeps its
+/// own: a pink by the fire is still pink, where a brown would say the
+/// fire had dyed it.
 pub fn warm(c: Rgb) -> Rgb {
-    if c == BLACK || bank_of(c) == Some(SIGNAL_BANK) {
+    if c == BLACK || bank_of(c) == Some(SIGNAL_BANK) || is_dye(c) {
         return c;
     }
     let t = [
@@ -89,7 +91,7 @@ pub fn warm(c: Rgb) -> Rgb {
 /// saturated plain inks step one or two down their own bank. Inks not
 /// listed keep their colour. In order: a step's target is never a later
 /// step's source, so a picture swapped through the list never runs on.
-const DUSK_INKS: [(char, char); 28] = [
+const DUSK_INKS: [(char, char); 30] = [
     // timber: cream and gold down to oak, orange to umber, bottom first
     ('R', 'P'),
     ('o', 'r'),
@@ -106,6 +108,9 @@ const DUSK_INKS: [(char, char); 28] = [
     // foliage: sunlit leaf down to the realm's own trees
     ('Y', 'M'),
     ('y', 'A'),
+    // the dyes: lilac and blush down to their own lavender and pink
+    ('^', ']'),
+    ('+', '%'),
     // signal: lamps, heraldry and cloth to plain dyes
     ('0', 'S'),
     ('1', 'q'),
@@ -147,7 +152,7 @@ fn tables() -> &'static Tables {
     TABLES.get_or_init(|| {
         let mut chains = RgbMap::default();
         let mut warmed = RgbMap::default();
-        for &v in PALETTE.iter() {
+        for v in every_colour() {
             let c = rgb(v);
             let mut chain = [c; CHAIN];
             for i in 1..CHAIN {

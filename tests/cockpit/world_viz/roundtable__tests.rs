@@ -7,6 +7,8 @@ use ratatui::{Terminal, backend::TestBackend, layout::Rect, style::Color};
 use std::collections::BTreeMap;
 
 fn party(slug: &str, seats: u32) -> Run {
+    // The Lightgallop's rules are a module the host's engine runs.
+    crate::agent::harness::live_policy::install_scripted_rules();
     let mut r = Run::roundtable_for_test(slug).unwrap();
     for id in 2..=seats {
         r.join_seat(id, &format!("Knight {id}"));

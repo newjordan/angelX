@@ -16,7 +16,7 @@
 
 use std::sync::OnceLock;
 
-use super::ink::{BANK, BLACK, Img, PALETTE, Rgb, RgbMap, SIGNAL_BANK, bank_of, hash, ink, rgb, vnoise};
+use super::ink::{BANK, BLACK, Img, PALETTE, PINK, Rgb, RgbMap, SIGNAL_BANK, VIOLET, bank_colours, bank_of, hash, ink, rgb, vnoise};
 
 // ─── ramps ───────────────────────────────────────────────────────────────────
 
@@ -72,18 +72,19 @@ fn d2(p: Rgb, t: [f32; 3]) -> f32 {
     (0..3).map(|i| (p[i] as f32 - t[i]).powi(2)).sum()
 }
 
-/// `(darker, lighter)` for every material ink: one step inside its own bank.
+/// `(darker, lighter)` for every material ink, the dyes too: one step
+/// inside its own bank.
 fn steps() -> &'static RgbMap<(Rgb, Rgb)> {
     static STEPS: OnceLock<RgbMap<(Rgb, Rgb)>> = OnceLock::new();
     STEPS.get_or_init(|| {
         let mut out = RgbMap::default();
-        for &v in PALETTE.iter().take(BANK * SIGNAL_BANK) {
+        for v in PALETTE.iter().take(BANK * SIGNAL_BANK).chain(&VIOLET).chain(&PINK).copied() {
             let c = rgb(v);
             if c == BLACK {
                 continue;
             }
             let bank = bank_of(c).unwrap_or(0);
-            let ramp = || PALETTE[bank * BANK..(bank + 1) * BANK].iter().map(|&v| rgb(v));
+            let ramp = || bank_colours(bank).iter().map(|&v| rgb(v));
             let up = [c[0] as f32 * 1.3 + 6.0, c[1] as f32 * 1.3 + 6.0, c[2] as f32 * 1.3 + 6.0];
             let lighter = ramp()
                 .filter(|&p| lum(p) > lum(c) + 1.0)
@@ -1256,41 +1257,6 @@ pub fn skirting(pack: u32, x: i32, y: i32, d: i32) -> Option<char> {
         return Some(joint);
     }
     None
-}
-
-/// A creature in the realm's one light: its silhouette's upper edge lit a
-/// step, its lower and right edges a step into shadow, its signal inks
-/// (eyes, cores, tells) and near-black outline untouched. Same size, same
-/// footprint: only the inks move.
-pub fn shade_sprite(im: &Img) -> Img {
-    let mut out = im.clone();
-    let solid = |x: i32, y: i32| im.get(x, y).is_some_and(|c| c != BLACK);
-    for y in 0..im.h {
-        for x in 0..im.w {
-            let Some(c) = im.get(x, y) else { continue };
-            if c == BLACK || lum(c) < 24.0 || bank_of(c).is_none_or(|b| b == SIGNAL_BANK) {
-                continue;
-            }
-            let (up, left, down, right) = (!solid(x, y - 1), !solid(x - 1, y), !solid(x, y + 1), !solid(x + 1, y));
-            let near_up = !solid(x, y - 2) && !up;
-            out.set(
-                x,
-                y,
-                if up && !down {
-                    lighter(c)
-                } else if down && !up && !solid(x, y + 1) && solid(x, y - 2) {
-                    // Only a body's underside falls into shadow; thin
-                    // limbs and spikes keep their ink.
-                    darker(c)
-                } else if near_up && left && !right {
-                    lighter(c)
-                } else {
-                    c
-                },
-            );
-        }
-    }
-    out
 }
 
 // ─── relief: the shared finish over flat fills ───────────────────────────────

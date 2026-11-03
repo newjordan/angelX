@@ -68,7 +68,7 @@
     "source colour fidelity below 0.90",
     "unreviewed mapping/components"
   ],
-  "map_sha256": "73b06f133fb9f3b72d74419efbf6a55cd182a602f55e472dae7b843cd03f892f",
+  "map_sha256": "f636129ea092a959d39193442848e75dbc91453132dc9a2bb5a6813d4d41d97b",
   "metadata_sha256": "e389ea1b34bb883defd73df94d8e1a0e844902f2375054a0aca850fca381d628",
   "notes_sha256": "07dad825d5760a62da702b88d6f826368da4869f2fc6c1dbc80d23906f31b4a2",
   "outputs": {
@@ -535,7 +535,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "mossbell.keeper-damaged",
-  "source_path": "/work/artifacts/boss-art-20261015/damage-1/prepared/mossbell.keeper-damaged/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/damage-1/prepared/mossbell.keeper-damaged/source-sheet.png",
   "source_sha256": "a1d952ac39ed99dafcde9bc82df46944993294dd3fc4cc5c71b87037d05e77e9",
   "tool_version": 2
 }

@@ -49,9 +49,7 @@ impl CampaignRecord {
 
     pub(super) fn write(&self, dir: &Path) -> Result<(), String> {
         let bytes = serde_json::to_vec_pretty(self).map_err(|e| e.to_string())?;
-        let temporary = dir.join("campaign.json.tmp");
-        std::fs::write(&temporary, bytes)
-            .and_then(|()| std::fs::rename(temporary, dir.join("campaign.json")))
+        crate::platform::workspace_store::write_private_atomic(&dir.join("campaign.json"), &bytes)
             .map_err(|e| format!("could not retain RL handoff: {e}"))
     }
 

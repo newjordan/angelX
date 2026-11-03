@@ -24,6 +24,8 @@ art drops in: nothing else in the game changes.
   - greens `f D F E e l N m L A M y C Y`
   - wood `n b I B p P r R o O t T`
   - stone `s x S u U v V W q Q z`
+  - violet `d ( ) [ ] ^` and pink `! ? ; % +`: the dyes, plain material
+    like the four above
   - signal `0 1 2 3 w a 4 @ 5 6 $ c 9 8 7`: the bank that glows. Only for
     eyes, fire, a wisp's flame, a lock that holds: state, never dressing.
     Each function below says how many signal pixels it may use.
@@ -116,7 +118,7 @@ the Mire King's hall with the pen.
 cd crates
 cargo test -p angel-delve swamp_art                       # the contract
 cargo test -p angel-delve approved_bestiary_pixels_stay_exact
-ANGEL_ARENA_SHOTS=/work/tmp/swamp-shots \
+ANGEL_ARENA_SHOTS=<scratch>/swamp-shots \
   cargo test -p angel-delve write_swamp_shots -- --ignored  # the review shots
 ```
 

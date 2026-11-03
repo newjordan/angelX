@@ -1,0 +1,45 @@
+{
+ "fixture": {
+  "n_targets": 26,
+  "n_real": 26,
+  "n_actuated": 23,
+  "n_decoy": 26,
+  "says_done_on_actuated": 0.0,
+  "says_not_done_on_failed": 1.0,
+  "says_not_done_on_decoy": 1.0,
+  "unparsed": 0.0,
+  "pixel_done_on_actuated": 0.174,
+  "pixel_not_done_on_failed": 1.0,
+  "pixel_not_done_on_decoy": 1.0,
+  "median_changed_px_act": 0,
+  "median_changed_px_fail": 0,
+  "median_changed_px_decoy": 0,
+  "box_hit": 0.731,
+  "median_verifier_secs": 7.2
+ },
+ "all": {
+  "n_targets": 26,
+  "n_real": 26,
+  "n_actuated": 23,
+  "n_decoy": 26,
+  "says_done_on_actuated": 0.0,
+  "says_not_done_on_failed": 1.0,
+  "says_not_done_on_decoy": 1.0,
+  "unparsed": 0.0,
+  "pixel_done_on_actuated": 0.174,
+  "pixel_not_done_on_failed": 1.0,
+  "pixel_not_done_on_decoy": 1.0,
+  "median_changed_px_act": 0,
+  "median_changed_px_fail": 0,
+  "median_changed_px_decoy": 0,
+  "box_hit": 0.731,
+  "median_verifier_secs": 7.2
+ },
+ "mode": "none",
+ "verifier": "reground",
+ "view": [
+  1920,
+  1080
+ ],
+ "wall_s": 588.1
+}

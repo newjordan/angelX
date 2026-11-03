@@ -153,7 +153,7 @@ pub struct Seat {
     pub serial: u64,
     pub hint: u32,
 }
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Change {
     pub player: String,
     pub item: String,
@@ -161,16 +161,32 @@ pub struct Change {
 }
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct State {
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub local_focus: u32,
     pub records: Records,
     pub seats: BTreeMap<u32, Seat>,
     pub seen: BTreeSet<String>,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub ready: bool,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub dirty: bool,
-    #[serde(skip)]
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
     pub changes: Vec<Change>,
 }
 impl State {
@@ -307,11 +323,15 @@ pub fn summary(records: &Records) -> String {
 
 impl Run {
     pub fn vote_command(&mut self, id: u32, command: Command) {
+        if self.crossroads_voting() {
+            self.crossroads_command(id, command);
+            return;
+        }
         if let Some(hero) = self.players.get(&id) {
             self.playtest.command(id, &hero.name, command);
         }
     }
-    pub(super) fn ballot_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> BTreeMap<u32, Input> {
+    pub(super) fn ballot_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
         if self.playtest.ready {
             for (&id, hero) in &self.players {
                 self.playtest.arrive(id, &hero.name);
@@ -320,7 +340,15 @@ impl Run {
         for seat in self.playtest.seats.values_mut() {
             seat.hint = seat.hint.saturating_sub(1);
         }
-        inputs
+        // Nothing to strip: the map the caller holds is the ballot.
+        if inputs
+            .iter()
+            .all(|(&id, input)| !input.skip_plate && input.vote.is_none() && !self.playtest.open(id))
+        {
+            return None;
+        }
+        Some(
+            inputs
             .iter()
             .map(|(&id, &input)| {
                 if input.skip_plate {
@@ -339,7 +367,8 @@ impl Run {
                     },
                 )
             })
-            .collect()
+            .collect(),
+        )
     }
 }
 
@@ -350,3 +379,7 @@ mod tests;
 #[cfg(any(test, feature = "testing"))]
 #[path = "../../tests/rules/together_votes__fixtures.rs"]
 pub mod testing;
+
+#[cfg(all(test, feature = "bend-cases-games-c"))]
+#[path = "../../tests/rules/votes_bend_cases__tests.rs"]
+mod votes_bend_cases_tests;

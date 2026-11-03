@@ -158,7 +158,7 @@ fn snapshot_prunes_owned_excluded_fixture_and_rejects_symlink_escape() {
 #[test]
 fn snapshot_reproduces_links_that_cannot_alias_the_live_tree() {
     fixture(|root, source| {
-        // A build tree's link to a system library (apollo's
+        // A build tree's link to a system library (a GPU host's
         // lib/libcrypto.so -> /usr/lib/.../libcrypto.so.3) and an in-tree
         // soname link are reproduced as links, never followed.
         let system = root.join("system");

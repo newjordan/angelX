@@ -31,12 +31,17 @@ pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
         let left = up.wind.saturating_sub(enemy.timer);
         let every = if left < 8 { 1 } else if left < 16 { 2 } else { 4 };
         if (run.tick / every).is_multiple_of(2) {
-            return heat(im);
+            // A guardian drawn in its own pose for its wind-up (the Lawn
+            // Flamingo, a dread of the Deep) glows at its rim instead, so
+            // the pose it winds up in still shows through.
+            let posed = super::garden::is_flamingo(boss) || crate::rules::deep::dread::is(boss);
+            return if posed { rim_heat(im) } else { heat(im) };
         }
         return im.clone();
     }
     if enemy.flashing(run.tick) {
-        return heat(im);
+        let posed = enemy.boss.and_then(|i| run.bosses.get(usize::from(i))).is_some_and(|b| super::garden::is_flamingo(b) || crate::rules::deep::dread::is(b));
+        return if posed { rim_heat(im) } else { heat(im) };
     }
     im.clone()
 }
@@ -44,10 +49,26 @@ pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
 /// Cached palette tint: each bank keeps its own pale material ramp. The
 /// source's shadow planes stay darker; struck metal can catch pale cream.
 fn pale(im: &Img, strong: bool, metal: bool) -> Img {
-    use super::super::ink::{BANK, PALETTE, RgbMap, rgb};
+    use super::super::ink::{BANK, PALETTE, PINK_BANK, RgbMap, VIOLET_BANK, bank_colours, rgb};
     use std::sync::OnceLock;
     static TINT: OnceLock<RgbMap<[[u8; 3]; 3]>> = OnceLock::new();
     let tint = TINT.get_or_init(|| {
+        // A dye lifts up its own ramp toward its palest, as each realm bank
+        // does toward its own pale; no realm colour's lift ever lands on one.
+        let dyes = [VIOLET_BANK, PINK_BANK].into_iter().flat_map(|bank| {
+            let ramp: Vec<[u8; 3]> = bank_colours(bank).iter().map(|&v| rgb(v)).collect();
+            let peak = ramp[ramp.len() - 1];
+            ramp.clone().into_iter().map(move |c| {
+                let samples = [0, 1, 2].map(|phase| {
+                    let wanted = if phase == 2 { hit_metal_rgb(c) } else { hit_rgb_toward(c, peak, phase == 1) };
+                    *ramp
+                        .iter()
+                        .min_by_key(|r| (0..3).map(|k| (i32::from(r[k]) - i32::from(wanted[k])).pow(2) * [2, 6, 1][k]).sum::<i32>())
+                        .unwrap_or(&c)
+                });
+                (c, samples)
+            })
+        });
         PALETTE
             .iter()
             .enumerate()
@@ -100,6 +121,7 @@ fn pale(im: &Img, strong: bool, metal: bool) -> Img {
                 });
                 (c, samples)
             })
+            .chain(dyes)
             .collect()
     });
     let phase = if metal { 2 } else { usize::from(strong) };
@@ -161,6 +183,26 @@ fn hit_rgb_toward(c: [u8; 3], peak: [u8; 3], strong: bool) -> [u8; 3] {
 
 /// A boss's picture heated: its shadows to blood, its body to ember, only
 /// its highlights to amber, so the shape stays readable while it burns.
+/// `im` with its edge burning: its outline hot, a ring of heat outside it
+/// and a band of it just inside, the rest of it as it was.
+pub(super) fn rim_heat(im: &Img) -> Img {
+    let mut out = im.clone();
+    for y in 0..im.h {
+        for x in 0..im.w {
+            let solid = im.get(x, y).is_some();
+            let near = [(1, 0), (-1, 0), (0, 1), (0, -1)].iter().filter(|(dx, dy)| im.get(x + dx, y + dy).is_some()).count();
+            if !solid && near > 0 {
+                out.put(x, y, '7');
+            } else if solid && near < 4 {
+                out.put(x, y, if (x + y) % 2 == 0 { '@' } else { '6' });
+            } else if solid && [(2, 0), (-2, 0), (0, 2), (0, -2)].iter().any(|(dx, dy)| im.get(x + dx, y + dy).is_none()) && (x + y) % 2 == 0 {
+                out.put(x, y, '@');
+            }
+        }
+    }
+    out
+}
+
 pub(super) fn heat(im: &Img) -> Img {
     let mut out = Img::new(im.w, im.h);
     for y in 0..im.h {
@@ -215,6 +257,10 @@ pub(super) fn enemy_bar(cv: &mut Img, run: &Run, enemy: &Enemy, x: i32, y: i32, 
     }
     let share = enemy.hp as f32 / enemy.max_hp as f32;
     let top = enemy_top(run,enemy,y,im.h,view);
+    if boss && super::wanted::plated(run, enemy) {
+        // Its health is its name plate's fill (`wanted::nameplates`).
+        return;
+    }
     if boss {
         let w = im.w.clamp(24, 40);
         let fill = if enemy.desperation() > 0.0 { '@' } else { '7' };
@@ -281,6 +327,33 @@ pub(super) fn hero_bar(cv: &mut Img, run: &Run, hero: &Hero, x: i32, y: i32) {
         fill,
         super::hud_art::enabled(run),
     );
+    shield_bar(cv, hero, x, y + 7, run.tick as u32);
+}
+
+/// A kite shield's meter under a knight's health (`shield::Wear`), for
+/// everyone to see while the shield is up, worn or knocked aside: steel
+/// for what it can still turn; knocked aside, a crack across the bar
+/// (bright at first, as the shield drops) and red for its way back.
+pub(super) fn shield_bar(cv: &mut Img, hero: &Hero, x: i32, y: i32, tick: u32) {
+    let wear = hero.shield_wear;
+    if hero.guard != crate::rules::cards::Guard::Shield || !(hero.shielding || wear.showing()) {
+        return;
+    }
+    let (x0, w) = (x - 8, 16);
+    cv.rect(x0 - 1, y - 1, w + 2, 3, 'k');
+    cv.rect(x0, y, w, 1, 'g');
+    if wear.down > 0 {
+        let lit = (wear.back() * w as f32).round() as i32;
+        cv.rect(x0, y, lit, 1, '7');
+        let fresh = wear.down + crate::rules::shield::SHIELD_DOWN / 3 > crate::rules::shield::SHIELD_DOWN;
+        let ink = if fresh || (tick / 4).is_multiple_of(2) { 'w' } else { 'J' };
+        for (dx, dy) in [(-4, 0), (-3, -1), (-2, 0), (-1, 1), (0, 0), (1, -1), (2, 0), (3, 1), (4, 0)] {
+            cv.put(x + dx, y + dy, ink);
+        }
+    } else {
+        let lit = (wear.left(hero.max_hp) * w as f32).ceil() as i32;
+        cv.rect(x0, y, lit, 1, 'z');
+    }
 }
 
 /// The warnings of a desperate boss: its ring, closing in dots with the
@@ -354,19 +427,28 @@ pub(super) fn last_stand(cv: &mut Img, run: &Run, enemy: &Enemy, tick: u32) {
 
 /// Beside a weapon a knight can swap to: its name and the key, on a plate
 /// over the card. Small frames get only a gold mark, since type would blur.
-pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32)) {
-    for item in &run.room().items {
+/// A seat sees its own: what its knight could take, near its knight; its
+/// own set-down shield too, which only the take key takes back.
+pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), focus: Option<u32>) {
+    for item in run.room().items.iter().filter(|item| run.lies_for(item, focus)) {
         let Some(card) = run
             .book
             .get(&item.card)
-            .filter(|c| c.kind == cards::Kind::Arm)
+            .filter(|c| c.kind == cards::Kind::Arm || item.owner.is_some_and(|o| focus == Some(o)))
         else {
             continue;
         };
+        // A champion keeps his own arm: no swap is offered him.
+        if card.kind == cards::Kind::Arm
+            && focus.and_then(|f| run.players.get(&f)).is_some_and(|h| crate::rules::champions::of(h).is_some())
+        {
+            continue;
+        }
         let near = run
             .players
-            .values()
-            .any(|h| h.hp > 0 && !h.stone && (h.x - item.x).hypot(h.y - item.y) < TAKE_REACH + 2.0);
+            .iter()
+            .filter(|(id, _)| focus.is_none_or(|f| f == **id))
+            .any(|(_, h)| h.hp > 0 && !h.stone && (h.x - item.x).hypot(h.y - item.y) < TAKE_REACH + 2.0);
         if !near {
             continue;
         }
@@ -391,6 +473,88 @@ pub(super) fn take_prompts(cv: &mut Img, run: &Run, legible: bool, view: (i32, i
         cv.put(x + 1, py + 21, '6');
         cv.put(x, py + 22, '6');
     }
+}
+
+/// Who took what off the floor, as seat `focus` sees it (the operator,
+/// 2026-10-19: "we don't see if a friendly picked up a card or not"): a
+/// friend's take rings where it lay in their colours and their name rises
+/// as a mote flies to them; what the friends took their own of and still
+/// lies for this knight wears a pip in each taker's colours; and this
+/// knight's own take says what came of it over their head a moment
+/// ("Potion: Z to drink", "hand full").
+pub(super) fn takes(cv: &mut Img, run: &Run, legible: bool, view: (i32, i32), focus: Option<u32>) {
+    use crate::rules::feel::TAKE_TICKS;
+    for item in run.room().items.iter().filter(|item| !item.took.is_empty() && run.lies_for(item, focus)) {
+        let (x, y) = at(item.x, item.y);
+        let n = item.took.len().min(4) as i32;
+        let left = x - (n * 3 - 1) / 2;
+        for (i, &by) in item.took.iter().take(4).enumerate() {
+            let px = left + i as i32 * 3;
+            cv.rect(px - 1, y + 6, 4, 4, 'K');
+            cv.rect(px, y + 7, 2, 2, super::party::seat_ink(by));
+        }
+    }
+    for take in run.feel.takes.iter().filter(|t| focus != Some(t.by)) {
+        let Some(hero) = run.players.get(&take.by) else {
+            continue;
+        };
+        let ink = super::party::seat_ink(take.by);
+        let age = i32::from(TAKE_TICKS - take.ttl.min(TAKE_TICKS));
+        let (x, y) = at(take.x, take.y);
+        // A ring opening where it lay, in their colours.
+        if age < 10 {
+            let r = 3.0 + age as f32 * 1.2;
+            for i in 0..16 {
+                let a = i as f32 / 16.0 * std::f32::consts::TAU;
+                cv.put(x + (a.cos() * r).round() as i32, y + (a.sin() * r * 0.45).round() as i32, ink);
+            }
+        }
+        // A mote flying from there to them.
+        let k = (age as f32 / 12.0).min(1.0);
+        let (kx, ky) = at(hero.x, hero.y);
+        if k < 1.0 {
+            let lift = (k * std::f32::consts::PI).sin() * 8.0;
+            let (mx, my) = (x as f32 + (kx - x) as f32 * k, y as f32 + (ky - y) as f32 * k - lift);
+            cv.rect(mx.round() as i32 - 1, my.round() as i32 - 1, 3, 3, ink);
+        }
+        // Their name popping up where it lay, rising, and lifting away
+        // through the dither as the take is forgotten (`notices::board_from`).
+        if legible {
+            let name: String = hero.name.to_uppercase().chars().take(12).collect();
+            let w = text_width(&name);
+            let px = super::in_view_x(x, w + 4, view, cv.w) + 2;
+            let py = (y - 18 - age / 4).max(0);
+            let mut plate = Img::new(w + 4, 9);
+            plate.rect(0, 0, w + 4, 9, 'K');
+            plate.text(2, 1, &name, ink);
+            super::notices::board_from(cv, &plate, (px - 2, py - 1), age as f32, Some(f32::from(TAKE_TICKS)), 5.0);
+        } else if age < 20 {
+            cv.rect(x - 1, (y - 10 - age / 3).max(0), 3, 3, ink);
+        }
+    }
+    // This knight's own take, said over their head.
+    let Some((when, who, line)) = run.found.as_ref() else {
+        return;
+    };
+    let shown = run.tick.saturating_sub(*when) < u64::from(crate::rules::HZ * 5 / 2);
+    if !legible || !shown || Some(*who) != focus || !crate::rules::take_line(line) {
+        return;
+    }
+    let Some(hero) = run.players.get(who) else {
+        return;
+    };
+    let (x, y) = at(hero.x, hero.y);
+    let text: String = line.to_uppercase().chars().take(24).collect();
+    let w = text_width(&text) + 6;
+    let px = super::in_view_x(x, w, view, cv.w);
+    let py = (y - 40).max(0);
+    // Up into place past its line and back, held to be read, and lifted
+    // away through the dither at the end (`notices::board_from`).
+    let mut plate = Img::new(w + 1, 12);
+    super::super::chrome::panel(&mut plate, (0, 0, w, 11), super::super::chrome::Tone::KEY);
+    plate.text(3, 2, &text, 'i');
+    let age = run.tick.saturating_sub(*when) as f32;
+    super::notices::board_from(cv, &plate, (px, py), age, Some((crate::rules::HZ * 5 / 2) as f32), 7.0);
 }
 
 /// "THIEF!" over each goblin that has just robbed a knight, on a plate. Small
@@ -423,4 +587,41 @@ pub(super) fn thief_cries(cv: &mut Img, run: &Run, legible: bool, view: (i32, i3
             if (enemy.cry / 4) % 2 == 0 { '6' } else { '@' },
         );
     }
+}
+
+/// A warboar's tells: the line it marks before a charge, and the stars
+/// over its head while it stands dazed.
+pub(super) fn foes_marks(cv: &mut Img, run: &Run, enemy: &crate::rules::Enemy, tick: u32) {
+    let (x, y) = at(enemy.x, enemy.y);
+    match enemy.stage {
+        1 => {
+            let (dx, dy) = enemy.dir;
+            let (px, py) = (-dy, dx);
+            for k in 4..40 {
+                if (k + tick as i32 / 2) % 5 < 2 {
+                    continue;
+                }
+                let s = k as f32 * 2.2;
+                for w in [-1.0f32, 0.0, 1.0] {
+                    cv.put(
+                        x + (dx * s + px * w) as i32,
+                        y + (dy * s + py * w) as i32,
+                        if w == 0.0 { '7' } else { '8' },
+                    );
+                }
+            }
+        }
+        3 => {
+            for k in 0..3 {
+                let a = tick as f32 * 0.3 + k as f32 * 2.1;
+                cv.put(
+                    x + (a.cos() * 6.0) as i32,
+                    y - 12 + (a.sin() * 2.0) as i32,
+                    '6',
+                );
+            }
+        }
+        _ => {}
+    }
+    let _ = run;
 }

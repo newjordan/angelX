@@ -19,7 +19,7 @@ fn a_view_is_near_its_chunks_and_a_ring_round_them() {
             most = most.max(super::near([x, y, x + 384.0, y + 224.0]).len());
         }
     }
-    assert_eq!(most, RESIDENT, "a view is near at most as many chunks as are kept decoded");
+    assert_eq!(most, RESIDENT, "a view is near at most RESIDENT chunks");
     // At the kingdom's corner, inside it.
     assert!(near_centre((0.0, 0.0), (384.0, 224.0)).iter().all(|&i| cell(i).0 <= 2 && cell(i).1 <= 2));
 }
@@ -32,7 +32,6 @@ fn every_chunk_is_the_realms_set_drawn_lit() {
         let chunk = chunks.chunk(index).unwrap_or_else(|| panic!("chunk {index}"));
         assert_eq!(chunk.set.id, chunk.id());
         assert_eq!(&*chunk.text, &*super::super::realm::set_text(index), "{}: the realm's set", chunk.id());
-        assert!(!chunk.painted(), "plates are retired for the kingdom");
         let (lo, hi) = chunk.bounds;
         let [x0, z0, x1, z1] = chunk.set.camera.stage();
         assert!(lo[0] <= x0 + 1.0 && hi[0] >= x1 - 1.0 && lo[2] <= z0 + 1.0 && hi[2] >= z1 - 1.0, "{}: its ground covers its stage", chunk.id());
@@ -63,67 +62,19 @@ fn a_host_with_no_asset_folder_makes_every_chunk() {
     std::fs::create_dir_all(&dir).unwrap();
     let chunks = Chunks::scan(&dir);
     let chunk = chunks.chunk(index(3, 3).unwrap()).expect("its set");
-    assert!(!chunk.painted());
-    assert!(chunks.plate(&chunk).is_none());
     assert!(Arc::ptr_eq(&chunk, &chunks.chunk(index(3, 3).unwrap()).unwrap()), "made once and kept");
-    assert_eq!(chunks.unpainted().len(), COUNT);
     let _ = std::fs::remove_dir_all(&dir);
-}
-
-#[test]
-fn a_plate_is_decoded_off_the_frame_and_kept_with_a_few() {
-    let chunks = Chunks::scan(&super::super::blockout::landmark_folder());
-    let Some(chunk) = (0..COUNT as u32).filter_map(|i| chunks.chunk(i)).find(|c| c.painted()) else {
-        return; // no plates in this checkout's asset pack
-    };
-    let mut plate = chunks.plate(&chunk);
-    for _ in 0..400 {
-        if plate.is_some() {
-            break;
-        }
-        std::thread::sleep(std::time::Duration::from_millis(10));
-        plate = chunks.plate(&chunk);
-    }
-    let plate = plate.expect("decoded on its own thread");
-    assert_eq!((plate.width, plate.height), chunk.set.plate);
-    assert_eq!(chunks.resident(), 1);
-    // Its blocks with the plate cast on them, made once a picture.
-    let cast = chunk.cast(42, Patches::NONE);
-    assert!(Arc::ptr_eq(&cast, &chunk.cast(42, Patches::NONE)));
-    assert!(cast.floor.iter().chain(&cast.standing).all(|n| n.material.projector.is_some()));
 }
 
 #[test]
 fn each_kinds_dark_colour_is_the_realms_two_shades_down() {
     // The stage spells it as a table (a page's renderer has no inks): the
     // same as the realm's nearest plain ink taken two steps down.
-    for kind in Kind::ALL {
-        assert_eq!(kind.dark(), darker(kind.capture()), "{kind}");
-    }
-}
-
-#[test]
-fn a_chunks_patches_are_its_swatches_pictures() {
-    // Every chunk with patches names them in one picture, each where
-    // `swatches.png` lays it, and its blocks cast with them carry them where
-    // the plate does not see.
-    let Some(chunk) = (0..COUNT as u32).filter_map(|i| chunks().chunk(i)).find(|c| c.painted() && !c.swatches().is_empty()) else {
-        println!("no painted chunk with patches in the folder: nothing to check");
-        return;
-    };
-    let patches = chunk.patches(5031);
-    let atlas = assets::swatch_atlas(chunk.swatches()).expect("its patches");
-    assert_eq!(atlas, assets::decode(&chunk.swatches_png).unwrap(), "laid back as swatches.png lays them");
-    for s in chunk.swatches() {
-        let (x, y) = angel_stage::set::swatch_cell(s.kind);
-        assert_eq!(patches.rect(s.kind), Some([x, y, s.width, s.height]));
-    }
-    let blocks = chunk.cast(77, patches);
-    for node in blocks.floor.iter().chain(&blocks.standing) {
-        let kind = chunk.set.shapes[(node.id & 0xffff_ffff) as usize - 1].kind;
-        let want = chunk.swatch(kind).map(|s| s.kind);
-        assert_eq!(node.material.patch.map(|p| p.picture), want.map(|_| 5031), "{kind}");
-        assert_eq!(patches.drawn_as(kind), want, "{kind}");
+    use crate::render::overworld::{ink, light};
+    for kind in angel_stage::set::Kind::ALL {
+        let rgb = kind.capture();
+        let c = ink::nearest_plain([f32::from(rgb[0]), f32::from(rgb[1]), f32::from(rgb[2])]);
+        assert_eq!(kind.dark(), light::step_down(c, 2), "{kind}");
     }
 }
 
@@ -134,19 +85,17 @@ fn a_page_keeps_what_it_was_sent() {
     let at = index(2, 4).unwrap();
     assert!(page.chunk(at).is_none());
     let text = set_text(at);
-    let none: [u8; 0] = [];
-    assert!(page.receive(at, 1, &text, &none, &none));
-    let chunk = page.chunk(at).expect("kept");
-    assert!(!chunk.painted());
-    assert!(!page.receive(at, 2, "set broken\n", &none, &none), "a set that does not read");
-    assert!(!page.receive(index(3, 4).unwrap(), 3, &text, &none, &none), "another chunk's set");
+    assert!(page.receive(at, 1, &text));
+    assert!(page.chunk(at).is_some(), "kept");
+    assert!(!page.receive(at, 2, "set broken\n"), "a set that does not read");
+    assert!(!page.receive(index(3, 4).unwrap(), 3, &text), "another chunk's set");
     page.keep(&[]);
     assert!(page.chunk(at).is_none());
 }
 
 /// `cargo test -p angel-delve --release kingdom_costs -- --ignored
 /// --nocapture`: what a chunk costs a host, measured: its set made, its
-/// plate read and decoded, its blocks made and placed.
+/// lit blocks made.
 #[test]
 #[ignore = "prints what the chunks cost"]
 fn kingdom_costs() {
@@ -163,13 +112,6 @@ fn kingdom_costs() {
     let t = Instant::now();
     let all: Vec<_> = (0..COUNT as u32).filter_map(|i| chunks.chunk(i)).collect();
     println!("read and parse all {}: {:.2} ms each", all.len(), t.elapsed().as_secs_f64() * 1e3 / all.len() as f64);
-    let painted: Vec<_> = all.iter().filter(|c| c.painted()).collect();
-    println!("{} painted", painted.len());
-    let t = Instant::now();
-    for c in painted.iter().take(8) {
-        let _ = assets::decode(&c.png).unwrap();
-    }
-    println!("decode a plate: {:.1} ms", t.elapsed().as_secs_f64() * 1e3 / painted.len().clamp(1, 8) as f64);
     let t = Instant::now();
     for c in &all {
         let _ = c.lit();
@@ -178,97 +120,6 @@ fn kingdom_costs() {
     println!("set text: {} KB in all, {} KB most in one", all.iter().map(|c| c.text.len()).sum::<usize>() / 1024, all.iter().map(|c| c.text.len()).max().unwrap() / 1024);
     let shapes: usize = all.iter().map(|c| c.set.shapes.len()).sum();
     println!("shapes: {} in all, {} most in one", shapes, all.iter().map(|c| c.set.shapes.len()).max().unwrap());
-    let t = Instant::now();
-    for c in &all {
-        let _ = c.cast(1, c.patches(2));
-    }
-    println!("make a chunk's cast blocks: {:.3} ms", t.elapsed().as_secs_f64() * 1e3 / all.len() as f64);
-    let t = Instant::now();
-    let mut n = 0;
-    for _ in 0..10 {
-        for c in all.iter().take(16) {
-            let b = c.cast(1, c.patches(2));
-            n += angel_stage::set::place(&b.floor, 1.0, [-10.0, 0.0, -10.0]).len();
-            n += angel_stage::set::place(&b.standing, 1.0, [-10.0, 0.0, -10.0]).len();
-        }
-    }
-    println!("place 16 chunks' blocks: {:.3} ms ({} nodes)", t.elapsed().as_secs_f64() * 1e3 / 10.0, n / 10);
-}
-
-#[test]
-fn a_terminal_has_each_chunks_plate_laid_down_on_the_kingdom() {
-    use crate::render::overworld::arena;
-    let feet = [1344.0, 1408.0];
-    let run = proof_run(&[feet]);
-    let painted: Vec<Arc<Chunk>> = near([feet[0] - 192.0, feet[1] - 120.0, feet[0] + 192.0, feet[1] + 104.0])
-        .into_iter()
-        .filter_map(|i| chunks().chunk(i))
-        .filter(|c| c.painted())
-        .collect();
-    let flat = arena::frame_for(&run, arena::NATIVE_W, arena::NATIVE_H, Some(1));
-    crate::world3d::set_enabled(true);
-    for chunk in &painted {
-        let _ = chunks().plate_now(chunk);
-    }
-    let laid = arena::frame_for(&run, arena::NATIVE_W, arena::NATIVE_H, Some(1));
-    crate::world3d::set_enabled(false);
-    assert_eq!(arena::frame_for(&run, arena::NATIVE_W, arena::NATIVE_H, Some(1)), flat, "off, as it always was");
-    if painted.is_empty() {
-        assert_eq!(laid, flat, "no plates near: as it was");
-        return;
-    }
-    assert_ne!(laid, flat, "the plates laid down");
-    // A pixel of a painted chunk's open ground is its plate laid down there.
-    let chunk = &painted[0];
-    let img = super::laid(chunk).expect("laid down");
-    assert_eq!((img.w, img.h), (STAGE.0 as i32, STAGE.1 as i32));
-    assert!((0..img.h).all(|y| (0..img.w).all(|x| img.get(x, y).is_some())), "every pixel of its ground");
-}
-
-/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve --release
-/// kingdom_terminal -- --ignored --nocapture`: the kingdom as a terminal
-/// draws it at a few places with the world in 3D (plates laid down) and
-/// flat, and what a frame costs either way.
-#[test]
-#[ignore = "writes the kingdom's terminal shots and times them"]
-fn kingdom_terminal() {
-    use crate::render::overworld::arena;
-    use std::time::Instant;
-    let dir = std::env::var_os("ANGEL_ARENA_SHOTS").map(std::path::PathBuf::from);
-    let places = [("village", [1344.0, 1408.0]), ("castle-town", [1344.0, 896.0]), ("greenwood", [192.0, 128.0]), ("march", [2112.0, 2432.0])];
-    for (name, feet) in places {
-        let run = proof_run(&[feet]);
-        for on in [false, true] {
-            crate::world3d::set_enabled(on);
-            if on {
-                for i in near([feet[0] - 192.0, feet[1] - 120.0, feet[0] + 192.0, feet[1] + 104.0]) {
-                    if let Some(c) = chunks().chunk(i) {
-                        let t = Instant::now();
-                        let _ = chunks().plate_now(&c).map(|_| super::laid(&c));
-                        if c.painted() {
-                            println!("{name}: {} decoded and laid down in {:.1} ms", c.id(), t.elapsed().as_secs_f64() * 1e3);
-                        }
-                    }
-                }
-            }
-            let t = Instant::now();
-            let n = 60;
-            let mut img = None;
-            for k in 0..n {
-                let mut run = run.clone();
-                run.tick += k;
-                img = Some(arena::frame_for(&run, arena::NATIVE_W, arena::NATIVE_H, Some(1)));
-            }
-            println!("{name} {}: {:.2} ms a frame", if on { "3D" } else { "flat" }, t.elapsed().as_secs_f64() * 1e3 / n as f64);
-            if let (Some(dir), Some(img)) = (&dir, img) {
-                std::fs::create_dir_all(dir).unwrap();
-                let k = 3u32;
-                let file = dir.join(format!("terminal-{name}-{}.png", if on { "3d" } else { "flat" }));
-                image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, img.rgba_scaled(k)).unwrap().save(file).unwrap();
-            }
-        }
-        crate::world3d::set_enabled(false);
-    }
 }
 
 /// `ANGEL_WORLD3D_WALK=<file> cargo test -p angel-delve write_kingdom_walk

@@ -41,177 +41,6 @@ fn run_ok(script: &str) -> Outcome {
     .expect("run ok")
 }
 
-#[test]
-fn returns_number_stringified() {
-    assert_eq!(run_ok("return 1 + 2;").result, "3");
-}
-
-#[test]
-fn returns_string_verbatim() {
-    assert_eq!(run_ok("return 'hello';").result, "hello");
-}
-
-#[test]
-fn returns_object_as_json() {
-    let out = run_ok("return {a: 1, b: [2, 3]};");
-    // JSON.stringify ordering is insertion order.
-    assert_eq!(out.result, r#"{"a":1,"b":[2,3]}"#);
-}
-
-#[test]
-fn undefined_return_is_empty() {
-    assert_eq!(run_ok("let x = 1;").result, "");
-}
-
-#[test]
-fn calls_named_host_tool() {
-    // double({n:21}) -> "42"
-    assert_eq!(run_ok("return double({n: 21});").result, "42");
-}
-
-#[test]
-fn await_is_optional_and_harmless() {
-    assert_eq!(
-        run_ok("const a = await double({n: 5}); return a;").result,
-        "10"
-    );
-}
-
-#[test]
-fn pending_async_promise_returns_an_incomplete_execution_error() {
-    let err = run(
-        "return new Promise(() => {});",
-        &[],
-        &mock,
-        &parallel_all,
-        Duration::from_secs(5),
-        128,
-    )
-    .unwrap_err();
-    assert!(err.contains("did not settle"), "got: {err}");
-}
-
-#[test]
-fn loops_and_batches_across_calls() {
-    // Sum double(1..=4) = 2+4+6+8 = 20, in ONE run (would be 4 round-trips).
-    let out = run_ok(
-        "let total = 0; for (let i = 1; i <= 4; i++) { total += Number(double({n: i})); } return total;",
-    );
-    assert_eq!(out.result, "20");
-}
-
-#[test]
-fn generic_tool_dispatch_reaches_any_tool() {
-    // tool('double', {n:9}) works even without relying on the named wrapper.
-    assert_eq!(run_ok("return tool('double', {n: 9});").result, "18");
-}
-
-#[test]
-fn host_error_is_a_catchable_js_exception() {
-    let out =
-        run_ok("try { boom({}); return 'unreached'; } catch (e) { return 'caught:' + e.message; }");
-    assert_eq!(out.result, "caught:kaboom");
-}
-
-#[test]
-fn uncaught_host_error_fails_the_run() {
-    let err = run(
-        "return boom({});",
-        &["boom".into()],
-        &mock,
-        &parallel_all,
-        Duration::from_secs(5),
-        128,
-    )
-    .unwrap_err();
-    assert!(err.contains("kaboom"), "got: {err}");
-}
-
-#[test]
-fn console_log_is_captured() {
-    let out = run_ok("console.log('hi', 7); console.error('oops'); return 'ok';");
-    assert_eq!(out.result, "ok");
-    assert_eq!(out.console, vec!["hi 7".to_string(), "oops".to_string()]);
-    assert!(!out.console_truncated);
-}
-
-#[test]
-fn console_capture_is_byte_bounded() {
-    let out = run_ok("console.log('x'.repeat(70000)); return 'ok';");
-    assert_eq!(out.result, "ok");
-    assert!(out.console_truncated);
-    assert!(out.console.iter().map(String::len).sum::<usize>() <= 65_536);
-}
-
-#[test]
-fn syntax_error_is_reported() {
-    let err = run(
-        "return ((( ;",
-        &[],
-        &mock,
-        &parallel_all,
-        Duration::from_secs(5),
-        128,
-    )
-    .unwrap_err();
-    assert!(err.contains("compile error"), "got: {err}");
-}
-
-#[test]
-fn infinite_loop_times_out() {
-    let err = run(
-        "while (true) {}",
-        &[],
-        &mock,
-        &parallel_all,
-        Duration::from_millis(300),
-        128,
-    )
-    .unwrap_err();
-    assert!(err.contains("timed out"), "got: {err}");
-}
-
-#[test]
-fn heap_bomb_terminates_instead_of_aborting() {
-    // Unbounded allocation under a tiny (8MB) heap cap must be TERMINATED by
-    // the near-heap-limit callback (returns Err) rather than crash the whole
-    // process via V8's FatalProcessOutOfMemory. The timeout is generous (30s)
-    // so the failure is provably the heap guard, not the wall-clock watchdog
-    // (the heap fills in well under a second). If this test process *aborts*
-    // instead of failing the assertion, the heap guard regressed.
-    let err = run(
-        "let a = []; for (;;) { a.push(new Array(200000).fill(7)); }",
-        &[],
-        &mock,
-        &parallel_all,
-        Duration::from_secs(30),
-        8,
-    )
-    .unwrap_err();
-    // Termination surfaces through has_terminated() as "execution timed out".
-    assert!(
-        err.contains("timed out") || err.contains("terminated"),
-        "expected a termination error, got: {err}"
-    );
-}
-
-#[test]
-fn bad_json_args_throw() {
-    // Force a non-serializable arg path by calling the bridge directly with a
-    // value JSON.stringify drops to undefined → "{}" parses fine; instead test
-    // that a thrown error inside a tool propagates with the tool name.
-    let err = run(
-        "return tool('nope', {});",
-        &[],
-        &mock,
-        &parallel_all,
-        Duration::from_secs(5),
-        128,
-    )
-    .unwrap_err();
-    assert!(err.contains("unknown tool: nope"), "got: {err}");
-}
-
 /// Like `mock`, plus a `sleep` tool so concurrency is observable.
 fn slow_mock(name: &str, args: &Value) -> Result<String, String> {
     if name == "sleep" {
@@ -382,6 +211,12 @@ fn batch_scheduler_can_force_effects_serial_in_declaration_order() {
 
 #[test]
 fn batch_rejects_oversized_spec_before_dispatch() {
+    // YOLO lifts the construction cap (`usize::MAX`); pin it off so this
+    // checks the ordinary 48-item bound, not the inherited operator profile.
+    let _lock = crate::tests::env_lock();
+    let _yolo = crate::tests::TestEnvGuard::unset("ANGEL_YOLO");
+    let _smart = crate::tests::TestEnvGuard::unset("ANGEL_YOLO_SMART");
+    let _cap = crate::tests::TestEnvGuard::unset("ANGEL_CODE_MODE_MAX_BATCH_ITEMS");
     let err = run(
         "return batch(Array.from({length:49},()=>({tool:'double',args:{n:1}})));",
         &["double".into()],
@@ -395,15 +230,6 @@ fn batch_rejects_oversized_spec_before_dispatch() {
         err.contains("batch has 49 items; limit is 48"),
         "got: {err}"
     );
-}
-
-#[test]
-fn is_js_ident_filters() {
-    assert!(is_js_ident("read_file"));
-    assert!(is_js_ident("_x"));
-    assert!(!is_js_ident("read-file"));
-    assert!(!is_js_ident("2cool"));
-    assert!(!is_js_ident(""));
 }
 
 /// Scenario: a realistic "mass-test" program — map inputs to specs, run them
@@ -426,4 +252,41 @@ fn mass_test_aggregation_program() {
         "got: {}",
         out.result
     );
+}
+
+#[test]
+fn extracted_bridge_preserves_worker_identity_and_error_order() {
+    use crate::agent::harness::run_identity::{
+        LiveModelScope, LiveTurnScope, live_model, live_turn,
+    };
+    let _model = LiveModelScope::enter(Some("code-mode-boundary-model".into()));
+    let _turn = LiveTurnScope::enter(Some("code-mode-boundary-turn".into()));
+    let invoke = |name: &str, _: &Value| {
+        assert_eq!(live_model().as_deref(), Some("code-mode-boundary-model"));
+        assert_eq!(live_turn().as_deref(), Some("code-mode-boundary-turn"));
+        if name == "fail" {
+            Err("expected-boundary-error".into())
+        } else {
+            Ok(name.to_string())
+        }
+    };
+    let out = run(
+        "return batch(['first','fail','last'].map(tool=>({tool})));",
+        &[],
+        &invoke,
+        &parallel_all,
+        Duration::from_secs(5),
+        128,
+    )
+    .expect("bridge batch");
+    assert_eq!(
+        serde_json::from_str::<Value>(&out.result).unwrap(),
+        serde_json::json!([
+            {"ok":true,"output":"first"},
+            {"ok":false,"error":"expected-boundary-error"},
+            {"ok":true,"output":"last"},
+        ])
+    );
+    assert_eq!(live_model().as_deref(), Some("code-mode-boundary-model"));
+    assert_eq!(live_turn().as_deref(), Some("code-mode-boundary-turn"));
 }

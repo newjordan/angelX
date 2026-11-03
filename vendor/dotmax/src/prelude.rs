@@ -126,7 +126,7 @@
 //! // One function handles everything - images, GIFs, videos
 //! show_file("photo.png")?;       // Static image
 //! show_file("animation.gif")?;   // Plays animated GIF
-//! show_file("movie.mp4")?;       // Video (requires 'video' feature)
+//! show_file("movie.mp4")?;       // Video (requires 'video-playback' or 'video' feature)
 //! ```
 //!
 //! For manual control over animated content:

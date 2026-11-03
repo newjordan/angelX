@@ -77,7 +77,27 @@ pub(super) fn scenery(run: &Run) -> Img {
     lights.push(fire(sx, sy, 44.0, 0.3));
     super::lessons::furniture(&mut cv);
     dusk(&mut cv, &lights, ('x', 'I'));
+    super::squires::scenery(&mut cv, run);
+    // The doors to the squires' rooms along the north wall (`squire_rooms`).
+    super::squire_rooms::yard_doors(&mut cv);
     cv
+}
+
+/// The Squires Guild's plates, in its own room off the Yard
+/// (`squire_rooms`), each bright while a knight's menu stands on it.
+pub(super) fn guild_plates(cv: &mut Img, run: &Run) {
+    for (i, plate) in crate::rules::squire_guild::PLATES.iter().copied().enumerate() {
+        let lit = run.squire_guild.menus.values().any(|menu| menu.plate == i);
+        slab(cv, plate, lit);
+        let (c, r, w, _) = plate;
+        let label = crate::rules::squire_guild::LABELS[i];
+        cv.text(c * TILE + (w * TILE - text_width(label)) / 2, r * TILE - 8, label, 'O');
+    }
+}
+
+/// The Squires Guild's board, in its own room.
+pub(super) fn guild_board(cv: &mut Img, run: &Run, focus: Option<u32>) {
+    squire_board(cv, run, focus);
 }
 
 /// An archery butt: straw rings on a stand.
@@ -132,6 +152,7 @@ fn slab(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool) {
 /// The live yard: Grubbins and his wares, each quintain's count, and the
 /// plates knights stand on.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
+    super::squires::yard(cv, run);
     let tick = run.tick as u32;
     if run.home.goblins > 0 {
         let (gx, gy) = at(GRUBBINS_AT.0 * 2.0, GRUBBINS_AT.1 * 2.0);
@@ -175,15 +196,15 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
 }
 
 /// Over everything: the ware a knight is reading.
-pub(super) fn boards(cv: &mut Img, run: &Run) {
+pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
+    super::squires::board(cv, run, focus);
     if run.home.goblins == 0 {
         return;
     }
-    let reading = run
-        .players
-        .iter()
+    // The seat's own knight's plate and hold bar (`shoppers`).
+    let reading = super::shoppers(run, focus)
         .filter(|(_, h)| h.hp > 0)
-        .find_map(|(&id, h)| stall_plate(h.x, h.y).map(|i| (id, i)));
+        .find_map(|(id, h)| stall_plate(h.x, h.y).map(|i| (id, i)));
     let Some((id, item)) = reading else {
         return;
     };
@@ -229,6 +250,44 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
     let (_, r, _, _) = STALL_PLATES[item];
     let x = (STALL.0 * TILE - board.w - 8).max(2);
     cv.stamp(&board, x, (r * TILE - board.h).max(2));
+}
+
+fn squire_board(cv: &mut Img, run: &Run, focus: Option<u32>) {
+    use crate::rules::squire_guild::Command;
+    let Some((id, menu)) = super::shoppers(run, focus)
+        .find_map(|(id, _)| run.squire_guild.menus.get(&id).map(|menu| (id, menu))) else { return; };
+    let guild = &run.home.squire_guild;
+    let choices = run.squire_choices(id, menu.plate);
+    let mut lines = vec![(crate::rules::squire_guild::LABELS[menu.plate].to_string(), '9')];
+    let member = |knight: &str, recruit: u64| guild.rosters.get(knight)
+        .and_then(|r| r.members.iter().find(|s| s.id == recruit));
+    match choices.get(menu.cursor) {
+        Some(Command::Hire { recruit, .. }) => {
+            if let Some(s) = guild.recruits().into_iter().find(|s| s.id == *recruit) {
+                lines.push((s.name.to_uppercase(), 'h'));
+                lines.push((format!("HP {}  ATTACK {}  {} GOLD", s.hp(), s.damage(), s.wage()), 'O'));
+                lines.push((s.ability().into(), 'h'));
+            }
+        }
+        Some(Command::Select { knight, recruit: Some(id) }) | Some(Command::Train { knight, recruit: id }) => {
+            if let Some(s) = member(knight, *id) {
+                lines.push((format!("{}  LEVEL {}", s.name.to_uppercase(), s.level), 'h'));
+                lines.push((s.ability().into(), 'h'));
+                if matches!(choices.get(menu.cursor), Some(Command::Train { .. })) {
+                    lines.push((format!("TRAIN: {} GOLD", guild.training_price(s)), 'O'));
+                }
+            }
+        }
+        Some(Command::Select { recruit: None, .. }) => lines.push(("NO ACTIVE SQUIRE".into(), 'h')),
+        Some(Command::Upgrade(work)) => lines.push((guild.upgrade_price(*work)
+            .map_or_else(|| "MAXIMUM LEVEL".into(), |price| format!("UPGRADE: {price} GOLD")), 'O')),
+        _ => lines.push(("NO CHOICES".into(), 'h')),
+    }
+    lines.push((format!("LEFT / RIGHT   HOLD E {}/{}", menu.held, crate::rules::home::BUY_HOLD), 'O'));
+    if !menu.notice.is_empty() { lines.push((menu.notice.clone(), 'h')); }
+    let board = home::board(&lines);
+    let (c, r, w, _) = crate::rules::squire_guild::PLATES[menu.plate];
+    cv.stamp(&board, (c * TILE + w * TILE / 2 - board.w / 2).clamp(0, (cv.w - board.w).max(0)), (r * TILE + TILE + 4).min((cv.h - board.h).max(0)));
 }
 
 /// Grubbins: a goblin in a feathered hat and a waistcoat he insists he

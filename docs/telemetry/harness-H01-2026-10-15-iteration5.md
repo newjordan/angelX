@@ -8,7 +8,7 @@ H01's permanent-configuration containment candidate is unchanged. This iteration
 
 Protocol and preflight were reread, including the rule that a validated analysis or justified rejection is useful work and does not require manufacturing product churn. The native Labyrinth frontier lists technical door `q.angel-3d0199f7046f545e561ac9ea` as prerequisites-ready. The local plan query provided no additional subdoors. Old game doors were not pursued. No new campaign/orchestration service was introduced.
 
-Prospective scope, exact seven cases, alternative/removal control, closed-model enumeration, binary criteria, budgets and stop rules are frozen in [`scope.md`](../../artifacts/harness-research/20261015-local/H01/iteration5-mixed-budget/scope.md), appended to the existing index before the analysis. This is expressly **exploratory**: it does not amend or backdate H01's original efficacy registration. Both original preregistration and previous failed/confounded runs remain intact.
+Prospective scope, exact seven cases, alternative/removal control, closed-model enumeration, binary criteria, budgets and stop rules are frozen in `artifacts/harness-research/20261015-local/H01/iteration5-mixed-budget/scope.md` (not published), appended to the existing index before the analysis. This is expressly **exploratory**: it does not amend or backdate H01's original efficacy registration. Both original preregistration and previous failed/confounded runs remain intact.
 
 ## Identities and effective controls
 

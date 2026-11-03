@@ -14,6 +14,7 @@ fn bytes(cmd: &DelveCmd) -> Vec<u8> {
 fn busy() -> Input {
     Input {
         latch_tick: Some(1_760_000_000),
+        mirror: 5,
         leave_held: true,
         leave_activity: true,
         activity_menu: true,
@@ -33,6 +34,9 @@ fn busy() -> Input {
         take: true,
         interact: true,
         skill: 5,
+        team: true,
+        ride: true,
+        cycle: true,
         skip_plate: true,
         again: true,
     }
@@ -91,8 +95,11 @@ fn malformed_bytes_are_refused() {
     // An axis code 3 is no axis.
     assert_eq!(DelveCmd::decode(&[0b0000_0011, 0, 0x55, 0]), None);
     assert_eq!(DelveCmd::decode(&[0x55, 0, 0b1100_0000, 0]), None);
-    // A flag past the held leave flag.
-    assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x04, 0x55, 0]), None);
+    // A flag past the optional mirror action (bit 19) is malformed.
+    assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x20, 0x55, 0]), None);
+    assert!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x10, 0x55, 0]).is_some_and(|c| c.held.team));
+    assert!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x04, 0x55, 0]).is_some_and(|c| c.held.ride));
+    assert!(DelveCmd::decode(&[0x55, 0x80, 0x80, 0x08, 0x55, 0]).is_some_and(|c| c.held.cycle && !c.held.ride));
     // A slots varint claimed and zero, or too wide.
     assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x20, 0, 0x55, 0]), None);
     assert_eq!(DelveCmd::decode(&[0x55, 0x80, 0x20, 0x80, 0x04, 0x55, 0]), None);
@@ -150,6 +157,7 @@ fn a_repeated_tick_keeps_what_is_held_and_drops_presses_and_one_shots() {
     assert_eq!(repeat.pressed, Input::default());
     let held = repeat.input();
     assert!(held.vote.is_none() && !held.leave_activity && !held.activity_menu && !held.skip_plate);
+    assert_eq!(held.mirror, 0, "repeats never replay creator actions");
     assert!(held.fire && held.dash && held.ult && held.interact && held.leave_held);
     assert_eq!((held.move_x, held.aim_x, held.play, held.cast, held.skill), (-1, 1, 4, 3, 5));
     assert_eq!(DelveCmd::neutral().input(), Input::default());
@@ -226,4 +234,26 @@ fn a_late_latch_press_keeps_its_tick_through_the_existing_queue() {
     assert!(carried.input().fire);
     assert_eq!(carried.input().move_y,-1);
     assert_eq!(carried.held_only().input().latch_tick,None);
+}
+
+#[test]
+fn mirror_actions_round_trip_fold_and_reject_unknown_codes() {
+    for action in 1..=6 {
+        let cmd = DelveCmd { pressed: Input { mirror: action, ..Input::default() }, ..Default::default() };
+        assert_eq!(DelveCmd::decode(&bytes(&cmd)), Some(cmd));
+        let mut newer = DelveCmd::neutral();
+        newer.absorb(&cmd);
+        assert_eq!(newer.input().mirror, action);
+        newer.pressed.mirror = 6;
+        newer.absorb(&cmd);
+        assert_eq!(newer.input().mirror, 6, "newest action wins");
+    }
+    for invalid in [0, 7, 255] {
+        let mut body = vec![0x55];
+        put_varint(&mut body, HAS_MIRROR);
+        body.extend_from_slice(&[invalid, 0x55, 0]);
+        assert_eq!(DelveCmd::decode(&body), None);
+    }
+    // The new optional flag never alters pre-creator commands.
+    assert_eq!(bytes(&DelveCmd::neutral()), [0x55, 0, 0x55, 0]);
 }

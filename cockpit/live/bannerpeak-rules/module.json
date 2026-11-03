@@ -1,0 +1,16 @@
+{
+  "api_version": 1,
+  "id": "bannerpeak-rules",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "tile",
+    "tx": 400,
+    "ty": 20
+  },
+  "bend": {
+    "entry": "bannerpeak-rules.bend",
+    "proof": "PROOF.bend",
+    "output": "bannerpeak-rules.compiled.js"
+  }
+}

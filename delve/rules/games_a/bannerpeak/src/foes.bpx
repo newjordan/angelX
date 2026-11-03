@@ -1,0 +1,237 @@
+# crates/delve/src/rules/bannerpeak/foes.rs — what walks, floats and rolls besides the knights.
+module bannerpeak.foes
+
+use world.TILE
+use body.Q
+use body.TQ
+
+const POP: u32 = 12
+const WALK: i32 = 170
+const CAPPED_WALK: i32 = 130
+const WISP_REACH: i32 = 44
+const WISP_PERIOD: u32 = 150
+const CARRY: u32 = 150
+const RISE: u32 = 16
+const BOLT_LIFE: u32 = 70
+const BOLT_SPEED: i32 = 1900
+const BOLT_MOST: u32 = 2
+
+# Width and height in pixels.
+fn FoeKind.size(kind: str) -> (i32, i32):
+  if kind == FoeKind::Snuffer:
+    return (14, 14)
+  if kind == FoeKind::Capped:
+    return (14, 18)
+  return (12, 12)
+
+fn Foe.new(kind: str, cx: i32, cy: i32, mark: u32) -> Foe:
+  let x = cx * TILE + TILE / 2
+  # A wisp's mark is where it floats; the others stand on the cell.
+  let mut y: i32 = (cy + 1) * TILE
+  if kind == FoeKind::Wisp:
+    y = cy * TILE + TILE / 2 + 6
+  let mut dir: i32 = 1
+  if mark % 2 == 0:
+    dir = -1
+  return Foe{kind: kind, x: x * Q, y: y * Q, vx: 0, vy: 0, dir: dir, t: 0, dead: 0, home: x, mark: mark}
+
+fn Foe.alive(self: Foe) -> bool:
+  return self.dead == 0
+
+# The body box in pixels: left, top, right, bottom.
+fn Foe.rect(self: Foe) -> (i32, i32, i32, i32):
+  let (w, h) = FoeKind::size(self.kind)
+  let x = self.x.div_euclid(Q)
+  let y = self.y.div_euclid(Q)
+  return (x - w / 2, y - h, x + w / 2, y)
+
+fn Foe.defeat(self: Foe mut) -> unit:
+  self.dead = POP
+  self.vx = 0
+
+fn Foe.valid(self: Foe, width_px: i32, height_px: i32) -> bool:
+  return inc(self.x, 0, width_px * Q) && inc(self.y, -4 * TQ, (height_px + 64) * Q) && inc(self.vx, -4096, 4096) && inc(self.vy, -6000, 6000) && (self.dir == -1 || self.dir == 1) && self.dead <= POP && self.t < 16777216
+
+fn Foe.on_floor(self: Foe, g: View) -> bool:
+  return self.y % TQ == 0 && Tile::solid(g.tile(self.x.div_euclid(TQ), self.y.div_euclid(TQ)))
+
+# One tick. A foe far from every knight stands still.
+fn Foe.step(self: Foe mut, g: View, near: bool) -> unit:
+  if self.dead > 0:
+    self.dead -= 1
+    return
+  if !near:
+    return
+  self.t = self.t + 1
+  if self.kind == FoeKind::Wisp:
+    let swing = layout::ping_pong(self.t, WISP_PERIOD, 0, -WISP_REACH, WISP_REACH)
+    let x = self.home + swing
+    if x * Q >= self.x:
+      self.dir = 1
+    else:
+      self.dir = -1
+    self.x = x * Q
+  else:
+    self.walker(g)
+
+fn Foe.walker(self: Foe mut, g: View) -> unit:
+  let mut speed: i32 = WALK
+  if self.kind == FoeKind::Capped:
+    speed = CAPPED_WALK
+  self.vx = (self.dir as i32) * speed
+  self.vy = (self.vy + 210).min(3000)
+  # Along, turning at a wall or at the edge of its ledge.
+  let (w, h) = FoeKind::size(self.kind)
+  let nx = self.x + self.vx
+  let mut edge: i32 = nx - w * Q / 2
+  if self.dir > 0:
+    edge = nx + w * Q / 2
+  let col = edge.div_euclid(TQ)
+  let top = (self.y - h * Q).div_euclid(TQ)
+  let bottom = (self.y - 1).div_euclid(TQ)
+  let wall = Body::solid_rows(g, col, top, bottom)
+  let ground = self.vy == 0 || self.on_floor(g)
+  let under = g.tile(col, self.y.div_euclid(TQ))
+  let drop = ground && !Tile::solid(under) && !Tile::one_way(under)
+  if wall || drop:
+    self.dir = -self.dir
+    self.vx = 0
+  else:
+    self.x = nx
+  # Down onto what is below.
+  let ny = self.y + self.vy
+  let foot_col = self.x.div_euclid(TQ)
+  let row = ny.div_euclid(TQ)
+  let below = g.tile(foot_col, row)
+  if self.vy > 0 && (Tile::solid(below) || Tile::one_way(below)) && self.y <= row * TQ:
+    self.y = row * TQ
+    self.vy = 0
+  else:
+    self.y = ny
+
+struct FoeSmall:
+  alive: bool
+  size: (i32, i32)
+  rect: (i32, i32, i32, i32)
+  on_floor: bool
+
+fn Foe.small(self: Foe, g: View) -> FoeSmall:
+  return FoeSmall{alive: self.alive(), size: FoeKind::size(self.kind), rect: self.rect(), on_floor: self.on_floor(g)}
+
+fn Item.new(kind: str, x_px: i32, y_px: i32) -> Item:
+  return Item{kind: kind, x: x_px * Q, y: y_px * Q, vx: 0, vy: 0, dir: 1, t: 0, cap: CapState::Rest, owner: 0}
+
+fn Item.size(self: Item) -> (i32, i32):
+  if self.kind == ItemKind::Loaf:
+    return (12, 12)
+  if self.kind == ItemKind::Flame:
+    return (10, 14)
+  return (14, 10)
+
+fn Item.rect(self: Item) -> (i32, i32, i32, i32):
+  let (w, h) = self.size()
+  let x = self.x.div_euclid(Q)
+  let y = self.y.div_euclid(Q)
+  return (x - w / 2, y - h, x + w / 2, y)
+
+# Still coming out of its block: touching does nothing yet.
+fn Item.rising(self: Item) -> bool:
+  return (self.kind == ItemKind::Loaf || self.kind == ItemKind::Flame) && self.t < RISE
+
+fn Item.valid(self: Item, width_px: i32, height_px: i32) -> bool:
+  return inc(self.x, 0, width_px * Q) && inc(self.y, -4 * TQ, (height_px + 64) * Q) && inc(self.vx, -4096, 4096) && inc(self.vy, -6000, 6000) && (self.dir == -1 || self.dir == 1) && self.t < 16777216 && self.owner <= 8
+
+fn Item.step(self: Item mut, g: View) -> unit:
+  self.t = self.t.saturating_add(1)
+  if self.kind == ItemKind::Flame:
+    # Up out of the block, then it stays and flickers.
+    if self.t <= RISE:
+      self.y -= Q
+  elif self.kind == ItemKind::Loaf:
+    if self.t <= RISE:
+      self.y -= Q
+      return
+    self.walk(g, 384, true)
+  elif self.cap == CapState::Slide:
+    self.walk(g, 1800, false)
+  elif self.cap == CapState::Rest:
+    self.walk(g, 0, false)
+
+# Along at `speed` (0: stand), falling, turning at walls; a loaf also turns at a
+# ledge's edge, a cap goes over it.
+fn Item.walk(self: Item mut, g: View, speed: i32, careful: bool) -> unit:
+  let (w, h) = self.size()
+  self.vy = (self.vy + 210).min(3000)
+  if speed != 0:
+    self.vx = (self.dir as i32) * speed
+    let nx = self.x + self.vx
+    let mut edge: i32 = nx - w * Q / 2
+    if self.dir > 0:
+      edge = nx + w * Q / 2
+    let col = edge.div_euclid(TQ)
+    let top = (self.y - h * Q).div_euclid(TQ)
+    let bottom = (self.y - 1).div_euclid(TQ)
+    let wall = Body::solid_rows(g, col, top, bottom)
+    let under = g.tile(col, self.y.div_euclid(TQ))
+    let drop = careful && self.vy == 0 && !Tile::solid(under) && !Tile::one_way(under)
+    if wall || drop:
+      self.dir = -self.dir
+    else:
+      self.x = nx
+  let ny = self.y + self.vy
+  let row = ny.div_euclid(TQ)
+  let below = g.tile(self.x.div_euclid(TQ), row)
+  if self.vy > 0 && (Tile::solid(below) || Tile::one_way(below)) && self.y <= row * TQ:
+    self.y = row * TQ
+    self.vy = 0
+  else:
+    self.y = ny
+
+struct ItemSmall:
+  size: (i32, i32)
+  rect: (i32, i32, i32, i32)
+  rising: bool
+
+fn Item.small(self: Item) -> ItemSmall:
+  return ItemSmall{size: self.size(), rect: self.rect(), rising: self.rising()}
+
+fn Bolt.valid(self: Bolt, width_px: i32, height_px: i32) -> bool:
+  return inc(self.x, 0, width_px * Q) && inc(self.y, -4 * TQ, (height_px + 64) * Q) && inc(self.vx, -4096, 4096) && inc(self.vy, -6000, 6000) && self.t <= BOLT_LIFE && self.owner <= 8
+
+fn Bolt.rect(self: Bolt) -> (i32, i32, i32, i32):
+  let x = self.x.div_euclid(Q)
+  let y = self.y.div_euclid(Q)
+  return (x - 3, y - 3, x + 3, y + 3)
+
+# One tick; false once it has spent itself on a wall.
+fn Bolt.step(self: Bolt mut, g: View) -> bool:
+  self.t += 1
+  let nx = self.x + self.vx
+  if Tile::solid(g.tile(nx.div_euclid(TQ), self.y.div_euclid(TQ))):
+    return false
+  self.x = nx
+  self.vy = (self.vy + 130).min(2400)
+  let ny = self.y + self.vy
+  let below = g.tile(self.x.div_euclid(TQ), (ny + 3 * Q).div_euclid(TQ))
+  if self.vy > 0 && (Tile::solid(below) || Tile::one_way(below)):
+    # A low hop: it stays at a snuffer's height.
+    self.vy = -900
+  elif self.vy < 0 && Tile::solid(g.tile(self.x.div_euclid(TQ), (ny - 3 * Q).div_euclid(TQ))):
+    self.vy = 0
+  else:
+    self.y = ny
+  return self.t <= BOLT_LIFE
+
+case Foe.new: kind=kind, cx=cx, cy=cy, mark=mark
+case Foe.step: foe=self
+case Foe.valid: foe=self, w=width_px, h=height_px
+case Foe.defeat: foe=self
+case Foe.small: foe=self
+case Item.new: x=x_px, y=y_px
+case Item.step: item=self
+case Item.walk: item=self
+case Item.valid: item=self, w=width_px, h=height_px
+case Item.small: item=self
+case Bolt.step: bolt=self => bolt=self, alive=ret
+case Bolt.valid: bolt=self, w=width_px, h=height_px
+case Bolt.rect: bolt=self

@@ -1,0 +1,19 @@
+{
+ "name": "ranger",
+ "body": "hero",
+ "colors": {
+  "primary": [
+   "E",
+   "F"
+  ],
+  "secondary": [
+   "P",
+   "I"
+  ]
+ },
+ "equip": [
+  "leather_vest",
+  "cape",
+  "bow"
+ ]
+}

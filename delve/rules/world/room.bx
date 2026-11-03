@@ -1,0 +1,234 @@
+# crates/delve/src/rules/layout.rs — `impl Room`: doorways, regrowing, the
+# sanctuary's fixtures.
+
+def layout.half(+n: U32) -> U32:
+  (n >> 1n : U32)
+
+def layout.tile_name(+t: LayTile) -> String:
+  match t:
+    case TileFloor{}:
+      "floor"
+    case TileWall{}:
+      "wall"
+    case TileBlock{}:
+      "block"
+    case TileHazard{}:
+      "hazard"
+    case TileDoor{}:
+      "door"
+    case TileStairs{}:
+      "stairs"
+    case TileLedge{}:
+      "ledge"
+    case TileBog{}:
+      "bog"
+
+def layout.tile_from_name(+s: String) -> LayTile:
+  if String.eq(s, "floor"):
+    TileFloor{}
+  else:
+    if String.eq(s, "wall"):
+      TileWall{}
+    else:
+      if String.eq(s, "block"):
+        TileBlock{}
+      else:
+        if String.eq(s, "hazard"):
+          TileHazard{}
+        else:
+          if String.eq(s, "door"):
+            TileDoor{}
+          else:
+            if String.eq(s, "stairs"):
+              TileStairs{}
+            else:
+              if String.eq(s, "ledge"):
+                TileLedge{}
+              else:
+                TileBog{}
+
+# The room's two doorway cells on side `dir`.
+def layout.Room.lane(+cols: U32, +rows: U32, +dir: U32) -> LayLane:
+  match dir as U32:
+    case 0:
+      LayLane{(layout.half(cols) - 1 : U32), 0, layout.half(cols), 0}
+    case 1:
+      LayLane{(cols - 1 : U32), (layout.half(rows) - 1 : U32), (cols - 1 : U32), layout.half(rows)}
+    case 2:
+      LayLane{(layout.half(cols) - 1 : U32), (rows - 1 : U32), layout.half(cols), (rows - 1 : U32)}
+    case _:
+      LayLane{0, (layout.half(rows) - 1 : U32), 0, layout.half(rows)}
+
+# Open a doorway in side `dir`, where the floor's grid had none.
+def layout.Room.open_door(+room: J.Val, +dir: U32) -> J.Val:
+  g: LayGrid = layout.grid.of_room(room)
+  LayLane{c0: U32, r0: U32, c1: U32, r1: U32} of LayLane = layout.Room.lane(J.u32(J.get(room, "cols")), J.u32(J.get(room, "rows")), dir)
+  g1: LayGrid = layout.grid.set(g, c0, r0, TileDoor{})
+  g2: LayGrid = layout.grid.set(g1, c1, r1, TileDoor{})
+  layout.grid.put(J.set(room, "doors", J.set_nth(J.get(room, "doors"), dir, J.JBool{True{}})), g2)
+
+# Open every doorway the room's doors say, from side `i` on.
+def layout.Room.open_doors(+room: J.Val, +i: U32) -> J.Val:
+  if U32.is_ge(i, 4):
+    room
+  else:
+    if layout.Room.door(room, i):
+      layout.Room.open_doors(layout.Room.open_door(room, i), (i + 1 : U32))
+    else:
+      layout.Room.open_doors(room, (i + 1 : U32))
+
+# Open floor inside stone walls, `cols` by `rows`.
+def layout.grid.walled(+cols: U32, +rows: U32) -> LayGrid:
+  LayGrid{cols, rows, layout.grid.walled.rows(0, cols, rows)}
+
+def layout.grid.walled.rows(+r: U32, +cols: U32, +rows: U32) -> List<&2, List<&2, LayTile>>:
+  if U32.is_ge(r, rows):
+    Nil{}
+  else:
+    Con{layout.grid.walled.row(Bool.or(U32.is_eq(r, 0), U32.is_eq(r, (rows - 1 : U32))), cols), layout.grid.walled.rows((r + 1 : U32), cols, rows)}
+
+def layout.grid.walled.row(+edge: Bool, +cols: U32) -> List<&2, LayTile>:
+  if edge:
+    layout.row.fill(cols, TileWall{})
+  else:
+    Con{TileWall{}, List.append(&2, LayTile, layout.row.fill((cols - 2 : U32), TileFloor{}), Con{TileWall{}, Nil{}})}
+
+# The room laid afresh at `cols` by `rows`: open floor inside stone walls, its
+# doorways where they were. What it measured before is kept as `laid`.
+def layout.Room.regrow(+room: J.Val, +cols: U32, +rows: U32) -> J.Val:
+  if Bool.and(U32.is_eq(cols, J.u32(J.get(room, "cols"))), U32.is_eq(rows, J.u32(J.get(room, "rows")))):
+    room
+  else:
+    laid: J.Val = if J.is_null(J.get(room, "laid")):
+      J.JA{[J.get(room, "cols"), J.get(room, "rows")]}
+    else:
+      J.get(room, "laid")
+    layout.Room.open_doors(layout.grid.put(J.set(room, "laid", laid), layout.grid.walled(cols, rows)), 0)
+
+# Stairs down in the middle of the room (a slain dragon's lair).
+def layout.Room.open_stairs(+room: J.Val) -> J.Val:
+  c: U32 = (layout.half(J.u32(J.get(room, "cols"))) - 1 : U32)
+  r: U32 = (layout.half(J.u32(J.get(room, "rows"))) - 1 : U32)
+  g0: LayGrid = layout.grid.of_room(room)
+  g1: LayGrid = layout.grid.set(g0, c, (r + 2 : U32), TileStairs{})
+  g2: LayGrid = layout.grid.set(g1, (c + 1 : U32), (r + 2 : U32), TileStairs{})
+  g3: LayGrid = layout.grid.set(g2, c, (r + 3 : U32), TileStairs{})
+  g4: LayGrid = layout.grid.set(g3, (c + 1 : U32), (r + 3 : U32), TileStairs{})
+  layout.grid.put(room, g4)
+
+def layout.tile_is_floor(+t: LayTile) -> Bool:
+  match t:
+    case TileFloor{}:
+      True{}
+    case _:
+      False{}
+
+def layout.grid.clear(+g: LayGrid, +c: U32, +r: U32) -> Bool:
+  layout.tile_is_floor(layout.grid.get(g, c, r))
+
+# Where a Sanctuary's privy stands: the first clear two-by-two corner from the
+# north-west (rows 2.., cols 2..), its door facing south.
+def layout.Room.privy.col(+g: LayGrid, +row: U32, +col: U32, +end: U32) -> LayFind:
+  if U32.is_ge(col, end):
+    LayFind{False{}, 0, 0}
+  else:
+    if Bool.and(Bool.and(layout.grid.clear(g, col, row), layout.grid.clear(g, (col + 1 : U32), row)), Bool.and(layout.grid.clear(g, col, (row + 1 : U32)), layout.grid.clear(g, (col + 1 : U32), (row + 1 : U32)))):
+      LayFind{True{}, col, row}
+    else:
+      layout.Room.privy.col(g, row, (col + 1 : U32), end)
+
+def layout.Room.privy.row(+g: LayGrid, +row: U32, +rend: U32, +cend: U32) -> LayFind:
+  if U32.is_ge(row, rend):
+    LayFind{False{}, 0, 0}
+  else:
+    found: LayFind = layout.Room.privy.col(g, row, 2, cend)
+    layout.Room.find_or(found, g, row, rend, cend)
+
+def layout.Room.find_or(+found: LayFind, +g: LayGrid, +row: U32, +rend: U32, +cend: U32) -> LayFind:
+  match found as LayFind:
+    case LayFind{ok: Bool, a: U32, b: U32}:
+      if ok:
+        found
+      else:
+        layout.Room.privy.row(g, (row + 1 : U32), rend, cend)
+
+def layout.Room.privy(+room: J.Val) -> Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+  if layout.Room.is_kind(room, "sanctuary"):
+    cols: U32 = J.u32(J.get(room, "cols"))
+    rows: U32 = J.u32(J.get(room, "rows"))
+    found: LayFind = layout.Room.privy.row(layout.grid.of_room(room), 2, layout.half(rows), (layout.half(cols) - 2 : U32))
+    layout.Room.privy.out(found)
+  else:
+    None{}
+
+def layout.Room.privy.out(+found: LayFind) -> Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+  match found as LayFind:
+    case LayFind{ok: Bool, a: U32, b: U32}:
+      if ok:
+        Some{((U32.to_f32((a + 1 : U32)) * 2.0 : F32), (U32.to_f32((b + 2 : U32)) * 2.0 : F32))}
+      else:
+        None{}
+
+# Where a Sanctuary's field banner stands: the first clear tile down the east
+# side from the middle.
+def layout.Room.field_banner.col(+g: LayGrid, +row: U32, +col: U32, +low: U32) -> LayFind:
+  if U32.is_lt(col, low):
+    LayFind{False{}, 0, 0}
+  else:
+    if Bool.and(layout.grid.clear(g, col, row), layout.grid.clear(g, col, (row + 1 : U32))):
+      LayFind{True{}, col, row}
+    else:
+      layout.Room.field_banner.col(g, row, (col - 1 : U32), low)
+
+def layout.Room.field_banner.row(+g: LayGrid, +row: U32, +rend: U32, +hi: U32, +low: U32) -> LayFind:
+  if U32.is_ge(row, rend):
+    LayFind{False{}, 0, 0}
+  else:
+    found: LayFind = layout.Room.field_banner.col(g, row, hi, low)
+    layout.Room.field_banner.next(found, g, row, rend, hi, low)
+
+def layout.Room.field_banner.next(+found: LayFind, +g: LayGrid, +row: U32, +rend: U32, +hi: U32, +low: U32) -> LayFind:
+  match found as LayFind:
+    case LayFind{ok: Bool, a: U32, b: U32}:
+      if ok:
+        found
+      else:
+        layout.Room.field_banner.row(g, (row + 1 : U32), rend, hi, low)
+
+def layout.Room.field_banner(+room: J.Val) -> Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+  if layout.Room.is_kind(room, "sanctuary"):
+    cols: U32 = J.u32(J.get(room, "cols"))
+    rows: U32 = J.u32(J.get(room, "rows"))
+    found: LayFind = layout.Room.field_banner.row(layout.grid.of_room(room), (layout.half(rows) - 1 : U32), (rows - 3 : U32), (cols - 3 : U32), (layout.half(cols) + 2 : U32))
+    layout.Room.field_banner.out(found)
+  else:
+    None{}
+
+def layout.Room.field_banner.out(+found: LayFind) -> Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+  match found as LayFind:
+    case LayFind{ok: Bool, a: U32, b: U32}:
+      if ok:
+        Some{(((U32.to_f32(a) + 0.5 : F32) * 2.0 : F32), ((U32.to_f32(b) + 1.0 : F32) * 2.0 : F32))}
+      else:
+        None{}
+
+# Whether any tile of the run string is stairs.
+def layout.rle.has_stairs(+s: String) -> Bool:
+  match s as String:
+    case SNil{}:
+      False{}
+    case SCon{c: Char, t: String}:
+      if Char.is_eq(c, '>'):
+        True{}
+      else:
+        layout.rle.has_stairs(t)
+
+# Where a Sanctuary's altar stands: the middle, or above the stairs when the
+# room keeps them.
+def layout.Room.altar(+room: J.Val) -> Sigma<&2, &2, F32, _ => F32>:
+  x: F32 = (layout.Room.width(room) / 2.0 : F32)
+  y: F32 = (layout.Room.height(room) / 2.0 : F32)
+  if layout.rle.has_stairs(J.str(J.get(room, "tiles"))):
+    (x, (y - 6.0 : F32))
+  else:
+    (x, y)

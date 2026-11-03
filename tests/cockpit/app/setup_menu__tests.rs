@@ -67,6 +67,18 @@ fn pairs(saving: &Saving) -> Vec<(&str, &str)> {
 }
 
 #[test]
+fn opus_55_is_an_env_seat_on_the_anthropic_key() {
+    let seat = ENV_SEATS
+        .iter()
+        .find(|seat| seat.driver == "claude-opus-5-5")
+        .expect("opus seat");
+    assert_eq!(seat.name, "Claude Opus 5.5");
+    assert!(seat.vars.contains(&"ANTHROPIC_API_KEY"));
+    assert!(seat.vars.contains(&"ANGEL_ANTHROPIC_KEY"));
+    assert!(seat.model_vars.is_empty());
+}
+
+#[test]
 fn home_lists_what_this_computer_has_first_and_a_number_picks_it() {
     let found = Found {
         servers: vec![ollama()],
@@ -608,32 +620,23 @@ fn with_a_model_in_hand_the_last_row_closes_instead_of_putting_off() {
 
 #[test]
 #[cfg(feature = "glass")]
-fn setup_scroll_mouse_maps_displayed_rows_and_ignores_unreleased_paper() {
-    use angel_glass::scroll::{Page as ScrollPage, Pose as ScrollPose, surface};
+fn setup_card_mouse_reads_the_cells_and_ignores_clicks_off_the_card() {
+    use angel_glass::card::Card;
     use ratatui::buffer::Buffer;
     let mut app = App::new(Bag::practice_for_test(), Viewer::new());
     app.setup.menu = Some(Menu::new(Found::default(), Tools::default(), Instant::now()));
     let area = Rect::new(10, 5, 80, 30);
     let target = Rect::new(15, 15, 1, 1);
-    let pose = ScrollPose { open: 1.0, sway: 0.0 };
-    app.setup.hits = vec![(target, Hit::Back)];
-    app.setup.scroll_page = ScrollPage::new(area, Buffer::empty(Rect::new(0, 0, 80, 30)), pose);
+    app.setup.hits = vec![(target, Hit::Back), (Rect::new(5, 2, 1, 1), Hit::Back)];
+    app.setup.card = Card::new(area, Buffer::empty(Rect::new(0, 0, 80, 30)));
     let mut event = MouseEvent {
-        kind: MouseEventKind::Down(MouseButton::Left), column: target.x, row: target.y,
+        kind: MouseEventKind::Down(MouseButton::Left), column: 5, row: 2,
         modifiers: KeyModifiers::NONE,
     };
-    // A flat-coordinate click must not activate a still-hidden action.
-    app.setup.scroll_page.as_mut().unwrap().pose.open = 0.5;
     app.setup_mouse(event);
-    assert!(app.setup.open(), "unreleased paper must reject menu clicks");
-    app.setup.scroll_page.as_mut().unwrap().pose = pose;
-    app.setup.scroll_page.as_mut().unwrap().interactive = false;
+    assert!(app.setup.open(), "a click off the card is nothing");
+    event.column = target.x;
+    event.row = target.y;
     app.setup_mouse(event);
-    assert!(app.setup.open(), "suppressed paper must reject menu clicks");
-    app.setup.scroll_page.as_mut().unwrap().interactive = true;
-    let s = (f32::from(target.y - area.y) + 0.5) / f32::from(area.height);
-    event.row = area.y + (surface(pose, s)[0] * f32::from(area.height)) as u16;
-    assert_ne!(event.row, target.y, "exercise the real projection, not identity");
-    app.setup_mouse(event);
-    assert!(!app.setup.open(), "the projected Back target must close the home page");
+    assert!(!app.setup.open(), "the Back target on the card closes the home page");
 }

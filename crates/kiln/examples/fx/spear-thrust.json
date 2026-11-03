@@ -1,0 +1,10 @@
+{ "fx": 0, "name": "spear thrust", "canvas": [48, 24], "pivot": [10, 13], "fps": 12, "seed": 4,
+  "beats": { "anticipation": 2, "action": 2, "follow": 3, "settle": 2 },
+  "layers": [
+    { "type": "star", "ramp": "steel", "x": 5, "r1": 2.5, "count": 4, "t0": 0, "t1": "action" },
+    { "type": "streaks", "ramp": "steel", "r1": 32, "th": 2.4, "count": 6, "angle": 0, "t0": "action", "t1": "settle+1" },
+    { "type": "ring", "ramp": "frost", "x": 31, "r0": 1, "r1": 3.5, "th": 0.7, "squash": 1.9, "t0": "action+1", "t1": "follow+2" },
+    { "type": "star", "ramp": "spark", "x": 32, "r1": 4, "count": 6, "t0": "action+1", "t1": "follow+1" },
+    { "type": "particles", "form": "spark", "ramp": "spark", "x": 32, "count": 6, "angle": 0, "spread": 80,
+      "speed": [1.5, 3], "life": [3, 5], "t0": "action+1", "t1": "end" }
+  ] }

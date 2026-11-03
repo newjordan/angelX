@@ -64,8 +64,18 @@
 //!
 //! The camera is not on the wire: it is the one the frame's own floor gives
 //! (`Tilt::camera`). A node with per-face materials is left out, as a
-//! malformed picture is, and an uploaded mesh is named, not sent: the
-//! renderer draws nothing for one it does not have.
+//! malformed picture is. An uploaded mesh is named by its node; its
+//! vertices come once, in a mesh block after everything else (only a frame
+//! with props has one, and a reader that knows no such block ignores it, as
+//! it does any bytes past the frame's end). The renderer draws nothing for
+//! a mesh it does not have.
+//!
+//! ```text
+//! "MSH1", meshes                                      u32 after the tag
+//! each mesh: id, flags (1 normals, 2 uvs, 4 colours), vertices, indices, groups   u32 × 5
+//!   positions f32 × 3 each, then normals f32 × 3, uvs f32 × 2, colours f32 × 4
+//!   (each only when its flag is set), then indices u32, then groups u32 × 2
+//! ```
 
 use crate::scene::{
     AlphaMode, MAX_GRAIN, MAX_NODES, Material, MeshRef, Node, Props, Sampling, SetRef, TextureSource, Transform, World,
@@ -109,6 +119,14 @@ pub const QUAD_BYTES: usize = 72;
 /// Bytes of a props block's header, and bytes a node takes.
 pub const PROPS_HEADER_BYTES: usize = 12;
 pub const NODE_BYTES: usize = 92;
+/// The tag of the mesh block after an `STG3` frame's last node.
+pub const TAG_MESHES: &[u8; 4] = b"MSH1";
+/// The most meshes one frame carries; a producer sends the rest later.
+pub const MAX_FRAME_MESHES: usize = 64;
+const MESH_HEADER_BYTES: u64 = 20;
+const HAS_NORMALS: u32 = 1;
+const HAS_UVS: u32 = 2;
+const HAS_COLORS: u32 = 4;
 
 const SHOWN: u32 = 1;
 const HAS_PARENT: u32 = 2;
@@ -183,6 +201,7 @@ fn mesh_code(mesh: Option<MeshRef>) -> (u32, u32) {
         MeshRef::Rock { seed } => (16, u32::from(seed)),
         MeshRef::Blob { seed } => (17, u32::from(seed)),
         MeshRef::Fence { posts } => (18, u32::from(posts)),
+        MeshRef::RoundCube { radius, segments } => (19, u32::from(radius) << 16 | u32::from(segments)),
     }
 }
 
@@ -210,6 +229,7 @@ fn mesh_of(kind: u32, arg: u32) -> Option<Option<MeshRef>> {
         16 => MeshRef::Rock { seed: segments },
         17 => MeshRef::Blob { seed: segments },
         18 => MeshRef::Fence { posts: segments },
+        19 => MeshRef::RoundCube { radius: ((arg >> 16) as u16).min(crate::scene::ROUND_RADIUS), segments: (arg & 0xffff) as u16 },
         _ => return None,
     }))
 }
@@ -409,6 +429,30 @@ pub fn encode(frame: &Frame, quads: &[Quad], out: &mut Vec<u8>) {
             out.resize(out.len() + (4 - text.len() % 4) % 4, 0);
         }
     }
+    // The meshes new to the far side, after everything else.
+    let meshes: Vec<_> = frame.meshes.iter().filter(|(_, m)| m.validate().is_ok()).take(MAX_FRAME_MESHES).collect();
+    if frame.props.is_some() && !meshes.is_empty() {
+        out.extend_from_slice(TAG_MESHES);
+        u32s(out, &[meshes.len() as u32]);
+        for (id, m) in meshes {
+            let flags = [(!m.normals.is_empty(), HAS_NORMALS), (!m.uvs.is_empty(), HAS_UVS), (!m.colors.is_empty(), HAS_COLORS)]
+                .iter()
+                .filter(|(on, _)| *on)
+                .fold(0, |f, (_, bit)| f | bit);
+            u32s(out, &[*id, flags, m.positions.len() as u32, m.indices.len() as u32, m.groups.len() as u32]);
+            let floats = m.positions.iter().flatten()
+                .chain(m.normals.iter().flatten())
+                .chain(m.uvs.iter().flatten())
+                .chain(m.colors.iter().flatten());
+            for v in floats {
+                out.extend_from_slice(&v.to_le_bytes());
+            }
+            u32s(out, &m.indices);
+            for &(first, count) in &m.groups {
+                u32s(out, &[first, count]);
+            }
+        }
+    }
 }
 
 /// Why a buffer is not a frame. The decoder draws nothing from a buffer it
@@ -433,6 +477,9 @@ pub enum Refused {
     /// figures, a set text too long or not UTF-8, a placing that is not a
     /// finite number (or no scale), a figure that cannot be.
     World,
+    /// The mesh block says what cannot be: too many meshes, or one the GPU
+    /// would refuse (`MeshData::validate`).
+    Mesh,
 }
 
 impl std::fmt::Display for Refused {
@@ -445,6 +492,7 @@ impl std::fmt::Display for Refused {
             Refused::Truncated => "the buffer is shorter than its header says",
             Refused::Props => "the props block says what cannot be",
             Refused::World => "the world block says what cannot be",
+            Refused::Mesh => "the mesh block says what cannot be",
         })
     }
 }
@@ -634,8 +682,39 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
             let text_at = need as usize + 4;
             let text = std::str::from_utf8(&bytes[text_at..text_at + n as usize]).map_err(|_| Refused::World)?;
             look = crate::look::Look::from_text(text);
+            need += 4 + u64::from(n).div_ceil(4) * 4;
         }
         world_at = Some((png_at + png_padded as usize, place as usize, figures_place as usize, count, extra, set, more, look));
+    }
+    // After the last block, a mesh block if its tag is there: walked whole,
+    // in 64 bits, before any of it is read.
+    let mut meshes_at = Vec::new();
+    if with_props && need + 8 <= len && &bytes[need as usize..need as usize + 4] == TAG_MESHES {
+        let count = u32_at(need as usize + 4) as usize;
+        if count > MAX_FRAME_MESHES {
+            return Err(Refused::Mesh);
+        }
+        let mut at = need + 8;
+        for _ in 0..count {
+            if at + MESH_HEADER_BYTES > len {
+                return Err(Refused::Truncated);
+            }
+            let w = |k: usize| u32_at(at as usize + 4 * k);
+            let (flags, vertices, indices, groups) = (w(1), u64::from(w(2)), u64::from(w(3)), u64::from(w(4)));
+            if vertices > crate::scene::MAX_MESH_VERTICES as u64 || indices > crate::scene::MAX_MESH_INDICES as u64 || groups > indices {
+                return Err(Refused::Mesh);
+            }
+            let per_vertex = 3
+                + if flags & HAS_NORMALS != 0 { 3 } else { 0 }
+                + if flags & HAS_UVS != 0 { 2 } else { 0 }
+                + if flags & HAS_COLORS != 0 { 4 } else { 0 };
+            let size = MESH_HEADER_BYTES + 4 * (vertices * per_vertex + indices + 2 * groups);
+            if at + size > len {
+                return Err(Refused::Truncated);
+            }
+            meshes_at.push((at as usize, flags));
+            at += size;
+        }
     }
 
     let [ex, ey] = [f32_at(24), f32_at(28)];
@@ -704,6 +783,30 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
         }
         None => None,
     };
+    let mut meshes = Vec::with_capacity(meshes_at.len());
+    for (at, flags) in meshes_at {
+        let w = |k: usize| u32_at(at + 4 * k);
+        let (id, vertices, indices, groups) = (w(0), w(2) as usize, w(3) as usize, w(4) as usize);
+        let mut next = at + MESH_HEADER_BYTES as usize;
+        let mut take = |n: usize| {
+            let v: Vec<f32> = (0..n).map(|k| f32_at(next + 4 * k)).collect();
+            next += 4 * n;
+            v
+        };
+        let positions = take(3 * vertices).chunks(3).map(|c| [c[0], c[1], c[2]]).collect();
+        let normals = if flags & HAS_NORMALS != 0 { take(3 * vertices).chunks(3).map(|c| [c[0], c[1], c[2]]).collect() } else { Vec::new() };
+        let uvs = if flags & HAS_UVS != 0 { take(2 * vertices).chunks(2).map(|c| [c[0], c[1]]).collect() } else { Vec::new() };
+        let colors = if flags & HAS_COLORS != 0 { take(4 * vertices).chunks(4).map(|c| [c[0], c[1], c[2], c[3]]).collect() } else { Vec::new() };
+        let index_list: Vec<u32> = (0..indices).map(|k| u32_at(next + 4 * k)).collect();
+        next += 4 * indices;
+        let group_list = (0..groups).map(|k| (u32_at(next + 8 * k), u32_at(next + 8 * k + 4))).collect();
+        // A skinned mesh's joints are a scene's own: a page bends none.
+        let mesh = crate::scene::MeshData { positions, normals, uvs, colors, indices: index_list, groups: group_list, joints: Vec::new(), weights: Vec::new() };
+        if mesh.validate().is_err() {
+            return Err(Refused::Mesh);
+        }
+        meshes.push((id, mesh));
+    }
     Ok(Decoded {
         frame: Frame {
             size: (width, height),
@@ -714,6 +817,7 @@ pub fn decode(bytes: &[u8]) -> Result<Decoded, Refused> {
             tilt,
             props,
             impact,
+            meshes,
         },
         quads: decoded_quads,
     })
@@ -760,9 +864,16 @@ fn decode_node(word: &dyn Fn(usize) -> u32) -> Option<Node> {
             patch: None,
             role: role_of(flags >> ROLE_SHIFT),
             ceiling: 0,
+            // Nor a card's normal map: a page draws no lit cards.
+            normals: None,
+            // Nor a scene's finish: a page's props are plain.
+            chrome: 0.0,
+            liquid: 0.0,
+            glow: 0.0,
         },
         face_materials: Vec::new(),
         visible: flags & SHOWN != 0,
+        skin: None,
     })
 }
 
@@ -1049,9 +1160,14 @@ mod tests {
                 patch: None,
                 role: Default::default(),
                 ceiling: 0,
+                normals: None,
+                chrome: 0.0,
+                liquid: 0.0,
+                glow: 0.0,
             },
             face_materials: Vec::new(),
             visible: id != 3,
+            skin: None,
         }
     }
 
@@ -1303,10 +1419,10 @@ mod tests {
         assert_eq!(ok(&block([u32::MAX, 1, 1], &node)), Err(Refused::Props));
         assert_eq!(ok(&block([0, 0, 1], &node)), Err(Refused::Props));
         assert_eq!(ok(&block([0, u32::from(MAX_GRAIN) + 1, 1], &node)), Err(Refused::Props));
-        // A mesh that is none, a node blended two ways. (19 is past every
+        // A mesh that is none, a node blended two ways. (20 is past every
         // mesh kind, the first free number on the wire.)
         let mut bad = node.clone();
-        bad[4..8].copy_from_slice(&19u32.to_le_bytes());
+        bad[4..8].copy_from_slice(&20u32.to_le_bytes());
         assert_eq!(ok(&block([0, 1, 1], &bad)), Err(Refused::Props));
         let mut bad = node.clone();
         let flags = u32::from_le_bytes(bad[..4].try_into().unwrap()) | BLENDED | PREMULTIPLIED;
@@ -1381,5 +1497,80 @@ mod tests {
         assert_eq!(layers_back.len(), quads.len());
         assert_eq!(layers_of(&expand(&layers[..2], 0.5, |_| None)).len(), at);
         assert_eq!(layers_back[..at].iter().map(|l| l.placement.clone()).collect::<Vec<_>>(), layers_of(&expand(&layers[..2], 0.5, |_| None)).iter().map(|l| l.placement.clone()).collect::<Vec<_>>());
+    }
+
+    fn tri_mesh(colored: bool) -> crate::scene::MeshData {
+        crate::scene::MeshData {
+            positions: vec![[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            normals: vec![[0.0, 0.0, 1.0]; 3],
+            uvs: Vec::new(),
+            colors: if colored { vec![[1.0, 0.5, 0.25, 1.0]; 3] } else { Vec::new() },
+            indices: vec![0, 1, 2],
+            groups: Vec::new(),
+            joints: Vec::new(),
+            weights: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn an_uploaded_mesh_travels_once_after_the_nodes_and_reads_back_whole() {
+        let nodes = vec![prop(1, None, Some(MeshRef::Uploaded(77)))];
+        let mut frame = with_props(Props { at: 0, grain: 2, nodes, world: None });
+        frame.meshes = vec![(77, tri_mesh(true)), (78, tri_mesh(false))];
+        let mut out = Vec::new();
+        encode(&frame, &[], &mut out);
+        let block = HEADER_BYTES + PROPS_HEADER_BYTES + NODE_BYTES;
+        assert_eq!(&out[block..block + 4], TAG_MESHES);
+        let back = decode(&out).unwrap();
+        assert_eq!(back.frame.meshes, frame.meshes);
+        assert_eq!(back.frame.props, frame.props);
+        // A reader that stops at the last node still has the whole frame.
+        let mut without = frame.clone();
+        without.meshes.clear();
+        let mut plain = Vec::new();
+        encode(&without, &[], &mut plain);
+        assert_eq!(&out[..block], &plain[..]);
+    }
+
+    #[test]
+    fn a_mesh_block_follows_a_world_and_its_look_and_both_read_back() {
+        for more in [false, true] {
+            let mut frame = with_world(Some("set a\n"), vec![]);
+            let world = frame.props.as_mut().unwrap().world.as_mut().unwrap();
+            world.look = Some(crate::look::Look::new(vec![[10, 20, 30], [200, 210, 220]]));
+            if more {
+                world.more = vec![SetRef { key: 8, text: None, plate: 0x8000_0032, png: None, scale: 1.0, offset: [1.5, 0.0, 2.5], patches: Patches::NONE }];
+            }
+            frame.meshes = vec![(77, tri_mesh(true))];
+            let mut out = Vec::new();
+            encode(&frame, &[], &mut out);
+            let back = decode(&out).unwrap();
+            assert_eq!(back.frame.meshes, frame.meshes);
+            assert_eq!(back.frame.props.unwrap().world.unwrap().look, frame.props.unwrap().world.unwrap().look);
+        }
+    }
+
+    #[test]
+    fn a_mesh_block_that_lies_is_refused_whole() {
+        let mut frame = with_props(Props { at: 0, grain: 2, nodes: vec![], world: None });
+        frame.meshes = vec![(5, tri_mesh(true))];
+        let mut out = Vec::new();
+        encode(&frame, &[], &mut out);
+        let block = HEADER_BYTES + PROPS_HEADER_BYTES;
+        // Cut short: truncated, never half read.
+        assert_eq!(decode(&out[..out.len() - 4]), Err(Refused::Truncated));
+        // An index past the vertices: the GPU would refuse it, so the wire does.
+        let mut bad = out.clone();
+        let last_index = bad.len() - 4;
+        bad[last_index..].copy_from_slice(&9u32.to_le_bytes());
+        assert_eq!(decode(&bad), Err(Refused::Mesh));
+        // A count past the limit.
+        let mut many = out.clone();
+        many[block + 4..block + 8].copy_from_slice(&(MAX_FRAME_MESHES as u32 + 1).to_le_bytes());
+        assert_eq!(decode(&many), Err(Refused::Mesh));
+        // A mesh the GPU would refuse is never written.
+        frame.meshes = vec![(6, crate::scene::MeshData { indices: vec![0, 1, 7], ..tri_mesh(false) })];
+        encode(&frame, &[], &mut out);
+        assert_eq!(out.len(), block);
     }
 }

@@ -17,14 +17,16 @@ use super::super::ink::Img;
 use super::{UNIT, enlarge, sprites};
 use crate::rules::{Enemy, EnemyKind, Run};
 
-/// The knight's height, which every other size is read against.
-pub const KNIGHT: i32 = 16;
+/// The knight's height, which every other size is read against. The
+/// numbers are the content checker's (`rules::content::stature`), so a foe
+/// is checked against what it is drawn at.
+pub const KNIGHT: i32 = crate::rules::content::stature::KNIGHT;
 /// The least a monster stands.
-pub const FOE_MIN: i32 = 10;
+pub const FOE_MIN: i32 = crate::rules::content::stature::FOE_MIN;
 /// The least a boss stands.
-pub const CHIEF: i32 = KNIGHT * 3 / 2;
+pub const CHIEF: i32 = crate::rules::content::stature::CHIEF;
 /// The least the floor's guardian stands.
-pub const GUARDIAN: i32 = KNIGHT * 2;
+pub const GUARDIAN: i32 = crate::rules::content::stature::GUARDIAN;
 
 /// The least `enemy` stands in the room the party is in.
 pub(super) fn floor(run: &Run, enemy: &Enemy) -> i32 {

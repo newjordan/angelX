@@ -27,6 +27,8 @@ use ratatui::layout::Rect;
 pub enum PanelKind {
     /// Top status strip (in-hand box, mode, CPU/GPU, pet).
     Header,
+    /// The running loop's race ticker, embedded under the header.
+    LoopTicker,
     /// Terminal / chat transcript.
     Transcript,
     /// Embedded full-access shell (when focused).
@@ -47,10 +49,10 @@ impl PanelKind {
     /// Stable lowercase tag, suitable as a scene/skin layer key (Phase B can
     /// publish e.g. `skin.<name>` / `scene.<name>` per panel).
     // Phase B reads this; the Phase A bin only fills the registry.
-    #[allow(dead_code)]
     pub const fn name(self) -> &'static str {
         match self {
             Self::Header => "header",
+            Self::LoopTicker => "loop",
             Self::Transcript => "transcript",
             Self::Shell => "shell",
             Self::Image => "image",
@@ -87,13 +89,11 @@ impl PanelFrames {
     // so they read as dead code here; the tests exercise them.
 
     /// Iterate the published `(kind, outer_rect)` pairs in draw order.
-    #[allow(dead_code)]
     pub fn iter(&self) -> impl Iterator<Item = (PanelKind, Rect)> + '_ {
         self.frames.iter().copied()
     }
 
     /// The outer rect of a specific panel, if it was drawn this frame.
-    #[allow(dead_code)]
     pub fn get(&self, kind: PanelKind) -> Option<Rect> {
         self.frames
             .iter()

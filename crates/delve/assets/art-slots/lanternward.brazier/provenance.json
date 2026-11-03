@@ -11,6 +11,6 @@
   "prompt_sha256": "239cb84d98f01bb22b038075bddecdddc0fc20b1556c8d737f77a91279889f7e",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "source-sheet.png (generation 1; source-sheet-2.png and source-sheet-3.png are correction passes kept outside the repo and not used)",
-  "source_path": "/work/artifacts/art-prod-rt/slots/lanternward.brazier/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/lanternward.brazier/v01/source-sheet.png",
   "source_sha256": "a136b50af74f9629bc3f01e2de6597f96f974f7bd38e1128e67dec9c4e9005f0"
 }

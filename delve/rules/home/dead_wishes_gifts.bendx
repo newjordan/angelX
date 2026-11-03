@@ -1,0 +1,21 @@
+# crates/delve/src/rules/dead_wishes.rs — what a summoner's wishes give each of his dead
+# (`Gifts`: {bonus, hp}). Written in bendx (delve/rules/core/_tools/bendx.py).
+
+# A blow's weight, harder by its damage.
+def dead_wishes.Gifts.hit(g: J.Val, weight: U32) -> U32:
+    return U32.div((weight * (100 + core.u(J.get(g, "bonus"), "damage")) : U32), 100)
+
+# The rest after a blow, quicker by its rate.
+def dead_wishes.Gifts.rest(g: J.Val, ticks: U32) -> U32:
+    return U32.max(U32.div((ticks * 100 : U32), (100 + core.u(J.get(g, "bonus"), "rate") : U32)), 1)
+
+# Its pace, quicker by its speed.
+def dead_wishes.Gifts.pace(g: J.Val) -> F32:
+    return F32.div(U32.to_f32((100 + core.u(J.get(g, "bonus"), "speed") : U32)), 100.0)
+
+# What a hit of `damage` takes, after its mail turns a share aside.
+def dead_wishes.Gifts.taken(g: J.Val, damage: U32) -> U32:
+    turned: U32 = hero.armor_turns(core.u(J.get(g, "bonus"), "armor"))
+    if U32.is_zero(damage):
+        return 0
+    return U32.max(U32.div((damage * (100 - turned) : U32), 100), 1)

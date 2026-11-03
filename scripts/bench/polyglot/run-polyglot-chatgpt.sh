@@ -117,7 +117,7 @@ mkdir -p "$OUT" "$RR/logs"
 printf '%s\n' "$OUT/$RUN_DIR" >"$RR/logs/$KEY-$HARNESS-current-run.txt"
 echo "cell model=$MODEL effort=$EFFORT harness=$HARNESS seed=$SEED n=$N wall=${WALL_SECS}s bin=$BIN_NOTE out=$OUT/$RUN_DIR"
 exec env -i \
-  HOME=~ USER=angel LOGNAME=angel LANG=C.UTF-8 TERM=dumb TMPDIR=/work/tmp \
+  HOME=~ USER=angel LOGNAME=angel LANG=C.UTF-8 TERM=dumb TMPDIR="${TMPDIR:-/tmp}" \
   PATH="$AGENT_PATH:$RR/prime_v1/.venv/bin" \
   OPENAI_API_KEY=unused-chatgpt-seat \
   LUNA_MODEL="$MODEL" \

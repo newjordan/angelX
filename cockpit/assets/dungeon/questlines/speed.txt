@@ -1,4 +1,4 @@
-power wish:speed 3
+power wish:fleet 3
 teacher Reynard the Post
 place the Compliment Toll Bridge booth in the Tilt-Yards
 room TollBridge

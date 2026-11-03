@@ -1,0 +1,54 @@
+# TEMPLATE: a wish worn on the knight (gear: a shield, a helm, pauldrons, boots).
+# Copy this file, then change what it says. Check it with
+#   cargo run -p angel-delve --example content_check -- <your file>
+# and add the entry to cockpit/assets/dungeon/phrasebook.txt when it passes.
+#
+# Change: the id (lowercase-with-dashes, at most 24), the Name (at most 18, the
+#   player's words), every `say` (the player's words first, then 3 to 6 other
+#   ways), the effect words and their numbers, the scroll lines after `::`,
+#   the picture and its place (`at=`: head 10x8, face 8x4, body 12x6,
+#   shoulders 16x5, back 14x10, left 8x12, right 8x16, feet 12x3).
+# Keep: five tiers, each giving more than the one below once the game's caps
+#   apply (a word wishes cap, like armor 2, climbs to its cap by the third tier,
+#   then the fourth and fifth add another word beside it); the look drawn at its
+#   place's size or smaller (bigger is squeezed to fit and loses pixels); the
+#   card art 12 to 14 rows.
+# The bar: every picture Fine or better (Masterwork for a template): one clear
+#   silhouette, an edge darker than its inside, 4 to 6 inks shaded dark to
+#   light, one accent, no specks. Each `say` finds this wish and no other.
+wish spiked-pavise | Spiked Pavise
+say a spiked shield | spiked pavise | tower shield | bigger shield | heavier shield
+tier armor 1 :: A spiked pavise: 6 in the hundred of every hit turned aside.
+tier armor 2 :: A heavier pavise: 11 in the hundred turned aside.
+tier armor 2; max_hp 15 :: A great pavise: 11 in the hundred, and 15 more health.
+tier armor 2; max_hp 25 :: A mighty pavise: 11 in the hundred, and 25 more health.
+tier armor 2; max_hp 35; knock 1 :: The full pavise: 11 aside, 35 health, and it shoves.
+draw worn at=left
+.J.J..J.
+.h.h..h.
+KjKKKKjK
+KHiiiihK
+Kih464jK
+Ki46a6jK
+Kih464jK
+KihhhhjK
+KihhhgjK
+.KhhgjK.
+..KhjK..
+...KK...
+
+art
+.....J..J.....
+.....h..h.....
+...KjKKKKjK...
+..KHiiiiiihK..
+..KiHiiihhjK..
+..Kih4664hjK..
+..Ki46aa64jK..
+..Kih4664hjK..
+..KihhhhhgjK..
+...KihhhgjK...
+...KhhhhgjK...
+....KhhgjK....
+.....KhjK.....
+......KK......

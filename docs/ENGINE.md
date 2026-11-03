@@ -398,8 +398,11 @@ empty seat are all not here, within a second.
   tells the cockpit once (`News::Again`), which does what the host's own R
   does: the run settled into the realm, a new one in the kingdom, the
   seats and their knights kept, the same link.
-- After a hit a knight can't be hurt again for `HIT_WARD` ticks (0.8 s),
-  blinking meanwhile. The panel's `hit_ward_s` moves it, 0 to 1 s.
+- After a hit a knight can't be hurt again for `HIT_WARD` ticks (1.5 s),
+  blinking meanwhile; no hook, trap or bite strips it. A new knight starts
+  with the same ward, a knight walking into a room has a second
+  (`ENTRY_WARD`), and one the stairs bring back to their feet two
+  (`REVIVE_WARD`). The panel's `hit_ward_s` moves it, 0 to 2.5 s.
 - The host's composer pauses only a solo delve. With friends seated it
   plays on and the host's knight is stone, as before; now, with nobody
   here at all, the room holds.
@@ -600,17 +603,38 @@ same rules, the same pictures; a different way of getting them to people.
       (private fields out, `marks` and `pot_shards` in); `read(tree)`
       gives the client its `Run`. A client checks `drawable(run)`, not
       `Run::valid_snapshot`, which needs the server's dice and ids.
-      - What moves by a rule the client knows is sent as where it started
-        (`reckon`): a shot flying straight as its place at the start of a
-        256-tick span (to a 256th of a unit) and its life as the tick it
-        ends; a monster's age as the tick it was born. `read` brings them
-        to the tick.
+      - It is built from the last tick's (`wire::kept`). Each field of
+        the run is fingerprinted (`value::fingerprint`: bytes, no tree)
+        and built again only when it changed, and then only its parts
+        that changed (the monsters, each monster's fields). Every part is
+        shared (`Value::Shared`), so a seat's view, a client's last tree
+        and the diff between two ticks pass the unchanged parts by, and
+        the seats sent the same two trees in a row are sent one patch
+        (`angel_serve::rep`).
+      - A shot is sent when it is loosed, as a course: where it was, how
+        fast it went, and the turn its speed takes a tick, from the tick it
+        was sent (`wire::flight`). The client flies it on itself: straight,
+        turning, waiting, weaving as a pattern shot weaves, or homing on
+        the nearest monster the tree has. The host flies the same course
+        by the same arithmetic every tick and sends it again only when the
+        shot has left it by more than `SLIP` (an eighth of a pixel) or its
+        speed by more than `SLIP_SPEED`: a bounce, a hit, a homing turn
+        that changed. What counts a tick at a time is sent as the tick it
+        ends or began: a shot's life, its wait and age, a thrown blade's
+        way out, a monster's age, an effect's life (`feel`). A shot with
+        nothing of a pattern shot's is sent without one, and its gifts
+        that are as most shots have them are left out.
       - Each shot carries an `id` that stays with it from tick to tick
-        (the shots have none of their own: a shot is known again by where
-        it would be, within 0.75 units), so the shots go as a keyed list
-        and one landing does not move every shot after it.
-      - Together these took a busy fight from 1,100 bytes a tick to about
-        320 (the smoke's busy fight, below).
+        (the shots have none of their own: a shot is known again as the
+        next of its kind in the order they were loosed, within 0.75 units
+        of where its course has it), so the shots go as a keyed list.
+        A keyed list whose order only lost some and gained new ones at the
+        end is sent as that (`Patch::KeyedEdit`), and a list whose oldest
+        went from the front moves up (`Patch::SeqShift`).
+      - On the deep floors that is 19 to 35 KB a second a seat, from 96
+        to 125, and the wire's work for four seats a tick (the tree, each
+        seat's view, diff and encoding) 0.2 to 0.55 ms of CPU, from 3 to 8
+        (`audit_tick_cost`, the audit of 2026-10-20).
     - **Interest.** `seat_tree(tree, seat)` is the `DocView`: another
       knight's heat left out; a seat outside the party's room gets no
       shots and none of the games under way there; a watcher sees the
@@ -624,8 +648,9 @@ same rules, the same pictures; a different way of getting them to people.
       (a seat outside the party's room hears none of its sounds). Music is
       not an event: each client plays `Run::music` of its own view, so a
       reload or a resumed seat hears the right track at once.
-    - **Params.** `Params { art_v2 }`, the welcome's params: a version,
-      then flags.
+    - **Params.** `Params { world3d, deep3d }`, the welcome's params: a
+      version (2 since shots fly on courses: a page from before is told it
+      is out of date), then flags.
   - The checkpoint is written from a published tick on a thread of its
     own (the cockpit's `delve-service`), never on the sim, every 3 s.
   - A solo delve's server listens on loopback with a key nobody is told;
@@ -638,7 +663,8 @@ same rules, the same pictures; a different way of getting them to people.
 - **The client** (`DelveClient: GameClient`, in angel-delve, built for wasm
   and native; the web crate is `crates/web/delve`).
   - The welcome's params are `wire::Params`: a version, then flags (bit
-    0: the second art kit).
+    0 retired with the second art kit, 2026-10-20; bits 1 and 2 the 3D
+    modes).
   - It holds the value tree, applies each patch, and reads the run back
     with its own `Deserialize`, keeping the last eight ticks. Poses two
     ticks apart still slide, so a host may send 15 snapshots a second.
@@ -657,7 +683,7 @@ same rules, the same pictures; a different way of getting them to people.
   - Its keys are the old browser seat's, in its controls JSON: WASD walk,
     the arrows aim, F fires, E meets the world and takes, Space (or Shift
     with a walk) dashes, Q swings, X bombs, Z drinks, 1–4 cast, G vigil,
-    R the ultimate, M , . ; ' the skills, V the ballot (arrows, 1–5, 0, N,
+    R the ultimate, M , . ; ' the skills, C the ride key (shoulders), V the ballot (arrows, 1–5, 0, N,
     Esc in it), N held outside it the whole floor's map (the seat's own
     screen only: `DelveClient::map_open`, `arena::MapView`; the run and the
     wire never hear of it), Esc pauses a game in a room and Enter or
@@ -866,7 +892,7 @@ its build are as they were). `crates/web/build.sh` makes it in two builds,
 `render-webgl.js` + `render-webgl_bg.wasm` (adds wgpu's WebGL2 backend), when
 the wasm-bindgen CLI at the version the crate pins is at hand (`$WASM_BINDGEN`,
 or `wasm-bindgen` on PATH); without it the bundle has none and the page draws
-as before, so no build needs the CLI. The cockpit's build (`cockpit/build.rs`)
+as before, so no build needs the CLI. The realm host's build (`crates/realm-host/build.rs`)
 makes the same two builds into the full game's page when the CLI is at hand, and
 warns and ships `{}` when it is not. `boot.js` loads the WebGPU build where `navigator.gpu` is there and the
 WebGL2 one where only WebGL2 is, and keeps `present.js` where neither is in the
@@ -1019,7 +1045,11 @@ for the rest of the session, said once in the console. `?present=` forces a way:
   folders `<game-crate-dir>/sounds.list` names (a name prefix, `-` for
   none, then a folder; the Delve's sfx, its knights' voices as
   `knights-…` and its music as `music-…`). The shell fetches each the
-  first time it is asked for, so none is part of the first load.
+  first time it is asked for, so none is part of the first load. A
+  folder whose line ends in `beside` (the Delve's music) is copied here
+  too, but `angel` does not compile it in: the binary's host reads it
+  from the package beside the binary when it opens its door, and serves
+  what it finds there.
 
 It prints each file's size raw and gzipped.
 
@@ -1115,7 +1145,7 @@ whole workflow: tune live, then bake it in. (`angel_net::knob`;
   - The engine's: `interp_ms` (how far behind everyone else is drawn) and
     `correct_ms` (how long a correction of your own character eases; it
     reaches the game through `View::correct_ms`).
-  - A game's (`GameClient::knobs`, `set_knob`): the Delve's art kit.
+  - A game's (`GameClient::knobs`, `set_knob`): the Delve's shot ease.
   - The page's own: `scale` (0 auto, 1 whole numbers, 2 fit) and
     `fps_cap`.
   - They are kept per game in `localStorage` and set again at the next

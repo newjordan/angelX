@@ -399,8 +399,10 @@ pub(crate) fn fit_tool_results_to_budget(
     tools: &[ToolDef],
 ) -> usize {
     let _span = super::turn::background::span("aging_ms");
-    let result = fit_tool_results_to_budget_measured(history, budget, tools);
-    super::turn::background::observe(history);
+    let (result, rewritten) = fit_tool_results_to_budget_measured(history, budget, tools);
+    if rewritten {
+        super::turn::background::observe(history);
+    }
     result
 }
 
@@ -408,15 +410,15 @@ fn fit_tool_results_to_budget_measured(
     history: &mut [ChatMsg],
     budget: usize,
     tools: &[ToolDef],
-) -> usize {
+) -> (usize, bool) {
     if budget == 0 {
-        return 0;
+        return (0, false);
     }
     let tool_tokens = estimate_tool_tokens(tools);
     let mut history_chars = estimate_history_chars(history);
     let mut used = history_chars / 4 + tool_tokens;
     if used <= budget {
-        return 0;
+        return (0, false);
     }
     // Do not erase fresh evidence when even replacing every tool result with
     // its minimum marker cannot fit. Protected instructions and schemas must
@@ -435,9 +437,10 @@ fn fit_tool_results_to_budget_measured(
         .sum();
     let minimum_tokens = history_chars.saturating_sub(removable_chars) / 4 + tool_tokens;
     if minimum_tokens > budget {
-        return 0;
+        return (0, false);
     }
     let mut changed = 0;
+    let mut rewritten = false;
     for message in history.iter_mut() {
         if used <= budget {
             break;
@@ -466,9 +469,10 @@ fn fit_tool_results_to_budget_measured(
             message.content = replacement.into();
             used = history_chars / 4 + tool_tokens;
             changed += 1;
+            rewritten = true;
         }
     }
-    changed
+    (changed, rewritten)
 }
 
 /// Shared estimate so all context-fit checks count the same thing.
@@ -512,13 +516,16 @@ fn elide_tool_result_for_context(content: &str, max_bytes: usize) -> String {
 /// prefix without gutting the system preamble.
 pub(crate) fn prune_history(history: &mut Vec<ChatMsg>, max_msgs: usize) {
     let _span = super::turn::background::span("other_ms");
-    prune_history_measured(history, max_msgs);
-    super::turn::background::observe(history);
+    if prune_history_measured(history, max_msgs) {
+        super::turn::background::observe(history);
+    }
 }
 
-fn prune_history_measured(history: &mut Vec<ChatMsg>, max_msgs: usize) {
+/// Returns whether the history was rewritten; that is not always a length
+/// change (a reserved-anchor splice can replace as many messages as it drops).
+fn prune_history_measured(history: &mut Vec<ChatMsg>, max_msgs: usize) -> bool {
     if max_msgs == 0 || history.len() <= max_msgs {
-        return;
+        return false;
     }
     // Leading system messages are pinned — never evict the prompt.
     let sys_end = history
@@ -527,11 +534,11 @@ fn prune_history_measured(history: &mut Vec<ChatMsg>, max_msgs: usize) {
         .unwrap_or(history.len());
     let keep_tail = max_msgs.saturating_sub(sys_end);
     if keep_tail == 0 {
-        return; // cap is smaller than the system preamble — refuse to gut it.
+        return false; // cap is smaller than the system preamble — refuse to gut it.
     }
     let mut cut = history.len() - keep_tail;
     if cut <= sys_end {
-        return; // nothing to drop past the system preamble.
+        return false; // nothing to drop past the system preamble.
     }
     // Don't let the kept suffix begin on an orphaned tool result: advance the
     // cut past any leading tool messages whose assistant turn is being dropped.
@@ -539,7 +546,7 @@ fn prune_history_measured(history: &mut Vec<ChatMsg>, max_msgs: usize) {
         cut += 1;
     }
     if cut >= history.len() || cut <= sys_end {
-        return; // no safe boundary found — leave history intact.
+        return false; // no safe boundary found — leave history intact.
     }
 
     // Reserve explicit operator contracts and the turn context using the same
@@ -556,14 +563,14 @@ fn prune_history_measured(history: &mut Vec<ChatMsg>, max_msgs: usize) {
         let reserved = sys_end + anchors.len() + usize::from(turn_context.is_some());
         let keep_tail = max_msgs.saturating_sub(reserved);
         if keep_tail == 0 {
-            return;
+            return false;
         }
         let mut next_cut = cut.max(history.len().saturating_sub(keep_tail));
         while next_cut < history.len() && history[next_cut].role == ChatRole::Tool {
             next_cut += 1;
         }
         if next_cut >= history.len() {
-            return;
+            return false;
         }
         if next_cut != cut {
             cut = next_cut;
@@ -575,6 +582,7 @@ fn prune_history_measured(history: &mut Vec<ChatMsg>, max_msgs: usize) {
         );
         break;
     }
+    true
 }
 
 /// Cheap token estimate for a message slice — char count / 4, the standard rough
@@ -815,13 +823,7 @@ impl Tool for ContextTool {
         "get_context_remaining"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "get_context_remaining".to_string(),
-            description: "Report how many tokens the conversation holds against its \
-                          compaction threshold. Takes no arguments. ⠯⠉"
-                .to_string(),
-            params: serde_json::json!({ "type": "object", "properties": {} }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("get_context_remaining")
     }
     fn call(&self, _args: &Value) -> Result<String, String> {
         let used = self.gauge.used_tokens.load(Ordering::Relaxed);

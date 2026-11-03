@@ -65,7 +65,7 @@
   "flags": [
     "piece-count mismatch"
   ],
-  "map_sha256": "da30079b37655bc4b7f6b82b53fe03010af23580ba62d8f9d24c27535ab2a466",
+  "map_sha256": "50915bd642e490a9bb46edb36dc14225da920ec9a92a06b16dee8291cd276997",
   "metadata_sha256": "38a0009a389e4e4744ff7426889de7e41e9f8ddbee05e898f578489f7843a1f7",
   "notes_sha256": "31053cb074be5f63bf5a3adaf6be5fbc5a91a36b3eb406a0905c1f5cdeb8205d",
   "outputs": {
@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.captain",
-  "source_path": "/work/artifacts/boss-art-20261015/polish-c/prepared/pennon.captain/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/polish-c/prepared/pennon.captain/source-sheet.png",
   "source_sha256": "e4ae3e7d00a693f39df623f60f9097a6109cf16004d70a46ca34a8b0f34de548",
   "tool_version": 2
 }

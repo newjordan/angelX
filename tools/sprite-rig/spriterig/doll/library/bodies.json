@@ -1,0 +1,132 @@
+{
+ "hero": {
+  "height_px": 40,
+  "head_m": 0.18,
+  "radii_m": {
+   "thigh": 0.12,
+   "shin": 0.105,
+   "foot": 0.085,
+   "uparm": 0.095,
+   "fore": 0.088,
+   "hand": 0.085,
+   "torso": 0.22,
+   "neck": 0.07
+  },
+  "materials": {},
+  "parts": {
+   "top": "primary",
+   "legs": "secondary",
+   "feet": "boots",
+   "sleeve": "primary"
+  },
+  "proportions": {}
+ },
+ "mage": {
+  "height_px": 40,
+  "head_m": 0.18,
+  "radii_m": {
+   "thigh": 0.11,
+   "shin": 0.1,
+   "foot": 0.08,
+   "uparm": 0.09,
+   "fore": 0.083,
+   "hand": 0.08,
+   "torso": 0.185,
+   "neck": 0.065
+  },
+  "materials": {
+   "primary": [
+    "Q",
+    "q"
+   ],
+   "hair": [
+    "h",
+    "G"
+   ]
+  },
+  "parts": {
+   "top": "primary",
+   "legs": "primary",
+   "feet": "boots",
+   "sleeve": "primary"
+  },
+  "robe": true,
+  "beard": "hair",
+  "proportions": {}
+ },
+ "goblin": {
+  "height_px": 32,
+  "head_m": 0.21,
+  "radii_m": {
+   "thigh": 0.11,
+   "shin": 0.095,
+   "foot": 0.09,
+   "uparm": 0.09,
+   "fore": 0.085,
+   "hand": 0.09,
+   "torso": 0.18,
+   "neck": 0.06
+  },
+  "materials": {
+   "skin": [
+    "A",
+    "l"
+   ],
+   "hair": [
+    "A",
+    "l"
+   ],
+   "primary": [
+    "r",
+    "I"
+   ]
+  },
+  "parts": {
+   "top": "primary",
+   "legs": "skin",
+   "feet": "skin",
+   "sleeve": "skin"
+  },
+  "ears": true,
+  "proportions": {
+   "leg": 0.55,
+   "arm": 0.8
+  }
+ },
+ "dwarf": {
+  "height_px": 34,
+  "head_m": 0.19,
+  "radii_m": {
+   "thigh": 0.135,
+   "shin": 0.12,
+   "foot": 0.09,
+   "uparm": 0.11,
+   "fore": 0.1,
+   "hand": 0.095,
+   "torso": 0.22,
+   "neck": 0.07
+  },
+  "materials": {
+   "hair": [
+    "R",
+    "B"
+   ],
+   "primary": [
+    "U",
+    "u"
+   ]
+  },
+  "parts": {
+   "top": "primary",
+   "legs": "leather",
+   "feet": "boots",
+   "sleeve": "primary"
+  },
+  "beard": "hair",
+  "proportions": {
+   "leg": 0.5,
+   "spine": 0.78,
+   "hip_width": 1.3
+  }
+ }
+}

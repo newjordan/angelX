@@ -17,6 +17,90 @@ fn pxpipe_is_disabled_by_default() {
     }
 }
 
+#[test]
+fn declared_frame_length_is_read_in_bounded_chunks() {
+    use std::io::{Cursor, Read};
+
+    let mut truncated = Cursor::new(b"abc".as_slice());
+    let error = read_pxpipe_frame_body(&mut truncated, u64::MAX).unwrap_err();
+    assert!(
+        error.contains("read helper body") || error.contains("address space"),
+        "{error}"
+    );
+
+    let length = 3 * 1024 * 1024 + 17;
+    let mut bytes = vec![b'x'; length];
+    bytes.extend_from_slice(b"next frame");
+    let mut complete = Cursor::new(bytes);
+    let output = read_pxpipe_frame_body(&mut complete, length as u64).unwrap();
+    assert_eq!(output.len(), length);
+    assert!(output.iter().all(|&byte| byte == b'x'));
+    let mut remainder = String::new();
+    complete.read_to_string(&mut remainder).unwrap();
+    assert_eq!(remainder, "next frame");
+    assert!(
+        read_pxpipe_frame_body(&mut Cursor::new([]), 0)
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[cfg(unix)]
+fn scripted_pxpipe_daemon(script: &str) -> PxpipeDaemon {
+    use std::os::unix::process::CommandExt as _;
+
+    let mut command = Command::new("/bin/sh");
+    command
+        .args(["-c", script])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .process_group(0);
+    let mut child = command.spawn_owned().unwrap();
+    let stdin = child.stdin.take().unwrap();
+    let stdout = child.stdout.take().unwrap();
+    PxpipeDaemon {
+        child,
+        stdin,
+        stdout: BufReader::new(stdout),
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn persistent_roundtrip_rejects_huge_truncated_frame_and_keeps_normal_frames() {
+    let _guard = crate::tests::env_lock();
+    let _timeout = crate::tests::TestEnvGuard::set("ANGEL_PXPIPE_TIMEOUT_MS", "1000");
+
+    // A maximal declared length with only three body bytes used to request the
+    // entire allocation before discovering EOF.
+    let mut truncated = scripted_pxpipe_daemon(
+        r#"IFS= read -r h; printf '%s\n' '{"ok":true,"len":18446744073709551615}'; printf abc"#,
+    );
+    let error =
+        pxpipe_daemon_roundtrip(&mut truncated, PxpipeApi::Responses, "openai", "gpt-5", b"")
+            .unwrap_err();
+    assert!(
+        error.contains("read helper body") || error.contains("address space"),
+        "{error}"
+    );
+    let _ = truncated.child.wait();
+
+    // Reading exactly one body must leave the following header intact.
+    let mut normal = scripted_pxpipe_daemon(
+        r#"IFS= read -r h; printf '%s\n' '{"ok":true,"len":3}'; printf abc; IFS= read -r h; printf '%s\n' '{"ok":true,"len":4}'; printf defg"#,
+    );
+    let first = pxpipe_daemon_roundtrip(&mut normal, PxpipeApi::Responses, "openai", "gpt-5", b"")
+        .unwrap()
+        .unwrap();
+    let second = pxpipe_daemon_roundtrip(&mut normal, PxpipeApi::Responses, "openai", "gpt-5", b"")
+        .unwrap()
+        .unwrap();
+    assert_eq!(first, b"abc");
+    assert_eq!(second, b"defg");
+    let _ = normal.child.wait();
+}
+
 #[cfg(unix)]
 #[test]
 fn persistent_roundtrip_hang_is_killed_at_the_request_deadline() {

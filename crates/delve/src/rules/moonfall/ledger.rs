@@ -214,41 +214,6 @@ pub fn page(mem: &Memory, folk: Folk, clock: u32, day: u32) -> Page {
     Page { folk, ticked: mem.ticked(folk), asks, routine: lines, notes }
 }
 
-/// Appointments the Ledger reminds the party of: a routine line known,
-/// the hour before it begins. (folk, routine id, on which day or any).
-pub const APPOINTMENTS: [(Folk, u8, Option<u32>); 6] = [
-    (Folk::Pella, 2, None),
-    (Folk::Pella, 4, None),
-    (Folk::Mira, 4, None),
-    (Folk::Mira, 10, None),
-    (Folk::Tovin, 4, None),
-    (Folk::Aster, 0, Some(1)),
-];
-
-/// The appointments that fall in the hour starting at `clock`: those
-/// known to the party whose stop is `ahead` ticks off. Returns
-/// (folk, routine).
-pub fn reminders(mem: &Memory, clock: u32, day: u32) -> Vec<(Folk, u8)> {
-    let hour = day / 24;
-    let table = folk::timetable(day);
-    let mut out = Vec::new();
-    for &(who, id, only) in &APPOINTMENTS {
-        let known = mem.witnessed(who, id) || (who == Folk::Aster && mem.knows(Fact::AsterComing));
-        if !known {
-            continue;
-        }
-        for leg in table.legs[who.index()].iter().filter(|l| l.routine == id) {
-            if only.is_some_and(|d| leg.at / day != d) {
-                continue;
-            }
-            if leg.at.saturating_sub(hour) == clock {
-                out.push((who, id));
-            }
-        }
-    }
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -278,20 +243,5 @@ mod tests {
         assert!(p.routine[0].time < p.routine[1].time);
         assert!(p.routine[0].now, "06:45 is the stop the porch stands in");
         assert_eq!(p.asks.len(), 1);
-    }
-
-    #[test]
-    fn a_reminder_pops_an_hour_before_a_known_appointment_and_not_for_the_unknown() {
-        let d = 3000;
-        let mut m = Memory::default();
-        assert!(reminders(&m, 0, d).is_empty());
-        m.witness(Folk::Mira, 4);
-        let leg = folk::timetable(d).legs[Folk::Mira.index()]
-            .iter()
-            .find(|l| l.routine == 4)
-            .map(|l| l.at)
-            .unwrap();
-        assert_eq!(reminders(&m, leg - d / 24, d), vec![(Folk::Mira, 4)]);
-        assert!(reminders(&m, leg - d / 24 + 1, d).is_empty());
     }
 }

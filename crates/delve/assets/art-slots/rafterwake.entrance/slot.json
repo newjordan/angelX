@@ -60,7 +60,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "rafterwake.entrance",
-  "source_path": "/work/artifacts/delve-int-20261015/entrance-fix-1/prepared/rafterwake.entrance/source-sheet.png",
+  "source_path": "artifacts/delve-int-20261015/entrance-fix-1/prepared/rafterwake.entrance/source-sheet.png",
   "source_sha256": "25d2aa582fb1f9ac10ef79de05280fdd1f47ab6e3737f4061d41c9c60d061a68",
   "tool_version": 2
 }

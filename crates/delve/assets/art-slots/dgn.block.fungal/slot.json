@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.block.fungal",
-  "source_path": "/work/artifacts/art-prod/slots/dgn.block.fungal/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/dgn.block.fungal/v01/source-sheet.png",
   "source_sha256": "cd8eacb18193d6e7b1c117bececd26c89bd9242f71d2c872df56e9cc9b31d693",
   "tool_version": 2
 }

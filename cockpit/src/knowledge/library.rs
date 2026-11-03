@@ -5,6 +5,9 @@
 //! links to the upstream public curriculum and contributes only a compact
 //! sequence used to orient a world lesson.
 
+#[path = "library_rules.rs"]
+mod rules;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Discipline {
     ProbabilityStatistics,
@@ -334,8 +337,8 @@ pub(crate) fn normalize_topic(raw: &str) -> Option<String> {
     Some(clipped)
 }
 
-/// Build a useful local lesson for an arbitrary topic. No network, model,
-/// filesystem, or environment access occurs here.
+/// Build a useful local lesson for an arbitrary topic. No network or model
+/// access occurs here; an operator may supply a local routing override.
 pub(crate) fn local_lesson(raw_topic: &str) -> Option<LocalLesson> {
     let topic = normalize_topic(raw_topic)?;
     let context = topic.clone();
@@ -348,8 +351,9 @@ pub(crate) fn local_lesson(raw_topic: &str) -> Option<LocalLesson> {
 /// content that angelX has read.
 pub(crate) fn local_lesson_with_context(raw_topic: &str, context: &str) -> Option<LocalLesson> {
     let topic = normalize_topic(raw_topic)?;
-    let discipline = classify(context);
-    let shelf = shelf_for(discipline, context);
+    let routing = rules::snapshot();
+    let discipline = routing.classify(context);
+    let shelf = routing.shelf(discipline, context);
     Some(build_local_lesson(topic, discipline, shelf))
 }
 
@@ -525,9 +529,10 @@ pub(crate) const fn discipline_label(discipline: Discipline) -> &'static str {
 #[cfg(test)]
 pub(crate) fn teaching_note(term: &str, title: &str, summary: &str) -> String {
     let context = format!("{term} {title} {summary}");
-    let discipline = classify(&context);
+    let routing = rules::snapshot();
+    let discipline = routing.classify(&context);
     let tutor = tutor_for(discipline);
-    let shelf = shelf_for(discipline, &context);
+    let shelf = routing.shelf(discipline, &context);
     let cue = match discipline {
         Discipline::ProbabilityStatistics => format!(
             "For “{term}”, name the experiment, sample space, random variable, and assumptions; then calculate and simulate one case."
@@ -568,132 +573,12 @@ pub(crate) fn teaching_note(term: &str, title: &str, summary: &str) -> String {
 }
 
 pub(crate) fn classify(text: &str) -> Discipline {
-    let text = text.to_lowercase();
-    if contains_any(
-        &text,
-        &[
-            "cuda",
-            "triton",
-            "gpu programming",
-            "gpu performance",
-            "gpu architecture",
-            "kernel",
-            "roofline",
-            "distributed gpu",
-            "warp",
-            "thread block",
-            "tensor core",
-            "shared memory",
-        ],
-    ) {
-        Discipline::GpuKernels
-    } else if contains_any(
-        &text,
-        &[
-            "language model",
-            "transformer",
-            "token",
-            "attention",
-            "embedding",
-            "pretraining",
-            "inference",
-        ],
-    ) {
-        Discipline::LlmSystems
-    } else if contains_any(
-        &text,
-        &[
-            "game engine",
-            "game development",
-            "entity component",
-            "gameplay",
-            "simulation loop",
-        ],
-    ) {
-        Discipline::GameDevelopment
-    } else if contains_any(
-        &text,
-        &[
-            "probability",
-            "statistic",
-            "distribution",
-            "random variable",
-            "stochastic",
-            "bayes",
-            "poisson",
-            "gaussian",
-            "variance",
-            "likelihood",
-        ],
-    ) {
-        Discipline::ProbabilityStatistics
-    } else if contains_any(
-        &text,
-        &[
-            "render",
-            "raster",
-            "ray tracing",
-            "shader",
-            "webgpu",
-            "texture",
-            "geometry",
-            "three-dimensional",
-            "3d",
-        ],
-    ) {
-        Discipline::Graphics3d
-    } else if contains_any(
-        &text,
-        &[
-            "physics",
-            "quantum",
-            "thermodynamic",
-            "electromagnet",
-            "particle",
-            "force",
-            "energy",
-            "chemistry",
-            "chemical",
-            "atom",
-            "molecule",
-            "reaction",
-            "biology",
-            "biological",
-            "cellular",
-            "membrane",
-            "protein",
-            "genetic",
-            "species",
-            "ecolog",
-            "geolog",
-            "astronom",
-            "neuroscience",
-            "physiology",
-            "medicine",
-            "medical",
-            "disease",
-            "syndrome",
-            "anatomy",
-        ],
-    ) {
-        Discipline::NaturalSciences
-    } else if contains_any(
-        &text,
-        &[
-            "linear algebra",
-            "matrix",
-            "vector space",
-            "eigen",
-            "singular value",
-            "determinant",
-            "basis",
-            "tensor",
-        ],
-    ) {
-        Discipline::LinearAlgebra
-    } else {
-        Discipline::Foundations
-    }
+    rules::snapshot().classify(text)
+}
+
+#[cfg(test)]
+fn shelf_for(discipline: Discipline, context: &str) -> &'static CurriculumShelf {
+    rules::snapshot().shelf(discipline, context)
 }
 
 pub(crate) fn tutor_for(discipline: Discipline) -> &'static Tutor {
@@ -717,139 +602,6 @@ pub(crate) fn primary_shelf(discipline: Discipline) -> &'static CurriculumShelf 
         .expect("every teaching discipline has a curriculum shelf")
 }
 
-fn shelf_for(discipline: Discipline, context: &str) -> &'static CurriculumShelf {
-    let context = context.to_lowercase();
-    let title = match discipline {
-        Discipline::Foundations
-            if contains_any(
-                &context,
-                &[
-                    "computational thinking",
-                    "climate model",
-                    "simulation",
-                    "scientific model",
-                ],
-            ) =>
-        {
-            "Computational thinking"
-        }
-        Discipline::LinearAlgebra
-            if contains_any(
-                &context,
-                &[
-                    "numerical",
-                    "floating point",
-                    "factorization",
-                    "stability",
-                    "iterative method",
-                    "condition number",
-                ],
-            ) =>
-        {
-            "Numerical linear algebra"
-        }
-        Discipline::GpuKernels
-            if contains_any(
-                &context,
-                &[
-                    "gpu architecture",
-                    "roofline",
-                    "compiler",
-                    "distributed kernel",
-                    "distributed gpu",
-                ],
-            ) =>
-        {
-            "GPU field references"
-        }
-        Discipline::Graphics3d
-            if contains_any(&context, &["webgpu", "wgpu", "render pipeline", "adapter"]) =>
-        {
-            "WebGPU workshop"
-        }
-        Discipline::Graphics3d
-            if contains_any(
-                &context,
-                &[
-                    "ray tracing",
-                    "path tracing",
-                    "light transport",
-                    "acceleration structure",
-                    "bvh",
-                ],
-            ) =>
-        {
-            "Ray tracing shelf"
-        }
-        Discipline::LlmSystems
-            if contains_any(
-                &context,
-                &[
-                    "nanochat",
-                    "small language model",
-                    "small llm",
-                    "tokenizer",
-                    "tokenization",
-                    "supervised fine-tuning",
-                    "sft",
-                ],
-            ) =>
-        {
-            "Small complete LLM laboratory"
-        }
-        Discipline::NaturalSciences
-            if contains_any(
-                &context,
-                &[
-                    "biology",
-                    "biological",
-                    "cellular",
-                    " cell",
-                    "membrane",
-                    "protein",
-                    "genetic",
-                    "species",
-                    "ecolog",
-                    "physiology",
-                    "neuroscience",
-                    "medicine",
-                    "medical",
-                    "disease",
-                    "syndrome",
-                    "anatomy",
-                ],
-            ) =>
-        {
-            "College biology"
-        }
-        Discipline::NaturalSciences
-            if contains_any(
-                &context,
-                &[
-                    "chemistry",
-                    "chemical",
-                    "atom",
-                    "molecule",
-                    "reaction",
-                    "bond",
-                    "equilibrium",
-                ],
-            ) =>
-        {
-            "College chemistry"
-        }
-        Discipline::NaturalSciences => "University physics",
-        _ => return primary_shelf(discipline),
-    };
-    CURRICULUM
-        .iter()
-        .find(|shelf| shelf.title == title)
-        .expect("each contextual teaching branch has a curriculum shelf")
-}
-
-fn contains_any(text: &str, needles: &[&str]) -> bool {
-    needles.iter().any(|needle| text.contains(needle))
-}
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/library__tests.rs"]

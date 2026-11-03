@@ -266,7 +266,7 @@
     "alpha_threshold": 128,
     "effect_value_cap": null,
     "metadata_sha256": "201a3789dd21cd0a763883493137fb1700f5c9dc9d143ad43c55e378a5a22a52",
-    "original_path": "/work/artifacts/art-prod/slots/cinder.crock-lab/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/cinder.crock-lab/v01/source-sheet.png",
     "original_sha256": "cb5b3dcc6e6722c23e912c4547205a28de058d2b81395ed450e9c2fbb6b6dd36",
     "room_gain": null,
     "script": "crates/delve/assets/art-slots/cinder.chrome/prepare.py",

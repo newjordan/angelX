@@ -530,7 +530,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.sidedoor-fungal",
-  "source_path": "/work/tmp/int-4-prepared/dgn.sidedoor-fungal/source-sheet.png",
+  "source_path": "tmp/int-4-prepared/dgn.sidedoor-fungal/source-sheet.png",
   "source_sha256": "26e7376adfff793eba24228825926279afe133f7e63ba0d8d1bd4449ea9bb411",
   "tool_version": 2
 }

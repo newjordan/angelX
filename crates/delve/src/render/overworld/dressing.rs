@@ -14,11 +14,6 @@ use super::{TILE, View};
 use crate::world::dressing::{self, Item};
 use std::sync::OnceLock;
 
-/// A sprite from its rows of inks.
-fn rows(r: &[&str]) -> Img {
-    Img::from_rows(r)
-}
-
 /// Dark where the thing turns from the light, a coloured contour.
 fn rim(im: Img) -> Img {
     kit::shaded_rim(&im)
@@ -29,16 +24,6 @@ fn shadow(im: &mut Img, x: i32, y: i32, w: i32) {
     for dx in 0..w {
         if hash(x + dx, y, 61) % 4 != 0 {
             im.put(x + dx, y, 'K');
-        }
-    }
-}
-
-/// A ragged fill of one thing: ink `a` mostly, `b` and `c` now and then.
-fn speckle(im: &mut Img, (x0, y0, w, h): (i32, i32, i32, i32), (a, b, c): (char, char, char), salt: u32) {
-    for y in y0..y0 + h {
-        for x in x0..x0 + w {
-            let n = hash(x, y, salt) % 10;
-            im.put(x, y, if n < 6 { a } else if n < 9 { b } else { c });
         }
     }
 }

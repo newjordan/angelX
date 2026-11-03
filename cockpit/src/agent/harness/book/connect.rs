@@ -210,7 +210,7 @@ pub(crate) fn workspace() -> PathBuf {
 /// page — verbatim, in order, joined by a space. For a seat with no tool
 /// channel, which cannot be offered the reader.
 pub(crate) fn recite(cells: &str) -> String {
-    let mut out: Vec<&str> = Vec::new();
+    let mut out: Vec<String> = Vec::new();
     for address in ledger::addresses(cells).unwrap_or_default() {
         let Some(section) = address.section else {
             continue;
@@ -226,10 +226,13 @@ pub(crate) fn recite(cells: &str) -> String {
                     .position(|digit| *digit == page)
                     .and_then(|index| sub.pages.get(index))
                 {
-                    out.push(text);
+                    out.push(super::profile_text(&sub, text));
                 }
             }
-            None => out.extend(sub.pages.iter().copied()),
+            None if !sub.pages.is_empty() => {
+                out.push(super::profile_text(&sub, &sub.pages.join(" ")))
+            }
+            None => {}
         }
     }
     out.join(" ")

@@ -242,3 +242,102 @@ fn the_wait_is_saved_and_old_saves_load_without_it() {
     let old: Run = serde_json::from_value(old).unwrap();
     assert!(old.fellowship.waiting.is_empty());
 }
+
+/// The bells rung this tick, by knight, taken out of the run.
+fn bells(run: &mut Run) -> Vec<u32> {
+    std::mem::take(&mut run.seat_sounds)
+        .into_iter()
+        .filter(|&(_, name)| name == fellowship::CALL_SOUND)
+        .map(|(id, _)| id)
+        .collect()
+}
+
+#[test]
+fn three_of_four_in_the_doorway_call_the_fourth_alone() {
+    let (mut run, room, _) = hall(4);
+    for id in 1..=3 {
+        in_the_doorway(&mut run, id, NORTH);
+    }
+    play(&mut run, 1);
+    assert_eq!(run.at, room);
+    assert_eq!(run.fellowship.called, vec![4]);
+    // The fourth is shown where the three wait; the three see no arrow.
+    let (x, y) = run.fellowship_call(Some(4)).expect("the fourth is called");
+    assert!(y < 1.0 && (x - run.room().width() / 2.0).abs() < 0.5, "at the north door: {x}, {y}");
+    for id in 1..=3 {
+        assert_eq!(run.fellowship_call(Some(id)), None, "knight {id} is there");
+    }
+    assert_eq!(run.fellowship_call(None), None);
+    // The bell is the fourth's alone, as the wire carries it.
+    run.seat_sounds.clear();
+    play(&mut run, fellowship::CALL_EVERY as u32);
+    let events = crate::wire::take_sounds(&mut run);
+    let rung: Vec<_> = events
+        .iter()
+        .filter(|e| matches!(e, crate::wire::Event::Sound { name, .. } if name == fellowship::CALL_SOUND))
+        .collect();
+    assert_eq!(rung.len(), 1);
+    assert_eq!(rung[0].hear(), crate::wire::Hear::Knight(4));
+    assert_eq!(rung[0].line(Some(4), Some(&run)).as_deref(), Some("sfx circle_toll"));
+    assert_eq!(rung[0].line(Some(1), Some(&run)), None);
+}
+
+#[test]
+fn the_bell_rings_at_once_then_every_few_seconds_until_the_knight_joins() {
+    let (mut run, _, next) = hall(4);
+    for id in 1..=3 {
+        in_the_doorway(&mut run, id, NORTH);
+    }
+    let mut rang = Vec::new();
+    for _ in 0..fellowship::CALL_EVERY * 2 + 1 {
+        play(&mut run, 1);
+        if !bells(&mut run).is_empty() {
+            rang.push(run.tick);
+        }
+    }
+    let every = fellowship::CALL_EVERY;
+    assert_eq!(rang.len(), 3, "at once, then once each interval: {rang:?}");
+    assert_eq!(rang[1] - rang[0], every);
+    assert_eq!(rang[2] - rang[1], every);
+    // One who walks off is called again at once when the wait comes back.
+    middle(&mut run, 1);
+    middle(&mut run, 2);
+    play(&mut run, 1);
+    assert!(run.fellowship.called.is_empty() && run.fellowship.rung.is_empty());
+    in_the_doorway(&mut run, 1, NORTH);
+    in_the_doorway(&mut run, 2, NORTH);
+    bells(&mut run);
+    play(&mut run, 1);
+    assert_eq!(bells(&mut run), vec![4]);
+    // The fourth joins: the party goes, and no bell rings after.
+    in_the_doorway(&mut run, 4, NORTH);
+    play(&mut run, 1);
+    assert_eq!(run.at, next);
+    play(&mut run, fellowship::CALL_EVERY as u32 + 1);
+    assert!(bells(&mut run).is_empty());
+    assert!(run.fellowship.called.is_empty());
+}
+
+#[test]
+fn nobody_is_called_while_nobody_waits_or_the_waiting_are_not_most() {
+    let (mut run, _, _) = hall(4);
+    play(&mut run, fellowship::CALL_EVERY as u32 + 1);
+    assert!(run.fellowship.called.is_empty());
+    assert!(bells(&mut run).is_empty());
+    for id in 1..=4 {
+        assert_eq!(run.fellowship_call(Some(id)), None);
+    }
+    // Two of four waiting are half the party, not most of it.
+    in_the_doorway(&mut run, 1, NORTH);
+    in_the_doorway(&mut run, 2, NORTH);
+    play(&mut run, fellowship::CALL_EVERY as u32 + 1);
+    assert!(run.waiting_for_fellowship());
+    assert!(run.fellowship.called.is_empty());
+    assert!(bells(&mut run).is_empty());
+    assert_eq!(run.fellowship_call(Some(3)), None);
+    // A friend who does not count leaves two of three: most, and the third is called.
+    run.set_away(4, true);
+    play(&mut run, 1);
+    assert_eq!(run.fellowship.called, vec![3]);
+    assert_eq!(bells(&mut run), vec![3]);
+}

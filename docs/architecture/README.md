@@ -2,6 +2,7 @@
 
 [Documentation index](../README.md) · [Operations schematic](operations.md) ·
 [Lean host and hotloading proposal](lean-host.md) ·
+[Stable crates and replaceable systems](modularity-map.md) ·
 [Connected loop settlement](connected-settlement.md) ·
 [Stables and knights tournament](stables-tournament.md) ·
 [Undernetwork design proposal](undernetwork-proposal.md)
@@ -11,9 +12,12 @@
 The **current-state** map was traced against `97d64bc7` (`rig/0.1.94`). It is a
 map of this checkout, not a claim to cover unpublished work in another worktree.
 The operator's direction is a leaner system with more JavaScript and hotloading.
-The **proposed** boundaries and folders below support that direction; they are
-not an announcement that a general JavaScript module loader already exists.
-Reconcile them with the active implementation before moving source.
+The [executable-system boundary](lean-host.md#executable-system-boundary) now
+replaces the full Delve rules implementation with versioned live-state handoff.
+The separate JS boundary handles cockpit composition, tuning and agent selection
+policy. The [modularity inventory](modularity-map.md) identifies stable native
+mechanisms, feature systems to extract, and the next acceptance checks. Broader
+boundaries below remain migration targets.
 
 The first migration step is navigability, not a mass rename. This directory owns
 developer architecture; user guides remain at their existing paths. Runtime

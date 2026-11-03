@@ -66,10 +66,20 @@ pub const ITALIC: u8 = 2;
 
 impl Fonts {
     pub fn load(family: &str, size_px: f32, point: f32) -> Result<Self, String> {
-        let (regular, regular_file) = load_face(family, "")
-            .ok_or_else(|| format!("no font found for {family:?} (is fontconfig installed?)"))?;
-        let pick = |style: &str, bold: bool, italic: bool| {
-            load_face(family, style)
+        // The four styles are looked up at once: each lookup is a fontconfig
+        // process of its own, and startup waits for them.
+        let [regular, bold, italic, bold_italic] = std::thread::scope(|scope| {
+            let styles = ["", ":weight=bold", ":slant=italic", ":weight=bold:slant=italic"];
+            let lookups = styles.map(|style| (style, std::thread::Builder::new().spawn_scoped(scope, move || load_face(family, style))));
+            lookups.map(|(style, lookup)| match lookup {
+                Ok(thread) => thread.join().ok().flatten(),
+                Err(_) => load_face(family, style),
+            })
+        });
+        let (regular, regular_file) =
+            regular.ok_or_else(|| format!("no font found for {family:?} (is fontconfig installed?)"))?;
+        let pick = |found: Option<(FontRef<'static>, (PathBuf, u32))>, bold: bool, italic: bool| {
+            found
                 .filter(|(_, file)| *file != regular_file)
                 .map(|(font, _)| Face {
                     font,
@@ -88,9 +98,9 @@ impl Fonts {
                 synthetic_bold: false,
                 synthetic_italic: false,
             },
-            pick(":weight=bold", true, false),
-            pick(":slant=italic", false, true),
-            pick(":weight=bold:slant=italic", true, true),
+            pick(bold, true, false),
+            pick(italic, false, true),
+            pick(bold_italic, true, true),
         ];
         let mut fonts = Self {
             family: family.to_string(),
@@ -599,7 +609,7 @@ fn fc_match(pattern: &str) -> Option<(PathBuf, u32)> {
         match child.try_wait() {
             Ok(Some(status)) => break Some(status),
             Ok(None) if std::time::Instant::now() < deadline => {
-                std::thread::sleep(std::time::Duration::from_millis(5));
+                std::thread::sleep(std::time::Duration::from_millis(1));
             }
             _ => {
                 let _ = child.kill();

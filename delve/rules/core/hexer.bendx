@@ -1,0 +1,86 @@
+# crates/delve/src/rules/hexer.rs — the Hexer: a hooded witch who turns a knight to a frog.
+
+# Hexed, and still a frog.
+def hexer.Hero.frog(h: J.Val) -> Bool:
+    return U32.is_gt(core.u(h, "hexed"), hexer.HEX_IMMUNE())
+
+# The nearest of `hands` ([x, y] pairs) to a point (the first of equals), or null.
+def core.nearest_hand(hands: J.Val, ex: F32, ey: F32) -> J.Val:
+    best: J.Val = J.JNull{}
+    best_d: F32 = 0.0
+    for p: J.Val in J.items(hands):
+        d: F32 = RS.f_hypot((J.f32(J.nth(p, 0)) - ex : F32), (J.f32(J.nth(p, 1)) - ey : F32))
+        if Bool.or(J.is_null(best), F32.is_lt(d, best_d)):
+            best = p
+            best_d = d
+    return best
+
+# The Hexer's step. (enemy, (shots, whether this was a Hexer)).
+def hexer.act(enemy: J.Val, heroes: J.Val, room: J.Val, barred: Bool, shots: J.Val) -> (J.Val, (J.Val, Bool)):
+    if Bool.not(String.eq(core.s(enemy, "kind"), "hexer")):
+        return (enemy, (shots, False{}))
+    ex: F32 = core.f(enemy, "x")
+    ey: F32 = core.f(enemy, "y")
+    target: J.Val = core.nearest_hand(heroes, ex, ey)
+    tx: F32 = ex
+    ty: F32 = ey
+    if Bool.not(J.is_null(target)):
+        tx = J.f32(J.nth(target, 0))
+        ty = J.f32(J.nth(target, 1))
+    (cx: F32, cy: F32) = rules.unit((tx - ex : F32), (ty - ey : F32))
+    dist: F32 = RS.f_hypot((tx - ex : F32), (ty - ey : F32))
+    enemy = core.set_u(enemy, "timer", core.uadd(core.u(enemy, "timer"), 1))
+    # Keep between nine and thirteen steps off, sidling between.
+    side: F32 = Bool.pick(F32, U32.is_zero(U32.mod(core.u(enemy, "id"), 2)), 1.0, F32.neg(1.0))
+    wx: F32 = 0.0
+    wy: F32 = 0.0
+    if J.is_null(target):
+        wx = 0.0
+    elif F32.is_lt(dist, 9.0):
+        wx = F32.neg(cx)
+        wy = F32.neg(cy)
+    elif F32.is_gt(dist, 13.0):
+        wx = cx
+        wy = cy
+    else:
+        wx = (F32.neg(cy) * side : F32)
+        wy = (cx * side : F32)
+    (nx: F32, ny: F32) = rules.Grid.slide(room, barred, (ex, ey), (((wx * 2.2 : F32) * rules.DT() : F32), ((wy * 2.2 : F32) * rules.DT() : F32)), monsters.Enemy.radius(enemy), 1)
+    enemy = core.set_f(core.set_f(enemy, "x", nx), "y", ny)
+    if J.is_null(target):
+        return (enemy, (shots, True{}))
+    beat: U32 = (core.u(enemy, "timer") + core.u(enemy, "id") * 11 : U32)
+    aim: F32 = F32.atan2((ty - ny : F32), (tx - nx : F32))
+    if U32.is_eq(U32.mod(beat, hexer.HEX_EVERY()), U32.div(hexer.HEX_EVERY(), 2)):
+        shot: J.Val = core.hostile_shot(nx, ny, (F32.cos(aim) * 6.0 : F32), (F32.sin(aim) * 6.0 : F32), "hex", 0, 0, (6 * rules.HZ() : U32))
+        return (enemy, (J.push(shots, shot), True{}))
+    if U32.is_zero(U32.mod(beat, hexer.SPIT_EVERY())):
+        shot: J.Val = core.hostile_shot(nx, ny, (F32.cos(aim) * 7.0 : F32), (F32.sin(aim) * 7.0 : F32), "orb", 10, 0, (6 * rules.HZ() : U32))
+        return (enemy, (J.push(shots, shot), True{}))
+    return (enemy, (shots, True{}))
+
+# A hex lands on a knight.
+def hexer.Run.hex(run: J.Val, id: U32) -> J.Val:
+    h: J.Val = core.hero(run, id)
+    if J.is_null(h):
+        return run
+    # Warded from the last, or under a Pendragon Sceptre.
+    if Bool.or(U32.is_gt(core.u(h, "hexed"), 0), U32.is_gt(core.u(h, "immune"), 0)):
+        return run
+    h = core.set_u(h, "hexed", (hexer.HEX_TICKS() + hexer.HEX_IMMUNE() : U32))
+    h = core.set_b(core.set_b(core.set_u(h, "dash_ticks", 0), "shielding", False{}), "walling", False{})
+    run = core.set_hero(run, id, h)
+    run = core.set_u(run, "hexes", core.uadd(core.u(run, "hexes"), 1))
+    run = core.push_cue(run, "hexed")
+    run = core.push_sound(run, "mana_empty")
+    run = J.set(run, "found", J.JA{[J.get(run, "tick"), J.JU{id}, J.JS{"Ribbit."}]})
+    if U32.is_ge(core.u(run, "hexes"), hexer.RIBBIT()):
+        run = feats.Run.notice(run, "ribbit")
+    return run
+
+# Hexes wear off.
+def hexer.Run.tick_hexes(run: J.Val) -> J.Val:
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.fields(players):
+        players = J.set(players, k, core.set_u(h, "hexed", core.usub(core.u(h, "hexed"), 1)))
+    return J.set(run, "players", players)

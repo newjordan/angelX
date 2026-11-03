@@ -217,6 +217,7 @@ fn text_only_message(m: &ChatMsg) -> ChatMsg {
         }
     };
     message.recovery_context = m.recovery_context.clone();
+    message.book_memory = m.book_memory.clone();
     message
 }
 

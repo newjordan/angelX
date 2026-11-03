@@ -7,4 +7,10 @@ rust-version.workspace = true
 license.workspace = true
 publish.workspace = true
 
+[features]
+# Every description a remote window draws, as serde data (crates/glass
+# `remote`, docs/REMOTE_GLASS.md).
+serde = ["dep:serde"]
+
 [dependencies]
+serde = { version = "1", features = ["derive", "rc"], optional = true }

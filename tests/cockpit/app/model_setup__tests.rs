@@ -18,4 +18,7 @@ fn routes_provider_guidance_without_secret_values() {
     assert!(daybreak.contains("same startup catalog"));
     assert!(daybreak.contains("does not grant or bypass"));
     assert!(connect_text(None).contains("daybreak"));
+    let anthropic = connect_text(Some("anthropic"));
+    assert!(anthropic.contains("ANTHROPIC_API_KEY"));
+    assert!(anthropic.contains("claude-opus-5-5"));
 }

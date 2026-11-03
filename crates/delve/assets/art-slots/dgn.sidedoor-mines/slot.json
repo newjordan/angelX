@@ -530,7 +530,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.sidedoor-mines",
-  "source_path": "/work/tmp/int-4-prepared/dgn.sidedoor-mines/source-sheet.png",
+  "source_path": "tmp/int-4-prepared/dgn.sidedoor-mines/source-sheet.png",
   "source_sha256": "b091cec9948a186fa27092fddb4908f53a6833319a2812a8dfaa64a883f01468",
   "tool_version": 2
 }

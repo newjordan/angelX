@@ -2,7 +2,9 @@
 //! Scoop while he stirs (E at the pot); when he spins round, freeze. Any
 //! knight who moves, swings, shoots or scoops while he looks gets the
 //! ladle and he bellows for a cousin. Every scoop has a coin in it; the
-//! best scooper is crowned when the pot is empty.
+//! best scooper is crowned when the pot is empty and takes Grubb's special.
+//! Each of the six finishing beats serves its own dish, shared by every seat.
+//! A full hand gets six extra gold instead; every scoop still pays its coin.
 use super::*;
 
 /// The pot (tiles), and where Grubb stands behind it.
@@ -23,6 +25,24 @@ pub const LOOK: u32 = 40;
 /// The ladle's blow, and how far it sends a knight.
 pub const LADLE: u32 = 10;
 const SHOVE: f32 = 3.0;
+const PRIZE: &str = "dragonfruit-kebab";
+const PRIZE_GOLD: u32 = 6;
+
+/// Keep the announced prize and the inventory-capacity decision together.
+fn kitchen_prize(full: bool, beat: u8) -> (Option<&'static str>, u32, &'static str) {
+    if full {
+        (None, PRIZE_GOLD, "PACK FULL. GRUBB PAYS SIX EXTRA GOLD!")
+    } else {
+        match beat % 6 {
+            0 => (Some(PRIZE), 0, "GRUBB SERVES DRAGONFRUIT KEBAB!"),
+            1 => (Some("cinderpear-bisque"), 0, "GRUBB SERVES CINDERPEAR BISQUE!"),
+            2 => (Some("stormglass-eclair"), 0, "GRUBB SERVES STORMGLASS ECLAIR!"),
+            3 => (Some("embercrab-bento"), 0, "GRUBB SERVES EMBERCRAB BENTO!"),
+            4 => (Some("firefly-sorbet"), 0, "GRUBB SERVES FIREFLY SORBET!"),
+            _ => (Some("oyster-aegis"), 0, "GRUBB SERVES OYSTER AEGIS!"),
+        }
+    }
+}
 
 /// What the cook is doing.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -71,7 +91,6 @@ impl Run {
                 if fidget && !has(nook.caught, id) {
                     nook.caught |= 1 << (id & 7);
                     if let Some(hero) = self.players.get_mut(&id) {
-                        hero.invulnerable = 0;
                         hero.hurt(LADLE);
                         let (dx, dy) = (hero.x - POT_MIDDLE.0 * TILE_UNITS, hero.y - POT_MIDDLE.1 * TILE_UNITS);
                         let len = dx.hypot(dy).max(0.01);
@@ -102,7 +121,51 @@ impl Run {
             let best = self.nook_crown(nook);
             let name = best.and_then(|id| self.players.get(&id)).map_or_else(String::new, |h| h.name.to_uppercase());
             self.sounds.push("chest_open");
-            self.found = Some((self.tick, 0, format!("THE POT'S EMPTY! {name} ATE MOST.")));
+            let mut prize_message = "";
+            if let Some(hero) = best.and_then(|id| self.players.get_mut(&id)) {
+                let (card, gold, message) = kitchen_prize(hero.hand.len() >= cards::HAND, nook.beat);
+                if let Some(card) = card {
+                    hero.hand.push(card.into());
+                }
+                hero.carried.add(Spoil::Gold, gold);
+                prize_message = message;
+            }
+            self.found = Some((self.tick, best.unwrap_or(0), format!("THE POT'S EMPTY! {name} ATE MOST. {prize_message}")));
         }
+    }
+}
+
+#[cfg(test)]
+mod prize_tests {
+    use super::*;
+
+    #[test]
+    fn kitchen_menu_rotates_without_losing_capacity_fallback() {
+        let book = cards::Book::builtin();
+        let menu = ["dragonfruit-kebab", "cinderpear-bisque", "stormglass-eclair",
+            "embercrab-bento", "firefly-sorbet", "oyster-aegis"];
+        assert_eq!(menu.len(), BEATS.len());
+        for beat in 0..=u8::MAX {
+            let (card, gold, message) = kitchen_prize(false, beat);
+            let slug = menu[usize::from(beat) % menu.len()];
+            assert_eq!(card, Some(slug));
+            assert!(book.get(slug).is_some());
+            assert_eq!(gold, 0);
+            assert!(message.contains(&slug.replace('-', " ").to_uppercase()));
+            assert_eq!(kitchen_prize(true, beat), (None, 6, "PACK FULL. GRUBB PAYS SIX EXTRA GOLD!"));
+        }
+    }
+
+    #[test]
+    fn kitchen_prize_respects_capacity_and_resolves_in_library() {
+        let (card, gold, message) = kitchen_prize(false, 0);
+        assert_eq!(card, Some("dragonfruit-kebab"));
+        assert!(cards::Book::builtin().get(card.unwrap()).is_some());
+        assert_eq!(gold, 0);
+        assert!(message.contains("DRAGONFRUIT KEBAB"));
+        let (card, gold, message) = kitchen_prize(true, 0);
+        assert!(card.is_none());
+        assert_eq!(gold, 6);
+        assert!(message.contains("SIX EXTRA GOLD"));
     }
 }

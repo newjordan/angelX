@@ -10,8 +10,8 @@ const { scene: setScene, force_rage, force_ravage, step, frame, frame_live, wire
 const rage = process.argv.includes("--rage");
 const ravage = process.argv.includes("--ravage");
 const party = process.argv.includes("--party");
-const scene = (kind, art) => {
-  setScene(kind, art);
+const scene = (kind) => {
+  setScene(kind);
   if (party) instance.exports.party();
   if (rage) force_rage();
   if (ravage) force_ravage();
@@ -23,11 +23,12 @@ const scenes = ["first-room", "kingdom", "busy-fight", "cinder-stack", "latch-du
 // are the boss and forest scenes this script does not time).
 ["lanternward", "moonfall", "bannerpeak", "griffinwing", "lightgallop"].forEach((name, i) => { scenes[39 + i] = name; });
 const hex = (n) => n.toString(16).padStart(8, "0");
-for (const [artV2, w, h] of [[0, 384, 224], [1, 768, 448]]) {
+{
+  const [w, h] = [384, 224];
   scenes.forEach((name, kind) => {
     if (rage && (kind < 9 || kind > 20)) return;
     if (ravage && name !== "late-fee-leviathan") return;
-    scene(kind, artV2);
+    scene(kind);
     let t = performance.now();
     const sum = frame(w, h) >>> 0;
     const cold = performance.now() - t;
@@ -42,19 +43,20 @@ for (const [artV2, w, h] of [[0, 384, 224], [1, 768, 448]]) {
     }
     warm /= n;
     console.log(
-      `wasm ${w}x${h} v${artV2 + 1} ${name}: first ${cold.toFixed(1)} ms, then ${warm.toFixed(2)} ms a frame, sums ${hex(sum)} ${hex(last)}`,
+      `wasm ${w}x${h} ${name}: first ${cold.toFixed(1)} ms, then ${warm.toFixed(2)} ms a frame, sums ${hex(sum)} ${hex(last)}`,
     );
   });
 }
 // Frames as a client draws them (live), at 60 a second with a tick every
 // other one: the slowest twentieth, and the slowest, against the exact
 // frames' (where every sixth tick redraws the room's lit scenery at once).
-for (const [artV2, w, h] of [[0, 384, 224], [1, 768, 448]]) {
+{
+  const [w, h] = [384, 224];
   scenes.forEach((name, kind) => {
     if (rage && (kind < 9 || kind > 20)) return;
     if (ravage && name !== "late-fee-leviathan") return;
     const spread = draw => {
-      scene(kind, artV2);
+      scene(kind);
       for (let i = 0; i < 120; i++) { step(1); draw(w, h); }
       const ts = [];
       for (let i = 0; i < 360; i++) {
@@ -66,7 +68,7 @@ for (const [artV2, w, h] of [[0, 384, 224], [1, 768, 448]]) {
       ts.sort((a, b) => a - b);
       return `p95 ${ts[Math.floor(ts.length * 0.95)].toFixed(2)} max ${ts[ts.length - 1].toFixed(2)} ms`;
     };
-    console.log(`wasm ${w}x${h} v${artV2 + 1} ${name} at 60 fps: exact ${spread(frame)}, live ${spread(frame_live)}`);
+    console.log(`wasm ${w}x${h} ${name} at 60 fps: exact ${spread(frame)}, live ${spread(frame_live)}`);
   });
 }
 

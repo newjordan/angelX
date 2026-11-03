@@ -1,0 +1,21 @@
+name   Grave Axes
+kind   arm
+rarity relic
+text   Two axes, older than the grave they came from.
+drop   0
+chest  1
+melee  damage=18 reach=2.2 arc=360 every=18
+art
+.xxx......xxx.
+xWUx......xUWx
+xWWUx....xUWWx
+xWUx7b..b7xUWx
+.xx.b77b77bxx.
+.....b777b....
+......b7b.....
+.....b777b....
+....b77b77b...
+...b77b.b77b..
+..b77b...b77b.
+.b77b.....b77b
+..bb.......bb.

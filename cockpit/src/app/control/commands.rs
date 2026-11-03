@@ -733,6 +733,10 @@ impl App {
         };
         let parsed_input = if self.tutor_draft.is_some() {
             Ok(ParsedInput::AskQuestion(raw.to_string()))
+        } else if let Some(id) = raw.strip_prefix("/open ").map(str::trim).filter(|id| {
+            self.module_host.status(&crate::platform::runtime::ModuleId::new(*id)).is_some()
+        }) {
+            Ok(ParsedInput::ModuleOpen(id.into()))
         } else {
             input::parse(&raw)
         };
@@ -750,6 +754,9 @@ impl App {
                 return;
             }
         };
+        let parsed = if matches!(&parsed, ParsedInput::Message(_)) {
+            self.registered_live_input(&raw).unwrap_or(parsed)
+        } else { parsed };
         if let ParsedInput::AskQuestion(question) = &parsed
             && (question.trim().is_empty() || question.chars().count() > 4096)
         {
@@ -968,6 +975,57 @@ impl App {
                 self.system_msg(text);
                 return;
             }
+            // Show or hide the Heartglass over the window.
+            ParsedInput::Heart => {
+                let text = match crate::ui::heartglass::toggle() {
+                    crate::ui::heartglass::Toggled::Shown => {
+                        "heart · the Heartglass is up (/heart to hide)"
+                    }
+                    crate::ui::heartglass::Toggled::Hidden => "heart · the Heartglass is down",
+                    crate::ui::heartglass::Toggled::NoWindow => {
+                        "heart · the Heartglass floats in angelX's window (ANGEL_GLASS=1); a terminal has nothing to float it over"
+                    }
+                };
+                self.system_msg(text.to_string());
+                return;
+            }
+            // Float the Heartglass bare, or put it back on its plate.
+            ParsedInput::HeartLook(float) => {
+                let text = match crate::ui::heartglass::show_as(float) {
+                    crate::ui::heartglass::Toggled::NoWindow => {
+                        "heart · the Heartglass floats in angelX's window (ANGEL_GLASS=1); a terminal has nothing to float it over"
+                    }
+                    _ if float => "heart · the Heartglass floats over the window; drag a module to move it, its corner to resize it (/heart reset, /heart plate)",
+                    _ => "heart · the Heartglass is up on its plate (/heart float to float it over the window)",
+                };
+                self.system_msg(text.to_string());
+                return;
+            }
+            // The Heartglass on its synthetic demo campaign: safe to show
+            // and record anywhere; the cartridge's folder is not read.
+            ParsedInput::HeartDemo => {
+                let text = match crate::ui::heartglass::show_demo() {
+                    crate::ui::heartglass::Toggled::NoWindow => {
+                        "heart · the Heartglass floats in angelX's window (ANGEL_GLASS=1); a terminal has nothing to float it over"
+                    }
+                    _ => {
+                        "heart · the Heartglass shows its synthetic demo campaign (no VE data; /heart float returns to the real one)"
+                    }
+                };
+                self.system_msg(text.to_string());
+                return;
+            }
+            // The floating Heartglass's modules back where they were designed.
+            ParsedInput::HeartReset => {
+                let text = match crate::ui::heartglass::reset_layout() {
+                    crate::ui::heartglass::Toggled::NoWindow => {
+                        "heart · the Heartglass floats in angelX's window (ANGEL_GLASS=1); a terminal has nothing to float it over"
+                    }
+                    _ => "heart · every floating module is back where it was designed",
+                };
+                self.system_msg(text.to_string());
+                return;
+            }
             // Toggle the live CPU-raytraced cube that borrows the artifacts pane.
             ParsedInput::Raytrace => {
                 let opening =
@@ -1089,12 +1147,14 @@ impl App {
                         self.rebuild_display();
                         self.session = session::Session::with_id_for(&id, &workspace);
                         self.scroll = 0;
+                        self.emit_session_start(crate::agent::harness::SessionStartSource::Resume);
+                        // A resumed conversation continues its standing goal.
+                        self.goal_armed_since_ms = 0;
                         self.messages.push(Message {
                             role: Role::System,
                             text: format!("resumed session {id} ({turns} turns) — continuing")
                                 .into(),
                         });
-                        self.announce_session(crate::agent::harness::SESSION_SOURCE_RESUME);
                     }
                     local_command::ResumeResult::NoSession => self.messages.push(Message {
                         role: Role::System,
@@ -1161,7 +1221,7 @@ impl App {
             ParsedInput::Learn(topic) => {
                 self.scryglass.back_overlay();
                 let travel_topic = topic.as_deref().unwrap_or("open shelves");
-                self.world.begin_teaching_lesson(travel_topic);
+                self.realm.world.begin_teaching_lesson(travel_topic);
                 self.scryglass
                     .navigate(crate::ui::scryglass::StageRoute::Explore(
                         crate::stage::world_viz::Building::Scriptorium,
@@ -1479,10 +1539,12 @@ impl App {
                 new_session.bind(self.tools.current_workspace());
                 self.session = new_session;
                 self.scroll = 0;
+                self.emit_session_start(if raw.as_ref() == "/clear" {
+                    crate::agent::harness::SessionStartSource::Clear
+                } else {
+                    crate::agent::harness::SessionStartSource::Startup
+                });
                 self.system_msg("new chat — conversation cleared".to_string());
-                // `/new` and `/clear` share this path. The SessionStart vocabulary
-                // names that fresh thread `clear`.
-                self.announce_session(crate::agent::harness::SESSION_SOURCE_CLEAR);
                 return;
             }
             // /review hands the working-tree diff to the in-hand agent as a turn.
@@ -1820,7 +1882,13 @@ impl App {
     /// distinction through persistence, compaction, and broker selection.
     fn turn_context_block(&self, raw: &str, skill_query: &str) -> Option<String> {
         let mut body = String::new();
-        body.push_str(&self.together.context_block());
+        if let Some(note) = self.live_turn_note() {
+            body.push_str(&note);
+        }
+        if let Some(outcomes) = self.tools.take_live_outcomes() {
+            body.push_str(&outcomes);
+        }
+        body.push_str(&self.realm.together.context_block());
 
         // The active goal rides on task turns so the model steers toward it.
         // Casual check-ins stay casual; otherwise a stale goal can hijack
@@ -1935,11 +2003,11 @@ impl App {
         self.reasoning_shown = 0; // restart the avatar roll-in for the new turn
         self.reasoning_scroll = 0;
         self.tool_strip.begin_turn();
-        self.turn_renown_started = self.world.renown();
+        self.turn_renown_started = self.realm.world.renown();
         self.turn_truncated = false;
         self.turn_route_receipt = None;
         self.turn_first_output_ms = None;
-        self.world.turn_started();
+        self.realm.world.turn_started();
         let club_label = self.bag.in_hand_label().to_string();
         // Both paths use an already captured identity: ordinary Enter clones
         // cached chrome; a launch turn retains its immutable binding snapshot.
@@ -2308,17 +2376,17 @@ handoff restart queued until the foreground worker drains"),
             crate::drive::loop_dialog::LoopLaunchDialog::handoff_rl(task, interval)
         });
         self.loop_dialog_hits.clear();
-        self.world.note_workshop();
+        self.realm.world.note_workshop();
         self.scryglass
             .navigate(crate::ui::scryglass::StageRoute::Workshop);
         let _ = self
             .module_host
             .activate(&crate::platform::runtime::ModuleId::new("artifacts"));
         if podrace {
-            "handoff-rl podrace armed — 5 days, unlimited rolls/tokens; review then Start"
+            "handoff-rl podrace armed — 5 days, unlimited rolls/tokens; review then drop the flag"
                 .to_string()
         } else {
-            "handoff-rl workshop opened — choose time, rolls, budget, then Start".to_string()
+            "handoff-rl card open — set rolls, clock and fuel, then drop the flag".to_string()
         }
     }
 
@@ -2856,7 +2924,46 @@ handoff restart queued until the foreground worker drains"),
 
     fn run_codex_cmd(&mut self, name: &str, arg: Option<&str>) -> Option<ChatMsg> {
         match name {
+            "reload" | "live" => self.run_live_command(name, arg),
             // --- read-only info, with real cockpit data ---
+            "peers" => {
+                let at_ms = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|d| d.as_millis())
+                    .unwrap_or(0);
+                let dir = crate::platform::peer_watch::peer_dir(
+                    &crate::platform::workspace_store::angel_dir(),
+                );
+                let peers = crate::platform::peer_watch::read_peers(
+                    &dir,
+                    self.overwatch.peer_instance_id(),
+                );
+                let mut text = format!(
+                    "peer directory {}\n{}",
+                    dir.display(),
+                    crate::platform::peer_watch::format_peers(&peers, at_ms)
+                );
+                let records = crate::platform::guardian::read_records(&dir);
+                if !records.is_empty() {
+                    text.push_str("\nresurrections:");
+                    for record in records.iter().take(5) {
+                        text.push_str(&format!(
+                            "\n  {} on {} · session {} -> {} · {} by guardian {} · {}",
+                            record.dead_instance,
+                            record.dead_host,
+                            record.old_session_id,
+                            record.new_session_id.as_deref().unwrap_or("none"),
+                            if record.success { "raised" } else { "failed" },
+                            record.guardian_host,
+                            record.summary.chars().take(120).collect::<String>()
+                        ));
+                    }
+                }
+                self.live_projection("peers", serde_json::json!({
+                    "directory": dir.to_string_lossy(), "peers": peers,
+                    "now_ms": at_ms, "records": records,
+                }), text);
+            }
             "usage" => {
                 let t = self.usage_text();
                 self.system_msg(t);
@@ -2865,6 +2972,7 @@ handoff restart queued until the foreground worker drains"),
                 self.system_msg(crate::app::model_setup::connect_text(arg));
             }
             "setup" => self.open_setup(),
+            "browser" => self.open_browser_picker(),
             "context" => {
                 let t = self.context_text(arg);
                 self.system_msg(t);
@@ -3199,7 +3307,7 @@ handoff restart queued until the foreground worker drains"),
             "together" => {
                 let raw = arg.unwrap_or("").trim();
                 if raw.split_whitespace().next() == Some("build") {
-                    if !self.together.can_build() {
+                    if !self.realm.together.can_build() {
                         self.system_msg("Together building requires a player at the forge; use /together on or return");
                         return None;
                     }
@@ -3210,17 +3318,17 @@ handoff restart queued until the foreground worker drains"),
                         Err(error) => self.system_msg(error),
                     }
                 } else {
-                    match self.together.command(
+                    match self.realm.together.command(
                         arg,
-                        self.world.realm_seed(),
-                        self.world.town_name(),
+                        self.realm.world.realm_seed(),
+                        self.realm.world.town_name(),
                         self.tools.current_workspace(),
                     ) {
                         Ok(result) => {
-                            if !self.together.enabled() && self.dungeon.shooter.is_none() {
-                                self.dungeon = Default::default();
+                            if !self.realm.together.enabled() && self.realm.dungeon.shooter.is_none() {
+                                self.realm.dungeon.reset_retaining_wish_jobs();
                             }
-                            if self.together.enabled() {
+                            if self.realm.together.enabled() {
                                 self.scryglass_enabled = true;
                                 self.scryglass.return_to_world();
                                 self.focus_module("artifacts");
@@ -3238,8 +3346,8 @@ handoff restart queued until the foreground worker drains"),
                         .strip_prefix("crops ")
                         .map(str::trim)
                         .filter(|s| !s.is_empty());
-                    let report = self.world.graph_report(selected);
-                    self.world.visit_overworld("garden");
+                    let report = self.realm.world.graph_report(selected);
+                    self.realm.world.visit_overworld("garden");
                     self.scryglass_enabled = true;
                     self.scryglass.return_to_world();
                     self.focus_module("artifacts");
@@ -3252,7 +3360,7 @@ handoff restart queued until the foreground worker drains"),
                     self.system_msg(said);
                 }
                 Some(a) if a.eq_ignore_ascii_case("follow") => {
-                    self.world.follow_overworld();
+                    self.realm.world.follow_overworld();
                     self.scryglass.return_to_world();
                     self.request_redraw("world follow resumed");
                     self.system_msg("Realm camera follows the working knight.".to_string());
@@ -3275,8 +3383,8 @@ handoff restart queued until the foreground worker drains"),
                         self.system_msg(said);
                         return None;
                     }
-                    if let Some(label) = self.world.visit_overworld(name) {
-                        if self.dungeon.expanded { self.collapse_dungeon(); }
+                    if let Some(label) = self.realm.world.visit_overworld(name) {
+                        if self.realm.dungeon.expanded { self.collapse_dungeon(); }
                         self.scryglass_enabled = true;
                         self.scryglass.return_to_world();
                         self.focus_module("artifacts");
@@ -3292,52 +3400,72 @@ handoff restart queued until the foreground worker drains"),
                     self.reset_world_yaw();
                     self.scryglass
                         .navigate(crate::ui::scryglass::StageRoute::Realm);
-                    let mode = self.world.cycle_camera_zoom();
+                    let mode = self.realm.world.cycle_camera_zoom();
                     self.system_msg(format!("world camera: {mode}"));
                 }
                 Some(a) if a.eq_ignore_ascii_case("ride") => {
                     if self.scryglass.controller.resolved_scene(
                         false,
                         false,
-                        self.world.quest_owns_pane(),
+                        self.realm.world.quest_owns_pane(),
                     ) == crate::ui::scryglass::StageSurface::WorldFirstPerson
                     {
                         self.system_msg("Already in the saddle.".to_string());
                     } else {
                         self.reset_world_yaw();
-                        self.scryglass.toggle_world_route(self.world.destination());
+                        self.scryglass.toggle_world_route(self.realm.world.destination());
                         if !matches!(
                             self.scryglass.controller.route(),
                             crate::ui::scryglass::StageRoute::Explore(_)
                         ) {
-                            self.scryglass.toggle_world_route(self.world.destination());
+                            self.scryglass.toggle_world_route(self.realm.world.destination());
                         }
                         self.focus_module("artifacts");
                         self.system_msg("Saddle up — the road fills the glass.".to_string());
                     }
                 }
                 Some(a) if a.eq_ignore_ascii_case("enter") => {
-                    if self.world.riding() {
+                    if self.realm.world.riding() {
                         self.system_msg("No door opens mid-journey.".to_string());
-                    } else if !self.world.has_authored_interior() {
+                    } else if !self.realm.world.has_authored_interior() {
                         self.system_msg("No door waits at this landmark.".to_string());
-                    } else if self.world.enter_interior() {
+                    } else if self.realm.world.enter_interior() {
                         self.reset_world_yaw();
                         self.system_msg(format!(
                             "The {} door opens.",
-                            self.world.destination().label()
+                            self.realm.world.destination().label()
                         ));
                     } else {
                         self.system_msg("No door opens until the landmark settles.".to_string());
                     }
                 }
                 Some(a) if a.eq_ignore_ascii_case("leave") => {
-                    if self.world.leave_interior() {
+                    if self.realm.world.leave_interior() {
                         self.reset_world_yaw();
                         self.system_msg("The door shuts behind you.".to_string());
                     } else {
                         self.system_msg("Already under the open sky.".to_string());
                     }
+                }
+                Some(a)
+                    if a.split_whitespace()
+                        .next()
+                        .is_some_and(|w| w.eq_ignore_ascii_case("rail")) =>
+                {
+                    match a.split_whitespace().nth(1).map(str::to_ascii_lowercase).as_deref() {
+                        Some("on") => self.loop_rail.display.enabled = true,
+                        Some("off") => self.loop_rail.display.enabled = false,
+                        None => self.loop_rail.display.enabled = !self.loop_rail.display.enabled,
+                        _ => {
+                            self.system_msg("/world rail [on|off]".to_string());
+                            return None;
+                        }
+                    }
+                    self.request_redraw("loop rail display");
+                    self.system_msg(format!(
+                        "Loop border rail {} · glass only; reduced/off motion keeps it asleep",
+                        if self.loop_rail.display.enabled { "on" } else { "off" },
+                    ));
                 }
                 Some(a)
                     if matches!(a.to_ascii_lowercase().as_str(), "off" | "disable" | "table") =>
@@ -3355,7 +3483,7 @@ handoff restart queued until the foreground worker drains"),
                     self.system_msg("Realm visual backdrop enabled".to_string());
                 }
                 Some(a) if a.eq_ignore_ascii_case("weather") => {
-                    self.system_msg(self.world.weather_report());
+                    self.system_msg(self.realm.world.weather_report());
                 }
                 Some(a) if a.eq_ignore_ascii_case("3d") => {
                     crate::stage::world_viz::world3d::toggle();
@@ -3391,10 +3519,11 @@ handoff restart queued until the foreground worker drains"),
                 Some(a) if a.eq_ignore_ascii_case("quest") => {
                     // The debugging window on the adventure model: every field
                     // the retained 3D renderer reads, as plain text.
-                    self.system_msg(self.world.quest_report());
+                    self.system_msg(self.realm.world.quest_report());
                 }
                 Some(a) if a.eq_ignore_ascii_case("help") => {
-                    self.system_msg(world_help_text());
+                    let help = world_help_text();
+                    self.live_projection("world-help", serde_json::json!({"native_help": help}), help);
                 }
                 Some(a) => {
                     // An unknown verb is a question, not a fault: answer it
@@ -3407,14 +3536,14 @@ handoff restart queued until the foreground worker drains"),
                     self.focus_module("artifacts");
                     self.system_msg(format!(
                         "Realm open — welcome to {}",
-                        self.world.town_name()
+                        self.realm.world.town_name()
                     ));
                 }
             },
             "village" => {
                 // The fleet read off the town — forge/heads/granary/apprentice,
                 // every line a wired data source (the correspondence legend).
-                let t = self.world.village_report();
+                let t = self.realm.world.village_report();
                 self.system_msg(t);
             }
             "quest" => {
@@ -3621,6 +3750,7 @@ handoff restart queued until the foreground worker drains"),
             "feedback" => self.system_msg(
                 "/feedback: no built-in channel — file issues on the angelX repo.".to_string(),
             ),
+            other if self.run_registered_live_command(other, arg) => {},
             other => self.system_msg(format!("/{other}: not handled")),
         }
         None
@@ -4343,6 +4473,7 @@ pub(crate) fn world_help_text() -> String {
         "  weather · the realm's weather report",
         "  quest · the live adventure: region, danger, loot, party, waypoint",
         "  on|off · the visual backdrop (off = lean text mode)",
+        "  rail [on|off] · loop border toy (ANGEL_LOOP_RAIL=0 disables at launch)",
     ]
     .join("\n")
 }
@@ -4463,10 +4594,7 @@ pub(crate) fn context_report(
                 system.0 += chars;
                 system.1 += 1;
             }
-            ChatRole::User => {
-                // Injected block spans are measured by stripping them and
-                // diffing lengths, so this accounting matches the per-turn
-                // dedup path byte for byte.
+            ChatRole::User | ChatRole::Harness => {
                 let after_goal = strip_delimited_block(
                     &m.content,
                     crate::drive::goal::GOAL_BLOCK_HEADER,
@@ -4485,35 +4613,14 @@ pub(crate) fn context_report(
                     crate::agent::harness::SKILL_HINT_SENTINEL,
                 );
                 hint_chars += after_memory.len() - after_hint.len();
-                user.0 += after_hint.len() + 8;
-                user.1 += 1;
-            }
-            ChatRole::Harness => {
-                // Current releases carry goal/memory/hint spans inside one
-                // Harness-role turn-context message. Keep those useful
-                // categories visible without double-counting them as generic
-                // harness notes.
-                let after_goal = strip_delimited_block(
-                    &m.content,
-                    crate::drive::goal::GOAL_BLOCK_HEADER,
-                    crate::drive::goal::GOAL_BLOCK_SENTINEL,
-                );
-                goal_chars += m.content.len() - after_goal.len();
-                let after_memory = strip_delimited_block(
-                    &after_goal,
-                    crate::knowledge::memory::MEMORY_BLOCK_HEADER,
-                    crate::knowledge::memory::MEMORY_BLOCK_SENTINEL,
-                );
-                memory_chars += after_goal.len() - after_memory.len();
-                let after_hint = strip_delimited_block(
-                    &after_memory,
-                    crate::agent::harness::SKILL_HINT_HEADER,
-                    crate::agent::harness::SKILL_HINT_SENTINEL,
-                );
-                hint_chars += after_memory.len() - after_hint.len();
-                let injected = m.content.len().saturating_sub(after_hint.len());
-                harness_notes.0 += chars.saturating_sub(injected);
-                harness_notes.1 += 1;
+                let (category, bytes) = if m.role == ChatRole::User {
+                    (&mut user, after_hint.len() + 8)
+                } else {
+                    let injected = m.content.len().saturating_sub(after_hint.len());
+                    (&mut harness_notes, chars.saturating_sub(injected))
+                };
+                category.0 += bytes;
+                category.1 += 1;
             }
             ChatRole::Assistant => {
                 assistant.0 += chars;
@@ -4772,3 +4879,19 @@ fn build_broker_selection(
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/app_control__commands__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+mod loop_rail_tests {
+    use super::*;
+
+    #[test]
+    fn loop_rail_world_display_switch_never_changes_loop_authority() {
+        let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+        let before = serde_json::to_value(&app.loop_ctl).unwrap();
+        for (argument, enabled) in [("rail off", false), ("rail on", true), ("rail", false)] {
+            app.run_codex_cmd("world", Some(argument));
+            assert_eq!(app.loop_rail.display.enabled, enabled);
+            assert_eq!(serde_json::to_value(&app.loop_ctl).unwrap(), before);
+        }
+    }
+}

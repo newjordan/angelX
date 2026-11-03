@@ -623,39 +623,8 @@ impl Tool for WorkLandingTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "work_landing".to_string(),
-            description: "Establish your WORK CONTEXT for this workspace. No args: DETECT the folder, the GitHub repo (git \
-                          remote origin), and visibility (private/public via gh) — gracefully, \
-                          returning a proposed behavior mode (internal-dev for private/local, \
-                          public-facing-care for a public repo). ⠫⠚"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "confirm": {
-                        "type": "boolean",
-                        "description": "⠫⠚⠙"
-                    },
-                    "repo": {
-                        "type": "string",
-                        "description": "⠫⠚⠑"
-                    },
-                    "visibility": {
-                        "type": "string",
-                        "enum": ["public", "private", "unknown"],
-                        "description": "⠫⠚⠋"
-                    },
-                    "mode": {
-                        "type": "string",
-                        "enum": ["internal-dev", "public-facing", "unset"],
-                        "description": "⠫⠚⠛"
-                    }
-                }
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("work_landing")
     }
-
     fn call(&self, args: &Value) -> Result<String, String> {
         crate::agent::harness::hardlink_result(|| {
             let confirm = args

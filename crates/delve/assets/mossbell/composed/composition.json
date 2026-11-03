@@ -329,7 +329,7 @@
   "sources": {
     "crown": {
       "crop_sha256": "48f74daeee96185f80cad95bd7c7e938af4c6bc13d2e5f7c0f13735fc3315a47",
-      "path": "/work/artifacts/art-prod/slots/mossbell.crown.geometry-1/v01/source-sheet.png",
+      "path": "artifacts/art-prod/slots/mossbell.crown.geometry-1/v01/source-sheet.png",
       "rect_xywh": [
         42,
         107,
@@ -340,7 +340,7 @@
     },
     "flippers": {
       "crop_sha256": "2cc5db489c36202693fb0ca017d074c653642a3be77f2703bd70747207fae483",
-      "path": "/work/artifacts/art-prod/slots/mossbell.flippers.geometry-1/v01/source-sheet.png",
+      "path": "artifacts/art-prod/slots/mossbell.flippers.geometry-1/v01/source-sheet.png",
       "rect_xywh": [
         67,
         117,
@@ -351,7 +351,7 @@
     },
     "root": {
       "crop_sha256": "8edb7d7cbd9ee8eac64a842fca33afc0f610ce83faeb617f731d8bf937a564cc",
-      "path": "/work/artifacts/art-prod/slots/mossbell.root.geometry-1/v01/source-sheet.png",
+      "path": "artifacts/art-prod/slots/mossbell.root.geometry-1/v01/source-sheet.png",
       "rect_xywh": [
         39,
         191,

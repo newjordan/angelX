@@ -292,7 +292,7 @@ pub enum DotmaxError {
     /// - Static images: PNG, JPEG, GIF (single frame), BMP, WebP, TIFF
     /// - Vector graphics: SVG (requires `svg` feature)
     /// - Animated: GIF (multi-frame), APNG
-    /// - Video: MP4, MKV, AVI, WebM (requires `video` feature)
+    /// - Video: MP4, MKV, AVI, WebM (requires `video-playback` or `video` feature)
     #[error("Unsupported media format: {format}. Supported: static (PNG, JPEG, GIF, BMP, WebP, TIFF), vector (SVG), animated (GIF, APNG), video (MP4, MKV, AVI, WebM)")]
     FormatError {
         /// Description of the detected or unknown format
@@ -344,8 +344,8 @@ pub enum DotmaxError {
     /// - FFmpeg initialization failure
     /// - Frame decode errors
     ///
-    /// Requires the `video` feature and FFmpeg system libraries.
-    #[cfg(feature = "video")]
+    /// Requires the `video-playback` (or `video`) feature and FFmpeg libraries.
+    #[cfg(feature = "video-playback")]
     #[error("Video error for {path:?}: {message}")]
     VideoError {
         /// Path to the video file

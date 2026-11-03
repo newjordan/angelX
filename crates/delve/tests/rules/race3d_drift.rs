@@ -47,6 +47,7 @@ fn drift_grip_charge_release_and_spin_out() {
                 move_y: -1,
                 ..Input::default()
             },
+            false,
             &mut noise,
         );
         drive(
@@ -58,6 +59,7 @@ fn drift_grip_charge_release_and_spin_out() {
                 dash: true,
                 ..Input::default()
             },
+            false,
             &mut noise,
         );
     }
@@ -74,12 +76,13 @@ fn drift_grip_charge_release_and_spin_out() {
             dash: true,
             ..Input::default()
         },
-        &mut noise,
+        false,
+            &mut noise,
     );
     assert_eq!(slide.wreck, Wreck::SpinOut);
     assert_eq!(slide.drift.charge, 0);
     for _ in 0..SPIN_TICKS {
-        drive(race, &mut slide, Input::default(), &mut noise);
+        drive(race, &mut slide, Input::default(), false, &mut noise);
     }
     assert!(slide.racing());
     slide.drift.heading = 1.4;
@@ -94,7 +97,8 @@ fn drift_grip_charge_release_and_spin_out() {
             dash: true,
             ..Input::default()
         },
-        &mut noise,
+        false,
+            &mut noise,
     );
     assert_eq!(
         slide.wreck,
@@ -110,6 +114,8 @@ fn all_three_boosts_have_exact_thresholds_sizes_and_durations() {
     for (i, &threshold) in CHARGE_TICKS.iter().enumerate() {
         let mut r = Rider::new(20.0, 0.0, 1);
         r.vs = 12.0;
+        // Third gear runs to 14 and pulls at the plain rate.
+        r.drift.gear = 2;
         r.drift.charge = threshold - 1;
         assert_eq!(r.drift.stage(), i);
         r.drift.charge = threshold;
@@ -123,6 +129,7 @@ fn all_three_boosts_have_exact_thresholds_sizes_and_durations() {
                 move_y: -1,
                 ..Input::default()
             },
+            false,
             &mut Noise::default(),
         );
         assert_eq!(r.drift.boost, BOOST_TICKS[i] - 1);
@@ -209,7 +216,11 @@ fn four_drift_bots_complete_and_replay_byte_for_byte() {
         race.riders.values().all(|r| r.finish.is_some()),
         "bots finish before the race clock"
     );
-    assert!(first_laps.iter().all(|t| (60..=90).contains(&t.unwrap())));
+    // Gears, pads and the bigger boosts took a lap from 60-90 s to ~50 s.
+    assert!(first_laps.iter().all(|t| (40..=80).contains(&t.unwrap())));
+    // Catch-up keeps the field together: home within a few seconds.
+    let homes: Vec<u32> = race.riders.values().map(|r| r.finish.unwrap()).collect();
+    assert!(homes.iter().max().unwrap() - homes.iter().min().unwrap() <= 5 * HZ, "{homes:?}");
     assert!(stages.iter().all(|&n| n > 0));
     assert!(
         race.riders
@@ -246,6 +257,7 @@ fn throttle_brake_and_bad_drift_snapshot_are_checked() {
                 move_y: -1,
                 ..Input::default()
             },
+            false,
             &mut noise,
         );
     }
@@ -258,6 +270,7 @@ fn throttle_brake_and_bad_drift_snapshot_are_checked() {
                 move_y: 1,
                 ..Input::default()
             },
+            false,
             &mut noise,
         );
     }

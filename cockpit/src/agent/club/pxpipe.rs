@@ -215,11 +215,8 @@ fn pxpipe_daemon_roundtrip(
         let len = resp
             .get("len")
             .and_then(|v| v.as_u64())
-            .ok_or("helper response missing len")? as usize;
-        let mut out = vec![0u8; len];
-        d.stdout
-            .read_exact(&mut out)
-            .map_err(|e| format!("read helper body: {e}"))?;
+            .ok_or("helper response missing len")?;
+        let out = read_pxpipe_frame_body(&mut d.stdout, len)?;
         Ok(Ok(out))
     })();
     if finish_pxpipe_watchdog(cancel, watchdog) {
@@ -227,6 +224,27 @@ fn pxpipe_daemon_roundtrip(
     } else {
         result
     }
+}
+
+/// Do not trust the length in a helper's header as an allocation request.
+/// Reserve at most one bounded chunk ahead of received bytes, while still
+/// accepting complete responses of any representable length. The caller's
+/// watchdog covers every blocking read.
+fn read_pxpipe_frame_body(reader: &mut impl Read, declared: u64) -> Result<Vec<u8>, String> {
+    let len = usize::try_from(declared)
+        .map_err(|_| "helper response length exceeds this platform's address space".to_string())?;
+    let mut out = Vec::new();
+    while out.len() < len {
+        let start = out.len();
+        let chunk = (len - start).min(1024 * 1024);
+        out.try_reserve(chunk)
+            .map_err(|error| format!("allocate helper body: {error}"))?;
+        out.resize(start + chunk, 0);
+        reader
+            .read_exact(&mut out[start..])
+            .map_err(|error| format!("read helper body: {error}"))?;
+    }
+    Ok(out)
 }
 
 /// Transform via the persistent daemon, spawning (or once respawning) it as

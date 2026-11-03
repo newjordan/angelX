@@ -23,6 +23,12 @@ pub enum Kind {
 #[cfg(test)]
 #[path = "../../tests/rules/together_floor_plates__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-games-b"))]
+#[path = "../../tests/rules/games_b_bend_cases__tests.rs"]
+pub(crate) mod games_b_bend_cases_tests;
+#[cfg(all(test, feature = "bend-cases-games-b"))]
+#[path = "../../tests/rules/floor_plates_bend_cases__tests.rs"]
+mod floor_plates_bend_cases_tests;
 
 impl Kind {
     pub fn of(pack: Pack) -> Self {

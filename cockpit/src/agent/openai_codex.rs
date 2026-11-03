@@ -29,7 +29,9 @@ mod catalog;
 mod events;
 mod replay;
 mod usage;
-pub(crate) use events::{ResponseEvent, ResponseToolCalls, parse_responses_event};
+#[cfg(test)]
+pub(crate) use events::parse_responses_event;
+pub(crate) use events::{ResponseEvent, ResponseToolCalls};
 pub(crate) use replay::ResponseReplay;
 pub(crate) use usage::{Usage, UsageStats, collect_rate_limits, format_usage};
 
@@ -39,6 +41,11 @@ const TOKEN_URL: &str = "https://auth.openai.com/oauth/token";
 const RESPONSES_URL: &str = "https://chatgpt.com/backend-api/codex/responses";
 const ORIGINATOR: &str = "codex_cli_rs";
 const AUTH_JSON_ENV: &str = "ANGEL_OPENAI_AUTH_JSON";
+const CODEX_STREAM_STALL_ENV: &str = "ANGEL_CODEX_STREAM_STALL_SECS";
+
+fn codex_stream_stall_secs() -> u64 {
+    crate::agent::club::env_secs(CODEX_STREAM_STALL_ENV, 0).as_secs()
+}
 
 // ---------------------------------------------------------------------------
 // auth — read & refresh the Codex ChatGPT tokens
@@ -114,7 +121,6 @@ pub(crate) struct CodexReasoningLevel {
 #[derive(Clone, Debug, Default, serde::Deserialize)]
 pub(crate) struct CodexModelInfo {
     pub(crate) slug: String,
-    #[allow(dead_code)]
     pub(crate) display_name: String,
     #[serde(default)]
     pub(crate) description: String,
@@ -641,6 +647,7 @@ pub struct CodexClub {
     /// Usage is shared for the same reason `/status` calls it session-wide.
     shared: Arc<CodexSharedState>,
     agent: ureq::Agent,
+    stream_stall_secs: u64,
     /// Tolerate an `incomplete: max_output_tokens` stream: keep the prose streamed
     /// so far (when no tool call is pending) instead of failing the turn. Set for
     /// the SOTA/metered link so a long MoA judge/aggregate draft is degraded, not
@@ -820,14 +827,18 @@ impl CodexClub {
         route_metadata.output_budget_provenance = Some("provider plan".to_string());
         // No read deadline: a model thinking behind a quiet socket is never cut.
         // Operator cancel aborts the request's socket (see the stream below).
-        let agent = ureq::AgentBuilder::new()
+        let stream_stall_secs = codex_stream_stall_secs();
+        let mut agent_builder = ureq::AgentBuilder::new()
             // OAuth/account headers are endpoint-bound. Refuse redirects so a
             // compromised endpoint cannot forward them to another origin.
             .redirects(0)
             .timeout_connect(Duration::from_secs(10))
             .timeout_write(Duration::from_secs(60))
-            .user_agent(concat!("angelX-cockpit/", env!("CARGO_PKG_VERSION")))
-            .build();
+            .user_agent(concat!("angelX-cockpit/", env!("CARGO_PKG_VERSION")));
+        if stream_stall_secs > 0 {
+            agent_builder = agent_builder.timeout_read(Duration::from_secs(stream_stall_secs));
+        }
+        let agent = agent_builder.build();
         Self {
             name: name.into(),
             model: model.into(),
@@ -839,6 +850,7 @@ impl CodexClub {
             route_metadata,
             shared,
             agent,
+            stream_stall_secs,
             keep_truncated: false,
             pxpipe_candidate: false,
             caveman_candidate: false,
@@ -1359,6 +1371,7 @@ impl CodexClub {
         wire: &crate::agent::club::wire_log::WireCall,
     ) -> Result<ClubReply, String> {
         use std::sync::atomic::Ordering;
+        let _calibration = crate::agent::club::model_defaults::pin_request();
         if let Some(error) = self
             .api_controls
             .as_ref()
@@ -1565,6 +1578,7 @@ impl CodexClub {
             let mut tool_calls = ResponseToolCalls::default();
             let mut replay_items = replay::ReplayItems::default();
             let mut saw_done = false;
+            let mut last_meaningful = std::time::Instant::now();
             // `BufRead::lines`, kept by hand so the reader outlives the loop and
             // a completed body's tail can hand its connection back to the pool.
             let mut next_line = || {
@@ -1599,6 +1613,10 @@ impl CodexClub {
                             on_delta(StreamDelta::Content(STREAM_INTERRUPTED_SUFFIX));
                             return Ok(ClubReply::Text(mark_stream_interrupted(&content)));
                         }
+                        if self.stream_stall_secs > 0 && matches!(e.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock) {
+                            attempt.outcome("stalled");
+                            return Err(format!("stream stalled: no bytes for {}s on {} (bound: {CODEX_STREAM_STALL_ENV})", self.stream_stall_secs, self.model));
+                        }
                         // A socket or decode failure mid-stream is a stream that
                         // died without a terminal event, as on the Chat route: the
                         // pending tool call never ran, so the hop may replay.
@@ -1609,16 +1627,27 @@ impl CodexClub {
                     }
                 };
                 wire.bytes(line.len() + 1);
+                let parsed = events::ParsedResponsesLine::new(&line);
                 if self.replay_enabled {
-                    replay_items.observe(&line);
+                    replay_items.observe_parsed(&parsed);
                 }
-                observe_responses_line(wire, &line);
+                observe_responses_line(wire, &parsed);
                 // A blocking read may yield a terminal usage frame just as cancel
                 // flips. Account for the received frame before suppressing output.
-                let event = attempt.receive(&line, cancelled);
+                let event = attempt.receive_parsed(&parsed, cancelled);
                 observe_responses_event(wire, &event);
                 if cancelled {
                     return Ok(ClubReply::Text(content));
+                }
+                if self.stream_stall_secs > 0 {
+                    if matches!(event, ResponseEvent::Ignore | ResponseEvent::Usage(_)) {
+                        if last_meaningful.elapsed() >= Duration::from_secs(self.stream_stall_secs) {
+                            attempt.outcome("stalled");
+                            return Err(format!("stream stalled: keep-alives without progress for {}s on {} (bound: {CODEX_STREAM_STALL_ENV})", self.stream_stall_secs, self.model));
+                        }
+                    } else {
+                        last_meaningful = std::time::Instant::now();
+                    }
                 }
                 match event {
                     ResponseEvent::Text(d) => {
@@ -1752,14 +1781,14 @@ impl CodexClub {
 /// call's histogram, and an output item of a type this parser does not dispatch
 /// (anything but a function call, message or reasoning) is noted, so a tool call
 /// the model made in another shape cannot vanish silently.
-fn observe_responses_line(wire: &crate::agent::club::wire_log::WireCall, line: &str) {
-    let Some(data) = line.strip_prefix("data:").map(str::trim) else {
+fn observe_responses_line(
+    wire: &crate::agent::club::wire_log::WireCall,
+    line: &events::ParsedResponsesLine<'_>,
+) {
+    let Some(data) = line.wire_payload() else {
         return;
     };
-    if data.is_empty() || data == "[DONE]" {
-        return;
-    }
-    let Ok(v) = serde_json::from_str::<serde_json::Value>(data) else {
+    let Some(v) = line.value.as_ref() else {
         wire.note(
             "unparsed_event",
             &format!("invalid JSON event ({} bytes)", data.len()),

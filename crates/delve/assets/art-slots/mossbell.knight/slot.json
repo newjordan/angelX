@@ -556,7 +556,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "mossbell.knight",
-  "source_path": "/work/artifacts/art-prod/slots/mossbell.knight/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/mossbell.knight/v01/source-sheet.png",
   "source_sha256": "6ff72544bd30f35c7ba5fcf8af9d5ca72f979f1256820e940e4d8cdcd47f6cf8",
   "tool_version": 2
 }

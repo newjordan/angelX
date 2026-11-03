@@ -249,6 +249,16 @@ impl Thinking {
                     let result = match foreground_lease {
                         Err(error) => Err(format!("foreground route resource conflict: {error}")),
                         Ok(_lease) => run_worker_guarded(|| {
+                            // Pin the same catalog before the vision sidecar:
+                            // it is a connected model seat and may read ledger pages.
+                            let book = crate::agent::harness::book::catalog::bind_turn(&mut convo)
+                                .map_err(|error| format!("book generation: {error}"))?;
+                            let book = crate::agent::harness::core_catalog::bind_book(book);
+                            let book_owner = crate::agent::harness::book::catalog::publish_owner(
+                                Arc::as_ptr(&worker_cancel) as usize,
+                                &book,
+                            );
+                            let _book = crate::agent::harness::book::catalog::enter(book);
                             // Vision sidecar rewrite is network-bound. Fold it here
                             // on agent-turn before hop 1 so Enter-after-echo never
                             // waits on the VLM, and the text-only driver never sees
@@ -273,6 +283,8 @@ impl Thinking {
                                     .checkpoint(prefix)
                                     .map_err(|error| error.to_string())
                             };
+                            // The harness publishes the same owner while it runs.
+                            drop(book_owner);
                             run_turn_steered_checkpointed_observed(
                                 &*club,
                                 &tools,

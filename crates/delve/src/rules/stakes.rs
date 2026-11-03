@@ -72,7 +72,10 @@ fn worth(how: Mend, stakes: Stakes) -> u32 {
 /// What `amount` comes to as a `how` in a `stakes` moment, before the
 /// passive budget and the room left in the knight.
 pub fn landed(amount: u32, how: Mend, stakes: Stakes) -> u32 {
-    (amount * worth(how, stakes)).div_ceil(100).max(1)
+    amount
+        .saturating_mul(worth(how, stakes))
+        .div_ceil(100)
+        .max(1)
 }
 
 /// What a knight's passive mends may add up to in a second.
@@ -116,14 +119,42 @@ pub(super) const ELITE_CHANCE: [u32; 6] = [0, 0, 30, 45, 55, 60];
 const POWER_HIT: f32 = 4.0;
 const POWER_HIT_MAX: f32 = 25.0;
 /// What the head count makes of it from the third floor, in percent: a lone
-/// knight meets as many shooters as three, so each hit is lighter.
-pub(super) const PARTY_HIT: [u32; 6] = [60, 100, 120, 135, 145, 155];
+/// knight meets as many shooters as three, so each hit is lighter. Past
+/// four it barely climbs: a full table meets more foes and thicker fire,
+/// not heavier hits (the 2026-10-20 play-test: five friends were felled in
+/// two blows each in their first room).
+pub(super) const PARTY_HIT: [u32; 6] = [60, 100, 120, 135, 140, 145];
 /// What the head count makes of it on the first two floors, in percent: a
-/// lone knight's hits stay as they were, a party's land harder.
-pub(super) const EARLY_PARTY_HIT: [u32; 6] = [100, 115, 130, 145, 160, 175];
+/// lone knight's hits stay as they were, a party's land harder, and past
+/// four hardly harder still.
+pub(super) const EARLY_PARTY_HIT: [u32; 6] = [100, 115, 130, 145, 150, 155];
 /// More gunners in every room for each knight past the first, on every
-/// floor; and as many more in each wave through a door.
+/// floor; and as many more in each wave through a door. The fifth and
+/// sixth knight bring one each (`PARTY_EXTRA`): every one of them is sized
+/// to the whole party's health, so a head count's company grows as its
+/// count times its health, and a full table's must not outgrow its arms.
 pub(super) const EXTRA_PER_KNIGHT: usize = 2;
+/// Down to this floor the first fight off the stairs brings none of the
+/// party's gunners: its company is the room's own, each sized to the whole
+/// party, so a party (a full table above all) finds its feet before the
+/// floor builds.
+pub(super) const GENTLE_FIRST_TO: u32 = 2;
+/// The gunners the party brings, by head count (`EXTRA_PER_KNIGHT` a knight
+/// to four, one a knight past).
+pub(super) const PARTY_EXTRA: [usize; 6] = [0, 2, 4, 6, 7, 8];
+// The table is the named rule: two a knight through four, then one each.
+const _: () = {
+    assert!(PARTY_EXTRA[1] == EXTRA_PER_KNIGHT);
+    assert!(PARTY_EXTRA[2] == 2 * EXTRA_PER_KNIGHT);
+    assert!(PARTY_EXTRA[3] == 3 * EXTRA_PER_KNIGHT);
+    assert!(PARTY_EXTRA[4] == 3 * EXTRA_PER_KNIGHT + 1);
+    assert!(PARTY_EXTRA[5] == 3 * EXTRA_PER_KNIGHT + 2);
+};
+/// At most this many of an open chamber's company fight at once, by head
+/// count; the rest wake as those fall, so a big room comes on in waves and
+/// a full table (whose rooms are the biggest) is never met by the whole of
+/// one at a breath. A party of four or fewer meets its rooms whole.
+pub(super) const OPEN_WAVE: [usize; 6] = [usize::MAX, usize::MAX, usize::MAX, usize::MAX, 8, 8];
 /// Extra shots beside each shot of a volley, by head count (`fan_out`):
 /// a party meets thicker fire on every floor (a guardian in its own room
 /// is held to its stage's caps instead, `signatures::hold`).
@@ -131,7 +162,17 @@ pub(super) const PARTY_FURY: [u8; 6] = [0, 1, 2, 3, 3, 3];
 /// What a guardian's shots deal on top of the floor's, in percent.
 const BOSS_HIT: u32 = 115;
 /// A guardian's health on top of the floor's, in percent, by floor.
-const BOSS_HEALTH: [u32; 6] = [100, 100, 200, 240, 310, 390];
+const BOSS_HEALTH: [u32; 6] = [140, 160, 210, 240, 280, 320];
+/// Health a guardian (and the dragon) adds per point of party strength
+/// above a fresh knight's, in percent, on every floor; and the most it can
+/// add. Further than the rank and file's (`POWER_HEALTH`), so a guardian
+/// stands its fight however the party has stacked its cards (the
+/// 2026-10-29 play-test: "bosses are still crazy weak"; a party at six
+/// times a fresh knight's strength felled floor one's in five seconds).
+/// Cut back after the 2026-11 play-test ("bullet sponges"): a guardian is a
+/// pattern to read and slip, its fall a few clean windows, not a long soak.
+const BOSS_POWER_HEALTH: f32 = 35.0;
+const BOSS_POWER_HEALTH_MAX: f32 = 220.0;
 
 impl Hero {
     /// How much harder than a fresh knight this one hits: the damage, rate,
@@ -161,7 +202,10 @@ impl Hero {
             .and_then(knights::knight)
             .map_or(100, |k| k.max_hp);
         // A princess's gift rides above the cap for its floor.
-        100 + HP_OVER_KIT + kit.saturating_sub(100) / 2 + self.boon.plus
+        100_u32
+            .saturating_add(HP_OVER_KIT)
+            .saturating_add(kit.saturating_sub(100) / 2)
+            .saturating_add(self.boon.plus)
     }
 
     /// Hold the knight's health to the cap.
@@ -175,7 +219,7 @@ impl Hero {
 
     /// Mend the knight by `amount`, as `how` and the moment make it worth.
     /// Returns what landed.
-    pub(super) fn mend(&mut self, amount: u32, how: Mend) -> u32 {
+    pub fn mend(&mut self, amount: u32, how: Mend) -> u32 {
         if self.hp == 0 || amount == 0 {
             return 0;
         }
@@ -183,7 +227,7 @@ impl Hero {
         if how == Mend::Potion && matches!(self.stakes, Stakes::Fight | Stakes::Boss) {
             // Draughts one on another do less.
             if self.sipped > 0 {
-                gain = (gain * DRAUGHT_AGAIN).div_ceil(100).max(1);
+                gain = gain.saturating_mul(DRAUGHT_AGAIN).div_ceil(100).max(1);
             }
             self.sipped = DRAUGHT_REST;
         }
@@ -206,7 +250,7 @@ impl Hero {
 
     /// Lifesteal: a mend of `amount` as `how`, within what the second's
     /// `LEECH_PER_SECOND` has left. Returns what landed.
-    pub(super) fn leech(&mut self, amount: u32, how: Mend) -> u32 {
+    pub fn leech(&mut self, amount: u32, how: Mend) -> u32 {
         let amount = amount.min(LEECH_PER_SECOND.saturating_sub(self.leeched));
         let gain = self.mend(amount, how);
         self.leeched += gain;
@@ -246,7 +290,8 @@ impl Run {
     /// Monsters' health from here on, in percent of their base (before the
     /// head count): by floor, and by the party's strength.
     pub(super) fn toughness(&self) -> u32 {
-        let floor = DEPTH_HEALTH[(self.dungeon.depth.clamp(1, 6) - 1) as usize];
+        // The Deep keeps climbing past the six floors' table (`deep`).
+        let floor = self.deep_health().unwrap_or(DEPTH_HEALTH[(self.dungeon.depth.clamp(1, 6) - 1) as usize]);
         let power = if self.dungeon.depth <= 2 {
             0.0
         } else {
@@ -255,15 +300,24 @@ impl Run {
         super::tune::Tune::percent(floor + power as u32, self.tune.foe_health)
     }
 
+    /// A guardian's health from here on, in percent of its base (before
+    /// the head count and `boss_health`): by floor, and by the party's
+    /// strength on every floor (`BOSS_POWER_HEALTH`).
+    pub(super) fn guardian_toughness(&self) -> u32 {
+        let floor = self.deep_health().unwrap_or(DEPTH_HEALTH[(self.dungeon.depth.clamp(1, 6) - 1) as usize]);
+        let power = ((self.party_strength() - 1.0) * BOSS_POWER_HEALTH).clamp(0.0, BOSS_POWER_HEALTH_MAX);
+        super::tune::Tune::percent(floor + power as u32, self.tune.foe_health)
+    }
+
     /// A guardian's health on top of the floor's, in percent.
     pub(super) fn boss_health(&self) -> u32 {
-        BOSS_HEALTH[(self.dungeon.depth.clamp(1, 6) - 1) as usize]
+        self.deep_boss_health().unwrap_or(BOSS_HEALTH[(self.dungeon.depth.clamp(1, 6) - 1) as usize])
     }
 
     /// What monsters deal, in percent: by floor, by the head count, and a
     /// little by the party's strength.
     fn pressure(&self) -> u32 {
-        let floor = DEPTH_HIT[(self.dungeon.depth.clamp(1, 6) - 1) as usize];
+        let floor = self.deep_hit().unwrap_or(DEPTH_HIT[(self.dungeon.depth.clamp(1, 6) - 1) as usize]);
         let knights = self.party_len().clamp(1, PARTY_HIT.len().min(EARLY_PARTY_HIT.len()));
         let power = if self.dungeon.depth <= 2 {
             0.0
@@ -305,6 +359,17 @@ impl Run {
             hero.fit_hp();
         }
     }
+}
+
+/// The gunners a party of `knights` brings to every room (`PARTY_EXTRA`).
+pub(super) fn party_extra(knights: usize) -> usize {
+    if knights == 0 { 0 } else { PARTY_EXTRA[knights.min(PARTY_EXTRA.len()) - 1] }
+}
+
+/// How many of an open chamber's company fight at once for a party of
+/// `knights` (`OPEN_WAVE`).
+pub(super) fn open_wave(knights: usize) -> usize {
+    OPEN_WAVE[knights.clamp(1, OPEN_WAVE.len()) - 1]
 }
 
 /// The extra fury a party of `knights` brings to every monster's volleys.
@@ -401,8 +466,10 @@ impl Run {
             .collect();
         let (w, h) = (self.room().width(), self.room().height());
         let alone = guarded && depth <= BOSS_ALONE_TO;
+        let doors = self.dungeon.steps().get(self.at).copied().unwrap_or(usize::MAX);
+        let gentle = depth <= GENTLE_FIRST_TO && doors <= 1;
         let extra = (if guarded { 0 } else { EXTRA_FOES[index] }
-            + EXTRA_PER_KNIGHT * self.party_len().saturating_sub(1))
+            + if gentle { 0 } else { party_extra(self.party_len()) })
             * if alone { 0 } else if guarded { 100 } else { self.ramp() }
             / 100;
         for _ in 0..extra {
@@ -432,7 +499,6 @@ impl Run {
         // Elites wait past the floor's first rooms (`pacing::ELITE_FROM`);
         // a room whose camp already has one (the Boss Key's carrier) keeps
         // it the toughest there.
-        let doors = self.dungeon.steps().get(self.at).copied().unwrap_or(usize::MAX);
         if depth >= 3
             && !guarded
             && !self.enemies.iter().any(|e| e.hp > 0 && e.elite)

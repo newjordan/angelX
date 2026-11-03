@@ -90,7 +90,6 @@ fn audit_delegate_task_subject(manifest: &HarnessRolloutV1) -> Result<(), String
 
 /// Explicit compatibility export. Ordinary trajectory-v2 logging never calls
 /// this path, so capture/export cannot alter its bytes or write cadence.
-#[allow(dead_code)]
 pub(crate) fn export_workspace_rollout_v2(
     workspace: &Path,
     rollout_id: &str,

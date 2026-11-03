@@ -68,9 +68,14 @@ its link dependencies is an intentional release change.
   and the forges of Caer Dwfn; the design and the phase plan.
 - [Model castles](CASTLES.md): the March's castles, one per model family, and
   how each model named its house.
-- [Source-layer reorganization handoff](handoff-refactor-src-layers.md): explicitly
-  superseded; useful history, not the current migration plan.
 
 Keep new architecture pages under `architecture/`, worked examples under
 `examples/`, figures/provenance under `images/`, and dated research receipts under
 `telemetry/`. Link from here instead of creating another competing root overview.
+
+**Paths outside the repository.** Dated notes and receipts name working
+directories by role: `<scratch>` (a temporary directory), `<build-cache>` (a
+Cargo target root), `<artifacts>` (review shots and evidence kept beside the
+work), `<archive>` (cut art and code kept for reference) and `<bench-root>`
+(a benchmark or training workspace). None of these is published; a file named
+under one, or marked "not published", stays with the measurement that made it.

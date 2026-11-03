@@ -96,7 +96,7 @@ fn a_lit_room_is_the_same_set_on_a_window_and_on_a_page() {
     let moment = Moment { activity: Activity::Fought, chest: Some([100.0, 13.0, 100.0]), time: 1.5, ..Moment::default() };
     let world = RoomWorld { moment, ..world };
     let spark = Lamp { at: [140.0, 8.0, 60.0], reach: 30.0, strength: 0.8 };
-    let staged = world.lit_staged((40.0, 20.0), ([0.0, 0.0], 1.0), (384.0, 224.0), &[spark], &|_, _| true).expect("lit");
+    let staged = world.lit_staged((40.0, 20.0), ([0.0, 0.0], 1.0), (384.0, 224.0), &[spark], &|_, _| true);
     assert_eq!(staged.look.lamps[0].at, [100.0, 8.0, 40.0], "an ember in flight lights the room first, scrolled with it");
     assert!(staged.look.lamps.len() <= angel_stage::look::LAMP_MAX);
     assert!(staged.look.lights() && staged.look.validate().is_ok(), "{:?}", staged.look.validate());
@@ -104,7 +104,7 @@ fn a_lit_room_is_the_same_set_on_a_window_and_on_a_page() {
     let reveal = staged.look.reveal.expect("the knight's chest kept in sight");
     assert_eq!(reveal.at, [60.0, 13.0, 80.0], "on the stage, scrolled with the room");
     assert_eq!(staged.meshes.len(), 1, "its ground");
-    // A page makes the same floor and blocks from the set's text.
+    // A page makes the same world from the set's text, but baked for performance.
     let (key, text) = staged.sets[0].clone();
     let (scale, offset) = world.placing((40.0, 20.0), ([0.0, 0.0], 1.0));
     let mut sets = angel_stage::set::Sets::default();
@@ -114,8 +114,13 @@ fn a_lit_room_is_the_same_set_on_a_window_and_on_a_page() {
         ..Default::default()
     };
     assert!(sets.fill(&mut far));
-    assert_eq!((far.floor, far.blocks), (staged.floor, staged.blocks));
-    assert_eq!(far.meshes.len(), 1);
+    // The page bakes the blocks into uploaded meshes, so far fewer nodes.
+    assert!(far.meshes.len() >= 1, "ground plus baked meshes");
+    assert_eq!(far.meshes[0].0, staged.meshes[0].0, "the ground's mesh first");
+    // Baking reduces the node count: the page has far fewer nodes than the window.
+    assert!(far.floor.len() + far.blocks.len() < staged.floor.len() + staged.blocks.len(),
+        "baking reduces nodes: page {} vs window {}",
+        far.floor.len() + far.blocks.len(), staged.floor.len() + staged.blocks.len());
     // And a page sent the text of its host's room keeps it by its key.
     assert!(receive(lit.key, &lit.text().expect("a one-screen room's text")));
     assert!(!receive(1, "not a set"));
@@ -163,7 +168,7 @@ fn rooms_take_their_tone_from_their_kind_of_place() {
 #[test]
 fn a_delves_floor_is_lit_along_its_doors_and_dark_toward_its_rim() {
     let room = crypt_fight();
-    let (dressing, _) = plain::dressing_for(&room, Pack::Crypt).expect("a dressing");
+    let dressing = dressing_for(&room, Pack::Crypt).expect("a dressing");
     let whole = (0, 0, room.cols as i32, room.rows as i32);
     let doors = floor_doors(&room, &dressing, whole).expect("a delve room's floor is lit from its doors");
     assert!(!doors.is_empty(), "a fight room has a door");
@@ -203,7 +208,7 @@ fn a_delves_floor_is_lit_along_its_doors_and_dark_toward_its_rim() {
 #[test]
 fn only_a_whole_delve_room_has_its_floor_lit_from_its_doors() {
     let room = crypt_fight();
-    let (dressing, _) = plain::dressing_for(&room, Pack::Crypt).expect("a dressing");
+    let dressing = dressing_for(&room, Pack::Crypt).expect("a dressing");
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     assert!(floor_doors(&room, &dressing, (0, 0, cols, rows)).is_some());
     // A piece of an open floor's map has no middle of its own.
@@ -220,7 +225,7 @@ fn only_a_whole_delve_room_has_its_floor_lit_from_its_doors() {
 fn open_map() -> (Room, Dressing) {
     let floor = layout::open_floor(2, Pack::Crypt, 2, &mut Rng::new(11));
     let map = floor.rooms.iter().find(|r| r.kind == RoomKind::Depths).expect("an open floor's map").clone();
-    let (dressing, _) = plain::dressing_for(&map, Pack::Crypt).expect("a map is drawn so");
+    let dressing = dressing_for(&map, Pack::Crypt).expect("a map is drawn so");
     (map, dressing)
 }
 
@@ -287,8 +292,8 @@ fn an_open_floor_burns_braziers_on_what_a_knight_cannot_walk() {
     let (mut flames, mut on_walls) = (0, 0);
     for cz in 0..lit.grid.1 {
         for cx in 0..lit.grid.0 {
-            let (tiles, crop) = plain::piece_rects(&map, true, (cx, cz));
-            let cut = plain::crop_room(&map, crop);
+            let (tiles, crop) = piece_rects(&map, true, (cx, cz));
+            let cut = crop_room(&map, crop);
             let mut groups = blockout::blockout(&cut, &dressing);
             rooms_lit_mass::monolith_in(&mut groups, &cut, &dressing, &map, (crop.0, crop.1));
             for f in open_braziers(&map, &dressing, tiles, crop, &groups).iter().filter(|s| s.kind == Kind::Fire) {
@@ -316,7 +321,7 @@ fn an_open_floor_burns_braziers_on_what_a_knight_cannot_walk() {
     }
     // Only an open delve floor: a room's own braziers are the generator's.
     let room = crypt_fight();
-    let (dressing, _) = plain::dressing_for(&room, Pack::Crypt).expect("a dressing");
+    let dressing = dressing_for(&room, Pack::Crypt).expect("a dressing");
     let whole = (0, 0, room.cols as i32, room.rows as i32);
     assert!(open_light(&room, &dressing, whole).is_none());
     assert!(open_braziers(&room, &dressing, whole, whole, &[]).is_empty());
@@ -365,21 +370,99 @@ fn the_west_wall_of_a_tall_room_is_open_to_the_low_sun() {
     assert!(frames(&hall.set, false).is_empty() && frames(&hall.set, true).is_empty());
 }
 
+/// The players' complaint after the first night in the deep: "the 3d maps
+/// were too dark, we couldnt see obstacles or things in the map". A delve's
+/// floor is lit above the ladder's void, whichever floor it is, by the look
+/// that room is drawn through (the brand guide's step 1 or better, docs/
+/// BRAND.md), and the look is inside the guide's own numbers.
+#[test]
+fn a_delves_floor_is_lit_off_the_void_on_every_floor_of_the_deep() {
+    use super::super::rooms_lit_look::look;
+    use angel_stage::look::{luminance, unit_rgb};
+    // The packs that stand up by default: the dragon's lair on floor 3, and
+    // the floors below (`world3d::room::stands_in_mode`).
+    for pack in [Pack::Hellforge, Pack::Archive, Pack::Fungal, Pack::Unknown] {
+        let floor = layout::floor_party(2, pack, 2, &mut Rng::new(5));
+        let room = floor.rooms.iter().find(|r| r.kind == RoomKind::Fight).expect("a fight room");
+        let lit = lit_for(room, pack).expect("lit");
+        let set = &lit.piece((0, 0)).expect("reads").set;
+        let mut tones = set.ground.as_ref().expect("a ground").tones.clone();
+        tones.sort_unstable();
+        let median = f32::from(tones[tones.len() / 2]) / 100.0;
+        let look = look(Tone::Delve(pack), &[], 0.0, [0.0; 3], 200.0, None);
+        // (Its ramps' own breaches of the ladder are another matter.)
+        let breaches: Vec<_> = angel_stage::brand::audit_look(&look).into_iter().filter(|b| b.rule.starts_with("sun") || b.rule.starts_with("lamp")).collect();
+        assert!(breaches.is_empty(), "{pack:?}: the sun is outside the guide: {breaches:?}");
+        let sun = look.sun.expect("a sun");
+        // A face turned up, in the light, over the ambient: the floor.
+        let level = median * (sun.ambient + sun.strength * sun.toward_unit()[1]);
+        // The void is step 0; a floor under the next is a floor that cannot
+        // be seen (the first night's floors were far under it).
+        let least = luminance(unit_rgb(look.ramp[1]));
+        assert!(level >= least, "{pack:?}: the floor is lit to {level:.3}, under the ladder's step 1 ({least:.3})");
+    }
+}
+
+/// What stands in a delve is lit at its edge: the tops of its walls and
+/// pillars are a step lighter than their faces, the growth of the deep is
+/// not the darkest of the mass kinds; a room above (a hall, a place) has
+/// neither.
+#[test]
+fn a_delves_set_catches_the_tops_of_what_stands_and_lifts_its_growth() {
+    let room = crypt_fight();
+    let text = lit_for(&room, Pack::Crypt).expect("lit").text().expect("a one-screen room's text");
+    for line in ["tone foliage 24", "tone trunk 20", "tone hedge 22"] {
+        assert!(text.contains(line), "{line}");
+    }
+    let set = Set::parse(&text).expect("reads");
+    let capped: Vec<_> = set.shapes.iter().filter(|s| s.top.is_some()).collect();
+    assert!(!capped.is_empty(), "the tops of walls and pillars are a step lighter");
+    for shape in capped {
+        assert!(shape.top.unwrap() > shape.kind.tone(), "{:?}: a cap lighter than its faces", shape.kind);
+        assert!(shape.size[1] >= CAP_HEIGHT, "{:?}: only what stands", shape.kind);
+        assert!(!shape.kind.shines() && class_is_mass_or_prop(shape.kind), "{:?}: only masses and props", shape.kind);
+    }
+    let hall = super::super::pilot::item("kings-hall").expect("an item").room();
+    let hall = lit_for(&hall, Pack::Crypt).expect("lit").piece((0, 0)).expect("reads");
+    assert!(!hall.text.contains("tone foliage") && hall.set.shapes.iter().all(|s| s.top.is_none()), "a hall above is as it was");
+}
+
+fn class_is_mass_or_prop(kind: Kind) -> bool {
+    use angel_stage::brand::{Class, class_of};
+    matches!(class_of(kind), Class::Mass | Class::Prop)
+}
+
 /// `cargo test -p angel-delve --release lit_room_timings -- --ignored --nocapture`:
 /// how long a lit room's set and an open floor's piece take to make.
 #[test]
 #[ignore = "prints timings"]
 fn lit_room_timings() {
     let room = crypt_fight();
-    let (dressing, _) = plain::dressing_for(&room, Pack::Crypt).unwrap();
+    let dressing = dressing_for(&room, Pack::Crypt).unwrap();
     let t = std::time::Instant::now();
     let text = room_text(&room, &dressing, true, None);
     println!("a {}x{} room: {:?}, {} bytes", room.cols, room.rows, t.elapsed(), text.len());
     let floor = layout::open_floor(2, Pack::Crypt, 2, &mut Rng::new(11));
     let map = floor.rooms.iter().find(|r| r.kind == RoomKind::Depths).unwrap();
-    let (dressing, _) = plain::dressing_for(map, Pack::Crypt).unwrap();
+    let dressing = dressing_for(map, Pack::Crypt).unwrap();
     let t = std::time::Instant::now();
-    let rects = plain::piece_rects(map, true, (1, 1));
+    let rects = piece_rects(map, true, (1, 1));
     let text = room_text(map, &dressing, false, Some(rects));
     println!("an open floor's piece: {:?}, {} bytes", t.elapsed(), text.len());
+}
+
+#[test]
+fn the_foreman_ledge_stands_in_the_lit_court() {
+    let room = crate::rules::holdings::land_office_room((0, 0));
+    let lit = lit_for(&room, Pack::Crypt).expect("the Court is lit");
+    let piece = lit.piece((0, 0)).expect("the Court's generated set");
+    let (c, r, w, h) = crate::rules::holdings::LEDGE;
+    let middle = [(c as f32 + w as f32 / 2.0) * TILE, (r as f32 + h as f32 / 2.0) * TILE];
+    assert!(piece.set.shapes.iter().any(|shape| {
+        shape.id.as_deref() == Some("bench")
+            && (shape.at[0] - middle[0]).abs() < TILE
+            && (shape.at[2] - middle[1]).abs() < TILE
+            && shape.size[1] > 0.0
+    }), "the petition bench stands at LEDGE in the live generated room");
+    assert!(!piece.text.contains("\nplate "), "the retired painted plate stays gone");
 }

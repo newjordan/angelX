@@ -1,0 +1,167 @@
+{
+  "api_version": 1,
+  "id": "moonfall-rules",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "heroes": [
+      [
+        1,
+        true
+      ],
+      [
+        2,
+        true
+      ]
+    ],
+    "inputs": [
+      [
+        1,
+        true,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        0,
+        1,
+        0,
+        0
+      ],
+      [
+        2,
+        true,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        false,
+        1,
+        -1,
+        1,
+        0
+      ]
+    ],
+    "op": "step",
+    "pages": [],
+    "pending": [],
+    "session": {
+      "call": null,
+      "card": 40,
+      "clock": 0,
+      "completed": null,
+      "cry": null,
+      "elapsed": 0,
+      "memory": {
+        "facts": 255,
+        "keeps": 7,
+        "loops": 0,
+        "masks": 3,
+        "routines": [
+          0,
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "ticks": 0
+      },
+      "news": [],
+      "nums": {
+        "day": 1800,
+        "notice": 64,
+        "rewind": 40,
+        "walk": 150,
+        "wisps": 4
+      },
+      "peak": 2,
+      "phase": "Play",
+      "seats": {
+        "1": {
+          "joined": 0,
+          "knight": {
+            "candles": 3,
+            "down": 0,
+            "face": 0,
+            "held": "Empty",
+            "held_at": 0,
+            "hold": 0,
+            "hurt": 0,
+            "keys": 0,
+            "mask": "Bare",
+            "note": null,
+            "panel": "Shut",
+            "push": 0,
+            "read": 0,
+            "roll": 0,
+            "roll_dir": [
+              0,
+              0
+            ],
+            "roll_rest": 0,
+            "say": null,
+            "stride": 0,
+            "x": 67584,
+            "y": 63488
+          }
+        },
+        "2": {
+          "joined": 0,
+          "knight": {
+            "candles": 3,
+            "down": 0,
+            "face": 0,
+            "held": "Empty",
+            "held_at": 0,
+            "hold": 0,
+            "hurt": 0,
+            "keys": 0,
+            "mask": "Bare",
+            "note": null,
+            "panel": "Shut",
+            "push": 0,
+            "read": 0,
+            "roll": 0,
+            "roll_dir": [
+              0,
+              0
+            ],
+            "roll_rest": 0,
+            "say": null,
+            "stride": 0,
+            "x": 79872,
+            "y": 63488
+          }
+        }
+      },
+      "world": {
+        "crates": [
+          [
+            17,
+            20
+          ]
+        ],
+        "flags": 0,
+        "ink_given": null,
+        "lit_until": [
+          0,
+          0,
+          0
+        ],
+        "shod": null,
+        "snuffed": 0,
+        "wisps": []
+      }
+    }
+  },
+  "bend": {
+    "entry": "moonfall-rules.bend",
+    "proof": "PROOF.bend",
+    "output": "moonfall-rules.compiled.js"
+  }
+}

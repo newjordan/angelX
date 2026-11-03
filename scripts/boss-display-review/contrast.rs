@@ -14,7 +14,7 @@ fn write_floor_contrast() {
         serde_json::from_str(include_str!("../boss-library-registry.json")).unwrap();
     let mut records = Vec::new();
     for (id, policy) in registry.as_object().unwrap() {
-        let mut run = arena::art_v2::testing::boss(id);
+        let mut run = arena::testing::boss(id);
         let definition = run
             .bosses
             .iter()

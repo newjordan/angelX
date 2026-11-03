@@ -183,3 +183,256 @@ fn deterministic_fallback_and_throughput_fixture_toward_ac16() {
         64
     );
 }
+
+// --- live `lane-schedule` leg -------------------------------------------------
+//
+// The Bend leg owns the lane ranking; Rust keeps the state, the validation and
+// the application of the choice. `select_lanes` stays as the native fallback and
+// as the parity oracle for the table below.
+
+fn lane_state(
+    seats: u16,
+    gap: u64,
+    boost: bool,
+    last: Option<LaneIdV1>,
+    states: [(bool, u64); 2],
+) -> SchedulerStateV1 {
+    let mut state = SchedulerStateV1::new(seats, gap).unwrap();
+    state.frontier_priority_boost = boost;
+    state.last_single_lane = last;
+    for (index, (runnable, age_ticks)) in states.into_iter().enumerate() {
+        state.lanes[index].runnable = runnable;
+        state.lanes[index].age_ticks = age_ticks;
+    }
+    state
+}
+
+fn live_lanes(
+    leg: &angel_live::Program,
+    state: &SchedulerStateV1,
+) -> (Vec<usize>, crate::agent::harness::live_policy::LegSource) {
+    let input = state.lane_input().expect("scheduler snapshot");
+    let (selection, source) = crate::agent::harness::live_policy::decide_with(
+        Some(leg.clone()),
+        super::scheduler::LANE_SCHEDULE_LEG,
+        &input,
+        |selection: &super::scheduler::LaneSelectionV1| state.check_lanes(&selection.lanes),
+        || super::scheduler::LaneSelectionV1 {
+            lanes: state.select_lanes(),
+        },
+    );
+    (selection.lanes, source)
+}
+
+/// The same decision, taken by the generation compiled into this binary: the
+/// shipped leg answers without a module directory, exactly as a turn asks it.
+fn shipped_lanes(
+    state: &SchedulerStateV1,
+) -> (Vec<usize>, crate::agent::harness::live_policy::LegSource) {
+    let input = state.lane_input().expect("scheduler snapshot");
+    let (selection, source) = crate::agent::harness::live_policy::decide_shipped(
+        super::scheduler::LANE_SCHEDULE_LEG,
+        &input,
+        |selection: &super::scheduler::LaneSelectionV1| state.check_lanes(&selection.lanes),
+    );
+    (selection.lanes, source)
+}
+
+fn temporary_lane_leg(id: &str, render: &str) -> angel_live::Program {
+    let root = std::env::temp_dir().join(format!("angel-lane-leg-{}-{id}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    let module = root.join(id);
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(
+        module.join("module.json"),
+        format!(
+            r#"{{"api_version":1,"id":"{id}","kind":"policy","entry":"index.js","probe":{{}}}}"#
+        ),
+    )
+    .unwrap();
+    std::fs::write(module.join("index.js"), render).unwrap();
+    let mut registry =
+        angel_live::Registry::validated(root, crate::agent::hotload::evaluate, |_, _| Ok(()));
+    registry.refresh(true);
+    registry
+        .snapshot()
+        .policies
+        .get(id)
+        .cloned()
+        .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
+}
+
+#[test]
+fn live_lane_schedule_leg_matches_the_native_selection() {
+    let shapes = [(true, true), (true, false), (false, true), (false, false)];
+    let mut checked = 0;
+    let mut widths = std::collections::BTreeSet::new();
+    let mut chosen = std::collections::BTreeSet::new();
+    for seats in [1u16, 2, 3] {
+        for gap in [2u64, 4, 8] {
+            for boost in [false, true] {
+                for last in [None, Some(LaneIdV1::FrontierGuard), Some(LaneIdV1::DeepCut)] {
+                    for shape in shapes {
+                        for ages in [
+                            (0, 0),
+                            (0, 1),
+                            (1, 0),
+                            (1, 1),
+                            (gap - 1, 0),
+                            (0, gap - 1),
+                            (gap - 1, gap - 1),
+                            (gap / 2, gap - 2),
+                        ] {
+                            let state = lane_state(
+                                seats,
+                                gap,
+                                boost,
+                                last,
+                                [(shape.0, ages.0), (shape.1, ages.1)],
+                            );
+                            let native = state.select_lanes();
+                            let (live, source) = shipped_lanes(&state);
+                            assert_eq!(
+                                source.as_str(),
+                                "shipped",
+                                "seats {seats} gap {gap} boost {boost} last {last:?} lanes {shape:?} ages {ages:?}: {source:?}"
+                            );
+                            assert_eq!(
+                                live, native,
+                                "seats {seats} gap {gap} boost {boost} last {last:?} lanes {shape:?} ages {ages:?}"
+                            );
+                            checked += 1;
+                            widths.insert(native.len());
+                            chosen.extend(native.iter().copied());
+                        }
+                    }
+                }
+            }
+        }
+    }
+    assert!(checked >= 30, "only {checked} lane states were compared");
+    assert_eq!(
+        widths.into_iter().collect::<Vec<_>>(),
+        vec![0, 1, 2],
+        "the table must reach every seat width"
+    );
+    assert_eq!(
+        chosen.into_iter().collect::<Vec<_>>(),
+        vec![0, 1],
+        "the table must seat both lanes"
+    );
+}
+
+#[test]
+fn the_lane_leg_reads_the_state_it_was_promised() {
+    let state = lane_state(1, 4, true, Some(LaneIdV1::DeepCut), [(true, 3), (false, 1)]);
+    assert_eq!(
+        state.lane_input().unwrap(),
+        serde_json::json!({
+            "seats": 1,
+            "max_service_gap_ticks": 4,
+            "frontier_priority_boost": true,
+            "last_single_lane": 1,
+            "lanes": [
+                {"index": 0, "runnable": true, "age_ticks": 3},
+                {"index": 1, "runnable": false, "age_ticks": 1},
+            ],
+        })
+    );
+    let mut wide = lane_state(2, u32::MAX as u64, false, None, [(true, 0), (true, 0)]);
+    assert!(wide.lane_input().is_some());
+    wide.max_service_gap_ticks = u32::MAX as u64 + 1;
+    assert!(
+        wide.lane_input().is_none(),
+        "a counter past the leg's U32 arithmetic keeps the native selection"
+    );
+}
+
+#[test]
+fn an_out_of_contract_live_schedule_keeps_the_native_selection() {
+    let native = |state: &SchedulerStateV1| state.select_lanes();
+    let wide = lane_state(2, 4, false, None, [(true, 1), (true, 0)]);
+    assert_eq!(native(&wide), vec![0, 1]);
+    for (id, render) in [
+        (
+            "lane-duplicate",
+            "module.exports={apiVersion:1,render:()=>({lanes:[0,0]})}",
+        ),
+        (
+            "lane-absent",
+            "module.exports={apiVersion:1,render:()=>({lanes:[0,7]})}",
+        ),
+        (
+            "lane-silent",
+            "module.exports={apiVersion:1,render:()=>({})}",
+        ),
+    ] {
+        let leg = temporary_lane_leg(id, render);
+        let (lanes, source) = live_lanes(&leg, &wide);
+        assert!(
+            matches!(
+                source,
+                crate::agent::harness::live_policy::LegSource::LiveFallback { .. }
+            ),
+            "{id}: {source:?}"
+        );
+        assert_eq!(lanes, native(&wide), "{id}");
+    }
+    for (state, id, render) in [
+        (
+            lane_state(1, 4, false, None, [(true, 0), (true, 1)]),
+            "lane-over-seated",
+            "module.exports={apiVersion:1,render:()=>({lanes:[0,1]})}",
+        ),
+        (
+            lane_state(2, 4, false, None, [(false, 0), (true, 0)]),
+            "lane-unrunnable",
+            "module.exports={apiVersion:1,render:()=>({lanes:[0]})}",
+        ),
+    ] {
+        let leg = temporary_lane_leg(id, render);
+        let (lanes, source) = live_lanes(&leg, &state);
+        assert!(
+            matches!(
+                source,
+                crate::agent::harness::live_policy::LegSource::LiveFallback { .. }
+            ),
+            "{id}: {source:?}"
+        );
+        assert_eq!(lanes, native(&state), "{id}");
+    }
+}
+
+#[test]
+fn live_lane_schedule_leg_decision_cost() {
+    let state = lane_state(
+        1,
+        4,
+        false,
+        Some(LaneIdV1::FrontierGuard),
+        [(true, 1), (true, 1)],
+    );
+    let native = state.select_lanes();
+    let mut timings = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        let (lanes, source) = shipped_lanes(&state);
+        timings.push(started.elapsed());
+        assert_eq!(source.as_str(), "shipped");
+        assert_eq!(lanes, native);
+    }
+    timings.sort();
+    let mut native_timings = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        assert_eq!(state.select_lanes(), native);
+        native_timings.push(started.elapsed());
+    }
+    native_timings.sort();
+    eprintln!(
+        "lane-schedule leg: median {:.2} us/decision, p95 {:.2} us over 200 calls (native oracle median {:.3} us)",
+        timings[timings.len() / 2].as_secs_f64() * 1e6,
+        timings[timings.len() * 95 / 100].as_secs_f64() * 1e6,
+        native_timings[native_timings.len() / 2].as_secs_f64() * 1e6,
+    );
+}

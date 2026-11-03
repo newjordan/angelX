@@ -1,0 +1,19 @@
+# Public wall stock, not the Hammerer's Great Maul.
+name   Stock Maul
+kind   arm
+rarity common
+text   A workman's maul: a close, deliberate swing.
+drop   0
+chest  0
+look   steel blade
+melee  damage=26 reach=2.8 arc=120 every=26
+art
+..HHHHH..
+..HiiiH..
+..HHHHH..
+....B....
+....B....
+....B....
+....B....
+....b....
+....b....

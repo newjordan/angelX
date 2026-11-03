@@ -1,0 +1,58 @@
+@@book-page 1@@
+Every tool call in your last several turns failed.
+@@book-page 1@@
+Stop and read the actual error messages — they usually name the cause (wrong path, missing file, bad arguments, wrong state).
+@@book-page 1@@
+Verify the precondition first (does the file/dir exist? `list_dir`/`find_files` before reading; check the working state) and then retry differently.
+@@book-page 1@@
+Repeating failing calls won't help.
+@@book-page 2@@
+Your previous message printed raw tool markup as plain text — no tool was executed, and any results it described were invented.
+@@book-page 2@@
+Re-issue the action through the structured tool-call interface now (no tool markup in chat text), then answer from the real output.
+@@book-page 3@@
+Your last reply was cut off at the output token limit before it finished, so nothing in it ran.
+@@book-page 3@@
+Usually one tool call carried too much text.
+@@book-page 3@@
+Split the work: write a large file in parts (create it with the first part, then add the rest with further edits), keep each tool call well under the limit, and do not restate large content.
+@@book-page 4@@
+Your last reply spent its whole output limit on private reasoning and was cut off before it said or did anything, so nothing ran.
+@@book-page 4@@
+Do not work the problem out in your head: take the next concrete step now with one tool call (run the tests, read the failing case, or make one small edit) and keep your reasoning short.
+@@book-page 5@@
+Your previous reply arrived empty — no text and no tool calls were received.
+@@book-page 5@@
+Respond now with either structured tool calls or answer text.
+@@book-page 7@@
+Your previous turn produced only internal reasoning and no final answer.
+@@book-page 7@@
+Skip the reasoning this time: answer the request directly, without any think block.
+@@book-page 8@@
+Your previous turn produced only internal reasoning and no action.
+@@book-page 8@@
+Do not reason further.
+@@book-page 8@@
+Execute the next step NOW as a structured tool call through the tool interface — no prose, no think block.
+@@book-page 8@@
+Only if no tool applies, give the final answer directly.
+@@book-page 9@@
+Exact source is JSON-escaped below; copy `old` and author `new` with the intended indentation.
+@@book-page 9@@
+Trimming is only a discovery hint, including for Python/YAML; it does not authorize re-indentation.
+@@book-page 9@@
+Retry str_replace on the same path with these old/expect_tag fields.
+@@book-page 9@@
+Retry the ENTIRE multi_edit list with this outer expect_tag; replace only the identified edit's old.
+@@book-page 9@@
+This old describes the buffer AFTER preceding edits, not the unchanged live file.
+@@book-page 9@@
+edit_index is one-based recovery metadata, not a tool argument.
+@@book-page 9@@
+Read the indicated region and choose a smaller unique edit.
+@@book-page 9@@
+add surrounding context before retrying.
+@@book-page 9@@
+Read this path with offset={offset} limit={limit} and choose a smaller unique edit.
+@@book-page 0@@
+reissue `{name}` with valid JSON

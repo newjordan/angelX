@@ -45,11 +45,12 @@ fn the_override_stands_every_room_up_and_off_none() {
 }
 
 #[test]
-fn a_host_stands_the_deep_floors_up_unless_its_environment_says_otherwise() {
-    assert_eq!(Mode::from_env(None), Mode::Deep);
-    assert_eq!(Mode::from_env(Some("")), Mode::Deep);
-    assert_eq!(Mode::from_env(Some("1")), Mode::Always);
+fn a_host_keeps_every_floor_2d_unless_its_environment_asks_for_3d() {
+    assert_eq!(Mode::from_env(None), Mode::Off);
+    assert_eq!(Mode::from_env(Some("")), Mode::Off);
     assert_eq!(Mode::from_env(Some("0")), Mode::Off);
+    assert_eq!(Mode::from_env(Some("deep")), Mode::Deep);
+    assert_eq!(Mode::from_env(Some("1")), Mode::Always);
 }
 
 #[test]
@@ -81,7 +82,7 @@ fn a_rooms_world_is_its_floors_to_give() {
     let deep = run_at(DEEP);
     assert!(stands_here(&deep));
     let world = world_in(&deep, Some(1), (384, 224)).expect("the deep stands up");
-    assert!(world.lit().is_some(), "lit, in the monolith look");
+    assert!(world.lit().key != 0, "lit, in the monolith look");
     set_mode(Mode::Off);
     assert!(world_in(&deep, Some(1), (384, 224)).is_none());
 }

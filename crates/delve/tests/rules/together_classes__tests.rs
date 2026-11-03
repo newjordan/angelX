@@ -1,4 +1,6 @@
-//! The class halls: a banner stone by its building, E to become the class.
+//! The class halls: the lot by each building where its banner stone stood
+//! (a class is taken up in the Sozzled Griffin now, `alehouse`), and the
+//! Sanctuary's field banner below ground.
 use super::*;
 use super::testing::*;
 use crate::render::overworld::kingdom as geography;
@@ -8,7 +10,7 @@ fn press(id: u32) -> BTreeMap<u32, Input> {
 }
 
 #[test]
-fn every_class_has_a_banner_in_the_kingdom_on_open_ground() {
+fn every_class_keeps_its_lot_in_the_kingdom_on_open_ground() {
     let r = kingdom();
     let geo = geography::geography(&r.kingdom.wishes);
     let stones = stones(&geo);
@@ -19,28 +21,21 @@ fn every_class_has_a_banner_in_the_kingdom_on_open_ground() {
 }
 
 #[test]
-fn e_at_a_banner_changes_class_once_and_keeps_the_share_of_health() {
+fn e_at_a_banner_lot_takes_up_no_class() {
     let mut r = kingdom();
     let geo = geography::geography(&r.kingdom.wishes);
     let stones = stones(&geo);
-    let (i, (x, y)) = stones[2]; // the Gunner, by the Smithy
+    let (_, (x, y)) = stones[2]; // the Gunner's, by the Smithy
     {
         let hero = r.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = ((x as f32 + 0.5) * TILE_UNITS, (y as f32 + 1.2) * TILE_UNITS);
-        hero.max_hp = 100;
-        hero.hp = 50;
     }
-    r.step(&press(1));
-    let hero = &r.players[&1];
-    assert_eq!(of(hero).map(|c| c.name), Some(CLASSES[i].name));
-    assert_eq!(hero.weapon, Weapon::Handgonne);
-    assert_eq!(hero.hp * 2, hero.max_hp, "half health stays half");
-    // Holding E is one change; a fresh press at the same banner is no change.
     let before = r.players[&1].clone();
     r.step(&press(1));
     r.step(&BTreeMap::new());
-    r.step(&press(1));
-    assert_eq!(r.players[&1].hp, before.hp);
+    let hero = &r.players[&1];
+    assert_eq!(hero.class, before.class, "the tavern is where a class is taken up");
+    assert_eq!(hero.weapon, before.weapon);
     assert!(r.valid_snapshot());
 }
 
@@ -113,12 +108,13 @@ fn the_mage_learns_spells_and_leaves_them_behind() {
     r.become_class(1, mage);
     let hero = &r.players[&1];
     assert_eq!(of(hero).map(|c| c.name), Some("Mage"));
-    assert!(hero.spells.iter().flatten().any(|s| s == "cabbage-storm"));
+    assert!(weave::weaves(hero), "the Mage weaves its spells");
     assert!(hero.hand.iter().any(|c| c == "thunder-scroll"));
+    r.players.get_mut(&1).unwrap().weave.orbs = vec![weave::Essence::Ember];
     r.become_class(1, archer);
     let hero = &r.players[&1];
     assert_eq!(of(hero).map(|c| c.name), Some("Archer"));
-    assert!(!hero.spells.iter().flatten().any(|s| s == "cabbage-storm"), "a class's spells go with it");
+    assert!(!weave::weaves(hero) && hero.weave.is_empty(), "the weave goes with the Mage");
     let healer = CLASSES.iter().find(|c| c.name == "Healer").unwrap();
     r.become_class(1, healer);
     assert!(r.players[&1].hand.iter().any(|c| c == "censer"));
@@ -128,7 +124,7 @@ fn the_mage_learns_spells_and_leaves_them_behind() {
 /// The classes at play: a dungeon fight (two rooms, so all seven are in),
 /// the kingdom by the halls, and a folly. Each is saved as the native
 /// picture and as the 192-column terminal's half-blocks, under
-/// `<dir>/classes-<art>/`, `art` being v1 or v2 (`ANGEL_ART=v2`).
+/// `<dir>/classes-v1/`.
 /// `ANGEL_ARENA_SHOTS=<dir> cargo test write_class_play_shots -- --ignored`
 #[test]
 #[ignore]
@@ -137,8 +133,7 @@ fn write_class_play_shots() {
     let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
         return;
     };
-    let art = if arena::art_v2::enabled() { "v2" } else { "v1" };
-    let dir = std::path::PathBuf::from(dir).join(format!("classes-{art}"));
+    let dir = std::path::PathBuf::from(dir).join("classes-v1");
     std::fs::create_dir_all(&dir).unwrap();
     let save = |run: &Run, name: &str| {
         let img = arena::frame_for(run, 768, 448, Some(1));
@@ -256,7 +251,7 @@ fn write_class_play_shots() {
 /// Each class's own shot in the air (the Mage's bolt, the Healer's spark,
 /// the Gunner's balls, the Swordsman's thrown blade), and the classes in
 /// the saddle at the lists and in the cab at the chariot race, under
-/// `<dir>/classes-<art>/`.
+/// `<dir>/classes-v1/`.
 /// `ANGEL_ARENA_SHOTS=<dir> cargo test write_class_shot_and_rider_shots -- --ignored`
 #[test]
 #[ignore]
@@ -268,8 +263,7 @@ fn write_class_shot_and_rider_shots() {
     let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
         return;
     };
-    let art = if arena::art_v2::enabled() { "v2" } else { "v1" };
-    let dir = std::path::PathBuf::from(dir).join(format!("classes-{art}"));
+    let dir = std::path::PathBuf::from(dir).join("classes-v1");
     std::fs::create_dir_all(&dir).unwrap();
     let save = |run: &Run, name: &str| {
         let img = arena::frame_for(run, 768, 448, Some(1));

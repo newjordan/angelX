@@ -359,7 +359,7 @@ pub(crate) fn startup_notice_in(
     if let Some(dir) = stamp.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    let _ = std::fs::write(stamp, now.to_string());
+    let _ = crate::platform::workspace_store::write_atomic(stamp, now.to_string().as_bytes());
 
     let proposals = list_proposals_for_in(proposed, workspace);
     if proposals.is_empty() {

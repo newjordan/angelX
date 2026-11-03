@@ -15,9 +15,9 @@
 //! and the rest at `REST`. What a stroke does besides its damage (a stun,
 //! a pull, a parried shot) still reaches all of them.
 //!
-//! A bomb and a Thunder Scroll stay room-wide: each is spent when used and
-//! hits for a fixed sum whatever the knight holds, so no build multiplies
-//! it. Morningstars strike on a beat (`ORBIT_EVERY`), not on every tick
+//! Bombs use the floor's fixed damage and reach (`bombs`); Thunder Scrolls
+//! stay room-wide (local on open floors). Both are spent when used and
+//! bypass the area share, so no build multiplies their damage. Morningstars strike on a beat (`ORBIT_EVERY`), not on every tick
 //! they touch; lifesteal has its own limit beside the other mends
 //! (`stakes`).
 

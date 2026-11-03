@@ -83,7 +83,7 @@ impl Run {
         if tapped.contains(&cart.driver) && cart.air_left == 0 && cart.rest_left == 0 {
             cart.air_left = CART_AIR;
             cart.rest_left = CART_REST;
-            self.sounds.push("play_card");
+            self.sounds.push("roll");
         }
         let airborne = cart.air_left > 0;
         cart.x += cart.dx;
@@ -115,7 +115,15 @@ impl Run {
                 return false;
             }
             round.progress += 1;
+            round.score_popup = 8;
+            round.score_popup_text = "HOP!".to_string();
+            round.score_popup_x = CART_LOGS[usize::from(round.progress - 1)] as i32;
+            round.score_popup_y = 7;
             self.sounds.push("spoil_pickup");
+        }
+        // Landing sound: cart touches down (air_left was 1, now becomes 0)
+        if cart.air_left == 1 {
+            self.sounds.push("rock_land");
         }
         cart.air_left = cart.air_left.saturating_sub(1);
         true

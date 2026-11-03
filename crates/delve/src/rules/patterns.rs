@@ -287,6 +287,12 @@ const GAP_WALL: (u32, u32, f32) = (13, 2, 5.0);
 const WALL_SPACING: f32 = 1.0;
 const WALL_GAP: usize = 2;
 const WALL_FOLLOWS: u8 = 24;
+/// The shield line's second wall leaves out this share of its shots, in
+/// percent, to the nearest shot (eleven become eight): evenly along it,
+/// chinks a slot wide that a careful knight can slip, its gap where it
+/// moved to and still the widest way through (the user, 2026-10-21:
+/// "shield wall guys 2nd attack wave bullets reduce by 25%").
+pub const PAVISE_THINS: usize = 25;
 /// Crossfire rows, in units off the knight's row, from the left wall and
 /// from the right; marked this long before they fly.
 const CROSS_LEFT: [f32; 3] = [-3.0, 0.0, 3.0];
@@ -346,8 +352,10 @@ const SEEKER_LIFE: u32 = 5 * HZ;
 
 /// The thickness a floor adds, by floor (index 0 is floor 1), and the
 /// thickness each knight standing adds (index: how many), and the most
-/// there is. An elite adds one more.
-pub const DEPTH_STEP: [u8; 6] = [0, 0, 1, 2, 2, 3];
+/// there is. An elite adds one more. Floors two and five thickened a step
+/// on 2026-10-29 ("the bullet hell part was a little weak"); the first
+/// floor still teaches.
+pub const DEPTH_STEP: [u8; 6] = [0, 1, 1, 2, 3, 3];
 pub const HEAD_STEP: [u8; 5] = [0, 0, 1, 2, 3];
 pub const MOST_STEP: u8 = 5;
 /// The most a greater demon's volleys thicken, whatever the floor and the
@@ -356,10 +364,11 @@ pub const DEMON_STEP: u8 = 1;
 /// The first two floors teach: an ordinary monster waits this much longer
 /// between volleys, in percent (floor 1, floor 2). Health, blows and the
 /// shots themselves are as ever; guardians and deeper floors are untouched.
-pub const STARTER_PACE: [u32; 2] = [180, 135];
-/// A guardian's thickness by knights standing: a full party of four adds a
-/// step.
-pub const BOSS_HEAD_STEP: [u8; 5] = [0, 0, 0, 0, 1];
+pub const STARTER_PACE: [u32; 2] = [180, 115];
+/// A guardian's thickness by knights standing: three add a step, a full
+/// party of four two (2026-10-29: "bosses are still crazy weak"). A lone
+/// knight's and a pair's volleys stay within `bosses::VOLLEY_MOST`.
+pub const BOSS_HEAD_STEP: [u8; 5] = [0, 0, 0, 1, 2];
 
 /// What a shot does after it leaves. Empty for every shot but a pattern's.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -574,10 +583,16 @@ pub fn girth(shot: &Projectile) -> f32 {
 pub const BODY: f32 = 0.25;
 pub const DART_BODY: f32 = 0.1;
 pub const ORB_BODY: f32 = 0.6;
-/// A knight's own shot's body, and a wish's bigger shot's on top.
+/// A knight's own shot's body at its old size (it grows and shrinks with
+/// the shot's `scale`), and what a monster's-body or unscaled shot's size
+/// wish adds on top.
 pub const KNIGHT_BODY: f32 = 0.2;
 
 pub fn body(shot: &Projectile) -> f32 {
+    if shot.sized() && !super::wishcraft::legacy() {
+        let base = super::wishcraft::BASE_PCT as f32 / 100.0;
+        return KNIGHT_BODY * (shot.scale() / base).min(1.0) + shot.reach();
+    }
     if !shot.hostile {
         return KNIGHT_BODY + shot.reach();
     }
@@ -673,6 +688,9 @@ pub(super) struct Aim<'a, 'g> {
     /// A guardian's own count for this emitter (`Emitter::guardian_count`),
     /// in place of a monster's.
     pub(super) guardian: Option<u32>,
+    /// The shield line's (a pavise's): its gap wall's second wall comes
+    /// thinner (`PAVISE_THINS`).
+    pub(super) shield_line: bool,
 }
 
 impl Aim<'_, '_> {
@@ -910,8 +928,9 @@ pub(super) fn emit(emitter: Emitter, aim: &Aim, shots: &mut Vec<Projectile>) {
             let room = n - WALL_GAP - 1;
             let first = (aim.count as usize * 3 + (aim.roll(5) * 5.0) as usize) % room + 1;
             let second = (first + 4) % room + 1;
-            for (gap, wait) in [(first, 0), (second, WALL_FOLLOWS)] {
-                for at in wall(aim, n, gap) {
+            let thin = if aim.shield_line { thinned(n) } else { 0 };
+            for (gap, wait, thin) in [(first, 0, 0), (second, WALL_FOLLOWS, thin)] {
+                for at in wall(aim, n, gap, thin) {
                     let path = waits(u32::from(wait));
                     shots.push(aim.shot(at, line, GAP_WALL.2, path, LIFE));
                 }
@@ -1065,13 +1084,27 @@ pub(super) fn gap_ring(aim: &Aim) -> Vec<f32> {
         .collect()
 }
 
+/// How many shots of an `n`-slot wall the shield line's second wall
+/// leaves out: `PAVISE_THINS` percent of those it would fire, rounded.
+pub(super) fn thinned(n: usize) -> usize {
+    (n.saturating_sub(WALL_GAP) * PAVISE_THINS + 50) / 100
+}
+
 /// A wall's spots: `n` slots a unit apart across the line at the shooter,
-/// slot `gap` and the next left out, and any in stone left out.
-fn wall(aim: &Aim, n: usize, gap: usize) -> Vec<(f32, f32)> {
+/// slot `gap` and the next left out; `thin` more left out evenly along it,
+/// each a chink a slot wide (never an end, nor beside the gap, nor beside
+/// another); and any in stone left out.
+fn wall(aim: &Aim, n: usize, gap: usize, thin: usize) -> Vec<(f32, f32)> {
     let line = aim.line();
     let (px, py) = (-line.sin(), line.cos());
+    let open = |i: usize| i < gap || i >= gap + WALL_GAP;
+    let room: Vec<usize> = (1..n.saturating_sub(1))
+        .filter(|&i| open(i) && i + 1 != gap && i != gap + WALL_GAP)
+        .collect();
+    let thin = thin.min(room.len() / 2);
+    let chinks: Vec<usize> = (0..thin).map(|k| room[(2 * k + 1) * room.len() / (2 * thin)]).collect();
     (0..n)
-        .filter(|&i| i < gap || i >= gap + WALL_GAP)
+        .filter(|&i| open(i) && !chinks.contains(&i))
         .map(|i| {
             let k = (i as f32 - (n - 1) as f32 / 2.0) * WALL_SPACING;
             (aim.from.0 + px * k, aim.from.1 + py * k)
@@ -1114,6 +1147,7 @@ pub(super) fn charged_beam(
         kind,
         damage,
         guardian: None,
+        shield_line: false,
     };
     beam(&aim, angle, arc / f32::from(burn - 1), warn, burn)
 }
@@ -1277,12 +1311,24 @@ pub(super) fn steer(
 /// sweep does), striking each knight it crosses once. A raised shield
 /// facing it stops it at the face (`shield`): while the shield holds, the
 /// beam reaches no further down its line, and nobody behind is touched.
+#[cfg(test)]
 pub(super) fn shine(
     bullet: &mut Projectile,
     players: &mut BTreeMap<u32, Hero>,
     grid: &Grid,
     sounds: &mut Vec<&'static str>,
     feel: &mut feel::Feel,
+) {
+    shine_guarded(bullet, players, grid, sounds, feel, &mut []);
+}
+
+pub(super) fn shine_guarded(
+    bullet: &mut Projectile,
+    players: &mut BTreeMap<u32, Hero>,
+    grid: &Grid,
+    sounds: &mut Vec<&'static str>,
+    feel: &mut feel::Feel,
+    guards: &mut [hireling::Hireling],
 ) {
     let Some(mut beam) = bullet.traits.path.beam else {
         return;
@@ -1310,7 +1356,7 @@ pub(super) fn shine(
         let standing = |h: &&Hero| h.hp > 0 && !h.stone;
         // The nearest raised shield on its line, facing it, and how far down
         // the line its face stands.
-        let stop = players
+        let mut stop = players
             .iter()
             .filter(|(_, h)| standing(h))
             .filter(|(_, h)| beam.crosses(origin, (h.x, h.y)) && shield::turns(h, (ux, uy)))
@@ -1319,6 +1365,17 @@ pub(super) fn shine(
                 (id, (along - shield::SHIELD_REACH).max(0.0))
             })
             .min_by(|a, b| a.1.total_cmp(&b.1));
+        let end = (origin.0 + ux * beam.reach, origin.1 + uy * beam.reach);
+        let guard = guards.iter().enumerate()
+            .filter(|(_, m)| m.kind == hireling::AllyKind::Skeleton && !m.down())
+            .filter_map(|(i, m)| shield::entry(origin, end, (m.x, m.y), minions::WALL_RADIUS + BEAM_HALF).map(|t| (i, t * beam.reach)))
+            .filter(|&(_, d)| stop.is_none_or(|(_, shield)| d <= shield))
+            .min_by(|a, b| a.1.total_cmp(&b.1));
+        if let Some((i, distance)) = guard {
+            guards[i].hurt(bullet.damage * BEAM_SHARE / 100);
+            beam.reach = beam.reach.min((distance - BEAM_HALF).max(0.0));
+            stop = None;
+        }
         if let Some((_, d)) = stop {
             beam.reach = beam.reach.min(d);
         }
@@ -1336,6 +1393,9 @@ pub(super) fn shine(
                 let at = (origin.0 + ux * beam.reach, origin.1 + uy * beam.reach);
                 sounds.push("shield_block");
                 feel.block(id, at, (-ux, -uy), (ux, uy), bullet.kind, 3);
+                if hero.shield_turned(bullet.damage * BEAM_SHARE / 100) {
+                    sounds.push("clang");
+                }
             } else if bullet.traits.blow != 0 {
                 if hero.blow(bullet.damage, bullet.traits.blow) {
                     sounds.push("hero_hurt");
@@ -1598,6 +1658,7 @@ pub(super) fn volley(
     } else {
         (enemy.x, enemy.y)
     };
+    let shield_line = enemy.kind == EnemyKind::Pavise && enemy.boss.is_none();
     let aim = |count: u32, kind: Shot, damage: u32, guardian: Option<u32>| Aim {
         from,
         at,
@@ -1609,6 +1670,7 @@ pub(super) fn volley(
         kind,
         damage,
         guardian,
+        shield_line,
     };
     if let Some(boss) = enemy.boss.and_then(|b| bosses.get(usize::from(b))) {
         if grid.room.kind == RoomKind::Wanted && !outlaw::shooting(enemy.stage) {
@@ -1621,8 +1683,8 @@ pub(super) fn volley(
         }
         let first = shots.len();
         // In its own room a guardian's fight builds stage by stage: each
-        // line joins at its `from`, its volleys are a guardian's size, and
-        // only its rage quickens it. An outlaw fights as it always has.
+        // line joins at its `from` and its volleys are a guardian's size.
+        // An outlaw fights as it always has.
         let stage = if wanted {
             bosses::Stage::Rage
         } else {
@@ -1642,7 +1704,7 @@ pub(super) fn volley(
             if wanted {
                 enemy.beat(every) * outlaw::pattern_pace(enemy.stage)
             } else {
-                every
+                (every * 3 / 4).max(4)
             }
         };
         let size = |emitter: Emitter| (!wanted).then(|| emitter.guardian_count());
@@ -1671,6 +1733,30 @@ pub(super) fn volley(
                     emit(emitter, &aim(count, kind, phases.damage, size(emitter)), shots);
                     enemy.pattern_volleys = enemy.pattern_volleys.wrapping_add(1);
                 }
+            }
+        }
+        // Guardians without an authored phase chain add a rotating pressure
+        // pattern between their own attacks. The signature gate above and
+        // the normal guardian projectile budget still apply.
+        let legacy_due = boss.attacks.iter().enumerate().any(|(index, attack)| {
+            if attack.from > stage || matches!(attack.pattern, bosses::Pattern::Named(_) | bosses::Pattern::Ravage) {
+                return false;
+            }
+            let every = if raging { (attack.every * 2 / 3).max(4) } else { attack.every.max(4) };
+            (enemy.age + index as u32 * 11).is_multiple_of((every * 3 / 4).max(4))
+        });
+        if !wanted && boss.phases.is_none() && shots.len() == first && !legacy_due {
+            let every = match stage {
+                bosses::Stage::Open => 120,
+                bosses::Stage::Middle => 90,
+                bosses::Stage::Rage => 70,
+            };
+            let tick = enemy.age + 19;
+            if tick.is_multiple_of(every) {
+                let count = tick / every;
+                let emitter = [Emitter::GapRing, Emitter::TwinSpiral, Emitter::Lead][count as usize % 3];
+                let damage = boss.attacks.first().map_or(1, |attack| attack.damage);
+                emit(emitter, &aim(count, bosses::Bolt::Own.shot(boss.only_in), damage, size(emitter)), shots);
             }
         }
         if boss.id == signatures::ENGINE {
@@ -1707,3 +1793,7 @@ pub(super) fn volley(
 #[cfg(test)]
 #[path = "../../tests/rules/together_patterns__tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "bend-cases-combat"))]
+#[path = "../../tests/rules/patterns_bend_cases__tests.rs"]
+mod patterns_bend_cases_tests;

@@ -1,0 +1,25 @@
+name Parlour Labyrinth
+kind spell
+rarity rare
+text Raise a square hedge round your aim, with one gap.
+drop 2
+chest 3
+cooldown 21
+hedge 1
+art
+................
+...hhhhh.hhhh...
+..hGGGGh.hGGGh..
+..hGWWGh.hGWGh..
+..hGgGGh.hGGGh..
+..hGGGGhhhGgGh..
+..hGgGGGGGGGGh..
+..hGGhhhhhhGGh..
+..hGGh....hGGh..
+..hGWh....hWGh..
+..hGGh....hGGh..
+..hGGhhhhhhGGh..
+..hGGGgGGGGGGh..
+...hYYYYYYYYh...
+....hhhhhhhh....
+................

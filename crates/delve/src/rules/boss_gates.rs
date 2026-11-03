@@ -161,6 +161,9 @@ pub(super) fn reachable(floor: &Floor, sealed: usize) -> Vec<bool> {
 
 impl Run {
     pub(super) fn populate_boss_gates(&mut self) {
+        // The floor above a village of the Deep keeps its people's dread at
+        // the stair (`deep::dread`), on an open floor too.
+        let dread = self.ready_dread().map(|i| i as u8);
         // Open floors keep no camps yet (docs/OPEN-FLOORS.md, phase B).
         if self.dungeon.open.is_some() {
             self.boss_gates = None;
@@ -188,12 +191,13 @@ impl Run {
                 }
             }
         }
-        self.boss_gates = super::boss_population::populate(
+        self.boss_gates = super::boss_population::populate_with(
             &self.dungeon,
             &mut self.bosses,
             self.seed,
             self.raid_id,
             self.mode,
+            dread,
         );
     }
     pub fn guardian_locked(&self) -> bool {
@@ -305,7 +309,7 @@ impl Run {
             .iter()
             .flat_map(|g| g.leaders.iter().filter(|l| !l.defeated).map(|l| l.room))
     }
-    pub(super) fn valid_boss_gates(&self) -> bool {
+    pub(super) fn valid_boss_gates_with_id_limit(&self, allocated_id: u32) -> bool {
         let Some(g) = &self.boss_gates else {
             return true;
         }; // absent legacy state stays active
@@ -369,12 +373,13 @@ impl Run {
             room.doors = identity.doors;
         }
         let mut catalog = self.bosses.clone();
-        let Some(genesis) = super::boss_population::populate(
+        let Some(genesis) = super::boss_population::populate_with(
             &floor,
             &mut catalog,
             self.seed,
             self.raid_id,
             self.mode,
+            self.dread_at().map(|i| i as u8),
         ) else {
             return false;
         };
@@ -446,7 +451,7 @@ impl Run {
             return false;
         }
         for (i, e) in self.enemies.iter().enumerate() {
-            if e.id == 0 || e.id > self.next_id {
+            if e.id == 0 || e.id > allocated_id {
                 return false;
             }
             if let Some(slot) = e.camp_slot {
@@ -484,7 +489,7 @@ impl Run {
                 stage,
             } = *event
             {
-                if id > self.next_id || !self.dungeon.rooms[room].visited {
+                if id > allocated_id || !self.dungeon.rooms[room].visited {
                     return false;
                 }
                 if g.economy.alive_emission(room, id, kind, stage)

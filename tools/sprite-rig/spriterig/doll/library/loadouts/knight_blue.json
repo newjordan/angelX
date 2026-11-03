@@ -1,0 +1,26 @@
+{
+ "name": "knight_blue",
+ "body": "hero",
+ "colors": {
+  "primary": [
+   "1",
+   "q"
+  ],
+  "gold": [
+   "V",
+   "v"
+  ]
+ },
+ "equip": [
+  "helm_great",
+  "plume",
+  "pauldrons",
+  "chest_plate",
+  "tabard",
+  "gauntlets",
+  "greaves",
+  "cape",
+  "sword",
+  "round_shield"
+ ]
+}

@@ -19,6 +19,51 @@ fn bg_test_turn_context(label: &str) -> String {
 }
 
 #[test]
+fn bg_compact_threshold_keeps_zero_hundred_and_mid_semantics() {
+    let _guard = crate::tests::env_lock();
+    let mut reg = registry_with_store(std::sync::Arc::new(
+        crate::knowledge::memory::store::NullStore,
+    ));
+    reg.set_aux_clubs(vec![std::sync::Arc::new(SummarizerClub("BG NOTES"))]);
+
+    {
+        let _pct = EnvGuard::set("ANGEL_COMPACT_BG_PCT", "0");
+        assert!(
+            !bg_compact_due(usize::MAX, 100),
+            "pct=0 disables the early pass at any usage"
+        );
+        let mut h = long_history();
+        let (tx, _rx) = mpsc::channel();
+        maybe_start_bg_compact(&mut h, 1, 5, 0, &[], &reg, &tx);
+        assert!(
+            !bg_compact_inflight(&reg),
+            "pct=0 must not arm the background pass"
+        );
+    }
+    {
+        let _pct = EnvGuard::set("ANGEL_COMPACT_BG_PCT", "100");
+        assert!(
+            !bg_compact_due(usize::MAX, 100),
+            "pct>=100 disables the early pass at any usage"
+        );
+        let mut h = long_history();
+        let (tx, _rx) = mpsc::channel();
+        maybe_start_bg_compact(&mut h, 1, 5, 0, &[], &reg, &tx);
+        assert!(
+            !bg_compact_inflight(&reg),
+            "pct=100 must not arm the background pass"
+        );
+    }
+    {
+        let _pct = EnvGuard::set("ANGEL_COMPACT_BG_PCT", "80");
+        assert!(!bg_compact_due(79, 100), "below the mid threshold");
+        assert!(bg_compact_due(80, 100), "at the mid threshold");
+        assert!(bg_compact_due(usize::MAX, 100), "above the mid threshold");
+        assert!(!bg_compact_due(usize::MAX, 0), "no budget never arms");
+    }
+}
+
+#[test]
 fn bg_compact_arms_and_splices_at_a_later_boundary() {
     let _guard = crate::tests::env_lock();
     let mut h = long_history();

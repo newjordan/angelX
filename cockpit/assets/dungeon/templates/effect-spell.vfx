@@ -1,0 +1,15 @@
+# TEMPLATE: a spell's magic: the colours its casting is drawn in (its `cast`
+# layer's palette) and how its shot breaks. Here: holy.
+# Copy the lines onto a spell card or every tier of a spell wish. Check them with
+#   cargo run -p angel-delve --example content_check -- <your file>
+#
+# Keep: one `cast` layer first (the casting takes its palette and its voice:
+#   fire, frost, holy, storm, poison, arcane or earth); hit and kill lives
+#   inside their moments (hit 16, kill 9 at most).
+# The bar: one palette for the whole spell, so its cast, its shot and its break
+#   read as one thing; rays and glyphs eased back (past their mark and home).
+vfx cast glyph holy back count=6 speed=4 spread=360 life=24
+vfx trail stars holy rise count=3 speed=1 spread=50 life=10
+vfx hit rays holy back count=8 speed=4 spread=360 life=12
+vfx hit stars holy rise count=10 speed=3 spread=360 life=14
+vfx kill stars holy rise count=18 speed=5 spread=360 life=9

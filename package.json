@@ -1,6 +1,6 @@
 {
   "name": "angelX",
-  "version": "0.2.5",
+  "version": "0.2.7",
   "description": "Terminal-first research and coding cockpit with verifiable agent workflows.",
   "private": true,
   "type": "module",
@@ -18,15 +18,22 @@
     "mlops"
   ],
   "scripts": {
+    "dev:systems": "node scripts/dev/systems.mjs --watch",
+    "build:systems": "node scripts/dev/systems.mjs",
+    "test:live": "bash scripts/check/check-live-modules.sh",
     "release:evidence": "node scripts/release/release-evidence.mjs",
     "release:verify": "node scripts/release/verify-release-evidence.mjs",
     "release:verify:container": "node scripts/release/verify-release-container.mjs",
     "release:verify:advisories": "node scripts/release/verify-release-advisories.mjs",
     "release:verify:install": "node scripts/release/verify-release-install.mjs",
-    "test:release": "node --test --test-concurrency=1 tests/scripts/release-evidence.test.mjs tests/scripts/verify-release-evidence.test.mjs tests/scripts/verify-release-container.test.mjs tests/scripts/verify-release-advisories.test.mjs tests/scripts/verify-release-install.test.mjs tests/scripts/verify-runner-smoke.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/angel-club-policy.test.mjs tests/scripts/install.test.mjs",
-      "test": "npm run test:release && npm run test:workers && npm run test:connections && npm run test:polyglot && npm run check:licenses && npm run test:hygiene && npm run test:media && npm run test:labyrinth",
-    "test:hygiene": "node --test --test-concurrency=1 tests/scripts/check-duplicate-content.test.mjs tests/scripts/check-research-embed.test.mjs tests/scripts/check-licenses.test.mjs tests/scripts/check-cockpit-fast.test.mjs tests/scripts/check-book-harness.test.mjs",
-    "test:media": "node --test --test-concurrency=1 tests/scripts/pan-pace.test.mjs",
+    "test:release": "node --test --test-concurrency=1 tests/scripts/release-evidence.test.mjs tests/scripts/verify-release-evidence.test.mjs tests/scripts/verify-release-container.test.mjs tests/scripts/verify-release-advisories.test.mjs tests/scripts/verify-release-install.test.mjs tests/scripts/verify-runner-smoke.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/angel-club-policy.test.mjs tests/scripts/install.test.mjs tests/scripts/native-launch.test.mjs",
+      "test": "npm run test:release && npm run test:workers && npm run test:book && npm run test:moa && npm run test:connections && npm run test:polyglot && npm run check:licenses && npm run test:hygiene && npm run test:media && npm run test:labyrinth",
+    "test:book": "python3 -m unittest discover -s tests/python -p 'test_book_*.py'",
+    "test:moa": "python3 -m unittest discover -s tests/python -p test_moa_report.py",
+    "test:hygiene": "node --test --test-concurrency=1 tests/scripts/check-duplicate-content.test.mjs tests/scripts/check-research-embed.test.mjs tests/scripts/check-licenses.test.mjs tests/scripts/check-cockpit-fast.test.mjs tests/scripts/check-book-harness.test.mjs && npm run test:setup",
+    "test:setup": "python3 -m unittest discover -s tests/python -p 'test_install_blaze.py'",
+    "test:media": "node --test --test-concurrency=1 tests/scripts/pan-pace.test.mjs tests/scripts/web-sound.test.mjs tests/scripts/web-music-metadata.test.mjs tests/scripts/live-sound.test.mjs",
+    "test:web-audio": "node --test --test-concurrency=1 tests/scripts/web-sound.test.mjs tests/scripts/web-music-metadata.test.mjs",
       "check:cockpit-quality": "bash scripts/check/check-cockpit-quality.sh",
       "check:duplicates": "node scripts/check/check-duplicate-content.mjs",
       "check:research-embed": "node scripts/check/check-research-embed.mjs",
@@ -40,7 +47,7 @@
     "format": "prettier --write 'scripts/**/*.mjs' 'tests/scripts/**/*.mjs'",
     "format:check": "prettier --check 'scripts/**/*.mjs' 'tests/scripts/**/*.mjs'",
     "test:cockpit": "bash scripts/check/check-cockpit-fast.sh --test-threads=1",
-    "test:workers": "node --test --test-concurrency=1 tests/scripts/habitsmith.test.mjs tests/scripts/dossier-tick.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/process-lease.test.mjs tests/scripts/settlement-exhibits.test.mjs"
+    "test:workers": "node --test --test-concurrency=1 tests/scripts/habitsmith.test.mjs tests/scripts/dossier-tick.test.mjs tests/scripts/repo-dossier.test.mjs tests/scripts/process-lease.test.mjs tests/scripts/settlement-exhibits.test.mjs tests/scripts/science-brief.test.mjs tests/scripts/repo-search.test.mjs tests/scripts/cut-report.test.mjs tests/scripts/self-map.test.mjs tests/scripts/test-runner-report.test.mjs"
   },
   "dependencies": {
     "pxpipe-proxy": "^0.8.0"

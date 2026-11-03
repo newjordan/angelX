@@ -180,9 +180,9 @@ fn teaching_and_interior_semantics_name_the_exact_local_state() {
         "probability-openstax"
     );
 
-    app.world
+    app.realm.world
         .settle_at_for_test(crate::stage::world_viz::Building::Scriptorium);
-    assert!(app.world.enter_interior());
+    assert!(app.realm.world.enter_interior());
     let interior = semantic_state(&app);
     assert_eq!(interior["world"]["inside_interior"], true);
     assert_eq!(interior["world"]["interior"], "Scriptorium");

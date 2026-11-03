@@ -314,6 +314,36 @@ fn the_longest_words_stay_inside_the_narrowest_card() {
 }
 
 #[test]
+fn six_cards_count_their_wishes_in_diamonds() {
+    // Six across, WISH and its count will not fit: a gold diamond for each
+    // wish held, a hollow one for none, and the own card's key beside them.
+    let mut run = party_of(6, false);
+    let wishes = [2u8, 0, 3, 1, 0, 3];
+    for (hero, &n) in run.players.values_mut().zip(&wishes) {
+        (hero.wishes, hero.great_wishes) = (n, 0);
+    }
+    let band = party::band(&run, Some(1));
+    let (tip, hollow) = (super::super::super::ink::ink('t'), super::super::super::ink::ink('J'));
+    for (i, &n) in wishes.iter().enumerate() {
+        let from = super::card_x(i as i32, 6) + super::FRAME_W;
+        let to = super::card_x(i as i32, 6) + super::card_width(6);
+        let row = |y: i32, c| (from..to).filter(|&x| band.get(x, y) == c).count();
+        // The diamonds' tips, one a wish, on the row under the name.
+        assert_eq!(row(16, tip), usize::from(n), "card {i}");
+        assert_eq!(row(16, hollow) > 0, n == 0, "card {i}");
+    }
+    assert_cards_fit(&run, 6, Some(1));
+    // Four across still say it in words.
+    let mut four = party_of(4, false);
+    four.players.values_mut().for_each(|h| h.wishes = 2);
+    let band = party::band(&four, Some(1));
+    for i in 0..4 {
+        let from = super::card_x(i, 4) + super::FRAME_W;
+        assert!((from..from + 40).all(|x| band.get(x, 16) != tip), "WISH 2 in words");
+    }
+}
+
+#[test]
 fn a_band_of_up_to_four_is_laid_out_as_it_was() {
     for n in 1..=4 {
         assert_eq!(super::card_width(n), 92.min((NATIVE_W - 8 - 4 * (n - 1)) / n));
@@ -352,6 +382,104 @@ fn six_seats_wear_six_different_colours() {
         assert_eq!(super::super::knights::seat_mark(id), super::super::knights::seat_cloth(id));
     }
     assert_eq!(party::seat_ink(5), super::super::knights::seat_cloth(5));
+}
+
+/// Knight 1 of a party of three holding `hand`.
+fn holding(hand: &[&str]) -> Run {
+    let mut run = party_of_three(11, 60);
+    run.players.get_mut(&1).unwrap().hand = hand.iter().map(|id| id.to_string()).collect();
+    run
+}
+
+#[test]
+fn the_hand_plates_a_page_drags_are_where_the_band_draws_the_cards() {
+    let ours = holding(&["potion", "holy-water", "thunder-scroll"]);
+    // The same cards the other way round: only the pictures in the first
+    // and last plates differ, every key and place as it was.
+    let swapped = holding(&["thunder-scroll", "holy-water", "potion"]);
+    for k in [1, 2] {
+        let (w, h) = (NATIVE_W * k, (NATIVE_H + BAND_H + HUD_H) * k);
+        let plates = party::hand_plates(&ours, Some(1), w, h);
+        assert_eq!(plates.iter().map(|p| p.0).collect::<Vec<_>>(), [0, 1, 2], "at {k}x");
+        assert_eq!(plates, party::hand_plates(&swapped, Some(1), w, h));
+        let top = h - HUD_H * k;
+        let (a, b) = (seat_frame(&ours, w, h, Some(1)), seat_frame(&swapped, w, h, Some(1)));
+        let mut hit = [0; 3];
+        for y in top..h {
+            for x in 0..w {
+                if a.get(x, y) == b.get(x, y) {
+                    continue;
+                }
+                let inside = plates
+                    .iter()
+                    .position(|&(_, (px, py, pw, ph))| x >= px && x < px + pw && y >= py && y < py + ph);
+                let Some(i) = inside else {
+                    panic!("a card's pixel {x},{y} at {k}x lies off every plate {plates:?}");
+                };
+                hit[i] += 1;
+            }
+        }
+        assert!(hit[0] > 0 && hit[2] > 0 && hit[1] == 0, "at {k}x: {hit:?}");
+        // Each plate within the HUD's band, left to right, none over another.
+        for pair in plates.windows(2) {
+            let ((_, (x0, _, w0, _)), (_, (x1, _, _, _))) = (pair[0], pair[1]);
+            assert!(x0 + w0 <= x1, "{plates:?}");
+        }
+        assert!(plates.iter().all(|&(_, (_, y, _, ph))| y >= top && y + ph <= h));
+    }
+    // Under a fallen knight's band, or a watcher's, there is nothing to drag.
+    let mut fallen = ours.clone();
+    fallen.players.get_mut(&1).unwrap().hp = 0;
+    assert!(party::hand_plates(&fallen, Some(1), NATIVE_W, NATIVE_H + BAND_H + HUD_H).is_empty());
+    let mut empty = ours;
+    empty.players.get_mut(&1).unwrap().hand.clear();
+    assert!(party::hand_plates(&empty, Some(1), NATIVE_W, NATIVE_H + BAND_H + HUD_H).is_empty());
+}
+
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_hand_shots --
+/// --ignored`: a seat holding three cards, its whole screen at a browser's
+/// size, and the HUD's band at 8x with the plates a page drags (`hand_plates`)
+/// outlined in gold over it.
+#[test]
+#[ignore]
+fn write_hand_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let save = |name: &str, img: &Img, k: u32| {
+        let rgba = img.rgba_scaled(k);
+        image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, rgba)
+            .unwrap()
+            .save(dir.join(format!("{name}.png")))
+            .unwrap();
+    };
+    let (w, h) = seat();
+    let run = holding(&["potion", "holy-water", "thunder-scroll"]);
+    let whole = seat_frame(&run, w, h, Some(1));
+    save("hand-seat1-browser", &whole, 3);
+    let top = h - HUD_H;
+    let mut band = Img::new(w, HUD_H);
+    for y in 0..HUD_H {
+        for x in 0..w {
+            if let Some(c) = whole.get(x, top + y) {
+                band.set(x, y, c);
+            }
+        }
+    }
+    for (_, (x, y, pw, ph)) in party::hand_plates(&run, Some(1), w, h) {
+        let y = y - top;
+        for dx in -1..=pw {
+            band.put(x + dx, y - 1, 'O');
+            band.put(x + dx, y + ph, 'O');
+        }
+        for dy in -1..=ph {
+            band.put(x - 1, y + dy, 'O');
+            band.put(x + pw, y + dy, 'O');
+        }
+    }
+    save("hand-band-plates-8x", &band, 8);
 }
 
 /// `ANGEL_ARENA_SHOTS=<dir> cargo test write_party_shots -- --ignored`: a
@@ -514,4 +642,545 @@ fn write_six_seat_shots() {
         hero.name = hero.name.chars().take(7).collect();
     }
     save("five-band-8x", &party::band(&five, Some(2)), 8);
+}
+
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve write_shield_bar_shots
+/// -- --ignored`: a knight's kite shield raised and worn, then knocked
+/// aside, at a seat's whole screen and its HUD's band at 6x: the meter on
+/// the guard's plate and under the knight.
+#[test]
+#[ignore]
+fn write_shield_bar_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let save = |name: &str, img: &Img, k: u32| {
+        let rgba = img.rgba_scaled(k);
+        image::RgbaImage::from_raw(img.w as u32 * k, img.h as u32 * k, rgba)
+            .unwrap()
+            .save(dir.join(format!("{name}.png")))
+            .unwrap();
+    };
+    let (w, h) = seat();
+    let band = |whole: &Img| {
+        let top = h - HUD_H;
+        let mut band = Img::new(w, HUD_H);
+        for y in 0..HUD_H {
+            for x in 0..w {
+                if let Some(c) = whole.get(x, top + y) {
+                    band.set(x, y, c);
+                }
+            }
+        }
+        band
+    };
+    let mut run = party_of_three(11, 60);
+    let card = run.book.get("kite-shield").cloned().unwrap();
+    for id in [1, 2] {
+        let hero = run.players.get_mut(&id).unwrap();
+        hero.guard = card.guard.unwrap();
+        hero.guard_card = Some(card.id.clone());
+    }
+    let most = crate::rules::shield::Wear::most(run.players[&1].max_hp);
+    let hero = run.players.get_mut(&1).unwrap();
+    hero.shielding = true;
+    hero.shield_wear.worn = most * 45 / 100;
+    let hero = run.players.get_mut(&2).unwrap();
+    hero.shield_wear.down = crate::rules::shield::SHIELD_DOWN - 2;
+    let whole = seat_frame(&run, w, h, Some(1));
+    save("shield-raised-worn-seat1", &whole, 3);
+    save("shield-raised-worn-band-6x", &band(&whole), 6);
+    let whole = seat_frame(&run, w, h, Some(2));
+    save("shield-knocked-aside-seat2", &whole, 3);
+    save("shield-knocked-aside-band-6x", &band(&whole), 6);
+}
+
+/// The Fairground's Barrel round is a pastime room, and its six course
+/// flags now stand among the crowd by their feet (`pastimes::crowd`). A
+/// window tilts them with the room, and the terminal composes the same
+/// pixels flat: `seat_scene(…).compose()` equals `seat_frame(…)` byte
+/// for byte, and each flag arrives as a `Figure` with its own depth.
+#[test]
+fn a_fairground_barrel_round_composes_to_its_frame_and_stands_its_flags_up() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::{Game, FLAGS};
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let fair = world::room_of(&run.dungeon, Game::Barrel.room()).unwrap();
+    run.arrive(fair, Game::Barrel.start());
+    // A friend waits by the stall so only the starter arms the round.
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (21.0, 11.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Barrel),
+        "the pad armed a Barrel round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a Barrel room's parts put back its frame"
+    );
+    // Each of the six course flags stands among the figures on its own
+    // depth; none of them is baked into the room's floor plane any more.
+    let flags_at = |d: f32| parts.figures.iter().filter(|f| (f.depth - d).abs() < 0.001).count();
+    for &(_, ty) in FLAGS.iter() {
+        assert!(flags_at(ty * 2.0) > 0, "a flag stands at depth {}", ty * 2.0);
+    }
+}
+
+/// The Riverbank's Washtub rings drift every tick — `pastimes::wake` — so
+/// each ring's crowd depth is recomputed on the frame. Same contract as
+/// Barrel: parts compose to the flat frame byte-for-byte, and each ring
+/// arrives as a `Figure` at the tile's own depth.
+#[test]
+fn a_riverbank_washtub_round_composes_to_its_frame_and_stands_its_rings_up() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::{self, Game};
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let river = world::room_of(&run.dungeon, Game::Washtub.room()).unwrap();
+    run.arrive(river, Game::Washtub.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (21.0, 11.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Washtub),
+        "the pad armed a Washtub round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a Washtub room's parts put back its frame"
+    );
+    let ring_at = |d: f32| parts.figures.iter().filter(|f| (f.depth - d).abs() < 0.001).count();
+    for i in 0..6 {
+        let (_, ty) = pastimes::wake(i, run.tick);
+        assert!(ring_at(ty * 2.0) > 0, "a ring stands at depth {}", ty * 2.0);
+    }
+}
+
+/// The Fairground's Turnip ball has its feet on the ring but its bounce
+/// baked into the sprite — the crowd entry stands the whole thing at the
+/// ring tile's depth (`ty * 2.0`), so the picture leans with the room the
+/// same way a Barrel flag does while the ball still rises and falls.
+#[test]
+fn a_fairground_turnip_round_composes_to_its_frame_and_stands_its_ball_up() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::Game;
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let fair = world::room_of(&run.dungeon, Game::Turnip.room()).unwrap();
+    run.arrive(fair, Game::Turnip.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (21.0, 11.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Turnip),
+        "the pad armed a Turnip round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a Turnip room's parts put back its frame"
+    );
+    let (_, ty) = Game::Turnip.start();
+    let ball_at = parts.figures.iter().filter(|f| (f.depth - ty * 2.0).abs() < 0.001).count();
+    assert!(ball_at > 0, "the turnip stands at depth {}", ty * 2.0);
+}
+
+/// The Causeway's six Hobbyhorse hurdles stand along the riding lane at
+/// its foot (`RIDING_LANE.1`). Each is a Figure now, all at that same
+/// depth so they scale with the room's tilt as a row; the lane dashes and
+/// the rider's own hobbyhorse stay with the flat scene.
+#[test]
+fn a_causeway_hobbyhorse_round_composes_to_its_frame_and_stands_its_hurdles_up() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::{Game, RIDING_LANE};
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let way = world::room_of(&run.dungeon, Game::Hobbyhorse.room()).unwrap();
+    run.arrive(way, Game::Hobbyhorse.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (21.0, 11.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Hobbyhorse),
+        "the pad armed a Hobbyhorse round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a Hobbyhorse room's parts put back its frame"
+    );
+    let foot = RIDING_LANE.1 * 2.0;
+    let at_foot = parts.figures.iter().filter(|f| (f.depth - foot).abs() < 0.001).count();
+    assert!(at_foot >= 6, "six hurdles stand at the lane's foot ({at_foot})");
+}
+
+/// The Crag's six Sled gates alternate near and far down the hillside, so
+/// a window leans them each by their own row's depth. Same contract as
+/// Barrel: parts compose to the frame byte-for-byte, and every gate's
+/// row shows up as a distinct figure depth.
+#[test]
+fn a_crag_sled_round_composes_to_its_frame_and_stands_its_gates_up() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::{Game, SLED_GATES};
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let crag = world::room_of(&run.dungeon, Game::Sled.room()).unwrap();
+    run.arrive(crag, Game::Sled.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (21.0, 11.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Sled),
+        "the pad armed a Sled round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a Sled room's parts put back its frame"
+    );
+    let gate_at = |d: f32| parts.figures.iter().filter(|f| (f.depth - d).abs() < 0.001).count();
+    for &(_, gy) in SLED_GATES.iter() {
+        let d = (gy * 2) as f32;
+        assert!(gate_at(d) > 0, "a gate stands at depth {d}");
+    }
+}
+
+/// The Timberyard's four jump-logs stand at the lane's foot (row 10), so
+/// a window leans them as the cart passes between. Cart itself stays flat
+/// (the moving rider). All four logs share that foot depth; the check is
+/// that no fewer than four figures stand there.
+#[test]
+fn a_timberyard_cart_round_composes_to_its_frame_and_stands_its_logs_up() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::Game;
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let yard = world::room_of(&run.dungeon, Game::Cart.room()).unwrap();
+    run.arrive(yard, Game::Cart.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (21.0, 11.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Cart),
+        "the pad armed a Cart round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a Cart room's parts put back its frame"
+    );
+    let foot = 10.0 * 2.0;
+    let at_foot = parts.figures.iter().filter(|f| (f.depth - foot).abs() < 0.001).count();
+    assert!(at_foot >= 4, "four logs stand at the lane's foot ({at_foot})");
+}
+
+/// Tier 2's vertical slice: a Fairground DuckShoot round takes the canvas
+/// for itself (a `three.rs` pinhole stage). Its parts (`stage::parts`) lay
+/// the CPU backdrop on the view's floor and the cartridge HUD on the view's
+/// screen — with the frame's tilt pinned to `0.0` (`pastime_scene` in
+/// `stage_frame`) so the pinhole render is not tipped twice. The parity is
+/// that Glass composes to the same pixels the flat path paints.
+#[test]
+fn a_fairground_duckshoot_stage_goes_out_in_parts_and_composes_to_its_frame() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::Game;
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let green = world::room_of(&run.dungeon, Game::DuckShoot.room()).unwrap();
+    run.arrive(green, Game::DuckShoot.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (11.5, 4.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::DuckShoot),
+        "the pad armed a DuckShoot round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a take-over stage's parts put back its frame"
+    );
+    // The scaffold is real: the stage goes out as a backdrop laid under
+    // the marks (`under` is set, `over` empty, no ground) rather than as
+    // one flat picture wrapped by `RoomScene::flat`.
+    assert!(!parts.is_flat(), "the stage went out in parts, not as one picture");
+    assert!(parts.under.is_some(), "the CPU backdrop is a laid-under layer");
+    assert!(parts.over.is_none(), "the stage paints nothing over it");
+    assert!(parts.ground.is_none(), "the stage has no room still art");
+    assert!(
+        parts.figures.iter().any(|f| f.height > 0.0),
+        "a duck lifts off the boards (drop-shadow)"
+    );
+    assert!(
+        parts.figures.len() >= 3,
+        "the three rails each stand a duck figure ({})",
+        parts.figures.len()
+    );
+}
+
+/// Tier 3's particles: a downed duck throws a spark burst at its own screen
+/// rect, seen by a GPU window only. The CPU `RoomScene::compose()` does not
+/// read `emitters`, so parts-to-frame parity is unaffected; this test drives
+/// the runtime until a duck goes down and asserts both that the burst is
+/// there AND that the parity invariant still holds over the whole window.
+#[test]
+fn a_duckshoot_duck_that_goes_down_throws_sparks_and_keeps_its_frame() {
+    use crate::render::overworld::arena::room_scene::Motes;
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::Game;
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let green = world::room_of(&run.dungeon, Game::DuckShoot.room()).unwrap();
+    run.arrive(green, Game::DuckShoot.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (11.5, 4.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::DuckShoot),
+        "the pad armed a DuckShoot round"
+    );
+    // Down a rail's duck by hand so the burst is guaranteed on the very next
+    // frame — the shot-to-hit dance is the rules' concern, and already
+    // covered there; here we only need the render-side wiring.
+    run.pastimes.round.as_mut().unwrap().duckshoot.as_mut().unwrap().ducks[1].down = 1;
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "sparks aside, the parts still put back the frame"
+    );
+    let burst = parts
+        .emitters
+        .iter()
+        .find(|e| e.motes == Motes::Sparks && e.age.is_some());
+    assert!(
+        burst.is_some(),
+        "a just-hit duck pushes a Spark burst ({} emitters)",
+        parts.emitters.len()
+    );
+    let e = burst.unwrap();
+    assert!(e.strength > 0.0 && e.strength <= 1.0, "burst strength 0..1, got {}", e.strength);
+    assert!(e.rect[2] > 0.0 && e.rect[3] > 0.0, "burst rect has size");
+}
+
+/// Tier 3's drop-shadow plumbing: an active course marker (the Barrel's
+/// "next" flag) is emitted as a `Figure` with `height > 0.0`, so a Glass
+/// window draws a shadow under it. The lift is invisible to the CPU paths
+/// (`expand()` and `RoomScene::compose()` do not read `height`) so the
+/// parity gate stays green either way — this test just checks the plumbing
+/// reaches the figure.
+#[test]
+fn a_fairground_barrel_round_lifts_its_next_flag_off_the_deck() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::Game;
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let green = world::room_of(&run.dungeon, Game::Barrel.room()).unwrap();
+    run.arrive(green, Game::Barrel.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    (friend.x, friend.y) = (2.5, 6.5);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Barrel),
+        "the pad armed a Barrel round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a lift cannot shift a CPU pixel"
+    );
+    let lifted = parts.figures.iter().filter(|f| f.height > 0.0).count();
+    assert!(lifted >= 1, "the next flag lifts off the deck ({lifted} lifted)");
+    let glowing = parts.figures.iter().filter(|f| f.additive).count();
+    assert!(glowing >= 1, "the next flag adds light on the compositor ({glowing} glowing)");
+}
+
+/// Halfpipe is the plan's next take-over stage. If its room happens to be
+/// NATIVE-sized it goes out in parts and stays byte-exact; if not, it takes
+/// today's flat path — which must still compose to its own frame. The
+/// assertion is on the parity, not the split; the split is opportunistic
+/// (`takeover_parts`).
+#[test]
+fn a_mummers_halfpipe_round_still_composes_to_its_frame() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::Game;
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let green = world::room_of(&run.dungeon, Game::Halfpipe.room()).unwrap();
+    run.arrive(green, Game::Halfpipe.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    let (fx, fy) = Game::Halfpipe.start();
+    (friend.x, friend.y) = (fx, fy);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Halfpipe),
+        "the pad armed a Halfpipe round"
+    );
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "a halfpipe stage's parts put back its frame"
+    );
+}
+
+/// Tier 3's particles on the Halfpipe: a landed trick (or a lip launch)
+/// throws a spark burst at the skater's own screen rect, seen by a GPU
+/// window only. The CPU `compose` does not read `emitters`, so parity is
+/// unaffected; this drives the runtime to `trick_sparkle > 0` and asserts
+/// both that a burst is there AND that the parts still put back the frame.
+#[test]
+fn a_mummers_halfpipe_landing_throws_sparks_and_keeps_its_frame() {
+    use crate::render::overworld::arena::room_scene::Motes;
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::Game;
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(11, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let green = world::room_of(&run.dungeon, Game::Halfpipe.room()).unwrap();
+    run.arrive(green, Game::Halfpipe.start());
+    let friend = run.players.get_mut(&3).unwrap();
+    let (fx, fy) = Game::Halfpipe.start();
+    (friend.x, friend.y) = (fx, fy);
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Halfpipe),
+        "the pad armed a Halfpipe round"
+    );
+    run.pastimes.round.as_mut().unwrap().halfpipe.as_mut().unwrap().trick_sparkle = 5;
+    let parts = seat_scene(&run, w, h, Some(1));
+    let whole = seat_frame(&run, w, h, Some(1));
+    assert!(
+        parts.compose().words() == whole.words(),
+        "sparks aside, the parts still put back the frame"
+    );
+    let burst = parts
+        .emitters
+        .iter()
+        .find(|e| e.motes == Motes::Sparks && e.age.is_some());
+    assert!(
+        burst.is_some(),
+        "a landed trick pushes a Spark burst ({} emitters)",
+        parts.emitters.len()
+    );
+}
+
+/// Tier 2's third take-over: a Pasture Siege round fires, and the shot in
+/// the air is stood up as a lifted, glowing `Figure` so a GPU window
+/// shadows the arc. The split is opportunistic — the sprite only lifts once
+/// it clears the engine and the keep — but parity holds on every frame,
+/// whether the shot lifts that tick or stays baked into the backdrop.
+#[test]
+fn a_pasture_siege_round_stands_its_shot_up_and_composes_to_its_frame() {
+    use crate::rules::home::Home;
+    use crate::rules::pastimes::{self, Game};
+    use crate::rules::world;
+    let (w, h) = seat();
+    let mut run = Run::at_home(41, 1, Some("Friend"), Home::default(), Default::default());
+    run.join_seat(3, "Wren");
+    run.come_to_the_gate();
+    let green = world::room_of(&run.dungeon, Game::Siege.room()).unwrap();
+    run.arrive(green, Game::Siege.start());
+    run.step(&BTreeMap::new());
+    assert_eq!(
+        run.pastimes.round.as_ref().map(|r| r.game),
+        Some(Game::Siege),
+        "the pad armed a Siege round"
+    );
+    // March the trail: one event, then mourn, until the walls.
+    for _ in 0..(pastimes::EVENT_WAIT + pastimes::MOURN + 4) {
+        run.tick_pastimes(&BTreeMap::new());
+    }
+    assert!(
+        run.pastimes.round.as_ref().unwrap().siege.as_ref().unwrap().fighting,
+        "the first castle begins"
+    );
+    // Dial aim and power to the top, one step a tick, then loose. The seat
+    // that owns the engine takes the controls (owner 2 here).
+    let dials = BTreeMap::from([(
+        2u32,
+        Input { aim_y: 1, move_x: 1, ..Default::default() },
+    )]);
+    for _ in 0..12 {
+        run.tick_pastimes(&dials);
+    }
+    let fire = BTreeMap::from([(2u32, Input { fire: true, ..Default::default() })]);
+    run.tick_pastimes(&fire);
+    // Step the shot up into open sky; parity is the invariant, the lift is
+    // opportunistic and must show at least once along the arc.
+    let mut lifted = 0;
+    for _ in 0..14 {
+        run.tick_pastimes(&BTreeMap::new());
+        let parts = seat_scene(&run, w, h, Some(1));
+        let whole = seat_frame(&run, w, h, Some(1));
+        assert!(
+            parts.compose().words() == whole.words(),
+            "a siege stage's parts put back its frame"
+        );
+        assert!(!parts.is_flat(), "the siege stage goes out in parts, not one picture");
+        if parts.figures.iter().any(|f| f.height > 0.0 && f.additive) {
+            lifted += 1;
+        }
+    }
+    assert!(
+        lifted >= 1,
+        "the shot in the air lifts off the field as a glowing figure at least once ({lifted} frames)"
+    );
 }

@@ -22,8 +22,7 @@ pub(super) fn foreman_warning(cv: &mut Img, run: &Run, enemy: &Enemy) -> bool {
     if stage == 3 {
         let rays: Vec<_> = preview.iter().filter(|(_, primary)| *primary).map(|(a, _)| *a).collect();
         let step = rays.windows(2).map(|p| p[1] - p[0]).min_by(f32::total_cmp).unwrap_or(0.0);
-        let [core, edge] = [[87, 124, 144], [131, 166, 180]]
-            .map(|ink| if crate::settings::get().art_v2 { effect_exposure(ink) } else { ink });
+        let [core, edge] = [[87, 124, 144], [131, 166, 180]];
         for i in 0..rays.len() {
             let (a, b) = (rays[i], rays[(i + 1) % rays.len()]);
             if (b - a).rem_euclid(TAU) > step * 1.01 { continue; }
@@ -73,9 +72,8 @@ struct Annulus {
 /// cast only supplies its anchor and two integer lane edges; rotated casts
 /// do not allocate another set of full-room canvases.
 fn annuli() -> &'static [Annulus; 8] {
-    static RINGS: [OnceLock<[Annulus; 8]>; 2] = [OnceLock::new(), OnceLock::new()];
-    let modern = crate::settings::get().art_v2;
-    RINGS[usize::from(modern)].get_or_init(|| {
+    static RINGS: OnceLock<[Annulus; 8]> = OnceLock::new();
+    RINGS.get_or_init(|| {
         let kit = effects(Art::Leviathan);
         std::array::from_fn(|k| {
             let radius = crate::rules::tide::RING_GAP * (k + 1) as f32 * super::super::UNIT;
@@ -102,12 +100,9 @@ fn annuli() -> &'static [Annulus; 8] {
                         };
                         let colour = if stage == 3 {
                             // Two clean radial bands; the final annulus has no tiled flecks.
-                            Some({
-                                let ink = if d >= radius { [63, 156, 140] } else { [43, 111, 102] };
-                                if modern { effect_exposure(ink) } else { ink }
-                            })
+                            Some(if d >= radius { [63, 156, 140] } else { [43, 111, 102] })
                         } else if boundary && along < [2, 4, 8][stage] {
-                            Some(if modern { effect_exposure([80, 163, 144]) } else { [80, 163, 144] })
+                            Some([80, 163, 144])
                         } else {
                             motif
                         };
@@ -231,8 +226,7 @@ pub(in super::super) fn leviathan_laser(cv: &mut Img, _run: &Run, shot: &Project
     let half = (crate::rules::patterns::BEAM_HALF * super::super::UNIT).ceil() as i32;
     let stage = (usize::from(shot.traits.path.age) * 4 / usize::from(beam.warn.max(1))).min(3);
     let burning = beam.burning(shot.traits.path.age);
-    let inks = [[131, 186, 161], [56, 126, 118], [38, 88, 89], [80, 163, 144]]
-        .map(|ink| if crate::settings::get().art_v2 { effect_exposure(ink) } else { ink });
+    let inks = [[131, 186, 161], [56, 126, 118], [38, 88, 89], [80, 163, 144]];
     let (mut x, mut y) = from;
     let (dx, dy) = ((to.0 - x).abs(), -(to.1 - y).abs());
     let (sx, sy) = ((to.0 - x).signum(), (to.1 - y).signum());
@@ -292,7 +286,7 @@ mod tests {
 
     #[test]
     fn red_pick_warns_its_braking_point_and_rejects_a_stone_blocked_landing() {
-        let mut run = super::super::super::art_v2::testing::boss("red-pick-chief");
+        let mut run = super::super::super::testing::boss("red-pick-chief");
         let mut mine = hostile(Art::RedPick);
         mine.traits.path.accel = -8.0;
         mine.traits.path.fuse = 51;
@@ -327,7 +321,7 @@ mod tests {
 
     #[test]
     fn foremans_unmarked_gap_wall_follower_has_no_landing_tell() {
-        let mut run = super::super::super::art_v2::testing::boss("the-foreman");
+        let mut run = super::super::super::testing::boss("the-foreman");
         let mut follower = hostile(Art::Foreman);
         follower.traits.path.wait = 24;
         follower.traits.path.mark = false;
@@ -340,7 +334,7 @@ mod tests {
 
     #[test]
     fn leviathan_laser_keeps_its_committed_width_reach_and_warning_ticks() {
-        let run = super::super::super::art_v2::testing::boss("late-fee-leviathan");
+        let run = super::super::super::testing::boss("late-fee-leviathan");
         let mut shot = hostile(Art::Leviathan);
         let beam = Beam {
             angle: std::f32::consts::FRAC_PI_2,

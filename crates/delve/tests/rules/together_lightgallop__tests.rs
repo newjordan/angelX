@@ -1,6 +1,7 @@
 //! Lightgallop's stub: the checks every Round Table adventure keeps while its
 //! builder fills it in (docs/ROUNDTABLE-ADVENTURES.md). The builder owns this
 //! file and adds the game's own checks below these.
+use super::legacy::SessionOracle;
 use super::*;
 
 fn hold(r: &mut Run, seat: u32) {

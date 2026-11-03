@@ -1,0 +1,68 @@
+# crates/delve/src/rules/aoe.rs — one rule for every blow that lands on a crowd.
+# Rust takes a closure (`reaches: Fn(&Enemy) -> bool`); here the caller hands over the
+# answers as a `mask`: one Bool per enemy, in the enemies' order (`aoe.mask_circle`
+# builds the usual one: within `r + radius * k` of a point, but not enemy `skip`).
+
+# What the monster `rank` places from a stroke (0 the nearest) takes of its `damage`.
+def aoe.part(damage: U32, rank: U32) -> U32:
+    if U32.is_lt(rank, aoe.FULL()):
+        return damage
+    return core.div_ceil((damage * aoe.REST() : U32), 100)
+
+# The mask of monsters a circle catches: within `r + radius * k` of (cx, cy), and not the one with id `skip`.
+def aoe.mask_circle(enemies: J.Val, cx: F32, cy: F32, r: F32, k: F32, skip: U32) -> [Bool]:
+    mask: [Bool] = []
+    for e: J.Val in J.items(enemies):
+        d: F32 = RS.f_hypot((core.f(e, "x") - cx : F32), (core.f(e, "y") - cy : F32))
+        hit: Bool = Bool.and(Bool.not(U32.is_eq(core.u(e, "id"), skip)), F32.is_le(d, (r + (monsters.Enemy.radius(e) * k : F32) : F32)))
+        mask = List.append(&2, Bool, mask, [hit])
+    return mask
+
+# Insert (distance, index) into a list sorted by distance then index.
+def aoe.insert(near: [J.Val], d: F32, i: U32) -> [J.Val]:
+    out: [J.Val] = []
+    placed: Bool = False{}
+    for p: J.Val in near:
+        pd: F32 = core.f(p, "d")
+        pi: U32 = core.u(p, "i")
+        if Bool.and(Bool.not(placed), Bool.or(F32.is_lt(d, pd), Bool.and(F32.is_eq(d, pd), U32.is_lt(i, pi)))):
+            out = List.append(&2, J.Val, out, [core.set_u(core.set_f(J.obj(), "d", d), "i", i)])
+            placed = True{}
+        out = List.append(&2, J.Val, out, [p])
+    if Bool.not(placed):
+        out = List.append(&2, J.Val, out, [core.set_u(core.set_f(J.obj(), "d", d), "i", i)])
+    return out
+
+# The living monsters a stroke from (ax, ay) reaches, nearest first (indices into the enemies).
+def aoe.reached(enemies: J.Val, ax: F32, ay: F32, mask: [Bool]) -> [U32]:
+    near: [J.Val] = []
+    i: U32 = 0
+    ms: [Bool] = mask
+    for e: J.Val in J.items(enemies):
+        reach: Bool = False{}
+        match (ms : [Bool]):
+            case Con{m: Bool, rest: [Bool]}:
+                reach = m
+                ms = rest
+            case Nil{}:
+                reach = False{}
+        if Bool.and(U32.is_ne(core.u(e, "hp"), 0), reach):
+            near = aoe.insert(near, RS.f_hypot((core.f(e, "x") - ax : F32), (core.f(e, "y") - ay : F32)), i)
+        i = (i + 1 : U32)
+    out: [U32] = []
+    for p: J.Val in near:
+        out = List.append(&2, U32, out, [core.u(p, "i")])
+    return out
+
+# One stroke of `damage` from (ax, ay) on every living monster the mask catches, shared as the
+# rule says. The enemies after, and each monster struck as [index, dealt], nearest first.
+def aoe.strike(enemies: J.Val, ax: F32, ay: F32, damage: U32, mask: [Bool]) -> (J.Val, J.Val):
+    struck: [J.Val] = []
+    rank: U32 = 0
+    for i: U32 in aoe.reached(enemies, ax, ay, mask):
+        dealt: U32 = aoe.part(damage, rank)
+        e: J.Val = J.nth(enemies, i)
+        enemies = J.set_nth(enemies, i, core.set_u(e, "hp", core.usub(core.u(e, "hp"), dealt)))
+        struck = List.append(&2, J.Val, struck, [J.JA{[J.JU{i}, J.JU{dealt}]}])
+        rank = (rank + 1 : U32)
+    return (enemies, J.JA{struck})

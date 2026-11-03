@@ -1,0 +1,14 @@
+{
+  "api_version": 2,
+  "id": "characters",
+  "kind": "system",
+  "entry": "index.js",
+  "state_schema": 2,
+  "exports": [
+    {
+      "kind": "resource",
+      "name": "pack",
+      "contract": "character-art-pack/1"
+    }
+  ]
+}

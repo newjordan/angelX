@@ -186,6 +186,7 @@
 
 pub(crate) mod and_session;
 pub(crate) mod ar_seats;
+pub(crate) mod catalog;
 pub(crate) mod ch_edits;
 pub(crate) mod claude_seat;
 pub(crate) mod connect;
@@ -206,6 +207,7 @@ pub(crate) mod d5_frames;
 pub(crate) mod d6_long_run;
 pub(crate) mod ed_media;
 pub(crate) mod er_loop;
+pub(crate) mod generation_store;
 pub(crate) mod gh_navigation;
 pub(crate) mod ing_drivers;
 pub(crate) mod introduction;
@@ -246,6 +248,86 @@ pub(crate) const DIRECTION: &str =
 /// Braille numerals: the section and page alphabet (⠁1 … ⠚0).
 pub(crate) const DIGITS: [char; 10] = ['⠁', '⠃', '⠉', '⠙', '⠑', '⠋', '⠛', '⠓', '⠊', '⠚'];
 
+/// Borrow the embedded fallback pages from a chapter asset at compile time.
+/// Each marker starts a page, and exactly one separator newline is removed.
+pub(crate) const fn catalog_pages<const N: usize>(
+    catalog: &'static str,
+    route: u8,
+) -> [&'static str; N] {
+    let mut pages = [""; N];
+    let mut index = 0;
+    let mut offset = 0;
+    while index < N {
+        let (page, next) = catalog_page(catalog, route, offset);
+        pages[index] = page;
+        offset = next;
+        index += 1;
+    }
+    pages
+}
+
+const fn catalog_page(catalog: &'static str, route: u8, mut offset: usize) -> (&'static str, usize) {
+    const PREFIX: &[u8] = b"@@book-page ";
+    let bytes = catalog.as_bytes();
+    while offset < bytes.len() {
+        let start = offset;
+        let mut end = start;
+        while end < bytes.len() && bytes[end] != b'\n' {
+            end += 1;
+        }
+        let mut matches = end == start + PREFIX.len() + 3;
+        let mut i = 0;
+        while matches && i < PREFIX.len() {
+            if bytes[start + i] != PREFIX[i] {
+                matches = false;
+            }
+            i += 1;
+        }
+        if matches
+            && bytes[start + PREFIX.len() + 1] == b'@'
+            && bytes[start + PREFIX.len() + 2] == b'@'
+        {
+            let digit = bytes[start + PREFIX.len()];
+            let body = end + 1;
+            let mut next = body;
+            while next < bytes.len() {
+                let line = next;
+                let mut line_end = line;
+                while line_end < bytes.len() && bytes[line_end] != b'\n' {
+                    line_end += 1;
+                }
+                let mut marker = line_end == line + PREFIX.len() + 3;
+                let mut j = 0;
+                while marker && j < PREFIX.len() {
+                    if bytes[line + j] != PREFIX[j] {
+                        marker = false;
+                    }
+                    j += 1;
+                }
+                if marker
+                    && bytes[line + PREFIX.len() + 1] == b'@'
+                    && bytes[line + PREFIX.len() + 2] == b'@'
+                {
+                    break;
+                }
+                next = line_end + 1;
+            }
+            if digit == route {
+                let page_end = if next > bytes.len() {
+                    bytes.len() - 1
+                } else {
+                    next - 1
+                };
+                return (catalog.split_at(body).1.split_at(page_end - body).0, next);
+            }
+            offset = next;
+        } else {
+            offset = end + 1;
+        }
+    }
+    panic!("missing catalog page");
+}
+
 /// Most routes in one warpath: six braille characters.
 pub(crate) const WARPATH_ROUTES: usize = 3;
 
@@ -273,19 +355,22 @@ impl Route {
 
     /// The subcategory this route resolves to on its primary.
     /// The active cartridge's page wins over the book's own.
-    pub(crate) fn sub(self) -> &'static Sub {
-        crate::agent::harness::cartridges::page(self)
-            .or_else(|| {
-                primary(self.primary)
-                    .and_then(|primary| primary.subs.iter().find(|sub| sub.route == self))
-            })
-            .expect("every route is attached to a primary surface")
+    pub(crate) fn sub(self) -> ResolvedSub {
+        find(self).expect("every route is attached to a primary surface")
     }
 
     /// Operator-facing name for the tray and telemetry (`verification.red`).
     pub(crate) fn name(self) -> String {
-        let primary = primary(self.primary).map_or("?", |primary| primary.name);
-        format!("{primary}.{}", self.sub().name)
+        let primary_name = primary(self.primary).map_or("?", |primary| primary.name);
+        let name = crate::agent::harness::cartridges::page(self)
+            .or_else(|| {
+                primary(self.primary)?
+                    .subs
+                    .iter()
+                    .find(|sub| sub.route == self)
+            })
+            .map_or("?", |sub| sub.name);
+        format!("{primary_name}.{name}")
     }
 }
 
@@ -306,6 +391,94 @@ pub(crate) struct Sub {
     pub(crate) ideas: &'static str,
     /// Verbatim pages, one sentence each (a type's pages are addresses).
     pub(crate) pages: &'static [&'static str],
+}
+
+/// A section with owned pages, suitable for a retained catalog generation.
+pub(crate) struct ResolvedSub {
+    pub(crate) route: Route,
+    pub(crate) name: &'static str,
+    pub(crate) signal: &'static str,
+    pub(crate) action: &'static str,
+    pub(crate) ideas: &'static str,
+    pub(crate) pages: ResolvedPages,
+}
+
+/// Unchanged chapters borrow their compiled text. Only an active dynamic
+/// chapter owns strings, so normal route lookups do not clone the whole book.
+pub(crate) enum ResolvedPages {
+    Static(&'static [&'static str]),
+    Dynamic {
+        catalog: std::sync::Arc<catalog::Catalog>,
+        route: Route,
+    },
+}
+
+impl ResolvedPages {
+    pub(crate) fn len(&self) -> usize {
+        match self {
+            Self::Static(pages) => pages.len(),
+            Self::Dynamic { catalog, route } => {
+                catalog.pages(*route).expect("resolved route").len()
+            }
+        }
+    }
+    pub(crate) fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+    pub(crate) fn get(&self, index: usize) -> Option<&str> {
+        match self {
+            Self::Static(pages) => pages.get(index).copied(),
+            Self::Dynamic { catalog, route } => catalog
+                .pages(*route)
+                .and_then(|pages| pages.get(index))
+                .map(String::as_str),
+        }
+    }
+    pub(crate) fn iter(&self) -> impl Iterator<Item = &str> {
+        (0..self.len()).map(|index| self.get(index).expect("in bounds"))
+    }
+    pub(crate) fn join(&self, separator: &str) -> String {
+        self.iter().collect::<Vec<_>>().join(separator)
+    }
+}
+
+impl std::ops::Index<usize> for ResolvedPages {
+    type Output = str;
+    fn index(&self, index: usize) -> &str {
+        self.get(index).expect("page index")
+    }
+}
+
+impl IntoIterator for ResolvedPages {
+    type Item = String;
+    type IntoIter = std::vec::IntoIter<String>;
+    fn into_iter(self) -> Self::IntoIter {
+        match self {
+            Self::Static(pages) => pages
+                .iter()
+                .map(|page| (*page).to_owned())
+                .collect::<Vec<_>>()
+                .into_iter(),
+            Self::Dynamic { catalog, route } => catalog
+                .pages(route)
+                .expect("resolved route")
+                .to_vec()
+                .into_iter(),
+        }
+    }
+}
+
+impl From<&'static Sub> for ResolvedSub {
+    fn from(sub: &'static Sub) -> Self {
+        Self {
+            route: sub.route,
+            name: sub.name,
+            signal: sub.signal,
+            action: sub.action,
+            ideas: sub.ideas,
+            pages: ResolvedPages::Static(sub.pages),
+        }
+    }
 }
 
 /// The first layer, in table-of-contents order.
@@ -381,22 +554,136 @@ pub(crate) fn primary(cell: char) -> Option<&'static Primary> {
 }
 
 /// The page for `route`, the active cartridge's first; `None` off the book.
-pub(crate) fn find(route: Route) -> Option<&'static Sub> {
-    crate::agent::harness::cartridges::page(route).or_else(|| {
-        primary(route.primary)?
-            .subs
-            .iter()
-            .find(|sub| sub.route == route)
-    })
+pub(crate) fn find(route: Route) -> Option<ResolvedSub> {
+    if let Some(sub) = crate::agent::harness::cartridges::page(route) {
+        return Some(ResolvedSub::from(sub));
+    }
+    let sub = primary(route.primary)?
+        .subs
+        .iter()
+        .find(|sub| sub.route == route)?;
+    let mut resolved = ResolvedSub::from(sub);
+    if let Some(generation) = catalog::current()
+        && route.primary != d3456_advisories::CELL
+    {
+        generation.pages(route)?;
+        resolved.pages = ResolvedPages::Dynamic {
+            catalog: generation,
+            route,
+        };
+    }
+    Some(resolved)
+}
+
+/// Attribution follows the resolved pages, including the pinned generation.
+const PROFILE_OVERRIDE_NOTICE: &str = "[local override of the Codex-derived profile]";
+
+// SHA-256 of the original vendor sections, with each UTF-8 page preceded by
+// its eight-byte big-endian length. These identities are independent of the
+// embedded .book files and of operator-published catalog generations.
+fn original_profile_identity(route: Route) -> Option<&'static str> {
+    match (route.primary, route.sub) {
+        ('⡞', '⠁') => Some("45b0517d29a1cfb5685ae8a1545c36ee9b47174ca5e068b23fe717b5c9dc1dd2"),
+        ('⡞', '⠃') => Some("32867e27d5df46fd301870185d6d05b8efef963093dada50a71d91d933ece892"),
+        ('⡞', '⠉') => Some("da1c929a9e756a7d23f723b71739662312950cc6037ee65b48d5f58569d88b80"),
+        ('⡞', '⠙') => Some("d913623eaa9b0c14398bfead28d10e4a8551ccf2b909ea6a929076969360ac1b"),
+        ('⡞', '⠑') => Some("7dac7d27bc2c2f835fe5366a3b58aadb3a6db432816a49371b5d6ad4f24083aa"),
+        ('⡞', '⠋') => Some("f0099fb43fe2af2466acc818497d5fb1dd5ef44a69ceb2538eedc076996d397a"),
+        ('⡞', '⠛') => Some("972a367b262e151c2a4bc8879fe4b1c574c62a90bca0585a138b1f9787d96b04"),
+        ('⡞', '⠓') => Some("60b7d59103249e251a38d65ce0f1be90f5f5d53c445c938f704dfce84d2d0554"),
+        ('⡞', '⠊') => Some("7ee937f9249795cd573af5e01099b51cf140785055748f8381636123e3c36b20"),
+        ('⡞', '⠚') => Some("755082079a8c00917a97c3ce82d592ced7dc142dd8910b03d1ffccb512309a63"),
+        ('⢞', '⠁') => Some("fb40d413a1723bb6779f7dfcb5eaa4e921249b48ae4a2f980a8fc34aa5e0f906"),
+        ('⢞', '⠃') => Some("a17f794f02e0635658b600406283a57da33965e2d7ab699af9d16abf52dd79aa"),
+        ('⢞', '⠉') => Some("b75c0949f562b31e95c782940c75af3c045b1a2f0c517bd5d96fce28fa6195a6"),
+        ('⢞', '⠙') => Some("4a16cc83266a74e957ea673ab76c41b2d0c2bd1d2474116b945f030c1fd8a83c"),
+        ('⢞', '⠑') => Some("0fbc1f20bd08e58b9649d2f11003f3a00d6b6810b75484a74aecc5f715041dac"),
+        ('⢞', '⠋') => Some("47e74bb69c3e18562d53d9822e0eafcf76899e7f546875ef425618ff9c236150"),
+        ('⢞', '⠛') => Some("c5aba8b291d97a162799c501043d4544ca89d0dee18b390b20537ce9ece4ab14"),
+        ('⢞', '⠓') => Some("c95694603c19d73ebc2b54d0dd41d3c40085f3529f41ad4285cb6220cd33f9e1"),
+        ('⢞', '⠊') => Some("41b2f60bf2b25459fb4222f429ad7a7a15bef74033763587c763290e350f402e"),
+        ('⢞', '⠚') => Some("33392fb86c905e2ae7986d1f6530e89aa02f23e2207d7e0f6f3a32ce66c28a89"),
+        ('⣞', '⠁') => Some("54c1a262b28043ea5f97c5ccea4683a84a1ae9d64c9fb516ebb4c92ec73a2154"),
+        ('⣞', '⠃') => Some("38ec4d8d543d10c69516a17bd2ab358e0611789c1b01f8172eec32fccd1e67cb"),
+        ('⣞', '⠉') => Some("3c0f7c02d854fa496eb20ff3ae179054eefc61f6359bf4610ce57a11c97886b3"),
+        ('⣞', '⠙') => Some("6281128293ff135bc5096ae53752cfe1958dffc05109067102ca4dba9617b5b3"),
+        ('⣞', '⠑') => Some("3a295ae6803d1f59b618ca19da0dfcdc7c775eb26d650e1d6f67cef4b75c0118"),
+        ('⣞', '⠋') => Some("da6fde799de470da93350cec9da17efeb0dfa9bdd7fa0408e73994058c3f44ff"),
+        ('⣞', '⠛') => Some("02aae902d2694635a969f621aec3450303878849eb930c341058778dd43efaa1"),
+        ('⡯', '⠁') => Some("cce8650fecc2be550aaf7da531dceb4599c9713b03f5ce48a7d6eca1df7c45f8"),
+        ('⡯', '⠃') => Some("5c7c2b6868ed120266e0a11d6c15dd2c9dab510110114d613098a7dc725dfa20"),
+        ('⡯', '⠉') => Some("b41a88b535bf20d6a104acb9a63fed69a710f6f078a515e4e61dd77cb02bea3f"),
+        ('⡯', '⠙') => Some("2ba640ebd50a804a90559343e83fb5ebcdfd688c2b3a296fff9f20bc115d69f8"),
+        _ => None,
+    }
+}
+
+fn profile_override(sub: &ResolvedSub) -> bool {
+    if !matches!(
+        sub.route.primary,
+        d23457_codex_sol::CELL
+            | d23457_codex_sol::SHELF_II_CELL
+            | d23457_codex_sol::SHELF_III_CELL
+            | d23457_codex_sol::CONTEXT_CELL
+    ) {
+        return false;
+    }
+    let mut framed = Vec::new();
+    for page in sub.pages.iter() {
+        framed.extend_from_slice(&(page.len() as u64).to_be_bytes());
+        framed.extend_from_slice(page.as_bytes());
+    }
+    original_profile_identity(sub.route)
+        .is_none_or(|original| crate::knowledge::cut::sha256_hex(&framed) != original)
+}
+
+fn profile_text(sub: &ResolvedSub, text: &str) -> String {
+    if profile_override(sub) {
+        format!("{PROFILE_OVERRIDE_NOTICE} {text}")
+    } else {
+        text.to_owned()
+    }
+}
+
+fn displayed_signal(sub: &ResolvedSub) -> std::borrow::Cow<'static, str> {
+    if profile_override(sub) {
+        std::borrow::Cow::Owned(sub.signal.replacen(
+            "what Codex tells gpt-6.1-sol",
+            "local override of the Codex-derived profile",
+            1,
+        ))
+    } else {
+        std::borrow::Cow::Borrowed(sub.signal)
+    }
+}
+
+fn displayed_surface(primary: &'static Primary) -> &'static str {
+    if matches!(
+        primary.cell,
+        d23457_codex_sol::CELL
+            | d23457_codex_sol::SHELF_II_CELL
+            | d23457_codex_sol::SHELF_III_CELL
+            | d23457_codex_sol::CONTEXT_CELL
+    ) && subs(primary).iter().any(profile_override)
+    {
+        "locally modified Codex-derived seat profile"
+    } else {
+        primary.surface
+    }
 }
 
 /// A primary's subcategories as the active cartridge plays them: its pages
 /// replace the book's by route, and its new routes follow the book's own.
-pub(crate) fn subs(primary: &'static Primary) -> Vec<&'static Sub> {
-    let mut subs: Vec<&'static Sub> = primary.subs.iter().map(|sub| sub.route.sub()).collect();
+pub(crate) fn subs(primary: &'static Primary) -> Vec<ResolvedSub> {
+    let mut subs: Vec<ResolvedSub> = primary
+        .subs
+        .iter()
+        .filter_map(|sub| find(sub.route))
+        .collect();
     subs.extend(
         crate::agent::harness::cartridges::pages_on(primary.cell)
-            .filter(|page| !primary.subs.iter().any(|sub| sub.route == page.route)),
+            .filter(|page| !primary.subs.iter().any(|sub| sub.route == page.route))
+            .map(ResolvedSub::from),
     );
     subs
 }
@@ -415,6 +702,19 @@ pub(crate) struct Raise {
 }
 
 impl Raise {
+    /// Whether this conversation's pinned generation contains the stamp.
+    pub(crate) fn available(&self) -> bool {
+        let Some(sub) = find(self.route) else {
+            return false;
+        };
+        match self.page {
+            None => true,
+            Some(page) => DIGITS
+                .iter()
+                .position(|digit| *digit == page)
+                .is_some_and(|index| index < sub.pages.len()),
+        }
+    }
     pub(crate) fn new(route: Route, evidence: impl Into<Option<String>>) -> Self {
         Self {
             route,
@@ -484,6 +784,7 @@ pub(crate) const VOICED: &[(Route, bool)] = &[
     (d3456_advisories::THRASH, true),
     (d3456_advisories::FANOUT, false),
     (d3456_advisories::CASCADE, true),
+    (d3456_advisories::POST_EDIT, false),
     (k_competition::RAPID, false),
     (k_competition::DEEP, false),
     (k_competition::WINNER_BANK, false),
@@ -504,14 +805,15 @@ pub(crate) fn is_warning(route: Route) -> bool {
 }
 
 /// The 0.1.6 name of the advisory a route carries, so the experience ledger
-/// and the analysis scripts that count `verification_recovery`,
-/// `error_advisory` and the rest keep counting them.
+/// and the analysis scripts that count `post_edit_logic_advisory`,
+/// `verification_recovery`, `error_advisory` and the rest keep counting them.
 pub(crate) fn legacy_kind(route: Route) -> Option<&'static str> {
     Some(match route {
         r if r == l_loops::SAME_BATCH => "spin_advisory",
         r if r == l_loops::STORM => "duplicate_storm_advisory",
         r if r == x_execution::ERRORS => "error_advisory",
         r if r == v_verification::RED_STREAK => "verification_recovery",
+        r if r == d3456_advisories::POST_EDIT => "post_edit_logic_advisory",
         r if r == d3456_advisories::GREEN => "green_verify_advisory",
         r if r == k_competition::WINNER_BANK => "green_verify_advisory",
         r if r == d3456_advisories::FINAL_MILE => "final_mile_advisory",
@@ -532,6 +834,9 @@ pub(crate) fn legacy_kind(route: Route) -> Option<&'static str> {
 pub(crate) fn warpath(workspace: &Path, raises: &[Raise]) -> String {
     let mut stamps: Vec<String> = Vec::new();
     for raise in raises {
+        if !raise.available() {
+            continue;
+        }
         if let Some(evidence) = raise
             .evidence
             .as_deref()
@@ -556,7 +861,10 @@ pub(crate) fn advice_turn(workspace: &Path, raises: &[Raise], warning: bool) -> 
         turn.push(l_loops::WARNING);
     }
     turn.push_str(&warpath(workspace, raises));
-    for raise in raises.iter().filter(|raise| raise.inline) {
+    for raise in raises
+        .iter()
+        .filter(|raise| raise.inline && raise.available())
+    {
         if let Some(evidence) = raise
             .evidence
             .as_deref()
@@ -572,6 +880,10 @@ pub(crate) fn advice_turn(workspace: &Path, raises: &[Raise], warning: bool) -> 
 /// Routes as sign lines, [`WARPATH_ROUTES`] to a line, so none is dropped.
 pub(crate) fn sign_lines(routes: &[Route]) -> String {
     routes
+        .iter()
+        .copied()
+        .filter(|route| find(*route).is_some())
+        .collect::<Vec<_>>()
         .chunks(WARPATH_ROUTES)
         .map(|chunk| chunk.iter().map(|route| route.cells()).collect::<String>())
         .collect::<Vec<_>>()
@@ -596,3 +908,7 @@ pub(crate) fn names(raises: &[Raise]) -> String {
 #[cfg(test)]
 #[path = "../../../../../tests/cockpit/harness/book__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../../tests/cockpit/harness/book__vendor_provenance_tests.rs"]
+mod vendor_provenance_tests;

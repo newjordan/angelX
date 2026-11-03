@@ -1,6 +1,6 @@
 //! Four-seat replay, wire and impact-frame evidence for room hit-stop.
 use angel_delve::{
-    render::overworld::arena::{self, art_v2::testing},
+    render::overworld::arena::{self, testing},
     rules::{Input, Run, Weapon, tune::Tune},
     wire,
 };
@@ -71,11 +71,6 @@ fn main() {
     let args: Vec<_> = std::env::args().collect();
     let out = PathBuf::from(args.get(1).expect("hitstop-review OUT [--off] [--capture]"));
     std::fs::create_dir_all(&out).unwrap();
-    angel_delve::settings::set(angel_delve::settings::Settings {
-        art_v2: true,
-        feel_ledger: false,
-        open_floors: false,
-    });
     let off = args.iter().any(|a| a == "--off");
     let capture = args.iter().any(|a| a == "--capture");
     for id in ["waxen-warden", "the-bone-choir", "busy-fight"] {

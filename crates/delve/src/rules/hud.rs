@@ -50,6 +50,8 @@ pub struct Keys {
     pub sword: &'static str,
     /// Drinks the first card in hand; the rest move up.
     pub quaff: &'static str,
+    /// Puts the first card in hand at the back: the next one is up.
+    pub cycle: &'static str,
     pub spells: [&'static str; cards::SPELL_SLOTS],
     pub ult: &'static str,
     pub take: &'static str,
@@ -67,6 +69,7 @@ impl Keys {
         guard: "Space",
         sword: "Q",
         quaff: "Z",
+        cycle: "P",
         spells: ["1", "2", "3", "4"],
         ult: "R",
         take: "E",
@@ -81,6 +84,7 @@ impl Keys {
         guard: "O",
         sword: "[",
         quaff: "]",
+        cycle: "End",
         spells: ["5", "6", "7", "\\"],
         ult: "Y",
         take: "H",
@@ -120,12 +124,13 @@ impl Keys {
 
     pub fn kit_line(&self) -> String {
         format!(
-            "{} sword  {} bomb  {} take  {} spells  {} quaff  {} ultimate",
+            "{} sword  {} bomb  {} take  {} spells  {} quaff  {} next card  {} ultimate",
             self.sword,
             self.bomb,
             self.take,
             self.spell_keys(),
             self.quaff,
+            self.cycle,
             self.ult
         )
     }
@@ -261,6 +266,10 @@ pub struct Hud {
     /// Derived locally; older HUD snapshots may omit it.
     #[serde(default)]
     pub wishes: Option<WishHud>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub corpses: Option<Slot>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skeleton_wall: Option<Slot>,
 }
 
 impl Run {
@@ -278,7 +287,7 @@ impl Run {
             .filter(|item| (hero.x - item.x).hypot(hero.y - item.y) < TAKE_REACH)
             .filter_map(|item| {
                 let card = self.book.get(&item.card)?;
-                (gear::manual(card) && hero.takes(card))
+                (gear::manual_for(hero, card) && hero.takes(card))
                     .then_some((card, (hero.x - item.x).hypot(hero.y - item.y)))
             })
             .min_by(|a, b| a.1.total_cmp(&b.1))
@@ -333,12 +342,22 @@ impl Run {
                 };
                 Slot::new(keys.guard, guard_name, fill, state)
             }
-            cards::Guard::Shield => Slot::new(
-                keys.guard,
-                guard_name,
-                1.0,
-                if hero.shielding { "up" } else { "hold" },
-            ),
+            cards::Guard::Shield => {
+                // The meter: what the shield can still turn, or, knocked
+                // aside, how far it has come back.
+                let wear = hero.shield_wear;
+                let left = wear.left(hero.max_hp);
+                let (fill, state) = if wear.down > 0 {
+                    (wear.back(), "broken".to_string())
+                } else if wear.worn > 0 {
+                    (left, format!("{:.0}%", left * 100.0))
+                } else if hero.shielding {
+                    (1.0, "up".to_string())
+                } else {
+                    (1.0, "hold".to_string())
+                };
+                Slot::new(keys.guard, guard_name, fill, state)
+            }
             cards::Guard::Wall(_) => Slot::new(
                 keys.guard,
                 guard_name,
@@ -376,7 +395,7 @@ impl Run {
             .enumerate()
             .map(|(slot, (id, left))| {
                 let card = self.book.get(id.as_deref()?)?;
-                let total = (card.cooldown.max(1) * HZ) as f32;
+                let total = hero.spell_wait(card) as f32;
                 let state = if left == 0 {
                     "ready".to_string()
                 } else {
@@ -384,18 +403,19 @@ impl Run {
                 };
                 Some(Slot::new(
                     keys.spells[slot],
-                    &card.name,
+                    &hero.spell_name(card),
                     1.0 - left as f32 / total,
                     state,
                 ))
             })
             .collect()
         };
-        // The quaff key drinks the first card; the rest wait their turn.
+        // The quaff key drinks the first card; the rest wait their turn,
+        // and the next-card key brings the second up.
         let hand = (0..cards::HAND)
             .map(|slot| {
                 let card = self.book.get(hero.hand.get(slot)?)?;
-                let key = if slot == 0 { keys.quaff } else { "" };
+                let key = hand_key(keys, slot);
                 Some(Slot::new(key, &card.name, 1.0, ""))
             })
             .collect();
@@ -435,7 +455,7 @@ impl Run {
             spell_keys: keys.spells.iter().map(|k| k.to_string()).collect(),
             hand,
             bombs: hero.bombs,
-            max_bombs: MAX_BOMBS,
+            max_bombs: bombs::at(self.dungeon.depth).cap.max(hero.bombs.min(MAX_BOMBS)),
             ult: Slot::new(
                 keys.ult,
                 ult.name(),
@@ -461,7 +481,29 @@ impl Run {
             temper: hero.temper,
             key: self.key_bearer() == Some(id),
             wishes: self.wish_hud(id),
+            corpses: minions::summoner(hero).then(|| {
+                let percent = self.minions.graves.get(&id).map_or(0, |g| g.corpses);
+                Slot::new("hold G", minions::golem_kind(percent).name(), f32::from(percent) / 100.0, format!("{percent}%"))
+            }),
+            skeleton_wall: minions::summoner(hero).then(|| {
+                let grave = self.minions.graves.get(&id);
+                let left = grave.map_or(0, |g| g.wall_rearm);
+                let wall = grave.map_or(0, |g| g.wall);
+                let state = if wall > 0 { format!("{}s up", wall.div_ceil(HZ)) }
+                    else if left > 0 { format!("{}s", left.div_ceil(HZ)) } else { "ready".into() };
+                Slot::new(keys.guard, "Skeleton Wall", 1.0 - left as f32 / minions::WALL_REARM as f32, state)
+            }),
         })
+    }
+}
+
+/// The key under hand slot `slot`: the quaff key drinks the first, the
+/// next-card key brings the second up, and the rest have none.
+pub fn hand_key(keys: &Keys, slot: usize) -> &'static str {
+    match slot {
+        0 => keys.quaff,
+        1 => keys.cycle,
+        _ => "",
     }
 }
 
@@ -483,6 +525,18 @@ fn hero_perks(hero: &Hero) -> Vec<String> {
     }
     if let Some(gift) = hero.boon.from {
         out.push(gift.perk().to_string());
+    }
+    if hero.freedom_wishes > 0 {
+        // The freed genie's thanks (`freedom`).
+        out.push(format!(
+            "{} freedom wish{}: E at a Sanctuary's genie brazier or the tavern's weapons locker",
+            hero.freedom_wishes,
+            if hero.freedom_wishes == 1 { "" } else { "es" }
+        ));
+    }
+    if hero.star_wish {
+        // Caught under a shooting star (`starfall`).
+        out.push("a star's wish: T, free, before you leave its room".to_string());
     }
     if hero.pit.speed > 0 {
         out.push(format!(

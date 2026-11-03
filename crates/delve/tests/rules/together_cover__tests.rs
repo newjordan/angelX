@@ -27,16 +27,27 @@ const VIEW: f32 = 1000.0;
 fn the_party_s_shots_never_cover_more_than_their_share_of_the_screen() {
     let mut shots: Vec<Projectile> = (0..400).map(|i| shot(1 + (i % 4) as u8, 3)).collect();
     assert!(covered(&shots, VIEW) > 100.0, "four hundred giant shots fill the screen");
-    let retired = hold(&mut shots, VIEW);
+    let retired = retire(&mut shots, VIEW, PARTY_COVER);
     assert!(retired > 0);
     assert!(covered(&shots, VIEW) <= PARTY_COVER + 0.01, "{}", covered(&shots, VIEW));
+}
+
+#[test]
+fn with_the_share_off_hold_leaves_a_crowd_of_shots_to_fly() {
+    let mut shots: Vec<Projectile> = (0..400).map(|i| shot(1 + (i % 4) as u8, 3)).collect();
+    let retired = hold(&mut shots, VIEW);
+    if PARTY_COVER_ON {
+        assert!(retired > 0 && covered(&shots, VIEW) <= PARTY_COVER + 0.01);
+    } else {
+        assert_eq!((retired, shots.len()), (0, 400), "the share is off for now");
+    }
 }
 
 #[test]
 fn the_oldest_shots_go_first_so_a_new_volley_always_flies() {
     let mut shots: Vec<Projectile> = (0..200).map(|_| shot(1, 0)).collect();
     shots.last_mut().unwrap().damage = 99;
-    hold(&mut shots, VIEW);
+    retire(&mut shots, VIEW, PARTY_COVER);
     assert_eq!(shots.last().unwrap().damage, 99, "the newest shot is kept");
     assert!(shots.len() < 200);
 }
@@ -53,7 +64,7 @@ fn monsters_shots_are_never_retired_for_the_party_s_room() {
         p.hostile = true;
         p.traits.owner = 0;
     }
-    hold(&mut shots, VIEW);
+    retire(&mut shots, VIEW, PARTY_COVER);
     assert_eq!(shots.iter().filter(|p| p.hostile).count(), 50);
 }
 

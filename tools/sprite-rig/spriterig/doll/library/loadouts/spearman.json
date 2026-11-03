@@ -1,0 +1,17 @@
+{
+ "name": "spearman",
+ "body": "hero",
+ "colors": {
+  "primary": [
+   "o",
+   "R"
+  ]
+ },
+ "equip": [
+  "helm_open",
+  "chest_plate",
+  "tabard",
+  "greaves",
+  "spear"
+ ]
+}

@@ -19,6 +19,7 @@ use super::*;
 
 /// What monsters made happen this tick.
 #[derive(Default)]
+#[cfg_attr(test, derive(Serialize))]
 pub(super) struct Deeds {
     pub(super) clouds: Vec<skills::Cloud>,
     /// A breath drawing knights in: where to, and the nearest it draws them.
@@ -57,6 +58,8 @@ pub(super) struct Deeds {
     pub(super) bursts: Vec<Projectile>,
     /// Black Holes the Hollow Ones opened: where, and by whom.
     pub(super) holes: Vec<(f32, f32, u32)>,
+    /// Stone a guardian's blow breaks: where, and how far round (`rubble`).
+    pub(super) shatters: Vec<((f32, f32), f32)>,
     /// The third company's moves (`critters`).
     pub(super) crit: super::critters::Doings,
     /// The swamp's horrors' (`horrors`).
@@ -428,6 +431,9 @@ impl Run {
     /// Make what the monsters did this tick so.
     pub(super) fn apply_deeds(&mut self, deeds: Deeds) {
         self.signature_deeds(deeds.clouds, deeds.pulls, deeds.sweeps);
+        for (at, reach) in deeds.shatters {
+            self.shatter(at, reach);
+        }
         self.sounds.extend(deeds.sounds);
         self.fx.push(Fx::Shake(deeds.shake));
         self.hunt(deeds.hooks, deeds.webs, deeds.rot);

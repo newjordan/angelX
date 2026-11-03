@@ -245,7 +245,12 @@ pub struct CockpitLayoutInput {
 
 /// Agent-bay height while the trace pane has content (up to 80% of the side
 /// column, leaving a compact miniviz plate).
+#[cfg(test)]
 pub(crate) fn reasoning_agent_height(column_height: u16) -> u16 {
+    reasoning_agent_height_percent(column_height, 80)
+}
+
+fn reasoning_agent_height_percent(column_height: u16, percent: u16) -> u16 {
     if column_height == 0 {
         return 0;
     }
@@ -261,7 +266,7 @@ pub(crate) fn reasoning_agent_height(column_height: u16) -> u16 {
     } else {
         3.min(column_height)
     };
-    let target = shared_height.saturating_mul(4) / 5;
+    let target = (u32::from(shared_height) * u32::from(percent) / 100) as u16;
     target
         .min(shared_height.saturating_sub(min_scryglass_h))
         .max(3.min(column_height))
@@ -283,6 +288,17 @@ pub(crate) fn plan_cockpit_surfaces_at_height(
     input: CockpitLayoutInput,
     agent_height: Option<u16>,
 ) -> CockpitSurfacePlan {
+    static DEFAULT: std::sync::OnceLock<angel_live::UiPolicy> = std::sync::OnceLock::new();
+    plan_cockpit_surfaces_with_policy(input, agent_height, DEFAULT.get_or_init(Default::default))
+}
+
+pub(crate) fn plan_cockpit_surfaces_with_policy(
+    mut input: CockpitLayoutInput,
+    agent_height: Option<u16>,
+    policy: &angel_live::UiPolicy,
+) -> CockpitSurfacePlan {
+    input.agent_active &= policy.show_agent;
+    input.artifacts_active &= policy.show_artifacts;
     let mut plan = CockpitSurfacePlan {
         surfaces: Vec::with_capacity(3),
         backdrop_mode: input.backdrop,
@@ -340,7 +356,7 @@ pub(crate) fn plan_cockpit_surfaces_at_height(
                 let agent_h = if let Some(height) = agent_height {
                     height
                 } else if input.reasoning_visible {
-                    reasoning_agent_height(right_area.height)
+                    reasoning_agent_height_percent(right_area.height, policy.reasoning_percent)
                 } else {
                     let max_agent_h = right_area.height.saturating_sub(19).max(3);
                     input
@@ -358,10 +374,14 @@ pub(crate) fn plan_cockpit_surfaces_at_height(
                 let agent_h = agent_h
                     .max(3)
                     .min(right_area.height.saturating_sub(reserve_other).max(3));
-                let [agent_area, artifacts_area] =
+                let [mut agent_area, mut artifacts_area] =
                     Layout::vertical([Constraint::Length(agent_h), Constraint::Min(3)])
                         .spacing(input.join.spacing())
                         .areas(right_area);
+                if !policy.agent_first {
+                    agent_area.y = right_area.y + right_area.height - agent_area.height;
+                    artifacts_area.y = right_area.y;
+                }
                 (Some(agent_area), Some(artifacts_area))
             }
         }

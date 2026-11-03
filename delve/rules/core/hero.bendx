@@ -1,0 +1,617 @@
+# crates/delve/src/rules/hero.rs — a knight (the J value of `Hero`, serde shape).
+# Written in bendx (structured Bend, delve/rules/combat/_tools/bendx.py).
+
+# `hit_ward()`: how long a hit wards a knight, in ticks.
+def hero.hit_ward() -> U32:
+    return hero.HIT_WARD()
+
+# The share of a hit `armor` pieces of mail turn aside, in percent.
+def hero.armor_turns(armor: U32) -> U32:
+    n: U32 = U32.min(armor, rules.MAX_ARMOR())
+    if U32.is_eq(n, 0):
+        return 0
+    if U32.is_eq(n, 1):
+        return 6
+    return 11
+
+# `Hero::hurt`: a hit, taking at most `most` once every multiplier is in.
+def hero.Hero.hurt_most(h: J.Val, damage: U32, most: U32) -> J.Val:
+    if Bool.or(U32.is_ne(core.u(h, "flee_ticks"), 0), core.b(h, "aloft")):
+        return h
+    live: Bool = Bool.and(Bool.not(core.b(h, "stone")), Bool.and(U32.is_zero(core.u(h, "invulnerable")), U32.is_ne(core.u(h, "hp"), 0)))
+    if Bool.not(live):
+        return h
+    # A booby prize from the countryside takes the next blow whole, then flies off.
+    if Bool.not(J.is_null(J.get(h, "booby"))):
+        h = J.set(h, "booby", J.JNull{})
+        return core.set_u(h, "invulnerable", 24)
+    close: Bool = hero.Hero.close_fighter(J.get(h, "forged"))
+    d: U32 = damage
+    if close:
+        d = U32.div((d * 2 : U32), 3)
+    if core.b(h, "glass"):
+        d = (d * 2 : U32)
+    # A bucket turns the first blow in a room aside whole; other curios make
+    # every blow more or less (`curios`).
+    (h2: J.Val, turned: U32?) = curios.Hero.curio_turns(h, d)
+    h = h2
+    match (turned : U32?):
+        case None{}:
+            return core.set_u(h, "invulnerable", core.u(h, "hit_ward"))
+        case Some{t: U32}:
+            d = t
+    # What the floor and the party's size make of the hit; then the share the mail turns aside.
+    d = U32.div((d * core.u(h, "incoming") : U32), 100)
+    # Health counts for half: every hit lands twice as hard.
+    d = U32.div((d * hero.HIT_SHARE() : U32), 100)
+    peasant: Bool = classes.Hero.peasant(h)
+    exposed: U32 = 0
+    mailed: U32 = 0
+    if Bool.not(peasant):
+        owned: J.Val = J.get(h, "owned")
+        exposed = (Bool.to_u32(Bool.not(core.b(owned, "body"))) * gear.BARE_BODY() + Bool.to_u32(Bool.not(core.b(owned, "helmet"))) * gear.BARE_HEAD() : U32)
+        mailed = hero.armor_turns(core.u(h, "armor"))
+    d = U32.div((d * (100 + exposed : U32) : U32), 100)
+    cap: U32 = U32.min(most, U32.div((core.u(h, "max_hp") * hero.ONE_HIT_MOST() : U32), 100))
+    d = U32.div((d * (100 - mailed : U32) : U32), 100)
+    d = U32.min(U32.max(d, 4), U32.max(cap, 1))
+    h = core.set_u(h, "hp", core.usub(core.u(h, "hp"), d))
+    h = core.set_u(h, "invulnerable", core.u(h, "hit_ward"))
+    h = curios.Hero.curio_biscuit(h)
+    # A hit breaks Regeneration's mending.
+    if runes.Hero.has_rune(h, "regeneration"):
+        h = J.set(h, "rune", J.JNull{})
+    return h
+
+# `forged.is_some_and(|w| w.bolt.is_none() && w.melee.is_some())`
+def hero.Hero.close_fighter(w: J.Val) -> Bool:
+    return Bool.and(Bool.not(J.is_null(w)), Bool.and(J.is_null(J.get(w, "bolt")), Bool.not(J.is_null(J.get(w, "melee")))))
+
+def hero.Hero.hurt(h: J.Val, damage: U32) -> J.Val:
+    return hero.Hero.hurt_most(h, damage, 4294967295)
+
+# A guardian's charge-up strikes (`signatures`): at most `BLOW_MOST` of the
+# knight's health, and only once for charge-up `tag`. (hero, whether it struck)
+def hero.Hero.blow(h: J.Val, damage: U32, tag: U32) -> (J.Val, Bool):
+    shielded: Bool = Bool.or(Bool.or(core.b(h, "stone"), U32.is_ne(core.u(h, "flee_ticks"), 0)), Bool.or(core.b(h, "aloft"), U32.is_ne(core.u(h, "invulnerable"), 0)))
+    if Bool.or(shielded, Bool.or(U32.is_zero(core.u(h, "hp")), U32.is_eq(core.u(h, "blown"), tag))):
+        return (h, False{})
+    h = core.set_u_skip(h, "blown", tag)
+    h = hero.Hero.hurt_most(h, damage, U32.div((core.u(h, "max_hp") * hero.BLOW_MOST() : U32), 100))
+    return (h, True{})
+
+# What a knight's damage comes to once the held cards, the pit stop's buffs, the
+# curios and a rune have had their say.
+def hero.Hero.scaled(h: J.Val, damage: U32) -> U32:
+    b: J.Val = J.get(h, "bonus")
+    d: U32 = U32.div((damage * (100 + core.u(b, "damage") + pitstop.Pit.hit(J.get(h, "pit")) + core.u(J.get(h, "boon"), "damage") : U32) : U32), 100)
+    # What curios give and take.
+    d = U32.div((d * curios.Hero.curio_damage(h) : U32), 100)
+    if runes.Hero.has_rune(h, "double_damage"):
+        d = (d * 2 : U32)
+    if core.b(h, "glass"):
+        d = (d * 2 : U32)
+    return d
+
+# The ticks a cooldown of `ticks` comes to once the held cards and the curios have had their say.
+def hero.Hero.cooldown(h: J.Val, ticks: U32) -> U32:
+    rate: U32 = (100 + core.u(J.get(h, "bonus"), "rate") + core.u(J.get(h, "boon"), "rate") : U32)
+    return U32.max(U32.div((U32.div((ticks * 100 : U32), rate) * curios.Hero.curio_wait(h) : U32), 100), 1)
+
+# The beat of the pull just loosed: the ticks it set before the next.
+def hero.Hero.beat(h: J.Val) -> U32:
+    return RS.u_clamp(core.u(h, "fire_cooldown"), 1, 255)
+
+# Ticks left in a dodge roll, while one lasts.
+def hero.Hero.rolling(h: J.Val) -> U32?:
+    if U32.is_gt(core.u(h, "dash_ticks"), 0):
+        return Some{core.u(h, "dash_ticks")}
+    return None{}
+
+# The way the current (or last) roll went.
+def hero.Hero.roll_dir(h: J.Val) -> (F32, F32):
+    return (core.f(h, "dash_x"), core.f(h, "dash_y"))
+
+# Count a shot; true when this one is a volley. (hero, volley)
+def hero.Hero.volley(h: J.Val) -> (J.Val, Bool):
+    loosed: U32 = (core.u(h, "loosed") + 1 : U32)
+    h = core.set_u(h, "loosed", loosed)
+    vol: U32 = core.u(J.get(h, "bonus"), "volley")
+    return (h, Bool.and(U32.is_gt(vol, 0), U32.is_zero(U32.mod(loosed, vol))))
+
+# Card `from` in hand moved to slot `to`, the rest closing up round it.
+def hero.Hero.move_card(h: J.Val, from: U32, to: U32) -> (J.Val, Bool):
+    n: U32 = core.count(J.get(h, "hand"))
+    if Bool.or(U32.is_eq(from, to), Bool.or(U32.is_ge(from, n), U32.is_ge(to, n))):
+        return (h, False{})
+    hand: [J.Val] = J.items(J.get(h, "hand"))
+    card: J.Val = core.or_else(J.nth(J.JA{hand}, from), J.JNull{})
+    rest: [J.Val] = []
+    i: U32 = 0
+    for cd: J.Val in hand:
+        if Bool.not(U32.is_eq(i, from)):
+            rest = List.append(&2, J.Val, rest, [cd])
+        i = (i + 1 : U32)
+    out: [J.Val] = List.append(&2, J.Val, List.take(&2, J.Val, rest, U32.to_nat(to)), [card])
+    out = List.append(&2, J.Val, out, List.drop(&2, J.Val, rest, U32.to_nat(to)))
+    return (J.set(h, "hand", J.JA{out}), True{})
+
+# The next-card key: the first card in hand goes to the back, and the one behind it is next.
+def hero.Hero.cycle_hand(h: J.Val) -> (J.Val, Bool):
+    return hero.Hero.move_card(h, 0, core.usub(core.count(J.get(h, "hand")), 1))
+
+# The walk keys as they move this knight: the key toward the doorway it just came out of
+# (`door_behind`) walks nowhere while it is still down. (hero, input)
+def hero.Hero.held_off(h: J.Val, input: J.Val) -> (J.Val, J.Val):
+    side: J.Val = J.get(h, "door_behind")
+    if J.is_null(side):
+        return (h, input)
+    s: U32 = J.u32(side)
+    dx: U32 = layout.DIRS_X(s)
+    dy: U32 = layout.DIRS_Y(s)
+    toward: Bool = Bool.or(Bool.and(U32.is_ne(dx, 0), U32.is_eq(RS.i_signum(core.u(input, "move_x")), dx)), Bool.and(U32.is_ne(dy, 0), U32.is_eq(RS.i_signum(core.u(input, "move_y")), dy)))
+    if Bool.not(toward):
+        return (J.set(h, "door_behind", J.JNull{}), input)
+    if U32.is_ne(dx, 0):
+        return (h, J.set(input, "move_x", J.JU{0}))
+    return (h, J.set(input, "move_y", J.JU{0}))
+
+# What a knight's guard key did on a tick, for the sim to sound out: a J object
+# {rolled, spun, wall_raised, mana_out, spin_age: null | n}.
+def hero.Guarded.default() -> J.Val:
+    g: J.Val = J.obj()
+    g = core.set_b(g, "rolled", False{})
+    g = core.set_b(g, "spun", False{})
+    g = core.set_b(g, "wall_raised", False{})
+    g = core.set_b(g, "mana_out", False{})
+    return J.set(g, "spin_age", J.JNull{})
+
+# Only the walk and the aim keys, the rest of the input blank.
+def hero.walk_only(input: J.Val) -> J.Val:
+    i: J.Val = rules.Input.default()
+    i = J.set(i, "move_x", J.get(input, "move_x"))
+    i = J.set(i, "move_y", J.get(input, "move_y"))
+    i = J.set(i, "aim_x", J.get(input, "aim_x"))
+    return J.set(i, "aim_y", J.get(input, "aim_y"))
+
+# A knight's own keys, the first half of its going on a tick: the roll's rearm runs
+# down, the walk and the aim are read, and the guard key acts, a whirl keeps the
+# spin going and mana rests. Returns (hero, (mx, my, guarded)): the walk as a unit
+# vector, and what the guard key did.
+def hero.Hero.own_keys(h: J.Val, in0: J.Val, side: Bool, shield_free: Bool) -> (J.Val, (F32, (F32, J.Val))):
+    (h1: J.Val, held: J.Val) = hero.Hero.held_off(h, in0)
+    h = h1
+    input: J.Val = held
+    h = core.set_u(h, "flee_ticks", core.usub(core.u(h, "flee_ticks"), 1))
+    if U32.is_gt(core.u(h, "flee_ticks"), 0):
+        input = hero.walk_only(input)
+    guarded: J.Val = hero.Guarded.default()
+    h = core.set_u(h, "dash_cooldown", core.usub(core.u(h, "dash_cooldown"), 1))
+    # In the stocks a knight can aim and throw back, but not walk.
+    mx: F32 = 0.0
+    my: F32 = 0.0
+    if Bool.not(core.b(h, "stocked")):
+        (ux: F32, uy: F32) = rules.unit(RS.i_as_f32(core.u(input, "move_x")), RS.i_as_f32(core.u(input, "move_y")))
+        mx = ux
+        my = uy
+    (ax: F32, ay: F32) = rules.unit(RS.i_as_f32(core.u(input, "aim_x")), RS.i_as_f32(core.u(input, "aim_y")))
+    wx: U32 = 0
+    wy: U32 = 0
+    if Bool.not(core.b(h, "stocked")):
+        wx = RS.i_signum(core.u(input, "move_x"))
+        wy = RS.i_signum(core.u(input, "move_y"))
+    walk_dir: J.Val = J.get(h, "walk_dir")
+    same: Bool = Bool.and(U32.is_eq(wx, core.nu(walk_dir, 0)), U32.is_eq(wy, core.nu(walk_dir, 1)))
+    aiming: Bool = Bool.or(F32.is_ne(ax, 0.0), F32.is_ne(ay, 0.0))
+    still: Bool = Bool.and(U32.is_zero(wx), U32.is_zero(wy))
+    if Bool.or(aiming, Bool.or(still, Bool.not(same))):
+        h = core.set_u(h, "walk_ticks", 0)
+    else:
+        h = core.set_u(h, "walk_ticks", core.uadd(core.u(h, "walk_ticks"), 1))
+    if aiming:
+        h = J.set(h, "walk_dir", J.JA{[J.JU{0}, J.JU{0}]})
+    else:
+        h = J.set(h, "walk_dir", J.JA{[J.of_i32(wx), J.of_i32(wy)]})
+    if aiming:
+        h = core.set_f(core.set_f(h, "aim_x", ax), "aim_y", ay)
+    elif Bool.and(side, F32.is_ne(mx, 0.0)):
+        # Side-on, a knight faces the way they run.
+        h = core.set_f(core.set_f(h, "aim_x", RS.f_signum(mx)), "aim_y", 0.0)
+    elif U32.is_ge(core.u(h, "walk_ticks"), rules.TURN_TO_WALK()):
+        # Top-down, a knight who keeps walking one way with no aim held turns to face it.
+        h = core.set_f(core.set_f(h, "aim_x", mx), "aim_y", my)
+    h = core.set_b(h, "shielding", False{})
+    h = J.set(h, "shield_wear", shield.Wear.rest(J.get(h, "shield_wear"), core.u(h, "max_hp")))
+    guard: J.Val = J.get(h, "guard")
+    if gear.guard_is(guard, "roll"):
+        if Bool.and(core.b(input, "dash"), Bool.and(U32.is_zero(core.u(h, "dash_cooldown")), U32.is_zero(core.u(h, "dash_ticks")))):
+            # Roll where you're going, or where you aim when standing.
+            rx: F32 = core.f(h, "aim_x")
+            ry: F32 = core.f(h, "aim_y")
+            if side:
+                along: F32 = Bool.pick(F32, F32.is_ne(mx, 0.0), mx, core.f(h, "aim_x"))
+                rx = Bool.pick(F32, F32.is_lt(along, 0.0), F32.neg(1.0), 1.0)
+                ry = 0.0
+            elif Bool.or(F32.is_ne(mx, 0.0), F32.is_ne(my, 0.0)):
+                rx = mx
+                ry = my
+            h = core.set_u(h, "dash_ticks", rules.ROLL_TICKS())
+            h = core.set_f(core.set_f(h, "dash_x", rx), "dash_y", ry)
+            h = core.set_u(h, "invulnerable", U32.max(core.u(h, "invulnerable"), (rules.ROLL_TICKS() + 1 : U32)))
+            h = core.set_u(h, "dash_cooldown", rules.ROLL_REARM())
+            guarded = core.set_b(guarded, "rolled", True{})
+    elif gear.guard_is(guard, "shield"):
+        # A shield in the air is not in the hand, nor one knocked aside.
+        h = core.set_b(h, "shielding", Bool.and(core.b(input, "dash"), Bool.and(shield_free, U32.is_zero(core.u(J.get(h, "shield_wear"), "down")))))
+    elif gear.guard_is(guard, "spin"):
+        if Bool.and(core.b(input, "dash"), Bool.and(U32.is_zero(core.u(h, "dash_cooldown")), U32.is_zero(core.u(h, "spin")))):
+            h = core.set_u(h, "spin", spin.TICKS())
+            h = core.set_u(h, "dash_cooldown", spin.REARM())
+            guarded = core.set_b(guarded, "spun", True{})
+    else:
+        # A wall: held while there is mana; once spent, it must be let go and raised again.
+        wall: J.Val = J.get(guard, "Wall")
+        if Bool.not(core.b(input, "dash")):
+            h = core.set_b(h, "wall_spent", False{})
+        up: Bool = Bool.and(core.b(input, "dash"), Bool.and(Bool.not(core.b(h, "wall_spent")), F32.is_gt(core.f(h, "mana"), 0.0)))
+        if up:
+            guarded = core.set_b(guarded, "wall_raised", Bool.not(core.b(h, "walling")))
+            h = core.set_f(h, "mana", RS.f_max((core.f(h, "mana") - (RS.u_as_f32(core.u(wall, "drain")) * rules.DT() : F32) : F32), 0.0))
+            h = core.set_u(h, "mana_rest", 0)
+            if F32.is_le(core.f(h, "mana"), 0.0):
+                h = core.set_b(h, "wall_spent", True{})
+                guarded = core.set_b(guarded, "mana_out", True{})
+        h = core.set_b(h, "walling", Bool.and(up, F32.is_gt(core.f(h, "mana"), 0.0)))
+    if U32.is_gt(core.u(h, "whirl"), 0):
+        h = core.set_u(h, "whirl", (core.u(h, "whirl") - 1 : U32))
+        if U32.is_zero(core.u(h, "spin")):
+            h = core.set_u(h, "spin", spin.TICKS())
+    if U32.is_gt(core.u(h, "spin"), 0):
+        guarded = J.set(guarded, "spin_age", J.JU{core.usub(spin.TICKS(), core.u(h, "spin"))})
+        h = core.set_u(h, "spin", (core.u(h, "spin") - 1 : U32))
+    if Bool.not(core.b(h, "walling")):
+        h = core.set_u(h, "mana_rest", core.uadd(core.u(h, "mana_rest"), 1))
+        if U32.is_gt(core.u(h, "mana_rest"), rules.MANA_REST()):
+            h = core.set_f(h, "mana", RS.f_min((core.f(h, "mana") + (rules.MANA_FLOW() * rules.DT() : F32) : F32), rules.MAX_MANA()))
+    return (h, (mx, (my, guarded)))
+
+# The second half: a Fae Dagger's blink lands, then the step this tick takes along
+# `walk`, as (dx, dy, speed), and whether it blinked. `pace` is the ground pace
+# the caller worked out for the knight (`fx::ground_pace`), `roll_speed` the tune's.
+def hero.Hero.own_step(h: J.Val, mx: F32, my: F32, run: J.Val, room: J.Val, barred: Bool) -> (J.Val, (F32, (F32, (F32, Bool)))):
+    blinked: Bool = U32.is_gt(core.u(h, "blink"), 0)
+    if blinked:
+        h = items.blink(h, room, barred)
+    pace: F32 = fx.ground_pace_of(run, h)
+    roll_speed: F32 = tune.Tune.roll_speed(J.get(run, "tune"))
+    champ: J.Val = J.get(h, "champ")
+    if U32.is_gt(core.u(champ, "haul"), 0):
+        # Hauled along the Butcher's chain, fast and straight.
+        h = J.set(h, "champ", core.set_u(champ, "haul", (core.u(champ, "haul") - 1 : U32)))
+        return (h, (core.f(champ, "haul_x"), (core.f(champ, "haul_y"), (champions.HAUL_SPEED(), blinked))))
+    if U32.is_gt(core.u(champ, "windup"), 0):
+        # Rooted under the maul's wind-up.
+        return (h, (mx, (my, (0.0, blinked))))
+    if U32.is_gt(core.u(h, "flee_ticks"), 0):
+        dx: F32 = mx
+        dy: F32 = my
+        if Bool.and(F32.is_eq(mx, 0.0), F32.is_eq(my, 0.0)):
+            dx = core.f(h, "aim_x")
+            dy = core.f(h, "aim_y")
+        return (h, (dx, (dy, ((pace * peasant.SPRINT_PACE() : F32), blinked))))
+    if U32.is_gt(core.u(h, "dash_ticks"), 0):
+        h = core.set_u(h, "dash_ticks", (core.u(h, "dash_ticks") - 1 : U32))
+        ease: F32 = (0.55 + ((0.45 * RS.u_as_f32(core.u(h, "dash_ticks")) : F32) / RS.u_as_f32(rules.ROLL_TICKS()) : F32) : F32)
+        return (h, (core.f(h, "dash_x"), (core.f(h, "dash_y"), ((roll_speed * ease : F32), blinked))))
+    if U32.is_gt(core.u(h, "spin"), 0):
+        return (h, (mx, (my, ((pace * spin.PACE() : F32), blinked))))
+    if core.b(h, "shielding"):
+        return (h, (mx, (my, ((pace * rules.SHIELD_PACE() : F32), blinked))))
+    if core.b(h, "walling"):
+        return (h, (mx, (my, ((pace * rules.WALL_PACE() : F32), blinked))))
+    return (h, (mx, (my, (pace, blinked))))
+
+# `Projectile::look_of(card)`: the look a shot takes from a card: its `draw shot`, or its style.
+def looks.Projectile.look_of(card: J.Val) -> J.Val:
+    looks: J.Val = J.get(card, "looks")
+    if Bool.not(J.is_null(J.get(looks, "shot"))):
+        return J.JA{[J.JS{looks.CARD_LOOK()}, J.get(card, "id")]}
+    return core.or_else(J.get(looks, "style"), J.JNull{})
+
+# The look the knight's shots take from what they hold: the newest held card that
+# dresses shots, else the weapon's card.
+def looks.Hero.shot_look(h: J.Val, book: J.Val) -> J.Val:
+    deck: [J.Val] = List.reverse(&2, J.Val, J.items(J.get(h, "deck")))
+    for id: J.Val in deck:
+        cd: J.Val = cards.Book.get(book, J.str(id))
+        if Bool.not(J.is_null(cd)):
+            if Bool.and(String.eq(core.s(cd, "kind"), "hold"), Bool.and(cards.Looks.dresses_shots(J.get(cd, "looks")), Bool.not(dead_wishes.Hero.card_is_dead(h, J.str(id))))):
+                return looks.Projectile.look_of(cd)
+    arm: J.Val = J.get(h, "arm")
+    if J.is_null(arm):
+        return J.JNull{}
+    cd: J.Val = cards.Book.get(book, J.str(arm))
+    if Bool.and(Bool.not(J.is_null(cd)), cards.Looks.dresses_shots(J.get(cd, "looks"))):
+        return looks.Projectile.look_of(cd)
+    return J.JNull{}
+
+# Shots of a knight's arm: bonus gifts a shot carries (`ShotTraits::of`).
+def projectile.ShotTraits.of(bonus: J.Val) -> J.Val:
+    t: J.Val = projectile.ShotTraits.default()
+    t = core.set_u(t, "bounce", U32.min(core.u(bonus, "bounce"), 8))
+    t = core.set_u(t, "homing", U32.min(core.u(bonus, "homing"), 8))
+    t = core.set_u(t, "chain", U32.min(core.u(bonus, "chain"), 8))
+    t = core.set_u(t, "mend", U32.min(core.u(bonus, "mend"), 16))
+    t = core.set_u(t, "burst", U32.min(core.u(bonus, "burst"), 100))
+    t = core.set_u_skip(t, "fork", U32.min(core.u(bonus, "fork"), 3))
+    t = core.set_u_skip(t, "fart", U32.min(core.u(bonus, "fart"), 3))
+    t = core.set_u_skip(t, "size", U32.min(core.u(bonus, "size"), 3))
+    t = core.set_u(t, "knock", U32.min(core.u(bonus, "knock"), 3))
+    t = core.set_u(t, "burn", U32.min(core.u(bonus, "burn"), 3))
+    t = core.set_u(t, "chill", U32.min(core.u(bonus, "chill"), 3))
+    t = core.set_u(t, "poison", U32.min(core.u(bonus, "poison"), 3))
+    t = core.set_b_skip(t, "boomerang", U32.is_gt(core.u(bonus, "boomerang"), 0))
+    return core.set_u_skip(t, "velocity", U32.min(core.u(bonus, "velocity"), 100))
+
+# Of the shots loosed from `from` on, at most `room` fly: the volley's middle.
+def rules.fit_volley(shots: [J.Val], from: U32, room: U32) -> [J.Val]:
+    n: U32 = U32.from_nat(List.length(&2, J.Val, shots))
+    loosed: U32 = core.usub(n, from)
+    if U32.is_le(loosed, room):
+        return shots
+    cut: U32 = (loosed - room : U32)
+    keep: [J.Val] = List.take(&2, J.Val, shots, U32.to_nat(core.usub(n, (cut - U32.div(cut, 2) : U32))))
+    head: [J.Val] = List.take(&2, J.Val, keep, U32.to_nat(from))
+    tail: [J.Val] = List.drop(&2, J.Val, keep, U32.to_nat((from + U32.div(cut, 2) : U32)))
+    return List.append(&2, J.Val, head, tail)
+
+# A knight's shot.
+def hero.shot(x: F32, y: F32, vx: F32, vy: F32, kind: String, look: J.Val, damage: U32, pierce: U32, ttl: U32, traits: J.Val) -> J.Val:
+    p: J.Val = J.obj()
+    p = core.set_f(p, "x", x)
+    p = core.set_f(p, "y", y)
+    p = core.set_f(p, "vx", vx)
+    p = core.set_f(p, "vy", vy)
+    p = core.set_b(p, "hostile", False{})
+    p = core.set_s(p, "kind", kind)
+    p = J.set(p, "look", look)
+    p = core.set_u(p, "damage", damage)
+    p = core.set_u(p, "pierce", pierce)
+    p = J.set(p, "last_hit", J.JNull{})
+    p = core.set_b(p, "empowered", False{})
+    p = core.set_u(p, "ttl", ttl)
+    return J.set(p, "traits", traits)
+
+# Everything the arm loosed on a tick it fired: a forged weapon's thrown blade or bolts, else
+# the plain arm's shots with every card, temper and volley it carries. The shots go onto
+# `shots` and the cooldown is set. (hero, (shots, loosed)); `loosed` is {"Throw": 0},
+# {"Bolts": n}, {"Arm": [n, [ax, ay]]}, or null for a forged weapon that neither throws nor shoots.
+def hero.Hero.loose(h: J.Val, id: U32, book: J.Val, burning: Bool, rng: W.W, flying: U32, shots: J.Val) -> (J.Val, (J.Val, J.Val)):
+    from: U32 = core.count(shots)
+    (h2: J.Val, rest: (J.Val, J.Val)) = hero.Hero.loose_all(h, id, book, burning, rng, shots)
+    (all: J.Val, loosed: J.Val) = rest
+    fitted: [J.Val] = rules.fit_volley(J.items(all), from, core.usub(rules.KNIGHT_SHOTS(), flying))
+    return (h2, (J.JA{fitted}, loosed))
+
+def hero.Hero.loose_all(h: J.Val, id: U32, book: J.Val, burning: Bool, rng: W.W, shots: J.Val) -> (J.Val, (J.Val, J.Val)):
+    bonus: J.Val = J.get(h, "bonus")
+    owner: U32 = RS.as_u8(id)
+    weapon: J.Val = J.get(h, "forged")
+    if Bool.not(J.is_null(weapon)):
+        throw: J.Val = J.get(weapon, "throw")
+        if Bool.not(J.is_null(throw)):
+            # The blade flies out along the aim and comes back.
+            h = core.set_u(h, "fire_cooldown", hero.Hero.cooldown(h, core.u(throw, "every")))
+            h = core.set_u(h, "swing", 6)
+            h = core.set_b(h, "sword", False{})
+            ux: F32 = core.f(h, "aim_x")
+            uy: F32 = core.f(h, "aim_y")
+            out: U32 = RS.as_u16(RS.f_as_u32(F32.ceil(((core.f(throw, "range") / rules.BLADE_SPEED() : F32) * RS.u_as_f32(rules.HZ()) : F32))))
+            traits: J.Val = projectile.ShotTraits.of(bonus)
+            traits = core.set_u(traits, "back", 1)
+            traits = core.set_u(traits, "owner", owner)
+            traits = core.set_u_skip(traits, "beat", hero.Hero.beat(h))
+            traits = core.set_u(traits, "out", out)
+            shot: J.Val = hero.shot((core.f(h, "x") + (ux * 0.6 : F32) : F32), (core.f(h, "y") + (uy * 0.6 : F32) : F32), (ux * rules.BLADE_SPEED() : F32), (uy * rules.BLADE_SPEED() : F32), "blade", looks.Hero.shot_look(h, book), hero.Hero.scaled(h, core.u(throw, "damage")), 255, (out * 2 + 3 * rules.HZ() : U32), traits)
+            return (h, (J.push(shots, shot), J.set(J.obj(), "Throw", J.JU{0})))
+        bolt: J.Val = J.get(weapon, "bolt")
+        if J.is_null(bolt):
+            return (h, (shots, J.JNull{}))
+        h = core.set_u(h, "fire_cooldown", hero.Hero.cooldown(h, core.u(bolt, "every")))
+        loosed: U32 = (core.u(h, "loosed") + 1 : U32)
+        h = core.set_u(h, "loosed", loosed)
+        vol: U32 = core.u(bonus, "volley")
+        volley: Bool = Bool.and(U32.is_gt(vol, 0), U32.is_zero(U32.mod(loosed, vol)))
+        dressed: J.Val = looks.Hero.shot_look(h, book)
+        count: U32 = (realm.forge.Weapon.shots(weapon) + core.u(bonus, "shots") + Bool.pick(U32, volley, 2, 0) : U32)
+        traits: J.Val = projectile.ShotTraits.of(bonus)
+        traits = core.set_u(traits, "owner", owner)
+        traits = core.set_u_skip(traits, "beat", hero.Hero.beat(h))
+        spread: J.Val = J.get(weapon, "spread")
+        arc0: F32 = 0.0
+        if Bool.not(J.is_null(spread)):
+            arc0 = RS.f_to_radians(core.f(spread, "arc"))
+        fan: F32 = Bool.pick(F32, volley, rules.VOLLEY_FAN(), rules.FAN())
+        arc: F32 = RS.f_max(arc0, (fan * RS.u_as_f32(core.usub(count, 1)) : F32))
+        angle: F32 = (F32.atan2(core.f(h, "aim_y"), core.f(h, "aim_x")) + curios.Hero.curio_veer(h, loosed) : F32)
+        # However it was forged, its shots fly fast.
+        speed: F32 = RS.f_max(core.f(bolt, "speed"), cards.FORGED_SPEED())
+        look: J.Val = dressed
+        if J.is_null(dressed):
+            look = J.JA{[J.get(weapon, "colour"), J.get(weapon, "shape")]}
+        i: U32 = 0
+        while U32.is_lt(i, count):
+            theta: F32 = angle
+            if U32.is_gt(count, 1):
+                theta = (angle + (arc * ((RS.u_as_f32(i) / RS.u_as_f32((count - 1 : U32)) : F32) - 0.5 : F32) : F32) : F32)
+            shot: J.Val = hero.shot((core.f(h, "x") + (F32.cos(theta) * 0.6 : F32) : F32), (core.f(h, "y") + (F32.sin(theta) * 0.6 : F32) : F32), (F32.cos(theta) * speed : F32), (F32.sin(theta) * speed : F32), "bolt", look, hero.Hero.scaled(h, core.u(bolt, "damage")), RS.as_u8(core.u(bonus, "pierce")), RS.f_as_u32(F32.ceil(((core.f(bolt, "range") / speed : F32) * RS.u_as_f32(rules.HZ()) : F32))), traits)
+            shots = J.push(shots, shot)
+            i = (i + 1 : U32)
+        return (h, (shots, J.set(J.obj(), "Bolts", J.JU{count})))
+    arms: J.Val = loot.Weapon.arms(core.s(h, "weapon"))
+    temper: U32 = U32.min(core.u(h, "temper"), feel.TEMPER_MAX())
+    h = core.set_u(h, "fire_cooldown", hero.Hero.cooldown(h, core.u(arms, "cooldown")))
+    (h3: J.Val, volley: Bool) = hero.Hero.volley(h)
+    h = h3
+    extra: U32 = (core.u(bonus, "shots") + Bool.pick(U32, volley, 2, 0) : U32)
+    wp: String = core.s(h, "weapon")
+    dressed: J.Val = looks.Hero.shot_look(h, book)
+    if J.is_null(dressed):
+        if String.eq(wp, "notes"):
+            dressed = J.JA{[J.JS{"gold"}, J.JS{"note"}]}
+        elif String.eq(wp, "stones"):
+            dressed = J.JA{[J.JS{"stone"}, J.JS{"stone"}]}
+        else:
+            dressed = classes.shot_look_of(h)
+    fan: F32 = Bool.pick(F32, volley, rules.VOLLEY_FAN(), rules.FAN())
+    base: J.Val = projectile.ShotTraits.of(bonus)
+    base = core.set_u(base, "owner", owner)
+    base = core.set_u_skip(base, "beat", hero.Hero.beat(h))
+    base = core.set_u_skip(base, "temper", temper)
+    base = core.set_b_skip(base, "fire", burning)
+    base = core.set_b_skip(base, "arm", True{})
+    base = core.set_b_skip(base, "stone", String.eq(wp, "stones"))
+    # A stream strays a little, so it looks alive.
+    wobble: F32 = ((RS.u_as_f32(W.rem_u32(rng, 2001)) / 1000.0 : F32) - 1.0 : F32)
+    loosed: U32 = core.u(h, "loosed")
+    angle: F32 = ((F32.atan2(core.f(h, "aim_y"), core.f(h, "aim_x")) + (wobble * core.f(arms, "jitter") : F32) : F32) + curios.Hero.curio_veer(h, loosed) : F32)
+    ax: F32 = F32.cos(angle)
+    ay: F32 = F32.sin(angle)
+    # Each pull: the arm's own shape, then tempering's.
+    pull: [J.Val] = []
+    ashots: U32 = core.u(arms, "shots")
+    aarc: F32 = RS.f_to_radians(core.f(arms, "arc"))
+    if Bool.or(String.eq(wp, "notes"), String.eq(wp, "stones")):
+        count: U32 = (ashots + extra : U32)
+        i: U32 = 0
+        while U32.is_lt(i, count):
+            k: F32 = ((RS.u_as_f32(i) / RS.u_as_f32(U32.max(core.usub(count, 1), 1)) : F32) - 0.5 : F32)
+            pull = List.append(&2, J.Val, pull, [hero.pull((angle + (aarc * k : F32) : F32), 0.0, base)])
+            i = (i + 1 : U32)
+    elif String.eq(wp, "handgonne"):
+        # Each extra shot a card gives is another fan's worth.
+        balls: U32 = ((ashots + Bool.pick(U32, U32.is_ge(temper, 1), 2, 0) : U32) * (1 + extra : U32) : U32)
+        harc: F32 = (aarc + (fan * RS.u_as_f32(extra) : F32) : F32)
+        traits: J.Val = core.set_u(base, "bounce", U32.max(core.u(base, "bounce"), Bool.to_u32(U32.is_ge(temper, 2))))
+        i: U32 = 0
+        while U32.is_lt(i, balls):
+            k: F32 = ((RS.u_as_f32(i) / RS.u_as_f32(U32.max(core.usub(balls, 1), 1)) : F32) - 0.5 : F32)
+            pull = List.append(&2, J.Val, pull, [hero.pull((angle + (harc * k : F32) : F32), 0.0, traits)])
+            i = (i + 1 : U32)
+    else:
+        # A tempered bow looses streams side by side.
+        lanes: [F32] = [0.0]
+        if String.eq(wp, "bow"):
+            if U32.is_eq(temper, 1):
+                lanes = [F32.neg(0.3), 0.3]
+            elif U32.is_ge(temper, 2):
+                lanes = [F32.neg(0.55), 0.0, 0.55]
+        count: U32 = (1 + extra : U32)
+        for lane: F32 in lanes:
+            traits: J.Val = base
+            if Bool.and(U32.is_ge(temper, 3), F32.is_ne(lane, 0.0)):
+                traits = core.set_u(traits, "homing", U32.max(core.u(base, "homing"), 2))
+            if Bool.and(String.eq(wp, "crossbow"), U32.is_ge(temper, 3)):
+                traits = core.set_u(traits, "chain", U32.max(core.u(base, "chain"), 2))
+            i: U32 = 0
+            while U32.is_lt(i, count):
+                theta: F32 = (angle + (fan * (RS.u_as_f32(i) - (RS.u_as_f32(core.usub(count, 1)) / 2.0 : F32) : F32) : F32) : F32)
+                pull = List.append(&2, J.Val, pull, [hero.pull(theta, lane, traits)])
+                i = (i + 1 : U32)
+    n: U32 = U32.from_nat(List.length(&2, J.Val, pull))
+    kind: String = "arrow"
+    if String.eq(wp, "crossbow"):
+        kind = "bolt"
+    elif String.eq(wp, "handgonne"):
+        kind = "ball"
+    for p: J.Val in pull:
+        theta: F32 = core.f(p, "theta")
+        lane: F32 = core.f(p, "lane")
+        ux: F32 = F32.cos(theta)
+        uy: F32 = F32.sin(theta)
+        shot: J.Val = hero.shot(((core.f(h, "x") + (ux * 0.6 : F32) : F32) - (ay * lane : F32) : F32), ((core.f(h, "y") + (uy * 0.6 : F32) : F32) + (ax * lane : F32) : F32), (ux * core.f(arms, "speed") : F32), (uy * core.f(arms, "speed") : F32), kind, dressed, hero.Hero.scaled(h, core.u(arms, "damage")), core.sat_add8(core.u(arms, "pierce"), RS.as_u8(core.u(bonus, "pierce"))), core.u(arms, "ttl"), J.get(p, "traits"))
+        shots = J.push(shots, shot)
+    return (h, (shots, J.set(J.obj(), "Arm", J.JA{[J.JU{n}, core.pair_f(ax, ay)]})))
+
+def hero.pull(theta: F32, lane: F32, traits: J.Val) -> J.Val:
+    return J.set(core.set_f(core.set_f(J.obj(), "theta", theta), "lane", lane), "traits", traits)
+
+# Whether walking over `card` takes it.
+def hero.Hero.takes(h: J.Val, card: J.Val) -> Bool:
+    id: String = core.s(card, "id")
+    if String.eq(id, "iron-helm"):
+        return Bool.not(core.b(J.get(h, "owned"), "helmet"))
+    if String.eq(id, "body-armour"):
+        return Bool.not(core.b(J.get(h, "owned"), "body"))
+    kind: String = core.s(card, "kind")
+    if Bool.or(String.eq(kind, "hold"), String.eq(kind, "arm")):
+        return True{}
+    if String.eq(kind, "guard"):
+        # The guard already held is no swap: it lies on for the others.
+        return Bool.not(String.eq(J.str(J.get(h, "guard_card")), id))
+    if String.eq(kind, "play"):
+        return U32.is_lt(core.count(J.get(h, "hand")), cards.HAND())
+    if String.eq(kind, "spell"):
+        held: Bool = False{}
+        free: Bool = False{}
+        for s: J.Val in J.items(J.get(h, "spells")):
+            if J.is_null(s):
+                free = True{}
+            elif String.eq(J.str(s), id):
+                held = True{}
+        return Bool.and(Bool.not(held), free)
+    # A take card waits on the floor while it would do nothing.
+    for e: J.Val in J.items(J.get(card, "effects")):
+        if J.has(e, "heal"):
+            if U32.is_lt(core.u(h, "hp"), core.u(h, "max_hp")):
+                return True{}
+        elif J.has(e, "bombs"):
+            if U32.is_lt(core.u(h, "bombs"), rules.MAX_BOMBS()):
+                return True{}
+        else:
+            return True{}
+    return False{}
+
+# A take or play card's effects, now. Nova damage is summed into `nova`; `score` gains gold.
+# (hero, (score, nova))
+def hero.Hero.spend(h: J.Val, card: J.Val, score: U32, nova: U32) -> (J.Val, (U32, U32)):
+    isspell: Bool = String.eq(core.s(card, "kind"), "spell")
+    for e: J.Val in J.items(J.get(card, "effects")):
+        # A spoil effect: gold, bone, wax, ore, gem, ember or scale.
+        for (k: String, v: J.Val) in J.fields(e):
+            raw: U32 = J.u32(v)
+            n: U32 = raw
+            if cards.Effect.is_spoil(k):
+                got: U32 = raw
+                if String.eq(k, "gold"):
+                    got = curios.Hero.curio_gold(h, raw)
+                h = J.set(h, "carried", realm.Spoils.add(J.get(h, "carried"), k, got))
+            if String.eq(k, "heal"):
+                amt: U32 = Bool.pick(U32, isspell, spell_upgrades.Hero.spell_power_of(h, core.s(card, "id"), n), n)
+                (h2: J.Val, gained: U32) = stakes.Hero.mend(h, amt, 1)
+                h = h2
+            if String.eq(k, "gold"):
+                score = core.uadd(score, raw)
+            if String.eq(k, "bombs"):
+                h = core.set_u(h, "bombs", U32.min((core.u(h, "bombs") + n : U32), rules.MAX_BOMBS()))
+            if String.eq(k, "max_hp"):
+                h = core.set_u(h, "max_hp", (core.u(h, "max_hp") + n : U32))
+                h = core.set_u(h, "hp", U32.min((core.u(h, "hp") + n : U32), core.u(h, "max_hp")))
+            if String.eq(k, "nova"):
+                nova = (nova + Bool.pick(U32, isspell, spell_upgrades.Hero.spell_power_of(h, core.s(card, "id"), n), n) : U32)
+            if String.eq(k, "ward"):
+                v2: U32 = Bool.pick(U32, isspell, spell_upgrades.Hero.spell_power_of(h, core.s(card, "id"), n), n)
+                # A second ward soon after the first holds only a third as long.
+                early: Bool = String.eq(core.s(h, "stakes"), "early")
+                secs: U32 = v2
+                if Bool.and(U32.is_gt(core.u(h, "ward_rest"), 0), Bool.not(early)):
+                    secs = core.div_ceil(v2, 3)
+                h = core.set_u(h, "invulnerable", U32.max(core.u(h, "invulnerable"), (secs * rules.HZ() : U32)))
+                h = core.set_u(h, "ward_rest", stakes.WARD_REST())
+            if String.eq(k, "blink"):
+                h = core.set_u(h, "blink", n)
+            if String.eq(k, "immune"):
+                h = core.set_u(h, "immune", U32.max(core.u(h, "immune"), (n * rules.HZ() : U32)))
+            if String.eq(k, "censer"):
+                h = core.set_u(h, "censer", core.uadd(core.u(h, "censer"), n))
+    return (h, (score, nova))

@@ -11,7 +11,7 @@
 
 use super::*;
 use crate::rules::{
-    EnemyKind, KNIGHT_CHILDREN, KNIGHT_SHOTS, MAX_PLAYERS, MAX_PROJECTILES, RoomKind, Weapon, cards, in_flight, phrasebook,
+    EnemyKind, KNIGHT_SHOTS, MAX_PLAYERS, MAX_PROJECTILES, RoomKind, Trap, Weapon, cards, in_flight, phrasebook,
 };
 use angel_net::doc::delta::diff;
 use angel_net::doc::wire::Writer;
@@ -25,55 +25,11 @@ const SEATS: u32 = 3;
 /// The knight who holds everything.
 const HEAVY: u32 = 2;
 
-/// Bytes this thread holds, and all it has asked for (the counting
-/// allocator below), so a test sees what it grew whatever runs beside it.
+/// Bytes this thread holds, and all it has asked for (the crate's test
+/// allocator), so a test sees what it grew whatever runs beside it.
 mod counting {
-    use std::alloc::{GlobalAlloc, Layout, System};
-    use std::cell::Cell;
-
-    std::thread_local! {
-        static LIVE: Cell<i64> = const { Cell::new(0) };
-        static ASKED: Cell<u64> = const { Cell::new(0) };
-        static COUNT: Cell<u64> = const { Cell::new(0) };
-    }
-
-    pub struct Counting;
-
-    fn note(grow: i64, asked: u64) {
-        let _ = LIVE.try_with(|l| l.set(l.get() + grow));
-        if asked > 0 {
-            let _ = ASKED.try_with(|a| a.set(a.get() + asked));
-            let _ = COUNT.try_with(|c| c.set(c.get() + 1));
-        }
-    }
-
-    unsafe impl GlobalAlloc for Counting {
-        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-            note(layout.size() as i64, layout.size() as u64);
-            unsafe { System.alloc(layout) }
-        }
-        unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-            note(layout.size() as i64, layout.size() as u64);
-            unsafe { System.alloc_zeroed(layout) }
-        }
-        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-            note(-(layout.size() as i64), 0);
-            unsafe { System.dealloc(ptr, layout) }
-        }
-        unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new: usize) -> *mut u8 {
-            note(new as i64 - layout.size() as i64, new as u64);
-            unsafe { System.realloc(ptr, layout, new) }
-        }
-    }
-
-    /// (live bytes, bytes asked for, allocations) on this thread so far.
-    pub fn now() -> (i64, u64, u64) {
-        (LIVE.with(Cell::get), ASKED.with(Cell::get), COUNT.with(Cell::get))
-    }
+    pub use crate::test_alloc::now;
 }
-
-#[global_allocator]
-static COUNTING: counting::Counting = counting::Counting;
 
 /// The host's half for one seat: what that seat was last sent.
 struct Sent {
@@ -178,7 +134,7 @@ fn stacked_party(weapon: Weapon, wishes: Wishes, party: u32, all: bool) -> Run {
         hero.invulnerable = 1_000_000;
         hero.weapon = if *id == 3 { Weapon::Handgonne } else { Weapon::Bow };
     }
-    for n in 0..FOES {
+    for n in 0..foes() {
         spawn(&mut run, n);
     }
     for id in 1..=party {
@@ -191,6 +147,12 @@ fn stacked_party(weapon: Weapon, wishes: Wishes, party: u32, all: bool) -> Run {
 
 /// Monsters in the room at once.
 const FOES: usize = 12;
+
+/// Monsters in the room at once: `FOES`, or `STORM_FOES` for the bullet bench.
+fn foes() -> usize {
+    static FOES_NOW: std::sync::OnceLock<usize> = std::sync::OnceLock::new();
+    *FOES_NOW.get_or_init(|| std::env::var("STORM_FOES").ok().and_then(|s| s.parse().ok()).unwrap_or(FOES))
+}
 /// A monster's health: a few hits from the heavy knight, so they fall and
 /// come again (drains, bursts and kills all play).
 const FOE_HP: u32 = 900;
@@ -202,7 +164,7 @@ fn centre(run: &Run) -> (f32, f32) {
 
 /// Monster `n`, at its place in a ring round the knights.
 fn spawn(run: &mut Run, n: usize) {
-    let angle = n as f32 * std::f32::consts::TAU / FOES as f32 + (n / FOES) as f32 * 0.4;
+    let angle = n as f32 * std::f32::consts::TAU / foes() as f32 + (n / foes()) as f32 * 0.4;
     let (cx, cy) = centre(run);
     run.spawn_at_for_test(EnemyKind::Skeleton, cx + 15.0 * angle.cos(), cy + 9.0 * angle.sin());
     let e = run.enemies.last_mut().unwrap();
@@ -233,7 +195,7 @@ fn inputs(run: &Run) -> BTreeMap<u32, Input> {
 /// tick made, counted.
 fn keep(run: &mut Run, n: &mut usize) -> usize {
     run.enemies.retain(|e| e.hp > 0);
-    while run.enemies.iter().filter(|e| !e.dormant).count() < FOES {
+    while run.enemies.iter().filter(|e| !e.dormant).count() < foes() {
         spawn(run, *n);
         *n += 1;
     }
@@ -258,6 +220,7 @@ struct Tally {
     publish: Duration,
     encode: Duration,
     watch: Duration,
+    watch_worst: Duration,
     decode: Duration,
     draw: Duration,
     draw_worst: Duration,
@@ -287,6 +250,14 @@ struct Tally {
     pictures: BTreeMap<&'static str, usize>,
     shot_looks_peak: usize,
     shot_sprites_peak: usize,
+    /// Seat 0's shot lists sent as an edit or as a whole order, and the
+    /// shots those named (loosed or changed) and dropped.
+    list_edits: u32,
+    list_orders: u32,
+    list_named: usize,
+    list_gone: usize,
+    /// Seat 0's first message, the whole tree, bytes.
+    whole_bytes: usize,
 }
 
 fn ms(d: Duration, n: u32) -> f64 {
@@ -297,6 +268,8 @@ fn ms(d: Duration, n: u32) -> f64 {
 fn nodes(v: &Value) -> usize {
     1 + match v {
         Value::Some(v) | Value::Variant(_, v) => nodes(v),
+        // A subtree the trees share counts as the values it holds.
+        Value::Shared(v) => nodes(v) - 1,
         Value::Seq(items) => items.iter().map(nodes).sum(),
         Value::Map(pairs) => pairs.iter().map(|(k, v)| nodes(k) + nodes(v)).sum(),
         Value::Struct(fields) => fields.iter().map(|(_, v)| nodes(v)).sum(),
@@ -317,12 +290,19 @@ struct Setup {
     seats_draw: bool,
     host_draws: bool,
     world3d: bool,
+    /// A storm of this many shots held in the air, past every cap
+    /// (`Run::storm_for_test`, of `mix`); 0 for none.
+    storm: usize,
+    mix: u8,
+    /// Seats draw the stage's props (shapes for the shots, as the window and
+    /// the newer pages do) rather than sprites.
+    props: bool,
 }
 
 /// Run `ticks` of the stacked fight: the host steps, takes what the tick
 /// said, clones and publishes; each seat is sent its patch, reads it and
 /// draws its stage.
-fn play(setup: Setup, ticks: u32, mut each: impl FnMut(u32, &Run, i64)) -> Tally {
+fn play(setup: Setup, ticks: u32, mut each: impl FnMut(u32, &mut Run, i64)) -> Tally {
     crate::world3d::set_enabled(setup.world3d);
     let mut run = stacked_party(setup.weapon, setup.wishes, setup.party, setup.all);
     let seats = setup.party;
@@ -332,12 +312,47 @@ fn play(setup: Setup, ticks: u32, mut each: impl FnMut(u32, &Run, i64)) -> Tally
     let mut clients: Vec<DelveClient> =
         (0..seats).map(|seat| DelveClient::boot(&welcome(Some(seat), &params)).unwrap()).collect();
     let mut frame = Frame::default();
+    for client in &mut clients {
+        angel_net::client::GameClient::stage_props(client, setup.props);
+    }
     let mut t = Tally::default();
-    let mut spawned = FOES;
+    // `STACKED_LIVE=1`: this thread's live bytes after each phase every 50
+    // ticks, each phase against its own reading 50 ticks before, so a leak
+    // says which layer holds it.
+    let mut live_was: std::collections::BTreeMap<&'static str, i64> = std::collections::BTreeMap::new();
+    let mut spawned = foes();
     let mut diag = arena::stage_frame::StageMaker::for_wire();
+    let mut storm_rng = 0x9E37_79B9_7F4A_7C15u64;
+    if setup.storm > 0 {
+        // The party's cover rule would thin the storm to a few dozen.
+        crate::rules::cover::OFF.with(|off| off.set(true));
+    }
     for tick in 1..=ticks {
+        // `STACKED_LIVE=1`: this thread's live bytes after each phase, so
+        // a leak says which layer holds it.
+        fn live_probe(tick: u32, phase: &'static str, was: &mut std::collections::BTreeMap<&'static str, i64>) {
+            if std::env::var("STACKED_LIVE").is_ok_and(|v| v == "1") && tick % 50 == 0 {
+                let live = counting::now().0;
+                let was = was.entry(phase).or_insert(live);
+                eprintln!("live {phase} tick {tick}: {} KB total, +{} KB in 50 ticks", live / 1024, (live - *was) / 1024);
+                *was = live;
+            }
+        }
+        // `STACKED_CENSUS=1`: the sizes the step phase asked for, printed
+        // per 50 ticks, so the retained one stands out.
+        let census_on = std::env::var("STACKED_CENSUS").is_ok_and(|v| v == "1");
+        if census_on {
+            crate::test_alloc::reset_census();
+        }
+        live_probe(tick, "pre", &mut live_was);
         let input = inputs(&run);
+        if setup.storm > 0 {
+            run.storm_for_test(setup.storm, setup.mix, &mut storm_rng);
+        }
         let (_, a0, c0) = counting::now();
+        if census_on {
+            crate::test_alloc::census(true);
+        }
         let at = Instant::now();
         run.step(&input);
         let took = at.elapsed();
@@ -346,14 +361,42 @@ fn play(setup: Setup, ticks: u32, mut each: impl FnMut(u32, &Run, i64)) -> Tally
         let sounds = keep(&mut run, &mut spawned);
         t.sounds_peak = t.sounds_peak.max(sounds);
         t.sounds_sum += sounds;
+        live_probe(tick, "step", &mut live_was);
+        if census_on {
+            crate::test_alloc::census(false);
+            if tick % 50 == 0 {
+                let (buckets, large) = crate::test_alloc::census_report();
+                for (lo, count, asked) in buckets {
+                    eprintln!("  census tick {tick} bucket >= {lo:>8}  {count:>7} asks  {asked:>10} B");
+                }
+                for (size, count, asked) in large.iter().take(12) {
+                    eprintln!("  census tick {tick} exact {size:>8}  {count:>7} asks  {asked:>10} B");
+                }
+            }
+            crate::test_alloc::reset_census();
+        }
         let at = Instant::now();
-        let snapshot = run.clone();
-        t.clone += at.elapsed();
-        let at = Instant::now();
-        let tree = publisher.publish(&snapshot).unwrap();
-        t.publish += at.elapsed();
-        drop(snapshot);
-        t.nodes_peak = t.nodes_peak.max(nodes(&tree));
+        // A drawn frame publishes a snapshot so the bench can time the clone.
+        // A rules-only pass publishes the run itself: same tree, no copy.
+        let tree = if setup.seats_draw || setup.host_draws {
+            let snapshot = run.clone();
+            t.clone += at.elapsed();
+            let at = Instant::now();
+            let tree = publisher.publish(&snapshot).unwrap();
+            t.publish += at.elapsed();
+            live_probe(tick, "publish", &mut live_was);
+            drop(snapshot);
+            tree
+        } else {
+            t.clone += at.elapsed();
+            let at = Instant::now();
+            let tree = publisher.publish(&run).unwrap();
+            t.publish += at.elapsed();
+            tree
+        };
+        if setup.seats_draw || setup.host_draws {
+            t.nodes_peak = t.nodes_peak.max(nodes(&tree));
+        }
         t.shot_nodes_peak = t.shot_nodes_peak.max(tree.field("projectiles").map_or(0, nodes));
         let mut bodies = Vec::new();
         let at = Instant::now();
@@ -367,12 +410,33 @@ fn play(setup: Setup, ticks: u32, mut each: impl FnMut(u32, &Run, i64)) -> Tally
                 }
                 Some(old) => {
                     if let Some(patch) = diff(old, &view) {
+                        if let (0, angel_net::doc::delta::Patch::Struct { set, .. }) = (seat, &patch)
+                            && let Some((_, list)) = set.iter().find(|(n, _)| n == "projectiles")
+                        {
+                            use angel_net::doc::delta::Patch;
+                            match list {
+                                Patch::KeyedEdit { gone, items } => {
+                                    t.list_edits += 1;
+                                    t.list_named += items.len();
+                                    t.list_gone += gone.len();
+                                }
+                                Patch::Keyed { order, items } => {
+                                    t.list_orders += 1;
+                                    t.list_named += items.len();
+                                    t.list_gone += order.len();
+                                }
+                                _ => {}
+                            }
+                        }
                         s.names.patch(&mut out, &patch);
                     }
                     false
                 }
             };
             s.last = Some(view);
+            if tick == 1 && seat == 0 {
+                t.whole_bytes = out.len();
+            }
             if tick > 1 {
                 t.wire_bytes += out.len();
                 t.wire_peak = t.wire_peak.max(out.len());
@@ -380,11 +444,15 @@ fn play(setup: Setup, ticks: u32, mut each: impl FnMut(u32, &Run, i64)) -> Tally
             bodies.push((whole, out));
         }
         t.encode += at.elapsed();
+        live_probe(tick, "encode", &mut live_was);
         if setup.host_draws {
             let at = Instant::now();
             let img = arena::frame_for_live(&run, 384, 224, None);
-            t.watch += at.elapsed();
+            let took = at.elapsed();
+            t.watch += took;
+            t.watch_worst = t.watch_worst.max(took);
             drop(img);
+            live_probe(tick, "watch", &mut live_was);
         }
         let (_, a1, c1) = counting::now();
         t.host_asked += a1 - a0;
@@ -441,6 +509,7 @@ fn play(setup: Setup, ticks: u32, mut each: impl FnMut(u32, &Run, i64)) -> Tally
             }
         }
         let (live, a2, c2) = counting::now();
+        live_probe(tick, "seats", &mut live_was);
         t.seat_asked += a2 - a1;
         t.seat_allocs += c2 - c1;
         let shots = run.projectiles.len();
@@ -459,9 +528,10 @@ fn play(setup: Setup, ticks: u32, mut each: impl FnMut(u32, &Run, i64)) -> Tally
         }
         t.ticks = tick;
         t.seats = seats;
-        each(tick, &run, live);
+        each(tick, &mut run, live);
     }
     crate::world3d::set_enabled(false);
+    crate::rules::cover::OFF.with(|off| off.set(false));
     t
 }
 
@@ -494,7 +564,7 @@ fn report(name: &str, t: &Tally) {
         );
     }
     eprintln!(
-        "  host/tick ms: step {:.3} (worst {:.3}), clone {:.3}, publish {:.3}, encode x{} {:.3}, watch draw {:.3}",
+        "  host/tick ms: step {:.3} (worst {:.3}), clone {:.3}, publish {:.3}, encode x{} {:.3}, watch draw {:.3} (worst {:.3})",
         ms(t.step, n),
         ms(t.step_worst, 1),
         ms(t.clone, n),
@@ -502,6 +572,7 @@ fn report(name: &str, t: &Tally) {
         t.seats,
         ms(t.encode, n),
         ms(t.watch, n),
+        ms(t.watch_worst, 1),
     );
     eprintln!(
         "  seat/frame ms: decode {:.3}, draw {:.3} (worst {:.3}), stage {:.3}",
@@ -539,6 +610,93 @@ fn report(name: &str, t: &Tally) {
 /// `STACKED_3D=1` for rooms in 3D, `STACKED_OPEN=1` on an open floor,
 /// `STACKED_BOOK=builtin` for the delve's own ladders and `STACKED_SKIP` a
 /// list of wishes to leave out).
+/// The steady-key flip bench: the same stacked fight, but a wish grant
+/// (`run.wishing`) and a trap (`run.traps`) flip the scenery's steady key
+/// mid-storm. Before the fight-flip baker arm, each flip paid a synchronous
+/// whole-room relight inside the paint pass (~10 ms watch worst); now the
+/// relight rides the baker and the flip shows one frame of stale art.
+/// `cargo test --release -q --manifest-path crates/delve/Cargo.toml --lib
+/// stacked_wishes_flip_bench -- --ignored --nocapture`
+/// (`STACKED_TICKS`, `STACKED_EVERY`).
+/// Also: forced flips are NOT the main cost — the baseline fight's own
+/// intrinsic steady-key flips (foe wipeouts flipping `phase == Fighting`,
+/// chest/trap events) fire the same path, so run the plain
+/// `stacked_wishes_bench` beside this one and compare `watch worst`.
+#[test]
+#[ignore = "a bench: run it in release with --nocapture"]
+fn stacked_wishes_flip_bench() {
+    let ticks = std::env::var("STACKED_TICKS").ok().and_then(|s| s.parse().ok()).unwrap_or(300);
+    let every = std::env::var("STACKED_EVERY").ok().and_then(|s| s.parse().ok()).unwrap_or(30);
+    let wishes = Wishes { book: LEARNED, skip: "" };
+    let setup = Setup { weapon: Weapon::Bow, wishes, party: SEATS, all: false, seats_draw: true, host_draws: true, world3d: false, storm: 0, mix: 0, props: false };
+    let mut flips = 0u32;
+    let t = play(setup, ticks, |tick, run, _| {
+        if tick % every == 0 {
+            // A wish granted / retracked flips `run.wishing`, and a trap
+            // springing / clearing changes `run.traps.len()`: both sit in
+            // the scenery steady key, so the paint pass must relight.
+            run.wishing = !run.wishing;
+            if run.wishing {
+                run.traps.push(Trap::Spikes { col: 4, row: 4, phase: 0 });
+            } else if let Some(i) = run.traps.iter().rposition(|t| matches!(t, Trap::Spikes { .. })) {
+                run.traps.remove(i);
+            }
+            flips += 1;
+        }
+    });
+    report("flip", &t);
+    eprintln!("  steady-key flips: {flips} (every {every} ticks)");
+}
+
+/// The residual climb iteration 4 measured externally (≈8.4 KB/tick RSS on a
+/// 3000-tick fight) with every in-bench live probe flat: is it a live-set
+/// leak or glibc retention? Drop the whole fight, then `malloc_trim(0)`: if
+/// trim releases it the bytes were free-but-held (retention, an allocator
+/// policy question); if not, something still holds them (a code hunt).
+/// No new dependency: `malloc_trim` is a glibc symbol, declared directly.
+#[test]
+#[ignore = "a bench: run it in release with --nocapture"]
+fn stacked_wishes_rss_is_retention_not_live() {
+    unsafe extern "C" {
+        fn malloc_trim(pad: usize) -> i32;
+    }
+    fn rss_kb() -> i64 {
+        std::fs::read_to_string("/proc/self/status")
+            .ok()
+            .and_then(|s| {
+                s.lines().find(|l| l.starts_with("VmRSS:")).and_then(|l| l.split_whitespace().nth(1).and_then(|n| n.parse::<i64>().ok()))
+            })
+            .unwrap_or(-1)
+    }
+    let ticks = std::env::var("STACKED_TICKS").ok().and_then(|s| s.parse().ok()).unwrap_or(1000);
+    let wishes = Wishes { book: LEARNED, skip: "" };
+    let setup = Setup { weapon: Weapon::Bow, wishes, party: SEATS, all: false, seats_draw: true, host_draws: true, world3d: false, storm: 0, mix: 0, props: false };
+    let (mut first, mut last) = (0i64, 0i64);
+    let t = play(setup, ticks, |tick, _, live| {
+        if tick == 1 || tick % 500 == 0 {
+            let rss = rss_kb();
+            if tick == 1 {
+                first = rss;
+            }
+            last = rss;
+            eprintln!("  during fight: tick {tick}, live {} KB, rss {rss} KB", live / 1024);
+        }
+    });
+    report("retention", &t);
+    // Drop the fight's tally and nudge the allocator, then trim: bytes that
+    // come back were free-but-held (retention); bytes that stay are held.
+    drop(t);
+    let before = rss_kb();
+    let returned = unsafe { malloc_trim(0) };
+    std::thread::sleep(std::time::Duration::from_millis(250));
+    let settled = rss_kb();
+    let climb = (last - first).max(0);
+    let held = (settled - first).max(0);
+    eprintln!(
+        "  fight climb: {climb} KB over {ticks} ticks; after drop rss {before} KB, malloc_trim -> {returned}, settled {settled} KB; still held: {held} KB",
+    );
+}
+
 #[test]
 #[ignore = "a bench: run it in release with --nocapture"]
 fn stacked_wishes_bench() {
@@ -562,7 +720,7 @@ fn stacked_wishes_bench() {
             b.shots, b.volley, b.bounce, b.homing, b.fork, b.burst, b.size, b.pierce, b.boomerang, b.velocity, b.burn, b.knock, b.vamp, b.rate
         );
         let mut lives = Vec::new();
-        let setup = Setup { weapon, wishes, party, all, seats_draw: true, host_draws: true, world3d };
+        let setup = Setup { weapon, wishes, party, all, seats_draw: true, host_draws: true, world3d, storm: 0, mix: 0, props: false };
         let t = play(setup, ticks, |tick, _, live| {
             if tick % 50 == 0 {
                 lives.push((tick, live / 1024));
@@ -586,7 +744,7 @@ fn stacked_wishes_stay_inside_their_budget() {
         (BUILTIN, Weapon::Bow, true),
         (ALL_LEARNED, Weapon::Handgonne, false),
     ] {
-        let setup = Setup { weapon, wishes, party: SEATS, all: false, seats_draw: false, host_draws: false, world3d: false };
+        let setup = Setup { weapon, wishes, party: SEATS, all: false, seats_draw: false, host_draws: false, world3d: false, storm: 0, mix: 0, props: false };
         let (mut peak, mut monsters) = (0, 0);
         let mut cover_most = 0.0f32;
         let mut live = Vec::new();
@@ -603,10 +761,13 @@ fn stacked_wishes_stay_inside_their_budget() {
             }
         });
         if fills {
-            // Stacked, the knight still shoots, and the party's shots keep
-            // to their share of the screen (`cover`): never the room full.
+            // Stacked, the knight still shoots, and (with the share on,
+            // `cover`) the party's shots keep to their share of the screen:
+            // never the room full.
             assert!(peak > 0, "{weapon:?}: stacked, the knight still shoots");
-            assert!(cover_most <= crate::rules::cover::PARTY_COVER + 0.5, "{weapon:?}: {cover_most:.1}% of the screen");
+            if crate::rules::cover::PARTY_COVER_ON {
+                assert!(cover_most <= crate::rules::cover::PARTY_COVER + 0.5, "{weapon:?}: {cover_most:.1}% of the screen");
+            }
         }
         assert!(monsters > 0, "the monsters still shoot");
         // The tree carries no more shots than the room holds (a shot is
@@ -624,6 +785,9 @@ fn stacked_wishes_stay_inside_their_budget() {
         seats_draw: false,
         host_draws: false,
         world3d: false,
+        storm: 0,
+        mix: 0,
+        props: false,
     };
     let mut monsters = 0;
     play(setup, 90, |tick, run, _| {
@@ -639,8 +803,92 @@ fn stacked_wishes_stay_inside_their_budget() {
     assert!(monsters > 0, "six stacked knights leave the monsters room to shoot");
     // A seat drawing the heaviest: each look of the shots' sheet once,
     // never more than the shots in flight.
-    let setup = Setup { weapon: Weapon::Bow, wishes: BUILTIN, party: SEATS, all: false, seats_draw: true, host_draws: false, world3d: false };
+    let setup = Setup { weapon: Weapon::Bow, wishes: BUILTIN, party: SEATS, all: false, seats_draw: true, host_draws: false, world3d: false, storm: 0, mix: 0, props: false };
     let t = play(setup, 45, |_, _, _| {});
     assert!(t.shot_sprites_peak > 0, "the shots are drawn");
     assert!(t.shot_looks_peak <= t.shot_sprites_peak && t.shot_sprites_peak <= t.shots_peak);
 }
+
+/// Four knights, each with its arm and rate: knight 2 holds every wish
+/// (the art-made shots, homing, forks), the others a plain triple shot that
+/// bounces, all at a full room of monsters who never fall.
+fn bullet_party(arms: [(Weapon, u32); 4]) -> Run {
+    let mut run = stacked_party(Weapon::Bow, LEARNED_NO_BOOMERANG, 4, false);
+    for (n, (id, hero)) in run.players.iter_mut().enumerate() {
+        hero.weapon = arms[n].0;
+        if *id != HEAVY {
+            hero.bonus.shots = 2;
+            hero.bonus.bounce = 2;
+            hero.bonus.rate = arms[n].1;
+        }
+    }
+    run
+}
+
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test write_bullet_shots -- --ignored`:
+/// a party of four at a full room, triple shot and bounce, with the slow
+/// heavy arms (crossbow, handgonne), the fast bow on quick draws, and a mix:
+/// a frame at 3 s and at the busiest tick, as the shots were (`before-`, the
+/// old size and the party's share held) and as they are (`after-`), on the
+/// dungeon's own art and on the original sprites (`-orig`, as the kingdom
+/// and the side-on floors draw). Each is what a seat's terminal or page draws.
+#[test]
+#[ignore]
+fn write_bullet_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    crate::world3d::set_enabled(false);
+    let save = |run: &Run, name: String| {
+        let img = arena::frame_for(run, arena::NATIVE_W, arena::NATIVE_H, Some(1));
+        let rgba = img.rgba_scaled(3);
+        image::RgbaImage::from_raw(img.w as u32 * 3, img.h as u32 * 3, rgba)
+            .unwrap()
+            .save(dir.join(format!("{name}.png")))
+            .unwrap();
+    };
+    let scenes: [(&str, [(Weapon, u32); 4]); 3] = [
+        ("heavy", [(Weapon::Crossbow, 0), (Weapon::Handgonne, 0), (Weapon::Crossbow, 0), (Weapon::Handgonne, 0)]),
+        ("fast", [(Weapon::Bow, 100), (Weapon::Bow, 100), (Weapon::Bow, 150), (Weapon::Bow, 100)]),
+        ("mixed", [(Weapon::Bow, 60), (Weapon::Crossbow, 0), (Weapon::Handgonne, 0), (Weapon::Notes, 0)]),
+    ];
+    for (name, arms) in scenes {
+        for (mode, legacy) in [("before", true), ("after", false)] {
+            for original in [false, true] {
+                crate::rules::wishcraft::LEGACY.with(|l| l.set(legacy));
+                arena::slot_art::use_original(original);
+                let tag = format!("{name}-{mode}{}", if original { "-orig" } else { "" });
+                let mut run = bullet_party(arms);
+                let mut n = foes();
+                let (mut peak, mut peak_at) = (0usize, 0u32);
+                let mut frames = Vec::new();
+                for tick in 1..=240u32 {
+                    let input = inputs(&run);
+                    run.step(&input);
+                    keep(&mut run, &mut n);
+                    let aloft = run.projectiles.iter().filter(|p| !p.hostile).count();
+                    if aloft > peak {
+                        (peak, peak_at) = (aloft, tick);
+                    }
+                    if tick == 90 {
+                        save(&run, format!("{tag}-090"));
+                    }
+                    frames.push((tick, aloft));
+                    if aloft == peak && tick > 60 {
+                        save(&run, format!("{tag}-peak"));
+                    }
+                }
+                let mean = frames.iter().skip(60).map(|f| f.1).sum::<usize>() as f32 / 180.0;
+                eprintln!("{tag}: knight shots aloft, peak {peak} at tick {peak_at}, mean {mean:.1}");
+            }
+        }
+    }
+    arena::slot_art::use_original(false);
+    crate::rules::wishcraft::LEGACY.with(|l| l.set(false));
+}
+
+/// The bullet storm ramp, 100 to 50 000 shots, on this bench's party and seats.
+#[path = "client_bullet_storm__tests.rs"]
+mod bullet_storm;

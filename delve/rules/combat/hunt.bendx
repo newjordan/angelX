@@ -1,0 +1,217 @@
+# crates/delve/src/rules/hunt.rs: the foes' turn on a tick (`Run::play`): what
+# each monster sees, where it goes and what it looses.
+import Base
+
+# Is this knight there to be hunted: standing, not fled, not aloft?
+def peasant.Hero.targetable(hero: Hero) -> Bool:
+  Bool.and(Bool.and(U32.is_gt(hero.hp, 0), Bool.not(hero.stone)), Bool.and(U32.is_eq(hero.flee_ticks, 0), Bool.not(hero.aloft)))
+
+# runes.rs: this knight carries an Invisibility rune.
+def runes.Hero.invisible(hero: Hero) -> Bool:
+  Bool.and(String.eq(J.str(J.get(hero.rune, "kind")), "invisibility"), U32.is_gt(J.u32(J.get(hero.rune, "left")), 0))
+
+# The knights the monsters see: [id, x, y] of each standing one not under an
+# Invisibility rune, in seat order.
+def hunt.knights(players: J.Val) -> J.Val:
+  out: J.Val = J.JA{Nil{}}
+  for (k: String, hero: Hero) in J.int_fields(players):
+    if Bool.and(peasant.Hero.targetable(hero), Bool.not(runes.Hero.invisible(hero))):
+      out = J.push(out, J.JA{[J.of_u32(cb.key_u32(k)), J.of_f32(hero.x), J.of_f32(hero.y)]})
+  out
+
+# How fast each of those runs, units a second (images and the hireling count
+# as standing still): [dx, dy] each.
+def hunt.knight_paces(players: J.Val, stood: J.Val, hero_speed: F32) -> J.Val:
+  out: J.Val = J.JA{Nil{}}
+  most: F32 = (hero_speed * 1.5 : F32)
+  for (k: String, hero: Hero) in J.int_fields(players):
+    if Bool.and(peasant.Hero.targetable(hero), Bool.not(runes.Hero.invisible(hero))):
+      x: F32 = hero.x
+      y: F32 = hero.y
+      s: J.Val = J.get(stood, k)
+      if Bool.not(J.is_null(s)):
+        x = J.f32(J.nth(s, 0))
+        y = J.f32(J.nth(s, 1))
+      px: F32 = RS.f_clamp(((hero.x - x : F32) / rules.DT() : F32), RS.f_neg(most), most)
+      py: F32 = RS.f_clamp(((hero.y - y : F32) / rules.DT() : F32), RS.f_neg(most), most)
+      out = J.push(out, cb.of_pair(px, py))
+  out
+
+# The decoys the foes also see: the phantoms, the hireling (not down), the
+# minions. An array of [x, y].
+def hunt.decoys(run: Run) -> J.Val:
+  out: J.Val = J.JA{Nil{}}
+  for p: J.Val in J.items(J.get(run, "phantoms")):
+    out = J.push(out, cb.of_pair(J.f32(J.get(p, "x")), J.f32(J.get(p, "y"))))
+  h: J.Val = J.get(run, "hireling")
+  if Bool.and(Bool.not(J.is_null(h)), U32.is_ne(J.u32(J.get(h, "hp")), 0)):
+    out = J.push(out, cb.of_pair(J.f32(J.get(h, "x")), J.f32(J.get(h, "y"))))
+  for d: J.Val in J.items(minions.decoys(J.get(run, "minions"))):
+    out = J.push(out, d)
+  out
+
+# The room holds for its party: foes and their shots wait (Run::holding).
+def presence.Run.holding(run: Run) -> Bool:
+  Bool.not(String.eq(J.str(J.get(run, "held")), "open"))
+
+# Does the list of tags hold `blow`?
+def hunt.has_blow(blows: J.Val, blow: U32) -> Bool:
+  for b: J.Val in J.items(blows):
+    if U32.is_eq(J.u32(b), blow):
+      return True{}
+  False{}
+
+# The foes' turn: every monster awake and free to act sees the knights and
+# their images, moves and looses its shots and its pattern, held to its caps
+# and its leash. What they did beyond shooting comes back as deeds.
+# Answers (run, (sortie, deeds)) like the stub the core calls.
+def hunt.Run.foes_turn(run: Run, sortie: Sortie) -> J.Val & J.Val & J.Val:
+  room: Room = J.nth(J.get(run.dungeon, "rooms"), run.at)
+  ctx: FoeCtx = J.obj()
+  ctx.room = room
+  ctx.barred = sortie.barred
+  ctx.side = sortie.side
+  ctx.depth = sortie.depth
+  ctx.pack = J.str(J.get(run.dungeon, "pack"))
+  knights: J.Val = hunt.knights(run.players)
+  ctx.knights = knights
+  ctx.decoys = hunt.decoys(run)
+  ctx.paces = hunt.knight_paces(run.players, sortie.stood, J.f32(J.get(run.tune, "hero_speed")))
+  heads: U32 = 0
+  for (k: String, hero: Hero) in J.int_fields(run.players):
+    if Bool.and(U32.is_gt(hero.hp, 0), Bool.not(hero.stone)):
+      heads = (heads + 1 : U32)
+  ctx.heads = heads
+  ctx.holding = presence.Run.holding(run)
+  ctx.leashes = depths.Run.leashes(run)
+  standing: U32 = 0
+  for p: Projectile in J.items(run.projectiles):
+    if p.hostile:
+      standing = (standing + signatures.weight(p) : U32)
+  ctx.standing = standing
+  ctx.wanted = String.eq(room.kind, "wanted")
+  lingering: J.Val = J.JA{Nil{}}
+  for p: Projectile in J.items(run.projectiles):
+    if U32.is_ne(p.traits.blow, 0):
+      lingering = J.push(lingering, J.of_u32(p.traits.blow))
+  for r: J.Val in J.items(J.get(run, "ravages")):
+    if U32.is_ne(J.u32(J.get(r, "blow")), 0):
+      lingering = J.push(lingering, J.get(r, "blow"))
+  ctx.lingering = lingering
+  ctx.tick = run.tick
+  ctx.seed = run.seed
+  ctx.bosses = run.bosses
+  ctx.foe_pace = J.f32(J.get(run.tune, "foe_pace"))
+  ctx.barricades = J.get(J.get(run, "works"), "barricades")
+  ctx.scarecrows = J.get(run, "scarecrows")
+  ctx.raised = J.get(run, "minions")
+  shots: J.Val = sortie.shots
+  deeds: Deeds = foes.Deeds.default()
+  enemies: J.Val = J.JA{Nil{}}
+  for e: Enemy in J.items(run.enemies):
+    (e2: Enemy, shots2: J.Val, deeds2: Deeds) = hunt.step(e, ctx, shots, deeds)
+    shots = shots2
+    deeds = deeds2
+    enemies = J.push(enemies, e2)
+  run.enemies = enemies
+  sortie.shots = shots
+  (run, (sortie, deeds))
+
+# One foe's turn. Answers (enemy, shots, deeds).
+def hunt.step(enemy: Enemy, ctx: FoeCtx, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
+  enemy.signature.lingering = Bool.and(U32.is_ne(enemy.signature.blow, 0), hunt.has_blow(ctx.lingering, enemy.signature.blow))
+  if U32.is_eq(enemy.hp, 0):
+    return (enemy, shots, deeds)
+  # The room holds for its party: every foe waits, its telegraph and its stun with it.
+  if ctx.holding:
+    return (enemy, shots, deeds)
+  # Waiting in its chamber for a knight to come.
+  if enemy.dormant:
+    enemy.age = RS.u_sat_add(enemy.age, 1)
+    return (enemy, shots, deeds)
+  if monsters.Enemy.asleep(enemy, ctx.tick):
+    return (enemy, shots, deeds)
+  (enemy, still: Bool) = press.held(enemy)
+  if still:
+    return (enemy, shots, deeds)
+  living: J.Val = peasant.sights(ctx.tick, ctx.scarecrows, enemy, ctx.knights, ctx.decoys)
+  living = minions.roared(ctx.raised, enemy, living)
+  # Lead patterns use the same targets as ordinary attacks, with each selected
+  # knight's pace in the matching slot. Decoys stand still.
+  paces: J.Val = J.JA{Nil{}}
+  for lv: J.Val in J.items(living):
+    pace: J.Val = cb.of_pair(0.0, 0.0)
+    found: Bool = False{}
+    for i: U32 in cb.range(J.len(ctx.knights)):
+      kn: J.Val = J.nth(ctx.knights, i)
+      if Bool.and(Bool.not(found), Bool.and(F32.is_eq(J.f32(J.nth(kn, 1)), J.f32(J.nth(lv, 0))), F32.is_eq(J.f32(J.nth(kn, 2)), J.f32(J.nth(lv, 1))))):
+        found = True{}
+        if U32.is_lt(i, J.len(ctx.paces)):
+          pace = J.nth(ctx.paces, i)
+    paces = J.push(paces, pace)
+  enemy.age = RS.u_sat_add(enemy.age, 1)
+  if U32.is_lt(enemy.age, rules.TELEGRAPH()):
+    return (enemy, shots, deeds)
+  rest: F32 = enemy.y
+  fired: U32 = J.len(shots)
+  fx: F32 = enemy.x
+  fy: F32 = enemy.y
+  (enemy, shots, deeds) = monsters.act(enemy, living, ctx.room, ctx.barred, ctx.seed, ctx.bosses, shots, deeds)
+  if Bool.not(F32.is_eq(ctx.foe_pace, 1.0)):
+    enemy = tune.foe_step(enemy, fx, fy, ctx.foe_pace, ctx.room, ctx.barred)
+  # A guardian in its own room fans nothing out: a party meets more of it in
+  # the room at once (`signatures::hold`), never thicker volleys.
+  guardian: Bool = Bool.and(Bool.not(J.is_null(J.get(enemy, "boss"))), Bool.not(ctx.wanted))
+  if Bool.and(Bool.and(U32.is_gt(enemy.fury, 0), U32.is_gt(J.len(shots), fired)), Bool.not(guardian)):
+    shots = J.JA{stakes.fan_out(enemy.fury, J.items(shots), fired)}
+  # Its pattern, thickened by its own numbers, never fanned.
+  (enemy, shots) = patterns.volley(enemy, living, paces, ctx.pack, ctx.depth, ctx.heads, ctx.room, ctx.barred, ctx.seed, ctx.bosses, shots)
+  # A library guardian's shots wear its own bank.
+  boss: Boss = J.nth(ctx.bosses, J.u32(J.get(enemy, "boss")))
+  has_boss: Bool = Bool.and(Bool.not(J.is_null(J.get(enemy, "boss"))), U32.is_lt(J.u32(J.get(enemy, "boss")), J.len(ctx.bosses)))
+  if has_boss:
+    if bosses.Art.known(boss.id):
+      look: J.Val = J.JA{[J.JS{"boss-art"}, J.JS{boss.id}]}
+      for si: U32 in cb.range(RS.u_sat_sub(J.len(shots), fired)):
+        s: Projectile = J.nth(shots, (fired + si : U32))
+        if String.eq(s.traits.path.form, "plain"):
+          s.look = look
+          shots = J.set_nth(shots, (fired + si : U32), s)
+    # A guardian in its own room is held to its stage's caps.
+    if Bool.not(ctx.wanted):
+      before: U32 = 0
+      for si: U32 in cb.range(RS.u_min(fired, J.len(shots))):
+        before = (before + signatures.weight(J.nth(shots, si)) : U32)
+      (enemy, shots) = signatures.hold(enemy, boss, shots, fired, deeds.bursts, (ctx.standing + before : U32), ctx.heads)
+      deeds.bursts = J.JA{Nil{}}
+  for b: J.Val in J.items(deeds.bursts):
+    shots = J.push(shots, b)
+  deeds.bursts = J.JA{Nil{}}
+  enemy = critters.quicken(enemy, fx, fy, ctx.room, ctx.barred)
+  enemy = wishcraft.slow(enemy, fx, fy, ctx.room, ctx.barred)
+  # A barricade stops whatever walks into it.
+  enemy = skills.shove(enemy, ctx.barricades)
+  if Bool.and(Bool.and(ctx.side, Bool.not(monsters.EnemyKind.flies(enemy.kind))), Bool.not(outlaw.own_gravity(enemy, ctx.room))):
+    # Side-on, walkers walk; the ground decides their height.
+    enemy.y = rest
+    enemy = ledge.fall(enemy, ctx.room, ctx.barred)
+  # Never farther from home than its leash.
+  match (enemy.home : U32?):
+    case Some{h: U32}:
+      if U32.is_lt(h, J.len(ctx.leashes)):
+        lr: J.Val = J.nth(ctx.leashes, h)
+        x0: F32 = J.f32(J.nth(lr, 0))
+        y0: F32 = J.f32(J.nth(lr, 1))
+        x1: F32 = J.f32(J.nth(lr, 2))
+        y1: F32 = J.f32(J.nth(lr, 3))
+        now: F32 = hunt.out_of(x0, y0, x1, y1, enemy.x, enemy.y)
+        was: F32 = hunt.out_of(x0, y0, x1, y1, fx, fy)
+        if (now > was : F32):
+          enemy.x = fx
+          enemy.y = fy
+    case None{}:
+      rest = rest
+  (enemy, shots, deeds)
+
+def hunt.out_of(x0: F32, y0: F32, x1: F32, y1: F32, x: F32, y: F32) -> F32:
+  (RS.f_max((x0 - x : F32), 0.0) + RS.f_max((x - x1 : F32), 0.0) + RS.f_max((y0 - y : F32), 0.0) + RS.f_max((y - y1 : F32), 0.0) : F32)

@@ -7,13 +7,13 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         woodland as wood, world,
     };
     use std::collections::BTreeMap;
-    app.realm().treasury.add(Spoil::Bone, 3);
-    app.realm().treasury.add(Spoil::Wax, 2);
-    let before = app.realm().treasury.clone();
-    let home = app.realm().home.clone();
-    app.dungeon.shooter.set(Some(Run::at_home(14, 7, None, home, before.clone())));
+    app.economy().treasury.add(Spoil::Bone, 3);
+    app.economy().treasury.add(Spoil::Wax, 2);
+    let before = app.economy().treasury.clone();
+    let home = app.economy().home.clone();
+    app.realm.dungeon.shooter.set(Some(Run::at_home(14, 7, None, home, before.clone())));
     {
-        let r = app.dungeon.shooter.edit().unwrap();
+        let r = app.realm.dungeon.shooter.edit().unwrap();
         // The job, the Boot (it kicks the first try), the Hat, the Beard, the pot.
         for i in [0, 1, 1, 2, 3, 4] {
             let (kind, at) = wood::ERRAND[i];
@@ -47,45 +47,47 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
             .rooms
             .retain(|room| !wood::PLACES.contains(&room.kind));
     }
-    std::fs::remove_dir_all(fixture.home.join(".angelX")).unwrap();
-    std::fs::write(fixture.home.join(".angelX"), b"not a directory").unwrap();
+    fixture.block_saves();
     assert!(!app.settle_home());
-    assert_eq!(app.realm().treasury, before);
-    assert_eq!(app.realm().home.countryside.soup, 0);
+    assert_eq!(app.economy().treasury, before);
+    assert_eq!(app.economy().home.countryside.soup, 0);
     let path = fixture.workspace.join(".angel/dungeon/session.json");
-    app.dungeon.save_path = Some(path.clone());
-    app.dungeon
+    app.realm.dungeon.save_path = Some(path.clone());
+    app.realm.dungeon
         .checkpoint(std::time::Instant::now(), true)
         .unwrap();
     let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
     assert_eq!(saved["country_intents"]["country:soup:4"], 1);
     assert_eq!(saved["country_intents"]["country:build:bothy"], 1);
     assert!(saved["run"].get("marks").is_none());
-    app.dungeon.shooter.set(None);
-    app.dungeon.restore(&fixture.workspace).unwrap();
-    assert!(app.dungeon.shooter.as_ref().unwrap().valid_snapshot());
+    app.realm.dungeon.shooter.set(None);
+    assert!(app.realm.dungeon.restore(&fixture.workspace).is_err(), "unreadable realm company");
+    fixture.allow_saves();
+    app.realm.dungeon.restore(&fixture.workspace).unwrap();
+    fixture.block_saves();
+    assert!(app.realm.dungeon.shooter.as_ref().unwrap().valid_snapshot());
     for kind in wood::PLACES {
-        assert!(world::room_of(&app.dungeon.shooter.as_ref().unwrap().dungeon, kind).is_some());
+        assert!(world::room_of(&app.realm.dungeon.shooter.as_ref().unwrap().dungeon, kind).is_some());
     }
     assert!(!app.settle_home());
-    assert_eq!(app.realm().treasury, before);
+    assert_eq!(app.economy().treasury, before);
     fixture.allow_saves();
     assert!(app.settle_home());
     assert_eq!(
-        app.realm().treasury.get(Spoil::Gold),
+        app.economy().treasury.get(Spoil::Gold),
         before.get(Spoil::Gold) + 70 - 95
     );
     assert_eq!(
-        app.realm().treasury.get(Spoil::Bone),
+        app.economy().treasury.get(Spoil::Bone),
         before.get(Spoil::Bone) - 3
     );
-    assert_eq!(app.realm().treasury.get(Spoil::Wax), before.get(Spoil::Wax));
-    assert!(app.realm().home.countryside.has(8) && app.realm().home.countryside.soup_paid);
-    let paid = app.realm().treasury.clone();
+    assert_eq!(app.economy().treasury.get(Spoil::Wax), before.get(Spoil::Wax));
+    assert!(app.economy().home.countryside.has(8) && app.economy().home.countryside.soup_paid);
+    let paid = app.economy().treasury.clone();
     assert!(app.settle_home());
-    assert_eq!(app.realm().treasury, paid);
+    assert_eq!(app.economy().treasury, paid);
     // Active airborne cart and ninth start-pad bit survive session restart.
-    let r = app.dungeon.shooter.edit().unwrap();
+    let r = app.realm.dungeon.shooter.edit().unwrap();
     r.arrive(
         world::room_of(&r.dungeon, RoomKind::Timberyard).unwrap(),
         Game::Cart.start(),
@@ -102,12 +104,12 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     let flight = r.pastimes.clone();
     let prior = r.home.countryside.games.cart.plays;
     assert!(r.valid_snapshot());
-    app.dungeon
+    app.realm.dungeon
         .checkpoint(std::time::Instant::now(), true)
         .unwrap();
-    app.dungeon.shooter.set(None);
-    app.dungeon.restore(&fixture.workspace).unwrap();
-    let r = app.dungeon.shooter.edit().unwrap();
+    app.realm.dungeon.shooter.set(None);
+    app.realm.dungeon.restore(&fixture.workspace).unwrap();
+    let r = app.realm.dungeon.shooter.edit().unwrap();
     assert_eq!(r.pastimes, flight);
     assert!(r.home.countryside.has(8));
     let mut held = true;
@@ -133,12 +135,11 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     }
     assert_eq!(r.home.countryside.games.cart.wins, 1);
     assert_eq!(r.home.countryside.games.cart.plays, prior);
-    std::fs::remove_dir_all(fixture.home.join(".angelX")).unwrap();
-    std::fs::write(fixture.home.join(".angelX"), b"not a directory").unwrap();
+    fixture.block_saves();
     assert!(!app.settle_home());
-    assert_eq!(app.realm().home.countryside.games.cart.wins, 0);
+    assert_eq!(app.economy().home.countryside.games.cart.wins, 0);
     assert_eq!(
-        app.dungeon
+        app.realm.dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -151,9 +152,9 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     );
     fixture.allow_saves();
     assert!(app.settle_home());
-    assert_eq!(app.realm().home.countryside.games.cart.wins, 1);
+    assert_eq!(app.economy().home.countryside.games.cart.wins, 1);
     // The cart's first win pays its once-only purse, and nothing else moves.
     let mut expected = paid.clone();
     expected.add(Spoil::Gold, c::FIRST_WIN_GOLD);
-    assert_eq!(app.realm().treasury, expected);
+    assert_eq!(app.economy().treasury, expected);
 }

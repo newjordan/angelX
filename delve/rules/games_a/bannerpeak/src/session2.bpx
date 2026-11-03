@@ -1,0 +1,422 @@
+# crates/delve/src/rules/bannerpeak/session.rs, second half — what a knight touches, the
+# board, the finale, the doors, the pole, the foes and things, the rescue.
+module bannerpeak.session
+
+use world.TILE
+use body.Q
+use body.TQ
+use layout.WIDTH
+use layout.HEIGHT
+use layout.SNOW_OX
+use layout.SNOW_OY
+
+# --- what a knight touches
+
+fn Session.touch(self: Session mut, id: u32, k: Knight mut, bits: u32, was: i32, say: Vec<str> mut) -> unit:
+  let me = px(k.body)
+  let (fx, fy) = k.body.foot()
+  let wp = WIDTH * TILE
+  let hp = HEIGHT * TILE
+  # Off the bottom of the world.
+  if fy > hp + 24 || fx < -8 || fx > wp + 8:
+    self.fall(k, say)
+    return
+  # Water and spikes.
+  let deep = (me.0 + 1, me.1, me.2 - 1, me.3 - 4)
+  let (drowned, pricked) = self.water_spikes(me, deep, deep.1.div_euclid(TILE), (me.3 - 1).div_euclid(TILE), me.0.div_euclid(TILE), (me.2 - 1).div_euclid(TILE))
+  if drowned:
+    self.fall(k, say)
+    return
+  if pricked && k.hit(-k.body.face):
+    say.push("knight_hit")
+    self.after_hit(k)
+  # Gold sparks lying about.
+  self.touch_coins(k, me, layout::info::coins(), 0, say)
+  # The ring of eight.
+  self.touch_sparks(k, me, 0, say)
+  # Banners lying about.
+  self.touch_banners(k, me, 0, say)
+  # Gates.
+  self.touch_gates(me, 0, say)
+  self.touch_pole(k, me, fx, fy, say)
+  self.touch_board(k, bits, fx, fy, say)
+  self.touch_things(id, k, bits, was, say)
+
+# The cells under the knight: (drowned, pricked).
+fn Session.water_spikes(self: Session, me: (i32, i32, i32, i32), deep: (i32, i32, i32, i32), ty: i32, ty1: i32, tx0: i32, tx1: i32) -> (bool, bool):
+  if ty > ty1:
+    return (false, false)
+  let (d0, p0) = self.water_spikes_row(me, deep, ty, tx0, tx1)
+  let (d1, p1) = self.water_spikes(me, deep, ty + 1, ty1, tx0, tx1)
+  return (d0 || d1, p0 || p1)
+
+fn Session.water_spikes_row(self: Session, me: (i32, i32, i32, i32), deep: (i32, i32, i32, i32), ty: i32, tx: i32, tx1: i32) -> (bool, bool):
+  if tx > tx1:
+    return (false, false)
+  let t = self.tile(tx, ty)
+  let mut drowned = false
+  let mut pricked = false
+  if t == WATER:
+    drowned = overlap(deep, (tx * TILE, ty * TILE, tx * TILE + TILE, ty * TILE + TILE))
+  elif t == SPIKES:
+    pricked = overlap(me, (tx * TILE + 3, ty * TILE + 6, tx * TILE + TILE - 3, ty * TILE + TILE))
+  let (d1, p1) = self.water_spikes_row(me, deep, ty, tx + 1, tx1)
+  return (drowned || d1, pricked || p1)
+
+fn Session.touch_coins(self: Session mut, k: Knight mut, me: (i32, i32, i32, i32), cs: list<u32>, n: u32, say: Vec<str> mut) -> unit:
+  if cs.is_empty():
+    return
+  let x = cs.head()
+  let r1 = cs.tail()
+  let y = r1.head()
+  let rest = r1.tail()
+  if !set_has(self.taken, n):
+    let cx = x * TILE + TILE / 2
+    let cy = y * TILE + TILE / 2
+    if overlap(me, (cx - 5, cy - 5, cx + 5, cy + 5)):
+      self.taken = set_insert(self.taken, n)
+      self.coin(k, say)
+      self.fx(FxKind::Coin, cx, cy)
+  self.touch_coins(k, me, rest, n + 1, say)
+
+fn Session.touch_sparks(self: Session mut, k: Knight mut, me: (i32, i32, i32, i32), n: u32, say: Vec<str> mut) -> unit:
+  if n >= layout::info::sparks_len():
+    return
+  if (self.sparks as u32) & (1 << n) == 0:
+    let cx = layout::info::spark_x(n) * TILE + TILE / 2
+    let cy = layout::info::spark_y(n) * TILE + TILE / 2
+    if overlap(me, (cx - 7, cy - 7, cx + 7, cy + 7)):
+      self.sparks |= 1 << n
+      self.fx(FxKind::Gleam, cx, cy)
+      say.push("spell_cast")
+      if self.sparks == 255:
+        self.award(6, k, true, say)
+  self.touch_sparks(k, me, n + 1, say)
+
+fn Session.touch_banners(self: Session mut, k: Knight mut, me: (i32, i32, i32, i32), b: u32, say: Vec<str> mut) -> unit:
+  if b >= 8:
+    return
+  if (self.banners as u32) & (1 << b) == 0 && layout::info::banner_has(b) && !(b == 7 && !self.crown_down()):
+    let cx = layout::info::banner_x(b) * TILE + TILE / 2
+    let cy = layout::info::banner_y(b) * TILE + TILE / 2
+    if overlap(me, (cx - 9, cy - 12, cx + 9, cy + 12)):
+      self.award(b, k, true, say)
+  self.touch_banners(k, me, b + 1, say)
+
+fn Session.touch_gates(self: Session mut, me: (i32, i32, i32, i32), n: u32, say: Vec<str> mut) -> unit:
+  if n >= layout::info::gates_len():
+    return
+  let cx = layout::info::gate_x(n) * TILE + TILE / 2
+  let cy = layout::info::gate_y(n) * TILE + TILE / 2
+  if overlap(me, (cx - 8, cy - 24, cx + 8, cy + 8)):
+    if (self.gates as u32) & (1 << n) == 0:
+      self.gates |= 1 << n
+      self.fx(FxKind::Gleam, cx, cy)
+      say.push("shield_up")
+    if n + 1 > (self.checkpoint as u32):
+      self.checkpoint = n + 1
+  self.touch_gates(me, n + 1, say)
+
+# The flagpole.
+fn Session.touch_pole(self: Session mut, k: Knight mut, me: (i32, i32, i32, i32), fx: i32, fy: i32, say: Vec<str> mut) -> unit:
+  let pole_x = layout::info::pole_x() * TILE + TILE / 2
+  let base = (layout::info::pole_y() + 1) * TILE
+  if k.pole == 0 && !k.poled && (fx - pole_x).abs() <= 6 && me.3 > base - 9 * TILE && me.1 < base:
+    let height = ((base - fy) / TILE).clamp(0, 9)
+    k.grip = height
+    k.pole = 1
+    k.score += pole_score(height as u32)
+    k.body.x = (pole_x - 6 * (k.body.face as i32)) * Q
+    k.body.vx = 0
+    k.body.vy = 0
+    k.body.mode = Move::Air
+    k.body.ground = false
+    k.body.plank = None
+    say.push("wish_grant")
+    if (self.banners as u32) & 4 == 0:
+      self.banners |= 4
+      self.announce = Some(Announce{banner: 2, t: ANNOUNCE_TICKS})
+
+fn Session.near_gate(gx: i32, gy: i32, fx: i32, fy: i32, n: u32) -> bool:
+  if n >= layout::info::gates_len():
+    return false
+  let cx = layout::info::gate_x(n) * TILE + TILE / 2
+  let cy = layout::info::gate_y(n) * TILE + TILE / 2
+  if (fx - cx).abs() < 20 && (fy - cy).abs() < 24:
+    return true
+  return Session::near_gate(gx, gy, fx, fy, n + 1)
+
+# The courtyard's door and the board: E at either.
+fn Session.touch_board(self: Session mut, k: Knight mut, bits: u32, fx: i32, fy: i32, say: Vec<str> mut) -> unit:
+  let ax = layout::info::arch_x() * TILE + TILE / 2
+  let ay = layout::info::arch_y() * TILE + TILE / 2
+  let bx = layout::info::board_x() * TILE + TILE / 2
+  let by = layout::info::board_y() * TILE + TILE / 2
+  if k.use_edge(bits) && k.free():
+    let near_arch = (fx - ax).abs() < 26 && (fy - ay).abs() < 24
+    let near_board = (fx - bx).abs() < 30 && (fy - by).abs() < 24
+    let near_gate = Session::near_gate(0, 0, fx, fy, 0)
+    if (near_arch && self.doors & 1 != 0) || near_board || near_gate:
+      self.open_board(say)
+  # The board shows itself to the first knight to come in from the hub.
+  if !self.seen && self.doors & 1 != 0:
+    if (fx - bx).abs() < 22 && (fy - by).abs() < 24:
+      self.open_board(say)
+
+# The knight went into a pit or the water: a wedge, and back to the ledge.
+fn Session.fall(self: Session mut, k: Knight mut, say: Vec<str> mut) -> unit:
+  if k.pit > 0:
+    return
+  k.pips = k.pips.saturating_sub(1)
+  k.chain = 0
+  k.carry = false
+  say.push("hit")
+  let (fx, fy) = k.body.foot()
+  self.fx(FxKind::Smoke, fx, fy.min(HEIGHT * TILE - 8))
+  if k.pips == 0:
+    self.go_down(k)
+  else:
+    k.pit = PIT_TICKS
+    k.body.vx = 0
+    k.body.vy = 0
+
+# After a hit that took the last wedge, a bubble.
+fn Session.after_hit(self: Session mut, k: Knight mut) -> unit:
+  if k.pips == 0:
+    self.go_down(k)
+
+fn Session.go_down(self: Session mut, k: Knight mut) -> unit:
+  let (fx, fy) = k.body.foot()
+  k.bubble = Some(Bubble{x: fx * Q, y: (fy.min(HEIGHT * TILE - 24) - 14) * Q, t: 0})
+  k.size = Size::Small
+  k.body.big = false
+  k.carry = false
+  k.pit = 0
+  k.pole = 0
+  k.pose = 0
+
+# A banner is raised for the whole table. `who`: the knight that raised it stands in `k`.
+fn Session.award(self: Session mut, banner: u32, k: Knight mut, who: bool, say: Vec<str> mut) -> unit:
+  if (self.banners as u32) & (1 << banner) != 0:
+    return
+  self.banners |= 1 << banner
+  self.announce = Some(Announce{banner: banner, t: ANNOUNCE_TICKS})
+  say.push("wish_grant")
+  if who:
+    k.pose = POSE_TICKS
+    k.score += 1000
+    let (fx, fy) = k.body.foot()
+    self.fx(FxKind::Gleam, fx, fy - 24)
+
+# --- the board
+
+fn Session.open_board(self: Session mut, say: Vec<str> mut) -> unit:
+  if self.phase != Phase::Play:
+    return
+  self.phase = Phase::Select
+  self.phase_t = 0
+  self.seen = true
+  # The line of the first banner not yet raised.
+  self.cursor = Session::first_line(self.banners as u32, 0)
+  say.push("play_card")
+
+fn Session.first_line(banners: u32, line: u32) -> u32:
+  if line >= BOARD_LEN:
+    return 0
+  if banners & (1 << board_banner(line)) == 0:
+    return line
+  return Session::first_line(banners, line + 1)
+
+fn Session.select_step(self: Session mut, inputs: Map<Input>, say: Vec<str> mut) -> unit:
+  self.phase_t = (self.phase_t + 1).min(LIMIT)
+  # Any seat may move the cursor or take the choice; the lowest seat that presses wins the tick.
+  let go0 = self.select_seats(self.seats.ids(), inputs, say)
+  let mut go = go0
+  if self.phase_t >= SELECT_TICKS:
+    go = true
+  if !go:
+    return
+  let line = self.cursor as u32
+  # The summit waits for its door.
+  if line == 5 && self.doors & 2 == 0:
+    self.phase_t = 0
+    say.push("mana_empty")
+    return
+  let mut gate: u32 = board_gate(line)
+  if line == 4:
+    gate = self.spark_gate()
+  self.checkpoint = gate + 1
+  self.gates |= 1 << gate
+  let (x, y) = self.station()
+  self.place_seats(self.seats.ids(), 0, x, y)
+  self.boulders = Vec::new()
+  self.bolts = Vec::new()
+  self.phase = Phase::Play
+  self.phase_t = 0
+  say.push("door_open")
+
+# The seats' presses on the board; true when one takes the choice.
+fn Session.select_seats(self: Session mut, ids: list<u32>, inputs: Map<Input>, say: Vec<str> mut) -> bool:
+  if ids.is_empty():
+    return false
+  let id = ids.head()
+  let i = Session::input_of(inputs, id)
+  let mut k = self.seats[id]
+  let (c0, bits) = k.cmd(i)
+  let mut go = false
+  if bits & B_DOWN != 0 && k.prev & B_DOWN == 0:
+    self.cursor = (self.cursor + 1) % BOARD_LEN
+    say.push("card_pickup")
+  elif i.move_y < 0 && k.prev & B_JUMP == 0:
+    self.cursor = (self.cursor + BOARD_LEN - 1) % BOARD_LEN
+    say.push("card_pickup")
+  if bits & B_BRACE != 0 && k.prev & B_BRACE == 0:
+    go = true
+  k.prev = bits
+  self.seats.insert(id, k)
+  let rest = self.select_seats(ids.tail(), inputs, say)
+  return go || rest
+
+fn Session.place_seats(self: Session mut, ids: list<u32>, n: u32, x: i32, y: i32) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let off = Session::offset(n as i32)
+  let mut k = self.seats[id]
+  if k.bubble.is_some():
+    k.pips = BACK_PIPS
+  k.bubble = None
+  k.pit = 0
+  k.pole = 0
+  k.body.place(x + off, y)
+  k.hurt = HURT_GRACE
+  k.safe = (x + off, y)
+  k.cam = knight::follow(k.cam, x, y, 1, 0, 0)
+  self.seats.insert(id, k)
+  self.place_seats(ids.tail(), n + 1, x, y)
+
+fn Session.start_finale(self: Session mut, say: Vec<str> mut) -> unit:
+  self.phase = Phase::Finale
+  self.phase_t = 0
+  let fx = layout::cell_feet_x(layout::info::finale_x())
+  let fy = layout::cell_feet_y(layout::info::finale_y())
+  let ids = self.seats.ids()
+  self.finale_seats(ids, 0, bannerpeak_map_len(self.seats) as i32, fx, fy)
+  self.bolts = Vec::new()
+  self.boulders = Vec::new()
+  say.push("play_card")
+
+fn Session.finale_seats(self: Session mut, ids: list<u32>, n: i32, count: i32, fx: i32, fy: i32) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let off = (n - count / 2) * 14
+  let mut k = self.seats[id]
+  k.bubble = None
+  k.pit = 0
+  k.pole = 0
+  k.pose = 0
+  k.body.place(fx + off, fy)
+  if n % 2 == 0:
+    k.body.face = 1
+  else:
+    k.body.face = -1
+  k.safe = (fx + off, fy)
+  k.cam = knight::follow(k.cam, fx, fy, 1, 0, 0)
+  self.seats.insert(id, k)
+  self.finale_seats(ids.tail(), n + 1, count, fx, fy)
+
+fn Session.finale_step(self: Session mut, say: Vec<str> mut) -> unit:
+  self.phase_t = (self.phase_t + 1).min(LIMIT)
+  let t = self.phase_t
+  if t == 30 || t == 60 || t == 90:
+    say.push("shield_up")
+  if t == 120:
+    say.push("wish_grant")
+    let px_ = layout::info::great_pole_x() * TILE + TILE / 2
+    let py_ = layout::info::great_pole_y() * TILE + TILE / 2
+    self.fx(FxKind::Gleam, px_, py_ - 150)
+  self.finale_cams(self.seats.ids())
+  if t >= FINALE_TICKS && self.completed.is_none():
+    self.completed = Some(self.elapsed)
+    say.push("play_card")
+
+fn Session.finale_cams(self: Session mut, ids: list<u32>) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let mut k = self.seats[id]
+  let (fx, fy) = k.body.foot()
+  k.cam = knight::follow(k.cam, fx, fy, k.body.face, 0, 0)
+  self.seats.insert(id, k)
+  self.finale_cams(ids.tail())
+
+# --- doors
+
+fn Session.step_doors(self: Session mut, say: Vec<str> mut) -> unit:
+  if self.doors & 1 == 0 && (self.banners as u32) & 3 == 3:
+    self.doors |= 1
+    self.open_gates(0)
+    say.push("door_open")
+  if self.doors & 2 == 0 && self.door_count() >= SUMMIT_BANNERS:
+    self.doors |= 2
+    self.open_gates(1)
+    say.push("door_open")
+
+fn Session.open_gates(self: Session mut, which: u32) -> unit:
+  self.open_gates_row(which, 0)
+
+fn Session.open_gates_row(self: Session mut, which: u32, ty: i32) -> unit:
+  if ty >= HEIGHT:
+    return
+  self.open_gates_col(which, ty, 0)
+  self.open_gates_row(which, ty + 1)
+
+fn Session.open_gates_col(self: Session mut, which: u32, ty: i32, tx: i32) -> unit:
+  if tx >= WIDTH:
+    return
+  if World::at(tx, ty) == GATE + which:
+    self.set_tile(tx, ty, AIR)
+  self.open_gates_col(which, ty, tx + 1)
+
+# --- the pole
+
+fn Session.step_pole(self: Session mut, k: Knight mut, say: Vec<str> mut) -> unit:
+  let base = (layout::info::pole_y() + 1) * TILE * Q
+  k.pole += 1
+  k.body.vx = 0
+  if k.body.y < base:
+    k.body.y = (k.body.y + 640).min(base)
+    if k.body.y == base:
+      k.body.ground = true
+      k.body.mode = Move::Ground
+      k.body.vy = 0
+      k.pole = k.pole.max(40)
+  else:
+    # Down: let go, face the way on, and walk off to the fanfare.
+    if k.pole >= 60 && k.pole < 100:
+      k.body.face = 1
+      k.body.x += 560
+      let g = self.view()
+      let (fx, fy) = k.body.foot()
+      if Tile::solid(g.tile((fx + 8).div_euclid(TILE), (fy - 4).div_euclid(TILE))):
+        k.body.x -= 560
+    if k.pole == 60:
+      say.push("door_pass")
+    if k.pole >= 100:
+      k.pole = 0
+      k.poled = true
+      k.body.mode = Move::Ground
+
+case Session.touch: session=self => session=self
+case Session.fall: session=self => session=self
+case Session.after_hit: session=self => session=self
+case Session.go_down: session=self => session=self
+case Session.award: session=self => session=self
+case Session.open_board: session=self => session=self
+case Session.select_step: session=self => session=self
+case Session.start_finale: session=self => session=self
+case Session.finale_step: session=self => session=self
+case Session.step_doors: session=self => session=self
+case Session.open_gates: session=self
+case Session.step_pole: session=self => session=self

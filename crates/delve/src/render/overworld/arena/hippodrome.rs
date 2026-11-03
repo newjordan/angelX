@@ -489,6 +489,50 @@ pub(super) fn race_stage(scene:&mut Img,over:&mut Img,run:&Run,w:i32,h:i32) {
             }
         }
         scene.stamp(&im,sx-im.w/2,sy-im.h);
+        // Crash spin: a dust cloud swirling round a chariot that hit something.
+        if racer.crash_spin>0 {
+            let t=(10-racer.crash_spin) as i32;
+            let r=6+t;
+            for k in 0..8 {
+                let a=k as f32/8.0*std::f32::consts::TAU+t as f32*0.6;
+                let px=(sx as f32+a.cos()*r as f32).round() as i32;
+                let py=(sy as f32-6.0+a.sin()*r as f32*0.5).round() as i32;
+                scene.put(px,py,if k%3==0{'G'}else if k%3==1{'j'}else{'g'});
+            }
+            for k in 0..4 {
+                let a=k as f32/4.0*std::f32::consts::TAU-t as f32*0.4;
+                let px=(sx as f32+a.cos()*(r-2) as f32).round() as i32;
+                let py=(sy as f32-6.0+a.sin()*(r-2) as f32*0.4).round() as i32;
+                scene.put(px,py,'J');
+            }
+        }
+        // Boost flame: flame particles trailing behind the race leader.
+        if racer.boost_flame>0 && race.phase==Phase::Racing {
+            let (tx,ty)=cr::tangent_on(course,drawn);
+            let flicker=(run.tick%3) as i32;
+            for k in 0..4 {
+                let back=10.0+k as f32*4.0+flicker as f32;
+                let j=hash(i as i32*11+k,k,(run.tick/2) as u32);
+                let dx=(-tx*back) as i32+(j%3) as i32-1;
+                let dy=(-ty*back) as i32+(j/5%3) as i32-1;
+                let ink=['O','9','6'][k as usize%3];
+                scene.put(sx+dx,sy+dy,ink);
+                if k<2 {scene.put(sx+dx+1,sy+dy,if k==0{'P'}else{'o'});}
+            }
+        }
+        // Cabbage splat: green/brown particles where a caltrop hit this rival.
+        if racer.cabbage_splat>0 {
+            let (ssx,ssy)=to_screen(racer.splat_x as f32,racer.splat_y as f32);
+            let t=(4-racer.cabbage_splat) as i32;
+            for k in 0..6 {
+                let j=hash(i as i32*13+k,k+t,(run.tick/2) as u32);
+                let spread=4+t*3;
+                let dx=(j%(spread as u32*2+1)) as i32-spread;
+                let dy=(j/(spread as u32*2+1)%(spread as u32*2+1)) as i32-spread;
+                let ink=['l','E','G','o','l','E'][k as usize];
+                scene.put(ssx+dx,ssy+dy,ink);
+            }
+        }
         let place=1+order.iter().position(|&r|r==i).unwrap_or(0);
         let top=sy-im.h;
         if i==0 {
@@ -499,6 +543,39 @@ pub(super) fn race_stage(scene:&mut Img,over:&mut Img,run:&Run,w:i32,h:i32) {
         if racer.wrecked>0 {
             scene.text(sx-4,top-18,"x",'7');
             for (dx,dy) in [(-7,-4),(7,-4),(-7,3),(7,3)] {scene.put(sx+dx,top+dy,'4');}
+        }
+    }
+    // Lap complete flash: bright screen overlay + "LAP" text burst.
+    for racer in race.racers.iter() {
+        if racer.lap_flash>0 {
+            let alpha=racer.lap_flash;
+            // Bright edge flash around the screen.
+            for x in 0..w {
+                for dy in &[0i32,1,2,h-3,h-2,h-1] {
+                    if (x+dy)%(7-alpha as i32)==0 {scene.put(x,*dy,'O');}
+                }
+            }
+            for y in 0..h {
+                for dx in &[0i32,1,2,w-3,w-2,w-1] {
+                    if (y+dx)%(7-alpha as i32)==0 {scene.put(*dx,y,'O');}
+                }
+            }
+            // "LAP" text burst in the centre of the screen.
+            let msg="LAP!";
+            let tw=super::super::ink::text_width(msg);
+            let cx=(w-tw)/2;
+            let cy=h/2-4;
+            let ink=if alpha>4{'5'}else if alpha>2{'O'}else{'9'};
+            over.text(cx,cy,msg,ink);
+            // Expanding ring of dots around the text.
+            let ring=(6-alpha as i32)*4;
+            for k in 0..12 {
+                let a=k as f32/12.0*std::f32::consts::TAU;
+                let px=(w/2) as f32+a.cos()*ring as f32;
+                let py=(h/2) as f32-4.0+a.sin()*ring as f32*0.5;
+                over.put(px as i32,py as i32,if k%3==0{'O'}else{'9'});
+            }
+            break; // Only one flash at a time.
         }
     }
     if race.phase==Phase::Done {

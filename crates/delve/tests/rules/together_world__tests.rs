@@ -954,7 +954,7 @@ fn an_older_checkpoint_gets_its_world_when_home_is_rebuilt() {
 
 #[test]
 fn merchant_camps_are_seeded_bounded_safe_and_do_not_rewrite_the_estate() {
-    use super::super::merchant::{CART_AT, PLATES, camp};
+    use super::super::merchant::{camp, cart, plates};
     let base = super::super::layout::undercroft(Pack::Crypt);
     let estate = serde_json::to_value(&base).unwrap();
     let mut locations = std::collections::BTreeSet::new();
@@ -971,11 +971,12 @@ fn merchant_camps_are_seeded_bounded_safe_and_do_not_rewrite_the_estate() {
         assert!(room.cleared);
         locations.insert(format!("{:?}", room.kind));
         catalogs.insert(format!("{:?}", shop.offers));
-        for &(c, r) in &PLATES {
+        for &(c, r) in &plates(room.kind) {
             assert_eq!(room.tile(c, r), Tile::Floor);
             assert!(entrance_at(room.kind, c, r).is_none());
         }
-        assert_eq!(room.tile(CART_AT.0 as i32, CART_AT.1 as i32), Tile::Floor);
+        let at = cart(room.kind);
+        assert_eq!(room.tile(at.0 as i32, at.1 as i32), Tile::Floor);
         assert_eq!(
             serde_json::to_value(&floor).unwrap(),
             before,
@@ -1333,6 +1334,8 @@ include!("together_world__mummers.rs");
 include!("together_world__hippodrome.rs");
 
 include!("together_world__windcountry.rs");
+include!("together_world__trencher.rs");
+include!("together_world__peal.rs");
 
 include!("together_world__roads.rs");
 include!("together_world__broadsheet.rs");

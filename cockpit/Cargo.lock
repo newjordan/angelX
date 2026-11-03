@@ -104,9 +104,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "angel-code-mode"
+version = "0.1.0"
+dependencies = [
+ "angel-live",
+ "serde_json",
+ "v8",
+]
+
+[[package]]
 name = "angel-delve"
 version = "0.1.0"
 dependencies = [
+ "angel-live",
  "angel-net",
  "angel-stage",
  "image",
@@ -121,13 +131,20 @@ version = "0.1.0"
 dependencies = [
  "angel-gpu",
  "angel-stage",
+ "bincode",
  "bytemuck",
  "crossterm",
+ "flate2",
+ "image",
+ "libc",
  "png",
  "pollster",
  "ratatui-core",
+ "serde",
  "swash",
  "unicode-width",
+ "wayland-backend",
+ "wayland-client",
  "wgpu",
  "winit",
 ]
@@ -138,7 +155,28 @@ version = "0.1.0"
 dependencies = [
  "angel-stage",
  "bytemuck",
+ "serde",
  "wgpu",
+]
+
+[[package]]
+name = "angel-live"
+version = "0.1.0"
+dependencies = [
+ "crossterm",
+ "libc",
+ "regex",
+ "ring",
+ "serde",
+ "serde_json",
+ "v8",
+]
+
+[[package]]
+name = "angel-native"
+version = "0.2.6"
+dependencies = [
+ "jobserver",
 ]
 
 [[package]]
@@ -146,6 +184,25 @@ name = "angel-net"
 version = "0.1.0"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "angel-realm-host"
+version = "0.1.0"
+dependencies = [
+ "angel-delve",
+ "angel-live",
+ "angel-net",
+ "angel-serve",
+ "crossterm",
+ "image",
+ "libc",
+ "ratatui-core",
+ "serde",
+ "serde_json",
+ "terrain-forge",
+ "tracing",
+ "url",
 ]
 
 [[package]]
@@ -163,6 +220,9 @@ dependencies = [
 [[package]]
 name = "angel-stage"
 version = "0.1.0"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "angel-table"
@@ -174,21 +234,34 @@ dependencies = [
 ]
 
 [[package]]
-name = "angelX-cockpit"
-version = "0.2.5"
+name = "angel-web-bundle"
+version = "0.2.6"
 dependencies = [
+ "miniz_oxide",
+]
+
+[[package]]
+name = "angelX-cockpit"
+version = "0.2.7"
+dependencies = [
+ "angel-code-mode",
  "angel-delve",
  "angel-glass",
+ "angel-live",
+ "angel-native",
  "angel-net",
+ "angel-realm-host",
  "angel-serve",
  "angel-stage",
  "angel-table",
+ "angel-web-bundle",
  "base64",
  "dotmax",
  "encoding_rs",
  "image",
  "landlock",
  "libc",
+ "miniz_oxide",
  "png",
  "portable-pty",
  "pulldown-cmark",
@@ -207,7 +280,6 @@ dependencies = [
  "unicode-width",
  "ureq",
  "url",
- "v8",
  "vt100",
 ]
 
@@ -405,6 +477,9 @@ name = "bitflags"
 version = "2.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4388bee8683e3d04af747c73422af53102d2bd24d9eadb6cbc100baef4b43f8"
+dependencies = [
+ "serde_core",
+]
 
 [[package]]
 name = "bitstream-io"
@@ -777,6 +852,7 @@ dependencies = [
  "mio",
  "parking_lot",
  "rustix 1.1.4",
+ "serde",
  "signal-hook",
  "signal-hook-mio",
  "winapi",

@@ -1,0 +1,59 @@
+# TEMPLATE: a floor's guardian: it holds the stairs and stands two knights
+# tall (32 pixels). Its fight builds by stages of its health (the opening,
+# the middle from 70%, its rage below `rage`), and from the middle on its
+# charge-ups are its signature moments.
+# Copy this file, then change what it says. Check it with
+#   cargo run -p angel-delve --example content_check -- <your file>
+#
+# Change: as foe-chief.boss: name, text, by, where, hp, size, move, attacks,
+#   phases (2 to 4 named patterns walked in turn), windups, rage, drops, art.
+# Keep: the opening gentle (one attack, read one shot at a time), the middle
+#   adding a second line, the rage the third or the phases; two windups, the
+#   second `from=middle`; each stage inside its budget.
+# The bar: art 24 to 32 rows tall (at most 32 by 32), drawn wide enough for its
+#   size; graded Fine or better (a template, Masterwork).
+name THE IRON WARDEN
+text Stone and iron set to keep the stair: copy it and make it yours.
+by angelX
+where crypt
+hp 820
+size 1.8
+move drift speed=1.0
+attack ring shots=8 speed=5 every=115 damage=10 shot=bone
+attack aimed shots=3 speed=7 every=77 damage=12 shot=bone from=middle
+phases darts gap_wall every=140 volleys=2 damage=11 from=rage
+windup slam every=220 damage=16 shots=2 speed=5 arc=60 cry=HNNNG
+windup beam every=260 damage=14 arc=90 cry=hmmmm from=middle
+rage 35%
+drops gold 200, gem 2
+art
+..........kkkkkkkk..........
+........kkHHhGGGGGkk........
+.......kHHhGGGGGXXXk........
+......kHhGGGkkkkXXXXk.......
+......kGGGGkHHkHHkXXk.......
+......kGGGGXkkXkkXXXk.......
+.......kHHhGGGGGXXXk........
+...kkHHGGkHGGkkGGXXkXXkk....
+..kHHHhGGkGGkkkkXXkXGGXXk...
+.kHHhGGGGXkGGGGXkGGGXXGGXk..
+.kHhGGGGXXkHHGGXkGGGXXXGGXk.
+kHhGGGXXXkHGGGGXkGGGXXXXGXXk
+kHGGGXXXXkGGkkGGXkGGXXXXGXXk
+kGGGGXXXkkGk22kGXkkGXXXXGXXk
+kGGGXXXkXGk2222kGXkGXXXXGXXk
+.kGGXXXkXGk222222kGXkGXXGXXk
+.kGGXXXkXGGk2222kGGXkGXXGXXk
+.kGGXXXkXGGGk22kGGGXkGXXGXXk
+.kGXXXXkXGGGGkkGGGXXkGXXGXXk
+.kGGXXXkkXGGGGGGXXXkkGXXGXXk
+.kHhGGXkXkkkkkkkkXXkGGXXGGXk
+.kHGGGXkXGGGGGGGXXXkGGXXGGXk
+..kGGGXkXGGGGGGXXXXkGGXXGGXk
+...kkkkkkGGGXXGGGXXXkkkkkkkk
+.......kGGGXXkkkGGXXXk......
+......kHGGXXk..kGGXXXk......
+.....kHHGGXXk..kGGXXXk......
+....kHHGGXXXk..kGGXXXXk.....
+...kHhGGGXXXk..kGGGXXXk.....
+...kkkkkkkkkk..kkkkkkkk.....

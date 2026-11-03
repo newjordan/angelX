@@ -530,7 +530,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.hud.chrome",
-  "source_path": "crates/delve/assets/dungeon-src/dgn.hud.chrome/source-sheet.png",
+  "source_path": "angelX-archive/2026-10-20/source-art/dungeon-src/dgn.hud.chrome/source-sheet.png",
   "source_sha256": "19cf3b730ca989efd72026e268f3ad9c1fa6e7a910127349da56ffcb5e6bc7b3",
   "tool_version": 2
 }

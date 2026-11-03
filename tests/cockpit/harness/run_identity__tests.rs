@@ -146,6 +146,230 @@ fn run_identity_http_route_switch_updates_receipts_preserving_origin() {
     assert_eq!(serde_json::to_value(current()).unwrap(), original.unwrap());
 }
 
+fn leg(id: &str, generation: u64, digest: &str) -> LiveLeg {
+    LiveLeg {
+        id: id.into(),
+        generation,
+        digest: digest.into(),
+        bend: None,
+        error: None,
+    }
+}
+
+fn bend_leg(id: &str, digest: &str, source: &str, output: &str) -> LiveLeg {
+    LiveLeg {
+        bend: Some(BendBuild {
+            source_digest: source.into(),
+            output_digest: output.into(),
+        }),
+        ..leg(id, 1, digest)
+    }
+}
+
+/// Publishes the empty set again so a test never leaks legs into another.
+struct LiveGuard;
+impl Drop for LiveGuard {
+    fn drop(&mut self) {
+        publish_live(LiveSet::default());
+    }
+}
+
+#[test]
+fn live_set_hashes_content_not_generation_counters_or_directory() {
+    let base = LiveSet::new(
+        Some("/runs/a".into()),
+        vec![leg("tool-router", 1, "aa"), leg("agent", 1, "bb")],
+    );
+    let moved = LiveSet::new(
+        Some("/runs/b".into()),
+        vec![leg("agent", 7, "bb"), leg("tool-router", 3, "aa")],
+    );
+    assert_eq!(base.sha256, moved.sha256);
+    assert_eq!(base.legs[0].id, "agent", "legs are listed by id");
+    let edited = LiveSet::new(
+        None,
+        vec![leg("tool-router", 2, "cc"), leg("agent", 1, "bb")],
+    );
+    assert_ne!(base.sha256, edited.sha256);
+    // A candidate that never activated runs no code, so it changes nothing.
+    let mut failed = leg("policy", 0, "");
+    failed.error = Some("syntax error".into());
+    let with_failed = LiveSet::new(
+        None,
+        vec![leg("tool-router", 1, "aa"), leg("agent", 1, "bb"), failed],
+    );
+    assert_eq!(base.sha256, with_failed.sha256);
+    assert_eq!(
+        with_failed.legs.len(),
+        3,
+        "the failed candidate stays visible"
+    );
+    assert_ne!(LiveSet::default().sha256, base.sha256);
+}
+
+#[test]
+fn bend_receipt_digests_are_part_of_the_leg_identity() {
+    let built =
+        |output: &str| LiveSet::new(None, vec![bend_leg("ability-code", "aa", "src", output)]);
+    assert_eq!(built("out").sha256, built("out").sha256);
+    assert_ne!(built("out").sha256, built("other").sha256);
+    let json = serde_json::to_value(&built("out").legs[0]).unwrap();
+    assert_eq!(json["bend"]["source_digest"], "src");
+    assert_eq!(json["bend"]["output_digest"], "out");
+    assert!(
+        serde_json::to_value(leg("agent", 1, "aa"))
+            .unwrap()
+            .get("bend")
+            .is_none()
+    );
+}
+
+#[test]
+fn live_set_reads_loader_statuses_and_bounds_candidate_errors() {
+    let statuses = [
+        angel_live::Status {
+            id: "ability-code".into(),
+            generation: 4,
+            digest: "d1".into(),
+            error: None,
+            build: Some(angel_live::BuildReceipt {
+                source_digest: "s1".into(),
+                output_digest: "o1".into(),
+            }),
+        },
+        angel_live::Status {
+            id: "tool-router".into(),
+            generation: 2,
+            digest: "d2".into(),
+            error: Some("x".repeat(1000)),
+            build: None,
+        },
+    ];
+    let set = LiveSet::from_statuses(Some(Path::new("/live")), &statuses);
+    assert_eq!(set.root.as_deref(), Some("/live"));
+    assert_eq!(set.legs[0].generation, 4);
+    assert_eq!(set.legs[0].bend.as_ref().unwrap().output_digest, "o1");
+    assert_eq!(set.legs[1].error.as_ref().unwrap().len(), 240);
+    assert_eq!(
+        set.sha256,
+        LiveSet::new(
+            None,
+            vec![
+                bend_leg("ability-code", "d1", "s1", "o1"),
+                leg("tool-router", 9, "d2")
+            ]
+        )
+        .sha256
+    );
+}
+
+#[test]
+fn a_leg_change_moves_the_combined_identity_and_never_the_binary() {
+    let _env = crate::tests::env_lock();
+    let _live = LiveGuard;
+    let bound = StaticIdentity {
+        cockpit_source_sha256: "a".repeat(64),
+        ..static_identity().unwrap().clone()
+    };
+    let unbound = StaticIdentity {
+        cockpit_source_sha256: "unbound".into(),
+        ..bound.clone()
+    };
+    assert!(bound.is_bound());
+    assert!(!unbound.is_bound());
+    let one = LiveSet::new(None, vec![leg("tool-router", 1, "aa")]);
+    let two = LiveSet::new(None, vec![leg("tool-router", 2, "bb")]);
+    let none = LiveSet::default();
+    let combined = [&none, &one, &two].map(|live| combined_sha256(&bound, live));
+    assert_eq!(combined[1], combined_sha256(&bound, &one));
+    assert_ne!(combined[0], combined[1]);
+    assert_ne!(combined[1], combined[2]);
+    assert_ne!(combined[0], combined[2]);
+    // The same legs under another binary are another identity.
+    assert_ne!(
+        combined_sha256(&bound, &one),
+        combined_sha256(&unbound, &one)
+    );
+
+    let identity = |live: &LiveSet| {
+        publish_live(live.clone());
+        capture(
+            Model {
+                club: "fixture".into(),
+                id: "fixture".into(),
+                base_url: "none".into(),
+                driver: "fixture".into(),
+            },
+            json!("none"),
+            json!(1),
+        )
+        .unwrap()
+    };
+    let before = identity(&none);
+    let after = identity(&one);
+    assert_eq!(
+        serde_json::to_value(&before.build).unwrap(),
+        serde_json::to_value(&after.build).unwrap(),
+        "a leg edit leaves the build fields alone"
+    );
+    assert_eq!(before.build.is_bound(), after.build.is_bound());
+    assert_eq!(before.build.cockpit_source_sha256, source_sha256());
+    assert_eq!(after.live, one);
+    assert_ne!(before.combined_sha256, after.combined_sha256);
+    assert_eq!(after.combined_sha256, combined_sha256(&after.build, &one));
+}
+
+#[test]
+fn a_turn_pins_the_generation_published_at_its_start() {
+    let _env = crate::tests::env_lock();
+    let _live = LiveGuard;
+    let model = || Model {
+        club: "fixture".into(),
+        id: "fixture".into(),
+        base_url: "none".into(),
+        driver: "fixture".into(),
+    };
+    let first = LiveSet::new(None, vec![leg("tool-router", 1, "aa")]);
+    let second = LiveSet::new(None, vec![leg("tool-router", 2, "bb")]);
+    publish_live(first.clone());
+    reset_turn_identity();
+    publish_live(second.clone());
+    let pinned = capture(model(), json!("none"), json!(1)).unwrap();
+    assert_eq!(
+        pinned.live, first,
+        "a mid-turn edit waits for the next turn"
+    );
+    reset_turn_identity();
+    let next = capture(model(), json!("none"), json!(1)).unwrap();
+    assert_eq!(next.live, second);
+    assert_ne!(pinned.combined_sha256, next.combined_sha256);
+}
+
+#[test]
+fn identity_records_without_legs_still_deserialize() {
+    let _env = crate::tests::env_lock();
+    let mut value = serde_json::to_value(
+        capture(
+            Model {
+                club: "fixture".into(),
+                id: "fixture".into(),
+                base_url: "none".into(),
+                driver: "fixture".into(),
+            },
+            json!("none"),
+            json!(1),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    for key in ["live", "combined_sha256"] {
+        assert!(value.as_object_mut().unwrap().remove(key).is_some());
+    }
+    let old: RunIdentity = serde_json::from_value(value).unwrap();
+    assert!(old.live.legs.is_empty());
+    assert!(old.combined_sha256.is_empty());
+}
+
 #[test]
 fn run_identity_executable_and_unbound() {
     let _env = crate::tests::env_lock();
@@ -541,10 +765,17 @@ fn run_identity_scripted_task_json() {
         "dataset",
         "budgets",
         "verifier",
+        "live",
+        "combined_sha256",
         "bound_at_ms",
     ] {
         assert!(!id[key].is_null(), "missing {key}");
     }
+    assert_eq!(id["live"]["legs"], json!([]));
+    assert_eq!(
+        id["live"]["sha256"],
+        serde_json::to_value(LiveSet::default().sha256).unwrap()
+    );
     assert_eq!(id["dataset"]["kind"], "task_json");
     assert_eq!(id["budgets"]["max_hops"], 3);
     assert_eq!(id["budgets"]["turn_idle_timeout_secs"], 17);

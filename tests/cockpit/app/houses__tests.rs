@@ -27,7 +27,7 @@ fn a_route_serves_from_its_model_familys_castle_never_a_machine() {
     // A route with no family has no castle: the Keep's own knight serves.
     assert_eq!(of_route("practice", "practice", None), None);
     assert_eq!(of_route("local", "local", Some("my-finetune")), None);
-    for name in ["turbo", "atlas", "spark", "apollo", "toymaker"] {
+    for name in ["turbo", "atlas", "spark", "apollo", "gpu-host"] {
         assert!(
             all()
                 .iter()

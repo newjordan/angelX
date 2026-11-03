@@ -266,7 +266,7 @@
   "source_preparation": {
     "alpha_threshold": 128,
     "metadata_sha256": "85fe1bfe4c0e9b66acddbba9552d14413791c8a139ca1b6d4d89500b22acedaa",
-    "original_path": "/work/artifacts/art-prod/slots/latch.knight/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/latch.knight/v01/source-sheet.png",
     "original_sha256": "5aa3ed147d31f3e5519ead282f66a0bc64fca02e945a1a72998caa6b9cd4c4fd",
     "script": "crates/delve/assets/art-slots/cinder.chrome/actors.py"
   },

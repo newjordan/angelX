@@ -1,0 +1,69 @@
+# Case wrappers for tiles.bx and room.bx (recorded by
+# crates/delve/tests/rules/layout_bend_cases__tests.rs).
+
+def layout.j.pt(+p: Sigma<&2, &2, F32, _ => F32>) -> J.Val:
+  match p as Sigma<&2, &2, F32, _ => F32>:
+    case (x: F32, y: F32):
+      J.JA{[J.JF{x}, J.JF{y}]}
+
+def layout.j.maybe_pt(+m: Maybe<&2, Sigma<&2, &2, F32, _ => F32>>) -> J.Val:
+  match m as Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+    case None{}:
+      J.JNull{}
+    case Some{p: Sigma<&2, &2, F32, _ => F32>}:
+      layout.j.pt(p)
+
+def layout.j.maybe_u32(+m: Maybe<&2, U32>) -> J.Val:
+  match m as Maybe<&2, U32>:
+    case None{}:
+      J.JNull{}
+    case Some{v: U32}:
+      J.JU{v}
+
+def layout.tiles_names(+ts: List<&2, LayTile>) -> String:
+  match ts as List<&2, LayTile>:
+    case Nil{}:
+      ""
+    case Con{h: LayTile, t: List<&2, LayTile>}:
+      if List.is_empty(&2, LayTile, t):
+        layout.tile_name(h)
+      else:
+        String.append(layout.tile_name(h), String.append(",", layout.tiles_names(t)))
+
+def case.layout.Room.tile(+input: J.Val) -> J.Val:
+  layout.Room.tile(J.get(input, "room"), J.u32(J.get(input, "col")), J.u32(J.get(input, "row")))
+
+def case.layout.Room.set(+input: J.Val) -> J.Val:
+  layout.Room.set(J.get(input, "room"), J.u32(J.get(input, "col")), J.u32(J.get(input, "row")), J.get(input, "tile"))
+
+def case.layout.Room.open_door(+input: J.Val) -> J.Val:
+  layout.Room.open_door(J.get(input, "room"), J.u32(J.get(input, "dir")))
+
+def case.layout.Room.open_stairs(+input: J.Val) -> J.Val:
+  layout.Room.open_stairs(J.get(input, "room"))
+
+def case.layout.Room.regrow(+input: J.Val) -> J.Val:
+  layout.Room.regrow(J.get(input, "room"), J.u32(J.get(input, "cols")), J.u32(J.get(input, "rows")))
+
+def case.layout.Room.way_back(+input: J.Val) -> J.Val:
+  layout.j.maybe_u32(layout.Room.way_back(J.get(input, "room")))
+
+def case.layout.Room.size(+input: J.Val) -> J.Val:
+  room: J.Val = J.get(input, "room")
+  o1: J.Val = J.set(J.obj(), "width", J.JF{layout.Room.width(room)})
+  o2: J.Val = J.set(o1, "height", J.JF{layout.Room.height(room)})
+  J.set(o2, "great", J.JBool{layout.Room.great(room)})
+
+def case.layout.Room.privy(+input: J.Val) -> J.Val:
+  layout.j.maybe_pt(layout.Room.privy(J.get(input, "room")))
+
+def case.layout.Room.field_banner(+input: J.Val) -> J.Val:
+  layout.j.maybe_pt(layout.Room.field_banner(J.get(input, "room")))
+
+def case.layout.Room.altar(+input: J.Val) -> J.Val:
+  layout.j.pt(layout.Room.altar(J.get(input, "room")))
+
+def case.layout.tiles_rle(+input: J.Val) -> J.Val:
+  ts: List<&2, LayTile> = layout.tiles_from_rle(J.str(J.get(input, "text")))
+  o1: J.Val = J.set(J.obj(), "tiles", J.JS{layout.tiles_names(ts)})
+  J.set(o1, "again", J.JS{layout.tiles_rle(ts)})

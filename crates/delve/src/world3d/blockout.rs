@@ -872,15 +872,22 @@ impl Hull {
         points.dedup();
         let cross = |o: [f32; 2], a: [f32; 2], b: [f32; 2]| (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
         let mut hull: Vec<[f32; 2]> = Vec::with_capacity(points.len() * 2);
-        for pass in 0..2 {
+        for rev in [false, true] {
             let start = hull.len();
-            let iter: Box<dyn Iterator<Item = &[f32; 2]>> =
-                if pass == 0 { Box::new(points.iter()) } else { Box::new(points.iter().rev()) };
-            for &p in iter {
+            let push = |hull: &mut Vec<[f32; 2]>, p: [f32; 2]| {
                 while hull.len() >= start + 2 && cross(hull[hull.len() - 2], hull[hull.len() - 1], p) <= 0.0 {
                     hull.pop();
                 }
                 hull.push(p);
+            };
+            if rev {
+                for &p in points.iter().rev() {
+                    push(&mut hull, p);
+                }
+            } else {
+                for &p in &points {
+                    push(&mut hull, p);
+                }
             }
             hull.pop();
         }
@@ -912,15 +919,6 @@ pub fn open_tiles(room: &Room) -> Vec<(i32, i32)> {
         .flat_map(|r| (0..room.cols as i32).map(move |c| (c, r)))
         .filter(|&(c, r)| walkable(room.tile(c, r)))
         .collect()
-}
-
-/// The most of any walkable tile that `solids` hide.
-pub fn worst_hidden(view: &View, open: &[(i32, i32)], solids: &[Solid]) -> f32 {
-    let hulls = occluders(view, solids);
-    if hulls.is_empty() {
-        return 0.0;
-    }
-    open.iter().map(|&t| view.hidden(&hulls, t)).fold(0.0, f32::max)
 }
 
 /// Whether `solids`, set among the hulls already `placed`, keep the floor in
@@ -2463,12 +2461,6 @@ pub fn landmark_folder() -> std::path::PathBuf {
 /// Where an item's landmark overlay lives: `assets/world3d/<item>/landmark.set`.
 pub fn landmark_path(id: &str) -> std::path::PathBuf {
     landmark_folder().join(id).join("landmark.set")
-}
-
-/// The landmark overlay the asset folder `folder` holds for item `id`
-/// (`<folder>/<id>/landmark.set`), when it has one.
-pub fn landmark_in(folder: &std::path::Path, id: &str) -> Option<String> {
-    std::fs::read_to_string(folder.join(id).join("landmark.set")).ok()
 }
 
 /// The item's landmark overlay, when it has one: shape lines of the set

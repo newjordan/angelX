@@ -107,6 +107,23 @@ pub trait GameClient: Sized {
     fn sheet(&self) -> String {
         String::new()
     }
+    /// Choices the game has up for the player to tap, one label a line
+    /// (the Delve's wish scroll): empty when there are none. A page shows
+    /// them as buttons and hands the one tapped to `choose`.
+    fn choices(&self) -> String {
+        String::new()
+    }
+    /// The player tapped choice `n` (from 0) of `choices`.
+    fn choose(&mut self, _n: u32) {}
+    /// Picks beside the text line (`controls.text`), for a page to show
+    /// while the line is open (the Delve's "Upgrade what you hold"): a
+    /// heading line, then one pick a line as `key\tlabel\ttag\ttip\twords`,
+    /// and any line with no tab a note under them. A pick with no words is
+    /// shown and not taken. One tapped, or its key pressed on an empty line,
+    /// sends its words as the line sends what is typed. Empty for none.
+    fn picks(&self) -> String {
+        String::new()
+    }
     /// The last frame drawn as a stage, encoded into `out` for a page that
     /// draws stages itself (`angel-stage`'s wire format, at `now_ms` for
     /// what flickers and drifts): false for a game that draws only finished
@@ -123,6 +140,31 @@ pub trait GameClient: Sized {
     /// with what a stage had before them (flat sprites). The default is a
     /// game with no props to draw.
     fn stage_props(&mut self, _on: bool) {}
+    /// The next picture the stage would draw that the page is to fetch
+    /// itself, by name (the Delve's paintings: `/paint/<name>.png` on the
+    /// host): the page decodes it and hands its pixels back
+    /// (`put_painting`), or says it could not (`painting_failed`). `None`
+    /// when nothing is wanted.
+    fn painting_wanted(&mut self) -> Option<String> {
+        None
+    }
+    /// The pixels of a picture `painting_wanted` named, `width` by `height`
+    /// straight RGBA: false when they are not taken.
+    fn put_painting(&mut self, _name: &str, _width: u32, _height: u32, _rgba: &[u8]) -> bool {
+        false
+    }
+    /// The page could not fetch or decode it: the stage draws without it.
+    fn painting_failed(&mut self, _name: &str) {}
+    /// The host's HD art manifest (the Delve's `pack.json`, fetched by a
+    /// page that asked for HD art), and the page's whole-number scale of
+    /// the game's pixels: the game names the drawings it wants among its
+    /// paintings (`painting_wanted`) and takes their pixels the same way.
+    /// `rung`: a resolution the page asks every figure be shown at (its
+    /// `?ladder=`, to look at a rung), 0 for the game's own rule. False
+    /// when it is not taken.
+    fn hd_manifest(&mut self, _json: &str, _scale: u32, _rung: u32) -> bool {
+        false
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -254,7 +296,19 @@ impl<G: GameClient> Runtime<G> {
             }
             ToClient::Events { tick, events } => {
                 if let Some(game) = self.game.as_mut() {
-                    game.events(tick, &events, &mut self.lines);
+                    // Retained events precede the newest snapshot after a link
+                    // stall. Extrapolate the server clock at arrival, not the
+                    // last snapshot tick, before emitting transient effects.
+                    // Keep the wire and shell protocols, and all durable text.
+                    let late = self.idling
+                        || self.clock.tick_at(now_ms - 250.0).is_some_and(|cutoff| f64::from(tick) < cutoff);
+                    if late {
+                        let mut lines = Vec::new();
+                        game.events(tick, &events, &mut lines);
+                        self.lines.extend(lines.into_iter().filter(|line| !line.starts_with("sfx ")));
+                    } else {
+                        game.events(tick, &events, &mut self.lines);
+                    }
                 }
             }
             ToClient::Pong { t, .. } => {
@@ -307,6 +361,9 @@ impl<G: GameClient> Runtime<G> {
             return false;
         }
         self.idling = true;
+        // Hidden pages do not drain shell lines until their next frame. Do not
+        // let effects received just before hiding replay when they return.
+        self.lines.retain(|line| !line.starts_with("sfx "));
         self.ping(now_ms);
         true
     }
@@ -451,6 +508,23 @@ impl<G: GameClient> Runtime<G> {
         self.game.as_ref().map_or_else(String::new, G::sheet)
     }
 
+    /// The game's choices to tap (`GameClient::choices`).
+    pub fn choices(&self) -> String {
+        self.game.as_ref().map_or_else(String::new, G::choices)
+    }
+
+    /// A choice tapped (`GameClient::choose`).
+    pub fn choose(&mut self, n: u32) {
+        if let Some(game) = self.game.as_mut() {
+            game.choose(n);
+        }
+    }
+
+    /// The picks beside the text line (`GameClient::picks`).
+    pub fn picks(&self) -> String {
+        self.game.as_ref().map_or_else(String::new, G::picks)
+    }
+
     /// Where the last frame drew the own character (`GameClient::own_at`).
     pub fn own_at(&self) -> Option<(f32, f32)> {
         self.game.as_ref().and_then(G::own_at)
@@ -563,6 +637,10 @@ mod tests {
         fn events(&mut self, _: u32, events: &[&[u8]], lines: &mut Vec<String>) {
             for e in events {
                 lines.push(format!("sfx {}", String::from_utf8_lossy(e)));
+                if *e == b"mixed" {
+                    lines.push("say Keep this".to_string());
+                    lines.push("notice Keep this too".to_string());
+                }
             }
         }
         fn command(&mut self, hands: &Hands) -> Walk {
@@ -760,6 +838,52 @@ mod tests {
         let reject = ToClient::Reject { why: Reject::Key, text: "no such session" }.to_vec();
         rt.recv(&reject, 0.0).unwrap();
         assert_eq!(rt.status(), &Status::Rejected(Reject::Key, "no such session".into()));
+    }
+
+    #[test]
+    fn old_effects_are_dropped_against_the_clock_before_a_catch_up_snapshot() {
+        let mut rt = Runtime::<Line>::new();
+        rt.recv(&welcome(), 0.0).unwrap();
+        rt.recv(&snapshot(30, 0, 10), 1000.0).unwrap();
+        rt.lines.push("notice already queued".to_string());
+        // The writer sends retained events BEFORE the replacement snapshot.
+        // Comparing with newest_tick (still 30) would call all of these fresh.
+        let old = ToClient::Events { tick: 40, events: vec![b"old"] }.to_vec();
+        rt.recv(&old, 2000.0).unwrap();
+        let fresh = ToClient::Events { tick: 60, events: vec![b"fresh"] }.to_vec();
+        rt.recv(&fresh, 2000.0).unwrap();
+        assert_eq!(rt.take_lines(), vec!["notice already queued", "sfx fresh"]);
+        rt.recv(&snapshot(60, 0, 10), 2000.0).unwrap();
+    }
+
+    #[test]
+    fn stale_effect_filter_preserves_subtitles_notices_and_boundary_effects() {
+        let mut rt = Runtime::<Line>::new();
+        rt.recv(&welcome(), 0.0).unwrap();
+        rt.recv(&snapshot(30, 0, 10), 1000.0).unwrap();
+        let old = ToClient::Events { tick: 30, events: vec![b"mixed"] }.to_vec();
+        let boundary = ToClient::Events { tick: 30, events: vec![b"boundary"] }.to_vec();
+        rt.recv(&boundary, 1250.0).unwrap();
+        assert_eq!(rt.take_lines(), vec!["sfx boundary"]);
+        rt.recv(&old, 1251.0).unwrap();
+        assert_eq!(rt.take_lines(), vec!["say Keep this", "notice Keep this too"]);
+    }
+
+    #[test]
+    fn idle_drops_queued_and_incoming_effects_but_not_durable_lines() {
+        let mut rt = Runtime::<Line>::new();
+        rt.recv(&welcome(), 0.0).unwrap();
+        let events = ToClient::Events { tick: 3, events: vec![b"mixed"] }.to_vec();
+        rt.recv(&events, 0.0).unwrap();
+        rt.idle(10.0);
+        rt.recv(&events, 20.0).unwrap();
+        rt.tick(30.0);
+        assert_eq!(
+            rt.take_lines(),
+            vec!["say Keep this", "notice Keep this too", "say Keep this", "notice Keep this too"]
+        );
+        rt.recv(&events, 30.0).unwrap();
+        assert_eq!(rt.take_lines(), vec!["sfx mixed", "say Keep this", "notice Keep this too"]);
     }
 
     #[test]

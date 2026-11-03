@@ -1,0 +1,518 @@
+# crates/delve/src/rules/bannerpeak/session.rs, third part — foes and things, boulders,
+# what a knight meets among them, the rescue.
+module bannerpeak.session
+
+use world.TILE
+use body.Q
+use body.TQ
+use layout.WIDTH
+use layout.HEIGHT
+use layout.SNOW_OX
+use layout.SNOW_OY
+
+# --- foes and things
+
+fn Session.alive_feet(self: Session, ids: list<u32>, acc: Vec<(i32, i32)>) -> Vec<(i32, i32)>:
+  if ids.is_empty():
+    return acc
+  let k = self.seats[ids.head()]
+  if k.alive():
+    acc.push(k.body.foot())
+  return self.alive_feet(ids.tail(), acc)
+
+fn Session.close_to(near: Vec<(i32, i32)>, n: u32, fx: i32, fy: i32) -> bool:
+  if n >= near.len():
+    return false
+  let p = near[n]
+  if (p.0 - fx).abs() < 340 && (p.1 - fy).abs() < 260:
+    return true
+  return Session::close_to(near, n + 1, fx, fy)
+
+fn Session.step_things(self: Session mut, knobs: Knobs, say: Vec<str> mut) -> unit:
+  let near = self.alive_feet(self.seats.ids(), Vec::new())
+  # A foe whose pop has run its course is gone for good.
+  self.foes = Session::drop_popped(self.foes, 0, Vec::new())
+  self.step_foes(0, near)
+  self.step_items(0)
+  self.bolts = self.step_bolts(0, Vec::new())
+  # Things that fell off the world.
+  let limit = (HEIGHT * TILE + 64) * Q
+  self.foes = Session::above(self.foes, 0, limit, Vec::new())
+  self.items = Session::above_items(self.items, 0, limit, Vec::new())
+  # Bolts meet foes.
+  let (bks, fks) = self.bolt_hits(0, 0, Vec::new(), Vec::new())
+  self.apply_bolt_hits(bks, fks, 0, say)
+  self.bolts = Session::bolts_kept(self.bolts, 0, Vec::new())
+  # A cap on the slide flips whatever it meets.
+  let flipped = self.cap_flips(0, 0, Vec::new())
+  self.apply_flips(flipped, 0, say)
+  # King Cinder, while a knight is on the summit.
+  let feet = self.alive_feet(self.seats.ids(), Vec::new())
+  let seats = self.seat_count().max(1)
+  let beat = self.boss.beat
+  self.boss.step(feet, seats, self.elapsed)
+  if beat == BossBeat::Dormant && self.boss.beat != BossBeat::Dormant:
+    say.push("boss_rise")
+  if beat == BossBeat::Rest && self.boss.beat == BossBeat::Tell:
+    say.push("boss_rage")
+  if self.boss.beat == BossBeat::Strike && beat == BossBeat::Tell:
+    say.push("rock_land")
+  self.step_boulders(feet, say)
+
+fn Session.drop_popped(foes: Vec<Foe>, n: u32, acc: Vec<Foe>) -> Vec<Foe>:
+  if n >= foes.len():
+    return acc
+  if foes[n].dead != 1:
+    acc.push(foes[n])
+  return Session::drop_popped(foes, n + 1, acc)
+
+fn Session.step_foes(self: Session mut, n: u32, near: Vec<(i32, i32)>) -> unit:
+  if n >= self.foes.len():
+    return
+  let mut f = self.foes[n]
+  let fx = f.x.div_euclid(Q)
+  let fy = f.y.div_euclid(Q)
+  let close = Session::close_to(near, 0, fx, fy)
+  f.step(self.changed, close)
+  self.foes[n] = f
+  self.step_foes(n + 1, near)
+
+fn Session.step_items(self: Session mut, n: u32) -> unit:
+  if n >= self.items.len():
+    return
+  let mut i = self.items[n]
+  i.step(self.changed)
+  self.items[n] = i
+  self.step_items(n + 1)
+
+# The bolts stepped; those that spent themselves on a wall are gone.
+fn Session.step_bolts(self: Session, n: u32, acc: Vec<Bolt>) -> Vec<Bolt>:
+  if n >= self.bolts.len():
+    return acc
+  let mut b = self.bolts[n]
+  let alive = b.step(self.changed)
+  if alive:
+    acc.push(b)
+  return self.step_bolts(n + 1, acc)
+
+fn Session.above(foes: Vec<Foe>, n: u32, limit: i32, acc: Vec<Foe>) -> Vec<Foe>:
+  if n >= foes.len():
+    return acc
+  if foes[n].y < limit:
+    acc.push(foes[n])
+  return Session::above(foes, n + 1, limit, acc)
+
+fn Session.above_items(items: Vec<Item>, n: u32, limit: i32, acc: Vec<Item>) -> Vec<Item>:
+  if n >= items.len():
+    return acc
+  if items[n].y < limit:
+    acc.push(items[n])
+  return Session::above_items(items, n + 1, limit, acc)
+
+# (bolt, foe) pairs that overlap, bolts outer.
+fn Session.bolt_hits(self: Session, bn: u32, fnn: u32, bs: Vec<u32>, fs: Vec<u32>) -> (Vec<u32>, Vec<u32>):
+  if bn >= self.bolts.len():
+    return (bs, fs)
+  if fnn >= self.foes.len():
+    return self.bolt_hits(bn + 1, 0, bs, fs)
+  let f = self.foes[fnn]
+  if f.alive() && overlap(self.bolts[bn].rect(), f.rect()):
+    bs.push(bn)
+    fs.push(fnn)
+  return self.bolt_hits(bn, fnn + 1, bs, fs)
+
+fn Session.apply_bolt_hits(self: Session mut, bs: Vec<u32>, fs: Vec<u32>, n: u32, say: Vec<str> mut) -> unit:
+  if n >= bs.len():
+    return
+  let bn = bs[n]
+  let fnn = fs[n]
+  let mut f = self.foes[fnn]
+  if f.alive():
+    f.defeat()
+    self.foes[fnn] = f
+    self.fx(FxKind::Pop, f.x.div_euclid(Q), f.y.div_euclid(Q))
+    say.push("kill")
+    let owner = self.bolts[bn].owner
+    if self.seats.contains_key(owner):
+      let mut k = self.seats[owner]
+      k.score += 100
+      self.seats.insert(owner, k)
+  let mut b = self.bolts[bn]
+  b.t = BOLT_LIFE + 1
+  self.bolts[bn] = b
+  self.apply_bolt_hits(bs, fs, n + 1, say)
+
+fn Session.bolts_kept(bolts: Vec<Bolt>, n: u32, acc: Vec<Bolt>) -> Vec<Bolt>:
+  if n >= bolts.len():
+    return acc
+  if bolts[n].t <= BOLT_LIFE:
+    acc.push(bolts[n])
+  return Session::bolts_kept(bolts, n + 1, acc)
+
+# Foes a cap on the slide overlaps, items outer, in order.
+fn Session.cap_flips(self: Session, n: u32, fnn: u32, acc: Vec<u32>) -> Vec<u32>:
+  if n >= self.items.len():
+    return acc
+  let it = self.items[n]
+  if !(it.kind == ItemKind::Cap && it.cap == CapState::Slide) || fnn >= self.foes.len():
+    return self.cap_flips(n + 1, 0, acc)
+  let f = self.foes[fnn]
+  if f.alive() && overlap(it.rect(), f.rect()):
+    acc.push(fnn)
+  return self.cap_flips(n, fnn + 1, acc)
+
+fn Session.apply_flips(self: Session mut, flipped: Vec<u32>, n: u32, say: Vec<str> mut) -> unit:
+  if n >= flipped.len():
+    return
+  let m = flipped[n]
+  let mut f = self.foes[m]
+  if f.alive():
+    f.defeat()
+    self.foes[m] = f
+    self.fx(FxKind::Pop, f.x.div_euclid(Q), f.y.div_euclid(Q))
+    say.push("kill")
+  self.apply_flips(flipped, n + 1, say)
+
+# The bell boulders on the snow ledge: they roll down it toward the knights on a beat,
+# faster and more of them for a fuller table.
+fn Session.step_boulders(self: Session mut, feet: Vec<(i32, i32)>, say: Vec<str> mut) -> unit:
+  let lo = (SNOW_OX + 6) * TILE
+  let hi = (SNOW_OX + 97) * TILE
+  let seats = self.seat_count().max(1)
+  let interval = (300 - 24 * (seats - 1)).max(180)
+  let speed = 800 + 32 * ((seats as i32) - 1)
+  let someone = Session::someone_on_snow(feet, 0, lo, hi)
+  self.boulders = Session::roll(self.boulders, 0, speed, Vec::new())
+  if someone && self.phase == Phase::Play:
+    let phase = self.elapsed % interval
+    let second = seats >= 4 && phase == 80
+    # The bell tolls shortly before one rolls out.
+    if phase == interval - 36 || (seats >= 4 && phase == 80 - 36):
+      say.push("circle_toll")
+    if (phase == 0 || second) && self.boulders.len() < 4:
+      self.boulders.push(Boulder{x: hi * Q, t: 0})
+  elif !someone:
+    self.boulders = Vec::new()
+
+fn Session.someone_on_snow(feet: Vec<(i32, i32)>, n: u32, lo: i32, hi: i32) -> bool:
+  if n >= feet.len():
+    return false
+  let p = feet[n]
+  if p.0 > lo - 80 && p.0 < hi + 80 && p.1 > SNOW_OY * TILE && p.1 < (SNOW_OY + 14) * TILE:
+    return true
+  return Session::someone_on_snow(feet, n + 1, lo, hi)
+
+# Each boulder one step on; those past the end of the track are gone.
+fn Session.roll(bs: Vec<Boulder>, n: u32, speed: i32, acc: Vec<Boulder>) -> Vec<Boulder>:
+  if n >= bs.len():
+    return acc
+  let mut b = bs[n]
+  b.x -= speed
+  b.t += 1
+  if b.x > (SNOW_OX + 4) * TILE * Q:
+    acc.push(b)
+  return Session::roll(bs, n + 1, speed, acc)
+
+# --- a knight meets the foes, the items and the caps
+
+fn Session.touch_things(self: Session mut, id: u32, k: Knight mut, bits: u32, was: i32, say: Vec<str> mut) -> unit:
+  let me = px(k.body)
+  let (fx, fy0) = k.body.foot()
+  # Foes: a stomp, a slam, a dive or a belly slide beats them; a touch from the side hurts.
+  self.touch_foes(k, me, fx, bits, was, 0, say)
+  # Bell boulders: a hit from the side, a springboard from above.
+  self.touch_boulders(k, me, bits, was, 0, say)
+  # King Cinder: his waves and embers hurt, and so does his side.
+  if self.boss.beat != BossBeat::Dormant && !self.boss.defeated():
+    let mut hurt = Session::hazard_hits(self.boss.hazards, 0, me)
+    let body = self.boss.body()
+    if self.boss.beat != BossBeat::Rage && overlap(me, body):
+      hurt = true
+    if hurt:
+      let mut from: i32 = -1
+      if self.boss.x > fx:
+        from = 1
+      if k.hit(-from):
+        say.push("knight_hit_big")
+        self.after_hit(k)
+  # Items.
+  let gone = self.touch_items(id, k, me, bits, was, 0, Vec::new(), say)
+  self.remove_gone(gone, gone.len(), 0)
+  # Carried caps ride with their carrier; a long carry wakes it.
+  if k.carry:
+    self.carried_cap(id, k, bits, say)
+  # A lantern flame throws bolts of light.
+  if k.size == Size::Flame && k.act_edge(bits) && k.cooldown == 0 && k.free() && Session::bolts_of(self.bolts, 0, id) < BOLT_MOST:
+    let face = k.body.face as i32
+    self.bolts.push(Bolt{x: k.body.x + face * 10 * Q, y: k.body.y - 12 * Q, vx: face * BOLT_SPEED, vy: 200, t: 0, owner: id})
+    k.cooldown = 9
+    say.push("shot_spark")
+
+fn Session.hazard_hits(hs: Vec<Hazard>, n: u32, me: (i32, i32, i32, i32)) -> bool:
+  if n >= hs.len():
+    return false
+  let h = hs[n]
+  if h.hurts() && overlap(me, h.rect()):
+    return true
+  return Session::hazard_hits(hs, n + 1, me)
+
+fn Session.bolts_of(bolts: Vec<Bolt>, n: u32, id: u32) -> u32:
+  if n >= bolts.len():
+    return 0
+  let mut c: u32 = 0
+  if bolts[n].owner == id:
+    c = 1
+  return c + Session::bolts_of(bolts, n + 1, id)
+
+fn Session.touch_foes(self: Session mut, k: Knight mut, me: (i32, i32, i32, i32), fx: i32, bits: u32, was: i32, n: u32, say: Vec<str> mut) -> unit:
+  if n >= self.foes.len():
+    return
+  let mut foe = self.foes[n]
+  let fr = foe.rect()
+  if foe.alive() && overlap(me, fr):
+    # From above: the feet were over its head a tick ago.
+    let falling = k.body.vy > 0 && was <= (fr.1 + 4) * Q
+    let striking = k.body.mode == Move::Pound || k.body.mode == Move::Dive || k.body.mode == Move::Belly
+    if striking || falling:
+      let kind = foe.kind
+      let cx = (fr.0 + fr.2) / 2
+      let cy = fr.3
+      foe.defeat()
+      self.foes[n] = foe
+      self.fx(FxKind::Pop, cx, cy)
+      say.push("kill")
+      let value = 100 << (k.chain as u32).min(6)
+      k.score += value
+      if falling && !striking:
+        k.chain = ((k.chain as u32) + 1).min(255)
+        k.body.bounce(bits & B_JUMP != 0)
+      if kind == FoeKind::Capped && !striking:
+        let mut cap = Item::new(ItemKind::Cap, cx, cy)
+        if k.body.face > 0:
+          cap.dir = 1
+        else:
+          cap.dir = -1
+        self.items.push(cap)
+    else:
+      let mut from: i32 = -1
+      if foe.x.div_euclid(Q) > fx:
+        from = 1
+      if k.hit(-from):
+        say.push("knight_hit")
+        self.after_hit(k)
+  self.touch_foes(k, me, fx, bits, was, n + 1, say)
+
+fn Session.touch_boulders(self: Session mut, k: Knight mut, me: (i32, i32, i32, i32), bits: u32, was: i32, n: u32, say: Vec<str> mut) -> unit:
+  if n >= self.boulders.len():
+    return
+  let floor = layout::SNOW_FLOOR * TILE
+  let bx = self.boulders[n].x.div_euclid(Q)
+  let r = (bx - 14, floor - 28, bx + 14, floor)
+  if overlap(me, r):
+    if k.body.vy > 0 && was <= (r.1 + 4) * Q:
+      k.body.bounce(bits & B_JUMP != 0)
+      say.push("clang")
+    elif k.hit(1):
+      say.push("knight_hit_big")
+      self.after_hit(k)
+  self.touch_boulders(k, me, bits, was, n + 1, say)
+
+# The items a knight is on: loaves and flames are taken, caps are kicked or carried.
+# Returns the indices to drop.
+fn Session.touch_items(self: Session mut, id: u32, k: Knight mut, me: (i32, i32, i32, i32), bits: u32, was: i32, n: u32, gone: Vec<u32>, say: Vec<str> mut) -> Vec<u32>:
+  if n >= self.items.len():
+    return gone
+  let it = self.items[n]
+  let r = it.rect()
+  if it.kind == ItemKind::Cap:
+    self.touch_cap(id, k, n, bits, was, say)
+  elif !it.rising() && overlap(me, r):
+    gone.push(n)
+    say.push("potion")
+    k.score += 1000
+    if k.size == Size::Small:
+      k.size = Size::Big
+      k.body.big = true
+      k.body.regrow(self.changed)
+    elif it.kind == ItemKind::Flame:
+      k.size = Size::Flame
+    else:
+      k.pips = ((k.pips as u32) + 2).min(PIPS as u32)
+  return self.touch_items(id, k, me, bits, was, n + 1, gone, say)
+
+# Remove the listed items, highest first.
+fn Session.remove_gone(self: Session mut, gone: Vec<u32>, n: u32, skip: u32) -> unit:
+  if n == 0:
+    return
+  self.items.remove(gone[n - 1])
+  self.remove_gone(gone, n - 1, skip)
+
+fn Session.held_cap(self: Session, id: u32, n: u32) -> u32:
+  if n >= self.items.len():
+    return n
+  let it = self.items[n]
+  if it.kind == ItemKind::Cap && it.cap == CapState::Carried && it.owner == id:
+    return n
+  return self.held_cap(id, n + 1)
+
+fn Session.carried_cap(self: Session mut, id: u32, k: Knight mut, bits: u32, say: Vec<str> mut) -> unit:
+  let n = self.held_cap(id, 0)
+  if n >= self.items.len():
+    k.carry = false
+    return
+  let mut it = self.items[n]
+  if bits & B_ACT == 0:
+    # Let go: thrown the way the knight faces.
+    it.cap = CapState::Slide
+    it.dir = k.body.face
+    it.t = 0
+    self.items[n] = it
+    k.carry = false
+    say.push("swing")
+  else:
+    it.x = k.body.x + (k.body.face as i32) * 10 * Q
+    it.y = k.body.y - 2 * Q
+    it.t += 1
+    if it.t > CARRY:
+      self.items.remove(n)
+      k.carry = false
+      if k.hit(-k.body.face):
+        say.push("knight_hit")
+        self.after_hit(k)
+    else:
+      self.items[n] = it
+
+# A knight and a cap: kick it, carry it, or stop it.
+fn Session.touch_cap(self: Session mut, id: u32, k: Knight mut, n: u32, bits: u32, was: i32, say: Vec<str> mut) -> unit:
+  let me = px(k.body)
+  let it = self.items[n]
+  if it.cap == CapState::Carried || !overlap(me, it.rect()):
+    return
+  let on_top = k.body.vy > 0 && was <= (it.rect().1 + 4) * Q
+  let mut from: i32 = -1
+  if it.x.div_euclid(Q) > k.body.foot().0:
+    from = 1
+  let mut c = it
+  if it.cap == CapState::Rest:
+    if on_top:
+      # Stomp it away.
+      c.cap = CapState::Slide
+      if k.body.face > 0:
+        c.dir = 1
+      else:
+        c.dir = -1
+      c.owner = id
+      c.t = 0
+      self.items[n] = c
+      k.body.bounce(bits & B_JUMP != 0)
+      say.push("kill")
+    elif bits & B_ACT != 0 && !k.carry && k.free():
+      c.cap = CapState::Carried
+      c.owner = id
+      c.t = 0
+      self.items[n] = c
+      k.carry = true
+      say.push("shield_up")
+    else:
+      # Run into it: it flies off the way you ran.
+      c.cap = CapState::Slide
+      c.dir = from
+      c.owner = id
+      c.t = 0
+      self.items[n] = c
+      say.push("clang")
+  elif it.cap == CapState::Slide:
+    if on_top:
+      c.cap = CapState::Rest
+      c.vx = 0
+      self.items[n] = c
+      k.body.bounce(bits & B_JUMP != 0)
+      say.push("kill")
+    elif it.owner != id || it.t > 14:
+      if k.hit(-from):
+        say.push("knight_hit")
+        self.after_hit(k)
+
+# --- the rescue
+
+fn Session.mates(self: Session, ids: list<u32>, acc: Vec<Mate>) -> Vec<Mate>:
+  if ids.is_empty():
+    return acc
+  let id = ids.head()
+  let k = self.seats[id]
+  if k.alive() && k.free():
+    let r = px(k.body)
+    let (fx, fy) = k.body.foot()
+    acc.push(Mate{id: id, l: r.0, t: r.1, r: r.2, b: r.3, fx: fx, fy: fy})
+  return self.mates(ids.tail(), acc)
+
+# The first mate whose box meets the bubble's, or an index past the end.
+fn Session.mate_for(mates: Vec<Mate>, n: u32, bx: i32, by: i32) -> u32:
+  if n >= mates.len():
+    return n
+  let m = mates[n]
+  if overlap((m.l, m.t, m.r, m.b), (bx - 12, by - 12, bx + 12, by + 12)):
+    return n
+  return Session::mate_for(mates, n + 1, bx, by)
+
+fn Session.step_rescue(self: Session mut, say: Vec<str> mut) -> unit:
+  let mates = self.mates(self.seats.ids(), Vec::new())
+  let ids = self.seats.ids()
+  self.rescue_seats(ids, mates, say)
+  # A bubble with no friend near drifts toward the nearest one, slowly.
+  self.drift_seats(ids, mates)
+
+fn Session.rescue_seats(self: Session mut, ids: list<u32>, mates: Vec<Mate>, say: Vec<str> mut) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let k0 = self.seats[id]
+  if k0.bubble.is_some():
+    let b = k0.bubble.unwrap()
+    let bx = b.x.div_euclid(Q)
+    let by = b.y.div_euclid(Q)
+    let m = Session::mate_for(mates, 0, bx, by)
+    if m < mates.len():
+      let fx = mates[m].fx
+      let fy = mates[m].fy
+      let mut k = self.seats[id]
+      k.bubble = None
+      k.pips = BACK_PIPS
+      k.hurt = HURT_GRACE
+      k.body.place(fx, fy)
+      k.safe = (fx, fy)
+      k.cam = knight::follow(k.cam, fx, fy, k.body.face, 0, 0)
+      self.seats.insert(id, k)
+      self.fx(FxKind::Gleam, fx, fy - 12)
+      say.push("wish_grant")
+  self.rescue_seats(ids.tail(), mates, say)
+
+# The mate nearest in x to a column (the first of equals), or an index past the end.
+fn Session.mate_nearest(mates: Vec<Mate>, bx: i32, n: u32, best: u32, best_d: i32) -> u32:
+  if n >= mates.len():
+    return best
+  let d = (mates[n].fx - bx).abs()
+  if n == 0 || d < best_d:
+    return Session::mate_nearest(mates, bx, n + 1, n, d)
+  return Session::mate_nearest(mates, bx, n + 1, best, best_d)
+
+fn Session.drift_seats(self: Session mut, ids: list<u32>, mates: Vec<Mate>) -> unit:
+  if ids.is_empty():
+    return
+  let id = ids.head()
+  let mut k = self.seats[id]
+  if k.bubble.is_some() && mates.len() > 0:
+    let mut b = k.bubble.unwrap()
+    let m = Session::mate_nearest(mates, b.x.div_euclid(Q), 0, 0, 0)
+    b.x += (mates[m].fx * Q - b.x).clamp(-24, 24)
+    b.y += ((mates[m].fy - 20) * Q - b.y).clamp(-16, 16)
+    k.bubble = Some(b)
+    self.seats.insert(id, k)
+  self.drift_seats(ids.tail(), mates)
+
+case Session.step_things: session=self => session=self
+case Session.step_boulders: session=self => session=self
+case Session.touch_things: session=self => session=self
+case Session.touch_cap: session=self => session=self
+case Session.step_rescue: session=self => session=self
+case Session.retry: session=self => session=self

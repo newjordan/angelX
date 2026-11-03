@@ -11,8 +11,8 @@ The operator, 2026-10-18:
 - small figures in solemn spaces.
 
 **The references:**
-- the lantern corridor (`/work/artifacts/delve-handoff-20261018/look-reference.png`);
-- the monolith's castle and river (`/work/artifacts/monolith/review/`, docs/REALM-MONOLITH.md).
+- the lantern corridor (`<artifacts>/delve-handoff-20261018/look-reference.png`);
+- the monolith's castle and river (`<artifacts>/monolith/review/`, docs/REALM-MONOLITH.md).
 
 Every number below was measured from that approved work.
 

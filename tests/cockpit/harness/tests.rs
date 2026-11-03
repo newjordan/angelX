@@ -220,6 +220,8 @@ mod cargo_tool;
 mod code_mode;
 #[path = "tests__comp_watch.rs"]
 mod comp_watch;
+#[path = "tests__competition_leg.rs"]
+mod competition_leg;
 #[path = "tests__context_compact.rs"]
 mod context_compact;
 #[path = "tests__context_recall.rs"]
@@ -246,6 +248,8 @@ mod interception_seats;
 mod k5_cargo_yolo;
 #[path = "tests__kit_registry.rs"]
 mod kit_registry;
+#[path = "tests__live_outcomes.rs"]
+mod live_outcomes;
 #[path = "tests__mcp_provider_lifecycle.rs"]
 mod mcp_provider_lifecycle;
 #[path = "tests__mutation_signatures.rs"]
@@ -280,6 +284,8 @@ mod telemetry;
 mod tool_aging;
 #[path = "tests__trajectory_moa.rs"]
 mod trajectory_moa;
+#[path = "tests__turn_hot_path.rs"]
+mod turn_hot_path;
 #[path = "tests__verification.rs"]
 mod verification;
 #[path = "tests__verification_targets.rs"]

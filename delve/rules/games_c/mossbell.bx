@@ -1,0 +1,591 @@
+# crates/delve/src/rules/mossbell.rs — Mossbell, a pinball table in Mossbell's Bathhouse. All the physics is
+# integer (i32, with i64 in the contact maths). Beat is "Idle" | "RootTell" | "Root" | "CrownTell" | "Crown" |
+# "Flinch" | "Defeat". A Stroke is {left, right, nudge (i8), launch}; a Table {ball, seed, keys: [4 bools], history}.
+
+def mossbell.Q() -> U32:
+  256
+
+def mossbell.LENGTH() -> U32:
+  (60 * rules.HZ() : U32)
+
+def mossbell.GOLD_PER_SEAT() -> U32:
+  10
+
+def mossbell.BAY.x() -> F32:
+  31.0
+
+def mossbell.BAY.y() -> F32:
+  18.0
+
+def mossbell.BUMPER.x(+i: U32) -> U32:
+  gc.nth_u([44, 116, 80], i)
+
+def mossbell.BUMPER.y(+i: U32) -> U32:
+  gc.nth_u([57, 57, 83], i)
+
+def mossbell.BUMPER.r(+i: U32) -> U32:
+  gc.nth_u([10, 10, 11], i)
+
+# Ball::new()
+def mossbell.Ball.new() -> J.Val:
+  b0: J.Val = gc.si(gc.si(gc.si(gc.si(J.obj(), "x", (145 * 256 : U32)), "y", (122 * 256 : U32)), "vx", 0), "vy", 0)
+  b1: J.Val = J.set(b0, "trail", J.JA{[gc.pairu(145, 122), gc.pairu(145, 122), gc.pairu(145, 122), gc.pairu(145, 122)]})
+  b2: J.Val = gc.zeros(b1, ["score", "drains", "chain", "lit", "attack", "hit", "freeze", "left", "right", "burst"])
+  b3: J.Val = gc.su(gc.su(gc.su(b2, "hp", 6), "beat_left", 120), "save", 1)
+  b4: J.Val = gc.ss(b3, "beat", "Idle")
+  b5: J.Val = J.set(b4, "flash", J.JA{[J.JU{0}, J.JU{0}, J.JU{0}]})
+  gc.snull(J.set(b5, "impact", gc.pairu(145, 122)), "jackpot_at")
+
+# Ball::contact(x, y)
+def mossbell.Ball.contact(+b: J.Val, +x: U32, +y: U32) -> J.Val:
+  gc.su(J.set(b, "impact", gc.pairu(x, y)), "burst", 12)
+
+# fn circle(&mut self, cx, cy, r, bounce) -> bool
+def mossbell.Ball.circle(+b: J.Val, +cx: U32, +cy: U32, +r: U32, +bounce: U32) -> J.Val & Bool:
+  dx0: U32 = RS.i_sub(gc.u(b, "x"), cx)
+  dy0: U32 = RS.i_sub(gc.u(b, "y"), cy)
+  zero: Bool = Bool.and(U32.is_zero(dx0), U32.is_zero(dy0))
+  dx: U32 = gc.pu(zero, 1, dx0)
+  dy: U32 = gc.pu(zero, RS.i_neg(256), dy0)
+  d2: W.W = W.add(W.mul(gc.l_of(dx), gc.l_of(dx)), W.mul(gc.l_of(dy), gc.l_of(dy)))
+  r2: W.W = W.mul(W.of_u32(r), W.of_u32(r))
+  if W.ge(d2, r2):
+    (b, False{})
+  else:
+    mossbell.Ball.circle2(b, cx, cy, r, bounce, dx, dy, d2)
+
+def mossbell.Ball.circle2(+b: J.Val, +cx: U32, +cy: U32, +r: U32, +bounce: U32, +dx: U32, +dy: U32, +d2: W.W) -> J.Val & Bool:
+  d: U32 = RS.u_isqrt(W.lo32(d2))
+  closing: W.W = W.add(W.mul(gc.l_of(gc.u(b, "vx")), gc.l_of(dx)), W.mul(gc.l_of(gc.u(b, "vy")), gc.l_of(dy)))
+  dm: U32 = RS.i_max(d, 1)
+  b1: J.Val = gc.si(gc.si(b, "x", RS.i_add(cx, RS.i_div(RS.i_mul(dx, r), dm))), "y", RS.i_add(cy, RS.i_div(RS.i_mul(dy, r), dm)))
+  if gc.l_neg_p(closing):
+    den: W.W = W.mul(d2, W.of_u32(100))
+    dvx: W.W = gc.l_div(W.mul(W.mul(closing, gc.l_of(dx)), W.of_u32((100 + bounce : U32))), den)
+    dvy: W.W = gc.l_div(W.mul(W.mul(closing, gc.l_of(dy)), W.of_u32((100 + bounce : U32))), den)
+    (gc.si(gc.si(b1, "vx", RS.i_sub(gc.u(b1, "vx"), W.lo32(dvx))), "vy", RS.i_sub(gc.u(b1, "vy"), W.lo32(dvy))), True{})
+  else:
+    (b1, False{})
+
+# fn rail(&mut self, a, b, bounce) -> bool: the segment's nearest point is a circle of radius 3.
+def mossbell.Ball.rail(+b: J.Val, +ax0: U32, +ay0: U32, +bx0: U32, +by0: U32, +bounce: U32) -> J.Val & Bool:
+  ax: U32 = (ax0 * 256 : U32)
+  ay: U32 = (ay0 * 256 : U32)
+  dx: U32 = RS.i_mul(RS.i_sub(bx0, ax0), 256)
+  dy: U32 = RS.i_mul(RS.i_sub(by0, ay0), 256)
+  length: W.W = W.add(W.mul(gc.l_of(dx), gc.l_of(dx)), W.mul(gc.l_of(dy), gc.l_of(dy)))
+  dot0: W.W = W.add(W.mul(gc.l_of(RS.i_sub(gc.u(b, "x"), ax)), gc.l_of(dx)), W.mul(gc.l_of(RS.i_sub(gc.u(b, "y"), ay)), gc.l_of(dy)))
+  dot: W.W = gc.l_clamp(dot0, W.zero(), length)
+  cx: U32 = RS.i_add(ax, W.lo32(gc.l_div(W.mul(gc.l_of(dx), dot), length)))
+  cy: U32 = RS.i_add(ay, W.lo32(gc.l_div(W.mul(gc.l_of(dy), dot), length)))
+  mossbell.Ball.circle(b, cx, cy, (3 * 256 : U32), bounce)
+
+def mossbell.in_range(+v: U32, +lo: U32, +hi: U32) -> Bool:
+  Bool.and(RS.i_ge(v, lo), RS.i_le(v, hi))
+
+# Ball::step(stroke, tune, age, seed, tick)
+def mossbell.Ball.step(+b: J.Val, +stroke: J.Val, +tune: J.Val, +age: U32, +seed: W.W, +tick: W.W) -> J.Val:
+  b1: J.Val = gc.ifj(gc.b(stroke, "left"), _ => gc.su(b, "left", 5), _ => b)
+  b2: J.Val = gc.ifj(gc.b(stroke, "right"), _ => gc.su(b1, "right", 5), _ => b1)
+  fl: List<&2, U32> = mossbell.cool3(gc.us(J.get(b2, "flash")))
+  b3: J.Val = gc.su(gc.su(J.set(b2, "flash", gc.of_us(fl)), "hit", gc.ssub(gc.u(b2, "hit"), 1)), "burst", gc.ssub(gc.u(b2, "burst"), 1))
+  b4: J.Val = mossbell.beat(b3, seed)
+  if U32.is_gt(gc.u(b4, "freeze"), 0):
+    gc.su(b4, "freeze", (gc.u(b4, "freeze") - 1 : U32))
+  else:
+    if U32.is_gt(gc.u(b4, "save"), 0):
+      save: U32 = (gc.u(b4, "save") - 1 : U32)
+      b5: J.Val = gc.su(b4, "save", save)
+      if Bool.or(U32.is_zero(save), gc.b(stroke, "launch")):
+        gc.si(gc.si(gc.si(gc.si(gc.si(gc.su(J.set(b5, "trail", mossbell.trail0()), "save", 0), "x", (145 * 256 : U32)), "y", (122 * 256 : U32)), "vx", 0), "vy", RS.i_neg(gc.u(tune, "moss_launch"))), "unused", 0)
+      else:
+        b5
+    else:
+      mossbell.Ball.move(b4, stroke, tune, age, seed, tick)
+
+def mossbell.trail0() -> J.Val:
+  J.JA{[gc.pairu(145, 122), gc.pairu(145, 122), gc.pairu(145, 122), gc.pairu(145, 122)]}
+
+def mossbell.cool3(+xs: List<&2, U32>) -> List<&2, U32>:
+  match xs as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{h: U32, t: List<&2, U32>}:
+      gc.ssub(h, 1) <> mossbell.cool3(t)
+
+# The boss's beat machine: tell, strike, rest.
+def mossbell.beat(+b: J.Val, +seed: W.W) -> J.Val:
+  if U32.is_zero(gc.u(b, "hp")):
+    gc.ss(b, "beat", "Defeat")
+  else:
+    left: U32 = gc.ssub(gc.u(b, "beat_left"), 1)
+    b1: J.Val = gc.su(b, "beat_left", left)
+    if U32.is_zero(left):
+      beat: String = gc.s(b1, "beat")
+      if Bool.or(String.eq(beat, "Idle"), String.eq(beat, "Flinch")):
+        tell: Bool = U32.is_zero(U32.and((gc.u(b1, "attack") + W.lo32(seed) : U32), 1))
+        gc.su(gc.su(gc.ss(b1, "beat", gc.ps(tell, "RootTell", "CrownTell")), "attack", (gc.u(b1, "attack") + 1 : U32)), "beat_left", gc.pu(U32.is_gt(gc.u(b1, "hp"), 2), 36, 30))
+      else:
+        if String.eq(beat, "RootTell"):
+          gc.su(gc.ss(b1, "beat", "Root"), "beat_left", 12)
+        else:
+          if String.eq(beat, "CrownTell"):
+            gc.su(gc.ss(b1, "beat", "Crown"), "beat_left", 12)
+          else:
+            gc.su(gc.ss(b1, "beat", "Idle"), "beat_left", (90 + (gc.u(b1, "hp") * 10 : U32) : U32))
+    else:
+      b1
+
+# trail.rotate_right(1); trail[0] = (x, y)
+def mossbell.trail_push(+trail: J.Val, +x: U32, +y: U32) -> J.Val:
+  J.JA{gc.pairi(x, y) <> List.take(&2, J.Val, J.items(trail), 3n)}
+
+def mossbell.Ball.move(+b: J.Val, +stroke: J.Val, +tune: J.Val, +age: U32, +seed: W.W, +tick: W.W) -> J.Val:
+  trail: J.Val = J.get(b, "trail")
+  t1: J.Val = mossbell.trail_push(trail, RS.i_div(gc.u(b, "x"), 256), RS.i_div(gc.u(b, "y"), 256))
+  nudge: U32 = gc.u(stroke, "nudge")
+  b1: J.Val = gc.si(J.set(b, "trail", t1), "vx", RS.i_add(gc.u(b, "vx"), RS.i_mul(nudge, gc.u(tune, "moss_nudge"))))
+  b2: J.Val = gc.ifj(U32.is_ne(nudge, 0), _ => gc.si(b1, "vy", RS.i_sub(gc.u(b1, "vy"), RS.i_div(gc.u(tune, "moss_nudge"), 2))), _ => b1)
+  b3: J.Val = gc.ifj(Bool.and(RS.i_gt(gc.u(b2, "x"), (140 * 256 : U32)), Bool.and(RS.i_lt(gc.u(b2, "y"), (22 * 256 : U32)), U32.is_zero(gc.u(b2, "vx")))), _ => gc.si(b2, "vx", RS.i_neg((360 + U32.and(W.lo32(W.rotl(seed, U32.mod(age, 64))), 63) : U32))), _ => b2)
+  b4: J.Val = mossbell.swing(b3, gc.b(stroke, "left"), True{}, tune)
+  b5: J.Val = mossbell.swing(b4, gc.b(stroke, "right"), False{}, tune)
+  b6: J.Val = gc.si(b5, "vy", RS.i_add(gc.u(b5, "vy"), gc.u(tune, "moss_gravity")))
+  b7: J.Val = mossbell.sub(b6, tune, 4, gc.u(tune, "moss_bounce"), tick)
+  b8: J.Val = gc.si(gc.si(b7, "x", RS.i_clamp(gc.u(b7, "x"), 0, (160 * 256 : U32))), "y", RS.i_clamp(gc.u(b7, "y"), 0, (146 * 256 : U32)))
+  b9: J.Val = gc.su(gc.su(b8, "left", gc.ssub(gc.u(b8, "left"), 1)), "right", gc.ssub(gc.u(b8, "right"), 1))
+  gc.ifj(Bool.and(U32.is_zero(gc.u(b9, "hp")), Bool.and(U32.is_eq(gc.u(b9, "lit"), 7), J.is_null(J.get(b9, "jackpot_at")))), _ => J.set(gc.su(J.set(b9, "jackpot_at", W.to_j(tick)), "burst", 16), "impact", gc.pairu(80, 63)), _ => b9)
+
+# A flipper swung with the ball on it knocks it up and across.
+def mossbell.swing(+b: J.Val, +swing: Bool, +left: Bool, +tune: J.Val) -> J.Val:
+  bx: U32 = RS.i_div(gc.u(b, "x"), 256)
+  along: U32 = gc.pu(left, RS.i_sub(bx, 37), RS.i_sub(123, bx))
+  if Bool.and(swing, Bool.and(mossbell.in_range(along, 0, 33), RS.i_gt(gc.u(b, "vy"), 0))):
+    raised: U32 = RS.i_sub((119 * 256 : U32), RS.i_div(RS.i_mul(RS.i_mul(along, 8), 256), 33))
+    resting: U32 = RS.i_add((119 * 256 : U32), RS.i_div(RS.i_mul(RS.i_mul(along, 11), 256), 33))
+    y: U32 = gc.u(b, "y")
+    if Bool.and(RS.i_ge(y, RS.i_sub(raised, 768)), RS.i_le(y, RS.i_add(resting, 768))):
+      vx: U32 = gc.pu(left, RS.i_add(320, RS.i_mul(along, 12)), RS.i_sub(RS.i_neg(320), RS.i_mul(along, 12)))
+      b1: J.Val = gc.si(gc.si(gc.si(b, "y", RS.i_sub(raised, 1024)), "vy", RS.i_neg(gc.u(tune, "moss_flipper"))), "vx", vx)
+      gc.su(mossbell.Ball.contact(b1, RS.i_div(gc.u(b1, "x"), 256), RS.i_div(gc.u(b1, "y"), 256)), "freeze", 2)
+    else:
+      b
+  else:
+    b
+
+# The four sub-steps of a tick; a drain ends them.
+def mossbell.sub(+b: J.Val, +tune: J.Val, +n: U32, +bounce: U32, +tick: W.W) -> J.Val:
+  if U32.is_zero(n):
+    b
+  else:
+    r: J.Val & Bool = mossbell.sub1(b, tune, bounce)
+    (b2: J.Val, drained: Bool) = r
+    if drained:
+      b2
+    else:
+      mossbell.sub(b2, tune, (n - 1 : U32), bounce, tick)
+
+def mossbell.sub1(+b: J.Val, +tune: J.Val, +bounce: U32) -> J.Val & Bool:
+  b1: J.Val = gc.si(gc.si(b, "x", RS.i_add(gc.u(b, "x"), RS.i_div(gc.u(b, "vx"), 4))), "y", RS.i_add(gc.u(b, "y"), RS.i_div(gc.u(b, "vy"), 4)))
+  b2: J.Val = gc.ifj(RS.i_lt(gc.u(b1, "x"), (7 * 256 : U32)), _ => gc.si(gc.si(b1, "x", (7 * 256 : U32)), "vx", RS.i_div(RS.i_mul(RS.i_abs(gc.u(b1, "vx")), bounce), 100)), _ => b1)
+  b3: J.Val = gc.ifj(RS.i_gt(gc.u(b2, "x"), (153 * 256 : U32)), _ => gc.si(gc.si(b2, "x", (153 * 256 : U32)), "vx", RS.i_div(RS.i_mul(RS.i_neg(RS.i_abs(gc.u(b2, "vx"))), bounce), 100)), _ => b2)
+  b4: J.Val = gc.ifj(RS.i_lt(gc.u(b3, "y"), (6 * 256 : U32)), _ => gc.si(gc.si(b3, "y", (6 * 256 : U32)), "vy", RS.i_div(RS.i_mul(RS.i_abs(gc.u(b3, "vy")), bounce), 100)), _ => b3)
+  r1: J.Val & Bool = mossbell.Ball.rail(b4, 8, 98, 38, 123, bounce)
+  (b5: J.Val, h1: Bool) = r1
+  b6: J.Val = mossbell.right_rail(b5, bounce)
+  b7: J.Val = mossbell.flippers(b6, tune, bounce)
+  b8: J.Val = mossbell.bumpers(b7, bounce, 0)
+  b9: J.Val = mossbell.boss(b8, bounce)
+  b10: J.Val = gc.ifj(Bool.and(String.eq(gc.s(b9, "beat"), "Root"), mossbell.in_range(gc.u(b9, "y"), (72 * 256 : U32), (82 * 256 : U32))), _ => gc.si(gc.si(b9, "vx", gc.pu(U32.is_zero(U32.and(gc.u(b9, "attack"), 1)), 850, RS.i_neg(850))), "vy", 250), _ => b9)
+  b11: J.Val = gc.ifj(Bool.and(String.eq(gc.s(b10, "beat"), "Crown"), Bool.and(mossbell.in_range(gc.u(b10, "x"), (60 * 256 : U32), (100 * 256 : U32)), mossbell.in_range(gc.u(b10, "y"), (20 * 256 : U32), (43 * 256 : U32)))), _ => gc.si(b10, "vy", 900), _ => b10)
+  b12: J.Val = gc.si(gc.si(b11, "vx", RS.i_clamp(gc.u(b11, "vx"), RS.i_neg(2200), 2200)), "vy", RS.i_clamp(gc.u(b11, "vy"), RS.i_neg(2200), 2200))
+  if RS.i_gt(gc.u(b12, "y"), (143 * 256 : U32)):
+    b13: J.Val = gc.su(gc.su(gc.su(gc.su(b12, "drains", (gc.u(b12, "drains") + 1 : U32)), "chain", 0), "lit", 0), "save", 12)
+    b14: J.Val = gc.si(gc.si(gc.si(gc.si(b13, "x", (145 * 256 : U32)), "y", (122 * 256 : U32)), "vx", 0), "vy", 0)
+    (mossbell.Ball.contact(b14, 80, 134), True{})
+  else:
+    (b12, False{})
+
+# if !(x > 140Q && vy < 0) { rail((152,98),(122,123)) }
+def mossbell.right_rail(+b: J.Val, +bounce: U32) -> J.Val:
+  if Bool.and(RS.i_gt(gc.u(b, "x"), (140 * 256 : U32)), RS.i_lt(gc.u(b, "vy"), 0)):
+    b
+  else:
+    r: J.Val & Bool = mossbell.Ball.rail(b, 152, 98, 122, 123, bounce)
+    (b2: J.Val, h: Bool) = r
+    b2
+
+# Each flipper's rail; a live swing from a falling ball kicks it.
+def mossbell.flippers(+b: J.Val, +tune: J.Val, +bounce: U32) -> J.Val:
+  lact: U32 = gc.u(b, "left")
+  ract: U32 = gc.u(b, "right")
+  b1: J.Val = mossbell.flipper(b, tune, bounce, True{}, 37, 119, 70, gc.pu(U32.is_gt(lact, 0), 111, 130), lact)
+  mossbell.flipper(b1, tune, bounce, False{}, 123, 119, 90, gc.pu(U32.is_gt(ract, 0), 111, 130), ract)
+
+def mossbell.flipper(+b: J.Val, +tune: J.Val, +bounce: U32, +left: Bool, +ax: U32, +ay: U32, +tx: U32, +ty: U32, +active: U32) -> J.Val:
+  falling: Bool = RS.i_gt(gc.u(b, "vy"), 0)
+  r: J.Val & Bool = mossbell.Ball.rail(b, ax, ay, tx, ty, bounce)
+  (b1: J.Val, hit: Bool) = r
+  if Bool.and(hit, Bool.and(U32.is_gt(active, 0), falling)):
+    bx: U32 = RS.i_div(gc.u(b1, "x"), 256)
+    vx: U32 = gc.pu(left, RS.i_add(320, RS.i_mul(RS.i_sub(bx, 37), 12)), RS.i_sub(RS.i_neg(320), RS.i_mul(RS.i_sub(123, bx), 12)))
+    b2: J.Val = gc.si(gc.si(b1, "vy", RS.i_neg(gc.u(tune, "moss_flipper"))), "vx", vx)
+    gc.su(mossbell.Ball.contact(b2, RS.i_div(gc.u(b2, "x"), 256), RS.i_div(gc.u(b2, "y"), 256)), "freeze", 2)
+  else:
+    b1
+
+def mossbell.bumpers(+b: J.Val, +bounce: U32, +i: U32) -> J.Val:
+  if U32.is_ge(i, 3):
+    b
+  else:
+    x: U32 = mossbell.BUMPER.x(i)
+    y: U32 = mossbell.BUMPER.y(i)
+    r: J.Val & Bool = mossbell.Ball.circle(b, (x * 256 : U32), (y * 256 : U32), ((mossbell.BUMPER.r(i) + 3 : U32) * 256 : U32), bounce)
+    (b1: J.Val, hit: Bool) = r
+    if Bool.and(hit, U32.is_zero(J.u32(J.nth(J.get(b1, "flash"), i)))):
+      lit: U32 = U32.or(gc.u(b1, "lit"), gc.bit(i))
+      b2: J.Val = gc.su(gc.su(J.set(b1, "flash", J.set_nth(J.get(b1, "flash"), i, J.JU{12})), "score", (gc.u(b1, "score") + 25 : U32)), "lit", lit)
+      b3: J.Val = gc.si(gc.su(b2, "chain", RS.u_count_ones(lit)), "vx", RS.i_add(gc.u(b2, "vx"), gc.pu(RS.i_gt(gc.u(b2, "x"), (x * 256 : U32)), 90, RS.i_neg(90))))
+      mossbell.bumpers(mossbell.Ball.contact(gc.si(b3, "vy", RS.i_sub(gc.u(b3, "vy"), 100)), x, y), bounce, (i + 1 : U32))
+    else:
+      mossbell.bumpers(b1, bounce, (i + 1 : U32))
+
+# The Moss Boss: a hit costs it a point; at zero it is beaten.
+def mossbell.boss(+b: J.Val, +bounce: U32) -> J.Val:
+  if U32.is_zero(gc.u(b, "hp")):
+    b
+  else:
+    r: J.Val & Bool = mossbell.Ball.circle(b, (80 * 256 : U32), (27 * 256 : U32), (19 * 256 : U32), bounce)
+    (b1: J.Val, hit: Bool) = r
+    if Bool.and(hit, U32.is_zero(gc.u(b1, "hit"))):
+      hp: U32 = (gc.u(b1, "hp") - 1 : U32)
+      b2: J.Val = mossbell.Ball.contact(gc.su(gc.su(gc.su(b1, "hp", hp), "score", (gc.u(b1, "score") + 100 : U32)), "hit", 10), 80, 33)
+      if U32.is_zero(hp):
+        gc.ss(gc.su(b2, "score", (gc.u(b2, "score") + 300 : U32)), "beat", "Defeat")
+      else:
+        gc.su(gc.ss(b2, "beat", "Flinch"), "beat_left", 12)
+    else:
+      b1
+
+# Stroke::merge(&mut self, other)
+def mossbell.Stroke.merge(+a: J.Val, +o: J.Val) -> J.Val:
+  s1: J.Val = gc.sb(gc.sb(a, "left", Bool.or(gc.b(a, "left"), gc.b(o, "left"))), "right", Bool.or(gc.b(a, "right"), gc.b(o, "right")))
+  s2: J.Val = gc.ifj(U32.is_ne(gc.u(o, "nudge"), 0), _ => J.set(s1, "nudge", J.get(o, "nudge")), _ => s1)
+  gc.sb(s2, "launch", Bool.or(gc.b(a, "launch"), gc.b(o, "launch")))
+
+def mossbell.Stroke.new(+left: Bool, +right: Bool, +nudge: U32, +launch: Bool) -> J.Val:
+  gc.sb(gc.si(gc.sb(gc.sb(J.obj(), "left", left), "right", right), "nudge", nudge), "launch", launch)
+
+# Table::new(seed)
+def mossbell.Table.new(+seed: J.Val) -> J.Val:
+  t0: J.Val = J.set(J.set(J.obj(), "ball", mossbell.Ball.new()), "seed", seed)
+  t1: J.Val = J.set(t0, "keys", J.JA{[J.JBool{False{}}, J.JBool{False{}}, J.JBool{False{}}, J.JBool{False{}}]})
+  J.set(t1, "history", J.JA{Nil{}})
+
+def mossbell.key(+t: J.Val, +i: U32) -> Bool:
+  J.bool(J.nth(J.get(t, "keys"), i))
+
+# Table::step(input, tune, age, tick, allowance)
+def mossbell.Table.step(+t: J.Val, +input: J.Val, +tune: J.Val, +age: U32, +tick: W.W, +allowance: W.W) -> J.Val:
+  lt: J.Val = J.get(input, "latch_tick")
+  ok: Bool = Bool.and(rules.Input.valid(input), Bool.or(J.is_null(lt), Bool.and(W.le(W.of_j(lt), tick), W.le(W.sub(tick, W.of_j(lt)), allowance))))
+  i: J.Val = gc.ifj(ok, _ => input, _ => rules.Input.default())
+  k0: Bool = Bool.or(gc.neg(gc.u(i, "move_x")), gc.b(i, "fire"))
+  k1: Bool = Bool.or(Bool.and(U32.is_ne(gc.u(i, "move_x"), 0), Bool.not(gc.neg(gc.u(i, "move_x")))), gc.b(i, "fire"))
+  k2: Bool = gc.neg(gc.u(i, "move_y"))
+  k3: Bool = gc.b(i, "fire")
+  left_side: Bool = RS.i_lt(gc.u(J.get(t, "ball"), "x"), (80 * 256 : U32))
+  nudge: U32 = gc.pu(left_side, 1, RS.i_neg(1))
+  stroke: J.Val = mossbell.Stroke.new(Bool.and(k0, Bool.not(mossbell.key(t, 0))), Bool.and(k1, Bool.not(mossbell.key(t, 1))), gc.pu(Bool.and(k2, Bool.not(mossbell.key(t, 2))), nudge, 0), Bool.and(k3, Bool.not(mossbell.key(t, 3))))
+  t1: J.Val = J.set(t, "keys", J.JA{[J.JBool{k0}, J.JBool{k1}, J.JBool{k2}, J.JBool{k3}]})
+  if J.is_null(lt):
+    mossbell.Table.record(t1, stroke, tune, age, tick)
+  else:
+    stamped: J.Val = mossbell.Stroke.new(k0, k1, gc.pu(k2, nudge, 0), k3)
+    sample: W.W = W.of_j(lt)
+    if W.lt(sample, tick):
+      t2: J.Val = mossbell.Table.replay(t1, sample, stamped, k2)
+      mossbell.Table.record(t2, mossbell.Stroke.new(False{}, False{}, 0, False{}), tune, age, tick)
+    else:
+      mossbell.Table.record(t1, gc.ifj(W.gt(sample, tick), _ => mossbell.Stroke.new(False{}, False{}, 0, False{}), _ => stamped), tune, age, tick)
+
+# A late stamped press rewinds to its tick and replays the history with the stroke merged in.
+def mossbell.Table.replay(+t: J.Val, +sample: W.W, +stroke: J.Val, +nudging: Bool) -> J.Val:
+  at: U32 = mossbell.position(J.items(J.get(t, "history")), sample, 0)
+  if U32.is_eq(at, 4294967295):
+    t
+  else:
+    h: J.Val = J.nth(J.get(t, "history"), at)
+    s1: J.Val = gc.ifj(nudging, _ => gc.si(stroke, "nudge", gc.pu(RS.i_lt(gc.u(J.get(h, "before"), "x"), (80 * 256 : U32)), 1, RS.i_neg(1))), _ => stroke)
+    h2: J.Val = J.set(h, "stroke", mossbell.Stroke.merge(J.get(h, "stroke"), s1))
+    hist1: J.Val = J.set_nth(J.get(t, "history"), at, h2)
+    r: J.Val & J.Val = mossbell.rerun(J.items(gc.drop_front(hist1, at)), J.get(h2, "before"), J.get(t, "seed"), Nil{})
+    (ball: J.Val, redone: J.Val) = r
+    J.set(J.set(t, "ball", ball), "history", J.JA{List.append(&2, J.Val, J.items(J.truncate(hist1, at)), J.items(redone))})
+
+def mossbell.position(+hs: List<&2, J.Val>, +sample: W.W, +i: U32) -> U32:
+  match hs as List<&2, J.Val>:
+    case Nil{}:
+      4294967295
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if W.eq(W.of_j(J.get(h, "tick")), sample):
+        i
+      else:
+        mossbell.position(t, sample, (i + 1 : U32))
+
+# Replay the samples: each remembers the ball before it, then steps it.
+def mossbell.rerun(+hs: List<&2, J.Val>, +ball: J.Val, +seed: J.Val, +acc: List<&2, J.Val>) -> J.Val & J.Val:
+  match hs as List<&2, J.Val>:
+    case Nil{}:
+      (ball, J.JA{List.reverse(&2, J.Val, acc)})
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      h2: J.Val = J.set(h, "before", ball)
+      b2: J.Val = mossbell.Ball.step(ball, J.get(h, "stroke"), J.get(h, "tune"), gc.u(h, "age"), W.of_j(seed), W.of_j(J.get(h, "tick")))
+      mossbell.rerun(t, b2, seed, h2 <> acc)
+
+# History gets this tick's sample (30 kept), then the ball steps.
+def mossbell.Table.record(+t: J.Val, +stroke: J.Val, +tune: J.Val, +age: U32, +tick: W.W) -> J.Val:
+  sample: J.Val = J.set(J.set(gc.su(J.set(J.obj(), "tick", W.to_j(tick)), "age", age), "before", J.get(t, "ball")), "stroke", stroke)
+  hist: J.Val = J.push(J.get(t, "history"), J.set(sample, "tune", tune))
+  hist2: J.Val = gc.ifj(U32.is_gt(gc.len(J.items(hist)), rules.HZ()), _ => gc.drop_front(hist, 1), _ => hist)
+  J.set(J.set(t, "history", hist2), "ball", mossbell.Ball.step(J.get(t, "ball"), stroke, tune, age, W.of_j(J.get(t, "seed")), tick))
+
+# Table::bot_input()
+def mossbell.Table.bot_input(+t: J.Val) -> J.Val:
+  b: J.Val = J.get(t, "ball")
+  fire: Bool = Bool.or(U32.is_gt(gc.u(b, "save"), 0), Bool.and(RS.i_gt(gc.u(b, "vy"), 0), Bool.and(RS.i_gt(gc.u(b, "y"), (103 * 256 : U32)), Bool.and(RS.i_lt(gc.u(b, "y"), (124 * 256 : U32)), Bool.not(mossbell.key(t, 3))))))
+  up: Bool = Bool.and(RS.i_gt(gc.u(b, "y"), (127 * 256 : U32)), Bool.not(mossbell.key(t, 2)))
+  gc.sb(gc.si(rules.Input.default(), "move_y", gc.pu(up, RS.i_neg(1), 0)), "fire", fire)
+
+# Session::new(seats, seed)
+def mossbell.Session.new(+seats: List<&2, U32>, +seed: J.Val) -> J.Val:
+  s0: J.Val = J.set(J.set(J.obj(), "tables", mossbell.tables(seats, seed)), "seed", seed)
+  s1: J.Val = gc.su(gc.su(s0, "started", 0), "left", mossbell.LENGTH())
+  gc.snull(J.set(gc.sb(J.set(s1, "order", J.JA{Nil{}}), "key", True{}), "jackpot", J.JA{Nil{}}), "jackpot_tick")
+
+def mossbell.tables(+seats: List<&2, U32>, +seed: J.Val) -> J.Val:
+  match seats as List<&2, U32>:
+    case Nil{}:
+      J.obj()
+    case Con{id: U32, t: List<&2, U32>}:
+      J.set(mossbell.tables(t, seed), gc.key(id), mossbell.Table.new(seed))
+
+# Session::points(id), score(id) as a key
+def mossbell.Session.points(+s: J.Val, +id: U32) -> U32:
+  (gc.u(J.get(gc.seat(J.get(s, "tables"), id), "ball"), "score") + gc.pu(gc.has_u(id, gc.us(J.get(s, "jackpot"))), 500, 0) : U32)
+
+def mossbell.Session.score(+s: J.Val, +id: U32) -> GcSc:
+  b: J.Val = J.get(gc.seat(J.get(s, "tables"), id), "ball")
+  GcSc{mossbell.Session.points(s, id), gc.u(b, "drains"), gc.ifw(J.is_null(J.get(b, "jackpot_at")), W.max_value(), W.of_j(J.get(b, "jackpot_at")))}
+
+# a < b: more points first, then fewer drains, then the earlier jackpot
+def mossbell.sc_lt(+a: GcSc, +b: GcSc) -> Bool:
+  match a as GcSc:
+    case GcSc{ap: U32, ad: U32, aj: W.W}:
+      match b as GcSc:
+        case GcSc{bp: U32, bd: U32, bj: W.W}:
+          Bool.or(U32.is_gt(ap, bp), Bool.and(U32.is_eq(ap, bp), Bool.or(U32.is_lt(ad, bd), Bool.and(U32.is_eq(ad, bd), W.lt(aj, bj)))))
+
+def mossbell.sc_eq(+a: GcSc, +b: GcSc) -> Bool:
+  match a as GcSc:
+    case GcSc{ap: U32, ad: U32, aj: W.W}:
+      match b as GcSc:
+        case GcSc{bp: U32, bd: U32, bj: W.W}:
+          Bool.and(U32.is_eq(ap, bp), Bool.and(U32.is_eq(ad, bd), W.eq(aj, bj)))
+
+def mossbell.Session.place(+s: J.Val, +id: U32) -> U32:
+  (1 + mossbell.count_lt(s, gc.ids(J.get(s, "tables")), mossbell.Session.score(s, id)) : U32)
+
+def mossbell.count_lt(+s: J.Val, +ids: List<&2, U32>, +me: GcSc) -> U32:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      0
+    case Con{r: U32, t: List<&2, U32>}:
+      (gc.pu(mossbell.sc_lt(mossbell.Session.score(s, r), me), 1, 0) + mossbell.count_lt(s, t, me) : U32)
+
+# Session::race(): who has the earliest jackpot
+def mossbell.Session.race(+s: J.Val) -> J.Val:
+  m: J.Val = mossbell.min_jackpot(gc.vals(J.get(s, "tables")), J.JNull{})
+  s1: J.Val = J.set(s, "jackpot_tick", m)
+  J.set(s1, "jackpot", gc.of_us(mossbell.jackpot_ids(s1, gc.ids(J.get(s1, "tables")), m)))
+
+def mossbell.min_jackpot(+ts: List<&2, J.Val>, +best: J.Val) -> J.Val:
+  match ts as List<&2, J.Val>:
+    case Nil{}:
+      best
+    case Con{t: J.Val, rest: List<&2, J.Val>}:
+      j: J.Val = J.get(J.get(t, "ball"), "jackpot_at")
+      if J.is_null(j):
+        mossbell.min_jackpot(rest, best)
+      else:
+        mossbell.min_jackpot(rest, gc.ifj(Bool.or(J.is_null(best), W.lt(W.of_j(j), W.of_j(best))), _ => j, _ => best))
+
+def mossbell.jackpot_ids(+s: J.Val, +ids: List<&2, U32>, +m: J.Val) -> List<&2, U32>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      j: J.Val = J.get(J.get(gc.seat(J.get(s, "tables"), id), "ball"), "jackpot_at")
+      gc.ifx_us(Bool.and(Bool.not(J.is_null(j)), Bool.and(Bool.not(J.is_null(m)), W.eq(W.of_j(j), W.of_j(m)))), id, mossbell.jackpot_ids(s, t, m))
+
+# Session::payout(id)
+def mossbell.Session.payout(+s: J.Val, +id: U32) -> U32:
+  order: List<&2, U32> = gc.us(J.get(s, "order"))
+  match order as List<&2, U32>:
+    case Nil{}:
+      0
+    case Con{first: U32, t: List<&2, U32>}:
+      mossbell.payout.go(s, id, mossbell.Session.score(s, first))
+
+def mossbell.payout.go(+s: J.Val, +id: U32, +top: GcSc) -> U32:
+  if Bool.or(U32.is_gt(gc.u(s, "left"), 0), Bool.not(mossbell.sc_eq(mossbell.Session.score(s, id), top))):
+    0
+  else:
+    tied: U32 = mossbell.count_eq(s, gc.ids(J.get(s, "tables")), top, 4294967295)
+    before: U32 = mossbell.count_eq(s, gc.ids(J.get(s, "tables")), top, id)
+    pot: U32 = (mossbell.GOLD_PER_SEAT() * gc.len(gc.vals(J.get(s, "tables"))) : U32)
+    (U32.div(pot, tied) + gc.pu(U32.is_lt(before, U32.mod(pot, tied)), 1, 0) : U32)
+
+def mossbell.count_eq(+s: J.Val, +ids: List<&2, U32>, +top: GcSc, +below: U32) -> U32:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      0
+    case Con{r: U32, t: List<&2, U32>}:
+      (gc.pu(Bool.and(U32.is_lt(r, below), mossbell.sc_eq(mossbell.Session.score(s, r), top)), 1, 0) + mossbell.count_eq(s, t, top, below) : U32)
+
+# fn mossbell_showing(&self)
+def mossbell.Run.mossbell_showing(+run: J.Val) -> Bool:
+  Bool.and(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "bathhouse"), Bool.not(J.is_null(J.get(run, "mossbell"))))
+
+# fn tick_mossbell(&mut self, inputs)
+def mossbell.Run.tick_mossbell(+run: J.Val, +inputs: J.Val) -> J.Val:
+  if Bool.not(String.eq(J.str(J.get(rules.Run.room(run), "kind")), "bathhouse")):
+    J.set(run, "mossbell", J.JNull{})
+  else:
+    pressed: Bool = mossbell.pressed(run, inputs, gc.ids(inputs))
+    if J.is_null(J.get(run, "mossbell")):
+      gc.ifj(pressed, _ => mossbell.Run.start_mossbell(run), _ => run)
+    else:
+      mossbell.tick.session(J.set(run, "mossbell", J.JNull{}), inputs, J.get(run, "mossbell"))
+
+def mossbell.pressed(+run: J.Val, +inputs: J.Val, +ids: List<&2, U32>) -> Bool:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      False{}
+    case Con{id: U32, t: List<&2, U32>}:
+      i: J.Val = gc.seat(inputs, id)
+      h: J.Val = gc.seat(J.get(run, "players"), id)
+      here: Bool = Bool.and(rules.Input.valid(i), Bool.and(gc.b(i, "interact"), Bool.and(Bool.not(J.is_null(h)), mossbell.at_bay(run, h, id))))
+      Bool.or(here, mossbell.pressed(run, inputs, t))
+
+def mossbell.at_bay(+run: J.Val, +h: J.Val, +id: U32) -> Bool:
+  Bool.and(U32.is_gt(gc.u(h, "hp"), 0), Bool.and(Bool.not(gc.b(h, "stone")), Bool.and(Bool.not(gc.b(h, "away")), Bool.and(Bool.not(gc.has_seat(J.get(J.get(run, "exits"), "outside"), id)), F32.is_lt(RS.f_hypot((gc.f(h, "x") - mossbell.BAY.x() : F32), (gc.f(h, "y") - mossbell.BAY.y() : F32)), 3.0)))))
+
+def mossbell.tick.session(+run: J.Val, +inputs: J.Val, +s0: J.Val) -> J.Val:
+  tables: J.Val = latch.keep_duels(run, J.get(s0, "tables"), gc.ids(J.get(s0, "tables")))
+  order: List<&2, U32> = latch.keep_order(tables, gc.us(J.get(s0, "order")))
+  s: J.Val = mossbell.Session.race(J.set(J.set(s0, "tables", tables), "order", gc.of_us(order)))
+  if U32.is_zero(gc.len(gc.vals(tables))):
+    run
+  else:
+    mossbell.tick.live(run, inputs, s)
+
+def mossbell.tick.live(+run: J.Val, +inputs: J.Val, +s: J.Val) -> J.Val:
+  if U32.is_zero(gc.u(s, "left")):
+    take: Bool = latch.any_interact(J.get(s, "tables"), inputs, gc.ids(inputs))
+    if Bool.and(take, Bool.not(gc.b(s, "key"))):
+      mossbell.Run.start_mossbell(run)
+    else:
+      J.set(run, "mossbell", gc.sb(s, "key", take))
+  else:
+    age: U32 = (mossbell.LENGTH() - gc.u(s, "left") : U32)
+    s1: J.Val = gc.su(s, "left", (gc.u(s, "left") - 1 : U32))
+    r: J.Val & J.Val = mossbell.tick.tables(run, inputs, s1, age, gc.ids(J.get(s1, "tables")))
+    (run2: J.Val, s2: J.Val) = r
+    s3: J.Val = mossbell.Session.race(s2)
+    run3: J.Val = gc.ifj(Bool.not(J.eq(J.get(s3, "jackpot"), J.get(s1, "jackpot"))), _ => gc.sound(run2, "spoil_pickup"), _ => run2)
+    if U32.is_zero(gc.u(s3, "left")):
+      mossbell.tick.payout(run3, s3)
+    else:
+      J.set(run3, "mossbell", s3)
+
+def mossbell.tick.tables(+run: J.Val, +inputs: J.Val, +s: J.Val, +age: U32, +ids: List<&2, U32>) -> J.Val & J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      (run, s)
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = gc.seat(J.get(run, "players"), id)
+      if Bool.or(J.is_null(h), Bool.or(gc.b(h, "away"), gc.b(h, "stone"))):
+        mossbell.tick.tables(run, inputs, s, age, t)
+      else:
+        table: J.Val = gc.seat(J.get(s, "tables"), id)
+        old: J.Val = J.get(table, "ball")
+        t2: J.Val = mossbell.Table.step(table, gc.seat(inputs, id), J.get(run, "tune"), age, gc.tick(run), W.of_j(J.get(J.get(run, "latch_input_age"), gc.key(id))))
+        nb: J.Val = J.get(t2, "ball")
+        r1: J.Val = gc.ifj(U32.is_gt(gc.u(nb, "score"), gc.u(old, "score")), _ => gc.sound(run, gc.ps(U32.is_lt(gc.u(nb, "hp"), gc.u(old, "hp")), "hit", "clang")), _ => run)
+        r2: J.Val = gc.ifj(U32.is_gt(gc.u(nb, "drains"), gc.u(old, "drains")), _ => gc.sound(r1, "play_card"), _ => r1)
+        mossbell.tick.tables(r2, inputs, J.set(s, "tables", gc.put_seat(J.get(s, "tables"), id, t2)), age, t)
+
+# The match is over: order, record, purses.
+def mossbell.tick.payout(+run: J.Val, +s: J.Val) -> J.Val:
+  order: List<&2, U32> = mossbell.sort_ids(gc.ids(J.get(s, "tables")), s)
+  s1: J.Val = gc.sb(J.set(s, "order", gc.of_us(order)), "key", True{})
+  rec: J.Val = J.get(J.get(J.get(J.get(run, "home"), "countryside"), "games"), "mossbell")
+  top: U32 = gc.umin(gc.u(J.get(gc.seat(J.get(s1, "tables"), gc.nth_u(order, 0)), "ball"), "score"), 1000)
+  rec1: J.Val = gc.su(rec, "best", gc.umax(gc.u(rec, "best"), top))
+  rec2: J.Val = gc.ifj(U32.is_gt(gc.len(J.items(J.get(s1, "jackpot"))), 0), _ => gc.su(rec1, "wins", gc.umin(gc.sadd(gc.u(rec1, "wins"), 1), gc.u(rec1, "plays"))), _ => rec1)
+  r1: J.Val = mossbell.set_record(run, rec2)
+  r2: J.Val = J.set(r1, "players", mossbell.pay_players(J.get(r1, "players"), s1, gc.ids(J.get(r1, "players"))))
+  J.set(gc.sound(r2, "spoil_pickup"), "mossbell", s1)
+
+def mossbell.sort_ids(+ids: List<&2, U32>, +s: J.Val) -> List<&2, U32>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      mossbell.insert_id(id, mossbell.sort_ids(t, s), s)
+
+def mossbell.insert_id(+id: U32, +sorted: List<&2, U32>, +s: J.Val) -> List<&2, U32>:
+  match sorted as List<&2, U32>:
+    case Nil{}:
+      [id]
+    case Con{h: U32, t: List<&2, U32>}:
+      a: GcSc = mossbell.Session.score(s, id)
+      b: GcSc = mossbell.Session.score(s, h)
+      if Bool.or(mossbell.sc_lt(a, b), Bool.and(mossbell.sc_eq(a, b), U32.is_lt(id, h))):
+        id <> (h <> t)
+      else:
+        h <> mossbell.insert_id(id, t, s)
+
+def mossbell.set_record(+run: J.Val, +rec: J.Val) -> J.Val:
+  home: J.Val = J.get(run, "home")
+  cs: J.Val = J.get(home, "countryside")
+  games: J.Val = gc.score_put(J.get(cs, "games"), "mossbell", rec)
+  J.set(run, "home", J.set(home, "countryside", J.set(cs, "games", games)))
+
+def mossbell.pay_players(+players: J.Val, +s: J.Val, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      players
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = gc.seat(players, id)
+      if gc.has_seat(J.get(s, "tables"), id):
+        laurel: Bool = U32.is_eq(mossbell.Session.place(s, id), 1)
+        h1: J.Val = gc.sb(h, "laurel", laurel)
+        h2: J.Val = J.set(h1, "carried", realm.Spoils.add(J.get(h1, "carried"), "gold", mossbell.Session.payout(s, id)))
+        mossbell.pay_players(gc.put_seat(players, id, gc.ifj(laurel, _ => gc.snull(h2, "booby"), _ => h2)), s, t)
+      else:
+        mossbell.pay_players(players, s, t)
+
+# fn start_mossbell(&mut self)
+def mossbell.Run.start_mossbell(+run: J.Val) -> J.Val:
+  r: W.W & W.W = loot.Rng.next(W.of_j(J.get(run, "rng")))
+  (rng: W.W, seed: W.W) = r
+  r1: J.Val = J.set(run, "rng", W.to_j(rng))
+  s: J.Val = gc.su(mossbell.Session.new(latch.seats(r1, gc.ids(J.get(r1, "players"))), W.to_j(seed)), "started", 0)
+  s1: J.Val = J.set(s, "started", W.to_j(W.add_u32(gc.tick(r1), 1)))
+  if U32.is_zero(gc.len(gc.vals(J.get(s1, "tables")))):
+    r1
+  else:
+    rec: J.Val = J.get(J.get(J.get(J.get(r1, "home"), "countryside"), "games"), "mossbell")
+    r2: J.Val = mossbell.set_record(J.set(r1, "mossbell", s1), gc.su(rec, "plays", gc.sadd(gc.u(rec, "plays"), 1)))
+    gc.sound(r2, "play_card")

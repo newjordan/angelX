@@ -19,30 +19,27 @@ pub(crate) use std::time::{SystemTime, UNIX_EPOCH};
 
 mod agent_menu;
 mod artifact;
+mod browser_picker;
 mod campaign;
 pub(crate) use campaign::CampaignPending;
 mod commands;
-mod dungeon;
-mod dungeon_chivalry;
-mod dungeon_gear;
-mod dungeon_intro;
-mod dungeon_join;
-mod dungeon_reforge;
-pub(crate) use dungeon_reforge::Forge;
+mod realm;
 #[cfg(test)]
-pub(crate) use dungeon_reforge::ReforgeDraft;
-pub(crate) use dungeon_reforge::known_wishes;
-mod dungeon_realm;
-mod dungeon_session;
-mod dungeon_shooter;
+pub(crate) use angel_realm_host::control::dungeon_reforge;
+#[cfg(test)]
+mod realm_test_support;
+#[allow(unused_imports)]
+pub(crate) use angel_realm_host::control::{
+    DungeonView, Forge, Hosting, MAX_FRIENDS, MAX_WATCHED_FRIENDS, UPGRADES_PER_PAGE, Walk,
+    known_wishes,
+};
+#[cfg(test)]
+pub(crate) use angel_realm_host::control::ReforgeDraft;
 pub(crate) use commands::is_turn_context_message;
 #[cfg(test)]
 pub(crate) use commands::{TURN_CONTEXT_HEADER, retry_last_request, undo_last_exchange};
-pub(crate) use dungeon::DungeonView;
 mod moa;
 mod modules;
-mod overworld_walk;
-pub(crate) use overworld_walk::Walk;
 mod rating;
 mod research;
 mod round_table;

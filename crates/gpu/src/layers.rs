@@ -2,11 +2,11 @@
 //! with its shadow, each lit layer with its light, and on a tilted stage
 //! each stamped with how it stands on the floor.
 
-use angel_stage::{Layer, LayerKind, Placement, Stand, Tilt, motes};
+use angel_stage::{Layer, LayerKind, Placement, Stand, StrokeShape, Tilt, motes, stroke_pad};
 use bytemuck::Zeroable;
 
 use crate::Core;
-use crate::frame::{Draw, Instance, MASK, PRIMITIVE, extend_part, push_part};
+use crate::frame::{Draw, Instance, LINE, MASK, PRIMITIVE, RING, extend_part, push_part};
 
 /// A lifted layer: how far away the camera is (a layer this high is twice
 /// its size), how much of its lift shows as rising up the screen, and the
@@ -114,6 +114,32 @@ impl Core {
                             uv: [phase + now as f32 * speed, 0.0, lw / lh.max(0.01), 0.0],
                             color: [color[0], color[1], color[2], a],
                             kind: PRIMITIVE + shape,
+                            pivot: [cx, cy],
+                            angle: layer.angle,
+                            ..Zeroable::zeroed()
+                        },
+                    );
+                    emitted += 1;
+                }
+                LayerKind::Stroke(ref stroke) => {
+                    // The quad grows past the placement by what the width
+                    // and glow need; the shader takes the same pad back off
+                    // to find the ring's radius or the line's ends.
+                    let pad = stroke_pad(stroke) * scale;
+                    let a = stroke.color[3] * strength;
+                    let c = stroke.color;
+                    let size = [lw + 2.0 * pad, lh + 2.0 * pad];
+                    push_part(
+                        &mut parts,
+                        Draw::Atlas,
+                        Instance {
+                            rect: [rect[0] - pad, rect[1] - pad, size[0], size[1]],
+                            uv: [stroke.width * 0.5 * scale, stroke.glow * scale, size[0], size[1]],
+                            color: [c[0] * a, c[1] * a, c[2] * a, a * coverage],
+                            kind: match stroke.shape {
+                                StrokeShape::Ring => RING,
+                                StrokeShape::Line => LINE,
+                            },
                             pivot: [cx, cy],
                             angle: layer.angle,
                             ..Zeroable::zeroed()

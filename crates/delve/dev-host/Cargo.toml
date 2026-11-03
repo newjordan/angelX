@@ -21,3 +21,7 @@ angel-serve = { path = "../../serve" }
 [[bin]]
 name = "delve-walker"
 path = "src/walker.rs"
+
+[[bin]]
+name = "delve-net-probe"
+path = "src/net_probe.rs"

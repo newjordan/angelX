@@ -65,6 +65,152 @@ impl Sheet {
     }
 }
 
+#[test]
+fn floating_live_equipment_keeps_body_fitted_and_pivots_with_aim() {
+    // The wooden curve faces the aim; the string is pulled toward the
+    // knight, not out in front of the bow. At rest it is carried upright.
+    for view in [realm::View::Toward, realm::View::Across, realm::View::Away] {
+        for strike in [false, true] {
+            let (bow, _) = realm::equipment(view, Held::Bow, strike).unwrap();
+            let mut wood = Vec::new();
+            let mut string = Vec::new();
+            for y in 0..bow.h { for x in 0..bow.w {
+                match bow.get(x, y) {
+                    Some(c) if Some(c) == super::super::super::ink::ink('r') => wood.push((x, y)),
+                    Some(c) if Some(c) == super::super::super::ink::ink('g') || Some(c) == super::super::super::ink::ink('j') => string.push((x, y)),
+                    _ => {},
+                }
+            } }
+            assert!(!wood.is_empty() && !string.is_empty());
+            let component = |(x, y): (i32, i32)| {
+                if !strike || view == realm::View::Across { x }
+                else if view == realm::View::Toward { y } else { -y }
+            };
+            let wood_sum: i32 = wood.iter().copied().map(component).sum();
+            let string_sum: i32 = string.iter().copied().map(component).sum();
+            assert!(wood_sum * string.len() as i32 > string_sum * wood.len() as i32,
+                "{view:?}, strike={strike}: the string must be behind the wooden curve");
+        }
+    }
+    let run = Run::new(7, 1, Some("Friend"));
+    let mut hero = hero_of(&run);
+    hero.weapon = crate::rules::Weapon::Bow;
+    let a = figure_timed(&hero, 1, false, Struck::default(), false, Some(0));
+    let b = figure_timed(&hero, 1, false, Struck::default(), false, Some(22));
+    assert_eq!(a, b, "the grip must not bob independently of the hand");
+    hero.aim_y = -1.0;
+    let up = figure_timed(&hero, 1, false, Struck::default(), false, Some(22));
+    assert_ne!(a, up, "the bow turns to point up with the aim");
+    for image in [&a, &b, &up] {
+        let fit = body_of(&hero, image);
+        let native = figure(&hero, 1);
+        let reference = body_of(&hero, &native);
+        assert_eq!(fit.bounds[0] - image.w / 2, reference.bounds[0] - native.w / 2);
+        assert_eq!(image.h - fit.bounds[1], native.h - reference.bounds[1]);
+    }
+}
+
+#[test]
+fn floating_all_classes_and_champions_keep_body_anchors() {
+    let run = Run::new(7, 1, Some("Friend"));
+    let mut hero = hero_of(&run);
+    for name in ["Archer", "Shieldmaiden", "Gunner", "Swordsman", "Berserker", "Mage", "Healer", "Bard", "Peasant"] {
+        hero.class = Some(name.into());
+        for (ax, ay) in [(0.0, 1.0), (1.0, 0.0), (0.0, -1.0), (-1.0, 0.0), (1.0, -1.0), (-1.0, 1.0)] {
+            (hero.aim_x, hero.aim_y) = (ax, ay);
+            for strike in [false, true] {
+                let image = figure_timed(&hero, 1, false, Struck::default(), strike, Some(22));
+                let fit = body_of(&hero, &image);
+                let native = figure(&hero, 1);
+                let reference = body_of(&hero, &native);
+                assert_eq!(fit.bounds[0] - image.w / 2, reference.bounds[0] - native.w / 2, "{name}");
+                assert_eq!(image.h - fit.bounds[1], native.h - reference.bounds[1], "{name}");
+            }
+        }
+    }
+    hero.class = None;
+    for kit in ["gravecaller", "ironbraid", "hammerer", "butcher", "alchemist"] {
+        hero.knight = Some(kit.into());
+        let image = figure_timed(&hero, 1, false, Struck::default(), false, Some(22));
+        let fit = body_of(&hero, &image);
+        assert_eq!(fit.bounds[0] + fit.bounds[2] / 2, image.w / 2, "{kit}");
+        assert_eq!(fit.bounds[1] + fit.bounds[3], image.h, "{kit}");
+    }
+}
+
+#[test]
+#[ignore]
+fn write_floating_weapon_sheet() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else { return; };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let run = Run::new(7, 1, Some("Friend"));
+    let mut base = hero_of(&run);
+    base.weapon = crate::rules::Weapon::Bow;
+    let cases = [
+        ("BOW", None, None),
+        ("CROSSBOW", None, None),
+        ("HANDGONNE", None, None),
+        ("SWORD", None, None),
+        ("ARCHER", Some("Archer"), None),
+        ("GUNNER", Some("Gunner"), None),
+        ("SWORDSMAN", Some("Swordsman"), None),
+        ("MAGE", Some("Mage"), None),
+        ("GRAVECALLER", None, Some("gravecaller")),
+        ("DWARF", None, Some(DWARF)),
+        ("HAMMERER", None, Some("hammerer")),
+        ("BUTCHER", None, Some("butcher")),
+        ("ALCHEMIST", None, Some("alchemist")),
+    ];
+    let poses = [
+        ("UP", 22, (0.0, -1.0), false),
+        ("UP RIGHT", 22, (1.0, -1.0), false),
+        ("RIGHT", 22, (1.0, 0.0), false),
+        ("DOWN RIGHT", 22, (1.0, 1.0), false),
+        ("DOWN", 22, (0.0, 1.0), false),
+        ("DOWN LEFT", 22, (-1.0, 1.0), false),
+        ("LEFT", 22, (-1.0, 0.0), false),
+        ("UP LEFT", 22, (-1.0, -1.0), false),
+        ("FIRE UP", 22, (0.0, -1.0), true),
+        ("FIRE SIDE", 22, (1.0, 0.0), true),
+        ("FIRE DOWN", 22, (0.0, 1.0), true),
+    ];
+    const CELL: i32 = 70;
+    const ROW: i32 = 58;
+    const LEFT: i32 = 86;
+    let mut sheet = Img::new(LEFT + poses.len() as i32 * CELL, 22 + cases.len() as i32 * ROW);
+    for (col, (label, ..)) in poses.iter().enumerate() {
+        sheet.text(LEFT + col as i32 * CELL + 4, 5, label, 'J');
+    }
+    for (row, (label, class, knight)) in cases.into_iter().enumerate() {
+        let mut hero = base.clone();
+        hero.class = class.map(str::to_string);
+        hero.knight = knight.map(str::to_string);
+        hero.weapon = match label {
+            "CROSSBOW" => crate::rules::Weapon::Crossbow,
+            "HANDGONNE" => crate::rules::Weapon::Handgonne,
+            "SWORD" => crate::rules::Weapon::Fists,
+            _ => crate::rules::Weapon::Bow,
+        };
+        hero.sword = label == "SWORD";
+        sheet.text(2, 46 + row as i32 * ROW, label, 'J');
+        for (col, (_, tick, aim, strike)) in poses.into_iter().enumerate() {
+            (hero.aim_x, hero.aim_y) = aim;
+            hero.swing = if strike { 3 } else { 0 };
+            let im = figure_timed(&hero, 1, false, Struck::default(), strike, Some(tick));
+            let im = if aim.0 < -0.3 { im.flip_h() } else { im };
+            let x = LEFT + CELL / 2 + col as i32 * CELL;
+            let y = 74 + row as i32 * ROW;
+            sheet.line(x - 30, y + 1, x + 30, y + 1, 'g');
+            sheet.stamp(&im, x - im.w / 2, y - im.h + 1);
+        }
+    }
+    let png = image::RgbaImage::from_raw(sheet.w as u32, sheet.h as u32, sheet.rgba_bytes()).unwrap();
+    png.save(dir.join("floating-weapons-1x.png")).unwrap();
+    image::imageops::resize(&png, png.width() * 3, png.height() * 3, image::imageops::FilterType::Nearest)
+        .save(dir.join("floating-weapons.png")).unwrap();
+}
+
 fn hero_of(run: &Run) -> crate::rules::Hero {
     let mut h = run.players[&1].clone();
     (h.aim_x, h.aim_y, h.stride, h.swing, h.fire_cooldown) = (0.0, 1.0, 0.0, 0, 0);
@@ -333,12 +479,12 @@ fn write_hero_sheet() {
 
 /// The knights where players meet them: a crypt fight with four knights
 /// (the realm's knight in two seats, two classes in the others), the
-/// kingdom at the ranch, both art kits. `hero-scene-*.png` at the
+/// kingdom at the ranch. `hero-scene-*.png` at the
 /// browser's 1280x720.
 #[test]
 #[ignore]
 fn write_hero_scenes() {
-    use super::super::art_v2::testing;
+    use super::super::testing;
     let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
         return;
     };
@@ -393,76 +539,8 @@ fn write_hero_scenes() {
         }
         run
     };
-    let before = crate::settings::get();
-    for (kit, v2) in [("v1", false), ("v2", true)] {
-        crate::settings::set(crate::settings::Settings { art_v2: v2, ..before });
-        save(&format!("hero-scene-crypt-{kit}.png"), &frame(&crypt(), 1280, 720));
-        save(&format!("hero-scene-crypt-hurt-{kit}.png"), &frame(&hurt(), 1280, 720));
-        save(&format!("hero-scene-kingdom-{kit}.png"), &frame(&testing::kingdom(), 1280, 720));
-    }
-    crate::settings::set(before);
+    save("hero-scene-crypt-v1.png", &frame(&crypt(), 1280, 720));
+    save("hero-scene-crypt-hurt-v1.png", &frame(&hurt(), 1280, 720));
+    save("hero-scene-kingdom-v1.png", &frame(&testing::kingdom(), 1280, 720));
 }
 
-/// The second kit's hero: each seat's own study toward the viewer, on the
-/// stride and away, then the states the arena's figure stands in for (helm
-/// off, smallclothes, a shield raised, a company's plate), and every class.
-/// `hero-sheet-v2.png` at two screen pixels a sample (the size of
-/// `hero-sheet.png`'s four a map pixel).
-#[test]
-#[ignore]
-fn write_hero_sheet_v2() {
-    use super::super::art_v2::{figures, paint::Canvas};
-    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
-        return;
-    };
-    let dir = std::path::PathBuf::from(dir);
-    std::fs::create_dir_all(&dir).unwrap();
-    let (cw, ch) = (56usize, 64usize);
-    let run = Run::new(7, 1, Some("Friend"));
-    let base = hero_of(&run);
-    let mut cells: Vec<Vec<(crate::rules::Hero, u32)>> = Vec::new();
-    for id in 1..=4u32 {
-        let mut row = Vec::new();
-        for (aim, stride) in [(DOWN, 0.0), (SIDE, 2.0), (LEFT, 2.0), (UP, 0.0)] {
-            row.push((aimed(&base, aim, stride), id));
-        }
-        for gear in [1u8, 2] {
-            let mut h = aimed(&base, DOWN, 0.0);
-            h.gear = gear;
-            h.hp = h.max_hp / 10;
-            row.push((h, id));
-        }
-        let mut h = aimed(&base, DOWN, 0.0);
-        h.shielding = true;
-        row.push((h, id));
-        cells.push(row);
-    }
-    let mut kits = Vec::new();
-    for kit_id in ["composer", "dispatcher", "money", "competition"] {
-        let mut r = Run::new(7, 1, Some("Friend"));
-        r.outfit(1, crate::rules::knights::knight(kit_id).unwrap());
-        kits.push((aimed(&hero_of(&r), DOWN, 0.0), 1));
-    }
-    cells.push(kits);
-    let mut classes = Vec::new();
-    for look in Look::ALL {
-        let mut r = Run::new(7, 1, Some("Friend"));
-        r.become_class(1, CLASSES.iter().find(|c| c.name == look.name()).unwrap());
-        classes.push((aimed(&hero_of(&r), DOWN, 0.0), 1));
-    }
-    cells.push(classes);
-    let cols = cells.iter().map(Vec::len).max().unwrap_or(1);
-    let mut sheet = Img::new((cols * cw) as i32, (cells.len() * ch) as i32);
-    for (r, row) in cells.iter().enumerate() {
-        for (c, (h, id)) in row.iter().enumerate() {
-            let mut cv = Canvas::new(cw, ch, [0, 0, 0]);
-            // The canvas is two samples a map pixel: the feet at the cell's foot.
-            figures::knight(&mut cv, cw as f32 / 4.0, ch as f32 / 2.0 - 3.0, h, 0, *id, false);
-            sheet.stamp(&cv.image(), (c * cw) as i32, (r * ch) as i32);
-        }
-    }
-    image::RgbaImage::from_raw(sheet.w as u32 * 2, sheet.h as u32 * 2, sheet.rgba_scaled(2))
-        .unwrap()
-        .save(dir.join("hero-sheet-v2.png"))
-        .unwrap();
-}

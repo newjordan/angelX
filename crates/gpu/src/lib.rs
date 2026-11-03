@@ -40,6 +40,7 @@ mod stage;
 mod wallpaper;
 
 pub use atlas::Entry;
+pub use draw::ReadBack;
 pub use frame::{COLOR, Draw, Frame, Instance, MASK, MESH_TRIANGLE, PARCHMENT, PICTURE, PICTURE_PREMULTIPLIED, PICTURE_STRAIGHT, PRIMITIVE};
 pub use hash::{FastMap, FxHasher};
 pub use picture::{Picture, PictureInfo, premultiply_in_place, well_formed};
@@ -65,6 +66,11 @@ pub struct Core {
     bind_group: wgpu::BindGroup,
     pictures: FastMap<u32, GpuPicture>,
     picture_bytes: usize,
+    /// Textures of freed pictures, lent to the next picture of their size
+    /// (`free_picture`).
+    spare_pictures: Vec<GpuPicture>,
+    /// The bytes of pictures written to the GPU by uploads, all told.
+    written_bytes: u64,
     /// ANGEL_GLASS_GPU_PREMULTIPLY: uploaded pictures stay straight in
     /// storage and the shader premultiplies (`PICTURE_STRAIGHT`). It
     /// spares the producer thread the CPU scan; off by default.
@@ -228,6 +234,8 @@ impl Core {
             bind_group,
             pictures: FastMap::default(),
             picture_bytes: 0,
+            spare_pictures: Vec::new(),
+            written_bytes: 0,
             gpu_premultiply: std::env::var("ANGEL_GLASS_GPU_PREMULTIPLY").is_ok_and(|v| v == "1"),
             stages: HashMap::new(),
             stage_scenes: HashMap::new(),

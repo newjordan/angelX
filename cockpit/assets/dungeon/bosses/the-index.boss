@@ -5,9 +5,9 @@ where archive
 hp 820
 size 1.6
 move hover speed=1.4
-attack aimed shots=3 speed=7 every=70 damage=14 shot=bone
-attack spiral shots=2 speed=5 every=24 damage=10 shot=orb from=rage
-phases curve darts seeker every=95 volleys=2 damage=10
+attack aimed shots=3 speed=7 every=73 damage=14 shot=bone
+attack spiral shots=2 speed=5 every=25 damage=10 shot=orb from=rage
+phases curve darts seeker every=99 volleys=2 damage=10
 windup beam every=200 damage=14 arc=100 cry=SEARCH
 rage 45%
 drops gem 4, wax 4, gold 250

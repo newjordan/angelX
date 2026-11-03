@@ -51,7 +51,7 @@ Places pay 90/45/20 gold, settled with the realm like every mark.
 
 ## Horses: lore from usage
 
-A horse is its house and its record (`drive/chivalry.rs`). Each model
+A horse is its house and its record (`crates/realm-host/src/chivalry.rs`). Each model
 house breeds a deterministic bloodline — pace, stamina, corner, nerve —
 and service under that house's banner (calls served, tallied in
 `Stable::note_service`) seasons the blood and is told back in the horse's

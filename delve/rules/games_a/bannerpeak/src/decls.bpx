@@ -1,0 +1,234 @@
+# Types of the bannerpeak port: the serde shapes of the Rust structs (the J tree's), and
+# the unit enums (a String there). Non-serde Rust values get a J shape of their own here:
+# Knobs, Cmd, Ev, Mover and Plank (layout.bpx), Goal.
+module bannerpeak
+
+enum Move: Ground Air Wall Wind Pound Recover Dive Belly Hurt Brace
+enum Jump: None Plain Second Triple Long Back Kick Bounce Spring
+enum Pose: Idle Run RunB Skid Crouch Slide Rise Fall Second Spin Long Back Wall Wind Slam Land Dive Belly Hurt Brace Item Pole Bubble
+enum Size: Small Big Flame
+enum FoeKind: Snuffer Capped Wisp
+enum ItemKind: Loaf Flame Cap
+enum CapState: Rest Slide Carried
+enum Attack: Stomp Sweep Embers
+enum BossBeat: Dormant Rest Tell Strike Wince Rage Down
+enum Phase: Play Select Finale
+enum FxKind: Coin Pop Dust Ring Bump Debris Gleam Smoke
+
+struct Body:
+  x: i32
+  y: i32
+  vx: i32
+  vy: i32
+  face: i8
+  mode: Move
+  jump: Jump
+  big: bool
+  ground: bool
+  plank: Option<u16>
+  coyote: u32
+  buffer: u32
+  hop_next: u8
+  hop_t: u32
+  hop: u8
+  crouch: bool
+  wall: i8
+  wall_t: u32
+  t: u32
+  freeze: u32
+  squash: u32
+  cut: bool
+  skid: bool
+  was_skid: bool
+  pose: Pose
+  run_t: u32
+
+struct Cmd:
+  x: i8
+  jump: bool
+  jump_edge: bool
+  down: bool
+  down_edge: bool
+  dive_edge: bool
+  brace: bool
+
+struct Knobs:
+  run: i32
+  hop: u32
+  grace: u32
+  slam: i32
+  ledge: i32
+
+struct Ev:
+  k: str
+  s: str
+  a: i32
+  b: i32
+
+struct Bubble:
+  x: i32
+  y: i32
+  t: u32
+
+struct Knight:
+  joined: u32
+  body: Body
+  size: Size
+  pips: u8
+  coins: u32
+  score: u32
+  chain: u8
+  hurt: u32
+  bubble: Option<Bubble>
+  pit: u32
+  pose: u32
+  pole: u32
+  grip: i32
+  poled: bool
+  safe: (i32, i32)
+  safe_t: u32
+  cam: (i32, i32)
+  prev: u8
+  cooldown: u32
+  carry: bool
+  shock: u32
+  landed: u32
+
+struct Foe:
+  kind: FoeKind
+  x: i32
+  y: i32
+  vx: i32
+  vy: i32
+  dir: i8
+  t: u32
+  dead: u32
+  home: i32
+  mark: u16
+
+struct Item:
+  kind: ItemKind
+  x: i32
+  y: i32
+  vx: i32
+  vy: i32
+  dir: i8
+  t: u32
+  cap: CapState
+  owner: u32
+
+struct Bolt:
+  x: i32
+  y: i32
+  vx: i32
+  vy: i32
+  t: u32
+  owner: u32
+
+struct Boulder:
+  x: i32
+  t: u32
+
+struct Hazard:
+  x: i32
+  y: i32
+  w: i32
+  h: i32
+  vx: i32
+  tell: u32
+  live: u32
+
+struct Boss:
+  x: i32
+  beat: BossBeat
+  kind: Attack
+  t: u32
+  phase: u8
+  plates: u8
+  count: u8
+  head: i32
+  head_before: i32
+  x_before: i32
+  flinch: u32
+  hazards: Vec<Hazard>
+
+struct Fx:
+  k: FxKind
+  x: i32
+  y: i32
+  t: u32
+
+struct Announce:
+  banner: u8
+  t: u32
+
+struct Session:
+  seats: Map<Knight>
+  elapsed: u32
+  banners: u8
+  sparks: u8
+  gates: u16
+  checkpoint: u8
+  doors: u8
+  phase: Phase
+  phase_t: u32
+  cursor: u8
+  foes: Vec<Foe>
+  items: Vec<Item>
+  bolts: Vec<Bolt>
+  boulders: Vec<Boulder>
+  boss: Boss
+  fx: Vec<Fx>
+  taken: Vec<u16>
+  changed: View
+  announce: Option<Announce>
+  wipe: u32
+  scaled: u8
+  seen: bool
+  completed: Option<u32>
+
+# The map as it stands: the session's table of changed tiles (the fixed world is data).
+struct View:
+
+# One seat's keys (rules::Input, serde shape; the omitted fields read as false).
+struct Input:
+  move_x: i8
+  move_y: i8
+  aim_x: i8
+  aim_y: i8
+  fire: bool
+  dash: bool
+  bomb: bool
+  swing: bool
+  interact: bool
+
+# A bot's goal: its tag and two numbers.
+struct Goal:
+  k: str
+  a: i32
+  b: i32
+
+struct Hero:
+  away: bool
+  stone: bool
+  carried: J
+
+struct Plank:
+  x: i32
+  y: i32
+  w: i32
+  lift: bool
+
+struct Mover:
+  id: u32
+  p: Plank
+
+# A knight standing and free, for the rescue: its seat, box in pixels and feet.
+struct Mate:
+  id: u32
+  l: i32
+  t: i32
+  r: i32
+  b: i32
+  fx: i32
+  fy: i32

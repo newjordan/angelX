@@ -7,89 +7,150 @@ use super::*;
 /// content starts with this mark. Baked into the nudge consts below so the pushed
 /// message carries it; the tests pin every nudge string against it.
 pub(crate) const TELEMETRY_MARK: &str = "[harness-telemetry] ";
+/// The boundary a metered-input receipt reports: whole millions of tokens.
 const SOTA_INPUT_MILESTONE_TOKENS: u64 = 1_000_000;
 
-/// Return the newest whole-million boundary crossed by a metered turn.
-///
-/// Large provider-side fan-out can jump across several boundaries in one
-/// request. Emit one current receipt instead of flooding the display queue.
-pub(crate) fn crossed_sota_input_milestone(previous: u64, current: u64) -> Option<u64> {
-    let previous_millions = previous / SOTA_INPUT_MILESTONE_TOKENS;
-    let current_millions = current / SOTA_INPUT_MILESTONE_TOKENS;
-    (current_millions > previous_millions)
-        .then(|| current_millions.saturating_mul(SOTA_INPUT_MILESTONE_TOKENS))
+// -- The authored leg -------------------------------------------------------
+//
+// Every decision below is the `reasoning` leg: `cockpit/live/reasoning`
+// (`reasoning.bend`) when a hot generation is active, else the generation
+// compiled into this binary. The Rust ladder that used to answer these is the
+// parity oracle in this module's tests and nothing else. Rust keeps only the
+// text work (which model identities are GLM-locked) and hands the leg numbers,
+// booleans and the seat's own level list.
+
+/// The shipped Bend leg that answers every decision below.
+const LEG: &str = "reasoning";
+
+#[derive(serde::Deserialize)]
+struct Choice {
+    effort: Option<String>,
 }
 
-/// Resolve the per-hop reasoning effort under adaptive reasoning mode (`ANGEL_ADAPTIVE_REASONING=1`).
-///
-/// - Hop 0 (Turn intake & architectural planning): use configured/highest baseline effort.
-/// - Hops > 0 under normal execution (clean tool return, no error/spin): downgrade to lowest
-///   viable effort (e.g. "low" or "none") to eliminate thinking latency during mechanical tool chains.
-/// - Friction / Error hops (tool errors, spin nudges, action starvation): escalate back to
-///   high baseline effort for root-cause diagnosis.
-/// - Locked-thinking GLM-5.3(*) seats are NOT auto-armed (they were until
-///   2026-09-05): z.ai keys its prefix cache on `reasoning_effort`, so a rung
-///   that changes between hops re-prefills the whole prompt every flip. Those
-///   seats hold one rung per turn — the idle rung (Flash: field omitted =
-///   provider `auto`; glm-5.3: `low`) or the operator pin — unless the operator
-///   arms this policy explicitly.
-pub(crate) fn resolve_adaptive_reasoning_effort(
-    club: &dyn Club,
-    hop: usize,
-    has_friction: bool,
-) -> Option<String> {
+#[derive(serde::Deserialize)]
+struct Milestone {
+    tokens: Option<u64>,
+}
+
+#[derive(serde::Deserialize)]
+struct Budget {
+    expired: bool,
+}
+
+/// The contract a milestone answer must satisfy: `None` or a whole-million
+/// boundary.
+fn milestone_check(milestone: &Milestone) -> Result<(), String> {
+    match milestone.tokens {
+        Some(tokens) if tokens == 0 || tokens % SOTA_INPUT_MILESTONE_TOKENS != 0 => {
+            Err(format!("{tokens} is not a whole-million boundary"))
+        }
+        _ => Ok(()),
+    }
+}
+
+/// The contract an effort answer must satisfy: `None` or a level this seat
+/// accepts. `pin` is the configured wire spelling the ladder passes through
+/// untouched, admitted only on the hops that can answer it (intake and
+/// friction), so a clean hop cannot pin itself there.
+fn effort_check<'a>(
+    levels: &'a [String],
+    pin: Option<&'a str>,
+) -> impl Fn(&Choice) -> Result<(), String> + 'a {
+    move |choice| match choice.effort.as_deref() {
+        Some(effort)
+            if Some(effort) != pin
+                && !levels.iter().any(|level| level.eq_ignore_ascii_case(effort)) =>
+        {
+            Err(format!("{effort} is not an effort this seat accepts"))
+        }
+        _ => Ok(()),
+    }
+}
+
+/// The adaptive ladder through the leg. A seat with no effort levels is never
+/// consulted: no rung exists to choose.
+pub(crate) fn adaptive_effort(club: &dyn Club, hop: usize, has_friction: bool) -> Option<String> {
     let levels = club.reasoning_levels();
     if levels.is_empty() {
         return None;
     }
-    let base_effort = club.reasoning_effort().unwrap_or_else(|| {
-        levels
-            .iter()
-            .find(|l| l.eq_ignore_ascii_case("high") || l.eq_ignore_ascii_case("max"))
-            .cloned()
-            .unwrap_or_else(|| levels.last().cloned().unwrap_or_default())
+    let pin = club.reasoning_effort();
+    let intake = hop == 0 || has_friction;
+    let input = serde_json::json!({
+        "op": "ladder",
+        "levels": levels,
+        "effort": pin,
+        "hop": hop,
+        "friction": has_friction,
     });
-
-    if hop == 0 || has_friction {
-        Some(base_effort)
-    } else if levels.iter().any(|l| l.eq_ignore_ascii_case("low")) {
-        Some("low".to_string())
-    } else if levels.iter().any(|l| l.eq_ignore_ascii_case("none")) {
-        Some("none".to_string())
-    } else {
-        levels.first().cloned()
-    }
+    let (choice, _source) = crate::agent::harness::live_policy::decide_shipped(
+        LEG,
+        &input,
+        effort_check(levels, intake.then_some(pin.as_deref()).flatten()),
+    );
+    choice.effort
 }
 
-/// Opt-in reasoning-budget policy for locked-thinking seats (GLM-5.3*: thinking
-/// cannot be disabled, and an open-ended `high` hop can burn the whole
-/// max_tokens budget on reasoning alone — measured 2026-08-28: 4096/4096
-/// reasoning tokens on a single uncapped hop). Returns the demotion effort
-/// for the next hop once cumulative reasoning burn crosses `burn_limit`
-/// without a submit. `0` (the default) disables it. Non-locked seats return `None`:
-/// everywhere else the operator can just turn thinking off.
-pub(crate) fn glm_thinking_burn_demotion(
+/// The locked-seat burn demotion through the leg. Which model identities are
+/// GLM-locked is text work and stays here as one boolean feature.
+pub(crate) fn burn_demotion(
     club: &dyn Club,
     cumulative_reasoning: u64,
     submitted: bool,
     burn_limit: u64,
 ) -> Option<String> {
-    if burn_limit == 0 || submitted || cumulative_reasoning < burn_limit {
+    let levels = club.reasoning_levels();
+    if levels.is_empty() {
         return None;
     }
-    if !crate::agent::club::glm_thinking_locked_for_club(&club.model_identity().unwrap_or_default())
-    {
-        return None;
-    }
-    club.reasoning_levels()
-        .iter()
-        .find(|l| l.eq_ignore_ascii_case("low"))
-        .cloned()
-        .or_else(|| club.reasoning_levels().first().cloned())
+    let locked = crate::agent::club::glm_thinking_locked_for_club(
+        &club.model_identity().unwrap_or_default(),
+    );
+    let input = serde_json::json!({
+        "op": "burn",
+        "levels": levels,
+        "cumulative": cumulative_reasoning,
+        "submitted": submitted,
+        "limit": burn_limit,
+        "locked": locked,
+    });
+    let (choice, _source) =
+        crate::agent::harness::live_policy::decide_shipped(LEG, &input, effort_check(levels, None));
+    choice.effort
 }
 
-/// Whether a turn has exceeded its wall-clock budget. `budget_secs == 0` means
-/// "off" (the default) — interactive extended-reasoning turns stay unbounded.
-pub(crate) fn turn_expired(elapsed_secs: u64, budget_secs: usize) -> bool {
-    budget_secs > 0 && elapsed_secs >= budget_secs as u64
+/// The metered-input milestone through the leg.
+pub(crate) fn input_milestone(previous: u64, current: u64) -> Option<u64> {
+    let input = serde_json::json!({
+        "op": "milestone",
+        "previous": previous,
+        "current": current,
+    });
+    let (milestone, _source) =
+        crate::agent::harness::live_policy::decide_shipped(LEG, &input, milestone_check);
+    milestone.tokens
 }
+
+/// The turn's wall-clock budget through the leg. Both booleans are in contract,
+/// so the check admits either answer.
+pub(crate) fn budget_expired(elapsed_secs: u64, budget_secs: usize) -> bool {
+    let input = serde_json::json!({
+        "op": "budget",
+        "elapsed": elapsed_secs,
+        "budget": budget_secs,
+    });
+    let (answer, _source) =
+        crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_: &Budget| Ok(()));
+    answer.expired
+}
+
+/// The native ladder the shipped leg must reproduce; other test modules still
+/// ask it directly for their own ladders.
+#[cfg(test)]
+pub(crate) use self::tests::{
+    crossed_sota_input_milestone, resolve_adaptive_reasoning_effort, turn_expired,
+};
+
+#[cfg(test)]
+#[path = "../../../../../tests/cockpit/harness/reasoning_leg__tests.rs"]
+mod tests;

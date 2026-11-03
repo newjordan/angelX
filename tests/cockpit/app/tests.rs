@@ -46,8 +46,6 @@ mod route_decks;
 mod session_boundaries;
 #[path = "tests__session_exit.rs"]
 mod session_exit;
-#[path = "tests__session_start.rs"]
-mod session_start;
 #[path = "tests__stage.rs"]
 mod stage;
 #[path = "tests__tab_completion.rs"]
@@ -335,7 +333,7 @@ fn hidden_raytrace_route_does_not_request_a_fast_tick() {
 fn world_motion_uses_the_scenery_lane_and_yields_to_agent_work() {
     let mut app = App::preview(Viewer::static_preview());
     app.world_pane_visible = true;
-    app.world
+    app.realm.world
         .note_tool_call("apply_patch", "move the knight for cadence testing");
 
     assert!(app.world_animating());
@@ -514,7 +512,7 @@ fn world_command_resets_history_so_idle_back_returns_to_core() {
 fn world_visit_and_follow_only_move_the_camera() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    let knight = app.world.overworld_scene().knight;
+    let knight = app.realm.world.overworld_scene().knight;
     let history_len = app.history.len();
     for (name, label) in [
         ("artisans", "ARTISAN QUARTER"),
@@ -523,8 +521,8 @@ fn world_visit_and_follow_only_move_the_camera() {
     ] {
         app.input = format!("/world visit {name}");
         app.submit();
-        assert_eq!(app.world.overworld_view_label(), Some(label));
-        assert_eq!(app.world.overworld_scene().knight, knight);
+        assert_eq!(app.realm.world.overworld_view_label(), Some(label));
+        assert_eq!(app.realm.world.overworld_scene().knight, knight);
         assert_eq!(
             app.scryglass.controller.route(),
             crate::ui::scryglass::StageRoute::Realm
@@ -533,7 +531,7 @@ fn world_visit_and_follow_only_move_the_camera() {
     }
     app.input = "/world visit nowhere".into();
     app.submit();
-    assert_eq!(app.world.overworld_view_label(), Some("KNIGHTS TOURNAMENT"));
+    assert_eq!(app.realm.world.overworld_view_label(), Some("KNIGHTS TOURNAMENT"));
     assert!(
         app.messages
             .last()
@@ -543,7 +541,7 @@ fn world_visit_and_follow_only_move_the_camera() {
     );
     app.input = "/world follow".into();
     app.submit();
-    assert_eq!(app.world.overworld_view_label(), None);
+    assert_eq!(app.realm.world.overworld_view_label(), None);
     assert_eq!(app.history.len(), history_len);
     assert!(
         app.thinking.is_none(),
@@ -557,12 +555,12 @@ fn world_visit_and_follow_only_move_the_camera() {
 fn world_quest_and_help_answer_in_one_system_message() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    app.world
+    app.realm.world
         .note_adventure(crate::stage::world_viz::AdventureEvent::LoopStarted {
             kind: crate::stage::world_viz::LoopKind::Research,
             task: "survey the fleet".to_string(),
         });
-    app.world
+    app.realm.world
         .note_adventure(crate::stage::world_viz::AdventureEvent::Iteration { n: 3 });
 
     let route_before = app.scryglass.controller.route();
@@ -1535,7 +1533,7 @@ fn selected_term_runs_a_deterministic_world_lesson_without_history_leakage() {
     app.flush_clipboard();
 
     assert_eq!(
-        app.world.destination(),
+        app.realm.world.destination(),
         crate::stage::world_viz::Building::Scriptorium
     );
     let pending = app.scryglass.lesson().expect("world owns loading lesson");
@@ -1607,7 +1605,7 @@ fn learn_multiword_is_offline_first_and_tutor_actions_remain_operator_owned() {
     assert_eq!(lesson.term(), "linear algebra");
     assert!(!lesson.is_loading());
     assert_eq!(
-        app.world.destination(),
+        app.realm.world.destination(),
         crate::stage::world_viz::Building::Scriptorium
     );
     let rendered = render_app_text(&mut app, 144, 48);
@@ -3578,7 +3576,7 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     let _lookup = TestEnvGuard::set("ANGEL_QUICK_LOOKUP", "0");
     let mut app = seed_preview_app();
     app.scryglass.return_to_world();
-    let starting_renown = app.world.renown();
+    let starting_renown = app.realm.world.renown();
     // The ordinary world floats the library from its dock.
     let (library, _) = float_dock_action(&mut app, 144, 48, WorldButton::ScryglassLibrary);
     app.on_mouse(mouse_ev(
@@ -3591,10 +3589,10 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
         crate::ui::scryglass::StageRoute::Explore(crate::stage::world_viz::Building::Scriptorium)
     );
     assert_eq!(
-        app.world.destination(),
+        app.realm.world.destination(),
         crate::stage::world_viz::Building::Scriptorium
     );
-    assert_eq!(app.world.renown(), starting_renown);
+    assert_eq!(app.realm.world.renown(), starting_renown);
     assert!(
         app.scryglass.catalog_open(),
         "Library opens the useful catalog immediately while the journey continues underneath"
@@ -3627,13 +3625,13 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     );
 
     for _ in 0..400 {
-        app.world.tick();
-        if app.world.arrived_building() == Some(crate::stage::world_viz::Building::Scriptorium) {
+        app.realm.world.tick();
+        if app.realm.world.arrived_building() == Some(crate::stage::world_viz::Building::Scriptorium) {
             break;
         }
     }
     assert_eq!(
-        app.world.arrived_building(),
+        app.realm.world.arrived_building(),
         Some(crate::stage::world_viz::Building::Scriptorium),
         "Library must complete a real world journey"
     );
@@ -3650,7 +3648,7 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
         enter.x,
         enter.y,
     ));
-    assert!(app.world.inside_interior());
+    assert!(app.realm.world.inside_interior());
 
     let interior = render_app_text(&mut app, 144, 48);
     assert_ne!(
@@ -3777,9 +3775,9 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
         leave.x,
         leave.y,
     ));
-    assert!(!app.world.inside_interior());
+    assert!(!app.realm.world.inside_interior());
     assert_eq!(
-        app.world.renown(),
+        app.realm.world.renown(),
         starting_renown,
         "visiting the teaching library remains display-only"
     );
@@ -3935,7 +3933,7 @@ fn session_meta_workspace_switch_swaps_districts_deterministically() {
 
     let mut app = seed_preview_app();
     app.change_workspace(first.to_str());
-    let first_layout = app.world.district_signature();
+    let first_layout = app.realm.world.district_signature();
     assert_eq!(
         first_layout
             .iter()
@@ -3946,7 +3944,7 @@ fn session_meta_workspace_switch_swaps_districts_deterministically() {
 
     app.change_workspace(second.to_str());
     assert_eq!(
-        app.world
+        app.realm.world
             .district_signature()
             .iter()
             .map(|district| district.0.as_str())
@@ -3955,7 +3953,7 @@ fn session_meta_workspace_switch_swaps_districts_deterministically() {
     );
 
     app.change_workspace(first.to_str());
-    assert_eq!(app.world.district_signature(), first_layout);
+    assert_eq!(app.realm.world.district_signature(), first_layout);
 
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_MCP_CONFIG") };
@@ -5803,6 +5801,8 @@ fn goal_go_drives_the_goal_via_the_loop() {
 /// only path to the merge is gate-green + a human yes.
 #[test]
 fn self_loop_worktree_lifecycle_and_gated_merge() {
+    let _yolo = crate::tests::TestEnvGuard::set("ANGEL_YOLO", "0");
+    let _smart = crate::tests::TestEnvGuard::set("ANGEL_YOLO_SMART", "0");
     let _guard = env_lock();
     // --- a scratch git repo holding a minimal angelX-cockpit crate (1 test) ---
     let root = std::env::temp_dir().join(format!("angel_self_repo_{}", std::process::id()));
@@ -5915,7 +5915,18 @@ fn self_loop_worktree_lifecycle_and_gated_merge() {
     // practice iteration runs, and the 1-iteration budget parks the loop.
     for _ in 0..1200 {
         app.advance();
-        if app.loop_ctl.status == loop_ctl::LoopStatus::Paused && app.thinking.is_none() {
+        let status = app.loop_ctl.status;
+        if status == loop_ctl::LoopStatus::Paused && app.thinking.is_none() {
+            break;
+        }
+        // A terminal failure will not become Paused by waiting out the
+        // budget. Stop polling; the assertion below still requires Paused.
+        if matches!(
+            status,
+            loop_ctl::LoopStatus::Failed
+                | loop_ctl::LoopStatus::Stopped
+                | loop_ctl::LoopStatus::Done
+        ) {
             break;
         }
         std::thread::sleep(std::time::Duration::from_millis(100));
@@ -9160,6 +9171,61 @@ fn module_commands_drive_runtime_without_touching_harness() {
 }
 
 #[test]
+fn manifest_reload_command_updates_modules_from_configured_resource_root() {
+    let _guard = env_lock();
+    let root = std::env::temp_dir().join(format!("angel-app-manifests-{}", std::process::id()));
+    let dir = root.join("cockpit/modules");
+    std::fs::create_dir_all(&dir).unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("modules");
+    for name in [
+        "core.toml",
+        "agent.toml",
+        "artifacts.toml",
+        "shell.toml",
+        "image.toml",
+        "graph.toml",
+    ] {
+        std::fs::copy(source.join(name), dir.join(name)).unwrap();
+    }
+    let graph = dir.join("graph.toml");
+    let original = std::fs::read_to_string(&graph).unwrap();
+    std::fs::write(&graph, original.replace("\"dotmax\"", "\"unavailable\"")).unwrap();
+    let _resource_root = TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.to_str().unwrap());
+    let mut app = seed_preview_app();
+    app.scryglass.navigate(scryglass::StageRoute::Observatory);
+    app.open_module("graph");
+    assert_eq!(
+        app.scryglass.controller.route(),
+        scryglass::StageRoute::Raytrace
+    );
+    app.module_host.declare_data_source("unavailable", false);
+    app.input = "/layout reload-manifests".to_string();
+    app.submit();
+    assert!(app.messages.last().unwrap().text.contains("module manifests reloaded"));
+    assert_eq!(
+        app.module_host.state("graph"),
+        Some(runtime::ModuleState::Suspended)
+    );
+    assert_eq!(
+        app.scryglass.controller.route(),
+        scryglass::StageRoute::Observatory
+    );
+    std::fs::write(&graph, original).unwrap();
+    app.input = "/layout reload-manifests".to_string();
+    app.submit();
+    assert_eq!(
+        app.module_host.state("graph"),
+        Some(runtime::ModuleState::Active)
+    );
+    assert_eq!(
+        app.scryglass.controller.route(),
+        scryglass::StageRoute::Raytrace
+    );
+    assert!(app.thinking.is_none());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn memories_persist_and_inject_into_turns() {
     let _guard = env_lock();
     let _legacy = TestEnvGuard::set("ANGEL_BACKPLANE", "0");
@@ -9168,12 +9234,12 @@ fn memories_persist_and_inject_into_turns() {
     unsafe { std::env::set_var("ANGEL_MEMORY_FILE", &tmp) };
     let mut app = seed_preview_app();
     // Add a memory: it's held and persisted.
-    app.input = "/memories add deploys on atlas".to_string();
+    app.input = "/memories add deploys on staging".to_string();
     app.submit();
-    assert_eq!(app.memories, vec![Arc::<str>::from("deploys on atlas")]);
+    assert_eq!(app.memories, vec![Arc::<str>::from("deploys on staging")]);
     assert_eq!(
         memory::load_for(app.tools.current_workspace()),
-        vec!["deploys on atlas"],
+        vec!["deploys on staging"],
         "persisted to disk"
     );
     // Sending a message injects the memory into that turn's history.
@@ -9194,11 +9260,11 @@ fn memories_persist_and_inject_into_turns() {
         })
         .expect("Harness-role memory context");
     assert!(
-        !app.history[task_index].content.contains("deploys on atlas"),
+        !app.history[task_index].content.contains("deploys on staging"),
         "persistent memory must not become fresh operator prose"
     );
     assert!(context_index > task_index);
-    assert!(context.content.contains("deploys on atlas"));
+    assert!(context.content.contains("deploys on staging"));
     // Clear empties it (free the in-flight turn first).
     app.thinking = None;
     app.input = "/memories clear".to_string();
@@ -9575,7 +9641,7 @@ fn approval_selftest_roundtrips_through_the_real_broker_without_an_action() {
     let mut app = seed_preview_app();
     app.approval_rx = approval::install_ui();
     let history_len = app.history.len();
-    let renown = app.world.renown();
+    let renown = app.realm.world.renown();
 
     app.input = "/approvals selftest".to_string();
     app.submit();
@@ -9629,7 +9695,7 @@ fn approval_selftest_roundtrips_through_the_real_broker_without_an_action() {
         "self-test is not a model turn"
     );
     assert_eq!(
-        app.world.renown(),
+        app.realm.world.renown(),
         renown,
         "self-test cannot pay progression"
     );
@@ -10375,7 +10441,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
-    app.world.settle_at_for_test(world_viz::Building::Keep);
+    app.realm.world.settle_at_for_test(world_viz::Building::Keep);
     let before = app
         .world
         .scryglass_frame_paced(40, 16, false, 0.0, 0.0, 1.05)
@@ -10396,9 +10462,9 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
             app.messages.last().unwrap().text.contains("Dotmax 3D"),
             "{command}"
         );
-        assert!(!app.world.inside_interior());
+        assert!(!app.realm.world.inside_interior());
         assert_eq!(
-            app.world
+            app.realm.world
                 .scryglass_frame_paced(40, 16, false, 0.0, 0.0, 1.05)
                 .unwrap(),
             before
@@ -10411,9 +10477,9 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
     for _ in 0..8 {
         app.on_key(KeyEvent::new(KeyCode::Char('v'), KeyModifiers::NONE));
         assert!(app.messages.last().unwrap().text.contains("Dotmax 3D"));
-        assert!(!app.world.inside_interior());
+        assert!(!app.realm.world.inside_interior());
         assert_eq!(
-            app.world
+            app.realm.world
                 .scryglass_frame_paced(40, 16, false, 0.0, 0.0, 1.05)
                 .unwrap(),
             before
@@ -10427,7 +10493,7 @@ fn startup_world_renderer_opens_the_matching_visible_pane() {
     for alias in ["3d", "dotmax", "raycast", "ambient", "top", "typo"] {
         let _view = crate::tests::TestEnvGuard::set("ANGEL_WORLD_VIEW", alias);
         let mut app = seed_preview_app();
-        app.scryglass = crate::ui::scryglass::Scryglass::for_world(app.world.destination());
+        app.scryglass = crate::ui::scryglass::Scryglass::for_world(app.realm.world.destination());
         app.input = "preserve the operator draft".into();
         let text = render_app_text(&mut app, 144, 48);
         assert_eq!(
@@ -10662,20 +10728,20 @@ fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_co
     let mut app = seed_preview_app();
     app.input = "keep this operator draft λ".into();
     app.focus_module("artifacts");
-    let context = app.world.quest().region();
+    let context = app.realm.world.quest().region();
     let (_, arrived) = render_dotmax_world_cells(&mut app);
-    assert!(app.world_pane_visible && !app.world.ambient_interior_visible());
+    assert!(app.world_pane_visible && !app.realm.world.ambient_interior_visible());
     // The world's actions float from the dock.
     assert!(app.object_dock.offers(WorldButton::ScryglassMap));
     assert!(app.object_dock.offers(WorldButton::Back));
 
-    app.world.note_tool_call("apply_patch", "cockpit miniviz");
+    app.realm.world.note_tool_call("apply_patch", "cockpit miniviz");
     for _ in 0..12 {
-        app.world.tick();
+        app.realm.world.tick();
     }
     let (_, travelling) = render_dotmax_world_cells(&mut app);
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         context,
         "tool travel stays in the same town/workspace scene"
     );
@@ -10703,13 +10769,13 @@ fn arrival_ride_scene_renders_noir_caption_and_verbs() {
 
     // ARRIVAL exists only after a correlated call really reaches its landmark.
     let call_id = crate::agent::harness::ToolEventId("arrival-test".into());
-    app.world
+    app.realm.world
         .note_tool_call_event(call_id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
         .begin_journey(call_id, crate::stage::world_viz::Building::Smithy, false);
     for _ in 0..200 {
-        app.world.tick();
-        if app.world.arrived_building() == Some(crate::stage::world_viz::Building::Smithy) {
+        app.realm.world.tick();
+        if app.realm.world.arrived_building() == Some(crate::stage::world_viz::Building::Smithy) {
             break;
         }
     }
@@ -10770,7 +10836,7 @@ fn wide_unicode_causal_caption_preserves_ellipsis_and_back_control() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
-    app.world.note_tool_call_event(
+    app.realm.world.note_tool_call_event(
         harness::ToolEventId("wide-causal-caption".to_string()),
         "functions.read_file",
         "資料/設計🧪/実装/検証/結果.md",
@@ -10894,11 +10960,11 @@ fn obsolete_cinematic_env_does_not_replace_the_braille_scryglass() {
         );
 
         let id = crate::agent::harness::ToolEventId("obsolete-cinematic".into());
-        app.world
+        app.realm.world
             .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
         app.scryglass
             .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
-        app.world.tick();
+        app.realm.world.tick();
         let travelling = render_app_text(&mut app, 144, 48);
         assert!(crate::tests::contains_dotmax(&travelling), "{travelling}");
         assert_ne!(arrived, travelling, "travel must replace the arrival plate");
@@ -10922,7 +10988,7 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
 
     // Send the knight riding and capture the short journey cue before arrival.
     let id = crate::agent::harness::ToolEventId("travel-test".into());
-    app.world
+    app.realm.world
         .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
         .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
@@ -10962,7 +11028,7 @@ fn obsolete_world_fp_env_does_not_override_scryglass_view_mode() {
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
     let id = crate::agent::harness::ToolEventId("obsolete-world-fp".into());
-    app.world
+    app.realm.world
         .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
         .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
@@ -11146,11 +11212,15 @@ fn loop_workshop_draws_start_controls_over_the_miniworld() {
     assert!(app.loop_dialog.is_some());
 
     let text = render_app_text(&mut app, 144, 48);
-    assert!(text.contains("loop workshop"), "workshop title\n{text}");
-    assert!(text.contains("task: map"), "task label\n{text}");
-    assert!(text.contains("time"), "duration row\n{text}");
-    assert!(text.contains("budget"), "budget row\n{text}");
-    assert!(text.contains("START"), "start button\n{text}");
+    assert!(text.contains("Start a loop"), "card title\n{text}");
+    assert!(
+        text.contains("OBJECTIVE") && text.contains("map quest"),
+        "objective\n{text}"
+    );
+    assert!(text.contains("LAPS"), "laps picker\n{text}");
+    assert!(text.contains("CLOCK"), "clock picker\n{text}");
+    assert!(text.contains("FUEL"), "fuel picker\n{text}");
+    assert!(text.contains("DROP THE FLAG"), "start button\n{text}");
 }
 
 #[test]
@@ -13654,13 +13724,13 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     app.focus_module("artifacts");
 
     let call_id = crate::agent::harness::ToolEventId("arrival-orbit-test".into());
-    app.world
+    app.realm.world
         .note_tool_call_event(call_id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
         .begin_journey(call_id, crate::stage::world_viz::Building::Smithy, false);
-    app.world.tick();
+    app.realm.world.tick();
     assert_eq!(
-        app.world.arrived_building(),
+        app.realm.world.arrived_building(),
         None,
         "journey must be in flight"
     );
@@ -13670,13 +13740,13 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
         .expect("mid-travel ride frame");
 
     for _ in 0..200 {
-        app.world.tick();
-        if app.world.arrived_building() == Some(crate::stage::world_viz::Building::Smithy) {
+        app.realm.world.tick();
+        if app.realm.world.arrived_building() == Some(crate::stage::world_viz::Building::Smithy) {
             break;
         }
     }
     assert_eq!(
-        app.world.arrived_building(),
+        app.realm.world.arrived_building(),
         Some(crate::stage::world_viz::Building::Smithy)
     );
     let _arrival = render_app_text(&mut app, 144, 48);
@@ -13685,7 +13755,7 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     app.scryglass
         .tick_visible(expiry + Duration::from_millis(1_250), false, false);
     for _ in 0..12 {
-        app.world.tick();
+        app.realm.world.tick();
     }
 
     assert_eq!(
@@ -13712,13 +13782,13 @@ fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
         crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    app.world.settle_at_for_test(world_viz::Building::Smithy);
+    app.realm.world.settle_at_for_test(world_viz::Building::Smithy);
     app.scryglass
         .sync_arrival(Some(world_viz::Building::Smithy));
     let (_, arrival) = float_dock_action(&mut app, 120, 40, WorldButton::ScryglassEnter);
     assert!(arrival.contains("Enter"), "{arrival}");
 
-    app.world.enter_interior();
+    app.realm.world.enter_interior();
     let inside = render_app_text(&mut app, 120, 40);
     assert!(inside.contains("[Leave]"), "{inside}");
     assert!(
@@ -13727,8 +13797,8 @@ fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
     );
     assert!(!inside.contains("[Enter]"), "{inside}");
 
-    app.world.leave_interior();
-    app.world.settle_at_for_test(world_viz::Building::Chapel);
+    app.realm.world.leave_interior();
+    app.realm.world.settle_at_for_test(world_viz::Building::Chapel);
     app.scryglass
         .sync_arrival(Some(world_viz::Building::Chapel));
     let (_, unsupported) = float_dock_action(&mut app, 120, 40, WorldButton::ScryglassEnter);
@@ -13742,7 +13812,7 @@ fn back_leaves_an_interior_before_it_unwinds_the_world_route() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
-    app.world
+    app.realm.world
         .settle_at_for_test(world_viz::Building::Scriptorium);
     app.scryglass.navigate(scryglass::StageRoute::Explore(
         world_viz::Building::Scriptorium,
@@ -13750,11 +13820,11 @@ fn back_leaves_an_interior_before_it_unwinds_the_world_route() {
     app.focus_module("artifacts");
     let _ = render_app_text(&mut app, 120, 40);
     app.on_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE));
-    assert!(app.world.inside_interior());
+    assert!(app.realm.world.inside_interior());
     let _ = render_app_text(&mut app, 120, 40);
 
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
-    assert!(!app.world.inside_interior());
+    assert!(!app.realm.world.inside_interior());
     assert_eq!(
         app.scryglass.controller.route(),
         scryglass::StageRoute::Explore(world_viz::Building::Scriptorium),
@@ -13776,7 +13846,7 @@ fn first_person_camera_keys_change_free_look_but_map_keys_do_not() {
     let _lean = TestEnvGuard::unset("ANGEL_LEAN");
 
     let mut app = seed_preview_app();
-    app.world.settle_at_for_test(world_viz::Building::Keep);
+    app.realm.world.settle_at_for_test(world_viz::Building::Keep);
     app.focus_module("artifacts");
     app.scryglass
         .navigate(scryglass::StageRoute::Explore(world_viz::Building::Keep));
@@ -13862,7 +13932,7 @@ fn dotmax_mouse_gestures_control_realm_and_explore_but_not_hidden_camera() {
     // longer an unrelated top-down surface with a hidden first-person camera.
     for route in [
         scryglass::StageRoute::Realm,
-        scryglass::StageRoute::Explore(app.world.destination()),
+        scryglass::StageRoute::Explore(app.realm.world.destination()),
     ] {
         app.scryglass.return_to_world();
         app.scryglass.navigate(route);
@@ -13943,23 +14013,23 @@ fn commands_world_ride_enter_leave_and_weather_use_live_world_state() {
         "Saddle up — the road fills the glass."
     );
 
-    app.world.settle_at_for_test(world_viz::Building::Keep);
+    app.realm.world.settle_at_for_test(world_viz::Building::Keep);
     app.input = "/world enter".to_string();
     app.submit();
-    assert!(app.world.inside_interior());
+    assert!(app.realm.world.inside_interior());
     assert_eq!(
         app.messages.last().unwrap().text.as_ref(),
         "The Keep courtyard door opens."
     );
     app.input = "/world leave".to_string();
     app.submit();
-    assert!(!app.world.inside_interior());
+    assert!(!app.realm.world.inside_interior());
     assert_eq!(
         app.messages.last().unwrap().text.as_ref(),
         "The door shuts behind you."
     );
 
-    app.world.note_tool_call_event(
+    app.realm.world.note_tool_call_event(
         harness::ToolEventId("mid-road".to_string()),
         "shell",
         "cargo test",
@@ -13970,9 +14040,9 @@ fn commands_world_ride_enter_leave_and_weather_use_live_world_state() {
         app.messages.last().unwrap().text.as_ref(),
         "No door opens mid-journey."
     );
-    assert!(!app.world.inside_interior());
+    assert!(!app.realm.world.inside_interior());
 
-    app.world
+    app.realm.world
         .weather_state_for_test(world_viz::life::Weather::Fair, 3, 0);
     app.input = "/world weather".to_string();
     app.submit();
@@ -13980,7 +14050,7 @@ fn commands_world_ride_enter_leave_and_weather_use_live_world_state() {
     assert!(forced.contains("Sky: drizzle — clock fair"), "{forced}");
     assert!(forced.contains("error streak 3 forces drizzle"), "{forced}");
 
-    app.world
+    app.realm.world
         .weather_state_for_test(world_viz::life::Weather::Fair, 0, 4);
     app.input = "/world weather".to_string();
     app.submit();
@@ -14444,7 +14514,7 @@ fn practice_reshows_the_open_lessons_recall_prompts_only() {
 }
 
 /// A tool-call-only hop that streamed only newlines must not commit a
-/// headless `angel` block (toymaker 2026-09-02: one empty tag + blank rows
+/// headless `angel` block (a GPU host, 2026-09-02: one empty tag + blank rows
 /// per shell hop). Real prose still commits.
 #[test]
 fn flush_partial_drops_whitespace_only_streams() {

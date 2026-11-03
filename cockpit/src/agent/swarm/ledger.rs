@@ -256,6 +256,9 @@ fn record_matches_workspace(record: &serde_json::Value, workspace: &std::path::P
     crate::platform::workspace_store::matches_project(workspace, std::path::Path::new(root), key)
 }
 
+const MAX_REPORT_LEDGER_BYTES: u64 = 64 * 1024 * 1024;
+const MAX_REPORT_RECORDS: usize = 100_000;
+
 pub(crate) fn report_text(arg: Option<&str>, workspace: &std::path::Path) -> String {
     let path = ledger_path();
     if matches!(arg.map(str::trim), Some("clear")) {
@@ -276,17 +279,42 @@ pub(crate) fn report_text(arg: Option<&str>, workspace: &std::path::Path) -> Str
             "/moa clear: could not rewrite the project-filtered ledger".to_string()
         };
     }
-    let Ok(raw) = std::fs::read_to_string(&path) else {
+    use std::io::Read;
+    let Ok(file) = std::fs::File::open(&path) else {
         return format!(
             "no moa ledger yet · will appear at {} after the first sota-moa/swarm turn",
             path.display()
         );
     };
+    if file
+        .metadata()
+        .is_ok_and(|metadata| metadata.len() > MAX_REPORT_LEDGER_BYTES)
+    {
+        return "moa report unavailable: ledger exceeds 64 MiB report limit".to_string();
+    }
+    let mut bytes = Vec::new();
+    if file
+        .take(MAX_REPORT_LEDGER_BYTES + 1)
+        .read_to_end(&mut bytes)
+        .is_err()
+    {
+        return "moa report unavailable: could not read ledger".to_string();
+    }
+    if bytes.len() as u64 > MAX_REPORT_LEDGER_BYTES {
+        return "moa report unavailable: ledger exceeds 64 MiB report limit".to_string();
+    }
+    let Ok(raw) = String::from_utf8(bytes) else {
+        return "moa report unavailable: ledger is not UTF-8".to_string();
+    };
     let records: Vec<serde_json::Value> = raw
         .lines()
         .filter_map(|l| serde_json::from_str(l).ok())
         .filter(|record| record_matches_workspace(record, workspace))
+        .take(MAX_REPORT_RECORDS + 1)
         .collect();
+    if records.len() > MAX_REPORT_RECORDS {
+        return "moa report unavailable: project exceeds 100000 report records".to_string();
+    }
     if records.is_empty() {
         return format!("moa ledger is empty · {}", path.display());
     }
@@ -392,204 +420,94 @@ pub(crate) fn token_report_from_records(records: &[serde_json::Value]) -> Option
     })
 }
 
-/// Aggregate ledger records into the report body. Pure (testable).
+/// Render a project-filtered report in the replaceable analytics module.
+/// Only fields needed by the report cross the worker boundary; workspace paths,
+/// formation metadata and other ledger fields stay in the host.
 pub(crate) fn summarize(records: &[serde_json::Value]) -> String {
-    let s = |v: &serde_json::Value, k: &str| v.get(k).and_then(|x| x.as_str()).map(str::to_string);
-    let count_by = |key: &str| -> Vec<(String, usize)> {
-        let mut counts: Vec<(String, usize)> = Vec::new();
-        for r in records {
-            let Some(val) = s(r, key) else { continue };
-            match counts.iter_mut().find(|(k, _)| *k == val) {
-                Some((_, n)) => *n += 1,
-                None => counts.push((val, 1)),
-            }
-        }
-        counts
-    };
-    let fmt_counts = |counts: &[(String, usize)]| -> String {
-        counts
-            .iter()
-            .map(|(k, n)| format!("{k} {n}"))
-            .collect::<Vec<_>>()
-            .join(" · ")
-    };
-
-    let ok = records
-        .iter()
-        .filter(|r| r.get("ok").and_then(|x| x.as_bool()).unwrap_or(false))
-        .count();
-    let dissents: Vec<f64> = records
-        .iter()
-        .filter_map(|r| r.get("dissent").and_then(|x| x.as_f64()))
-        .collect();
-    let mut out = format!(
-        "moa ledger · {} turn(s) · ok {ok}/{}\nroutes: {}",
-        records.len(),
-        records.len(),
-        fmt_counts(&count_by("route")),
-    );
-    let gates = count_by("gate");
-    if !gates.is_empty() {
-        out.push_str(&format!("\ngate: {}", fmt_counts(&gates)));
-    }
-    if !dissents.is_empty() {
-        let mean = dissents.iter().sum::<f64>() / dissents.len() as f64;
-        let (lo, hi) = dissents
-            .iter()
-            .fold((f64::MAX, f64::MIN), |(l, h), d| (l.min(*d), h.max(*d)));
-        out.push_str(&format!(
-            "\ndissent: mean {mean:.2} · range {lo:.2}–{hi:.2} (gate thresholds: \
-             relax ≤ {:.2}, escalate ≥ {:.2})",
-            dissent_lo(),
-            dissent_hi()
-        ));
-    }
-    let wave_sets: Vec<&Vec<serde_json::Value>> = records
-        .iter()
-        .filter_map(|r| r.get("waves").and_then(|w| w.as_array()))
-        .filter(|w| !w.is_empty())
-        .collect();
-    if !wave_sets.is_empty() {
-        let mean_waves =
-            wave_sets.iter().map(|w| w.len()).sum::<usize>() as f64 / wave_sets.len() as f64;
-        let mut stops: Vec<(String, usize)> = Vec::new();
-        let mut by_idx: Vec<(usize, f64, usize)> = Vec::new();
-        for waves in &wave_sets {
-            if let Some(decision) = waves
-                .last()
-                .and_then(|w| w.get("decision"))
-                .and_then(|d| d.as_str())
-                && let Some(reason) = decision.strip_prefix("stop:")
-            {
-                match stops.iter_mut().find(|(k, _)| k == reason) {
-                    Some((_, n)) => *n += 1,
-                    None => stops.push((reason.to_string(), 1)),
-                }
-            }
-            for (idx, wave) in waves.iter().enumerate() {
-                if by_idx.len() <= idx {
-                    by_idx.push((0, 0.0, 0));
-                }
-                by_idx[idx].0 += wave.get("novel").and_then(|n| n.as_u64()).unwrap_or(0) as usize;
-                if let Some(d) = wave.get("dissent").and_then(|d| d.as_f64()) {
-                    by_idx[idx].1 += d;
-                    by_idx[idx].2 += 1;
-                }
-            }
-        }
-        out.push_str(&format!("\nwaves: mean {mean_waves:.2}"));
-        if !stops.is_empty() {
-            stops.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-            out.push_str(&format!(" · stops {}", fmt_counts(&stops)));
-        }
-        let wave_stats = by_idx
-            .iter()
-            .enumerate()
-            .map(|(idx, (novel, dissent_sum, dissent_n))| {
-                let d = if *dissent_n > 0 {
-                    format!("{:.2}", dissent_sum / *dissent_n as f64)
-                } else {
-                    "n/a".to_string()
-                };
-                format!("w{} novel {} d {}", idx + 1, novel, d)
-            })
-            .collect::<Vec<_>>()
-            .join(" · ");
-        if !wave_stats.is_empty() {
-            out.push_str(&format!("\nwave detail: {wave_stats}"));
-        }
-    }
-    let scales: Vec<&serde_json::Map<String, serde_json::Value>> = records
-        .iter()
-        .filter_map(|r| r.get("scale").and_then(|s| s.as_object()))
-        .collect();
-    if !scales.is_empty() {
-        let mean = |key: &str| -> f64 {
-            let vals = scales
-                .iter()
-                .filter_map(|s| s.get(key).and_then(|v| v.as_f64()))
-                .collect::<Vec<_>>();
-            if vals.is_empty() {
-                0.0
-            } else {
-                vals.iter().sum::<f64>() / vals.len() as f64
-            }
-        };
-        out.push_str(&format!(
-            "\nscale: mean clusters {:.2} · dominant {:.2} · eclusters {:.2}",
-            mean("clusters"),
-            mean("dominant"),
-            mean("eclusters")
-        ));
-    }
-    // Token spend per club, summed across every recorded turn.
-    let mut spend: Vec<(String, u64, u64)> = Vec::new();
-    for r in records {
-        let Some(tokens) = r.get("tokens").and_then(|t| t.as_object()) else {
-            continue;
-        };
-        for (label, v) in tokens {
-            let t_in = v.get("in").and_then(|x| x.as_u64()).unwrap_or(0);
-            let t_out = v.get("out").and_then(|x| x.as_u64()).unwrap_or(0);
-            match spend.iter_mut().find(|(k, ..)| k == label) {
-                Some((_, i, o)) => {
-                    *i += t_in;
-                    *o += t_out;
-                }
-                None => spend.push((label.clone(), t_in, t_out)),
-            }
-        }
-    }
-    if !spend.is_empty() {
-        spend.sort_by_key(|entry| std::cmp::Reverse(entry.1 + entry.2));
-        out.push_str("\ntokens in/out by club:");
-        for (label, t_in, t_out) in &spend {
-            out.push_str(&format!(
-                "\n  {label:<12} {} / {}",
-                kfmt(*t_in),
-                kfmt(*t_out)
-            ));
-        }
-    }
-    let recent: Vec<String> = records
-        .iter()
-        .rev()
-        .take(5)
-        .map(|r| {
-            let d = r
-                .get("dissent")
-                .and_then(|x| x.as_f64())
-                .map(|d| format!(" d={d:.2}"))
-                .unwrap_or_default();
-            let gate = s(r, "gate").map(|g| format!(" {g}")).unwrap_or_default();
-            let ms = r.get("ms").and_then(|x| x.as_u64()).unwrap_or(0);
-            format!(
-                "  {}{gate}{d} · {:.1}s · {}",
-                s(r, "route").unwrap_or_else(|| "?".into()),
-                ms as f64 / 1000.0,
-                if r.get("ok").and_then(|x| x.as_bool()).unwrap_or(false) {
-                    "ok"
-                } else {
-                    "err"
-                }
-            )
-        })
-        .collect();
-    out.push_str("\nrecent (newest first):\n");
-    out.push_str(&recent.join("\n"));
-    out.push_str("\n— /moa clear resets");
-    out
+    render_report(records).unwrap_or_else(|error| format!("moa report unavailable: {error}"))
 }
 
-/// `12345` → `12.3k`; keeps small counts exact.
-fn kfmt(n: u64) -> String {
-    if n >= 10_000 {
-        format!("{:.1}k", n as f64 / 1000.0)
-    } else {
-        n.to_string()
+fn render_report(records: &[serde_json::Value]) -> Result<String, String> {
+    use serde_json::{Value, json};
+    use std::time::Duration;
+    if records.len() > MAX_REPORT_RECORDS {
+        return Err("project exceeds 100000 report records".to_string());
     }
+    let unsigned = |value: &Value| value.as_u64().unwrap_or(0).to_string();
+    let rows: Vec<Value> = records
+        .iter()
+        .map(|r| {
+            let waves = r.get("waves").and_then(Value::as_array).map(|waves| {
+                waves
+                    .iter()
+                    .map(|w| {
+                        json!({
+                            "novel": unsigned(&w["novel"]),
+                            "dissent": w.get("dissent").and_then(Value::as_f64),
+                            "decision": w.get("decision").and_then(Value::as_str),
+                        })
+                    })
+                    .collect::<Vec<_>>()
+            });
+            // A list, not an object: preserve serde_json's sorted key order even
+            // for numeric-looking labels that JavaScript objects reorder.
+            let tokens: Vec<Value> = r
+                .get("tokens")
+                .and_then(Value::as_object)
+                .map(|tokens| {
+                    tokens
+                        .iter()
+                        .map(|(label, v)| {
+                            json!([label, {
+                                "in": unsigned(&v["in"]), "out": unsigned(&v["out"]),
+                            }])
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            let scale = r.get("scale").and_then(Value::as_object).map(|v| {
+                json!({
+                    "clusters": v.get("clusters").and_then(Value::as_f64),
+                    "dominant": v.get("dominant").and_then(Value::as_f64),
+                    "eclusters": v.get("eclusters").and_then(Value::as_f64),
+                })
+            });
+            json!({
+                "route": r.get("route").and_then(Value::as_str),
+                "gate": r.get("gate").and_then(Value::as_str),
+                "ok": r.get("ok").and_then(Value::as_bool).unwrap_or(false),
+                "ms": unsigned(&r["ms"]),
+                "dissent": r.get("dissent").and_then(Value::as_f64),
+                "waves": waves, "tokens": tokens, "scale": scale,
+            })
+        })
+        .collect();
+    let input =
+        serde_json::to_vec(&json!({"records": rows, "lo": format!("{:.2}", dissent_lo()), "hi": format!("{:.2}", dissent_hi())}))
+            .map_err(|error| format!("encode report input: {error}"))?;
+    let node = crate::agent::tools::runtime_missing::resolve("node")
+        .map_err(|_| "Node.js unavailable (install Node or set ANGEL_NODE_BIN)".to_string())?;
+    let mut command = std::process::Command::new(node);
+    command.env_clear();
+    command.arg(crate::platform::runtime_paths::script(
+        "runtime/moa-report.mjs",
+    ));
+    let output = crate::platform::worker::run_cancellable(
+        command,
+        &input,
+        Duration::from_secs(10),
+        128 * 1024 * 1024,
+        1024 * 1024,
+        || false,
+    )
+    .map_err(|error| format!("report module: {error}"))?;
+    String::from_utf8(output).map_err(|_| "report output was not UTF-8".to_string())
 }
 
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/swarm__ledger__project_scope_tests.rs"]
 mod project_scope_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/app/swarm__moa_report_tests.rs"]
+mod moa_report_tests;

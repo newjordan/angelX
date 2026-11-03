@@ -63,6 +63,7 @@ def main(argv=None):
     parser.add_argument("--tests", type=Path)
     parser.add_argument("--out", type=Path)
     parser.add_argument("--helper", type=Path)
+    parser.add_argument("--profile", choices=("debug", "fast", "devfast"), default="debug")
     args = parser.parse_args(argv)
     try:
         if args.diagnostics is not None:
@@ -72,9 +73,9 @@ def main(argv=None):
             parser.error("copy requires --build, --tests, and --out")
         build, tests = messages(args.build), messages(args.tests)
         sources = {
-            "debug/deps/angel-tests": executable(tests, "angel", True),
-            "debug/angel": executable(build, "angel", False),
-            "debug/angel-sandbox": args.helper or executable(build, "angel-sandbox", False),
+            f"{args.profile}/deps/angel-tests": executable(tests, "angel", True),
+            f"{args.profile}/angel": executable(build, "angel", False),
+            f"{args.profile}/angel-sandbox": args.helper or executable(build, "angel-sandbox", False),
         }
         hashes = {name: copy_executable(source, args.out / name) for name, source in sources.items()}
         (args.out / "image.json").write_text(json.dumps({"sha256": hashes}, indent=2) + "\n")

@@ -194,7 +194,7 @@ houses has no `house` and is named by the Keep's household.
   sprites, banners, carvings, house colours, and the March's riders.
 - `crates/delve/src/world/map.rs`: the March screens and the
   precinct's south gates.
-- `cockpit/src/stage/world_viz/overworld/live.rs`: the walker's house, its
+- `crates/realm-host/src/world_viz/overworld/live.rs`: the walker's house, its
   retinue and its relieved knights, and resting at the castle.
 - `crates/delve/src/rules/knights.rs`: kits worn by house knights.
 - Tests: `tests/cockpit/app/houses__tests.rs`,

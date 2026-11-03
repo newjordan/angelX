@@ -5,38 +5,52 @@
 use super::*;
 use std::collections::BTreeSet;
 mod cart;
-mod duckshoot;
-mod put;
-mod surf;
-mod volley;
-mod halfpipe;
 mod chariot;
-mod trencher;
+mod duckshoot;
+mod gander;
+mod halfpipe;
 mod longbow;
 mod powder;
-mod gander;
+mod put;
+mod peal;
 mod siege;
-pub use longbow::{Longbow, ARROWS as LONGBOW_ARROWS, FULL_DRAW as LONGBOW_FULL_DRAW, FLIGHT as LONGBOW_FLIGHT};
-pub use gander::{
-    FLAP_KICK as GANDER_FLAP_KICK, GRAVITY as GANDER_GRAVITY, NEED as GANDER_NEED, Gander,
-    GanderRider, GanderEgg, LEDGES as GANDER_LEDGES, TAR_ROW as GANDER_TAR_ROW,
-    HATCH as GANDER_HATCH,
-};
-pub use trencher::{Trencher, FLIGHT as TRENCHER_FLIGHT};
-pub use chariot::{Chariot, LAP, RIVALS, BARRELS};
-pub use halfpipe::{Halfpipe, LIP_OPEN, LIP_CLOSE, FLIGHT_TICKS};
+mod surf;
+mod trencher;
+mod volley;
 pub use cart::{CART_AIR, CART_LOGS, CART_RUTS, Cart};
-pub use duckshoot::{DuckShoot, EYE_Z, FOCAL, RAIL_Y, RAIL_Z};
-pub use powder::{Charm, Flame, Keg, Knight, Powder, Scorch, BALES as POWDER_BALES, BLAST, BLAST_CHARM, FIRE, FUSE, KEGS, KEGS_CHARM, POSTS as POWDER_POSTS, SPEED, SPEED_BOOTS, STOCK, STOCK_CHARM, W as POWDER_W, H as POWDER_H, X0 as POWDER_X0, Y0 as POWDER_Y0};
+pub use chariot::{BARRELS, Chariot, LAP, RIVALS};
+pub use duckshoot::{DOWN_RESET, DuckShoot, EYE_Z, FOCAL, RAIL_Y, RAIL_Z};
+pub use gander::{
+    FLAP_KICK as GANDER_FLAP_KICK, GRAVITY as GANDER_GRAVITY, Gander, GanderEgg, GanderRider,
+    HATCH as GANDER_HATCH, LEDGES as GANDER_LEDGES, NEED as GANDER_NEED, TAR_ROW as GANDER_TAR_ROW,
+};
+pub use halfpipe::{FLIGHT_TICKS, Halfpipe, LIP_CLOSE, LIP_OPEN};
+pub use longbow::{
+    ARROWS as LONGBOW_ARROWS, FLIGHT as LONGBOW_FLIGHT, FULL_DRAW as LONGBOW_FULL_DRAW,
+    HIT_BURST as LONGBOW_HIT_BURST, Longbow,
+};
+pub use powder::{
+    BALES as POWDER_BALES, BLAST, BLAST_CHARM, Charm, FIRE, FUSE, Flame, H as POWDER_H, KEGS,
+    KEGS_CHARM, Keg, Knight, POSTS as POWDER_POSTS, Powder, SPEED, SPEED_BOOTS, STOCK, STOCK_CHARM,
+    Scorch, W as POWDER_W, X0 as POWDER_X0, Y0 as POWDER_Y0,
+};
 pub use put::{Put, TARGETS};
 pub use siege::{
-    Ammo, Keep, Shot, Siege, BLOCK_H, BLOCK_W, CASTLE_X, ENGINE_X, EPITAPHS, EVENT_LOSS,
-    EVENT_RASH_LOSS, FIELD_W, GRAVE_NONE, KEEP_COLS, KEEP_ROWS, LEGS, MISSING_CREW_TICKS,
-    NOTICES, NOTICE_FORD_PAID, NOTICE_MARCHES, NOTICE_NONE, GROUND_LINE, SOLDIERS, SPLAT, VOLLEY_HZ,
-    WIND_MAX, WINDS, EVENT_WAIT, MOURN, RETREAT, MOON, POT, RELOAD_TICKS_BASE,
+    Ammo, BLOCK_H, BLOCK_W, CASTLE_X, ENGINE_X, EPITAPHS, EVENT_LOSS, EVENT_RASH_LOSS, EVENT_WAIT,
+    FIELD_W, GRAVE_NONE, GROUND_LINE, KEEP_COLS, KEEP_ROWS, Keep, LEGS, MISSING_CREW_TICKS, MOON,
+    MOURN, NOTICE_FORD_PAID, NOTICE_MARCHES, NOTICE_NONE, NOTICES, POT, RELOAD_TICKS_BASE, RETREAT,
+    SOLDIERS, SPLAT, Shot, Siege, VOLLEY_HZ, WIND_MAX, WINDS,
 };
+pub use peal::{FIRST as PEAL_FIRST, Peal, STEP as PEAL_STEP, STRIKES as PEAL_STRIKES, WINDOW as PEAL_WINDOW, interval as peal_interval};
 pub use surf::{CREST_WINDOW, Surf, WAVE_LEANS, WAVE_TICKS};
-pub use volley::{BELL_X, PADDLE_REACH, Volley};
+pub use trencher::{
+    CATCH as TRENCHER_CATCH, FLIGHT as TRENCHER_FLIGHT, Trencher, WINDS as TRENCHER_WINDS,
+};
+pub use volley::{
+    BELL_X, COURT_LEFT, COURT_RIGHT, COURT_TOP, MISS_FLASH_TICKS, PADDLE_REACH, PADDLE_Y,
+    PERFECT_FLASH_TICKS, PERFECT_TICKS, RING_TICKS, SERVE_SPEED, SHIMMER_TICKS, SWING_TICKS,
+    TRAIL_LEN, Volley,
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -60,10 +74,11 @@ pub enum Game {
     Powder,
     Gander,
     Siege,
+    Peal,
 }
 
 impl Game {
-    pub const ALL: [Self; 19] = [
+    pub const ALL: [Self; 20] = [
         Self::Broadsheet,
         Self::Barrel,
         Self::Turnip,
@@ -83,6 +98,7 @@ impl Game {
         Self::Powder,
         Self::Gander,
         Self::Siege,
+        Self::Peal,
     ];
     pub fn index(self) -> usize {
         Self::ALL.iter().position(|g| *g == self).unwrap()
@@ -111,6 +127,9 @@ impl Game {
             // The war-camp pitches on the Flower Fields: engines among
             // the flowers, the toll of the trail already paid.
             Self::Siege => RoomKind::Pasture,
+            // The second game in the Bashful Belfry: its own ring under
+            // the east tower, east of the volley's pad.
+            Self::Peal => RoomKind::Belfry,
         }
     }
     pub fn name(self) -> &'static str {
@@ -125,7 +144,7 @@ impl Game {
             Self::Pot => "CHAMBER-POT PUT",
             Self::Cart => "WHEELBARROW CROSS",
             Self::Surf => "SHIELD SURF",
-            Self::Volley => "BELFRY BAT-AND-BALL",
+            Self::Volley => "BELFRY BELL RALLY",
             Self::Halfpipe => "JESTER'S HALF-PIPE",
             Self::Chariot => "CABBAGE AND ROLL RACING",
             Self::Trencher => "TRENCHER TOSS",
@@ -134,6 +153,7 @@ impl Game {
             Self::Powder => "POWDER KEG",
             Self::Gander => "GANDER JOUST",
             Self::Siege => "SIEGE TRAIL",
+            Self::Peal => "CHANGE RINGING",
         }
     }
     pub fn start(self) -> (f32, f32) {
@@ -157,6 +177,7 @@ impl Game {
             Self::Powder => (3.0, 5.0),
             Self::Gander => (9.0, 8.0),
             Self::Siege => (9.0, 10.5),
+            Self::Peal => (20.0, 9.0),
         }
     }
     pub fn time(self) -> u32 {
@@ -182,6 +203,9 @@ impl Game {
             // Five legs over three castles; the trail's own clocks, not
             // the round clock, pace the march.
             Self::Siege => 300 * HZ,
+            // The thirteen swings sum to 390 ticks; the clock is the
+            // backstop, the peal's own strikes end it first.
+            Self::Peal => 15 * HZ,
         }
     }
     pub fn need(self) -> u8 {
@@ -204,6 +228,7 @@ impl Game {
             Self::Powder => 8,
             Self::Gander => 8,
             Self::Siege => 3,
+            Self::Peal => 10,
         }
     }
 }
@@ -269,6 +294,8 @@ pub struct Records {
     pub powder: Score,
     pub gander: Score,
     pub siege: Score,
+    #[serde(default, skip_serializing_if = "Score::is_empty")]
+    pub peal: Score,
 }
 impl Records {
     pub fn valid(&self) -> bool {
@@ -296,6 +323,7 @@ impl Records {
             && self.powder.valid()
             && self.gander.valid()
             && self.siege.valid()
+            && self.peal.valid()
     }
     /// Mend records a bad save broke: bests capped, plays at least wins.
     pub fn repair(&mut self) {
@@ -324,6 +352,7 @@ impl Records {
             &mut self.mossbell,
             &mut self.gander,
             &mut self.siege,
+            &mut self.peal,
         ] {
             score.repair();
         }
@@ -360,6 +389,8 @@ impl Records {
             self.gander.best
         } else if game == Game::Siege {
             self.siege.best
+        } else if game == Game::Peal {
+            self.peal.best
         } else {
             self.best[game.index()]
         }
@@ -395,6 +426,8 @@ impl Records {
             self.gander.plays
         } else if game == Game::Siege {
             self.siege.plays
+        } else if game == Game::Peal {
+            self.peal.plays
         } else {
             self.plays[game.index()]
         }
@@ -429,6 +462,8 @@ impl Records {
             self.gander.wins
         } else if game == Game::Siege {
             self.siege.wins
+        } else if game == Game::Peal {
+            self.peal.wins
         } else {
             self.wins[game.index()]
         }
@@ -512,6 +547,7 @@ impl Records {
             self.rafterwake.merge(&other.rafterwake);
             self.pennon.merge(&other.pennon);
             self.mossbell.merge(&other.mossbell);
+            self.peal.merge(&other.peal);
             for (mine, theirs) in self.roundtable.iter_mut().zip(&other.roundtable) {
                 mine.merge(theirs);
             }
@@ -583,11 +619,32 @@ pub struct Round {
     pub powder: Option<Powder>,
     pub gander: Option<Gander>,
     pub siege: Option<Siege>,
+    #[serde(default)]
+    pub peal: Option<Peal>,
     /// Each rider jumps only for their own key edge, never the party's OR.
     #[serde(default)]
     pub riders: BTreeMap<u32, Rider>,
     #[serde(default)]
     pub sled: Option<Sled>,
+    /// Ticks remaining for the floating score popup (rises and fades over 8 ticks).
+    #[serde(default)]
+    pub score_popup: u8,
+    /// Text to display in the score popup (e.g., "+75", "PERFECT!", "COMBO!").
+    #[serde(default)]
+    pub score_popup_text: String,
+    /// Tile-space X position of the score popup.
+    #[serde(default)]
+    pub score_popup_x: i32,
+    /// Tile-space Y position of the score popup.
+    #[serde(default)]
+    pub score_popup_y: i32,
+    /// Consecutive successful actions (for combo sounds).
+    #[serde(default)]
+    pub streak: u8,
+    /// Ticks remaining for the intro screen: controls are shown and the
+    /// round does not advance while it is up. Press fire to skip.
+    #[serde(default)]
+    pub intro_ticks: u8,
 }
 
 /// A volunteer rides a shield, while the controlling knight stays on foot.
@@ -697,6 +754,10 @@ impl Heat {
 }
 
 /// What one tick of a round came to.
+///
+/// `Going` is the common tick result and holds a full `Round`. Boxing it
+/// would allocate on every pastime tick just to shrink the rare `Over`.
+#[allow(clippy::large_enum_variant)]
 enum Played {
     Going(Round),
     Over(Finish),
@@ -816,11 +877,14 @@ impl State {
                 s.owner = next;
             }
         }
-        if let Some(s) = &mut r.gander {
-            // The shared hall keeps every seat; a departing starter's seat
-            // rides on (their tally stays), the seat list never empties.
-        }
+        // The shared gander hall keeps every seat; a departing starter's
+        // seat rides on (their tally stays), the seat list never empties.
         if let Some(s) = &mut r.siege {
+            if s.owner == id {
+                s.owner = next;
+            }
+        }
+        if let Some(s) = &mut r.peal {
             if s.owner == id {
                 s.owner = next;
             }
@@ -882,6 +946,7 @@ fn new_round(
             Gander::new(&hall)
         }),
         siege: (game == Game::Siege).then(|| Siege::new(owner)),
+        peal: (game == Game::Peal).then(|| Peal::new(owner)),
         riders: if game == Game::Hobbyhorse {
             BTreeMap::from([(
                 owner,
@@ -901,6 +966,12 @@ fn new_round(
             y: 7 * 256,
             dy: 0,
         }),
+        score_popup: 0,
+        score_popup_text: String::new(),
+        score_popup_x: 0,
+        score_popup_y: 0,
+        streak: 0,
+        intro_ticks: 0,
     }
 }
 
@@ -956,6 +1027,11 @@ fn round_valid(r: &Round) -> bool {
                     } else {
                         r.siege.is_none()
                     })
+                    && (if r.game == Game::Peal {
+                        r.peal.as_ref().is_some_and(|p| p.valid(r))
+                    } else {
+                        r.peal.is_none()
+                    })
                     && (if r.game == Game::Chariot {
                         r.chariot.as_ref().is_some_and(|c| c.valid(r))
                     } else { r.chariot.is_none() })
@@ -1005,7 +1081,17 @@ fn round_valid(r: &Round) -> bool {
                     && r.mistakes <= 20
                     && r.hazard_left <= HZ
                     && r.last_beat.is_none_or(|b| b <= r.game.time() / HZ)
+                    && r.score_popup <= 8
+                    && r.streak <= 20
+                    && r.intro_ticks <= 30
 }
+
+/// Ticks between two of a pastime room's ambient sounds. The longest (a
+/// fair's wheel) runs 3.35 s, so this keeps it to a third of the time and
+/// every other room's tone under a tenth; they came every one to three
+/// seconds before, a laser burst for a river and a guardian's sting for
+/// the pasture among them.
+const AMBIENT_EVERY: u64 = 10 * HZ as u64;
 
 /// Tile coordinates; each is in front of a house, never on its collision.
 pub const MAILBOXES: [(f32, f32); 5] =
@@ -1051,7 +1137,118 @@ pub fn cheese_target(round: &Round) -> (f32, f32) {
 }
 
 impl Run {
-    pub(super) fn tick_pastimes(&mut self, inputs: &BTreeMap<u32, Input>) {
+    /// The ambient sound for the current room, if any: the place's own
+    /// tone (feet on its ground, a fair's wheel, a belfry's bell), never a
+    /// fight's cue.
+    fn ambient_for_room(room: RoomKind) -> Option<&'static str> {
+        match room {
+            RoomKind::Village => Some("step_gravel"),
+            RoomKind::Fairground => Some("wheel_spin"),
+            RoomKind::Riverbank => Some("step_wet"),
+            RoomKind::Downs => Some("step_gravel"),
+            RoomKind::Causeway => Some("step_stone"),
+            RoomKind::Crag => Some("step_gravel"),
+            RoomKind::Strand => Some("step_wet"),
+            RoomKind::Timberyard => Some("step_wood"),
+            RoomKind::Millpond => Some("step_wet"),
+            RoomKind::Belfry => Some("circle_toll"),
+            RoomKind::Mummers => Some("wheel_spin"),
+            RoomKind::Hippodrome => Some("wheel_spin"),
+            RoomKind::GooseGreen => Some("step_gravel"),
+            RoomKind::LongbowGreen => Some("swing"),
+            RoomKind::KegYard => Some("vent_fire"),
+            RoomKind::GanderHall => Some("swing"),
+            RoomKind::Pasture => Some("step_moss"),
+            _ => None,
+        }
+    }
+
+    /// Pushes an ambient sound for the current room every `AMBIENT_EVERY`.
+    /// Ambient sounds are sparse background texture, not foreground events.
+    fn push_ambient(&mut self) {
+        let room = self.room().kind;
+        if let Some(sound) = Self::ambient_for_room(room)
+            && self.tick.is_multiple_of(AMBIENT_EVERY)
+        {
+            self.sounds.push(sound);
+        }
+    }
+
+    pub(super) fn start_crossroads_pastime(&mut self, game: Game) {
+        let seats = self.crossroads.as_ref().unwrap().seats.clone();
+        let Some(&owner) = seats.first() else { return; };
+        let at = game.start();
+        let mut round = new_round(game, owner, at, 0, Some(&seats));
+        if game == Game::Powder {
+            round.powder = Some(Powder::new(&seats, (self.seed % 7) as u8));
+            for k in &round.powder.as_ref().unwrap().knights {
+                if let Some(h) = self.players.get_mut(&k.id) {
+                    h.x = (f32::from(POWDER_X0) + f32::from(k.x) / 256.0) * TILE_UNITS;
+                    h.y = (f32::from(POWDER_Y0) + f32::from(k.y) / 256.0 + 0.3) * TILE_UNITS;
+                }
+            }
+            for &id in seats.iter().skip(1) {
+                self.pastimes.heats.insert(id, round.clone());
+            }
+            self.home.countryside.games.powder.plays =
+                self.home.countryside.games.powder.plays.saturating_add(1);
+        } else {
+            self.home.countryside.games.gander.plays =
+                self.home.countryside.games.gander.plays.saturating_add(1);
+        }
+        self.pastimes.round = Some(round);
+        self.pastimes.heat = Some(Heat {
+            game,
+            seats,
+            done: BTreeMap::new(),
+            standing: BTreeMap::new(),
+        });
+    }
+
+    /// The crossroads keeps one yard, including after its starter is sooted.
+    /// Survival decides places, then bales burned, then seat order.
+    fn tick_crossroads_kegs(
+        &mut self,
+        inputs: &BTreeMap<u32, Input>,
+        eligible: &[(u32, f32, f32)],
+        tapped: &[u32],
+    ) {
+        let mut round = self.pastimes.round.take().unwrap();
+        round.left = round.left.saturating_sub(1);
+        let going = round.left > 0 && self.tick_kegs(&mut round, inputs, eligible, tapped);
+        let yard = round.powder.as_ref().unwrap();
+        let alive = yard.alive();
+        let heat = self.pastimes.heat.as_mut().unwrap();
+        let elapsed = round.game.time().saturating_sub(round.left);
+        for &id in &heat.seats {
+            let progress = yard.burned.get(&id).copied().unwrap_or(0).min(round.game.need());
+            heat.standing.insert(id, progress);
+            if !alive.contains(&id) {
+                heat.done.entry(id).or_insert(Finish {
+                    progress,
+                    points: Some((elapsed * 999 / round.game.time()) as u16),
+                });
+            }
+        }
+        let over = !going || (heat.seats.len() > 1 && alive.len() <= 1)
+            || (heat.seats.len() == 1 && round.progress >= round.game.need());
+        if over {
+            for &id in &heat.seats {
+                heat.done.entry(id).or_insert(Finish {
+                    progress: heat.standing.get(&id).copied().unwrap_or(0),
+                    points: Some(1000),
+                });
+            }
+            let heat = self.pastimes.heat.take().unwrap();
+            self.pastimes.heats.clear();
+            self.judge_heat(&heat);
+        } else {
+            for r in self.pastimes.heats.values_mut() { *r = round.clone(); }
+            self.pastimes.round = Some(round);
+        }
+    }
+
+    pub(crate) fn tick_pastimes(&mut self, inputs: &BTreeMap<u32, Input>) {
         let room = self.room().kind;
         if !Game::ALL.iter().any(|g| g.room() == room) {
             self.pastimes.leave();
@@ -1064,7 +1261,13 @@ impl Run {
         for (&id, h) in self
             .players
             .iter()
-            .filter(|(_, h)| h.hp > 0 && !h.stone && h.privy == 0)
+            .filter(|(id, h)| {
+                self.crossroads
+                    .as_ref()
+                    .map_or(h.hp > 0 && !h.stone && h.privy == 0, |c| {
+                        c.seats.contains(id)
+                    })
+            })
             .take(MAX_PLAYERS as usize)
         {
             eligible[count] = (id, h.x, h.y);
@@ -1090,6 +1293,10 @@ impl Run {
             }
         }
         let tapped = &tapped[..taps];
+        if self.crossroads.is_some() && self.pastimes.round.as_ref().is_some_and(|r| r.game == Game::Powder) {
+            self.tick_crossroads_kegs(inputs, eligible, tapped);
+            return;
+        }
         let occupied = Game::ALL
             .iter()
             .filter(|g| g.room() == room && near(g.start(), 1.25))
@@ -1144,17 +1351,34 @@ impl Run {
                     record.gander.plays = record.gander.plays.saturating_add(1);
                 } else if game == Game::Siege {
                     record.siege.plays = record.siege.plays.saturating_add(1);
+                } else if game == Game::Peal {
+                    record.peal.plays = record.peal.plays.saturating_add(1);
                 } else {
                     record.plays[game.index()] = record.plays[game.index()].saturating_add(1);
                 }
                 // Everyone in the room is in: the starter plays the lead
                 // round, each friend a round of their own.
                 let seat_ids: Vec<u32> = eligible.iter().map(|&(id, _, _)| id).collect();
-                self.pastimes.round = Some(new_round(game, starter, (sx, sy), rotation, Some(&seat_ids)));
+                self.pastimes.round = Some(new_round(
+                    game,
+                    starter,
+                    (sx, sy),
+                    rotation,
+                    Some(&seat_ids),
+                ));
+                // The intro screen shows controls while players are invulnerable.
+                #[cfg(not(test))]
+                if let Some(r) = &mut self.pastimes.round {
+                    r.intro_ticks = 30;
+                }
                 let mut seats = vec![starter];
                 for &(id, x, y) in eligible {
                     if id != starter {
                         self.pastimes.heats.insert(id, new_round(game, id, (x, y), rotation, Some(&seat_ids)));
+                        #[cfg(not(test))]
+                        if let Some(r) = self.pastimes.heats.get_mut(&id) {
+                            r.intro_ticks = 30;
+                        }
                         seats.push(id);
                     }
                 }
@@ -1185,7 +1409,8 @@ impl Run {
                         r.powder = Some(yard.clone());
                     }
                 }
-                self.sounds.push("play_card");
+                // Door opens to signal the game beginning
+                self.sounds.push("door_open");
                 self.found = Some((
                     self.tick,
                     0,
@@ -1212,9 +1437,7 @@ impl Run {
                 if let Some(tally) = tally {
                     for (k, &seat) in seats.iter().enumerate() {
                         let t = tally.get(k).copied().unwrap_or(0);
-                        if let Ok(got) = u8::try_from(t) {
-                            heat.standing.insert(seat, got.min(heat.game.need()));
-                        }
+                        heat.standing.insert(seat, t.min(heat.game.need()));
                     }
                 }
             }
@@ -1222,9 +1445,10 @@ impl Run {
             // every seat finishes with its unhorsings in the shared hall.
             let over = !going
                 || round.left == 0
-                || round.gander.as_ref().is_some_and(|g| {
-                    g.tally.iter().any(|&t| t >= round.game.need())
-                });
+                || round
+                    .gander
+                    .as_ref()
+                    .is_some_and(|g| g.tally.iter().any(|&t| t >= round.game.need()));
             self.pastimes.round = Some(round);
             if over {
                 self.finish_gander_heat();
@@ -1317,6 +1541,8 @@ impl Run {
         {
             self.judge_heat(&heat);
         }
+        // Ambient room tone: sparse background sounds that set the mood.
+        self.push_ambient();
     }
 
     /// The shared Gander hall is over (clock, or the need): each seat
@@ -1339,7 +1565,13 @@ impl Run {
             let p = u8::try_from(g.tally.get(k).copied().unwrap_or(0))
                 .unwrap_or(u8::MAX)
                 .min(heat.game.need());
-            finishes.insert(seat, Finish { progress: p, points: None });
+            finishes.insert(
+                seat,
+                Finish {
+                    progress: p,
+                    points: None,
+                },
+            );
         }
         let crowned = Heat {
             game: heat.game,
@@ -1368,7 +1600,13 @@ impl Run {
         } else {
             self.found = Some((self.tick, 0, "GANDER JOUST: time!".into()));
         }
-        self.sounds.push("play_card");
+        if winner.is_some() {
+            self.sounds.push("spoil_pickup");
+            self.sounds.push("gold");
+        } else {
+            self.sounds.push("clang");
+            self.sounds.push("hero_hurt");
+        }
         self.cues.push("pastime_won".into());
         self.judge_heat(&crowned);
     }
@@ -1396,6 +1634,19 @@ impl Run {
 
     /// Everyone has finished: the best is crowned before the party.
     fn judge_heat(&mut self, heat: &Heat) {
+        if self.crossroads.is_some() {
+            let mut seats = heat.seats.clone();
+            seats.sort_by(|a, b| {
+                let score = |id: &u32| {
+                    heat.done
+                        .get(id)
+                        .map(|f| (f.points.is_some(), f.points.unwrap_or(0), f.progress))
+                };
+                score(b).cmp(&score(a)).then(a.cmp(b))
+            });
+            self.finish_crossroads(seats);
+            return;
+        }
         if heat.seats.len() < 2 {
             return;
         }
@@ -1437,6 +1688,18 @@ impl Run {
                 .iter()
                 .any(|&(_, x, y)| (x - tx * TILE_UNITS).hypot(y - ty * TILE_UNITS) < reach)
         };
+        // While the intro is up the round is frozen: the clock does not run
+        // and the players are invulnerable (no game logic advances). Fire skips.
+        if round.intro_ticks > 0 {
+            if inputs.values().any(|i| i.valid() && i.fire) {
+                round.intro_ticks = 0;
+            } else {
+                round.intro_ticks -= 1;
+                return Played::Going(round);
+            }
+        }
+        // Track progress for milestone sounds
+        let prev_progress = round.progress;
         // Expiry wins the race against a final delivery/flag on the same tick.
         // Input answers the round's published cue, before this tick advances
         // the clock. Expiry still wins below, including a tap on the last tick.
@@ -1453,10 +1716,14 @@ impl Run {
                     round.game.need()
                 ),
             ));
+            // Failure sounds: clang + hero_hurt
+            self.sounds.push("clang");
+            self.sounds.push("hero_hurt");
             self.cues.push("pastime_lost".into());
             return lost(&round);
         }
         round.hazard_left = round.hazard_left.saturating_sub(1);
+        round.score_popup = round.score_popup.saturating_sub(1);
         if matches!(round.game, Game::Broadsheet | Game::Barrel | Game::Washtub)
             && round.hazard_left == 0
             && !(round.game == Game::Broadsheet && self.home.countryside.has(0))
@@ -1474,6 +1741,8 @@ impl Run {
                 }
                 .into(),
             ));
+            if round.game == Game::Barrel { self.sounds.push("hit"); }
+            else { self.sounds.push("wave_gate"); }
         }
         match round.game {
             Game::Trencher => {
@@ -1490,9 +1759,19 @@ impl Run {
                 }
                 let input=inputs.get(&c.owner).copied().filter(|i|i.valid()).unwrap_or_default();
                 let before=c.bog;
+                let before_lap=c.distance/LAP;
+                let before_reload=c.reload;
                 let result=c.step(input,tapped.contains(&c.owner));
+                if c.reload > 0 && before_reload == 0 {self.sounds.push("vent_fire");}
                 if c.bog>before {round.mistakes=round.mistakes.saturating_add(1).min(20);self.sounds.push("hero_hurt");}
                 round.progress=(c.distance/LAP) as u8;
+                if c.distance/LAP>before_lap {
+                    round.score_popup = 8;
+                    round.score_popup_text = "LAP!".to_string();
+                    round.score_popup_x = 12;
+                    round.score_popup_y = 6;
+                    self.sounds.push("spoil_pickup");
+                }
                 if result<0 {self.found=Some((self.tick,c.owner,"Outraced by a goat!".into()));return lost(&round);}
             }
             Game::Halfpipe => {
@@ -1503,28 +1782,39 @@ impl Run {
                 }
                 let input = inputs.get(&h.owner).copied().filter(|i| i.valid()).unwrap_or_default();
                 let direction = Halfpipe::direction(round.progress, round.mistakes);
+                let was_ground = h.flight == 0;
+                let pump_axis = (if input.aim_x != 0 { input.aim_x } else { input.move_x }).signum();
                 if let Some(landed) = h.step(input, tapped.contains(&h.owner), direction) {
                     if landed {
                         round.progress += 1;
+                        round.score_popup = 8;
+                        round.score_popup_text = "NICE!".to_string();
+                        round.score_popup_x = 12;
+                        round.score_popup_y = 6;
                         self.sounds.push("spoil_pickup");
                     } else {
                         round.mistakes += 1;
                         self.sounds.push("hero_hurt");
                         if round.mistakes == 3 {
-                            self.found = Some((self.tick, h.owner, "Three helmets dented! Step off J, then retry.".into()));
+                            self.found = Some((
+                                self.tick,
+                                h.owner,
+                                "Three helmets dented! Step off J, then retry.".into(),
+                            ));
                             return lost(&round);
                         }
                     }
                 }
+                // Pump sound: while on the ground actively pumping in the right direction
+                if was_ground && !tapped.contains(&h.owner) && pump_axis == direction {
+                    self.sounds.push("roll");
+                }
+                h.tick_vfx();
             }
             Game::Volley => {
                 let volley = round.volley.as_mut().unwrap();
                 if !eligible.iter().any(|(id, _, _)| *id == volley.owner) {
-                    self.found = Some((
-                        self.tick,
-                        0,
-                        "Bat retired.".into(),
-                    ));
+                    self.found = Some((self.tick, 0, "Rally retired.".into()));
                     return lost(&round);
                 }
                 let input = inputs
@@ -1532,16 +1822,42 @@ impl Run {
                     .filter(|i| i.valid())
                     .copied()
                     .unwrap_or_default();
-                let lives = volley.lives;
-                let bells = volley.bells;
-                volley.step(input, tapped.contains(&volley.owner));
+                let beat = volley.step(input, tapped.contains(&volley.owner));
                 round.progress = volley.bells.count_ones() as u8;
-                if bells != volley.bells {
-                    self.sounds.push("spoil_pickup");
+                round.streak = volley.combo;
+                if beat.returned {
+                    round.score_popup = 8;
+                    round.score_popup_text = if beat.perfect {
+                        format!("PERFECT x{}", volley.combo)
+                    } else {
+                        format!("KEEP IT UP x{}", volley.combo)
+                    };
+                    round.score_popup_x = 12;
+                    round.score_popup_y = 6;
+                    self.sounds.push("swing");
+                    if beat.perfect {
+                        self.sounds.push("spoil_pickup");
+                    }
                 }
-                if lives != volley.lives {
+                if beat.scored {
+                    round.score_popup = 8;
+                    round.score_popup_text = if round.progress == 4 {
+                        "FINAL CHIME!".to_string()
+                    } else {
+                        format!("BELL {}!", round.progress)
+                    };
+                    round.score_popup_x = 12;
+                    round.score_popup_y = 6;
+                    self.sounds.push("circle_toll");
+                }
+                if beat.missed {
                     round.mistakes = round.mistakes.saturating_add(1).min(20);
                     self.sounds.push("clang");
+                    self.found = Some((
+                        self.tick,
+                        volley.owner,
+                        "Turnip down! Catch the next serve.".into(),
+                    ));
                 }
                 if volley.lives == 0 {
                     self.found = Some((self.tick, volley.owner, "Three turnips lost!".into()));
@@ -1551,11 +1867,7 @@ impl Run {
             Game::Surf => {
                 let surf = round.surf.as_mut().unwrap();
                 if !eligible.iter().any(|(id, _, _)| *id == surf.owner) {
-                    self.found = Some((
-                        self.tick,
-                        0,
-                        "Surfer retired.".into(),
-                    ));
+                    self.found = Some((self.tick, 0, "Surfer retired.".into()));
                     return lost(&round);
                 }
                 let input = inputs
@@ -1566,6 +1878,10 @@ impl Run {
                 match surf.step(input, tapped.contains(&surf.owner), round.progress) {
                     Some(true) => {
                         round.progress += 1;
+                        round.score_popup = 8;
+                        round.score_popup_text = "WAVE!".to_string();
+                        round.score_popup_x = 12;
+                        round.score_popup_y = 6;
                         self.sounds.push("spoil_pickup");
                     }
                     Some(false) => {
@@ -1577,20 +1893,73 @@ impl Run {
                                 round.progress + 1
                             ),
                         ));
-                        self.sounds.push("clang");
+                        self.sounds.push("hit");
                         return lost(&round);
                     }
                     None => {}
                 }
             }
-            Game::DuckShoot => {
-                let range = round.duckshoot.as_mut().unwrap();
-                if !eligible.iter().any(|(id, _, _)| *id == range.owner) {
+            Game::Peal => {
+                let peal = round.peal.as_mut().unwrap();
+                if !eligible.iter().any(|(id, _, _)| *id == peal.owner) {
                     self.found = Some((
                         self.tick,
                         0,
-                        "Gun retired.".into(),
+                        "Ringer retired.".into(),
                     ));
+                    return lost(&round);
+                }
+                // The pull only counts at the rope: the owner standing
+                // at the start ring, as a turnip kick only counts at home.
+                let at_rope = eligible.iter().any(|&(who, x, y)| {
+                    who == peal.owner
+                        && (x - Game::Peal.start().0 * TILE_UNITS)
+                            .hypot(y - Game::Peal.start().1 * TILE_UNITS)
+                            < 2.2
+                });
+                let prev_ring = peal.ring_flash;
+                let prev_clang = peal.clang_flash;
+                let closed = peal.step(tapped.contains(&peal.owner) && at_rope);
+                if prev_ring == 0 && peal.ring_flash > 0 {
+                    self.sounds.push("circle_toll");
+                }
+                if prev_clang == 0 && peal.clang_flash > 0 {
+                    round.score_popup = 8;
+                    round.score_popup_text = "TOO SOON!".to_string();
+                    round.score_popup_x = 20;
+                    round.score_popup_y = 6;
+                    self.sounds.push("clang");
+                }
+                match closed {
+                    Some(true) => {
+                        round.progress += 1;
+                        round.score_popup = 8;
+                        round.score_popup_text = "RUNG!".to_string();
+                        round.score_popup_x = 20;
+                        round.score_popup_y = 6;
+                    }
+                    Some(false) => {
+                        round.mistakes = round.mistakes.saturating_add(1).min(20);
+                    }
+                    None => {}
+                }
+                if round.progress < round.game.need()
+                    && (peal.struck >= peal::STRIKES
+                        || peal.struck - round.progress > peal::STRIKES - round.game.need())
+                {
+                    self.found = Some((
+                        self.tick,
+                        peal.owner,
+                        "The peal fell apart.".into(),
+                    ));
+                    self.sounds.push("clang");
+                    return lost(&round);
+                }
+            }
+            Game::DuckShoot => {
+                let range = round.duckshoot.as_mut().unwrap();
+                if !eligible.iter().any(|(id, _, _)| *id == range.owner) {
+                    self.found = Some((self.tick, 0, "Gun retired.".into()));
                     return lost(&round);
                 }
                 let input = inputs
@@ -1602,17 +1971,18 @@ impl Run {
                     // The far rail's ducks count double: worth the squint.
                     let worth = if rail == 2 { 2 } else { 1 };
                     round.progress = (round.progress + worth).min(round.game.need());
-                    self.sounds.push("spoil_pickup");
+                    round.score_popup = 8;
+                    round.score_popup_text = if rail == 2 { "LONG!" .to_string() } else { "HIT!".to_string() };
+                    round.score_popup_x = 12;
+                    round.score_popup_y = 4;
+                    self.sounds.push("hit");
                 } else if tapped.contains(&range.owner) {
                     self.sounds.push("shot_handgonne");
+                    self.sounds.push("clang");
                 }
                 if range.shots >= 8 * 5 && round.progress < round.game.need() && range.shots == 40 {
                     // Out of BBs: the barker keeps the rest as rent.
-                    self.found = Some((
-                        self.tick,
-                        range.owner,
-                        "Out of BBs!".into(),
-                    ));
+                    self.found = Some((self.tick, range.owner, "Out of BBs!".into()));
                     return lost(&round);
                 }
             }
@@ -1650,11 +2020,7 @@ impl Run {
             Game::Sled => {
                 let sled = round.sled.as_mut().unwrap();
                 if !eligible.iter().any(|(id, _, _)| *id == sled.driver) {
-                    self.found = Some((
-                        self.tick,
-                        0,
-                        "Squire parked.".into(),
-                    ));
+                    self.found = Some((self.tick, 0, "Squire parked.".into()));
                     return lost(&round);
                 }
                 // Never OR a friend's steering or brake into the driver's.
@@ -1690,18 +2056,16 @@ impl Run {
                 let (gx, gy) = SLED_GATES[usize::from(round.progress)];
                 if sled.x >= gx * 256 {
                     if sled.y.abs_diff(gy * 256) > 256 {
-                        self.found = Some((
-                            self.tick,
-                            0,
-                            format!(
-                                "Missed gate {}!",
-                                round.progress + 1
-                            ),
-                        ));
+                        self.found =
+                            Some((self.tick, 0, format!("Missed gate {}!", round.progress + 1)));
                         self.sounds.push("clang");
                         return lost(&round);
                     }
                     round.progress += 1;
+                    round.score_popup = 8;
+                    round.score_popup_text = "GATE!".to_string();
+                    round.score_popup_x = (gx as i32).clamp(2, 22);
+                    round.score_popup_y = (gy as i32).clamp(2, 12);
                     self.sounds.push("spoil_pickup");
                 }
             }
@@ -1724,7 +2088,11 @@ impl Run {
                         round.tried |= 1 << i;
                         if round.recipients & (1 << i) != 0 {
                             round.progress += 1;
-                            self.sounds.push("spoil_pickup");
+                            round.score_popup = 8;
+                            round.score_popup_text = "+75".to_string();
+                            round.score_popup_x = MAILBOXES[i].0 as i32;
+                            round.score_popup_y = MAILBOXES[i].1 as i32;
+                            self.sounds.push("card_pickup");
                             self.found = Some((
                                 self.tick,
                                 id,
@@ -1732,16 +2100,22 @@ impl Run {
                             ));
                         } else {
                             round.mistakes = round.mistakes.saturating_add(1).min(20);
-                            self.found = Some((
-                                self.tick,
-                                id,
-                                "Not a subscriber! -25".into(),
-                            ));
+                            self.sounds.push("clang");
+                            self.found = Some((self.tick, id, "Not a subscriber! -25".into()));
                         }
                     }
                 }
             }
             Game::Barrel | Game::Washtub => {
+                // Paddle stroke sound for Washtub: play "wave_gate" when moving, once every half-second
+                if round.game == Game::Washtub && self.tick % u64::from(HZ / 2) == 0 {
+                    let moving = eligible.iter().any(|&(id, _, _)| {
+                        inputs.get(&id).filter(|i| i.valid()).is_some_and(|i| {
+                            i.move_x != 0 || i.move_y != 0 || i.aim_x != 0 || i.aim_y != 0
+                        })
+                    });
+                    if moving { self.sounds.push("wave_gate"); }
+                }
                 let i = usize::from(round.progress);
                 let target = if round.game == Game::Barrel {
                     FLAGS[i]
@@ -1750,6 +2124,10 @@ impl Run {
                 };
                 if near(target, 1.5) {
                     round.progress += 1;
+                    round.score_popup = 8;
+                    round.score_popup_text = if round.game == Game::Barrel { "FLAG!".to_string() } else { "RING!".to_string() };
+                    round.score_popup_x = target.0 as i32;
+                    round.score_popup_y = target.1 as i32;
                     self.sounds.push("spoil_pickup");
                 }
             }
@@ -1763,7 +2141,11 @@ impl Run {
                     if (x - basket.0).hypot(y - basket.1) <= 0.75 {
                         round.progress += 1;
                         round.hazard_left = HZ / 3;
-                        self.sounds.push("spoil_pickup");
+                        round.score_popup = 8;
+                        round.score_popup_text = "HIT!".to_string();
+                        round.score_popup_x = basket.0 as i32;
+                        round.score_popup_y = basket.1 as i32;
+                        self.sounds.push("hit");
                     } else if !cheese.valid()
                         || matches!(
                             self.room().tile(x.floor() as i32, y.floor() as i32),
@@ -1771,6 +2153,7 @@ impl Run {
                         )
                     {
                         round.mistakes += 1;
+                        self.sounds.push("rock_land");
                     } else {
                         round.cheese = Some(cheese);
                     }
@@ -1830,6 +2213,7 @@ impl Run {
                     if tapped.contains(&id) && rider.rest_left == 0 {
                         rider.air_left = JUMP_TICKS;
                         rider.rest_left = JUMP_TICKS + 2;
+                        self.sounds.push("roll");
                     }
                     let in_lane = |y: i32| {
                         y >= (RIDING_LANE.0 * 256.0) as i32 && y <= (RIDING_LANE.1 * 256.0) as i32
@@ -1856,6 +2240,10 @@ impl Run {
                 }
                 if cleared {
                     round.progress += 1;
+                    round.score_popup = 8;
+                    round.score_popup_text = "CLEAR!".to_string();
+                    round.score_popup_x = HURDLES[usize::from(round.progress - 1)] as i32;
+                    round.score_popup_y = 7;
                     self.sounds.push("spoil_pickup");
                 }
             }
@@ -1873,19 +2261,42 @@ impl Run {
                 });
                 if hit && round.last_beat != Some(beat) {
                     round.last_beat = Some(beat);
+                    self.sounds.push("swing");
                     if phase <= HZ / 5 {
                         round.progress += 1;
+                        round.score_popup = 8;
+                        round.score_popup_text = "PERFECT!".to_string();
+                        round.score_popup_x = Game::Turnip.start().0 as i32;
+                        round.score_popup_y = Game::Turnip.start().1 as i32;
                         self.sounds.push("spoil_pickup");
                     } else {
                         round.mistakes = round.mistakes.saturating_add(1).min(20);
-                        self.found = Some((
-                            self.tick,
-                            0,
-                            "Too soon! Kick as it lands.".into(),
-                        ));
+                        self.found = Some((self.tick, 0, "Too soon! Kick as it lands.".into()));
                     }
                 }
             }
+        }
+        // Score milestone sounds and combo/streak tracking
+        let need = round.game.need();
+        if need > 0 && round.progress > prev_progress && round.game != Game::Volley {
+            // Progress increased: increment streak
+            round.streak = round.streak.saturating_add(1).min(20);
+            // 50% milestone
+            let halfway = need / 2;
+            if prev_progress < halfway && round.progress >= halfway {
+                self.sounds.push("card_pickup");
+            }
+            // 100% milestone (anticipation before win)
+            if prev_progress < need && round.progress >= need {
+                self.sounds.push("wish_grant");
+            }
+            // Combo streak sound at 3+ consecutive successes
+            if round.streak >= 3 {
+                self.sounds.push("spell_cast");
+            }
+        } else if round.progress == prev_progress && round.game != Game::Volley {
+            // No progress this tick: reset streak
+            round.streak = 0;
         }
         if round.game != Game::Gander && round.progress >= round.game.need() {
             let result = if round.game == Game::Siege {
@@ -1903,11 +2314,18 @@ impl Run {
                     .unwrap_or(0);
                 (damage * 5 + men * 25).min(1000) as u16
             } else {
-                (u32::from(round.progress) * 75 + round.left / HZ * 5)
+                (u32::from(round.progress) * 75
+                    + round.left / HZ * 5
+                    + if round.game == Game::Volley {
+                        u32::from(round.volley.as_ref().map_or(0, |v| v.best_combo)) * 5
+                    } else {
+                        0
+                    })
                 .saturating_sub(u32::from(round.mistakes) * 25)
                 .clamp(25, 1000) as u16
             };
             let record = &mut self.home.countryside.games;
+            let prev_best = record.best_for(round.game);
             if round.game == Game::Trencher {
                 record.trencher.best = record.trencher.best.max(result);
                 record.trencher.wins = record.trencher.wins.saturating_add(1).min(record.trencher.plays);
@@ -1963,15 +2381,15 @@ impl Run {
             } else if round.game == Game::Longbow {
                 record.longbow.best = record.longbow.best.max(result);
                 record.longbow.wins = record.longbow.wins.saturating_add(1).min(record.longbow.plays);
-                if let Some(bow) = round.longbow.as_ref() {
-                    self.school.note(bow.owner, "archer-longbow", 1);
-                }
             } else if round.game == Game::Gander {
                 record.gander.best = record.gander.best.max(result);
                 record.gander.wins = record.gander.wins.saturating_add(1).min(record.gander.plays);
             } else if round.game == Game::Siege {
                 record.siege.best = record.siege.best.max(result);
                 record.siege.wins = record.siege.wins.saturating_add(1).min(record.siege.plays);
+            } else if round.game == Game::Peal {
+                record.peal.best = record.peal.best.max(result);
+                record.peal.wins = record.peal.wins.saturating_add(1).min(record.peal.plays);
             } else {
                 let i = round.game.index();
                 record.best[i] = record.best[i].max(result);
@@ -1989,7 +2407,15 @@ impl Run {
                     record.best_for(round.game)
                 ),
             ));
-            self.sounds.push("play_card");
+            // New high score fanfare, otherwise celebration
+            let is_new_best = result > prev_best;
+            if is_new_best {
+                self.sounds.push("wish_grant");
+                self.sounds.push("gold");
+            } else {
+                self.sounds.push("spoil_pickup");
+                self.sounds.push("gold");
+            }
             self.cues.push("pastime_won".into());
             return Played::Over(Finish {
                 progress: round.progress,
@@ -2015,3 +2441,10 @@ mod games_order_tests;
 #[cfg(test)]
 #[path = "../../tests/rules/together_siege__tests.rs"]
 mod siege_tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/together_belfry__tests.rs"]
+mod belfry_tests;
+#[cfg(all(test, feature = "bend-cases-games-b"))]
+#[path = "../../tests/rules/pastimes_bend_cases__tests.rs"]
+mod pastimes_bend_cases_tests;

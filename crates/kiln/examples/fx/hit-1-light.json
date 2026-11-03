@@ -1,0 +1,6 @@
+{ "fx": 0, "name": "hit sparks, light", "canvas": [24, 24], "fps": 12, "frames": 6, "seed": 21,
+  "layers": [
+    { "type": "flash", "ramp": "spark", "r0": 1.5, "r1": 2.5, "t0": 0, "t1": 1 },
+    { "type": "particles", "form": "spark", "ramp": "spark", "count": 5, "angle": 180, "spread": 160,
+      "speed": [1.2, 2.4], "life": [2, 4], "size": 0.8, "t0": 0, "t1": 6 }
+  ] }

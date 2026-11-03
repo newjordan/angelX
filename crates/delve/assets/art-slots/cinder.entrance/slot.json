@@ -62,7 +62,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "cinder.entrance",
-  "source_path": "/work/tmp/int-4-prepared/cinder.entrance/source-sheet.png",
+  "source_path": "tmp/int-4-prepared/cinder.entrance/source-sheet.png",
   "source_sha256": "9d2d49de5f43e0999062236bea72709e801e8d898edf4a1f22a2d9c3674903cd",
   "tool_version": 2
 }

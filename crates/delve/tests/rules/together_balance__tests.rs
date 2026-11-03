@@ -2268,6 +2268,110 @@ fn guardian_probe() {
     }
 }
 
+/// Every floor's guardian against parties of two to five, as dressed and
+/// built (each knight's cards stacked to `GS_POWER` times a fresh knight's
+/// strength, as a delve's later floors stack them), the floor's own pick of
+/// guardian, bots at the keys: how long it stands, what it costs the party,
+/// how often it wipes them, and how thick its fire is (hostile shots in the
+/// air, on average).
+/// `cargo test guardian_scale_sim -- --ignored --nocapture`
+/// (env: GS_SEEDS, GS_DEPTHS, GS_NS, GS_POWER).
+#[test]
+#[ignore]
+fn guardian_scale_sim() {
+    let list = |name: &str, default: &[u32]| -> Vec<u32> {
+        std::env::var(name)
+            .ok()
+            .map(|s| s.split(',').filter_map(|v| v.trim().parse().ok()).collect::<Vec<u32>>())
+            .filter(|v| !v.is_empty())
+            .unwrap_or_else(|| default.to_vec())
+    };
+    let seeds = u64::from(list("GS_SEEDS", &[6])[0]);
+    let depths = list("GS_DEPTHS", &[1, 2, 3, 4, 5, 6]);
+    let ns = list("GS_NS", &[2, 3, 4, 5]);
+    let built: f32 = std::env::var("GS_POWER").ok().and_then(|p| p.parse().ok()).unwrap_or(6.0);
+    const NAMES: [&str; 5] = ["Friend", "Bors", "Ysolde", "Kay", "Tor"];
+    const KITS: [&str; 5] = ["percival", "lynette", "gareth", "galahad", "percival"];
+    println!("GSHEAD,depth,n,power,won,wiped,secs,fell/fight,lost%,boss-hp,in-air");
+    for &depth in &depths {
+        for &n in &ns {
+            for power in [1.0f32, built] {
+                let (mut won, mut wiped, mut fell, mut lost, mut ticks, mut boss_hp, mut shots) = (0u32, 0u32, 0u32, 0u32, 0u64, 0u32, 0u64);
+                for seed in 0..seeds {
+                    let mut run = Run::new(seed, 1, Some(NAMES[0]));
+                    for id in 3..=n as u32 {
+                        run.join_seat(id, NAMES[(id as usize - 2) % NAMES.len()]);
+                    }
+                    let ids: Vec<u32> = run.players.keys().copied().collect();
+                    for (i, &id) in ids.iter().enumerate() {
+                        run.outfit(id, knights::knight(KITS[i % KITS.len()]).unwrap());
+                    }
+                    for _ in 1..depth {
+                        run.descend_for_test();
+                    }
+                    // Damage and rate each carry half the stack: their
+                    // product is the power asked for.
+                    let each = ((power.sqrt() - 1.0) * 100.0).round() as u32;
+                    for hero in run.players.values_mut() {
+                        hero.bonus.damage += each;
+                        hero.bonus.rate += each;
+                        hero.hp = hero.max_hp;
+                        hero.winds = 1;
+                    }
+                    // The guardian's hall: the stairs room, the dragon's lair,
+                    // the Unknown's threshold.
+                    let hall = [RoomKind::Stairs, RoomKind::Lair, RoomKind::Threshold]
+                        .iter()
+                        .find_map(|&kind| run.dungeon.rooms.iter().position(|r| r.kind == kind))
+                        .unwrap();
+                    run.phase = Phase::Exploring;
+                    run.enter_for_test(hall);
+                    boss_hp += run.enemies.iter().filter(|e| e.kind == EnemyKind::Boss).map(|e| e.max_hp).sum::<u32>();
+                    let pool: u32 = run.players.values().map(|h| h.max_hp).sum();
+                    let mut down = std::collections::BTreeSet::new();
+                    let mut hurt = 0u32;
+                    let start = run.tick;
+                    while run.phase == Phase::Fighting && run.tick - start < u64::from(240 * HZ) {
+                        let mut inputs = BTreeMap::new();
+                        for &hero in run.players.keys() {
+                            let (reach, ranged) = style(&run, hero);
+                            let mut input = bot_as(&run, hero, reach, ranged);
+                            input.ult = run.players[&hero].ult_charge >= ults::ULT_FULL && run.tick.is_multiple_of(2);
+                            if run.players[&hero].hp < 35 && !run.players[&hero].hand.is_empty() {
+                                input.play = 1;
+                            }
+                            inputs.insert(hero, input);
+                        }
+                        let before: BTreeMap<u32, u32> = run.players.iter().map(|(&i, h)| (i, h.hp)).collect();
+                        run.step(&inputs);
+                        shots += run.projectiles.iter().filter(|p| p.hostile).count() as u64;
+                        for (id, h) in &run.players {
+                            hurt += before.get(id).copied().unwrap_or(0).saturating_sub(h.hp);
+                            if h.hp == 0 {
+                                down.insert(*id);
+                            }
+                        }
+                    }
+                    won += u32::from(run.phase == Phase::Exploring || run.phase == Phase::Won);
+                    wiped += u32::from(run.phase == Phase::Wiped);
+                    fell += if run.phase == Phase::Wiped { n as u32 } else { down.len() as u32 };
+                    lost += hurt * 100 / pool.max(1);
+                    ticks += run.tick - start;
+                }
+                let k = seeds.max(1);
+                println!(
+                    "GSROW,{depth},{n},{power:.0},{won}/{k},{wiped},{:.0},{:.1},{},{},{:.1}",
+                    ticks as f32 / k as f32 / HZ as f32,
+                    fell as f32 / k as f32,
+                    lost / k as u32,
+                    boss_hp / k as u32,
+                    shots as f32 / ticks.max(1) as f32
+                );
+            }
+        }
+    }
+}
+
 /// What Beaumains is worth to one knight: each floor's fights and its
 /// guardian, the same eight delves, with him and without.
 /// `cargo test hireling_probe -- --ignored --nocapture`

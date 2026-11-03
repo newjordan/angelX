@@ -438,14 +438,14 @@ pub fn show_file(path: impl AsRef<std::path::Path>) -> Result<()> {
         }
         MediaFormat::Video(_codec) => {
             // Route to video playback (Story 9.4)
-            #[cfg(feature = "video")]
+            #[cfg(feature = "video-playback")]
             {
                 play_video(path)
             }
-            #[cfg(not(feature = "video"))]
+            #[cfg(not(feature = "video-playback"))]
             {
                 Err(DotmaxError::FormatError {
-                    format: "video (requires 'video' feature and FFmpeg libraries)".to_string(),
+                    format: "video (requires 'video-playback' or 'video' feature and FFmpeg libraries)".to_string(),
                 })
             }
         }
@@ -542,16 +542,16 @@ pub fn load_file(path: impl AsRef<std::path::Path>) -> Result<crate::media::Medi
         }
         MediaFormat::Video(_codec) => {
             // Load video player (Story 9.4)
-            #[cfg(feature = "video")]
+            #[cfg(feature = "video-playback")]
             {
                 use crate::media::VideoPlayer;
                 let player = VideoPlayer::new(path)?;
                 Ok(MediaContent::Animated(Box::new(player)))
             }
-            #[cfg(not(feature = "video"))]
+            #[cfg(not(feature = "video-playback"))]
             {
                 Err(DotmaxError::FormatError {
-                    format: "video (requires 'video' feature and FFmpeg libraries)".to_string(),
+                    format: "video (requires 'video-playback' or 'video' feature and FFmpeg libraries)".to_string(),
                 })
             }
         }
@@ -700,7 +700,7 @@ fn play_animated_png(path: impl AsRef<std::path::Path>) -> Result<()> {
 /// 2. Initializes the terminal (raw mode, alternate screen)
 /// 3. Plays frames with correct timing until keypress or video completion
 /// 4. Cleans up terminal state
-#[cfg(feature = "video")]
+#[cfg(feature = "video-playback")]
 fn play_video(path: impl AsRef<std::path::Path>) -> Result<()> {
     use crate::media::{MediaPlayer, VideoPlayer};
     use crossterm::event::{self, Event, KeyCode};

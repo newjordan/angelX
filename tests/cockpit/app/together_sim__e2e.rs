@@ -372,11 +372,11 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
         });
     }
     let until = Instant::now() + Duration::from_secs(5);
-    while host.realm().treasury.label() != "4 bone" {
+    while host.economy().treasury.label() != "4 bone" {
         assert!(
             Instant::now() < until,
             "the bank never settled: {}",
-            host.realm().treasury.label()
+            host.economy().treasury.label()
         );
         frame(&mut host, &mut friend, &mut page);
     }

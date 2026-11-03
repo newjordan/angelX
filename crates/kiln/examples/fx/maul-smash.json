@@ -1,0 +1,17 @@
+{ "fx": 0, "name": "maul overhead smash", "canvas": [48, 32], "pivot": [26, 25], "fps": 12, "seed": 9,
+  "beats": { "anticipation": 3, "action": 2, "follow": 4, "settle": 5 },
+  "layers": [
+    { "type": "particles", "form": "spark", "ramp": "spark", "x": -14, "y": -21, "motion": "gather", "area": [8, 8],
+      "count": 8, "life": [3, 3], "size": 0.8, "t0": 0, "t1": "action" },
+    { "type": "orb", "ramp": "spark", "x": -14, "y": -21, "r0": 0.5, "r1": 1.6, "ease": "in", "t0": 0, "t1": "action+1" },
+    { "type": "slash", "ramp": "steel", "x": -8, "y": -12, "r1": 14.5, "th": 6, "angle": -105, "arc": 160, "squash": 0.95,
+      "ease": "in", "t0": "action", "t1": "follow+2" },
+    { "type": "star", "ramp": "spark", "count": 8, "r1": 9, "y": -1, "t0": "follow", "t1": "follow+2" },
+    { "type": "flash", "ramp": "holy", "r0": 1.5, "r1": 4, "t0": "follow", "t1": "follow+1" },
+    { "type": "shock", "ramp": "bone", "r0": 3, "r1": 20, "th": 1.4, "squash": 0.38, "t0": "follow", "t1": "end-3" },
+    { "type": "cracks", "ramp": "earth", "count": 7, "r1": 14, "th": 1.1, "squash": 0.4, "jag": 1.6, "t0": "follow", "t1": "end" },
+    { "type": "particles", "form": "shard", "ramp": "bone", "count": 9, "angle": -90, "spread": 140, "speed": [1.8, 3.4],
+      "gravity": 0.4, "drag": 0.05, "life": [6, 9], "size": 1.3, "t0": "follow", "t1": "end" },
+    { "type": "puffs", "ramp": "smoke", "spawn": "line", "area": [18, 0], "count": 10, "angle": -90, "spread": 150,
+      "speed": [0.4, 1.1], "life": [8, 13], "size": [1.6, 2.4], "t0": "follow", "t1": "end" }
+  ] }

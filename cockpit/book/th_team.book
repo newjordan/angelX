@@ -1,0 +1,130 @@
+@@book-page 1@@
+Use mode=review/read_only for inspection-only reviewers; use mode=write for implementation, then call `integrate` with that branch to apply it.
+@@book-page 1@@
+specialist club name
+@@book-page 1@@
+what the specialist should do
+@@book-page 1@@
+write implements changes; review/read_only inspects with workspace writes blocked
+@@book-page 2@@
+Use direct action instead when a trustworthy red verifier already exists.
+@@book-page 2@@
+required for resume/status
+@@book-page 2@@
+coding outcome to produce
+@@book-page 2@@
+optional stable class used by learned routing
+@@book-page 2@@
+must fail on the immutable test-only branch with the supplied run marker and pass on the candidate
+@@book-page 2@@
+full acceptance command; must pass on base and candidate
+@@book-page 2@@
+optional candidate-only lint/build/typecheck commands (max 4)
+@@book-page 2@@
+allowed test-file paths/prefixes; implementation may not edit files the test author changes
+@@book-page 2@@
+auto, self, or one explicit route for all roles
+@@book-page 2@@
+optional per-role route overrides for investigator/test_author/implementer/reviewer
+@@book-page 3@@
+method=deli optionally runs fresh-context Deli deliberation and returns its findings to this turn; choose rounds when useful, then continue ordinary work.
+@@book-page 3@@
+Deli reasons over the supplied material; use normal tools or RL campaigns to measure its proposals.
+@@book-page 3@@
+Prefer local seats; paid SOTA needs operator allow.
+@@book-page 3@@
+club or model name (default auto=self).
+@@book-page 3@@
+the task, code snippet, or question to consult on
+@@book-page 3@@
+optional role instructions for the consulted model
+@@book-page 3@@
+direct (default): one consultation; deli: iterative deliberation, then return to this task
+@@book-page 3@@
+Deli rounds for this call; defaults to the operator's ANGEL_DELI_ROUNDS (6)
+@@book-page 4@@
+Use for work that genuinely splits into specialties with handoffs; for ad-hoc parallel seats use `spawn`, and for most tasks just do the work yourself.
+@@book-page 4@@
+graph name from the installed catalog
+@@book-page 4@@
+the task the graph works
+@@book-page 5@@
+For direct single-call model questions use `consult_model` or `code_review`; for git-isolated implementation use `delegate`.
+@@book-page 5@@
+seat tool grant; code requires n=1 (use delegate for parallel writes)
+@@book-page 5@@
+the task every seat works (or use tasks[])
+@@book-page 5@@
+one task per seat (sets n)
+@@book-page 5@@
+default: panel when n>1, else solo
+@@book-page 5@@
+seat count (default 1 for solo, else 3; capped by ANGEL_SPAWN_MAX)
+@@book-page 5@@
+optional exact persona name or list cycling across seats; installed names: {}; omit this field for a plain seat
+@@book-page 5@@
+self/auto = your own model replicated (default, self-same panel) | smart = the designated escalation seat (ANGEL_SOTA_SMART_CLUB, default luna) | fleet = spread across reachable fleet clubs (opt-in) | an explicit club label
+@@book-page 5@@
+optional per-seat clock in seconds, started at the seat's first response (the wait for that response gets its own equal window); default 0 = unbounded (operator ANGEL_SPAWN_TIMEOUT); a cut seat returns its partial work
+@@book-page 5@@
+K for quorum formation (default ceil(n/2))
+@@book-page 6@@
+Handle intermediates with `handle_put(body, {producer?, identity?})` → opaque `hnd_…` and `handle_get(id, {offset?, max_bytes?})` for a capped slice — keep bulk out of the script return value.
+@@book-page 6@@
+Use handle_put/handle_get for bulk.
+@@book-page 6@@
+`return` your final value (objects are JSON-stringified).
+@@book-page 6@@
+Use `recipe:'repo_recon', query:'the task'` for the fixed, read-only task-conditioned repository map, or fan out custom inspection.
+@@book-page 6@@
+Example: `const r = batch(files.map(f => ({tool:'outline', args:{path:f}}))); return r.filter(x => !x.ok).length + ' failing inspections';`
+@@book-page 6@@
+`return` the result.
+@@book-page 6@@
+JavaScript to execute.
+@@book-page 6@@
+Call bound tools as functions; `return` the final value.
+@@book-page 6@@
+Trusted built-in orchestration recipe.
+@@book-page 6@@
+Mutually exclusive with `script`.
+@@book-page 7@@
+Prefer strategy over bulk: only call when the receipt is insufficient.
+@@book-page 7@@
+Opaque handle id from a prior receipt (hnd_…).
+@@book-page 7@@
+Byte offset into the stored body.
+@@book-page 7@@
+Requested slice size; further capped by store policy.
+@@book-page 8@@
+Use this when you need a capability not in your base tool list.
+@@book-page 8@@
+Returns matching tool names + summaries; then call the tool directly by name.
+@@book-page 8@@
+capability keywords
+@@book-page 8@@
+max results (default 5)
+@@book-page 9@@
+Load a skill's full instructions by name before doing that kind of task.
+@@book-page 9@@
+skill name from the catalog
+@@book-page 0@@
+Batch independent questions about the same state.
+@@book-page 0@@
+Never use as a verifier or as measured benchmark improvement; use benchmark_compare for measured percentages.
+@@book-page 0@@
+Sends only supplied state/questions to TypeSafe; omit secrets.
+@@book-page 0@@
+Include dataset, source and uncertainty.
+@@book-page 0@@
+No credentials.
+@@book-page 0@@
+Concise evidence, code excerpts or measurement records.
+@@book-page 0@@
+Explicit question; the model does not see the question id.
+@@book-page 0@@
+For choice: distinct candidate descriptions.
+@@book-page 0@@
+For score: ordered rubric levels from 0 upwards.
+@@book-page 0@@
+Omit for noul.

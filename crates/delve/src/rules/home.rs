@@ -294,8 +294,49 @@ pub const LADDERS: &[Ladder] = &[
 
 /// The Undercroft as built: each station's level, the deepest floor the
 /// party has reached, and the landing the stair takes them to.
-#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+enum SavedHomeSquires {
+    Yard(super::squires::Yard),
+    Lodge(super::squires_lodge::Guild),
+    Academy(super::squire_academy::Academy),
+    Guild(super::squire_guild::Guild),
+}
+impl<'de> Deserialize<'de> for SavedHomeSquires {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        if value.get("companies").is_some() {
+            serde_json::from_value(value).map(Self::Yard).map_err(serde::de::Error::custom)
+        } else if value.get("clock").is_some() || value.get("revision").is_some() || value.get("hired").is_some() {
+            serde_json::from_value(value).map(Self::Guild).map_err(serde::de::Error::custom)
+        } else if value.get("departures").is_some() || value.get("paid").is_some() {
+            serde_json::from_value(value).map(Self::Academy).map_err(serde::de::Error::custom)
+        } else if value.get("rosters").is_some() || value.get("recruiting").is_some() {
+            serde_json::from_value(value).map(Self::Lodge).map_err(serde::de::Error::custom)
+        } else {
+            serde_json::from_value(value).map(Self::Academy).map_err(serde::de::Error::custom)
+        }
+    }
+}
+impl Default for SavedHomeSquires {
+    fn default() -> Self { Self::Yard(Default::default()) }
+}
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Home {
+    #[serde(default)]
+    pub squires: super::squires::Yard,
+    #[serde(default, skip_serializing_if = "super::lane_squires::Company::is_default")]
+    pub lane_squires: super::lane_squires::Company,
+    #[serde(default, skip_serializing_if = "super::squire_company::Company::is_empty")]
+    pub squire_company: super::squire_company::Company,
+    #[serde(default, skip_serializing_if = "crate::realm::squires::Company::is_empty")]
+    pub squire_hall: crate::realm::squires::Company,
+    #[serde(default)]
+    pub squire_academy: super::squire_academy::Academy,
+    /// Permanent per-knight companions and their independent town works.
+    #[serde(default)]
+    pub squire_guild: super::squire_guild::Guild,
+    /// Name-owned lodge rosters and buildings, distinct from the training yard.
+    #[serde(default, skip_serializing_if = "super::squires_lodge::Guild::is_empty")]
+    pub squires_lodge: super::squires_lodge::Guild,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub siege_campaign_begun: bool,
     /// What the Round Table adventures settled into the realm: a word of
@@ -309,10 +350,31 @@ pub struct Home {
     /// from delve to delve (`pitstop::WALL`).
     #[serde(default)]
     pub privy_wall: Vec<String>,
+    /// What the realm's freedom wishes made of the safe room and the
+    /// weapons locker, and the freedom wishes its knights hold unspent
+    /// (`freedom`). Written once a wish has been given; decoded on its own.
+    #[serde(
+        default,
+        skip_serializing_if = "super::freedom::Wished::is_empty",
+        deserialize_with = "crate::realm::chivalry::lenient"
+    )]
+    pub wished: super::freedom::Wished,
+    /// The realm's sky: a star for every wish granted, the constellations
+    /// lit and who lit them, and the gift one leaves for the next delve
+    /// (`rewards`). Only the game writes it, as the privy wall.
+    #[serde(
+        default,
+        skip_serializing_if = "super::rewards::Sky::is_empty",
+        deserialize_with = "crate::realm::chivalry::lenient"
+    )]
+    pub sky: super::rewards::Sky,
     #[serde(default)]
     pub college: super::college::College,
     #[serde(default)]
     pub levels: BTreeMap<Station, u8>,
+    /// What the knights have raised in the kingdom (`raisings`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub raised: Vec<super::raisings::Raised>,
     #[serde(default)]
     pub deepest: u32,
     /// The floor the Winding Stair lets the party off at (0 and 1: the top).
@@ -344,12 +406,8 @@ pub struct Home {
     /// Ector has taught them.
     #[serde(default)]
     pub knights: BTreeMap<String, super::talents::Prowess>,
-    /// The school of the seven banners: missions, ranks and earned gear,
-    /// each knight by name.
-    #[serde(default)]
-    pub school: super::school::School,
     /// The Fellowship of the Carried Fire: each knight's questline
-    /// progress, kept by name beside the school's rank.
+    /// progress, kept by name.
     #[serde(default)]
     pub questlines: super::questline::Progress,
     /// Wren's board: the bounties pinned to it, and how often she has paid
@@ -358,6 +416,11 @@ pub struct Home {
     pub bounties: Vec<super::bounties::Pinned>,
     #[serde(default)]
     pub bounties_paid: BTreeMap<String, u32>,
+    /// The holdings under raid, pinned beside the bounties as alarms: the
+    /// raiders' purse is won where it is fought for, so her rows pay
+    /// nothing — they pull the party back down.
+    #[serde(default)]
+    pub raids: Vec<String>,
     /// The round Maud has poured for the next delve, by its id.
     #[serde(default)]
     pub round: Option<String>,
@@ -386,9 +449,195 @@ pub struct Home {
     /// Decoded on its own, like the stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub holdings: super::holdings::Holdings,
+    /// The salvage yard: pieces found and wished, and every vessel made
+    /// of them (`salvage`). Decoded on its own, like the stable; an empty
+    /// yard is not written, so a realm without salvage saves (and streams)
+    /// as it did before.
+    #[serde(
+        default,
+        skip_serializing_if = "super::salvage::Salvage::is_empty",
+        deserialize_with = "crate::realm::chivalry::lenient"
+    )]
+    pub salvage: super::salvage::Salvage,
     #[serde(default, deserialize_with = "super::countryside::deserialize")]
     pub countryside: super::countryside::Country,
+    /// What the realm remembers of the Deep below the Unknown: the
+    /// villages met and lit, their errands, the wishes made for them
+    /// (`deep`). Decoded on its own, like the stable; left out while empty.
+    #[serde(default, skip_serializing_if = "super::deep::Chronicle::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub deep: super::deep::Chronicle,
+    /// The recruits' ultimates, each wished by the first knight to take
+    /// the recruit up (`recruit_ults`); left out while none is.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub recruit_ults: super::recruit_ults::RecruitUlts,
 }
+
+#[derive(Deserialize)]
+struct SavedHome {
+    #[serde(default)]
+    squires_lodge: super::squires_lodge::Guild,
+    #[serde(default)]
+    squire_guild: super::squire_guild::Guild,
+    #[serde(default)]
+    squires: SavedHomeSquires,
+    #[serde(default, skip_serializing_if = "super::lane_squires::Company::is_default")]
+    pub lane_squires: super::lane_squires::Company,
+    #[serde(default, skip_serializing_if = "super::squire_company::Company::is_empty")]
+    pub squire_company: super::squire_company::Company,
+    #[serde(default, skip_serializing_if = "crate::realm::squires::Company::is_empty")]
+    pub squire_hall: crate::realm::squires::Company,
+    #[serde(default)]
+    pub squire_academy: super::squire_academy::Academy,
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub siege_campaign_begun: bool,
+    /// What the Round Table adventures settled into the realm: a word of
+    /// flags each, in `roundtable::ADVENTURES` order, the bits each its own
+    /// (set in the adventure's `settle`).
+    #[serde(default, skip_serializing_if = "super::roundtable::unsaved")]
+    pub roundtable: [u32; 5],
+    #[serde(default = "super::gear::legacy_wardrobe", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub wardrobe: super::gear::Wardrobe,
+    /// What knights have scratched on the privy wall, newest last; it stays
+    /// from delve to delve (`pitstop::WALL`).
+    #[serde(default)]
+    pub privy_wall: Vec<String>,
+    /// What the realm's freedom wishes made of the safe room and the
+    /// weapons locker, and the freedom wishes its knights hold unspent
+    /// (`freedom`). Written once a wish has been given; decoded on its own.
+    #[serde(
+        default,
+        skip_serializing_if = "super::freedom::Wished::is_empty",
+        deserialize_with = "crate::realm::chivalry::lenient"
+    )]
+    pub wished: super::freedom::Wished,
+    /// The realm's sky: a star for every wish granted, the constellations
+    /// lit and who lit them, and the gift one leaves for the next delve
+    /// (`rewards`). Only the game writes it, as the privy wall.
+    #[serde(
+        default,
+        skip_serializing_if = "super::rewards::Sky::is_empty",
+        deserialize_with = "crate::realm::chivalry::lenient"
+    )]
+    pub sky: super::rewards::Sky,
+    #[serde(default)]
+    pub college: super::college::College,
+    #[serde(default)]
+    pub levels: BTreeMap<Station, u8>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    raised: Vec<super::raisings::Raised>,
+    #[serde(default)]
+    pub deepest: u32,
+    /// The floor the Winding Stair lets the party off at (0 and 1: the top).
+    #[serde(default)]
+    pub landing: u32,
+    /// Achievements earned, each once; the boxes they brought, unopened;
+    /// and how many boxes have been opened.
+    #[serde(default)]
+    pub feats: std::collections::BTreeSet<String>,
+    #[serde(default)]
+    pub boxes: Vec<super::feats::Tier>,
+    #[serde(default)]
+    pub opened: u32,
+    /// Loot goblins that got away: one is enough for Grubbins to come back
+    /// and open his stall.
+    #[serde(default)]
+    pub goblins: u32,
+    /// The Trophy Hall: how often the party has felled each guardian (by
+    /// its id; the dragon is `dragon`) and found the Grail (`grail`).
+    #[serde(default)]
+    pub trophies: BTreeMap<String, u32>,
+    /// The Herald's Bestiary: how many of each kind the realm has felled.
+    #[serde(default)]
+    pub bestiary: BTreeMap<String, u32>,
+    /// The people rescued from the delve's cages, who live here now.
+    #[serde(default)]
+    pub residents: std::collections::BTreeSet<String>,
+    /// Each knight's prowess, by knight: experience and the talents Sir
+    /// Ector has taught them.
+    #[serde(default)]
+    pub knights: BTreeMap<String, super::talents::Prowess>,
+    /// The Fellowship of the Carried Fire: each knight's questline
+    /// progress, kept by name.
+    #[serde(default)]
+    pub questlines: super::questline::Progress,
+    /// Wren's board: the bounties pinned to it, and how often she has paid
+    /// each.
+    #[serde(default)]
+    pub bounties: Vec<super::bounties::Pinned>,
+    #[serde(default)]
+    pub bounties_paid: BTreeMap<String, u32>,
+    /// The holdings under raid, pinned beside the bounties as alarms: the
+    /// raiders' purse is won where it is fought for, so her rows pay
+    /// nothing — they pull the party back down.
+    #[serde(default)]
+    pub raids: Vec<String>,
+    /// The round Maud has poured for the next delve, by its id.
+    #[serde(default)]
+    pub round: Option<String>,
+    /// The song Sir Dinadan will sing for the next delve, by its id.
+    #[serde(default)]
+    pub song: Option<String>,
+    /// Who is hired for the next delve: Beaumains, or nobody.
+    #[serde(default)]
+    pub hire: Option<String>,
+    /// The stables and the lists: the saddled mount, which are tended, the
+    /// record of bouts. Decoded on its own, so a bad subtree never costs
+    /// the realm.
+    #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
+    pub stable: crate::realm::chivalry::Stable,
+    /// The horse ranch: stud-book attempts and growth progress. Legacy
+    /// foals migrate into the herd. Decoded on its own, like the stable.
+    #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
+    pub ranch: super::ranch::Ranch,
+    /// King Brannoc's barony: his court, the works paid for, his missions,
+    /// the forges relit and the ledger. Decoded on its own, like the
+    /// stable.
+    #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
+    pub barony: super::barony::Barony,
+    /// The realm's holdings: castles and cleared floors bought at the
+    /// Court of Deeds, and the stores angelX's work keeps them with.
+    /// Decoded on its own, like the stable.
+    #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
+    pub holdings: super::holdings::Holdings,
+    /// The salvage yard: pieces found and wished, and every vessel made
+    /// of them (`salvage`). Decoded on its own, like the stable; an empty
+    /// yard is not written, so a realm without salvage saves (and streams)
+    /// as it did before.
+    #[serde(
+        default,
+        skip_serializing_if = "super::salvage::Salvage::is_empty",
+        deserialize_with = "crate::realm::chivalry::lenient"
+    )]
+    pub salvage: super::salvage::Salvage,
+    #[serde(default, deserialize_with = "super::countryside::deserialize")]
+    pub countryside: super::countryside::Country,
+    /// What the realm remembers of the Deep below the Unknown: the
+    /// villages met and lit, their errands, the wishes made for them
+    /// (`deep`). Decoded on its own, like the stable; left out while empty.
+    #[serde(default, skip_serializing_if = "super::deep::Chronicle::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub deep: super::deep::Chronicle,
+    /// The recruits' ultimates, each wished by the first knight to take
+    /// the recruit up (`recruit_ults`); left out while none is.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub recruit_ults: super::recruit_ults::RecruitUlts,
+}
+
+impl<'de> Deserialize<'de> for Home {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let SavedHome { raised, mut squires_lodge, squires, mut squire_guild, mut squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, holdings, salvage, countryside, deep, recruit_ults } = SavedHome::deserialize(deserializer)?;
+        let squires = match squires {
+            SavedHomeSquires::Guild(guild) => { squire_guild = guild; Default::default() },
+            SavedHomeSquires::Yard(yard) => yard,
+            SavedHomeSquires::Lodge(lodge) => { if squires_lodge.is_empty() { squires_lodge = lodge; } Default::default() },
+            SavedHomeSquires::Academy(academy) => {
+                if squire_academy == Default::default() { squire_academy = academy; }
+                Default::default()
+            }
+        };
+        Ok(Self { raised, squires_lodge, squires, squire_guild, squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, holdings, salvage, countryside, deep, recruit_ults })
+    }
+}
+
 
 /// A price as spoils.
 pub fn price(rung: &Rung) -> Spoils {
@@ -405,6 +654,38 @@ pub fn numeral(level: u8) -> &'static str {
 }
 
 impl Home {
+    /// The name the realm keeps a knight's records under: the same name Sir
+    /// Ector's talents and the teachers' questlines use, so one knight is
+    /// one knight.
+    pub fn profile_key(hero: &Hero) -> String {
+        super::talents::profile_key(hero)
+    }
+
+    /// A realm from before player records kept prowess and questlines under
+    /// the kit: a player with neither of their own takes their kit's, once.
+    pub fn adopt(&mut self, kit: &str, player: &str) -> bool {
+        if kit == player
+            || self.knights.contains_key(player)
+            || self.questlines.knights.contains_key(player)
+        {
+            return false;
+        }
+        let prowess = self.knights.remove(kit);
+        let walks = self.questlines.knights.remove(kit);
+        let found = prowess.is_some() || walks.is_some();
+        if let Some(prowess) = prowess {
+            self.knights.insert(player.to_owned(), prowess);
+        }
+        if let Some(walks) = walks {
+            self.questlines.knights.insert(player.to_owned(), walks);
+        }
+        found
+    }
+
+    pub fn knight_key(hero: &Hero) -> String {
+        super::talents::knight_key(hero)
+    }
+
     pub fn level(&self, station: Station) -> u8 {
         self.levels.get(&station).copied().unwrap_or(0)
     }
@@ -451,7 +732,25 @@ impl Home {
     /// The floors the stair can let the party off at: the top, and each
     /// landing Wren has drawn.
     pub fn landings(&self) -> Vec<u32> {
-        (1..=1 + u32::from(self.level(Station::Map))).collect()
+        let mut landings: Vec<u32> = (1..=1 + u32::from(self.level(Station::Map))).collect();
+        // A standing Waypoint on a held floor is a landing of the realm's
+        // own: the Winding Stair sets the party down there, floors Wren
+        // never sells (and the Unknown floor, which she cannot).
+        for w in &self.holdings.owned {
+            if w.stands("waypoint")
+                && let Some(super::holdings::Deed::Floor(pack)) = w.deed()
+                && let Some(at) = super::holdings::FLOORS.iter().position(|&p| p == pack)
+            {
+                let depth = at as u32 + 1;
+                if !landings.contains(&depth) {
+                    landings.push(depth);
+                }
+            }
+        }
+        // Below the Unknown, once the realm has stood on it: the Deep Road,
+        // and every village of the Deep lit (`deep`).
+        landings.extend(self.deep_landings());
+        landings
     }
 
     /// Where the stair goes now.
@@ -572,7 +871,7 @@ pub fn keeper_at(who: &str) -> Option<(f32, f32)> {
 }
 
 /// A purchase a knight asked for at a plate, for the cockpit to pay.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Order {
     pub knight: u32,
     pub station: Station,
@@ -639,12 +938,22 @@ impl Run {
     pub fn rebuild_home(&mut self, home: Home, treasury: Spoils) {
         let landing = self.home.landing;
         let barony = std::mem::take(&mut self.home.barony);
+        let salvage = std::mem::take(&mut self.home.salvage);
         self.home = home;
+        for hero in self.players.values() {
+            self.home.adopt(&super::talents::knight_key(hero), &super::talents::profile_key(hero));
+        }
+        // The yard changes in the run (a find, a wish, a build): the newer
+        // of the two stands.
+        if salvage.rev > self.home.salvage.rev {
+            self.home.salvage = salvage;
+        }
         super::ranch::migrate(&mut self.home.ranch, &mut self.home.stable);
         self.barony_news(&barony);
         // The stair keeps the landing chosen in this run.
         self.home.landing = landing;
         self.treasury = treasury;
+        self.sync_squires();
         // The west wing dug: the Trophy Hall's wall opens on the tavern.
         if self.at_home_now()
             && self.home.level(Station::Wing) >= 1
@@ -733,8 +1042,8 @@ impl Run {
         for card in &cards {
             self.book.insert(card.clone());
         }
-        // Sir Ector's lessons: this knight's own.
-        let Some(who) = self.players.get(&id).map(super::talents::knight_key) else {
+        // Sir Ector's lessons: this player's own, whichever kit they wear.
+        let Some(who) = self.players.get(&id).map(super::talents::profile_key) else {
             return;
         };
         let prowess = self.home.prowess(&who);
@@ -800,14 +1109,16 @@ impl Run {
                 }
             }
             if rack >= 2 {
-                hero.bombs = (hero.bombs + 1).min(MAX_BOMBS);
+                hero.give_bombs(1);
             }
             // The countryside's crown is worth a bomb below.
             if hero.laurel {
-                hero.bombs = (hero.bombs + 1).min(MAX_BOMBS);
+                hero.give_bombs(1);
             }
             hero.winds = winds;
         }
+        // What the realm's freedom wishes put in the weapons locker.
+        self.freedom_kit_out();
     }
 
     /// The chapel's refill at each new floor: once a floor at its second rung.
@@ -863,6 +1174,8 @@ impl Run {
     /// One tick in the Undercroft: plates read and held, the stair's mouth
     /// turns the landing, keepers greet whoever walks up.
     pub(super) fn tick_home(&mut self, inputs: &BTreeMap<u32, Input>) {
+        self.tick_squire_company(inputs);
+        self.tick_lane_squire_yard(inputs);
         // The room's own game, from the registry (`activity::HOME_ROOMS`).
         if self.tick_home_room(inputs) {
             return;
@@ -1027,3 +1340,7 @@ const HEARTH_ART: &str = "\
 #[cfg(test)]
 #[path = "../../tests/rules/together_home__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-home"))]
+#[path = "../../tests/rules/home_bend_cases__tests.rs"]
+pub(crate) mod bend_cases;
+

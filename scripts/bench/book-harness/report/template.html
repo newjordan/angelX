@@ -104,7 +104,7 @@ td { color: var(--ink); }
     <p id="tokens-claim"></p>
     <div class="figure">
       <div class="panels" id="c-e1-fresh"></div>
-      <p class="caption">Uncached prompt tokens (prompt minus cache hits, as each provider reports them) for the two-bug task. Bar: median of the solved runs. Line: lowest to highest. Muse's legend arm is a rerun on the fixed build (sparky): its first run never received the legend, which then reached the Chat Completions wire only. Compare Muse's tokens across arms, not its wall time.</p>
+      <p class="caption">Uncached prompt tokens (prompt minus cache hits, as each provider reports them) for the two-bug task. Bar: median of the solved runs. Line: lowest to highest. Muse's legend arm is a rerun on the fixed build (GPU host): its first run never received the legend, which then reached the Chat Completions wire only. Compare Muse's tokens across arms, not its wall time.</p>
       <details><summary>Show the numbers</summary><div class="table-wrap" id="t-e1"></div></details>
     </div>
   </section>
@@ -114,7 +114,7 @@ td { color: var(--ink); }
     <p id="speed-claim"></p>
     <div class="figure">
       <div class="panels" id="c-e1-wall"></div>
-      <p class="caption">Wall-clock seconds from launch to the answer, same runs. Grok ran on sparky, the others on atlas, so compare arms within a model, not across hosts.</p>
+      <p class="caption">Wall-clock seconds from launch to the answer, same runs. Grok ran on a GPU host, the others on the workstation, so compare arms within a model, not across hosts.</p>
     </div>
   </section>
 
@@ -140,7 +140,7 @@ td { color: var(--ink); }
         <div class="wide" id="c-stub"></div>
         <div class="wide" id="c-ttfr"></div>
       </div>
-      <p class="caption">A scripted model that answers instantly, so every millisecond is the harness: a 213-request session, and the time from launch to the first request (medians, atlas).</p>
+      <p class="caption">A scripted model that answers instantly, so every millisecond is the harness: a 213-request session, and the time from launch to the first request (medians, workstation).</p>
     </div>
     <div class="figure">
       <h3>Behind a real model</h3>

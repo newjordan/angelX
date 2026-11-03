@@ -10,7 +10,8 @@ use ratatui::layout::Rect;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
-use std::path::PathBuf;
+use std::io::Read;
+use std::path::{Path, PathBuf};
 
 const DEFAULT_MANIFESTS: &[&str] = &[
     include_str!("../../../modules/core.toml"),
@@ -20,6 +21,17 @@ const DEFAULT_MANIFESTS: &[&str] = &[
     include_str!("../../../modules/image.toml"),
     include_str!("../../../modules/graph.toml"),
 ];
+
+/// Supported native surfaces and their installed resource names.
+const MANIFEST_FILES: &[(&str, &str)] = &[
+    ("core", "core.toml"),
+    ("agent", "agent.toml"),
+    ("artifacts", "artifacts.toml"),
+    ("shell", "shell.toml"),
+    ("image", "image.toml"),
+    ("graph", "graph.toml"),
+];
+const MAX_MANIFEST_BYTES: u64 = 64 * 1024;
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -84,6 +96,7 @@ pub enum ModuleActivation {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ModuleManifest {
     pub id: ModuleId,
     pub title: String,
@@ -268,6 +281,87 @@ impl ModuleHost {
             }
         }
         Ok(host)
+    }
+
+    /// Reload the native surface manifests as one transaction. A bad or
+    /// missing file leaves the host unchanged. Surface identity, intent and
+    /// window geometry belong to the host, not to the files.
+    pub fn reload_manifests(&mut self, dir: &Path) -> Result<Vec<(ModuleId, ModuleState)>, String> {
+        let mut manifests = Vec::with_capacity(MANIFEST_FILES.len());
+        for &(id, filename) in MANIFEST_FILES {
+            let path = dir.join(filename);
+            let mut options = std::fs::OpenOptions::new();
+            options.read(true);
+            // Opening a FIFO must not wait forever if a resource was replaced
+            // while the operator is requesting a reload.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt;
+                options.custom_flags(libc::O_NONBLOCK);
+            }
+            let file = options
+                .open(&path)
+                .map_err(|e| format!("read {}: {e}", path.display()))?;
+            let metadata = file
+                .metadata()
+                .map_err(|e| format!("read {}: {e}", path.display()))?;
+            if !metadata.is_file() {
+                return Err(format!("{} is not a regular file", path.display()));
+            }
+            let mut bytes = Vec::new();
+            file.take(MAX_MANIFEST_BYTES + 1)
+                .read_to_end(&mut bytes)
+                .map_err(|e| format!("read {}: {e}", path.display()))?;
+            if bytes.len() as u64 > MAX_MANIFEST_BYTES {
+                return Err(format!(
+                    "{} exceeds {MAX_MANIFEST_BYTES} bytes",
+                    path.display()
+                ));
+            }
+            let text =
+                std::str::from_utf8(&bytes).map_err(|e| format!("{}: {e}", path.display()))?;
+            let manifest =
+                ModuleManifest::parse_toml(text).map_err(|e| format!("{}: {e}", path.display()))?;
+            if manifest.id.as_str() != id {
+                return Err(format!("{} must identify module {id}", path.display()));
+            }
+            let current = self
+                .modules
+                .get(&manifest.id)
+                .ok_or_else(|| format!("module {id} is not registered"))?;
+            if manifest.kind != current.manifest.kind {
+                return Err(format!("module {id} cannot change its native kind"));
+            }
+            manifests.push(manifest);
+        }
+        let mut candidate = self.clone();
+        let mut changed = Vec::new();
+        for manifest in manifests {
+            let id = manifest.id.clone();
+            let before = candidate.modules[&id].state;
+            candidate
+                .modules
+                .get_mut(&id)
+                .expect("validated module")
+                .manifest = manifest;
+            candidate.derive(&id);
+            let after = candidate.modules[&id].state;
+            if before != after {
+                changed.push((id, after));
+            }
+        }
+        if !candidate.is_running("core") {
+            return Err("core must remain available".to_string());
+        }
+        if candidate
+            .focused
+            .as_ref()
+            .is_some_and(|id| !candidate.is_running(id.as_str()))
+        {
+            candidate.focus(&ModuleId::new("core"))?;
+        }
+        *self = candidate;
+        Ok(changed)
     }
 
     /// The spec a manifest declares: each `data_sources` entry is a required key,
@@ -497,8 +591,8 @@ impl ModuleHost {
             .into_iter()
             .map(|s| {
                 format!(
-                    "{}  {:?}  {:?}  {}x{}+{}+{}",
-                    s.id, s.kind, s.state, s.rect.width, s.rect.height, s.rect.x, s.rect.y
+                    "{}  {}  {:?}  {:?}  {}x{}+{}+{}",
+                    s.id, s.title, s.kind, s.state, s.rect.width, s.rect.height, s.rect.x, s.rect.y
                 )
             })
             .collect::<Vec<_>>()
@@ -512,7 +606,8 @@ impl ModuleHost {
         let path = dir.join(format!("{name}.toml"));
         let profile = LayoutProfile::from_host(self, &name);
         let body = toml::to_string_pretty(&profile).map_err(|e| e.to_string())?;
-        std::fs::write(&path, body).map_err(|e| format!("write {}: {e}", path.display()))?;
+        crate::platform::workspace_store::write_atomic(&path, body.as_bytes())
+            .map_err(|e| format!("write {}: {e}", path.display()))?;
         Ok(path)
     }
 

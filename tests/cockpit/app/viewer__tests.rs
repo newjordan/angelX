@@ -1163,24 +1163,9 @@ fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
 }
 
 #[test]
-fn the_art_tier_seat_picture_fits_the_terminal_with_its_party_band() {
-    // The seat's picture is the art tier's 768 wide with the party band
-    // above its room (504 tall), and it still goes out at the terminal's
-    // own pixels, not a whole multiple of itself.
-    let (cw, ch) = super::cell_shape();
-    for size in [(768, 448), (768, 504)] {
-        let img = crate::stage::world_viz::overworld::Img::new(size.0 as i32, size.1 as i32);
-        let png = super::scaled_png(&img, size, 100, 30);
-        let dim = |at: usize| u32::from_be_bytes(png[at..at + 4].try_into().unwrap());
-        assert_eq!(
-            (dim(16), dim(20)),
-            ((100.0 * cw).round() as u32, (30.0 * ch).round() as u32),
-            "{size:?}"
-        );
-    }
-    // The native tier keeps its whole-multiple scaling.
+fn the_seat_picture_goes_out_at_a_whole_multiple_of_itself() {
     let native = crate::stage::world_viz::overworld::Img::new(384, 224);
-    let png = super::scaled_png(&native, (384, 224), 100, 30);
+    let png = super::scaled_png(&native, 100, 30);
     let dim = |at: usize| u32::from_be_bytes(png[at..at + 4].try_into().unwrap());
     assert_eq!((dim(16), dim(20)), (384 * 3, 224 * 3));
 }

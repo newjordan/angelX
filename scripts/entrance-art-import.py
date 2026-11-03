@@ -4,15 +4,20 @@ import argparse
 from collections import deque
 import hashlib
 import json
+import os
 from pathlib import Path
 import runpy
+import tempfile
 from types import SimpleNamespace
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 IMPORT = runpy.run_path(str(ROOT / 'scripts/slot-art-import.py'))
 BANK = ROOT / 'crates/delve/assets/art-slots'
-SOURCES = Path('/work/artifacts/art-prod/slots')
+# Art deliveries and review output live outside the checkout, under
+# ANGEL_ART_ARTIFACTS (default ~/angel-art).
+ART = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')
+SOURCES = ART/'art-prod/slots'
 ROOMS = ['cinder', 'latch', 'mossbell', 'brasswake', 'rafterwake', 'pennon']
 PACKS = ['crypt', 'mines', 'keep', 'fungal', 'unknown']
 
@@ -24,12 +29,12 @@ def write(path, value, check=False):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output', type=Path, default=Path('/work/tmp/int-4-prepared'))
+    parser.add_argument('--output', type=Path, default=Path(tempfile.gettempdir())/'int-4-prepared')
     parser.add_argument('--check', action='store_true')
     parser.add_argument('--slots', nargs='+', choices=ROOMS + PACKS,
                         help='Reimport only the named rooms or door packs.')
     args = parser.parse_args()
-    acceptance = json.loads(Path('/work/artifacts/delve-int-20261015/art-18/acceptance.json').read_text())
+    acceptance = json.loads((ART/'delve-int-20261015/art-18/acceptance.json').read_text())
     records = []
     for name, room in [(n, True) for n in ROOMS] + [(n, False) for n in PACKS]:
         if args.slots and name not in args.slots:

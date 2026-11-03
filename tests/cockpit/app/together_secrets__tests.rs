@@ -14,6 +14,8 @@ fn a_hint_is_said_once_though_the_host_takes_the_marks_every_frame() {
     a.dungeon.realm = Some(crate::drive::together_realm::Realm::beside(Some(
         &dir.join("island.json"),
     )));
+    // A persistent realm settles only beside a game checkpoint (`settle_home`).
+    a.dungeon.save_path = Some(dir.join("session.json"));
     let mut run = on_a_generated_floor(Pack::Crypt, 2, first_of(RoomKind::Sanctuary));
     let (ax, ay) = run.room().altar();
     stand(&mut run, (ax + 1.0, ay));

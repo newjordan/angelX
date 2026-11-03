@@ -1,5 +1,5 @@
 //! The repo-surfacing bench — the "latest/best repositories" support layer for
-//! reports, native to the cockpit and modelled on [`crate::drive::science`].
+//! reports, using the native host and a replaceable shortlist policy.
 //!
 //! When a report needs living software as evidence — the reference
 //! implementation, the maintained library, the freshest project in a space —
@@ -15,8 +15,8 @@
 //! missing field, never a panic; a rate-limited or unreachable API degrades to
 //! a noted skip, never a failed tool call.
 //!
-//! Networked calls live behind `search`; the pure `parse_github`/`fold` folders
-//! are unit tested offline so the ranking logic is covered without the wire.
+//! Networked calls and metadata admission live behind `search`; the ranking
+//! and briefing policy runs in a bounded, disposable JavaScript worker.
 
 #![allow(dead_code)] // wired incrementally: the parse/fold core lands with the tool/command surface.
 
@@ -93,77 +93,6 @@ pub(crate) struct Repo {
     pub(crate) url: Option<String>,
 }
 
-impl Repo {
-    /// Dedupe identity: the lowercased `owner/name`.
-    fn key(&self) -> String {
-        self.full_name.to_ascii_lowercase()
-    }
-
-    /// A day ordinal for the last push (days from civil epoch), or `None` when
-    /// the timestamp is missing or malformed. Deterministic; no wall clock.
-    fn pushed_ordinal(&self) -> Option<i64> {
-        pushed_ordinal(self.pushed_at.as_deref()?)
-    }
-
-    /// Ranking score. `stars` are log-damped so a megastar repo does not bury
-    /// everything; `recency` is measured against the freshest push in the set
-    /// (no wall clock) so ranking is stable across runs. The two modes weight
-    /// the same signals differently. Deterministic.
-    fn score(&self, mode: Mode, newest_push: i64) -> f64 {
-        let stars = (self.stars as f64 + 1.0).ln();
-        let recency = match self.pushed_ordinal() {
-            Some(o) if newest_push >= o => {
-                // Decay to zero across ~2 years relative to the freshest push.
-                (1.0 - ((newest_push - o) as f64 / 730.0)).max(0.0)
-            }
-            _ => 0.0,
-        };
-        // Archived repos are still citable but should sink beneath live ones.
-        let live = if self.archived { 0.4 } else { 1.0 };
-        let raw = match mode {
-            Mode::Best => stars + recency * 1.5,
-            Mode::Latest => recency * 6.0 + stars * 0.5,
-        };
-        raw * live
-    }
-
-    /// A one-line digest with a validated citation locator.
-    pub(crate) fn line(&self) -> String {
-        let name = crate::drive::science::sanitize_metadata(&self.full_name, MAX_NAME_CHARS);
-        let name = if name.is_empty() {
-            "unknown/repo"
-        } else {
-            &name
-        };
-        let lang = self
-            .language
-            .as_deref()
-            .map(|l| crate::drive::science::sanitize_metadata(l, 40))
-            .filter(|l| !l.is_empty())
-            .unwrap_or_else(|| "—".to_string());
-        let pushed = self
-            .pushed_at
-            .as_deref()
-            .map(pushed_date)
-            .unwrap_or_else(|| "n.d.".to_string());
-        let desc = crate::drive::science::sanitize_metadata(&self.description, MAX_DESC_CHARS);
-        let desc = if desc.is_empty() {
-            "(no description)"
-        } else {
-            &desc
-        };
-        let flags = if self.archived { " [archived]" } else { "" };
-        let citation = match &self.url {
-            Some(url) => format!("source: {url}"),
-            None => "link unavailable".to_string(),
-        };
-        format!(
-            "{name}{flags} — ★{} · {lang} · pushed {pushed} · {}",
-            self.stars, citation
-        ) + &format!("\n      {desc}")
-    }
-}
-
 /// The folded result of a fan-out: the ranked shortlist plus any notes about a
 /// degraded fetch, ready to render or hand to the model.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -174,68 +103,89 @@ pub(crate) struct RepoSet {
 }
 
 impl RepoSet {
-    /// A briefing: orientation (dominant language, freshest + most-starred
-    /// anchors) then the ranked shortlist with cited links.
-    pub(crate) fn brief(&self, mode: Mode, limit: usize) -> String {
-        let mut out = format!(
-            "◇ repos · \"{}\" · {} mode\n  {} repositor{} after dedupe\n",
-            crate::drive::science::sanitize_metadata(&self.query, 200),
-            mode.label(),
-            self.repos.len(),
-            if self.repos.len() == 1 { "y" } else { "ies" },
-        );
-        let langs = self.top_languages(4);
-        if !langs.is_empty() {
-            let l: Vec<String> = langs.iter().map(|(k, c)| format!("{k}×{c}")).collect();
-            out.push_str(&format!("  languages: {}\n", l.join(", ")));
-        }
-        if let Some(top) = self.repos.iter().max_by_key(|r| r.stars) {
-            out.push_str(&format!(
-                "  most-starred: {}\n",
-                top.line().replace("\n      ", " · ")
-            ));
-        }
-        if let Some(fresh) = self
-            .repos
+    /// Render through the replaceable shortlist policy. Native code sanitizes
+    /// source metadata and validates citations before handing it to the worker.
+    pub(crate) fn brief(&self, mode: Mode, limit: usize) -> Result<String, String> {
+        let repos: Vec<_> = self.repos.iter().map(|r| {
+            let name = crate::drive::science::sanitize_metadata(&r.full_name, MAX_NAME_CHARS);
+            let language = r.language.as_deref()
+                .map(|s| crate::drive::science::sanitize_metadata(s, 40))
+                .filter(|s| !s.is_empty());
+            serde_json::json!({
+                "full_name": r.full_name,
+                "name": if name.is_empty() { "unknown/repo" } else { &name },
+                "language": language,
+                "raw_language": language,
+                "description": crate::drive::science::sanitize_metadata(&r.description, MAX_DESC_CHARS),
+                "stars": r.stars.to_string(),
+                "archived": r.archived,
+                "pushed_at": r.pushed_at,
+                "pushed": r.pushed_at.as_deref().map(pushed_date),
+                "url": r.url.as_deref().and_then(trusted_repo_url),
+            })
+        }).collect();
+        let notes: Vec<_> = self
+            .notes
             .iter()
-            .filter(|r| r.pushed_ordinal().is_some())
-            .max_by_key(|r| r.pushed_ordinal().unwrap_or(i64::MIN))
-        {
-            out.push_str(&format!(
-                "  freshest: {}\n",
-                fresh.line().replace("\n      ", " · ")
-            ));
-        }
-        if !self.notes.is_empty() {
-            let notes = self
-                .notes
-                .iter()
-                .map(|n| crate::drive::science::sanitize_metadata(n, 240))
-                .collect::<Vec<_>>();
-            out.push_str(&format!("  (notes: {})\n", notes.join("; ")));
-        }
-        out.push_str("  ── shortlist ──\n");
-        for (i, r) in self.repos.iter().take(limit).enumerate() {
-            out.push_str(&format!("  {:>2}. {}\n", i + 1, r.line()));
-        }
-        out
+            .map(|s| crate::drive::science::sanitize_metadata(s, 240))
+            .collect();
+        let request = serde_json::json!({"version":1, "op":"project", "mode":mode.label(),
+            "query":crate::drive::science::sanitize_metadata(&self.query, 200),
+            "limit":limit, "repos":repos, "notes":notes});
+        repo_policy(&request)
+            .and_then(|value| {
+                validate_indices(&value, &self.repos)?;
+                value
+                    .get("brief")
+                    .and_then(serde_json::Value::as_str)
+                    .map(str::to_owned)
+                    .ok_or_else(|| "invalid briefing response".to_string())
+            })
+            .map_err(|error| format!("repository briefing unavailable: {error}"))
     }
+}
 
-    /// Count languages across the shortlist, most-common first. Ties broken by
-    /// name so the orientation line is deterministic.
-    fn top_languages(&self, limit: usize) -> Vec<(String, usize)> {
-        use std::collections::HashMap;
-        let mut counts: HashMap<String, usize> = HashMap::new();
-        for r in &self.repos {
-            if let Some(lang) = r.language.as_deref().filter(|l| !l.is_empty()) {
-                *counts.entry(lang.to_string()).or_default() += 1;
-            }
-        }
-        let mut v: Vec<(String, usize)> = counts.into_iter().collect();
-        v.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
-        v.truncate(limit);
-        v
+/// Pin the complete repository-policy dependency set for one request.
+fn repo_snapshot() -> Result<crate::platform::worker_snapshot::Snapshot, String> {
+    crate::platform::worker_snapshot::Snapshot::capture(
+        &crate::platform::runtime_paths::root(),
+        &[
+            "scripts/runtime/repo-search.mjs",
+            "lib/repo-search/rules.mjs",
+        ],
+        "repository",
+    )
+}
+
+/// One disposable policy generation per call: no token or workspace authority
+/// is sent in the request, and the host retains the network and cache.
+fn repo_policy(request: &serde_json::Value) -> Result<serde_json::Value, String> {
+    let input = serde_json::to_vec(request).map_err(|_| "invalid policy request".to_string())?;
+    let node = crate::agent::tools::runtime_missing::resolve("node")
+        .map_err(|_| "Node.js unavailable".to_string())?;
+    let context = crate::agent::tools::http_transport::context();
+    if context.interrupted() {
+        return Err("worker request interrupted".into());
     }
+    let snapshot = repo_snapshot()?;
+    let mut command = std::process::Command::new(node);
+    command.arg(snapshot.dir.join("scripts/runtime/repo-search.mjs"));
+    // This policy needs no inherited credentials, Node flags, or workspace env.
+    command.env_clear();
+    let output = crate::platform::worker::run_cancellable(
+        command,
+        &input,
+        Duration::from_secs(5),
+        4 * 1024 * 1024,
+        256 * 1024,
+        || context.interrupted(),
+    )?;
+    let value: serde_json::Value =
+        serde_json::from_slice(&output).map_err(|_| "invalid policy response".to_string())?;
+    if value.get("version").and_then(serde_json::Value::as_u64) != Some(1) {
+        return Err("unsupported policy response version".to_string());
+    }
+    Ok(value)
 }
 
 /// The shared blocking agent — short timeouts so a slow GitHub can never wedge
@@ -276,7 +226,7 @@ where
     F: Fn(&str, Mode, usize) -> Result<Vec<Repo>, String>,
 {
     let (repos, notes) = match searcher(query, mode, limit) {
-        Ok(repos) => (fold(repos, mode), Vec::new()),
+        Ok(repos) => (repos, Vec::new()),
         Err(error) => (Vec::new(), vec![error]),
     };
     RepoSet {
@@ -286,35 +236,60 @@ where
     }
 }
 
-/// Dedupe by [`Repo::key`] (keeping the better-starred copy) and rank. Pure.
-fn fold(repos: Vec<Repo>, mode: Mode) -> Vec<Repo> {
-    use std::collections::HashMap;
-    let newest = repos
-        .iter()
-        .filter_map(Repo::pushed_ordinal)
-        .max()
-        .unwrap_or(0);
-    let mut by_key: HashMap<String, Repo> = HashMap::new();
-    for r in repos {
-        by_key
-            .entry(r.key())
-            .and_modify(|existing| {
-                if r.stars > existing.stars {
-                    *existing = r.clone();
-                }
-            })
-            .or_insert(r);
+/// Check the worker's indices before accepting its projection.
+fn validate_indices(value: &serde_json::Value, repos: &[Repo]) -> Result<Vec<usize>, String> {
+    let indices = value
+        .get("indices")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "invalid ranking response".to_string())?;
+    if indices.len() > repos.len() {
+        return Err("invalid ranking length".into());
     }
-    let mut out: Vec<Repo> = by_key.into_values().collect();
-    out.sort_by(|a, b| {
-        b.score(mode, newest)
-            .partial_cmp(&a.score(mode, newest))
-            .unwrap_or(std::cmp::Ordering::Equal)
-            // Stable tie-break so the ranking is deterministic across runs.
-            .then_with(|| b.stars.cmp(&a.stars))
-            .then_with(|| a.full_name.cmp(&b.full_name))
-    });
-    out
+    let expected: std::collections::HashSet<_> = repos
+        .iter()
+        .map(|repo| repo.full_name.to_ascii_lowercase())
+        .collect();
+    let mut seen_indices = std::collections::HashSet::new();
+    let mut seen_keys = std::collections::HashSet::new();
+    let selected: Result<Vec<_>, String> = indices
+        .iter()
+        .map(|value| {
+            let index = value
+                .as_u64()
+                .and_then(|n| usize::try_from(n).ok())
+                .filter(|&index| index < repos.len())
+                .ok_or_else(|| "invalid ranking index".to_string())?;
+            if !seen_indices.insert(index) {
+                return Err("duplicate ranking index".into());
+            }
+            if !seen_keys.insert(repos[index].full_name.to_ascii_lowercase()) {
+                return Err("duplicate repository identity".into());
+            }
+            Ok(index)
+        })
+        .collect();
+    let selected = selected?;
+    if seen_keys != expected {
+        return Err("repository policy omitted an identity".into());
+    }
+    Ok(selected)
+}
+
+#[cfg(test)]
+fn fold(repos: Vec<Repo>, mode: Mode) -> Result<Vec<Repo>, String> {
+    let input: Vec<_> = repos
+        .iter()
+        .map(|r| {
+            serde_json::json!({
+                "full_name": r.full_name, "stars": r.stars.to_string(),
+                "pushed_at": r.pushed_at, "archived": r.archived,
+            })
+        })
+        .collect();
+    let response = repo_policy(&serde_json::json!({"version":1, "op":"rank",
+        "mode":mode.label(), "repos":input}))?;
+    validate_indices(&response, &repos)
+        .map(|indices| indices.into_iter().map(|i| repos[i].clone()).collect())
 }
 
 /// Query GitHub repository search. Networked; the pure `parse_github` folder
@@ -563,18 +538,49 @@ pub(crate) fn surface_cached(query: &str, mode: Mode, limit: usize, ttl_secs: u6
         fnv1a_str(&format!("{}:{limit}:{query}", mode.label()))
     );
     let path = cache_dir().map(|d| d.join(format!("{key}.json")));
-    if let Some(p) = &path
-        && let Some(hit) = read_fresh(p, ttl_secs)
-    {
-        return hit;
+    surface_cached_in(path.as_deref(), query, mode, limit, ttl_secs, &search)
+}
+
+/// The cache stores admitted source records, not a policy generation's result.
+/// Rendering applies the current policy, even while a network result is fresh.
+/// Older ranked entries remain readable until their TTL expires.
+fn surface_cached_in<F>(
+    path: Option<&std::path::Path>,
+    query: &str,
+    mode: Mode,
+    limit: usize,
+    ttl_secs: u64,
+    searcher: &F,
+) -> RepoSet
+where
+    F: Fn(&str, Mode, usize) -> Result<Vec<Repo>, String>,
+{
+    let hit = path.and_then(|p| read_fresh(p, ttl_secs));
+    let from_cache = hit.is_some();
+    let raw = match hit {
+        Some(hit) => hit,
+        None => match searcher(query, mode, limit) {
+            Ok(repos) => RepoSet {
+                query: query.to_string(),
+                repos,
+                notes: Vec::new(),
+            },
+            Err(error) => {
+                return RepoSet {
+                    query: query.to_string(),
+                    repos: Vec::new(),
+                    notes: vec![error],
+                };
+            }
+        },
+    };
+    if raw.repos.is_empty() {
+        return raw;
     }
-    let set = surface(query, mode, limit);
-    if let Some(p) = &path
-        && !set.repos.is_empty()
-    {
-        write_cache(p, &set);
+    if !from_cache && let Some(path) = path {
+        write_cache(path, &raw);
     }
-    set
+    raw
 }
 
 fn read_fresh(path: &std::path::Path, ttl_secs: u64) -> Option<RepoSet> {
@@ -598,7 +604,7 @@ fn write_cache(path: &std::path::Path, set: &RepoSet) {
         return;
     }
     if let Ok(json) = serde_json::to_string(set) {
-        let _ = std::fs::write(path, json);
+        let _ = crate::platform::workspace_store::write_atomic(path, json.as_bytes());
     }
 }
 
@@ -645,7 +651,7 @@ pub(crate) fn run(arg: Option<&str>) -> String {
             crate::drive::science::sanitize_metadata(query, MAX_QUERY_CHARS)
         );
     }
-    set.brief(mode, 10)
+    set.brief(mode, 10).unwrap_or_else(|error| error)
 }
 
 #[cfg(test)]

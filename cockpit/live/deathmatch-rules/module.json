@@ -1,0 +1,19 @@
+{
+  "api_version": 1,
+  "id": "deathmatch-rules",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "begin",
+    "winner": false,
+    "ended": 0,
+    "connected": 4,
+    "ticks": 90,
+    "pickups": [0, 12, 0, 0, 3]
+  },
+  "bend": {
+    "entry": "deathmatch-rules.bend",
+    "proof": "PROOF.bend",
+    "output": "deathmatch-rules.compiled.js"
+  }
+}

@@ -178,11 +178,22 @@ fn rank(route: Route) -> usize {
 /// code it answers on is a result, not advice. polyglot-v1 cpp-robot-name on
 /// Sonnet 5.5: `⠧⠋` spent the checkpoint, the model's next green was never
 /// re-run, and the grader's run failed.
+///
+/// An answer that carries raw tool-call markup while nothing in the workspace
+/// changed this turn does not stand either: it is a tool call that failed to
+/// parse, not a result. polyglot-v1 rust-robot-name on DeepSeek V4.1 Flash
+/// (2026-11-01): the model pasted its prompt back ending in DSML tool markup,
+/// the checkpoint fired once, and the identical second paste stood with the
+/// stub untouched. It stops again up to [`MARKUP_RESTOPS`] times a turn.
 #[derive(Default)]
 pub(crate) struct Checkpoint {
     spent: bool,
     flaky_shown: bool,
+    markup_restops: usize,
 }
+
+/// Extra stops a turn spends on unexecuted tool markup with no workspace change.
+pub(crate) const MARKUP_RESTOPS: usize = 2;
 
 impl Checkpoint {
     pub(crate) fn spent(&self) -> bool {
@@ -203,23 +214,43 @@ impl Checkpoint {
         facts: &[Raise],
         budget_left: bool,
     ) -> Option<(String, Vec<Raise>)> {
+        self.engage_with(workspace, facts, budget_left, false)
+    }
+
+    /// [`Self::engage`], told whether the workspace is unchanged this turn
+    /// (no mutation call, same fingerprint). With that, a `⠭⠃` markup answer
+    /// is shown its stop again instead of standing, a bounded number of times.
+    pub(crate) fn engage_with(
+        &mut self,
+        workspace: &Path,
+        facts: &[Raise],
+        budget_left: bool,
+        workspace_unchanged: bool,
+    ) -> Option<(String, Vec<Raise>)> {
         if facts.is_empty() || !budget_left {
             return None;
         }
-        let flaky_only;
+        let retained;
         let facts = if self.spent {
-            if self.flaky_shown {
-                return None;
-            }
-            flaky_only = facts
+            let markup_restop = workspace_unchanged
+                && self.markup_restops < MARKUP_RESTOPS
+                && facts.iter().any(|raise| raise.route == x_execution::MARKUP);
+            retained = facts
                 .iter()
-                .filter(|raise| raise.route == v_verification::FLAKY)
+                .filter(|raise| {
+                    (raise.route == v_verification::FLAKY && !self.flaky_shown)
+                        || (markup_restop
+                            && matches!(raise.route, x_execution::MARKUP | d3456_advisories::NO_EDIT))
+                })
                 .cloned()
                 .collect::<Vec<_>>();
-            if flaky_only.is_empty() {
+            if retained.is_empty() {
                 return None;
             }
-            flaky_only.as_slice()
+            if markup_restop {
+                self.markup_restops += 1;
+            }
+            retained.as_slice()
         } else {
             facts
         };

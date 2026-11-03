@@ -60,7 +60,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.plate.fungal",
-  "source_path": "/work/artifacts/art-prod/slots/dgn.plate.fungal/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/dgn.plate.fungal/v01/source-sheet.png",
   "source_sha256": "bed6e31e8c13ae842b23326e923272b4d0eccf7ac712736aa7c9fc681b12ead7",
   "tool_version": 2
 }

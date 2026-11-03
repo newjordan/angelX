@@ -8,8 +8,8 @@ or the run that measured it.
 
 | source | what it settles |
 |---|---|
-| `deepseek-ai/deepseek-harness` at `639ed01` (2026-09-29, 0.2.0-rc.2) | the wire and loop contract as DeepSeek implements it; full spec in `/work/artifacts/deepseek-blueprint-20260929/harness-spec.md` |
-| api-docs.deepseek.com (thinking mode, KV cache, tool calls, models, Anthropic API) | the documented contract; `/work/artifacts/deepseek-blueprint-20260929/api-docs-spec.md` |
+| `deepseek-ai/deepseek-harness` at `639ed01` (2026-09-29, 0.2.0-rc.2) | the wire and loop contract as DeepSeek implements it; full spec in `<artifacts>/deepseek-blueprint-20260929/harness-spec.md` |
+| api-docs.deepseek.com (thinking mode, KV cache, tool calls, models, Anthropic API) | the documented contract; `<artifacts>/deepseek-blueprint-20260929/api-docs-spec.md` |
 | DeepSeek-V4.1-Flash tech report and model card | recommended output cap, scaffold results, prompt encoding |
 | the 2026-09-14 audit (`DEEPSEEK-HARNESS-IMPLEMENTATION-AUDIT-20260914.md`, DS-01…DS-08) | the stages this work closes or leaves |
 
@@ -103,11 +103,11 @@ turn:
 
 A one-turn task has no turn boundaries and never nears compaction, so tokens
 tie; the fixes act on long sessions and follow-ups. The long-session
-comparison is running on sparky (below).
+comparison is running on the DGX Spark host (below).
 
 ## Open, and whose call
 
-- **Messages as the default (operator).** It is opt-in until the sparky loops
+- **Messages as the default (operator).** It is opt-in until the DGX Spark loops
   (fixed Chat against Messages, heesch `/loop`) finish. What the Messages
   wire adds beyond the fixed Chat path: cache-safe tool additions
   (`tool_addition` plus `defer_loading`, flash only, not built yet), thinking

@@ -27,6 +27,9 @@ fn page(rows: &[(&str, Box<dyn Fn(&mut Img, u32)>)]) -> Img {
     out
 }
 fn sheets() -> Vec<(&'static str, Img)> {
+    sheets_from_book(crate::rules::cards::Book::builtin())
+}
+fn sheets_from_book(book: crate::rules::cards::Book) -> Vec<(&'static str, Img)> {
     // This library sheet pins the original effect drawings. Dungeon-only
     // shot composition has its own directional-stroke contract and room QA.
     struct Original;
@@ -65,7 +68,7 @@ fn sheets() -> Vec<(&'static str, Img)> {
                     }))
                     .unwrap(),
                 );
-                super::shots(cv, &r, false);
+                super::shots(cv, &r);
             }),
         ));
     }
@@ -82,28 +85,11 @@ fn sheets() -> Vec<(&'static str, Img)> {
                     }))
                     .unwrap(),
                 );
-                super::shots(cv, &r, false);
+                super::shots(cv, &r);
             }),
         ));
     }
     pages.push(("shots", page(&shots)));
-    let mut modern: Vec<(&str, Box<dyn Fn(&mut Img, u32)>)> = Vec::new();
-    for (name, kind) in [
-        ("V2 WISP", Shot::Wisp),
-        ("V2 EMBER", Shot::Ember),
-        ("V2 PAGE", Shot::Page),
-        ("V2 BALL", Shot::Ball),
-    ] {
-        modern.push((
-            name,
-            Box::new(move |cv, f| {
-                let im = art_v2::fx_shot_sample(kind, f);
-                // This page shows the native world footprint at two RGB samples.
-                cv.stamp(&im, -56, -56);
-            }),
-        ));
-    }
-    pages.push(("shots-v2", page(&modern)));
     let mut hits: Vec<(&str, Box<dyn Fn(&mut Img, u32)>)> = Vec::new();
     for (name, kind) in [
         ("BOW HIT", Shot::Arrow),
@@ -123,8 +109,9 @@ fn sheets() -> Vec<(&'static str, Img)> {
                     dx: 1.0,
                     dy: 0.0,
                     boss_art: None,
+                    note: false,
                 });
-                vfx::under_shots(cv, &r);
+                vfx::under_shots(cv, &r, None);
                 feel::over(cv, &r);
             }),
         ));
@@ -184,7 +171,7 @@ fn sheets() -> Vec<(&'static str, Img)> {
                 vfx::under_figures(&mut under, &r);
                 under.stamp(cv, 0, 0);
                 *cv = under;
-                vfx::under_shots(cv, &r);
+                vfx::under_shots(cv, &r, None);
                 feel::over(cv, &r);
             }),
         ));
@@ -211,10 +198,6 @@ fn sheets() -> Vec<(&'static str, Img)> {
                 crate::rules::spin::REACH * UNIT,
             )
         }),
-    ));
-    hits.push((
-        "V2 HIT FLASH",
-        Box::new(|cv, f| cv.stamp(&art_v2::fx_hit_sample(f), -56, -56)),
     ));
     pages.push(("hits", page(&hits)));
     let mut hazards: Vec<(&str, Box<dyn Fn(&mut Img, u32)>)> = Vec::new();
@@ -287,7 +270,7 @@ fn sheets() -> Vec<(&'static str, Img)> {
                         reach: 3.0,
                     }),
                 }
-                works::under_with(cv, &r, false);
+                works::under_with(cv, &r);
                 works::over(cv, &r);
             }),
         ));
@@ -349,7 +332,7 @@ fn sheets() -> Vec<(&'static str, Img)> {
                     7.0,
                     crate::rules::BLAST_TICKS.saturating_sub(1 + f as u8 * 2),
                 ));
-                vfx::under_shots(cv, &r);
+                vfx::under_shots(cv, &r, None);
             }),
         ),
         (
@@ -364,7 +347,7 @@ fn sheets() -> Vec<(&'static str, Img)> {
     let mut icons: Vec<(&str, Box<dyn Fn(&mut Img, u32)>)> = Vec::new();
     let mut supplies: Vec<(&str, Box<dyn Fn(&mut Img, u32)>)> = Vec::new();
     let mut charms: Vec<(&str, Box<dyn Fn(&mut Img, u32)>)> = Vec::new();
-    for c in &r.book.cards {
+    for c in &book.cards {
         let c = c.clone();
         let label = c.id.as_str();
         let name: &'static str = Box::leak(
@@ -444,14 +427,14 @@ fn sheets() -> Vec<(&'static str, Img)> {
                     }
                 }
                 r.tick = u64::from(f * 3);
-                super::shots(cv, &r, false);
+                super::shots(cv, &r);
             }),
         ));
     }
     pages.push(("warnings", page(&tells)));
-    let fixtures = art_v2::testing::matching::fixtures();
-    for modern in [false, true] {
-        let (w, h) = if modern { (768, 448) } else { (384, 224) };
+    let fixtures = testing::matching::fixtures();
+    {
+        let (w, h) = (384, 224);
         let mut out = Img::black(90 + 4 * w, 2 * h);
         for (row, name) in ["ripper", "grinwick"].into_iter().enumerate() {
             let original = &fixtures.iter().find(|(n, _)| *n == name).unwrap().1;
@@ -466,25 +449,13 @@ fn sheets() -> Vec<(&'static str, Img)> {
                     crate::rules::signatures::DASH,
                     crate::rules::signatures::DAZED,
                 ][phase];
-                let im = if modern {
-                    art_v2::fx_boss_sample(&r)
-                } else {
-                    let mut im = Img::new(w, h);
-                    signatures::under_with(&mut im, &r, false);
-                    works::under_with(&mut im, &r, false);
-                    im
-                };
+                let mut im = Img::new(w, h);
+                signatures::under_with(&mut im, &r);
+                works::under_with(&mut im, &r);
                 out.stamp(&im, 90 + phase as i32 * w, row as i32 * h);
             }
         }
-        pages.push((
-            if modern {
-                "boss-patterns-v2"
-            } else {
-                "boss-patterns"
-            },
-            out,
-        ));
+        pages.push(("boss-patterns", out));
     }
     pages
 }
@@ -602,7 +573,56 @@ fn effect_cores_and_warning_footprints_keep_the_approved_geometry() {
     assert_eq!(footprints(), expected);
 }
 #[test]
+fn wall_stock_preserves_every_legacy_arm_and_guard_icon() {
+    let mut book = crate::rules::cards::Book::builtin();
+    let count = book.cards.len();
+    book.cards.retain(|c| !matches!(c.id.as_str(), "stock-blade" | "stock-staff" | "stock-maul"));
+    assert_eq!(count - book.cards.len(), 3);
+    // The Reaver's and the Lancer's cards came after the review.
+    let later = ["reaver-axes", "hurl-axe", "leap", "bloodlust", "war-lance", "javelin", "vault", "brace"];
+    book.cards.retain(|c| !later.contains(&c.id.as_str()));
+    let (_, icons) = sheets_from_book(book).into_iter().find(|(n, _)| *n == "icons").unwrap();
+    // The combined line's reviewed icon sheet before wall stock was added.
+    // Re-pinned 2026-10-30: the Mage's Spark Staff joins the arms (`weave`).
+    // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
+    // pixel rows spell no word; with the old haft: 11215858357188808591.
+    assert_eq!(icons.content_hash(), 15621383727547185539, "all pre-stock rows keep their reviewed pixels");
+}
+
+#[test]
 fn reviewed_effect_frames_keep_their_pixels() {
+    // Re-pinned 2026-10-24: 67d45c4a2 and ca8614962 added the champions'
+    // and Gravecaller's arms and spells to the two book contact sheets.
+    // The ranged kits append three arm and nine spell rows. Every legacy
+    // row and all seven other effect sheets retain their reviewed pixels.
+    // Re-pinned 2026-10-28 (the magic pass, `pfx`): the specials sheet's
+    // Stillhour is a lit dome with a clock face and still motes, its
+    // Trebuchet shells fall with fire behind them onto a ring with four
+    // brackets, and a granted wish opens a ring and lets twinkles rise.
+    // Every other sheet keeps its reviewed pixels.
+    // Re-pinned 2026-10-28 (the ultimates redrawn): the specials sheet's
+    // Lady's Veil wings are feathered, swept up off the shoulders and lit
+    // along their leading edge, over a soft light. Nothing else moved.
+    // Re-pinned 2026-10-29 (the motion foundation, docs/MOTION.md): the
+    // specials sheet's granted wish is timed to the boon's own second — a
+    // breath of light drawn in, a white core and rays, the ring past its
+    // size with an echo inside it, twinkles floating off — and the hits
+    // sheet's star holds a second tick, its ring eases open and its sparks
+    // fly further, gone with the impact. Nothing else moved. Then the
+    // grant's rays went behind the knight, so the light is round them.
+    // Re-pinned 2026-10-29 (the content checker, docs/TEMPLATES.md): the
+    // book sheets' nineteen card icons the checker graded Crude are redrawn
+    // as the same things (Codex Sol, then reviewed at 1x): a stone, a note,
+    // crossed axes, a knotted cincture, a lit matchcord, a gauntlet, a
+    // censer, a sight, brass rain, the gales, the embers, the maul's heart,
+    // the hook, the chain. Nothing else moved.
+    // The wall's three common stock arms add three icon rows, exported and
+    // reviewed separately; the legacy-only sheet above retains its old pin.
+    // The Reaver's and the Lancer's arms and spells add their own icon rows;
+    // every other sheet keeps its pixels.
+    // Re-pinned 2026-11-02 (enemy-shot clarity): a hostile shot's marker
+    // gains a black rim, a pulsing pink ring and a white core so it can
+    // never read as the player's own bullet. Only the warnings sheet moved.
     let actual: std::collections::BTreeMap<String, u64> = sheets()
         .into_iter()
         .map(|(n, im)| (n.into(), im.content_hash()))
@@ -613,7 +633,7 @@ fn reviewed_effect_frames_keep_their_pixels() {
 }
 
 #[test]
-fn rgb_gas_volume_stays_below_actors_while_its_rim_is_protected() {
+fn gas_volume_lies_below_the_figures() {
     let mut run = quiet();
     run.works.clouds.push(skills::Cloud {
         x: 7.0,
@@ -626,19 +646,9 @@ fn rgb_gas_volume_stays_below_actors_while_its_rim_is_protected() {
         tint: 2,
     });
     let mut under = Img::new(112, 112);
-    works::under_with(&mut under, &run, false);
+    works::under_with(&mut under, &run);
     assert!(
         under.get(56, 56).is_some(),
         "default volume belongs below the figures"
-    );
-    let mut overlay = Img::new(112, 112);
-    works::under_with(&mut overlay, &run, true);
-    assert!(
-        overlay.get(56, 56).is_none(),
-        "RGB volume must not enter the protected overlay and cover an actor"
-    );
-    assert!(
-        overlay.pixels().any(|c| c != BLACK),
-        "the danger rim remains protected"
     );
 }

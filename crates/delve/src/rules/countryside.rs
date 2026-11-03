@@ -82,7 +82,8 @@ pub const INTENT_LIMIT: usize = super::college::INTENT_LIMIT + VISIT_MARKS.len()
     + 1
     + SURVEY_MARKS.len()
     + PLOTS.len()
-    + super::roundtable::INTENT_MARKS;
+    + super::roundtable::INTENT_MARKS
+    + super::countryside_squires::INTENT_SLOTS;
 
 pub fn forecast_stage(country: &Country, marks: &BTreeMap<String, u32>) -> u8 {
     let mut stage = country.forecast.min(6);
@@ -141,7 +142,8 @@ pub fn settle_games(
 }
 
 pub fn intent_key(key: &str) -> bool {
-    super::college::intent_key(key)
+    super::countryside_squires::intent_key(key)
+        || super::college::intent_key(key)
         || GROVE_MARKS.contains(&key)
         || key == super::race3d::RACE_MARK
         || key == super::woodland::ACORN_MARK
@@ -183,7 +185,7 @@ pub fn intent_valid(key:&str, value:u32)->bool {
     if super::hippodrome::WAGER_MARKS[..3].contains(&key) {(1..=3).contains(&value)}
     // A finish names its winner, 2 to 4; an older save wrote 1.
     else if super::hippodrome::WAGER_MARKS[3..].contains(&key) {(1..=4).contains(&value)}
-    else if key.starts_with("country:build:") {value <= super::MAX_PLAYERS}
+    else if key.starts_with("country:build:") || key.starts_with("country:squire:") {value <= super::MAX_PLAYERS}
     else {value==1}
 }
 
@@ -256,6 +258,8 @@ pub fn name(kind: RoomKind) -> &'static str {
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Country {
+    #[serde(default, skip_serializing_if = "super::countryside_squires::Company::is_empty")]
+    pub squires: super::countryside_squires::Company,
     pub visited: u8,
     pub relics: u8,
     pub built: u16,
@@ -339,6 +343,11 @@ pub struct Country {
     pub swamp_heard: bool,
     #[serde(default, skip_serializing_if = "super::is_zero")]
     pub white_horse: u8,
+    /// The named keeper of each built plot, by plot id: who lives and
+    /// works at what the realm raised. Given once, at the raising (or
+    /// at the first settle after, for an older realm), and kept.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub keepers: BTreeMap<String, String>,
 }
 
 impl Country {
@@ -376,6 +385,12 @@ impl Country {
             && (!self.has(10) || self.post == 2)
             && self.relics & !7 == 0
             && self.built & !((1u16 << PLOTS.len()) - 1) == 0
+            && self.keepers.len() <= PLOTS.len()
+            && self.keepers.iter().all(|(id, name)| {
+                !name.is_empty()
+                    && name.len() <= 24
+                    && PLOTS.iter().enumerate().any(|(i, p)| p.id == id && self.has(i))
+            })
             && self.wet_visited & !7 == 0
             && self.sluice <= 6
             && (!self.sluice_paid || self.sluice == 6)
@@ -406,6 +421,7 @@ impl Country {
             && (self.lamps == 0 || self.can_light())
             && (!self.lamps_paid || self.lamps == 7)
             && (!self.has(3) || self.lamps == 7)
+            && self.squires.valid()
             && self.games.valid()
             && self.humphrey_felled <= 9
             && self.humphrey_dig <= super::risen::RISE_AGAIN
@@ -415,6 +431,16 @@ impl Country {
     /// The original six-place reward and inn requirement survive expansion.
     pub fn core_visits(&self) -> u32 {
         (self.visited & 63).count_ones()
+    }
+
+    /// Built plots whose keeper sends a sack to the holdings'
+    /// granary each rent day: the bakery's loaves, the bothy's
+    /// soup, the harbour's catch.
+    pub fn larders(&self) -> u32 {
+        LARDERS
+            .iter()
+            .filter(|id| PLOTS.iter().enumerate().any(|(i, p)| &p.id == *id && self.has(i)))
+            .count() as u32
     }
 
     pub fn can_light(&self) -> bool {
@@ -492,6 +518,18 @@ impl Country {
         if !self.games.valid() {
             self.games.repair();
             mended.push("games");
+        }
+        // A keeper for a plot that does not stand (or no plot at all)
+        // is a name without a home: strike it from the roll.
+        let keepers_before = self.keepers.len();
+        let built = self.built;
+        self.keepers.retain(|id, name| {
+            !name.is_empty()
+                && name.len() <= 24
+                && PLOTS.iter().enumerate().any(|(i, p)| p.id == id && built & (1 << i) != 0)
+        });
+        if self.keepers.len() != keepers_before {
+            mended.push("keepers");
         }
         // Later progress vouches for what it needed: a paid reward or a
         // built plot means its job was done.
@@ -693,6 +731,10 @@ impl Plot {
         }
     }
 }
+
+/// Plots that feed people: their keepers send a sack a rent day to
+/// the holdings' granary (`Country::larders`).
+pub const LARDERS: [&str; 3] = ["bakery", "bothy", "harbour"];
 
 pub const PLOTS: [Plot; 15] = [
     Plot {
@@ -1236,6 +1278,7 @@ pub fn settle(
     super::windcountry::settle(country, treasury, marks, &mut news);
     super::bowcountry::settle(country, treasury, marks, &mut news);
     let sold = super::town::settle(treasury, marks, &mut news);
+    super::countryside_squires::settle(&mut country.squires, treasury, marks, &mut news);
     super::race_wagers::settle(country, treasury, marks, &mut news);
     if marks.contains_key(GROVE_MARKS[0]) && !country.fireflies_paid {
         country.fireflies_paid = true;
@@ -1320,12 +1363,18 @@ pub fn settle(
         }
         treasury.take(&price);
         country.built |= 1 << i;
+        let keeper = super::villagers::keeper_name(plot.id);
+        country.keepers.insert(plot.id.to_string(), keeper.clone());
         news.push(format!(
-            "The realm raised {} for {}! {}.",
+            "The realm raised {} for {}! {}. {keeper} keeps it now.",
             plot.name,
             price.label(),
             plot.says
         ));
     }
+    // No backfill here: plots an older realm raised before keepers
+    // were named stay unnamed in the save, and the board derives
+    // their keeper (`villagers::keeper_name`) when it paints. A
+    // settle that grants nothing must change nothing.
     (*country != before || sold, news)
 }

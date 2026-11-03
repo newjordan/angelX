@@ -7,6 +7,8 @@
 //! model's answer it is a stop fact for the checkpoint (`q_stop.rs`).
 
 use super::{Primary, Raise, Route, Sub};
+
+const CATALOG: &str = include_str!("../../../../book/v_verification.book");
 use crate::agent::harness::*;
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -35,11 +37,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the last test run on this exact code failed (run below)",
             action: "",
             ideas: "- The answer is yours either way; if something still fails, say what.",
-            pages: &[
-                "Your last test run on this exact code failed, so the task is not finished, and there is budget left to fix it.",
-                "Read the failure below, change the code, and run the tests again.",
-                "If something outside the code blocks you, such as a missing tool or a broken environment, say what it is and answer again.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'1'),
         },
         Sub {
             route: ACCEPTANCE,
@@ -47,12 +45,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the task's pinned acceptance command is red (receipt below)",
             action: "",
             ideas: "",
-            pages: &[
-                "The task's operator-pinned acceptance command is still RED.",
-                "This is a hard completion contract, not an advisory verifier: fix the reported failure before claiming completion.",
-                "Do not redefine, bypass, mask, or replace the command.",
-                "If the contract cannot be satisfied, report the concrete blocker.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'2'),
         },
         Sub {
             pages: &[],
@@ -69,13 +62,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             action: "",
             ideas: "- Separate an implementation defect from a missing prerequisite or a broken \
                     test environment.",
-            pages: &[
-                "VERIFICATION RECOVERY: 3 consecutive verification failures detected.",
-                "Pause speculative edits and inspect the first failing diagnostic.",
-                "If errors span multiple functions, types, or borrow lifetimes, stop micro-patching with str_replace and use write_file to rewrite the module cleanly.",
-                "Do not re-run tests without changing code.",
-                "Report infrastructure failures honestly; never discard unrelated changes or assume a clean baseline exists.",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'4'),
         },
         Sub {
             route: FLAKY,
@@ -83,12 +70,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a passing run did not hold when re-run on the same code (failing run below)",
             action: "",
             ideas: "- One pass can be luck.",
-            pages: &[
-                "Your last passing test run did not hold: angelX re-ran it on the same code and it failed.",
-                "The solution passes by luck; something depends on randomness, timing, iteration order or state shared between tests or runs.",
-                "Find that and fix it so the tests pass every run.",
-                "Re-running until green is not a fix.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'5'),
         },
         Sub {
             route: UNTESTED,
@@ -96,13 +78,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the workspace changed after the last test run",
             action: "",
             ideas: "",
-            pages: &[
-                "You edited the workspace but have not run a verifier since the latest edit.",
-                "Before claiming completion, use `shell` to run the smallest relevant repository test, check, lint, or formatting command.",
-                "One relevant green verifier is sufficient; do not follow it with broader or overlapping checks unless the task explicitly requires them.",
-                "If verification cannot run, state the concrete blocker and the unverified risk in your final answer.",
-                "A real verifier attempt, even when red or unavailable, is sufficient evidence for an honest blocker report.",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'6'),
         },
         Sub {
             route: TESTS_EDITED,
@@ -110,13 +86,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "test files that came with the task were changed (paths below)",
             action: "",
             ideas: "- A pass that leans on edited task tests says little about the code.",
-            pages: &[
-                "You changed test files that came with the task.",
-                "Those tests are the task's contract: leave them as they were.",
-                "Restore them (for example `git checkout -- <file>`) and keep your fix in the source.",
-                "To run tests that are skipped, run a copy or restore the file afterwards.",
-                "If the task asked you to change these tests, say so and answer again.",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'7'),
         },
         Sub {
             pages: &[],
@@ -132,10 +102,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the verification posture",
             action: "",
             ideas: "",
-            pages: &[
-                "Verification posture: after editing code, run the smallest relevant verifier.",
-                "One conclusive green test or build on the unchanged workspace is enough; do not stack broader, overlapping tests, builds, lint, or vet commands unless the task explicitly requires distinct gates or the first verifier produced a diagnostic that demands one.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'9'),
         },
         Sub {
             route: POSTURE_COMPACT,
@@ -143,11 +110,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the verification posture, compact core",
             action: "",
             ideas: "",
-            pages: &[
-                "After editing code, run the smallest relevant verifier and fix failures from its diagnostics.",
-                "Respect explicit no-build or external-verification instructions and report pending checks honestly.",
-                "Complete all requested deliverables and distinct required gates; do not stack overlapping verifiers on unchanged code.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'0'),
         },
     ],
 };

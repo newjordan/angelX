@@ -1,18 +1,15 @@
-//! The Round Table adventures: five co-op stubs on one shared shell.
+//! The Round Table adventures and Knight Racer on one shared entry shell.
 //!
-//! Lanternward, Moonfall, Bannerpeak, Griffinwing and Lightgallop each have a
-//! door of their own on the kingdom map (`ADVENTURES`, and the tile table in
-//! docs/ROUNDTABLE-ADVENTURES.md). A knight stands at the tile and presses E;
+//! Lanternward, Moonfall, Bannerpeak, Griffinwing, Lightgallop and Knight Racer have a
+//! door of their own on the kingdom map (`ADVENTURES` plus `knight_racers::ADVENTURE`).
+//! A knight stands at the tile and presses E;
 //! the party goes in as it does for the Forest Road (the Dark Forest's room
 //! hosts the run, the kingdom door is the way back), every seat plays at once,
 //! and holding Esc leaves (`exits`).
 //!
-//! This file is the whole of what the five share, and it is not a builder's:
-//! the one list of them, the entry, the sums over their state (valid, clear,
-//! showing), the knob rows, the crash-safe marks. Everything an adventure
-//! varies lives in its own module (`rules/<slug>.rs`), which hands this file
-//! one `Adventure` and never needs a line added here. That is how five
-//! branches edit five files and merge without a conflict.
+//! This file is the common entry shell; the five scored adventures keep their fixed tune slots:
+//! the scored list and its knob rows remain unchanged; `games()` extends
+//! entry, validity and clearing with the unscored race. Each game owns its state.
 use super::tune::Tune;
 use super::*;
 use angel_net::knob::{Knob, Side};
@@ -26,7 +23,7 @@ pub struct Adventure {
     pub name: &'static str,
     /// The kingdom tile its door stands on (tiles, not units).
     pub entry: (i32, i32),
-    /// Its place in `ADVENTURES` and in `Tune::roundtable`.
+    /// Its place in `ADVENTURES` and in `Tune::roundtable` (MAX for unscored games).
     pub slot: usize,
     /// Every mark it may write: the crash-safe intent journal keeps these.
     pub marks: &'static [&'static str],
@@ -92,6 +89,11 @@ pub static ADVENTURES: [Adventure; 5] = [
     lightgallop::ADVENTURE,
 ];
 
+/// Scored adventures and independent short games, including Knights Wish.
+pub fn games() -> impl Iterator<Item = &'static Adventure> {
+    ADVENTURES.iter().chain([&knight_racers::ADVENTURE, &deathmatch::ADVENTURE])
+}
+
 /// How close to its tile's centre a knight stands to press E at the door
 /// (units, as the kingdom's other doors).
 pub const ENTRY_REACH: f32 = 2.1;
@@ -107,22 +109,22 @@ pub const INTENT_MARKS: usize = lanternward::MARKS.len()
 /// Whether `key` is a mark an adventure writes: what the private checkpoint
 /// keeps across a crash (`countryside::intent_key`).
 pub fn intent_key(key: &str) -> bool {
-    ADVENTURES.iter().any(|a| a.marks.contains(&key))
+    games().any(|a| a.marks.contains(&key))
 }
 
 /// The adventure with this slug.
 pub fn adventure(slug: &str) -> Option<&'static Adventure> {
-    ADVENTURES.iter().find(|a| a.slug == slug)
+    games().find(|a| a.slug == slug)
 }
 
 /// Whether every adventure's state is one a run may hold.
 pub fn valid(run: &Run) -> bool {
-    ADVENTURES.iter().all(|a| (a.valid)(run))
+    games().all(|a| (a.valid)(run))
 }
 
 /// End every adventure: a room entered or left closes them all.
 pub fn clear(run: &mut Run) {
-    for a in &ADVENTURES {
+    for a in games() {
         (a.clear)(run);
     }
 }
@@ -231,14 +233,14 @@ pub fn enter(run: &mut Run, adventure: &Adventure) {
 }
 
 impl Run {
-    /// Whether any of the five is under way in the party's room.
+    /// Whether any adventure is under way in the party's room.
     pub fn roundtable_showing(&self) -> bool {
-        ADVENTURES.iter().any(|a| (a.showing)(self))
+        games().any(|a| (a.showing)(self))
     }
 
     /// The adventure under way, if any.
     pub fn roundtable_under_way(&self) -> Option<&'static Adventure> {
-        ADVENTURES.iter().find(|a| (a.showing)(self))
+        games().find(|a| (a.showing)(self))
     }
 
     /// The knights the adventure under way seats.
@@ -265,7 +267,7 @@ impl Run {
         if self.room().kind != RoomKind::Kingdom || self.kingdom.door_held {
             return false;
         }
-        for a in &ADVENTURES {
+        for a in games() {
             let (x, y) = (
                 (a.entry.0 as f32 + 0.5) * TILE_UNITS,
                 (a.entry.1 as f32 + 0.5) * TILE_UNITS,
@@ -295,6 +297,8 @@ impl Run {
             "bannerpeak" => Run::bannerpeak_for_test(),
             "griffinwing" => Run::griffinwing_for_test(),
             "lightgallop" => Run::lightgallop_for_test(),
+            "knight_racers" => fixture(&knight_racers::ADVENTURE),
+            "deathmatch" => fixture(&deathmatch::ADVENTURE),
             _ => return None,
         })
     }

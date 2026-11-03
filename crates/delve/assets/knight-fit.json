@@ -1,0 +1,7255 @@
+{
+  "version": 1,
+  "profiles": {
+    "realm_front": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          10
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "realm_right": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          10
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "realm_back": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          10
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "archer_front": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "archer_right": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "archer_back": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "shieldmaiden_front": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "shieldmaiden_right": {
+      "aura": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        17
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          17
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "shieldmaiden_back": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "gunner_front": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "gunner_right": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "gunner_back": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "swordsman_front": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "swordsman_right": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "swordsman_back": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "berserker_front": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "berserker_right": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "berserker_back": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "peasant_front": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "peasant_right": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "peasant_back": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "bard_front": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "bard_right": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "bard_back": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "mage_front": {
+      "aura": {
+        "anchor": [
+          8,
+          19
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          10
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          14
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        20
+      ],
+      "face": {
+        "anchor": [
+          8,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          19
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          10
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          15
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          12
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          20
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "mage_right": {
+      "aura": {
+        "anchor": [
+          8,
+          18
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          9
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        19
+      ],
+      "face": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          18
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          9
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          14
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          11
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          19
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "mage_back": {
+      "aura": {
+        "anchor": [
+          8,
+          19
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          10
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          14
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        20
+      ],
+      "face": {
+        "anchor": [
+          8,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          19
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          10
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          15
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          12
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          20
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "healer_front": {
+      "aura": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        17
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          17
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "healer_right": {
+      "aura": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        17
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          17
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "healer_back": {
+      "aura": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        17
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          17
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "gravecaller_front": {
+      "aura": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": false,
+        "size": [
+          40,
+          11
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          10,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          22,
+          15
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          10,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          9
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        20,
+        22
+      ],
+      "face": {
+        "anchor": [
+          10,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          10,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          9
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          16,
+          13
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          22
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          10,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          20,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "gravecaller_right": {
+      "aura": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": false,
+        "size": [
+          40,
+          11
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          10,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          22,
+          15
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          10,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          9
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        20,
+        22
+      ],
+      "face": {
+        "anchor": [
+          10,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          10,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          9
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          16,
+          13
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          22
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          10,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          20,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "gravecaller_back": {
+      "aura": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": false,
+        "size": [
+          40,
+          11
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          10,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          22,
+          15
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          10,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          9
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        20,
+        22
+      ],
+      "face": {
+        "anchor": [
+          10,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          10,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          9
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          16,
+          13
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          22
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          10,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          20,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "knight": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          10
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "realm": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          10
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "archer": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "shieldmaiden": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "gunner": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "swordsman": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "berserker": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "peasant": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "bard": {
+      "aura": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          15
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "mage": {
+      "aura": {
+        "anchor": [
+          8,
+          19
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          10
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          14
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        20
+      ],
+      "face": {
+        "anchor": [
+          8,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          19
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          10
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          15
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          12
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          20
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "healer": {
+      "aura": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          8
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        17
+      ],
+      "face": {
+        "anchor": [
+          8,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          16
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          12
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          10
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          17
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          5
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "gravecaller": {
+      "aura": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": false,
+        "size": [
+          40,
+          11
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          10,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          22,
+          15
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          10,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          9
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        20,
+        22
+      ],
+      "face": {
+        "anchor": [
+          10,
+          6
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          10,
+          4
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          9
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          16,
+          13
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          22
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          10,
+          9
+        ],
+        "bottom": false,
+        "size": [
+          20,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "ghoul": {
+      "bounds": [
+        0,
+        0,
+        14,
+        14
+      ],
+      "head": {
+        "anchor": [
+          7,
+          2
+        ],
+        "size": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          7,
+          3
+        ],
+        "size": [
+          7,
+          3
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          7,
+          6
+        ],
+        "size": [
+          14,
+          4
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          7,
+          8
+        ],
+        "size": [
+          10,
+          7
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          7,
+          8
+        ],
+        "size": [
+          14,
+          10
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          1,
+          8
+        ],
+        "size": [
+          7,
+          10
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          11,
+          10
+        ],
+        "size": [
+          7,
+          14
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          6,
+          13
+        ],
+        "size": [
+          10,
+          4
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          7,
+          13
+        ],
+        "size": [
+          28,
+          7
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "warden": {
+      "bounds": [
+        0,
+        0,
+        12,
+        19
+      ],
+      "head": {
+        "anchor": [
+          6,
+          2
+        ],
+        "size": [
+          7,
+          9
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          6,
+          3
+        ],
+        "size": [
+          6,
+          4
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          5,
+          6
+        ],
+        "size": [
+          12,
+          6
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          5,
+          10
+        ],
+        "size": [
+          9,
+          9
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          5,
+          10
+        ],
+        "size": [
+          12,
+          14
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          1,
+          11
+        ],
+        "size": [
+          6,
+          14
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          12,
+          11
+        ],
+        "size": [
+          6,
+          19
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          5,
+          18
+        ],
+        "size": [
+          9,
+          6
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          6,
+          18
+        ],
+        "size": [
+          24,
+          9
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "totem": {
+      "bounds": [
+        0,
+        0,
+        9,
+        21
+      ],
+      "head": {
+        "anchor": [
+          4,
+          5
+        ],
+        "size": [
+          5,
+          10
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          4,
+          6
+        ],
+        "size": [
+          4,
+          5
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          4,
+          10
+        ],
+        "size": [
+          9,
+          7
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          4,
+          14
+        ],
+        "size": [
+          6,
+          10
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          4,
+          14
+        ],
+        "size": [
+          9,
+          15
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          1,
+          12
+        ],
+        "size": [
+          4,
+          15
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          7,
+          12
+        ],
+        "size": [
+          4,
+          21
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          4,
+          20
+        ],
+        "size": [
+          6,
+          7
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          4,
+          20
+        ],
+        "size": [
+          18,
+          10
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "zombie": {
+      "bounds": [
+        0,
+        0,
+        14,
+        15
+      ],
+      "head": {
+        "anchor": [
+          5,
+          2
+        ],
+        "size": [
+          8,
+          7
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          5,
+          3
+        ],
+        "size": [
+          7,
+          3
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          6,
+          5
+        ],
+        "size": [
+          14,
+          5
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          6,
+          9
+        ],
+        "size": [
+          10,
+          7
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          6,
+          9
+        ],
+        "size": [
+          14,
+          11
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          2,
+          8
+        ],
+        "size": [
+          7,
+          11
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          11,
+          8
+        ],
+        "size": [
+          7,
+          15
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          5,
+          14
+        ],
+        "size": [
+          10,
+          5
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          7,
+          14
+        ],
+        "size": [
+          28,
+          7
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "skeleton": {
+      "bounds": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "head": {
+        "anchor": [
+          12,
+          4
+        ],
+        "size": [
+          10,
+          8
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          12,
+          5
+        ],
+        "size": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          12,
+          9
+        ],
+        "size": [
+          24,
+          8
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          12,
+          13
+        ],
+        "size": [
+          18,
+          12
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          12,
+          13
+        ],
+        "size": [
+          24,
+          18
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          7,
+          11
+        ],
+        "size": [
+          12,
+          18
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          17,
+          11
+        ],
+        "size": [
+          12,
+          24
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          12,
+          22
+        ],
+        "size": [
+          18,
+          8
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          12,
+          23
+        ],
+        "size": [
+          48,
+          12
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "flesh_golem": {
+      "bounds": [
+        0,
+        0,
+        17,
+        20
+      ],
+      "head": {
+        "anchor": [
+          8,
+          2
+        ],
+        "size": [
+          10,
+          9
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          8,
+          3
+        ],
+        "size": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "size": [
+          17,
+          6
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          12
+        ],
+        "size": [
+          12,
+          9
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          8,
+          12
+        ],
+        "size": [
+          17,
+          14
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          2,
+          10
+        ],
+        "size": [
+          8,
+          14
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          14,
+          10
+        ],
+        "size": [
+          8,
+          20
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          18
+        ],
+        "size": [
+          12,
+          6
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          8,
+          18
+        ],
+        "size": [
+          34,
+          9
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "bone_golem": {
+      "bounds": [
+        0,
+        0,
+        22,
+        25
+      ],
+      "head": {
+        "anchor": [
+          11,
+          3
+        ],
+        "size": [
+          13,
+          12
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          11,
+          4
+        ],
+        "size": [
+          11,
+          5
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          11,
+          9
+        ],
+        "size": [
+          22,
+          7
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          11,
+          15
+        ],
+        "size": [
+          15,
+          12
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          11,
+          15
+        ],
+        "size": [
+          22,
+          18
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          2,
+          12
+        ],
+        "size": [
+          11,
+          18
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          19,
+          12
+        ],
+        "size": [
+          11,
+          25
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          11,
+          23
+        ],
+        "size": [
+          15,
+          7
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          11,
+          23
+        ],
+        "size": [
+          44,
+          12
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "grave_golem": {
+      "bounds": [
+        0,
+        0,
+        27,
+        30
+      ],
+      "head": {
+        "anchor": [
+          13,
+          3
+        ],
+        "size": [
+          16,
+          14
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          13,
+          4
+        ],
+        "size": [
+          13,
+          7
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          13,
+          11
+        ],
+        "size": [
+          27,
+          9
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          13,
+          18
+        ],
+        "size": [
+          20,
+          14
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          13,
+          18
+        ],
+        "size": [
+          27,
+          21
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          3,
+          15
+        ],
+        "size": [
+          13,
+          21
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          23,
+          15
+        ],
+        "size": [
+          13,
+          30
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          13,
+          28
+        ],
+        "size": [
+          20,
+          9
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          13,
+          28
+        ],
+        "size": [
+          54,
+          14
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "mage_side": {
+      "aura": {
+        "anchor": [
+          8,
+          18
+        ],
+        "bottom": false,
+        "size": [
+          32,
+          9
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          8,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          12
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          13
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        16,
+        19
+      ],
+      "face": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          4
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          18
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          9
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          10
+        ],
+        "bottom": false,
+        "size": [
+          8,
+          14
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          13,
+          11
+        ],
+        "bottom": true,
+        "size": [
+          8,
+          19
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          8
+        ],
+        "bottom": false,
+        "size": [
+          16,
+          6
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "golem": {
+      "bounds": [
+        0,
+        0,
+        17,
+        20
+      ],
+      "head": {
+        "anchor": [
+          8,
+          2
+        ],
+        "size": [
+          10,
+          9
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          8,
+          3
+        ],
+        "size": [
+          8,
+          4
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          8,
+          7
+        ],
+        "size": [
+          17,
+          6
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          8,
+          12
+        ],
+        "size": [
+          12,
+          9
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          8,
+          12
+        ],
+        "size": [
+          17,
+          14
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          2,
+          10
+        ],
+        "size": [
+          8,
+          14
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          14,
+          10
+        ],
+        "size": [
+          8,
+          20
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          8,
+          18
+        ],
+        "size": [
+          12,
+          6
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          8,
+          18
+        ],
+        "size": [
+          34,
+          9
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "champion": {
+      "aura": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": false,
+        "size": [
+          40,
+          11
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          10,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          22,
+          15
+        ],
+        "under": true,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          10,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          9
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        20,
+        22
+      ],
+      "face": {
+        "anchor": [
+          10,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          10,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          16,
+          13
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          22
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          10,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          20,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      }
+    },
+    "colossus": {
+      "bounds": [
+        0,
+        0,
+        34,
+        38
+      ],
+      "head": {
+        "anchor": [
+          17,
+          4
+        ],
+        "size": [
+          20,
+          17
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "face": {
+        "anchor": [
+          17,
+          5
+        ],
+        "size": [
+          16,
+          8
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          16,
+          13
+        ],
+        "size": [
+          34,
+          11
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          16,
+          22
+        ],
+        "size": [
+          25,
+          17
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": true
+      },
+      "back": {
+        "anchor": [
+          16,
+          22
+        ],
+        "size": [
+          34,
+          26
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": true
+      },
+      "left": {
+        "anchor": [
+          3,
+          19
+        ],
+        "size": [
+          16,
+          26
+        ],
+        "bottom": false,
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          28,
+          19
+        ],
+        "size": [
+          16,
+          38
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          17,
+          36
+        ],
+        "size": [
+          25,
+          11
+        ],
+        "bottom": true,
+        "under": false,
+        "stretch": true
+      },
+      "aura": {
+        "anchor": [
+          16,
+          35
+        ],
+        "size": [
+          68,
+          17
+        ],
+        "bottom": false,
+        "under": true,
+        "stretch": false
+      }
+    },
+    "champion_back": {
+      "aura": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": false,
+        "size": [
+          40,
+          11
+        ],
+        "under": true,
+        "stretch": false
+      },
+      "back": {
+        "anchor": [
+          10,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          22,
+          15
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "body": {
+        "anchor": [
+          10,
+          11
+        ],
+        "bottom": false,
+        "size": [
+          14,
+          9
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "bounds": [
+        0,
+        0,
+        20,
+        22
+      ],
+      "face": {
+        "anchor": [
+          10,
+          5
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          5
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "feet": {
+        "anchor": [
+          10,
+          21
+        ],
+        "bottom": true,
+        "size": [
+          12,
+          3
+        ],
+        "under": false,
+        "stretch": true
+      },
+      "head": {
+        "anchor": [
+          10,
+          3
+        ],
+        "bottom": false,
+        "size": [
+          12,
+          8
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "left": {
+        "anchor": [
+          2,
+          12
+        ],
+        "bottom": false,
+        "size": [
+          10,
+          16
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "right": {
+        "anchor": [
+          16,
+          13
+        ],
+        "bottom": true,
+        "size": [
+          10,
+          22
+        ],
+        "under": false,
+        "stretch": false
+      },
+      "shoulders": {
+        "anchor": [
+          10,
+          7
+        ],
+        "bottom": false,
+        "size": [
+          20,
+          7
+        ],
+        "under": false,
+        "stretch": true
+      }
+    }
+  }
+}

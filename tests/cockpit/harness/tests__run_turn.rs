@@ -10,6 +10,39 @@ use crate::agent::harness::book::q_stop::task_budget_left;
 use crate::agent::harness::book::v_verification::*;
 use serde_json::json;
 
+fn provider_retry_cases<T: serde::de::DeserializeOwned>(group: &str, expected: usize) -> Vec<T> {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/provider-retry-cases.json");
+    let groups: std::collections::BTreeMap<String, serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(path).expect("provider retry fixture"))
+            .expect("valid provider retry fixture");
+    let values = groups.get(group).expect("known provider retry group");
+    assert_eq!(
+        values.as_array().expect("case array").len(),
+        expected,
+        "{group}"
+    );
+    serde_json::from_value(values.clone()).expect("valid provider retry cases")
+}
+
+// The full classifier input corpus stays editable without rebuilding the binary.
+fn board_classification_cases<T: serde::de::DeserializeOwned>(
+    group: &str,
+    expected: usize,
+) -> Vec<T> {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/board-classification-cases.json");
+    let groups: std::collections::BTreeMap<String, serde_json::Value> =
+        serde_json::from_slice(&std::fs::read(path).expect("board classification fixture"))
+            .expect("valid board classification fixture");
+    let cases: Vec<T> = serde_json::from_value(
+        groups.get(group).expect("known board case group").clone(),
+    )
+    .expect("valid board case group");
+    assert_eq!(cases.len(), expected, "{group}: case count");
+    cases
+}
+
 #[test]
 fn run_turn_labyrinth_context_is_scoped_once_and_preserves_system_history() {
     let _guard = crate::tests::env_lock();
@@ -821,7 +854,14 @@ fn failed_request_checkpoint_prevents_provider_dispatch() {
         None,
         &|prefix| {
             checkpoints.fetch_add(1, Ordering::SeqCst);
-            assert_eq!(serde_json::to_value(&prefix[..2]).unwrap(), supplied_prefix);
+            // The turn binds the book generation onto the history before the
+            // checkpoint; everything else must arrive as supplied.
+            assert!(crate::agent::harness::book::continuity::generation_digest(prefix).is_some());
+            let mut checkpointed = serde_json::to_value(&prefix[..2]).unwrap();
+            for message in checkpointed.as_array_mut().unwrap() {
+                message.as_object_mut().unwrap().remove("book_memory");
+            }
+            assert_eq!(checkpointed, supplied_prefix);
             Err("durability unavailable".to_string())
         },
     )
@@ -2176,7 +2216,7 @@ fn run_turn_does_not_retry_permanent_provider_failures() {
 
     struct CountingFailure {
         calls: AtomicUsize,
-        error: &'static str,
+        error: String,
     }
     impl Club for CountingFailure {
         fn respond(&self, _p: &str) -> Result<String, String> {
@@ -2197,29 +2237,15 @@ fn run_turn_does_not_retry_permanent_provider_failures() {
         }
     }
 
-    for error in [
-        "HTTP 400: malformed messages",
-        "HTTP 401: Unauthorized",
-        "HTTP 402: payment required",
-        "HTTP 403: invalid_api_key",
-        "HTTP 404: model not found",
-        "HTTP 406: unacceptable response format",
-        "HTTP 415: unsupported media type",
-        "HTTP 422: unsupported parameter",
-        "HTTP 424: failed dependency",
-        "HTTP 429: weekly quota exhausted",
-        // The provider vetoed a retry (`x-should-retry: false`), whatever the status.
-        "HTTP 503 [x-should-retry: false]: overloaded",
-        "HTTP 429 [x-should-retry: false]: rate limited",
-        "HTTP 500 [x-should-retry: false]: request content",
-        // A certificate the trust store rejected is rejected on every attempt.
-        "transport error after 1 attempt(s): https://api.example/v1/chat/completions: Connection Failed: tls connection init failed: invalid peer certificate: UnknownIssuer",
-        "muse responses: transport: Connection Failed: tls connection init failed: invalid peer certificate: NotValidForName",
-    ] {
+    // Retry veto headers and rejected TLS certificates remain permanent.
+    for error in provider_retry_cases::<String>("permanent", 15)
+        .iter()
+        .map(String::as_str)
+    {
         assert!(is_permanent_provider_error(error), "{error}");
         let club = CountingFailure {
             calls: AtomicUsize::new(0),
-            error,
+            error: error.to_owned(),
         };
         let failure = run_turn_observed(
             &club,
@@ -2233,15 +2259,14 @@ fn run_turn_does_not_retry_permanent_provider_failures() {
         assert_eq!(failure.stop_reason, TurnStopReason::ProviderError);
         assert_eq!(club.calls.load(Ordering::SeqCst), 1, "{error}");
     }
-    for transient in [
-        "HTTP 408: timeout",
-        "HTTP 425: too early",
-        "HTTP 429: rate limited",
-    ] {
+    for transient in provider_retry_cases::<String>("retry_transient", 3)
+        .iter()
+        .map(String::as_str)
+    {
         assert!(!is_permanent_provider_error(transient), "{transient}");
         let club = CountingFailure {
             calls: AtomicUsize::new(0),
-            error: transient,
+            error: transient.to_owned(),
         };
         let failure = run_turn_observed(
             &club,
@@ -2259,12 +2284,10 @@ fn run_turn_does_not_retry_permanent_provider_failures() {
             "{transient} should receive the initial call plus three retries"
         );
     }
-    for transient in [
-        "HTTP 500: internal error",
-        "connection reset by peer",
-        "transport error after 2 attempt(s): Connection Failed: Connect error: Connection refused (os error 111)",
-        "transport error after 2 attempt(s): Dns Failed: resolve dns name 'api.example:443': failed to lookup address information",
-    ] {
+    for transient in provider_retry_cases::<String>("classification_transient", 4)
+        .iter()
+        .map(String::as_str)
+    {
         assert!(!is_permanent_provider_error(transient), "{transient}");
     }
 }
@@ -2885,6 +2908,111 @@ fn run_turn_parallel_read_only_batch_preserves_order() {
 }
 
 #[test]
+fn parallel_ledger_reads_use_the_turns_pinned_book_generation() {
+    let _guard = crate::tests::env_lock();
+    let root = scratch("parallel_book_catalog");
+    let home = root.join("home");
+    let resources = root.join("resources");
+    let book = resources.join("cockpit/book");
+    std::fs::create_dir_all(&home).unwrap();
+    std::fs::create_dir_all(&book).unwrap();
+    for entry in std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("book")).unwrap() {
+        let entry = entry.unwrap();
+        if entry.file_type().unwrap().is_file() {
+            std::fs::copy(entry.path(), book.join(entry.file_name())).unwrap();
+        }
+    }
+    let original = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("book/gh_navigation.tsv"),
+    )
+    .unwrap();
+    let edited = original
+        .replace(
+            "path inside the workspace (relative or absolute)",
+            "parallel pinned page one",
+        )
+        .replace(
+            "filename fragment to rank first (exact, substring, then fuzzy); does not filter",
+            "parallel pinned page two",
+        );
+    assert_ne!(edited, original);
+    std::fs::write(book.join("gh_navigation.tsv"), &edited).unwrap();
+    let manifest_path = book.join("catalog-manifest.json");
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+    manifest["chapters"]["gh_navigation.tsv"]["sha256"] =
+        crate::knowledge::cut::sha256_hex(edited.as_bytes()).into();
+    let mut manifest_bytes = serde_json::to_vec(&manifest).unwrap();
+    manifest_bytes.push(b'\n');
+    std::fs::write(manifest_path, manifest_bytes).unwrap();
+    let _home = EnvGuard::set("HOME", home.to_str().unwrap());
+    let _resources = EnvGuard::set("ANGEL_RESOURCE_DIR", resources.to_str().unwrap());
+    let _hooks = EnvGuard::set("ANGEL_HOOKS_CONFIG", root.join("absent-hooks.json").to_str().unwrap());
+    let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
+    let _skill = EnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let _capsules = EnvGuard::set("ANGEL_ACTION_CAPSULES", "off");
+    struct LedgerBatch(AtomicUsize);
+    impl Club for LedgerBatch {
+        fn label(&self) -> &str {
+            "ledger-batch"
+        }
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Ok("unused".into())
+        }
+        fn chat(&self, _messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+            if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
+                Ok(ClubReply::Calls(vec![
+                    ToolCall {
+                        id: "first-ledger".into(),
+                        name: "read_file".into(),
+                        args: json!({"path":"ledger://⠣⠁⠁"}),
+                    },
+                    ToolCall {
+                        id: "second-ledger".into(),
+                        name: "read_file".into(),
+                        args: json!({"path":"ledger://⠣⠃⠁"}),
+                    },
+                ]))
+            } else {
+                Ok(ClubReply::Text("done".into()))
+            }
+        }
+    }
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(root.clone());
+    register_file_tools(&mut registry, root.clone());
+    let mut history = vec![ChatMsg::user("read the two ledger pages")];
+    let result = run_turn(
+        &LedgerBatch(AtomicUsize::new(0)),
+        &registry,
+        &mut history,
+        &AtomicBool::new(false),
+        Some(8),
+        &mpsc::channel::<TurnEvent>().0,
+    );
+    assert_eq!(result.unwrap(), "done");
+    let issued = history
+        .iter()
+        .find(|message| !message.tool_calls.is_empty())
+        .unwrap();
+    assert!(crate::agent::harness::footprint::batch_parallelizable_in(
+        registry.workspace_boundary(),
+        &issued.tool_calls,
+    ));
+    let first = history
+        .iter()
+        .find(|message| message.tool_call_id.as_deref() == Some("first-ledger"))
+        .unwrap();
+    let second = history
+        .iter()
+        .find(|message| message.tool_call_id.as_deref() == Some("second-ledger"))
+        .unwrap();
+    assert!(first.content.contains("parallel pinned page one"), "{}", first.content);
+    assert!(second.content.contains("parallel pinned page two"), "{}", second.content);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn run_turn_mixed_batch_parallelizes_safe_runs_without_crossing_the_effect_barrier() {
     let _guard = crate::tests::env_lock();
 
@@ -3061,11 +3189,22 @@ fn run_turn_anti_spin_restamps_a_lasting_repeat_and_never_stops() {
         "a loop route is its own turn, never the result's tail"
     );
     assert!(
-        !history
-            .iter()
-            .any(|m| m.role == ChatRole::Harness && m.content.contains("repeat")),
-        "the turn is the sign and the stamp, no prose"
+        !history.iter().any(|m| m.role == ChatRole::Harness
+            && m.content.contains("repeat")
+            && m.content.starts_with(&format!(
+                "{}{}",
+                book::l_loops::WARNING,
+                book::l_loops::CELL
+            ))),
+        "the loop turn is the sign and the stamp, no prose"
     );
+    // The silent-repeat guard's plain-words note is its own turn: one per
+    // three silent repeats (hops 3 and 6 of 7), bounded per turn.
+    let notes = history
+        .iter()
+        .filter(|m| m.role == ChatRole::Harness && m.content.contains("times in a row"))
+        .count();
+    assert_eq!(notes, 2, "{history:?}");
 }
 
 /// A8: anti-spin identity is canonical JSON — key order cannot dodge the guard.
@@ -4751,25 +4890,9 @@ fn competition_call_text_borrows_tool_name() {
 /// still burn first-write budget (was limited to `grep -r` / `rg` / `find`).
 #[test]
 fn competition_board_state_does_not_launder_grep_recon() {
-    let cases = [
-        "grep living_handoff src/ -n",
-        "grep -n living-handoff cockpit/",
-        "egrep -n board_tip .",
-        "git grep living_handoff",
-        "ag living_handoff",
-        "fd living_handoff",
-        "FOO=1 rg living_handoff",
-        // Long-form and combined short recursive ls (bare `ls -r` substring used
-        // to miss `-laR` / `-lR` / `-1R` clusters).
-        "ls --recursive LIVING_HANDOFF.md",
-        "ls --recursive /tmp/living-handoff.md",
-        "ls --recurse .angel/notes",
-        "ls -laR LIVING_HANDOFF.md",
-        "ls -lR /tmp/living-handoff.md",
-        "ls -1R .angel/notes",
-        "ls --color=auto -R /tmp/living",
-        "/bin/ls -alR living_handoff",
-    ];
+    // Long-form and combined short recursive ls (bare `ls -r` substring used
+    // to miss `-laR` / `-lR` / `-1R` clusters).
+    let cases = board_classification_cases::<String>("grep_recon_cases", 15);
     for cmd in cases {
         let call = ToolCall {
             id: "t".into(),
@@ -4786,11 +4909,7 @@ fn competition_board_state_does_not_launder_grep_recon() {
         );
     }
     // Legal digests stay wait/poll.
-    let legal = [
-        "cat LIVING_HANDOFF.md",
-        "head -40 /tmp/living-handoff.md",
-        "wc -l .angel/notes/board.md",
-    ];
+    let legal = board_classification_cases::<String>("grep_recon_legal", 3);
     for cmd in legal {
         let call = ToolCall {
             id: "t".into(),
@@ -4924,14 +5043,7 @@ fn apply_patch_classify_skips_hunk_bodies() {
 /// not launder as competition wait/poll.
 #[test]
 fn competition_board_state_does_not_launder_git_inventory() {
-    let cases = [
-        "git ls-files LIVING_HANDOFF.md",
-        "git ls-files '*handoff*'",
-        "git ls-tree -r HEAD --name-only | head",
-        "git blame LIVING_HANDOFF.md",
-        "git log --oneline -- living_handoff.md",
-        "git log -1 -- board.md",
-    ];
+    let cases = board_classification_cases::<String>("git_inventory_cases", 6);
     for cmd in cases {
         let call = ToolCall {
             id: "t".into(),
@@ -4950,11 +5062,7 @@ fn competition_board_state_does_not_launder_git_inventory() {
         assert!(!wait && burns, "hop flags for: {cmd}");
     }
     // Legal digests stay wait/poll.
-    let legal = [
-        "cat LIVING_HANDOFF.md",
-        "head -40 /tmp/living-handoff.md",
-        "git show HEAD:LIVING_HANDOFF.md",
-    ];
+    let legal = board_classification_cases::<String>("git_inventory_legal", 3);
     for cmd in legal {
         let call = ToolCall {
             id: "t".into(),
@@ -4974,21 +5082,8 @@ fn competition_board_state_does_not_launder_git_inventory() {
 /// Full-binary content search (`ripgrep`/`ugrep`) must also burn first-write.
 #[test]
 fn competition_board_state_does_not_launder_git_history_inventory() {
-    let cases = [
-        "git shortlog -- living_handoff.md",
-        "git shortlog -sn -- board.md",
-        "git rev-list --all -- board.md",
-        "git rev-list HEAD -- LIVING_HANDOFF.md",
-        "git reflog -- board.md",
-        "git reflog show -- tip.md",
-        "FOO=1 git shortlog -- /tmp/living-handoff.md",
-        "/usr/bin/git rev-list --count HEAD -- living-handoff.md",
-        // Full search binary names (not only `rg ` / `grep ` prefixes).
-        "ripgrep living_handoff",
-        "ripgrep -n board_tip .",
-        "/usr/bin/ripgrep living-handoff",
-        "ugrep -r living_handoff",
-    ];
+    // Full search binary names (not only `rg ` / `grep ` prefixes).
+    let cases = board_classification_cases::<String>("git_history_inventory_cases", 12);
     for cmd in cases {
         let call = ToolCall {
             id: "t".into(),
@@ -5011,12 +5106,7 @@ fn competition_board_state_does_not_launder_git_history_inventory() {
         );
     }
     // Content digests stay wait/poll.
-    let legal = [
-        "cat LIVING_HANDOFF.md",
-        "head -40 /tmp/living-handoff.md",
-        "git show HEAD:LIVING_HANDOFF.md",
-        "wc -l .angel/notes/board.md",
-    ];
+    let legal = board_classification_cases::<String>("git_history_inventory_legal", 4);
     for cmd in legal {
         let call = ToolCall {
             id: "t".into(),
@@ -5036,15 +5126,7 @@ fn competition_board_state_does_not_launder_git_history_inventory() {
 /// as competition wait — skipping first-write burn and anti-spin counts.
 #[test]
 fn competition_board_state_does_not_launder_git_diff_status() {
-    let cases = [
-        "git diff LIVING_HANDOFF.md",
-        "git diff --stat HEAD -- board.md",
-        "git diff -- living_handoff.md",
-        "git status -- LIVING_HANDOFF.md",
-        "git status -sb -- board.md",
-        "FOO=1 git diff /tmp/living-handoff.md",
-        "/usr/bin/git status --porcelain -- tip.md",
-    ];
+    let cases = board_classification_cases::<String>("git_diff_status_cases", 7);
     for cmd in cases {
         let call = ToolCall {
             id: "t".into(),
@@ -5067,11 +5149,7 @@ fn competition_board_state_does_not_launder_git_diff_status() {
         );
     }
     // Content digests stay wait/poll (`git show` is a tip read, not inventory).
-    let legal = [
-        "cat LIVING_HANDOFF.md",
-        "head -40 /tmp/living-handoff.md",
-        "git show HEAD:LIVING_HANDOFF.md",
-    ];
+    let legal = board_classification_cases::<String>("git_diff_status_legal", 3);
     for cmd in legal {
         let call = ToolCall {
             id: "t".into(),
@@ -5094,32 +5172,12 @@ fn competition_board_state_does_not_launder_git_diff_status() {
 /// A4 adversarial: native grep/find_files tools must not launder recon as board wait.
 #[test]
 fn competition_board_state_does_not_launder_native_recon_tools() {
-    let cases = [
-        (
-            "grep",
-            serde_json::json!({"pattern": "fn main", "path": "LIVING_HANDOFF.md"}),
-        ),
-        (
-            "grep",
-            serde_json::json!({"pattern": "living_handoff", "path": "src"}),
-        ),
-        ("find_files", serde_json::json!({"glob": "*handoff*"})),
-        (
-            "file_search",
-            serde_json::json!({"query": "living_handoff"}),
-        ),
-        ("outline", serde_json::json!({"path": "LIVING_HANDOFF.md"})),
-        ("defs", serde_json::json!({"symbol": "board_tip"})),
-        ("list_dir", serde_json::json!({"path": "/tmp/living"})),
-        (
-            "code_mode",
-            serde_json::json!({"recipe": "repo_recon", "query": "living_handoff tip"}),
-        ),
-    ];
+    let cases =
+        board_classification_cases::<(String, serde_json::Value)>("native_recon_tools_cases", 8);
     for (name, args) in cases {
         let call = ToolCall {
             id: "t".into(),
-            name: name.into(),
+            name: name.as_str().into(),
             args: args.clone(),
         };
         assert!(
@@ -5156,30 +5214,12 @@ fn competition_board_state_does_not_launder_native_recon_tools() {
 /// as shell `git diff|status|log` thrash (first-write burn + anti-spin count).
 #[test]
 fn competition_board_state_does_not_launder_native_git_inventory() {
-    let cases = [
-        ("git_diff", serde_json::json!({"path": "LIVING_HANDOFF.md"})),
-        (
-            "git_diff",
-            serde_json::json!({"path": "board.md", "stat": true}),
-        ),
-        (
-            "git_status",
-            serde_json::json!({"path": "living_handoff.md"}),
-        ),
-        (
-            "git_status",
-            serde_json::json!({"path": "/tmp/living-handoff.md"}),
-        ),
-        ("git_log", serde_json::json!({"path": "LIVING_HANDOFF.md"})),
-        (
-            "git_log",
-            serde_json::json!({"path": "board.md", "max_count": 5}),
-        ),
-    ];
+    let cases =
+        board_classification_cases::<(String, serde_json::Value)>("native_git_inventory_cases", 6);
     for (name, args) in cases {
         let call = ToolCall {
             id: "t".into(),
-            name: name.into(),
+            name: name.as_str().into(),
             args: args.clone(),
         };
         assert!(
@@ -5219,19 +5259,7 @@ fn competition_board_state_does_not_launder_native_git_inventory() {
 /// is only `git show REV:path` blob syntax). Must burn first-write and count as spin.
 #[test]
 fn competition_board_state_does_not_launder_git_show_inventory() {
-    let cases = [
-        "git show --stat HEAD -- board.md",
-        "git show --name-only HEAD -- living_handoff.md",
-        "git show --name-status HEAD -- LIVING_HANDOFF.md",
-        "git show --numstat HEAD -- tip.md",
-        "git show HEAD -- board.md",
-        "git show HEAD board.md",
-        "git whatchanged -- board.md",
-        "git whatchanged -1 -- living_handoff.md",
-        "FOO=1 git show --stat -- /tmp/living-handoff.md",
-        "/usr/bin/git show --name-only HEAD -- tip.md",
-        "timeout 5 git show --stat HEAD -- board.md",
-    ];
+    let cases = board_classification_cases::<String>("git_show_inventory_cases", 11);
     for cmd in cases {
         let call = ToolCall {
             id: "t".into(),
@@ -5254,13 +5282,7 @@ fn competition_board_state_does_not_launder_git_show_inventory() {
         );
     }
     // Pure blob digests stay wait/poll.
-    let legal = [
-        "git show HEAD:LIVING_HANDOFF.md",
-        "git show HEAD:.angel/notes/board.md",
-        "git show main:tip.md",
-        "cat LIVING_HANDOFF.md",
-        "head -40 /tmp/living-handoff.md",
-    ];
+    let legal = board_classification_cases::<String>("git_show_inventory_legal", 5);
     for cmd in legal {
         let call = ToolCall {
             id: "t".into(),
@@ -5284,32 +5306,12 @@ fn competition_board_state_does_not_launder_git_show_inventory() {
 /// when the query or path only *mentions* a handoff marker.
 #[test]
 fn competition_board_state_does_not_launder_lsp_recon() {
-    let cases = [
-        (
-            "lsp_workspace_symbol",
-            serde_json::json!({"query": "living_handoff"}),
-        ),
-        (
-            "lsp_workspace_symbol",
-            serde_json::json!({"query": "board_tip"}),
-        ),
-        (
-            "lsp_symbols",
-            serde_json::json!({"path": "LIVING_HANDOFF.md"}),
-        ),
-        (
-            "lsp_references",
-            serde_json::json!({"path": "src/lib.rs", "symbol": "board_tip"}),
-        ),
-        (
-            "lsp_definition",
-            serde_json::json!({"path": "/tmp/living/handoff.md", "symbol": "tip"}),
-        ),
-    ];
+    let cases =
+        board_classification_cases::<(String, serde_json::Value)>("lsp_recon_cases", 5);
     for (name, args) in cases {
         let call = ToolCall {
             id: "t".into(),
-            name: name.into(),
+            name: name.as_str().into(),
             args: args.clone(),
         };
         assert!(
@@ -10794,6 +10796,53 @@ fn never_on_a_tail(history: &[ChatMsg], route: &str) {
 }
 
 #[test]
+fn the_first_edit_earns_the_post_edit_review_once_as_its_own_turn() {
+    let _guard = crate::tests::env_lock();
+    let _env = root_turn_env();
+    let root = root_fixture("advisory_post_edit");
+    let script = Script::new(vec![
+        write_call("lib.rs", "pub fn sub() { 1 }\n"),
+        write_call("lib.rs", "pub fn sub() { 2 }\n"),
+        Move::Say("done"),
+    ]);
+    let (outcome, history) = run_advisory_turn(&root, &script, 30);
+    outcome.expect("the turn answers");
+    assert_eq!(own_turns(&history, "⠼⠊"), 1, "{history:?}");
+    never_on_a_tail(&history, "⠼⠊");
+    // Guidance, not a warning: bare cells, right after the edit's result.
+    let at = history
+        .iter()
+        .position(|m| m.role == ChatRole::Harness && m.content.as_ref() == "⠼⠊")
+        .unwrap();
+    assert_eq!(history[at - 1].role, ChatRole::Tool);
+    // The model reads the advice in its own words at first sight. The fixed
+    // wording says it is advice and never tells it to finish: on 2026-10-16 a
+    // loop model read the old page as the operator ordering one verifier and
+    // a stop, and ended an overnight run.
+    let english = legend(&history);
+    assert!(
+        english.contains(
+            "⠼⠊ POST-EDIT LOGIC REVIEW. Review the edit logically before testing: \
+             trace the state transitions, invariants, cleanup/empty cases, and error \
+             paths implied by the task. Before the next tool call, write the trace in \
+             one or two lines."
+        ),
+        "{english}"
+    );
+    assert!(english.contains("this advice is not a stop"), "{english}");
+    assert!(
+        english.contains("Do not invent new tests as proof"),
+        "{english}"
+    );
+    // Off by the operator: never.
+    let _off = EnvGuard::set("ANGEL_POST_EDIT_LOGIC_REVIEW", "0");
+    let script = Script::new(vec![write_call("lib.rs", "pub fn sub() { 3 }\n")]);
+    let (_, history) = run_advisory_turn(&root, &script, 30);
+    assert_eq!(own_turns(&history, "⠼⠊"), 0);
+    let _ = std::fs::remove_dir_all(root);
+}
+
+#[test]
 fn a_green_verifier_is_told_once_and_again_after_the_code_changed() {
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
@@ -11311,6 +11360,7 @@ fn h01_loopback_retry_controls() {
         ("disconnect", "disconnect", 2, 1),
         ("outer_503", "503 Service Unavailable", 3, 2),
         ("outer_marker", "503 Service Unavailable", 3, 2),
+        ("outer_veto_body", "503 Service Unavailable", 3, 2),
         ("retry_after", "429 Too Many Requests", 2, 1),
     ] {
         let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
@@ -11382,6 +11432,8 @@ fn h01_loopback_retry_controls() {
                     "data: {\"choices\":[{\"delta\":{\"content\":\"fixture recovered\"},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n"
                 } else if name == "outer_marker" {
                     "{\"error\":{\"message\":\"[permanent transport configuration] upstream temporarily busy\"}}"
+                } else if name == "outer_veto_body" {
+                    "{\"error\":{\"message\":\"[x-should-retry: false] upstream temporarily busy\"}}"
                 } else {
                     "{\"error\":{\"message\":\"fixture failure\"}}"
                 };
@@ -11468,4 +11520,42 @@ fn h01_existing_retry_guards() {
     assert!(!crate::agent::club::error_indicates_certificate_rejected(
         "connection reset"
     ));
+}
+
+#[test]
+fn h01_retry_veto_requires_the_status_label_not_a_quoted_body() {
+    for status in [408, 425, 429, 500, 502, 503, 504, 529] {
+        for body in [
+            "[x-should-retry: false] upstream temporarily busy",
+            "diagnostic: HTTP 503 [x-should-retry: false]: upstream busy",
+        ] {
+            let error = format!("HTTP {status}: {body}");
+            assert!(
+                !is_permanent_provider_error(&error),
+                "body is not a header: {error}"
+            );
+            assert!(retryable_provider_failure(&error, false, false));
+            assert!(retryable_provider_failure(&error, true, true));
+            assert!(!retryable_provider_failure(&error, true, false));
+        }
+        let error = format!("HTTP {status} [x-should-retry: false]: overloaded");
+        assert!(
+            is_permanent_provider_error(&error),
+            "genuine veto lost: {error}"
+        );
+        assert!(!retryable_provider_failure(&error, false, false));
+        assert!(!retryable_provider_failure(&error, true, true));
+    }
+}
+
+#[test]
+fn h01_independent_veto_holdout() {
+    let cases = provider_retry_cases::<(String, bool)>("veto_holdout", 15);
+    for (error, expected) in cases {
+        assert_eq!(
+            is_permanent_provider_error(&error),
+            expected,
+            "unexpected permanence classification for {error:?}"
+        );
+    }
 }

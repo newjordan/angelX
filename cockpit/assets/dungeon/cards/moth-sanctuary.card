@@ -1,0 +1,26 @@
+name Moth Sanctuary
+kind spell
+rarity rare
+text Pale wings gather around a living ember. Heal and gain a ward.
+drop 1
+chest 2
+cooldown 22
+heal 16
+ward 2
+art
+................
+..hh........hh..
+.hCCh......hCCh.
+.hCWCh....hCWCh.
+.hCWWCh..hCWWCh.
+..hCWWChhCWWCh..
+..hCCWWhhWWCCh..
+...hhhYWWYhhh...
+.....hYWWYh.....
+...hhChYYhChh...
+..hCWWChhCWWCh..
+..hCWCh..hCWCh..
+...hCh....hCh...
+....h......h....
+................
+................

@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "dgn.hazard.keep",
-  "source_path": "/work/artifacts/art-prod/slots/dgn.hazard.keep/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/dgn.hazard.keep/v01/source-sheet.png",
   "source_sha256": "5acd7bd1b2630e0868819a457acc4605e0527d5a603b79615068e23a1eec2bb5",
   "tool_version": 2
 }

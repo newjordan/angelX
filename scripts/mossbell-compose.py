@@ -4,12 +4,15 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'crates/delve/assets/mossbell/composed'
-DELIVERIES = Path('/work/artifacts/art-prod/slots')
+# Art deliveries and review output live outside the checkout, under
+# ANGEL_ART_ARTIFACTS (default ~/angel-art).
+DELIVERIES = Path(os.environ.get('ANGEL_ART_ARTIFACTS') or Path.home()/'angel-art')/'art-prod/slots'
 spec = importlib.util.spec_from_file_location('slots', Path(__file__).with_name('slot-art-import.py'))
 slots = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(slots)

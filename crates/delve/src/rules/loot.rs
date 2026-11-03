@@ -154,6 +154,37 @@ pub struct Item {
     /// their own of it. It lies until every knight has ([`shared`]).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub took: Vec<u32>,
+    /// The tick it came to lie here, 0 for one older than this is kept: a
+    /// drawer drops it onto the floor from then (`pickup_meshes::plop`).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub dropped: u64,
+    /// A knight's own arm or guard, set down when they took another in its
+    /// place (the operator, 2026-10-19: "only cards we can pickup"): theirs
+    /// alone to take back, with the take key, and nobody else sees it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner: Option<u32>,
+}
+
+fn is_zero(v: &u64) -> bool {
+    *v == 0
+}
+
+impl Item {
+    /// What lies on the floor, from `dropped` on: nobody's own, nobody's
+    /// taken yet.
+    pub fn lying(card: String, x: f32, y: f32, dropped: u64) -> Self {
+        Self { card, x, y, held_off: None, took: Vec::new(), dropped, owner: None }
+    }
+
+    /// Whether knight `viewer` sees it on the floor: not once they took their
+    /// own of it (shared loot lies on for the rest), and never another's own
+    /// set-down piece. A view that is nobody's sees what is anyone's.
+    pub fn seen_by(&self, viewer: Option<u32>) -> bool {
+        match viewer {
+            Some(v) => !self.took.contains(&v) && self.owner.is_none_or(|o| o == v),
+            None => self.owner.is_none(),
+        }
+    }
 }
 
 /// Whether every knight takes their own of a card: all but what goes to the
@@ -246,3 +277,10 @@ fn card_id<'de, D: serde::Deserializer<'de>>(d: D) -> Result<String, D::Error> {
         Old::Arms { arms } => arms.name().to_ascii_lowercase(),
     })
 }
+
+#[cfg(all(test, feature = "bend-cases-combat"))]
+#[path = "../../tests/rules/combat_bend_cases__tests.rs"]
+pub(crate) mod bend_cases;
+#[cfg(all(test, feature = "bend-cases-combat"))]
+#[path = "../../tests/rules/loot_bend_cases__tests.rs"]
+mod loot_bend_cases_tests;

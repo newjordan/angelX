@@ -471,6 +471,101 @@ fn runtime(
     )
 }
 
+struct RoleCatalogProbe {
+    observed: Mutex<Option<String>>,
+}
+
+impl Club for RoleCatalogProbe {
+    fn label(&self) -> &str {
+        "role-catalog-probe"
+    }
+
+    fn respond(&self, _: &str) -> Result<String, String> {
+        Err("fixture requires the tool-calling path".into())
+    }
+
+    fn chat(&self, messages: &[ChatMsg], tools: &[ToolDef]) -> Result<ClubReply, String> {
+        if let Some(receipt) = messages.iter().find(|message| {
+            message.role == ChatRole::Tool
+                && message.tool_call_id.as_deref() == Some("catalog-page")
+        }) {
+            *self.observed.lock().unwrap() = Some(receipt.content.to_string());
+            return Ok(ClubReply::Text("{\"leads\":[]}".into()));
+        }
+        assert!(tools.iter().any(|tool| tool.name == "read_file"));
+        Ok(ClubReply::Calls(vec![call(
+            "catalog-page",
+            "read_file",
+            json!({"path":"ledger://⠣⠁⠁"}),
+        )]))
+    }
+}
+
+#[test]
+fn campaign_role_worker_inherits_coordinators_book_generation() {
+    use crate::agent::harness::book::{Route, catalog};
+
+    let _guard = crate::tests::env_lock();
+    let root = workspace();
+    start(&root, spec()).unwrap();
+    let (spec, state) = load_state(&root, "parity").unwrap();
+    let (mut runtime, _, _) = runtime(&root, Scenario::Correct);
+    let probe = Arc::new(RoleCatalogProbe {
+        observed: Mutex::new(None),
+    });
+    runtime.literature = probe.clone();
+    let mut edited = catalog::Catalog::baseline();
+    edited.set_test_page(Route::new('⠣', '⠁'), 0, "coordinator generation");
+    let parent = catalog::enter(Arc::new(edited));
+    let _budget = DescendantBudgetScope::enter_root();
+    let leads = Arc::new(Mutex::new(Vec::new()));
+    let (sender, receiver) = mpsc::channel();
+    let seats = campaign_seats(&root, "parity").unwrap();
+    let active = launch(
+        &root,
+        &spec,
+        &state,
+        &state.literature,
+        None,
+        &runtime,
+        &leads,
+        &sender,
+        &seats,
+    )
+    .unwrap();
+    drop(parent);
+    let _other = catalog::enter(Arc::new(catalog::Catalog::baseline()));
+    receiver.recv_timeout(Duration::from_secs(30)).unwrap();
+    drop(active);
+    let observed = probe.observed.lock().unwrap();
+    assert!(
+        observed
+            .as_deref()
+            .is_some_and(|text| text.contains("coordinator generation")),
+        "role read {observed:?}"
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn independent_campaign_reports_incomplete_book_before_launching_roles() {
+    let _guard = crate::tests::env_lock();
+    let root = workspace();
+    start(&root, spec()).unwrap();
+    let resources = root.join("resources");
+    let book = resources.join("cockpit/book");
+    std::fs::create_dir_all(&book).unwrap();
+    std::fs::write(book.join("gh_navigation.tsv"), "incomplete").unwrap();
+    let _resources =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", resources.to_str().unwrap());
+    let (runtime, club, _) = runtime(&root, Scenario::Correct);
+    let error = run(&root, "parity", runtime, &AtomicBool::new(false)).unwrap_err();
+    assert!(error.contains("book generation"), "{error}");
+    assert!(club.steps.lock().unwrap().is_empty());
+    assert_eq!(load_state(&root, "parity").unwrap().1.status, "ready");
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 #[test]
 fn omitted_hop_limit_completes_a_multi_case_campaign_and_explicit_limit_still_stops_it() {
     let _guard = crate::tests::env_lock();

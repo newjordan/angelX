@@ -119,7 +119,7 @@ in the code and fixed, or proven structural with the trace.
 ## Results
 
 Recorded by `scripts/bench/render/run_scorecard.sh`; raw JSON beside
-each run under `/work/tmp/render-scorecard/<run>/`.
+each run under `<scratch>/render-scorecard/<run>/`.
 
 Run `board-a-4`, 2026-10-17: RTX 3090, kitty 0.48.2, nested seat
 (`wayland-2`, 1600×900@60), both windows floated 1576×880 at 9 pt

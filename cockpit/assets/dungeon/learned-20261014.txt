@@ -10,7 +10,7 @@ wish bigger-arrows | Bigger Arrows
 say bigger arrows | big arrows | larger arrows | huge arrows | fat arrows | bigger arrow
 tier size 1 :: Your arrows are bigger, and strike wider.
 tier size 2 :: Bigger arrows again, wider still.
-tier size 3 :: The biggest arrows a fletcher can make.
+tier size 2; knock 1 :: The biggest arrows a fletcher can make, and they shove.
 draw shot
 .2......W...
 22......WW..
@@ -21,8 +21,8 @@ draw shot
 wish colossal-arrows | Colossal Arrows
 say colossal arrows | giant arrows | massive arrows | enormous arrows | gigantic arrows
 tier size 2; knock 1 :: Colossal arrows that shove what they strike.
-tier size 3; knock 1 :: More colossal still.
-tier size 3; knock 2; pierce 1 :: Arrows like ballista bolts: they shove hard and pass through one.
+tier size 2; knock 2 :: More colossal still, shoving harder.
+tier size 2; knock 2; pierce 1 :: Arrows like ballista bolts: they shove hard and pass through one.
 draw shot
 .2......@...
 22......@@..
@@ -35,7 +35,7 @@ wish bigger-bullets | Bigger Bullets
 say bigger bullets | big bullets | huge bullets | larger bullets | fat bullets | bigger balls
 tier size 1 :: Your bullets are bigger, and strike wider.
 tier size 2; knock 1 :: Bigger bullets that knock them back.
-tier size 3; knock 2 :: Cannonballs.
+tier size 2; knock 2 :: Cannonballs.
 draw shot
 .SSSS.
 SuuWWS
@@ -62,7 +62,7 @@ wish runeforged-edge | Runeforged Edge
 say runeforged edge | rune blade | runed edge | rune forged blade | glowing runes
 tier pierce 1 :: Rune-cut shots slice through one more monster.
 tier pierce 1; burst 15 :: The runes flare where they cut.
-tier pierce 2; burst 20 :: Runeforged: through two more, flaring.
+tier pierce 2; burst 15 :: Runeforged: through two more, flaring.
 draw shot
 ....3W
 ..33WH
@@ -105,8 +105,8 @@ draw summon
 wish quickfire-crank | Quickfire Crank
 say quickfire crank | quick fire crank | crank it faster | shoot faster crank | rapid crank
 tier rate 10 :: A crank on your arm: you shoot 10% faster.
-tier rate 20; velocity 15 :: Cranked harder: 20% faster, and the shots fly faster.
-tier rate 30; velocity 30 :: Quickfire: 30% faster, the shots flying fast.
+tier rate 15; velocity 15 :: Cranked harder: 15% faster, and the shots fly faster.
+tier rate 20; velocity 30 :: Quickfire: 20% faster, the shots flying fast.
 draw worn at=right
 ..JJJ..
 .J.h.J.
@@ -120,7 +120,7 @@ wish regrowth-charm | Regrowth Charm
 say regrowth charm | regrow | regrowth | healing charm | leaf charm | grow back health
 tier vamp 1 :: A charm of new leaves: mend 1 as monsters fall.
 tier vamp 2; max_hp 10 :: It grows: mend 2, and 10 more health.
-tier vamp 3; max_hp 20 :: In full leaf: mend 3, and 20 more health.
+tier vamp 2; max_hp 20 :: In full leaf: mend 2, and 20 more health.
 draw worn at=body
 ...M...
 ..MCM..
@@ -134,7 +134,7 @@ wish lightning-rounds | Lightning Rounds
 say lightning rounds | lightning bullets | electric rounds | shock rounds | thunder rounds
 tier chain 1; velocity 20 :: Lightning rounds: a hit sparks on to one more, and they fly fast.
 tier chain 1; velocity 35 :: Faster lightning.
-tier chain 1; velocity 50; pierce 1 :: Bolts of lightning: through one, sparking on.
+tier chain 1; velocity 40; pierce 1 :: Bolts of lightning: through one, sparking on.
 draw shot
 ....2...3...
 ...2w..3w...

@@ -4,8 +4,14 @@
 //! in realm inks, and `draw <slot>` blocks: rows of inks with the frames
 //! side by side, `|` between (`looks`).
 
-/// Every ink the realm palette names (`overworld/ink.rs`); `.` is black paper.
-pub const INKS: &str = "kKZXgjGJhiHfDFEelNmLAMyCYnbIBpPrRoOtTsxSuUvVWqQz0123wa4@56$c987";
+/// Every ink the realm palette names (`overworld/ink.rs`), its five banks
+/// and then the two dyes (violet `d()[]^`, pink `!?;%+`); `.` is black
+/// paper.
+pub const INKS: &str = "kKZXgjGJhiHfDFEelNmLAMyCYnbIBpPrRoOtTsxSuUvVWqQz0123wa4@56$c987d()[]^!?;%+";
+
+/// The inks a sprite may colour itself (`draw <slot> pal=`): any hue a
+/// player likes, sixteen at most, as a 16-bit sprite carried its own.
+pub const PAL_INKS: &str = "d%&*+~^!?;<>()[]";
 
 /// One `word value` line: its number, the word (lowercase), and the value.
 pub struct Line<'a> {
@@ -31,9 +37,13 @@ pub fn art_row(line: &str) -> bool {
     !line.is_empty() && line.chars().all(|c| c == '.' || INKS.contains(c))
 }
 
-/// A row of a sprite block: inks, black paper and `|` between frames.
+/// A row of a sprite block: inks (the realm's and its own), black paper
+/// and `|` between frames.
 pub fn sprite_row(line: &str) -> bool {
-    !line.is_empty() && line.chars().all(|c| c == '.' || c == '|' || INKS.contains(c))
+    !line.is_empty()
+        && line
+            .chars()
+            .all(|c| c == '.' || c == '|' || INKS.contains(c) || PAL_INKS.contains(c))
 }
 
 /// Text a player wrote, without control characters, at most `max` long.
@@ -54,7 +64,9 @@ pub fn read(raw: &str) -> Script<'_> {
     for (index, line) in raw.lines().enumerate() {
         let line = line.trim();
         if in_sprite {
-            if line != "art" && sprite_row(line) {
+            // `art` and `draw` are spelt in inks (`d` is one), and open
+            // the next block rather than run on in this one.
+            if line != "art" && line != "draw" && sprite_row(line) {
                 if let Some((_, _, rows)) = script.sprites.last_mut() {
                     rows.push(line.to_string());
                 }
@@ -64,7 +76,7 @@ pub fn read(raw: &str) -> Script<'_> {
         }
         script.text_bytes += line.len() + 1;
         if in_art {
-            if art_row(line) {
+            if line != "draw" && art_row(line) {
                 script.art.push(line.to_string());
                 continue;
             }

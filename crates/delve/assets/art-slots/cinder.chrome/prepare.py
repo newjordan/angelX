@@ -1,14 +1,19 @@
 from pathlib import Path
 from PIL import Image,ImageEnhance
-import json,hashlib,importlib.util,re
+import json,hashlib,importlib.util,os,re
 import argparse
 a=argparse.ArgumentParser(description='Prepare the reviewed Cinder/Latch crops for the unchanged slot importer.');a.add_argument('--root',type=Path,default=Path(__file__).resolve().parents[5]);a.add_argument('--output',type=Path,required=True);a.add_argument('--slot');args=a.parse_args()
 ROOT=args.root; OUT=args.output
+def env_dir(name):
+ value=os.environ.get(name)
+ if not value:raise SystemExit(f'set {name} to the art-production directory it names')
+ return Path(value)
+SLOTS=env_dir('ART_PROD_SLOTS')
 spec=importlib.util.spec_from_file_location('imp',ROOT/'scripts/slot-art-import.py');imp=importlib.util.module_from_spec(spec);spec.loader.exec_module(imp)
 reqs=imp.requests()
 def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
 for slot in sorted(s for s in reqs if s.startswith(('cinder.','latch.')) and (not args.slot or s==args.slot)):
- src=Path('/work/artifacts/art-prod/slots')/slot/'v01';dest=OUT/slot;dest.mkdir(parents=True,exist_ok=True)
+ src=SLOTS/slot/'v01';dest=OUT/slot;dest.mkdir(parents=True,exist_ok=True)
  prior_path=ROOT/'crates/delve/assets/art-slots'/slot/(slot+'.map.json')
  prior=json.loads(prior_path.read_text())
  expected=prior.get('source_preparation',{}).get('original_sha256')

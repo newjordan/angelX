@@ -2,6 +2,29 @@ use super::*;
 use crate::agent::club::{ClubReply, StreamDelta};
 use std::collections::VecDeque;
 
+#[test]
+fn graph_route_config_accepts_model_card_budget_and_rejects_unknown_sources() {
+    let route = RouteIdentity {
+        driver: "http".to_string(),
+        model: Some("model".to_string()),
+        reasoning_effort: None,
+    };
+    let metadata = RouteMetadata {
+        output_budget: OutputBudgetPolicy::Explicit {
+            tokens: 8192,
+            source: OutputBudgetSource::ModelCard,
+        },
+        ..RouteMetadata::default()
+    };
+    let mut config = GraphRouteConfigV1::new(route, &metadata);
+    assert_eq!(config.output_budget_source.as_deref(), Some("model_card"));
+    config.validate().unwrap();
+
+    config.output_budget_source = Some("unknown".to_string());
+    config.config_sha256 = config.canonical_sha256().unwrap();
+    assert!(config.validate().is_err());
+}
+
 struct StubClub {
     name: String,
     replies: Mutex<VecDeque<String>>,
@@ -401,6 +424,83 @@ fn engine(club: Arc<StubClub>) -> AgentGraphEngine {
     ));
     let _ = std::fs::create_dir_all(&dir);
     AgentGraphEngine::new(dir, Some(club as Arc<dyn Club>), Vec::new()).without_persistence()
+}
+
+#[test]
+fn direct_graph_pins_one_catalog_across_nodes_when_source_changes() {
+    fn publish_navigation(book: &Path, text: &str) {
+        let path = book.join("gh_navigation.tsv");
+        std::fs::write(&path, text).unwrap();
+        let manifest_path = book.join("catalog-manifest.json");
+        let mut manifest: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();
+        manifest["chapters"]["gh_navigation.tsv"]["sha256"] =
+            crate::knowledge::cut::sha256_hex(text.as_bytes()).into();
+        let mut bytes = serde_json::to_vec(&manifest).unwrap();
+        bytes.push(b'\n');
+        std::fs::write(manifest_path, bytes).unwrap();
+    }
+    struct CatalogClub {
+        book: PathBuf,
+        replacement: String,
+        observed: Mutex<Option<String>>,
+    }
+    impl Club for CatalogClub {
+        fn label(&self) -> &str { "catalog-graph-fixture" }
+        fn respond(&self, _prompt: &str) -> Result<String, String> { Err("expected structured chat".into()) }
+        fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
+            let system = messages.iter().find(|message| message.role == ChatRole::System)
+                .map(|message| message.content.as_ref()).unwrap_or("");
+            if system.contains("node=first ") {
+                publish_navigation(&self.book, &self.replacement);
+                return Ok(ClubReply::Text("first node completed".into()));
+            }
+            if system.contains("node=second ") {
+                if let Some(result) = messages.iter().rev().find(|message| message.tool_call_id.as_deref() == Some("book-page")) {
+                    *self.observed.lock().unwrap() = Some(result.content.to_string());
+                    return Ok(ClubReply::Text("second node completed".into()));
+                }
+                return Ok(ClubReply::Calls(vec![ToolCall {
+                    id: "book-page".into(), name: "read_file".into(),
+                    args: serde_json::json!({"path":"ledger://⠣⠁⠁"}),
+                }]));
+            }
+            Err("unexpected graph node".into())
+        }
+    }
+    let _guard = crate::tests::env_lock();
+    let workspace = crate::tests::TestGitWorkspace::new("graph-book-generation");
+    let root = workspace.path();
+    let home = root.join("home");
+    let resource = root.join("resources");
+    std::fs::create_dir_all(&home).unwrap();
+    let book = resource.join("cockpit/book");
+    std::fs::create_dir_all(&book).unwrap();
+    for entry in std::fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("book")).unwrap() {
+        let entry = entry.unwrap();
+        if entry.file_type().unwrap().is_file() {
+            std::fs::copy(entry.path(), book.join(entry.file_name())).unwrap();
+        }
+    }
+    let baseline = std::fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("book/gh_navigation.tsv"),
+    ).unwrap();
+    let generation_one = baseline.replace("path inside the workspace (relative or absolute)", "graph generation one");
+    let generation_two = baseline.replace("path inside the workspace (relative or absolute)", "graph generation two");
+    publish_navigation(&book, &generation_one);
+    let _home = crate::tests::TestEnvGuard::set("HOME", home.to_str().unwrap());
+    let _resource = crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", resource.to_str().unwrap());
+    let _advisor = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "0");
+    let _skill = crate::tests::TestEnvGuard::set("ANGEL_SKILL_HINT", "0");
+    assert!(super::super::book::catalog::current().is_none());
+    let club = Arc::new(CatalogClub { book, replacement: generation_two, observed: Mutex::new(None) });
+    let engine = AgentGraphEngine::new(root.to_path_buf(), Some(club.clone()), Vec::new()).without_persistence();
+    let mut graph = spec("catalog-pin", vec![node("first", "first", &[]), node("second", "second", &["first"])]);
+    graph.nodes[1].tools = Some("read_only".into());
+    engine.run(&graph, "task", &AtomicBool::new(false)).unwrap();
+    let page = club.observed.lock().unwrap().clone().expect("second node read the ledger");
+    assert!(page.contains("graph generation one"), "{page}");
+    assert!(!page.contains("graph generation two"), "{page}");
 }
 
 #[test]
@@ -2802,4 +2902,46 @@ fn two_episodes_judge_last_done() {
     let judged = judged_graph_snapshot().expect("still last done");
     assert_eq!(judged.episode_id, "bb");
     clear_graph_turn_episodes();
+}
+
+#[test]
+fn direct_graph_keeps_tool_generation_when_override_changes_between_nodes() {
+    struct ToolCatalogClub {
+        path: PathBuf,
+        replacement: Vec<u8>,
+        seen: Mutex<Vec<String>>,
+    }
+    impl Club for ToolCatalogClub {
+        fn label(&self) -> &str { "tool-catalog-graph" }
+        fn respond(&self, _: &str) -> Result<String, String> { Err("expected structured chat".into()) }
+        fn chat(&self, messages: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
+            let mut definition = super::super::core_catalog::baseline_def("git_diff");
+            super::super::core_catalog::current().ok_or("missing tool generation")?.overlay(&mut definition);
+            self.seen.lock().unwrap().push(definition.description);
+            let system = messages.iter().find(|m| m.role == ChatRole::System).map(|m| m.content.as_ref()).unwrap_or("");
+            if system.contains("node=first ") {
+                std::fs::write(&self.path, &self.replacement).map_err(|e| e.to_string())?;
+            }
+            Ok(ClubReply::Text("node completed".into()))
+        }
+    }
+    let _guard = crate::tests::env_lock();
+    let workspace = crate::tests::TestGitWorkspace::new("graph-tool-generation");
+    let path = workspace.path().join("tool-catalog.json");
+    let resource = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("lib/tools/definitions.json");
+    let mut catalog: Value = serde_json::from_slice(&std::fs::read(resource).unwrap()).unwrap();
+    catalog["tools"]["git_diff"]["description"] = "graph tool generation one".into();
+    std::fs::write(&path, serde_json::to_vec(&catalog).unwrap()).unwrap();
+    catalog["tools"]["git_diff"]["description"] = "graph tool generation two".into();
+    let replacement = serde_json::to_vec(&catalog).unwrap();
+    let _catalog = crate::tests::TestEnvGuard::set("ANGEL_CORE_TOOL_CATALOG", path.to_str().unwrap());
+    let _advisor = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "0");
+    let _skill = crate::tests::TestEnvGuard::set("ANGEL_SKILL_HINT", "0");
+    let club = Arc::new(ToolCatalogClub { path, replacement, seen: Mutex::new(Vec::new()) });
+    let engine = AgentGraphEngine::new(workspace.path().to_path_buf(), Some(club.clone()), Vec::new()).without_persistence();
+    let graph = spec("tool-catalog-pin", vec![node("first", "first", &[]), node("second", "second", &["first"])]);
+    engine.run(&graph, "task", &AtomicBool::new(false)).unwrap();
+    let seen = club.seen.lock().unwrap();
+    assert!(seen.len() >= 2, "{seen:?}");
+    assert!(seen.iter().all(|value| value == "graph tool generation one"), "{seen:?}");
 }

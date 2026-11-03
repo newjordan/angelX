@@ -34,16 +34,31 @@ pub(crate) fn recover_hung_worker(
 ) -> Result<LeaseRecoveryStepV1, String> {
     store.update_leases(|leases| {
         let phase = leases.poll(key, generation, now_ms)?;
-        match phase {
-            LeasePhaseV1::Suspect => {
+        // The `worker-health` leg chooses the step from the polled phase; the
+        // lease mutation stays here so a bad edit cannot corrupt a lease.
+        let (step, _source) = crate::agent::harness::live_policy::decide_shipped(
+            "worker-health",
+            &serde_json::json!({"kind": "recovery", "phase": phase_code(&phase)}),
+            |step: &LiveRecoveryStep| match step.state {
+                0 if step.phase == phase_code(&phase) => Ok(()),
+                1..=3 => Ok(()),
+                _ => Err(format!(
+                    "out of contract recovery step {} for phase {}",
+                    step.state,
+                    phase_code(&phase)
+                )),
+            },
+        );
+        match step.state {
+            1 => {
                 leases.nudge(key, generation)?;
                 Ok(LeaseRecoveryStepV1::Nudged)
             }
-            LeasePhaseV1::Nudged => {
+            2 => {
                 leases.inspect(key, generation)?;
                 Ok(LeaseRecoveryStepV1::Inspected)
             }
-            LeasePhaseV1::Inspected => leases
+            3 => leases
                 .replace(
                     key,
                     generation,
@@ -52,7 +67,7 @@ pub(crate) fn recover_hung_worker(
                     replacement_deadline_at_ms,
                 )
                 .map(LeaseRecoveryStepV1::Replaced),
-            other => Ok(LeaseRecoveryStepV1::Healthy(other)),
+            _ => Ok(LeaseRecoveryStepV1::Healthy(phase)),
         }
     })
 }
@@ -140,6 +155,15 @@ pub(crate) fn record_semantic_iteration(
     next_state.last_fingerprint_sha256 = Some(fingerprint.clone());
     let directive = if progress {
         next_state.stale_iterations = 0;
+        let (step, _source) = crate::agent::harness::live_policy::decide_shipped(
+            "worker-health",
+            &serde_json::json!({"kind": "semantic", "progress": true, "stale_next": u64::from(state.stale_iterations)}),
+            |step: &LiveSemanticStep| match (step.state, step.stale_next) {
+                (0, 0) => Ok(()),
+                _ => Err(format!("out of contract fresh semantic step {step:?}")),
+            },
+        );
+        let _ = step;
         SemanticDirectiveV1::Continue(health(
             DirectorHealthStateV1::Fresh,
             None,
@@ -152,6 +176,15 @@ pub(crate) fn record_semantic_iteration(
             .stale_iterations
             .checked_add(1)
             .ok_or_else(|| "semantic staleness counter exhausted".to_string())?;
+        let (step, _source) = crate::agent::harness::live_policy::decide_shipped(
+            "worker-health",
+            &serde_json::json!({"kind": "semantic", "progress": false, "stale_next": u64::from(next_state.stale_iterations)}),
+            |step: &LiveSemanticStep| match (step.state, step.stale_next) {
+                (1, 2) | (3, 0) => Ok(()),
+                (2, n) if n == u64::from(next_state.stale_iterations) => Ok(()),
+                _ => Err(format!("out of contract stale semantic step {step:?}")),
+            },
+        );
         stale_directive(
             &mut next_state,
             &mut next_dossier,
@@ -160,6 +193,7 @@ pub(crate) fn record_semantic_iteration(
             alternative_direction,
             next_turn_id,
             journal_head_sha256,
+            step.state,
         )?
     };
     *state = next_state;
@@ -175,8 +209,9 @@ fn stale_directive(
     alternative: &str,
     next_turn_id: &str,
     journal_head: &str,
+    step_state: u64,
 ) -> Result<SemanticDirectiveV1, String> {
-    if state.stale_iterations == 4 {
+    if step_state == 3 {
         if state.direction_id == alternative {
             return Err("archived semantic direction requires a different alternative".into());
         }
@@ -205,7 +240,7 @@ fn stale_directive(
             now_ms,
         )?));
     }
-    if state.stale_iterations == 2 {
+    if step_state == 1 {
         state.pivot_count = checked_pivot(state.pivot_count)?;
         return Ok(SemanticDirectiveV1::Pivot(health(
             DirectorHealthStateV1::Degraded,
@@ -222,6 +257,37 @@ fn stale_directive(
         "inspect_semantic_progress",
         now_ms,
     )?))
+}
+
+pub(crate) fn phase_code(phase: &LeasePhaseV1) -> u64 {
+    match phase {
+        LeasePhaseV1::Granted => 0,
+        LeasePhaseV1::Active => 1,
+        LeasePhaseV1::Suspect => 2,
+        LeasePhaseV1::Nudged => 3,
+        LeasePhaseV1::Inspected => 4,
+        LeasePhaseV1::Fenced => 5,
+        LeasePhaseV1::Released => 6,
+    }
+}
+
+/// The leg's recovery answer: state 0 keeps the healthy phase (in `phase`),
+/// 1 nudges, 2 inspects, 3 replaces.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LiveRecoveryStep {
+    pub(crate) state: u64,
+    pub(crate) phase: u64,
+}
+
+/// The leg's semantic answer: state 0 continues fresh, 1 pivots, 2 keeps
+/// retrying, 3 archives into a fresh turn; `stale_next` restates the
+/// counter the shipped leg holds after the step.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct LiveSemanticStep {
+    pub(crate) state: u64,
+    pub(crate) stale_next: u64,
 }
 
 fn fingerprint(observation: &SemanticObservationV1) -> Result<String, String> {

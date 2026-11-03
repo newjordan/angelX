@@ -1,0 +1,18 @@
+{
+  "api_version": 1,
+  "id": "delve-ossuary",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "state": { "running": true, "done": false, "fallen": 11, "next": 1, "stalled": 0, "raised": 0, "score": [] },
+    "knights": [
+      { "id": 1, "pressed": false, "at_start": false, "at_bone": false },
+      { "id": 2, "pressed": false, "at_start": false, "at_bone": true }
+    ]
+  },
+  "bend": {
+    "entry": "ossuary.bend",
+    "proof": "PROOF.bend",
+    "output": "ossuary.compiled.js"
+  }
+}

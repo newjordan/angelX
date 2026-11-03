@@ -111,7 +111,7 @@ facts = data.get("facts") or [
     ["Models", "GLM-5.3 flash, DeepSeek flash, Muse Spark 1.3 contributor, Grok 4.7 at low effort"],
     ["Task", "Two-bug Python fix, five runs per arm, arm order shuffled"],
     ["Builds", "dev 158b7a8 against pre-book d9c11e7 and the speed baseline 3295966"],
-    ["Hosts", "atlas for GLM, DeepSeek and Muse; sparky for Grok, the DeepSeek loops and the decision test"],
+    ["Hosts", "the workstation for GLM, DeepSeek and Muse; a GPU host for Grok, the DeepSeek loops and the decision test"],
     ["Decision test", "Three decision points, four wires, ten replies per model and wire"],
 ]
 out = dict(data)

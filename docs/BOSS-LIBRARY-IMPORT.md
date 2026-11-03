@@ -52,7 +52,7 @@ surface. A wide decorative shadow is not a danger boundary.
 
 ## Size study and rejected trials
 
-Artifacts: `/work/artifacts/boss-art-20261015/integ-1/`; selected and trial
+Artifacts: `<artifacts>/boss-art-20261015/integ-1/`; selected and trial
 records in `study/records.json`. All rooms use the existing simulation fixture,
 seat1 plus three extra seats, tick 95/rest and tick 228/shots in flight. The
 headless hosts additionally run three moving/firing native bots beside a browser
@@ -161,8 +161,8 @@ readability review.
 
 ## Reproduce
 
-Set TMPDIR=/work/tmp, ANGEL_CARTRIDGES=/work/tmp/empty-cartridges and
-UV_CACHE_DIR=/work/tmp/uv-cache for every build/test. Use the assigned target dirs.
+Set TMPDIR=<scratch>, ANGEL_CARTRIDGES=<scratch>/empty-cartridges and
+UV_CACHE_DIR=<scratch>/uv-cache for every build/test. Use the assigned target dirs.
 
 ```
 uv run --no-project --with Pillow scripts/boss-library-import.py --check
@@ -359,7 +359,7 @@ uv run --no-project --with Pillow scripts/boss-rollout-review.py <out> the-index
 The isolated production exporter uses the cockpit's authoritative room/effect
 fixtures and actual cell painter; it omits only the separate text HUD. Review
 artifacts and twelve bounded sheets live under
-`/work/artifacts/boss-art-20261015/roll-1/`. Headless review uses8900/CDP9000,
+`<artifacts>/boss-art-20261015/roll-1/`. Headless review uses8900/CDP9000,
 a browser seat plus three moving/firing bots, both kits, with the review feature
 explicitly enabled to inspect the rejected candidates too.
 
@@ -373,7 +373,7 @@ encounters, then camera/part sockets). Effect deliveries remain separate slots.
 
 Seven independent effect banks are enabled by `boss-effect-slots.json`, including
 Waxen Warden and Bone Choir while their library bodies remain inactive. The
-importer `scripts/boss-effect-import.py --retain /work/artifacts/art-prod/slots`
+importer `scripts/boss-effect-import.py --retain <artifacts>/art-prod/slots`
 retains lossless measured crops, accepted-sheet and original-sheet SHA-256, then
 reproduces the checked files from those local crops with `--check`. Waxen's
 impact metadata selects its accepted `source-sheet-2.png` retry; the earlier
@@ -478,7 +478,7 @@ alpha, contour, hue families or geometry. Keep the three skulls separated as
 native shapes; they currently merge into one pale cell cluster. The precise
 replacement request is in `docs/ART-REQUESTS.md`; no art is hand-edited here.
 
-Review evidence: `/work/artifacts/delve-int-20261015/value-1/review/` contains
+Review evidence: `<artifacts>/delve-int-20261015/value-1/review/` contains
 rest/windup native1×, actual cells and paired-floor thumbnails for all seven,
 and actual2× identity crops for Waxen/Choir. Every sheet is at most1570px wide
 and eight views. All were inspected. Rejected captures that changed renderer
@@ -489,7 +489,7 @@ the production painters; no play server is started by this task.
 Reproduce from the worktree root with the assigned build environment:
 
 ```sh
-TMPDIR=/work/tmp ANGEL_CARTRIDGES=/work/tmp/empty-cartridges CARGO_TARGET_DIR=/work/build-cache/val-cockpit ANGEL_CONTRAST_SHOTS=<out>/captures systemd-run --user --scope -q -p MemoryMax=40G nice cargo test --manifest-path scripts/boss-display-review/Cargo.toml write_floor_contrast -- --ignored
+TMPDIR=<scratch> ANGEL_CARTRIDGES=<scratch>/empty-cartridges CARGO_TARGET_DIR=<build-cache>/val-cockpit ANGEL_CONTRAST_SHOTS=<out>/captures systemd-run --user --scope -q -p MemoryMax=40G nice cargo test --manifest-path scripts/boss-display-review/Cargo.toml write_floor_contrast -- --ignored
 python3 scripts/boss-floor-review.py <out>/captures <out>/review
 python3 scripts/check-boss-library.py <out>/captures --identity <out>/identity-review.json --metrics <out>/gate-metrics.json
 # Expected two native presence failures for the retained Choir candidate:
@@ -529,7 +529,7 @@ The all-candidate gate reports 37 failed requirements (29 among the formerly
 active six). An empty production library selection is intentional; the retained
 bodies continue through their existing rendering and visual regression gates.
 
-Evidence: `/work/artifacts/delve-int-20261015/int-2/candidate-metrics.json`
+Evidence: `<artifacts>/delve-int-20261015/int-2/candidate-metrics.json`
 contains all 56 path/pose measurements; `contrast-summary.json` aggregates
 minimums; `contrast-review/` contains bounded paired native/cell/floor sheets.
 Reproduce with the VALUE-1 commands above, using this tree and a fresh output
@@ -573,7 +573,7 @@ Minimums across the 56 measurements (presence is rest-only):
 | the-bone-choir | 22.52 | 81.46% | 91.84% |
 | crypt-tithe-marshal | 30.62 | 88.75% | 93.65% |
 
-Evidence: `/work/artifacts/delve-int-20261015/boss-read-1/after-metrics.json`;
+Evidence: `<artifacts>/delve-int-20261015/boss-read-1/after-metrics.json`;
 paired before/after native 1× and cell sheets in `after-review/` beside it.
 The first, darker arena grade passed numerically but was rejected because too
 much v1 floor detail disappeared. The accepted grade retains slab seams,

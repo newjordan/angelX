@@ -1,0 +1,224 @@
+{
+  "version": 1,
+  "classify": [
+    {
+      "discipline": "GpuKernels",
+      "terms": [
+        "cuda",
+        "triton",
+        "gpu programming",
+        "gpu performance",
+        "gpu architecture",
+        "kernel",
+        "roofline",
+        "distributed gpu",
+        "warp",
+        "thread block",
+        "tensor core",
+        "shared memory"
+      ]
+    },
+    {
+      "discipline": "LlmSystems",
+      "terms": [
+        "language model",
+        "transformer",
+        "token",
+        "attention",
+        "embedding",
+        "pretraining",
+        "inference"
+      ]
+    },
+    {
+      "discipline": "GameDevelopment",
+      "terms": [
+        "game engine",
+        "game development",
+        "entity component",
+        "gameplay",
+        "simulation loop"
+      ]
+    },
+    {
+      "discipline": "ProbabilityStatistics",
+      "terms": [
+        "probability",
+        "statistic",
+        "distribution",
+        "random variable",
+        "stochastic",
+        "bayes",
+        "poisson",
+        "gaussian",
+        "variance",
+        "likelihood"
+      ]
+    },
+    {
+      "discipline": "Graphics3d",
+      "terms": [
+        "render",
+        "raster",
+        "ray tracing",
+        "shader",
+        "webgpu",
+        "texture",
+        "geometry",
+        "three-dimensional",
+        "3d"
+      ]
+    },
+    {
+      "discipline": "NaturalSciences",
+      "terms": [
+        "physics",
+        "quantum",
+        "thermodynamic",
+        "electromagnet",
+        "particle",
+        "force",
+        "energy",
+        "chemistry",
+        "chemical",
+        "atom",
+        "molecule",
+        "reaction",
+        "biology",
+        "biological",
+        "cellular",
+        "membrane",
+        "protein",
+        "genetic",
+        "species",
+        "ecolog",
+        "geolog",
+        "astronom",
+        "neuroscience",
+        "physiology",
+        "medicine",
+        "medical",
+        "disease",
+        "syndrome",
+        "anatomy"
+      ]
+    },
+    {
+      "discipline": "LinearAlgebra",
+      "terms": [
+        "linear algebra",
+        "matrix",
+        "vector space",
+        "eigen",
+        "singular value",
+        "determinant",
+        "basis",
+        "tensor"
+      ]
+    }
+  ],
+  "shelves": [
+    {
+      "discipline": "Foundations",
+      "terms": [
+        "computational thinking",
+        "climate model",
+        "simulation",
+        "scientific model"
+      ],
+      "shelf": "Computational thinking"
+    },
+    {
+      "discipline": "LinearAlgebra",
+      "terms": [
+        "numerical",
+        "floating point",
+        "factorization",
+        "stability",
+        "iterative method",
+        "condition number"
+      ],
+      "shelf": "Numerical linear algebra"
+    },
+    {
+      "discipline": "GpuKernels",
+      "terms": [
+        "gpu architecture",
+        "roofline",
+        "compiler",
+        "distributed kernel",
+        "distributed gpu"
+      ],
+      "shelf": "GPU field references"
+    },
+    {
+      "discipline": "Graphics3d",
+      "terms": [
+        "webgpu",
+        "wgpu",
+        "render pipeline",
+        "adapter"
+      ],
+      "shelf": "WebGPU workshop"
+    },
+    {
+      "discipline": "Graphics3d",
+      "terms": [
+        "ray tracing",
+        "path tracing",
+        "light transport",
+        "acceleration structure",
+        "bvh"
+      ],
+      "shelf": "Ray tracing shelf"
+    },
+    {
+      "discipline": "LlmSystems",
+      "terms": [
+        "nanochat",
+        "small language model",
+        "small llm",
+        "tokenizer",
+        "tokenization",
+        "supervised fine-tuning",
+        "sft"
+      ],
+      "shelf": "Small complete LLM laboratory"
+    },
+    {
+      "discipline": "NaturalSciences",
+      "terms": [
+        "biology",
+        "biological",
+        "cellular",
+        " cell",
+        "membrane",
+        "protein",
+        "genetic",
+        "species",
+        "ecolog",
+        "physiology",
+        "neuroscience",
+        "medicine",
+        "medical",
+        "disease",
+        "syndrome",
+        "anatomy"
+      ],
+      "shelf": "College biology"
+    },
+    {
+      "discipline": "NaturalSciences",
+      "terms": [
+        "chemistry",
+        "chemical",
+        "atom",
+        "molecule",
+        "reaction",
+        "bond",
+        "equilibrium"
+      ],
+      "shelf": "College chemistry"
+    }
+  ]
+}

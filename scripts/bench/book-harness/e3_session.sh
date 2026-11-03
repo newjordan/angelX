@@ -9,7 +9,7 @@
 #   ITERS (default 6)       the loop's iteration cap (/loop now iters=N)
 #   STALL_STOP (default 1)  ANGEL_LOOP_STALL_STOP: stalls before a pivot
 #   LIMIT (default 7200)    seconds before the driver stops the loop
-#   WORKROOT (default /work/tmp)  where workspaces, homes and TMPDIR live
+#   WORKROOT (default $TMPDIR, else /tmp)  where workspaces, homes and TMPDIR live
 # Out: out/<label>.jsonl (requests), .stderr, .screen (last frame),
 # .state/ (loop and learner state), .run (one summary line).
 set -u
@@ -22,7 +22,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 . "$HERE/seat.sh"
 OUT=$HERE/out; mkdir -p "$OUT"
 LOG=$OUT/$LABEL.jsonl; rm -rf "$LOG" "$OUT/$LABEL.state"
-ROOT=${WORKROOT:-/work/tmp}
+ROOT=${WORKROOT:-${TMPDIR:-/tmp}}
 RUN_TMP=$(mktemp -d "$ROOT/angel-e3-run-XXXXXX") || exit 2
 . "$HERE/lifecycle.sh"
 WORK=$RUN_TMP/work; HOMEDIR=$RUN_TMP/home

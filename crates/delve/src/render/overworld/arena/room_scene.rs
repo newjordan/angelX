@@ -22,6 +22,8 @@ use super::*;
 /// far past that pixel it truly stands; `depth` is where its feet are, in
 /// arena units down the room. `bodies` are the sprites stood up in it.
 /// `foe`: a monster, its picture held to the brand guide (`graded`).
+/// `paints`: the paintings of what it has on (`paintings`), in the room's
+/// pixels, for a window that has them to draw in their inks' place.
 #[derive(Clone)]
 pub struct Figure {
     pub img: Img,
@@ -29,8 +31,20 @@ pub struct Figure {
     pub y: i32,
     pub frac: (f32, f32),
     pub depth: f32,
+    /// Pixels the figure lifts off its floor on the GPU compositor; the
+    /// window turns this into a drop-shadow under it (see `angel_gpu::layers`).
+    /// `0.0` sits it on the ground. CPU composition and `expand()` ignore it,
+    /// so parity between the flat and parts paths holds either way.
+    pub height: f32,
+    /// The figure adds light instead of covering: on the GPU window the
+    /// pixels blend `dst + src` rather than `dst * (1-a) + src * a`, so a
+    /// lifted marker reads as glowing. The browser path folds additive into
+    /// the premultiplied `Quad.color` (`stage::expand`), so co-op seats see
+    /// it too. The CPU `compose` ignores it, so parity is preserved.
+    pub additive: bool,
     pub bodies: Vec<Body>,
     pub foe: bool,
+    pub paints: Vec<super::Painting>,
 }
 
 /// A monster's picture held to the brand guide (docs/BRAND.md): the fewest
@@ -76,13 +90,16 @@ pub fn graded(img: Img) -> Img {
 
 /// A sprite stood up in a figure: its look (`look_key`), and the sprite
 /// itself with its top-left at `(x, y)` in the room's pixels. A window with
-/// an HD picture of that look draws it in the sprite's place.
+/// an HD picture of that look draws it in the sprite's place. `named`: what
+/// it is, when it was stamped from a source the game knows (a rig's knight:
+/// `figure_keys`), which a pack matches before the look.
 #[derive(Clone)]
 pub struct Body {
     pub key: u64,
     pub x: i32,
     pub y: i32,
     pub img: Img,
+    pub named: Option<super::figure_keys::Named>,
 }
 
 /// A sprite's look as a number: the same pixels, the same key, on every
@@ -220,11 +237,13 @@ impl ForgedShape {
     }
 }
 
-/// A class's own shot (`classes::ARCANE`, `classes::HOLY`).
+/// A class's own shot (`classes::ARCANE`, `classes::HOLY`, `classes::SONG`).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ClassShot {
     Arcane,
     Holy,
+    /// The Bard's note.
+    Song,
 }
 
 /// A shot in flight, for a window that draws it itself: where it is in the
@@ -251,6 +270,14 @@ pub struct SceneShot {
     /// whose powers have climbed far enough.
     pub dimension: super::dimensions::Dimension,
     pub mark: Img,
+    /// A card's own shot that has a painting (`paintings`): its square from
+    /// the shot's point, and its inks in `mark`'s pixels.
+    pub paint: Option<super::Painting>,
+    /// How big it is drawn, a share of the size `mark` is at twice its
+    /// pixels (1.0: a monster's shot, and what shots were): a knight's
+    /// shot is smaller the faster its arm fires (`Projectile::scale`). The
+    /// sprite, the painting, the halo, the trail and the shapes all follow.
+    pub scale: f32,
 }
 
 /// A dropped item as a physical solid, in room pixels. It is not baked into
@@ -265,6 +292,15 @@ pub struct SceneSolid {
     pub rune: Option<crate::rules::runes::RuneKind>,
 }
 
+/// The room's still art drawn finer (an HD pack's tiles composed at its
+/// scale, `hd_pack`): the whole room, `scale` of its pixels across one of
+/// the room's, for a window to draw in `ground`'s place and rect.
+#[derive(Clone)]
+pub struct FineGround {
+    pub img: Arc<Img>,
+    pub scale: u32,
+}
+
 /// One frame of the Delve as parts.
 #[derive(Clone)]
 pub struct RoomScene {
@@ -273,6 +309,11 @@ pub struct RoomScene {
     /// The room's still art, the whole room at native size. The same `Arc`
     /// comes back while it is unchanged. `None` when the frame is flat.
     pub ground: Option<Arc<Img>>,
+    /// `ground` drawn finer from the installed HD pack, where it has art for
+    /// the room (`arena::fine_scenery_cached`); `None` in a terminal, in a
+    /// browser, and wherever the pack has none. The same `Arc` comes back
+    /// while it is unchanged.
+    pub fine: Option<FineGround>,
     /// The view's top-left on the room, in native pixels, between pixels:
     /// its whole pixel is the terminal's camera.
     pub camera: (f32, f32),
@@ -295,6 +336,9 @@ pub struct RoomScene {
     pub shots: Vec<SceneShot>,
     /// Floor pickups as shapes, when the page draws props and the sprites were left off the canvases.
     pub pickups: Vec<super::pickup_meshes::ScenePickup>,
+    /// Paintings over the figures (an orbit's, a summoned creature's), in
+    /// the room's pixels, their inks in `over`.
+    pub paints: Vec<super::Painting>,
     /// How hard the world was just hit, 0 to 1 (`impact_of`): a window's
     /// post pass splits the colours and lifts the light by it.
     pub impact: f32,
@@ -341,6 +385,9 @@ pub struct RoomScene {
     /// The kingdom in 3D: the view the realm's look is made for (where the
     /// view is, the knight it follows, the clock); `None` off the kingdom.
     pub realm: Option<crate::world3d::realm_look::View>,
+    /// The room is the Atari board (`atari`, experimental): flat and unlit,
+    /// so a window lays it straight down, untipped, with no light over it.
+    pub board: bool,
 }
 
 impl RoomScene {
@@ -370,6 +417,7 @@ impl RoomScene {
         Self {
             view: (img.w, img.h),
             ground: None,
+            fine: None,
             camera: (0.0, 0.0),
             under: None,
             figures: Vec::new(),
@@ -379,6 +427,7 @@ impl RoomScene {
             emitters: Vec::new(),
             shots: Vec::new(),
             pickups: Vec::new(),
+            paints: Vec::new(),
             impact: 0.0,
             solids: Vec::new(),
             room: 0,
@@ -391,6 +440,7 @@ impl RoomScene {
             chunks: Vec::new(),
             lots: None,
             realm: None,
+            board: false,
         }
     }
 
@@ -428,6 +478,7 @@ impl RoomScene {
                 moving.stamp(over, 0, 0);
             }
             for shot in &self.shots {
+                if shot.mark.w == 0 { super::volleys::ranged::replay(moving, shot); continue; }
                 moving.stamp_twice(&shot.mark, shot.x.floor() as i32 - 24, shot.y.floor() as i32 - 24);
             }
         }
@@ -460,11 +511,10 @@ impl RoomScene {
 /// Whether this frame comes apart into parts; the rest (plates, the
 /// kingdom, a pastime's own screen, the Forest Road and the Round Table
 /// adventures that stand in the forest's room, rooms lit from below or put
-/// out, the second art kit) stay one picture for now.
+/// out) stay one picture for now.
 fn layered(run: &Run, w: i32, h: i32, focus: Option<u32>) -> bool {
     w >= NATIVE_W
         && h >= NATIVE_H
-        && !(art_v2::enabled() && art_v2::supported(run))
         && run.floor_plate(focus).is_none()
         && run.results_showing(focus).is_none()
         && run.room().kind != RoomKind::Kingdom
@@ -486,7 +536,6 @@ fn kingdom_3d(run: &Run, w: i32, h: i32, focus: Option<u32>) -> bool {
         && w >= NATIVE_W
         && h >= NATIVE_H
         && run.floor_plate(focus).is_none()
-        && !(art_v2::enabled() && art_v2::supported(run))
         && !(run.mossbell_showing()
             || run.brasswake_showing()
             || run.forest_road_showing()
@@ -536,6 +585,7 @@ fn kingdom_scene(run: &Run, focus: Option<u32>) -> Option<RoomScene> {
     Some(RoomScene {
         view: (NATIVE_W, NATIVE_H),
         ground: None,
+        fine: None,
         // Whole pixels, as the view's marks are drawn at.
         camera: (ox, oy),
         under,
@@ -546,6 +596,7 @@ fn kingdom_scene(run: &Run, focus: Option<u32>) -> Option<RoomScene> {
         emitters: Vec::new(),
         shots: Vec::new(),
         pickups: Vec::new(),
+        paints: Vec::new(),
         impact: impact_of(run),
         solids: Vec::new(),
         room: room_id(run, run.at),
@@ -571,6 +622,7 @@ fn kingdom_scene(run: &Run, focus: Option<u32>) -> Option<RoomScene> {
             },
             time: run.tick as f32 / crate::rules::HZ as f32,
         }),
+        board: false,
     })
 }
 
@@ -588,9 +640,97 @@ pub fn impact_of(run: &Run) -> f32 {
     shake.max(hold)
 }
 
+/// How hard the arcade just hit its mark, 0 to 1: the CPU compose does not
+/// read it, so the parts-to-frame parity test is unaffected either way, but
+/// a window's GPU post pass (bloom, chromatic split) lifts the frame by it.
+/// A DuckShoot duck that just went down reads `1.0` and eases back to zero
+/// as its `down` counts to `DOWN_RESET`; the other take-overs still pay
+/// nothing.
+fn pastime_impact(run: &Run) -> f32 {
+    use crate::rules::pastimes::{self, Game};
+    let Some(round) = run.pastimes.round.as_ref() else {
+        return 0.0;
+    };
+    if round.game != Game::DuckShoot {
+        return 0.0;
+    }
+    let Some(range) = round.duckshoot.as_ref() else {
+        return 0.0;
+    };
+    let reset = pastimes::DOWN_RESET.max(1) as f32;
+    range
+        .ducks
+        .iter()
+        .map(|d| {
+            if d.down == 0 {
+                0.0
+            } else {
+                (1.0 - (d.down as f32 - 1.0) / (reset - 1.0)).clamp(0.0, 1.0)
+            }
+        })
+        .fold(0.0_f32, f32::max)
+}
+
+/// The take-over stage as parts: the CPU-rendered backdrop lying on the
+/// view at the same place the flat path paints it, and the cartridge's
+/// bezel/HUD as the view's own marks. Actors that lift off the deck would
+/// go in `figures` (a follow-on per stage). `None` if this stage has no
+/// parts split yet (`stage::takeover_parts` false, or the canvases do not
+/// match the view 1:1).
+fn pastime_scene(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Option<RoomScene> {
+    if w != NATIVE_W || h != NATIVE_H {
+        return None;
+    }
+    let (backdrop, figures, hud, emitters) = stage::parts(run, focus)?;
+    Some(RoomScene {
+        view: (w, h),
+        ground: None,
+        // The stage's whole canvas is the view; there is no camera.
+        camera: (0.0, 0.0),
+        under: Some(backdrop),
+        figures,
+        over: None,
+        screen: hud,
+        lights: Vec::new(),
+        emitters,
+        shots: Vec::new(),
+        pickups: Vec::new(),
+        paints: Vec::new(),
+        // The stage's own pinhole picture must not be tipped a second time;
+        // a hit's bloom lifts the post pass, but nothing else shakes here.
+        impact: pastime_impact(run),
+        solids: Vec::new(),
+        room: room_id(run, run.at),
+        beside: [None; 4],
+        entrance: None,
+        descent: None,
+        veil: None,
+        palette: false,
+        world: None,
+        chunks: Vec::new(),
+        lots: None,
+        realm: None,
+        fine: None,
+        board: false,
+    })
+}
+
 pub fn scene_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
+    // From the third floor a wish's painting shows at its middle grants too.
+    super::paintings::with_hd(super::paintings::hd_floor(run.floor()), || scene_here(run, w, h, focus))
+}
+
+fn scene_here(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
+    if super::crossroads::showing(run) || super::crossroads::pastime(run) {
+        return RoomScene::flat(frame_for(run, w, h, focus));
+    }
     if kingdom_3d(run, w, h, focus)
         && let Some(scene) = kingdom_scene(run, focus)
+    {
+        return scene;
+    }
+    if stage::takeover(run)
+        && let Some(scene) = pastime_scene(run, w, h, focus)
     {
         return scene;
     }
@@ -606,21 +746,35 @@ pub fn scene_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
     }
     let room = room_px(run.room());
     let win = scene_window(run, focus, room);
-    let (under, capture) = captured(room, win, || {
-        let (low, high) = room_list(run, focus, true, false).split(draw_list::Layer::Figures);
-        let mut under = Img::window(room.0, room.1, win);
-        // A room in 3D stands its world where its still art lay: what lies
-        // on that floor that the game moves (its traps, a cracked wall) lies
-        // on the world, under all else.
-        if super::world_stood(run) {
-            super::room_details(run, &mut under, &mut Vec::new());
-        }
-        low.paint(&mut under);
-        (under, high)
+    let board = super::atari::here(run);
+    // The paintings drawn on the way are noted (`paintings`): each figure
+    // takes those of what it has on, the rest lie over the figures.
+    let ((under, capture, over), paints) = super::paintings::noting(|| {
+        let ((under, high), mut capture) = captured(room, win, || {
+            let (low, high) = room_list(run, focus, true).split(draw_list::Layer::Figures);
+            let mut under = Img::window(room.0, room.1, win);
+            // A room in 3D stands its world where its still art lay: what lies
+            // on that floor that the game moves (its traps, a cracked wall) lies
+            // on the world, under all else.
+            if super::world_stood(run) {
+                super::room_details(run, &mut under, &mut Vec::new());
+            }
+            if board {
+                // The board's floor held to its inks, as a terminal's is
+                // (`room_layer`).
+                let (ground, figures) = low.split(draw_list::Layer::Ground);
+                ground.paint(&mut under);
+                super::atari::board(&mut under);
+                figures.paint(&mut under);
+            } else {
+                low.paint(&mut under);
+            }
+            (under, high)
+        });
+        let mut over = std::mem::replace(&mut capture.after, Img::new(0, 0));
+        high.paint(&mut over);
+        (under, capture, over)
     });
-    let (under, high) = under;
-    let mut over = capture.after;
-    high.paint(&mut over);
     let over = match &capture.base {
         Some(base) => over.changes_over(base),
         None => over,
@@ -630,7 +784,7 @@ pub fn scene_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
     // The shake is whole pixels on top of the camera.
     let shake = (origin.0 - cx.floor() as i32, origin.1 - cy.floor() as i32);
     let mut screen = Img::new(NATIVE_W, NATIVE_H);
-    screen_marks(&mut screen, run, focus, true, false, origin);
+    screen_marks(&mut screen, run, focus, true, origin);
     votes::panel(&mut screen, run, focus);
     // A delivered room kit's frame is snapped to the palette, its marks
     // with it (`frame_v1`).
@@ -644,14 +798,17 @@ pub fn scene_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
         .flatten()
         .map(|(x, y, w, h)| [x, y, w, h]);
     let ground = scenery_cached(run);
+    let fine = super::fine_scenery_cached(run).map(|(img, scale)| FineGround { img, scale: scale as u32 });
     // A lit room in 3D (`world3d::rooms_lit`) is lit by its own lamps: its
     // still art's are not laid over it.
     let world = crate::world3d::room::world_in(run, focus, room);
-    let lights = scene_lights(run, &ground, world.as_ref().is_none_or(|w| w.lit().is_none()));
-    let emitters = scene_emitters(run, &lights);
+    // The board is unlit: no pools of light, no motes.
+    let lights = if board { Vec::new() } else { scene_lights(run, &ground, world.is_none()) };
+    let emitters = if board { Vec::new() } else { scene_emitters(run, &lights) };
     RoomScene {
         view: (NATIVE_W, NATIVE_H),
         ground: Some(ground),
+        fine,
         camera: (cx + shake.0 as f32, cy + shake.1 as f32),
         under: Some(under),
         figures: capture.figures,
@@ -661,6 +818,7 @@ pub fn scene_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
         emitters,
         shots: capture.shots,
         pickups: capture.pickups,
+        paints,
         impact: impact_of(run),
         solids: capture.solids,
         entrance: entrance(run),
@@ -676,6 +834,7 @@ pub fn scene_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
         chunks: Vec::new(),
         lots: None,
         realm: None,
+        board,
     }
 }
 
@@ -846,6 +1005,17 @@ fn scene_lights(run: &Run, ground: &Arc<Img>, baked: bool) -> Vec<SceneLight> {
             radius: 12.0,
             strength,
             hue,
+            flicker: false,
+        });
+    }
+    // A Thunder Scroll's bolts flash the room cold where they land.
+    for (x, y, radius, strength) in vfx::bolt_lights(run) {
+        out.push(SceneLight {
+            x,
+            y,
+            radius,
+            strength,
+            hue: Hue::Cold,
             flicker: false,
         });
     }

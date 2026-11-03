@@ -267,7 +267,7 @@ pub(crate) fn startup_notice_in(queue_path: &Path, stamp: &Path) -> Option<Strin
     if let Some(dir) = stamp.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    let _ = std::fs::write(stamp, queued.to_string());
+    let _ = crate::platform::workspace_store::write_atomic(stamp, queued.to_string().as_bytes());
     if queued > prev {
         Some(startup_notice_text(queued))
     } else {
@@ -303,10 +303,12 @@ fn write_queue_values(queue_path: &Path, values: &[serde_json::Value]) -> std::i
     if let Some(dir) = queue_path.parent() {
         std::fs::create_dir_all(dir)?;
     }
-    std::fs::write(
+    crate::platform::workspace_store::write_private_atomic(
         queue_path,
-        crate::platform::secrets::to_redacted_vec_pretty(values).map_err(std::io::Error::other)?,
+        &crate::platform::secrets::to_redacted_vec_pretty(values)
+            .map_err(std::io::Error::other)?,
     )
+    .map_err(std::io::Error::other)
 }
 
 fn item_from_value(v: &serde_json::Value) -> QueueItem {

@@ -95,7 +95,7 @@ fn a_party_splits_the_monsters_between_its_knights() {
 
 #[test]
 fn a_party_is_hit_harder_and_shot_at_thicker_on_every_floor() {
-    assert_eq!(stakes::EARLY_PARTY_HIT, [100, 115, 130, 145, 160, 175]);
+    assert_eq!(stakes::EARLY_PARTY_HIT, [100, 115, 130, 145, 150, 155]);
     assert_eq!(stakes::PARTY_FURY, [0, 1, 2, 3, 3, 3]);
     let mut solo = quiet();
     idle(&mut solo, 1);
@@ -147,9 +147,17 @@ fn party_fury_fans_plain_shots_but_never_clones_a_beam() {
 
 #[test]
 fn a_party_meets_more_monsters_in_every_room() {
+    // Every room past the first: the first fight off the stairs of the
+    // first floors is the room's own company (`stakes::GENTLE_FIRST_TO`).
+    let further = |run: &Run| {
+        let steps = run.dungeon.steps();
+        (0..run.dungeon.rooms.len())
+            .find(|&r| run.dungeon.rooms[r].kind == RoomKind::Fight && !run.dungeon.rooms[r].great() && (2..usize::MAX).contains(&steps[r]))
+            .unwrap()
+    };
     let solo = {
         let mut run = Run::new(9, 3, None);
-        let room = fight_room(&run);
+        let room = further(&run);
         run.enter_for_test(room);
         run.enemies.len()
     };
@@ -157,7 +165,7 @@ fn a_party_meets_more_monsters_in_every_room() {
         let mut run = Run::new(9, 3, None);
         run.join_seat(2, "B");
         run.join_seat(3, "C");
-        let room = fight_room(&run);
+        let room = further(&run);
         run.enter_for_test(room);
         (run.enemies.len(), run.ramp())
     };
@@ -534,7 +542,7 @@ fn taking_the_arm_in_hand_tempers_it_up_to_three_times() {
             card: "bow".into(),
             x: 24.5,
             y: 14.0,
-            held_off: None, took: Vec::new(),
+            held_off: None, took: Vec::new(), dropped: 0, owner: None,
         });
         run.step(&take);
         run.step(&BTreeMap::new());
@@ -554,7 +562,7 @@ fn taking_the_arm_in_hand_tempers_it_up_to_three_times() {
         card: "crossbow".into(),
         x: 24.5,
         y: 14.0,
-        held_off: None, took: Vec::new(),
+        held_off: None, took: Vec::new(), dropped: 0, owner: None,
     });
     run.step(&take);
     assert_eq!(run.players[&1].weapon, Weapon::Crossbow);
@@ -1027,6 +1035,41 @@ fn a_forked_shot_splits_past_its_mark_twice_and_fart_bombs_leave_a_cloud() {
 }
 
 #[test]
+fn awakened_fork_forks_with_a_spread_volley_and_off_a_chain() {
+    // A spread (five shots at once) used to fill the knight's child budget
+    // with its own volley, so its forks never flew.
+    let mut run = quiet();
+    bare(&mut run);
+    let mark = a_foe(&mut run, EnemyKind::Dummy, 27.0, 14.0);
+    a_foe(&mut run, EnemyKind::Skeleton, 44.0, 3.0);
+    let h = run.players.get_mut(&1).unwrap();
+    (h.bonus.fork, h.bonus.shots) = (2, 4);
+    run.step(&BTreeMap::from([(1, fire(1, 0))]));
+    let mut forked = 0;
+    for _ in 0..HZ {
+        run.step(&BTreeMap::new());
+        forked = forked.max(run.projectiles.iter().filter(|p| !p.hostile && p.traits.forked).count());
+    }
+    assert!(forked >= 2, "a spread's shot forks where it stops: {forked}");
+    // A chaining shot's chain forks too, at its first link.
+    let mut run = quiet();
+    bare(&mut run);
+    a_foe(&mut run, EnemyKind::Dummy, 27.0, 14.0);
+    let link = a_foe(&mut run, EnemyKind::Dummy, 27.0, 18.0);
+    a_foe(&mut run, EnemyKind::Skeleton, 44.0, 3.0);
+    let h = run.players.get_mut(&1).unwrap();
+    (h.bonus.fork, h.bonus.chain) = (2, 1);
+    run.step(&BTreeMap::from([(1, fire(1, 0))]));
+    let mut off_link = 0;
+    for _ in 0..HZ {
+        run.step(&BTreeMap::new());
+        off_link = off_link.max(run.projectiles.iter().filter(|p| p.traits.forked && p.last_hit == Some(link)).count());
+    }
+    let _ = mark;
+    assert_eq!(off_link, 2, "the chain's link forks into two");
+}
+
+#[test]
 fn a_new_round_stands_every_knight_as_stone_until_it_moves() {
     let mut run = quiet();
     bare(&mut run);
@@ -1081,13 +1124,16 @@ fn a_fallen_party_goes_home_on_its_own_when_nobody_asks() {
     run.step(&BTreeMap::new());
     assert!(run.over());
     let mut due_at = None;
-    for t in 0..(crate::rules::again::VERDICT_HOLD + 2) {
+    // The verdict's own hold, the road ahead's included (`floor_stats`).
+    let hold = run.verdict_hold();
+    assert!(hold >= crate::rules::again::VERDICT_HOLD);
+    for t in 0..(hold + 2) {
         if run.again_due() {
             due_at = Some(t);
             break;
         }
     }
-    assert!(due_at.is_some_and(|t| t + 1 >= crate::rules::again::VERDICT_HOLD), "{due_at:?}");
+    assert!(due_at.is_some_and(|t| t + 1 >= hold), "{due_at:?}");
 }
 
 #[test]

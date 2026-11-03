@@ -123,18 +123,20 @@ pub(super) struct ReplayItems {
 }
 
 impl ReplayItems {
+    #[cfg(test)]
     pub(super) fn observe(&mut self, line: &str) {
-        let payload = line
-            .trim()
-            .strip_prefix("data:")
-            .map(str::trim)
-            .unwrap_or(line.trim());
-        // Most SSE frames are token deltas. Avoid a third JSON parse for those.
+        self.observe_parsed(&super::events::ParsedResponsesLine::new(line));
+    }
+
+    pub(super) fn observe_parsed(&mut self, line: &super::events::ParsedResponsesLine<'_>) {
+        let payload = line.payload;
+        // The literal gate is part of replay provenance: an escaped event type
+        // alone must not admit an item that the original capture would skip.
         if !payload.contains("response.output_item.done") && !payload.contains("response.completed")
         {
             return;
         }
-        let Ok(value) = serde_json::from_str::<Value>(payload) else {
+        let Some(value) = line.value.as_ref() else {
             return;
         };
         match value["type"].as_str() {

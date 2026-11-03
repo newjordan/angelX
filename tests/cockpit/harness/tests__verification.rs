@@ -5,6 +5,121 @@
 
 use super::*;
 
+// Behavioral cases remain executable without recompiling this test binary.
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VerificationCase {
+    id: String,
+    call: Option<VerificationCall>,
+    path: Option<String>,
+    text: Option<String>,
+    mutation: Option<bool>,
+    prose: Option<bool>,
+    requires: Option<bool>,
+    verification: Option<bool>,
+    sufficient: Option<bool>,
+    outcome: Option<String>,
+}
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct VerificationCall {
+    id: String,
+    name: String,
+    args: Value,
+}
+
+fn assert_verification_cases(group: &str, expected_count: usize, expected_assertions: usize) {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/verification-cases.json");
+    let bytes = std::fs::read(path).expect("verification fixture");
+    let groups: std::collections::BTreeMap<String, Vec<VerificationCase>> =
+        serde_json::from_slice(&bytes).expect("valid verification fixture");
+    let cases = groups.get(group).expect("known verification case group");
+    assert_eq!(cases.len(), expected_count, "{group}: case count");
+    let mut ids = std::collections::HashSet::new();
+    let mut total_assertions = 0;
+    for case in cases {
+        assert!(ids.insert(&case.id), "{group}: duplicate case {}", case.id);
+        let call = case.call.as_ref().map(|call| ToolCall {
+            id: call.id.clone(),
+            name: call.name.clone(),
+            args: call.args.clone(),
+        });
+        let mut assertions = 0;
+        if let Some(expected) = case.mutation {
+            assert_eq!(
+                is_mutation_call(call.as_ref().expect("mutation call")),
+                expected,
+                "{group}/{} mutation",
+                case.id
+            );
+            assertions += 1;
+        }
+        if let Some(expected) = case.prose {
+            assert_eq!(
+                is_prose_only_path(case.path.as_deref().expect("prose path")),
+                expected,
+                "{group}/{} prose",
+                case.id
+            );
+            assertions += 1;
+        }
+        if let Some(expected) = case.requires {
+            assert_eq!(
+                mutation_requires_verification(call.as_ref().expect("mutation call")),
+                expected,
+                "{group}/{} requires",
+                case.id
+            );
+            assertions += 1;
+        }
+        if let Some(expected) = case.verification {
+            assert_eq!(
+                is_verification_call(call.as_ref().expect("verification call")),
+                expected,
+                "{group}/{} verification",
+                case.id
+            );
+            assertions += 1;
+        }
+        if let Some(expected) = case.sufficient {
+            assert_eq!(
+                verification_is_completion_sufficient(call.as_ref().expect("verification call")),
+                expected,
+                "{group}/{} sufficient",
+                case.id
+            );
+            assertions += 1;
+        }
+        if let Some(expected) = case.outcome.as_deref() {
+            let expected = match expected {
+                "passed" => Some(VerificationOutcome::Passed),
+                "failed" => Some(VerificationOutcome::Failed),
+                "inconclusive" => Some(VerificationOutcome::Inconclusive),
+                "none" => None,
+                _ => panic!("{group}/{} invalid outcome", case.id),
+            };
+            assert_eq!(
+                verification_outcome(
+                    call.as_ref().expect("outcome call"),
+                    case.text.as_deref().expect("outcome text")
+                ),
+                expected,
+                "{group}/{} outcome",
+                case.id
+            );
+            assertions += 1;
+        }
+        assert!(
+            assertions > 0,
+            "{group}/{} has no behavioral assertion",
+            case.id
+        );
+        total_assertions += assertions;
+    }
+    assert_eq!(total_assertions, expected_assertions, "{group}: assertion count");
+}
+
 /// The stop checkpoint raised for edits no verifier has covered.
 fn is_unverified_checkpoint(content: &str) -> bool {
     book::ledger::is_warpath_message(content) && has_route(first_line(content), "⠧⠋")
@@ -19,300 +134,17 @@ fn is_stop_checkpoint(content: &str) -> bool {
 
 #[test]
 fn remote_verifiers_require_an_executed_check_not_benchmark_vocabulary() {
-    for (command, expected) in [
-        ("ssh worker 'cargo test'", true),
-        ("ssh -p 2222 worker 'python3 -m pytest'", true),
-        ("ssh worker 'cargo test || true'", false),
-        ("ssh worker 'echo cargo test'", false),
-        ("cat results.golden.json", false),
-        ("echo benchmark", false),
-        ("rg benchmark README.md", false),
-        ("ssh worker 'cat results.golden.json'", false),
-    ] {
-        let call = ToolCall {
-            id: "remote".into(),
-            name: "shell".into(),
-            args: serde_json::json!({"command":command}),
-        };
-        assert_eq!(is_verification_call(&call), expected, "{command}");
-    }
+    assert_verification_cases("remote", 8, 8);
 }
 
 #[test]
 fn verify_before_done_classifies_mutations_and_real_verifiers() {
-    let call = |name: &str, args: Value| ToolCall {
-        id: "call".into(),
-        name: name.into(),
-        args,
-    };
-
-    assert!(is_mutation_call(&call(
-        "write_file",
-        serde_json::json!({"path":"src/lib.rs","content":""})
-    )));
-    assert!(is_mutation_call(&call(
-        "fmt",
-        serde_json::json!({"check":false})
-    )));
-    assert!(!is_mutation_call(&call(
-        "fmt",
-        serde_json::json!({"check":true})
-    )));
-    assert!(!is_mutation_call(&call(
-        "code_mode",
-        serde_json::json!({"script":"return grep({pattern:'x'});"})
-    )));
-    assert!(is_mutation_call(&call(
-        "code_mode",
-        serde_json::json!({"script":"return shell({command:'true'});","allow_effects":true})
-    )));
-
-    let prose = call(
-        "write_file",
-        serde_json::json!({"path":"README.md","content":"guide"}),
-    );
-    let source = call(
-        "write_file",
-        serde_json::json!({"path":"src/lib.rs","content":"pub fn x() {}"}),
-    );
-    let unknown = call("integrate", serde_json::json!({}));
-    assert!(is_prose_only_path("docs/guide.MDX"));
-    assert!(is_prose_only_path("LICENSE"));
-    assert!(
-        is_prose_only_path("ReadMe"),
-        "mixed-case extensionless prose still matches without a lowercase copy"
-    );
-    assert!(is_prose_only_path("CHANGELOG"));
-    assert!(!is_prose_only_path("Cargo.toml"));
-    assert!(!mutation_requires_verification(&prose));
-    assert!(mutation_requires_verification(&source));
-    assert!(
-        mutation_requires_verification(&unknown),
-        "opaque/directly untyped mutations stay conservative"
-    );
-
-    for verifier in [
-        call("run_tests", serde_json::json!({})),
-        call("check", serde_json::json!({})),
-        call("lint", serde_json::json!({})),
-        call("cargo", serde_json::json!({"args":"test --all-targets"})),
-        call("shell", serde_json::json!({"command":"npm test"})),
-        call("shell", serde_json::json!({"command":"uv run pytest -q"})),
-        call(
-            "shell",
-            serde_json::json!({"command":"cd cockpit && cargo   test 2>&1 | tail -20"}),
-        ),
-        call(
-            "shell",
-            serde_json::json!({"command":"GOTOOLCHAIN=auto go build ./..."}),
-        ),
-        call(
-            "shell",
-            serde_json::json!({"command":"dotnet test src/App.Tests/App.Tests.csproj"}),
-        ),
-        call(
-            "shell",
-            serde_json::json!({"command":"./gradlew :module:test"}),
-        ),
-        call(
-            "shell",
-            serde_json::json!({"command":"printf 'prep\\n'; cargo test"}),
-        ),
-        call(
-            "shell",
-            serde_json::json!({"command":"cargo test && printf 'done\\n'"}),
-        ),
-        call("shell", serde_json::json!({"command":"cargo test;   "})),
-        call("shell", serde_json::json!({"command":"CARGO TEST"})),
-        call("shell", serde_json::json!({"command":"Npm Test"})),
-        call("shell", serde_json::json!({"command":"UV RUN PYTEST -q"})),
-    ] {
-        assert!(is_verification_call(&verifier), "{}", verifier.name);
-    }
-    assert!(!is_verification_call(&call(
-        "shell",
-        serde_json::json!({"command":"sed -n '1,40p' src/lib.rs"})
-    )));
-    assert!(!is_verification_call(&call(
-        "shell",
-        serde_json::json!({"command":"echo cargo test"})
-    )));
-    assert!(
-        !is_verification_call(&call(
-            "shell",
-            serde_json::json!({"command":"echo CARGO TEST"})
-        )),
-        "quoted/echoed mixed-case argv is still not a verifier"
-    );
-    assert!(!is_verification_call(&call(
-        "shell",
-        serde_json::json!({"command":"true || cargo test"})
-    )));
-    for masked in [
-        "cargo test; printf 'done\\n'",
-        "cargo test\nprintf 'done\\n'",
-        "cargo test & printf 'launched\\n'",
-        "cargo test || true",
-        "printf '; cargo test'",
-        "printf \"\\n cargo test\"",
-        "printf 'cargo test | tail -1'",
-        "printf 'harmless | cargo test'",
-        "printf 'harmless & cargo test'",
-        "cargo test '",
-        "true $(false; cargo test )",
-        "true \"$(false; cargo test)\"",
-        "true `false; cargo test `",
-        "true > >(false; cargo test )",
-        "cargo(){ true; }; cargo test",
-        "function cargo { true; }; cargo test",
-        "cat <<'EOF'\n; cargo test\nEOF",
-        "true # ignored; cargo test",
-    ] {
-        assert!(
-            !is_verification_call(&call("shell", serde_json::json!({"command": masked}))),
-            "status-masked verifier must not count: {masked}"
-        );
-    }
-
-    let run_tests = call(
-        "run_tests",
-        serde_json::json!({"args":"--all-targets   -- --test-threads=1"}),
-    );
-    for sufficient in [run_tests, call("check", serde_json::json!({}))] {
-        assert!(
-            verification_is_completion_sufficient(&sufficient),
-            "{}",
-            sufficient.name
-        );
-    }
-    for supplemental in [
-        call("lint", serde_json::json!({})),
-        call("fmt", serde_json::json!({"check":true})),
-        call(
-            "shell",
-            serde_json::json!({"command":"GOTOOLCHAIN=auto go test ./execution/rerun/..."}),
-        ),
-        call(
-            "shell",
-            serde_json::json!({"command":"JAVA_HOME=/jdk mvn -DskipTests package"}),
-        ),
-        call(
-            "shell",
-            serde_json::json!({"command":"dotnet build src/App/App.csproj"}),
-        ),
-        call(
-            "shell",
-            serde_json::json!({"command":"GOTOOLCHAIN=auto go vet ./execution/rerun/..."}),
-        ),
-    ] {
-        assert!(!verification_is_completion_sufficient(&supplemental));
-    }
+    assert_verification_cases("classifier", 59, 59);
 }
 
 #[test]
 fn verifier_outcomes_do_not_confuse_dispatch_with_green_evidence() {
-    let call = |name: &str, args: Value| ToolCall {
-        id: "verify".into(),
-        name: name.into(),
-        args,
-    };
-    let tests = call("run_tests", serde_json::json!({}));
-    assert_eq!(
-        verification_outcome(
-            &tests,
-            "tests: 12 passed, 0 failed, 1 ignored — reward 1.00"
-        ),
-        Some(VerificationOutcome::Passed)
-    );
-    assert_eq!(
-        verification_outcome(
-            &tests,
-            "tests: 11 passed, 1 failed, 0 ignored — reward 0.92"
-        ),
-        Some(VerificationOutcome::Failed)
-    );
-    assert_eq!(
-        verification_outcome(&tests, "test runner returned an unfamiliar report"),
-        Some(VerificationOutcome::Inconclusive)
-    );
-
-    let check = call("check", serde_json::json!({}));
-    assert_eq!(
-        verification_outcome(&check, "check: 2 warnings, 0 errors — reward 0.98"),
-        Some(VerificationOutcome::Passed)
-    );
-    assert_eq!(
-        verification_outcome(&check, "check: 0 warnings, 3 errors — reward 0.00"),
-        Some(VerificationOutcome::Failed)
-    );
-    assert_eq!(
-        verification_outcome(&check, "tool error: dependency unavailable"),
-        Some(VerificationOutcome::Failed)
-    );
-    assert_eq!(
-        verification_outcome(&check, "action capsule denied by policy"),
-        None
-    );
-
-    let cargo_check = call("cargo", serde_json::json!({"args":"check --quiet"}));
-    assert_eq!(
-        verification_outcome(&cargo_check, "[cargo verdict: pass]"),
-        Some(VerificationOutcome::Passed)
-    );
-    assert_eq!(
-        verification_outcome(&cargo_check, "Error: Could Not Compile foo"),
-        Some(VerificationOutcome::Failed),
-        "mixed-case compile fail still classifies without a lowercase copy"
-    );
-    assert_eq!(
-        verification_outcome(&cargo_check, "Finished `dev` profile [unoptimized]"),
-        Some(VerificationOutcome::Passed)
-    );
-    let fmt = call("fmt", serde_json::json!({"check": true}));
-    assert_eq!(
-        verification_outcome(&fmt, "Already rustfmt-clean"),
-        Some(VerificationOutcome::Passed)
-    );
-    assert_eq!(
-        verification_outcome(&fmt, "Needs Formatting"),
-        Some(VerificationOutcome::Failed)
-    );
-    let cargo_test = call("cargo", serde_json::json!({"args":"test --quiet"}));
-    assert_eq!(
-        verification_outcome(&cargo_test, "[cargo verdict: pass]"),
-        Some(VerificationOutcome::Inconclusive),
-        "a successful runner process with zero observed tests is not green test evidence"
-    );
-
-    for command in [
-        "cargo test",
-        "npm test",
-        "pytest -q",
-        "PATH=./test-shim:$PATH cargo test",
-        "BASH_ENV=./test-env cargo test",
-        "/tmp/test-shim/cargo test",
-    ] {
-        let shell = call("shell", serde_json::json!({"command": command}));
-        assert!(
-            is_verification_call(&shell),
-            "raw {command} remains a verification attempt"
-        );
-        assert_eq!(
-            verification_outcome(&shell, "all checks passed"),
-            Some(VerificationOutcome::Inconclusive),
-            "an untyped shell success cannot prove which executable ran: {command}"
-        );
-        assert!(
-            !verification_is_completion_sufficient(&shell),
-            "raw shell cannot arm durable green: {command}"
-        );
-    }
-    let failing_shell = call("shell", serde_json::json!({"command": "npm test"}));
-    assert_eq!(
-        verification_outcome(&failing_shell, "tool error: shell command failed (exit 1)"),
-        Some(VerificationOutcome::Failed),
-        "a definite raw-shell failure remains useful red evidence"
-    );
+    assert_verification_cases("outcomes", 20, 32);
 }
 
 /// A JavaScript test runner called directly is a test run, as `npm test` is.
@@ -320,46 +152,7 @@ fn verifier_outcomes_do_not_confuse_dispatch_with_green_evidence() {
 /// its red runs reached the verifier state.
 #[test]
 fn direct_js_test_runners_are_verification_calls() {
-    let shell = |command: &str| ToolCall {
-        id: String::new(),
-        name: "shell".into(),
-        args: serde_json::json!({"command": command}),
-    };
-    for command in [
-        "npx jest forth.spec.js 2>&1 | tail -30",
-        "cd ws && npx jest forth.spec.js 2>&1 | sed -n '1,80p'",
-        "npx --yes vitest run",
-        "bunx vitest run src",
-        "pnpm exec mocha test/",
-        "pnpm vitest run",
-        "yarn jest --ci",
-        "npm exec -- jest",
-        "./node_modules/.bin/jest -i",
-        "CI=true jest",
-        "mocha",
-    ] {
-        assert!(is_verification_call(&shell(command)), "{command}");
-        assert_eq!(
-            verification_outcome(&shell(command), "tool error: shell command failed (exit 1)"),
-            Some(VerificationOutcome::Failed),
-            "{command}"
-        );
-        assert!(
-            !verification_is_completion_sufficient(&shell(command)),
-            "a raw shell run is never durable green: {command}"
-        );
-    }
-    for command in [
-        "npx prettier --check .",
-        "npx tsc --noEmit",
-        "cat jest.config.js",
-        "grep -n jest package.json",
-        "echo jest",
-        "npm install jest",
-        "yarn add -D vitest",
-    ] {
-        assert!(!is_verification_call(&shell(command)), "{command}");
-    }
+    assert_verification_cases("direct_js", 18, 40);
 }
 
 #[test]
@@ -1693,4 +1486,227 @@ fn task_call_budget_contains_unclassified_shell_and_allows_repair() {
         assert!(green.contains("OK"), "{green}");
         let _ = std::fs::remove_dir_all(root);
     }
+}
+
+/// One table across every decision the `verify-policy` leg owns.
+fn verify_policy_calls() -> Vec<ToolCall> {
+    let call = |name: &str, args: Value| ToolCall {
+        id: "policy".into(),
+        name: name.into(),
+        args,
+    };
+    let shell = |command: &str| call("shell", serde_json::json!({"command": command}));
+    let cargo = |args: &str| call("cargo", serde_json::json!({"args": args}));
+    let mut calls = [
+        "cargo test",
+        "cargo test --lib",
+        "cargo test || true",
+        "cargo test &",
+        "echo cargo test",
+        "RUSTFLAGS=-Dwarnings cargo test",
+        "cargo test 2>&1 | tail -6",
+        "cargo test 2>&1 | tail -6; ls",
+        "echo prep; cargo test",
+        "cargo build",
+        "npm test",
+        "npx jest",
+        "node --test",
+        "python3 -m pytest",
+        "uv run pytest",
+        "go test ./...",
+        "go build ./...",
+        "make test",
+        "make build",
+        "make",
+        "cmake --build .",
+        "ssh worker 'cargo test'",
+        "ssh worker 'cargo test || true'",
+        "cargo test `date`",
+        "cargo test # comment",
+        "CARGO_TERM=color cargo test",
+        "cargo clippy",
+        "cargo fmt --check",
+        "cargo fmt",
+        "MAKELEVEL=1 make all",
+        "./node_modules/.bin/jest",
+        "pnpm exec mocha",
+        "printf 'done\n'",
+        "",
+    ]
+    .into_iter()
+    .map(shell)
+    .collect::<Vec<_>>();
+    calls.extend([
+        cargo("test"),
+        cargo("test --lib"),
+        cargo("build"),
+        cargo("fmt --check"),
+        cargo("fmt"),
+        cargo("check"),
+        cargo("clippy"),
+        cargo("build --release"),
+        cargo(""),
+        call("run_tests", serde_json::json!({})),
+        call("check", serde_json::json!({})),
+        call("lint", serde_json::json!({})),
+        call("fmt", serde_json::json!({"check": true})),
+        call("fmt", serde_json::json!({"check": false})),
+        call(
+            "write_file",
+            serde_json::json!({"path": "README.md", "content": "# notes\n"}),
+        ),
+        call(
+            "write_file",
+            serde_json::json!({"path": "cockpit/src/lib.rs", "content": "fn main() {}\n"}),
+        ),
+        call(
+            "str_replace",
+            serde_json::json!({"path": "docs/guide.md", "old": "a", "new": "b"}),
+        ),
+        call(
+            "apply_patch",
+            serde_json::json!({"diff": "*** Begin Patch\n*** Update File: cockpit/src/lib.rs\n@@\n-a\n+b\n*** End Patch\n"}),
+        ),
+        call(
+            "multi_edit",
+            serde_json::json!({"path": "src/main.rs", "edits": [{"old": "a", "new": "b"}]}),
+        ),
+        call("code_mode", serde_json::json!({"allow_effects": true})),
+        call("code_mode", serde_json::json!({"allow_effects": false})),
+        call("read_file", serde_json::json!({"path": "README.md"})),
+    ]);
+    calls
+}
+
+#[test]
+fn verify_policy_leg_matches_the_native_decisions_on_every_shape() {
+    let leg = crate::agent::harness::live_policy::shipped_leg("verify-policy");
+    for call in verify_policy_calls() {
+        let (live, source) = verification_decision_with(&call, Some(leg.clone()));
+        assert!(
+            matches!(
+                source,
+                crate::agent::harness::live_policy::LegSource::Live { .. }
+            ),
+            "{:?} kept the native decision: {source:?}",
+            call.args
+        );
+        assert_eq!(live, verification_decision_native(&call), "{:?}", call.args);
+        assert_eq!(live.is_verification, is_verification_call(&call));
+        assert_eq!(
+            live.is_progress_verifier,
+            is_progress_verifier_call(&call.name.clone(), &call.args)
+        );
+        assert_eq!(live.runs_tests_anywhere, shell_runs_tests_anywhere(&call));
+        assert_eq!(
+            live.requires_verification,
+            mutation_requires_verification(&call)
+        );
+    }
+}
+
+#[test]
+fn verify_policy_leg_falls_back_when_its_answer_breaks_the_contract() {
+    let root = std::env::temp_dir().join(format!(
+        "angel-verify-policy-{}-{:?}",
+        std::process::id(),
+        std::thread::current().id()
+    ));
+    let module = root.join("bad-policy");
+    std::fs::create_dir_all(&module).unwrap();
+    std::fs::write(
+        module.join("module.json"),
+        r#"{"api_version":1,"id":"bad-policy","kind":"policy","entry":"index.js","probe":{}}"#,
+    )
+    .unwrap();
+    // Every field true: a cargo call that changed nothing cannot owe verification.
+    std::fs::write(
+        module.join("index.js"),
+        "module.exports={apiVersion:1,render:()=>({requires_verification:true,is_verification:true,is_progress_verifier:true,runs_tests_anywhere:true})}",
+    )
+    .unwrap();
+    let mut registry = angel_live::Registry::validated(
+        root.clone(),
+        crate::agent::hotload::evaluate,
+        |_, _| Ok(()),
+    );
+    registry.refresh(true);
+    let broken = registry
+        .snapshot()
+        .policies
+        .get("bad-policy")
+        .cloned()
+        .expect("broken policy leg did not load");
+    let call = ToolCall {
+        id: "policy".into(),
+        name: "cargo".into(),
+        args: serde_json::json!({"args": "test"}),
+    };
+    let (decision, source) = verification_decision_with(&call, Some(broken));
+    assert!(
+        matches!(
+            source,
+            crate::agent::harness::live_policy::LegSource::LiveFallback { .. }
+        ),
+        "{source:?}"
+    );
+    assert_eq!(decision, verification_decision_native(&call));
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// The production wrappers route through the generation compiled into the
+/// binary now, with no native fallback: nothing offers a live verify-policy
+/// generation in a test process, so each of the four answers must be the
+/// oracle's, shape for shape.
+#[test]
+fn the_shipped_leg_answers_every_verify_wrapper() {
+    for call in verify_policy_calls() {
+        let native = verification_decision_native(&call);
+        let label = format!("{:?} {:?}", call.name, call.args);
+        assert_eq!(
+            mutation_requires_verification(&call),
+            native.requires_verification,
+            "{label}"
+        );
+        assert_eq!(
+            is_verification_call(&call),
+            native.is_verification,
+            "{label}"
+        );
+        assert_eq!(
+            is_progress_verifier_call(&call.name, &call.args),
+            native.is_progress_verifier,
+            "{label}"
+        );
+        assert_eq!(
+            shell_runs_tests_anywhere(&call),
+            native.runs_tests_anywhere,
+            "{label}"
+        );
+    }
+}
+
+#[test]
+fn verify_policy_leg_costs_microseconds_per_decision() {
+    let leg = crate::agent::harness::live_policy::shipped_leg("verify-policy");
+    let calls = verify_policy_calls();
+    let mut live = Vec::with_capacity(200);
+    let mut native = Vec::with_capacity(200);
+    for index in 0..200 {
+        let call = &calls[index % calls.len()];
+        let started = std::time::Instant::now();
+        let _ = verification_decision_with(call, Some(leg.clone()));
+        live.push(started.elapsed().as_micros());
+        let started = std::time::Instant::now();
+        let _ = verification_decision_native(call);
+        native.push(started.elapsed().as_micros());
+    }
+    live.sort_unstable();
+    native.sort_unstable();
+    eprintln!(
+        "verify-policy over 200 decisions: median {} µs live, {} µs native; p95 {} µs live",
+        live[100],
+        native[100],
+        live[190]
+    );
 }

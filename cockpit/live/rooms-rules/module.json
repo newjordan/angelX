@@ -1,0 +1,17 @@
+{
+  "api_version": 1,
+  "id": "rooms-rules",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "op": "sized",
+    "pack": 0,
+    "w": 15,
+    "h": 9
+  },
+  "bend": {
+    "entry": "rooms-rules.bend",
+    "proof": "PROOF.bend",
+    "output": "rooms-rules.compiled.js"
+  }
+}

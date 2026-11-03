@@ -554,7 +554,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "pennon.knight",
-  "source_path": "/work/artifacts/art-prod/slots/pennon.knight/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/pennon.knight/v01/source-sheet.png",
   "source_sha256": "832f3c281b0a3debf2e4f060bfc56adf9766acb8f780985005442680f54e1d8f",
   "tool_version": 2
 }

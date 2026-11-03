@@ -75,6 +75,10 @@ def summarize_trace(record, trace):
         task_wall = milliseconds(metrics.get("wall_ms"))
     verifier_wall = milliseconds(verifier.get("verifier_elapsed_ms"))
     token_fields, usage_subtotals, usage_coverage = measured_usage(usage)
+    identity = angel.get("identity")
+    identity = identity if isinstance(identity, dict) else {}
+    live = identity.get("live")
+    live = live if isinstance(live, dict) else {}
     return {
         "task": task.get("name"), "score": score, "solved": score == 1,
         "task_wall_s": task_wall, "verifier_wall_s": verifier_wall,
@@ -90,6 +94,11 @@ def summarize_trace(record, trace):
         "usage_reported_subtotals": usage_subtotals, "usage_metric_coverage": usage_coverage,
         "usage_complete": (usage.get("core_complete") is True and token_fields["input_tokens"] is not None
                            and token_fields["output_tokens"] is not None),
+        # The binary plus the live-module legs the turn pinned; None for cells
+        # recorded before the harness reported it.
+        "identity_sha256": identity.get("combined_sha256"),
+        "executable_sha256": identity.get("executable_sha256"),
+        "live_sha256": live.get("sha256"),
         "model": angel.get("model"), "effort": angel.get("reasoning_effort"),
         "stop_reason": angel.get("stop_reason"),
         "exit_code": (info.get("agent_exit") or {}).get("exit_code"),
@@ -107,7 +116,7 @@ METRICS = (
 )
 
 
-def aggregate(rows):
+def metric_stats(rows):
     stats = {}
     for key in METRICS:
         values = [row[key] for row in rows if row[key] is not None]
@@ -115,6 +124,28 @@ def aggregate(rows):
             "reported": len(values), "sum": sum(values) if values else None,
             "median": statistics.median(values) if values else None,
         }
+    return stats
+
+
+def identity_groups(rows):
+    """Rows grouped by combined binary-plus-legs identity; "unknown" when unreported."""
+    groups = {}
+    for row in rows:
+        key = row.get("identity_sha256") or "unknown"
+        group = groups.setdefault(key, {
+            "tasks": 0, "scored": 0, "solved": 0,
+            "executable_sha256": row.get("executable_sha256"),
+            "live_sha256": row.get("live_sha256"), "rows": [],
+        })
+        group["tasks"] += 1
+        group["scored"] += row.get("score") is not None
+        group["solved"] += bool(row.get("solved"))
+        group["rows"].append(row)
+    return dict(sorted(groups.items()))
+
+
+def aggregate(rows):
+    stats = metric_stats(rows)
     cache_reported = [row for row in rows if row["input_tokens"] is not None
                       and row["cached_input_tokens"] is not None]
     cached_rows = [row for row in cache_reported if 0 <= row["cached_input_tokens"] <= row["input_tokens"]]
@@ -134,6 +165,9 @@ def aggregate(rows):
                             if total_input else None),
         "cache_hit_reported_tasks": len(cached_rows),
         "cache_hit_invalid_tasks": len(cache_reported) - len(cached_rows), "metrics": stats,
+        "identity_groups": {key: {**{k: v for k, v in group.items() if k != "rows"},
+                                  "metrics": metric_stats(group["rows"])}
+                            for key, group in identity_groups(rows).items()},
     }
 
 
@@ -213,11 +247,22 @@ def paired(baseline, candidate):
         for key in METRICS:
             row[key] = c[key] - b[key] if c[key] is not None and b[key] is not None else None
         deltas.append(row)
+    base_ids, cand_ids = identity_groups(baseline["rows"]), identity_groups(candidate["rows"])
+    known = "unknown" not in base_ids and "unknown" not in cand_ids
+
+    def changed(field):
+        return (None if not known else
+                {g[field] for g in base_ids.values()} != {g[field] for g in cand_ids.values()})
     keys = baseline["manifest"].keys() | candidate["manifest"].keys()
     mismatches = sorted(key for key in keys if baseline["manifest"].get(key) != candidate["manifest"].get(key))
     unknown_contract = sorted(key for key in keys if baseline["manifest"].get(key) is None or candidate["manifest"].get(key) is None)
     return {
         "baseline": baseline["path"], "candidate": candidate["path"],
+        # Which identity each cell ran under, and whether the binary or the
+        # live-module legs differ. None when a cell never reported identity.
+        "identity": {"baseline": sorted(base_ids), "candidate": sorted(cand_ids),
+                     "executable_changed": changed("executable_sha256"),
+                     "legs_changed": changed("live_sha256")},
         "contract_mismatches": mismatches, "shared_tasks": len(shared),
         "contract_unknown_fields": unknown_contract,
         "ambiguous_tasks": sorted(ambiguous), "jointly_scored_tasks": len(scored),

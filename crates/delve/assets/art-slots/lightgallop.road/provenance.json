@@ -1,6 +1,6 @@
 {
   "delivery": "lightgallop.road/v01",
-  "delivery_sheet_path": "/work/artifacts/art-prod-rt/slots/lightgallop.road/v01/source-sheet-keyed.png",
+  "delivery_sheet_path": "artifacts/art-prod-rt/slots/lightgallop.road/v01/source-sheet-keyed.png",
   "delivery_sheet_sha256": "5f7af1719d9c720567ed62ef1a46b1b5e8742cf2d5895d90d5c46243dcbf53da",
   "generation_sha256": "cf9643cfb1146863445de28baa6e1c575b7c6ccc422d9e234a373ac44ce53b1b",
   "generations": null,
@@ -14,6 +14,6 @@
   "prompt_sha256": "0aa243bd63dd84f2fd2ac223cfb25e3da6e359b3a21e018c94e22f4046730190",
   "rich_sheets": "external, bound by absolute path and SHA-256; only native PNGs, the map, this record and the review sheet are in the repository",
   "selected_sheet": "source-sheet-keyed.png (the delivery's own keyed copy of source-sheet.png; the raw magenta-key sheet is not bound)",
-  "source_path": "/work/artifacts/monolith-private/art-import-lg/prepared/lightgallop.road/source-sheet.png",
+  "source_path": "artifacts/monolith-private/art-import-lg/prepared/lightgallop.road/source-sheet.png",
   "source_sha256": "5f7af1719d9c720567ed62ef1a46b1b5e8742cf2d5895d90d5c46243dcbf53da"
 }

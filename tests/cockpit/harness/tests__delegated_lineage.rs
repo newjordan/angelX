@@ -100,6 +100,9 @@ fn fixture_env(root: &Path) -> Vec<EnvGuard> {
         std::fs::create_dir_all(root.join(directory)).unwrap();
     }
     vec![
+        // The scratch workspace is its own repository even when the scratch
+        // directory sits inside a checkout: git must not climb into it.
+        EnvGuard::set("GIT_CEILING_DIRECTORIES", root.to_str().unwrap()),
         EnvGuard::unset("HOME"),
         EnvGuard::set("XDG_CONFIG_HOME", root.join("config").to_str().unwrap()),
         EnvGuard::set("XDG_CACHE_HOME", root.join("cache").to_str().unwrap()),

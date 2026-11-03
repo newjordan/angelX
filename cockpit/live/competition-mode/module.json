@@ -1,0 +1,1 @@
+{"api_version":1,"id":"competition-mode","kind":"policy","entry":"index.js","probe":{"op":"ls_recursive","tokens":[{"kind":"ls"},{"kind":"recursive"}]},"bend":{"entry":"competition-mode.bend","proof":"PROOF.bend","output":"competition-mode.compiled.js"}}

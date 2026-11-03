@@ -21,30 +21,11 @@ impl Tool for LoopResearchTool {
         "loop_research"
     }
     fn def(&self) -> ToolDef {
-        let mut campaign_spec = crate::drive::labyrinth::entry::spec_schema();
-        campaign_spec["description"] = json!("⠾⠋⠑");
-        ToolDef {
-            name:self.name().into(),
-            description:"Sloptomizer research. context(task) recalls live evidence relationships across models, including outside /loop. During a loop: suggest ranks ideas with Pareto, UCB and MicroLearner without a model call; run tests your chosen idea asynchronously in an isolated copy on the current model/effort; compare=true measures a paired baseline. Completion arrives in the running turn automatically. Advice never forces a choice. rl_campaign handles measured policy promotion. ⠩⠓".into(),
-            params:json!({"type":"object","properties":{
-                "action":{"type":"string","enum":["options","context","suggest","run","campaign","status","results","stop"]},
-                "campaign_action":{"type":"string","enum":["start","run","status","cancel","check","recover","recheck"],"description":"⠾⠋⠉"},
-                "campaign_id":{"type":"string","maxLength":80,"description":"⠾⠋⠙"},
-                "campaign_spec":campaign_spec,
-                "campaign_bundle":{"type":"string","maxLength":512,"description":"⠾⠋⠋"},
-                "task":{"type":"string","description":"⠩⠓⠉"},
-                "verify":{"type":["string","null"],"description":"⠩⠓⠙"},
-                "methods":{"type":"array","items":{"type":"string","enum":["pareto","bandit","memory"]},"description":"⠩⠓⠑"},
-                "candidates":{"type":"array","items":{"type":"object","properties":{"idea":{"type":"string"},"approach":{"type":"string"}},"required":["idea"],"additionalProperties":false},"description":"⠩⠓⠃"},
-                "seed":{"type":"integer","description":"⠩⠓⠋"},
-                "idea":{"type":"string","description":"⠩⠓⠛"},
-                "approach":{"type":"string","description":"⠩⠓⠓"},
-                "compare":{"type":"boolean","description":"⠩⠓⠊"},
-                "use_memory":{"type":"boolean","description":"⠩⠓⠚"},
-                "run_id":{"type":"string","description":"⠾⠋⠁"},
-                "limit":{"type":"integer","minimum":1,"description":"⠾⠋⠃"}
-            },"required":["action"],"additionalProperties":false}),
-        }
+        let mut definition = crate::agent::harness::core_catalog::baseline_def("loop_research");
+        let mut spec = crate::drive::labyrinth::entry::spec_schema();
+        spec["description"] = json!("⠾⠋⠑");
+        definition.params["properties"]["campaign_spec"] = spec;
+        definition
     }
     fn workspace_write_scope_is_opaque(&self, args: &Value) -> bool {
         args["action"] == "run"
@@ -68,4 +49,9 @@ impl Tool for LoopResearchTool {
             .map_err(|_| "RL controller lock poisoned")?
             .research_call(&self.workspace, args, cancel.unwrap_or(&no_cancel))
     }
+}
+
+#[cfg(test)]
+pub(crate) fn catalog_current_loop_research() -> ToolDef {
+    LoopResearchTool::new(PathBuf::new(), Arc::new(Mutex::new(RlState::default()))).def()
 }

@@ -88,7 +88,7 @@ fn mood(cue: &str) -> Option<(&'static str, bool)> {
 }
 
 /// A knight as the last tick left them.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, serde::Serialize, serde::Deserialize)]
 struct Body {
     hp: u32,
     dash: u32,
@@ -96,7 +96,7 @@ struct Body {
 }
 
 /// Who spoke when, whose turn it is, and each knight's last grunts.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, serde::Serialize, serde::Deserialize)]
 pub struct Chatter {
     said: Option<u64>,
     turn: usize,

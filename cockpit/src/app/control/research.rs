@@ -337,6 +337,19 @@ impl App {
             }
         }
         self.research.project(extra);
+        // A competition seat's typed journal measurements grow the garden's
+        // competition plot; each receipt plots once.
+        if crate::agent::harness::competition_mode_active(&self.history) {
+            let measured: Vec<_> = self
+                .research
+                .visible
+                .iter()
+                .filter_map(|entry| Some((entry.title.clone(), entry.measurement.clone()?)))
+                .collect();
+            for (title, measurement) in measured {
+                let _ = self.realm.world.competition_test_measurement(&title, &measurement);
+            }
+        }
         let active = self
             .research
             .visible

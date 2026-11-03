@@ -9,6 +9,8 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/d5_frames.book");
 pub(crate) const CELL: char = '⠐';
 pub(crate) const SCORING: Route = Route::new(CELL, '⠁');
 pub(crate) const REVISE: Route = Route::new(CELL, '⠃');
@@ -38,12 +40,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the judge's scoring task, one score or per dimension (counts beside, responses below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Score each of the {n} responses below from 0 to 10 for combined correctness, insight, and rigor.",
-                "Output one line per response as 'N: score' (e.g. '1: 7'), nothing else.",
-                "Score each of the {n} responses below on these dimensions, each 0 to 10: {dims}.",
-                "Output one line per response as 'N: a b c d' where a b c d are the scores for {dims} in that exact order (e.g. '1: 8 6 7 5'), nothing else.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'1'),
         },
         Sub {
             route: REVISE,
@@ -51,12 +48,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "revise an answer to fix the verifier's problems (both below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Revise the answer below to fix these problems, keeping everything already correct.",
-                "Output the full corrected answer directly to the user — no preamble, no mention of the revision.",
-                "Problems:",
-                "Answer:",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'2'),
         },
         Sub {
             route: CITE,
@@ -64,13 +56,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "hold an answer's claims to the gathered sources (both below)",
             action: "",
             ideas: "",
-            pages: &[
-                "Revise the answer below so every nontrivial factual claim is either supported by one of the sources listed here — attribute it inline (e.g. 'per [source]') — or explicitly hedged or removed when the sources don't support it.",
-                "Never invent a citation or cite a source not in this list.",
-                "Keep everything already correct and output the full answer directly, no preamble, no meta-commentary.",
-                "Sources:",
-                "Answer:",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'3'),
         },
         Sub {
             route: SYNTHESIS,
@@ -78,15 +64,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the final synthesis of the drafts below",
             action: "",
             ideas: "",
-            pages: &[
-                "Synthesize the single strongest answer to the problem above, drawing on the responses below.",
-                "Keep what is correct, discard what is wrong, reconcile conflicts, and cover anything a single response missed.",
-                "Answer the user directly and in full — do not mention this synthesis step or the responses.",
-                "Use all internal evidence needed.",
-                "Deliver a complete answer in the format and level of detail the user requested.",
-                "Be direct and non-repetitive; remove repetition before evidence, caveats, code, or required detail.",
-                "Do not shorten merely to meet an unstated length.",
-            ],
+            pages: &super::catalog_pages::<7>(CATALOG, b'4'),
         },
         Sub {
             route: MERGE,
@@ -94,12 +72,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "an intermediate merge of the drafts below",
             action: "",
             ideas: "",
-            pages: &[
-                "Merge the responses below into a single, stronger set of dense bullet points.",
-                "Keep what is correct, drop what is wrong, reconcile conflicts, and add what they missed.",
-                "This is intermediate material for a later step, not the final answer — no preamble, no prose.",
-                "If the inputs conflict, state both positions; do not resolve that conflict at this stage.",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'5'),
         },
         Sub {
             route: GUIDANCE,
@@ -107,10 +80,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a target length for the delivered answer (the target beside the route)",
             action: "",
             ideas: "",
-            pages: &[
-                "Use all internal evidence needed, but shape the delivered answer rather than constraining the panel's reasoning.",
-                "Aim for at most about {target} characters unless completeness or an explicit user format requires more; remove repetition before removing evidence, caveats, or required detail.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'6'),
         },
         Sub {
             route: LABELS,
@@ -118,17 +88,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the labels on a stage's payload, each sent with its value",
             action: "",
             ideas: "",
-            pages: &[
-                "{n} independent responses:",
-                "{total} independent responses represented by {n} item(s):",
-                "({weight} of {total} drafts converged here)",
-                "[MOA draft truncated before synthesis: {omitted} chars omitted]",
-                "[context trimmed: {omitted} chars omitted]",
-                "Assistant requested tools:",
-                "[tool result for {id}]",
-                "### Grok research scout",
-                "### SearXNG web search",
-            ],
+            pages: &super::catalog_pages::<9>(CATALOG, b'7'),
         },
         Sub {
             route: PREFLIGHT,
@@ -136,11 +96,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the formation's planning preflight before the first tool action",
             action: "",
             ideas: "",
-            pages: &[
-                "[FORMATION PREFLIGHT: Produce an independent, concrete action plan and risk review for the coordinator.",
-                "This is planning only: no tool is available, nothing has executed, and you must not claim edits, tests, or measurements.]",
-                "[formation advisory truncated]",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'8'),
         },
         Sub {
             route: CONSULTS,
@@ -148,16 +104,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a delegator's consults: a peer's second opinion, a phoned specialist",
             action: "",
             ideas: "",
-            pages: &[
-                "Second opinion requested.",
-                "Claim:",
-                "Proposed test:",
-                "Evaluate the claim (run the test if you can) and reply with a verdict and brief reasoning.",
-                "You are being consulted by a peer agent for your expertise.",
-                "Answer concisely and decisively.",
-                "Context — the claim under consideration:",
-                "Question:",
-            ],
+            pages: &super::catalog_pages::<8>(CATALOG, b'9'),
         },
         Sub {
             route: EVIDENCE,
@@ -165,12 +112,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "executed test evidence from the delegators (results below; a request with no claim marked by its page)",
             action: "",
             ideas: "",
-            pages: &[
-                "Executed test evidence — ground your answer in these real results.",
-                "A delegator agent proposed each; angel approved and routed it.",
-                "Trust passing/failing tests and consulted specialists over the drafts' bare assertions:",
-                "(unstated)",
-            ],
+            pages: &super::catalog_pages::<4>(CATALOG, b'0'),
         },
     ],
 };

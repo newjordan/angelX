@@ -65,7 +65,9 @@ gif = { version = "0.13", optional = true }
 png = { version = "0.18", optional = true }  # For APNG animation support
 resvg = { version = "0.38", optional = true }
 usvg = { version = "0.38", optional = true }
-ffmpeg-next = { version = "9.0", optional = true }  # For video playback (FFmpeg 9 / libavcodec 63)
+# File playback only needs demuxing, decoding and RGB scaling. Device registration
+# eagerly links libavdevice and its platform capture graph, even before playback.
+ffmpeg-next = { version = "9.0", optional = true, default-features = false, features = ["format", "software-scaling"] }
 anyhow = { version = "1.0", optional = true }       # Error handling for raytracer loaders
 gltf = { version = "1.4", optional = true }         # glTF/GLB loading for raytracer
 shakmaty = { version = "0.28", optional = true }    # Chess game logic for chess module
@@ -75,7 +77,10 @@ pgn-reader = { version = "0.27", optional = true }  # PGN parsing for chess modu
 default = []
 image = ["dep:image", "dep:gif", "dep:png"]
 svg = ["dep:resvg", "dep:usvg"]
-video = ["dep:ffmpeg-next", "image"]  # Video requires image for frame rendering
+# Keep the existing `video` API (including webcam capture) compatible. Consumers
+# that only play files can avoid the unused capture/filter/resampling bindings.
+video-playback = ["dep:ffmpeg-next", "image"]
+video = ["video-playback", "ffmpeg-next/device"]
 raytracer = ["dep:anyhow", "dep:gltf"]  # CPU raytracer with braille output
 chess = ["dep:shakmaty", "dep:pgn-reader"]  # Chess board rendering
 

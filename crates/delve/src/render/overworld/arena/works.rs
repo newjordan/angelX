@@ -61,12 +61,11 @@ fn tongue(cv: &mut Img, x: i32, base: i32, h: i32, tick: u32, seed: i32) {
 
 /// A cloud: cached rolling lobes inside the original radius, a crisp rim
 /// marking bad air and cool low interiors that keep figures readable.
-pub(super) fn gas_stamp(run: &Run, cloud: &skills::Cloud, modern: bool) -> (std::sync::Arc<Img>, i32, i32) {
+pub(super) fn gas_stamp(run: &Run, cloud: &skills::Cloud) -> (std::sync::Arc<Img>, i32, i32) {
     let (cx, cy) = at(cloud.x, cloud.y);
-    // The RGB kit's existing core is 1.8 radii across. The ink kit's
-    // floor projection keeps its existing 0.72/0.8 squash.
-    let r = cloud.radius() * UNIT * if modern { 0.9 } else { 1.0 };
-    let squash = if modern { 1.0 } else if run.side_on() { 0.8 } else { 0.72 };
+    // The floor projection's 0.72/0.8 squash.
+    let r = cloud.radius() * UNIT;
+    let squash = if run.side_on() { 0.8 } else { 0.72 };
     let (rx, ry) = (r as i32, (r * squash) as i32);
     let kind = match cloud.tint { 1 => super::fx::Stamp::Sulphur, 2 => super::fx::Stamp::GasWall, 3 => super::fx::Stamp::SulphurWall, _ => super::fx::Stamp::Gas };
     let im = super::fx::stamp(kind, rx, ry, ((run.tick / 4) % 6) as u8);
@@ -75,7 +74,7 @@ pub(super) fn gas_stamp(run: &Run, cloud: &skills::Cloud, modern: bool) -> (std:
 }
 
 fn gas(cv: &mut Img, run: &Run, cloud: &skills::Cloud) {
-    let (im,x,y)=gas_stamp(run,cloud,false);
+    let (im,x,y)=gas_stamp(run,cloud);
     cv.stamp(&im,x,y);
 }
 
@@ -108,6 +107,18 @@ fn blaze(cv: &mut Img, run: &Run, b: &skills::Blaze) {
         let t = (tick as i32 + k * 9) % 30;
         let sx = cx + (hash(k, tick as i32 / 30, 4) % (2 * rx.max(1) as u32 + 1)) as i32 - rx;
         cv.put(sx, cy - 6 - t / 2, if t < 15 { '6' } else { '@' });
+    }
+    // A monster's fire wears a beating rim: never ground to stand on.
+    if b.hostile() {
+        let ink = if tick / 5 % 2 == 0 { '@' } else { '7' };
+        let (ex, ey) = (rx + 2, ry + 1);
+        for k in 0..48 {
+            if k % 3 == 2 {
+                continue;
+            }
+            let a = k as f32 / 48.0 * std::f32::consts::TAU;
+            cv.put(cx + (a.cos() * ex as f32) as i32, cy + (a.sin() * ey as f32) as i32, ink);
+        }
     }
 }
 
@@ -408,7 +419,7 @@ fn shield_disc() -> Img {
 
 /// The disc turned about its upright axis, `turn` radians on: narrower as
 /// it goes edge-on, the rim showing alone at the edge.
-fn shield_turned(colours: &[(char, char)], turn: f32) -> Img {
+pub(super) fn shield_turned(colours: &[(char, char)], turn: f32) -> Img {
     let disc = shield_disc().recolor(colours);
     let k = turn.cos().abs();
     let w = ((disc.w as f32 * k).round() as i32).max(2);
@@ -745,49 +756,9 @@ fn peril_air(cv: &mut Img, run: &Run, p: &Peril) {
     }
 }
 
-// ─── poisoned and burning ────────────────────────────────────────────────────
-
-fn banes(cv: &mut Img, run: &Run) {
-    let t32 = run.tick as u32;
-    for bane in &run.works.banes {
-        let Some(enemy) = run.enemies.iter().find(|e| e.id == bane.foe && e.hp > 0) else {
-            continue;
-        };
-        let (x, y, h) = foe_box(run, enemy);
-        match bane.kind {
-            skills::Bane::Poison => {
-                // Green bubbles rising off it, now and then a grey one.
-                for k in 0..3 {
-                    let phase = (t32 as i32 + k * 8 + enemy.id as i32 * 3) % 22;
-                    let bx = x - 3 + k * 3 + ((phase as f32 * 0.5).sin() * 1.5) as i32;
-                    let by = y - h / 2 - phase / 2;
-                    cv.put(bx, by, if phase < 11 { 'y' } else { 'C' });
-                    if phase < 4 {
-                        cv.put(bx + 1, by, 'A');
-                    }
-                }
-            }
-            skills::Bane::Burn => {
-                // Small flames licking up its sides.
-                for k in 0..3 {
-                    let fx = x - h / 4 + k * (h / 4).max(2);
-                    tongue(
-                        cv,
-                        fx,
-                        y - h / 3,
-                        4 + (hash(k, t32 as i32 / 2, 2) % 4) as i32,
-                        t32,
-                        k,
-                    );
-                }
-            }
-        }
-    }
-}
-
 /// Where a foe stands and how tall it is, in native pixels: its feet and
 /// height.
-fn foe_box(run: &Run, e: &Enemy) -> (i32, i32, i32) {
+pub(super) fn foe_box(run: &Run, e: &Enemy) -> (i32, i32, i32) {
     let (x, y) = if run.side_on() {
         at(e.x, e.y + if e.boss.is_some() { e.radius() } else { FOOT })
     } else {
@@ -795,13 +766,17 @@ fn foe_box(run: &Run, e: &Enemy) -> (i32, i32, i32) {
     };
     let library = e.boss.and_then(|i| run.bosses.get(i as usize))
         .and_then(|b| crate::rules::bosses::Art::for_id(&b.id))
-        .and_then(|art| super::boss_art::library_figure(run,e,art,super::art_v2::enabled() && super::art_v2::supported(run)));
+        .and_then(|art| super::boss_art::library_figure(run,e,art));
     let h = match library.map(|im| (*im).clone()).or_else(|| e.boss.and_then(|i| stature::boss_figure(run, i))) {
         Some(im) => im.h,
         None => ((e.radius() * 2.0 * UNIT) as i32).max(stature::FOE_MIN),
     };
     let _ = EnemyKind::Bat;
-    (x, y, h)
+    // The Lawn Flamingo stands taller than its file's art (`garden`).
+    let h = if e.boss.and_then(|i| run.bosses.get(usize::from(i))).is_some_and(super::garden::is_flamingo) { h.max(46) } else { h };
+    // Up on the Butcher's hook, if he holds it.
+    let (hx, hy) = super::champions::hoist(run, e);
+    (x + hx, y + hy, h)
 }
 
 // ─── the Boss Key and its door ───────────────────────────────────────────────
@@ -925,7 +900,7 @@ fn locked_door(cv: &mut Img, run: &Run) {
 // ─── layers ──────────────────────────────────────────────────────────────────
 
 /// Under the figures: what lies on the ground.
-pub(super) fn under_with(cv: &mut Img, run: &Run, modern: bool) {
+pub(super) fn under_with(cv: &mut Img, run: &Run) {
     for p in &run.works.perils {
         peril_floor(cv, run, p);
     }
@@ -939,14 +914,12 @@ pub(super) fn under_with(cv: &mut Img, run: &Run, modern: bool) {
     for w in &run.works.barricades {
         barricade(cv, run, w);
     }
-    // RGB bodies are drawn by combat::under before the actors. Only the
-    // crisp danger rims belong in its protected cue overlay.
-    if !modern { for c in &run.works.clouds { gas(cv, run, c); } }
+    for c in &run.works.clouds { gas(cv, run, c); }
     // Keep every wall segment's danger core readable through its neighbours.
     for c in run.works.clouds.iter().filter(|c| c.wall()) {
         let (x,y)=at(c.x,c.y);
-        let r=c.radius()*UNIT*if modern {0.9}else{1.0};
-        let squash=if modern {1.0}else if run.side_on(){0.8}else{0.72};
+        let r=c.radius()*UNIT;
+        let squash=if run.side_on(){0.8}else{0.72};
         let (rx,ry)=(r as i32,(r*squash) as i32);
         let kind=if c.tint==3 {super::fx::Stamp::SulphurRim}else{super::fx::Stamp::GasRim};
         let rim=super::fx::stamp(kind,rx,ry,0);
@@ -957,9 +930,17 @@ pub(super) fn under_with(cv: &mut Img, run: &Run, modern: bool) {
     }
 }
 
-/// Over the figures: flame columns, blasts, shields in the air, ailments,
-/// the key a knight carries.
+/// Over the figures: flame columns, blasts, shields in the air, the key a
+/// knight carries (what ails a monster is `ailments`').
 pub(super) fn over(cv: &mut Img, run: &Run) {
+    // On the Atari board what a trap throws up is one blocky sprite in the
+    // foe's hue; the key a knight carries keeps its own.
+    super::atari::held_to(cv, run, super::atari::FOE, |cv| air(cv, run));
+    key_carried(cv, run);
+    super::team::over(cv, run);
+}
+
+fn air(cv: &mut Img, run: &Run) {
     for p in &run.works.perils {
         peril_air(cv, run, p);
     }
@@ -977,14 +958,12 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
             cv.put(wx + 2, wy - 1, 'A');
         }
     }
-    banes(cv, run);
     for f in &run.works.flights {
         flight(cv, run, f);
     }
     for b in &run.works.booms {
         boom(cv, run, b);
     }
-    key_carried(cv, run);
 }
 
 /// A knight who crouches: the sprite is shorter by a few rows, squatting.

@@ -1,0 +1,20 @@
+# crates/delve/src/rules/pacing.rs: a camp's foes by floor and doors.
+import Base
+
+def pacing.CAMP_FOES.row(depth: U32) -> [U32]:
+  match (depth : U32):
+    case 1:
+      return [2, 4, 6, 7, 8, 8]
+    case 2:
+      return [3, 5, 7, 8, 9, 10]
+    case 3:
+      return [4, 6, 8, 9, 10, 11]
+    case 4:
+      return [5, 7, 9, 10, 11, 12]
+    case 5:
+      return [8, 11, 14, 16, 18, 19]
+    case _:
+      return [9, 12, 15, 17, 19, 20]
+
+def pacing.camp_foes(depth: U32, doors: U32) -> U32:
+  patterns.nth_u(pacing.CAMP_FOES.row(RS.u_clamp(depth, 1, 6)), (RS.u_clamp(doors, 1, 6) - 1 : U32))

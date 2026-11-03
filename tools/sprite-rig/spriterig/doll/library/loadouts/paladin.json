@@ -1,0 +1,25 @@
+{
+ "name": "paladin",
+ "body": "hero",
+ "colors": {
+  "primary": [
+   "5",
+   "a"
+  ],
+  "metal": [
+   "W",
+   "V"
+  ]
+ },
+ "equip": [
+  "helm_great",
+  "plume",
+  "pauldrons",
+  "chest_plate",
+  "tabard",
+  "gauntlets",
+  "greaves",
+  "cape",
+  "greatsword"
+ ]
+}

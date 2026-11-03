@@ -3,7 +3,7 @@
 use super::super::super::ink::{Img, ink};
 use super::super::knights;
 use super::*;
-use crate::rules::{Run, classes::CLASSES};
+use crate::rules::{Run, cards::Guard, classes::CLASSES};
 
 const FACINGS: [Facing; 3] = [Facing::Down, Facing::Side, Facing::Up];
 
@@ -42,7 +42,10 @@ fn each_class_picks_its_own_sprite_set() {
         assert_eq!(Look::of(hero), Some(*a), "{} after the hall", a.name());
         // The arena draws them as their class, not as the knight.
         let drawn = knights::figure_with(hero, id, false);
-        assert!(same(&drawn, &figure(*a, knights::facing(hero.aim_x, hero.aim_y), pose(hero), true).recolor(knights::seat_colours(id))));
+        // A class whose kit holds a shield (the Mage's) wears it on the arm.
+        let slung = hero.holds_shield() && !a.shielded();
+        let face = knights::facing(hero.aim_x, hero.aim_y);
+        assert!(same(&drawn, &figure_shielded(*a, face, pose(hero), true, slung).recolor(knights::seat_colours(id))));
         for (j, b) in Look::ALL.iter().enumerate().skip(i + 1) {
             for view in 0..3 {
                 assert_ne!(a.bodies()[view], b.bodies()[view], "{} and {} share a body", a.name(), b.name());
@@ -122,9 +125,36 @@ fn the_posse_stays_the_realms_knight() {
     let mut run = Run::new(7, 1, Some("Friend"));
     run.players.get_mut(&1).unwrap().knight = Some("composer".into());
     assert_eq!(Look::of(&run.players[&1]), None);
-    assert_eq!(knights::figure_with(&run.players[&1], 1, false).w, 16);
+    let im = knights::figure_with(&run.players[&1], 1, false);
+    assert_eq!(im.w, 16);
 }
 
+#[test]
+fn a_held_shield_is_drawn_on_every_knight_when_not_raised() {
+    // 2026-10-19: "if you grab a shield, we should always see the shield".
+    let mut posse = Run::new(7, 1, Some("Friend"));
+    posse.players.get_mut(&1).unwrap().knight = Some("composer".into());
+    let classes = Look::ALL.iter().map(|look| seated(look.name()));
+    for (mut run, id) in classes.chain(std::iter::once((posse, 1))) {
+        for (ax, ay) in [(0.0, 1.0), (1.0, 0.0), (0.0, -1.0)] {
+            let hero = run.players.get_mut(&id).unwrap();
+            (hero.aim_x, hero.aim_y) = (ax, ay);
+            hero.shielding = false;
+            hero.owned.shield = false;
+            hero.guard = Guard::Roll;
+            let bare = knights::figure_with(hero, id, false);
+            hero.guard = Guard::Shield;
+            let held = knights::figure_with(hero, id, false);
+            let name = Look::of(hero).map_or("the posse", Look::name);
+            assert!(!same(&held, &bare), "{name} aiming {ax},{ay}: the shield is not drawn");
+            // A friend's screen reads the knight off the wire and draws the same.
+            let mirror = run.wire_copy();
+            assert!(same(&knights::figure_with(&mirror.players[&id], id, false), &held), "{name} on a friend's screen");
+            // Thrown, it is off the arm.
+            assert!(!same(&knights::figure_with(&run.players[&id], id, true), &held), "{name} thrown");
+        }
+    }
+}
 
 #[test]
 fn every_class_rides_and_drives_in_its_own_head() {
@@ -215,24 +245,5 @@ fn write_class_lineup() {
         out.save(dir.join(name)).unwrap();
     };
     save(&sheet, 6, "lineup.png");
-    // As the upgrade canvas paints them, at its own size, two times up.
-    let cell = (W * 3 + 8, 30 * 3);
-    let mut big = Img::new(cell.0 * 13, cell.1 * Look::ALL.len() as i32);
-    for (row, look) in Look::ALL.iter().enumerate() {
-        let y = row as i32 * cell.1 + cell.1 - 2;
-        let mut col = 0;
-        for (facing, flip) in [(Facing::Down, false), (Facing::Side, false), (Facing::Side, true), (Facing::Up, false)] {
-            for pose in [Pose::Stand, Pose::Step(0), Pose::Strike] {
-                let mut im = figure(*look, facing, pose, true).recolor(knights::seat_colours(row as u32 % 4 + 1));
-                if flip {
-                    im = im.flip_h();
-                }
-                let im = super::super::art_v2::hd_figure(&im);
-                big.stamp(&im, col * cell.0 + 2, y - im.h);
-                col += 1;
-            }
-        }
-    }
-    save(&big, 2, "lineup-v2.png");
     save(&sheet, 1, "lineup-1x.png");
 }

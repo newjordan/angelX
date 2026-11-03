@@ -20,6 +20,7 @@ use crate::picture::GpuPicture;
 
 /// A scene in its own pixels, drawn into picture `id`'s cells.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Stage {
     /// The picture id its cells name.
     pub id: u32,
@@ -221,6 +222,7 @@ impl Core {
             premultiplied,
             straight: false,
             mesh_groups: [None, None],
+            last: None,
         };
         if let Some(old) = self.pictures.insert(id, gpu) {
             self.picture_bytes -= old.bytes;
@@ -375,7 +377,7 @@ impl Core {
                     (stage_size.0.saturating_mul(grain)).clamp(1, MAX_TARGET_PX),
                     (stage_size.1.saturating_mul(grain)).clamp(1, MAX_TARGET_PX),
                 );
-                let (nodes, layer) = self.props_picture(id ^ STAGE_PROPS, fine, size, camera, nodes, DepthUse::Fresh);
+                let (nodes, layer) = self.props_picture(id ^ STAGE_PROPS, fine, size, camera, nodes, DepthUse::Fresh, None);
                 laid.extend(layer.map(|l| (at, l)));
                 nodes
             }
@@ -392,6 +394,15 @@ impl Core {
                 let depth = self.depth_view(size);
                 let standing = !world.blocks.is_empty() || !world.extra.is_empty();
                 let lit = world.look.as_ref().filter(|l| l.lights()).cloned();
+                // Its figures lit by its look as cards, where it says so
+                // (`Look::cards`, docs/WORLD-TIERS.md "Lit cards").
+                let cards = lit.as_ref().filter(|l| l.cards.is_some()).cloned();
+                // Through its look (docs/REALM-MONOLITH.md): the floor and
+                // blocks lit and put on their places' ramps at the stage's
+                // own pixel grain, enlarged into the picture; their depth
+                // at the picture's size, what the look's reveal opens
+                // left out, for what stands among them.
+                let has_reveal = lit.as_ref().is_some_and(|l| l.reveal.is_some() || !l.reveals.is_empty());
                 if world.floor.is_empty() && !standing {
                     self.drop_targets(&[picture, id ^ STAGE_WORLD_DEPTH]);
                 } else if let Some(mut look) = lit {
@@ -409,7 +420,7 @@ impl Core {
                         nodes.append(&mut world.blocks);
                         nodes.append(&mut world.extra);
                         let scene = Scene { camera, nodes, look: Some(look) };
-                        self.draw_scene_with_depth(&view, size, &scene, "glass-world-lit", Some(picture), DepthUse::Revealed(&depth));
+                        self.draw_scene_with_depth(&view, size, &scene, "glass-world-lit", Some(picture), DepthUse::Revealed(&depth), None);
                         let mut nodes = scene.nodes;
                         world.extra = nodes.split_off(floors + blocks);
                         world.blocks = nodes.split_off(floors);
@@ -421,27 +432,37 @@ impl Core {
                     self.target_texture(picture, size, 0, 0, true);
                     if let Some(view) = self.pictures.get(&picture).map(|p| p.view.clone()) {
                         let floor = Scene { camera, nodes: std::mem::take(&mut world.floor), look: None };
-                        self.draw_scene_with_depth(&view, size, &floor, "glass-world-floor", Some(picture), DepthUse::Fresh);
+                        self.draw_scene_with_depth(&view, size, &floor, "glass-world-floor", Some(picture), DepthUse::Fresh, None);
                         world.floor = floor.nodes;
                         // The set's blocks, and those it has not with them.
                         let mut nodes = std::mem::take(&mut world.blocks);
                         let set_blocks = nodes.len();
                         nodes.append(&mut world.extra);
                         let mut blocks = Scene { camera: Camera { clear: None, ..camera }, nodes, look: None };
-                        self.draw_scene_with_depth(&view, size, &blocks, "glass-world-blocks", Some(picture), DepthUse::Keep(&depth));
+                        self.draw_scene_with_depth(&view, size, &blocks, "glass-world-blocks", Some(picture), DepthUse::Keep(&depth), None);
                         world.extra = blocks.nodes.split_off(set_blocks);
                         world.blocks = blocks.nodes;
                     }
                     laid.push((world.at, screen_layer(picture, size)));
                 }
                 // An empty depth for what stands when there is nothing to
-                // stand behind.
-                let stand = if standing { DepthUse::Continue(&depth) } else { DepthUse::Fresh };
+                // stand behind. With a lit world whose look has a reveal, the
+                // figures' depth leaves the reveal's openings out, so they
+                // show through what the reveal opens (ENGINE-ASKS.md #2).
+                let stand = if standing {
+                    if has_reveal {
+                        DepthUse::Revealed(&depth)
+                    } else {
+                        DepthUse::Continue(&depth)
+                    }
+                } else {
+                    DepthUse::Fresh
+                };
                 let figures = std::mem::take(&mut world.figures);
-                let (figures, layer) = self.props_picture(id ^ STAGE_FIGURES, size, size, camera, figures, stand);
+                let (figures, layer) = self.props_picture(id ^ STAGE_FIGURES, size, size, camera, figures, stand, cards.as_ref());
                 world.figures = figures;
                 laid.extend(layer.map(|l| (world.figures_at, l)));
-                let (nodes, layer) = self.props_picture(id ^ STAGE_PROPS, size, size, camera, nodes, stand);
+                let (nodes, layer) = self.props_picture(id ^ STAGE_PROPS, size, size, camera, nodes, stand, None);
                 laid.extend(layer.map(|l| (at, l)));
                 if let Some(props) = self.stages.get_mut(&id).and_then(|s| s.props.as_mut()) {
                     props.world = Some(world);
@@ -458,9 +479,11 @@ impl Core {
     }
 
     /// `nodes` drawn into picture `picture`, `fine` pixels, through `camera`
-    /// cleared to nothing, with depth as `depth` says; and the layer that
-    /// shows it over the stage's texture (`size`). The nodes come back. No
-    /// nodes, no picture.
+    /// cleared to nothing, with depth as `depth` says, lit as cards by
+    /// `cards`' lights when there is one; and the layer that shows it over
+    /// the stage's texture (`size`). The nodes come back. No nodes, no
+    /// picture.
+    #[allow(clippy::too_many_arguments)]
     fn props_picture(
         &mut self,
         picture: u32,
@@ -469,6 +492,7 @@ impl Core {
         camera: Camera,
         nodes: Vec<Node>,
         depth: DepthUse<'_>,
+        cards: Option<&angel_stage::look::Look>,
     ) -> (Vec<Node>, Option<Layer>) {
         if nodes.is_empty() {
             self.drop_targets(&[picture]);
@@ -477,7 +501,7 @@ impl Core {
         let scene = Scene { camera, nodes, look: None };
         self.target_texture(picture, fine, 0, 0, true);
         if let Some(view) = self.pictures.get(&picture).map(|p| p.view.clone()) {
-            self.draw_scene_with_depth(&view, fine, &scene, "glass-props", Some(picture), depth);
+            self.draw_scene_with_depth(&view, fine, &scene, "glass-props", Some(picture), depth, cards);
         }
         (scene.nodes, Some(screen_layer(picture, size)))
     }

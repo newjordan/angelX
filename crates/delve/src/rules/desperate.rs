@@ -16,6 +16,8 @@ use super::*;
 pub const FROM: f32 = 0.35;
 /// Ticks a hit's flash lasts.
 pub const HIT_FLASH: u8 = 6;
+/// A guardian's bar lets an eighth of a blow's bite go a tick (`drain`).
+pub const DRAIN: u32 = 8;
 
 /// The last stand's cycle, in ticks, and where its beats fall in it.
 pub const CYCLE: u32 = 165;
@@ -203,10 +205,30 @@ impl Run {
             }
             if enemy.hp < enemy.seen_hp {
                 enemy.hurt = HIT_FLASH;
+                if enemy.boss.is_some() && enemy.drain == 0 {
+                    enemy.drain = enemy.seen_hp;
+                }
             } else {
                 enemy.hurt = enemy.hurt.saturating_sub(1);
             }
+            drain(enemy);
             enemy.seen_hp = enemy.hp;
         }
     }
 }
+
+/// A guardian's bar lets what the blows took go a `DRAIN`th a tick, so
+/// one great blow shows its bite about half a second and a storm of small
+/// ones a steady pale edge. Under a hundredth of the bar, it is gone.
+fn drain(enemy: &mut Enemy) {
+    let gap = enemy.drain.saturating_sub(enemy.hp);
+    enemy.drain = if gap.saturating_mul(100) <= enemy.max_hp {
+        0
+    } else {
+        enemy.drain - (gap / DRAIN).max(1)
+    };
+}
+
+#[cfg(test)]
+#[path = "../../tests/rules/desperate__tests.rs"]
+mod tests;

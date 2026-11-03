@@ -146,7 +146,7 @@ fn detect_uncached() -> Option<Cause> {
                 };
             }
             Ok(None) if started.elapsed() < bound => {
-                std::thread::sleep(std::time::Duration::from_millis(10));
+                wait_for_probe_exit(child.id(), bound.saturating_sub(started.elapsed()));
             }
             Ok(None) => {
                 let _ = child.kill();
@@ -160,6 +160,42 @@ fn detect_uncached() -> Option<Cause> {
             Err(_) => return Some(Cause::NamespaceDenied),
         }
     }
+}
+
+/// Wait for readiness, not a fixed polling interval. A fast bwrap trial should
+/// not make every startup and doctor call pay a full 10 ms polling tick. Keep
+/// the synchronous probe, bounded deadline, kill/reap, and backend policy.
+/// A pidfd only notifies: try_wait above still collects the actual exit status.
+fn wait_for_probe_exit(pid: u32, remaining: std::time::Duration) {
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::fd::{AsRawFd, FromRawFd, OwnedFd};
+        // SAFETY: pidfd_open takes scalar arguments and returns a new owned fd.
+        let fd = unsafe { libc::syscall(libc::SYS_pidfd_open, pid as libc::pid_t, 0) };
+        if fd >= 0 {
+            // SAFETY: the successful syscall transfers this descriptor to us.
+            let fd = unsafe { OwnedFd::from_raw_fd(fd as libc::c_int) };
+            let mut pollfd = libc::pollfd {
+                fd: fd.as_raw_fd(),
+                events: libc::POLLIN,
+                revents: 0,
+            };
+            // Round up to avoid spinning during the last sub-millisecond.
+            let millis = remaining.as_millis().saturating_add(u128::from(
+                remaining.subsec_nanos() % 1_000_000 != 0,
+            ));
+            let timeout = millis.min(i32::MAX as u128) as i32;
+            // SAFETY: one initialized pollfd, alive for the whole call.
+            let result = unsafe { libc::poll(&mut pollfd, 1, timeout) };
+            if result >= 0 && pollfd.revents & libc::POLLNVAL == 0 {
+                return;
+            }
+        }
+    }
+    // Old kernels/seccomp policies without pidfd support retain bounded
+    // polling. Wait errors never become an optimistic compatibility verdict.
+    let _ = pid;
+    std::thread::sleep(remaining.min(std::time::Duration::from_millis(10)));
 }
 
 pub(crate) fn doctor() -> String {

@@ -145,7 +145,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "moonfall.bakery",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.bakery/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.bakery/v01/source-sheet.png",
   "source_sha256": "10617dfa264230be3b724e763376eab8bc1c195c7a0948887d85131158823b72",
   "tool_version": 2
 }

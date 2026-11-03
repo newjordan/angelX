@@ -6,6 +6,9 @@ pub(crate) mod background;
 mod classify;
 mod competition;
 mod dispatch;
+mod effort_leg;
+mod provider_failure;
+mod silence_guard;
 mod reasoning;
 pub(crate) mod research;
 mod verify;
@@ -15,6 +18,7 @@ use super::*;
 pub(crate) use classify::*;
 pub(crate) use competition::*;
 pub(crate) use dispatch::*;
+use provider_failure::{FailureClass, FailureContext, decide_failure, leg_note, leg_parts};
 pub(crate) use reasoning::*;
 pub(crate) use verify::*;
 
@@ -811,6 +815,19 @@ fn run_turn_steered_observed(
     task_capture: Option<TaskCaptureContext<'_>>,
     history_checkpoint: Option<HistoryCheckpoint<'_>>,
 ) -> Result<TurnOutcome, TurnFailure> {
+    let catalog = book::catalog::bind_turn(history).map_err(|message| TurnFailure {
+        message: format!("book generation: {message}"),
+        stop_reason: TurnStopReason::ProviderError,
+        hops: 0,
+        interrupted: false,
+        deadline_reached: false,
+        max_hops_reached: false,
+        acceptance: None,
+        rollout_id: None,
+    })?;
+    let catalog = super::core_catalog::bind_book(catalog);
+    let _book_owner = book::catalog::publish_owner(cancel as *const AtomicBool as usize, &catalog);
+    let _book_catalog = book::catalog::enter(catalog);
     let _phase = crate::agent::turn::phase::Scope::enter();
     crate::agent::turn::phase::mark("harness_start");
     let effective_cancel = AtomicBool::new(cancel.load(Ordering::Acquire));
@@ -821,7 +838,7 @@ fn run_turn_steered_observed(
     let idle = crate::agent::turn::configured_turn_idle_timeout_secs().map(Duration::from_secs);
     let owner = &effective_cancel as *const _ as usize;
     let (relay_tx, relay_rx) = mpsc::channel();
-    std::thread::scope(|scope| {
+    let result = std::thread::scope(|scope| {
         let (effective_cancel, done, timed_out) = (&effective_cancel, &done, &timed_out);
         let watcher = scope.spawn(move || {
             let mut last_progress = Instant::now();
@@ -964,7 +981,13 @@ fn run_turn_steered_observed(
             };
         }
         result
-    })
+    });
+    // Empty/system-only public calls use the embedded baseline. If they
+    // created a conversation, preserve that choice for its next turn.
+    if book::continuity::generation_digest(history).is_none() {
+        book::continuity::mark_legacy(history);
+    }
+    result
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1122,6 +1145,7 @@ fn run_turn_tiered(
                 std::time::SystemTime::now()
             ))
         }));
+    crate::agent::hotload::pin_headless_legs(registry);
     crate::agent::turn::phase::mark("workspace_identity");
     let workspace_state_started = Instant::now();
     let _workspace_start =
@@ -1227,7 +1251,7 @@ fn run_turn_tiered(
     // advertised set. Metered roots and bounded / competition / comp-mode use
     // the compact core, with a sticky hidden-tool bubble chosen once here.
     crate::agent::turn::phase::mark("context_assembly");
-    let competition_trigger = competition_mode_trigger(history);
+    let competition_trigger = competition_mode_trigger_live(history);
     let competition = competition_trigger.is_some();
     let metered_sota = crate::agent::club::is_sota_label(club.label());
     let streak_escalate = configured_unproductive_escalate(metered_sota, competition);
@@ -1256,11 +1280,14 @@ fn run_turn_tiered(
     // activations earlier turns made, and the bubble is seeded once per
     // session: later turns add a tool only when the model searches for one.
     // DeepSeek's own harness keeps its catalogue fixed for the cache.
+    registry.pin_live_policies();
     let prefix_cached = club.prompt_cache_capable();
     if !prefix_cached {
         registry.reset_tool_activations();
     }
-    let bubble = if metered_sota && !(prefix_cached && registry.has_tool_activations()) {
+    let bubble = if metered_sota
+        && (registry.tool_router_changed() || !(prefix_cached && registry.has_tool_activations()))
+    {
         let task = history
             .iter()
             .rev()
@@ -1281,12 +1308,14 @@ fn run_turn_tiered(
             bubble.tools.join(", ")
         )));
     }
+    let core_catalog = super::core_catalog::current().unwrap_or_else(super::core_catalog::snapshot);
     let mut defs =
         registry.defs_for_driver_turn(ctx_window, max_hops.is_some(), competition, metered_sota);
     if research_turn {
         research::ensure_tools(&mut defs, registry);
     }
     research::describe_surface(&mut defs, research_origin.as_deref());
+    registry.apply_core_catalog(&mut defs, &core_catalog);
     let leading_system_count = history
         .iter()
         .take_while(|message| message.role == ChatRole::System)
@@ -1325,6 +1354,7 @@ fn run_turn_tiered(
         .find(|message| message.role == ChatRole::User)
         .map(|message| message.content.as_ref())
         .unwrap_or_default();
+    let effort_task = effort_leg::TaskHead::new(task);
     let (research_task, research_verify) = registry.rl().research_objective(task);
     // Append scoped research data behind the conversation's stable system
     // prefix. Fresh /loop and Deli prompts already carry the same map cue.
@@ -1422,9 +1452,8 @@ fn run_turn_tiered(
     refresh_knowledge_broker_with_prefix(registry, history, effective_budget, &defs, cache_stable);
     crate::agent::turn::phase::mark("auto_recall");
     maybe_auto_recall(registry, history, effective_budget, &defs, events);
-    // Tool lifecycle hooks (PreToolUse/PostToolUse), loaded once from config.
-    // Empty unless those events are configured, so default dispatch is unchanged.
-    // SessionStart is announced from session changes and is not a tool gate.
+    // Lifecycle hooks (PreToolUse/PostToolUse), loaded once from config. Empty
+    // unless ~/.angelX/hooks.json exists, so default dispatch is unchanged.
     crate::agent::turn::phase::mark("hooks_load");
     let hooks = Hooks::load();
     // This reads a small local mode once, never calls a model, and only becomes
@@ -1553,6 +1582,8 @@ fn run_turn_tiered(
     // The hop advisories of 0.1.6 (`⠼`, and `⡅` in a competition): each is a
     // route with its own turn, given under the condition 0.1.6 gave it.
     let mut green_verify_nudge_emitted = false;
+    let post_edit_review = book::d3456_advisories::post_edit_review_enabled();
+    let mut post_edit_logic_reviewed = false;
     let mut weak_verification_pending = false;
     let mut weak_verification_told = false;
     let mut mutation_thrash = book::d3456_advisories::MutationThrash::default();
@@ -1598,6 +1629,11 @@ fn run_turn_tiered(
     let track_task_facts = task_active && !competition;
     let mut last_red_run: Option<book::v_verification::RedRun> = None;
     let mut red_streak = book::v_verification::RedStreak::default();
+    let mut failed_checks = 0usize;
+    // A red, and a silent repeat, each lift a thinking-off seat for one hop
+    // through the effort leg.
+    let mut red_seen = effort_leg::RedSeen::default();
+    let mut silence = silence_guard::SilenceGuard::default();
     let task_wall_secs = if turn_budget > 0 {
         turn_budget
     } else {
@@ -2142,7 +2178,7 @@ fn run_turn_tiered(
             );
         }
         handle_unproductive_streak!();
-        if turn_expired(turn_start.elapsed().as_secs(), turn_budget) {
+        if budget_expired(turn_start.elapsed().as_secs(), turn_budget) {
             let deadline_source = if std::env::var_os("ANGEL_TURN_DEADLINE_SECS").is_some() {
                 "ANGEL_TURN_DEADLINE_SECS"
             } else {
@@ -2321,6 +2357,7 @@ fn run_turn_tiered(
                 research::ensure_tools(&mut defs, registry);
             }
             research::describe_surface(&mut defs, research_origin.as_deref());
+            registry.apply_core_catalog(&mut defs, &core_catalog);
             prev_activation_gen = activation_gen;
             let next_fp = crate::agent::turn::defs_fingerprint(&defs);
             if prev_defs_fingerprint != next_fp {
@@ -2458,7 +2495,20 @@ fn run_turn_tiered(
                 deferred_rewrite_hops.set(0);
             }
         }
+        // Decide with the same estimators `maybe_compact_for_turn` uses, not the
+        // rolling gauge alone, so this gate can never skip a compaction the
+        // pass itself would consider due.
+        let compaction_used = estimate_tokens(history) + estimate_tool_tokens(&defs);
+        let over_budget_for_compaction =
+            effective_budget > 0 && compaction_used > effective_budget;
+        // A model-backed compaction request still enters the pass under budget;
+        // the pass keeps its own budget guard for the summary itself.
+        let model_compaction_requested = crate::agent::compaction::sync_compaction_uses_model();
+        if !bg_defer && !over_budget_for_compaction && !model_compaction_requested {
+            crate::agent::harness::compact::speak_cache_budget_lift(events);
+        }
         if !bg_defer
+            && (over_budget_for_compaction || model_compaction_requested)
             && maybe_compact_for_turn(
                 club,
                 history,
@@ -2544,7 +2594,11 @@ fn run_turn_tiered(
         // after the compact boundary, and an overflowed request costs more than
         // one rare prefix-cache miss. Bulk reduction under the default is the
         // boundary (age_tool_results_at_boundary + compaction) above.
-        let context_fit = fit_tool_results_to_budget(history, effective_budget, &defs);
+        let context_fit = if over_budget_for_compaction {
+            fit_tool_results_to_budget(history, effective_budget, &defs)
+        } else {
+            0
+        };
         if context_fit > 0 {
             hop_breakers.push("context-fit trim");
             hist_tokens.recompute(history);
@@ -2560,7 +2614,17 @@ fn run_turn_tiered(
                 "context target cannot be met by trimming tool results (target {effective_budget}); protected instructions, tool schemas and fresh evidence retained; provider limits still apply"
             )));
         }
-        if bg_owner {
+        let bg_due = bg_owner
+            && crate::agent::harness::compact::bg_compact_due(
+                compaction_used,
+                effective_budget,
+            );
+        if bg_owner && bg_defer && !bg_due {
+            // The deferred sync path was skipped, so this boundary still owns
+            // the one-shot lift notice the background entry would have drained.
+            crate::agent::harness::compact::speak_cache_budget_lift(events);
+        }
+        if bg_due {
             maybe_start_bg_compact(
                 history,
                 effective_budget,
@@ -2663,14 +2727,18 @@ fn run_turn_tiered(
                 history.push(ChatMsg::harness(note));
             };
         crate::agent::turn::phase::mark("context_assembled");
+        let red_hop = red_seen.take(failed_checks);
+        let stuck_hop = silence.take_wake();
         let reply = loop {
             // A retry backoff can cross the existing turn deadline. Settle at
             // the owned boundary before opening another provider request.
             if cancel.load(Ordering::Acquire)
-                || turn_expired(turn_start.elapsed().as_secs(), turn_budget)
+                || budget_expired(turn_start.elapsed().as_secs(), turn_budget)
             {
                 continue 'turn;
             }
+            // Preflight and the provider must see one calibration generation.
+            let calibration = crate::agent::club::model_defaults::pin_request();
             // Preflight every actual provider attempt, including in-hop
             // retries. Provider counters are preferred after a call (and can
             // expose internal fan-out); the local request estimate is the
@@ -2738,13 +2806,13 @@ fn run_turn_tiered(
             // `hop` is 1-based here (bumped at the top of the iteration); the
             // ladder's "hop 0 = intake at full effort" contract is 0-based.
             let mut effective_effort = if adaptive_armed {
-                resolve_adaptive_reasoning_effort(club, hop.saturating_sub(1), has_friction)
+                adaptive_effort(club, hop.saturating_sub(1), has_friction)
             } else {
                 None
             };
             // When explicitly configured, reasoning-budget demotion outranks
             // the adaptive baseline. No implicit budget lowers chosen effort.
-            if let Some(demotion) = glm_thinking_burn_demotion(
+            if let Some(demotion) = burn_demotion(
                 club,
                 glm_reasoning_burn.get(),
                 glm_last_hop_answered.get(),
@@ -2752,6 +2820,25 @@ fn run_turn_tiered(
             ) {
                 effective_effort = Some(demotion);
             }
+            // The turn's pinned effort leg may answer another accepted level.
+            let (leg_effort, leg_source) = effort_leg::decide(
+                registry,
+                club,
+                &effort_task,
+                &effort_leg::Hop {
+                    index: hop.saturating_sub(1),
+                    friction: has_friction,
+                    tool_errors: timing.tool_errors,
+                    failed_checks,
+                    red: red_hop,
+                    stuck: stuck_hop,
+                },
+                effective_effort,
+            );
+            effective_effort = leg_effort;
+            crate::agent::harness::trajectory::note_effort_leg(
+                leg_source.as_ref().map(effort_leg::receipt),
+            );
             // This is the harness-owned policy-call boundary. Capture after all
             // history/schema transforms and immediately before the provider call.
             // The recorder has no API for private reasoning or provider headers.
@@ -2906,7 +2993,7 @@ fn run_turn_tiered(
                 metered_input_accounted = metered_input_accounted
                     .saturating_add(provider_reported.max(estimated_request_input));
                 if let Some(input_tokens) =
-                    crossed_sota_input_milestone(previous, metered_input_accounted)
+                    input_milestone(previous, metered_input_accounted)
                 {
                     let _ = events.send(TurnEvent::SpendMilestone { input_tokens });
                 }
@@ -2980,6 +3067,7 @@ fn run_turn_tiered(
                     {
                         record_rollout_error!("policy response", error);
                     }
+                    drop(calibration);
                     // Fold this hop's cache economics into the per-route
                     // ledger. `reported` is a read-accounting delta, so a
                     // cache-blind backend records totals without faking a 0%
@@ -3009,7 +3097,7 @@ fn run_turn_tiered(
                             let _ = events.send(TurnEvent::Notice(notice));
                         }
                     }
-                    if turn_expired(turn_start.elapsed().as_secs(), turn_budget) {
+                    if budget_expired(turn_start.elapsed().as_secs(), turn_budget) {
                         // A completed research reply is evidence we already have.
                         // Retain it before settling at the deadline boundary; do
                         // not execute late tool calls or manufacture an answer
@@ -3034,7 +3122,7 @@ fn run_turn_tiered(
                     // Do not classify that failed attempt as retryable in the rollout.
                     let attempt_cancelled = || {
                         cancel.load(Ordering::Acquire)
-                            || turn_expired(turn_start.elapsed().as_secs(), turn_budget)
+                            || budget_expired(turn_start.elapsed().as_secs(), turn_budget)
                     };
                     // Every no-terminal-event stream death is retryable, not only
                     // the ones the transport happened to label
@@ -3062,23 +3150,45 @@ fn run_turn_tiered(
                     ) {
                         record_rollout_error!("provider failure", capture_error);
                     }
+                    drop(calibration);
                     if attempt_cancelled() {
                         if emitted_answer || emitted_reasoning {
                             let _ = events.send(TurnEvent::SuppressPartial);
                         }
                         continue 'turn;
                     }
+                    // Once every output-cap note is spent, a re-send is the same
+                    // request against the same cap and fails the same way (GLM
+                    // polyglot-v1 py-two-bucket: about three minutes of reasoning
+                    // per cut-off, until the wall ran out).
+                    let output_cap_exhausted = book::x_execution::is_output_cap_truncation(&err)
+                        && output_cap_notes.get() >= book::x_execution::OUTPUT_CAP_LIMIT;
+                    // Classified once: the class, the replay and its wait come
+                    // from one decision, native or the pinned live `errors` leg.
+                    let failure = decide_failure(
+                        registry,
+                        &err,
+                        &FailureContext {
+                            emitted_answer,
+                            output_cap_exhausted,
+                            attempt: provider_attempt,
+                            budget: provider_retries,
+                            backoff_ms: provider_retry_backoff_ms,
+                            elapsed: turn_start.elapsed(),
+                        },
+                    );
+                    let context_overflow = failure.verdict.class == FailureClass::Context;
                     if !emitted_answer
                         && !incomplete_stream
                         && !cancel.load(Ordering::Relaxed)
-                        && is_context_overflow_error(&err)
+                        && context_overflow
                     {
                         request_overflows.set(request_overflows.get().saturating_add(1));
                     }
                     if !emitted_answer
                         && !incomplete_stream
                         && !cancel.load(Ordering::Relaxed)
-                        && is_context_overflow_error(&err)
+                        && context_overflow
                         && overflow_recoveries < max_overflow_recoveries
                         && effective_budget > 0
                     {
@@ -3163,17 +3273,9 @@ fn run_turn_tiered(
                         // exhausted cloud request, including local-seat deaths.
                         stop_after_session_recovery = true;
                     }
-                    // Once every output-cap note is spent, a re-send is the same
-                    // request against the same cap and fails the same way (GLM
-                    // polyglot-v1 py-two-bucket: about three minutes of reasoning
-                    // per cut-off, until the wall ran out).
-                    let output_cap_exhausted = book::x_execution::is_output_cap_truncation(&err)
-                        && output_cap_notes.get() >= book::x_execution::OUTPUT_CAP_LIMIT;
                     if !cancel.load(Ordering::Relaxed)
                         && !stop_after_session_recovery
-                        && retry_allowed
-                        && !output_cap_exhausted
-                        && retry_budget_allows(provider_retries, provider_attempt)
+                        && failure.verdict.retry
                     {
                         provider_attempt = provider_attempt.saturating_add(1);
                         if emitted_reasoning || emitted_answer {
@@ -3199,16 +3301,13 @@ fn run_turn_tiered(
                             ),
                         };
                         let _ = events.send(TurnEvent::Notice(format!(
-                            "{failure_stage}; {retry_plan}: {err}"
+                            "{failure_stage}; {retry_plan}: {err}{}",
+                            leg_note(&failure.leg)
                         )));
                         // Give a struggling backend a beat before the retry,
                         // sliced so a user cancel still lands promptly.
                         let backoff_started = Instant::now();
-                        let backoff = Duration::from_millis(
-                            provider_retry_backoff_ms
-                                .saturating_mul(provider_attempt)
-                                .min(2_000) as u64,
-                        );
+                        let backoff = Duration::from_millis(u64::from(failure.verdict.delay_ms));
                         let slice = Duration::from_millis(50);
                         let mut waited = Duration::ZERO;
                         while waited < backoff && !cancel.load(Ordering::Relaxed) {
@@ -3231,7 +3330,13 @@ fn run_turn_tiered(
                         }
                         continue;
                     }
-                    crate::agent::harness::trajectory::note_escalation(hop, "provider_unavailable");
+                    let (leg_source, leg_digest) = leg_parts(&failure.leg);
+                    crate::agent::harness::trajectory::note_provider_unavailable(
+                        hop,
+                        failure.verdict.class.as_str(),
+                        leg_source,
+                        leg_digest,
+                    );
                     crate::agent::harness::trajectory::note_stop_reason(
                         TurnStopReason::ProviderError.as_str(),
                     );
@@ -3239,9 +3344,10 @@ fn run_turn_tiered(
                     // Failed transport never earns a verifier reward or answer.
                     log_trajectory(club, history, "", hop, false, None);
                     eprintln!(
-                        "[turn] {} provider call failed on hop {hop} after {} retry attempt(s): {err}",
+                        "[turn] {} provider call failed on hop {hop} after {} retry attempt(s): {err}{}",
                         club.label(),
-                        provider_attempt
+                        provider_attempt,
+                        leg_note(&failure.leg)
                     );
                     write_exp(
                         "provider_error",
@@ -3274,6 +3380,11 @@ fn run_turn_tiered(
                              the output cap after being told so; a re-send would repeat it",
                             book::x_execution::OUTPUT_CAP_LIMIT
                         )
+                    } else if failure.declined {
+                        format!(
+                            "not retried: the errors leg stopped this {} failure",
+                            failure.verdict.class.as_str()
+                        )
                     } else {
                         match provider_retries {
                             Some(limit) => format!(
@@ -3286,7 +3397,10 @@ fn run_turn_tiered(
                     };
                     observed_failure!(
                         TurnFailure {
-                            message: format!("{err}; {retry_disposition}"),
+                            message: format!(
+                                "{err}; {retry_disposition}{}",
+                                leg_note(&failure.leg)
+                            ),
                             stop_reason: TurnStopReason::ProviderError,
                             hops: hop,
                             interrupted: false,
@@ -3387,7 +3501,9 @@ fn run_turn_tiered(
                 // stop for a failed confirming re-run (`⠧⠑`).
                 let mut stop_facts: Vec<book::Raise> = Vec::new();
                 let mut add_fact = |raise: book::Raise| {
-                    if !stop_facts.iter().any(|seen| seen.route == raise.route) {
+                    if raise.available()
+                        && !stop_facts.iter().any(|seen| seen.route == raise.route)
+                    {
                         stop_facts.push(raise);
                     }
                 };
@@ -3708,9 +3824,14 @@ fn run_turn_tiered(
                         continue;
                     }
                 }
-                if let Some((cells, shown)) =
-                    checkpoint.engage(registry.current_workspace(), &stop_facts, left.is_some())
-                {
+                // Markup with nothing changed is a call that failed to parse,
+                // not an answer: it does not stand after the first stop.
+                if let Some((cells, shown)) = checkpoint.engage_with(
+                    registry.current_workspace(),
+                    &stop_facts,
+                    left.is_some(),
+                    !mutation_seen && !workspace_changed,
+                ) {
                     crate::agent::harness::trajectory::note_hop_stamps(
                         &shown.iter().map(|raise| raise.route).collect::<Vec<_>>(),
                     );
@@ -3773,7 +3894,7 @@ fn run_turn_tiered(
                 crate::agent::harness::trajectory::note_task_timing(
                     &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                 );
-                if research_turn && turn_expired(turn_start.elapsed().as_secs(), turn_budget) {
+                if research_turn && budget_expired(turn_start.elapsed().as_secs(), turn_budget) {
                     crate::agent::harness::trajectory::note_stop_reason(
                         TurnStopReason::Deadline.as_str(),
                     );
@@ -3830,6 +3951,9 @@ fn run_turn_tiered(
                 // live assistant message; serde deliberately skips it.
                 let private_reasoning = crate::agent::club::take_pending_tool_reasoning();
                 let tool_content = crate::agent::club::take_pending_tool_content();
+                // The silent-repeat guard sees the batch as issued with its text;
+                // its note rides after the results (`silence_guard.rs`).
+                let silence_note = silence.observe(tool_content.as_deref(), &calls);
                 let responses_replay = crate::agent::club::take_pending_responses_replay();
                 let repaired_call_ids = normalize_tool_call_ids(&mut calls, history, hop);
                 if repaired_call_ids > 0 {
@@ -4110,8 +4234,15 @@ fn run_turn_tiered(
                         },
                         outcome,
                     });
+                    // `present` cards and hands screenshots ride the same
+                    // Stage envelope: the operator watches desktop/browser
+                    // actions land in the Scryglass preview.
+                    let presents_to_stage = call.name == "present"
+                        || (matches!(call.name.as_str(), "desktop" | "browser")
+                            && call.args.get("action").and_then(Value::as_str)
+                                == Some("screenshot"));
                     if outcome.execution == ExecutionOutcome::Succeeded
-                        && call.name == "present"
+                        && presents_to_stage
                         && let Some((kind, label, url)) =
                             crate::ui::media::presentation_from_result(&result)
                     {
@@ -4464,6 +4595,7 @@ fn run_turn_tiered(
                             // A red on the code un-stales the advisory for the
                             // next green.
                             green_verify_nudge_emitted = false;
+                            failed_checks += 1;
                         }
                         if let Some(raise) = red_streak.observe(outcome) {
                             raised.push(raise);
@@ -4973,6 +5105,12 @@ fn run_turn_tiered(
                     green_verify_achieved = false;
                     green_verify_nudge_emitted = false;
                 }
+                // The first successful edit of the turn: review it before
+                // testing, once.
+                if post_edit_review && successful_mutation_this_hop && !post_edit_logic_reviewed {
+                    post_edit_logic_reviewed = true;
+                    raised.push(book::Raise::new(book::d3456_advisories::POST_EDIT, None));
+                }
                 // The final mile. Inspection alone while a verifier is owed hears
                 // the last sentence again, as its own page; the calls still run.
                 if book::d3456_advisories::rejects_inspection(
@@ -5083,6 +5221,9 @@ fn run_turn_tiered(
                 raised.extend(error_streak);
                 raised.extend(cues.take());
                 loops.latch(&mut raised, progress_mutated);
+                // A resumed conversation may predate a newly added route or
+                // page. Do not emit an address its pinned book cannot resolve.
+                raised.retain(book::Raise::available);
                 for raise in &raised {
                     if raise.route.primary == book::l_loops::CELL
                         || raise.route == book::x_execution::ERRORS
@@ -5147,6 +5288,12 @@ fn run_turn_tiered(
                 crate::agent::harness::trajectory::note_hop_stamps(
                     &raised.iter().map(|raise| raise.route).collect::<Vec<_>>(),
                 );
+                // Plain words, its own turn after the hop's results and routes.
+                if let Some(note) = silence_note {
+                    crate::agent::harness::trajectory::note_escalation(hop, "silent-repeat");
+                    let _ = events.send(TurnEvent::Notice(note.clone()));
+                    history.push(ChatMsg::harness(note));
+                }
             }
         }
     }

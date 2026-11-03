@@ -151,12 +151,8 @@ impl Run {
                     hero.hurt(SLAM_DAMAGE);
                     self.room_hurt = true;
                     let (ux, uy) = unit(hero.x - x, hero.y - y);
-                    (hero.x, hero.y) = grid.slide(
-                        (hero.x, hero.y),
-                        (ux * (SLAM_REACH - d + 1.0), uy * (SLAM_REACH - d + 1.0)),
-                        HERO_RADIUS,
-                        Mover::Hero,
-                    );
+                    let push = SLAM_REACH - d + 1.0;
+                    (hero.x, hero.y) = grid.halted((hero.x, hero.y), (ux * push, uy * push));
                 }
             }
             self.fx.push(Fx::Shake(14));

@@ -317,3 +317,7 @@ pub fn settle(
 #[cfg(test)]
 #[path = "../../tests/rules/together_pigeons__tests.rs"]
 mod tests;
+
+#[cfg(all(test, feature = "bend-cases-games-a-small"))]
+#[path = "../../tests/rules/aerie_bend_cases__tests.rs"]
+mod aerie_bend_cases_tests;

@@ -101,80 +101,26 @@ fn tool_errors_inconclusive_node_host_summary() {
 #[test]
 fn tool_errors_harvested_causes_and_boundaries() {
     use ToolErrorClass::*;
-    let cases = [
-        // tools/shell/scope.rs:16,23
-        ("shell", "read_only must be a boolean", Argument),
-        (
-            "shell",
-            "write_paths must be an array of at most 128 existing source files",
-            Argument,
-        ),
-        // tools/file.rs:550,561,222
-        ("read_file", "missing 'path'", Argument),
-        (
-            "read_file",
-            "'offset' must be a one-based positive integer",
-            Argument,
-        ),
-        (
-            "read_file",
-            "index 3 out of range at segment \"3\"",
-            Argument,
-        ),
-        // harness/registry.rs:1150; tools routed by turn/verify.rs:28
-        ("imaginary", "unknown tool: imaginary", Routing),
-        ("other", "unknown tool: other", Routing),
-        // tools/shell/scope.rs:29,71
-        (
-            "shell",
-            "read-only execution cannot grant write_paths",
-            Policy,
-        ),
-        (
-            "shell",
-            "write_paths must stay inside the workspace",
-            Policy,
-        ),
-        // harness/exec.rs:864 (OS error); tools/build.rs:1326 (exit code).
-        (
-            "shell",
-            "spawn failed: No such file or directory (os error 2)",
-            Environment,
-        ),
-        ("run_tests", "cargo command failed (exit 127)", Environment),
-        // harness/exec.rs:487,1099
-        (
-            "shell",
-            "[timed out after 120s — process killed; raise/disable via ANGEL_TOOL_TIMEOUT]",
-            Transient,
-        ),
-        ("shell", "wait thread died", Transient),
-        // tools/build.rs:1326,1794
-        ("cargo", "cargo command failed (exit 101)", Verifier),
-        (
-            "run_tests",
-            "pytest failed (exit 1) — chosen because of pytest.ini; pin another runner with `runner` or use `shell`",
-            Verifier,
-        ),
-        // harness/registry.rs:1111-1112 via club/tool_parse.rs:148.
-        (
-            "shell",
-            "unrecoverable tool arguments (3 bytes, digest unavailable); reissue `shell` with valid JSON",
-            Model,
-        ),
-        (
-            "read_file",
-            "unrecoverable tool arguments (7 bytes, digest unavailable); reissue `read_file` with valid JSON",
-            Model,
-        ),
-        // harness/exec.rs:827; tools/build.rs:990: intentionally no guessed cause.
-        ("shell", "execution cancelled before spawn", Unknown),
-        (
-            "cargo",
-            "internal error: non-verifier requested trusted Cargo mode",
-            Unknown,
-        ),
-    ];
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../tests/cockpit/fixtures/tool-error-cases.json");
+    let rows: Vec<(String, String, String)> =
+        serde_json::from_slice(&std::fs::read(path).expect("tool-error cases fixture"))
+            .expect("valid tool-error cases fixture");
+    assert_eq!(rows.len(), 19, "tool-error case count");
+    let cases = rows.iter().map(|(tool, error, expected)| {
+        let expected = match expected.as_str() {
+            "Argument" => Argument,
+            "Routing" => Routing,
+            "Policy" => Policy,
+            "Environment" => Environment,
+            "Transient" => Transient,
+            "Verifier" => Verifier,
+            "Model" => Model,
+            "Unknown" => Unknown,
+            _ => panic!("unknown tool-error case class: {expected}"),
+        };
+        (tool.as_str(), error.as_str(), expected)
+    });
     for (tool, error, expected) in cases {
         let actual = classify_tool_error(tool, &json!({}), Some(error));
         assert_eq!(actual, expected, "{error}");

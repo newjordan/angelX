@@ -3,10 +3,15 @@
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
+# The source art left the repository on 2026-10-20 for the archive (its
+# README.md says what each folder is); ANGEL_SOURCE_ART names it
+# (default ~/angelX-archive/2026-10-20/source-art).
+SOURCE_ART = Path(os.environ.get('ANGEL_SOURCE_ART') or Path.home()/'angelX-archive/2026-10-20/source-art')
 DEFAULT_LIBRARY = Path('./cockpit/assets/boss-library/existing')
 
 
@@ -26,7 +31,7 @@ def retain(boss, library):
     definition = ROOT / 'cockpit/assets/dungeon/bosses' / (boss + '.boss')
     header = definition.read_text().split('\nart\n')[0]
     assert header == design['definition_header'], 'source rules/header changed'
-    output = ROOT / 'crates/delve/assets/boss-library-src' / boss
+    output = SOURCE_ART / 'boss-library-src' / boss
     output.mkdir(parents=True, exist_ok=True)
     frames = []
     for frame in metadata['frames']:

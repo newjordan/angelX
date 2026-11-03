@@ -1,0 +1,16 @@
+[package]
+name = "angel-web-bundle"
+version = "0.2.6"
+edition = "2024"
+rust-version = "1.95"
+publish = false
+license = "MIT"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+miniz_oxide = "0.8.9"
+
+[build-dependencies]
+miniz_oxide = "0.8.9"

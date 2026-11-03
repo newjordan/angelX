@@ -1,0 +1,436 @@
+# crates/delve/src/rules/powder.rs — the Powder Room, a folly and a nod to
+# Bomberman: pillars in a grid, crates between them, a bomb key that drops a
+# keg that blows in a cross. Most crates broken when the minute is up wins.
+#
+# `run.powder` is {room, t, crates: [u16, ascending], kegs: [{at: [x, y],
+# owner, fuse}], fire: [[[x, y], ticks]], broken: {id: n}, ante: {id: gold},
+# corners: {id: [x, y]}, held: [ids], done}.
+
+# The pillars: every second tile in both directions, inside the walls.
+def powder.pillar(+x: U32, +y: U32) -> Bool:
+  Bool.and(U32.is_eq(U32.and(x, 1), 0), U32.is_eq(U32.and(y, 1), 0))
+
+def powder.corners(+cols: U32, +rows: U32) -> List<&2, LayCell>:
+  [LayCell{1, 1}, LayCell{(cols - 2 : U32), (rows - 2 : U32)}, LayCell{(cols - 2 : U32), 1}, LayCell{1, (rows - 2 : U32)}]
+
+# |a - b|.
+def powder.near(+x: U32, +y: U32, +c: LayCell, +reach: U32) -> Bool:
+  LayCell{cx: U32, cy: U32} of LayCell = c
+  U32.is_le((layout.absdiff(cx, x) + layout.absdiff(cy, y) : U32), reach)
+
+def powder.any_near(+x: U32, +y: U32, +cs: List<&2, LayCell>, +reach: U32) -> Bool:
+  match cs as List<&2, LayCell>:
+    case Nil{}:
+      False{}
+    case Con{c: LayCell, t: List<&2, LayCell>}:
+      if powder.near(x, y, c, reach):
+        True{}
+      else:
+        powder.any_near(x, y, t, reach)
+
+# The door tiles of the room.
+def powder.doors(+g: LayGrid, +row: U32, +col: U32, +cols: U32, +rows: U32) -> List<&2, LayCell>:
+  if U32.is_ge(row, rows):
+    Nil{}
+  else:
+    if U32.is_ge(col, cols):
+      powder.doors(g, (row + 1 : U32), 0, cols, rows)
+    else:
+      if layout.tile_is_door(layout.grid.get(g, col, row)):
+        Con{LayCell{col, row}, powder.doors(g, row, (col + 1 : U32), cols, rows)}
+      else:
+        powder.doors(g, row, (col + 1 : U32), cols, rows)
+
+# Lay the store: pillars, crates (seeded by the tile), a clear mouth at each
+# door and corner. Returns the grid and the crate indexes (ascending).
+def powder.lay(+g: LayGrid, +seed: W.W, +cols: U32, +rows: U32, +corners: List<&2, LayCell>, +doors: List<&2, LayCell>, +y: U32, +x: U32, +crates: List<&2, J.Val>) -> LayGrid & List<&2, J.Val>:
+  if U32.is_ge(y, (rows - 1 : U32)):
+    (g, crates)
+  else:
+    if U32.is_ge(x, (cols - 1 : U32)):
+      powder.lay(g, seed, cols, rows, corners, doors, (y + 1 : U32), 1, crates)
+    else:
+      if powder.pillar(x, y):
+        powder.lay(layout.grid.set(g, x, y, TileBlock{}), seed, cols, rows, corners, doors, y, (x + 1 : U32), crates)
+      else:
+        idx: U32 = (y * cols + x : U32)
+        clear: Bool = Bool.or(powder.any_near(x, y, corners, 1), powder.any_near(x, y, doors, 2))
+        crate: Bool = Bool.and(Bool.not(clear), U32.is_lt(W.rem_u32(layout.mix(W.xor(seed, W.shl(W.of_u32(idx), 3))), 10), 7))
+        if crate:
+          powder.lay(layout.grid.set(g, x, y, TileBlock{}), seed, cols, rows, corners, doors, y, (x + 1 : U32), List.append(&2, J.Val, crates, [J.JU{idx}]))
+        else:
+          powder.lay(layout.grid.set(g, x, y, TileFloor{}), seed, cols, rows, corners, doors, y, (x + 1 : U32), crates)
+
+# Into the powder store: pillars, crates, a corner each, and the antes.
+def powder.Run.start_powder(+run: J.Val, +index: U32) -> J.Val:
+  dungeon: J.Val = J.get(run, "dungeon")
+  room: J.Val = layout.Floor.room(dungeon, index)
+  cols: U32 = layout.Room.cols(room)
+  rows: U32 = layout.Room.rows(room)
+  g0: LayGrid = layout.grid.of_room(room)
+  corners: List<&2, LayCell> = powder.corners(cols, rows)
+  (g1: LayGrid, crates: List<&2, J.Val>) = powder.lay(g0, W.of_j(J.get(run, "seed")), cols, rows, corners, powder.doors(g0, 0, 0, cols, rows), 1, 1, Nil{})
+  d1: J.Val = J.set(layout.floor_with_rooms(dungeon, J.items(J.set_nth(layout.Floor.rooms(dungeon), index, layout.grid.put(room, g1)))), "world_revision", J.JU{(J.u32(J.get(dungeon, "world_revision")) + 1 : U32)})
+  taken: J.Val = folly.take_antes(J.get(run, "players"))
+  scores: J.Val = J.get(taken, "scores")
+  r1: J.Val = J.set(J.set(run, "dungeon", d1), "players", J.get(taken, "players"))
+  (r2: J.Val, corner_of: J.Val) = powder.assign(r1, J.int_fields(J.get(r1, "players")), scores, corners, 0, J.obj())
+  p0: J.Val = J.set(J.set(J.set(J.obj(), "room", J.JU{index}), "t", J.JU{0}), "crates", J.JA{crates})
+  p1: J.Val = J.set(J.set(J.set(p0, "kegs", J.JA{Nil{}}), "fire", J.JA{Nil{}}), "broken", gantry.zeros(J.fields(scores), J.obj()))
+  p: J.Val = J.set(J.set(J.set(J.set(p1, "ante", J.get(taken, "ante")), "corners", corner_of), "held", J.JA{Nil{}}), "done", J.JBool{False{}})
+  floors.cue(exits.push_sound(J.set(r2, "powder", p), "door_seal"), "folly")
+
+# Each scoring knight goes to the next corner (round and round).
+def powder.assign(+run: J.Val, +ps: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +scores: J.Val, +corners: List<&2, LayCell>, +k: U32, +acc: J.Val) -> J.Val & J.Val:
+  match ps as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
+    case Nil{}:
+      (run, acc)
+    case Con{p: Sigma<&2, &2, String, _ => J.Val>, t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
+      id: U32 = world.key_id(p)
+      if J.has(scores, U32.show(id)):
+        LayCell{cx: U32, cy: U32} of LayCell = layout.cells.nth(corners, U32.mod(k, 4))
+        h: J.Val = J.set(J.set(world.key_val(p), "x", J.JF{((RS.i_as_f32(cx) + 0.5 : F32) * 2.0 : F32)}), "y", J.JF{((RS.i_as_f32(cy) + 0.5 : F32) * 2.0 : F32)})
+        powder.assign(exits.set_hero(run, id, h), t, scores, corners, (k + 1 : U32), J.set(acc, U32.show(id), J.JA{[J.of_i32(cx), J.of_i32(cy)]}))
+      else:
+        powder.assign(run, t, scores, corners, k, acc)
+
+def powder.tile_of(+h: J.Val) -> LayCell:
+  LayCell{RS.f_as_i32((J.f32(J.get(h, "x")) / 2.0 : F32)), RS.f_as_i32((J.f32(J.get(h, "y")) / 2.0 : F32))}
+
+def powder.at_of(+k: J.Val) -> LayCell:
+  LayCell{J.u32(J.nth(J.get(k, "at"), 0)), J.u32(J.nth(J.get(k, "at"), 1))}
+
+def powder.keg_at(+ks: List<&2, J.Val>, +c: LayCell) -> Bool:
+  match ks as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      LayCell{x: U32, y: U32} of LayCell = c
+      if layout.cell.is(powder.at_of(k), x, y):
+        True{}
+      else:
+        powder.keg_at(t, c)
+
+def powder.owned(+ks: List<&2, J.Val>, +id: U32) -> U32:
+  match ks as List<&2, J.Val>:
+    case Nil{}:
+      0
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      (Bool.to_u32(U32.is_eq(J.u32(J.get(k, "owner")), id)) + powder.owned(t, id) : U32)
+
+def powder.id_in(+xs: List<&2, J.Val>, +id: U32) -> Bool:
+  gantry.u32_in(xs, id)
+
+# The bomb key lights kegs here; the ordinary throw waits.
+def powder.cooldowns(+run: J.Val, +ids: List<&2, U32>) -> J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      run
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = exits.hero(run, id)
+      powder.cooldowns(exits.set_hero(run, id, J.set(h, "bomb_cooldown", J.JU{U32.max(J.u32(J.get(h, "bomb_cooldown")), 2)})), t)
+
+# The kegs dropped this tick: a knight with the bomb key newly down and a keg to spare.
+def powder.drop(+s: WS, +ids: List<&2, U32>, +inputs: J.Val) -> WS:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      s
+    case Con{id: U32, t: List<&2, U32>}:
+      powder.drop(powder.drop.one(s, id, inputs), t, inputs)
+
+def powder.drop.one(+s: WS, +id: U32, +inputs: J.Val) -> WS:
+  match s as WS:
+    case WS{run: J.Val, g: J.Val, mark: U32}:
+      h: J.Val = exits.hero(run, id)
+      i: J.Val = J.get(inputs, U32.show(id))
+      alive: Bool = Bool.and(U32.is_gt(J.u32(J.get(h, "hp")), 0), Bool.not(J.bool(J.get(h, "stone"))))
+      down: Bool = Bool.and(alive, Bool.and(Bool.not(J.is_null(i)), Bool.and(rules.Input.valid(i), J.bool(J.get(i, "bomb")))))
+      if Bool.not(down):
+        s
+      else:
+        g1: J.Val = J.set(g, "held_new", J.push(J.get(g, "held_new"), J.JU{id}))
+        if Bool.or(powder.id_in(J.items(J.get(g, "held")), id), Bool.not(J.has(J.get(g, "broken"), U32.show(id)))):
+          WS{run, g1, mark}
+        else:
+          at: LayCell = powder.tile_of(h)
+          ks: List<&2, J.Val> = J.items(J.get(g1, "kegs"))
+          if Bool.and(U32.is_lt(powder.owned(ks, id), 2), Bool.not(powder.keg_at(ks, at))):
+            LayCell{ax: U32, ay: U32} of LayCell = at
+            keg: J.Val = J.set(J.set(J.set(J.obj(), "at", J.JA{[J.of_i32(ax), J.of_i32(ay)]}), "owner", J.JU{id}), "fuse", J.JU{60})
+            WS{exits.push_sound(run, "bomb_toss"), J.set(g1, "kegs", J.push(J.get(g1, "kegs"), keg)), mark}
+          else:
+            WS{run, g1, mark}
+
+def powder.fuses(+ks: List<&2, J.Val>) -> List<&2, J.Val>:
+  match ks as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      Con{J.set(k, "fuse", J.JU{RS.u_sat_sub(J.u32(J.get(k, "fuse")), 1)}), powder.fuses(t)}
+
+# The first keg whose fuse is out (index), or usize::MAX.
+def powder.first_out(+ks: List<&2, J.Val>, +i: U32) -> U32:
+  match ks as List<&2, J.Val>:
+    case Nil{}:
+      4294967295
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      if U32.is_eq(J.u32(J.get(k, "fuse")), 0):
+        i
+      else:
+        powder.first_out(t, (i + 1 : U32))
+
+def powder.remove_nth(+xs: List<&2, J.Val>, +i: U32) -> List<&2, J.Val>:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if U32.is_eq(i, 0):
+        t
+      else:
+        Con{h, powder.remove_nth(t, (i - 1 : U32))}
+
+# Whether the sorted crate list holds index `v`, and the list without it.
+def powder.crate_has(+xs: List<&2, J.Val>, +v: U32) -> Bool:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if U32.is_eq(J.u32(h), v):
+        True{}
+      else:
+        powder.crate_has(t, v)
+
+def powder.crate_del(+xs: List<&2, J.Val>, +v: U32) -> List<&2, J.Val>:
+  match xs as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{h: J.Val, t: List<&2, J.Val>}:
+      if U32.is_eq(J.u32(h), v):
+        t
+      else:
+        Con{h, powder.crate_del(t, v)}
+
+# The fire set by the kegs gone off: a cross each, stopped by pillars and the
+# first crate in each direction. State: the run (tiles), the powder, the blasts.
+def powder.blow(+s: PowderS) -> PowderS:
+  match s as PowderS:
+    case PowderS{run: J.Val, p: J.Val, blasts: List<&2, LayCell>}:
+      i: U32 = powder.first_out(J.items(J.get(p, "kegs")), 0)
+      if U32.is_eq(i, 4294967295):
+        s
+      else:
+        k: J.Val = J.nth(J.get(p, "kegs"), i)
+        p1: J.Val = J.set(p, "kegs", J.JA{powder.remove_nth(J.items(J.get(p, "kegs")), i)})
+        at: LayCell = powder.at_of(k)
+        s1: PowderS = powder.arm(PowderS{run, p1, List.append(&2, LayCell, blasts, [at])}, k, at, 0)
+        match s1 as PowderS:
+          case PowderS{run2: J.Val, p2: J.Val, blasts2: List<&2, LayCell>}:
+            powder.blow(PowderS{floors.fx_shake(exits.push_sound(run2, "bomb"), 3), p2, blasts2})
+
+def powder.DX(+d: U32) -> U32:
+  match d:
+    case 0:
+      1
+    case 1:
+      4294967295
+    case _:
+      0
+
+def powder.DY(+d: U32) -> U32:
+  match d:
+    case 2:
+      1
+    case 3:
+      4294967295
+    case _:
+      0
+
+def powder.arm(+s: PowderS, +k: J.Val, +at: LayCell, +d: U32) -> PowderS:
+  if U32.is_ge(d, 4):
+    s
+  else:
+    powder.arm(powder.reach(s, k, at, d, 1), k, at, (d + 1 : U32))
+
+def powder.reach(+s: PowderS, +k: J.Val, +at: LayCell, +d: U32, +r: U32) -> PowderS:
+  match s as PowderS:
+    case PowderS{run: J.Val, p: J.Val, blasts: List<&2, LayCell>}:
+      if U32.is_gt(r, 2):
+        s
+      else:
+        LayCell{ax: U32, ay: U32} of LayCell = at
+        x: U32 = (ax + RS.i_mul(powder.DX(d), r) : U32)
+        y: U32 = (ay + RS.i_mul(powder.DY(d), r) : U32)
+        cols: U32 = layout.Room.cols(rules.Run.room(run))
+        idx: U32 = (y * cols + x : U32)
+        crates: List<&2, J.Val> = J.items(J.get(p, "crates"))
+        if powder.crate_has(crates, idx):
+          owner: String = U32.show(J.u32(J.get(k, "owner")))
+          scored: J.Val = Bool.pick(J.Val, J.has(J.get(p, "broken"), owner), J.set(J.get(p, "broken"), owner, J.JU{(J.u32(J.get(J.get(p, "broken"), owner)) + 1 : U32)}), J.get(p, "broken"))
+          p1: J.Val = J.set(J.set(p, "crates", J.JA{powder.crate_del(crates, idx)}), "broken", scored)
+          at_i: U32 = J.u32(J.get(run, "at"))
+          dungeon: J.Val = J.get(run, "dungeon")
+          room: J.Val = layout.Room.set_t(layout.Floor.room(dungeon, at_i), x, y, TileFloor{})
+          run1: J.Val = J.set(run, "dungeon", layout.floor_with_rooms(dungeon, J.items(J.set_nth(layout.Floor.rooms(dungeon), at_i, room))))
+          PowderS{run1, p1, List.append(&2, LayCell, blasts, [LayCell{x, y}])}
+        else:
+          if Bool.not(layout.tile_is_floor(layout.Room.tile_t(rules.Run.room(run), x, y))):
+            s
+          else:
+            p1: J.Val = powder.fuse_out(p, LayCell{x, y})
+            powder.reach(PowderS{run, p1, List.append(&2, LayCell, blasts, [LayCell{x, y}])}, k, at, d, (r + 1 : U32))
+
+# The next keg in the cross goes at once.
+def powder.fuse_out(+p: J.Val, +c: LayCell) -> J.Val:
+  J.set(p, "kegs", J.JA{powder.fuse_out.go(J.items(J.get(p, "kegs")), c)})
+
+def powder.fuse_out.go(+ks: List<&2, J.Val>, +c: LayCell) -> List<&2, J.Val>:
+  match ks as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{k: J.Val, t: List<&2, J.Val>}:
+      LayCell{x: U32, y: U32} of LayCell = c
+      if layout.cell.is(powder.at_of(k), x, y):
+        Con{J.set(k, "fuse", J.JU{0}), t}
+      else:
+        Con{k, t}
+
+def floors.fx_shake(+run: J.Val, +n: U32) -> J.Val:
+  J.set(run, "fx", J.push(J.get(run, "fx"), J.set(J.obj(), "Shake", J.JU{n})))
+
+def powder.fire_add(+fire: List<&2, J.Val>, +blasts: List<&2, LayCell>) -> List<&2, J.Val>:
+  match blasts as List<&2, LayCell>:
+    case Nil{}:
+      fire
+    case Con{c: LayCell, t: List<&2, LayCell>}:
+      LayCell{x: U32, y: U32} of LayCell = c
+      powder.fire_add(List.append(&2, J.Val, fire, [J.JA{[J.JA{[J.of_i32(x), J.of_i32(y)]}, J.JU{10}]}]), t)
+
+# Fires burn down a tick; the spent ones go.
+def powder.fire_age(+fire: List<&2, J.Val>) -> List<&2, J.Val>:
+  match fire as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      n: U32 = RS.u_sat_sub(J.u32(J.nth(f, 1)), 1)
+      if U32.is_eq(n, 0):
+        powder.fire_age(t)
+      else:
+        Con{J.JA{[J.nth(f, 0), J.JU{n}]}, powder.fire_age(t)}
+
+def powder.burning(+fire: List<&2, J.Val>, +c: LayCell) -> Bool:
+  match fire as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      LayCell{x: U32, y: U32} of LayCell = c
+      if layout.cell.is(LayCell{J.u32(J.nth(J.nth(f, 0), 0)), J.u32(J.nth(J.nth(f, 0), 1))}, x, y):
+        True{}
+      else:
+        powder.burning(t, c)
+
+# Sooted: back to the corner, three crates the poorer.
+def powder.soot(+run: J.Val, +p: J.Val, +ids: List<&2, U32>) -> J.Val & J.Val:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      (run, p)
+    case Con{id: U32, t: List<&2, U32>}:
+      h: J.Val = exits.hero(run, id)
+      alive: Bool = Bool.and(U32.is_gt(J.u32(J.get(h, "hp")), 0), Bool.not(J.bool(J.get(h, "stone"))))
+      if Bool.or(Bool.not(alive), Bool.or(U32.is_gt(J.u32(J.get(h, "invulnerable")), 0), Bool.not(powder.burning(J.items(J.get(p, "fire")), powder.tile_of(h))))):
+        powder.soot(run, p, t)
+      else:
+        c: J.Val = J.get(J.get(p, "corners"), U32.show(id))
+        h1: J.Val = Bool.pick(J.Val, J.is_null(c), h, J.set(J.set(h, "x", J.JF{((RS.i_as_f32(J.u32(J.nth(c, 0))) + 0.5 : F32) * 2.0 : F32)}), "y", J.JF{((RS.i_as_f32(J.u32(J.nth(c, 1))) + 0.5 : F32) * 2.0 : F32)}))
+        h2: J.Val = J.set(h1, "invulnerable", J.JU{45})
+        broken: J.Val = J.get(p, "broken")
+        k: String = U32.show(id)
+        p1: J.Val = J.set(p, "broken", J.set(broken, k, J.JU{RS.u_sat_sub(J.u32(J.get(broken, k)), 3)}))
+        powder.soot(exits.push_sound(exits.set_hero(run, id, h2), "hero_hurt"), p1, t)
+
+# The store's tick: kegs dropped and blown, crates broken, knights sooted, and the end.
+def powder.Run.tick_powder(+run: J.Val, +inputs: J.Val) -> J.Val:
+  p0: J.Val = J.get(run, "powder")
+  if J.is_null(p0):
+    run
+  else:
+    if Bool.or(U32.is_ne(J.u32(J.get(p0, "room")), J.u32(J.get(run, "at"))), J.bool(J.get(p0, "done"))):
+      run
+    else:
+      p1: J.Val = J.set(p0, "t", J.JU{(J.u32(J.get(p0, "t")) + 1 : U32)})
+      run1: J.Val = powder.cooldowns(run, exits.ids_all(run))
+      if U32.is_lt(J.u32(J.get(p1, "t")), 60):
+        J.set(run1, "powder", p1)
+      else:
+        powder.play(run1, p1, inputs)
+
+def powder.play(+run: J.Val, +p: J.Val, +inputs: J.Val) -> J.Val:
+  s: WS = powder.drop(WS{run, J.set(p, "held_new", J.JA{Nil{}}), 4294967295}, exits.ids_all(run), inputs)
+  powder.play.fuses(s)
+
+def powder.play.fuses(+s: WS) -> J.Val:
+  match s as WS:
+    case WS{run: J.Val, g: J.Val, mark: U32}:
+      p1: J.Val = J.del(J.set(g, "held", J.get(g, "held_new")), "held_new")
+      p2: J.Val = J.set(p1, "kegs", J.JA{powder.fuses(J.items(J.get(p1, "kegs")))})
+      powder.play.blow(powder.blow(PowderS{run, p2, Nil{}}))
+
+def powder.play.blow(+s: PowderS) -> J.Val:
+  match s as PowderS:
+    case PowderS{run: J.Val, p: J.Val, blasts: List<&2, LayCell>}:
+      powder.after(run, p, blasts)
+
+def powder.after(+run: J.Val, +p: J.Val, +blasts: List<&2, LayCell>) -> J.Val:
+  burst: Bool = Bool.not(List.is_empty(&2, LayCell, blasts))
+  run1: J.Val = Bool.pick(J.Val, burst, powder.bump(run), run)
+  p1: J.Val = J.set(p, "fire", J.JA{powder.fire_age(powder.fire_add(J.items(J.get(p, "fire")), blasts))})
+  (run2: J.Val, p2: J.Val) = powder.soot(run1, p1, exits.ids_all(run1))
+  if Bool.or(U32.is_eq(J.len(J.get(p2, "crates")), 0), U32.is_ge(J.u32(J.get(p2, "t")), 1860)):
+    powder.finish(run2, J.set(J.set(J.set(p2, "done", J.JBool{True{}}), "kegs", J.JA{Nil{}}), "fire", J.JA{Nil{}}))
+  else:
+    J.set(run2, "powder", p2)
+
+def powder.bump(+run: J.Val) -> J.Val:
+  d: J.Val = J.get(run, "dungeon")
+  J.set(run, "dungeon", J.set(d, "world_revision", J.JU{(J.u32(J.get(d, "world_revision")) + 1 : U32)}))
+
+# The pot and the crown: a gold per four crates broken.
+def powder.finish(+run: J.Val, +p: J.Val) -> J.Val:
+  best: U32 = gantry.best_by_broken(J.int_fields(J.get(p, "broken")), 4294967295, 0)
+  pot: U32 = gantry.pot(J.fields(J.get(p, "ante")))
+  rivals: Bool = U32.is_gt(world.obj_len(J.get(p, "broken")), 1)
+  r1: J.Val = powder.pay(run, J.int_fields(J.get(p, "broken")), best, pot, rivals)
+  room: U32 = J.u32(J.get(p, "room"))
+  dungeon: J.Val = J.get(r1, "dungeon")
+  r2: J.Val = Bool.pick(J.Val, U32.is_lt(room, layout.Floor.len(dungeon)), J.set(r1, "dungeon", layout.floor_with_rooms(dungeon, J.items(J.set_nth(layout.Floor.rooms(dungeon), room, J.set(layout.Floor.room(dungeon, room), "cleared", J.JBool{True{}}))))), r1)
+  name: String = Bool.pick(String, Bool.and(U32.is_ne(best, 4294967295), exits.has_hero(r2, best)), String.to_upper(J.str(J.get(exits.hero(r2, best), "name"))), "NOBODY")
+  r3: J.Val = J.set(J.set(r2, "powder", p), "found", J.JA{[J.get(r2, "tick"), J.JU{0}, J.JS{String.append(name, " BROKE THE MOST CRATES!")}]})
+  floors.cue(exits.push_sound(r3, "play_card"), "pastime_won")
+
+# The most crates, the least id on a tie.
+def gantry.best_by_broken(+hs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +best: U32, +bn: U32) -> U32:
+  match hs as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
+    case Nil{}:
+      best
+    case Con{p: Sigma<&2, &2, String, _ => J.Val>, t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
+      id: U32 = world.key_id(p)
+      n: U32 = J.u32(world.key_val(p))
+      if Bool.or(U32.is_eq(best, 4294967295), U32.is_gt(n, bn)):
+        gantry.best_by_broken(t, id, n)
+      else:
+        gantry.best_by_broken(t, best, bn)
+
+def powder.pay(+run: J.Val, +xs: List<&2, Sigma<&2, &2, String, _ => J.Val>>, +best: U32, +pot: U32, +rivals: Bool) -> J.Val:
+  match xs as List<&2, Sigma<&2, &2, String, _ => J.Val>>:
+    case Nil{}:
+      run
+    case Con{p: Sigma<&2, &2, String, _ => J.Val>, t: List<&2, Sigma<&2, &2, String, _ => J.Val>>}:
+      id: U32 = world.key_id(p)
+      n: U32 = J.u32(world.key_val(p))
+      if exits.has_hero(run, id):
+        h: J.Val = exits.hero(run, id)
+        h1: J.Val = J.set(J.set(h, "carried", realm.Spoils.add(J.get(h, "carried"), "gold", U32.shrn(n, 2n))), "bomb_cooldown", J.JU{0})
+        h2: J.Val = Bool.pick(J.Val, rivals, J.set(h1, "laurel", J.JBool{U32.is_eq(id, best)}), h1)
+        h3: J.Val = Bool.pick(J.Val, U32.is_eq(id, best), J.set(h2, "carried", realm.Spoils.add(J.get(h2, "carried"), "gold", pot)), h2)
+        powder.pay(exits.set_hero(run, id, h3), t, best, pot, rivals)
+      else:
+        powder.pay(run, t, best, pot, rivals)

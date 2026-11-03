@@ -65,7 +65,7 @@
   "flags": [
     "piece-count mismatch"
   ],
-  "map_sha256": "e37d3cdfe7e6b623edefe6e9841d0662909583174b2a7497351aa263757a689c",
+  "map_sha256": "5414b247b661d774f272406a6665e51ab5f2d7c3b1efce5c74d5581f3ebc555d",
   "metadata_sha256": "72cf607b5f0c8f3d40c27e99aac96ddbe125e3e43c08066ec3ebee24ac5806c0",
   "notes_sha256": "14874419473027be0a808fcc21768103392803f6f8a04f623f2257dda2d919df",
   "outputs": {
@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "cinder.crock",
-  "source_path": "/work/artifacts/boss-art-20261015/slot-int-a/prepared/cinder.crock/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/slot-int-a/prepared/cinder.crock/source-sheet.png",
   "source_sha256": "3f9418f9ea96436cff487c6545b0fc1e6c7f11ae59f46f627d1815bae9a31ff7",
   "tool_version": 2
 }

@@ -123,6 +123,7 @@ fn a_warning_leads_with_the_sign_and_guidance_does_not() {
         assert!(book::is_warning(route), "{}", route.name());
     }
     for route in [
+        book::d3456_advisories::POST_EDIT,
         book::d3456_advisories::GREEN,
         book::d3456_advisories::FINAL_MILE,
         v_verification::RED,
@@ -147,6 +148,10 @@ fn ported_advisories_keep_their_0_1_6_names_for_the_analysis() {
         (l_loops::SAME_BATCH, "spin_advisory"),
         (x_execution::ERRORS, "error_advisory"),
         (v_verification::RED_STREAK, "verification_recovery"),
+        (
+            book::d3456_advisories::POST_EDIT,
+            "post_edit_logic_advisory",
+        ),
         (book::d3456_advisories::GREEN, "green_verify_advisory"),
         (k_competition::WINNER_BANK, "green_verify_advisory"),
         (book::d3456_advisories::FINAL_MILE, "final_mile_advisory"),
@@ -172,6 +177,50 @@ fn a_raise_can_name_one_page_of_its_route() {
     assert_eq!(
         book::warpath(&root, &[raise, Raise::new(v_verification::UNTESTED, None)]),
         "⠼⠃⠑⠧⠋"
+    );
+}
+
+#[test]
+fn the_post_edit_review_is_back_and_never_says_finish() {
+    // Restored at the free ninth slot after 25086af8 deleted it at the first;
+    // every route in use since then keeps its address.
+    let route = Route::new('⠼', '⠊');
+    assert_eq!(book::legacy_kind(route), Some("post_edit_logic_advisory"));
+    assert!(
+        book::is_voiced(route) && !book::is_warning(route),
+        "guidance"
+    );
+    let pages = words(&pages_of("⠼⠊"));
+    assert!(
+        pages.contains("Review the edit logically before testing"),
+        "{pages}"
+    );
+    assert!(pages.contains("smallest relevant verifier"), "{pages}");
+    // The 2026-10-16 failure: a loop model took this page for an operator
+    // order to run one verifier and finish, then ended the run.
+    assert!(pages.contains("this advice is not a stop"), "{pages}");
+    assert!(!pages.contains("and finish"), "{pages}");
+    assert!(!pages.contains("in those cases finish"), "{pages}");
+    // Operator lock: the chapter's addresses, in order. Deleting or
+    // renumbering a sub breaks this before it breaks a live loop.
+    let subs = book::d3456_advisories::PRIMARY
+        .subs
+        .iter()
+        .map(|sub| format!("{}:{}", sub.route.cells(), sub.name))
+        .collect::<Vec<_>>();
+    assert_eq!(
+        subs,
+        [
+            "⠼⠁:green",
+            "⠼⠃:final-mile",
+            "⠼⠉:first-write",
+            "⠼⠙:no-edit",
+            "⠼⠑:weak-verification",
+            "⠼⠋:mutation-thrash",
+            "⠼⠛:peripheral-fanout",
+            "⠼⠓:error-cascade",
+            "⠼⠊:post-edit",
+        ]
     );
 }
 

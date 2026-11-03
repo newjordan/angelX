@@ -20,8 +20,10 @@ pub struct Talent {
     pub does: &'static str,
 }
 
-/// Four lessons, a talent on the left lectern and one on the right.
-pub const LESSONS: [[Talent; 2]; 4] = [
+/// Twelve lessons, a talent on the left lectern and one on the right. A
+/// knight's record keeps each choice by its place here, so a new lesson goes
+/// on the end.
+pub const LESSONS: [[Talent; 2]; 12] = [
     [
         Talent {
             name: "Iron Hide",
@@ -78,10 +80,125 @@ pub const LESSONS: [[Talent; 2]; 4] = [
             does: "your hits mend a friend, at most 2 a second",
         },
     ],
+    [
+        Talent {
+            name: "Long Reach",
+            says: "Lead them less. Let the shot do the walking.",
+            effect: "velocity 20",
+            does: "shots fly 20% faster",
+        },
+        Talent {
+            name: "Heavy Hand",
+            says: "Give them room to reconsider.",
+            effect: "knock 1",
+            does: "your hits shove monsters further back",
+        },
+    ],
+    [
+        Talent {
+            name: "Through and Through",
+            says: "Don't stop at the first one. They won't.",
+            effect: "pierce 1",
+            does: "shots pass through one more foe",
+        },
+        Talent {
+            name: "Round the Corner",
+            says: "The wall is on your side. Use it.",
+            effect: "bounce 1",
+            does: "shots bounce off a wall",
+        },
+    ],
+    [
+        Talent {
+            name: "True Eye",
+            says: "Look where you want it to go. It listens.",
+            effect: "homing 1",
+            does: "shots curve toward the nearest monster",
+        },
+        Talent {
+            name: "Split Shaft",
+            says: "Waste nothing. Not even the one that stopped.",
+            effect: "fork 1",
+            does: "a shot that stops on a monster forks into two",
+        },
+    ],
+    [
+        Talent {
+            name: "Hot Iron",
+            says: "Quench it in something that deserves it.",
+            effect: "burn 1",
+            does: "your hits set monsters burning",
+        },
+        Talent {
+            name: "Cold Steel",
+            says: "Nobody ever charged well with frozen feet.",
+            effect: "chill 1",
+            does: "your hits slow monsters to a crawl",
+        },
+    ],
+    [
+        Talent {
+            name: "Adder's Kiss",
+            says: "It need not be a hard blow. Only a patient one.",
+            effect: "poison 1",
+            does: "your hits poison monsters",
+        },
+        Talent {
+            name: "Shrapnel",
+            says: "Everyone near the fool shares in his mistake.",
+            effect: "burst 15",
+            does: "hits burst for 15% on the three nearest",
+        },
+    ],
+    [
+        Talent {
+            name: "Old Campaigner",
+            says: "You stopped flinching. Now stop bleeding.",
+            effect: "armor 1",
+            does: "one more piece of mail",
+        },
+        Talent {
+            name: "Finishing Stroke",
+            says: "You know where it goes by now.",
+            effect: "damage 10",
+            does: "10% more damage",
+        },
+    ],
+    [
+        Talent {
+            name: "Second Nature",
+            says: "Stop thinking about it. There. You see?",
+            effect: "rate 10",
+            does: "strike 10% faster",
+        },
+        Talent {
+            name: "Long Road",
+            says: "A good knight arrives. A great one arrives first.",
+            effect: "speed 8",
+            does: "walk 8% faster",
+        },
+    ],
+    [
+        Talent {
+            name: "Giant's Measure",
+            says: "Why hit a man when you can hit the whole doorway?",
+            effect: "size 1",
+            does: "your shots are bigger and hit wider",
+        },
+        Talent {
+            name: "Homeward",
+            says: "Whatever you throw, I taught you to call it back.",
+            effect: "boomerang 1",
+            does: "your shots turn and come back to your hand",
+        },
+    ],
 ];
 
-/// The experience that reaches levels 2, 3, 4 and 5.
-pub const LEVELS: [u32; 4] = [600, 1800, 3600, 6000];
+/// The experience that reaches levels 2 to 13: each level asks 600 more than
+/// the one before, and every level is a lesson.
+pub const LEVELS: [u32; 12] = [600, 1800, 3600, 6000, 9000, 12600, 16800, 21600, 27000, 33000, 39600, 46800];
+
+const _: () = assert!(LEVELS.len() == LESSONS.len());
 
 /// A knight's prowess, kept by the realm: experience, and the talent
 /// learned at each lesson so far (0 the left, 1 the right).
@@ -135,7 +252,14 @@ pub fn lectern_at(x: f32, y: f32) -> Option<usize> {
     LECTERNS.iter().position(|&p| inside(p, x, y))
 }
 
-/// The name the realm keeps a knight's prowess under.
+/// The name the realm keeps a player's own progress under, whichever kit they
+/// wear: their prowess and their questlines. Friends on one kit keep two
+/// records, and a change of class keeps the one.
+pub fn profile_key(hero: &Hero) -> String {
+    hero.name.to_lowercase()
+}
+
+/// The name the realm keeps what belongs to a kit under: its squires and works.
 pub fn knight_key(hero: &Hero) -> String {
     hero.knight
         .clone()
@@ -219,7 +343,7 @@ impl Run {
             let waiting = self
                 .players
                 .values()
-                .any(|h| self.home.prowess(&knight_key(h)).waiting() > 0);
+                .any(|h| self.home.prowess(&profile_key(h)).waiting() > 0);
             self.cues.push(
                 if waiting {
                     "npc:ector_lesson"
@@ -240,3 +364,10 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/together_talents__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-home"))]
+#[path = "../../tests/rules/talents_bend_cases__tests.rs"]
+mod talents_bend_cases_tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/profile__tests.rs"]
+mod profile_tests;

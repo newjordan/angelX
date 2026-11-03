@@ -1,0 +1,71 @@
+# crates/delve/src/rules/shoulders.rs — knights on each other's shoulders, and knights thrown off the top.
+# `Run::shoulders` is an object {stacks: {carrier: [riders]}, flights: [..], rearm: {..}, slams: [..], keys: [..]}
+# (the four first are left out while empty). The *quiet* path of `shoulders_begin`/`shoulders_end` is ported;
+# the active path (towers standing, flights, ride keys) is not.
+
+def shoulders.Shoulders.quiet(s: J.Val) -> Bool:
+    return Bool.and(Bool.and(U32.is_zero(core.count(J.get(s, "stacks"))), U32.is_zero(core.count(J.get(s, "flights")))), Bool.and(U32.is_zero(core.count(J.get(s, "rearm"))), U32.is_zero(core.count(J.get(s, "slams")))))
+
+# The carrier of knight `id`, or null.
+def shoulders.Shoulders.carrier_of(s: J.Val, id: U32) -> J.Val:
+    for (k: String, riders: J.Val) in J.int_fields(J.get(s, "stacks")):
+        if core.has_ju(J.items(riders), id):
+            return J.JU{rules.Run.step.id(k)}
+    return J.JNull{}
+
+def shoulders.Shoulders.riding(s: J.Val, id: U32) -> Bool:
+    return Bool.not(J.is_null(shoulders.Shoulders.carrier_of(s, id)))
+
+# Where knight `id` stands in a tower: 0 on the ground, 1 for the first rider.
+def shoulders.Shoulders.level(s: J.Val, id: U32) -> U32:
+    for (k: String, riders: J.Val) in J.fields(J.get(s, "stacks")):
+        i: U32 = 0
+        for r: J.Val in J.items(riders):
+            if U32.is_eq(J.u32(r), id):
+                return (i + 1 : U32)
+            i = (i + 1 : U32)
+    return 0
+
+def shoulders.Shoulders.riders(s: J.Val, id: U32) -> J.Val:
+    return core.or_else(J.get(J.get(s, "stacks"), U32.show(id)), J.JA{Nil{}})
+
+def shoulders.Shoulders.flight(s: J.Val, id: U32) -> J.Val:
+    for f: J.Val in J.items(J.get(s, "flights")):
+        if U32.is_eq(core.u(f, "knight"), id):
+            return f
+    return J.JNull{}
+
+def shoulders.Shoulders.carried(s: J.Val, id: U32) -> Bool:
+    return Bool.or(shoulders.Shoulders.riding(s, id), Bool.not(J.is_null(shoulders.Shoulders.flight(s, id))))
+
+def shoulders.Shoulders.pace(s: J.Val, id: U32) -> F32:
+    return (1.0 - (shoulders.PACE_PER_RIDER() * RS.u_as_f32(core.count(shoulders.Shoulders.riders(s, id))) : F32) : F32)
+
+# The ride key was pressed by someone (a press may start a tower).
+def shoulders.any_ride(inputs: J.Val) -> Bool:
+    for (k: String, i: J.Val) in J.fields(inputs):
+        if core.b(i, "ride"):
+            return True{}
+    return False{}
+
+# The knights stand on their own feet.
+def shoulders.ground_all(run: J.Val) -> J.Val:
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.fields(players):
+        players = J.set(players, k, core.set_b(h, "aloft", False{}))
+    return J.set(run, "players", players)
+
+# Towers stand or come down, the thrown fly on, and the riders' keys are cut to aiming and shooting.
+# (run, (inputs or None, ledger)); the ledger is what each carrier's health was.
+def shoulders.Run.shoulders_begin(run: J.Val, inputs: J.Val) -> (J.Val, (J.Val?, J.Val)):
+    s: J.Val = J.get(run, "shoulders")
+    quiet: Bool = Bool.and(shoulders.Shoulders.quiet(s), Bool.and(Bool.not(shoulders.any_ride(inputs)), U32.is_zero(core.count(J.get(s, "keys")))))
+    if quiet:
+        return (shoulders.ground_all(run), (None{}, J.JA{Nil{}}))
+    return shoulders.Run.shoulders_begin_active(run, inputs)
+
+# The ledger's carriers pay their riders a share of what they lost.
+def shoulders.Run.shoulders_end(run: J.Val, ledger: J.Val) -> J.Val:
+    for c: J.Val in J.items(ledger):
+        run = shoulders.Run.share_loss(run, J.u32(J.nth(c, 0)), J.u32(J.nth(c, 1)))
+    return run

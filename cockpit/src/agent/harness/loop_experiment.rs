@@ -657,7 +657,7 @@ fn snapshot_live(
             if let Some(parent) = target.parent() {
                 std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
             }
-            std::fs::write(&target, &bytes).map_err(|e| e.to_string())?;
+            crate::platform::workspace_store::write_atomic(&target, &bytes)?;
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
@@ -894,11 +894,10 @@ pub(crate) fn run_loop_experiment(
                 return Err("source changed across snapshot passes; parent preserved".into());
             }
             result.snapshot_sha256 = manifest_hash(&manifest)?;
-            std::fs::write(
-                request.artifact_dir.join("baseline-manifest.json"),
-                serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?;
+            crate::platform::workspace_store::write_atomic(
+                &request.artifact_dir.join("baseline-manifest.json"),
+                &serde_json::to_vec_pretty(&manifest).map_err(|e| e.to_string())?,
+            )?;
             git_output(&working, &["init", "-q"], &cancel)?;
             git_output(&working, &["add", "-f", "-A", "--", "."], &cancel)?;
             git_output(
@@ -1000,11 +999,10 @@ pub(crate) fn run_loop_experiment(
             let trace = drain
                 .join()
                 .map_err(|_| "experiment event drain panicked")?;
-            std::fs::write(
-                request.artifact_dir.join("tool-events.json"),
-                serde_json::to_vec_pretty(&trace).map_err(|e| e.to_string())?,
-            )
-            .map_err(|e| e.to_string())?;
+            crate::platform::workspace_store::write_atomic(
+                &request.artifact_dir.join("tool-events.json"),
+                &serde_json::to_vec_pretty(&trace).map_err(|e| e.to_string())?,
+            )?;
             result.resolved_route = club.resolved_route_identity();
             match outcome {
                 Ok(outcome) => {
@@ -1040,7 +1038,7 @@ pub(crate) fn run_loop_experiment(
                 )?;
                 let path = request.artifact_dir.join("candidate.patch");
                 result.patch_sha256 = Some(crate::knowledge::cut::sha256_hex(&patch));
-                std::fs::write(&path, patch).map_err(|e| e.to_string())?;
+                crate::platform::workspace_store::write_atomic(&path, &patch)?;
                 result.patch_path = Some(path);
                 if let Some(command) = request
                     .verify_command
@@ -1208,8 +1206,12 @@ pub(crate) fn run_loop_experiment(
     // Process settlement does not discard evidence: keep the working copy,
     // including ignored probe logs and evaluator-generated files, on every path.
     let result_bytes = serde_json::to_vec_pretty(&result).map_err(|e| e.to_string())?;
-    std::fs::write(request.artifact_dir.join("result.json"), &result_bytes)
-        .map_err(|e| format!("persist experiment receipt (artifacts retained): {e}"))?;
+    // The experiment receipt is the durable record of the run: fsync tier.
+    crate::platform::workspace_store::write_private_atomic(
+        &request.artifact_dir.join("result.json"),
+        &result_bytes,
+    )
+    .map_err(|e| format!("persist experiment receipt (artifacts retained): {e}"))?;
     result.result_sha256 = Some(crate::knowledge::cut::sha256_hex(&result_bytes));
     Ok(result)
 }

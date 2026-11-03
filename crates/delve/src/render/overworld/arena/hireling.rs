@@ -3,12 +3,13 @@
 //! west table with his plate before him; in a delve he fights beside the
 //! party, and when he's felled he lies where he fell until the fight's over.
 //! A minion a card calls into his place is drawn the same way, each its own
-//! small creature (its card shows the thing that called it).
+//! small creature (its card shows the thing that called it), and so is each
+//! of a summoner's own dead (`minions`).
 
 use super::super::ink::Img;
 use super::{TILE, at, home, sprites, stand};
 use crate::rules::Run;
-use crate::rules::hireling::{AllyKind, BEAUMAINS_AT, HIRE_PLATE, WAGE, hire_at};
+use crate::rules::hireling::{AllyKind, BEAUMAINS_AT, HIRE_PLATE, Hireling, WAGE, hire_at};
 use crate::rules::home::{BUY_HOLD, Station, hold_bar};
 
 pub(super) const BEAUMAINS: [&str; 17] = [
@@ -30,6 +31,12 @@ pub(super) const BEAUMAINS: [&str; 17] = [
     "....II.II.....",
     "...nnn.nnn....",
 ];
+
+const NINJA: [&str; 12] = ["...IIII...", "..IIIIII..", "..IOOOOI..", "..IKOOKI..", "...IIII...", "..II7III..", ".OIIIIIIIO", ".O.IIII.O.", "...IIII...", "...II.II..", "...II.II..", "..nn..nn.."];
+const HEALER: [&str; 12] = ["...hhhh...", "..hOOOOh..", "..hOKKOh..", "...OOOO...", "..hh7hhh..", ".Ohh7hhhO.", ".O.h777hO.", "...hh7hh..", "...hhhhh..", "...hh.hh..", "...hh.hh..", "..nn..nn.."];
+const RANGER: [&str; 12] = ["...EEEE...", "..EEEEE...", "..EOOOOE..", "..EOKKOE..", "...OOOO...", "..Emmmmm..", ".OmmmmmmO.", ".O.mmmmmO.", "...mmmmm..", "...mm.mm..", "...mm.mm..", "..nn..nn.."];
+const SHIELDBEARER: [&str; 12] = ["...SSSS...", "..SSSSSS..", "..SOOOOS..", "..SKOOKS..", "...OOOO...", ".VVSSSSS..", ".VhVSSSSO.", ".VhVSSSSO.", "..VVSSSS..", "...SS.SS..", "...SS.SS..", "..nn..nn.."];
+const ALCHEMIST: [&str; 12] = ["...pppp...", "..pOOOO...", "..pOKKO...", "...OOOO...", "..pppppp..", ".OppppppO.", ".O.ppUpp0.", "...ppUpp3.", "...ppppp..", "...pp.pp..", "...pp.pp..", "..nn..nn.."];
 
 /// A hearth brownie: a small shaggy hearth spirit in brown and ochre,
 /// bare-footed, no knife. It catches a shot instead.
@@ -256,12 +263,18 @@ pub(super) fn plate(cv: &mut Img) {
 /// Beaumains in a delve: facing what he fights, blinking through a hit's
 /// grace, or lying where he fell.
 pub(super) fn delve(cv: &mut Img, run: &Run) {
-    let Some(hire) = &run.hireling else {
-        return;
-    };
-    let (x, y) = at(hire.x, hire.y);
-    let mut im = Img::from_rows(match hire.kind {
+    super::academy_squires::delve(cv, run);
+    if let Some(hire) = &run.hireling {
+        ally(cv, run, hire);
+    }
+}
+
+/// What an ally of `kind` is drawn from.
+fn rows_of(kind: AllyKind) -> &'static [&'static str] {
+    use super::minions::{GHOUL, TOTEM, WARDEN, ZOMBIE};
+    match kind {
         AllyKind::Beaumains => &BEAUMAINS[..],
+        AllyKind::SquireNinja | AllyKind::SquireHealer | AllyKind::SquireRanger | AllyKind::SquireShieldBearer | AllyKind::SquireAlchemist => &BEAUMAINS[..],
         AllyKind::Brownie => &BROWNIE[..],
         AllyKind::Moth => &MOTH[..],
         AllyKind::Wisp => &WISP[..],
@@ -273,7 +286,30 @@ pub(super) fn delve(cv: &mut Img, run: &Run) {
         AllyKind::Leech => &LEECH[..],
         AllyKind::Brawler => &BRAWLER[..],
         AllyKind::Hound => &HOUND[..],
-    });
+        AllyKind::Ghoul => &GHOUL[..],
+        AllyKind::Warden => &WARDEN[..],
+        AllyKind::Totem => &TOTEM[..],
+        AllyKind::Zombie => &ZOMBIE[..],
+        AllyKind::FleshGolem | AllyKind::BoneGolem | AllyKind::GraveGolem | AllyKind::Colossus => &GHOUL[..],
+        AllyKind::Skeleton => &ZOMBIE[..],
+        AllyKind::Ninja => &NINJA,
+        AllyKind::Healer => &HEALER,
+        AllyKind::Ranger => &RANGER,
+        AllyKind::Shieldbearer => &SHIELDBEARER,
+        AllyKind::Alchemist => &ALCHEMIST,
+    }
+}
+
+/// One ally in a delve, Beaumains or a minion: climbing out of the ground
+/// when just raised, facing what it fights, blinking through a hit's
+/// grace, or lying where it fell. One of a summoner's dead wears what his
+/// wishes for them put on it (`minions::dressed`).
+pub(super) fn ally(cv: &mut Img, run: &Run, hire: &Hireling) {
+    let (x, y) = at(hire.x, hire.y);
+    let body = if let Some(kind) = hire.kind.squire() {
+        super::academy_squires::sprite(kind, hire.summoner.unwrap_or(1))
+    } else { super::minions::body(hire.kind, run.tick).unwrap_or_else(|| Img::from_rows(rows_of(hire.kind))) };
+    let (mut im, mut worn) = super::minions::dressed(run, hire, &body);
     if hire.down() {
         im = sprites::quarter_turn(&im);
         stand(cv, &im, x, y + 3);
@@ -281,9 +317,17 @@ pub(super) fn delve(cv: &mut Img, run: &Run) {
     }
     if hire.facing < 0.0 {
         im = im.flip_h();
+        worn = worn.into_iter().map(|p| p.mirrored(im.w)).collect();
+    }
+    if hire.rising > 0 {
+        super::minions::rising(cv, &im, x, y, hire.rising);
+        return;
     }
     let blink = hire.invulnerable > 0 && (run.tick / 2).is_multiple_of(2);
     if !blink {
+        // What it wears stands with it, painted where a window can.
+        super::paintings::wearing((im.w, im.h), worn);
         stand(cv, &im, x, y);
+        super::paintings::unworn();
     }
 }

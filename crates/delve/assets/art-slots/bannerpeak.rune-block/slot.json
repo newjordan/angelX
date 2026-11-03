@@ -329,7 +329,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "bannerpeak.rune-block",
-  "source_path": "/work/artifacts/art-prod-rt/slots/bannerpeak.rune-block/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/bannerpeak.rune-block/v01/source-sheet.png",
   "source_sha256": "4528d6ce39906def1a28c0cd81afae45ca9ae90f9703cb0f04f0afac3122b623",
   "tool_version": 2
 }

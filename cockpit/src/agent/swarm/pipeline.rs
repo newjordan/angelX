@@ -74,17 +74,11 @@ impl SwarmClub {
     /// the swarm. Any failure defaults to `Open` — fanning out is the swarm's
     /// reason to exist, so we'd rather over-think than silently degrade.
     pub(crate) fn classify(&self, problem: &str) -> Mandate {
-        match self.call(&d3_roles::CLASSIFIER.cells(), &[ChatMsg::user(problem)]) {
-            Ok(verdict) => {
-                let v = verdict.to_ascii_uppercase();
-                if v.contains("TIGHT") && !v.contains("OPEN") {
-                    Mandate::Tight
-                } else {
-                    Mandate::Open
-                }
-            }
-            Err(_) => Mandate::Open,
-        }
+        // One model call, then the leg maps its case-folded verdict to a mandate.
+        let reply = self
+            .call(&d3_roles::CLASSIFIER.cells(), &[ChatMsg::user(problem)])
+            .ok();
+        mandate_with(VerdictFacts::of(reply.as_deref())).0
     }
 
     /// Advisor gate (`ANGEL_ADVISOR`): one reviewer pass over the *final* answer
@@ -98,10 +92,12 @@ impl SwarmClub {
         answer: String,
         on_delta: &mut dyn FnMut(StreamDelta),
     ) -> String {
-        if !crate::agent::advisor::final_enabled() || answer.trim().is_empty() {
-            return answer;
-        }
-        if crate::agent::advisor::already_annotated(&answer) {
+        let (advise, _) = advise_with(AdviseFacts {
+            enabled: crate::agent::advisor::final_enabled(),
+            blank: answer.trim().is_empty(),
+            annotated: crate::agent::advisor::already_annotated(&answer),
+        });
+        if !advise {
             return answer;
         }
         let task = messages
@@ -115,10 +111,12 @@ impl SwarmClub {
             Ok(reply) => crate::agent::advisor::parse_verdict(&reply),
             Err(_) => return answer,
         };
-        if verdict.is_clear() {
-            return answer;
-        }
-        match crate::agent::advisor::annotate(&verdict) {
+        let annotation = crate::agent::advisor::annotate(&verdict);
+        let (annotate, _) = annotate_with(AnnotateFacts {
+            clear: verdict.is_clear(),
+            has_annotation: annotation.is_some(),
+        });
+        match annotation.filter(|_| annotate) {
             Some(annotation) => {
                 on_delta(StreamDelta::Content(&annotation));
                 format!("{answer}{annotation}")
@@ -226,7 +224,20 @@ impl SwarmClub {
     }
 
     pub(crate) fn should_research_route(&self, problem: &str) -> bool {
-        wants_live_research(problem) && (self.k.research || self.clubs.research.is_some())
+        // The swarm-route leg's `research` feature is the live ask this gate
+        // used to re-derive from the problem text.
+        self.research_route_for(route_decisions(problem).research)
+    }
+
+    /// The same gate with the leg's answer already in hand, so a caller that
+    /// asked several routing questions evaluates the leg once.
+    pub(crate) fn research_route_for(&self, wants_live: bool) -> bool {
+        research_route_with(ResearchFacts {
+            wants_live,
+            research_enabled: self.k.research,
+            researcher_present: self.clubs.research.is_some(),
+        })
+        .0
     }
 
     fn should_run_grok_research(&self, problem: &str) -> bool {
@@ -669,6 +680,7 @@ impl SwarmClub {
         let budget = crate::agent::harness::formation_budget::current();
         // Each pod's judges read the caller's ledger (`book::connect`).
         let ledger = crate::agent::harness::book::connect::workspace();
+        let book_catalog = crate::agent::harness::book::catalog::current();
         let outcomes: Vec<PodOutcome> = std::thread::scope(|s| {
             let drafts = &drafts;
             let weights = &weights;
@@ -677,7 +689,10 @@ impl SwarmClub {
                 .into_iter()
                 .map(|pod| {
                     let budget = budget.clone();
+                    let book_catalog = book_catalog.clone();
                     s.spawn(move || {
+                        let _book_catalog =
+                            book_catalog.map(crate::agent::harness::book::catalog::enter);
                         let _budget_scope = crate::agent::harness::formation_budget::enter(budget);
                         let _ledger = crate::agent::harness::book::connect::enter(ledger);
                         let pod_drafts = pod
@@ -1191,15 +1206,27 @@ impl SwarmClub {
         // swarm with NO routing round-trip — one fewer model call on *every* turn.
         // ANGEL_SWARM_SMART_ROUTE=1 restores the adaptive model classifier (trivial
         // turns still skip it via the fast path). ANGEL_SWARM_ALWAYS forces the swarm.
-        let research_route = self.should_research_route(&problem);
-        let deliberate = if smart_route_enabled() {
-            research_route
-                || !(fastpath_enabled() && obviously_tight(&problem))
-                    && matches!(self.classify(&problem), Mandate::Open)
-        } else {
-            research_route || wants_deliberation(&problem)
-        };
-        if !self.k.always && !deliberate {
+        // One leg evaluation answers every routing question about this turn.
+        let routing = route_decisions(&problem);
+        let research_route = self.research_route_for(routing.research);
+        let smart_route = smart_route_enabled();
+        let fastpath = fastpath_enabled();
+        // The classifier is a model round trip, so it is asked only when its
+        // answer can still carry the gate; the leg combines the facts.
+        let classify_open = smart_route
+            && !research_route
+            && !(fastpath && routing.tight)
+            && matches!(self.classify(&problem), Mandate::Open);
+        let (direct, _) = pass_with(PassFacts {
+            smart_route,
+            research_route,
+            fastpath,
+            tight: routing.tight,
+            classify_open,
+            deliberation: routing.deliberation,
+            always: self.k.always,
+        });
+        if direct {
             return self.single_pass(history, cancel, on_delta, stream);
         }
         trace.route = "deliberate";
@@ -1324,6 +1351,7 @@ impl SwarmClub {
                     .collect();
                 // A phoned specialist is connected: it reads this ledger.
                 let ledger = crate::agent::harness::book::connect::workspace();
+                let book_catalog = crate::agent::harness::book::catalog::current();
                 let results: Vec<_> = std::thread::scope(|s| {
                     let router = &router;
                     let ledger = &ledger;
@@ -1331,7 +1359,10 @@ impl SwarmClub {
                         .iter()
                         .zip(denials)
                         .map(|(r, denied)| {
+                            let book_catalog = book_catalog.clone();
                             s.spawn(move || {
+                                let _book_catalog =
+                                    book_catalog.map(crate::agent::harness::book::catalog::enter);
                                 let _ledger = crate::agent::harness::book::connect::enter(ledger);
                                 match denied {
                                     Some(result) => result,

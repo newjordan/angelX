@@ -88,17 +88,7 @@ impl Tool for BenchmarkCompareTool {
         "benchmark_compare"
     }
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name:self.name().into(),
-            description:"Calculate measured benchmark percentages from paired baseline/candidate samples on one named dataset: mean/median/p95, sample standard deviation, signed improvement, ratio-of-means speedup, paired wins/ties/losses. Local deterministic arithmetic; no network, model estimates or acceptance authority. Samples must be nonnegative and matched in order. ⠩⠚".into(),
-            params:json!({"type":"object", "properties":{
-                "dataset":{"type":"string", "maxLength":256},
-                "metric":{"type":"string", "maxLength":256, "description":"⠩⠚⠃"},
-                "direction":{"type":"string", "enum":["minimize","maximize"]},
-                "baseline":{"type":"array", "minItems":1, "maxItems":256, "items":{"type":"number","minimum":0,"maximum":1e100}},
-                "candidate":{"type":"array", "minItems":1, "maxItems":256, "items":{"type":"number","minimum":0,"maximum":1e100}}
-            }, "required":["dataset","metric","direction","baseline","candidate"], "additionalProperties":false}),
-        }
+        crate::agent::harness::core_catalog::baseline_def("benchmark_compare")
     }
     fn call(&self, args: &Value) -> Result<String, String> {
         compare(args).and_then(|v| {

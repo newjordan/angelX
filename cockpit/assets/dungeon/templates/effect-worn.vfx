@@ -1,0 +1,13 @@
+# TEMPLATE: what a wish worn at its top tiers gives off about its knight, and
+# a soft touch on its shots. Here: embers, for a fire wish.
+# Copy the lines onto every tier of a wish. Check them with
+#   cargo run -p angel-delve --example content_check -- <your file>
+#
+# Keep: one aura layer (it loops for as long as the wish is worn; count 8 at
+#   most, slow: speed 0 to 2); a trail light enough not to hide the shot.
+# The bar: an aura is a breath, not a fire: it never covers the knight's face,
+#   rises or falls rather than spraying, and reads at 1x as the wish's colour.
+vfx aura embers fire rise count=4 speed=1 spread=360 life=32
+vfx trail embers fire rise count=2 speed=1 spread=40 life=10
+vfx hit sparks fire count=8 speed=4 spread=360 life=12
+vfx kill embers fire rise count=14 speed=4 spread=360 life=9

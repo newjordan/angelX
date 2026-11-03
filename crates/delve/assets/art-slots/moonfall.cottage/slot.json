@@ -151,7 +151,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "moonfall.cottage",
-  "source_path": "/work/artifacts/art-prod-rt/slots/moonfall.cottage/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod-rt/slots/moonfall.cottage/v01/source-sheet.png",
   "source_sha256": "d818e2439ec188050914e4a45abbc217394642a6acbe6ce806f1f825167de410",
   "tool_version": 2
 }

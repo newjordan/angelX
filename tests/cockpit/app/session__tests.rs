@@ -101,6 +101,77 @@ fn older_write_cannot_clear_a_newer_backlog_failure() {
 }
 
 #[test]
+fn prior_binding_check_reads_the_snapshot_in_blocks_not_bytes() {
+    use std::io::Read as _;
+    struct CountingReader {
+        inner: std::io::Cursor<Vec<u8>>,
+        calls: usize,
+    }
+    impl std::io::Read for CountingReader {
+        fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+            self.calls += 1;
+            self.inner.read(buf)
+        }
+    }
+    let record = SessionRecord {
+        schema: SESSION_SCHEMA.to_string(),
+        workspace: PathBuf::from("/tmp/hotpath-workspace"),
+        project_key: "hotpath-key".into(),
+        history: (0..600)
+            .map(|index| ChatMsg::user(format!("message {index} {}", "x".repeat(1400))))
+            .collect(),
+    };
+    let bytes = serde_json::to_vec(&record).unwrap();
+    assert!(bytes.len() > 500_000, "fixture must be snapshot-sized");
+    let mut reader = CountingReader {
+        inner: std::io::Cursor::new(bytes.clone()),
+        calls: 0,
+    };
+    assert!(binding_matches(&mut reader, &record).unwrap());
+    assert!(
+        reader.calls <= 32,
+        "prior binding check made {} read calls for {} bytes; a byte-at-a-time \
+         reader (serde_json::from_reader on a raw File) costs one syscall per byte",
+        reader.calls,
+        bytes.len()
+    );
+}
+
+#[test]
+fn prior_binding_check_rejects_a_snapshot_with_a_malformed_history() {
+    let record = SessionRecord {
+        schema: SESSION_SCHEMA.to_string(),
+        workspace: PathBuf::from("/tmp/hotpath-workspace"),
+        project_key: "hotpath-key".into(),
+        history: vec![ChatMsg::user("a valid history entry")],
+    };
+    let mut snapshot = serde_json::to_value(&record).unwrap();
+    snapshot["history"] = serde_json::json!({ "not": "a history array" });
+    let bytes = serde_json::to_vec(&snapshot).unwrap();
+    assert!(
+        !binding_matches(&mut std::io::Cursor::new(bytes), &record).unwrap(),
+        "a snapshot whose binding fields match but whose history does not parse \
+         must still fail closed, not be overwritten"
+    );
+}
+
+#[test]
+fn prior_binding_check_rejects_a_truncated_snapshot() {
+    let record = SessionRecord {
+        schema: SESSION_SCHEMA.to_string(),
+        workspace: PathBuf::from("/tmp/hotpath-workspace"),
+        project_key: "hotpath-key".into(),
+        history: vec![ChatMsg::user("x".repeat(2048))],
+    };
+    let bytes = serde_json::to_vec(&record).unwrap();
+    let truncated = &bytes[..bytes.len() / 2];
+    assert!(
+        !binding_matches(&mut std::io::Cursor::new(truncated), &record).unwrap(),
+        "a truncated snapshot must fail closed"
+    );
+}
+
+#[test]
 fn writer_queue_saturation_fails_fast_and_typed() {
     let (sender, receiver) = mpsc::sync_channel(1);
     let (first_reply, _first_done) = mpsc::channel();

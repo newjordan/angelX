@@ -476,11 +476,26 @@ impl Tone {
             // The castle proof's sun: low in the west-south-west.
             Tone::Open(_) => ([-0.66, 0.52, 0.46], 1.05, 0.26),
             // Under the ground: a hard cool light low from the front left,
-            // as through a slot in the stone, over almost no ambient, so
-            // what stands throws long shadows and the lamps carry the room.
-            Tone::Delve(_) => ([-0.70, 0.36, 0.50], 1.2, 0.10),
+            // as through a slot in the stone, over a dim ambient, so what
+            // stands throws long shadows, the lamps carry the room and the
+            // floor, the walls and what stands in it still read: the floor
+            // at the middle steps of the ladder, a lit face a step up, a
+            // shadow two down (docs/BRAND.md). Dragon Keep is held darker,
+            // so its lava is the light.
+            Tone::Delve(Pack::Hellforge) => ([-0.70, 0.36, 0.50], 0.62, 0.21),
+            Tone::Delve(_) => ([-0.70, 0.36, 0.50], 0.90, 0.32),
             // A high window to the front left.
             _ => ([-0.52, 0.72, 0.46], 0.7, 0.24),
+        }
+    }
+
+    /// How high its sky's light grows (`Sun::rise`): a delve's tall faces
+    /// pale toward their tops and darken at their feet, so a pillar or a
+    /// wall stands up out of the floor.
+    pub fn rise(self) -> f32 {
+        match self {
+            Tone::Delve(_) => 16.0,
+            _ => 0.0,
         }
     }
 
@@ -599,7 +614,7 @@ pub fn look(tone: Tone, lamps: &[Lamp], t: f32, centre: [f32; 3], reach: f32, ch
     look.time = t;
     let (toward, strength, ambient) = tone.key();
     let (burn, throw) = tone.lamp_gain();
-    look.sun = Some(Sun { toward, strength, ambient, shadow: Some(Shadow { focus: centre, reach: reach * tone.shadow_reach() }), rise: 0.0 });
+    look.sun = Some(Sun { toward, strength, ambient, shadow: Some(Shadow { focus: centre, reach: reach * tone.shadow_reach() }), rise: tone.rise() });
     look.warm = Some(tone.warm().to_vec());
     look.water = Some(tone.water().to_vec());
     let mut near: Vec<(usize, &Lamp)> = lamps.iter().enumerate().collect();
@@ -614,9 +629,75 @@ pub fn look(tone: Tone, lamps: &[Lamp], t: f32, centre: [f32; 3], reach: f32, ch
     look
 }
 
+/// Whether a lit room's figures take its light as cards (`Look::cards`,
+/// docs/WORLD-TIERS.md "Lit cards"): unless the host says
+/// `ANGEL_STAGE_LIT_CARDS=0`.
+pub fn lit_cards_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| !std::env::var("ANGEL_STAGE_LIT_CARDS").is_ok_and(|v| v == "0"))
+}
+
+/// Whether a lit room's cards are lit pixel by pixel by their normal maps
+/// (`Cards::normals`, docs/WORLD-TIERS.md "Normal maps"): unless the host
+/// says `ANGEL_STAGE_CARD_NORMALS=0`, when each card is one face turned to
+/// the eye, as before, and no map is made.
+pub fn card_normals_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| !std::env::var("ANGEL_STAGE_CARD_NORMALS").is_ok_and(|v| v == "0"))
+}
+
+/// Whether a lit room is seen with a depth of field (`Look::dof`,
+/// docs/WORLD-TIERS.md "Depth of field"): unless the host says
+/// `ANGEL_STAGE_DOF=0`.
+pub fn dof_on() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| !std::env::var("ANGEL_STAGE_DOF").is_ok_and(|v| v == "0"))
+}
+
+/// A lit room's look given the two dials that follow its figures
+/// (2026-10-19: "yes do depth of field and lit sprites next"): its figures
+/// lit by its light as cards, and a depth of field that keeps every figure
+/// in `feet` (stage pixels: the knights and what they fight) sharp and
+/// softens what is nearer and farther. Each unless its switch is off.
+pub fn with_figures(look: &mut Look, feet: &[[f32; 3]]) {
+    if lit_cards_on() {
+        let normals = if card_normals_on() { angel_stage::look::Cards::ROOM.normals } else { 0.0 };
+        look.cards = Some(angel_stage::look::Cards { normals, ..angel_stage::look::Cards::ROOM });
+    }
+    if dof_on() {
+        look.dof = Some(angel_stage::look::Dof::room(focus(feet)));
+    }
+}
+
+/// The figures' feet the depth of field is kept on: the nearest and the
+/// farthest down the floor, which is the stage camera's depth (a room has
+/// thousands of figures at most, a look keeps 64 points).
+pub fn focus(feet: &[[f32; 3]]) -> Vec<[f32; 3]> {
+    let near = feet.iter().copied().max_by(|a, b| a[2].total_cmp(&b[2]));
+    let far = feet.iter().copied().min_by(|a, b| a[2].total_cmp(&b[2]));
+    near.into_iter().chain(far).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_focus_is_the_nearest_and_farthest_feet_down_the_floor() {
+        let feet = [[10.0, 0.0, 80.0], [200.0, 0.0, 30.0], [90.0, 0.0, 150.0], [5.0, 0.0, 100.0]];
+        assert_eq!(focus(&feet), vec![[90.0, 0.0, 150.0], [200.0, 0.0, 30.0]]);
+        assert!(focus(&[]).is_empty());
+        let mut l = look(Tone::Delve(Pack::Crypt), &[], 0.0, [0.0; 3], 100.0, None);
+        assert_eq!((l.cards, l.dof.is_some()), (None, false), "a room's look alone has neither");
+        with_figures(&mut l, &feet);
+        if lit_cards_on() && card_normals_on() {
+            assert_eq!(l.cards, Some(angel_stage::look::Cards::ROOM));
+        }
+        if dof_on() {
+            assert_eq!(l.dof.as_ref().map(|d| d.focus.len()), Some(2));
+        }
+        assert_eq!(l.validate(), Ok(()));
+    }
 
     #[test]
     fn every_ramp_runs_dark_to_light_and_stays_dark_and_nearly_monotone() {

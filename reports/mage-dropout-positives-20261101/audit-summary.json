@@ -1,0 +1,97 @@
+{
+  "artifact": "<scratch>/mage/dropout-positives-20261101-v1",
+  "artifact_bytes": 357313590,
+  "artifact_files": 1302,
+  "checks": [
+    {
+      "name": "file_inventory",
+      "pass": true
+    },
+    {
+      "name": "source_manifest_unchanged",
+      "pass": true
+    },
+    {
+      "name": "source_pages",
+      "pass": true
+    },
+    {
+      "name": "controls",
+      "pass": true
+    },
+    {
+      "name": "parents",
+      "pass": true
+    },
+    {
+      "name": "variants",
+      "pass": true
+    },
+    {
+      "name": "manifest_counts",
+      "pass": true
+    },
+    {
+      "name": "holdout_manifest",
+      "pass": true
+    },
+    {
+      "name": "exclusions",
+      "pass": true
+    }
+  ],
+  "counts": {
+    "by_control_type": {
+      "button": 365,
+      "dropdown": 30,
+      "item": 16,
+      "link": 352,
+      "menu": 2,
+      "other": 126,
+      "slider": 2,
+      "tab": 6,
+      "text_field": 79,
+      "toggle": 15
+    },
+    "by_family": {
+      "native-calculator": 44,
+      "native-files": 2,
+      "native-text-editor": 8,
+      "replay-desk": 136,
+      "replay-web": 140,
+      "shopping": 134,
+      "shopping-transition": 132,
+      "steam-navigation": 137,
+      "steam-store": 127,
+      "steam-synthetic": 133
+    },
+    "by_scope": {
+      "compact": 500,
+      "context_group": 493
+    },
+    "changed_pixels": 10146186,
+    "controls": 512,
+    "exclusions": 30,
+    "max_remaining_distractors": 246,
+    "min_remaining_distractors": 2,
+    "parents_selected": 512,
+    "parents_with_variants": 508,
+    "unique_generated_file_hashes": 993,
+    "unique_generated_pixel_hashes": 993,
+    "variants": 993
+  },
+  "exclusions": {
+    "count": 30,
+    "reasons": {
+      "duplicate_generated_pixels": 29,
+      "no_safe_dropout_candidate": 1
+    }
+  },
+  "manifest_sha256": "e6c00259adc1efeb893a3d150a8f9f932725151dd260198a17934ee7eec43139",
+  "pass": true,
+  "source_crop_rows_not_used_as_parents": 7067,
+  "source_full_frame_train_parents": 3706,
+  "source_manifest_sha256": "be4a519a04f6fee2d82259315eeebb1e5403016e74d1207220caa42aba4f20e0",
+  "unique_parent_images": 288,
+  "verdict": "PASS: generated element-dropout positives satisfy the isolated train-only audit"
+}

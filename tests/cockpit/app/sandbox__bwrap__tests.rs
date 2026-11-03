@@ -512,7 +512,7 @@ print('large-workspace-write-and-confinement-ok')
             .env("ANGEL_TEST_ROUNDTRIP", "spaces, quotes: \" and Unicode λ")
             .env("ANGEL_TEST_PRELOAD_MARKER", root.join("preload-runs"))
             .env("LD_PRELOAD", &preload);
-        // Mirror SSH's 1,024 soft limit on Apollo/Spark without modifying the
+        // Mirror SSH's 1,024 soft limit on the GPU hosts without modifying the
         // multithreaded test runner. Only async-signal-safe libc calls here.
         unsafe {
             worker.pre_exec(|| {

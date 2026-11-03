@@ -322,25 +322,7 @@ struct SharedSnapshot {
     promotions: Vec<PromotionRecord>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub(crate) enum AtlasHealth {
-    Disabled,
-    Healthy,
-    Degraded,
-    Inert,
-}
-
-impl AtlasHealth {
-    pub(crate) fn label(self) -> &'static str {
-        match self {
-            Self::Disabled => "disabled",
-            Self::Healthy => "healthy",
-            Self::Degraded => "degraded",
-            Self::Inert => "inert",
-        }
-    }
-}
+pub(crate) use crate::telemetry::AtlasHealth;
 
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct AtlasStatus {
@@ -1440,7 +1422,6 @@ impl AtlasService {
         Ok(proposals)
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn parse_clerk_output(&self, raw: &str) -> Result<ClerkOutput, String> {
         let output: ClerkOutput =
             serde_json::from_str(raw).map_err(|error| format!("invalid clerk JSON: {error}"))?;
@@ -1607,56 +1588,7 @@ impl Tool for AtlasTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "atlas".to_string(),
-            description: "Search Living Atlas, observe an exact workspace source file, trace concept/code links, or propose a sourced claim and links for human review. Source observations include current file hashes and lexical declaration hints, not verified behavior. Claims and relations cannot self-activate.".to_string(),
-            params: json!({
-                "type": "object",
-                "properties": {
-                    "action": { "type": "string", "enum": ["search", "detail", "propose", "observe", "trace"] },
-                    "path": { "type": "string", "maxLength": 160 },
-                    "symbol": { "type": "string", "maxLength": 128 },
-                    "query": { "type": "string", "maxLength": 512 },
-                    "id": { "type": "string", "maxLength": 128 },
-                    "kind": {
-                        "type": "string",
-                        "enum": ["fact", "decision", "preference", "procedure", "open_thread", "entity", "artifact", "note"]
-                    },
-                    "content": { "type": "string", "maxLength": 4096 },
-                    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
-                    "links": {
-                        "type": "array", "maxItems": 16,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "kind": { "type": "string", "enum": ["related", "derived_from"] },
-                                "target_id": { "type": "string", "maxLength": 128 }
-                            },
-                            "required": ["kind", "target_id"], "additionalProperties": false
-                        }
-                    },
-                    "sources": {
-                        "type": "array",
-                        "maxItems": 8,
-                        "items": {
-                            "type": "object",
-                            "properties": {
-                                "id": { "type": "string", "maxLength": 160 },
-                                "kind": { "type": "string", "maxLength": 64 },
-                                "digest": { "type": "string", "maxLength": 160 },
-                                "excerpt": { "type": "string", "maxLength": 512 },
-                                "independent": { "type": "boolean" },
-                                "influenced_by": { "type": "string", "maxLength": 128 }
-                            },
-                            "required": ["id", "kind", "digest"],
-                            "additionalProperties": false
-                        }
-                    }
-                },
-                "required": ["action"],
-                "additionalProperties": false
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("atlas")
     }
 
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -1750,7 +1682,6 @@ impl Tool for AtlasTool {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) enum ClerkAction {
     Propose,
     Merge,
@@ -1759,7 +1690,6 @@ pub(crate) enum ClerkAction {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ClerkCandidate {
     pub(crate) kind: AtlasKind,
     pub(crate) content: String,
@@ -1772,14 +1702,12 @@ pub(crate) struct ClerkCandidate {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct ClerkOutput {
     pub(crate) schema: String,
     pub(crate) action: ClerkAction,
     pub(crate) candidates: Vec<ClerkCandidate>,
 }
 
-#[cfg_attr(not(test), allow(dead_code))]
 impl ClerkOutput {
     fn validate(&self) -> Result<(), String> {
         if self.schema != CLERK_SCHEMA {
@@ -2224,7 +2152,6 @@ fn suggested_commands(content: &str) -> Vec<String> {
 
 /// Rollout gates stay deterministic and separate from model routing.
 #[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct AtlasPromotionMetrics {
     pub(crate) reviewed_lessons: usize,
     pub(crate) held_out: usize,
@@ -2253,7 +2180,6 @@ pub(crate) fn clerk_promotion_ready(metrics: AtlasPromotionMetrics) -> bool {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct AtlasModelCapability {
     pub(crate) route_id: String,
     pub(crate) parameter_billions: Option<u32>,
@@ -2263,7 +2189,6 @@ pub(crate) struct AtlasModelCapability {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(not(test), allow(dead_code))]
 pub(crate) struct AtlasModelRoles {
     pub(crate) teacher: Option<String>,
     pub(crate) clerk: Option<String>,

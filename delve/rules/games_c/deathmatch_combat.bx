@@ -1,0 +1,1057 @@
+# crates/delve/src/rules/deathmatch/combat.rs — the PvP seam: the Delve's arms and cards, with knights
+# as their targets. A Field is {owner, x, y, radius, damage, left, wait, kind} (kind: "Hazard" |
+# "Turret" | "Decoy" | "Hedge", no rename).
+
+# Field::blocks(x, y, r): only a hedge blocks, with a door in its east side.
+def deathmatch.Field.blocks(+f: J.Val, +x: F32, +y: F32, +r: F32) -> Bool:
+  if Bool.not(String.eq(gc.s(f, "kind"), "Hedge")):
+    False{}
+  else:
+    radius: F32 = gc.f(f, "radius")
+    dx: F32 = RS.f_abs((x - gc.f(f, "x") : F32))
+    dy: F32 = RS.f_abs((y - gc.f(f, "y") : F32))
+    gate: Bool = Bool.and(F32.is_gt(x, gc.f(f, "x")), F32.is_lt(dy, (1.2 - r : F32)))
+    side: Bool = Bool.and(F32.is_lt(RS.f_abs((dx - radius : F32)), (r + 0.25 : F32)), Bool.and(F32.is_lt(dy, (radius + r : F32)), Bool.not(gate)))
+    Bool.or(side, Bool.and(F32.is_lt(RS.f_abs((dy - radius : F32)), (r + 0.25 : F32)), F32.is_lt(dx, (radius + r : F32))))
+
+# Session::visible(a, b): a sight line that no hedge cuts.
+def deathmatch.Session.visible(+s: J.Val, +ax: F32, +ay: F32, +bx: F32, +by: F32) -> Bool:
+  if deathmatch.sight(ax, ay, bx, by):
+    n: U32 = RS.f_as_u32(RS.f_max(F32.ceil((RS.f_hypot((bx - ax : F32), (by - ay : F32)) * 5.0 : F32)), 1.0))
+    deathmatch.visible.go(J.items(J.get(s, "fields")), 0, n, ax, ay, bx, by)
+  else:
+    False{}
+
+def deathmatch.visible.go(+fs: List<&2, J.Val>, +i: U32, +n: U32, +ax: F32, +ay: F32, +bx: F32, +by: F32) -> Bool:
+  if U32.is_gt(i, n):
+    True{}
+  else:
+    t: F32 = (RS.u_as_f32(i) / RS.u_as_f32(n) : F32)
+    if deathmatch.fields_block(fs, (ax + ((bx - ax : F32) * t : F32) : F32), (ay + ((by - ay : F32) * t : F32) : F32), 0.0):
+      False{}
+    else:
+      deathmatch.visible.go(fs, (i + 1 : U32), n, ax, ay, bx, by)
+
+# Sort targets by (distance, id): insertion, stable.
+def deathmatch.tsort(+ts: List<&2, GcTgt>) -> List<&2, GcTgt>:
+  match ts as List<&2, GcTgt>:
+    case Nil{}:
+      Nil{}
+    case Con{h: GcTgt, t: List<&2, GcTgt>}:
+      deathmatch.tsort.ins(h, deathmatch.tsort(t))
+
+def deathmatch.tsort.ins(+x: GcTgt, +sorted: List<&2, GcTgt>) -> List<&2, GcTgt>:
+  match sorted as List<&2, GcTgt>:
+    case Nil{}:
+      [x]
+    case Con{h: GcTgt, t: List<&2, GcTgt>}:
+      if deathmatch.tless(x, h):
+        x <> (h <> t)
+      else:
+        h <> deathmatch.tsort.ins(x, t)
+
+def deathmatch.tless(+a: GcTgt, +b: GcTgt) -> Bool:
+  match a as GcTgt:
+    case GcTgt{ad: F32, aid: U32, ax: F32, ay: F32}:
+      match b as GcTgt:
+        case GcTgt{bd: F32, bid: U32, bx: F32, by: F32}:
+          Bool.or(F32.is_lt(ad, bd), Bool.and(F32.is_eq(ad, bd), U32.is_lt(aid, bid)))
+
+# Hit the sorted targets in order, rank by rank: each takes `aoe::part(damage, rank)`.
+def deathmatch.strike(+s: J.Val, +owner: U32, +ts: List<&2, GcTgt>, +rank: U32, +damage: U32) -> J.Val:
+  match ts as List<&2, GcTgt>:
+    case Nil{}:
+      s
+    case Con{h: GcTgt, t: List<&2, GcTgt>}:
+      match h as GcTgt:
+        case GcTgt{d: F32, id: U32, x: F32, y: F32}:
+          r: J.Val & Bool = deathmatch.Session.hit(s, owner, id, aoe.part(damage, rank), x, y)
+          (s2: J.Val, landed: Bool) = r
+          deathmatch.strike(s2, owner, t, (rank + 1 : U32), damage)
+
+# fn area(&mut self, owner, at, radius, damage)
+def deathmatch.Session.area(+s: J.Val, +owner: U32, +ax: F32, +ay: F32, +radius: F32, +damage: U32) -> J.Val:
+  ts: List<&2, GcTgt> = deathmatch.area.targets(s, owner, ax, ay, radius, gc.ids(J.get(s, "fighters")))
+  deathmatch.strike(s, owner, deathmatch.tsort(ts), 0, damage)
+
+def deathmatch.area.targets(+s: J.Val, +owner: U32, +ax: F32, +ay: F32, +radius: F32, +ids: List<&2, U32>) -> List<&2, GcTgt>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      f: J.Val = deathmatch.F(s, id)
+      px: F32 = gc.f(J.get(f, "hero"), "x")
+      py: F32 = gc.f(J.get(f, "hero"), "y")
+      d: F32 = RS.f_hypot((px - ax : F32), (py - ay : F32))
+      if Bool.and(Bool.not(U32.is_eq(id, owner)), Bool.and(deathmatch.Fighter.alive(f), Bool.and(F32.is_le(d, radius), deathmatch.Session.visible(s, ax, ay, px, py)))):
+        GcTgt{d, id, (px - ax : F32), (py - ay : F32)} <> deathmatch.area.targets(s, owner, ax, ay, radius, t)
+      else:
+        deathmatch.area.targets(s, owner, ax, ay, radius, t)
+
+# The shared orbit layout: n morningstars round the knight.
+def deathmatch.orbit_points(+h: J.Val, +id: U32, +tick: W.W) -> List<&2, GcPt>:
+  n: U32 = gc.umin(gc.u(J.get(h, "bonus"), "orbit"), cards.cap("orbit"))
+  deathmatch.orbit.go(h, id, tick, 0, n)
+
+def deathmatch.orbit.go(+h: J.Val, +id: U32, +tick: W.W, +k: U32, +n: U32) -> List<&2, GcPt>:
+  if U32.is_ge(k, n):
+    Nil{}
+  else:
+    a: F32 = ((((W.as_f32(tick) * rules.ORBIT_SPIN() : F32) * rules.DT() : F32) + ((RS.u_as_f32(k) * deathmatch.TAU() : F32) / RS.u_as_f32(n) : F32) : F32) + RS.u_as_f32(id) : F32)
+    GcPt{(gc.f(h, "x") + (F32.cos(a) * rules.ORBIT_RADIUS() : F32) : F32), (gc.f(h, "y") + (F32.sin(a) * rules.ORBIT_RADIUS() : F32) : F32)} <> deathmatch.orbit.go(h, id, tick, (k + 1 : U32), n)
+
+# The points swept over the last ORBIT_EVERY ticks.
+def deathmatch.swept(+h: J.Val, +id: U32, +ticks: U32, +back: U32) -> List<&2, GcPt>:
+  if U32.is_ge(back, rules.ORBIT_EVERY()):
+    Nil{}
+  else:
+    List.append(&2, GcPt, deathmatch.orbit_points(h, id, W.of_u32(gc.ssub(ticks, back))), deathmatch.swept(h, id, ticks, (back + 1 : U32)))
+
+def deathmatch.near_any(+ps: List<&2, GcPt>, +x: F32, +y: F32, +r: F32) -> Bool:
+  match ps as List<&2, GcPt>:
+    case Nil{}:
+      False{}
+    case Con{p: GcPt, t: List<&2, GcPt>}:
+      match p as GcPt:
+        case GcPt{px: F32, py: F32}:
+          Bool.or(F32.is_le(RS.f_hypot((x - px : F32), (y - py : F32)), r), deathmatch.near_any(t, x, y, r))
+
+# fn orbits(&mut self, owner)
+def deathmatch.Session.orbits(+s: J.Val, +owner: U32) -> J.Val:
+  h: J.Val = deathmatch.H(s, owner)
+  if U32.is_zero(gc.u(J.get(h, "bonus"), "orbit")):
+    s
+  else:
+    damage: U32 = hero.Hero.scaled(h, rules.ORBIT_DAMAGE())
+    swept: List<&2, GcPt> = deathmatch.swept(h, owner, gc.u(s, "ticks"), 0)
+    fx: F32 = gc.f(h, "x")
+    fy: F32 = gc.f(h, "y")
+    ts: List<&2, GcTgt> = deathmatch.orbit.targets(s, owner, swept, fx, fy, gc.ids(J.get(s, "fighters")))
+    deathmatch.strike(s, owner, deathmatch.tsort(ts), 0, damage)
+
+def deathmatch.orbit.targets(+s: J.Val, +owner: U32, +swept: List<&2, GcPt>, +fx: F32, +fy: F32, +ids: List<&2, U32>) -> List<&2, GcTgt>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      f: J.Val = deathmatch.F(s, id)
+      px: F32 = gc.f(J.get(f, "hero"), "x")
+      py: F32 = gc.f(J.get(f, "hero"), "y")
+      hit: Bool = Bool.and(Bool.not(U32.is_eq(id, owner)), Bool.and(deathmatch.Fighter.alive(f), Bool.and(deathmatch.near_any(swept, px, py, (rules.HERO_RADIUS() + 0.8 : F32)), deathmatch.Session.visible(s, fx, fy, px, py))))
+      if hit:
+        GcTgt{RS.f_hypot((px - fx : F32), (py - fy : F32)), id, (px - fx : F32), (py - fy : F32)} <> deathmatch.orbit.targets(s, owner, swept, fx, fy, t)
+      else:
+        deathmatch.orbit.targets(s, owner, swept, fx, fy, t)
+
+# fn melee(&mut self, owner, reach, arc, damage)
+def deathmatch.Session.melee(+s: J.Val, +owner: U32, +reach: F32, +arc: F32, +damage: U32) -> J.Val:
+  f: J.Val = deathmatch.F(s, owner)
+  ts: List<&2, GcTgt> = deathmatch.melee.targets(s, owner, reach, arc, gc.f(J.get(f, "hero"), "x"), gc.f(J.get(f, "hero"), "y"), gc.f(f, "yaw"), gc.ids(J.get(s, "fighters")))
+  deathmatch.strike(s, owner, deathmatch.tsort(ts), 0, damage)
+
+def deathmatch.melee.targets(+s: J.Val, +owner: U32, +reach: F32, +arc: F32, +ax: F32, +ay: F32, +yaw: F32, +ids: List<&2, U32>) -> List<&2, GcTgt>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      f: J.Val = deathmatch.F(s, id)
+      px: F32 = gc.f(J.get(f, "hero"), "x")
+      py: F32 = gc.f(J.get(f, "hero"), "y")
+      dx: F32 = (px - ax : F32)
+      dy: F32 = (py - ay : F32)
+      turn0: F32 = (F32.atan2(dy, dx) - yaw : F32)
+      turn: F32 = RS.f_abs(F32.atan2(F32.sin(turn0), F32.cos(turn0)))
+      dist: F32 = RS.f_hypot(dx, dy)
+      hit: Bool = Bool.and(Bool.not(U32.is_eq(id, owner)), Bool.and(deathmatch.Fighter.alive(f), Bool.and(F32.is_le(dist, (reach + rules.HERO_RADIUS() : F32)), Bool.and(F32.is_le(turn, (RS.f_to_radians(arc) / 2.0 : F32)), deathmatch.Session.visible(s, ax, ay, px, py)))))
+      if hit:
+        GcTgt{dist, id, dx, dy} <> deathmatch.melee.targets(s, owner, reach, arc, ax, ay, yaw, t)
+      else:
+        deathmatch.melee.targets(s, owner, reach, arc, ax, ay, yaw, t)
+
+# fn bolt(&mut self, id, kind, damage, speed, life, burst, stun)
+def deathmatch.Session.bolt(+s: J.Val, +id: U32, +kind: String, +damage: U32, +speed: F32, +life: U32, +burst: U32, +stun: U32) -> J.Val:
+  h: J.Val = deathmatch.H(s, id)
+  traits: J.Val = gc.su(gc.su(rules.ShotTraits.of(J.get(h, "bonus")), "owner", id), "burst", burst)
+  p0: J.Val = gc.sf(gc.sf(gc.sf(gc.sf(J.obj(), "x", (gc.f(h, "x") + (gc.f(h, "aim_x") * 0.6 : F32) : F32)), "y", (gc.f(h, "y") + (gc.f(h, "aim_y") * 0.6 : F32) : F32)), "vx", (gc.f(h, "aim_x") * speed : F32)), "vy", (gc.f(h, "aim_y") * speed : F32))
+  p1: J.Val = gc.sb(gc.ss(p0, "kind", kind), "hostile", False{})
+  p2: J.Val = gc.snull(gc.snull(gc.su(gc.su(J.set(p1, "damage", J.JU{damage}), "pierce", 0), "ttl", life), "look"), "last_hit")
+  p3: J.Val = J.set(gc.sb(p2, "empowered", False{}), "traits", gc.su(traits, "stun", stun))
+  J.set(s, "shots", J.push(J.get(s, "shots"), p3))
+
+# fn field(&mut self, owner, at, radius, damage, left, kind)
+def deathmatch.Session.field(+s: J.Val, +owner: U32, +x: F32, +y: F32, +radius: F32, +damage: U32, +left: U32, +kind: String) -> J.Val:
+  h: J.Val = deathmatch.H(s, owner)
+  if Bool.and(U32.is_lt(gc.len(J.items(J.get(s, "fields"))), 32), Bool.and(deathmatch.open(x, y), deathmatch.sight(gc.f(h, "x"), gc.f(h, "y"), x, y))):
+    f0: J.Val = gc.sf(gc.sf(gc.sf(gc.su(J.obj(), "owner", owner), "x", x), "y", y), "radius", radius)
+    f1: J.Val = gc.ss(gc.su(gc.su(gc.su(f0, "damage", damage), "left", left), "wait", 0), "kind", kind)
+    gc.push(s, "fields", f1)
+  else:
+    s
+
+# pub(super) fn tick_fields(&mut self)
+def deathmatch.Session.tick_fields(+s: J.Val) -> J.Val:
+  fs: List<&2, J.Val> = J.items(J.get(s, "fields"))
+  r: J.Val & J.Val = deathmatch.tick_fields.go(fs, J.set(s, "fields", J.JA{Nil{}}), J.JA{Nil{}})
+  (s2: J.Val, kept: J.Val) = r
+  J.set(s2, "fields", kept)
+
+def deathmatch.tick_fields.go(+fs: List<&2, J.Val>, +s: J.Val, +kept: J.Val) -> J.Val & J.Val:
+  match fs as List<&2, J.Val>:
+    case Nil{}:
+      (s, kept)
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      left: U32 = gc.ssub(gc.u(f, "left"), 1)
+      wait: U32 = gc.ssub(gc.u(f, "wait"), 1)
+      if Bool.and(U32.is_zero(wait), U32.is_gt(gc.u(f, "damage"), 0)):
+        wait2: U32 = gc.pu(String.eq(gc.s(f, "kind"), "Turret"), 20, 10)
+        s2: J.Val = deathmatch.Session.area(s, gc.u(f, "owner"), gc.f(f, "x"), gc.f(f, "y"), gc.f(f, "radius"), gc.u(f, "damage"))
+        deathmatch.tick_fields.keep(t, s2, kept, gc.su(gc.su(f, "left", left), "wait", wait2), left)
+      else:
+        deathmatch.tick_fields.keep(t, s, kept, gc.su(gc.su(f, "left", left), "wait", wait), left)
+
+def deathmatch.tick_fields.keep(+t: List<&2, J.Val>, +s: J.Val, +kept: J.Val, +f: J.Val, +left: U32) -> J.Val & J.Val:
+  deathmatch.tick_fields.go(t, s, gc.ifj(U32.is_gt(left, 0), _ => J.push(kept, f), _ => kept))
+
+# fn hit(&mut self, owner, target, damage, way) -> bool
+def deathmatch.Session.hit(+s: J.Val, +owner: U32, +target: U32, +damage: U32, +wx: F32, +wy: F32) -> J.Val & Bool:
+  if Bool.or(U32.is_eq(owner, target), Bool.or(Bool.not(J.is_null(J.get(s, "winner"))), Bool.not(gc.has_seat(J.get(s, "fighters"), owner)))):
+    (s, False{})
+  else:
+    f: J.Val = deathmatch.F(s, target)
+    if Bool.or(J.is_null(f), Bool.not(Bool.and(deathmatch.Fighter.alive(f), U32.is_zero(gc.u(f, "protection"))))):
+      (s, False{})
+    else:
+      h: J.Val = J.get(f, "hero")
+      aim_dot: F32 = (((wx * gc.f(h, "aim_x") : F32) + (wy * gc.f(h, "aim_y") : F32)) : F32)
+      if Bool.or(shield.turns(h, wx, wy), Bool.and(gc.b(h, "walling"), F32.is_gt(F32.neg(aim_dot), 0.0))):
+        t: J.Val & Bool = shield.Hero.shield_turned(h, damage)
+        (h2: J.Val, ignored: Bool) = t
+        (deathmatch.setH(s, target, h2), False{})
+      else:
+        deathmatch.hit.land(s, owner, target, damage, h, gc.u(h, "hp"))
+
+def deathmatch.hit.land(+s: J.Val, +owner: U32, +target: U32, +damage: U32, +h: J.Val, +before: U32) -> J.Val & Bool:
+  h1: J.Val = gear.Hero.dress(hero.Hero.hurt(gc.su(h, "hit_ward", 0), damage))
+  s1: J.Val = deathmatch.setH(s, target, h1)
+  if U32.is_eq(gc.u(h1, "hp"), before):
+    (s1, False{})
+  else:
+    if U32.is_zero(gc.u(h1, "hp")):
+      (deathmatch.hit.kill(s1, owner, target), True{})
+    else:
+      (s1, True{})
+
+# The victim falls: respawn clock, a death; the killer a kill, the feed a line, ten kills the round.
+def deathmatch.hit.kill(+s: J.Val, +owner: U32, +target: U32) -> J.Val:
+  fv: J.Val = deathmatch.F(s, target)
+  fv1: J.Val = gc.su(gc.su(fv, "respawn", deathmatch.RESPAWN()), "deaths", gc.sadd16(gc.u(fv, "deaths"), 1))
+  s1: J.Val = deathmatch.setF(s, target, fv1)
+  fk: J.Val = deathmatch.F(s1, owner)
+  fk1: J.Val = gc.su(fk, "kills", (gc.u(fk, "kills") + 1 : U32))
+  s2: J.Val = deathmatch.setF(s1, owner, fk1)
+  frag: J.Val = gc.su(gc.su(gc.su(J.obj(), "killer", owner), "victim", target), "tick", gc.u(s2, "ticks"))
+  feed: J.Val = J.push(J.get(s2, "feed"), frag)
+  feed2: J.Val = gc.ifj(U32.is_gt(gc.len(J.items(feed)), 5), _ => gc.remove(feed, 0), _ => feed)
+  s3: J.Val = J.set(s2, "feed", feed2)
+  gc.ifj(U32.is_eq(gc.u(fk1, "kills"), deathmatch.GOAL()), _ => gc.su(J.set(s3, "winner", J.JU{owner}), "ended", 0), _ => s3)
+
+# book.get(id): the card by name, or null.
+def gc.book_get.go(+cards: List<&2, J.Val>, +id: String) -> J.Val:
+  match cards as List<&2, J.Val>:
+    case Nil{}:
+      J.JNull{}
+    case Con{c: J.Val, t: List<&2, J.Val>}:
+      gc.ifj(String.eq(gc.s(c, "id"), id), _ => c, _ => gc.book_get.go(t, id))
+
+def gc.book_get(+book: J.Val, +id: String) -> J.Val:
+  gc.book_get.go(J.items(J.get(book, "cards")), id)
+
+# Does knight `id`'s forged weapon have a melee worth swinging? Returns the melee object or null:
+# a pure blade always, one with bolts only with another fighter within reach.
+def deathmatch.forged_melee(+s: J.Val, +id: U32) -> J.Val:
+  h: J.Val = deathmatch.H(s, id)
+  w: J.Val = J.get(h, "forged")
+  m: J.Val = J.get(w, "melee")
+  if Bool.or(J.is_null(w), J.is_null(m)):
+    J.JNull{}
+  else:
+    if Bool.and(J.is_null(J.get(w, "bolt")), J.is_null(J.get(w, "throw"))):
+      m
+    else:
+      gc.ifj(deathmatch.other_within(s, id, gc.ids(J.get(s, "fighters")), gc.f(h, "x"), gc.f(h, "y"), gc.f(m, "reach")), _ => m, _ => J.JNull{})
+
+def deathmatch.other_within(+s: J.Val, +me: U32, +ids: List<&2, U32>, +x: F32, +y: F32, +reach: F32) -> Bool:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      False{}
+    case Con{id: U32, t: List<&2, U32>}:
+      f: J.Val = deathmatch.F(s, id)
+      near: Bool = Bool.and(Bool.not(U32.is_eq(id, me)), Bool.and(deathmatch.Fighter.alive(f), F32.is_le(RS.f_hypot((gc.f(J.get(f, "hero"), "x") - x : F32), (gc.f(J.get(f, "hero"), "y") - y : F32)), reach)))
+      Bool.or(near, deathmatch.other_within(s, me, t, x, y, reach))
+
+# fn attack(&mut self, id, input, book, seed)
+def deathmatch.Session.attack(+s: J.Val, +id: U32, +input: J.Val, +book: J.Val, +seed: W.W) -> J.Val:
+  f: J.Val = deathmatch.F(s, id)
+  if Bool.or(Bool.not(J.is_null(J.get(s, "winner"))), Bool.or(Bool.not(deathmatch.Fighter.alive(f)), U32.is_gt(gc.u(f, "stun"), 0))):
+    s
+  else:
+    s1: J.Val = gc.ifj(gc.b(input, "cycle"), _ => deathmatch.cycle(s, id), _ => s)
+    s2: J.Val = deathmatch.attack.cast(s1, id, gc.u(input, "cast"), book)
+    s3: J.Val = deathmatch.attack.play(s2, id, gc.u(input, "play"), book)
+    s4: J.Val = deathmatch.attack.bomb(s3, id, gc.b(input, "bomb"))
+    s5: J.Val = deathmatch.attack.spin(s4, id)
+    deathmatch.attack.swing(s5, id, input, book, seed)
+
+def deathmatch.cycle(+s: J.Val, +id: U32) -> J.Val:
+  r: J.Val & Bool = hero.Hero.cycle_hand(deathmatch.H(s, id))
+  (h2: J.Val, moved: Bool) = r
+  deathmatch.setH(s, id, h2)
+
+# Spell slot 1-4: a ready slot casts its card.
+def deathmatch.attack.cast(+s: J.Val, +id: U32, +cast: U32, +book: J.Val) -> J.Val:
+  h: J.Val = deathmatch.H(s, id)
+  if Bool.or(U32.is_zero(cast), U32.is_gt(cast, cards.SPELL_SLOTS())):
+    s
+  else:
+    slot: U32 = (cast - 1 : U32)
+    name: J.Val = J.nth(J.get(h, "spells"), slot)
+    card: J.Val = gc.ifj(J.is_null(name), _ => J.JNull{}, _ => gc.book_get(book, J.str(name)))
+    if Bool.and(U32.is_zero(J.u32(J.nth(J.get(h, "spell_cooldowns"), slot))), Bool.not(J.is_null(card))):
+      h2: J.Val = J.set(h, "spell_cooldowns", J.set_nth(J.get(h, "spell_cooldowns"), slot, J.JU{spell_upgrades.Hero.spell_wait(h, card)}))
+      deathmatch.Session.card(deathmatch.setH(s, id, h2), id, card)
+    else:
+      s
+
+def deathmatch.attack.play(+s: J.Val, +id: U32, +play: U32, +book: J.Val) -> J.Val:
+  h: J.Val = deathmatch.H(s, id)
+  if U32.is_zero(play):
+    s
+  else:
+    slot: U32 = (play - 1 : U32)
+    if Bool.and(U32.is_zero(gc.u(h, "play_cooldown")), U32.is_lt(slot, gc.len(J.items(J.get(h, "hand"))))):
+      name: String = J.str(J.nth(J.get(h, "hand"), slot))
+      h2: J.Val = gc.su(J.set(h, "hand", gc.remove(J.get(h, "hand"), slot)), "play_cooldown", rules.PLAY_REARM())
+      card: J.Val = gc.book_get(book, name)
+      s2: J.Val = deathmatch.setH(s, id, h2)
+      gc.ifj(J.is_null(card), _ => s2, _ => deathmatch.Session.card(s2, id, card))
+    else:
+      s
+
+def deathmatch.attack.bomb(+s: J.Val, +id: U32, +bomb: Bool) -> J.Val:
+  h: J.Val = deathmatch.H(s, id)
+  if Bool.and(bomb, Bool.and(U32.is_gt(gc.u(h, "bombs"), 0), U32.is_zero(gc.u(h, "bomb_cooldown")))):
+    h2: J.Val = gc.su(gc.su(h, "bombs", (gc.u(h, "bombs") - 1 : U32)), "bomb_cooldown", rules.BOMB_REARM())
+    s2: J.Val = deathmatch.setF(deathmatch.setH(s, id, h2), id, gc.su(J.set(deathmatch.F(s, id), "hero", h2), "protection", 0))
+    deathmatch.Session.area(s2, id, gc.f(h2, "x"), gc.f(h2, "y"), rules.BOMB_CLEAR(), rules.BOMB_DAMAGE())
+  else:
+    s
+
+def deathmatch.attack.spin(+s: J.Val, +id: U32) -> J.Val:
+  h: J.Val = deathmatch.H(s, id)
+  if Bool.and(U32.is_gt(gc.u(h, "spin"), 0), spin.sweeping(gc.ssub(spin.TICKS(), (gc.u(h, "spin") + 1 : U32)))):
+    deathmatch.Session.area(s, id, gc.f(h, "x"), gc.f(h, "y"), spin.REACH(), hero.Hero.scaled(h, 26))
+  else:
+    s
+
+def deathmatch.guarded(+h: J.Val) -> Bool:
+  Bool.or(Bool.not(deathmatch.is_none_u(hero.Hero.rolling(h))), Bool.or(gc.b(h, "shielding"), Bool.or(gc.b(h, "walling"), deathmatch.busy(h))))
+
+def deathmatch.is_none_u(+m: Maybe<&2, U32>) -> Bool:
+  match m as Maybe<&2, U32>:
+    case None{}:
+      True{}
+    case Some{v}:
+      False{}
+
+def deathmatch.busy(+h: J.Val) -> Bool:
+  Bool.or(U32.is_gt(gc.u(J.get(h, "champ"), "windup"), 0), U32.is_gt(gc.u(J.get(h, "champ"), "haul"), 0))
+
+# The sword swing, then the fire key.
+def deathmatch.attack.swing(+s: J.Val, +id: U32, +input: J.Val, +book: J.Val, +seed: W.W) -> J.Val:
+  f: J.Val = deathmatch.F(s, id)
+  h: J.Val = J.get(f, "hero")
+  guarded: Bool = deathmatch.guarded(h)
+  if Bool.and(gc.b(input, "swing"), Bool.and(U32.is_zero(gc.u(h, "sword_cooldown")), Bool.not(guarded))):
+    h2: J.Val = gc.su(h, "sword_cooldown", hero.Hero.cooldown(h, rules.SWORD_REARM()))
+    f2: J.Val = gc.su(gc.su(J.set(f, "hero", h2), "flash", 5), "protection", 0)
+    s2: J.Val = deathmatch.setF(s, id, f2)
+    s3: J.Val = deathmatch.Session.melee(s2, id, rules.SWORD_REACH(), rules.SWORD_ARC(), hero.Hero.scaled(h2, rules.SWORD_DAMAGE()))
+    deathmatch.attack.fire(s3, id, input, book, seed)
+  else:
+    deathmatch.attack.fire(s, id, input, book, seed)
+
+def deathmatch.attack.fire(+s: J.Val, +id: U32, +input: J.Val, +book: J.Val, +seed: W.W) -> J.Val:
+  melee: J.Val = deathmatch.forged_melee(s, id)
+  f: J.Val = deathmatch.F(s, id)
+  h: J.Val = J.get(f, "hero")
+  if Bool.or(Bool.not(gc.b(input, "fire")), Bool.or(U32.is_gt(gc.u(h, "fire_cooldown"), 0), deathmatch.guarded(h))):
+    s
+  else:
+    start: U32 = gc.len(J.items(J.get(s, "shots")))
+    s1: J.Val = deathmatch.setF(s, id, gc.su(gc.su(f, "protection", 0), "flash", 4))
+    s2: J.Val = deathmatch.fire.kind(s1, id, melee, book, seed)
+    s3: J.Val = deathmatch.shape_from(s2, start)
+    s4: J.Val = gc.ifj(U32.is_gt(gc.u(deathmatch.F(s3, id), "power"), 0), _ => deathmatch.power_from(s3, start), _ => s3)
+    J.set(s4, "shots", J.truncate(J.get(s4, "shots"), rules.MAX_PROJECTILES()))
+
+# wishcraft::shape(&mut shots[start..])
+def deathmatch.shape_from(+s: J.Val, +start: U32) -> J.Val:
+  shots: J.Val = J.get(s, "shots")
+  head: J.Val = J.truncate(shots, start)
+  tail: J.Val = gc.drop_front(shots, start)
+  J.set(s, "shots", J.JA{List.append(&2, J.Val, J.items(head), J.items(wishcraft.shape(tail)))})
+
+# for p in shots[start..]: p.damage = p.damage * 3 / 2
+def deathmatch.power_from(+s: J.Val, +start: U32) -> J.Val:
+  shots: J.Val = J.get(s, "shots")
+  head: J.Val = J.truncate(shots, start)
+  tail: List<&2, J.Val> = deathmatch.power_all(J.items(gc.drop_front(shots, start)))
+  J.set(s, "shots", J.JA{List.append(&2, J.Val, J.items(head), tail)})
+
+def deathmatch.power_all(+ps: List<&2, J.Val>) -> List<&2, J.Val>:
+  match ps as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{p: J.Val, t: List<&2, J.Val>}:
+      gc.su(p, "damage", U32.div((gc.u(p, "damage") * 3 : U32), 2)) <> deathmatch.power_all(t)
+
+def deathmatch.fire.kind(+s: J.Val, +id: U32, +melee: J.Val, +book: J.Val, +seed: W.W) -> J.Val:
+  f: J.Val = deathmatch.F(s, id)
+  h: J.Val = J.get(f, "hero")
+  power: Bool = U32.is_gt(gc.u(f, "power"), 0)
+  if String.eq(champions.of(h), "alchemist"):
+    h2: J.Val = gc.su(h, "fire_cooldown", hero.Hero.cooldown(h, champions.FLASK_REARM()))
+    s2: J.Val = deathmatch.setH(s, id, h2)
+    deathmatch.Session.bolt(s2, id, "ember", hero.Hero.scaled(h2, champions.FLASK_DAMAGE()), 16.0, 18, 100, 0)
+  else:
+    if gear.Hero.unarmed(h):
+      h2: J.Val = gc.su(h, "fire_cooldown", hero.Hero.cooldown(h, 9))
+      damage: U32 = U32.div((hero.Hero.scaled(h2, 6) * gc.pu(power, 3, 2) : U32), 2)
+      deathmatch.Session.melee(deathmatch.setH(s, id, h2), id, 1.5, 100.0, damage)
+    else:
+      if Bool.not(J.is_null(melee)):
+        fury: Bool = U32.is_gt(gc.u(J.get(h, "champ"), "fury"), 0)
+        h2: J.Val = gc.su(h, "fire_cooldown", hero.Hero.cooldown(h, gc.pu(fury, U32.div(gc.u(melee, "every"), 2), gc.u(melee, "every"))))
+        d1: U32 = U32.div((hero.Hero.scaled(h2, gc.u(melee, "damage")) * gc.pu(fury, 3, 2) : U32), 2)
+        damage: U32 = U32.div((d1 * gc.pu(power, 3, 2) : U32), 2)
+        deathmatch.Session.melee(deathmatch.setH(s, id, h2), id, gc.f(melee, "reach"), gc.f(melee, "arc"), damage)
+      else:
+        flying: U32 = deathmatch.flying(J.items(J.get(s, "shots")), id)
+        rng: W.W = rules.mix(W.xor(W.xor(seed, W.mul_u32(W.of_u32(gc.u(s, "ticks")), 40503)), W.shl(W.of_u32(id), 48)))
+        r: J.Val & J.Val = hero.Hero.loose(h, id, book, False{}, rng, flying, J.get(s, "shots"))
+        (h2: J.Val, shots: J.Val) = r
+        J.set(deathmatch.setH(s, id, h2), "shots", shots)
+
+def deathmatch.flying(+ps: List<&2, J.Val>, +id: U32) -> U32:
+  match ps as List<&2, J.Val>:
+    case Nil{}:
+      0
+    case Con{p: J.Val, t: List<&2, J.Val>}:
+      (gc.pu(U32.is_eq(gc.u(J.get(p, "traits"), "owner"), id), 1, 0) + deathmatch.flying(t, id) : U32)
+
+def deathmatch.mend(+s: J.Val, +id: U32, +amount: U32) -> J.Val:
+  r: J.Val & U32 = stakes.Hero.mend(deathmatch.H(s, id), amount, 1)
+  (h2: J.Val, gain: U32) = r
+  deathmatch.setH(s, id, h2)
+
+# fn card(&mut self, id, card)
+def deathmatch.Session.card(+s: J.Val, +id: U32, +card: J.Val) -> J.Val:
+  f: J.Val = deathmatch.F(s, id)
+  f1: J.Val = gc.su(gc.su(f, "protection", 0), "flash", 5)
+  r: J.Val & (U32 & U32) = hero.Hero.spend(J.get(f1, "hero"), card)
+  (h: J.Val, sn: U32 & U32) = r
+  (score: U32, nova: U32) = sn
+  s1: J.Val = deathmatch.setF(s, id, J.set(f1, "hero", h))
+  aimx: F32 = (gc.f(h, "x") + (gc.f(h, "aim_x") * 6.0 : F32) : F32)
+  aimy: F32 = (gc.f(h, "y") + (gc.f(h, "aim_y") * 6.0 : F32) : F32)
+  damage: U32 = spell_upgrades.Hero.spell_damage(h, gc.s(card, "id"), 40)
+  start: U32 = gc.len(J.items(J.get(s1, "shots")))
+  s2: J.Val = deathmatch.card.casts(s1, id, card, J.items(J.get(card, "effects")))
+  s3: J.Val = deathmatch.shape_from(s2, start)
+  s4: J.Val = gc.ifj(U32.is_gt(gc.u(deathmatch.F(s3, id), "power"), 0), _ => deathmatch.power_from(s3, start), _ => s3)
+  s5: J.Val = gc.ifj(U32.is_gt(nova, 0), _ => deathmatch.Session.area(s4, id, gc.f(h, "x"), gc.f(h, "y"), 9.0, nova), _ => s4)
+  s6: J.Val = deathmatch.card.effects(s5, id, J.items(J.get(card, "effects")), gc.f(h, "x"), gc.f(h, "y"), aimx, aimy, damage)
+  s7: J.Val = deathmatch.card.named(s6, id, gc.s(card, "id"), aimx, aimy)
+  J.set(s7, "shots", J.truncate(J.get(s7, "shots"), rules.MAX_PROJECTILES()))
+
+# for effect in effects: if Cast(shape): hero.spell_shots(shape, card.id, id, shots)
+def deathmatch.card.casts(+s: J.Val, +id: U32, +card: J.Val, +es: List<&2, J.Val>) -> J.Val:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      s
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      if J.has(e, "cast"):
+        shots: J.Val = spells.Hero.spell_shots(deathmatch.H(s, id), J.str(J.get(e, "cast")), gc.s(card, "id"), id, J.get(s, "shots"))
+        deathmatch.card.casts(J.set(s, "shots", shots), id, card, t)
+      else:
+        deathmatch.card.casts(s, id, card, t)
+
+# The second pass over the effects: rips, cabbages, hedges, decoys, turrets.
+def deathmatch.card.effects(+s: J.Val, +id: U32, +es: List<&2, J.Val>, +x: F32, +y: F32, +aimx: F32, +aimy: F32, +damage: U32) -> J.Val:
+  match es as List<&2, J.Val>:
+    case Nil{}:
+      s
+    case Con{e: J.Val, t: List<&2, J.Val>}:
+      s2: J.Val = deathmatch.card.effect(s, id, e, x, y, aimx, aimy, damage)
+      deathmatch.card.effects(s2, id, t, x, y, aimx, aimy, damage)
+
+def deathmatch.card.effect(+s: J.Val, +id: U32, +e: J.Val, +x: F32, +y: F32, +aimx: F32, +aimy: F32, +damage: U32) -> J.Val:
+  if J.has(e, "rip"):
+    n: U32 = J.u32(J.get(e, "rip"))
+    deathmatch.mend(deathmatch.Session.area(s, id, aimx, aimy, 4.0, n), id, U32.div(n, 2))
+  else:
+    if J.has(e, "cabbages"):
+      n: U32 = J.u32(J.get(e, "cabbages"))
+      deathmatch.Session.field(s, id, aimx, aimy, 3.2, damage, gc.umax((gc.umin(n, 8) * 10 : U32), 10), "Hazard")
+    else:
+      if J.has(e, "hedge"):
+        deathmatch.Session.field(s, id, aimx, aimy, 3.0, 0, (5 * rules.HZ() : U32), "Hedge")
+      else:
+        if J.has(e, "imposture"):
+          deathmatch.Session.field(s, id, x, y, 1.0, 0, (5 * rules.HZ() : U32), "Decoy")
+        else:
+          if J.has(e, "summon"):
+            deathmatch.Session.field(s, id, x, y, 10.0, gc.umax(J.u32(J.nth(J.get(e, "summon"), 0)), 8), (8 * rules.HZ() : U32), "Turret")
+          else:
+            if J.has(e, "ghoul"):
+              deathmatch.Session.field(s, id, x, y, 10.0, gc.umax(J.u32(J.get(e, "ghoul")), 8), (8 * rules.HZ() : U32), "Turret")
+            else:
+              if J.has(e, "totem"):
+                deathmatch.Session.field(s, id, x, y, 10.0, gc.umax(J.u32(J.get(e, "totem")), 8), (8 * rules.HZ() : U32), "Turret")
+              else:
+                if J.has(e, "warden"):
+                  deathmatch.Session.field(s, id, x, y, 10.0, gc.umax(J.u32(J.get(e, "warden")), 8), (8 * rules.HZ() : U32), "Turret")
+                else:
+                  s
+
+# The champions' own spells, by card id.
+def deathmatch.card.named(+s: J.Val, +id: U32, +name: String, +aimx: F32, +aimy: F32) -> J.Val:
+  h: J.Val = deathmatch.H(s, id)
+  if String.eq(name, "storm-hammer"):
+    deathmatch.Session.bolt(s, id, "sacred", spell_upgrades.Hero.spell_damage(h, name, champions.HAMMER_DAMAGE()), champions.HAMMER_SPEED(), champions.HAMMER_LIFE(), 100, 30)
+  else:
+    if String.eq(name, "groundslam"):
+      c: J.Val = J.set(deathmatch.stance(h), "windup", J.JU{champions.SLAM_WINDUP()})
+      deathmatch.setH(s, id, deathmatch.put_champ(h, c))
+    else:
+      if String.eq(name, "brute-force"):
+        c: J.Val = J.set(deathmatch.stance(h), "fury", J.get(spell_upgrades.Hero.spell_step(h, name), "fury"))
+        deathmatch.setH(s, id, deathmatch.put_champ(h, c))
+      else:
+        if String.eq(name, "meat-hook"):
+          deathmatch.Session.bolt(s, id, "blade", spell_upgrades.Hero.spell_damage(h, name, champions.HOOK_DAMAGE()), champions.HOOK_SPEED(), 18, 0, 30)
+        else:
+          if String.eq(name, "rot"):
+            c: J.Val = J.set(deathmatch.stance(h), "rot", J.get(spell_upgrades.Hero.spell_step(h, name), "rot"))
+            deathmatch.setH(s, id, deathmatch.put_champ(h, c))
+          else:
+            if String.eq(name, "chain-haul"):
+              reach: F32 = gc.f(spell_upgrades.Hero.spell_step(h, name), "haul_reach")
+              p: F32 & F32 = rules.Grid.halted(deathmatch.room(), False{}, (gc.f(h, "x"), gc.f(h, "y")), ((gc.f(h, "aim_x") * reach : F32), (gc.f(h, "aim_y") * reach : F32)))
+              (nx: F32, ny: F32) = p
+              deathmatch.setH(s, id, gc.sf(gc.sf(h, "x", nx), "y", ny))
+            else:
+              if String.eq(name, "miasma-flask"):
+                deathmatch.Session.field(s, id, aimx, aimy, 3.0, champions.FOUL_POWER(), (5 * rules.HZ() : U32), "Hazard")
+              else:
+                if String.eq(name, "quickfire"):
+                  st: J.Val = spell_upgrades.Hero.spell_step(h, name)
+                  deathmatch.Session.field(s, id, aimx, aimy, gc.f(st, "quick_reach"), spell_upgrades.Hero.spell_damage(h, name, champions.QUICK_DAMAGE()), gc.u(st, "quick_life"), "Hazard")
+                else:
+                  if String.eq(name, "elixir"):
+                    deathmatch.mend(s, id, spell_upgrades.Hero.spell_power(h, name, champions.ELIXIR_MEND()))
+                  else:
+                    s
+
+# fn fly(&mut self): the shots in flight, one at a time, in order.
+def deathmatch.Session.fly(+s: J.Val) -> J.Val:
+  orbs: List<&2, GcOrb> = deathmatch.orbs(s, gc.ids(J.get(s, "fighters")))
+  r: GcFly = deathmatch.fly.go(J.items(J.get(s, "shots")), J.set(s, "shots", J.JA{Nil{}}), orbs, Nil{}, Nil{})
+  match r as GcFly:
+    case GcFly{s2: J.Val, children: List<&2, J.Val>, out: List<&2, J.Val>}:
+      s3: J.Val = deathmatch.fly.embers(s2, out)
+      kept: List<&2, J.Val> = deathmatch.fly.alive(out)
+      room: U32 = gc.ssub(rules.MAX_PROJECTILES(), gc.len(kept))
+      J.set(s3, "shots", J.JA{List.append(&2, J.Val, kept, J.items(J.truncate(J.JA{children}, room)))})
+
+# the orbits of living, unprotected fighters
+def deathmatch.orbs(+s: J.Val, +ids: List<&2, U32>) -> List<&2, GcOrb>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      f: J.Val = deathmatch.F(s, id)
+      if Bool.and(deathmatch.Fighter.alive(f), U32.is_zero(gc.u(f, "protection"))):
+        List.append(&2, GcOrb, deathmatch.orb_of(id, deathmatch.orbit_points(J.get(f, "hero"), id, W.of_u32(gc.u(s, "ticks")))), deathmatch.orbs(s, t))
+      else:
+        deathmatch.orbs(s, t)
+
+def deathmatch.orb_of(+id: U32, +ps: List<&2, GcPt>) -> List<&2, GcOrb>:
+  match ps as List<&2, GcPt>:
+    case Nil{}:
+      Nil{}
+    case Con{p: GcPt, t: List<&2, GcPt>}:
+      match p as GcPt:
+        case GcPt{x: F32, y: F32}:
+          GcOrb{id, x, y} <> deathmatch.orb_of(id, t)
+
+def deathmatch.fly.alive(+ps: List<&2, J.Val>) -> List<&2, J.Val>:
+  match ps as List<&2, J.Val>:
+    case Nil{}:
+      Nil{}
+    case Con{p: J.Val, t: List<&2, J.Val>}:
+      gc.ifx_j(U32.is_gt(gc.u(p, "ttl"), 0), p, deathmatch.fly.alive(t))
+
+def gc.ifx_j(+yes: Bool, +p: J.Val, +rest: List<&2, J.Val>) -> List<&2, J.Val>:
+  match yes:
+    case True{}:
+      p <> rest
+    case False{}:
+      rest
+
+# A spent flask bursts and sets the ground alight (for the Alchemist that threw it).
+def deathmatch.fly.embers(+s: J.Val, +ps: List<&2, J.Val>) -> J.Val:
+  match ps as List<&2, J.Val>:
+    case Nil{}:
+      s
+    case Con{p: J.Val, t: List<&2, J.Val>}:
+      owner: U32 = gc.u(J.get(p, "traits"), "owner")
+      if Bool.and(U32.is_zero(gc.u(p, "ttl")), Bool.and(String.eq(gc.s(p, "kind"), "ember"), Bool.and(gc.has_seat(J.get(s, "fighters"), owner), String.eq(champions.of(deathmatch.H(s, owner)), "alchemist")))):
+        s1: J.Val = deathmatch.Session.area(s, owner, gc.f(p, "x"), gc.f(p, "y"), champions.FLASK_BURST(), gc.u(p, "damage"))
+        s2: J.Val = deathmatch.Session.field(s1, owner, gc.f(p, "x"), gc.f(p, "y"), champions.FLASK_FIRE(), U32.div(gc.u(p, "damage"), 4), champions.FLASK_FIRE_LIFE(), "Hazard")
+        deathmatch.fly.embers(s2, t)
+      else:
+        deathmatch.fly.embers(s, t)
+
+def deathmatch.fly.go(+shots: List<&2, J.Val>, +s: J.Val, +orbs: List<&2, GcOrb>, +children: List<&2, J.Val>, +out: List<&2, J.Val>) -> GcFly:
+  match shots as List<&2, J.Val>:
+    case Nil{}:
+      GcFly{s, children, List.reverse(&2, J.Val, out)}
+    case Con{p: J.Val, t: List<&2, J.Val>}:
+      if Bool.or(U32.is_zero(gc.u(p, "ttl")), Bool.not(J.is_null(J.get(s, "winner")))):
+        deathmatch.fly.go(t, s, orbs, children, p <> out)
+      else:
+        r: GcShot = deathmatch.fly.shot(s, gc.su(p, "ttl", (gc.u(p, "ttl") - 1 : U32)), orbs, children)
+        match r as GcShot:
+          case GcShot{s2: J.Val, p2: J.Val, children2: List<&2, J.Val>}:
+            deathmatch.fly.go(t, s2, orbs, children2, p2 <> out)
+
+# The nearest living, unprotected fighter in sight of the shot (not its owner); 0 for none.
+def deathmatch.target(+s: J.Val, +owner: U32, +px: F32, +py: F32, +ids: List<&2, U32>, +best: U32, +bestd: F32) -> U32:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      best
+    case Con{id: U32, t: List<&2, U32>}:
+      f: J.Val = deathmatch.F(s, id)
+      fx: F32 = gc.f(J.get(f, "hero"), "x")
+      fy: F32 = gc.f(J.get(f, "hero"), "y")
+      ok: Bool = Bool.and(Bool.not(U32.is_eq(id, owner)), Bool.and(deathmatch.Fighter.alive(f), Bool.and(U32.is_zero(gc.u(f, "protection")), deathmatch.sight(px, py, fx, fy))))
+      d: F32 = RS.f_hypot((fx - px : F32), (fy - py : F32))
+      if Bool.and(ok, Bool.or(U32.is_zero(best), F32.is_lt(d, bestd))):
+        deathmatch.target(s, owner, px, py, t, id, d)
+      else:
+        deathmatch.target(s, owner, px, py, t, best, bestd)
+
+# fn fly's per-shot body, after the ttl tick.
+def deathmatch.fly.shot(+s: J.Val, +p: J.Val, +orbs: List<&2, GcOrb>, +children: List<&2, J.Val>) -> GcShot:
+  owner: U32 = gc.u(J.get(p, "traits"), "owner")
+  target: U32 = deathmatch.target(s, owner, gc.f(p, "x"), gc.f(p, "y"), gc.ids(J.get(s, "fighters")), 0, 0.0)
+  tr: J.Val = J.get(p, "traits")
+  p1: J.Val = gc.ifj(U32.is_eq(gc.u(tr, "back"), 1), _ => deathmatch.fly.out(p), _ => p)
+  if U32.is_eq(gc.u(J.get(p1, "traits"), "back"), 2):
+    deathmatch.fly.back(s, p1, orbs, children, owner)
+  else:
+    if Bool.and(U32.is_gt(gc.u(tr, "homing"), 0), Bool.not(U32.is_zero(target))):
+      deathmatch.fly.move(s, deathmatch.fly.home(s, p1, owner, target), orbs, children, owner)
+    else:
+      deathmatch.fly.move(s, p1, orbs, children, owner)
+
+# A thrown blade flying out: the leg counts down, and at zero turns for home (it may strike again).
+def deathmatch.fly.out(+p: J.Val) -> J.Val:
+  tr: J.Val = J.get(p, "traits")
+  out: U32 = gc.ssub(gc.u(tr, "out"), 1)
+  if U32.is_zero(out):
+    gc.snull(J.set(p, "traits", gc.su(gc.su(tr, "out", out), "back", 2)), "last_hit")
+  else:
+    J.set(p, "traits", gc.su(tr, "out", out))
+
+# A returning blade flies at its owner's hand; within 0.7 it is caught.
+def deathmatch.fly.back(+s: J.Val, +p: J.Val, +orbs: List<&2, GcOrb>, +children: List<&2, J.Val>, +owner: U32) -> GcShot:
+  if gc.has_seat(J.get(s, "fighters"), owner):
+    f: J.Val = deathmatch.F(s, owner)
+    d: F32 = RS.f_hypot((gc.f(J.get(f, "hero"), "x") - gc.f(p, "x") : F32), (gc.f(J.get(f, "hero"), "y") - gc.f(p, "y") : F32))
+    if F32.is_lt(d, 0.7):
+      GcShot{s, gc.su(p, "ttl", 0), children}
+    else:
+      speed: F32 = RS.f_hypot(gc.f(p, "vx"), gc.f(p, "vy"))
+      p3: J.Val = gc.sf(gc.sf(p, "vx", (((gc.f(J.get(f, "hero"), "x") - gc.f(p, "x") : F32) / d : F32) * speed : F32)), "vy", (((gc.f(J.get(f, "hero"), "y") - gc.f(p, "y") : F32) / d : F32) * speed : F32))
+      deathmatch.fly.move(s, p3, orbs, children, owner)
+  else:
+    deathmatch.fly.move(s, p, orbs, children, owner)
+
+# A homing shot bends toward the nearest fighter, or a decoy nearer than it.
+def deathmatch.fly.home(+s: J.Val, +p: J.Val, +owner: U32, +target: U32) -> J.Val:
+  f: J.Val = deathmatch.F(s, target)
+  aim: F32 & F32 = deathmatch.decoy_aim(J.items(J.get(s, "fields")), owner, gc.f(p, "x"), gc.f(p, "y"), gc.f(J.get(f, "hero"), "x"), gc.f(J.get(f, "hero"), "y"))
+  (ax: F32, ay: F32) = aim
+  now: F32 = F32.atan2(gc.f(p, "vy"), gc.f(p, "vx"))
+  want: F32 = F32.atan2((ay - gc.f(p, "y") : F32), (ax - gc.f(p, "x") : F32))
+  turn: F32 = F32.atan2(F32.sin((want - now : F32)), F32.cos((want - now : F32)))
+  lim: F32 = ((rules.HOMING_TURN() * RS.u_as_f32(gc.u(J.get(p, "traits"), "homing")) : F32) * rules.DT() : F32)
+  a: F32 = (now + RS.f_clamp(turn, F32.neg(lim), lim) : F32)
+  speed: F32 = RS.f_hypot(gc.f(p, "vx"), gc.f(p, "vy"))
+  gc.sf(gc.sf(p, "vx", (F32.cos(a) * speed : F32)), "vy", (F32.sin(a) * speed : F32))
+
+def deathmatch.decoy_aim(+fs: List<&2, J.Val>, +owner: U32, +px: F32, +py: F32, +ax: F32, +ay: F32) -> F32 & F32:
+  match fs as List<&2, J.Val>:
+    case Nil{}:
+      (ax, ay)
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      if Bool.and(String.eq(gc.s(f, "kind"), "Decoy"), Bool.not(U32.is_eq(gc.u(f, "owner"), owner))):
+        if F32.is_lt(RS.f_hypot((gc.f(f, "x") - px : F32), (gc.f(f, "y") - py : F32)), RS.f_hypot((ax - px : F32), (ay - py : F32))):
+          deathmatch.decoy_aim(t, owner, px, py, gc.f(f, "x"), gc.f(f, "y"))
+        else:
+          deathmatch.decoy_aim(t, owner, px, py, ax, ay)
+      else:
+        deathmatch.decoy_aim(t, owner, px, py, ax, ay)
+
+# A Maybe<(x, y)> as a GcPt and a flag (0, 0 when none).
+def deathmatch.pt_of(+m: Maybe<&2, Sigma<&2, &2, F32, _ => F32>>) -> GcPt:
+  match m as Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+    case None{}:
+      GcPt{0.0, 0.0}
+    case Some{(x: F32, y: F32)}:
+      GcPt{x, y}
+
+def deathmatch.has_pt(+m: Maybe<&2, Sigma<&2, &2, F32, _ => F32>>) -> Bool:
+  match m as Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+    case None{}:
+      False{}
+    case Some{v}:
+      True{}
+
+# Does any other fighter's orbit stop the step from -> to?
+def deathmatch.orbit_stops(+orbs: List<&2, GcOrb>, +owner: U32, +fx: F32, +fy: F32, +tx: F32, +ty: F32) -> Bool:
+  match orbs as List<&2, GcOrb>:
+    case Nil{}:
+      False{}
+    case Con{o: GcOrb, t: List<&2, GcOrb>}:
+      match o as GcOrb:
+        case GcOrb{id: U32, x: F32, y: F32}:
+          hit: Bool = Bool.and(Bool.not(U32.is_eq(id, owner)), deathmatch.is_some_f(shield.entry(fx, fy, tx, ty, x, y, 0.9)))
+          Bool.or(hit, deathmatch.orbit_stops(t, owner, fx, fy, tx, ty))
+
+def deathmatch.is_some_f(+m: Maybe<&2, F32>) -> Bool:
+  match m as Maybe<&2, F32>:
+    case None{}:
+      False{}
+    case Some{v}:
+      True{}
+
+def deathmatch.or_f(+m: Maybe<&2, F32>, +d: F32) -> F32:
+  match m as Maybe<&2, F32>:
+    case None{}:
+      d
+    case Some{v}:
+      v
+
+# A hedge in the way of the step, at 1/8-unit marks: the first point blocked.
+def deathmatch.hedge_stop(+fs: List<&2, J.Val>, +fx: F32, +fy: F32, +tx: F32, +ty: F32, +i: U32, +n: U32) -> Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+  if U32.is_gt(i, n):
+    None{}
+  else:
+    t: F32 = (RS.u_as_f32(i) / RS.u_as_f32(n) : F32)
+    px: F32 = (fx + ((tx - fx : F32) * t : F32) : F32)
+    py: F32 = (fy + ((ty - fy : F32) * t : F32) : F32)
+    if deathmatch.fields_block(fs, px, py, 0.1):
+      Some{(px, py)}
+    else:
+      deathmatch.hedge_stop(fs, fx, fy, tx, ty, (i + 1 : U32), n)
+
+def deathmatch.first_some(+a: Maybe<&2, Sigma<&2, &2, F32, _ => F32>>, +fs: List<&2, J.Val>, +fx: F32, +fy: F32, +tx: F32, +ty: F32) -> Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+  match a as Maybe<&2, Sigma<&2, &2, F32, _ => F32>>:
+    case Some{v}:
+      Some{v}
+    case None{}:
+      deathmatch.hedge_stop(fs, fx, fy, tx, ty, 1, RS.f_as_u32(RS.f_max(F32.ceil((RS.f_hypot((tx - fx : F32), (ty - fy : F32)) * 8.0 : F32)), 1.0)))
+
+# The earliest entry into any enemy decoy; 2.0 when none.
+def deathmatch.decoy_t(+fs: List<&2, J.Val>, +owner: U32, +fx: F32, +fy: F32, +tx: F32, +ty: F32, +best: F32) -> F32:
+  match fs as List<&2, J.Val>:
+    case Nil{}:
+      best
+    case Con{f: J.Val, t: List<&2, J.Val>}:
+      if Bool.and(String.eq(gc.s(f, "kind"), "Decoy"), Bool.not(U32.is_eq(gc.u(f, "owner"), owner))):
+        deathmatch.decoy_t(t, owner, fx, fy, tx, ty, deathmatch.min_entry(shield.entry(fx, fy, tx, ty, gc.f(f, "x"), gc.f(f, "y"), 0.5), best))
+      else:
+        deathmatch.decoy_t(t, owner, fx, fy, tx, ty, best)
+
+def deathmatch.min_entry(+m: Maybe<&2, F32>, +best: F32) -> F32:
+  match m as Maybe<&2, F32>:
+    case None{}:
+      best
+    case Some{v}:
+      RS.f_min(v, best)
+
+# Is a decoy entered before `t` along the step?
+def deathmatch.decoy_before(+fs: List<&2, J.Val>, +owner: U32, +fx: F32, +fy: F32, +tx: F32, +ty: F32, +t: F32) -> Bool:
+  match fs as List<&2, J.Val>:
+    case Nil{}:
+      False{}
+    case Con{f: J.Val, rest: List<&2, J.Val>}:
+      hit: Bool = Bool.and(String.eq(gc.s(f, "kind"), "Decoy"), Bool.and(Bool.not(U32.is_eq(gc.u(f, "owner"), owner)), deathmatch.lt_entry(shield.entry(fx, fy, tx, ty, gc.f(f, "x"), gc.f(f, "y"), 0.5), t)))
+      Bool.or(hit, deathmatch.decoy_before(rest, owner, fx, fy, tx, ty, t))
+
+def deathmatch.lt_entry(+m: Maybe<&2, F32>, +t: F32) -> Bool:
+  match m as Maybe<&2, F32>:
+    case None{}:
+      False{}
+    case Some{d}:
+      F32.is_lt(d, t)
+
+# fn fly's movement: orbit stop, stone, decoy, the knights it meets, and the end of the step.
+def deathmatch.fly.move(+s: J.Val, +p: J.Val, +orbs: List<&2, GcOrb>, +children: List<&2, J.Val>, +owner: U32) -> GcShot:
+  fx: F32 = gc.f(p, "x")
+  fy: F32 = gc.f(p, "y")
+  tx: F32 = (fx + (gc.f(p, "vx") * rules.DT() : F32) : F32)
+  ty: F32 = (fy + (gc.f(p, "vy") * rules.DT() : F32) : F32)
+  if deathmatch.orbit_stops(orbs, owner, fx, fy, tx, ty):
+    GcShot{s, gc.su(p, "ttl", 0), children}
+  else:
+    stone: Maybe<&2, Sigma<&2, &2, F32, _ => F32>> = deathmatch.first_some(rules.Grid.shot_stop_body(deathmatch.room(), False{}, (fx, fy), (tx, ty), 0.10), J.items(J.get(s, "fields")), fx, fy, tx, ty)
+    decoy_t: F32 = deathmatch.decoy_t(J.items(J.get(s, "fields")), owner, fx, fy, tx, ty, 2.0)
+    sp: GcPt = deathmatch.pt_of(stone)
+    wall_t: F32 = gc.pf(deathmatch.has_pt(stone), (RS.f_hypot((gc.f_pt_x(sp) - fx : F32), (gc.f_pt_y(sp) - fy : F32)) / RS.f_max(RS.f_hypot((tx - fx : F32), (ty - fy : F32)), 0.001) : F32), 2.0)
+    stone_t: F32 = RS.f_min(wall_t, decoy_t)
+    hits: List<&2, GcHit> = deathmatch.hitsort(deathmatch.meets_all(s, p, owner, fx, fy, tx, ty, stone_t, gc.ids(J.get(s, "fighters"))))
+    r: GcShot = deathmatch.fly.hits(s, p, hits, fx, fy, tx, ty, owner, children)
+    match r as GcShot:
+      case GcShot{s2: J.Val, p2: J.Val, children2: List<&2, J.Val>}:
+        deathmatch.fly.finish(s2, p2, children2, fx, fy, tx, ty, stone, decoy_t, wall_t)
+
+def gc.f_pt_x(+p: GcPt) -> F32:
+  match p as GcPt:
+    case GcPt{x: F32, y: F32}:
+      x
+
+def gc.f_pt_y(+p: GcPt) -> F32:
+  match p as GcPt:
+    case GcPt{x: F32, y: F32}:
+      y
+
+# The knights the step meets, before the stone: (t, id, blocked).
+def deathmatch.meets_all(+s: J.Val, +p: J.Val, +owner: U32, +fx: F32, +fy: F32, +tx: F32, +ty: F32, +stone_t: F32, +ids: List<&2, U32>) -> List<&2, GcHit>:
+  match ids as List<&2, U32>:
+    case Nil{}:
+      Nil{}
+    case Con{id: U32, t: List<&2, U32>}:
+      f: J.Val = deathmatch.F(s, id)
+      h: J.Val = J.get(f, "hero")
+      fresh: Bool = Bool.and(Bool.not(U32.is_eq(id, owner)), Bool.and(deathmatch.Fighter.alive(f), Bool.and(U32.is_zero(gc.u(f, "protection")), Bool.not(gc.opt_is(J.get(p, "last_hit"), id)))))
+      body: F32 = ((rules.HERO_RADIUS() + 0.16 : F32) + (RS.u_as_f32(gc.u(J.get(p, "traits"), "size")) * wishcraft.SIZE_REACH() : F32) : F32)
+      if fresh:
+        deathmatch.meet_one(shield.meets(h, gc.f(h, "x"), gc.f(h, "y"), fx, fy, tx, ty, body), id, stone_t, deathmatch.meets_all(s, p, owner, fx, fy, tx, ty, stone_t, t))
+      else:
+        deathmatch.meets_all(s, p, owner, fx, fy, tx, ty, stone_t, t)
+
+def deathmatch.meet_one(+m: Maybe<&2, J.Val>, +id: U32, +stone_t: F32, +rest: List<&2, GcHit>) -> List<&2, GcHit>:
+  match m as Maybe<&2, J.Val>:
+    case None{}:
+      rest
+    case Some{v: J.Val}:
+      if F32.is_lt(gc.f(v, "t"), stone_t):
+        GcHit{gc.f(v, "t"), id, gc.b(v, "shield")} <> rest
+      else:
+        rest
+
+def deathmatch.hitsort(+hs: List<&2, GcHit>) -> List<&2, GcHit>:
+  match hs as List<&2, GcHit>:
+    case Nil{}:
+      Nil{}
+    case Con{h: GcHit, t: List<&2, GcHit>}:
+      deathmatch.hitsort.ins(h, deathmatch.hitsort(t))
+
+def deathmatch.hitsort.ins(+x: GcHit, +sorted: List<&2, GcHit>) -> List<&2, GcHit>:
+  match sorted as List<&2, GcHit>:
+    case Nil{}:
+      [x]
+    case Con{h: GcHit, t: List<&2, GcHit>}:
+      if deathmatch.hless(x, h):
+        x <> (h <> t)
+      else:
+        h <> deathmatch.hitsort.ins(x, t)
+
+def deathmatch.hless(+a: GcHit, +b: GcHit) -> Bool:
+  match a as GcHit:
+    case GcHit{at: F32, aid: U32, ab: Bool}:
+      match b as GcHit:
+        case GcHit{bt: F32, bid: U32, bb: Bool}:
+          Bool.or(F32.is_lt(at, bt), Bool.and(F32.is_eq(at, bt), U32.is_lt(aid, bid)))
+
+# After the hits: a spent shot is done; a decoy nearer than any wall stops it; a wall stops,
+# bounces or ends it; otherwise it moves on.
+def deathmatch.fly.finish(+s: J.Val, +p: J.Val, +children: List<&2, J.Val>, +fx: F32, +fy: F32, +tx: F32, +ty: F32, +stone: Maybe<&2, Sigma<&2, &2, F32, _ => F32>>, +decoy_t: F32, +wall_t: F32) -> GcShot:
+  if U32.is_zero(gc.u(p, "ttl")):
+    GcShot{s, p, children}
+  else:
+    if F32.is_lt(decoy_t, wall_t):
+      GcShot{s, gc.su(p, "ttl", 0), children}
+    else:
+      if deathmatch.has_pt(stone):
+        tr: J.Val = J.get(p, "traits")
+        if U32.is_eq(gc.u(tr, "back"), 2):
+          GcShot{s, gc.su(p, "ttl", 0), children}
+        else:
+          if U32.is_gt(gc.u(tr, "bounce"), 0):
+            p1: J.Val = J.set(p, "traits", gc.su(tr, "bounce", (gc.u(tr, "bounce") - 1 : U32)))
+            p2: J.Val = gc.ifj(deathmatch.has_pt(rules.Grid.shot_stop(deathmatch.room(), False{}, (fx, fy), (tx, fy))), _ => gc.sf(p1, "vx", F32.neg(gc.f(p1, "vx"))), _ => p1)
+            p3: J.Val = gc.ifj(deathmatch.has_pt(rules.Grid.shot_stop(deathmatch.room(), False{}, (fx, fy), (fx, ty))), _ => gc.sf(p2, "vy", F32.neg(gc.f(p2, "vy"))), _ => p2)
+            GcShot{s, p3, children}
+          else:
+            GcShot{s, gc.su(p, "ttl", 0), children}
+      else:
+        GcShot{s, gc.sf(gc.sf(p, "x", tx), "y", ty), children}
+
+# The sorted hits, one by one.
+def deathmatch.fly.hits(+s: J.Val, +p: J.Val, +hs: List<&2, GcHit>, +fx: F32, +fy: F32, +tx: F32, +ty: F32, +owner: U32, +children: List<&2, J.Val>) -> GcShot:
+  match hs as List<&2, GcHit>:
+    case Nil{}:
+      GcShot{s, p, children}
+    case Con{h: GcHit, rest: List<&2, GcHit>}:
+      match h as GcHit:
+        case GcHit{t: F32, id: U32, blocked: Bool}:
+          if deathmatch.decoy_before(J.items(J.get(s, "fields")), owner, fx, fy, tx, ty, t):
+            GcShot{s, gc.su(p, "ttl", 0), children}
+          else:
+            if blocked:
+              r: J.Val & Bool = shield.Hero.shield_turned(deathmatch.H(s, id), gc.u(p, "damage"))
+              (h2: J.Val, ig: Bool) = r
+              GcShot{deathmatch.setH(s, id, h2), gc.su(p, "ttl", 0), children}
+            else:
+              deathmatch.fly.strike(s, p, rest, fx, fy, tx, ty, owner, children, id, t)
+
+def deathmatch.fly.strike(+s: J.Val, +p: J.Val, +rest: List<&2, GcHit>, +fx: F32, +fy: F32, +tx: F32, +ty: F32, +owner: U32, +children: List<&2, J.Val>, +id: U32, +t: F32) -> GcShot:
+  ax: F32 = (fx + ((tx - fx : F32) * t : F32) : F32)
+  ay: F32 = (fy + ((ty - fy : F32) * t : F32) : F32)
+  tr: J.Val = J.get(p, "traits")
+  r: J.Val & Bool = deathmatch.Session.hit(s, owner, id, aoe.part(gc.u(p, "damage"), gc.u(tr, "struck")), gc.f(p, "vx"), gc.f(p, "vy"))
+  (s2: J.Val, landed: Bool) = r
+  if landed:
+    p3: J.Val = J.set(p, "traits", gc.su(tr, "struck", gc.umin((gc.u(tr, "struck") + 1 : U32), 255)))
+    s3: J.Val = deathmatch.fly.landed(s2, p3, owner, id, ax, ay)
+    deathmatch.fly.after(s3, J.set(p3, "last_hit", J.JU{id}), rest, fx, fy, tx, ty, owner, children, ax, ay)
+  else:
+    deathmatch.fly.after(s2, J.set(p, "last_hit", J.JU{id}), rest, fx, fy, tx, ty, owner, children, ax, ay)
+
+# After a contact: a piercing shot goes on; otherwise it turns home, forks, or ends.
+def deathmatch.fly.after(+s: J.Val, +p: J.Val, +rest: List<&2, GcHit>, +fx: F32, +fy: F32, +tx: F32, +ty: F32, +owner: U32, +children: List<&2, J.Val>, +ax: F32, +ay: F32) -> GcShot:
+  if U32.is_zero(gc.u(p, "pierce")):
+    th: J.Val & Bool = wishcraft.turn_home(p)
+    (p1: J.Val, turned: Bool) = th
+    if turned:
+      GcShot{s, p1, children}
+    else:
+      tr: J.Val = J.get(p1, "traits")
+      if Bool.and(U32.is_gt(gc.u(tr, "fork"), 0), U32.is_zero(gc.u(tr, "back"))):
+        GcShot{s, gc.su(p1, "ttl", 0), deathmatch.fork(children, p1, ax, ay)}
+      else:
+        GcShot{s, gc.su(p1, "ttl", 0), children}
+  else:
+    deathmatch.fly.hits(s, gc.su(p, "pierce", (gc.u(p, "pierce") - 1 : U32)), rest, fx, fy, tx, ty, owner, children)
+
+# Two children turn 0.6 rad either way, one fork the less, flying on from the contact.
+def deathmatch.fork(+children: List<&2, J.Val>, +p: J.Val, +ax: F32, +ay: F32) -> List<&2, J.Val>:
+  c1: List<&2, J.Val> = deathmatch.fork.one(children, p, F32.neg(rules.FORK_TURN()), ax, ay)
+  deathmatch.fork.one(c1, p, rules.FORK_TURN(), ax, ay)
+
+def deathmatch.fork.one(+children: List<&2, J.Val>, +p: J.Val, +turn: F32, +ax: F32, +ay: F32) -> List<&2, J.Val>:
+  if U32.is_lt(gc.len(children), rules.MAX_PROJECTILES()):
+    sn: F32 = F32.sin(turn)
+    cs: F32 = F32.cos(turn)
+    tr: J.Val = J.get(p, "traits")
+    fork: U32 = (gc.u(tr, "fork") - 1 : U32)
+    tr2: J.Val = gc.sz(tr, "fork", fork)
+    c0: J.Val = gc.sf(gc.sf(gc.sf(gc.sf(p, "vx", (((gc.f(p, "vx") * cs : F32) - (gc.f(p, "vy") * sn : F32)) : F32)), "vy", (((gc.f(p, "vx") * sn : F32) + (gc.f(p, "vy") * cs : F32)) : F32)), "x", ax), "y", ay)
+    List.append(&2, J.Val, children, [J.set(gc.su(c0, "ttl", gc.umax(gc.u(p, "ttl"), rules.FORK_TTL())), "traits", tr2)])
+  else:
+    children
+
+# A shot that hurt a knight: stun, chill, burning, knock-back (a hook drags them in), the burst, the
+# chain, the thrower's lifesteal and a fart cloud.
+def deathmatch.fly.landed(+s: J.Val, +p: J.Val, +owner: U32, +id: U32, +ax: F32, +ay: F32) -> J.Val:
+  tr: J.Val = J.get(p, "traits")
+  hook: Bool = Bool.and(String.eq(gc.s(p, "kind"), "blade"), Bool.and(U32.is_gt(gc.u(tr, "stun"), 0), String.eq(champions.of(deathmatch.H(s, owner)), "butcher")))
+  ch: J.Val = deathmatch.H(s, owner)
+  f: J.Val = deathmatch.F(s, id)
+  h: J.Val = J.get(f, "hero")
+  f1: J.Val = gc.su(f, "stun", gc.umax(gc.u(f, "stun"), gc.umin(gc.u(tr, "stun"), rules.HZ())))
+  h1: J.Val = gc.su(h, "chilled", gc.umax(gc.u(h, "chilled"), (gc.u(tr, "chill") * lich.CHILL() : U32)))
+  f2: J.Val = gc.ifj(Bool.or(gc.b(tr, "fire"), U32.is_gt(gc.u(tr, "poison"), 0)), _ => gc.su(gc.su(f1, "burn", (2 * rules.HZ() : U32)), "burner", owner), _ => f1)
+  knock: F32 = wishcraft.knock(p)
+  u: F32 & F32 = rules.unit(gc.f(p, "vx"), gc.f(p, "vy"))
+  (ux: F32, uy: F32) = u
+  k: F32 & F32 = rules.Grid.halted(deathmatch.room(), False{}, (gc.f(h1, "x"), gc.f(h1, "y")), ((ux * knock : F32), (uy * knock : F32)))
+  (kx: F32, ky: F32) = k
+  hx: F32 = gc.f(ch, "x")
+  hy: F32 = gc.f(ch, "y")
+  h2: J.Val = deathmatch.drag(gc.sf(gc.sf(h1, "x", kx), "y", ky), hook, hx, hy)
+  s1: J.Val = deathmatch.setF(s, id, J.set(f2, "hero", h2))
+  s2: J.Val = gc.ifj(U32.is_gt(gc.u(tr, "burst"), 0), _ => deathmatch.Session.area(s1, owner, ax, ay, 2.8, U32.div((gc.u(p, "damage") * gc.u(tr, "burst") : U32), 100)), _ => s1)
+  s3: J.Val = gc.ifj(U32.is_gt(gc.u(tr, "chain"), 0), _ => deathmatch.chain(s2, p, owner, id, ax, ay, gc.ids(J.get(s2, "fighters")), gc.u(tr, "chain")), _ => s2)
+  s4: J.Val = deathmatch.vamp(s3, p, owner)
+  deathmatch.fart(s4, p, owner, ax, ay)
+
+# The Butcher's hook: pulled to within 1.4 of the caster.
+def deathmatch.drag(+h: J.Val, +hook: Bool, +cx: F32, +cy: F32) -> J.Val:
+  if hook:
+    dx: F32 = (cx - gc.f(h, "x") : F32)
+    dy: F32 = (cy - gc.f(h, "y") : F32)
+    dist: F32 = RS.f_max(RS.f_hypot(dx, dy), 0.01)
+    pull: F32 = RS.f_max((dist - 1.4 : F32), 0.0)
+    k: F32 & F32 = rules.Grid.halted(deathmatch.room(), False{}, (gc.f(h, "x"), gc.f(h, "y")), (((dx / dist : F32) * pull : F32), ((dy / dist : F32) * pull : F32)))
+    (kx: F32, ky: F32) = k
+    gc.sf(gc.sf(h, "x", kx), "y", ky)
+  else:
+    h
+
+# The chain: up to `n` other fighters within 5 of the contact and in sight, each hit for half.
+def deathmatch.chain(+s: J.Val, +p: J.Val, +owner: U32, +id: U32, +ax: F32, +ay: F32, +ids: List<&2, U32>, +n: U32) -> J.Val:
+  if U32.is_zero(n):
+    s
+  else:
+    match ids as List<&2, U32>:
+      case Nil{}:
+        s
+      case Con{o: U32, t: List<&2, U32>}:
+        f: J.Val = deathmatch.F(s, o)
+        px: F32 = gc.f(J.get(f, "hero"), "x")
+        py: F32 = gc.f(J.get(f, "hero"), "y")
+        near: Bool = Bool.and(Bool.not(U32.is_eq(o, owner)), Bool.and(Bool.not(U32.is_eq(o, id)), Bool.and(deathmatch.Fighter.alive(f), Bool.and(F32.is_lt(RS.f_hypot((px - ax : F32), (py - ay : F32)), 5.0), deathmatch.Session.visible(s, ax, ay, px, py)))))
+        if near:
+          r: J.Val & Bool = deathmatch.Session.hit(s, owner, o, U32.div(gc.u(p, "damage"), 2), gc.f(p, "vx"), gc.f(p, "vy"))
+          (s2: J.Val, landed: Bool) = r
+          deathmatch.chain(s2, p, owner, id, ax, ay, t, (n - 1 : U32))
+        else:
+          deathmatch.chain(s, p, owner, id, ax, ay, t, n)
+
+# The thrower leeches a share of the damage (and the shot's own mend) while alive.
+def deathmatch.vamp(+s: J.Val, +p: J.Val, +owner: U32) -> J.Val:
+  f: J.Val = deathmatch.F(s, owner)
+  if Bool.and(Bool.not(J.is_null(f)), deathmatch.Fighter.alive(f)):
+    h: J.Val = J.get(f, "hero")
+    vamp: U32 = gc.umin(gc.u(J.get(h, "bonus"), "vamp"), 20)
+    r: J.Val & U32 = stakes.Hero.leech(h, (U32.div((gc.u(p, "damage") * vamp : U32), 100) + gc.u(J.get(p, "traits"), "mend") : U32), 3)
+    (h2: J.Val, gain: U32) = r
+    deathmatch.setH(s, owner, h2)
+  else:
+    s
+
+# Fart Bombs: a sulphur cloud where it struck, every 2s / N.
+def deathmatch.fart(+s: J.Val, +p: J.Val, +owner: U32, +ax: F32, +ay: F32) -> J.Val:
+  fart: U32 = gc.u(J.get(p, "traits"), "fart")
+  f: J.Val = deathmatch.F(s, owner)
+  if Bool.and(U32.is_gt(fart, 0), U32.is_zero(gc.u(f, "fart_wait"))):
+    s1: J.Val = deathmatch.setF(s, owner, gc.su(f, "fart_wait", U32.div((2 * rules.HZ() : U32), fart)))
+    deathmatch.Session.field(s1, owner, ax, ay, 2.0, hero.Hero.scaled(J.get(f, "hero"), skills.POISON_BASE()), (3 * rules.HZ() : U32), "Hazard")
+  else:
+    s

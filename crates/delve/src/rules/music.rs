@@ -2,7 +2,9 @@
 //! Roads", the project's own soundtrack, MiniMax Music 3 and YuE2). A place
 //! plays its list one track after another, each for its own length, so a room
 //! or a floor never loops one cue: the run's clock says which track is on
-//! (`play`). The lengths are the files' own, in whole seconds.
+//! (`play`). The lengths are the shipped MP3s' own, in whole seconds
+//! (less than one second of rounding; checked without external tools by
+//! `node --test tests/scripts/web-music-metadata.test.mjs`).
 
 /// A track: its name (the file's stem) and how long it plays.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -79,6 +81,15 @@ pub const HOME: &[Track] = &[
     Track { name: "qr-p-yue2-008", secs: 141 },
     Track { name: "qr-p-yue2-009", secs: 249 },
     Track { name: "qr-p-yue2-010", secs: 98 },
+    Track { name: "qr-p-minimax-002", secs: 35 },
+    Track { name: "qr-p-minimax-006", secs: 36 },
+    Track { name: "qr-p-minimax-009", secs: 35 },
+    Track { name: "qr-p-minimax-016", secs: 38 },
+    Track { name: "qr-p-minimax-018", secs: 36 },
+    Track { name: "qr-p-minimax3-idle", secs: 38 },
+    Track { name: "qr-p-minimax3-village", secs: 24 },
+    Track { name: "qr-p-yue2-idle", secs: 44 },
+    Track { name: "qr-p-yue2-village", secs: 280 },
 ];
 
 /// A Sanctuary: the fireside's tunes and the peaceful score.
@@ -151,6 +162,11 @@ pub const REST: &[Track] = &[
     Track { name: "qr-p-yue2-008", secs: 141 },
     Track { name: "qr-p-yue2-009", secs: 249 },
     Track { name: "qr-p-yue2-010", secs: 98 },
+    Track { name: "qr-p-minimax-004", secs: 44 },
+    Track { name: "qr-p-minimax-007", secs: 71 },
+    Track { name: "qr-p-minimax-013", secs: 72 },
+    Track { name: "qr-p-minimax-017", secs: 40 },
+    Track { name: "qr-p-minimax-019", secs: 59 },
 ];
 
 /// Down a floor: the packs' old themes and the dungeon score.
@@ -192,6 +208,7 @@ pub const DUNGEON: &[Track] = &[
     Track { name: "qr-d-yue2-002", secs: 313 },
     Track { name: "qr-d-yue2-004", secs: 194 },
     Track { name: "qr-d-yue2-005", secs: 198 },
+    Track { name: "qr-d-yue2-dungeon", secs: 65 },
 ];
 
 /// A guardian, a boss or a dragon: the battle cues.
@@ -203,26 +220,36 @@ pub const BOSS: &[Track] = &[
     Track { name: "qr-e-minimax-004", secs: 74 },
     Track { name: "qr-e-minimax-005", secs: 66 },
     Track { name: "qr-e-yue2-001", secs: 255 },
+    Track { name: "qr-b-clockwork-minimax", secs: 38 },
+    Track { name: "qr-b-clockwork-yue2", secs: 297 },
+    Track { name: "qr-b-minimax3-boss", secs: 37 },
+    Track { name: "qr-b-yue2-boss", secs: 38 },
 ];
 
 /// The track `list` plays at run tick `tick` (`HZ` a second), for a place
-/// named by `seed`: the list end to end, each track for its length, begun
-/// at a point of its own for each seed so two places do not play in step.
+/// named by `seed`: the whole list, each track for its length, in an order
+/// of the seed's own that is dealt again every pass, so a long stay never
+/// hears the same run of songs twice in a row (the operator, 2026-10-24:
+/// "im tired of the same songs on repeat"). Begun at a point of the seed's
+/// own so two places do not play in step.
 pub fn play(list: &'static [Track], seed: u64, tick: u64) -> &'static str {
     let hz = u64::from(super::HZ);
     let total: u64 = list.iter().map(|t| u64::from(t.secs.max(1)) * hz).sum();
     if total == 0 {
         return list.first().map_or("", |t| t.name);
     }
-    let mut at = (tick + seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) % total) % total;
-    for track in list {
-        let len = u64::from(track.secs.max(1)) * hz;
+    let at = tick + seed.wrapping_mul(0x9E37_79B9_7F4A_7C15) % total;
+    let (pass, mut at) = (at / total, at % total);
+    let mut order: Vec<usize> = (0..list.len()).collect();
+    order.sort_by_key(|&i| mix(seed ^ pass.wrapping_mul(0xD6E8_FEB8_6659_FD93), i));
+    for &i in &order {
+        let len = u64::from(list[i].secs.max(1)) * hz;
         if at < len {
-            return track.name;
+            return list[i].name;
         }
         at -= len;
     }
-    list[0].name
+    list[order[0]].name
 }
 
 /// The quiet after each of a delve's tracks, in seconds, least and most:

@@ -1,0 +1,100 @@
+@@book-page 1@@
+Score each of the {n} responses below from 0 to 10 for combined correctness, insight, and rigor.
+@@book-page 1@@
+Output one line per response as 'N: score' (e.g. '1: 7'), nothing else.
+@@book-page 1@@
+Score each of the {n} responses below on these dimensions, each 0 to 10: {dims}.
+@@book-page 1@@
+Output one line per response as 'N: a b c d' where a b c d are the scores for {dims} in that exact order (e.g. '1: 8 6 7 5'), nothing else.
+@@book-page 2@@
+Revise the answer below to fix these problems, keeping everything already correct.
+@@book-page 2@@
+Output the full corrected answer directly to the user — no preamble, no mention of the revision.
+@@book-page 2@@
+Problems:
+@@book-page 2@@
+Answer:
+@@book-page 3@@
+Revise the answer below so every nontrivial factual claim is either supported by one of the sources listed here — attribute it inline (e.g. 'per [source]') — or explicitly hedged or removed when the sources don't support it.
+@@book-page 3@@
+Never invent a citation or cite a source not in this list.
+@@book-page 3@@
+Keep everything already correct and output the full answer directly, no preamble, no meta-commentary.
+@@book-page 3@@
+Sources:
+@@book-page 3@@
+Answer:
+@@book-page 4@@
+Synthesize the single strongest answer to the problem above, drawing on the responses below.
+@@book-page 4@@
+Keep what is correct, discard what is wrong, reconcile conflicts, and cover anything a single response missed.
+@@book-page 4@@
+Answer the user directly and in full — do not mention this synthesis step or the responses.
+@@book-page 4@@
+Use all internal evidence needed.
+@@book-page 4@@
+Deliver a complete answer in the format and level of detail the user requested.
+@@book-page 4@@
+Be direct and non-repetitive; remove repetition before evidence, caveats, code, or required detail.
+@@book-page 4@@
+Do not shorten merely to meet an unstated length.
+@@book-page 5@@
+Merge the responses below into a single, stronger set of dense bullet points.
+@@book-page 5@@
+Keep what is correct, drop what is wrong, reconcile conflicts, and add what they missed.
+@@book-page 5@@
+This is intermediate material for a later step, not the final answer — no preamble, no prose.
+@@book-page 5@@
+If the inputs conflict, state both positions; do not resolve that conflict at this stage.
+@@book-page 6@@
+Use all internal evidence needed, but shape the delivered answer rather than constraining the panel's reasoning.
+@@book-page 6@@
+Aim for at most about {target} characters unless completeness or an explicit user format requires more; remove repetition before removing evidence, caveats, or required detail.
+@@book-page 7@@
+{n} independent responses:
+@@book-page 7@@
+{total} independent responses represented by {n} item(s):
+@@book-page 7@@
+({weight} of {total} drafts converged here)
+@@book-page 7@@
+[MOA draft truncated before synthesis: {omitted} chars omitted]
+@@book-page 7@@
+[context trimmed: {omitted} chars omitted]
+@@book-page 7@@
+Assistant requested tools:
+@@book-page 7@@
+[tool result for {id}]
+@@book-page 7@@
+### Grok research scout
+@@book-page 7@@
+### SearXNG web search
+@@book-page 8@@
+[FORMATION PREFLIGHT: Produce an independent, concrete action plan and risk review for the coordinator.
+@@book-page 8@@
+This is planning only: no tool is available, nothing has executed, and you must not claim edits, tests, or measurements.]
+@@book-page 8@@
+[formation advisory truncated]
+@@book-page 9@@
+Second opinion requested.
+@@book-page 9@@
+Claim:
+@@book-page 9@@
+Proposed test:
+@@book-page 9@@
+Evaluate the claim (run the test if you can) and reply with a verdict and brief reasoning.
+@@book-page 9@@
+You are being consulted by a peer agent for your expertise.
+@@book-page 9@@
+Answer concisely and decisively.
+@@book-page 9@@
+Context — the claim under consideration:
+@@book-page 9@@
+Question:
+@@book-page 0@@
+Executed test evidence — ground your answer in these real results.
+@@book-page 0@@
+A delegator agent proposed each; angel approved and routed it.
+@@book-page 0@@
+Trust passing/failing tests and consulted specialists over the drafts' bare assertions:
+@@book-page 0@@
+(unstated)

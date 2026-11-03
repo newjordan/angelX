@@ -1,0 +1,91 @@
+# crates/delve/src/rules.rs — `Run::play`: one tick of the rules, phase by phase.
+# The `sortie` is the knights' turn carried from phase to phase: a J object
+# with `Sortie`'s field names (shots, bombs, nova, blast_owner, booms,
+# draughts, credits, casts, summons, stood, pit_events, grazes, feats, side,
+# barred, depth), every list a J array in serde shape.
+
+# `reined.as_ref().unwrap_or(inputs)`
+def core.keys_or(m: J.Val?, d: J.Val) -> J.Val:
+    match (m : J.Val?):
+        case Some{v: J.Val}:
+            return v
+        case None{}:
+            return d
+
+# `(hp, max_hp)` for every knight, in seat order.
+def rules.Run.play.hp_pairs(run: J.Val) -> [J.Val]:
+    out: [J.Val] = []
+    for (k: String, h: J.Val) in J.int_fields(J.get(run, "players")):
+        out = List.append(&2, J.Val, out, [J.JA{[J.JU{core.u(h, "hp")}, J.JU{core.u(h, "max_hp")}]}])
+    return out
+
+# The guardians' beats at the tick's start: (id, raged, frozen, phase).
+def rules.Run.play.boss_beats(run: J.Val, es: [J.Val]) -> [J.Val]:
+    match (es : [J.Val]):
+        case Nil{}:
+            return Nil{}
+        case Con{e: J.Val, rest: [J.Val]}:
+            if Bool.and(desperate.Enemy.is_boss(e), U32.is_ne(core.u(e, "hp"), 0)):
+                beat: J.Val = J.JA{[J.JU{core.u(e, "id")}, J.JBool{core.b(e, "raged")}, J.JU{core.u(e, "frozen")}, J.JU{hitstop.Run.boss_phase(run, e)}]}
+                return beat <> rules.Run.play.boss_beats(run, rest)
+            return rules.Run.play.boss_beats(run, rest)
+
+# `self.fellowship.clear()`: the waiting and the called go; the bell's tally stays,
+# and the state is left out of the tree once nothing is left in it.
+def rules.Run.play.fellowship_clear(run: J.Val) -> J.Val:
+    s: J.Val = J.get(run, "fellowship")
+    s = J.set(s, "waiting", J.JA{Nil{}})
+    s = J.del(s, "called")
+    if U32.is_zero(core.count(J.get(s, "rung"))):
+        return J.del(run, "fellowship")
+    return J.set(run, "fellowship", s)
+
+def rules.Run.play(run: J.Val, inputs: J.Val) -> J.Val:
+    # A ride under way (the lists, the Hippodrome, a race hall) plays and takes
+    # the keys of the knights it seats.
+    (run1: J.Val, reined: J.Val?) = activity.Run.ride(run, inputs)
+    run = run1
+    inputs = core.keys_or(reined, inputs)
+    # The cauldron answers its own keys first.
+    (run2: J.Val, stirred: J.Val?) = cauldron.Run.tend_cauldron(run, inputs)
+    run = run2
+    inputs = core.keys_or(stirred, inputs)
+    run = fx.Run.fade(run)
+    beats: J.Val = J.JA{rules.Run.play.boss_beats(run, J.items(J.get(run, "enemies")))}
+    run = core.tick_inc(run)
+    # Who waits in a way out is said afresh each tick.
+    run = rules.Run.play.fellowship_clear(run)
+    # A room holding for its party wards every knight through the tick.
+    run = presence.Run.ward_while_held(run)
+    run = stakes.Run.set_stakes(run)
+    run = curios.Run.tick_pockets(run)
+    run = thief.Run.tick_thieves(run)
+    # Towers stand or come down, the thrown fly on, and the riders' keys are cut
+    # to aiming and shooting.
+    (run3: J.Val, begun: (J.Val?, J.Val)) = shoulders.Run.shoulders_begin(run, inputs)
+    run = run3
+    (shouldered: J.Val?, tower: J.Val) = begun
+    inputs = core.keys_or(shouldered, inputs)
+    before: J.Val = J.JA{rules.Run.play.hp_pairs(run)}
+    (run4: J.Val, sortie: J.Val) = arms.Run.knights_turn(run, inputs)
+    run = run4
+    run = minions.Run.tick_gravecallers(run, inputs)
+    run = arms.Run.bombs_burst(run, sortie)
+    sortie = J.set(sortie, "shots", ults.phantom_shots(J.get(run, "phantoms"), J.get(run, "players"), J.get(sortie, "shots")))
+    (run5: J.Val, fd: J.Val & J.Val) = hunt.Run.foes_turn(run, sortie)
+    run = run5
+    (sortie6: J.Val, deeds: J.Val) = fd
+    sortie = sortie6
+    run = minions.Run.skeletons_block(run)
+    (run7: J.Val, fs: J.Val & J.Val) = flight.Run.shots_fly(run, sortie)
+    run = run7
+    (sortie8: J.Val, struck: J.Val) = fs
+    sortie = sortie8
+    run = aftermath.Run.aftermath(run, inputs, sortie, struck, deeds)
+    run = wounds.Run.tally_wounds(run, before, beats)
+    run = feel.Run.tick_feel(run, J.get(sortie, "credits"), J.get(sortie, "grazes"))
+    run = spoils.Run.settle_kills(run)
+    run = spoils.Run.gather(run)
+    run = hazards.Run.tick_waves(run)
+    run = room_end.Run.room_end(run)
+    return shoulders.Run.shoulders_end(run, tower)

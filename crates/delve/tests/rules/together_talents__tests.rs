@@ -28,13 +28,70 @@ fn sir_ector_teaches_only_what_has_been_earned() {
     home.knights.get_mut("percival").unwrap().xp = LEVELS[3];
     assert!(home.learn("percival", 0).is_ok());
     assert!(home.learn("percival", 1).is_ok());
-    assert!(home.learn("percival", 1).is_err(), "four lessons, no more");
+    assert!(home.learn("percival", 1).is_err(), "the fifth waits for level 6");
     assert_eq!(home.prowess("percival").learned, [1, 0, 0, 1]);
     assert_eq!(
         home.prowess("gareth"),
         Prowess::default(),
         "each knight his own"
     );
+}
+
+#[test]
+fn the_road_runs_past_the_first_four_lessons_to_a_lesson_at_every_level() {
+    assert_eq!(&LEVELS[..4], [600, 1800, 3600, 6000], "an old record keeps its level");
+    assert!(LESSONS.len() > 4);
+    assert!(LEVELS.windows(2).all(|w| w[0] < w[1]));
+    let mut home = Home::default();
+    home.knights.entry("frank".into()).or_default().xp = *LEVELS.last().unwrap();
+    assert_eq!(home.prowess("frank").level(), LEVELS.len() as u32 + 1);
+    for lesson in &LESSONS {
+        assert_eq!(home.learn("frank", 1).unwrap().name, lesson[1].name);
+    }
+    assert!(home.learn("frank", 0).is_err(), "all he knows");
+    assert_eq!(home.prowess("frank").waiting(), 0);
+}
+
+#[test]
+fn every_talent_is_a_real_held_card_and_no_name_comes_twice() {
+    let mut names = std::collections::BTreeSet::new();
+    for talent in LESSONS.iter().flatten() {
+        assert!(names.insert(talent.name), "{} twice", talent.name);
+        let word = talent.effect.split(' ').next().unwrap();
+        assert!(cards::cap(word) > 0, "{word} is not a held word");
+        let value: u32 = talent.effect.split(' ').nth(1).unwrap().parse().unwrap();
+        assert!(value <= cards::cap(word), "{}: over the deck's cap", talent.name);
+    }
+}
+
+#[test]
+fn twelve_lessons_on_one_knight_stay_under_the_decks_caps() {
+    let mut home = Home::default();
+    home.knights.insert(
+        "you".into(),
+        Prowess { xp: *LEVELS.last().unwrap(), learned: vec![1; LESSONS.len()] },
+    );
+    let run = Run::at_home(5, 1, None, home, Default::default());
+    let hero = &run.players[&1];
+    let held = hero.deck.iter().filter(|c| c.starts_with("home-talent-")).count();
+    assert_eq!(held, LESSONS.len(), "{:?}", hero.deck);
+    assert_eq!(hero.bonus.damage, 22, "Keen Edge and Finishing Stroke");
+    assert_eq!(hero.bonus.boomerang, 1, "Homeward, the last lesson");
+}
+
+#[test]
+fn a_player_on_a_kit_takes_their_own_lessons_down_the_stair() {
+    let mut home = Home::default();
+    home.knights.insert("frank".into(), Prowess { xp: LEVELS[0], learned: vec![1] });
+    let mut run = Run::at_home(5, 1, None, home, Default::default());
+    let hero = run.players.get_mut(&1).unwrap();
+    hero.name = "Frank".into();
+    run.outfit(1, knights::knight("percival").unwrap());
+    run.rebuild_home(run.home.clone(), Default::default());
+    let hero = &run.players[&1];
+    assert_ne!(knight_key(hero), profile_key(hero));
+    assert!(hero.deck.iter().any(|c| c == "home-talent-1"), "{:?}", hero.deck);
+    assert_eq!(hero.bonus.damage, 12, "Keen Edge");
 }
 
 #[test]

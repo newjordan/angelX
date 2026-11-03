@@ -107,3 +107,28 @@ fn parse_responses_event_covers_done_ignore_and_error_fallbacks() {
         ResponseEvent::Failed(m, _) if m == "request failed"
     ));
 }
+
+#[test]
+fn shared_responses_parse_preserves_wire_prefix_and_decoder_rules() {
+    let payload = r#"{"type":"response.output_text.delta","delta":"hello"}"#;
+    for (line, logged) in [
+        (format!("data: {payload}"), true),
+        (format!(" data: {payload}"), false),
+        (format!("\u{2003}data: {payload}"), false),
+        (payload.to_string(), false),
+    ] {
+        let parsed = ParsedResponsesLine::new(&line);
+        assert_eq!(parsed.wire_payload().is_some(), logged, "{line:?}");
+        assert!(matches!(parsed.event(), ResponseEvent::Text(text) if text == "hello"));
+    }
+    let invalid = ParsedResponsesLine::new("data: {bad");
+    assert_eq!(invalid.wire_payload(), Some("{bad"));
+    assert!(invalid.value.is_none());
+    assert!(matches!(invalid.event(), ResponseEvent::Ignore));
+    let null = ParsedResponsesLine::new("data: null");
+    assert_eq!(null.value.as_ref(), Some(&serde_json::Value::Null));
+    assert!(matches!(null.event(), ResponseEvent::Ignore));
+    let done = ParsedResponsesLine::new("data: [DONE]");
+    assert!(done.wire_payload().is_none());
+    assert!(matches!(done.event(), ResponseEvent::Done(None)));
+}

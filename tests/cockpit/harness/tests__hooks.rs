@@ -44,7 +44,7 @@ fn configured_pre_hook_fails_closed_on_timeout_and_unavailable_command() {
             command: "sleep 1".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     let denial = timed
         .pre_tool_use("reverse", &serde_json::json!({"text":"safe"}))
@@ -58,7 +58,7 @@ fn configured_pre_hook_fails_closed_on_timeout_and_unavailable_command() {
             command: "x".repeat(70 * 1024),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     let denial = unavailable
         .pre_tool_use("reverse", &serde_json::json!({"text":"safe"}))
@@ -82,7 +82,7 @@ fn pre_hook_fail_open_requires_an_explicit_switch() {
             command: "sleep 1".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     assert!(
         hooks
@@ -97,7 +97,7 @@ fn pre_hook_fail_open_requires_an_explicit_switch() {
             command: "printf 'policy says no'; exit 19".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     let denial = rejecting
         .pre_tool_use("reverse", &serde_json::json!({"text":"safe"}))
@@ -128,7 +128,8 @@ fn oversized_hook_payload_is_replaced_by_a_bounded_digest_receipt() {
 fn hooks_parse_reads_events() {
     let cfg = r#"{"hooks":{
             "PreToolUse":[{"matcher":"shell","command":"echo hi"}],
-            "PostToolUse":[{"command":"log"}]
+            "PostToolUse":[{"command":"log"}],
+            "SessionStart":[{"matcher":"resume|fork","command":"record"}]
         }}"#;
     let h = Hooks::parse(cfg);
     assert_eq!(h.pre.len(), 1);
@@ -136,18 +137,18 @@ fn hooks_parse_reads_events() {
     assert_eq!(h.pre[0].command, "echo hi");
     assert_eq!(h.post.len(), 1);
     assert_eq!(h.post[0].matcher, "*"); // default when omitted
-    assert!(h.session_start.is_empty());
-    assert!(Hooks::parse("garbage").is_empty());
-    let session_only = Hooks::parse(
-        r#"{"hooks":{"SessionStart":[{"matcher":"resume|startup","command":"announce"}]}}"#,
-    );
+    assert_eq!(h.session_start.len(), 1);
+    assert_eq!(h.session_start[0].matcher, "resume|fork");
+    assert_eq!(h.session_start[0].command, "record");
+    assert!(!h.is_empty());
+    let only_session = Hooks::parse(r#"{"hooks":{"SessionStart":[{"command":"record"}]}}"#);
     assert!(
-        session_only.is_empty(),
-        "SessionStart must not count as a tool hook"
+        only_session.is_empty(),
+        "SessionStart must not force tool batches onto the serial path"
     );
-    assert_eq!(session_only.session_start.len(), 1);
-    assert_eq!(session_only.session_start[0].matcher, "resume|startup");
-    assert_eq!(session_only.session_start[0].command, "announce");
+    assert_eq!(only_session.session_start.len(), 1);
+    assert_eq!(only_session.session_start[0].matcher, "*");
+    assert!(Hooks::parse("garbage").is_empty());
 }
 
 #[test]
@@ -162,7 +163,7 @@ fn pre_tool_use_hook_can_block() {
             command: "echo nope >&2; exit 2".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     let r = block.pre_tool_use("shell", &serde_json::json!({}));
     assert!(
@@ -177,7 +178,7 @@ fn pre_tool_use_hook_can_block() {
             command: "exit 0".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     assert!(ok.pre_tool_use("shell", &serde_json::json!({})).is_none());
     // A non-matching tool is never gated.
@@ -187,7 +188,7 @@ fn pre_tool_use_hook_can_block() {
             command: "exit 1".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     assert!(
         scoped
@@ -206,7 +207,7 @@ fn yolo_bypasses_pre_tool_hook_denials() {
             command: "echo denied; exit 1".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     assert!(
         block
@@ -234,7 +235,7 @@ fn dispatch_with_hooks_blocks_then_allows() {
             command: "echo denied; exit 1".into(),
         }],
         post: vec![],
-        ..Hooks::default()
+        session_start: vec![],
     };
     let r = dispatch_with_hooks(&reg, &block, "reverse", &args);
     assert!(r.contains("blocked") && r.contains("denied"), "got: {r}");
@@ -423,93 +424,143 @@ fn configured_hooks_make_the_tool_batch_a_serial_barrier() {
     let _ = std::fs::remove_dir_all(root);
 }
 
-#[test]
-fn session_start_rules_do_not_gate_tools() {
-    let _lock = crate::tests::env_lock();
-    let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
-    let root = super::scratch("session-start-not-a-tool-hook");
-    let marker = root.join("session-start-ran");
-    let command = format!("touch '{}'", marker.display());
-    let mut reg = ToolRegistry::new();
-    reg.register(Box::new(ReverseTool));
-    let args = serde_json::json!({ "text": "ab" });
-    let direct = reg.dispatch("reverse", &args).unwrap();
-    let session_only = Hooks {
-        session_start: vec![HookRule {
-            matcher: "*".into(),
-            command: command.clone(),
-        }],
-        ..Hooks::default()
-    };
-    assert!(session_only.is_empty());
-    assert_eq!(
-        dispatch_with_hooks(&reg, &session_only, "reverse", &args),
-        direct
+fn session_start_record(dir: &std::path::Path) -> (Hooks, std::path::PathBuf) {
+    let log = dir.join("session-start.log");
+    let command = format!(
+        "printf '%s\\n' \"$ANGEL_SESSION_ID\" >> '{}'; printf '%s\\n' \"$ANGEL_WORKSPACE\" >> '{}'; cat >> '{}'",
+        log.display(),
+        log.display(),
+        log.display()
     );
-    assert!(!marker.exists(), "tool dispatch must not run SessionStart");
-
-    let blocking = Hooks {
-        pre: vec![HookRule {
-            matcher: "reverse".into(),
-            command: "echo denied; exit 1".into(),
-        }],
+    let hooks = Hooks {
+        pre: vec![],
+        post: vec![],
         session_start: vec![HookRule {
             matcher: "*".into(),
             command,
         }],
-        ..Hooks::default()
     };
-    let denied = dispatch_with_hooks(&reg, &blocking, "reverse", &args);
+    (hooks, log)
+}
+
+fn session_start_events(log: &std::path::Path) -> Vec<serde_json::Value> {
+    let text = std::fs::read_to_string(log).unwrap_or_default();
+    let mut lines = text.lines();
+    let mut events = Vec::new();
+    while let Some(session_id) = lines.next() {
+        let workspace = lines.next().unwrap_or("");
+        let json = lines.next().expect("session start payload");
+        let value: serde_json::Value = serde_json::from_str(json).expect(json);
+        let mut keys: Vec<_> = value.as_object().expect("object").keys().cloned().collect();
+        keys.sort();
+        assert_eq!(
+            keys,
+            ["cwd", "hook_event_name", "session_id", "source"],
+            "payload must stay identity-only: {value}"
+        );
+        assert_eq!(value["hook_event_name"], "SessionStart");
+        assert_eq!(value["session_id"], session_id);
+        assert_eq!(value["cwd"], workspace);
+        events.push(value);
+    }
+    events
+}
+
+#[test]
+fn session_start_payload_is_identity_only_and_follows_the_source() {
+    let _lock = crate::tests::env_lock();
+    let _timeout = EnvGuard::set("ANGEL_HOOK_TIMEOUT", "10");
+    let root = scratch("session-start-payload");
+    let real = root.join("real");
+    let link = root.join("link");
+    std::fs::create_dir(&real).unwrap();
+    std::os::unix::fs::symlink(&real, &link).unwrap();
+    let canonical = std::fs::canonicalize(&real).unwrap();
+    let (hooks, log) = session_start_record(&root);
+    hooks.session_start("", &link, SessionStartSource::Startup);
     assert!(
-        denied.contains("blocked") && denied.contains("denied"),
-        "{denied}"
+        !log.exists(),
+        "an empty session id is not a session to announce"
     );
-    assert!(
-        !marker.exists(),
-        "a pre-hook denial must not run SessionStart"
-    );
+
+    let scoped = Hooks {
+        pre: vec![],
+        post: vec![],
+        session_start: vec![HookRule {
+            matcher: "resume|workspace".into(),
+            command: hooks.session_start[0].command.clone(),
+        }],
+    };
+    scoped.session_start("skip-me", &link, SessionStartSource::Fork);
+    assert!(!log.exists(), "fork must not match resume|workspace");
+
+    scoped.session_start("sess-1", &link, SessionStartSource::Workspace);
+    scoped.session_start("sess-2", &real, SessionStartSource::Resume);
+    let events = session_start_events(&log);
+    assert_eq!(events.len(), 2, "{events:?}");
+    assert_eq!(events[0]["source"], "workspace");
+    assert_eq!(events[0]["session_id"], "sess-1");
+    assert_eq!(events[0]["cwd"], canonical.to_string_lossy().as_ref());
+    assert_eq!(events[1]["source"], "resume");
+    assert_eq!(events[1]["session_id"], "sess-2");
+    assert_eq!(events[1]["cwd"], canonical.to_string_lossy().as_ref());
+    let raw = std::fs::read_to_string(&log).unwrap();
+    assert!(!raw.contains("transcript"));
+    assert!(!raw.contains("sess-1.json"));
     let _ = std::fs::remove_dir_all(root);
 }
 
 #[test]
-fn session_start_matcher_filters_source_and_zero_budget_times_out() {
+fn session_start_failure_and_timeout_do_not_block() {
     let _lock = crate::tests::env_lock();
-    let _yolo_off = EnvGuard::set("ANGEL_YOLO", "0");
-    let root = super::scratch("session-start-matcher");
-    let marker = root.join("ran");
-    let config = root.join("hooks.json");
-    std::fs::write(
-        &config,
-        serde_json::json!({
-            "hooks": {
-                "SessionStart": [{
-                    "matcher": "resume",
-                    "command": format!("touch '{}'", marker.display())
-                }]
-            }
-        })
-        .to_string(),
-    )
-    .unwrap();
-    let _config = EnvGuard::set("ANGEL_HOOKS_CONFIG", config.to_str().unwrap());
-    emit_session_start("sid", &root, SESSION_SOURCE_STARTUP);
-    assert!(
-        !marker.exists(),
-        "a resume-only SessionStart hook must not run at startup"
-    );
-    emit_session_start("sid", &root, SESSION_SOURCE_RESUME);
-    assert!(marker.exists(), "resume source must run the matching hook");
+    let _yolo = EnvGuard::set("ANGEL_YOLO", "1");
+    let root = scratch("session-start-timeout");
+    let payload =
+        br#"{"hook_event_name":"SessionStart","session_id":"s","cwd":"/tmp","source":"startup"}"#;
+    {
+        let _timeout = EnvGuard::set("ANGEL_HOOK_TIMEOUT", "0");
+        let started = Instant::now();
+        let timed = run_session_start_hook("sleep 30", payload, &root, "s");
+        assert!(
+            matches!(timed, HookRun::TimedOut),
+            "YOLO must not drop the SessionStart deadline: {timed:?}"
+        );
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "a slow SessionStart hook blocked the caller for {:?}",
+            started.elapsed()
+        );
 
-    let _timeout = EnvGuard::set("ANGEL_HOOK_TIMEOUT", "0");
-    let started = Instant::now();
-    let outcome = run_session_start_hook("sleep 30", "sid", "/tmp", SESSION_SOURCE_STARTUP);
+        let hooks = Hooks {
+            pre: vec![],
+            post: vec![],
+            session_start: vec![
+                HookRule {
+                    matcher: "*".into(),
+                    command: "sleep 30".into(),
+                },
+                HookRule {
+                    matcher: "*".into(),
+                    command: "exit 9".into(),
+                },
+            ],
+        };
+        let started = Instant::now();
+        hooks.session_start("still-starts", &root, SessionStartSource::Startup);
+        assert!(
+            started.elapsed() < Duration::from_secs(3),
+            "failing SessionStart hooks blocked session_start for {:?}",
+            started.elapsed()
+        );
+    }
+
+    let _timeout = EnvGuard::set("ANGEL_HOOK_TIMEOUT", "10");
+    let failed = run_session_start_hook("echo no >&2; exit 4", payload, &root, "s");
     assert!(
-        matches!(outcome, HookRun::TimedOut),
-        "a zero hook budget is a timeout, not a session failure: {outcome:?}"
+        matches!(failed, HookRun::Rejected { code: 4, .. }),
+        "{failed:?}"
     );
-    assert!(
-        started.elapsed() < Duration::from_secs(2),
-        "a zero-budget SessionStart hook must not run the command"
-    );
+    let missing = run_session_start_hook(&"x".repeat(70 * 1024), payload, &root, "s");
+    assert!(matches!(missing, HookRun::Unavailable(_)), "{missing:?}");
     let _ = std::fs::remove_dir_all(root);
 }

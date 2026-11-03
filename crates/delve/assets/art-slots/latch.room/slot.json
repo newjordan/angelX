@@ -13,7 +13,7 @@
     "piece-count mismatch",
     "sheet-edge contact"
   ],
-  "map_sha256": "4b53763107a2c2a4ea7d467fd8ef38c4b97c50a293a6fdafdce6a2ba27cdadb4",
+  "map_sha256": "469b77d8e27835e062c0efd3e2ceed285e7a01c27048e83e5ec5d8616816611c",
   "metadata_sha256": null,
   "notes_sha256": "b7d7317d9f1be8b685e372eb7babf41a99fa4777342c4b49edbd6b60ca1490b6",
   "outputs": {
@@ -62,7 +62,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "latch.room",
-  "source_path": "/work/artifacts/boss-art-20261015/polish-a/prepared/latch.room/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/polish-a/prepared/latch.room/source-sheet.png",
   "source_sha256": "604bd19482a30f6b3a6855e13bebd2188e36994ea80a8f35f8c41f009f86d4c5",
   "tool_version": 2
 }

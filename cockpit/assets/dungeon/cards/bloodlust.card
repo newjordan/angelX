@@ -1,0 +1,23 @@
+# The Reaver's third: the red mist.
+name   Bloodlust
+kind   spell
+rarity relic
+text   For six seconds his cuts heal him and he moves faster.
+drop   0
+chest  0
+cooldown 16
+feat 1
+art
+......b......
+.....bRb.....
+.....bRb.....
+....bRRRb....
+...bRR7RRb...
+..bRR777RRb..
+..bR77O77Rb..
+.bR77OOO77Rb.
+.bR7OO6OO7Rb.
+.bR77OOO77Rb.
+..bRR777RRb..
+...bbRRRbb...
+.....bbb.....

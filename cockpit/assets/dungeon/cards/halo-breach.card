@@ -1,0 +1,25 @@
+name Halo Breach
+kind spell
+rarity rare
+text The brass halo breaks into a ring of shots with your traits.
+drop 2
+chest 3
+cooldown 11
+cast ring
+art
+................
+.....hhhhhh.....
+...hhYYYYYYhh...
+..hYY7hhhh7YYh..
+.hY7hh....hh7Yh.
+.hYh...WW...hYh.
+.hYh..WCCW..hYh.
+..h....CC....h..
+..h....CC....h..
+.hYh..WCCW..hYh.
+.hYh...WW...hYh.
+.hY7hh....hh7Yh.
+..hYY7hhhh7YYh..
+...hhYYYYYYhh...
+.....hhhhhh.....
+................

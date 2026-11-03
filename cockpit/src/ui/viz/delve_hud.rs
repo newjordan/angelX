@@ -318,10 +318,7 @@ pub(super) fn paint_tray(
     let rgb = |c: [u8; 3]| Color::Rgb(c[0], c[1], c[2]);
     for cy in 0..cell_rows {
         for cx in 0..w {
-            let style=|c| if crate::stage::world_viz::art::enabled() {
-                if Some(c)==crate::stage::world_viz::overworld::ink::ink('K') {crate::stage::world_viz::art::WELL} else {c}
-            } else {c};
-            let (top, bottom) = (img.get(cx, cy * 2).map(style), img.get(cx, cy * 2 + 1).map(style));
+            let (top, bottom) = (img.get(cx, cy * 2), img.get(cx, cy * 2 + 1));
             let Some(cell) = buf.cell_mut((room.x + (x0 + cx) as u16, room.y + (y0 + cy) as u16))
             else {
                 continue;

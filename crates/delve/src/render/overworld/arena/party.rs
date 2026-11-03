@@ -62,12 +62,10 @@ fn card_x(i: i32, n: i32) -> i32 {
     MARGIN + i * (card_width(n) + spacing(n).0)
 }
 
-/// A seat's screen at the art kit's scale: the party band over the room's
-/// view, the HUD's band under it.
+/// A seat's screen: the party band over the room's view, the HUD's band
+/// under it.
 pub fn seat_size() -> (u32, u32) {
-    let (w, h) = art_v2::size();
-    let k = (w / NATIVE_W as u32).max(1);
-    (w, h + (BAND_H + HUD_H) as u32 * k)
+    (NATIVE_W as u32, (NATIVE_H + BAND_H + HUD_H) as u32)
 }
 
 /// How many of a seat screen's `h` rows the party's band takes.
@@ -93,6 +91,7 @@ pub fn view_rows(h: i32) -> i32 {
 /// Black paper; empty under a floor's plate, which holds the screen alone.
 pub fn hud_band(run: &Run, focus: Option<u32>) -> Img {
     use super::super::ink::{GLYPH_ADVANCE, text_width};
+    if let Some(hud) = super::deathmatch::hud_band(run, focus) { return hud; }
     let mut out = Img::new(NATIVE_W, HUD_H);
     // A hairline over the band, where the room's view ends.
     for x in 0..NATIVE_W {
@@ -101,7 +100,6 @@ pub fn hud_band(run: &Run, focus: Option<u32>) -> Img {
     if run.floor_plate(focus).is_some() {
         return out;
     }
-    const SIDE: i32 = 6;
     let mut right = NATIVE_W - SIDE;
     if let Some(mini) = dungeon_map::band_minimap(run, focus) {
         let mx = NATIVE_W - MINI_W_BAND - 4;
@@ -112,13 +110,37 @@ pub fn hud_band(run: &Run, focus: Option<u32>) -> Img {
         out.text(cx + (cw - text_width(dungeon_map::KEY)) / 2, HUD_H / 2 - 9, dungeon_map::KEY, 't');
         out.text(cx, HUD_H / 2 + 1, "MAP", 'J');
         right = cx - 4;
+        // `hand_plates` lays the bar by `bar_right`: the two agree.
+        debug_assert_eq!(right, bar_right(true));
     }
     let mut free = (SIDE, right);
     if let Some(id) = tray::shown(run, focus) {
         let keys = crate::rules::hud::Keys::of(id, focus.is_none());
         if let Some((bar, (x0, x1))) = tray::image_with_free(run, id, &keys, right - SIDE) {
-            out.stamp(&bar, SIDE, (HUD_H - tray::ROW_H + 1) / 2);
+            out.stamp(&bar, SIDE, BAR_TOP);
             free = (SIDE + x0, SIDE + x1);
+        }
+        if let Some(hud) = run.hud(id, &keys)
+            && let Some(corpses) = hud.corpses
+        {
+            let span = (free.1 - free.0 - 6).max(0);
+            if span >= 30 {
+                let x = free.0 + 3;
+                let label = format!("CORPSES {}", corpses.state);
+                let label = if text_width(&label) <= span { label } else { corpses.state };
+                out.text(x, 3, &label, 'Y');
+                out.rect(x, 12, span, 3, 'K');
+                out.rect(x, 12, (span as f32 * corpses.fill) as i32, 3, 'C');
+                let label = "HOLD G: GOLEM";
+                if text_width(label) <= span { out.text(x, 18, label, 'h'); }
+                if let Some(wall) = hud.skeleton_wall {
+                    let key = if wall.key == "Space" { "SPC" } else { &wall.key };
+                    let state = wall.state.strip_suffix(" up").unwrap_or(&wall.state).to_uppercase();
+                    let label = format!("{key} WALL {state}");
+                    if text_width(&label) <= span { out.text(x, 29, &label, 'i'); }
+                }
+                return out;
+            }
         }
     }
     // At a kingdom door, its sign (what the key opens); else the room's hold.
@@ -152,6 +174,43 @@ pub fn hud_band(run: &Run, focus: Option<u32>) -> Img {
 
 /// The minimap's width in the HUD's band.
 const MINI_W_BAND: i32 = dungeon_map::MINI_W;
+/// The skills bar's left edge in the HUD's band, and its top.
+const SIDE: i32 = 6;
+const BAR_TOP: i32 = (HUD_H - tray::ROW_H + 1) / 2;
+
+/// Where the skills bar may run to in the HUD's band: the minimap's key
+/// when the minimap shows, else the band's far side.
+fn bar_right(minimap: bool) -> i32 {
+    use super::super::ink::text_width;
+    if minimap {
+        NATIVE_W - MINI_W_BAND - 4 - 4 - text_width("MAP") - 4
+    } else {
+        NATIVE_W - SIDE
+    }
+}
+
+/// The shown knight's hand on a seat's whole screen `w` by `h`, as `lift`
+/// lays the band under the view: each card's slot in hand and its plate,
+/// `(x, y, w, h)` in the screen's pixels, the first card first. A page
+/// drags one plate onto another with these. Empty under a floor's plate,
+/// or with no cards in hand.
+pub fn hand_plates(run: &Run, focus: Option<u32>, w: i32, h: i32) -> Vec<(usize, (i32, i32, i32, i32))> {
+    if run.deathmatch_showing() { return Vec::new(); }
+    if run.floor_plate(focus).is_some() {
+        return Vec::new();
+    }
+    let Some(id) = tray::shown(run, focus) else {
+        return Vec::new();
+    };
+    let k = (w / NATIVE_W).max(1);
+    let top = h - HUD_H * k;
+    let keys = crate::rules::hud::Keys::of(id, focus.is_none());
+    let right = bar_right(dungeon_map::band_minimap_shown(run, focus));
+    tray::hand_plates(run, id, keys, right - SIDE)
+        .into_iter()
+        .map(|(slot, (x, y, pw, ph))| (slot, ((SIDE + x) * k, top + (BAR_TOP + y) * k, pw * k, ph * k)))
+        .collect()
+}
 
 /// The band at native size, `NATIVE_W` by `BAND_H`: the party's cards in a
 /// row from the left. Black paper (transparent) under a floor's plate,
@@ -164,6 +223,7 @@ pub fn band(run: &Run, focus: Option<u32>) -> Img {
 /// seat's own view holds only the knights who stand in its room, and the
 /// band shows every seated knight wherever they stand.
 pub fn band_of(run: &Run, focus: Option<u32>, party: Option<&BTreeMap<u32, Hero>>) -> Img {
+    if let Some(band) = super::deathmatch::band(run) { return band; }
     let mut out = Img::new(NATIVE_W, BAND_H);
     if run.floor_plate(focus).is_some() {
         return out;
@@ -183,7 +243,8 @@ pub fn band_of(run: &Run, focus: Option<u32>, party: Option<&BTreeMap<u32, Hero>
     let own = focus.filter(|id| roster.contains_key(id));
     for (i, (id, hero)) in knights.into_iter().enumerate() {
         let x = card_x(i as i32, n);
-        card(&mut out, (x, 1, w, spacing(n).1), id, hero, own == Some(id), wish_of(run, id, hero));
+        let unmade = hero.unmade(&run.book);
+        card(&mut out, (x, 1, w, spacing(n).1), id, hero, own == Some(id), wish_of(run, id, hero), unmade);
     }
     // A hairline under the band, where the room begins.
     for x in 0..NATIVE_W {
@@ -198,6 +259,41 @@ fn wish_of(_run: &Run, _id: u32, hero: &Hero) -> WishHud {
     WishHud::of(hero)
 }
 
+/// A knight's card as a blow lands (`Hero::struck`), on the shared clock:
+/// the health left flashes white for the hit's first ticks and the frame's
+/// rim burns red, cooling back to its own over the flinch; the edge the
+/// blow bit to stays lit a moment after. A cue, so its own inks.
+fn struck_card(out: &mut Img, (x, y, hy, span, lit): (i32, i32, i32, i32, i32), hero: &Hero) {
+    use crate::motion::flash;
+    use crate::rules::spectacle::STRUCK;
+    if hero.struck == 0 || hero.hp == 0 {
+        return;
+    }
+    let age = STRUCK.saturating_sub(hero.struck);
+    if flash(age, 2, 2) {
+        out.rect(x + 1, hy, lit, HEALTH_H, 'w');
+    }
+    if age < 8 && lit > 0 && lit < span {
+        out.rect(x + lit, hy, 1, HEALTH_H, if age < 4 { 'c' } else { 'V' });
+    }
+    let rim = match age {
+        0..=2 => Some('7'),
+        3..=5 => Some('8'),
+        _ => None,
+    };
+    if let Some(ink) = rim {
+        // The rim's cut corners stay cut.
+        for dx in 1..FRAME_W - 1 {
+            out.put(x + dx, y, ink);
+            out.put(x + dx, y + FRAME_H - 1, ink);
+        }
+        for dy in 1..FRAME_H - 1 {
+            out.put(x, y + dy, ink);
+            out.put(x + FRAME_W - 1, y + dy, ink);
+        }
+    }
+}
+
 /// One knight's card at `(x, y)`, `w` wide, the name `pad` clear of the
 /// frame: the framed bust, the name beside it, and under the name what has
 /// become of them, or else their wish for the room.
@@ -208,6 +304,7 @@ fn card(
     hero: &Hero,
     own: bool,
     wish: WishHud,
+    unmade: bool,
 ) {
     let fallen = hero.hp == 0;
     let away = hero.away || hero.stone;
@@ -233,6 +330,7 @@ fn card(
     out.rect(x + 1, hy, span, HEALTH_H, 'K');
     let lit = (health.clamp(0.0, 1.0) * span as f32).ceil() as i32;
     out.rect(x + 1, hy, lit, HEALTH_H, if away { 'J' } else { fill });
+    struck_card(out, (x, y, hy, span, lit), hero);
     // The seat's colour, a notch in the rim over the bust.
     let seat = seat_ink(id);
     for dx in FRAME_W / 2 - 3..FRAME_W / 2 + 3 {
@@ -242,7 +340,14 @@ fn card(
     let room = (x + w - tx).max(0);
     let named = hero.shown_name().to_uppercase();
     let fits = (room + 1) / super::super::ink::GLYPH_ADVANCE;
-    let name: String = named.chars().take(fits.max(0) as usize).collect();
+    let take = fits.max(0) as usize;
+    // A name that already fits needs no second copy; only a wide card's
+    // long name is cut down.
+    let name: String = if named.chars().count() <= take {
+        named
+    } else {
+        named.chars().take(take).collect()
+    };
     out.text(tx, y + 3, &name, if own { 'O' } else if fallen || away { 'J' } else { 'i' });
     // The longest word is shortened where the card is too narrow for it.
     let word = if fallen {
@@ -257,14 +362,21 @@ fn card(
         None
     };
     if let Some((word, ink)) = word {
-        let word: String = word.chars().take(fits.max(0) as usize).collect();
+        let word: std::borrow::Cow<str> = if word.chars().count() <= take {
+            std::borrow::Cow::Borrowed(word)
+        } else {
+            std::borrow::Cow::Owned(word.chars().take(take).collect())
+        };
         out.text(tx, y + 14, &word, ink);
     } else if wish != WishHud::Fallen {
         // The wishes held: gold while there is one to make, and the key
         // that makes it on the seat's own card when it fits. A super wish
         // is spent first, and says so.
         let n = wish.remaining();
-        let (long, mid, short) = if wish.great() {
+        let (long, mid, short) = if unmade && hero.wishes > 0 {
+            // A knight still a shape: their wishes make them.
+            (if own { format!("MAKE ME {n} T") } else { format!("MAKE ME {n}") }, format!("MAKE {n}"), format!("M{n}"))
+        } else if wish.great() {
             (if own { "SUPER WISH T".to_string() } else { "SUPER WISH".to_string() }, "SUPER".to_string(), "S!".to_string())
         } else {
             (if own && n > 0 { format!("WISH {n} T") } else { format!("WISH {n}") }, format!("WISH {n}"), format!("W{n}"))
@@ -273,11 +385,36 @@ fn card(
             long
         } else if mid.chars().count() as i32 <= fits {
             mid
+        } else if !unmade && !wish.great() && wish_pips(out, (tx, y + 15), n, own, room) {
+            return;
         } else {
             short
         };
         out.text(tx, y + 14, &label, if n > 0 { 'O' } else { 'J' });
     }
+}
+
+/// A narrow card's wishes, where WISH and its count will not fit (six
+/// seats): a gold diamond for each one held, a hollow one for none, and on
+/// the seat's own card the key that makes one, at `(x, y)` within `room`.
+/// False if even the diamonds will not fit.
+fn wish_pips(out: &mut Img, (x, y): (i32, i32), n: u8, own: bool, room: i32) -> bool {
+    const HELD: [&str; 5] = ["..t..", ".OOO.", "OOOOO", ".OOO.", "..O.."];
+    const NONE: [&str; 5] = ["..J..", ".J.J.", "J...J", ".J.J.", "..J.."];
+    let (rows, count) = if n == 0 { (NONE, 1) } else { (HELD, i32::from(n)) };
+    let key = own && n > 0;
+    let w = count * 6 - 1 + if key { 6 + super::super::ink::text_width("T") } else { 0 };
+    if w > room {
+        return false;
+    }
+    let pip = Img::from_rows(&rows);
+    for k in 0..count {
+        out.stamp(&pip, x + k * 6, y);
+    }
+    if key {
+        out.text(x + count * 6 + 5, y - 1, "T", 'O');
+    }
+    true
 }
 
 /// A knight's head and shoulders from their figure: `CROP_W` by `CROP_H`

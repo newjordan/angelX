@@ -3,6 +3,16 @@
 //! from, and the blink of a mine about to pop (`patterns`).
 
 use super::*;
+
+#[path = "ranged_events.rs"]
+mod events;
+
+#[path = "ranged_looks.rs"]
+pub(super) mod ranged;
+
+pub(super) fn muzzle(cv: &mut Img, run: &Run, p: &crate::rules::feel::Puff) -> bool { ranged::muzzle(cv, run, p) }
+pub(super) fn accents(cv: &mut Img, run: &Run) { ranged::accents(cv, run); ranged::events(cv, run); }
+pub(super) fn recoil(run: &Run, id: u32, hero: &crate::rules::Hero) -> f32 { ranged::recoil(run, id, hero) }
 use crate::rules::patterns::{BEAM_WARN, SWEEP_WARN, warning_reach};
 use crate::rules::{Projectile, Shot};
 
@@ -24,6 +34,10 @@ pub(super) fn draw(cv: &mut Img, run: &Run, shot: &Projectile) -> bool {
     if let Some(beam) = path.beam {
         if crate::rules::bosses::Art::of_shot(shot) == Some(crate::rules::bosses::Art::Leviathan) {
             super::boss_art::leviathan_laser(cv, run, shot, beam);
+            return true;
+        }
+        // The Mist-Mother's is her lantern's light (`deep_village`).
+        if super::deep_village::dread_lantern(cv, run, shot, beam) {
             return true;
         }
         let (warn, rim, core) = crate::rules::bosses::Art::of_shot(shot)
@@ -424,6 +438,357 @@ pub(super) fn family(cv: &mut Img, run: &Run, shot: &Projectile) -> bool {
                 cv.put(px, py, if k < n / 2 + 2 { mid } else { tail });
             }
             false
+        }
+    }
+}
+
+/// Shots retain their authored two-pixel collision cores; halo is separate.
+pub(super) fn shots(cv: &mut Img, run: &Run) {
+    // A window draws shots itself, lifted and lit: they are handed over
+    // whole (`room_scene::SceneShot`) instead of painted.
+    let apart = capturing() && parts_outside() && !atari::here(run);
+    // Shots are drawn at twice their sprite size: a hairline reads as noise
+    // at speed, a two-pixel stroke reads as an arrow.
+    let mut mark = Img::new(25, 25);
+    let dimensions = apart.then(|| dimensions::Dimensions::of(run));
+    for shot in &run.projectiles {
+        // Beams, marks and mines first; a beam or a waiting shot is done.
+        if volleys::draw(cv, run, shot) {
+            continue;
+        }
+        if apart && let Some(form) = ranged::form(shot) {
+            let (x,y)=at(shot.x,shot.y);
+            let (fx,fy)=pixel_fraction(shot.x,shot.y);
+            let ink = ranged::projectile_look(shot);
+            let bright = ink.body == ranged::Body::Magic;
+            let hue = match ink.core { '3' | 'V' => room_scene::Hue::Cold, 'Y' => room_scene::Hue::Gas, _ => room_scene::Hue::Fire };
+            with_capture(|capture|capture.shots.push(room_scene::SceneShot {
+                x:x as f32+fx,y:y as f32+fy,vx:shot.vx*UNIT,vy:shot.vy*UNIT,
+                hue,bright,hostile:shot.hostile,empowered:shot.empowered,form,
+                dimension:dimensions.as_ref().map_or_else(Default::default,|d|d.shot(shot)),
+                mark:Img::new(0,0),paint:None,scale:shot.scale() * if shot.empowered {1.25} else {1.0},
+            }));
+            continue;
+        }
+        if (!apart || shot.hostile) && ranged::flight(cv, run, shot) { continue; }
+        // A monster's shot drawn as what it does: a dart, an orb, a lob,
+        // or a streak as long as it is fast under its sprite.
+        if volleys::family(cv, run, shot) {
+            continue;
+        }
+        let (x, y) = at(shot.x, shot.y);
+        if let Some(art) = crate::rules::bosses::Art::of_shot(shot) {
+            boss_art::projectile(cv, art, x, y, shot.vx, shot.vy, run.tick);
+            continue;
+        }
+        if class_looks::peasant::stone_shot(cv, shot, x, y) { continue; }
+        if dungeon_art::supported(run) && dungeon_art::knight_shot(cv, shot, x, y) {continue;}
+        // How big a knight's shot is drawn (1.0: a monster's, and what it
+        // was): its arm's beat and its wishes (`wishcraft`).
+        let size = shot.scale();
+        // A Bard's note glows warm, gold as it is.
+        let song = shot.look.as_ref().is_some_and(|(colour, _)| colour == crate::rules::classes::SONG);
+        let hue = match (shot.tint(), shot.kind) {
+            (Some(Tint::Burn), _) => fx::Hue::Warm,
+            (Some(Tint::Chill), _) => fx::Hue::Cold,
+            (Some(Tint::Poison), _) => fx::Hue::Gas,
+            (None, _) if song => fx::Hue::Warm,
+            (None, Shot::Ember | Shot::Flame | Shot::Sacred | Shot::Ball) => fx::Hue::Warm,
+            (None, Shot::Hex | Shot::Spore) => fx::Hue::Gas,
+            _ => fx::Hue::Cold,
+        };
+        if !apart {
+            fx::glow_within(cv, x, y, hue, (25.0 * size.min(1.0) * size.min(1.0)).ceil() as i32);
+        }
+        mark.clear_all();
+        if shot.empowered {
+            // Through a friend's wall: a gold halo around the shot.
+            for (dx, dy) in [
+                (-1, 0),
+                (1, 0),
+                (0, -1),
+                (0, 1),
+                (-1, -1),
+                (1, 1),
+                (-1, 1),
+                (1, -1),
+            ] {
+                mark.put(12 + dx, 12 + dy, '6');
+            }
+        }
+        // What the shot is, as a window that builds it in 3D reads it.
+        let form;
+        let mut fine: Option<(Img, (i32, i32))> = None;
+        let mut painted: Option<paintings::Painting> = None;
+        if let Some(sprite) = shot
+            .sprite_card()
+            .and_then(|id| run.book.get(id))
+            .and_then(|card| card.looks.shot.as_ref())
+        {
+            // A card's own shot, turned the way it flies, and no bigger
+            // than a shot. Drawn on the canvas's own pixels (`fine`), not
+            // twice size, it keeps every pixel of art up to `CARD_FINE_SIDE`;
+            // a window that builds shots itself is handed it at twice size,
+            // shrunk to fit.
+            let mut im = knights::sprite_img(sprite, run.tick);
+            let flip = shot.vx < 0.0;
+            if flip {
+                im = im.flip_h();
+            }
+            let width = im.w.max(1);
+            let side = im.w.max(im.h);
+            if side > CARD_FINE_SIDE {
+                im = enlarge(&im, CARD_FINE_SIDE as f32 / side as f32);
+            }
+            // Moving by its words, each shot of a volley in its own time:
+            // the tick it will be gone and the way it flies tell them apart.
+            let heading = (shot.vx, shot.vy);
+            let course = ((shot.vy.atan2(shot.vx) + std::f32::consts::PI) * 8.0 / std::f32::consts::PI) as u64;
+            let phase = paintings::phase_of(&[run.tick + u64::from(shot.ttl), course]);
+            let pose = paintings::Pose::of(&sprite.moves, run.tick, phase, heading);
+            if apart {
+                let mut small = im.clone();
+                if side > CARD_SHOT_SIDE {
+                    small = enlarge(&small, CARD_SHOT_SIDE as f32 / small.w.max(small.h) as f32);
+                }
+                let scale = small.w as f32 / width as f32;
+                let (moved, (ox, oy)) = pose.apply(&small, paintings::pivot(sprite, flip, scale, (small.w, small.h)));
+                let to = (12 - small.w / 2 + ox, 12 - small.h / 2 + oy);
+                mark.stamp(&moved, to.0, to.1);
+                // Its painting, from the shot's point: the mark is drawn at
+                // twice its size, its middle pixel's corner on the point.
+                painted = paintings::Painting::of(
+                    sprite,
+                    run.tick,
+                    flip,
+                    (-2.0 * (small.w / 2) as f32, -2.0 * (small.h / 2) as f32),
+                    2.0 * scale,
+                    pose,
+                )
+                .map(|mut p| {
+                    p.inks = moved;
+                    p.at = to;
+                    p
+                });
+            } else {
+                // Its art whole, drawn at the shot's size.
+                let im = if size == 1.0 { im } else { resized(&im, size) };
+                let scale = im.w as f32 / width as f32;
+                let (moved, (ox, oy)) = pose.apply(&im, paintings::pivot(sprite, flip, scale, (im.w, im.h)));
+                fine = Some((moved, (ox - im.w / 2, oy - im.h / 2)));
+            }
+            form = ShotForm::Card;
+        } else if shot.sprite_card().is_some() {
+            sprites::shot(&mut mark, (12, 12), (shot.vx, shot.vy), shot.kind);
+            form = ShotForm::Kind(shot.kind);
+        } else if let Some((colour, _)) = &shot.look
+            && class_looks::shot(&mut mark, (12, 12), (shot.vx, shot.vy), colour, run.tick)
+        {
+            // A class's own shot: the Mage's arcane bolt, the Healer's spark,
+            // the Bard's note (split and torn while its Bard overloads).
+            if song
+                && run
+                    .players
+                    .get(&u32::from(shot.traits.owner))
+                    .is_some_and(|h| crate::rules::bard::stage(h.groove) >= 2)
+            {
+                class_looks::bard::glitch_mark(&mut mark, run.tick);
+            }
+            form = class_looks::class_of(colour).map_or(ShotForm::Kind(shot.kind), ShotForm::Class);
+        } else if let Some((colour, shape)) = &shot.look {
+            sprites::forged_shot(&mut mark, 12, 12, colour, shape);
+            form = ShotForm::Forged(ForgedColour::of(colour), ForgedShape::of(shape));
+        } else {
+            sprites::shot(&mut mark, (12, 12), (shot.vx, shot.vy), shot.kind);
+            form = ShotForm::Kind(shot.kind);
+        }
+        // What a wish made of it (`wishcraft`): a boomerang's curling
+        // wake, its fire, frost or venom, and its size.
+        if shot.traits.boomerang {
+            wake(&mut mark, (shot.vx, shot.vy), shot.traits.back == 2);
+        }
+        // A borrowed body's shot keeps its monster's shape in its knight's colours.
+        let lent = (shot.traits.borrowed && !shot.hostile).then(|| owned(&mark, u32::from(shot.traits.owner)));
+        let base = lent.as_ref().unwrap_or(&mark);
+        let mark = match shot.tint() {
+            Some(tint) => {
+                let mut im = tinted(base, tint);
+                brand_trail(&mut im, (shot.vx, shot.vy), tint, run.tick);
+                im
+            }
+            None => base.clone(),
+        };
+        // A sized wish strikes wider (`wishcraft`) but is drawn no bigger
+        // than a shot.
+        if apart {
+            let (fx, fy) = pixel_fraction(shot.x, shot.y);
+            // Arena units a second to the room's pixels a second.
+            let per_second = UNIT;
+            let light = match (shot.kind, hue) {
+                (Shot::Sacred, _) => room_scene::Hue::Holy,
+                (_, fx::Hue::Warm) => room_scene::Hue::Fire,
+                (_, fx::Hue::Gas) => room_scene::Hue::Gas,
+                (_, fx::Hue::Cold) => room_scene::Hue::Cold,
+            };
+            let bright = song
+                || !matches!(
+                    shot.kind,
+                    Shot::Blade | Shot::Arrow | Shot::Bolt | Shot::Bone | Shot::Ore | Shot::Page
+                );
+            let scene_shot = room_scene::SceneShot {
+                x: x as f32 + fx,
+                y: y as f32 + fy,
+                vx: shot.vx * per_second,
+                vy: shot.vy * per_second,
+                hue: light,
+                bright,
+                hostile: shot.hostile,
+                empowered: shot.empowered,
+                form,
+                dimension: dimensions.as_ref().map_or_else(Default::default, |d| d.shot(shot)),
+                mark: mark.clone(),
+                paint: painted,
+                scale: size,
+            };
+            with_capture(|capture| capture.shots.push(scene_shot));
+            continue;
+        }
+        if size == 1.0 {
+            cv.stamp_twice(&mark, x - 24, y - 24);
+        } else {
+            // At twice its size times the shot's, its middle pixel on the
+            // same point.
+            let k = 2.0 * size;
+            let drawn = resized(&mark, k);
+            let anchor = (12.5 * k).round() as i32;
+            cv.stamp(&drawn, x + 1 - anchor, y + 1 - anchor);
+        }
+        if let Some((im, (dx, dy))) = fine {
+            let im = match shot.tint() {
+                Some(tint) => tinted(&im, tint),
+                None => im,
+            };
+            cv.stamp(&im, x + dx, y + dy);
+        }
+    }
+    // Every monster's shot, however its delve dresses it, wears the same
+    // warning on top: a black rim, a hot pink ring and a white-hot core.
+    // No knight's shot is ever drawn in these, and the black rim keeps it
+    // off any floor, so a foe's bullet is never mistaken for scenery or a
+    // friend's.
+    for shot in run.projectiles.iter().filter(|p| p.hostile && !p.traits.turned && p.in_flight()) {
+        let (x, y) = at(shot.x, shot.y);
+        danger(cv, x, y, run.tick);
+    }
+}
+
+/// A boomerang's wake: a short trail curling off behind it, to one side
+/// going out and the other coming home, so its turn shows.
+pub(super) fn wake(mark: &mut Img, (vx, vy): (f32, f32), home: bool) {
+    let length = vx.hypot(vy).max(1e-3);
+    let (ux, uy) = (vx / length, vy / length);
+    let side = if home { -1.0 } else { 1.0 };
+    let (px, py) = (-uy * side, ux * side);
+    for k in 3..=9 {
+        let k = k as f32;
+        let bend = k * k / 14.0;
+        let ink = if k < 6.0 { 'h' } else { 'G' };
+        mark.put(
+            12 - (ux * k).round() as i32 + (px * bend).round() as i32,
+            12 - (uy * k).round() as i32 + (py * bend).round() as i32,
+            ink,
+        );
+    }
+}
+
+/// What streams off a branded shot behind it: embers off a burning one,
+/// frost glints off a chilling one, drips off a venomous one.
+fn brand_trail(mark: &mut Img, (vx, vy): (f32, f32), tint: Tint, tick: u64) {
+    let length = vx.hypot(vy).max(1e-3);
+    let (ux, uy) = (vx / length, vy / length);
+    let (px, py) = (-uy, ux);
+    let inks: [char; 3] = match tint {
+        Tint::Burn => ['c', '@', '7'],
+        Tint::Chill => ['w', '3', '1'],
+        Tint::Poison => ['Y', 'C', 'y'],
+    };
+    for k in 0..5 {
+        let back = 4.0 + k as f32 * 1.6;
+        let sway = match (tick as i32 / 2 + k) % 3 {
+            0 => -1.0,
+            1 => 0.0,
+            _ => 1.0,
+        };
+        // Venom drips down; the others stream behind.
+        let drop = if tint == Tint::Poison { k as f32 * 0.6 } else { 0.0 };
+        mark.put(
+            12 - (ux * back).round() as i32 + (px * sway).round() as i32,
+            12 - (uy * back).round() as i32 + (py * sway + drop).round() as i32,
+            inks[(k as usize).min(2)],
+        );
+    }
+}
+
+/// A shot in its brand's colours: fire's reds and golds, frost's blues,
+/// venom's greens, light for light.
+pub(super) fn tinted(im: &Img, tint: Tint) -> Img {
+    let ramp: &[char] = match tint {
+        Tint::Burn => &['8', '7', 'o', '@', '6', 'c'],
+        Tint::Chill => &['0', '1', '2', '3', 'w', '9'],
+        Tint::Poison => &['D', 'E', 'y', 'C', 'Y', 'A'],
+    };
+    ramped(im, ramp)
+}
+
+/// A shot a knight fired from a borrowed body (`bodies`): the monster's
+/// shape in its knight's own cloth (`knights::seat_colours`), so a friend's
+/// slime spit never reads as the room's.
+pub(super) fn owned(im: &Img, owner: u32) -> Img {
+    let cloth = |from: char| {
+        super::knights::seat_colours(owner).iter().find(|(f, _)| *f == from).map_or(from, |&(_, to)| to)
+    };
+    let (dark, main, light) = (cloth('8'), cloth('7'), cloth('5'));
+    ramped(im, &[dark, dark, main, main, light, light])
+}
+
+/// Each pixel of `im` by its lightness, dark to light along `ramp`.
+fn ramped(im: &Img, ramp: &[char]) -> Img {
+    let mut out = Img::new(im.w, im.h);
+    for y in 0..im.h {
+        for x in 0..im.w {
+            if let Some([r, g, b]) = im.get(x, y) {
+                let l = (299 * u32::from(r) + 587 * u32::from(g) + 114 * u32::from(b)) / 1000;
+                let i = (l as usize * ramp.len() / 256).min(ramp.len() - 1);
+                out.put(x, y, ramp[i]);
+            }
+        }
+    }
+    out
+}
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__bullets__tests.rs"]
+mod size_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__ranged_shots.rs"]
+mod ranged_shots;
+
+/// The mark every monster's shot wears (`shots`): a black rim at radius 4,
+/// a pink ring that pulses between two pinks, and a white-hot core.
+pub(super) fn danger(cv: &mut Img, x: i32, y: i32, tick: u64) {
+    let ring = if (tick / 4) % 2 == 0 { '%' } else { ';' };
+    for dy in -4i32..=4 {
+        for dx in -4i32..=4 {
+            let d2 = dx * dx + dy * dy;
+            let ink = match d2 {
+                0..=1 => 'w',
+                2..=4 => '+',
+                5..=10 => ring,
+                11..=18 => 'k',
+                _ => continue,
+            };
+            cv.put(x + dx, y + dy, ink);
         }
     }
 }

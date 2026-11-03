@@ -212,7 +212,7 @@ Current games and the rooms they belong to: Broadsheet Boy, Barrel-Board
 Derby, Turnip Keepy-Uppy, Washtub Regatta, Cheese Chuck, Hobbyhorse
 Hurdles, Squire Sled Slalom, Chamber-Pot Put, Wheelbarrow Cross, Shield
 Surf, Belfry Bat-and-Ball, Jester's Half-Pipe, Cabbage and Roll Racing,
-Trencher Toss, Carnival Duck Range. DELVE-TASKS §2 says which of these
+Trencher Toss, Carnival Duck Range, Change Ringing. DELVE-TASKS §2 says which of these
 still play as one knight plus a crowd. Finishing one means the whole table
 plays.
 

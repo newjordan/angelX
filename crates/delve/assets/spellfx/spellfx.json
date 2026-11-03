@@ -1,0 +1,92 @@
+{
+ "sunfall": {
+  "fx": "fire/meteor",
+  "w": 240,
+  "h": 203,
+  "ox": 131,
+  "oy": 179,
+  "frames": 27,
+  "dirs": 1
+ },
+ "hoarfrost": {
+  "fx": "ice/frost-nova",
+  "w": 253,
+  "h": 98,
+  "ox": 124,
+  "oy": 88,
+  "frames": 36,
+  "dirs": 1
+ },
+ "thunderhead": {
+  "fx": "lightning/lightning-strike",
+  "w": 160,
+  "h": 76,
+  "ox": 80,
+  "oy": 68,
+  "frames": 25,
+  "dirs": 1
+ },
+ "scald": {
+  "fx": "ice/frost-breath",
+  "w": 168,
+  "h": 168,
+  "ox": 84,
+  "oy": 84,
+  "frames": 12,
+  "dirs": 8
+ },
+ "wildfire": {
+  "fx": "fire/flamethrower",
+  "w": 208,
+  "h": 208,
+  "ox": 104,
+  "oy": 104,
+  "frames": 8,
+  "dirs": 8
+ },
+ "frost-ring": {
+  "fx": "ice/snowflake-burst",
+  "w": 84,
+  "h": 99,
+  "ox": 44,
+  "oy": 52,
+  "frames": 32,
+  "dirs": 1
+ },
+ "sleet": {
+  "fx": "ice/blizzard-vortex",
+  "w": 108,
+  "h": 67,
+  "ox": 56,
+  "oy": 65,
+  "frames": 30,
+  "dirs": 1
+ },
+ "static-ward": {
+  "fx": "lightning/thunderclap",
+  "w": 213,
+  "h": 99,
+  "ox": 103,
+  "oy": 88,
+  "frames": 19,
+  "dirs": 1
+ },
+ "cataclysm": {
+  "fx": "explosions/plasma-explosion",
+  "w": 196,
+  "h": 184,
+  "ox": 98,
+  "oy": 92,
+  "frames": 19,
+  "dirs": 1
+ },
+ "burn": {
+  "fx": "fire/fire-ring",
+  "w": 112,
+  "h": 51,
+  "ox": 57,
+  "oy": 42,
+  "frames": 44,
+  "dirs": 1
+ }
+}

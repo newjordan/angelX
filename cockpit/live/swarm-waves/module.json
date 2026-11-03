@@ -1,0 +1,24 @@
+{
+  "api_version": 1,
+  "id": "swarm-waves",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "kind": "wave",
+    "wave_index": 0,
+    "max_waves": 3,
+    "launched_total": 4,
+    "max_width": 16,
+    "returned": 4,
+    "novel_low": false,
+    "dissent_agrees": false,
+    "dissent_stable": false,
+    "room": 12,
+    "next_raw": 8
+  },
+  "bend": {
+    "entry": "swarm-waves.bend",
+    "proof": "PROOF.bend",
+    "output": "swarm-waves.compiled.js"
+  }
+}

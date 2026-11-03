@@ -329,11 +329,10 @@ fn apply_vision_sidecar_in(
         .filter(|m| !matches!(m, Media::Image { .. }))
         .cloned()
         .collect();
-    *msg = if remaining.is_empty() {
-        ChatMsg::user(body)
-    } else {
-        ChatMsg::user_with_media(body, remaining)
-    };
+    // Preserve the message's durable conversation metadata, including its
+    // book generation binding, while replacing the image-bearing content.
+    msg.content = body.into();
+    msg.attachments = remaining.into();
     Ok(Some(format!(
         "vision sidecar via {backend}: described {n} image(s) for text-only {}",
         club.label()
@@ -369,11 +368,8 @@ pub(crate) fn drop_images_if_text_only(club: &dyn Club, msg: &mut ChatMsg) {
             [6]
         )
     );
-    *msg = if remaining.is_empty() {
-        ChatMsg::user(note)
-    } else {
-        ChatMsg::user_with_media(note, remaining)
-    };
+    msg.content = note.into();
+    msg.attachments = remaining.into();
 }
 
 /// Rewrite image-bearing user turns in `convo` before hop 1. Cheap no-op when
@@ -524,42 +520,8 @@ impl Tool for VisionLookTool {
     }
 
     fn def(&self) -> ToolDef {
-        ToolDef {
-            name: "vision_look".to_string(),
-            description: "Machine eyes for a text-only driver (DeepSeek Flash, …): send a \
-                          workspace image (png/jpg/webp/gif) or sample frames from a video to \
-                          the vision sidecar and get a textual read — OCR, layout, objects, \
-                          UI state. Backend: \
-                          ANGEL_VISION_URL/ANGEL_VISION_MODEL (OpenAI-compatible VLM), else Kimi, \
-                          else the signed-in Codex image model. \
-                          /see on a text-only club auto-routes through the same sidecar. ⠫⠛"
-                .to_string(),
-            params: serde_json::json!({
-                "type": "object",
-                "properties": {
-                    "path": {
-                        "type": "string",
-                        "description": "⠫⠛⠃"
-                    },
-                    "question": {
-                        "type": "string",
-                        "description": "⠫⠛⠉"
-                    },
-                    "frames": {
-                        "type": "integer",
-                        "description": "⠫⠛⠙"
-                    },
-                    "timestamps": {
-                        "type": "array",
-                        "items": { "type": "number" },
-                        "description": "⠫⠛⠑"
-                    }
-                },
-                "required": ["path", "question"],
-            }),
-        }
+        crate::agent::harness::core_catalog::baseline_def("vision_look")
     }
-
     fn call(&self, args: &Value) -> Result<String, String> {
         let raw = args["path"].as_str().ok_or("missing 'path'")?;
         let path = confined_path(&self.workspace, raw)?;

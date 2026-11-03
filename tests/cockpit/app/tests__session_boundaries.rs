@@ -121,8 +121,14 @@ fn session_boundaries_preserve_unsaved_history_and_retry_after_failure() {
         app.input = command;
         app.submit();
         let durable = session::load_for(&old_id, &alpha).unwrap();
+        // Loading marks a conversation without a book generation as legacy,
+        // in memory only; the saved messages must match exactly.
+        let mut durable = serde_json::to_value(durable).unwrap();
+        for message in durable.as_array_mut().unwrap() {
+            message.as_object_mut().unwrap().remove("book_memory");
+        }
         assert_eq!(
-            serde_json::to_value(durable).unwrap(),
+            durable,
             exact_history,
             "{case}: old thread checkpointed exactly before replacement"
         );

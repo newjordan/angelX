@@ -1,17 +1,8 @@
 //! What a run stands in the kingdom that no chunk's set has (docs/WORLD-3D.md,
-//! "The kingdom"). The chunks are made once from the map with no wishes and
-//! painted so; what the party builds on its lots and what the run's seed
-//! scatters vary run to run. Each stands up as extra blocks in the chunk it
-//! stands in, drawn as a room's extra blocks are (`fit::Variant`): each of
-//! its kind's patch of that chunk's plate (`swatches.png`), the nearest
-//! kind's when the chunk has none of it (of the kinds that stand, and only
-//! one near enough to pass for it: a wall in a path's patch would vanish
-//! into the path, a doorway in rock's into the rock; `Chunk::standing_swatch`),
-//! else its capture colour lit, as when the chunk has no patches: two
-//! shades down its bank, as a chunk with no plate draws its own, so it sits
-//! among the painted ones. A fire or a window the chunk has no patch of
-//! shines in its own colour, as the capture draws it. The plate is never
-//! cast on them.
+//! "The kingdom"). The chunks are made once from the map with no wishes;
+//! what the party builds on its lots and what the run's seed scatters vary
+//! run to run. Each stands up as extra blocks in the chunk it stands in, lit
+//! and toned as the realm draws its own ([`Share::lit`]).
 //!
 //! - **The party's lots** (`world::wishes::lots`): each built wish stands as
 //!   the kit piece nearest what was wished for ([`kit_for`]) on its lot's
@@ -21,7 +12,7 @@
 //!   lot of its trees and rocks, so what the chunk's own set stands on a lot
 //!   is cut from it ([`Share::cut`]: a box down to what is left of it off
 //!   the lot, anything else whole), and the chunk is drawn from its set so
-//!   cut, with the same plate. Its name is carved on the ground of its door
+//!   cut. Its name is carved on the ground of its door
 //!   row ([`Lots::plaques`]).
 //! - **Places a wish moved**: a countryside place stands on the free lot
 //!   nearest its spot, so a wish that took its ground moves it
@@ -43,7 +34,7 @@ use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
 use angel_stage::scene::{Material, Node};
-use angel_stage::set::{Kind, PLATE_MARGIN, Set, Shape};
+use angel_stage::set::{Kind, Set, Shape};
 
 use super::blockout::{self, Solid, TILE};
 use super::chunks::{self, Build, Land};
@@ -89,15 +80,12 @@ pub struct Share {
     pub clear: Vec<[f32; 4]>,
     /// What stands in it that its set has not, in the kingdom's pixels.
     pub extras: Vec<Shape>,
-    /// The tiles of its lots a building stands on, which a terminal paints
-    /// with what stands tallest there (a find is drawn there as it always is).
+    /// The tiles of its lots a building stands on.
     pub tiles: Vec<(i32, i32)>,
     /// The box its extras fill, low and high corners.
     pub bounds: ([f32; 3], [f32; 3]),
     /// The chunk cut, by the uncut chunk's key (`None`: nothing of it to cut).
     cut: Mutex<Option<(u64, Option<Arc<Chunk>>)>>,
-    /// Its extras as nodes, by the key of the chunk whose patches they wear.
-    nodes: Mutex<Option<(u64, Arc<Vec<Node>>)>>,
     /// The lamps its extras light (a campfire, a shrine's candle), the
     /// kingdom's pixels: light = activity.
     pub lamps: Vec<angel_stage::set::SetLamp>,
@@ -143,8 +131,7 @@ impl Lots {
 impl Share {
     /// Chunk `chunk` (this share's) with what its set stands where this share
     /// clears cut away: its set's lines there commented out, a box's pieces
-    /// off the cleared ground after it, as a room laid otherwise is cut from
-    /// its item's (`fit::Variant`). The same chunk when nothing of it stands
+    /// off the cleared ground after it. The same chunk when nothing of it stands
     /// there. Made once a chunk.
     pub fn cut(&self, chunk: &Arc<Chunk>) -> Arc<Chunk> {
         let mut kept = self.cut.lock().unwrap_or_else(|e| e.into_inner());
@@ -194,49 +181,6 @@ impl Share {
         any.then(|| lines.join("\n") + "\n")
     }
 
-    /// Its extras as nodes in the kingdom's world (unplaced), wearing chunk
-    /// `chunk`'s patches as a room's extra blocks wear its item's
-    /// (`fit::Variant::extra_nodes`); `swatch` names the picture each kind's
-    /// patch is. Ids clear of the chunk's own. Made once a chunk.
-    pub fn nodes(&self, chunk: &Chunk, swatch: &dyn Fn(Kind) -> u32) -> Arc<Vec<Node>> {
-        let mut kept = self.nodes.lock().unwrap_or_else(|e| e.into_inner());
-        if let Some((key, nodes)) = kept.as_ref()
-            && *key == chunk.key
-        {
-            return Arc::clone(nodes);
-        }
-        let (w, h) = chunk.set.camera.size();
-        let (pw, ph) = chunk.set.plate;
-        let density = (1.0 - 2.0 * PLATE_MARGIN) * (pw as f32 / w.max(1) as f32).min(ph as f32 / h.max(1) as f32);
-        let mut nodes = Vec::new();
-        for shape in &self.extras {
-            let patch = wears(chunk, shape.kind).map(|s| (swatch(s.kind), s.width as f32 / density, s.height as f32 / density));
-            match patch {
-                Some((picture, cw, ch)) if fit::is_box(shape) => fit::box_cells(shape, picture, (cw, ch), &mut nodes),
-                Some((picture, ..)) => {
-                    let material = Material { lit: true, emissive: 0.7, ..Material::picture(picture) };
-                    let mut node = Node::new(0, shape.mesh, material);
-                    node.transform = shape.transform();
-                    nodes.push(node);
-                }
-                None => {
-                    let [r, g, b] = plain(shape.kind);
-                    let tint = [f32::from(r) / 255.0, f32::from(g) / 255.0, f32::from(b) / 255.0, 1.0];
-                    let mut node = Node::new(0, shape.mesh, Material::lit(tint, if shape.kind.shines() { 1.0 } else { 0.0 }));
-                    node.transform = shape.transform();
-                    nodes.push(node);
-                }
-            }
-        }
-        let ids = chunk.ids();
-        for (k, node) in nodes.iter_mut().enumerate() {
-            node.id = ids | (EXTRA_IDS + k as u64);
-        }
-        let nodes = Arc::new(nodes);
-        *kept = Some((chunk.key, Arc::clone(&nodes)));
-        nodes
-    }
-
     /// Its extras as the realm draws them (docs/REALM-MONOLITH.md): each its
     /// kind's tone, lit; a fire or a window an accent in its own colour; in
     /// the kingdom's world (unplaced), ids clear of chunk `chunk`'s own.
@@ -272,70 +216,6 @@ impl Share {
         nodes
     }
 
-    /// The extra standing tallest over tile `(c, r)`, if one stands on it.
-    pub fn over_tile(&self, (c, r): (i32, i32)) -> Option<&Shape> {
-        let tile = blockout::px((c, r, 1, 1));
-        self.extras
-            .iter()
-            .filter(|s| !s.on_floor() && fit::overlaps(fit::footprint(s), tile))
-            .max_by(|a, b| (a.at[1] + a.size[1]).total_cmp(&(b.at[1] + b.size[1])))
-    }
-
-    /// Paint its lots' tiles on `img` (whose top-left is the kingdom's pixel
-    /// `origin`), for a terminal with chunk `chunk`'s plate laid down: each
-    /// with the patch of what stands tallest there (`chunk`'s, the nearest
-    /// kind's when it has none of it), tiled mirrored at the plate's
-    /// density, else that kind's capture colour, as a room laid otherwise is
-    /// painted (`room::RoomWorld::picture`).
-    pub fn paint(&self, img: &mut Img, origin: (i32, i32), chunk: &Chunk) {
-        let (w, h) = chunk.set.camera.size();
-        let (pw, ph) = chunk.set.plate;
-        let density = (1.0 - 2.0 * PLATE_MARGIN) * (pw as f32 / w.max(1) as f32).min(ph as f32 / h.max(1) as f32);
-        let mirrored = |v: i32, n: u32| {
-            let n = n.max(1) as i32;
-            let t = v.rem_euclid(2 * n);
-            if t < n { t } else { 2 * n - 1 - t }
-        };
-        for &(c, r) in &self.tiles {
-            let Some(shape) = self.over_tile((c, r)) else { continue };
-            let swatch = wears(chunk, shape.kind);
-            let t = TILE as i32;
-            for y in r * t..(r + 1) * t {
-                for x in c * t..(c + 1) * t {
-                    let rgb = match swatch {
-                        Some(s) => {
-                            let px = mirrored((x as f32 * density).floor() as i32, s.width);
-                            let py = mirrored((y as f32 * density).floor() as i32, s.height);
-                            let i = ((py as u32 * s.width + px as u32) * 4) as usize;
-                            [s.rgba[i], s.rgba[i + 1], s.rgba[i + 2]]
-                        }
-                        None => plain(shape.kind),
-                    };
-                    img.set(x - origin.0, y - origin.1, rgb);
-                }
-            }
-        }
-    }
-}
-
-/// The patch of chunk `chunk`'s a block of kind `kind` wears: its own, else
-/// the nearest standing kind's near enough (`Chunk::standing_swatch`); none
-/// for a light (a fire, a window) the chunk has no patch of, which shines in
-/// its own colour instead.
-fn wears(chunk: &Chunk, kind: Kind) -> Option<&super::assets::Swatch> {
-    let own = chunk.swatches().iter().any(|s| s.kind == kind);
-    if kind.shines() && !own {
-        return None;
-    }
-    chunk.standing_swatch(kind)
-}
-
-/// The colour a block of kind `kind` wears with no patch to wear: as a
-/// chunk with no plate draws its own (`kingdom::darker`, two shades down
-/// its bank, so it sits among the painted ones), but a light, which shines
-/// in its own colour as the capture draws it.
-fn plain(kind: Kind) -> [u8; 3] {
-    if kind.shines() { kind.capture() } else { kingdom::darker(kind.capture()) }
 }
 
 /// Whether a shape that is not a box, its footprint `foot`, stands on
@@ -351,7 +231,7 @@ fn stands_on(foot: [f32; 4], r: [f32; 4]) -> bool {
 // ----------------------------------------------------------- the pieces ----
 
 /// One thing a run stands: the chunk it stands in, its blocks (the
-/// kingdom's pixels), the ground it clears, and the tiles a terminal paints.
+/// kingdom's pixels), the ground it clears, and the tiles it stands on.
 #[derive(Clone, Debug, Default)]
 struct Piece {
     chunk: (i32, i32),
@@ -532,7 +412,7 @@ fn herald_posts(wishes: &[Wish]) -> Vec<Piece> {
         .iter()
         .map(|&(tx, ty)| {
             let (x, z) = (tx as f32 * TILE + TILE / 2.0, (ty + 1) as f32 * TILE - 2.0);
-            let solids = vec![
+            let solids = [
                 Solid::block(Kind::Wood, [x - 2.0, z - 1.0, x + 2.0, z + 1.0], 0.0, 1.0),
                 Solid::block(Kind::Wood, [x - 1.0, z - 1.0, x + 1.0, z + 1.0], 0.0, 11.0),
                 Solid::block(Kind::Wood, [x - 5.0, z - 0.75, x + 5.0, z + 0.75], 9.0, 1.0),
@@ -607,7 +487,6 @@ fn assemble(pieces: Vec<Piece>, plaques: Vec<Plaque>) -> Lots {
                     tiles: Vec::new(),
                     bounds: ([f32::INFINITY; 3], [f32::NEG_INFINITY; 3]),
                     cut: Mutex::new(None),
-                    nodes: Mutex::new(None),
                     lamps: Vec::new(),
                     lit: Mutex::new(None),
                     text: Arc::from(""),
@@ -696,6 +575,7 @@ pub fn read_wish(id: &str, text: &str, raised: u32) -> Option<Wish> {
         near: String::new(),
         paid: Vec::new(),
         raised,
+        lot: None,
     };
     let mut art = false;
     for line in text.lines() {

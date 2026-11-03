@@ -390,6 +390,7 @@ impl RlState {
                 if self.research_running(){return Err(ow_ledgers::RESEARCH_ACTIVE.into());}
                 let campaign_id=args["campaign_id"].as_str().ok_or("campaign run needs campaign_id")?.to_owned();
                 crate::drive::labyrinth::campaign::status(workspace,Some(&campaign_id))?;
+                let book=super::campaign_book()?;
                 let id=new_run_id();
                 let dir=runs_root(workspace).join(&id);
                 bridge::ensure_dir(&dir)?;
@@ -409,7 +410,7 @@ impl RlState {
                 let launched=dir.clone();
                 let _descendant_scope=crate::agent::harness::DescendantBudgetScope::enter_root();
                 let descendant_budget=crate::agent::harness::current_descendant_budget()?;
-                std::thread::Builder::new().name("angel-labyrinth-research".into()).spawn(move || {
+                super::spawn_book_worker("angel-labyrinth-research",book,move || {
                     let _inherited=crate::agent::harness::DescendantBudgetScope::inherit(descendant_budget);
                     let started=Instant::now();
                     let outcome=std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -501,6 +502,7 @@ impl RlState {
                 if self.research.active.as_ref().is_some_and(|run| !run.done.load(Ordering::Acquire)) {
                     return Err(ow_ledgers::RESEARCH_ACTIVE.into());
                 }
+                let book = super::campaign_book()?;
                 // Probe before spending model calls; invalid/missing state never
                 // silently falls back to fresh learning.
                 let advice_started = Instant::now();
@@ -524,7 +526,7 @@ impl RlState {
                 let worker_done = Arc::clone(&done);
                 let worker_flag = Arc::clone(&worker_cancel);
                 let launched = dir.clone();
-                std::thread::Builder::new().name("angel-loop-research".into()).spawn(move || {
+                super::spawn_book_worker("angel-loop-research",book,move || {
                     let worker_started = Instant::now();
                     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
                         let result = run(&source,&dir,&scope,club,&worker_flag,&worker_record);

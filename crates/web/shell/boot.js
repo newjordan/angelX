@@ -10,7 +10,7 @@
 // reload, a dropped wifi or a locked screen takes the same seat back.
 // See docs/ENGINE.md, "The browser runtime".
 
-/* global makePresenter, loadRenderer, makeGpuPresenter, makeInput, makeSound, makeLoopback, makePanel */
+/* global makePresenter, loadRenderer, makeGpuPresenter, makeInput, makeSound, makeLoopback, makePanel, el, keyHint, drawSheet */
 (() => {
   const params = new URLSearchParams(location.search);
   let postWanted = 1;
@@ -28,8 +28,62 @@
   let canvas = $('screen');
   const form = $('join'), nameInput = $('name'), playButton = $('play');
   const statusLine = $('status'), toastLine = $('toast'), fullButton = $('full'), statsBox = $('stats');
-  const sayForm = $('say'), sayInput = $('said'), sheetBox = $('sheet');
+  const sayForm = $('say'), sayInput = $('said'), sheetBox = $('sheet'), choiceBox = $('choices');
+  const sayTitle = $('say-title'), sayKeys = $('say-keys'), sayPicks = $('say-picks'), sheetPage = $('sheet-page');
   const decoder = new TextDecoder(), encoder = new TextEncoder();
+
+  // The page's own hand (knight.ttf, shell/art/font.py): loaded by name, as
+  // the server's policy lets a font come only from this page's own files.
+  const fontFile = document.body.dataset.font;
+  if (fontFile && window.FontFace) {
+    new FontFace('Knight Hand', `url(${fontFile})`).load()
+      .then(f => { document.fonts.add(f); })
+      .catch(() => { /* the fallback monospace stands in */ });
+  }
+
+  // The picture's place on the page, for everything laid over it: its
+  // box (--pic-l, --pic-t, --pic-w, --pic-h), the room's view inside it
+  // (--view-t, --view-b, from the game's `controls.view`: the native rows
+  // its bands take above and below the view), and --px, the page pixel:
+  // as many device pixels as one of the picture's, so the frames and the
+  // hand stand at the picture's own scale. Fitted as present.js and the
+  // renderer fit it (place.rs): the largest whole number while it fills
+  // four fifths of the fitted size, else fitted.
+  let placed = '';
+  // The same, for the page's own hit tests: the picture's top-left in CSS
+  // pixels and one of its pixels' size (`slotAt`).
+  let pic = null;
+  function placePicture(w, h) {
+    const r = canvas.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const view = A.controls && A.controls.view;
+    const key = `${w}x${h} ${r.left},${r.top},${r.width}x${r.height} ${dpr} ${view ? view.top + ',' + view.bottom : ''}`;
+    if (key === placed || !w || !h || !r.width || !r.height) return;
+    placed = key;
+    const sw = Math.round(r.width * dpr), sh = Math.round(r.height * dpr);
+    const k = Math.min(Math.floor(sw / w), Math.floor(sh / h));
+    const s = Math.min(sw / w, sh / h);
+    const whole = k >= 1 && k >= 0.8 * s;
+    const dw = whole ? w * k : Math.max(1, Math.floor(w * s));
+    const dh = whole ? h * k : Math.max(1, Math.floor(h * s));
+    // A page pixel: the picture's, but never under two CSS pixels, where
+    // the hand would be too small to read.
+    let pxDev = whole ? k : Math.max(1, Math.floor(s));
+    if (pxDev / dpr < 2) pxDev = Math.ceil(2 * dpr);
+    const css = v => `${v}px`;
+    const left = r.left + ((sw - dw) >> 1) / dpr, top = r.top + ((sh - dh) >> 1) / dpr;
+    const ph = dh / dpr, unit = ph / h;
+    pic = { left, top, unit };
+    const st = document.documentElement.style;
+    st.setProperty('--px', css(pxDev / dpr));
+    st.setProperty('--pic-l', css(left));
+    st.setProperty('--pic-t', css(top));
+    st.setProperty('--pic-w', css(dw / dpr));
+    st.setProperty('--pic-h', css(ph));
+    st.setProperty('--view-t', css(top + (view ? view.top : 0) * unit));
+    st.setProperty('--view-b', css(top + ph - (view ? view.bottom : 0) * unit));
+  }
+  window.addEventListener('resize', () => { placed = ''; });
 
   // Fixed numbers (docs/ENGINE.md).
   const BACKOFF_MS = [500, 1000, 2000, 4000, 5000];
@@ -38,8 +92,10 @@
   const CLOSE_REPLACED = 4000;
   // Snapshots come many times a second and pongs every second: this long
   // with nothing heard, the link is dead even if the socket has not noticed
-  // (a phone that changed networks, a laptop that slept).
-  const SILENCE_MS = 3000;
+  // (a phone that changed networks, a laptop that slept). Three seconds
+  // dropped live players on a busy frame or a slow link mid-game; the
+  // server gives a client ten (`limits::SILENT_CLOSE`), and so does this.
+  const SILENCE_MS = 10000;
   const SAMPLES = 240;
   const NAME_CHARS = 24;
   // angel_net::proto::MAX_NAME: the server refuses a longer hello.
@@ -125,7 +181,6 @@
   const TOAST_MS = 2500;
   function toast(text) {
     if (toastLine.textContent !== text) toastLine.textContent = text;
-    toastLine.title = text;
     toastLine.classList.remove('gone');
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => toastLine.classList.add('gone'), TOAST_MS);
@@ -165,6 +220,45 @@
     }
   }
 
+  // The game's Bend rules modules (`rules.js`, crates/web/rules_js.rs), run
+  // here as a native host runs the same files in V8: the client's rules ask
+  // one by id (`angel_delve::scripted`), and its answer waits for
+  // `rules_take`.
+  const rulesLoaded = Object.create(null);
+  let rulesAnswer = null;
+  function rulesModule(id) {
+    if (rulesLoaded[id]) return rulesLoaded[id];
+    const mod = globalThis.angelRules && globalThis.angelRules[id];
+    if (!mod) throw Error('no rules module named ' + id);
+    const cache = Object.create(null);
+    const asset = name => { throw Error('asset not declared: ' + name); };
+    const resource = (module, name) => { throw Error('resource is not imported: ' + module + '/' + name); };
+    const load = name => {
+      if (cache[name]) return cache[name].exports;
+      if (!Object.hasOwn(mod.files, name)) throw Error('missing dependency: ' + name);
+      const module = {exports: {}};
+      cache[name] = module;
+      const require = specifier => {
+        if (typeof specifier !== 'string' || !specifier.startsWith('.')) throw Error('use local relative dependencies');
+        const parts = name.split('/').slice(0, -1);
+        for (const part of specifier.split('/')) {
+          if (part === '' || part === '.') continue;
+          if (part === '..') { if (!parts.length) throw Error('dependency leaves module'); parts.pop(); }
+          else parts.push(part);
+        }
+        const path = parts.join('/');
+        const resolved = [path, path + '.js', path + '/index.js'].find(p => Object.hasOwn(mod.files, p));
+        if (!resolved) throw Error('missing dependency: ' + specifier);
+        return load(resolved);
+      };
+      mod.files[name](module, module.exports, require, asset, resource);
+      return module.exports;
+    };
+    const feature = load(mod.entry);
+    if (feature.apiVersion !== 1 || typeof feature.render !== 'function') throw Error('expected apiVersion 1 and render(input)');
+    return (rulesLoaded[id] = feature);
+  }
+
   const imports = {
     angel: {
       log(level, p, len) {
@@ -175,6 +269,21 @@
         } else {
           console.info('game:', msg);
         }
+      },
+      rules(idP, idLen, inP, inLen) {
+        const read = (p, n) => decoder.decode(mem().subarray(p >>> 0, (p >>> 0) + n));
+        let answer;
+        try {
+          answer = {value: rulesModule(read(idP, idLen)).render(JSON.parse(read(inP, inLen)))};
+        } catch (e) {
+          answer = {error: String((e && e.message) || e)};
+        }
+        rulesAnswer = encoder.encode(JSON.stringify(answer));
+        return rulesAnswer.length;
+      },
+      rules_take(p) {
+        mem().set(rulesAnswer, p >>> 0);
+        rulesAnswer = null;
       },
     },
   };
@@ -299,12 +408,18 @@
   // A game's sheet (`controls.sheet`: the key that shows it), its own text
   // over the picture, such as the Delve's cards and wishes. The keys stay
   // the game's while it is up.
-  let sheetTimer = 0;
+  let sheetTimer = 0, sheetSaid = null;
   function showSheet(on) {
     clearInterval(sheetTimer);
     sheetBox.hidden = !on;
+    sheetSaid = null;
     if (!on || !x || !x.angel_sheet) return;
-    const fill = () => { sheetBox.textContent = text(x.angel_sheet()) || 'Nothing to show yet.'; };
+    const fill = () => {
+      const said = text(x.angel_sheet());
+      if (said === sheetSaid) return;
+      sheetSaid = said;
+      drawSheet(sheetPage, said);
+    };
     fill();
     sheetTimer = setInterval(fill, 400);
   }
@@ -315,39 +430,227 @@
     showSheet(sheetBox.hidden);
   }, true);
 
+  // A game's choices to tap (`angel_choices`: one label a line, such as the
+  // Delve's wish scroll): a button each, and one to let them go; a tap is
+  // `angel_choose`, which the game sends with its next command.
+  let choicesSaid = '';
+  setInterval(() => {
+    const said = running && !crashed && x && x.angel_choices ? text(x.angel_choices()) : '';
+    if (said === choicesSaid) return;
+    choicesSaid = said;
+    choiceBox.replaceChildren();
+    choiceBox.hidden = !said;
+    if (!said) return;
+    // A plate to tap for each, under the game's own scroll (which says
+    // them in full): the key in its cap and the choice's head, what it
+    // gives in its tip. `controls.choices.back`: the way out's words.
+    const c = (A.controls && A.controls.choices) || {};
+    const lines = said.split('\n');
+    lines.concat([null]).forEach((line, i) => {
+      const b = el('button', i === lines.length ? 'plate back' : 'plate');
+      b.type = 'button';
+      if (line === null) {
+        b.append(el('kbd', '', 'Esc'));
+        b.dataset.tip = c.back || 'Roll it up';
+      } else {
+        // "1 Head: what it gives", or any line as it is.
+        const m = /^(\d+) ([^:]+): (.*)$/.exec(line);
+        if (m) {
+          b.append(el('kbd', '', m[1]), el('span', '', m[2]));
+          b.dataset.tip = m[3];
+        } else b.append(el('span', '', line));
+      }
+      b.addEventListener('pointerdown', e => e.preventDefault());
+      b.addEventListener('click', () => { if (x && x.angel_choose) x.angel_choose(i === lines.length ? 99 : i); });
+      choiceBox.append(b);
+    });
+  }, 250);
+
   // A game's text line (`controls.text`: the key that opens it, the action
   // kind it goes as, and the JSON field it fills), such as the Delve's wish.
   // While it is open the keys are the line's; Enter sends, Esc lets go.
   function closeSay() {
     sayForm.hidden = true;
+    clearInterval(picksTimer);
     sayInput.blur();
+  }
+  // What the line says, sent as the action its words go as.
+  function sendSay(said) {
+    const t = A.controls && A.controls.text;
+    closeSay();
+    if (!t || !said || !x) return;
+    withString(JSON.stringify({ [t.field || 'text']: said }), (p, l) => x.angel_action(t.kind >>> 0, p, l));
+    flush();
+  }
+  // The game's picks over the line (`angel_picks`: a heading, then one a
+  // line, `key<TAB>label<TAB>tag<TAB>tip<TAB>words`, and a line with no tab
+  // a note), such as the Delve's "Upgrade what you hold": a tap, or its key
+  // on an empty line, sends its words as Enter sends what is typed. One with
+  // no words is shown faint and not taken. Read again while the line is up.
+  let picksSaid = null, picksTimer = 0, pickWords = {};
+  function fillPicks() {
+    if (sayForm.hidden) {
+      clearInterval(picksTimer);
+      return;
+    }
+    const said = running && !crashed && x && x.angel_picks ? text(x.angel_picks()) : '';
+    if (said === picksSaid) return;
+    picksSaid = said;
+    pickWords = {};
+    sayPicks.replaceChildren();
+    sayPicks.hidden = !said;
+    if (!said) return;
+    const [head, ...lines] = said.split('\n');
+    sayPicks.append(el('h3', '', head));
+    for (const line of lines) {
+      const f = line.split('\t');
+      if (f.length < 5) {
+        sayPicks.append(el('p', 'note', line));
+        continue;
+      }
+      const [key, label, tag, tip, words] = f;
+      const b = el('button', words ? 'pick plate' : 'pick plate off');
+      b.type = 'button';
+      b.disabled = !words;
+      b.append(el('kbd', '', key), el('span', 'label', label), el('span', 'tag', tag), el('span', 'tip', tip));
+      if (words) {
+        if (key) pickWords[key] = words;
+        // The line keeps the keys: a press here must not blur it shut.
+        b.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch') e.preventDefault(); });
+        b.addEventListener('click', () => sendSay(words));
+      }
+      sayPicks.append(b);
+    }
   }
   window.addEventListener('keydown', e => {
     const t = A.controls && A.controls.text;
     if (!t || e.code !== t.key || e.repeat || e.ctrlKey || e.metaKey || !gameHasKeys()) return;
     e.preventDefault();
+    openSay();
+  }, true);
+  // The line opened by its key, or by the game itself (an `ask` line: the
+  // Delve's knight rubbed the wish altar's lamp).
+  function openSay() {
+    // A game's text purpose can change without reseating (the tavern mirror).
+    try { A.controls = JSON.parse(text(x.angel_controls()) || '{}'); } catch { /* keep the last map */ }
+    const t = A.controls && A.controls.text;
+    if (!t || !sayForm.hidden) return;
     input.releaseAll();
-    sayInput.placeholder = t.hint || '';
+    // `controls.text`: the line's title, its placeholder (else its hint),
+    // and what Enter does (else the hint stands under the line alone).
+    sayInput.placeholder = t.placeholder || t.hint || '';
+    sayTitle.hidden = !t.title;
+    sayTitle.textContent = t.title || '';
+    sayKeys.replaceChildren();
+    if (t.send) sayKeys.append(keyHint('Enter', t.send), keyHint('Esc', t.cancel || 'let it go'));
+    else if (t.placeholder && t.hint) sayKeys.append(el('span', '', t.hint));
     sayInput.value = '';
     sayForm.hidden = false;
+    picksSaid = null;
+    fillPicks();
+    clearInterval(picksTimer);
+    picksTimer = setInterval(fillPicks, 400);
     sayInput.focus();
-  }, true);
-  sayInput.addEventListener('keydown', e => {
+  }
+  sayForm.addEventListener('keydown', e => {
     if (e.code === 'Escape') {
       e.preventDefault();
+      e.stopPropagation();
       closeSay();
+      return;
+    }
+    if (e.target !== sayInput) return;
+    // A pick's number on an empty line takes it; any other is typed.
+    const n = /^[1-9]$/.test(e.key) ? e.key : null;
+    if (n && !sayInput.value && pickWords[n] && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      sendSay(pickWords[n]);
     }
   });
-  sayInput.addEventListener('blur', () => { sayForm.hidden = true; });
+  sayForm.addEventListener('focusout', e => {
+    if (!sayForm.contains(e.relatedTarget)) {
+      sayForm.hidden = true;
+      clearInterval(picksTimer);
+    }
+  });
   sayForm.addEventListener('submit', e => {
     e.preventDefault();
-    const t = A.controls && A.controls.text;
-    const said = sayInput.value.trim();
-    closeSay();
-    if (!t || !said || !x) return;
-    withString(JSON.stringify({ [t.field || 'text']: said }), (p, l) => x.angel_action(t.kind >>> 0, p, l));
+    sendSay(sayInput.value.trim());
+  });
+
+  // A game's plates to drag one onto another (`controls.drag`), such as the
+  // Delve's hand: where they are comes in the game's `slots` line, each
+  // `[slot, x, y, w, h]` in the frame's pixels. A plate pressed and let go
+  // on another sends `{from, to}` as the drag's action kind; let go
+  // anywhere else, or on its own plate, it sends nothing. Mouse, pen and
+  // touch alike: the stage takes no panning or zooming (shell.css).
+  let slots = [];
+  const stageBox = $('stage');
+  let drag = null;
+  // The marks a drag lays over the picture: the plate it left, the plate
+  // it would land on, and its outline riding the pointer.
+  const dragFrom = el('div', 'drag-mark from'), dragTo = el('div', 'drag-mark to'), dragGhost = el('div', 'drag-mark ghost');
+  for (const mark of [dragFrom, dragTo, dragGhost]) {
+    mark.hidden = true;
+    document.body.append(mark);
+  }
+  // A plate under the pointer, a frame pixel of slack round it (half the
+  // gap between two plates), or null.
+  function slotAt(e) {
+    if (!pic || !slots.length) return null;
+    const fx = (e.clientX - pic.left) / pic.unit, fy = (e.clientY - pic.top) / pic.unit;
+    return slots.find(([, sx, sy, sw, sh]) => fx >= sx - 1 && fx < sx + sw + 1 && fy >= sy - 1 && fy < sy + sh + 1) || null;
+  }
+  function cover(mark, plate) {
+    mark.hidden = !plate;
+    if (!plate) return;
+    const [, sx, sy, sw, sh] = plate;
+    mark.style.left = `${pic.left + sx * pic.unit}px`;
+    mark.style.top = `${pic.top + sy * pic.unit}px`;
+    mark.style.width = `${sw * pic.unit}px`;
+    mark.style.height = `${sh * pic.unit}px`;
+  }
+  function follow(e) {
+    const [, , , sw, sh] = drag.plate;
+    dragGhost.hidden = false;
+    dragGhost.style.left = `${e.clientX - sw * pic.unit / 2}px`;
+    dragGhost.style.top = `${e.clientY - sh * pic.unit / 2}px`;
+    dragGhost.style.width = `${sw * pic.unit}px`;
+    dragGhost.style.height = `${sh * pic.unit}px`;
+    const over = slotAt(e);
+    cover(dragTo, over && over[0] !== drag.plate[0] ? over : null);
+  }
+  function letGo() {
+    drag = null;
+    for (const mark of [dragFrom, dragTo, dragGhost]) mark.hidden = true;
+    stageBox.classList.remove('dragging');
+  }
+  stageBox.addEventListener('pointerdown', e => {
+    const d = A.controls && A.controls.drag;
+    if (!d || !x || drag || e.button !== 0) return;
+    const plate = slotAt(e);
+    if (!plate) return;
+    e.preventDefault();
+    try { stageBox.setPointerCapture(e.pointerId); } catch { /* the drag still follows within the stage */ }
+    drag = { id: e.pointerId, plate };
+    cover(dragFrom, plate);
+    stageBox.classList.add('dragging');
+    follow(e);
+  });
+  stageBox.addEventListener('pointermove', e => {
+    if (drag && e.pointerId === drag.id) follow(e);
+    else if (!drag && e.pointerType === 'mouse') stageBox.classList.toggle('over-slot', !!slotAt(e));
+  });
+  stageBox.addEventListener('pointerup', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const d = A.controls && A.controls.drag, from = drag.plate[0], over = slotAt(e);
+    letGo();
+    if (!d || !x || !over || over[0] === from) return;
+    withString(JSON.stringify({ from, to: over[0] }), (p, l) => x.angel_action(d.kind >>> 0, p, l));
     flush();
   });
+  stageBox.addEventListener('pointercancel', e => { if (drag && e.pointerId === drag.id) letGo(); });
 
   // The page's own knobs, for the dev panel: whole-number scaling, a
   // frame-rate cap (0: the display's own rate) and the GPU renderer's post
@@ -503,8 +806,19 @@
   }
 
   // A dead link the socket has not noticed: nothing heard for too long.
+  // A page that stalled (a long frame, a throttled tab) runs this late, with
+  // messages still queued behind it: that is the page's silence, not the
+  // link's, so the clock starts again.
+  let lastCheck = performance.now();
   setInterval(() => {
-    if (sock && sock.readyState === 1 && !document.hidden && performance.now() - lastHeard > SILENCE_MS) {
+    const now = performance.now();
+    const late = now - lastCheck > 1500;
+    lastCheck = now;
+    if (late) {
+      lastHeard = Math.max(lastHeard, now);
+      return;
+    }
+    if (sock && sock.readyState === 1 && !document.hidden && now - lastHeard > SILENCE_MS) {
       drop();
       retry();
     }
@@ -582,6 +896,10 @@
         sound.music(rest);
       } else if (verb === 'say' || verb === 'notice') {
         toast(rest);
+      } else if (verb === 'ask') {
+        openSay();
+      } else if (verb === 'slots') {
+        try { slots = JSON.parse(rest) || []; } catch { slots = []; }
       }
     }
   }
@@ -648,6 +966,7 @@
       let ptr = (presenter.rgba && !late ? x.angel_frame_rgba(t) : x.angel_frame(t)) >>> 0;
       const t1 = performance.now();
       const w = x.angel_frame_w(), h = x.angel_frame_h();
+      placePicture(w, h);
       // The frame from its parts where the page and the game both can
       // (`?stage=0` keeps finished frames).
       let staged = false, sp = 0, sl = 0;
@@ -655,6 +974,10 @@
         sp = x.angel_stage(t) >>> 0;
         sl = x.angel_stage_len() >>> 0;
         staged = sl > 0 && presenter.drawStage(mem(), sp, sl, t);
+        if (staged) {
+          takeHd();
+          takePaintings();
+        }
       }
       if (!staged && late) ptr = x.angel_frame_rgba_last() >>> 0;
       if (!staged && w && h) presenter.draw(mem(), ptr, w, h);
@@ -669,6 +992,91 @@
       lines();
       watch();
       if (A.onframe && w && h) A.onframe(mem(), ptr, w, h, A.frames, staged, sp, sl);
+    } catch (e) {
+      crash(e);
+    }
+  }
+
+  // ---- paintings ----
+
+  // A painting the stage would draw (a wish's picture, by its sha256):
+  // fetched from the host beside the page, decoded off the frame with the
+  // browser's own decoder, and its pixels handed to the game, which sends
+  // it to the presenter with the stage frames that name it. Until then, and
+  // if it never comes, the stage draws its inks.
+  function takePaintings() {
+    if (!x.angel_painting_wanted) return;
+    for (let len = x.angel_painting_wanted() >>> 0; len; len = x.angel_painting_wanted() >>> 0) {
+      const name = text(len);
+      if (/^[0-9a-f]{64}$/.test(name)) fetchPainting(name, '/paint/' + name + '.png');
+      else if (HD_NAME.test(name) && !name.includes('..')) fetchPainting(name, '/' + name);
+      else withString(name, (p, l) => x.angel_painting_failed(p, l));
+    }
+  }
+
+  // ---- HD art (docs/LADDER.md, "The browser") ----
+
+  // `?hd=1`: the host's HD art pack (`/hd/pack.json`, served when the host
+  // runs with ANGEL_DELVE_HD_WEB=1) handed to the game with the page's
+  // whole-number scale of its pixels; the game then names the drawings its
+  // knights' rungs want among the pictures above (`hd/<file>`), each fetched
+  // from `/hd/<file>` the first time a figure on screen asks for it.
+  // `?ladder=32|64|128` shows every knight at that rung (to look at one).
+  const HD_NAME = /^hd\/[a-z0-9_@.\-\/]+\.png$/;
+  let hdState = params.get('hd') === '1' ? 0 : 2; // 0 to ask, 1 asking, 2 done
+  function takeHd() {
+    if (hdState !== 0 || !x.angel_hd_manifest) return;
+    hdState = 1;
+    const scale = Math.max(1, Math.min(
+      Math.floor(window.innerWidth * (window.devicePixelRatio || 1) / 384),
+      Math.floor(window.innerHeight * (window.devicePixelRatio || 1) / 224)));
+    fetch('/hd/pack.json').then(r => {
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.text();
+    }).then(json => {
+      if (!x || crashed) return;
+      // `?ladder=64`: every knight shown at that rung, to look at it.
+      const rung = Number(params.get('ladder')) || 0;
+      const took = withString(json, (p, l) => x.angel_hd_manifest(p, l, scale, rung)) >>> 0;
+      // Not taken yet (no game): asked again on the next frame.
+      hdState = took ? 2 : 0;
+      if (took) console.info('angelX: HD art at up to ' + scale + 'x');
+    }).catch(e => {
+      hdState = 2;
+      console.info('angelX: no HD art (' + (e && e.message || e) + ')');
+    });
+  }
+  async function fetchPainting(name, url) {
+    let rgba = null, w = 0, h = 0;
+    try {
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const bitmap = await createImageBitmap(await r.blob(), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
+      w = bitmap.width;
+      h = bitmap.height;
+      const pad = typeof OffscreenCanvas === 'function'
+        ? new OffscreenCanvas(w, h)
+        : Object.assign(document.createElement('canvas'), { width: w, height: h });
+      const g = pad.getContext('2d', { willReadFrequently: true });
+      g.drawImage(bitmap, 0, 0);
+      bitmap.close();
+      rgba = g.getImageData(0, 0, w, h).data;
+    } catch (e) {
+      console.warn('a painting did not load', e);
+    }
+    if (!x || crashed) return;
+    try {
+      if (!rgba) {
+        withString(name, (p, l) => x.angel_painting_failed(p, l));
+        return;
+      }
+      const p = x.angel_alloc(rgba.length) >>> 0;
+      try {
+        mem().set(rgba, p);
+        withString(name, (n, l) => x.angel_put_painting(n, l, w, h, p, rgba.length));
+      } finally {
+        x.angel_free(p, rgba.length);
+      }
     } catch (e) {
       crash(e);
     }
@@ -691,14 +1099,18 @@
       cancelAnimationFrame(raf);
       raf = 0;
       lastT = 0;
-      hiddenTimer = setInterval(() => {
+      const idle = () => {
         try {
           x.angel_idle(performance.now());
           flush();
         } catch (e) {
           crash(e);
         }
-      }, 1000);
+      };
+      // Mark the runtime idle immediately, not a second later: even a
+      // short hidden visit must discard queued and incoming transient SFX.
+      idle();
+      hiddenTimer = setInterval(idle, 1000);
       sound.suspend();
     } else {
       clearInterval(hiddenTimer);

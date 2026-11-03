@@ -139,6 +139,36 @@ colours, and converts the frames into checked ink rows for saves and friends.
 The same sheet path works in reforges and learned phrasebook entries. Full
 slot and summon rules are in [Delve cards](../../../../docs/DELVE.md#cards).
 
+A painting is a sheet kept whole. `paint <slot> <file.png> [frames=N] [size=N]
+[at=place] [move=words]` takes a PNG strip from the same sheets folder, on a
+transparent background, at most 4 MiB and 2048 pixels per side. It is cut into
+ink rows exactly like a sheet, and the PNG is also kept in the workspace's
+paint store, `.angel/dungeon/paint/<sha256>.png`. The line becomes
+`draw <slot> paint=<sha256>` with the rows under it: the rows still draw in
+the terminal, at a wish's lower levels and wherever the picture has not
+arrived; the top level of a wish shows the painting itself.
+
+A painting may bring its normal map: `normal=<file_n.png>` on the `paint` line
+names a PNG in the same folder, the painting's exact size, whose red is how far
+each pixel turns right, green how far up, blue how far out (the usual
+green-up normal map). It is kept in the paint store the same way, and the line
+becomes `draw <slot> paint=<sha256> normal=<sha256>`. In a lit room (floors 4
+and down) it lights the painting pixel by pixel; without one, a map is made
+from the painting.
+
+`move=` sets a look moving, on a `draw` header or a `paint` line, one or more
+words with commas between: `stretch` (squash along a shot's flight), `bob`
+(rise and fall), `wobble` (rock side to side), `spin` (turn round), `jiggle`
+(squash and bounce), `wiggle` (a wave down its length), `pulse` (swell and
+settle), `shake` (a fast jitter). Any other word is an error.
+
+```text
+name Meatball Shot
+kind hold
+damage 5
+paint shot meatball.png frames=2 move=stretch,wobble normal=meatball_n.png
+```
+
 ### Inks
 
 Art uses the realm palette, one character per colour:
@@ -147,7 +177,10 @@ Art uses the realm palette, one character per colour:
 - **Greens:** `f D F E e l N m L A M y C Y`
 - **Wood:** `n b I B p P r R o O t T`
 - **Stone:** `s x S u U v V W q Q z`
+- **Violet:** `d ( ) [ ] ^` (aubergine to lilac)
+- **Pink:** `! ? ; % +` (wine to blush)
 - **Signal:** `0 1 2 3 w` (blues), `a 4 @ 5 6 $ c 9` (golds), `8 7` (reds)
 
-Each group runs from dark to light. Signal inks glow, so keep them for the
+Each group runs from dark to light. The violet and pink are dyes, plain
+cloth and flesh like the other four: use them for anything purple or pink. Signal inks glow, so keep them for the
 part that matters, such as a flame, a gem or a drop of blood.

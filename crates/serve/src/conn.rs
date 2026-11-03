@@ -330,9 +330,17 @@ fn serve_http<G: GameServer>(hub: &Hub<G>, stream: &mut TcpStream) -> Option<Vec
                 }
             },
             ("GET" | "HEAD", "/") => http::body(&req, &hub.assets.index, REVALIDATE, keep),
-            ("GET" | "HEAD", path) => match path.strip_prefix("/a/").and_then(|name| hub.assets.files.get(name)) {
-                Some(body) => http::body(&req, body, IMMUTABLE, keep),
-                None => http::plain("404 Not Found", "not here", keep, &[]),
+            ("GET" | "HEAD", path) if path.starts_with("/paint/") => {
+                http::painting(&req, hub.paint_dir.as_deref(), &path["/paint/".len()..], keep)
+            }
+            ("GET" | "HEAD", path) if path.starts_with("/hd/") => {
+                http::hd_file(&req, hub.hd_dir.as_deref(), &path["/hd/".len()..], keep)
+            }
+            ("GET" | "HEAD", path) => {
+                let name = path.strip_prefix("/a/").unwrap_or("");
+                if let Some(body) = hub.assets.files.get(name) { http::body(&req, body, IMMUTABLE, keep) }
+                else if let Some(asset) = hub.live_assets.get(name) { asset.response(&req, keep) }
+                else {http::plain("404 Not Found", "not here", keep, &[])}
             },
             _ => http::plain("405 Method Not Allowed", "GET only", keep, &[("Allow", "GET, HEAD")]),
         };
@@ -884,7 +892,7 @@ fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut o
                     tele.counters.events_lost.fetch_add(u64::from(lost), SeqCst);
                     for t in &recent {
                         let seat = t.seat_of(&conn);
-                        let heard: Vec<&[u8]> = t
+                        let heard: Vec<_> = t
                             .events
                             .iter()
                             .filter(|e| match e.to {
@@ -892,14 +900,14 @@ fn write_loop<G: GameServer, O: Outlet>(hub: Arc<Hub<G>>, conn: Arc<Conn>, mut o
                                 To::Seat(s) => seat == Some(s),
                                 To::Near(x, y) => hub.rep.hears(&t.body, seat, x, y),
                             })
-                            .map(|e| e.bytes.as_slice())
                             .collect();
                         for events in heard.chunks(angel_net::proto::MAX_EVENTS) {
                             msg.clear();
-                            ToClient::Events { tick: t.tick, events: events.to_vec() }.encode(&mut msg);
+                            ToClient::Events { tick: t.tick, events: events.iter().map(|e|e.bytes.as_slice()).collect() }.encode(&mut msg);
                             if !sent(&mut outlet, Put::Binary(&msg)) {
                                 break 'run;
                             }
+                            for event in events {hub.live_assets.delivered(&event.assets,Instant::now());}
                         }
                     }
                     let skipped = recent[..recent.len() - 1].iter().filter(|t| t.snapshot).count();

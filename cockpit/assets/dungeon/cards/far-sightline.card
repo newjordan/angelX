@@ -1,0 +1,22 @@
+name Sightline
+kind spell
+rarity relic
+text A scoped shot through a long clear sightline.
+drop 0
+chest 0
+cooldown 8
+feat 1
+art
+.....bbb.....
+.....bOb.....
+...bbbObbb...
+..bORR6RROb..
+.bOR..6..ROb.
+bOR...6...ROb
+bO66666666OOb
+bOR...6...ROb
+.bOR..6..ROb.
+..bORR6RROb..
+...bbbObbb...
+.....bOb.....
+.....bbb.....

@@ -62,7 +62,12 @@ impl Shared {
             if let Some(dir) = path.parent() {
                 let _ = std::fs::create_dir_all(dir);
             }
-            let _ = std::fs::write(path, text);
+            // Exact: the JSONL checkpoint embeds patch bundles verbatim;
+            // text redaction could alter bundle bytes and corrupt restore.
+            let _ = crate::platform::workspace_store::write_private_atomic_exact(
+                path,
+                text.as_bytes(),
+            );
         }
         Ok(seq)
     }
@@ -258,7 +263,12 @@ fn save_tokens_to_disk(tokens: &std::collections::HashMap<String, String>) {
         let _ = std::fs::create_dir_all(dir);
     }
     if let Ok(text) = serde_json::to_string_pretty(tokens) {
-        let _ = std::fs::write(path, text);
+        // Guest tokens are live credentials: exact durable publish (0600,
+        // no redaction) instead of a bare umask-permissioned write.
+        let _ = crate::platform::workspace_store::write_private_atomic_exact(
+            &path,
+            text.as_bytes(),
+        );
     }
 }
 

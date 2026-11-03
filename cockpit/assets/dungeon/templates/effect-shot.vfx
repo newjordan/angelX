@@ -1,0 +1,27 @@
+# TEMPLATE: how a shot's magic moves: what trails it, what it throws when
+# loosed, how it breaks on a hit and on a kill, and what a wish worn at its
+# top tiers gives off. Here: frost.
+# Copy the lines onto a card (or onto every tier of a wish, `;` between). Check
+# them with
+#   cargo run -p angel-delve --example content_check -- <your file>
+#
+# A line: vfx <when> <form> [palette] [motion] [ease] [count= speed= spread= life= size= wobble= spin=]
+#   when: fire trail hit kill aura (cast for a spell's colours)
+#   form: sparks embers motes droplets shards flakes bubbles notes stars petals
+#         flies coins hearts worms smoke, or the shapes ring glyph arc rays
+#   palette: fire ember frost holy gold arcane genie storm poison nature blood
+#         rose poop brew void water bone smoke earth
+#   motion: straight wobble spiral zigzag curl bounce rise fall; ease: out in both back spring
+# Keep: life inside the moment the run keeps: a loosing and a hit 20 ticks (so
+#   life 16 at most for a hit, 18 for a loosing), a kill 14 (life 9 at most):
+#   longer is squeezed to fit. Counts inside their bounds (trail 6, fire 12,
+#   hit 16, kill 24, aura 8). At most 6 layers. One layer a moment and form.
+# The bar (docs/MOTION.md): readable at 1x: a hit's ring or burst at full on its
+#   first frames, eased out, gone inside its moment; nothing that flickers
+#   (size 1 motes need a count of 3 or more).
+vfx trail flakes frost count=3 speed=1 spread=40 life=10
+vfx fire shards frost count=5 speed=4 spread=60 life=8
+vfx hit shards frost back count=10 speed=4 spread=360 life=14
+vfx hit ring frost back count=6 speed=3 spread=360 life=10
+vfx kill flakes frost count=16 speed=5 spread=360 life=9
+vfx aura flakes frost fall count=4 speed=1 spread=360 life=30

@@ -232,14 +232,14 @@ impl App {
         self.clipboard_paste.clear();
         self.pending_stage_copy = None;
         self.clipboard_image_copy = None;
-        self.world = crate::stage::world_viz::World::for_workspace(&target);
-        self.together = crate::drive::together::Together::default();
-        self.dungeon = Default::default();
-        if let Err(error) = self.dungeon.restore(&target) {
-            self.dungeon.notice = format!("Could not restore delve: {error}");
+        self.realm.world = crate::stage::world_viz::World::for_workspace(&target);
+        self.realm.together = crate::drive::together::Together::default();
+        self.realm.dungeon.reset_retaining_wish_jobs();
+        if let Err(error) = self.realm.dungeon.restore(&target) {
+            self.realm.dungeon.notice = format!("Could not restore delve: {error}");
         }
-        self.scryglass = crate::ui::scryglass::Scryglass::for_session(self.world.destination());
-        self.world
+        self.scryglass = crate::ui::scryglass::Scryglass::for_session(self.realm.world.destination());
+        self.realm.world
             .enable_districts(crate::app::scan_workspace_districts(&target));
         self.world_buttons.clear();
         self.agent_buttons.clear();
@@ -257,14 +257,14 @@ impl App {
             }
         ));
         let _ = self.session.save(&self.history);
-        self.announce_session(crate::agent::harness::SESSION_SOURCE_WORKSPACE);
+        self.emit_session_start(crate::agent::harness::SessionStartSource::Workspace);
         format!("working directory → {}", target.display())
     }
 
     /// `--resume [id]` startup path (the phoenix relight): load a saved session
     /// before the first frame — the same reload `/resume` does, so a reborn self
-    /// (or a plain restart) continues the conversation it left.
-    /// `true` when a saved session became the current one.
+    /// (or a plain restart) continues the conversation it left. `true` when a
+    /// saved session was loaded.
     pub(crate) fn startup_resume(&mut self, id: Option<String>) -> bool {
         let workspace = self.tools.current_workspace().to_path_buf();
         match crate::app::local_command::resume(id, &workspace) {
@@ -296,26 +296,24 @@ impl App {
         }
     }
 
-    /// Bind the launch session, then announce it once. A phoenix relight is a
-    /// startup whose source is `resume` in this process. A fresh launch, or a
-    /// `--resume` that did not load anything, is `startup`.
-    pub(crate) fn establish_launch_session(&mut self, resume: Option<Option<String>>) {
-        let resumed = if let Some(id) = resume {
-            self.startup_resume(id)
+    /// One SessionStart after process startup. A relight that loaded a saved
+    /// session reports `resume`; a fresh session, including a resume that found
+    /// nothing, reports `startup`.
+    pub(crate) fn announce_startup_session(&mut self, resume: Option<Option<String>>) {
+        let resumed = resume.is_some_and(|id| self.startup_resume(id));
+        self.emit_session_start(if resumed {
+            crate::agent::harness::SessionStartSource::Resume
         } else {
-            false
-        };
-        self.announce_session(if resumed {
-            crate::agent::harness::SESSION_SOURCE_RESUME
-        } else {
-            crate::agent::harness::SESSION_SOURCE_STARTUP
+            crate::agent::harness::SessionStartSource::Startup
         });
     }
 
-    /// Tell SessionStart hooks which session this process holds. Best-effort:
-    /// the session is already current, and a hook cannot roll it back.
-    pub(crate) fn announce_session(&self, source: &str) {
-        crate::agent::harness::emit_session_start(
+    /// Best-effort SessionStart for the session this process is holding.
+    pub(crate) fn emit_session_start(&self, source: crate::agent::harness::SessionStartSource) {
+        if self.session.is_disabled() {
+            return;
+        }
+        crate::agent::harness::fire_session_start(
             &self.session.id,
             self.tools.current_workspace(),
             source,
@@ -884,7 +882,7 @@ impl App {
         }
         let id = forked.id.clone();
         self.session = forked;
-        self.announce_session(crate::agent::harness::SESSION_SOURCE_FORK);
+        self.emit_session_start(crate::agent::harness::SessionStartSource::Fork);
         format!("forked → session {id} (original left intact; now writing to the fork)")
     }
 
@@ -1151,20 +1149,15 @@ impl App {
         {
             return format!("/raw: create {}: {error}", dir.display());
         }
-        let tmp = path.with_extension("txt.tmp");
-        if let Err(error) = std::fs::write(&tmp, body) {
-            return format!("/raw: write {}: {error}", tmp.display());
-        }
-        match std::fs::rename(&tmp, &path) {
+        // Bulk tier: /raw is an exact, regenerable export — atomic publish
+        // without redaction or fsync.
+        match crate::platform::workspace_store::write_atomic(&path, body.as_bytes()) {
             Ok(()) => format!(
                 "visible conversation ({} chars) → {} (copy-friendly Markdown)",
                 body.chars().count(),
                 path.display()
             ),
-            Err(error) => {
-                let _ = std::fs::remove_file(&tmp);
-                format!("/raw: replace {}: {error}", path.display())
-            }
+            Err(error) => format!("/raw: write {}: {error}", path.display()),
         }
     }
 
@@ -1632,6 +1625,10 @@ mod recap_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/app_control__session_meta__gauntlet_tests.rs"]
 mod gauntlet_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/app/app_control__session_meta__session_start_tests.rs"]
+mod session_start_tests;
 
 /// `⡸⠛`: the frame is the pages; the count and each skill's text ride beside
 /// them, fenced in listed order.

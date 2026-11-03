@@ -180,17 +180,28 @@ impl Run {
             if !self.players.get(&skull).is_some_and(|h| h.hp == 0) {
                 continue;
             }
+            // The seal is judged while the body still stands: a corpse in
+            // the gate is not a way out (2026-11-02, the art-pack regression
+            // that let a possession walk a barred door).
+            let barred = self.barred();
             let body = self.enemies.remove(index);
             // The body leaves the floor's books as a death does, without
-            // its corpse or its spoils.
+            // its corpse or its spoils: a raised key carrier is its chief's
+            // loss and drops the Boss Key, as its fall would.
+            let mut key_lost = false;
+            let was_open = self.boss_gates.as_ref().is_some_and(boss_gates::Gates::unlocked);
             if let Some(g) = &mut self.boss_gates {
                 if let Some(slot) = body.camp_slot {
                     if g.economy.alive_slot(self.at, slot, body.kind) {
                         g.economy.casualty(self.at, slot);
                     }
+                    key_lost = g.carrier_fell(self.at, slot);
                 } else if g.economy.emission(body.id).is_some() {
                     g.economy.retire(body.id);
                 }
+            }
+            if key_lost {
+                self.carrier_lost(body.x, body.y, body.kind, was_open);
             }
             self.floor_tally.line(carrier).raised += 1;
             if let Some(hero) = self.players.get_mut(&carrier) {
@@ -198,9 +209,16 @@ impl Run {
                 // The press went to the skull, not to a weapon lying by.
                 hero.taking = false;
             }
+            let at = self.at;
             if let Some(hero) = self.players.get_mut(&skull) {
                 hero.hp = (hero.max_hp * RAISED_SHARE / 100).max(1);
-                (hero.x, hero.y) = (body.x, body.y);
+                // The knight takes the body's place. A wall is not in the
+                // way; a barred door on the way is, the stop a step would
+                // give the body. A corpse through the seal is not a way out.
+                let room = &self.dungeon.rooms[at];
+                let grid = Grid { room, barred };
+                let was = (hero.x, hero.y);
+                (hero.x, hero.y) = grid.across_bar(was, (body.x, body.y));
                 hero.possessed = Some(body.kind);
                 // Its arms ready in its hands (`bodies`).
                 (hero.fire_cooldown, hero.body_rearm) = (0, 0);

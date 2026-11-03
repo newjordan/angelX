@@ -99,6 +99,16 @@ fn haggling_climbs_to_a_sale_and_the_realm_settles_it() {
     assert_eq!(treasury.get(Spoil::Ore), 2);
     assert_eq!(treasury.get(Spoil::Gold), 200 + gold);
     assert!(news.iter().any(|n| n.contains("MAGDA")));
+    let claim = crate::rules::home_settlement::HomeTransfer::capture_and_reserve(&mut run).unwrap();
+    assert!(claim.valid(), "a real market sale must satisfy the private fact contract");
+    run.step(&e(1));
+    assert!(run.town.haggles.is_empty(), "an unpaid sale cannot be overwritten by another haggle");
+    assert_eq!(run.marks.get(&mark), Some(&gold));
+    assert!(run.found.as_ref().unwrap().2.contains("SETTLED"));
+    claim.consume(&mut run).unwrap();
+    run.step(&BTreeMap::new());
+    run.step(&e(1));
+    assert_eq!(run.town.haggles.get(&1), Some(&(0, 0)));
 }
 
 #[test]

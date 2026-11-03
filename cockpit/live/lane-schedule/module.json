@@ -1,0 +1,29 @@
+{
+  "api_version": 1,
+  "id": "lane-schedule",
+  "kind": "policy",
+  "entry": "index.js",
+  "probe": {
+    "seats": 1,
+    "max_service_gap_ticks": 4,
+    "frontier_priority_boost": false,
+    "last_single_lane": 1,
+    "lanes": [
+      {
+        "index": 0,
+        "runnable": true,
+        "age_ticks": 0
+      },
+      {
+        "index": 1,
+        "runnable": true,
+        "age_ticks": 1
+      }
+    ]
+  },
+  "bend": {
+    "entry": "lane-schedule.bend",
+    "proof": "PROOF.bend",
+    "output": "lane-schedule.compiled.js"
+  }
+}

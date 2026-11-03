@@ -62,7 +62,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "brasswake.entrance",
-  "source_path": "/work/tmp/int-4-prepared/brasswake.entrance/source-sheet.png",
+  "source_path": "tmp/int-4-prepared/brasswake.entrance/source-sheet.png",
   "source_sha256": "722a8fae4e0a2e2f04610f6ed15bc1725a8de361cf664bc411752cda06226ff1",
   "tool_version": 2
 }

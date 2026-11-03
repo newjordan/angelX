@@ -661,6 +661,8 @@ fn swarm_streaming_emits_progress_breadcrumbs() {
 
 #[test]
 fn sota_moa_forced_is_two_wave_fast_path() {
+    let _guard = crate::tests::env_lock();
+    let _advisor = EnvGuard::unset("ANGEL_ADVISOR");
     let propose = Arc::new(CountingClub::new("OPEN"));
     let aggregate = Arc::new(CountingClub::new("OPEN"));
     let swarm = sota_test_swarm(propose.clone(), aggregate.clone(), true);
@@ -910,6 +912,8 @@ fn sota_moa_reroutes_quota_exhausted_role_calls_to_fallback_link() {
 
 #[test]
 fn sota_moa_reroutes_auth_failed_role_calls_to_fallback_link() {
+    let _guard = crate::tests::env_lock();
+    let _advisor = EnvGuard::unset("ANGEL_ADVISOR");
     let glm = Arc::new(ScriptedClub::new("glm", vec![Err(AUTH_401), Err(AUTH_401)]));
     let backup = Arc::new(ScriptedClub::new("openai", vec![]));
     let aggregate = Arc::new(CountingClub::new("OPEN"));
@@ -1071,6 +1075,8 @@ fn streaming_failover_reroutes_when_nothing_streamed_yet() {
 
 #[test]
 fn sota_moa_adapts_simple_questions_fast_and_work_requests_slow() {
+    let _guard = crate::tests::env_lock();
+    let _advisor = EnvGuard::unset("ANGEL_ADVISOR");
     let propose = Arc::new(CountingClub::new("OPEN"));
     let aggregate = Arc::new(CountingClub::new("OPEN"));
     let swarm = sota_test_swarm(propose.clone(), aggregate.clone(), false);
@@ -2483,6 +2489,269 @@ fn obviously_tight_is_narrow() {
     }
 }
 
+// ---------------------------------------------------------------------------
+// Parity oracles — the Rust heuristics the shipped legs replaced. They answer
+// only here, so every parity test compares the leg against the exact code it
+// took over while the binary carries none of it.
+// ---------------------------------------------------------------------------
+
+fn obviously_tight_oracle(problem: &str) -> bool {
+    let p = problem.trim().to_ascii_lowercase();
+    let p = p.trim_matches(|c: char| matches!(c, '.' | '!' | '?' | ',' | ' '));
+    p.is_empty() || TIGHT_PHRASES.contains(&p)
+}
+
+/// Explicit user summon for the full mixture: the turn opens with `moa:` (or
+/// `/moa`), leading position only, so prose that merely mentions "moa" never
+/// triggers a fan-out.
+fn summons_moa_oracle(problem: &str) -> bool {
+    let p = problem.trim().to_ascii_lowercase();
+    p == "moa" || p == "/moa" || p.starts_with("moa:") || p.starts_with("/moa ")
+}
+
+/// Open-ended reasoning: the request is asking for judgment/synthesis, not a
+/// mechanical action — the gate for amplifying a tool-capable driver's final
+/// answer, so ordinary coding turns pay zero MoA cost.
+fn wants_synthesis_oracle(problem: &str) -> bool {
+    let p = problem.trim().to_ascii_lowercase();
+    if p.is_empty() {
+        return false;
+    }
+    if p.len() > 600 {
+        return true; // a long, multi-part brief benefits from synthesis
+    }
+    if OPEN_PHRASES.iter().any(|m| has_phrase(&p, m)) {
+        return true;
+    }
+    let words = route_words(&p);
+    OPEN_WORDS.iter().any(|m| has_route_word(&words, m))
+}
+
+fn wants_deliberation_oracle(problem: &str) -> bool {
+    let p = problem.trim().to_ascii_lowercase();
+    if p.is_empty() {
+        return false;
+    }
+    if p.len() > 400 {
+        return true; // long / multi-part → diverse proposers help
+    }
+    let words = route_words(&p);
+    if OPEN_PHRASES.iter().any(|m| has_phrase(&p, m)) {
+        return true;
+    }
+    if OPEN_WORDS.iter().any(|m| has_route_word(&words, m)) {
+        return true;
+    }
+    ACTION_WORDS.iter().any(|m| action_request(&words, m))
+}
+
+fn wants_live_research_oracle(problem: &str) -> bool {
+    let p = problem.trim().to_ascii_lowercase();
+    if p.is_empty() {
+        return false;
+    }
+    if LIVE_PHRASES.iter().any(|m| p.contains(m)) {
+        return true;
+    }
+    let words = route_words(&p);
+    LIVE_WORDS.iter().any(|m| has_route_word(&words, m))
+}
+
+fn estimate_difficulty_oracle(problem: &str) -> Difficulty {
+    let p = problem.trim().to_ascii_lowercase();
+    if p.chars().count() > 800 {
+        return Difficulty::Hard;
+    }
+    let words = route_words(&p);
+    let open_hits = DIFFICULTY_WORDS
+        .iter()
+        .filter(|w| has_route_word(&words, w))
+        .count();
+    if open_hits >= 2 {
+        return Difficulty::Hard;
+    }
+    let enum_lines = p.lines().filter(|line| is_enum_line(line)).count();
+    if enum_lines >= 3 {
+        Difficulty::Hard
+    } else {
+        Difficulty::Normal
+    }
+}
+
+/// Every routing decision, as the Rust heuristics answered before the leg.
+fn route_oracle(problem: &str) -> Route {
+    Route {
+        tight: obviously_tight_oracle(problem),
+        moa: summons_moa_oracle(problem),
+        synthesis: wants_synthesis_oracle(problem),
+        deliberation: wants_deliberation_oracle(problem),
+        research: wants_live_research_oracle(problem),
+        hard: estimate_difficulty_oracle(problem) == Difficulty::Hard,
+    }
+}
+
+/// Every shape a turn can take, including the length gates, the list gates and
+/// multibyte text (the length gates count bytes for two of the heuristics and
+/// chars for difficulty).
+fn swarm_route_cases() -> Vec<String> {
+    let mut cases: Vec<String> = [
+        "",
+        "   ",
+        "...",
+        "hi",
+        "Thanks!",
+        "thank you.",
+        "ok",
+        "LGTM",
+        "got it",
+        "keep going",
+        "stop",
+        "good job",
+        "moa",
+        "/moa",
+        "MOA",
+        "moa: design a cache",
+        "/moa explain the loader",
+        "nmoa: not a summon",
+        "something about moa in prose",
+        "design a resilient cache",
+        "compare gRPC and REST",
+        "what are the trade offs here",
+        "pros and cons of sqlite",
+        "should i use redis",
+        "how should we shard the index",
+        "open-ended exploration of the design",
+        "fix the parser bug",
+        "please refactor this module",
+        "can you implement the loader",
+        "i want you to debug the deadlock",
+        "review this patch",
+        "what is the latest version of rust",
+        "latest news on rust",
+        "search the web for llama",
+        "right now what is trending",
+        "on x there is a post",
+        "look up the rfc",
+        "design implement optimize debug",
+        "- one\n- two\n- three",
+        "1. a\n2. b\n3. c",
+        "* a\n  * b\nplain",
+        "désigner la stratégie du cache",
+    ]
+    .into_iter()
+    .map(str::to_string)
+    .collect();
+    // The gates sit at 400/600/800 bytes for routing and 800 chars for
+    // difficulty, so probe both sides of each with ASCII and multibyte text.
+    cases.push("a".repeat(400));
+    cases.push("a".repeat(401));
+    cases.push("a".repeat(600));
+    cases.push("a".repeat(601));
+    cases.push("a".repeat(800));
+    cases.push("é".repeat(400));
+    cases.push("é".repeat(801));
+    cases
+}
+
+/// The shipped leg and the native heuristics must agree on every decision, and
+/// the leg must be the one that answered.
+#[test]
+fn swarm_route_leg_matches_every_native_decision() {
+    use crate::agent::harness::live_policy::{LegSource, decide_with};
+    let leg = crate::agent::harness::live_policy::shipped_leg("swarm-route");
+    let cases = swarm_route_cases();
+    assert!(cases.len() >= 30, "the parity table needs real coverage");
+    for case in &cases {
+        let input = Features::of(case).json();
+        let native = route_oracle(case);
+        let (route, source) = decide_with(Some(leg.clone()), "swarm-route", &input, Route::check, || {
+            route_oracle(case)
+        });
+        assert_eq!(route, native, "{case:?}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "{case:?} kept the {} leg: {source:?}",
+            source.as_str()
+        );
+    }
+}
+
+/// A generation that breaks the leg's contract is rejected and the shipped
+/// generation answers instead, so a bad hot edit never blocks a turn.
+#[test]
+fn a_broken_swarm_route_generation_keeps_the_native_decision() {
+    use crate::agent::harness::live_policy::{LegSource, decide_with};
+    let root = std::env::temp_dir().join(format!("angel-swarm-route-leg-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("swarm-route")).unwrap();
+    std::fs::write(
+        root.join("swarm-route/module.json"),
+        r#"{"api_version":1,"id":"swarm-route","kind":"policy","entry":"index.js","probe":{"blank":false}}"#,
+    )
+    .unwrap();
+    // Synthesis without deliberation violates the routing contract.
+    std::fs::write(
+        root.join("swarm-route/index.js"),
+        "module.exports={apiVersion:1,render:()=>({tight:false,moa:true,synthesis:true,deliberation:false,research:true,hard:true})}",
+    )
+    .unwrap();
+    let mut registry = angel_live::Registry::validated(
+        root.clone(),
+        crate::agent::hotload::evaluate,
+        |_, _| Ok(()),
+    );
+    registry.refresh(true);
+    let broken = registry
+        .snapshot()
+        .policies
+        .get("swarm-route")
+        .cloned()
+        .expect("the broken generation must still publish");
+    let case = "fix the parser bug";
+    let (route, source) = decide_with(
+        Some(broken),
+        "swarm-route",
+        &Features::of(case).json(),
+        Route::check,
+        || route_oracle(case),
+    );
+    assert_eq!(route, route_oracle(case), "the shipped leg must answer");
+    assert!(
+        matches!(source, LegSource::LiveFallback { .. }),
+        "{source:?}"
+    );
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+/// Reported, not asserted: a leg evaluation is a pure in-process call.
+#[test]
+fn swarm_route_leg_decision_latency_is_reported() {
+    let leg = crate::agent::harness::live_policy::shipped_leg("swarm-route");
+    let case = "compare two approaches and explain the trade offs for a cache";
+    let input = Features::of(case).json();
+    let native = route_oracle(case);
+    let expected = serde_json::json!({
+        "tight": native.tight,
+        "moa": native.moa,
+        "synthesis": native.synthesis,
+        "deliberation": native.deliberation,
+        "research": native.research,
+        "hard": native.hard,
+    });
+    let mut samples: Vec<f64> = Vec::new();
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        let decided = leg.render(&input).unwrap();
+        samples.push(started.elapsed().as_secs_f64() * 1e6);
+        assert_eq!(decided, expected);
+    }
+    samples.sort_by(f64::total_cmp);
+    eprintln!(
+        "swarm-route leg: {:.1} µs median, {:.1} µs p95 over 200 decisions",
+        samples[100], samples[190]
+    );
+}
+
 #[test]
 fn always_skips_the_classifier() {
     let inner = Arc::new(CountingClub::new("TIGHT")); // would say TIGHT, but ignored
@@ -2909,6 +3178,822 @@ fn decide_wave_stops_in_documented_order_then_expands() {
     );
     assert_eq!(decide_wave(base), Decision::Expand { next_wave: 8 });
     assert_eq!(next_wave_size(8, 2.0, 6), 6);
+}
+
+fn swarm_wave_cases() -> Vec<WaveInputs> {
+    let base = WaveInputs {
+        wave_index: 0,
+        max_waves: 3,
+        launched_total: 4,
+        max_width: 16,
+        returned: 4,
+        novel: 4,
+        wave_size: 4,
+        dissent: Some(0.8),
+        prev_dissent: None,
+        novelty_floor: 0.35,
+        dissent_lo: 0.45,
+        dissent_epsilon: 0.05,
+        growth: 2.0,
+    };
+    vec![
+        base,
+        // Width floor, exactly and over.
+        WaveInputs { launched_total: 16, ..base },
+        WaveInputs { launched_total: 17, max_width: 16, ..base },
+        WaveInputs { launched_total: 0, max_width: 0, ..base },
+        WaveInputs { launched_total: 15, returned: 3, ..base },
+        // Wave budget, last wave and already past it.
+        WaveInputs { wave_index: 2, ..base },
+        WaveInputs { wave_index: 0, max_waves: 1, ..base },
+        WaveInputs { wave_index: 5, max_waves: 3, ..base },
+        // Nothing came back.
+        WaveInputs { returned: 0, ..base },
+        WaveInputs { returned: 0, novel: 0, ..base },
+        // Novelty floor: just under, exactly on, comfortably over.
+        WaveInputs { returned: 20, novel: 6, ..base },
+        WaveInputs { returned: 20, novel: 7, ..base },
+        WaveInputs { returned: 20, novel: 8, ..base },
+        WaveInputs { novel: 0, returned: 4, ..base },
+        WaveInputs { novelty_floor: 1.0, novel: 3, returned: 4, ..base },
+        // Dissent agreement: below, exactly on, just over.
+        WaveInputs { dissent: Some(0.2), ..base },
+        WaveInputs { dissent: Some(0.45), ..base },
+        WaveInputs { dissent: Some(0.451), ..base },
+        WaveInputs { dissent: None, ..base },
+        // Dissent stability: inside epsilon, exactly on, just outside.
+        WaveInputs { dissent: Some(0.62), prev_dissent: Some(0.60), ..base },
+        WaveInputs { dissent: Some(0.85), prev_dissent: Some(0.80), ..base },
+        WaveInputs { dissent: Some(0.86), prev_dissent: Some(0.80), ..base },
+        WaveInputs { dissent: Some(0.60), prev_dissent: None, ..base },
+        WaveInputs { dissent: None, prev_dissent: Some(0.60), ..base },
+        // Growth: identity, below one, non-finite, and clamped by the room.
+        WaveInputs { growth: 1.0, ..base },
+        WaveInputs { growth: 0.5, ..base },
+        WaveInputs { growth: f64::NAN, ..base },
+        WaveInputs { growth: f64::INFINITY, ..base },
+        WaveInputs { wave_size: 8, max_width: 10, launched_total: 4, ..base },
+        WaveInputs { wave_size: 0, growth: 3.0, ..base },
+        WaveInputs { wave_size: 1, growth: 1.5, ..base },
+        WaveInputs { wave_size: 7, growth: 1.1, launched_total: 12, ..base },
+        // Odd shapes that still reach an expand.
+        WaveInputs { wave_size: 13, growth: 2.0, max_width: 40, launched_total: 0, ..base },
+    ]
+}
+
+/// The wave stop order, the expand choice and the clamps as Rust answered them.
+fn wave_oracle(i: WaveInputs) -> Decision {
+    if i.launched_total >= i.max_width {
+        return Decision::Stop(StopReason::MaxWidth);
+    }
+    if i.wave_index + 1 >= i.max_waves {
+        return Decision::Stop(StopReason::MaxWaves);
+    }
+    if i.returned == 0 {
+        return Decision::Stop(StopReason::Failed);
+    }
+    let novelty = i.novel as f64 / i.returned.max(1) as f64;
+    if novelty < i.novelty_floor {
+        return Decision::Stop(StopReason::LowNovelty);
+    }
+    if matches!(i.dissent, Some(d) if d <= i.dissent_lo) {
+        return Decision::Stop(StopReason::Agree);
+    }
+    if let (Some(prev), Some(now)) = (i.prev_dissent, i.dissent)
+        && (now - prev).abs() <= i.dissent_epsilon
+    {
+        return Decision::Stop(StopReason::Stable);
+    }
+    Decision::Expand {
+        next_wave: next_wave_size(i.wave_size, i.growth, i.max_width - i.launched_total),
+    }
+}
+
+/// The scale gate's order as Rust answered it.
+fn gate_oracle(relax: bool, escalate: bool) -> GateAction {
+    if relax {
+        GateAction::Relax
+    } else if escalate {
+        GateAction::Escalate
+    } else {
+        GateAction::Hold
+    }
+}
+
+/// The shipped leg and the oracle decision must agree on every wave input, and
+/// the leg must be the one that answered.
+/// the leg must be the one that answered.
+#[test]
+fn swarm_waves_leg_matches_every_native_decision() {
+    use crate::agent::harness::live_policy::{LegSource, decide_with};
+    let leg = crate::agent::harness::live_policy::shipped_leg("swarm-waves");
+    let cases = swarm_wave_cases();
+    assert!(cases.len() >= 30, "the parity table needs real coverage");
+    let mut labels = std::collections::BTreeSet::new();
+    for case in &cases {
+        let input = decide_wave_input(*case);
+        let native = wave_oracle(*case);
+        let (live, source) = decide_with(Some(leg.clone()), "swarm-waves", &input, Decision::check, || {
+            wave_oracle(*case)
+        });
+        assert_eq!(live, native, "{case:?}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "{case:?} kept the {} leg: {source:?}",
+            source.as_str()
+        );
+        labels.insert(native.label());
+        // The native oracle keeps answering exactly what it always did.
+        assert_eq!(decide_wave(*case), native, "{case:?}");
+    }
+    for stop in [
+        "stop:max-width",
+        "stop:max-waves",
+        "stop:failed",
+        "stop:low-novelty",
+        "stop:agree",
+        "stop:stable",
+    ] {
+        assert!(labels.contains(stop), "no case reached {stop}: {labels:?}");
+    }
+    assert!(
+        labels.iter().filter(|label| label.starts_with("expand:")).count() >= 4,
+        "the table must reach several wave sizes: {labels:?}"
+    );
+}
+
+/// The scale gate's decision part: the leg and the native ordering must agree
+/// on all four flag combinations, and a dominant pool must relax.
+#[test]
+fn swarm_waves_gate_matches_the_native_order() {
+    use crate::agent::harness::live_policy::{LegSource, decide_with};
+    let leg = crate::agent::harness::live_policy::shipped_leg("swarm-waves");
+    for (relax, escalate) in [(false, false), (false, true), (true, false), (true, true)] {
+        let native = gate_oracle(relax, escalate);
+        let (out, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-waves",
+            &gate_input(relax, escalate),
+            |out: &GateOut| match (relax, out.gate) {
+                (true, GateAction::Relax) | (false, _) => Ok(()),
+                (true, _) => Err("a dominant pool must relax".to_string()),
+            },
+            || GateOut { gate: gate_oracle(relax, escalate) },
+        );
+        assert_eq!(out.gate, native, "relax={relax} escalate={escalate}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "relax={relax} escalate={escalate}: {source:?}"
+        );
+        assert_eq!(relax.then_some(native), relax.then_some(GateAction::Relax));
+    }
+}
+
+fn temporary_wave_leg(id: &str, render: &str) -> angel_live::Program {
+    let root = std::env::temp_dir().join(format!("angel-{id}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join(id)).unwrap();
+    std::fs::write(
+        root.join(id).join("module.json"),
+        format!(
+            r#"{{"api_version":1,"id":"{id}","kind":"policy","entry":"index.js","probe":{{"kind":"wave"}}}}"#
+        ),
+    )
+    .unwrap();
+    std::fs::write(root.join(id).join("index.js"), render).unwrap();
+    let mut registry =
+        angel_live::Registry::validated(root, crate::agent::hotload::evaluate, |_, _| Ok(()));
+    registry.refresh(true);
+    registry
+        .snapshot()
+        .policies
+        .get(id)
+        .cloned()
+        .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
+}
+
+/// A generation that breaks the leg's contract is rejected and the native
+/// decision answers instead, so a bad hot edit never blocks a wave.
+#[test]
+fn an_out_of_contract_wave_leg_keeps_the_native_decision() {
+    use crate::agent::harness::live_policy::{LegSource, decide_with};
+    let case = WaveInputs {
+        wave_index: 0,
+        max_waves: 3,
+        launched_total: 4,
+        max_width: 16,
+        returned: 4,
+        novel: 4,
+        wave_size: 4,
+        dissent: Some(0.8),
+        prev_dissent: None,
+        novelty_floor: 0.35,
+        dissent_lo: 0.45,
+        dissent_epsilon: 0.05,
+        growth: 2.0,
+    };
+    let native = wave_oracle(case);
+    assert_eq!(native, Decision::Expand { next_wave: 8 });
+    for (id, render) in [
+        (
+            "waves-empty-expand",
+            "module.exports={apiVersion:1,render:()=>({expand:{next_wave:0}})}",
+        ),
+        (
+            "waves-unknown-shape",
+            "module.exports={apiVersion:1,render:()=>({expand:null})}",
+        ),
+    ] {
+        let leg = temporary_wave_leg(id, render);
+        let (decision, source) = decide_with(
+            Some(leg),
+            "swarm-waves",
+            &decide_wave_input(case),
+            Decision::check,
+            || wave_oracle(case),
+        );
+        assert_eq!(decision, native, "{id}");
+        assert!(
+            matches!(source, LegSource::LiveFallback { .. }),
+            "{id} answered from {}: {source:?}",
+            source.as_str()
+        );
+    }
+}
+
+#[test]
+fn swarm_waves_leg_decision_cost_is_bounded() {
+    use crate::agent::harness::live_policy::decide_with;
+    let leg = crate::agent::harness::live_policy::shipped_leg("swarm-waves");
+    let case = WaveInputs {
+        wave_index: 0,
+        max_waves: 3,
+        launched_total: 4,
+        max_width: 16,
+        returned: 4,
+        novel: 4,
+        wave_size: 4,
+        dissent: Some(0.8),
+        prev_dissent: None,
+        novelty_floor: 0.35,
+        dissent_lo: 0.45,
+        dissent_epsilon: 0.05,
+        growth: 2.0,
+    };
+    let mut timings = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        let (decision, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-waves",
+            &decide_wave_input(case),
+            Decision::check,
+            || wave_oracle(case),
+        );
+        assert_eq!(source.as_str(), "live");
+        assert_eq!(decision, Decision::Expand { next_wave: 8 });
+        timings.push(started.elapsed());
+    }
+    timings.sort();
+    eprintln!(
+        "swarm-waves leg: median {:.2} us/decision, p95 {:.2} us over 200 calls",
+        timings[100].as_secs_f64() * 1e6,
+        timings[190].as_secs_f64() * 1e6,
+    );
+}
+
+// --- swarm-mandate leg ---------------------------------------------------
+//
+// The mandate decisions are four boolean gates over facts Rust resolves
+// (verdict case-folding, the answer trim, the advisor parse). Each case table
+// below is exhaustive over its facts, and the shipped leg must answer exactly
+// what the native gate answers — from the live leg, not the fallback.
+
+fn verdict_cases() -> Vec<VerdictFacts> {
+    let mut cases = Vec::new();
+    for call_ok in [false, true] {
+        for saw_tight in [false, true] {
+            for saw_open in [false, true] {
+                cases.push(VerdictFacts {
+                    call_ok,
+                    saw_tight,
+                    saw_open,
+                });
+            }
+        }
+    }
+    cases
+}
+
+fn advise_cases() -> Vec<AdviseFacts> {
+    let mut cases = Vec::new();
+    for enabled in [false, true] {
+        for blank in [false, true] {
+            for annotated in [false, true] {
+                cases.push(AdviseFacts {
+                    enabled,
+                    blank,
+                    annotated,
+                });
+            }
+        }
+    }
+    cases
+}
+
+fn annotate_cases() -> Vec<AnnotateFacts> {
+    let mut cases = Vec::new();
+    for clear in [false, true] {
+        for has_annotation in [false, true] {
+            cases.push(AnnotateFacts {
+                clear,
+                has_annotation,
+            });
+        }
+    }
+    cases
+}
+
+fn research_cases() -> Vec<ResearchFacts> {
+    let mut cases = Vec::new();
+    for wants_live in [false, true] {
+        for research_enabled in [false, true] {
+            for researcher_present in [false, true] {
+                cases.push(ResearchFacts {
+                    wants_live,
+                    research_enabled,
+                    researcher_present,
+                });
+            }
+        }
+    }
+    cases
+}
+
+/// Every combination of the seven gate facts, edges included: the speed route
+/// and the smart route, a trivial fast-path turn, an always-on swarm, research
+/// already earned, and a classifier that opened the fan-out.
+fn pass_cases() -> Vec<PassFacts> {
+    let mut cases = Vec::new();
+    for smart_route in [false, true] {
+        for research_route in [false, true] {
+            for fastpath in [false, true] {
+                for tight in [false, true] {
+                    for classify_open in [false, true] {
+                        for deliberation in [false, true] {
+                            for always in [false, true] {
+                                cases.push(PassFacts {
+                                    smart_route,
+                                    research_route,
+                                    fastpath,
+                                    tight,
+                                    classify_open,
+                                    deliberation,
+                                    always,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    cases
+}
+
+/// The mandate decisions as Rust answered them.
+fn mandate_oracle(f: VerdictFacts) -> Mandate {
+    if f.call_ok && f.saw_tight && !f.saw_open {
+        Mandate::Tight
+    } else {
+        Mandate::Open
+    }
+}
+
+fn advise_oracle(f: AdviseFacts) -> bool {
+    f.enabled && !f.blank && !f.annotated
+}
+
+fn annotate_oracle(f: AnnotateFacts) -> bool {
+    !f.clear && f.has_annotation
+}
+
+fn direct_oracle(f: PassFacts) -> bool {
+    let deliberate = if f.smart_route {
+        f.research_route || !(f.fastpath && f.tight) && f.classify_open
+    } else {
+        f.research_route || f.deliberation
+    };
+    !f.always && !deliberate
+}
+
+fn research_route_oracle(f: ResearchFacts) -> bool {
+    f.wants_live && (f.research_enabled || f.researcher_present)
+}
+
+/// The shipped leg and the oracle mandate must agree on every fact combination,
+/// and the leg must be the one that answered.
+/// and the leg must be the one that answered.
+#[test]
+fn swarm_mandate_leg_matches_every_native_decision() {
+    use crate::agent::harness::live_policy::{LegSource, decide_with};
+    let leg = crate::agent::harness::live_policy::shipped_leg("swarm-mandate");
+    let mut total = 0usize;
+    for case in verdict_cases() {
+        let native = mandate_oracle(case);
+        let (live, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-mandate",
+            &mandate_input(case),
+            case.check(),
+            || MandateOut { mandate: native },
+        );
+        assert_eq!(live.mandate, native, "{case:?}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "{case:?} kept the {} leg: {source:?}",
+            source.as_str()
+        );
+        total += 1;
+    }
+    for case in advise_cases() {
+        let native = advise_oracle(case);
+        let (live, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-mandate",
+            &advise_input(case),
+            |out: &AdviseOut| {
+                if out.advise && !case.enabled {
+                    return Err("the advisor is switched off".into());
+                }
+                Ok(())
+            },
+            || AdviseOut { advise: native },
+        );
+        assert_eq!(live.advise, native, "{case:?}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "{case:?} kept the {} leg: {source:?}",
+            source.as_str()
+        );
+        total += 1;
+    }
+    for case in annotate_cases() {
+        let native = annotate_oracle(case);
+        let (live, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-mandate",
+            &annotate_input(case),
+            |out: &AnnotateOut| {
+                if out.annotate && case.clear {
+                    return Err("a clear review must not annotate".into());
+                }
+                Ok(())
+            },
+            || AnnotateOut { annotate: native },
+        );
+        assert_eq!(live.annotate, native, "{case:?}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "{case:?} kept the {} leg: {source:?}",
+            source.as_str()
+        );
+        total += 1;
+    }
+    for case in pass_cases() {
+        let native = direct_oracle(case);
+        let (live, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-mandate",
+            &pass_input(case),
+            PassOut::check(case),
+            || PassOut { direct: native },
+        );
+        assert_eq!(live.direct, native, "{case:?}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "{case:?} kept the {} leg: {source:?}",
+            source.as_str()
+        );
+        total += 1;
+    }
+    for case in research_cases() {
+        let native = research_route_oracle(case);
+        let (live, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-mandate",
+            &research_route_input(case),
+            |out: &ResearchOut| {
+                if out.research_route && !case.wants_live {
+                    return Err("a turn without a live ask must not route research".into());
+                }
+                Ok(())
+            },
+            || ResearchOut {
+                research_route: native,
+            },
+        );
+        assert_eq!(live.research_route, native, "{case:?}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "{case:?} kept the {} leg: {source:?}",
+            source.as_str()
+        );
+        total += 1;
+    }
+    assert!(total >= 30, "the parity table needs real coverage: {total}");
+}
+
+/// The oracles keep answering what they always did: a failed or ambiguous
+/// classifier verdict is `Open`, a blank answer is never reviewed, and the
+/// research route needs both an ask and a scout.
+#[test]
+fn swarm_mandate_oracles_keep_their_old_answers() {
+    assert_eq!(
+        mandate_oracle(VerdictFacts::of(Some("TIGHT"))),
+        Mandate::Tight
+    );
+    assert_eq!(
+        mandate_oracle(VerdictFacts::of(Some("tight"))),
+        Mandate::Tight
+    );
+    assert_eq!(
+        mandate_oracle(VerdictFacts::of(Some("TIGHT or OPEN"))),
+        Mandate::Open
+    );
+    assert_eq!(mandate_oracle(VerdictFacts::of(None)), Mandate::Open);
+    assert_eq!(
+        mandate_oracle(VerdictFacts::of(Some("no idea"))),
+        Mandate::Open
+    );
+    assert!(advise_oracle(AdviseFacts {
+        enabled: true,
+        blank: false,
+        annotated: false,
+    }));
+    assert!(!advise_oracle(AdviseFacts {
+        enabled: false,
+        blank: false,
+        annotated: false,
+    }));
+    assert!(!advise_oracle(AdviseFacts {
+        enabled: true,
+        blank: true,
+        annotated: false,
+    }));
+    assert!(!annotate_oracle(AnnotateFacts {
+        clear: true,
+        has_annotation: false,
+    }));
+    assert!(annotate_oracle(AnnotateFacts {
+        clear: false,
+        has_annotation: true,
+    }));
+    assert!(research_route_oracle(ResearchFacts {
+        wants_live: true,
+        research_enabled: false,
+        researcher_present: true,
+    }));
+    assert!(!research_route_oracle(ResearchFacts {
+        wants_live: false,
+        research_enabled: true,
+        researcher_present: true,
+    }));
+    // The direct-pass gate: always overrides, research always deliberates, and
+    // the speed route never consults the classifier.
+    assert!(!direct_oracle(PassFacts {
+        always: true,
+        ..PassFacts::default()
+    }));
+    assert!(!direct_oracle(PassFacts {
+        research_route: true,
+        ..PassFacts::default()
+    }));
+    assert!(direct_oracle(PassFacts::default()));
+    assert!(direct_oracle(PassFacts {
+        smart_route: true,
+        fastpath: true,
+        tight: true,
+        classify_open: true,
+        ..PassFacts::default()
+    }));
+    assert!(!direct_oracle(PassFacts {
+        smart_route: true,
+        classify_open: true,
+        ..PassFacts::default()
+    }));
+    assert!(direct_oracle(PassFacts {
+        smart_route: true,
+        classify_open: false,
+        deliberation: true,
+        ..PassFacts::default()
+    }));
+}
+
+fn temporary_mandate_leg(id: &str, render: &str) -> angel_live::Program {
+    let root = std::env::temp_dir().join(format!("angel-{id}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join(id)).unwrap();
+    std::fs::write(
+        root.join(id).join("module.json"),
+        format!(
+            r#"{{"api_version":1,"id":"{id}","kind":"policy","entry":"index.js","probe":{{"kind":"classify"}}}}"#
+        ),
+    )
+    .unwrap();
+    std::fs::write(root.join(id).join("index.js"), render).unwrap();
+    let mut registry =
+        angel_live::Registry::validated(root, crate::agent::hotload::evaluate, |_, _| Ok(()));
+    registry.refresh(true);
+    registry
+        .snapshot()
+        .policies
+        .get(id)
+        .cloned()
+        .unwrap_or_else(|| panic!("fixture leg {id} did not publish"))
+}
+
+/// A generation that answers outside the leg's contract is rejected and the
+/// shipped generation answers instead, so a bad hot edit never blocks a turn.
+#[test]
+fn an_out_of_contract_mandate_leg_keeps_the_native_decision() {
+    use crate::agent::harness::live_policy::{LegSource, decide_with};
+    let leg = temporary_mandate_leg(
+        "mandate-out-of-contract",
+        "module.exports={apiVersion:1,render:(input)=>{switch(input.kind){case 'classify':return {mandate:'tight'};case 'advise':return {advise:true};case 'annotate':return {annotate:true};case 'pass':return {direct:true};default:return {research_route:true}}}}",
+    );
+    let verdict = VerdictFacts::of(None);
+    assert_eq!(mandate_oracle(verdict), Mandate::Open);
+    let (live, source) = decide_with(
+        Some(leg.clone()),
+        "swarm-mandate",
+        &mandate_input(verdict),
+        verdict.check(),
+        || MandateOut {
+            mandate: mandate_oracle(verdict),
+        },
+    );
+    assert_eq!(live.mandate, Mandate::Open, "the shipped leg must answer");
+    assert!(
+        matches!(source, LegSource::LiveFallback { .. }),
+        "{source:?}"
+    );
+
+    let advise = AdviseFacts {
+        enabled: false,
+        blank: false,
+        annotated: false,
+    };
+    let (live, source) = decide_with(
+        Some(leg.clone()),
+        "swarm-mandate",
+        &advise_input(advise),
+        |out: &AdviseOut| {
+            if out.advise && !advise.enabled {
+                return Err("the advisor is switched off".into());
+            }
+            Ok(())
+        },
+        || AdviseOut {
+            advise: advise_oracle(advise),
+        },
+    );
+    assert!(!live.advise);
+    assert!(matches!(source, LegSource::LiveFallback { .. }));
+
+    let annotate = AnnotateFacts {
+        clear: true,
+        has_annotation: false,
+    };
+    let (live, source) = decide_with(
+        Some(leg.clone()),
+        "swarm-mandate",
+        &annotate_input(annotate),
+        |out: &AnnotateOut| {
+            if out.annotate && annotate.clear {
+                return Err("a clear review must not annotate".into());
+            }
+            Ok(())
+        },
+        || AnnotateOut {
+            annotate: annotate_oracle(annotate),
+        },
+    );
+    assert!(!live.annotate);
+    assert!(matches!(source, LegSource::LiveFallback { .. }));
+
+    let pass = PassFacts {
+        always: true,
+        smart_route: true,
+        deliberation: true,
+        ..PassFacts::default()
+    };
+    let (live, source) = decide_with(
+        Some(leg.clone()),
+        "swarm-mandate",
+        &pass_input(pass),
+        PassOut::check(pass),
+        || PassOut {
+            direct: direct_oracle(pass),
+        },
+    );
+    assert!(!live.direct);
+    assert!(matches!(source, LegSource::LiveFallback { .. }));
+
+    let research = ResearchFacts {
+        wants_live: false,
+        research_enabled: true,
+        researcher_present: true,
+    };
+    let (live, source) = decide_with(
+        Some(leg),
+        "swarm-mandate",
+        &research_route_input(research),
+        |out: &ResearchOut| {
+            if out.research_route && !research.wants_live {
+                return Err("a turn without a live ask must not route research".into());
+            }
+            Ok(())
+        },
+        || ResearchOut {
+            research_route: research_route_oracle(research),
+        },
+    );
+    assert!(!live.research_route);
+    assert!(matches!(source, LegSource::LiveFallback { .. }));
+}
+
+#[test]
+fn swarm_mandate_leg_decision_cost_is_bounded() {
+    use crate::agent::harness::live_policy::decide_with;
+    let leg = crate::agent::harness::live_policy::shipped_leg("swarm-mandate");
+    let case = PassFacts {
+        smart_route: true,
+        fastpath: true,
+        classify_open: true,
+        deliberation: true,
+        ..PassFacts::default()
+    };
+    let mut timings = Vec::with_capacity(200);
+    for _ in 0..200 {
+        let started = std::time::Instant::now();
+        let (live, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-mandate",
+            &pass_input(case),
+            PassOut::check(case),
+            || PassOut {
+                direct: direct_oracle(case),
+            },
+        );
+        assert_eq!(source.as_str(), "live");
+        assert_eq!(live.direct, direct_oracle(case));
+        timings.push(started.elapsed());
+    }
+    timings.sort();
+    eprintln!(
+        "swarm-mandate leg: median {:.2} us/decision, p95 {:.2} us over 200 calls",
+        timings[100].as_secs_f64() * 1e6,
+        timings[190].as_secs_f64() * 1e6,
+    );
+}
+
+/// With no live generation active the shipped generations compiled into the
+/// binary answer, and they answer exactly what the oracles do.
+#[test]
+fn the_swarm_legs_answer_from_their_shipped_generations() {
+    use crate::agent::harness::live_policy::LegSource;
+    let problem = "compare two approaches and explain the trade offs for a cache";
+    let (route, source) = route_with_source(problem);
+    assert_eq!(route, route_oracle(problem));
+    assert!(matches!(source, LegSource::Shipped { .. }), "{source:?}");
+
+    let wave = WaveInputs {
+        wave_index: 0,
+        max_waves: 3,
+        launched_total: 4,
+        max_width: 16,
+        returned: 4,
+        novel: 4,
+        wave_size: 4,
+        dissent: Some(0.8),
+        prev_dissent: None,
+        novelty_floor: 0.35,
+        dissent_lo: 0.45,
+        dissent_epsilon: 0.05,
+        growth: 2.0,
+    };
+    let (decision, source) = decide_wave_with_source(wave);
+    assert_eq!(decision, wave_oracle(wave));
+    assert!(matches!(source, LegSource::Shipped { .. }), "{source:?}");
+    let (gate, source) = gate_at(true, true);
+    assert_eq!(gate, gate_oracle(true, true));
+    assert!(matches!(source, LegSource::Shipped { .. }), "{source:?}");
+
+    let verdict = VerdictFacts::of(Some("TIGHT"));
+    let (mandate, source) = mandate_with(verdict);
+    assert_eq!(mandate, mandate_oracle(verdict));
+    assert!(matches!(source, LegSource::Shipped { .. }), "{source:?}");
 }
 
 fn family(name: &str, n: usize) -> Vec<String> {
@@ -4296,6 +5381,31 @@ fn a_mixture_turn_speaks_only_in_routes() {
     }
 }
 
+#[test]
+fn text_only_history_preserves_catalog_generation_on_assistant_and_tool_messages() {
+    use crate::agent::harness::book::continuity;
+
+    let digest = "a".repeat(64);
+    for message in [
+        ChatMsg::assistant("answer"),
+        ChatMsg::tool("call-1", "tool output"),
+    ] {
+        let mut history = vec![message];
+        continuity::bind_generation(&mut history, &digest).unwrap();
+        let transformed = text_only_history(&history);
+        assert_eq!(
+            continuity::generation_digest(&transformed),
+            Some(digest.as_str())
+        );
+        let restored: Vec<ChatMsg> =
+            serde_json::from_slice(&serde_json::to_vec(&transformed).unwrap()).unwrap();
+        assert_eq!(
+            continuity::generation_digest(&restored),
+            Some(digest.as_str())
+        );
+    }
+}
+
 /// The roster is the book's: each lens is a `⠈` section with pages, and the
 /// stances use every page of `⠈⠛` after its overlay label exactly once.
 #[test]
@@ -4312,5 +5422,5 @@ fn personas_and_stances_are_the_books_angles() {
     used.sort_unstable();
     let stance_pages = d4_angles::STANCES.sub().pages.len();
     assert_eq!(used, (2..=stance_pages).collect::<Vec<_>>());
-    assert_eq!(d4_angles::STANCES.sub().pages[0], "Stance overlay:");
+    assert_eq!(&d4_angles::STANCES.sub().pages[0], "Stance overlay:");
 }

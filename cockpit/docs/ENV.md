@@ -4,6 +4,30 @@ Every `ANGEL_*` variable the cockpit reads, grouped by subsystem. Defaults are
 the built-in values; **`0` usually means "disabled/unbounded"** for the numeric
 guards. Nothing here is required — the cockpit runs with none set.
 
+## Source build compiler
+
+Install project-local Blaze with `python3 scripts/runtime/install-blaze.py`.
+The installer builds a pinned upstream commit and its required Rust nightly;
+it does not change global Cargo configuration or create launcher symlinks.
+
+| Variable | Default | Behavior |
+| --- | --- | --- |
+| `ANGEL_BUILD_BACKEND` | `auto` | `auto` currently uses Cargo even with Blaze installed: the pinned Blaze wrapper reproduced a stale image after a successful edit→restore build. `blaze` explicitly opts into this unqualified compiler; `cargo` explicitly uses Cargo. Build failure stops launch. |
+| `ANGEL_BLAZE_BIN` | unset | Explicit Blaze executable for `blaze`. Ignored for `auto`, `cargo` and no-build/prebuilt launches. |
+| `RUSTUP_HOME` | `$HOME/.rustup` | Reuse the installed pinned compiler from this directory before invoking PATH shims. Supports shared toolchain roots and paths containing spaces; avoids unnecessary provisioning and interactive tool-manager trust prompts. |
+| `ANGEL_RESOLVE_MISE` | `0` | Explicitly refresh PATH via `mise env --json` before launch. Normal startup inherits the already-resolved terminal PATH and never gates startup on tool-manager hooks or trust/install prompts. Opt in only with trusted mise configuration. |
+| `ANGEL_BLAZE_MODE` | `wrapper` | `wrapper` uses Blaze's Cargo workspace-wrapper protocol with Rust-backed script/macro loads (`RA_JIT_SCRIPTS_BY_RUSTC=1`, `RA_JIT_PROC_MACRO_SERVER=0`), scoped to the compiler child. Unsupported units compile from current source with Rust. A target-specific V8 fetch lock is recorded, but daemon reload remains unqualified: nested browser-build sandbox failures and a duplicate build-script wrapper blocked the experiments. No edit speedup is claimed. `standalone` requests Blaze without Cargo and fails on FFmpeg's `clang-sys` build script (`IncompleteExpr`). Both retain the full feature set and refuse stale images after build failure. |
+
+Blaze owns its pinned nightly ABI and `cockpit/target/blaze` artifacts. Stable
+Cargo keeps its existing profile directories. Both compile the same application,
+including the browser bundle by default. Running Blaze launch images are private
+copies, not hardlinks to files that its engine may patch in place. No-build and
+hashed-image selection retain their existing contracts.
+
+The normal `fast` profile leaves only the orchestration cockpit crate at opt=0
+to reduce LLVM rebuild cost; dependencies stay optimized, release is unchanged.
+See [current measurements and Blaze qualification gate](../../docs/performance/dev-loop-20261028.md).
+
 ## RL campaigns in a loop
 
 - `rl_campaign` is a native tool from the first active loop iteration, including
@@ -42,11 +66,18 @@ Use `results` for retained evidence, and submit when there is a verified winner.
 > `ANGEL_DOC_STRICT=1` turns that report into a failing release/CI gate; without
 > strict mode, documentation drift remains a visible non-blocking warning.
 
+## Live application modules
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `ANGEL_LIVE_DIR` | `<resource-root>/cockpit/live` | Operator-owned JavaScript module directory for UI composition, Delve tuning, agent tool routing, reports, realm presentation and next-turn guidance; never inferred from an arbitrary project directory. Headless `--task` runs load no live modules unless this is set; when set, each turn pins the generations active at its start and records them in `identity.live` (id, generation, content digest, Bend receipt digests) with `identity.combined_sha256`. |
+| `ANGEL_HOTLOAD` | enabled | `0` disables the background module loader. Native reports and normal agent behavior remain available. |
+
 ## Provider registration
 
 | Variable | Default | Purpose |
 | --- | --- | --- |
-| `ANGEL_API_CLUBS` | unset (allow configured providers) | Optional comma-separated API-provider allowlist: `glm`, `kimi`, `deepseek`, `qwen`, `longcat`, `meta`, `cerebras`, `openrouter`, `grok`, `openai`. Unset, `*`, or `all` permits configured providers; empty or `none` disables API routes. Credentials and required model pins still apply. OAuth and local routes are separate. The launcher removes disabled provider keys from its process only when the user supplies this restriction. |
+| `ANGEL_API_CLUBS` | unset (allow configured providers) | Optional comma-separated API-provider allowlist: `glm`, `kimi`, `deepseek`, `qwen`, `longcat`, `meta`, `cerebras`, `openrouter`, `grok`, `openai`, `anthropic`. Unset, `*`, or `all` permits configured providers; empty or `none` disables API routes. Credentials and required model pins still apply. OAuth and local routes are separate. The launcher removes disabled provider keys from its process only when the user supplies this restriction. `anthropic` covers the configurable Claude seat and the Claude Opus 5.5 seat, both of which read `ANGEL_ANTHROPIC_KEY` or `ANTHROPIC_API_KEY`. |
 
 ## Agent loop (`harness.rs`)
 
@@ -77,6 +108,7 @@ capture while preserving ordinary recovery.
 | `ANGEL_SOTA_MOA_TOOL_PREFLIGHT` | explicit formation request | Enable the tool-capable formation preflight. Automatic amplification does not enable it by default. |
 | `ANGEL_SOTA_MOA_TOOL_PREFLIGHT_REQUIRED` | `0` | Treat failed preflight as a blocking formation failure rather than optional advice. |
 | `ANGEL_SOTA_MOA_PREFLIGHT_ONLY` | `0` | Return the tool preflight result without continuing the later synthesis pass. |
+| `ANGEL_MOA_PREFERENCES` | unset | Absolute, operator-trusted path to a JSON preference override. Start with `lib/club/moa-preferences.json` and reorder entries within each list; each list must remain an exact permutation of its embedded baseline, preserving cheap-profile membership. Publish complete edits by atomic rename. Invalid, missing, relative or leaf-symlink overrides produce a message and use the embedded baseline. Each new wrapper or deck pins one generation; existing rosters keep their prior order. Explicit extra proposers retain their existing separate behavior. |
 | `ANGEL_DEEPSEEK_API` | `chat` | Wire protocol for the DeepSeek seats. `messages` speaks DeepSeek's Anthropic-compatible Messages API (`https://api.deepseek.com/anthropic/v1/messages`, `x-api-key`), the only protocol DeepSeek's own harness has used since 2026-09-19: the seat's Chat body (effort, reasoning pass-back as `thinking` blocks, the 256K output cap) is translated on the way out and each streamed event back. `ANGEL_DEEPSEEK_MESSAGES_URL` overrides the endpoint (a forwarder in front of the seat serves `<ANGEL_DEEPSEEK_URL>/messages`). See `agent/club/http/deepseek_messages.rs`. |
 | `ANGEL_DEEPSEEK_REASONING_EFFORT` | provider default | DeepSeek effort override for both DeepSeek seats (`none` turns thinking off; `low`, `high`, `max`). A seat's own `ANGEL_DEEPSEEK_FLASH_REASONING_EFFORT` / `ANGEL_DEEPSEEK_V4_PRO_REASONING_EFFORT` wins over it; it wins over `ANGEL_REASONING_EFFORT`. Keep one value for a whole session: DeepSeek renders the effort at the start of the prompt, so a change re-reads the whole context uncached. Applicable competition formation setup seeds `high` only when unset. |
 | `ANGEL_LOCAL_REASONING_PROFILE` | unset in code; repository local profile `deepseek-v4-vllm` | Explicit calibrated local vLLM capability profile, bound to the pinned served model ID and local endpoint. Offers accepted `none/minimal/low/medium/high/xhigh/max` controls using `reasoning_effort`; `none` disables thinking. Does not rename the model, infer cloud context/output limits, or enable official-API private-reasoning replay. Unknown profiles, missing/changed model pins and conflicting dialects fail explicitly. Revalidate when the serving setup changes. Generic HTTP namespaces use the same `ANGEL_<CLUB>_REASONING_PROFILE` form. |
@@ -148,6 +180,7 @@ ordinary cockpit configuration recommendations:
 | `ANGEL_HANDOFF_FILE`                                              | `~/.angelX/handoff/<workspace-key>.json`          | Override path for the persisted per-workspace `handoff` note (identity-bound like `ANGEL_NOTES_FILE`).                                                                                                                                                                                                                                                                                                                                                                                          |
 | `ANGEL_TASK_EVENT_LOG`                                            | `1`                                              | In `--task` mode, surface tool calls/results and harness notices (guard nudges, compaction, club fallbacks) as `[task-event]` lines on stderr — the headless twin of the TUI's live activity trace, so an operator tailing the log sees *why* a turn slowed or stopped. High-frequency stream deltas are never logged. `0` restores the silent drain.                                                                                                                                               |
 | `ANGEL_SELF_AUTHORED_VERIFY_GUARD` | `0` (off) | Opt-in: a passing run that targets only tests authored or heavily rewritten this turn does not count as a test of the edits, so they stay `⠧⠋` at the stop checkpoint, and the model hears `⠼⠑` (weak verification) once. |
+| `ANGEL_POST_EDIT_LOGIC_REVIEW` | `1` (on) | The first successful edit of a turn earns `⠼⠊` once: review the edit logically before testing. Harness advice, never a stop. `0` opts out. |
 | `ANGEL_FIRST_WRITE_CALLS` | `0` (off) | Opt-in inspection budget: after this many free-form inspection calls with no edit the model hears `⠼⠉` once (`⡅⠉` in a rapid competition turn). Advice only; no call is refused. |
 | `ANGEL_NO_EDIT_ANSWER_GUARD` | `0` (off) | Opt-in, and only with `ANGEL_FIRST_WRITE_CALLS`: an answer that claims progress with no edit carries `⠼⠙` to the stop checkpoint. |
 | `ANGEL_FINAL_MILE_HOPS` | task turn: `4` (`6` for a rapid turn with a hop cap); otherwise `0` | Hops a bounded turn (`max_hops`) reserves for its final mile once it has edited: `⠼⠃` once when that many remain, then its last page (`⠼⠃⠑`) on hops of inspection alone while a verifier is owed. An unbounded turn has no horizon. |
@@ -273,7 +306,8 @@ ordinary cockpit configuration recommendations:
 | `ANGEL_TOOL_KILL_GRACE_MS` | `0` (raw commands); helper minimum `500` ms | SIGTERM-first grace before timeout SIGKILL of the process group. Supervised sandbox tools receive at least 500 ms so the helper can reap detached descendants (its escalation grace is 250 ms). Raw commands retain the configured grace, including zero. The timeout diagnostic reports the grace actually used. |
 | `ANGEL_TOOL_TIMEOUT`                                              | unset (`0` = unlimited)                         | Optional external-command timeout for shell/cargo/verifier tool runs (fixed verifier/recon deadlines are exempt). Unset does not kill a running tool. **In-flight extension**: the kill decision re-reads the live value, so raising it (or setting `0`) while a job runs extends it instead of killing — the receipt then notes `deadline extended in flight`. `harness/exec.rs::tool_timeout` + `output_timed_extensible_cancellable_with_progress`. |
 | `ANGEL_TOOL_HANDOFF_SECS`                                         | `600`                                           | Tool hand-off. A foreground shell call still running after this many seconds is handed to the background-job table (`proc`) instead of holding the turn: the process keeps running (nothing is stopped), its output keeps draining into the job's log, and the model gets its turn back with a receipt (`⡌⠙⠏⠙`) carrying the job id, the output so far and the process tree with CPU/state. `proc_status`/`proc_wait`/`proc_stop` and the usual `⠏⠃`/`⠏⠉` completion receipt apply to it. When a compaction helper exists (as for `ANGEL_TREEBEARD_DIGEST`, in any lane) it reads the job and says whether it looks like progress or a stall (`⡌⠑` → `⡌⠋`), rolling like a digest. Off in sealed tasks (`ANGEL_TASK_ACTIVE`). `0` turns hand-off off. `harness/exec/handoff.rs`. |
-| `ANGEL_TASK_CALL_TIMEOUT_SECS` | unset (`0` = off) | Optional per-process cap for one managed foreground tool dispatch. Unset does not impose a budget in task mode or interactively. This is not a cumulative deadline across multiple subprocesses, and does not preempt arbitrary native tool code; fixed internal verifier/recon deadlines remain independent. Explicit values apply in both modes. Independent of `ANGEL_TASK_WALL_SECS`; `run_tests` retains unfinished Rust test names when a cap fires. `harness/exec.rs::with_call_budget`, `tools/build.rs::task_call_budget`. |
+| `ANGEL_TASK_CALL_TIMEOUT_SECS` | headless `--task`: `120`; interactive and `--resurrect`: unset (`0` = off) | Per-process cap for one managed foreground tool dispatch. Headless task mode defaults to 120 s so one hung command (`find /`, a test binary that never exits) is killed with a timeout result instead of holding the call until the evaluator's wall; longer task work uses background `proc_run` or an explicit value. Interactive turns get no default. This is not a cumulative deadline across multiple subprocesses, and does not preempt arbitrary native tool code; fixed internal verifier/recon deadlines remain independent. Explicit values apply in both modes. Independent of `ANGEL_TASK_WALL_SECS`; `run_tests` retains unfinished Rust test names when a cap fires. `harness/exec.rs::with_call_budget`, `tools/build.rs::task_call_budget`. |
+| `ANGEL_TASK_PRIVATE_CACHE` | `1` (headless `--task`) | Gives each headless task a private, empty `XDG_CACHE_HOME` under the temp dir (removed at exit) and stops granting the shared `~/.cache` as a sandbox writable root, recorded in `ANGEL_TASK_CACHE_HOME`. Hard-linked tool caches in the shared `~/.cache` (mise: 8,190 links into `~/.local/share/mise/installs`) otherwise put every sandboxed launch on the Bubblewrap alias path, about 1 s per process. An operator `XDG_CACHE_HOME` naming another directory is kept; `0` keeps the shared cache. `harness/task_mode.rs::install_private_task_cache`. |
 | `ANGEL_TEST_RUN_TIMEOUT_SECS` | deprecated; used only when `ANGEL_TASK_CALL_TIMEOUT_SECS` is absent | Compatibility fallback with the same values and foreground-process scope as the new knob, including `0`. Previously applied only to recognized test calls; now also covers commands after here-documents and other unclassified commands. The new knob wins when both are set. |
 | `ANGEL_TOOL_OUTPUT_MAX_BYTES`                                     | `65536`                                          | Ceiling on each tool result before it enters history (head-then-tail). `0` disables.                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `ANGEL_TOOL_OUTPUT_MAX_LINES`                                     | `800`                                            | Line ceiling companion to the byte cap.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -396,7 +430,7 @@ language server per language.
 | -------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ANGEL_MCP_CONFIG`   | `~/.angelX/mcp.json`   | User-global trusted config for external stdio MCP servers. Each connection is spawned in the active project cwd; warm clients are never reused across project identities. Secret-named variables the cockpit holds are withheld from every server (`ANGEL_TOOL_STRIP_SECRETS`); a server's own key must be set in its `env` entry. |
 | `ANGEL_MCP_TIMEOUT`  | `15` (s)              | Per-call timeout for MCP tools.                                                                                                                                           |
-| `ANGEL_HOOKS_CONFIG` | `~/.angelX/hooks.json` | PreToolUse (block-capable) / PostToolUse / SessionStart lifecycle hooks.                                                                                                  |
+| `ANGEL_HOOKS_CONFIG` | `~/.angelX/hooks.json` | PreToolUse (block-capable) / PostToolUse lifecycle hooks.                                                                                                                 |
 | `ANGEL_HOOK_TIMEOUT` | `10` (s)              | Per-hook subprocess timeout.                                                                                                                                              |
 | `ANGEL_PRE_HOOK_FAIL_OPEN` | off             | Explicitly allow a configured PreToolUse hook timeout/spawn failure to pass. The safe default denies when policy infrastructure is unavailable.                           |
 | `ANGEL_GIT_TIMEOUT`  | unset (`0` = unlimited) | Optional deadline for trusted harness git operations, including `/diff`, `/review`, delegate, and integrate. Unset or `0` does not kill git. |
@@ -404,23 +438,8 @@ language server per language.
 Hooks are invoked with these set in their environment (read by the hook, not by
 the cockpit): `ANGEL_TOOL_NAME`, `ANGEL_TOOL_ARGS`, `ANGEL_TOOL_RESULT` (PostToolUse only), `ANGEL_TOOL_TIMEOUT`.
 Argument/result values above 32 KiB are replaced by a bounded JSON receipt with
-their byte length and SHA-256. Any configured PreToolUse or PostToolUse hook makes
-its emitted tool batch a serial barrier because hook side effects are outside
-filesystem footprints. SessionStart rules are not tool hooks and do not change
-dispatch, approval, or that barrier.
-
-`SessionStart` runs when the process's current session is established or changes:
-startup (a fresh session, or `--resume` / a phoenix relight — source `resume` when
-a saved session loads), `/new` and `/clear` (source `clear`), `/resume`, `/fork`,
-and `/cd` (alias `/workspace`, source `workspace`). It is best-effort, like
-PostToolUse: a missing, failing, or timed-out command does not block or change
-the session. Stdin is one JSON object
-`{"hook_event_name":"SessionStart","session_id":"<id>","cwd":"<workspace>","source":"startup|resume|clear|fork|workspace"}`
-and the child environment sets `ANGEL_SESSION_ID` and `ANGEL_WORKSPACE` to that
-current workspace. The payload has no conversation content, credentials, or
-transcript path. The matcher uses the same `*` / `|` rules as tool hooks, compared
-against `source`. The wait is `ANGEL_HOOK_TIMEOUT` and stays armed when YOLO lifts
-tool deadlines.
+their byte length and SHA-256. Any configured hook makes its emitted tool batch
+a serial barrier because hook side effects are outside filesystem footprints.
 
 ## HTTP / resilience (`club.rs`)
 
@@ -461,6 +480,14 @@ tool deadlines.
 | `ANGEL_FALLBACK`                    | off                        | Enable eager failover across the bag (`FallbackClub`) when a club fails. By default this excludes token-metered SOTA clubs such as `openai`/`codex`/`longcat`/`grok`.                                                                                                                                                                                                                                |
 | `ANGEL_FALLBACK_INCLUDE_SOTA`       | off                        | Allow `ANGEL_FALLBACK` to fail over into token-metered SOTA clubs.                                                                                                                                                                                                                                                                                                                                   |
 
+Stream rules are re-read at the start of each streaming request; edits do not
+change an in-flight request or its retries. After a file has been accepted, a
+missing, unreadable, malformed, or invalid replacement leaves that snapshot in
+place; write `[]` to clear it. Changing the configured path starts a separate
+empty policy. The file is limited to 1 MiB and 256 rules; patterns are limited
+to 4096 bytes and reminders to 16384 bytes. On first load, invalid entries are
+skipped for compatibility. Later replacements must validate in full.
+
 The effective route policy is shown in Brain Route and the focused Agent
 inspector as `output: provider-native`, `output: N · ENV_NAME`, or
 `output: endpoint-managed`. Provider-native means angelX omits `max_tokens`; it
@@ -499,7 +526,7 @@ Scanning and Hydra registry traffic are separate opt-ins.
 | `ANGEL_DAYBREAK_REASONING_EFFORT` | Initial reasoning effort for the `daybreak` route, ahead of the generic `ANGEL_REASONING_EFFORT`; else the model's declared default. An effort the starting model does not list is kept and reported as the route's selection error, as on the `openai` route. |
 | `ANGEL_OPENAI_AUTH_JSON`                                                                                       | Process-only ChatGPT OAuth snapshot for sealed evaluator launches. When present it is used in memory instead of reading `CODEX_HOME`; malformed input fails closed. The benchmark sandbox strips this secret-named variable from every autonomous command child. Ordinary interactive use should continue to rely on the Codex CLI login file.                                                                                                                                                                                                                                                                                                                               |
 | `ANGEL_OPENROUTER_URL` / `ANGEL_OPENROUTER_MODEL` / `ANGEL_OPENROUTER_KEY`                                      | Optional OpenRouter OpenAI-compatible API-token link for the `sota` box and `sota-moa` preset. URL defaults to `https://openrouter.ai/api/v1`. The `openrouter` seat defaults to `stealth/ox-alpha`; additional free catalog seats (Thinking Machines Inkling / Inkling Small, `nvidia/nemotron-3-ultra-550b-a55b:free`, `openrouter/free`, Laguna S 2.1, North Mini Code, GLM 5.2:free, Nemotron 3.5 Lightning) appear beside it when a key is set. Retired `tencent/hy3:free` pins migrate to Ox Alpha; an explicit paid `tencent/hy3` pin is unchanged. The key also falls back to `OPENROUTER_API_KEY`. A configured OpenRouter catalog is **not** auto-elected as `ANGEL_DRIVER`.                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| `ANGEL_KIMI_URL` / `ANGEL_KIMI_MODEL` / `ANGEL_KIMI_KEY`                                                        | Optional Moonshot OpenAI-compatible API-token link for the `sota` box and `sota-moa` preset. URL defaults to `https://api.moonshot.ai/v1`, model defaults to `kimi-k3`, and the key also falls back to `KIMI_API_KEY` or `MOONSHOT_API_KEY`.                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `ANGEL_KIMI_URL` / `ANGEL_KIMI_MODEL` / `ANGEL_KIMI_KEY`                                                        | Optional Moonshot OpenAI-compatible API-token link for the `sota` box and `sota-moa` preset. URL defaults to `https://api.moonshot.ai/v1`, model defaults to `kimi-k3`, and the key also falls back to `KIMI_API_KEY` or `MOONSHOT_API_KEY`. Kimi K3.1 (`kimi-k3.1`) appears beside the default K3 seat when a key is set; `ANGEL_DRIVER=k3.1` (or `kimi-k3.1`) selects it directly. Optional `ANGEL_API_CLUBS` restriction uses family `kimi`.                                                                                                                                                                                                                           |
 | `ANGEL_DEEPSEEK_URL` / `ANGEL_DEEPSEEK_MODEL` / `ANGEL_DEEPSEEK_KEY`                                            | Optional DeepSeek API-token link for the `sota` box and `sota-moa` preset. URL defaults to `https://api.deepseek.com/v1`, model defaults to the provider-published Pro id `deepseek-v4-pro`; `deepseek-flash` (V4.1 Flash — native `image_url` input) is also selectable. Both have 1M context and expose the provider's real `low` / `high` / `max` effort rungs, thinking on by default at `high`; the THINK deck's `none` rung sends the provider's `thinking: {type: "disabled"}` toggle rather than an invalid `reasoning_effort`. Retired ids (`deepseek-chat`, `deepseek-reasoner`, `deepseek-v4-flash`, `deepseek-v4-flash-vision-exp`) are accepted locally and migrated to `deepseek-flash` before a request is built; explicit unknown ids remain untouched. Key also falls back to `DEEPSEEK_API_KEY`. Official catalog: <https://api-docs.deepseek.com/api/list-models>. On DeepSeek's own route (the configured seat, including behind a local forwarder) the seat follows DeepSeek's documented contract: every earlier assistant turn's `reasoning_content` goes back while tools ride the request (an unknown one goes back empty), and `max_tokens` is 256,000 unless `ANGEL_<SEAT>_MAX_TOKENS` or `ANGEL_CLUB_MAX_TOKENS` is set (the API's own default is 64K in thinking mode). |
 | `ANGEL_QWEN_URL` / `ANGEL_QWEN_MODEL` / `ANGEL_QWEN_KEY`                                                        | Optional Alibaba **Qwen Coding Plan** link for the `sota` box and `sota-moa` preset. URL defaults to `https://coding-intl.dashscope.aliyuncs.com/v1`, model defaults to `qwen3.7-plus`, key also falls back to `QWEN_API_KEY` / `DASHSCOPE_API_KEY`. Plan keys look like `sk-sp-…`; general DashScope keys (`sk-ws-…`) are rejected by this endpoint. The route also fronts `kimi-k2.5`, `glm-5`, `MiniMax-M2.5`, `qwen3-coder-next` and friends — pin one with `ANGEL_QWEN_MODEL`.                                                          |
 | `ANGEL_DEEPSEEK_FLASH_MODEL`                                                                                    | Model for the second DeepSeek seat (`deepseek-flash`), which shares `ANGEL_DEEPSEEK_URL`/`ANGEL_DEEPSEEK_KEY` with the pro seat. Defaults to `deepseek-flash` (V4.1 Flash, the native multimodal id); also falls back to `DEEPSEEK_FLASH_MODEL`. The legacy `deepseek-chat` / `deepseek-reasoner` ids were retired 2026-07-24, and the superseded `deepseek-v4-flash` / `deepseek-v4-flash-vision-exp` ids now alias `deepseek-flash`.                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -789,6 +816,15 @@ local fleet bodies change only where a rule is explicitly scoped to them.
 | `ANGEL_HARNESS_ROLLOUTS`                                   | `off`                                 | Step-exact semantic policy-call capture at the real harness boundary: `off` performs no allocation or route lookup, `shadow` stores only digests/metadata, and `local` additionally stores secret-screened semantic bodies. Captures remain training-ineligible until independent reward evidence is attached. |
 | `ANGEL_HARNESS_ROLLOUT_DIR`                                | `~/.angelX/harness-rollouts`           | Project-keyed private store for rollout journals, content-addressed local blobs, and immutable manifests. Audited exports are explicit: `angel --export-harness-rollout <id\|--all> <path\|->`; paths are create-new private files and `-` is the only stdout form. |
 | `ANGEL_TOOL_SCHEMA_PROFILE`                                | `auto`                                | Tool-schema payload policy: `auto` advertises the discoverable coding/action core for metered root routes and bounded task/delegate runs; roomy unbounded local routes retain the full set. `essential` always advertises the core, and `full` advertises every non-deferred tool. Hidden native schemas activate through the sticky tool bubble or `tool_search`. |
+| `ANGEL_CORE_TOOL_CATALOG` | unset | Absolute, operator-trusted path to a JSON override based on `lib/tools/definitions.json`. Eligible descriptions may change, each within its original UTF-8 byte budget; native book-backed campaign descriptions remain fixed; names, schemas and version must remain identical. Complete legacy 31-entry, 41-entry, 50-entry and 57-entry overrides and current 60-entry overrides are accepted; newer entries omitted by a legacy file come from the embedded baseline. Each turn pins one validated generation. Lean variants retain their native descriptions; searchable and deferred tools use the same pinned generation. Invalid, missing, relative or leaf-symlink overrides use the embedded baseline with a message; publish complete updates by atomic rename. |
+| `ANGEL_SLASH_HELP_CATALOG` | unset | Absolute, operator-trusted path to a JSON catalog based on `lib/control/slash-help.json`. `/help` captures the file on each invocation; invalid, missing, relative or leaf-symlink overrides produce a help error. Publish complete updates by atomic rename. Command parsing and execution remain native. |
+| `ANGEL_LESSON_ROUTING_CATALOG` | unset | Absolute, operator-trusted path to a JSON catalog based on `lib/knowledge/lesson-routing.json`. Each independently constructed lesson or classification captures a complete generation; invalid, missing, relative or leaf-symlink overrides use the embedded rules with a message. Publish complete updates by atomic rename. |
+| `ANGEL_SKILL_ROUTER_MODULE` | unset | Absolute path to a self-contained, reentrant, operator-trusted native library implementing the versioned skill-routing ABI in `cockpit/native/skill_router.c`. It runs with full process authority; input spans and callbacks are borrowed only during a call, which pins its module generation. The path is captured when the host starts, and a background worker checks for changes every 500 ms, keeping the last valid generation on errors. Publish complete libraries by atomic rename. |
+| `ANGEL_MOA_ROUTING_MODULE` | unset | Absolute path to a self-contained, reentrant, operator-trusted native library implementing the MoA routing ABI in `cockpit/native/moa_router.c`. It runs with full process authority; input spans and callbacks are borrowed only during a call. The path is captured at host startup; a background worker checks for changes every 500 ms, keeping the last valid generation on errors. Publish complete libraries by atomic rename. |
+| `ANGEL_ACTIVITY_CLASSIFIER_MODULE` | unset | Absolute path to a self-contained, reentrant, operator-trusted native library implementing the activity-classifier ABI in `cockpit/native/activity_classifier.c`. It runs with full process authority; callbacks and input spans are borrowed synchronously, and each call pins its module generation. The competition classifier export is optional; older modules use the built-in implementation. The path is captured at host startup; a background worker checks for changes every 500 ms, keeping the last valid generation on errors. Publish complete libraries by atomic rename. |
+| `ANGEL_VERIFY_SHELL_MODULE` | unset | Absolute path to a self-contained, reentrant, operator-trusted native library implementing the verifier-shell ABI in `cockpit/native/verify_shell.c`. It runs with full process authority; input spans and callbacks are borrowed synchronously, and each call pins its module generation. The path is captured at host startup; a background worker checks for changes every 500 ms, keeping the last valid generation on errors. Publish complete libraries by atomic rename. |
+| `ANGEL_TERMINAL_SPLITTER_MODULE` | unset | Absolute path to a self-contained, reentrant, operator-trusted native library implementing the terminal splitter ABI in `crates/term/native/splitter.c`. It runs with full process authority and must invoke borrowed callbacks synchronously and serially. The path is captured when the host starts; a background worker checks for changes every 500 ms and retains the last valid generation on errors. Streams adopt replacements at a text boundary before the next escape-bearing read, retaining their prior generation while a sequence is incomplete. Publish complete libraries by atomic rename. |
+| `ANGEL_SIXEL_NATIVE_MODULE` | unset | Absolute path to a self-contained, reentrant, operator-trusted native library implementing the sixel decoder ABI in `crates/term/native/sixel.c`. It runs with full process authority and borrows inputs and callbacks only during a call. The path is captured at host startup; a background worker checks for changes every 500 ms, keeping the last valid generation on errors. Publish complete libraries by atomic rename. |
 | `ANGEL_BOUNDED_TASK_SCHEMAS`                               | `1`                                   | In `auto` schema mode, use only the discoverable essential set for bounded turns, including the default interactive 64-hop turn. Hidden capabilities remain available through `tool_search`. Set `0` only as a fixed-payload ablation control; explicit `full` and `essential` profiles take precedence.                                     |
 | `ANGEL_SKILL_HINT`                                         | `1`                                   | Deterministically suggest at most one installed playbook when the current task matches a sanitized skill name. The bounded User-role hint never embeds the skill body or description; `0` is the causal off control.                                                                                                                          |
 | `ANGEL_TOOL_BUBBLE`                                        | `1`                                   | On metered root turns, select a small hidden-tool bubble once from the startup-built local catalogue. The bubble is sticky for the turn, so stable hops keep byte-identical definitions. `0` leaves only the coding core plus manual `tool_search`. |
@@ -934,6 +970,99 @@ not additional interactive model controls.
 | `ANGEL_PRICES_FILE` | unset | Override the trace ledger's TOML `[[prices]]` table. A readable override wins; otherwise use `~/.angelX/prices.toml`, then the build-embedded table. Readable but invalid/unpriced rows remain unknown, not zero cost. Re-read per record, with the selected source recorded. These are list-price estimates or nominal subscription fees, not observed account charges or remaining quota. |
 | `ANGEL_SANDBOX_TRACE` | off | `1`, `true` or `TRUE` emits helper phase/PID diagnostics on stderr and the full hardlink-scan digest receipt instead of its compact counts. Can enlarge captured tool output; it changes diagnostics, not confinement or sandbox authorization. |
 
+### Development build scope
+
+Every normal source launch runs Cargo's freshness check before opening the
+application. Current source is compiled when necessary; failure refuses to run
+an old image. The default feature set is the same for interactive, terminal and
+inspection entrypoints. `ANGEL_HEADLESS_DEFAULT_FEATURES=0` is an explicit
+headless feature opt-out, not a default startup optimization.
+
+**Known output-location exception:** normal builds can succeed yet launch an old
+`cockpit/target/<profile>/angel` if Cargo output is redirected. Do not set
+`CARGO_TARGET_DIR`, Cargo `build.target-dir`, or `build.target` for `angelX` source
+launches until artifact selection is qualified. This affects build-only path
+reporting too; no-build remains an explicit stale-image opt-out, not a workaround.
+The isolated JSON-artifact prototype corrected the reduced cases but added
+9.15 ms median paired warm-launch latency, so it was not adopted.
+[Evidence and remaining gates](../../docs/performance/launcher-artifact-location-20261029.md).
+
+`angelX build` prepares the same incremental build without opening another
+cockpit. `angelX build --release` selects shipping optimization and packaging;
+`angelX build --profile fast|debug|release` pins a Cargo profile. `ANGEL_DEV=1`
+selects debug; `ANGEL_FAST=1` selects fast and `ANGEL_FAST=0` selects release.
+These are compilation profiles, not separate user-facing applications.
+
+`ANGEL_NO_BUILD=1` explicitly forbids all builds and may run an old image; it is
+not the source default. Unset or `ANGEL_NO_BUILD=0` checks/builds current source
+and refuses an older image if compilation fails. Prebuilt installs retain their
+shipped release image and default to no-build; rebuilding one requires
+`ANGEL_NO_BUILD=0 angelX build --release`.
+
+`ANGEL_LAUNCH_BINARY` selects an explicit executable only with `ANGEL_NO_BUILD=1`
+and its expected `ANGEL_LAUNCH_BINARY_SHA256`. Regular/executable admission is
+nonblocking, and the private launch image is always hashed before execution.
+Successful hardlinks need one full-file scan; copy fallbacks verify both source
+and copy, rejecting wrong pins before copying. This is not an immutable-image or
+race-free execution guarantee. [Measured scope and limits](../../docs/performance/launcher-pin-hash-and-blaze-cwd-20261029.md).
+
+Only `angelX build --background` schedules a background worker. Concurrent
+requests coalesce into one follow-up using the latest requested profile, even
+if the current build fails. A new worker publishes `queued` before it starts,
+then `running` and `succeeded` or `failed`; an old success is not the new request's
+receipt. Status and log live in `cockpit/target/background-build.json` and
+`background-build.log`. Ordinary launches still check current source themselves;
+`ANGEL_BACKGROUND_BUILD` no longer opts them into stale-image startup.
+
+For the four existing native routing/classification/verifier modules, opt into
+live reload without a host rebuild:
+
+```sh
+angelX build --modules
+ANGEL_NATIVE_MODULES=1 angelX
+# After editing cockpit/native/*.c, from another terminal:
+angelX build --modules
+```
+
+`--modules` builds host-native libraries only; it does not invoke Cargo or open
+a cockpit. Unchanged source/compiler/flags/output bytes are reused. Changed
+libraries publish by atomic rename, so in-flight calls retain their old generation.
+The existing reload workers check every 500 ms; bad modules retain the last valid
+generation. Failed compilation leaves the previous batch intact: all compiler
+children finish and all input checks succeed before any library is published.
+Publication is atomic per library, not a cross-library transaction.
+`CC` and `CFLAGS` select the host compiler and extra flags; this is not a cross-build path.
+The standalone builder compiles up to four changed modules concurrently (bounded
+by available CPUs). `ANGEL_NATIVE_BUILD_JOBS=1` forces serial work; positive
+values are capped at four. An inherited Make/Cargo jobserver keeps the builder
+serial so it does not consume unreserved compiler slots. Unchanged modules
+avoid compiler/pool startup entirely. [Measurements and limits](../../docs/performance/native-reload-parallel-20261028.md).
+`ANGEL_NO_BUILD=1` still forbids compilation. Host profiles and `--background`
+cannot be combined with `--modules`.
+
+`ANGEL_NATIVE_MODULES=1` sets default paths under `cockpit/target/native/` for
+`ANGEL_SKILL_ROUTER_MODULE`, `ANGEL_ACTIVITY_CLASSIFIER_MODULE`,
+`ANGEL_VERIFY_SHELL_MODULE`, and `ANGEL_MOA_ROUTING_MODULE`. An explicitly set
+per-module variable wins, including an empty value to disable that override.
+Ordinary launches do not enable extra reload workers. General Rust host changes
+still require a host build; this is not a general-purpose code hotloader.
+
+Every normal build compiles and embeds the Delve browser bundle, including
+working (`debug`/`dev`/`fast`) builds. The working browser profile (`web-fast`)
+uses the same source and functionality without shipping fat LTO.
+Large embedded web assets are stored losslessly and decoded only on demand
+when the browser hosting bundle is requested. Original names, content types and
+decoded bytes are retained; the cockpit startup path does not unpack them.
+`ANGEL_DEV_SKIP_WEB_BUNDLE=1` is an explicit development-only opt-out, not the
+default and not a valid full-application startup measurement. Shipping profiles
+reject that opt-out. `ANGEL_DEV_SKIP_WEB_BUNDLE=0` explicitly retains the default.
+Cargo detects changes to this setting and reruns the build script.
+
+Development builds default to unbound committed-source identity, avoiding
+source-digest rebinding on every commit. `ANGEL_BIND_SOURCE=1` opts in; release
+builds bind clean source by default. An explicit `ANGEL_BUILD_SOURCE_SHA256`
+remains authoritative.
+
 ### Run identity build metadata
 
 `ANGEL_BUILD_RUSTC` is the complete `rustc -vV` output captured by `bin/angelX` at build time (including host triple). `ANGEL_BUILD_PROFILE` is the launcher-selected build profile. Both are compiled into build/run identity; absent values remain `unbound`. They do not select a runtime route or constrain a run.
@@ -961,12 +1090,15 @@ effort overrides global effort; both override the table. CLI/THINK effort
 overrides retain their existing priority. No calibration installs a clock on a
 live model stream.
 
-`~/.angelX/model-calibration.toml` is loaded once per process. Its `[[models]]`
-entries replace matching embedded entries; other embedded entries remain. Each
-entry needs `model`, `receipt`, `reason`, and `date` (or a top-level date), with
-optional `default_effort` (a `stream_stall_secs` or `turn_idle_secs` field is
-ignored). Missing fields in a replacement use provider defaults. Invalid override files fall back to the
-embedded table with a diagnostic. Restart to load a promoted table.
+`~/.angelX/model-calibration.toml` is hotloaded at request boundaries. Its
+`[[models]]` entries replace matching embedded entries; other embedded entries
+remain. Each entry needs `model`, `receipt`, `reason`, and `date` (or a top-level
+date), with optional `default_effort` (a `stream_stall_secs` or `turn_idle_secs`
+field is ignored). Missing fields in a replacement use provider defaults. Publish
+updates by writing a complete file and atomically renaming it over the path.
+Invalid, missing, or in-place changes retain the last accepted generation; at
+startup an invalid file falls back to the embedded table. See
+`docs/telemetry/model-calibration-hotload.md` for the publication protocol.
 
 `identity.budgets` records resolved values, sources, notes and receipt;
 the headless driver line prints the resolved controls. Source `env` also denotes
@@ -1201,9 +1333,10 @@ that a cue appears only when the model's latest actions make it relevant
 
 Addresses nest. A chapter is a braille letter k–z; a section attaches to it as
 a braille digit (⠁1 ⠃2 ⠉3 ⠙4 ⠑5 ⠋6 ⠛7 ⠓8 ⠊9 ⠚0) and is a route; a page
-attaches to a section as a second digit. A page is one sentence of the prompt
-it came from, verbatim — a section's pages rebuild that block exactly, and a
-test pins every original hint (`every_original_hint_is_rebuilt_verbatim_from_its_pages`).
+attaches to a section as a second digit. The embedded baseline preserves the
+original prompt sentences verbatim; operator-published catalog overrides are
+local and may differ. A test pins every original hint
+(`every_original_hint_is_rebuilt_verbatim_from_its_pages`).
 A **warpath** is up to three routes, six cells, read in order: `⠧⠁⠧⠋⠟⠁` is "the
 last test run is red, the edits are untested, if stuck take the deli route".
 `read_file ledger://<cells>` decodes a chapter, a section, a page or any run of
@@ -1255,6 +1388,7 @@ some once preceded are gone.
 | `⠼⠋` | mutation thrash | the same edit issued three times |
 | `⠼⠛` | peripheral fan-out | four edits under docs/testdata/fixtures, none in the code |
 | `⠼⠓` | error cascade | six hops in a row of every call failing (the count starts again) |
+| `⠼⠊` | post-edit logic | the turn's first successful edit, once |
 | `⡅⠁` | competition winner bank | a full verifier passed in a competition turn |
 | `⡅⠃` | verified candidate changed | an edit after that green in a competition turn |
 | `⡅⠉` | rapid first write | `⠼⠉`'s condition in a rapid competition turn |

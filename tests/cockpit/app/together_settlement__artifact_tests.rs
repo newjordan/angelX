@@ -1,7 +1,7 @@
-use super::tests::{Temp, facts, value};
+use super::tests::{Temp, state, value};
 use super::*;
 use crate::drive::{
-    loop_ctl::{self, LoopStatus},
+    loop_ctl::{self, LoopState, LoopStatus},
     together_shooter::{Run, TILE_UNITS, home::Home},
 };
 use crate::stage::world_viz::{
@@ -20,11 +20,11 @@ impl Fixture {
         let dir = Temp::new();
         std::fs::create_dir(dir.path().join("reports")).unwrap();
         std::fs::create_dir(dir.path().join(".angelX")).unwrap();
-        let mut st = facts("real-research-loop", &(1..=14).collect::<Vec<_>>());
+        let mut st = state("real-research-loop", &(1..=14).collect::<Vec<_>>());
         st.workspace = Some(dir.path().to_path_buf());
         st.confirm_settlement_checkpoint_for_test();
         let mut store = Store::beside(Some(&dir.path().join("island.json")), 77, "Miner").unwrap();
-        store.sync(&st, false).unwrap();
+        store.sync(&st.summary(), false).unwrap();
         std::fs::write(dir.path().join("reports/result.txt"), b"Measured result: 37 samples; median 12 ms. Baseline 15 ms.\nUncertainty: local fixture only, not official evaluation.\n").unwrap();
         let fixture = Self { dir, store, st };
         fixture.manifest(json!([{"key":"median-v1", "title":"PRIVATE measured latency", "source":"reports/result.txt", "status":"reported"}]));
@@ -56,13 +56,13 @@ impl Fixture {
         std::fs::write(path, serde_json::to_vec(&manifest).unwrap()).unwrap();
     }
     fn deposit_named(&mut self, name: &str) -> Result<usize, String> {
-        self.store.deposit(&self.st, self.dir.path(), Some(name))
+        self.store.deposit(&self.st.summary(), self.dir.path(), Some(name))
     }
     fn disk(&self) -> Vec<u8> {
         std::fs::read(self.store.path.as_ref().unwrap()).unwrap()
     }
     fn deposit(&mut self) -> Result<usize, String> {
-        self.store.deposit(&self.st, self.dir.path(), None)
+        self.store.deposit(&self.st.summary(), self.dir.path(), None)
     }
     fn run(&self) -> Run {
         let mut run = Run::at_home(77, 91, None, Home::default(), Default::default());
@@ -85,59 +85,73 @@ fn settlement_durable_receipts_require_canonical_save_not_watchdog_cursor() {
     let path = dir.path().join("loop.json");
     let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
     let _mirror = crate::tests::TestEnvGuard::set("ANGEL_LOOP_STATE_DIR", "");
-    let mut st = facts("durable", &[1]);
+    let mut st = state("durable", &[1]);
     st.workspace = Some(dir.path().to_path_buf());
     st.settlement_checkpoint.borrow_mut().take();
     st.persisted_log.set(st.log.len()); // Watchdog does NOT establish durability.
     let mut store = Store::beside(Some(&dir.path().join("island.json")), 77, "Miner").unwrap();
-    assert!(!store.sync(&st, false).unwrap());
+    assert!(!store.sync(&st.summary(), false).unwrap());
     assert!(!store.site.associated());
     loop_ctl::save(&st); // Idle writes nothing.
     assert!(!path.exists());
-    assert!(!store.sync(&st, false).unwrap());
+    assert!(!store.sync(&st.summary(), false).unwrap());
     st.status = LoopStatus::Stopped;
-    std::fs::write(&path, b"corrupt checkpoint").unwrap();
+    // A destination that cannot be read or replaced must not grant credit.
+    std::fs::create_dir(&path).unwrap();
     loop_ctl::save(&st);
     assert!(st.durable_settlement_events().is_none());
-    assert!(!store.sync(&st, false).unwrap());
-    std::fs::remove_file(&path).unwrap();
+    assert!(!store.sync(&st.summary(), false).unwrap());
+    std::fs::remove_dir(&path).unwrap();
+    // Corrupt-checkpoint recovery preserves the bad bytes beside a newly
+    // committed canonical save; only that successful save grants credit.
+    let corrupt = b"corrupt checkpoint";
+    std::fs::write(&path, corrupt).unwrap();
     loop_ctl::save(&st);
+    let asides: Vec<_> = std::fs::read_dir(dir.path())
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|p| p.file_name().unwrap().to_string_lossy().starts_with("loop.json.corrupt-"))
+        .collect();
+    assert_eq!(asides.len(), 1, "the corrupt checkpoint is preserved once");
+    assert_eq!(std::fs::read(&asides[0]).unwrap(), corrupt);
+    let saved: LoopState = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    assert_eq!(saved.id, st.id, "credit follows the canonical restart checkpoint");
     assert_eq!(st.persisted_log.get(), 1);
-    assert!(store.sync(&st, false).unwrap());
+    assert!(store.sync(&st.summary(), false).unwrap());
     assert_eq!(store.site.work, 1);
     let mut resumed = loop_ctl::load_for(dir.path()).unwrap();
-    assert!(!store.sync(&resumed, false).unwrap());
-    let new = facts("durable", &[2]).log.remove(0);
+    assert!(!store.sync(&resumed.summary(), false).unwrap());
+    let new = state("durable", &[2]).log.remove(0);
     resumed.log.push(new.clone());
     // Save failure cannot credit the new row (keep old confirmed snapshot).
     std::fs::remove_file(&path).unwrap();
     std::fs::create_dir(&path).unwrap();
     loop_ctl::save(&resumed);
-    assert!(!store.sync(&resumed, false).unwrap());
+    assert!(!store.sync(&resumed.summary(), false).unwrap());
     assert_eq!(store.site.work, 1);
     std::fs::remove_dir(&path).unwrap();
     loop_ctl::save(&resumed);
-    assert!(store.sync(&resumed, false).unwrap());
+    assert!(store.sync(&resumed.summary(), false).unwrap());
     assert_eq!(store.site.work, 2);
     // Truncate the history: preserve old site receipts, do NOT use length/high-water.
     resumed.log = vec![new];
     loop_ctl::save(&resumed);
-    assert!(!store.sync(&resumed, false).unwrap());
-    let mut next = facts("durable", &[8]);
+    assert!(!store.sync(&resumed.summary(), false).unwrap());
+    let mut next = state("durable", &[8]);
     next.workspace = resumed.workspace.clone();
     next.status = LoopStatus::Stopped;
     next.settlement_checkpoint.borrow_mut().take();
     loop_ctl::save(&next);
-    assert!(store.sync(&next, false).unwrap());
+    assert!(store.sync(&next.summary(), false).unwrap());
     assert_eq!(
         store.site.work, 3,
         "only persisted rows 1,2,8, not iteration gaps"
     );
     let restored = loop_ctl::load_for(dir.path()).unwrap();
-    assert!(!store.sync(&restored, false).unwrap());
+    assert!(!store.sync(&restored.summary(), false).unwrap());
     assert_eq!(store.site.work, 3);
     next.id = "unsaved-new-loop".into();
-    assert!(!store.sync(&next, false).unwrap());
+    assert!(!store.sync(&next.summary(), false).unwrap());
     assert!(!store.site.loops.contains_key("unsaved-new-loop"));
     // Deserializing model/file JSON is not by itself persistence authority.
     let unconfirmed: LoopState =
@@ -323,22 +337,22 @@ fn settlement_exhibits_named_host_command_preserves_live_run_and_legacy() {
         .unwrap()
         .set_workspace(f.dir.path().to_path_buf());
     app.loop_ctl = f.st;
-    app.world.settlement_restore_for_test(f.store);
+    app.realm.world.settlement_restore_for_test(f.store);
     assert!(
         app.dungeon_command(Some("settlement"))
             .contains("PLAYER HALL")
     );
-    let live = serde_json::to_value(app.dungeon.shooter.as_ref().unwrap()).unwrap();
+    let live = serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap();
     // Direct calls normalize command edges and separator whitespace just as
     // App submission and existing commands do; only the actual name is strict.
     let message = app.dungeon_command(Some(" \tdeposit  \tNative_14 \t\n"));
     assert!(message.contains("Deposited 1"), "{message}");
     assert!(message.contains("No rewards granted"));
     assert_eq!(
-        serde_json::to_value(app.dungeon.shooter.as_ref().unwrap()).unwrap(),
+        serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap(),
         live
     );
-    let committed = value(app.world.settlement_site().unwrap().unwrap());
+    let committed = value(app.realm.world.settlement_site().unwrap().unwrap());
     let disk = std::fs::read(&ledger).unwrap();
     for command in [
         "deposit Native_14",
@@ -350,16 +364,16 @@ fn settlement_exhibits_named_host_command_preserves_live_run_and_legacy() {
         let message = app.dungeon_command(Some(command));
         assert!(message.contains("Deposited 0"), "{command:?}: {message}");
         assert_eq!(
-            value(app.world.settlement_site().unwrap().unwrap()),
+            value(app.realm.world.settlement_site().unwrap().unwrap()),
             committed
         );
         assert_eq!(std::fs::read(&ledger).unwrap(), disk);
         assert_eq!(
-            serde_json::to_value(app.dungeon.shooter.as_ref().unwrap()).unwrap(),
+            serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap(),
             live
         );
     }
-    let site = value(app.world.settlement_site().unwrap().unwrap());
+    let site = value(app.realm.world.settlement_site().unwrap().unwrap());
     assert_eq!(site["resources"], before["resources"]);
     assert_eq!(site["work"], before["work"]);
     assert_eq!(site["exhibits"].as_array().unwrap().len(), 1);
@@ -367,29 +381,29 @@ fn settlement_exhibits_named_host_command_preserves_live_run_and_legacy() {
     let message = app.dungeon_command(Some(" \tdeposit  missing \t"));
     assert!(message.contains("not committed"));
     assert!(message.contains(".angelX/settlement-exhibits/missing.json"));
-    assert_eq!(value(app.world.settlement_site().unwrap().unwrap()), site);
+    assert_eq!(value(app.realm.world.settlement_site().unwrap().unwrap()), site);
     // Empty/whitespace-only tails use None and preserve legacy admission.
     assert!(
         app.dungeon_command(Some(" \tdeposit \t\n"))
             .contains("Deposited 1")
     );
     assert_eq!(
-        serde_json::to_value(app.dungeon.shooter.as_ref().unwrap()).unwrap(),
+        serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap(),
         live
     );
     assert_eq!(
-        app.world.settlement_site().unwrap().unwrap().exhibits.len(),
+        app.realm.world.settlement_site().unwrap().unwrap().exhibits.len(),
         2
     );
-    let legacy = value(app.world.settlement_site().unwrap().unwrap());
+    let legacy = value(app.realm.world.settlement_site().unwrap().unwrap());
     let disk = std::fs::read(&ledger).unwrap();
     for command in ["deposit", "deposit ", " \tdeposit\t \n"] {
         let message = app.dungeon_command(Some(command));
         assert!(message.contains("Deposited 0"), "{command:?}: {message}");
-        assert_eq!(value(app.world.settlement_site().unwrap().unwrap()), legacy);
+        assert_eq!(value(app.realm.world.settlement_site().unwrap().unwrap()), legacy);
         assert_eq!(std::fs::read(&ledger).unwrap(), disk);
         assert_eq!(
-            serde_json::to_value(app.dungeon.shooter.as_ref().unwrap()).unwrap(),
+            serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap(),
             live
         );
     }
@@ -451,14 +465,14 @@ fn settlement_exhibits_bad_named_admission_rejected_before_reads_or_sync() {
     // Deliberately unsynced durable work: embedded whitespace, multiple tokens,
     // dots and paths remain invalid after command-edge trimming and must return
     // before settlement sync or reads, never falling back to legacy admission.
-    f.st.log.push(facts(&f.st.id, &[15]).log.remove(0));
+    f.st.log.push(state(&f.st.id, &[15]).log.remove(0));
     f.st.confirm_settlement_checkpoint_for_test();
     let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
     std::sync::Arc::get_mut(&mut app.tools)
         .unwrap()
         .set_workspace(f.dir.path().to_path_buf());
     app.loop_ctl = f.st;
-    app.world.settlement_restore_for_test(f.store);
+    app.realm.world.settlement_restore_for_test(f.store);
     for command in [
         "deposit ../outside",
         "deposit a.json",
@@ -475,7 +489,7 @@ fn settlement_exhibits_bad_named_admission_rejected_before_reads_or_sync() {
                 .contains("invalid manifest name"),
             "{command:?}"
         );
-        assert_eq!(value(app.world.settlement_site().unwrap().unwrap()), before);
+        assert_eq!(value(app.realm.world.settlement_site().unwrap().unwrap()), before);
         assert_eq!(std::fs::read(&ledger).unwrap(), disk);
     }
 }
@@ -528,10 +542,10 @@ fn settlement_exhibits_named_wrong_loop_unsaved_receipt_and_batch_rollback() {
     f.deposit().unwrap();
     let artifact = json!([{"key":"new-named", "title":"Local report", "source":"reports/result.txt", "status":"reported"}]);
     // An older loop with genuine site receipts is still not the current durable loop.
-    let mut older = facts("older-loop", &[1]);
+    let mut older = state("older-loop", &[1]);
     older.workspace = f.st.workspace.clone();
     older.confirm_settlement_checkpoint_for_test();
-    f.store.sync(&older, false).unwrap();
+    f.store.sync(&older.summary(), false).unwrap();
     let before = value(&f.store.site);
     let disk = f.disk();
     f.write_named(
@@ -544,7 +558,7 @@ fn settlement_exhibits_named_wrong_loop_unsaved_receipt_and_batch_rollback() {
             .unwrap_err()
             .contains("durably recorded")
     );
-    f.st.log.push(facts(&f.st.id, &[15]).log.remove(0)); // Live log is not a saved receipt.
+    f.st.log.push(state(&f.st.id, &[15]).log.remove(0)); // Live log is not a saved receipt.
     f.named("unsaved", 15, artifact.clone());
     assert!(
         f.deposit_named("unsaved")
@@ -584,7 +598,7 @@ fn settlement_exhibits_named_wrong_loop_unsaved_receipt_and_batch_rollback() {
     assert!(f.deposit_named("bad-batch").is_err());
     assert_eq!(value(&f.store.site), before);
     assert_eq!(f.disk(), disk);
-    f.store.sync(&f.st, false).unwrap();
+    f.store.sync(&f.st.summary(), false).unwrap();
     assert_eq!(f.deposit_named("unsaved").unwrap(), 1);
     assert_eq!(f.deposit_named("unsaved").unwrap(), 0);
 }
@@ -917,17 +931,17 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
         .expect("preview registry is uniquely owned")
         .set_workspace(f.dir.path().to_path_buf());
     app.loop_ctl = f.st;
-    app.dungeon.shooter.set(Some(run));
-    app.world.settlement_restore_for_test(f.store);
-    app.dungeon.expanded = true;
-    app.dungeon.controls_visible = true;
-    app.dungeon.notice = "PUBLIC generic notice".into();
+    app.realm.dungeon.shooter.set(Some(run));
+    app.realm.world.settlement_restore_for_test(f.store);
+    app.realm.dungeon.expanded = true;
+    app.realm.dungeon.controls_visible = true;
+    app.realm.dungeon.notice = "PUBLIC generic notice".into();
     assert!(
         app.dungeon_command(Some("inspect"))
             .contains("never sent to guests")
     );
     assert!(
-        app.dungeon
+        app.realm.dungeon
             .exhibit_text
             .as_ref()
             .unwrap()
@@ -941,33 +955,33 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
         .join("\n");
     assert!(prompt.contains("LOCAL RESEARCH DEPOSITION"));
     assert!(prompt.contains(".angelX/settlement-exhibits.json"));
-    assert_eq!(app.dungeon.notice, "PUBLIC generic notice");
+    assert_eq!(app.realm.dungeon.notice, "PUBLIC generic notice");
     assert!(app.dungeon_controls_blocked());
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)));
-    assert_eq!(app.dungeon.exhibit_scroll, 1);
+    assert_eq!(app.realm.dungeon.exhibit_scroll, 1);
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
-    assert!(app.dungeon.exhibit_text.is_none());
-    assert_eq!(app.dungeon.activity_menu, Some(1));
+    assert!(app.realm.dungeon.exhibit_text.is_none());
+    assert_eq!(app.realm.dungeon.activity_menu, Some(1));
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
-    assert!(app.dungeon.activity_menu.is_none());
-    assert_eq!(app.dungeon.notice, "PUBLIC generic notice");
-    app.dungeon.controls_visible = true;
+    assert!(app.realm.dungeon.activity_menu.is_none());
+    assert_eq!(app.realm.dungeon.notice, "PUBLIC generic notice");
+    app.realm.dungeon.controls_visible = true;
     app.terminal_focused = true;
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE)));
     assert!(
-        app.dungeon
+        app.realm.dungeon
             .exhibit_text
             .as_ref()
             .unwrap()
             .contains("37 samples")
     );
-    assert_eq!(app.dungeon.notice, "PUBLIC generic notice");
+    assert_eq!(app.realm.dungeon.notice, "PUBLIC generic notice");
     // Away from the exhibit, E is the knight's interact key again: no
     // overlay and no digest.
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
-    assert_eq!(app.dungeon.activity_menu, Some(1));
+    assert_eq!(app.realm.dungeon.activity_menu, Some(1));
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)));
-    app.dungeon.controls_visible = true;
+    app.realm.dungeon.controls_visible = true;
     let hero = app
         .dungeon
         .shooter
@@ -977,9 +991,9 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
         .get_mut(&1)
         .unwrap();
     hero.x += 4.0 * crate::drive::together_shooter::TILE_UNITS;
-    assert!(!app.dungeon.shooter.as_ref().unwrap().beside_exhibit(1));
+    assert!(!app.realm.dungeon.shooter.as_ref().unwrap().beside_exhibit(1));
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE)));
-    assert!(app.dungeon.exhibit_text.is_none(), "E away from an exhibit opens nothing");
+    assert!(app.realm.dungeon.exhibit_text.is_none(), "E away from an exhibit opens nothing");
 }
 
 #[test]
@@ -987,18 +1001,18 @@ fn settlement_exhibits_capacity_growth_reload_and_bounded_text() {
     let mut f = Fixture::new();
     // Also exercise deposition BEFORE any room is built: stands belong to the Hall.
     f.store = Store::beside(Some(&f.dir.path().join("early.json")), 77, "Miner").unwrap();
-    f.st = facts("real-research-loop", &[1]);
+    f.st = state("real-research-loop", &[1]);
     f.st.workspace = Some(f.dir.path().to_path_buf());
     f.st.confirm_settlement_checkpoint_for_test();
-    f.store.sync(&f.st, false).unwrap();
+    f.store.sync(&f.st.summary(), false).unwrap();
     let mut manifest = json!({"schema":"angel.settlement-exhibits/v1", "site_id":f.store.site.id,"loop_id":f.st.id,"iteration":1,
         "artifacts":[{"key":"early","title":"Empty room research","source":"reports/result.txt","status":"inconclusive"}]});
     f.write(manifest.clone());
     f.deposit().unwrap();
     assert_eq!(f.store.site.exhibits[0].marker.room, 0);
-    f.st.log = facts("real-research-loop", &(1..=35).collect::<Vec<_>>()).log;
+    f.st.log = state("real-research-loop", &(1..=35).collect::<Vec<_>>()).log;
     f.st.confirm_settlement_checkpoint_for_test();
-    f.store.sync(&f.st, true).unwrap();
+    f.store.sync(&f.st.summary(), true).unwrap();
     let resumed = Store::beside(Some(&f.dir.path().join("early.json")), 77, "Miner").unwrap();
     assert_eq!(
         resumed.site.exhibit_markers(),

@@ -125,7 +125,7 @@ fn asset_shelf_preview_back_returns_to_the_same_tower_room() {
     app.input = "/tower".into();
     app.submit();
     render_app_text(&mut app, 144, 48);
-    assert!(app.world.visiting_scrying_tower());
+    assert!(app.realm.world.visiting_scrying_tower());
     assert!(
         app.scryglass.controller.overlay().is_none(),
         "Tower must leave both lesson and its catalog overlay"
@@ -149,7 +149,7 @@ fn asset_shelf_preview_back_returns_to_the_same_tower_room() {
     render_app_text(&mut app, 144, 48);
     assert_eq!(app.scryglass.controller.route(), tower_route);
     assert!(
-        app.world.visiting_scrying_tower(),
+        app.realm.world.visiting_scrying_tower(),
         "Back from the shelf must not eject the operator from the tower"
     );
 }
@@ -539,7 +539,7 @@ fn compact_header_keeps_project_controls_when_operator_status_is_long() {
     crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
     app.statusline = Some("operator-status-".repeat(16));
-    app.world.note_tool_call_event(
+    app.realm.world.note_tool_call_event(
         harness::ToolEventId("compact-header-pulse".to_string()),
         "exec_command",
         "cmd=cargo test, workdir=/tmp/project",
@@ -576,7 +576,7 @@ fn agent_summary_uses_structured_cell_bounded_realm_pulse() {
     crate::drive::comp_mode::invalidate_cache();
     crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
-    app.world.note_tool_call_event(
+    app.realm.world.note_tool_call_event(
         harness::ToolEventId("agent-summary-pulse".to_string()),
         "functions.read_file",
         "path=資料/設計🧪/実装/検証/結果.md",
@@ -639,17 +639,17 @@ fn live_realm_stage_surfaces_degraded_memory_at_the_chapel() {
     crate::drive::comp_mode::invalidate_cache();
     crate::ui::surfaces::invalidate_backdrop_cache();
     let mut app = App::preview(Viewer::static_preview());
-    app.world.note_tool_call_event(
+    app.realm.world.note_tool_call_event(
         harness::ToolEventId("memory-health-stage".to_string()),
         "memory__recall",
         "project conventions",
     );
-    app.world
+    app.realm.world
         .note_memory_health(crate::knowledge::memory::store::MemoryHealth::Degraded);
 
     let screen = render_app_text(&mut app, 120, 40);
     assert!(
-        app.world.memory_health() == crate::knowledge::memory::store::MemoryHealth::Degraded,
+        app.realm.world.memory_health() == crate::knowledge::memory::store::MemoryHealth::Degraded,
         "memory health remains explicit\n{screen}"
     );
     assert!(
@@ -1295,7 +1295,7 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
     );
 
     let mut app = seed_preview_app();
-    let town = app.world.town_name().to_string();
+    let town = app.realm.world.town_name().to_string();
     let standard = render_app_text(&mut app, 144, 48);
     assert!(
         !standard.contains("Scryglass · REALM"),
@@ -1605,15 +1605,15 @@ fn hidden_and_comp_mode_skip_world_mirrors_without_slowing_default() {
     app.loop_ctl.task = "visible loop mirror".into();
     app.advance();
     assert!(
-        app.world.loop_mirrored_for_test(),
+        app.realm.world.loop_mirrored_for_test(),
         "default visible Stage still mirrors /loop"
     );
 
-    let r0 = app.world.renown();
-    app.world.turn_started();
+    let r0 = app.realm.world.renown();
+    app.realm.world.turn_started();
     app.finish_world_turn(true);
     assert!(
-        app.world.renown() > r0,
+        app.realm.world.renown() > r0,
         "default visible Stage still credits turn-end renown"
     );
 
@@ -1781,10 +1781,10 @@ fn hidden_and_comp_mode_skip_world_animating_without_slowing_default() {
 
     let mut app = seed_preview_app();
     app.world_pane_visible = true;
-    app.world
+    app.realm.world
         .note_tool_call("apply_patch", "move the knight for cadence testing");
     assert!(
-        app.world.animating(),
+        app.realm.world.animating(),
         "default fixture still has on-screen world motion"
     );
     assert!(
@@ -1933,21 +1933,21 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
         "an idle town shows none of the adventure chrome\n{town}"
     );
 
-    app.world
+    app.realm.world
         .note_adventure(world_viz::AdventureEvent::LoopStarted {
             kind: world_viz::LoopKind::Competition,
             task: "kernel benchmark".to_string(),
         });
-    app.world
+    app.realm.world
         .note_adventure(world_viz::AdventureEvent::Iteration { n: 7 });
-    app.world
+    app.realm.world
         .note_adventure(world_viz::AdventureEvent::Stall { level: 2 });
 
     let mut terminal = Terminal::new(TestBackend::new(144, 48)).unwrap();
     terminal.draw(|frame| draw::ui(frame, &mut app)).unwrap();
     let screen = test_backend_text(terminal.backend());
-    assert_eq!(app.world.quest().region().label(), "The Swamp");
-    assert!(app.world.quest_owns_pane());
+    assert_eq!(app.realm.world.quest().region().label(), "The Swamp");
+    assert!(app.realm.world.quest_owns_pane());
     assert!(
         app.object_dock.offers(crate::app::WorldButton::Back),
         "world action rail remains available (floated from the dock)"
@@ -1971,7 +1971,7 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
 
 /// Z5 §1: off Castle Town the quest owns the pane.
 ///
-/// The live run (Toymaker, 2026-09-06) had a coding loop in The Mines while a
+/// The live run (2026-09-06) had a coding loop in The Mines while a
 /// `write_file` walked the town knight to the Smithy — and the Smithy's
 /// ARRIVAL establishing shot took the pane, with the Mines plate underneath
 /// and the Z4 HUD gone. The ride surface has to survive the arrival, and the
@@ -2001,27 +2001,27 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     app.loop_ctl.task = "implement the tool-arrival seam".into();
     app.adventure_mirror_drain();
     assert_eq!(
-        app.world.quest().region(),
+        app.realm.world.quest().region(),
         world_viz::Region::TheMines,
         "a coding loop adventures in the mines"
     );
-    assert!(app.world.quest_owns_pane());
+    assert!(app.realm.world.quest_owns_pane());
 
     // The live tool path: classify → journey → the knight settles at the
     // landmark, which is what arms the ARRIVAL overlay.
     let call_id = crate::agent::harness::ToolEventId("z5-quest-arrival".into());
-    app.world
+    app.realm.world
         .note_tool_call_event(call_id.clone(), "write_file", "cockpit/src/lib.rs");
     app.scryglass
         .begin_journey(call_id, world_viz::Building::Smithy, false);
     for _ in 0..200 {
-        app.world.tick();
-        if app.world.arrived_building() == Some(world_viz::Building::Smithy) {
+        app.realm.world.tick();
+        if app.realm.world.arrived_building() == Some(world_viz::Building::Smithy) {
             break;
         }
     }
     assert_eq!(
-        app.world.arrived_building(),
+        app.realm.world.arrived_building(),
         Some(world_viz::Building::Smithy),
         "the knight has to reach the landmark for ARRIVAL to arm at all"
     );
@@ -2037,12 +2037,12 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     assert_eq!(
         app.scryglass
             .controller
-            .resolved_scene(false, false, app.world.quest_owns_pane()),
+            .resolved_scene(false, false, app.realm.world.quest_owns_pane()),
         crate::ui::scryglass::StageSurface::WorldFirstPerson,
         "the ride surface stays while the quest is away from town"
     );
     assert!(
-        app.world.quest().region().label() == "The Mines" && app.world_pane_visible,
+        app.realm.world.quest().region().label() == "The Mines" && app.world_pane_visible,
         "quest still owns the world pane after the tool arrival\n{screen}"
     );
     assert!(
@@ -2062,10 +2062,10 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     app.loop_ctl.status = LoopStatus::Done;
     app.adventure_mirror_drain();
     for _ in 0..130 {
-        app.world.tick();
+        app.realm.world.tick();
     }
-    assert_eq!(app.world.quest().region(), world_viz::Region::CastleTown);
-    assert!(!app.world.quest_owns_pane());
+    assert_eq!(app.realm.world.quest().region(), world_viz::Region::CastleTown);
+    assert!(!app.realm.world.quest_owns_pane());
 
     app.scryglass.navigate(scryglass::StageRoute::Realm);
     app.scryglass.sync_arrival(Some(world_viz::Building::Keep));
@@ -2074,7 +2074,7 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     assert_eq!(
         app.scryglass
             .controller
-            .resolved_scene(false, false, app.world.quest_owns_pane()),
+            .resolved_scene(false, false, app.realm.world.quest_owns_pane()),
         crate::ui::scryglass::StageSurface::Arrival(world_viz::Building::Scriptorium),
         "back in town, arrivals are exactly what they were"
     );
@@ -2149,7 +2149,7 @@ fn explicitly_opened_tower_keeps_its_asset_doorway_in_competition_mode() {
     app.submit();
     let rendered = render_app_text(&mut app, 144, 48);
     assert!(rendered.contains("[Assets]"), "{rendered}");
-    assert!(app.world.visiting_scrying_tower());
+    assert!(app.realm.world.visiting_scrying_tower());
     assert!(!crate::drive::comp_mode::ambient_stage_sim_allowed());
     assert!(
         app.world_buttons
@@ -2162,9 +2162,9 @@ fn explicitly_opened_tower_keeps_its_asset_doorway_in_competition_mode() {
     assert_eq!(app.scryglass.surface, scryglass::StageSurface::Assets);
     app.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     render_app_text(&mut app, 144, 48);
-    assert!(app.world.visiting_scrying_tower());
+    assert!(app.realm.world.visiting_scrying_tower());
     app.apply_world_button(WorldButton::ScryglassFollow);
-    assert!(!app.world.visiting_scrying_tower());
+    assert!(!app.realm.world.visiting_scrying_tower());
     assert_eq!(
         app.scryglass.controller.route(),
         scryglass::StageRoute::Realm
@@ -2185,12 +2185,12 @@ fn a_loops_crawl_says_what_the_party_does_under_its_picture() {
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
     app.scryglass.navigate(scryglass::StageRoute::Realm);
-    app.world
+    app.realm.world
         .note_adventure(world_viz::AdventureEvent::LoopStarted {
             kind: world_viz::LoopKind::Coding,
             task: "an actual coding loop".to_string(),
         });
-    app.world
+    app.realm.world
         .note_adventure(world_viz::AdventureEvent::Iteration { n: 1 });
     let screen = render_app_text(&mut app, 144, 48);
     if let Some(dir) = std::env::var_os("ANGEL_CRAWL_SHOTS") {
@@ -2221,12 +2221,12 @@ fn the_quintain_shows_the_loops_crawl_with_its_numbers() {
     app.loop_ctl.status = LoopStatus::Running;
     app.loop_ctl.iteration = 1;
     app.scryglass.navigate(scryglass::StageRoute::Loop);
-    app.world
+    app.realm.world
         .note_adventure(world_viz::AdventureEvent::LoopStarted {
             kind: world_viz::LoopKind::Coding,
             task: "an actual coding loop".to_string(),
         });
-    app.world
+    app.realm.world
         .note_adventure(world_viz::AdventureEvent::Iteration { n: 1 });
     let screen = render_app_text(&mut app, 144, 48);
     assert!(screen.contains("Quintain"), "the Loop view\n{screen}");

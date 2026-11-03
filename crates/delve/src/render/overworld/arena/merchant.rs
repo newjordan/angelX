@@ -5,8 +5,8 @@
 use super::super::ink::Img;
 use super::{TILE, at, home, stand};
 use crate::realm::Spoil;
-use crate::rules::merchant::{CART_AT, Goods, PLATES, plate_at};
-use crate::rules::{Run, TILE_UNITS};
+use crate::rules::merchant::{Goods, Sale, cart, plate_at, plates};
+use crate::rules::{RoomKind, Run, TILE_UNITS};
 
 const PEDDLER: [&str; 17] = [
     ".....BBBB.....",
@@ -40,7 +40,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     let Some(camp) = run.merchant_camp().filter(|c| c.room == run.at) else {
         return;
     };
-    let (x, y) = at(CART_AT.0 * TILE_UNITS, CART_AT.1 * TILE_UNITS);
+    let kind = run.room().kind;
+    let spot = cart(kind);
+    let (x, y) = at(spot.0 * TILE_UNITS, spot.1 * TILE_UNITS);
     // Two wooden wheels, red awning, striped cloth, bottles and rolled maps.
     cv.ellipse((x - 23) as f32, (y - 2) as f32, 6.0, 6.0, 'b');
     cv.ellipse((x + 23) as f32, (y - 2) as f32, 6.0, 6.0, 'b');
@@ -66,11 +68,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     cv.stamp(&mark(Goods::Scroll).recolor(&[('O', 'T')]), x + 6, y - 22);
     stand(cv, &Img::from_rows(&PEDDLER), x - 43, y + 9);
     for (index, offer) in camp.offers.iter().enumerate() {
-        let (c, r) = PLATES[index];
+        let (c, r) = plates(kind)[index];
         let lit = run
             .players
             .values()
-            .any(|h| h.hp > 0 && !h.stone && plate_at(h.x, h.y, camp.offers.len()) == Some(index));
+            .any(|h| h.hp > 0 && !h.stone && plate_at(kind, h.x, h.y, camp.offers.len()) == Some(index));
         home::plate_marked(cv, (c, r, 1, 1), lit, &mark(offer.goods));
         cv.text(
             c * TILE,
@@ -79,21 +81,33 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             '6',
         );
     }
+    // In the Delve's courtyard the plates are the bazaar out of doors: its
+    // name on a board over them.
+    if kind == RoomKind::Gate {
+        let name = "BAZAAR";
+        let row = plates(kind);
+        let (left, top) = row[0];
+        let right = row[row.len() - 1].0 + 1;
+        let w = super::super::ink::text_width(name);
+        let x = (left + right) * TILE / 2 - w / 2;
+        super::super::chrome::label(cv, (x, top * TILE - 12), name, 'O', super::super::chrome::Tone::TIMBER);
+    }
 }
 
-pub(super) fn boards(cv: &mut Img, run: &Run) {
-    let Some(camp) = run.merchant_camp().filter(|c| c.room == run.at) else {
-        return;
-    };
+/// The peddler's board as the seat playing `focus` reads it (`None`: a
+/// screen that plays no one knight), or nothing. A knight sees their own
+/// plate, purse and purchase only: a friend buying at the next plate shows
+/// on the friend's screen, not over this one (2026-10-19: "buying a potion
+/// should only show you your own popup").
+pub(super) fn board_lines(run: &Run, focus: Option<u32>) -> Option<Vec<(String, char)>> {
+    let camp = run.merchant_camp().filter(|c| c.room == run.at)?;
     let unsafe_room = !run.room().cleared || run.enemies.iter().any(|e| e.hp > 0);
     // On the surface nothing is carried: the realm's treasury pays.
     let surface = run.dungeon.depth == 0;
     let purse = if surface { "TREASURY" } else { "CARRIED" };
-    let reader = run
-        .players
-        .iter()
+    let reader = super::shoppers(run, focus)
         .filter(|(_, h)| h.hp > 0 && !h.stone)
-        .find_map(|(&id, h)| plate_at(h.x, h.y, camp.offers.len()).map(|index| (id, h, index)));
+        .find_map(|(id, h)| plate_at(run.room().kind, h.x, h.y, camp.offers.len()).map(|index| (id, h, index)));
     let lines = if let Some((id, hero, index)) = reader {
         let offer = camp.offers[index];
         let have = if surface {
@@ -101,20 +115,20 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         } else {
             hero.carried.get(Spoil::Gold)
         };
-        let last = run.found.as_ref().filter(|(when, who, text)| {
-            *who == id
-                && text.starts_with(&format!("{}:", camp.name))
-                && run.tick.saturating_sub(*when)
-                    < u64::from(5 * crate::rules::HZ)
-        });
-        // found travels in the existing Live packet; do not rely on local
-        // approach timers when drawing a guest's authoritative host frame.
-        let status = match last {
+        // The seat's own approach travels in the Live packet with the rest
+        // of the run; a guest's frame reads the host's word on it.
+        let sale = (id as usize)
+            .checked_sub(1)
+            .and_then(|seat| run.merchant.approaches.get(seat))
+            .filter(|a| a.spent && a.offer == Some(index))
+            .and_then(|a| a.sale);
+        let status = match sale {
             _ if unsafe_room => "WAIT UNTIL THE ROOM IS SAFE",
-            Some((_, _, text)) if text.contains("bought") => "BOUGHT - STEP AWAY TO BUY AGAIN",
-            Some((_, _, text)) if text.contains("full") => "PACK FULL - NO GOLD SPENT",
-            Some(_) if surface => "NOT ENOUGH TREASURY GOLD",
-            Some(_) => "NOT ENOUGH CARRIED GOLD",
+            Some(Sale::Bought) => "BOUGHT - STEP AWAY TO BUY AGAIN",
+            Some(Sale::Owed) => "THE TREASURY IS PAYING",
+            Some(Sale::Full) => "PACK FULL - NO GOLD SPENT",
+            Some(Sale::Short) if surface => "NOT ENOUGH TREASURY GOLD",
+            Some(Sale::Short) => "NOT ENOUGH CARRIED GOLD",
             None => "STAND STILL FOR ONE SECOND TO BUY",
         };
         vec![
@@ -137,8 +151,14 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         ]
     } else {
         // The price list is for knights at the cart, not the whole room.
-        if !super::knight_near(run, CART_AT, 4.0) {
-            return;
+        let spot = cart(run.room().kind);
+        let at_cart = super::shoppers(run, focus).any(|(_, h)| {
+            h.hp > 0
+                && (h.x - spot.0 * TILE_UNITS).hypot(h.y - spot.1 * TILE_UNITS)
+                    < 4.0 * TILE_UNITS
+        });
+        if !at_cart {
+            return None;
         }
         let mut lines = vec![(format!("{} THE PEDDLER", camp.name), '9')];
         for offer in &camp.offers {
@@ -154,6 +174,13 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             'h',
         ));
         lines
+    };
+    Some(lines)
+}
+
+pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
+    let Some(lines) = board_lines(run, focus) else {
+        return;
     };
     let board = home::board(&lines);
     // At the top, clear of the offer plates and approaching knights.

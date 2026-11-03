@@ -1,0 +1,58 @@
+# crates/delve/src/rules/spells.rs — reusable spell slots and the shots a spell's shape makes.
+
+# A spell card into the first free slot: whether it went in.
+def spells.Hero.equip_spell(h: J.Val, card: J.Val) -> (J.Val, Bool):
+    if Bool.not(String.eq(core.s(card, "kind"), "spell")):
+        return (h, False{})
+    if Bool.not(hero.Hero.takes(h, card)):
+        return (h, False{})
+    slots: [J.Val] = J.items(J.get(h, "spells"))
+    i: U32 = 0
+    free: U32 = 4294967295
+    for s: J.Val in slots:
+        if Bool.and(J.is_null(s), U32.is_eq(free, 4294967295)):
+            free = i
+        i = (i + 1 : U32)
+    if U32.is_eq(free, 4294967295):
+        return (h, False{})
+    h = J.set(h, "spells", J.set_nth(J.get(h, "spells"), free, J.get(card, "id")))
+    h = J.set(h, "spell_cooldowns", J.set_nth(J.get(h, "spell_cooldowns"), free, J.JU{0}))
+    # The bar mirrors the spells, for older readers.
+    bar: [J.Val] = J.items(J.get(h, "bar"))
+    j: U32 = 0
+    done: Bool = False{}
+    for b: J.Val in bar:
+        if Bool.and(J.is_null(b), Bool.not(done)):
+            h = J.set(h, "bar", J.set_nth(J.get(h, "bar"), j, J.set(J.obj(), "Spell", J.get(card, "id"))))
+            done = True{}
+        j = (j + 1 : U32)
+    return (h, True{})
+
+# Shapes use the same damage scaling and shot gifts as the knight's bow.
+def spells.Hero.spell_shots(h: J.Val, shape: String, spell: String, owner: U32, shots: J.Val) -> J.Val:
+    count: U32 = 1
+    speed: F32 = 22.0
+    damage: U32 = 32
+    kind: String = "bolt"
+    if String.eq(shape, "ring"):
+        count = 12
+        speed = 14.0
+        damage = 20
+    elif String.eq(shape, "meteor"):
+        speed = 12.0
+        damage = 64
+        kind = "ball"
+    traits: J.Val = projectile.ShotTraits.of(J.get(h, "bonus"))
+    traits = core.set_u(traits, "owner", RS.as_u8(owner))
+    aim: F32 = F32.atan2(core.f(h, "aim_y"), core.f(h, "aim_x"))
+    i: U32 = 0
+    while U32.is_lt(i, count):
+        angle: F32 = aim
+        if U32.is_gt(count, 1):
+            angle = (aim + ((core.TAU() * RS.u_as_f32(i) : F32) / RS.u_as_f32(count) : F32) : F32)
+        ux: F32 = F32.cos(angle)
+        uy: F32 = F32.sin(angle)
+        shot: J.Val = hero.shot((core.f(h, "x") + (ux * 0.6 : F32) : F32), (core.f(h, "y") + (uy * 0.6 : F32) : F32), (ux * speed : F32), (uy * speed : F32), kind, J.JNull{}, spell_upgrades.Hero.spell_damage(h, spell, damage), U32.min(core.u(J.get(h, "bonus"), "pierce"), 3), (3 * rules.HZ() : U32), traits)
+        shots = J.push(shots, shot)
+        i = (i + 1 : U32)
+    return shots

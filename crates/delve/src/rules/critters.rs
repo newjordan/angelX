@@ -49,6 +49,8 @@ pub const GUARD_BREAK: u32 = 34;
 pub const GUARD_DOWN: u32 = HZ;
 /// How long a pavise pants with its shield low after a bash.
 const PAVISE_PANT: u32 = 44;
+/// What a pavise's bash deals a knight it catches unshielded.
+const PAVISE_BASH: u32 = 20;
 /// A marksman's aim: how long, and when its line stops following.
 pub const AIM_TICKS: u32 = 42;
 pub const AIM_LOCK: u32 = 28;
@@ -118,7 +120,11 @@ impl Enemy {
             && !(self.signature.active
                 && matches!(
                     self.stage,
-                    signatures::TELL | signatures::JUMP | signatures::DAZED | signatures::WIND
+                    signatures::INHALE
+                        | signatures::TELL
+                        | signatures::JUMP
+                        | signatures::DAZED
+                        | signatures::WIND
                 ))
     }
 
@@ -257,17 +263,18 @@ impl Field {
 
 /// What the third company did this tick.
 #[derive(Default)]
+#[cfg_attr(test, derive(Serialize))]
 pub(super) struct Doings {
     /// Moles breaking the floor, where.
-    erupts: Vec<(f32, f32)>,
+    pub(super) erupts: Vec<(f32, f32)>,
     /// Shield bashes: from, its way.
-    bashes: Vec<((f32, f32), (f32, f32))>,
+    pub(super) bashes: Vec<((f32, f32), (f32, f32))>,
     /// Globs spat: from, to.
-    globs: Vec<((f32, f32), (f32, f32))>,
+    pub(super) globs: Vec<((f32, f32), (f32, f32))>,
     /// Bells rung: where, by whom.
-    rings: Vec<(f32, f32, u32)>,
+    pub(super) rings: Vec<(f32, f32, u32)>,
     /// Hounds that hit someone on a rush: where, reach, way.
-    rams: Vec<(f32, f32, f32, (f32, f32))>,
+    pub(super) rams: Vec<(f32, f32, f32, (f32, f32))>,
 }
 
 /// One of the third company's steps. False for any other monster.
@@ -350,8 +357,8 @@ pub(super) fn act(
             ttl,
         });
     };
-    enemy.timer += 1;
-    let beat = enemy.timer + enemy.id * 7;
+    enemy.timer = enemy.timer.saturating_add(1);
+    let beat = enemy.timer.saturating_add(enemy.id.saturating_mul(7));
     match enemy.kind {
         // The swarm: circle close, shiver, pounce in a line.
         Biter | Shard => {
@@ -702,7 +709,7 @@ pub(super) fn act(
 }
 
 /// Whether nothing solid lies between two points.
-fn clear_line(grid: &Grid, a: (f32, f32), b: (f32, f32)) -> bool {
+pub(super) fn clear_line(grid: &Grid, a: (f32, f32), b: (f32, f32)) -> bool {
     let steps = ((b.0 - a.0).hypot(b.1 - a.1) / 0.5).ceil().max(1.0) as i32;
     (1..steps).all(|k| {
         let t = k as f32 / steps as f32;
@@ -725,12 +732,7 @@ impl Run {
                     } else {
                         (ux, uy)
                     };
-                    (hero.x, hero.y) = grid.slide(
-                        (hero.x, hero.y),
-                        (ux * 2.0, uy * 2.0),
-                        HERO_RADIUS,
-                        Mover::Hero,
-                    );
+                    (hero.x, hero.y) = grid.halted((hero.x, hero.y), (ux * 2.0, uy * 2.0));
                     self.sounds.push("hero_hurt");
                 }
             }
@@ -742,6 +744,7 @@ impl Run {
             let room = &self.dungeon.rooms[self.at];
             let grid = Grid { room, barred: true };
             let mut held = Vec::new();
+            let mut broke = false;
             for (&id, hero) in self.players.iter_mut().filter(|(_, h)| h.targetable()) {
                 let (rx, ry) = (hero.x - x, hero.y - y);
                 let d = rx.hypot(ry);
@@ -751,20 +754,21 @@ impl Run {
                     if super::shield::turns(hero, (dx, dy)) {
                         let at = super::shield::face(hero, (hero.x, hero.y), (x, y));
                         held.push((id, at, (at.0 - hero.x, at.1 - hero.y)));
+                        if hero.shield_turned(PAVISE_BASH) {
+                            broke = true;
+                        }
                     } else {
-                        hero.hurt(20);
-                        (hero.x, hero.y) = grid.slide(
-                            (hero.x, hero.y),
-                            (dx * 2.6, dy * 2.6),
-                            HERO_RADIUS,
-                            Mover::Hero,
-                        );
+                        hero.hurt(PAVISE_BASH);
+                        (hero.x, hero.y) = grid.halted((hero.x, hero.y), (dx * 2.6, dy * 2.6));
                         self.sounds.push("hero_hurt");
                     }
                 }
             }
             for (id, at, out) in held {
                 self.shield_block(id, at, out, (dx, dy), Shot::Blade, 3);
+            }
+            if broke {
+                self.sounds.push("clang");
             }
             self.critters.flash(Fx::Bash, x, y, (dx, dy));
             self.sounds.push("shield_block");

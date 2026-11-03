@@ -22,6 +22,8 @@ When the Fellowship broke — not in battle, but over a quarrel about whether
 to go down again — each member carried away one power, kept whole where the
 realm now grants it in thirds.
 
+> **2026-10-22:** no lock holds a wish's third tier any more. The owner asked to "get rid of the squire/upgrade system that locks level 3", so every knight may wish every tier (`Run::locked` answers nothing). The teachers' questlines still run and still teach their skills and titles; where a reward below says a tier is "unlocked", that tier is now open from the start.
+
 They did not hide the powers. They simply stopped teaching them. A power held
 whole by one who earned it cannot be stolen, wished for, or found in a coffer;
 it can only be given, by the one who holds it, to one who walks the same road
@@ -1232,6 +1234,17 @@ rest are one-line increments on deeds the realm already watches.
   or hyphen; the engine maps both.
 - **A waiting step** (`needs`) loads, is taught, and never finishes:
   the file itself says what the realm does not count yet.
+
+## The kingdom's own line
+
+One questline is not the Fellowship's and teaches no power: **the Heart**,
+kept by **Elspet the Heartwright** in the Lantern Hall on the town green.
+It is a kingdom questline (`power kingdom:heart`): its gate is open to
+every knight, and its steps count the campaign (the `vec_` counters, real
+work on the Virtual Embryo heart boards), never a deed done in the realm.
+The parser holds both sides of that line, and a teacher in a realm hall
+names which hall is theirs (`hall`). The whole of it, and its proof, is
+[HEART-QUEST.md](HEART-QUEST.md).
 
 ---
 

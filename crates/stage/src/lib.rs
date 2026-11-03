@@ -14,6 +14,7 @@
 pub mod brand;
 pub mod look;
 pub mod marks;
+pub mod normals;
 pub mod scene;
 pub mod set;
 pub mod shapes;
@@ -22,6 +23,7 @@ pub mod wire;
 pub mod primitive;
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Placement {
     /// `[x, y, width, height]` in window pixels.
     Pixels([f32; 4]),
@@ -30,6 +32,7 @@ pub enum Placement {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum LayerKind {
     /// A flat colour, straight (not premultiplied) RGBA in 0..1.
     Solid([f32; 4]),
@@ -49,6 +52,42 @@ pub enum LayerKind {
     /// cube, sphere, pyramid, cylinder, cone, torus, octahedron. Phase is
     /// radians; speed is radians/second (zero freezes all motion).
     Primitive { shape: u32, color: [f32; 4], phase: f32, speed: f32 },
+    /// A luminous stroke: a ring, or a line (`Stroke`).
+    Stroke(Stroke),
+}
+
+/// A stroke drawn by its distance, so it stays sharp at any size and
+/// turn. A ring is the circle round the placement's middle, as wide as
+/// the placement's shorter side. A line runs along the placement's middle
+/// from its left edge to its right, turned with the layer's angle. `width`
+/// is the stroke's width in pixels; `glow` how far, in pixels, its soft
+/// light reaches beyond it. The window draws past the placement by what
+/// the width and glow need, so neither is cut at its edge.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Stroke {
+    pub shape: StrokeShape,
+    /// Straight RGBA.
+    pub color: [f32; 4],
+    pub width: f32,
+    pub glow: f32,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum StrokeShape {
+    Ring,
+    Line,
+}
+
+/// The widest stroke and the farthest glow, in pixels.
+pub const MAX_STROKE_PX: f32 = 256.0;
+
+/// How far past its placement a stroke draws: half its width, three
+/// times its glow (where the glow's light is all but gone), and a pixel
+/// for the edge's smoothing. The window's shader keeps the same sum.
+pub fn stroke_pad(stroke: &Stroke) -> f32 {
+    stroke.width * 0.5 + stroke.glow * 3.0 + 1.0
 }
 
 /// Motes: embers off a fire, dust in the light, sparks from a blow. Each is
@@ -60,6 +99,7 @@ pub enum LayerKind {
 /// squared, gone after `life`. Every mote fades in and out; `seed` keeps two
 /// emitters apart. All of it is a function of time, so nothing is kept.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Particles {
     /// Straight RGBA at a mote's brightest.
     pub color: [f32; 4],
@@ -169,6 +209,7 @@ mod tests {
 
 /// How a layer stands when its stage is seen at a tilt (`Frame::tilt`).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Stand {
     /// Painted on the floor: it tips away with it (the room, its light).
     #[default]
@@ -189,6 +230,7 @@ pub enum Stand {
 /// lands at `centre + (zoom·d.x, zoom·squash·d.y) / w`; what stands upright
 /// is placed on its foot so and scaled by `zoom / w`, never tipped.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Tilt {
     pub centre: [f32; 2],
     pub near: f32,
@@ -240,6 +282,7 @@ impl Tilt {
 pub const LAYER_PICTURES: u32 = 0x8000_0000;
 
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Layer {
     pub id: u64,
     pub z: i32,
@@ -328,6 +371,13 @@ impl Layer {
                     return None;
                 }
             }
+            LayerKind::Stroke(stroke) => {
+                if !clamp_rgba(&mut stroke.color) || !stroke.width.is_finite() || !stroke.glow.is_finite() {
+                    return None;
+                }
+                stroke.width = stroke.width.clamp(0.25, MAX_STROKE_PX);
+                stroke.glow = stroke.glow.clamp(0.0, MAX_STROKE_PX);
+            }
             LayerKind::Particles(p) => {
                 if !clamp_rgba(&mut p.color)
                     || ![p.size, p.life, p.rise, p.sway].iter().all(|v| v.is_finite())
@@ -394,6 +444,11 @@ impl Layer {
                 }
                 LayerKind::PicturePart(_, s) => {
                     s.iter().all(|v| v.is_finite()) && s[2] > 0.0 && s[3] > 0.0
+                }
+                LayerKind::Stroke(stroke) => {
+                    rgba_sound(&stroke.color)
+                        && (0.25..=MAX_STROKE_PX).contains(&stroke.width)
+                        && (0.0..=MAX_STROKE_PX).contains(&stroke.glow)
                 }
                 LayerKind::Particles(p) => {
                     rgba_sound(&p.color)
@@ -481,6 +536,10 @@ pub struct Frame {
     /// fall): a renderer's post pass splits the colours and lifts the light
     /// by it for as long as it lasts. The screen's own marks are untouched.
     pub impact: f32,
+    /// Meshes the props name (`MeshRef::Uploaded`) that are new since the
+    /// last frame: each goes up once, as a picture does, and again only
+    /// when the drawer has lost it.
+    pub meshes: Vec<(u32, scene::MeshData)>,
 }
 
 /// What a quad shows.
@@ -598,6 +657,46 @@ pub fn expand(layers: &[Layer], t: f32, size: impl Fn(u32) -> Option<(u32, u32)>
                 angle: layer.angle,
                 stand: layer.stand,
             }),
+            LayerKind::Stroke(stroke) => {
+                // Quad-only hosts get the stroke without its glow: a line
+                // is one turned bar, a ring a bounded loop of short bars.
+                let a = stroke.color[3] * strength;
+                let c = stroke.color;
+                let color = [c[0] * a, c[1] * a, c[2] * a, a * coverage];
+                let (cx, cy) = (rect[0] + rect[2] / 2.0, rect[1] + rect[3] / 2.0);
+                let bar = |length: f32, mx: f32, my: f32, angle: f32| Quad {
+                    rect: [mx - length / 2.0, my - stroke.width / 2.0, length, stroke.width],
+                    picture: 0,
+                    source: [0.0; 4],
+                    color,
+                    shape: Shape::Fill,
+                    angle,
+                    stand: layer.stand,
+                };
+                match stroke.shape {
+                    StrokeShape::Line => out.push(bar(rect[2], cx, cy, layer.angle)),
+                    StrokeShape::Ring => {
+                        const SEGMENTS: usize = 48;
+                        let r = rect[2].min(rect[3]) / 2.0;
+                        let step = std::f32::consts::TAU / SEGMENTS as f32;
+                        // Each bar a little longer than its arc's chord, so
+                        // the loop has no gaps at its joints.
+                        let length = 2.0 * r * (step / 2.0).sin() + stroke.width * 0.5;
+                        for i in 0..SEGMENTS {
+                            if out.len() >= MAX_QUADS {
+                                break;
+                            }
+                            let theta = step * (i as f32 + 0.5);
+                            out.push(bar(
+                                length,
+                                cx + r * theta.cos(),
+                                cy + r * theta.sin(),
+                                (theta + std::f32::consts::FRAC_PI_2 + layer.angle).rem_euclid(std::f32::consts::TAU),
+                            ));
+                        }
+                    }
+                }
+            }
             LayerKind::Particles(p) => {
                 let a = p.color[3] * strength;
                 for [x, y, fade] in motes(p, rect, t) {
@@ -864,6 +963,35 @@ mod expand_tests {
     }
 
     #[test]
+    fn strokes_expand_to_bars_on_their_line_and_round_their_ring() {
+        let stroke = |shape| {
+            Layer::new(
+                1,
+                0,
+                Placement::Pixels([100.0, 100.0, 200.0, 200.0]),
+                LayerKind::Stroke(Stroke { shape, color: [1.0, 0.5, 0.0, 1.0], width: 4.0, glow: 6.0 }),
+            )
+        };
+        let line = expand(&[stroke(StrokeShape::Line)], 0.0, |_| None);
+        assert_eq!(line.len(), 1);
+        assert_eq!(line[0].rect, [100.0, 198.0, 200.0, 4.0]);
+        let ring = expand(&[stroke(StrokeShape::Ring)], 0.0, |_| None);
+        assert_eq!(ring.len(), 48);
+        // Every bar's middle lies on the circle, radius half the side.
+        for q in &ring {
+            let (mx, my) = (q.rect[0] + q.rect[2] / 2.0, q.rect[1] + q.rect[3] / 2.0);
+            let r = ((mx - 200.0).powi(2) + (my - 200.0).powi(2)).sqrt();
+            assert!((r - 100.0).abs() < 1e-3, "{r}");
+            assert!((0.0..std::f32::consts::TAU).contains(&q.angle));
+        }
+        let mut wide = stroke(StrokeShape::Ring);
+        wide.kind = LayerKind::Stroke(Stroke { shape: StrokeShape::Ring, color: [1.0; 4], width: 1e9, glow: -3.0 });
+        let LayerKind::Stroke(clean) = wide.sanitized().unwrap().kind else { unreachable!() };
+        assert_eq!((clean.width, clean.glow), (MAX_STROKE_PX, 0.0));
+        assert_eq!(stroke_pad(&clean), MAX_STROKE_PX * 0.5 + 1.0);
+    }
+
+    #[test]
     fn the_cow_agrees_with_sanitized_and_borrows_the_sound() {
         let sound = Layer::new(
             1,
@@ -922,7 +1050,7 @@ mod expand_tests {
         };
         for _ in 0..3000 {
             let f = |next: &mut dyn FnMut() -> u64| wild_float(next);
-            let kind = match next() % 5 {
+            let kind = match next() % 6 {
                 0 => LayerKind::Solid([f(&mut next), f(&mut next), f(&mut next), f(&mut next)]),
                 1 => LayerKind::Glow([f(&mut next), f(&mut next), f(&mut next), f(&mut next)]),
                 2 => LayerKind::Picture(next() as u32),
@@ -930,6 +1058,12 @@ mod expand_tests {
                     next() as u32,
                     [f(&mut next), f(&mut next), f(&mut next), f(&mut next)],
                 ),
+                4 => LayerKind::Stroke(Stroke {
+                    shape: if next() % 2 == 0 { StrokeShape::Ring } else { StrokeShape::Line },
+                    color: [f(&mut next), f(&mut next), f(&mut next), f(&mut next)],
+                    width: f(&mut next),
+                    glow: f(&mut next),
+                }),
                 _ => LayerKind::Particles(Particles {
                     color: [f(&mut next), f(&mut next), f(&mut next), f(&mut next)],
                     count: next() as u16,
@@ -981,6 +1115,11 @@ mod expand_tests {
                     assert!((0.05..=3600.0).contains(&p.life));
                     assert!((-MAX_LIFT_PX..=MAX_LIFT_PX).contains(&p.rise));
                     assert!((-MAX_LIFT_PX..=MAX_LIFT_PX).contains(&p.sway));
+                }
+                LayerKind::Stroke(stroke) => {
+                    assert!(stroke.color.iter().all(|&v| in_unit(v)));
+                    assert!((0.25..=MAX_STROKE_PX).contains(&stroke.width));
+                    assert!((0.0..=MAX_STROKE_PX).contains(&stroke.glow));
                 }
                 _ => {}
             }

@@ -1,0 +1,50 @@
+id = "vfx"
+label = "Bend Pixel VFX"
+
+[[commands]]
+name = "vfx"
+usage = "<effect to make or recipe to edit>"
+skills = ["pixel-vfx"]
+
+[[tools]]
+name = "vfx_catalog"
+description = "List local Bend pixel VFX layers, effect words, palettes, limits and an example recipe. No account or GPU required."
+run = "bin/vfx-catalog"
+params = { type = "object", properties = {}, additionalProperties = false }
+
+[[tools]]
+name = "vfx_render"
+description = "Render pixel VFX locally with Bend. Write transparent PNG sheets, GIFs, atlas JSON, Godot SpriteFrames and a ZIP in a new workspace folder. Supply prompt or recipe."
+run = "bin/vfx-render"
+
+[tools.params]
+type = "object"
+additionalProperties = false
+oneOf = [{ required = ["prompt"], not = { required = ["recipe"] } }, { required = ["recipe"], not = { required = ["prompt"] } }]
+
+[tools.params.properties.prompt]
+type = "string"
+minLength = 1
+maxLength = 512
+description = "Effect words; vfx_catalog lists the vocabulary"
+
+[tools.params.properties.recipe]
+type = "object"
+description = "Layered v1 recipe; see the cartridge README"
+
+[tools.params.properties.out]
+type = "string"
+description = "New output folder inside the workspace; existing folders are never overwritten"
+
+[tools.params.properties.seed]
+type = "integer"
+minimum = 0
+maximum = 4294967295
+
+[tools.params.properties.scale]
+type = "integer"
+minimum = 1
+maximum = 8
+
+[tools.params.properties.frames]
+type = "boolean"

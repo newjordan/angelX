@@ -8,12 +8,12 @@
 //! keyboard and mouse as terminal events, and the window's other services.
 
 mod backend;
-pub mod scroll;
-mod scroll_mesh;
+pub mod card;
 mod blast;
 mod clipboard;
 mod config;
 mod cube;
+mod early;
 mod font;
 pub mod graphics;
 pub mod page;
@@ -21,15 +21,21 @@ mod input;
 mod layer;
 pub mod monolith;
 mod probe;
+mod record;
+#[cfg(feature = "remote")]
+pub mod remote;
 mod render;
 mod shore;
 mod showcase;
 mod squire;
+pub mod startup;
 mod wizard;
 mod sprites;
 mod transition;
 mod wallpaper;
+pub use wallpaper::{load_in_budget, plan_in_budget};
 mod window;
+mod zones;
 
 use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -44,12 +50,17 @@ use winit::event_loop::EventLoopProxy;
 pub use backend::GlassBackend;
 pub use config::{BrailleStyle, Options, Palette};
 pub use font::render_page;
-pub use layer::{LAYER_PICTURES, Layer, LayerKind, Particles, Placement, Stand, Tilt};
+pub use layer::{LAYER_PICTURES, Layer, LayerKind, MAX_STROKE_PX, Particles, Placement, Stand, Stroke, StrokeShape, Tilt};
 pub use angel_gpu::Stage;
+/// The renderer core and its wgpu, for a test elsewhere that draws a scene
+/// offscreen on a device of its own (the cockpit's Heartglass test).
+pub use angel_gpu as gpu;
+pub use wgpu;
 /// The 3D scene description (`angel-stage`'s), for `Host::set_scene`.
 pub use angel_stage::scene;
 pub use showcase::{Fit, Herald, Livery, MODEL_ROOT, Mark, SHOWCASE_PICTURE, Showing};
 pub use window::run;
+pub use zones::{PointerEvent, Zone, ZoneKind};
 
 /// Locking shared state that survives a panicked holder. The window's
 /// shared state is plain data — a grid size, a snapshot slot, layer and
@@ -82,6 +93,7 @@ pub fn window_closed(error: &io::Error) -> bool {
 
 /// The grid that fits the window, and its cell size in pixels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
 pub struct GridSize {
     pub cols: u16,
     pub rows: u16,
@@ -91,14 +103,36 @@ pub struct GridSize {
     pub cell_height: u32,
 }
 
+/// How the cursor is drawn: the shape a program asked for, and the
+/// colour it set, if it set one. The block with the palette's cursor
+/// colour is what a plain text surface draws.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub struct CursorStyle {
+    pub kind: CursorKind,
+    /// The colour a program set for the cursor, as RGB.
+    pub color: Option<[u8; 3]>,
+}
+
+/// The shapes a cursor can take.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum CursorKind {
+    #[default]
+    Block,
+    Underline,
+    Bar,
+}
+
 /// One published frame of the text grid.
 #[derive(Default)]
 pub(crate) struct Snapshot {
+    /// Screen identity published with its cells, not sampled mid-handoff.
+    pub game: bool,
     pub cells: Vec<Cell>,
     pub cols: u16,
     pub rows: u16,
     pub cursor: Option<(u16, u16)>,
-    pub scroll: Option<Arc<scroll::Page>>,
+    pub cursor_style: CursorStyle,
+    pub card: Option<Arc<card::Card>>,
     pub revision: u64,
 }
 
@@ -118,13 +152,17 @@ pub(crate) struct Shared {
     /// it pays the copy-on-write on its own thread instead.
     pub layers: Mutex<Arc<Vec<Layer>>>,
     pub game_keyboard: AtomicBool,
-    pub scroll: Mutex<Option<Arc<scroll::Page>>>,
-    pub scroll_changed: AtomicBool,
+    pub game_surface: AtomicBool,
+    pub card: Mutex<Option<Arc<card::Card>>>,
+    pub card_changed: AtomicBool,
     /// Pictures handed over (`Host::upload_picture`), waiting for the
     /// render thread.
     pub pictures: Mutex<Vec<graphics::Picture>>,
     /// A picture was handed over since the last flush.
     pub pictures_waiting: AtomicBool,
+    /// Pictures let go (`Host::free_pictures`), by id, for the render
+    /// thread to free before it next uploads.
+    pub freed_pictures: Mutex<Vec<u32>>,
     /// Stages set (`Some`) or taken down (`None`) since the render thread
     /// last looked, in order, by picture id.
     pub stages: Mutex<Vec<(u32, Option<Stage>)>>,
@@ -149,12 +187,24 @@ pub(crate) struct Shared {
     pub showcase_copies: std::sync::atomic::AtomicU32,
     /// Steps asked for with the panel's arrows (`Host::showcase_steps`).
     pub showcase_steps: std::sync::atomic::AtomicI32,
+    /// Times the operator closed the showcase (`Host::showcase_dismissals`).
+    pub showcase_dismissals: std::sync::atomic::AtomicU32,
     /// The next showing's model (`Host::showcase_model`).
     pub showcase_model: Mutex<Option<Vec<scene::Node>>>,
     /// Meshes handed over (`Host::upload_mesh`), waiting for the window.
     pub meshes: Mutex<Vec<(u32, scene::MeshData)>>,
     /// The next showing's marks (`Host::showcase_marks`).
     pub showcase_marks: Mutex<Vec<showcase::Mark>>,
+    /// Regions a producer takes the left button over, by layer group
+    /// (`Host::set_pointer_zones`), and what the pointer did there.
+    pub zones: Mutex<Vec<(u32, Zone)>>,
+    pub zone_events: Mutex<Vec<(u32, PointerEvent)>>,
+    /// Where the pointer is over the window, `None` when it is outside it
+    /// (`Host::pointer`).
+    pub pointer: Mutex<Option<[f32; 2]>>,
+    /// One display frame of the monitor the window is on, in nanoseconds;
+    /// 0 until the window knows (`Host::frame_interval`).
+    pub frame_nanos: std::sync::atomic::AtomicU64,
 }
 
 pub(crate) enum UserEvent {
@@ -169,25 +219,56 @@ pub(crate) enum UserEvent {
     Capture(std::path::PathBuf),
     /// Film the assembly transition into this directory.
     Film(std::path::PathBuf),
+    /// Film this frame into the recording begun at this instant
+    /// (`record.rs`); `None` ends it.
+    Record(Option<std::time::Instant>),
+    /// The GPU is open: the window's renderer can be made.
+    GpuReady,
     /// Close as if the window's close button was pressed.
     Close,
     /// The cockpit has returned; end the event loop.
     Exit,
     /// End the process with this code, from the window's thread.
     ExitProcess(i32),
+    /// Text for the clipboard of whoever is looking: only a headless host
+    /// sends it (`remote`); a window copies on the cockpit's thread.
+    #[cfg_attr(not(feature = "remote"), allow(dead_code))]
+    Clipboard(String),
+}
+
+/// Where a host's wake-ups go: the window's event loop, or, for a host
+/// with no window of its own (`remote::headless`), the thread that sends
+/// the frames to the windows looking at it.
+pub(crate) enum Wake {
+    Window(EventLoopProxy<UserEvent>),
+    #[cfg_attr(not(feature = "remote"), allow(dead_code))]
+    Channel(std::sync::mpsc::Sender<UserEvent>),
 }
 
 /// What the cockpit thread holds: the window's services.
 #[derive(Clone)]
 pub struct Host {
     shared: Arc<Shared>,
-    proxy: Arc<Mutex<EventLoopProxy<UserEvent>>>,
+    proxy: Arc<Mutex<Wake>>,
     input: Arc<Mutex<Option<Receiver<Event>>>>,
 }
 
 impl Host {
     pub(crate) fn send(&self, event: UserEvent) {
-        let _ = self.proxy.lock_recover().send_event(event);
+        match &*self.proxy.lock_recover() {
+            Wake::Window(proxy) => {
+                let _ = proxy.send_event(event);
+            }
+            Wake::Channel(sender) => {
+                let _ = sender.send(event);
+            }
+        }
+    }
+
+    /// Whether this host has a window of its own: false for a session's
+    /// headless host, whose frames go to the windows attached to it.
+    pub fn has_window(&self) -> bool {
+        matches!(&*self.proxy.lock_recover(), Wake::Window(_))
     }
 
     /// A ratatui backend drawing into this window.
@@ -234,18 +315,33 @@ impl Host {
         self.shared.game_keyboard.store(active, Ordering::Relaxed);
     }
 
-    /// Put text on the system clipboard. False when no clipboard tool ran.
-    pub fn copy_to_clipboard(&self, text: &str) -> bool {
-        clipboard::copy(text)
+    /// Visual screen identity, independent of keyboard focus or a pause menu.
+    pub fn set_game_surface(&self, active: bool) {
+        self.shared.game_surface.store(active, Ordering::Relaxed);
     }
 
-    /// Queue a foreground menu surface for the next text-grid publication.
-    /// No wake here: the backend publishes it atomically with the cockpit frame.
-    pub fn set_scroll(&self, page: Option<scroll::Page>) {
-        let mut current = self.shared.scroll.lock_recover();
-        if current.is_none() && page.is_none() { return; }
-        *current = page.map(Arc::new);
-        self.shared.scroll_changed.store(true, std::sync::atomic::Ordering::Release);
+    /// Put text on the system clipboard. False when no clipboard tool ran.
+    /// A headless host hands it to the window looking at it, whose
+    /// clipboard it lands on.
+    pub fn copy_to_clipboard(&self, text: &str) -> bool {
+        if self.has_window() {
+            clipboard::copy(text)
+        } else {
+            self.send(UserEvent::Clipboard(text.to_string()));
+            true
+        }
+    }
+
+    /// Put up the card (`card.rs`), change what it says, or (`None`)
+    /// take it down. No wake here: the backend publishes it atomically
+    /// with the cockpit frame.
+    pub fn set_card(&self, card: Option<card::Card>) {
+        let mut current = self.shared.card.lock_recover();
+        if current.is_none() && card.is_none() {
+            return;
+        }
+        *current = card.map(Arc::new);
+        self.shared.card_changed.store(true, std::sync::atomic::Ordering::Release);
     }
 
     /// Add a layer, or replace the one with the same id.
@@ -279,6 +375,13 @@ impl Host {
         self.send(UserEvent::Layers);
     }
 
+    /// Replace the whole layer list at once: a remote window showing the
+    /// layers of a session on another machine (`remote`).
+    pub fn set_layers(&self, layers: Arc<Vec<Layer>>) {
+        *self.shared.layers.lock_recover() = layers;
+        self.send(UserEvent::Layers);
+    }
+
     pub fn remove_layer(&self, id: u64) {
         Arc::make_mut(&mut self.shared.layers.lock_recover()).retain(|l| l.id != id);
         self.send(UserEvent::Layers);
@@ -299,6 +402,14 @@ impl Host {
         // The frame that shows it presents it, once; its flush sends the
         // wake-up (`GlassBackend::flush`).
         self.shared.pictures_waiting.store(true, Ordering::Release);
+    }
+
+    /// Let pictures go that nothing will show again: the producer has
+    /// dropped them and its layers no longer name them. Call after the
+    /// layers that stopped naming them are set; the render thread frees
+    /// them before its next upload, and reuses their textures.
+    pub fn free_pictures(&self, ids: impl IntoIterator<Item = u32>) {
+        self.shared.freed_pictures.lock_recover().extend(ids);
     }
 
     /// Show `stage` in the cells naming its id, drawn by the window every
@@ -341,6 +452,51 @@ impl Host {
         scenes.push((id, None));
         drop(scenes);
         self.shared.pictures_waiting.store(true, Ordering::Release);
+    }
+
+    /// Take the left button over `zones` (window pixels) for the producer
+    /// of layer `group`, replacing its earlier ones; an empty list gives
+    /// them back. A press in a zone, the moves while it is held and its
+    /// release are that producer's (`take_pointer_events`), never the
+    /// cockpit's; a press and release in a `Move` zone without a drag is
+    /// handed on to the cockpit as a click where it happened. Everything
+    /// else (other buttons, the wheel, moves with no press) goes on as
+    /// before. The first zone in the list that holds the pointer wins.
+    pub fn set_pointer_zones(&self, group: u32, zones: Vec<Zone>) {
+        let mut all = self.shared.zones.lock_recover();
+        all.retain(|(g, _)| *g != group);
+        all.extend(zones.into_iter().map(|z| (group, z)));
+    }
+
+    /// What the pointer did in `group`'s zones since the last call, oldest
+    /// first.
+    pub fn take_pointer_events(&self, group: u32) -> Vec<PointerEvent> {
+        let mut all = self.shared.zone_events.lock_recover();
+        let mut mine = Vec::new();
+        all.retain(|(g, e)| {
+            if *g == group {
+                mine.push(*e);
+                false
+            } else {
+                true
+            }
+        });
+        mine
+    }
+
+    /// Where the pointer is over the window, in pixels; `None` when it is
+    /// outside it.
+    pub fn pointer(&self) -> Option<[f32; 2]> {
+        *self.shared.pointer.lock_recover()
+    }
+
+    /// One display frame of the monitor the window is on (60 Hz until
+    /// the window knows): how often a producer's own motion needs a frame.
+    pub fn frame_interval(&self) -> std::time::Duration {
+        match self.shared.frame_nanos.load(Ordering::Relaxed) {
+            0 => std::time::Duration::from_nanos(1_000_000_000 / 60),
+            nanos => std::time::Duration::from_nanos(nanos),
+        }
     }
 
     /// Save the next frame as a PNG, drawn offscreen (no desktop behind it).

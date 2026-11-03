@@ -8,8 +8,16 @@
 //!
 //! A side-view stage (like the Forest Road's) with its own curved terrain:
 //! the road is a set of polylines, a rider is a distance along one and a
-//! ground speed, and a loop is a path that curls over itself (`terrain.rs`,
-//! `rider.rs`). Fixed-point integers (Q = 256 sub-pixels) on the 30 Hz sim.
+//! ground speed, and a loop is a path that curls over itself. Fixed-point
+//! integers (Q = 256 sub-pixels) on the 30 Hz sim.
+//!
+//! The rules are not here. The road, every rider's body, the foes, the Dimming,
+//! the tally and the bot are the Bend module `cockpit/live/lightgallop-rules`,
+//! asked once a tick through `scripted::step`. This module keeps what the save,
+//! the wire and the picture read: the session's types (`session.rs`,
+//! `rider.rs`), the road as the module hands it over (`level.rs`, `terrain.rs`,
+//! `world.rs`) and the adapter that asks. The Rust the module came from is the
+//! test-only `oracle`, which the module is held to tick for tick.
 //!
 //! The five numbers (rider.rs `Numbers`, the F2 knobs; `assets/lightgallop/BRIEF.md`
 //! holds the tuning record):
@@ -28,7 +36,6 @@ use super::activity::{Activity, Realm, Settled};
 use super::roundtable::{Adventure, Number};
 use super::*;
 
-pub mod bot;
 pub mod level;
 pub mod math;
 pub mod rider;
@@ -38,6 +45,57 @@ pub mod world;
 
 pub use rider::Numbers;
 pub use session::{LIMIT, Seat, Session, Tally};
+
+/// The module that owns the rules: the road, every knight's tick, the foes,
+/// the Dimming, the tally and what a bot presses.
+const MODULE: &str = "lightgallop-rules";
+
+/// The sounds a tick can make, by the index the module answers them with.
+pub const SOUNDS: [&str; 27] = [
+    "step_wood", "rock_land", "roll", "shot_spark", "engine_whistle", "spell_fire", "step_gravel",
+    "wheel_spin", "knight_hit", "swing", "kill", "hit_magic", "card_pickup", "gold", "spoil_pickup",
+    "wish_grant", "boss_death", "boss_roar", "shield_block", "hero_hurt", "knight_fall", "potion",
+    "wall_up", "vent_fire", "circle_toll", "shield_up", "chest_open",
+];
+
+/// One call of the module. JSON numbers lose bits past 2^53 on the way into
+/// JavaScript, so a rider's spark bits cross as 32-bit halves (`split_taken`)
+/// and are made whole again on the way back. An engine that is missing, or an
+/// answer that is not one, takes no step.
+fn ask<T: serde::de::DeserializeOwned>(mut ask: serde_json::Value) -> Option<T> {
+    #[cfg(test)]
+    install_oracle();
+    if let Some(session) = ask.get_mut("session") {
+        split_taken(session);
+    }
+    let said = crate::scripted::step::<_, serde_json::Value>(MODULE, &ask).map_err(|error| error.to_string());
+    let mut said = said.map_err(|error| debug_assert!(false, "{MODULE}: {error}")).ok()?;
+    if let Some(session) = said.get_mut("session") {
+        join_taken(session);
+    }
+    serde_json::from_value(said).map_err(|error| debug_assert!(false, "{MODULE}: {error}")).ok()
+}
+
+/// Each seat's spark bits, a word to a slot: `[u64; 12]` as 24 halves.
+pub fn split_taken(session: &mut serde_json::Value) {
+    for taken in taken_of(session) {
+        let words: Vec<u64> = taken.as_array().into_iter().flatten().filter_map(|w| w.as_u64()).collect();
+        *taken = words.iter().flat_map(|w| [w >> 32, w & 0xffff_ffff]).collect();
+    }
+}
+
+/// The halves, whole again.
+pub fn join_taken(session: &mut serde_json::Value) {
+    for taken in taken_of(session) {
+        let halves: Vec<u64> = taken.as_array().into_iter().flatten().filter_map(|w| w.as_u64()).collect();
+        *taken = halves.chunks(2).map(|pair| pair[0] << 32 | pair.get(1).copied().unwrap_or(0)).collect();
+    }
+}
+
+fn taken_of(session: &mut serde_json::Value) -> impl Iterator<Item = &mut serde_json::Value> {
+    let seats = session.get_mut("seats").and_then(|s| s.as_object_mut());
+    seats.into_iter().flat_map(|seats| seats.values_mut()).filter_map(|seat| seat.get_mut("rider")?.get_mut("taken"))
+}
 
 pub const NAME: &str = "Lightgallop";
 /// The kingdom tile its door stands on: walk up and press E.
@@ -55,7 +113,7 @@ pub const NUMBERS: [Number; 5] = [
     Number {
         name: "lightgallop_slope",
         label: "Slope pull and friction, percent",
-        constant: "lightgallop::rider::SLOPE",
+        constant: "lightgallop::Numbers::slope",
         min: 20,
         max: 300,
         start: 100,
@@ -163,8 +221,11 @@ impl Run {
         if self.room().kind != RoomKind::Forest {
             return;
         }
+        let Some(session) = Session::new(&self.players) else {
+            return;
+        };
         self.forest.leave();
-        self.lightgallop = Some(Session::new(&self.players));
+        self.lightgallop = Some(session);
         self.home.countryside.games.roundtable[SLOT].plays =
             self.home.countryside.games.roundtable[SLOT].plays.saturating_add(1);
         self.found = Some((self.tick, 0, format!("{NAME}: run, leap, spur. Hold Esc to return.")));
@@ -194,10 +255,12 @@ impl Run {
         }
         if s.again {
             // The ride again: a fresh road, in one tick, no menu between.
-            s = Session::new(&present);
-            self.home.countryside.games.roundtable[SLOT].plays =
-                self.home.countryside.games.roundtable[SLOT].plays.saturating_add(1);
-            self.sounds.push("play_card");
+            if let Some(fresh) = Session::new(&present) {
+                s = fresh;
+                self.home.countryside.games.roundtable[SLOT].plays =
+                    self.home.countryside.games.roundtable[SLOT].plays.saturating_add(1);
+                self.sounds.push("play_card");
+            }
         }
         self.lightgallop = Some(s);
     }
@@ -234,6 +297,31 @@ impl Run {
         roundtable::fixture(&ADVENTURE)
     }
 }
+/// The rules as they ran in Rust before they became Bend: the oracle the
+/// module is held to, and the engine this crate's own tests tick against.
+/// Test builds only, and never part of the product.
+#[cfg(test)]
+pub mod oracle;
+
+/// What the oracle's files take from the game around them.
+#[cfg(test)]
+mod host {
+    pub use super::{SOUNDS, join_taken, split_taken};
+    pub use crate::rules::{HZ, Hero, Input, MAX_PLAYERS};
+
+    /// A knight to seat.
+    pub fn hero() -> Hero {
+        Hero::new("Knight", 0.0, 0.0)
+    }
+}
+
+#[cfg(test)]
+pub fn install_oracle() {
+    crate::scripted::install_for_test(MODULE, oracle::answer);
+}
+
+#[cfg(test)]
+pub(crate) mod legacy;
 #[cfg(test)]
 #[path = "../../tests/rules/together_lightgallop__tests.rs"]
 mod tests;
@@ -246,3 +334,6 @@ mod play_tests;
 #[cfg(test)]
 #[path = "../../tests/rules/together_lightgallop_ride__tests.rs"]
 mod ride_tests;
+#[cfg(all(test, feature = "bend-cases-games-b"))]
+#[path = "../../tests/rules/lightgallop_bend_cases__tests.rs"]
+mod lightgallop_bend_cases_tests;

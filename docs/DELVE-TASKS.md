@@ -178,6 +178,8 @@ glyphs), and a funny payoff in the privy's spirit. A finished game:
       (Squire, Adept, Master, kept in the realm save), Adept and Master
       missions hand over signature gear that never drops, and every wish
       tier and card carries the rank it needs — lifesteal is a Master's.
+      Struck out 2026-10-22: no rank locks anything; the class pieces are
+      plain rare finds in chests and drops.
 - [x] (cart/lore-framework) The questlines: 22 teachers with a mission
       tree each; tier 3 of a wish and level III of a skill are taught by
       their teacher, not wished.
@@ -231,7 +233,7 @@ screen.
     lit from the upper left and shaded to the lower right inside a dark
     coloured edge; the gate now lets every class through (dress, kit
     colours, the dwarf and a raised shield no longer fall back to v1).
-  - Renders: `/work/artifacts/delve-world-20261013/classes/` (lineup.png
+  - Renders: `<artifacts>/delve-world-20261013/classes/` (lineup.png
     every class in every facing and pose and the four seats; lineup-1x.png;
     lineup-v2.png; classes-v1/ and classes-v2/ fights, kingdom, folly and a
     ledge hall, each with its 192-column cells). Writers:
@@ -541,7 +543,7 @@ tiny reward.
     of their screen, STRIKE! when the window opens, the hit words big under
     the lists, UNHORSED! with the helm bouncing off and birds going round,
     pennants and stakes over the gallery, and a result board with every
-    wager. Renders: /work/artifacts/delve-world-20261013/joust/.
+    wager. Renders: <artifacts>/delve-world-20261013/joust/.
 - [ ] Playtest: the 12-tick couch and the 10-second first flag are first
       picks; change them from play, not by formula.
 
@@ -655,18 +657,44 @@ Design calls (DELVE-NEXT Part 3, cut to what plays):
       labels, save and reset, the Court's plates, the steward's hall, the
       mirror, a castle; the map's door in and out, and angelX's work
       carried through the cockpit to a saved realm (531d13ee). Renders looked at in
-      `/work/artifacts/delve-world-20261013/holdings/holdings/`.
+      `<artifacts>/delve-world-20261013/holdings/holdings/`.
 - [x] (bf91b5f8) Raids fought in the steward's hall and a castle's hall, with
       the bays as defences; neighbour effects; the King's favour and his
       cards with the herald in the kingdom; the brawler and the hound;
       the Barracks family. Tests for each, and renders in
-      `/work/artifacts/delve-world-20261013/holdings/raids/`.
+      `<artifacts>/delve-world-20261013/holdings/raids/`.
+- [x] The Foreman and his petitions: the only way rooms are bought. His
+      ledge at the Court holds three petitions, drafted each rent day by a
+      deal counter rather than dice; every fifth quote is padded ten to
+      forty in the hundred ("the wagon axle broke on the oak"), every
+      seventh is the dud the neighbours like least. Aye pays his quote at
+      the save (hold E at the post), nay refuses it — three refusals stir
+      unrest. A petition the realm can no longer answer (raided, bays
+      full, purse short, relic missing) lapses off the ledge with its
+      reason. The five build plates are gone: the steward's hall keeps the
+      list prices, so a pad is caught by knowledge. His figure at his
+      ledge, his sheet above it, the AYE/NAY posts below.
+- [x] Raids pinned to Wren's board: a holding the raiders hold is a red
+      row beside her bounties and a mission on the Gate's gold arrow
+      (`mission_doors`), pulling the party back down. Her rows pay
+      nothing — the raiders' purse is won where it is fought — and come
+      down when the holding is freed.
+- [x] **The relics of the deep.** Below Dragon Keep the floors give up
+      relics, found and never bought: one chest in six, one guardian in
+      three, into a knight's purse and banked with the rest. The flooded
+      Archive gives hearthstones, forgehearts and ledgerglass; the Fungal
+      deep bellmetal and warhorns; the Unknown floor waystones. Each
+      family's great work — the Great Hall, Great Forge, Great Nave,
+      Bourse, Garrison — costs 800 gold and its relic, and the **Waypoint**
+      (1000 and a waystone) is a landing of the realm's own: the Winding
+      Stair sets the party down on the held floor, and the Unknown floor's
+      Waypoint is the only stair to floor 6, which Wren never sells.
 
 ## 9. New rooms (world/rooms)
 
 Each room has its own door in the kingdom (or an old map door now opens
 on it), tests for its interaction and reachability, and renders in
-`/work/artifacts/delve-world-20261013/rooms/`.
+`<artifacts>/delve-world-20261013/rooms/`.
 
 - [x] (1ff489a9) **Longbow country**, north of the flags: Longbow Green
       (cell -2,-9), the Fletchery (-1,-8) and the Scarecrow's Field

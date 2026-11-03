@@ -145,7 +145,6 @@ pub fn profile_lines(profile: AgentProfile, label: &str, active: bool) -> Vec<Li
 
 /// Legacy two-signal entry, kept as a wrapper over the stateful caption so
 /// existing callers keep compiling: `active` maps onto the Thinking state.
-#[allow(dead_code)]
 pub fn compact_profile_lines<'a>(
     profile: AgentProfile,
     label: &'a str,

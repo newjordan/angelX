@@ -1,0 +1,28 @@
+[package]
+name = "angel-live"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ring = "0.17.14"
+libc = "0.2"
+# Secret redaction (host::secrets): the cockpit's own `regex` requirement.
+regex = "1"
+# The key events the realm contract carries: the cockpit's own (ratatui's) crossterm.
+crossterm = { version = "0.29", default-features = false, features = ["events"] }
+# The Kernel's V8 backend (feature `v8`): the cockpit's own `v8` requirement.
+v8 = { version = "150.0.0", optional = true }
+
+[features]
+# The V8 backend: warm pooled isolates behind the `Evaluator` every host passes
+# to the loader, and the policy generations compiled in from cockpit/live
+# (`build.rs`). Off for crates that only need the loader and supervisor.
+v8 = ["dep:v8"]
+# One-shot fault hooks inside the atomic writers, for dependents' tests
+# (host::workspace_store::fault). Off in every shipped build.
+fault-hooks = []

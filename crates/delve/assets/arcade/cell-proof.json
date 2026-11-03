@@ -1595,56 +1595,6 @@
       "seat": 0
     }
   ],
-  "sources": [
-    {
-      "file": "crates/delve/src/render/arcade.rs",
-      "hash": 12379684691396127730
-    },
-    {
-      "file": "crates/delve/src/render/art.rs",
-      "hash": 9896923112795585463
-    },
-    {
-      "file": "crates/delve/src/render/braille.rs",
-      "hash": 7724409811404583141
-    },
-    {
-      "file": "crates/delve/src/render/overworld/ink.rs",
-      "hash": 1507185385394237766
-    },
-    {
-      "file": "crates/delve/src/render/overworld/arena.rs",
-      "hash": 10189563806310598366
-    },
-    {
-      "file": "crates/delve/src/render/overworld/arena/boss_art.rs",
-      "hash": 13815040417250022899
-    },
-    {
-      "file": "cockpit/src/stage/world_viz/art.rs",
-      "hash": 2996463386618241020
-    },
-    {
-      "file": "cockpit/src/stage/world_viz/art/cells.rs",
-      "hash": 7689183770432174198
-    },
-    {
-      "file": "tests/cockpit/world_viz/arcade__tests.rs",
-      "hash": 17391034875397296843
-    },
-    {
-      "file": "crates/delve/assets/arcade/knight/manifest.json",
-      "hash": 16344603835045778578
-    },
-    {
-      "file": "crates/delve/assets/arcade/fx/manifest.json",
-      "hash": 146706546339800506
-    },
-    {
-      "file": "crates/delve/assets/arcade/palette.json",
-      "hash": 16835694763990459545
-    }
-  ],
   "stage": [
     384,
     224

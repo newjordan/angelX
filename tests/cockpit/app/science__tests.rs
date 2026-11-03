@@ -52,7 +52,7 @@ fn http_deadline_is_inherited_by_all_scoped_science_workers() {
     let synthesis = crate::agent::tools::http_transport::with_deadline(
         Some(start + Duration::from_millis(500)),
         || {
-            synthesize_with("fixture", 1, &|_, _, _| {
+            synthesize_with("fixture", 1, &|_, _, _, _| {
                 crate::agent::tools::http_transport::request("GET", &url, false, 0)
                     .call()
                     .map_err(|e| e.to_string())?
@@ -75,6 +75,7 @@ fn http_deadline_is_inherited_by_all_scoped_science_workers() {
 
 #[test]
 fn openalex_parses_and_normalizes() {
+    let _lock = crate::tests::env_lock();
     let v: serde_json::Value = serde_json::from_str(
         r#"{"results":[
                 {"display_name":"Attention Is All You Need","publication_year":2017,
@@ -97,6 +98,7 @@ fn openalex_parses_and_normalizes() {
 
 #[test]
 fn crossref_parses_authors_and_year() {
+    let _lock = crate::tests::env_lock();
     let v: serde_json::Value = serde_json::from_str(
         r#"{"message":{"items":[
                 {"title":["Deep Residual Learning"],"DOI":"10.1109/CVPR.2016.90",
@@ -116,6 +118,7 @@ fn crossref_parses_authors_and_year() {
 
 #[test]
 fn semantic_scholar_pulls_doi_from_external_ids() {
+    let _lock = crate::tests::env_lock();
     let v: serde_json::Value = serde_json::from_str(
         r#"{"data":[
                 {"title":"BERT","year":2019,"citationCount":70000,
@@ -134,6 +137,7 @@ fn semantic_scholar_pulls_doi_from_external_ids() {
 
 #[test]
 fn europepmc_splits_authorstring_and_parses_year() {
+    let _lock = crate::tests::env_lock();
     let v: serde_json::Value = serde_json::from_str(
         r#"{"resultList":{"result":[
                 {"title":"CRISPR-Cas9 genome editing.","pubYear":"2014",
@@ -161,6 +165,7 @@ fn all_four_sources_fan_out() {
 
 #[test]
 fn fanout_is_concurrent_but_reduces_reverse_completion_canonically() {
+    let _lock = crate::tests::env_lock();
     use std::sync::{Arc, Condvar, Mutex, mpsc};
 
     fn source_index(source: Source) -> usize {
@@ -238,7 +243,7 @@ fn fanout_is_concurrent_but_reduces_reverse_completion_canonically() {
         Ok(())
     });
 
-    let searcher = |source: Source, query: &str, per_source: usize| {
+    let searcher = |source: Source, query: &str, per_source: usize, _: &ScienceSnapshot| {
         assert_eq!(query, "bounded fanout");
         assert_eq!(per_source, 7);
         worker_ids
@@ -302,6 +307,194 @@ fn fanout_is_concurrent_but_reduces_reverse_completion_canonically() {
 }
 
 #[test]
+#[cfg(unix)]
+fn real_synthesis_batches_provider_mapping_and_preserves_source_errors() {
+    use std::os::unix::fs::PermissionsExt;
+    let _lock = crate::tests::env_lock();
+    let _node_override = crate::tests::TestEnvGuard::unset("ANGEL_NODE_BIN");
+    let node = crate::agent::tools::runtime_missing::resolve("node").unwrap();
+    let root = crate::tests::TestGitWorkspace::new("science-batched-node");
+    let wrapper = root.path().join("node-wrapper");
+    let calls = root.path().join("node-calls");
+    let quote =
+        |path: &std::path::Path| format!("'{}'", path.to_string_lossy().replace('\'', "'\\''"));
+    std::fs::write(
+        &wrapper,
+        format!(
+            "#!/bin/sh\nprintf 'call\\n' >> {}\nexec {} \"$@\"\n",
+            quote(&calls),
+            quote(&node)
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let _node = crate::tests::TestEnvGuard::set("ANGEL_NODE_BIN", wrapper.to_str().unwrap());
+    let result = synthesize_impl("fixture", 3, &|source, _, _, _| match source {
+        Source::OpenAlex => Ok(SourcePayload::Raw(serde_json::json!({"results":[{
+            "display_name":"Valid paper", "cited_by_count":u64::MAX,
+            "doi":"10.1234/VALID", "id":"https://evil.test/W1"
+        }]}))),
+        Source::Crossref => Err("fixture unavailable".into()),
+        Source::SemanticScholar => Ok(SourcePayload::Raw(serde_json::json!({"wrong":[]}))),
+        Source::EuropePmc => Ok(SourcePayload::Raw(
+            serde_json::json!({"resultList":{"result":[{
+                "title":"Second paper.", "pubYear":"2024", "citedByCount":12,
+                "source":"MED", "id":"123"
+            }]}}),
+        )),
+    });
+    assert_eq!(
+        result.sources_hit,
+        vec![Source::OpenAlex, Source::EuropePmc]
+    );
+    assert_eq!(
+        result.notes,
+        vec![
+            "Crossref: fixture unavailable",
+            "Semantic Scholar: unexpected response shape (missing `data`)"
+        ]
+    );
+    assert_eq!(result.papers.len(), 2);
+    let first = result
+        .papers
+        .iter()
+        .find(|paper| paper.source == Source::OpenAlex)
+        .unwrap();
+    assert_eq!(first.citations, u64::MAX);
+    assert_eq!(first.doi.as_deref(), Some("10.1234/valid"));
+    assert!(first.url.is_none());
+    let count = || std::fs::read_to_string(&calls).unwrap().lines().count();
+    // One preparation, one provider batch, one fold; the briefing is separate
+    // because native code supplies the validated citation lines to it.
+    assert_eq!(count(), 3);
+    assert!(result.brief(3).unwrap().contains("Valid paper"));
+    assert_eq!(count(), 4);
+}
+
+#[test]
+#[cfg(unix)]
+fn known_legacy_entry_uses_single_source_protocol_without_replaying_search() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let _lock = crate::tests::env_lock();
+    const LEGACY_ENTRY: &str = concat!(
+        "// Read one bounded request from the native supervisor; never fetch or persist.\n",
+        "import { readFileSync, writeFileSync } from 'node:fs'\n",
+        "import { analyze, extract, fold } from '../../lib/science/brief.mjs'\n",
+        "const request = JSON.parse(readFileSync(0, 'utf8'))\n",
+        "const result = request.op === 'fold' ? fold(request.papers) : request.op === 'analyze' ? analyze(request) : request.op === 'extract' ? extract(request.source, request.body) : (() => { throw new Error('unknown science operation') })()\n",
+        "writeFileSync(1, JSON.stringify(result))\n",
+    );
+    assert_eq!(
+        crate::knowledge::cut::sha256_hex(LEGACY_ENTRY.as_bytes()),
+        LEGACY_ENTRY_SHA256
+    );
+    let root = crate::tests::TestGitWorkspace::new("science-legacy-generation");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/science");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    std::fs::write(scripts.join("science-brief.mjs"), LEGACY_ENTRY).unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../lib/science/brief.mjs");
+    std::fs::copy(source, library.join("brief.mjs")).unwrap();
+    let _root =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let calls = AtomicUsize::new(0);
+    let search = |source: Source, _: &str, _: usize, _: &ScienceSnapshot| {
+        calls.fetch_add(1, Ordering::SeqCst);
+        if source == Source::OpenAlex {
+            Ok(SourcePayload::Raw(
+                serde_json::json!({"results":[{"display_name":"Legacy result"}]}),
+            ))
+        } else {
+            Err("fixture unavailable".into())
+        }
+    };
+    let result = synthesize_impl("q", 1, &search);
+    assert_eq!(
+        result.snapshot.as_ref().unwrap().protocol,
+        ExtractionProtocol::Legacy
+    );
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
+    assert_eq!(result.papers[0].title, "Legacy result");
+
+    // An arbitrary changed entry is not silently classified as legacy from a
+    // failed process. It must implement the explicit v2 handshake.
+    std::fs::write(
+        scripts.join("science-brief.mjs"),
+        format!("{LEGACY_ENTRY}// modified\n"),
+    )
+    .unwrap();
+    calls.store(0, Ordering::SeqCst);
+    let rejected = synthesize_impl("q", 1, &search);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+    assert!(rejected.notes[0].contains("capability negotiation failed"));
+}
+
+#[test]
+#[cfg(unix)]
+fn batch_failure_is_reported_without_single_source_replay() {
+    use std::os::unix::fs::PermissionsExt;
+    let _lock = crate::tests::env_lock();
+    let _node_override = crate::tests::TestEnvGuard::unset("ANGEL_NODE_BIN");
+    let node = crate::agent::tools::runtime_missing::resolve("node").unwrap();
+    let root = crate::tests::TestGitWorkspace::new("science-batch-failure");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/science");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    std::fs::copy(
+        source.join("scripts/runtime/science-brief.mjs"),
+        scripts.join("science-brief.mjs"),
+    )
+    .unwrap();
+    let original = std::fs::read_to_string(source.join("lib/science/brief.mjs")).unwrap();
+    let changed = original.replace(
+        "return items.map(({ source, body }) => {",
+        "throw new Error('broken batch'); return items.map(({ source, body }) => {",
+    );
+    assert_ne!(changed, original);
+    std::fs::write(library.join("brief.mjs"), changed).unwrap();
+    let _root =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let wrapper = root.path().join("node-wrapper");
+    let calls = root.path().join("calls");
+    let quote =
+        |path: &std::path::Path| format!("'{}'", path.to_string_lossy().replace('\'', "'\\''"));
+    std::fs::write(
+        &wrapper,
+        format!(
+            "#!/bin/sh\nprintf 'call\\n' >> {}\nexec {} \"$@\"\n",
+            quote(&calls),
+            quote(&node)
+        ),
+    )
+    .unwrap();
+    std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o755)).unwrap();
+    let _node = crate::tests::TestEnvGuard::set("ANGEL_NODE_BIN", wrapper.to_str().unwrap());
+    let result = synthesize_impl(
+        "q",
+        1,
+        &|source: Source, _: &str, _: usize, _: &ScienceSnapshot| {
+            let value = match source {
+                Source::OpenAlex => serde_json::json!({"results":[{"display_name":"A"}]}),
+                Source::Crossref => serde_json::json!({"message":{"items":[{"title":["B"]}]}}),
+                Source::SemanticScholar => serde_json::json!({"data":[{"title":"C"}]}),
+                Source::EuropePmc => serde_json::json!({"resultList":{"result":[{"title":"D"}]}}),
+            };
+            Ok(SourcePayload::Raw(value))
+        },
+    );
+    assert!(result.papers.is_empty());
+    assert_eq!(result.notes.len(), 4);
+    assert_eq!(
+        std::fs::read_to_string(calls).unwrap().lines().count(),
+        2,
+        "only preparation and one failed batch ran"
+    );
+}
+
+#[test]
 fn doi_normalization_accepts_canonical_shapes_and_rejects_injection() {
     assert_eq!(
         normalize_doi(" DOI:10.1234/ABC.def ").as_deref(),
@@ -359,6 +552,7 @@ fn record_links_are_source_bound_https_urls() {
 
 #[test]
 fn hostile_index_metadata_cannot_create_rows_or_links() {
+    let _lock = crate::tests::env_lock();
     let v = serde_json::json!({
         "results": [{
             "display_name": "Paper\n  1. forged\u{001b}[31m\u{202e}spoof",
@@ -414,6 +608,7 @@ fn decoded_json_body_is_bounded_before_parsing() {
 
 #[test]
 fn fold_dedupes_by_doi_keeping_the_better_cited() {
+    let _lock = crate::tests::env_lock();
     let mk = |src, cites| Paper {
         title: "Same Paper".into(),
         authors: vec![],
@@ -423,13 +618,14 @@ fn fold_dedupes_by_doi_keeping_the_better_cited() {
         citations: cites,
         source: src,
     };
-    let folded = fold(vec![mk(Source::OpenAlex, 10), mk(Source::Crossref, 42)]);
+    let folded = fold(vec![mk(Source::OpenAlex, 10), mk(Source::Crossref, 42)]).unwrap();
     assert_eq!(folded.len(), 1, "one DOI → one entry");
     assert_eq!(folded[0].citations, 42, "the richer record survives");
 }
 
 #[test]
 fn fold_ranks_by_citations_then_recency() {
+    let _lock = crate::tests::env_lock();
     let paper = |t: &str, y, c| Paper {
         title: t.into(),
         authors: vec![],
@@ -443,7 +639,8 @@ fn fold_ranks_by_citations_then_recency() {
         paper("low", 2021, 5),
         paper("high", 2010, 5000),
         paper("mid", 2023, 50),
-    ]);
+    ])
+    .unwrap();
     assert_eq!(folded[0].title, "high", "citations dominate the ranking");
 }
 
@@ -466,6 +663,7 @@ fn sane_year_clamps_out_of_band_values() {
 
 #[test]
 fn future_dated_record_does_not_hijack_the_freshest_anchor() {
+    let _lock = crate::tests::env_lock();
     // A hostile 9999 year is dropped to None, so a genuine 2024 paper stays
     // the freshest rather than being buried by the corrupt record.
     let body = serde_json::json!({
@@ -506,6 +704,7 @@ fn result_container_present_distinguishes_missing_from_empty() {
 
 #[test]
 fn doi_less_records_do_not_merge_on_a_shared_generic_title() {
+    let _lock = crate::tests::env_lock();
     let paper = |author: &str, year| Paper {
         title: "Introduction".into(),
         authors: vec![author.into()],
@@ -516,7 +715,7 @@ fn doi_less_records_do_not_merge_on_a_shared_generic_title() {
         source: Source::EuropePmc,
     };
     // Same title, different first author + year → two distinct works.
-    let folded = fold(vec![paper("Alice Smith", 2019), paper("Bob Jones", 2024)]);
+    let folded = fold(vec![paper("Alice Smith", 2019), paper("Bob Jones", 2024)]).unwrap();
     assert_eq!(
         folded.len(),
         2,
@@ -526,6 +725,7 @@ fn doi_less_records_do_not_merge_on_a_shared_generic_title() {
 
 #[test]
 fn empty_title_records_never_collapse_into_one() {
+    let _lock = crate::tests::env_lock();
     let blank = |src, url: &str| Paper {
         title: "  ".into(), // squashes to an empty normalized title
         authors: vec![],
@@ -538,7 +738,8 @@ fn empty_title_records_never_collapse_into_one() {
     let folded = fold(vec![
         blank(Source::OpenAlex, "https://openalex.org/W1"),
         blank(Source::EuropePmc, "https://europepmc.org/article/MED/2"),
-    ]);
+    ])
+    .unwrap();
     assert_eq!(
         folded.len(),
         2,
@@ -566,6 +767,7 @@ fn paper(title: &str, cites: u64, year: u32) -> Paper {
 
 #[test]
 fn themes_surface_shared_title_keywords() {
+    let _lock = crate::tests::env_lock();
     let syn = Synthesis {
         query: "q".into(),
         papers: vec![
@@ -575,6 +777,8 @@ fn themes_surface_shared_title_keywords() {
         ],
         sources_hit: vec![Source::OpenAlex],
         notes: vec![],
+        candidates: None,
+        snapshot: None,
     };
     let themes = syn.themes(5);
     // "graph" is in all three; the ≥2 filter keeps the shared terms only.
@@ -584,6 +788,7 @@ fn themes_surface_shared_title_keywords() {
 
 #[test]
 fn brief_leads_with_seminal_and_freshest() {
+    let _lock = crate::tests::env_lock();
     let syn = Synthesis {
         query: "transformers".into(),
         papers: vec![
@@ -592,14 +797,17 @@ fn brief_leads_with_seminal_and_freshest() {
         ],
         sources_hit: vec![Source::OpenAlex],
         notes: vec![],
+        candidates: None,
+        snapshot: None,
     };
-    let b = syn.brief(10);
+    let b = syn.brief(10).unwrap();
     assert!(b.contains("seminal: Attention Is All You Need"), "{b}");
     assert!(b.contains("freshest: small recent"), "{b}");
 }
 
 #[test]
 fn topic_clusters_group_shared_keywords_with_anchors() {
+    let _lock = crate::tests::env_lock();
     let syn = Synthesis {
         query: "q".into(),
         papers: vec![
@@ -609,6 +817,8 @@ fn topic_clusters_group_shared_keywords_with_anchors() {
         ],
         sources_hit: vec![Source::OpenAlex],
         notes: vec![],
+        candidates: None,
+        snapshot: None,
     };
     let clusters = syn.topic_clusters(3, 2);
     assert_eq!(clusters[0].theme, "graph");
@@ -619,6 +829,7 @@ fn topic_clusters_group_shared_keywords_with_anchors() {
 
 #[test]
 fn metadata_cues_never_claim_to_be_evidence() {
+    let _lock = crate::tests::env_lock();
     let syn = Synthesis {
         query: "q".into(),
         papers: vec![
@@ -627,11 +838,13 @@ fn metadata_cues_never_claim_to_be_evidence() {
         ],
         sources_hit: vec![Source::OpenAlex],
         notes: vec![],
+        candidates: None,
+        snapshot: None,
     };
     let cues = syn.metadata_cues(2);
     assert!(cues[0].starts_with("survey/review cue"));
     assert!(cues[1].starts_with("evaluation cue"));
-    let brief = syn.brief(2);
+    let brief = syn.brief(2).unwrap();
     assert!(brief.contains("metadata cues (title text only; not evidence"));
     assert!(brief.contains("not citation clusters"));
     assert!(!brief.contains("claim signals"));
@@ -670,4 +883,317 @@ fn prune_drops_stale_entries_and_keeps_fresh_ones() {
     assert!(other.exists(), "non-json files are never touched");
 
     let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn module_extraction_preserves_large_citation_counts_and_host_validation() {
+    let _lock = crate::tests::env_lock();
+    let body = serde_json::json!({"results":[{
+        "display_name":"A safe title", "publication_year":2020,
+        "cited_by_count":u64::MAX,
+        "doi":"10.1000/good\nforged", "id":"https://untrusted.invalid/paper/1",
+        "authorships":[{"author":{"display_name":"Researcher\nInjected"}}]
+    }]});
+    let papers = parse_papers(Source::OpenAlex, &body).unwrap();
+    assert_eq!(papers.len(), 1);
+    assert_eq!(papers[0].citations, u64::MAX);
+    assert_eq!(papers[0].doi, None);
+    assert_eq!(papers[0].url, None);
+    assert!(!papers[0].authors[0].contains('\n'));
+}
+
+#[cfg(unix)]
+#[test]
+fn science_module_reload_and_failure_are_visible() {
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("science-live-module");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/science");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    std::fs::copy(
+        source.join("scripts/runtime/science-brief.mjs"),
+        scripts.join("science-brief.mjs"),
+    )
+    .unwrap();
+    let module = library.join("brief.mjs");
+    let original = std::fs::read_to_string(source.join("lib/science/brief.mjs")).unwrap();
+    std::fs::write(&module, &original).unwrap();
+    let _root =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let synthesis = Synthesis {
+        query: "graph".into(),
+        papers: vec![paper("Graph Networks", 2, 2020)],
+        sources_hit: vec![Source::OpenAlex],
+        notes: vec![],
+        candidates: None,
+        snapshot: None,
+    };
+    let frozen = Synthesis {
+        snapshot: Some(ScienceSnapshot::load().unwrap()),
+        ..synthesis.clone()
+    };
+    let frozen_path = frozen.snapshot.as_ref().unwrap().dir.clone();
+    assert!(frozen.brief(10).unwrap().contains("◇ synthesis"));
+    std::fs::write(
+        &module,
+        original.replace("◇ synthesis", "new research generation"),
+    )
+    .unwrap();
+    assert!(
+        frozen.brief(10).unwrap().contains("◇ synthesis"),
+        "an in-flight synthesis retains its generation"
+    );
+    assert!(
+        synthesis
+            .brief(10)
+            .unwrap()
+            .contains("new research generation")
+    );
+    std::fs::write(&module, "not valid javascript {").unwrap();
+    assert!(
+        synthesis
+            .brief(10)
+            .unwrap_err()
+            .contains("science report unavailable")
+    );
+    assert!(frozen.brief(10).unwrap().contains("◇ synthesis"));
+    drop(frozen);
+    assert!(!frozen_path.exists(), "the retired generation is removed");
+}
+
+#[cfg(unix)]
+#[test]
+fn cached_candidates_are_refolded_with_the_new_generation() {
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("science-cache-generation");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/science");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    std::fs::copy(
+        source.join("scripts/runtime/science-brief.mjs"),
+        scripts.join("science-brief.mjs"),
+    )
+    .unwrap();
+    let module = library.join("brief.mjs");
+    let original = std::fs::read_to_string(source.join("lib/science/brief.mjs")).unwrap();
+    std::fs::write(
+        &module,
+        original.replace("citation(p) > citation(old)", "citation(p) < citation(old)"),
+    )
+    .unwrap();
+    let _root =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let _home = crate::tests::TestEnvGuard::set("HOME", root.path().to_str().unwrap());
+    let low = paper("Graph Networks", 1, 2020);
+    let high = paper("Graph Networks", 10, 2020);
+    let old = Synthesis {
+        query: "q".into(),
+        papers: vec![high.clone()],
+        sources_hit: vec![Source::OpenAlex],
+        notes: vec![],
+        candidates: Some(vec![low, high]),
+        snapshot: None,
+    };
+    let path = cache_dir()
+        .unwrap()
+        .join(format!("{:016x}.json", fnv1a_str("8:q")));
+    write_cache(&path, &old);
+    let bytes = std::fs::read_to_string(&path).unwrap();
+    assert!(!bytes.contains("snapshot"));
+    let refolded = synthesize_cached("q", 8, 3600);
+    assert_eq!(refolded.papers[0].citations, 1);
+}
+
+#[cfg(unix)]
+#[test]
+fn cached_fold_failure_does_not_render_stale_ranking() {
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("science-cache-fold-failure");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/science");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    std::fs::copy(
+        source.join("scripts/runtime/science-brief.mjs"),
+        scripts.join("science-brief.mjs"),
+    )
+    .unwrap();
+    let original = std::fs::read_to_string(source.join("lib/science/brief.mjs")).unwrap();
+    let changed = original.replace(
+        "export function fold(papers) {",
+        "export function fold(papers) { if (papers.length) throw new Error('fold failure');",
+    );
+    assert_ne!(changed, original);
+    std::fs::write(library.join("brief.mjs"), changed).unwrap();
+    let _root =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let _home = crate::tests::TestEnvGuard::set("HOME", root.path().to_str().unwrap());
+    let stale = paper("Stale cached ranking", 10, 2020);
+    let old = Synthesis {
+        query: "q".into(),
+        papers: vec![stale.clone()],
+        sources_hit: vec![Source::OpenAlex],
+        notes: vec![],
+        candidates: Some(vec![stale]),
+        snapshot: None,
+    };
+    let path = cache_dir()
+        .unwrap()
+        .join(format!("{:016x}.json", fnv1a_str("8:q")));
+    write_cache(&path, &old);
+    let result = synthesize_cached("q", 8, 3600);
+    assert!(result.papers.is_empty());
+    assert!(
+        result
+            .notes
+            .iter()
+            .any(|note| note.starts_with("science analysis:"))
+    );
+    let output = run(Some("q"));
+    assert!(output.contains("science analysis:"), "{output}");
+    assert!(!output.contains("Stale cached ranking"), "{output}");
+}
+
+#[cfg(unix)]
+#[test]
+fn batch_rejects_swapped_equal_count_sources() {
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("science-swapped-batch");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/science");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    let entry = std::fs::read_to_string(source.join("scripts/runtime/science-brief.mjs")).unwrap();
+    let swapped = entry.replace(
+        "extractBatch(request.items)",
+        "extractBatch(request.items).reverse()",
+    );
+    assert_ne!(entry, swapped);
+    std::fs::write(scripts.join("science-brief.mjs"), swapped).unwrap();
+    std::fs::copy(
+        source.join("lib/science/brief.mjs"),
+        library.join("brief.mjs"),
+    )
+    .unwrap();
+    let _root =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let result = synthesize_impl("q", 1, &|source, _, _, _| match source {
+        Source::OpenAlex => Ok(SourcePayload::Raw(
+            serde_json::json!({"results":[{"display_name":"A"}]}),
+        )),
+        Source::EuropePmc => Ok(SourcePayload::Raw(
+            serde_json::json!({"resultList":{"result":[{"title":"B"}]}}),
+        )),
+        _ => Err("fixture unavailable".into()),
+    });
+    assert!(result.papers.is_empty());
+    assert!(result.sources_hit.is_empty());
+    assert!(result.notes.iter().any(|note| {
+        note.starts_with("OpenAlex: science module returned a mismatched batch source")
+    }));
+    assert!(result.notes.iter().any(|note| {
+        note.starts_with("Europe PMC: science module returned a mismatched batch source")
+    }));
+}
+
+#[cfg(unix)]
+#[test]
+fn cancellation_interrupts_batch_without_replaying_sources() {
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    let _lock = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("science-batch-cancel");
+    let scripts = root.path().join("scripts/runtime");
+    let library = root.path().join("lib/science");
+    std::fs::create_dir_all(&scripts).unwrap();
+    std::fs::create_dir_all(&library).unwrap();
+    let source = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("..");
+    std::fs::copy(
+        source.join("scripts/runtime/science-brief.mjs"),
+        scripts.join("science-brief.mjs"),
+    )
+    .unwrap();
+    let original = std::fs::read_to_string(source.join("lib/science/brief.mjs")).unwrap();
+    let marker = root.path().join("batch-started");
+    let replacement = format!(
+        "export function extractBatch(items) {{ writeFileSync({}, 'started'); while (true) {{}}",
+        serde_json::to_string(marker.to_str().unwrap()).unwrap()
+    );
+    let changed = original.replace("export function extractBatch(items) {", &replacement);
+    assert_ne!(changed, original);
+    std::fs::write(
+        library.join("brief.mjs"),
+        format!("import {{ writeFileSync }} from 'node:fs'\n{changed}"),
+    )
+    .unwrap();
+    let _root =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", root.path().to_str().unwrap());
+    let cancelled = AtomicBool::new(false);
+    let calls = AtomicUsize::new(0);
+    let start = std::time::Instant::now();
+    let result = std::thread::scope(|scope| {
+        scope.spawn(|| {
+            while !marker.exists() && start.elapsed() < Duration::from_secs(5) {
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            cancelled.store(true, Ordering::Release);
+        });
+        crate::agent::tools::http_transport::with_cancel(Some(&cancelled), || {
+            synthesize_impl("q", 1, &|source, _, _, _| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                if source == Source::OpenAlex {
+                    Ok(SourcePayload::Raw(
+                        serde_json::json!({"results":[{"display_name":"A"}]}),
+                    ))
+                } else {
+                    Err("fixture unavailable".into())
+                }
+            })
+        })
+    });
+    assert!(marker.exists(), "batch never started");
+    assert!(start.elapsed() < Duration::from_secs(5));
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
+    assert!(result.papers.is_empty());
+    assert!(
+        result
+            .notes
+            .iter()
+            .any(|note| note.contains("OpenAlex: worker request interrupted")),
+        "{:?}",
+        result.notes
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn oversized_batch_is_rejected_without_retry() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    let _lock = crate::tests::env_lock();
+    let calls = AtomicUsize::new(0);
+    let result = synthesize_impl("q", 1, &|source, _, _, _| {
+        calls.fetch_add(1, Ordering::SeqCst);
+        if source == Source::OpenAlex {
+            Ok(SourcePayload::Raw(
+                serde_json::json!({"results":[{"display_name":"A", "padding":"x".repeat(32 * 1024 * 1024)}]}),
+            ))
+        } else {
+            Err("fixture unavailable".into())
+        }
+    });
+    assert_eq!(calls.load(Ordering::SeqCst), 4);
+    assert!(result.papers.is_empty());
+    assert!(
+        result
+            .notes
+            .iter()
+            .any(|note| note.contains("OpenAlex: worker input exceeded its limit")),
+        "{:?}",
+        result.notes
+    );
 }

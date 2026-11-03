@@ -455,7 +455,7 @@ fn write_brasswake_review() {
     }
     let source = Run::brasswake_review_for_test("idle");
     let (base, _) =
-        crate::render::overworld::arena::art_v2::terminal_layers(&source, Some(1)).unwrap();
+        crate::render::overworld::arena::terminal_layers(&source, Some(1)).unwrap();
     image::save_buffer(
         dir.join("cell-source.png"),
         &base.rgb_bytes(),

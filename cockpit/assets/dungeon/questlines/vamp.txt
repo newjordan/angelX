@@ -1,4 +1,4 @@
-power wish:vamp 3
+power wish:leech 3
 teacher Maren of the Deepwater
 place the Drowned Archive, a dry study the water has agreed to respect
 room Archive

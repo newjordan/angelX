@@ -446,7 +446,7 @@
       }
     ],
     "original_metadata_sha256": "ed3f562b0fe405080b657dc9b43f8117e989c6f8f1521425ab34d0a8b217868c",
-    "original_path": "/work/artifacts/art-prod/slots/cinder.crock-damaged/v01/source-sheet.png",
+    "original_path": "artifacts/art-prod/slots/cinder.crock-damaged/v01/source-sheet.png",
     "original_sha256": "24ad4b6094b59cc8872b06edaaf156affdc0e3d7aa7238dfc646c11d1ff4ec2c",
     "recipe": "crates/delve/assets/art-slots/cinder.crock-damaged/prepare.py",
     "source_anchor": [

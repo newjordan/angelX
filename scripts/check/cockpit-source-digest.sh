@@ -3,11 +3,12 @@
 # cockpit binary as ANGEL_BUILD_SOURCE_SHA256 and read back by
 # `angel --build-info --json` as "cockpit_source_sha256".
 #
-# Current scheme (2026-10-14): angel-source-v3, v2's inventory plus crates/,
-# the engine's path dependencies (the Delve, its net and server, and the
-# browser client build.rs embeds). A commit from before crates/ existed keeps
-# its v2 digest. Scheme v2 (2026-09-12) covers both vendored path dependencies
-# and all three telemetry files embedded by Rust. Hash the scheme marker and
+# Current scheme: angel-source-v7, v6's inventory plus the shared native loader.
+# Scheme v4 includes v3's inventory plus runtime resources
+# embedded from outside cockpit/. Older revisions retain their original scheme.
+# Scheme v3 includes crates/, the engine's path dependencies. Scheme v2 covers
+# both vendored path dependencies and all three telemetry files embedded by Rust.
+# Hash the scheme marker and
 # ordered Git object IDs. --legacy-commit explicitly retains the incomplete
 # 2026-09-08 scheme for historical inspection, never current-source binding.
 # --scheme reports the authoritative inventory version to receipt producers.
@@ -30,7 +31,7 @@
 # Usage:
 #   scripts/check/cockpit-source-digest.sh              digest of HEAD, only if the build
 #                                                 inputs are clean (exit 3 otherwise)
-#   scripts/check/cockpit-source-digest.sh --commit X   v2 digest of any commit, no clean test
+#   scripts/check/cockpit-source-digest.sh --commit X   revision's digest, no clean test
 #   scripts/check/cockpit-source-digest.sh --legacy-commit X  historical v1 digest only
 #   scripts/check/cockpit-source-digest.sh --dirty      list the dirty build-input paths
 #
@@ -46,15 +47,63 @@ LEGACY_BUILD_INPUTS=(cockpit vendor/dotmax rust-toolchain.toml)
 V2_BUILD_INPUTS=(cockpit vendor/dotmax vendor/ureq rust-toolchain.toml
   docs/telemetry/model-calibration.toml docs/telemetry/store-caps.toml
   docs/telemetry/prices.toml)
-BUILD_INPUTS=(cockpit crates vendor/dotmax vendor/ureq rust-toolchain.toml
+V3_BUILD_INPUTS=(cockpit crates vendor/dotmax vendor/ureq rust-toolchain.toml
   docs/telemetry/model-calibration.toml docs/telemetry/store-caps.toml
   docs/telemetry/prices.toml)
+V4_RUNTIME_INPUTS=(scripts/runtime/repo-recon.js
+  scripts/runtime/test-runner-report.mjs lib/test-runner/report.mjs
+  lib/club/moa-preferences.json lib/tools/definitions.json)
+V4_BUILD_INPUTS=("${V3_BUILD_INPUTS[@]}" "${V4_RUNTIME_INPUTS[@]}")
+V5_RUNTIME_INPUTS=("${V4_RUNTIME_INPUTS[@]}" lib/control/slash-help.json)
+V5_BUILD_INPUTS=("${V3_BUILD_INPUTS[@]}" "${V5_RUNTIME_INPUTS[@]}")
+V6_RUNTIME_INPUTS=("${V5_RUNTIME_INPUTS[@]}" lib/knowledge/lesson-routing.json)
+V6_BUILD_INPUTS=("${V3_BUILD_INPUTS[@]}" "${V6_RUNTIME_INPUTS[@]}")
+EMBEDDED_RUNTIME_INPUTS=("${V6_RUNTIME_INPUTS[@]}" lib/native/native_module.rs)
+BUILD_INPUTS=("${V3_BUILD_INPUTS[@]}" "${EMBEDDED_RUNTIME_INPUTS[@]}")
 
-# The scheme a revision's digest is made with: v3 once crates/ exists.
+# Git status omits ignored untracked files, but rustc can still embed them.
+# A file absent from HEAD cannot be part of a source-bound current build.
+ignored_untracked_runtime_inputs() {
+  local input
+  for input in "${EMBEDDED_RUNTIME_INPUTS[@]}"; do
+    if { [ -e "$root/$input" ] || [ -L "$root/$input" ]; } &&
+      ! git -C "$root" cat-file -e "HEAD:$input" 2>/dev/null &&
+      git -C "$root" check-ignore -q -- "$input"; then
+      printf '%s\n' "$input"
+    fi
+  done
+}
+
+# Select by the files present in the revision, preserving old receipt digests.
 scheme_of() {
+  local input
+  for input in "${V4_RUNTIME_INPUTS[@]}"; do
+    if ! git -C "$root" rev-parse -q --verify "$1:$input" >/dev/null; then
+      if git -C "$root" rev-parse -q --verify "$1:crates" >/dev/null; then
+        echo angel-source-v3
+      else
+        echo angel-source-v2
+      fi
+      return
+    fi
+  done
   if git -C "$root" rev-parse -q --verify "$1:crates" >/dev/null; then
-    echo angel-source-v3
+    if git -C "$root" rev-parse -q --verify "$1:lib/control/slash-help.json" >/dev/null; then
+      if git -C "$root" rev-parse -q --verify "$1:lib/knowledge/lesson-routing.json" >/dev/null; then
+        if git -C "$root" rev-parse -q --verify "$1:lib/native/native_module.rs" >/dev/null; then
+          echo angel-source-v7
+        else
+          echo angel-source-v6
+        fi
+      else
+        echo angel-source-v5
+      fi
+    else
+      echo angel-source-v4
+    fi
   else
+    # An unusual older revision may contain runtime files without crates/.
+    # Its build inputs are still the historical v2 inventory.
     echo angel-source-v2
   fi
 }
@@ -65,7 +114,13 @@ source_digest() {
   local revs=()
   scheme=$(scheme_of "$revision")
   local inputs=("${BUILD_INPUTS[@]}")
-  [ "$scheme" = angel-source-v3 ] || inputs=("${V2_BUILD_INPUTS[@]}")
+  case "$scheme" in
+    angel-source-v2) inputs=("${V2_BUILD_INPUTS[@]}") ;;
+    angel-source-v3) inputs=("${V3_BUILD_INPUTS[@]}") ;;
+    angel-source-v4) inputs=("${V4_BUILD_INPUTS[@]}") ;;
+    angel-source-v5) inputs=("${V5_BUILD_INPUTS[@]}") ;;
+    angel-source-v6) inputs=("${V6_BUILD_INPUTS[@]}") ;;
+  esac
   for input in "${inputs[@]}"; do revs+=("$revision:$input"); done
   object_ids=$(git -C "$root" rev-parse "${revs[@]}") || return
   printf '%s\n%s\n' "$scheme" "$object_ids" | sha256sum | cut -d' ' -f1
@@ -94,6 +149,7 @@ case "${1:-}" in
     ;;
   --dirty)
     git -C "$root" status --porcelain --untracked-files=all -- "${BUILD_INPUTS[@]}"
+    ignored_untracked_runtime_inputs
     exit 0
     ;;
   '') ;;
@@ -101,6 +157,8 @@ case "${1:-}" in
 esac
 
 dirty=$(git -C "$root" status --porcelain --untracked-files=all -- "${BUILD_INPUTS[@]}" | wc -l | tr -d ' ')
+missing_runtime=$(ignored_untracked_runtime_inputs | wc -l | tr -d ' ')
+dirty=$((dirty + missing_runtime))
 if [ "$dirty" != "0" ]; then
   echo "build is unbound: $dirty dirty path(s) under ${BUILD_INPUTS[*]} (commit or stash them for a source-bound build; $0 --dirty lists them)" >&2
   exit 3

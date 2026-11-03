@@ -230,8 +230,8 @@ reconstructed native samples of both eye and moustache at least 12 luma darker
 than its graded skin. The pilot retains >=3 of each across all frames/seats.
 Bright teeth can trigger the painter's core protection and erase the moustache;
 use muted teeth, never a white face glint. The 64×80 review crop includes all
-56 asset rows and the floor; no shield tip is clipped. Saved evidence is tied to source frame and
-renderer fingerprints at build time; a changed source requires a new export.
+56 asset rows and the floor; no shield tip is clipped. Saved evidence is tied to each source
+frame's fingerprint at build time; a changed frame requires a new export.
 
 Review checklist, in order:
 
@@ -266,22 +266,23 @@ Knight authoring is exclusively native pixel rows in `scripts/arcade-knight.py` 
 `scripts/arcade_knight_contacts.py`,
 plus explicit contact/crease drawings. No knight source PNG is opened, sampled,
 traced, palette-fitted, smoothed or filtered. `source/knight.png` is retained as
-rejected historical reference only. The existing effects school still uses its
+rejected historical reference only, with `source/fx.png`, in the source-art
+archive (`<archive>/2026-10-20/source-art/arcade/source`). The existing effects school still uses its
 retained reference, with native core/debris/smoke additions in
 `scripts/arcade-fx-polish.py`. Neither path changes gameplay or renderer density.
 
-Rebuild and review commands (always set TMPDIR=/work/tmp and
-ANGEL_CARTRIDGES=/work/tmp/empty-cartridges):
+Rebuild and review commands (always set TMPDIR=<scratch> and
+ANGEL_CARTRIDGES=<scratch>/empty-cartridges):
 
 ```
 python scripts/arcade-art.py build
-CARGO_TARGET_DIR=/work/build-cache/bossart-cockpit ANGEL_ARCADE_SHOTS=<output> \
+CARGO_TARGET_DIR=<build-cache>/bossart-cockpit ANGEL_ARCADE_SHOTS=<output> \
   cargo test --manifest-path scripts/arcade-review/Cargo.toml \
   write_arcade_review -- --ignored --nocapture
 python scripts/arcade-art.py review --output <output>
 python scripts/arcade-cell-review.py --output <output>
-CARGO_TARGET_DIR=/work/build-cache/bossart-crates cargo build --manifest-path crates/Cargo.toml -p angel-delve
-CARGO_TARGET_DIR=/work/build-cache/bossart-crates cargo run --release \
+CARGO_TARGET_DIR=<build-cache>/bossart-crates cargo build --manifest-path crates/Cargo.toml -p angel-delve
+CARGO_TARGET_DIR=<build-cache>/bossart-crates cargo run --release \
   --manifest-path crates/Cargo.toml -p angel-delve-smoke --bin arcade-review
 ```
 

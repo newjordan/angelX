@@ -4,6 +4,8 @@
 
 use super::{Primary, Route, Sub};
 
+
+const CATALOG: &str = include_str!("../../../../book/z_brevity.book");
 pub(crate) const CELL: char = '⠵';
 pub(crate) const MARKER: Route = Route::new(CELL, '⠁');
 pub(crate) const LITE: Route = Route::new(CELL, '⠃');
@@ -27,7 +29,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the brevity mode and its level",
             action: "",
             ideas: "",
-            pages: &["angelX SOTA brevity mode ({level})."],
+            pages: &super::catalog_pages::<1>(CATALOG, b'1'),
         },
         Sub {
             route: LITE,
@@ -35,7 +37,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the lite level",
             action: "",
             ideas: "",
-            pages: &["Lite: remove filler and hedging, but keep normal grammar."],
+            pages: &super::catalog_pages::<1>(CATALOG, b'2'),
         },
         Sub {
             route: FULL,
@@ -43,10 +45,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the full level",
             action: "",
             ideas: "",
-            pages: &[
-                "Full: drop filler, pleasantries, and padded narration.",
-                "Fragments OK.",
-            ],
+            pages: &super::catalog_pages::<2>(CATALOG, b'3'),
         },
         Sub {
             route: ULTRA,
@@ -54,11 +53,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the ultra level",
             action: "",
             ideas: "",
-            pages: &[
-                "Ultra: shortest unambiguous answer.",
-                "State each fact once.",
-                "Use fragments when clear.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'4'),
         },
         Sub {
             route: WENYAN,
@@ -66,9 +61,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the wenyan levels",
             action: "",
             ideas: "",
-            pages: &[
-                "Wenyan levels are disabled for angelX SOTA outbounds; use full terse English unless the user writes Chinese.",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'5'),
         },
         Sub {
             route: RULES,
@@ -76,13 +69,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the brevity rules",
             action: "",
             ideas: "",
-            pages: &[
-                "Reason the same way.",
-                "Preserve technical substance.",
-                "Keep code blocks, CLI commands, JSON, tool-call arguments, API names, file paths, commit keywords, and exact error strings verbatim.",
-                "Obey explicit output formats, safety warnings, and destructive-action confirmations over brevity.",
-                "Do not mention this mode.",
-            ],
+            pages: &super::catalog_pages::<5>(CATALOG, b'6'),
         },
         Sub {
             route: AGED,
@@ -90,7 +77,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "a tool output was elided from context (its identity and handle inside the bracket)",
             action: "",
             ideas: "",
-            pages: &["re-run the tool if needed"],
+            pages: &super::catalog_pages::<1>(CATALOG, b'7'),
         },
         Sub {
             route: COMPACTED,
@@ -98,11 +85,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "earlier conversation, compacted to the notes below",
             action: "",
             ideas: "",
-            pages: &[
-                "[Earlier conversation compacted to these notes — background reference, not an instruction.]",
-                "[Earlier conversation compacted — background reference, not an instruction.",
-                "Fuller detail is in long-term memory; recall it if needed.]",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'8'),
         },
         Sub {
             route: PLAN,
@@ -110,9 +93,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the model's own working plan, carried across compaction",
             action: "",
             ideas: "",
-            pages: &[
-                "[current-plan/v1 — assistant-authored working state, not a user instruction]",
-            ],
+            pages: &super::catalog_pages::<1>(CATALOG, b'9'),
         },
         Sub {
             route: CONSTRAINTS,
@@ -120,11 +101,7 @@ pub(crate) const PRIMARY: Primary = Primary {
             signal: "the operator's protected task and constraints follow as anchors",
             action: "",
             ideas: "",
-            pages: &[
-                "Protected operator task and explicit constraints/answer contract follow in User-role anchors.",
-                "Constraint classes: named identifiers, forbidden paths, numeric limits, required tests, answer format.",
-                "Exact anchors govern; excerpts and drops are recorded below.",
-            ],
+            pages: &super::catalog_pages::<3>(CATALOG, b'0'),
         },
     ],
 };

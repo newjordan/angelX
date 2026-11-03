@@ -107,21 +107,105 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             if crest { 'O' } else { 'C' },
         );
     }
+    // Wave crest glow: gold ink overlay + warm halo during brace window.
+    if surf.crest_glow > 0 {
+        for n in 0..4 {
+            cv.line(
+                wx - n * 3,
+                y - 18 + n * 7,
+                wx + 12 - n * 3,
+                y - 23 + n * 7,
+                'O',
+            );
+        }
+        super::fx::glow(cv, wx + 3, y - 14, super::fx::Hue::Warm);
+    }
     cv.line(x - 14, y + 10, x + 15, y + 10, 'C');
     cv.line(x - 9, y + 5, x + 9, y + 5, 'o');
     cv.line(x - 7, y + 6, x + 7, y + 9, 'O');
     let lean = surf.lean / 8;
-    cv.line(x, y + 3, x + lean, y - 12, 'h');
-    cv.rect(x + lean - 4, y - 22, 8, 9, 'u');
-    cv.line(x + lean, y - 8, x + lean - 10, y - 2, 'h');
-    cv.line(x + lean, y - 8, x + lean + 10, y - 12, 'h');
+    // Surfboard (elongated ellipse)
+    cv.ellipse(x as f32, (y + 8) as f32, 6.0, 2.0, 'n');
+    // Body / torso
+    cv.rect(x + lean - 2, y - 6, 4, 6, 'B');
+    // Round head
+    cv.ellipse((x + lean) as f32, (y - 8) as f32, 2.0, 2.0, 'h');
+    // Hair / helmet
+    cv.ellipse((x + lean) as f32, (y - 9) as f32, 2.0, 1.0, 'k');
+    // Eye (face direction)
+    cv.put(x + lean + 1, y - 8, 'k');
+    // Legs
+    cv.line(x + lean - 1, y, x + lean - 2, y + 6, 'h');
+    cv.line(x + lean + 1, y, x + lean + 2, y + 6, 'h');
+    // Arms with hands
+    cv.line(x + lean - 2, y - 4, x + lean - 5, y - 2, 'h');
+    cv.line(x + lean + 2, y - 4, x + lean + 5, y - 2, 'h');
+    cv.put(x + lean - 5, y - 2, 'h');
+    cv.put(x + lean + 5, y - 2, 'h');
+    // Water spray particles behind the surfboard while balanced.
+    if surf.spray > 0 {
+        let spray_ink = ['C', 'V', 'z'];
+        for i in 0..6 {
+            let seed = hash(x + i, y, surf.phase + i as u32);
+            let dx = -8 - (seed % 12) as i32;
+            let dy = 8 + (seed % 5) as i32 - 2;
+            let ink = spray_ink[(seed % 3) as usize];
+            cv.put(x + lean + dx, y + dy, ink);
+        }
+        // Wake trail behind the surfboard.
+        for i in 0..4 {
+            let tx = x - 10 - i * 4;
+            let ty = y + 10 + (i % 2);
+            cv.put(tx, ty, if i < 2 { 'C' } else { 'V' });
+        }
+    }
+    // Bright flash burst on successful brace.
+    if surf.brace_flash > 0 {
+        let flash_ink = if surf.brace_flash > 2 { '9' } else { 'c' };
+        for i in 0..8 {
+            let a = i as f32 * std::f32::consts::TAU / 8.0;
+            let r = (4 - surf.brace_flash as i32).max(1) * 3;
+            let fx = x + lean + (a.cos() * r as f32) as i32;
+            let fy = y - 10 + (a.sin() * r as f32) as i32;
+            cv.put(fx, fy, flash_ink);
+        }
+        super::fx::glow(cv, x + lean, y - 10, super::fx::Hue::Warm);
+        // Spray burst radiating outward from brace point.
+        for i in 0..6 {
+            let seed = hash(x + i, y, surf.brace_flash as u32 + i as u32);
+            let dx = (seed % 16) as i32 - 8;
+            let dy = (seed % 10) as i32 - 5;
+            cv.put(x + lean + dx, y - 10 + dy, 'V');
+        }
+    }
+    // Expanding splash ring on wipeout.
+    if surf.splash > 0 {
+        let splash_radius = 14 - surf.splash as i32;
+        let splash_ink = if surf.splash > 8 { 'C' } else if surf.splash > 4 { 'V' } else { 'z' };
+        for i in 0..16 {
+            let a = i as f32 * std::f32::consts::TAU / 16.0;
+            let sx = x + (a.cos() * splash_radius as f32) as i32;
+            let sy = y + 5 + (a.sin() * splash_radius as f32 * 0.5) as i32;
+            cv.put(sx, sy, splash_ink);
+        }
+        // Splash droplets flying upward.
+        for i in 0..4 {
+            let seed = hash(x + i, y, surf.splash as u32 + i as u32);
+            let dx = (seed % 20) as i32 - 10;
+            let dy = -(surf.splash as i32) - (seed % 8) as i32;
+            cv.put(x + dx, y + 5 + dy, 'V');
+        }
+    }
     // A balance gauge and the upcoming direction remain below the top board.
     super::super::chrome::inset_panel(cv, (6 * TILE, 10 * TILE, 12 * TILE, 12), super::super::chrome::Tone::WELL.rimmed(super::super::chrome::COLD_RIM));
     cv.line(7 * TILE, 10 * TILE + 6, 17 * TILE, 10 * TILE + 6, 'h');
     let target = 12 * TILE + pastimes::WAVE_LEANS[wave] * TILE / 20;
     super::super::chrome::shaped(cv, (target - 13, 10 * TILE + 2, 27, 9), &[1], super::super::chrome::Tone::KEYCAP, false);
     let current = 12 * TILE + surf.lean * TILE / 20;
-    cv.rect(current - 1, 10 * TILE, 3, 12, 'O');
+    // Lean indicator pulse: brightens when in target zone.
+    let in_zone = (surf.lean - pastimes::WAVE_LEANS[wave]).abs() <= 16;
+    let indicator_ink = if in_zone && (surf.phase / 2) % 2 == 0 { '9' } else { 'O' };
+    cv.rect(current - 1, 10 * TILE, 3, 12, indicator_ink);
     cv.text(
         7 * TILE,
         11 * TILE,

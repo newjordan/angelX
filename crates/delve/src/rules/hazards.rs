@@ -66,6 +66,9 @@ pub struct Rock {
     pub y: f32,
     pub fall: u32,
     pub dust: u32,
+    /// An ember of hell's (`hell`): it burns, and spares the monsters.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ember: bool,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
@@ -298,8 +301,9 @@ impl Run {
     /// One wave through doorway `side`, in two files walking in.
     fn pour(&mut self, side: usize) {
         let depth = self.dungeon.depth.min(FLOORS) as usize;
-        // Each knight past the first brings two more through the door.
-        let more = stakes::EXTRA_PER_KNIGHT * self.party_len().saturating_sub(1) * self.ramp() / 100;
+        // Each knight past the first brings two more through the door (one
+        // past the fourth, `stakes::PARTY_EXTRA`).
+        let more = stakes::party_extra(self.party_len()) * self.ramp() / 100;
         let count = (2 + depth + more).min(6 + more);
         let ((x0, y0), (ix, iy)) = doorway(&self.dungeon.rooms[self.at], side);
         let (lx, ly) = (iy, ix);
@@ -341,8 +345,30 @@ impl Run {
     }
 
     /// Spikes, vents and falling rocks, after everything has moved.
+    /// The floor is won: its guardian's room (the stairs' or the lair) is
+    /// cleared, or on an open floor its guardian's chamber. Traps, wall
+    /// vents and perils settle then (Frank's play-test, 2026-11), so
+    /// nothing fires on a knight walking a finished floor to the stairs.
+    pub(super) fn traps_settled(&self) -> bool {
+        if let Some(open) = self.open_here() {
+            return open.chambers.get(usize::from(open.guardian)).is_some_and(|c| c.cleared);
+        }
+        let mut guarded = self
+            .dungeon
+            .rooms
+            .iter()
+            .filter(|r| matches!(r.kind, RoomKind::Stairs | RoomKind::Lair))
+            .peekable();
+        guarded.peek().is_some() && guarded.all(|r| r.cleared)
+    }
+
     pub(super) fn tick_traps(&mut self) {
         let tick = self.tick;
+        if self.traps_settled() {
+            // Rocks already falling still land, but hurt no one.
+            self.rocks.clear();
+            return;
+        }
         for trap in self.traps.clone() {
             match trap {
                 Trap::Spikes { col, row, phase } => {
@@ -442,23 +468,34 @@ impl Run {
                             y,
                             fall: ROCK_FALL,
                             dust: 0,
+                            ember: false,
                         });
                     }
                 }
             }
         }
         let mut landed = 0;
+        let mut burnt = 0;
         let mut roadkill = false;
         for rock in &mut self.rocks {
             if rock.fall > 0 {
                 rock.fall -= 1;
                 if rock.fall == 0 {
                     rock.dust = ROCK_DUST;
-                    landed += 1;
+                    if rock.ember {
+                        burnt += 1;
+                    } else {
+                        landed += 1;
+                    }
+                    let hit = if rock.ember { super::hell::EMBER_HIT } else { 16 };
                     for hero in self.players.values_mut().filter(|h| h.hp > 0 && !h.stone) {
                         if (hero.x - rock.x).hypot(hero.y - rock.y) < 1.4 {
-                            hero.hurt(16);
+                            hero.hurt(hit);
                         }
+                    }
+                    // Hell's fire spares its own.
+                    if rock.ember {
+                        continue;
                     }
                     for enemy in &mut self.enemies {
                         if enemy.hp > 0
@@ -477,6 +514,10 @@ impl Run {
         if landed > 0 {
             self.sounds.push("rock_land");
             self.fx.push(Fx::Shake(4));
+        }
+        if burnt > 0 {
+            self.sounds.push("vent_fire");
+            self.fx.push(Fx::Shake(2));
         }
         if roadkill {
             self.notice("roadkill");

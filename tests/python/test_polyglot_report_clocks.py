@@ -24,7 +24,7 @@ def timing(value=0):
 def run(label, wall=0, clocks=None, solved=True):
     rows = [{"usage": {"prompt_tokens": 0, "prompt_tokens_details": {"cached_tokens": 0},
                        "completion_tokens": 0}, "body": {"messages": []}, "t": 1, "done": 2}]
-    return {"label": label, "host": "atlas", "requests": 1, "solved": solved,
+    return {"label": label, "host": "workstation", "requests": 1, "solved": solved,
             "wall_s": wall, "timing": clocks, **report.receipt.usage_summary(rows)}
 
 

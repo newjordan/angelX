@@ -37,9 +37,24 @@ sound-effects API (`sound.py`), then trimmed and levelled (`level.py`).
 (numpy: pegged clicks timed to the wheel's own ease-out, and an inharmonic
 bell), levelled the same way; they are part of angelX and carry its licence.
 
+The spectacle's effects (`knight_hit`, the footsteps, the guardians' roars, the
+hand and the hell gate) and the finishers' (`gore_kick`, `gore_thunk`,
+`gore_chop`, `gore_splat`, `gore_bones`, `gore_burst`) are synthesized from
+nothing by `synth_sfx.py` (numpy and scipy: noise bursts, filtered sweeps and
+decaying sine modes, every source seeded), encoded with ffmpeg and levelled
+as the rest. No recording or sound pack is in them; they are part of angelX
+and carry its licence.
+
 ## The knights' voices (`sfx/knights/`)
 
 The knights' grunts and their few words of made-up chatter were generated
 for angelX with ElevenLabs text-to-speech (`knights.py`), per the operator's
 ElevenLabs plan, in four library voices (Ember, Guy, Jessica and Callum),
 then trimmed, lifted a touch in pitch and levelled by the same script.
+
+## Art packs (`packs/`)
+
+| Pack | Source | Author | Licence |
+|---|---|---|---|
+| demonic-dungeon (v2.3.3, the no-background sheets) | [Demonic Dungeon](https://v3x3d.itch.io/demonic-dungeon) | VEXED; palette Mystic-16 by Polyphrog | CC BY 4.0, bought by the operator 2026-10-30 |
+| Mage spell strips (`crates/delve/assets/spellfx/`, rendered, not a pack) | [pixelfx](https://github.com/patch-gg/pixelfx) | Patch; Hugo Duprez (Sprite Fusion effects) | MIT |

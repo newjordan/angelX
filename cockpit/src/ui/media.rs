@@ -12,7 +12,6 @@ static SUMMARY_CACHE: OnceLock<Mutex<HashMap<PathBuf, &'static str>>> = OnceLock
 
 /// A rich-media card surfaced in the right-panel carousel: previews, links,
 /// graphs, and resources the angel produces during a session.
-#[allow(dead_code)]
 pub enum Media {
     Image {
         label: String,

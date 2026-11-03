@@ -125,6 +125,46 @@ pub fn draw(d: Dress) -> Img {
     im
 }
 
+/// Native equipment sockets from the same authored layers `compose` draws.
+/// Keep the weapon's grip tied to its resting/striking layer, not a box
+/// inferred from the whole sprite (which includes a blade or bow).
+pub(in super::super) fn sockets(view: View, held: Held, strike: bool) -> ((i32, i32), (i32, i32)) {
+    let p = parts(view);
+    let shield = (p.shield.at.0 + 2, p.shield.at.1 + 3);
+    let index = match held { Held::Nothing => return (shield, (12, 11)), Held::Bow => 0, Held::Crossbow => 1, Held::Handgonne => 2, Held::Sword => 3 };
+    let layer = &p.held[index][usize::from(strike)];
+    let grip = layer.rows.iter().enumerate().flat_map(|(y,row)| row.chars().enumerate().map(move |(x,c)| (x,y,c)))
+        .find(|(_,_,c)| *c == 'B').map(|(x,y,_)| (x as i32,y as i32))
+        .unwrap_or((1, layer.rows.len() as i32 / 2));
+    (shield, (layer.at.0 + grip.0, layer.at.1 + grip.1))
+}
+
+pub fn equipment(view: View, held: Held, strike: bool) -> Option<(Img, (i32, i32))> {
+    let p = parts(view);
+    let pair = match held {
+        Held::Nothing => return None,
+        Held::Bow => &p.held[0],
+        Held::Crossbow => &p.held[1],
+        Held::Handgonne => &p.held[2],
+        Held::Sword => &p.held[3],
+    };
+    let layer = &pair[usize::from(strike)];
+    Some((Img::from_rows(layer.rows), layer.at))
+}
+
+pub fn clock_equipment(held: Held, strike: bool) -> Option<(Img, (i32, i32))> {
+    let (image, grip) = match held {
+        Held::Nothing => return None,
+        Held::Bow => (Img::from_rows(ACROSS.held[0][usize::from(strike)].rows),
+            if strike { (3, 4) } else { (2, 4) }),
+        Held::Crossbow => (Img::from_rows(ACROSS.held[1][1].rows), (1, 2)),
+        Held::Handgonne => (Img::from_rows(if strike { ACROSS.held[2][1].rows }
+            else { &[".....u.", "BrxuuV.", "......."] }), (1, 1)),
+        Held::Sword => (Img::from_rows(ACROSS.held[3][1].rows), (2, 1)),
+    };
+    Some((image, grip))
+}
+
 fn compose(d: Dress) -> Img {
     let p = parts(d.view);
     let mut im = Img::new(16, 16);
@@ -191,6 +231,14 @@ pub fn visitor() -> Img {
         p.shield.at.1,
     );
     im
+}
+
+/// The shield at rest on the arm, seen `view`'s way, and where it sits
+/// against a sixteen-pixel figure's top-left: for a figure drawn another
+/// way that carries the knight's shield (a class, a brought picture).
+pub fn shield(view: View) -> (Img, (i32, i32)) {
+    let layer = &parts(view).shield;
+    (Img::from_rows(layer.rows), layer.at)
 }
 
 /// The helm as it flies off: the head's top rows, cut to the helm.
@@ -269,12 +317,12 @@ const TOWARD: Parts = Parts {
             Layer {
                 at: (11, 5),
                 rows: &[
-                    "..r.", ".r.g", "r..g", "r..g", "r..g", "r..g", "r..g", ".r.g", "..r.",
+                    ".r..", "g.r.", "g..r", "g..r", "g..r", "g..r", "g..r", "g.r.", ".r..",
                 ],
             },
             Layer {
-                at: (8, 9),
-                rows: &["r.....r", ".r...r.", "..rrr..", "...j..."],
+                at: (8, 8),
+                rows: &["...j...", "r.....r", ".r...r.", "..rrr.."],
             },
         ],
         // the crossbow
@@ -377,7 +425,7 @@ const ACROSS: Parts = Parts {
             Layer {
                 at: (12, 5),
                 rows: &[
-                    ".r.", "r.g", "r.g", "r.g", "r.g", "r.g", "r.g", ".rg", "..r",
+                    ".r.", "g.r", "g.r", "g.r", "g.r", "g.r", "g.r", "gr.", "r..",
                 ],
             },
             Layer {
@@ -484,11 +532,11 @@ const AWAY: Parts = Parts {
         [
             Layer {
                 at: (11, 5),
-                rows: &[".r.", "r.g", "r.g", "r.g", "r.g", "r.g", ".rg", "..r"],
+                rows: &[".r.", "g.r", "g.r", "g.r", "g.r", "g.r", "gr.", "r.."],
             },
             Layer {
                 at: (8, 3),
-                rows: &["r.....r", ".r...r.", "..rrr.."],
+                rows: &["..rrr..", ".r...r.", "r.....r", "...j..."],
             },
         ],
         // the crossbow

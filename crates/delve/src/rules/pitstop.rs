@@ -18,7 +18,9 @@
 //!    a knight walking in is not choosing by accident.)
 //! 4. **Inside.** The door shuts; OCCUPIED.
 //! 5. **Run out.** Cross the chequered line for a burst and a split time.
-//! 6. **Dress.** Three straps again, then a short job-quality celebration.
+//! 6. **Dress.** The armour flies back on as it came off: one bar for both
+//!    (the operator, 2026-10-28: "just one bar game, not two ... on and off
+//!    at the same skillshot"), then a short job-quality celebration.
 //!
 //! Two clear stalls run independently; further knights undo their straps
 //! while hopping in their own queue spots. Admission is oldest-first per
@@ -105,7 +107,7 @@ impl Stage {
     }
 
     fn straps(self) -> bool {
-        matches!(self, Stage::Strip | Stage::Dress)
+        matches!(self, Stage::Strip)
     }
 }
 
@@ -540,7 +542,22 @@ pub(super) fn step(hero: &mut Hero, input: Input, admitted: bool, events: &mut V
     stop.pressed = press;
     let mut next = false;
     match stop.stage {
-        Stage::Strip | Stage::Dress => {
+        Stage::Dress => {
+            // The strip's skillshot was the bar for both: each piece flies
+            // home as it came off, and nothing more is pressed.
+            if stop.straps < STRAPS {
+                for piece in &mut stop.fitted {
+                    piece.get_or_insert(stop.total);
+                }
+                stop.straps = STRAPS;
+            }
+            next = stop
+                .fitted
+                .iter()
+                .flatten()
+                .all(|&t| stop.total.saturating_sub(t) >= FLIGHT_TICKS);
+        }
+        Stage::Strip => {
             stop.phase = (stop.phase + 2.0 / Stop::period(stop.straps)).rem_euclid(2.0);
             if edge && stop.lock == 0 && stop.straps < STRAPS {
                 let g = grade(stop.marker());
@@ -698,7 +715,7 @@ impl Run {
         let strap = stop.stage.straps();
         let hint = match stop.stage {
             Stage::Strip if stop.waiting => "YOUR TURN SOON".to_string(),
-            Stage::Strip | Stage::Dress => format!("{} ON GREEN", keys.fire),
+            Stage::Strip => format!("{} ON GREEN", keys.fire),
             Stage::Choose => "PICK A SIDE".to_string(),
             Stage::Inside => "OCCUPIED".to_string(),
             _ => "GO GO".to_string(),

@@ -22,6 +22,8 @@ const HONOUR_GAP: u32 = 5;
 /// and between one deed and the next.
 const READ: u32 = 60;
 const DEED_GAP: u32 = 10;
+/// Steps a finished run's deeds stand whole before the road ahead.
+const DEEDS_READ: u32 = 150;
 /// The most deeds the board lists; the rest are counted.
 const DEEDS: usize = 6;
 /// The board's columns: a heading and the right edge of its numbers.
@@ -97,7 +99,7 @@ impl Beats {
 
 /// `t` of the way, eased out: quick to start, settling at the end.
 fn ease(t: f32) -> f32 {
-    1.0 - (1.0 - t.clamp(0.0, 1.0)).powi(3)
+    crate::motion::ease::out(t)
 }
 
 /// `value` as it stands `age` steps into a count that starts at `start`.
@@ -142,6 +144,14 @@ fn board(run: &Run, results: &Results, age: u32) -> Img {
     let mut cv = Img::black(NATIVE_W, NATIVE_H);
     let beats = Beats::of(results);
     let deeds_at = (!results.deeds.is_empty() && results.end != End::Cleared).then_some(beats.deeds);
+    // A finished run's last word is the road ahead (`rewards`): after its
+    // deeds have been read, or where they would have come.
+    if results.end != End::Cleared {
+        let road_at = beats.deeds + deeds_at.map_or(0, |_| results.deeds.len().min(DEEDS) as u32 * DEED_GAP + DEEDS_READ);
+        if let Some(d) = age.checked_sub(road_at) {
+            return super::rewards::road_page(run, d);
+        }
+    }
     title(&mut cv, results, age, deeds_at.is_some_and(|at| age >= at));
     if let Some(d) = deeds_at.and_then(|at| age.checked_sub(at)) {
         deeds(&mut cv, &results.deeds, d);
@@ -164,7 +174,7 @@ fn board(run: &Run, results: &Results, age: u32) -> Img {
     for (i, r) in results.rows.iter().enumerate() {
         row(&mut cv, run, results, r, (i as u32, top + i as i32 * rh, rh), most, &beats, age);
     }
-    wish(&mut cv, results.wish.as_ref(), &beats, age);
+    wish(&mut cv, results.wish.as_ref(), results.village.as_ref(), &beats, age);
     hint(&mut cv, run, results, age);
     // The MVP's tag lands hard: the board jolts.
     let jolt = age.checked_sub(beats.mvp + SLAM).filter(|&d| d < 4 && results.mvp.is_some());
@@ -213,17 +223,48 @@ fn title(cv: &mut Img, results: &Results, age: u32, deeds: bool) {
     }
     if age >= 10 {
         let secs = results.ticks / u64::from(crate::rules::HZ);
-        let line = if deeds { "DEEDS OF THIS DELVE".to_string() } else { format!("{} MIN {:02} SEC", secs / 60, secs % 60) };
+        let line = if deeds {
+            "DEEDS OF THIS DELVE".to_string()
+        } else if let Some(left) = &results.village {
+            village_line(left)
+        } else {
+            format!("{} MIN {:02} SEC", secs / 60, secs % 60)
+        };
         cv.text((NATIVE_W - text_width(&line)) / 2, 25, &line, LABEL);
     }
 }
 
 fn headline(results: &Results) -> String {
-    match results.end {
-        End::Cleared => format!("FLOOR {} CLEARED", results.depth),
-        End::Won => "VICTORY".to_string(),
-        End::Fallen => format!("FALLEN ON FLOOR {}", results.depth),
+    match (&results.village, results.end) {
+        // A village of the Deep is left, not cleared (`deep::village`).
+        (Some(left), End::Cleared) => format!("LEFT {}", left.town),
+        (Some(left), End::Won) => format!("HOME FROM {}", left.town),
+        (_, End::Cleared) => format!("FLOOR {} CLEARED", results.depth),
+        (_, End::Won) => "VICTORY".to_string(),
+        (_, End::Fallen) => format!("FALLEN ON FLOOR {}", results.depth),
     }
+}
+
+/// What a village was left with: how lit, the errands it gave, the
+/// wishes standing in it.
+fn village_line(left: &crate::rules::floor_stats::Left) -> String {
+    let light = if left.shines {
+        "IT SHINES".to_string()
+    } else {
+        format!("HOPE {} OF {}", left.hope, crate::rules::deep::village::HOPE_FULL)
+    };
+    let errands = match (left.errands, left.done) {
+        (0, _) => "NO ERRANDS".to_string(),
+        (1, d) => format!("1 ERRAND{}", if d > 0 { " DONE" } else { "" }),
+        (n, 0) => format!("{n} ERRANDS"),
+        (n, d) => format!("{n} ERRANDS, {d} DONE"),
+    };
+    let wishes = match left.wishes {
+        0 => "NO WISHES YET".to_string(),
+        1 => "1 WISH STANDS".to_string(),
+        n => format!("{n} WISHES STAND"),
+    };
+    format!("{light}  {errands}  {wishes}")
 }
 
 /// A knight's honours in the order the board shows them: the shortest
@@ -420,7 +461,7 @@ fn dust(cv: &mut Img, x: i32, y: i32, d: u32, reach: i32) {
 
 /// The floor's most impactful wish: a seal that opens from its middle, the
 /// wish's name set in it letter by letter, then what it did.
-fn wish(cv: &mut Img, impact: Option<&Impact>, beats: &Beats, age: u32) {
+fn wish(cv: &mut Img, impact: Option<&Impact>, village: Option<&crate::rules::floor_stats::Left>, beats: &Beats, age: u32) {
     let Some(d) = age.checked_sub(beats.wish) else {
         return;
     };
@@ -430,6 +471,21 @@ fn wish(cv: &mut Img, impact: Option<&Impact>, beats: &Beats, age: u32) {
     let pw = ((w as f32 * open) as i32).max(8);
     chrome::panel(cv, (x + (w - pw) / 2, y, pw, h), SEAL);
     if d < 6 {
+        return;
+    }
+    // Open, it wears the delivered HUD kit's plate rim, as the bar does.
+    super::hud_art::rim(cv, "ready", (x, y, w, h), 3);
+    // Leaving a village: the wish made for it this visit, if one was.
+    if let (None, Some((gift, by))) = (impact, village.and_then(|v| v.wish.as_ref())) {
+        let head = format!("A WISH FOR {}", village.map_or("", |v| v.town.as_str()));
+        cv.text(x + (w - text_width(&head)) / 2, y + 7, &head, LABEL);
+        let name: String = gift.chars().take(((d - 6) as usize).min(gift.chars().count())).collect();
+        let k = if text_width(gift) * 2 <= w - 16 { 2 } else { 1 };
+        big(cv, x + (w - text_width(gift) * k) / 2, y + 18, &name, WARM, k);
+        if name.len() == gift.len() {
+            let said = format!("WISHED BY {by}");
+            cv.text(x + (w - text_width(&said)) / 2, y + 37, &said, FIGURE);
+        }
         return;
     }
     let head = "MOST IMPACTFUL WISH";
@@ -606,6 +662,7 @@ fn hint(cv: &mut Img, run: &Run, results: &Results, age: u32) {
         return;
     }
     let line = match results.end {
+        End::Cleared if results.village.is_some() => format!("ANY KEY: ON DOWN TO FLOOR {}", results.depth + 1),
         End::Cleared => format!("ANY KEY: ON TO FLOOR {}", results.depth + 1),
         _ => super::again_hint(run),
     };
@@ -615,14 +672,10 @@ fn hint(cv: &mut Img, run: &Run, results: &Results, age: u32) {
 /// The board where the screen is too small for it: its headline, its MVP
 /// and its wish, a line each.
 fn compact(out: &mut Img, results: &Results, (x, y, w, h): (i32, i32, i32, i32)) {
-    let mut lines: Vec<(String, char)> = vec![(
-        match results.end {
-            End::Cleared => format!("FLOOR {} CLEARED", results.depth),
-            End::Won => "VICTORY".to_string(),
-            End::Fallen => format!("FALLEN ON FLOOR {}", results.depth),
-        },
-        FIGURE,
-    )];
+    let mut lines: Vec<(String, char)> = vec![(headline(results), FIGURE)];
+    if let Some(left) = &results.village {
+        lines.push((village_line(left), LABEL));
+    }
     if let Some(row) = results.mvp.and_then(|id| results.row(id)) {
         lines.push((format!("MVP {}", row.name.to_uppercase()), WARM));
     }

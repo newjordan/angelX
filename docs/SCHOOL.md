@@ -80,11 +80,11 @@ scheduler, notebook synchronization or research campaign execution is added here
 ## Offline review
 
 ```sh
-CARGO_TARGET_DIR=/work/build-cache/angelx-school TMPDIR=/work/tmp \
+CARGO_TARGET_DIR=<build-cache>/angelx-school TMPDIR=<scratch> \
   cargo test --manifest-path cockpit/Cargo.toml -p angelX-cockpit \
   --bin angel --no-default-features college
-ANGEL_ARENA_SHOTS=/work/tmp/review-shots/school \
-  CARGO_TARGET_DIR=/work/build-cache/angelx-school TMPDIR=/work/tmp \
+ANGEL_ARENA_SHOTS=<scratch>/review-shots/school \
+  CARGO_TARGET_DIR=<build-cache>/angelx-school TMPDIR=<scratch> \
   cargo test --manifest-path cockpit/Cargo.toml -p angelX-cockpit \
   --bin angel --no-default-features write_college_shots -- --ignored
 ```

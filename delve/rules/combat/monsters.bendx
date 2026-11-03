@@ -1,0 +1,197 @@
+# crates/delve/src/rules/monsters.rs: the dungeon's monsters, and how each one
+# moves and fights (a guardian's from its `.boss` file).
+import Base
+
+def monsters.Enemy.asleep(enemy: Enemy, tick: W.W) -> Bool:
+  W.lt(tick, enemy.sleep_until)
+
+def monsters.Enemy.radius(enemy: Enemy) -> F32:
+  match (enemy.size : F32?):
+    case Some{s: F32}:
+      return s
+    case None{}:
+      return monsters.EnemyKind.radius(enemy.kind)
+
+def monsters.Enemy.base_hp(enemy: Enemy) -> U32:
+  match (enemy.base_hp : U32?):
+    case Some{h: U32}:
+      return h
+    case None{}:
+      return monsters.EnemyKind.hp(enemy.kind)
+
+# One monster's step: move, then maybe shoot. Answers (enemy, shots, deeds).
+def monsters.act(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, bosses: J.Val, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
+  match (enemy.boss : U32?):
+    case Some{bi: U32}:
+      if U32.is_lt(bi, J.len(bosses)):
+        boss: Boss = J.nth(bosses, bi)
+        if String.eq(room.kind, "wanted"):
+          return outlaw.act(enemy, boss, heroes, room, barred, seed, shots, deeds)
+        return monsters.act_boss(enemy, boss, heroes, room, barred, seed, shots, deeds)
+    case None{}:
+      shots = shots
+  (enemy, shots, deeds, done: Bool) = foes.act(enemy, heroes, room, barred, seed, shots, deeds)
+  if done:
+    return (enemy, shots, deeds)
+  (enemy, shots, deeds, done: Bool) = critters.act(enemy, heroes, room, barred, shots, deeds)
+  if done:
+    return (enemy, shots, deeds)
+  (enemy, deeds, done: Bool) = hunters.act(enemy, heroes, room, barred, deeds)
+  if done:
+    return (enemy, shots, deeds)
+  (enemy, shots, deeds, done: Bool) = pit.act(enemy, heroes, room, barred, shots, deeds)
+  if done:
+    return (enemy, shots, deeds)
+  &(enemy: Enemy, shots: J.Val, done: Bool) = hexer.act(enemy, heroes, room, barred, shots)
+  if done:
+    return (enemy, shots, deeds)
+  (enemy, shots, deeds, done: Bool) = hollow.act(enemy, heroes, room, barred, shots, deeds)
+  if done:
+    return (enemy, shots, deeds)
+  &(enemy: Enemy, shots: J.Val, deeds: Deeds, done: Bool) = lich.act(enemy, heroes, room, barred, shots, deeds)
+  if done:
+    return (enemy, shots, deeds)
+  (enemy, shots, deeds, done: Bool) = horrors.act(enemy, heroes, room, barred, shots, deeds)
+  if done:
+    return (enemy, shots, deeds)
+  monsters.walker(enemy, heroes, room, barred, seed, shots, deeds)
+
+# The rest: bats, skeletons, wraiths, imps, demons, the dragon, the mimic.
+def monsters.walker(enemy: Enemy, heroes: J.Val, room: Room, barred: Bool, seed: W.W, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
+  kind: String = enemy.kind
+  target: (F32, F32)? = cb.nearest2(heroes, enemy.x, enemy.y)
+  tx: F32 = enemy.x
+  ty: F32 = enemy.y
+  match (target : (F32, F32)?):
+    case Some{t: (F32, F32)}:
+      (tx, ty) = t
+    case None{}:
+      tx = tx
+  &(cx: F32, cy: F32) = rules.unit((tx - enemy.x : F32), (ty - enemy.y : F32))
+  age: U32 = (enemy.age + enemy.id * 13 : U32)
+  mover: U32 = foes.mover(kind)
+  mx: F32 = 0.0
+  my: F32 = 0.0
+  if String.eq(kind, "bat"):
+    wobble: F32 = (F32.sin((cb.f(age) * 0.31 : F32)) * 0.9 : F32)
+    &(ux: F32, uy: F32) = rules.unit((cx - cy * wobble : F32), (cy + cx * wobble : F32))
+    mx = (ux * 6.5 * rules.DT() : F32)
+    my = (uy * 6.5 * rules.DT() : F32)
+  elif String.eq(kind, "skeleton"):
+    # Wander between points near home, re-chosen every three seconds.
+    h: W.W = cb.wander_mix(seed, enemy.id, (age / 90 : U32))
+    gx: F32 = (enemy.origin_x + (cb.byte0(h) - 0.5 : F32) * 12.0 : F32)
+    gy: F32 = (enemy.origin_y + (cb.byte1(h) - 0.5 : F32) * 8.0 : F32)
+    &(ux: F32, uy: F32) = rules.unit((gx - enemy.x : F32), (gy - enemy.y : F32))
+    mx = (ux * 2.2 * rules.DT() : F32)
+    my = (uy * 2.2 * rules.DT() : F32)
+  elif Bool.or(String.eq(kind, "wraith"), String.eq(kind, "demon")):
+    mx = (cx * 1.8 * rules.DT() : F32)
+    my = (cy * 1.8 * rules.DT() : F32)
+  elif String.eq(kind, "imp"):
+    mx = (cx * 4.5 * rules.DT() : F32)
+    my = (cy * 4.5 * rules.DT() : F32)
+  elif String.eq(kind, "dragon"):
+    gx: F32 = (enemy.origin_x + F32.sin((cb.f(age) * 0.02 : F32)) * 12.0 : F32)
+    gy: F32 = (enemy.origin_y + F32.sin((cb.f(age) * 0.014 : F32)) * 2.0 : F32)
+    mx = (gx - enemy.x : F32)
+    my = (gy - enemy.y : F32)
+  elif Bool.and(String.eq(kind, "mimic"), U32.is_lt(U32.mod(age, 36), 14)):
+    # Hops: a lunge, then a pause to chew.
+    mx = (cx * 7.5 * rules.DT() : F32)
+    my = (cy * 7.5 * rules.DT() : F32)
+  &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), (mx, my), monsters.Enemy.radius(enemy), mover)
+  enemy.x = nx
+  enemy.y = ny
+  # What it throws is its signature (`patterns::volley`), fired after its step.
+  if String.eq(kind, "dragon"):
+    (enemy, shots, deeds) = desperate.last_stand(enemy, target, shots, deeds)
+  (enemy, shots, deeds)
+
+# A guardian's step: its file's movement, then each of its attacks on their
+# own beat, half again as often once its health falls below its rage.
+def monsters.act_boss(enemy: Enemy, boss: Boss, heroes: J.Val, room: Room, barred: Bool, seed: W.W, shots: J.Val, deeds: Deeds) -> (Enemy, J.Val, Deeds):
+  (enemy, deeds, busy: Bool) = signatures.act(enemy, boss, heroes, room, barred, seed, deeds)
+  if busy:
+    return (enemy, shots, deeds)
+  (enemy, deeds, busy: Bool) = signatures.wind(enemy, boss, heroes, room, barred, seed, deeds)
+  if busy:
+    return (enemy, shots, deeds)
+  target: (F32, F32)? = cb.nearest2(heroes, enemy.x, enemy.y)
+  tx: F32 = enemy.x
+  ty: F32 = (enemy.y + 1.0 : F32)
+  match (target : (F32, F32)?):
+    case Some{t: (F32, F32)}:
+      (tx, ty) = t
+    case None{}:
+      tx = tx
+  aim: F32 = RS.f_atan2((ty - enemy.y : F32), (tx - enemy.x : F32))
+  age: U32 = enemy.age
+  spin: F32 = (cb.f(age) * 0.035 + cb.f(W.rem_u32(seed, 17)) * 0.1 : F32)
+  gx: F32 = tx
+  gy: F32 = ty
+  speed: F32 = boss.speed
+  anchored: Bool = False{}
+  if String.eq(boss.moves, "drift"):
+    h: W.W = cb.wander_mix(seed, enemy.id, (age / 120 : U32))
+    gx = (enemy.origin_x + (cb.byte0(h) - 0.5 : F32) * 18.0 : F32)
+    gy = (enemy.origin_y + cb.byte1(h) * 9.0 : F32)
+  elif String.eq(boss.moves, "hover"):
+    gx = ((layout.Room.width(room) / 2.0 : F32) + F32.sin((cb.f(age) * 0.012 : F32)) * 16.0 : F32)
+    gy = (enemy.origin_y + F32.sin((cb.f(age) * 0.03 : F32)) * 1.5 : F32)
+    speed = RS.f_max(boss.speed, 1.0)
+  elif String.eq(boss.moves, "anchor"):
+    anchored = True{}
+  mx: F32 = 0.0
+  my: F32 = 0.0
+  if Bool.not(anchored):
+    ddx: F32 = (gx - enemy.x : F32)
+    ddy: F32 = (gy - enemy.y : F32)
+    &(ux: F32, uy: F32) = rules.unit(ddx, ddy)
+    reach: F32 = RS.f_min(cb.hyp(ddx, ddy), (speed * rules.DT() : F32))
+    mx = (ux * reach : F32)
+    my = (uy * reach : F32)
+  mover: U32 = Bool.pick(U32, String.eq(boss.moves, "hover"), 2, 1)
+  &(nx: F32, ny: F32) = rules.Grid.slide(room, barred, (enemy.x, enemy.y), (mx, my), monsters.Enemy.radius(enemy), mover)
+  enemy.x = nx
+  enemy.y = ny
+  # Its fight builds stage by stage: each line joins at its `from`, and only
+  # its rage quickens it.
+  stage: String = bosses.Boss.stage(boss, enemy.hp, enemy.max_hp)
+  rank: U32 = bosses.Stage.rank(stage)
+  attacks: J.Val = boss.attacks
+  for index: U32 in cb.range(J.len(attacks)):
+    attack: Attack = J.nth(attacks, index)
+    pat: J.Val = attack.pattern
+    if Bool.or(Bool.not(J.is_null(J.get(pat, "named"))), U32.is_gt(bosses.Stage.rank(attack.from), rank)):
+      # A named pattern is fired with the rest of the monsters' (`patterns::volley`).
+      continue
+    every: U32 = Bool.pick(U32, String.eq(stage, "rage"), RS.u_max((attack.every * 2 / 3 : U32), 4), RS.u_max(attack.every, 4))
+    if Bool.not(U32.is_eq(U32.mod((age + index * 11 : U32), every), 0)):
+      continue
+    if String.eq(J.str(pat), "ravage"):
+      # The floor itself, round where it stands; only at someone.
+      if Maybe.is_some(&2, Sigma<&2, &2, F32, _ => F32>, target):
+        beat: W.W = W.xor(W.xor(seed, W.shl(W.of_u32(age), 12)), W.of_u32(enemy.id))
+        ravage: Ravage = tide.Ravage.cast(enemy.x, enemy.y, attack.shots, attack.arc, attack.speed, attack.damage, beat)
+        art: String = bosses.Art.name_of(boss.id)
+        if Bool.not(String.eq(art, "")):
+          ravage.boss_art = Some{art}
+        deeds.ravages = J.push(deeds.ravages, ravage)
+        deeds = foes.cue(deeds, "ravage")
+      continue
+    kind: String = bosses.Bolt.shot(attack.bolt, boss.only_in)
+    n: U32 = RS.u_max(attack.shots, 1)
+    for i: U32 in cb.range(n):
+      angle: F32 = aim
+      if String.eq(J.str(pat), "aimed"):
+        angle = (aim + (cb.f(i) - cb.f((n - 1 : U32)) / 2.0 : F32) * 0.06 : F32)
+      elif String.eq(J.str(pat), "fan"):
+        arc: F32 = RS.f_to_radians(attack.arc)
+        angle = (aim + arc * (cb.f(i) / cb.f(RS.u_max((n - 1 : U32), 1)) - 0.5 : F32) : F32)
+      elif String.eq(J.str(pat), "ring"):
+        angle = (spin + cb.f(i) * cb.TAU() / cb.f(n) : F32)
+      elif String.eq(J.str(pat), "spiral"):
+        angle = (spin * 3.0 + cb.f(i) * cb.TAU() / cb.f(n) : F32)
+      shots = J.push(shots, patterns.Projectile.fresh(enemy.x, enemy.y, (F32.cos(angle) * attack.speed : F32), (F32.sin(angle) * attack.speed : F32), True{}, kind, attack.damage, (8 * rules.HZ() : U32), patterns.ShotTraits.default()))
+  (enemy, shots, deeds)

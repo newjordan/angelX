@@ -1,0 +1,1 @@
+{"api_version":1,"id":"worker-health","kind":"policy","entry":"index.js","probe":{"kind":"semantic","progress":false,"stale_next":2},"bend":{"entry":"worker-health.bend","proof":"PROOF.bend","output":"worker-health.compiled.js"}}

@@ -1,10 +1,166 @@
 use super::*;
+#[path = "verify_shell.rs"]
+mod verify_shell;
+/// The live leg that owns the verify-before-done decision. Every lexical job
+/// stays in Rust: quoting, control operators, status-bearing segments,
+/// test-runner/build recognition and mutation target paths become the features
+/// below, and the leg combines them into the four answers.
+const VERIFY_POLICY: &str = "verify-policy";
+
+#[derive(serde::Serialize)]
+struct SegmentFeature {
+    verifier: bool,
+    build: bool,
+}
+
+#[derive(serde::Serialize)]
+struct VerifyFeatures {
+    tool: &'static str,
+    fmt_check: bool,
+    verb: &'static str,
+    check_flag: bool,
+    mutation: bool,
+    targets: u32,
+    code_targets: u32,
+    or_branch: bool,
+    async_control: bool,
+    status: Vec<SegmentFeature>,
+    anywhere: Vec<SegmentFeature>,
+}
+
+/// The `verify-policy` leg's answer for one tool call.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Deserialize)]
+pub(crate) struct VerifyDecision {
+    pub(crate) requires_verification: bool,
+    pub(crate) is_verification: bool,
+    pub(crate) is_progress_verifier: bool,
+    pub(crate) runs_tests_anywhere: bool,
+}
+
+fn segment_feature(segment: &str) -> SegmentFeature {
+    SegmentFeature {
+        verifier: shell_segment_runs_verifier(segment),
+        build: shell_segment_runs_build(segment),
+    }
+}
+
+fn verify_features(call: &ToolCall) -> VerifyFeatures {
+    let tool = match call.name.as_str() {
+        "shell" => "shell",
+        "cargo" => "cargo",
+        "fmt" => "fmt",
+        "check" | "lint" | "run_tests" => "check",
+        _ => "other",
+    };
+    let verb = if tool == "cargo" {
+        match call
+            .args
+            .get("args")
+            .and_then(Value::as_str)
+            .unwrap_or("")
+            .split_whitespace()
+            .next()
+        {
+            Some("test") => "test",
+            Some("check") => "check",
+            Some("clippy") => "clippy",
+            Some("fmt") => "fmt",
+            Some("build") => "build",
+            _ => "none",
+        }
+    } else {
+        "none"
+    };
+    let mutation = is_mutation_call(call);
+    let (mut targets, mut code_targets) = (0u32, 0u32);
+    if mutation {
+        crate::knowledge::cut::for_each_mutation_target_path(&call.name, &call.args, |path| {
+            targets += 1;
+            if !is_prose_only_path(path) {
+                code_targets += 1;
+            }
+            false
+        });
+    }
+    let (or_branch, async_control, status, anywhere) = if tool == "shell" {
+        let command = crate::agent::tools::shell::shell_command_arg(&call.args).unwrap_or("");
+        (
+            command.contains("||"),
+            shell_has_async_control(command),
+            shell_pipeline_segments(shell_status_bearing_segment(command))
+                .map(segment_feature)
+                .collect(),
+            shell_segments_anywhere(command),
+        )
+    } else {
+        (false, false, Vec::new(), Vec::new())
+    };
+    VerifyFeatures {
+        tool,
+        fmt_check: call.args.get("check").and_then(Value::as_bool) == Some(true),
+        verb,
+        check_flag: call
+            .args
+            .get("args")
+            .and_then(Value::as_str)
+            .is_some_and(|args| args.contains("--check")),
+        mutation,
+        targets,
+        code_targets,
+        or_branch,
+        async_control,
+        status,
+        anywhere,
+    }
+}
+
+/// Every shell segment of the command, split where `shell_runs_tests_anywhere`
+/// splits it. Missing control positions (backticks, `$(`, comments, unclosed
+/// quotes) fail closed to no segments.
+fn shell_segments_anywhere(command: &str) -> Vec<SegmentFeature> {
+    let Some(positions) = shell_control_positions(command) else {
+        return Vec::new();
+    };
+    let mut start = 0usize;
+    positions
+        .into_iter()
+        .filter(|index| {
+            matches!(
+                command.as_bytes()[*index],
+                b'|' | b'&' | b';' | b'\n' | b'\r'
+            )
+        })
+        .chain(std::iter::once(command.len()))
+        .map(|end| {
+            let segment = command.get(start..end).unwrap_or("");
+            start = end.saturating_add(1).min(command.len());
+            segment_feature(segment)
+        })
+        .collect()
+}
+
+// --- the parity oracle: the verify policy this leg replaced, kept verbatim ---
+//
+// Test builds only. The parity tests compare the shipped leg against these, so
+// the product binary carries no second implementation of the decision.
+
+#[cfg(test)]
+fn verify_policy_native(call: &ToolCall) -> VerifyDecision {
+    VerifyDecision {
+        requires_verification: mutation_requires_verification_native(call),
+        is_verification: is_verification_call_native(call),
+        is_progress_verifier: is_progress_verifier_call_native(&call.name, &call.args),
+        runs_tests_anywhere: shell_runs_tests_anywhere_native(call),
+    }
+}
+
 /// Whether a successful direct mutation creates behavior that should block an
 /// unsupported completion claim. Known prose/data-only edits have no meaningful
 /// build/test command, so do not spend model hops inventing one. Unknown,
 /// deletion-only, opaque, formatting, integration, and code-mode mutations stay
 /// conservative and require verification.
-pub(crate) fn mutation_requires_verification(call: &ToolCall) -> bool {
+#[cfg(test)]
+fn mutation_requires_verification_native(call: &ToolCall) -> bool {
     if !is_mutation_call(call) {
         return false;
     }
@@ -25,7 +181,8 @@ pub(crate) fn mutation_requires_verification(call: &ToolCall) -> bool {
 /// counts as an attempt: after seeing real failure evidence the model may report
 /// the blocker. The policy prevents unsupported completion claims; it does not
 /// loop forever demanding green from a broken environment.
-pub(crate) fn is_verification_call(call: &ToolCall) -> bool {
+#[cfg(test)]
+fn is_verification_call_native(call: &ToolCall) -> bool {
     match call.name.as_str() {
         "run_tests" | "check" | "lint" => true,
         "fmt" => call.args.get("check").and_then(Value::as_bool) == Some(true),
@@ -55,13 +212,14 @@ pub(crate) fn is_verification_call(call: &ToolCall) -> bool {
 
 /// Progress credit also recognizes builds which do not satisfy the separate
 /// verify-before-done contract. Keep that distinction out of completion gates.
-pub(crate) fn is_progress_verifier_call(name: &str, args: &Value) -> bool {
+#[cfg(test)]
+fn is_progress_verifier_call_native(name: &str, args: &Value) -> bool {
     let call = ToolCall {
         id: String::new(),
         name: name.into(),
         args: args.clone(),
     };
-    if is_verification_call(&call) {
+    if is_verification_call_native(&call) {
         return true;
     }
     if name == "cargo" {
@@ -77,27 +235,132 @@ pub(crate) fn is_progress_verifier_call(name: &str, args: &Value) -> bool {
     if command.contains("||") || shell_has_async_control(command) {
         return false;
     }
-    shell_pipeline_segments(shell_status_bearing_segment(command)).any(|segment| {
-        let words: Vec<_> = segment
-            .split_whitespace()
-            .skip_while(|s| shell_env_assignment(s))
-            .collect();
-        let Some(program) = words.first().map(|s| s.rsplit('/').next().unwrap_or(s)) else {
-            return false;
-        };
-        match program {
-            "cargo" => words.get(1) == Some(&"build"),
-            "npm" | "pnpm" | "yarn" | "bun" => {
-                words.get(1) == Some(&"build")
-                    || (words.get(1) == Some(&"run") && words.get(2) == Some(&"build"))
-            }
-            "cmake" => words.get(1) == Some(&"--build"),
-            "make" | "ninja" => {
-                words.len() == 1 || words.get(1).is_some_and(|s| matches!(*s, "all" | "build"))
-            }
-            _ => false,
+    shell_pipeline_segments(shell_status_bearing_segment(command)).any(shell_segment_runs_build)
+}
+
+/// Reject answers the features cannot justify, so a bad edit keeps the native
+/// decision instead of steering a turn. Each clause states an invariant the
+/// native functions already hold, without restating how they compute it.
+fn verify_policy_check(
+    features: &VerifyFeatures,
+) -> impl Fn(&VerifyDecision) -> Result<(), String> + '_ {
+    move |decision| {
+        if decision.requires_verification && !features.mutation {
+            return Err("verify policy owes verification for a call that changed nothing".into());
         }
+        if decision.requires_verification && features.targets > 0 && features.code_targets == 0 {
+            return Err("verify policy owes verification for prose-only targets".into());
+        }
+        if decision.runs_tests_anywhere && features.tool != "shell" {
+            return Err("verify policy answered the shell-only field for another tool".into());
+        }
+        if decision.is_verification && !decision.is_progress_verifier {
+            return Err("verify policy dropped progress credit for a verifier".into());
+        }
+        let build = match features.tool {
+            "cargo" => features.verb == "build",
+            "shell" => features.status.iter().any(|segment| segment.build),
+            _ => false,
+        };
+        if decision.is_progress_verifier && !decision.is_verification && !build {
+            return Err("verify policy claimed progress without verifier or build evidence".into());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+fn verify_policy_with(
+    call: &ToolCall,
+    program: Option<angel_live::Program>,
+) -> (VerifyDecision, crate::agent::harness::live_policy::LegSource) {
+    let features = verify_features(call);
+    let input = serde_json::to_value(&features).unwrap_or(Value::Null);
+    crate::agent::harness::live_policy::decide_with(
+        program,
+        VERIFY_POLICY,
+        &input,
+        verify_policy_check(&features),
+        || verify_policy_native(call),
+    )
+}
+
+fn verify_policy(call: &ToolCall) -> VerifyDecision {
+    let features = verify_features(call);
+    let input = serde_json::to_value(&features).unwrap_or(Value::Null);
+    crate::agent::harness::live_policy::decide_shipped(
+        VERIFY_POLICY,
+        &input,
+        verify_policy_check(&features),
+    )
+    .0
+}
+
+/// Whether a successful direct mutation creates behavior that should block an
+/// unsupported completion claim. The `verify-policy` leg decides; the generation
+/// shipped in this binary answers when no live one does, and the native body
+/// survives only as the parity oracle.
+pub(crate) fn mutation_requires_verification(call: &ToolCall) -> bool {
+    verify_policy(call).requires_verification
+}
+
+/// Whether a call is an explicit verification attempt. A red test still counts
+/// as an attempt.
+pub(crate) fn is_verification_call(call: &ToolCall) -> bool {
+    verify_policy(call).is_verification
+}
+
+/// Progress credit also recognizes builds which do not satisfy the separate
+/// verify-before-done contract.
+pub(crate) fn is_progress_verifier_call(name: &str, args: &Value) -> bool {
+    verify_policy(&ToolCall {
+        id: String::new(),
+        name: name.into(),
+        args: args.clone(),
     })
+    .is_progress_verifier
+}
+
+/// A shell command that runs tests anywhere in it, including where their status
+/// is lost: `tests 2>&1 | tail -6; ls`, `tests || fallback`.
+pub(crate) fn shell_runs_tests_anywhere(call: &ToolCall) -> bool {
+    verify_policy(call).runs_tests_anywhere
+}
+
+#[cfg(test)]
+pub(crate) fn verification_decision_with(
+    call: &ToolCall,
+    program: Option<angel_live::Program>,
+) -> (VerifyDecision, crate::agent::harness::live_policy::LegSource) {
+    verify_policy_with(call, program)
+}
+
+#[cfg(test)]
+pub(crate) fn verification_decision_native(call: &ToolCall) -> VerifyDecision {
+    verify_policy_native(call)
+}
+/// Whether one shell segment runs a package build. Builds are progress, never
+/// verify-before-done evidence.
+fn shell_segment_runs_build(segment: &str) -> bool {
+    let words: Vec<_> = segment
+        .split_whitespace()
+        .skip_while(|s| shell_env_assignment(s))
+        .collect();
+    let Some(program) = words.first().map(|s| s.rsplit('/').next().unwrap_or(s)) else {
+        return false;
+    };
+    match program {
+        "cargo" => words.get(1) == Some(&"build"),
+        "npm" | "pnpm" | "yarn" | "bun" => {
+            words.get(1) == Some(&"build")
+                || (words.get(1) == Some(&"run") && words.get(2) == Some(&"build"))
+        }
+        "cmake" => words.get(1) == Some(&"--build"),
+        "make" | "ninja" => {
+            words.len() == 1 || words.get(1).is_some_and(|s| matches!(*s, "all" | "build"))
+        }
+        _ => false,
+    }
 }
 
 fn shell_env_assignment(word: &str) -> bool {
@@ -365,45 +628,21 @@ fn shell_status_bearing_segment(command: &str) -> &str {
     command.get(..end).unwrap_or("")
 }
 
-/// Conservatively identify a verifier whose failure can reach the shell status.
-/// Substring matching is unsafe (`echo cargo test` is not evidence), an `||`
-/// branch can mask failure, and an unjoined background job reports launch rather
-/// than completion. Only the final `;`/newline list segment owns the status;
-/// mandatory `&&` and pipeline members inside it remain eligible.
-/// Scans argv in place so ordinary shell hops do not copy the command.
-fn shell_command_runs_verifier(command: &str) -> bool {
-    !command.contains("||") && !shell_has_async_control(command) && {
-        let segment = shell_status_bearing_segment(command);
-        shell_pipeline_segments(segment).any(shell_segment_runs_verifier)
-    }
-}
-
 /// A shell command that runs tests anywhere in it, including where their
 /// status is lost: `tests 2>&1 | tail -6; ls`, `tests || fallback`. Not
 /// evidence of green, but evidence that the model's latest run may be.
-pub(crate) fn shell_runs_tests_anywhere(call: &ToolCall) -> bool {
+/// Parity oracle for [`shell_runs_tests_anywhere`].
+#[cfg(test)]
+fn shell_runs_tests_anywhere_native(call: &ToolCall) -> bool {
     if call.name != "shell" {
         return false;
     }
     let command = crate::agent::tools::shell::shell_command_arg(&call.args).unwrap_or("");
-    let Some(positions) = shell_control_positions(command) else {
-        return false;
-    };
-    let mut start = 0usize;
-    positions
-        .into_iter()
-        .filter(|index| {
-            matches!(
-                command.as_bytes()[*index],
-                b'|' | b'&' | b';' | b'\n' | b'\r'
-            )
-        })
-        .chain(std::iter::once(command.len()))
-        .any(|end| {
-            let segment = command.get(start..end).unwrap_or("");
-            start = end.saturating_add(1).min(command.len());
-            shell_segment_runs_verifier(segment)
-        })
+    verify_shell::classify(command, 1)
+}
+
+fn shell_command_runs_verifier(command: &str) -> bool {
+    verify_shell::classify(command, 0)
 }
 
 /// Unquoted members of a status-bearing pipeline/mandatory-AND expression.

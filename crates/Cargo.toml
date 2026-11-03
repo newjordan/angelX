@@ -2,7 +2,7 @@
 # path and keeps its own target directory and lockfile.
 [workspace]
 resolver = "3"
-members = ["net", "stage", "gpu", "glass", "serve", "muster", "bots", "delve", "delve/smoke", "delve/dev-host", "web", "web/render", "web/testgame", "web/muster", "web/delve", "table"]
+members = ["net", "stage", "gpu", "glass", "term", "serve", "muster", "bots", "delve", "delve/smoke", "delve/dev-host", "web", "web/render", "web/testgame", "web/muster", "web/delve", "table", "probe-live", "wish-live", "wish-host", "live", "delve-system", "kiln", "realm-host"]
 
 [workspace.package]
 edition = "2024"
@@ -14,6 +14,30 @@ publish = false
 lto = "thin"
 codegen-units = 1
 
+# Test-loop builds of the engine crates, matching the cockpit's `devfast`:
+# debug assertions and overflow checks stay on, but the sim/render tests
+# run optimized instead of at dev's opt-0.
+[profile.devfast]
+inherits = "dev"
+opt-level = 1
+debug = 1
+debug-assertions = true
+overflow-checks = true
+
+# The realm host's seat tests start a whole delve (sprites decoded, a snapshot
+# encoded, a handshake with a 3 s silence bound); with the PNG and deflate
+# crates unoptimized that takes longer than the link waits. `cargo test` builds
+# the third-party crates optimized, as the working profile below does, and the
+# game's own crates lightly.
+[profile.dev.package."*"]
+opt-level = 3
+
+[profile.dev.package.angel-delve]
+opt-level = 1
+
+[profile.dev.package.angel-realm-host]
+opt-level = 1
+
 # The browser client is downloaded by every phone that joins: small first.
 [profile.web]
 inherits = "release"
@@ -21,3 +45,28 @@ opt-level = 3
 lto = "fat"
 panic = "abort"
 strip = "symbols"
+
+# Match the cockpit's working profile for Delve's library and shot tests.
+[profile.fast]
+inherits = "release"
+lto = false
+codegen-units = 256
+incremental = true
+
+[profile.fast.package.angel-delve]
+opt-level = 1
+
+# The realm host carries the cockpit's game code and the Delve's browser page:
+# the same working optimization as the cockpit's (cockpit/Cargo.toml).
+[profile.fast.package.angel-realm-host]
+opt-level = 1
+
+# The cockpit's working build (`--profile fast`) embeds this same page. Fat LTO
+# is what a phone download wants; it also turns a one-line engine edit into a
+# multi-minute relink. `web-fast` keeps the opt level and panic strategy and
+# drops that link.
+[profile.web-fast]
+inherits = "web"
+lto = false
+codegen-units = 256
+incremental = true

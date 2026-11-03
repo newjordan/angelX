@@ -65,7 +65,7 @@
   "flags": [
     "piece-count mismatch"
   ],
-  "map_sha256": "690c7dfd94834161497fbf44329fbf39c14be6114419229fe2568b12467119e7",
+  "map_sha256": "e2c4b576a9b51135aff873d231acc8bc30960bcb1bea0998164c15daa6433510",
   "metadata_sha256": "5c83d35486eea94dd978ed77be1029807ad461b463da9c9d32c7bde182c7ae75",
   "native_cleanup": {
     "latch.knight/knight-thrust-contact": [
@@ -570,7 +570,7 @@
     "script": "crates/delve/assets/art-slots/cinder.chrome/masks.py"
   },
   "slot": "latch.knight",
-  "source_path": "/work/artifacts/boss-art-20261015/polish-a/prepared/latch.knight/source-sheet.png",
+  "source_path": "artifacts/boss-art-20261015/polish-a/prepared/latch.knight/source-sheet.png",
   "source_sha256": "66310357c02da353c3d793126a6728383c8dc2ccc8fbd5be4a31a42b4d2031b7",
   "tool_version": 2
 }

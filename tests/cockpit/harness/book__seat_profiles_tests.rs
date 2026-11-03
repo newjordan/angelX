@@ -23,12 +23,12 @@ fn blocks(source: &str) -> Vec<&str> {
 
 /// Whether `pages`, in order, are the block exactly: each page is the next text
 /// of the block, byte for byte, and only whitespace lies between them.
-fn rebuilds(block: &str, pages: &[&str]) -> Result<(), String> {
+fn rebuilds(block: &str, pages: &[String]) -> Result<(), String> {
     let mut rest = block;
     for (index, page) in pages.iter().enumerate() {
         rest = rest.trim_start();
         rest = rest
-            .strip_prefix(page)
+            .strip_prefix(page.as_str())
             .ok_or_else(|| format!("page {index} is not the block's next text: {page:?}"))?;
     }
     if rest.trim().is_empty() {
@@ -38,10 +38,10 @@ fn rebuilds(block: &str, pages: &[&str]) -> Result<(), String> {
     }
 }
 
-fn pages_of(routes: &[Route]) -> Vec<&'static str> {
+fn pages_of(routes: &[Route]) -> Vec<String> {
     routes
         .iter()
-        .flat_map(|route| route.sub().pages.iter().copied())
+        .flat_map(|route| route.sub().pages.into_iter())
         .collect()
 }
 
@@ -143,7 +143,7 @@ fn pages_are_the_texts_own_and_never_padded() {
             route.name()
         );
         for page in sub.pages {
-            assert_eq!(page.trim(), *page, "{}: a padded page", route.name());
+            assert_eq!(page.trim(), page, "{}: a padded page", route.name());
             assert!(!page.is_empty(), "{}", route.name());
         }
     }
@@ -422,7 +422,7 @@ fn only_the_standing_page_rides_a_seat() {
     let (route, page) = STANDING;
     assert_eq!(route, AUTONOMY);
     assert_eq!(
-        route.sub().pages[page],
+        &route.sub().pages[page],
         "Do not settle for a partial or \"helpful enough\" solution that does not fully satisfy the user's task to save time, effort or tokens."
     );
     assert_eq!(book::Raise::page(route, page, None).cells(), "⡞⠙⠓");

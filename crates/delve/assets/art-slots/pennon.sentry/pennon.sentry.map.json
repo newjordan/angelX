@@ -498,15 +498,15 @@
   "source_preparation": {
     "originals": {
       "pennon.captain": {
-        "path": "/work/artifacts/art-prod/slots/pennon.captain/v01/source-sheet.png",
+        "path": "artifacts/art-prod/slots/pennon.captain/v01/source-sheet.png",
         "sha256": "02f5b64c2df71643c7a9c57668af282f16367be2923a2630fb262c06361fd067"
       },
       "pennon.sentry": {
-        "path": "/work/artifacts/art-prod/slots/pennon.sentry/v01/source-sheet.png",
+        "path": "artifacts/art-prod/slots/pennon.sentry/v01/source-sheet.png",
         "sha256": "4a0dc90339b6b402d19caa3e6c4ac9be0027aa84b975207f2afcb06f61387067"
       },
       "pennon.sentry-damaged": {
-        "path": "/work/artifacts/art-prod/slots/pennon.sentry-damaged/v01/source-sheet.png",
+        "path": "artifacts/art-prod/slots/pennon.sentry-damaged/v01/source-sheet.png",
         "sha256": "5387992d1f31736d95571eb759d1f6cb8af8054f0b8a3a36cbf4ffa0f841c778"
       }
     },

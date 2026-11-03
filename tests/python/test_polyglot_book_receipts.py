@@ -38,7 +38,7 @@ def receipt(value, timestamp=1, **extra):
 
 
 def collected_run(label, rows, **extra):
-    return {"label": label, "requests": len(rows), "host": "atlas", "solved": True,
+    return {"label": label, "requests": len(rows), "host": "workstation", "solved": True,
             "wall_s": 2, **usage.usage_summary(rows), "per_request": usage.per_request(rows), **extra}
 
 

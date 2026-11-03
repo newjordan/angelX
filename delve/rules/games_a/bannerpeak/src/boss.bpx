@@ -1,0 +1,365 @@
+# crates/delve/src/rules/bannerpeak/boss.rs and oracle.rs — King Cinder on the summit.
+# The Rust boss asks a Bend leg for its tick; the tick's code is oracle.rs, ported here as
+# bannerpeak.oracle.*, and Boss.step / Boss.slam are the adapter that keeps the answer
+# when it is sound.
+module bannerpeak.boss
+
+use world.TILE
+use layout.SUMMIT_OX
+use layout.SUMMIT_OY
+
+const BOSS_WIDTH: i32 = 48
+const BOSS_HEIGHT: i32 = 64
+const HEAD_UP: i32 = 64
+const HEAD_DOWN: i32 = 44
+const PHASES: u8 = 3
+const BOSS_ID: u32 = 300
+const REACH: i32 = 100
+const MAX_PLAYERS: u32 = 6
+
+# The floor of the arena, pixel row.
+fn floor() -> i32:
+  return (SUMMIT_OY + 12) * TILE
+
+# Where he stands to begin with, pixels.
+fn home() -> i32:
+  return layout::info::cinder_x() * TILE + TILE / 2
+
+fn Hazard.rect(self: Hazard) -> (i32, i32, i32, i32):
+  return (self.x, self.y, self.x + self.w, self.y + self.h)
+
+fn Hazard.hurts(self: Hazard) -> bool:
+  return self.tell == 0 && self.live > 0
+
+fn Boss.new(seats: u32) -> Boss:
+  return Boss{x: home(), beat: BossBeat::Dormant, kind: Attack::Stomp, t: 0, phase: 0, plates: seats.max(1), count: 0, head: HEAD_UP, head_before: HEAD_UP, x_before: home(), flinch: 0, hazards: Vec::new()}
+
+fn Hazard.valid(self: Hazard) -> bool:
+  return self.w <= 400 && self.h <= 400 && self.tell <= 60 && self.live <= 120 && self.vx.abs() <= 8
+
+fn Boss.hazards_valid(hs: Vec<Hazard>, n: u32) -> bool:
+  if n >= hs.len():
+    return true
+  if !hs[n].valid():
+    return false
+  return Boss::hazards_valid(hs, n + 1)
+
+fn Boss.valid(self: Boss, seats_max: u32) -> bool:
+  let phase_ok = (self.phase == PHASES) == (self.beat == BossBeat::Down)
+  return inc(self.x, home() - 200, home() + 200) && inc(self.x_before, home() - 200, home() + 200) && self.t <= 400 && self.phase <= PHASES && self.plates <= seats_max && self.count <= 8 && inc(self.head, HEAD_DOWN - 1, HEAD_UP + 1) && inc(self.head_before, HEAD_DOWN - 1, HEAD_UP + 1) && self.flinch <= 20 && self.hazards.len() <= 16 && Boss::hazards_valid(self.hazards, 0) && phase_ok
+
+fn Boss.defeated(self: Boss) -> bool:
+  return self.beat == BossBeat::Down
+
+# The body: what a touch from the side hurts.
+fn Boss.body(self: Boss) -> (i32, i32, i32, i32):
+  let f = floor()
+  return (self.x - BOSS_WIDTH / 2 + 4, f - self.head + 4, self.x + BOSS_WIDTH / 2 - 4, f)
+
+# The head, as a platform to stand on.
+fn Boss.plank(self: Boss, before: bool) -> Plank:
+  let mut x: i32 = self.x
+  let mut head: i32 = self.head
+  if before:
+    x = self.x_before
+    head = self.head_before
+  return Plank{x: x - BOSS_WIDTH / 2 + 2, y: floor() - head, w: BOSS_WIDTH - 4, lift: false}
+
+# The crown's box while he kneels.
+fn Boss.crown(self: Boss) -> Option<(i32, i32, i32, i32)>:
+  if self.beat == BossBeat::Wince:
+    let top = floor() - self.head
+    return Some((self.x - 18, top - 10, self.x + 18, top))
+  return None
+
+# A seat more at the table: its plate comes with it.
+fn Boss.seated(self: Boss mut, was: u8, now: u8) -> unit:
+  if now > was && self.phase < PHASES:
+    self.plates += now - was
+
+# Whether an answer is a fight this session can hold.
+fn Boss.sound(self: Boss) -> bool:
+  return self.phase <= PHASES && self.plates <= MAX_PLAYERS && self.count <= 9 && self.hazards.len() <= 64
+
+# One tick as the session asks for it: the oracle's answer, kept when it is sound.
+fn Boss.step(self: Boss mut, at: Vec<(i32, i32)>, seats: u32, elapsed: u32) -> unit:
+  let before = self
+  oracle::step(&mut self, at, seats, elapsed)
+  if !self.sound():
+    self = before
+
+# A slam landed with its feet at (x, y) pixels: whether a plate fell.
+fn Boss.slam(self: Boss mut, x: i32, y: i32) -> bool:
+  let before = self
+  let hit = oracle::slam(&mut self, x, y)
+  if !self.sound():
+    self = before
+    return false
+  return hit
+
+struct BossShape:
+  defeated: bool
+  body: (i32, i32, i32, i32)
+  plank: Plank
+  plank_before: Plank
+  crown: Option<(i32, i32, i32, i32)>
+
+fn Boss.shape(self: Boss) -> BossShape:
+  return BossShape{defeated: self.defeated(), body: self.body(), plank: self.plank(false), plank_before: self.plank(true), crown: self.crown()}
+
+case Boss.new
+case Boss.valid: boss=self
+case Boss.shape: boss=self
+case Boss.seated: boss=self
+case floor
+case home
+
+module bannerpeak.oracle
+
+# The attacks of a crown, in order, before he kneels.
+fn pattern_len(phase: u32) -> u32:
+  if phase == 0:
+    return 2
+  if phase == 1:
+    return 3
+  return 4
+
+fn pattern_at(phase: u32, i: u32) -> str:
+  if phase == 0:
+    if i == 0:
+      return Attack::Stomp
+    return Attack::Embers
+  if phase == 1:
+    if i == 0:
+      return Attack::Sweep
+    if i == 1:
+      return Attack::Stomp
+    return Attack::Embers
+  if i == 0:
+    return Attack::Embers
+  if i == 1:
+    return Attack::Sweep
+  if i == 2:
+    return Attack::Stomp
+  return Attack::Embers
+
+fn pattern(phase: u32) -> Vec<str>:
+  return pattern_fill(phase, 0, Vec::new())
+
+fn pattern_fill(phase: u32, i: u32, acc: Vec<str>) -> Vec<str>:
+  if i >= pattern_len(phase):
+    return acc
+  acc.push(pattern_at(phase, i))
+  return pattern_fill(phase, i + 1, acc)
+
+fn arena(x: i32, y: i32) -> bool:
+  return x > (SUMMIT_OX + 3) * TILE && x < (SUMMIT_OX + 38) * TILE && y > SUMMIT_OY * TILE
+
+# The knights' feet inside the arena.
+fn near_of(at: Vec<(i32, i32)>, n: u32, acc: Vec<(i32, i32)>) -> Vec<(i32, i32)>:
+  if n >= at.len():
+    return acc
+  let p = at[n]
+  if arena(p.0, p.1):
+    acc.push(p)
+  return near_of(at, n + 1, acc)
+
+# Hazards one tick on, the spent ones gone.
+fn tick_hazards(hs: Vec<Hazard>, n: u32, acc: Vec<Hazard>) -> Vec<Hazard>:
+  if n >= hs.len():
+    return acc
+  let mut h = hs[n]
+  if h.tell > 0:
+    h.tell -= 1
+  else:
+    h.x += h.vx
+    h.live = h.live.saturating_sub(1)
+  if h.live > 0 || h.tell > 0:
+    acc.push(h)
+  return tick_hazards(hs, n + 1, acc)
+
+# The index of the knight nearest to column bx (the first of equals).
+fn nearest(near: Vec<(i32, i32)>, bx: i32, n: u32, best: u32, best_d: i32) -> u32:
+  if n >= near.len():
+    return best
+  let p = near[n]
+  let d = (p.0 - bx).abs()
+  if n == 0 || d < best_d:
+    return nearest(near, bx, n + 1, n, d)
+  return nearest(near, bx, n + 1, best, best_d)
+
+# One tick. `at` are the feet of the knights standing; `seats` how many sit.
+fn step(boss: Boss mut, at: Vec<(i32, i32)>, seats: u32, elapsed: u32) -> unit:
+  boss.head_before = boss.head
+  boss.x_before = boss.x
+  boss.flinch = boss.flinch.saturating_sub(1)
+  boss.hazards = tick_hazards(boss.hazards, 0, Vec::new())
+  let near = near_of(at, 0, Vec::new())
+  let crowd = (seats.max(1) as i32) - 1
+  if boss.beat == BossBeat::Dormant:
+    if near.len() > 0:
+      boss.beat = BossBeat::Rest
+      boss.t = 60
+  elif boss.beat == BossBeat::Down:
+    boss.head = (boss.head - 1).max(HEAD_DOWN - 1)
+  elif boss.beat == BossBeat::Rage:
+    boss.t = boss.t.saturating_sub(1)
+    boss.head = (boss.head + 1).min(HEAD_UP)
+    if boss.t == 0:
+      boss.plates = seats.max(1)
+      boss.count = 0
+      boss.beat = BossBeat::Rest
+      boss.t = 40
+  elif boss.beat == BossBeat::Rest:
+    rest(&mut boss, near, seats, elapsed, crowd)
+  elif boss.beat == BossBeat::Tell:
+    boss.t = boss.t.saturating_sub(1)
+    if boss.t == 0:
+      strike(&mut boss)
+      boss.beat = BossBeat::Strike
+      if boss.kind == Attack::Stomp:
+        boss.t = 22
+      elif boss.kind == Attack::Sweep:
+        boss.t = 14
+      else:
+        boss.t = 12
+  elif boss.beat == BossBeat::Strike:
+    boss.t = boss.t.saturating_sub(1)
+    if boss.t == 0:
+      boss.count += 1
+      boss.beat = BossBeat::Rest
+      boss.t = (44 - 6 * (boss.phase as u32) - 3 * (crowd as u32)).max(16)
+  else:
+    boss.t = boss.t.saturating_sub(1)
+    boss.head = (boss.head - 2).max(HEAD_DOWN)
+    if boss.t == 0:
+      boss.count = 0
+      boss.beat = BossBeat::Rest
+      boss.t = 30
+
+fn rest(boss: Boss mut, near: Vec<(i32, i32)>, seats: u32, elapsed: u32, crowd: i32) -> unit:
+  boss.t = boss.t.saturating_sub(1)
+  boss.head = (boss.head + 1).min(HEAD_UP)
+  # Step toward the nearest knight, slowly.
+  if near.len() > 0:
+    let i = nearest(near, boss.x, 0, 0, 0)
+    let tx = near[i].0
+    if elapsed % 2 == 0:
+      boss.x += (tx - boss.x).clamp(-1, 1)
+    boss.x = boss.x.clamp(boss::home() - 110, boss::home() + 110)
+  if boss.t == 0:
+    let phase = (boss.phase as u32).min(2)
+    if (boss.count as u32) >= pattern_len(phase):
+      boss.beat = BossBeat::Wince
+      boss.t = (150 - 20 * (boss.phase as i32) - 3 * crowd).max(70) as u32
+    else:
+      boss.kind = pattern_at(phase, boss.count as u32)
+      boss.beat = BossBeat::Tell
+      let mut base: u32 = 30
+      if boss.kind == Attack::Stomp:
+        base = 40
+      elif boss.kind == Attack::Sweep:
+        base = 32
+      boss.t = base - 3 * (boss.phase as u32)
+      warn(&mut boss, near, seats, elapsed)
+
+# The warning an attack gives: where it will be.
+fn warn(boss: Boss mut, near: Vec<(i32, i32)>, seats: u32, elapsed: u32) -> unit:
+  let f = boss::floor()
+  let tell = boss.t
+  if boss.kind == Attack::Sweep:
+    let mut toward: i32 = 1
+    if near.len() > 0:
+      let i = nearest(near, boss.x, 0, 0, 0)
+      if near[i].0 < boss.x:
+        toward = -1
+    let mut l: i32 = boss.x - 6 - REACH
+    if toward > 0:
+      l = boss.x + 6
+    boss.hazards.push(Hazard{x: l, y: f - 22, w: REACH, h: 22, vx: 0, tell: tell, live: 14})
+  elif boss.kind == Attack::Embers:
+    # A column on a knight, more of them for more seats and later crowns.
+    let columns = 1 + (boss.phase as i32) + (seats.saturating_sub(1) as i32) / 2
+    let aims = sorted_xs(near, 0, Vec::new())
+    let top = (SUMMIT_OY + 1) * TILE
+    embers(&mut boss, aims, 0, columns, elapsed, tell, f, top)
+
+# The columns of embers, one after another.
+fn embers(boss: Boss mut, aims: Vec<i32>, c: i32, columns: i32, elapsed: u32, tell: u32, f: i32, top: i32) -> unit:
+  if c >= columns:
+    return
+  let mut pick: i32 = boss::home()
+  if aims.len() > 0:
+    pick = aims[((elapsed as i32 + c * 3) as u32) % aims.len()]
+  let x = (pick + (c % 3 - 1) * 26).clamp((SUMMIT_OX + 4) * TILE, (SUMMIT_OX + 36) * TILE)
+  boss.hazards.push(Hazard{x: x - 10, y: top, w: 20, h: f - top, vx: 0, tell: tell, live: 12})
+  embers(&mut boss, aims, c + 1, columns, elapsed, tell, f, top)
+
+# The x of every knight in the arena, sorted ascending.
+fn sorted_xs(near: Vec<(i32, i32)>, n: u32, acc: Vec<i32>) -> Vec<i32>:
+  if n >= near.len():
+    return acc
+  let x = near[n].0
+  let p = count_lt(acc, x, 0)
+  return sorted_xs(near, n + 1, insert_at(acc, x, p, 0, Vec::new()))
+
+fn count_lt(a: Vec<i32>, x: i32, i: u32) -> u32:
+  if i >= a.len():
+    return i
+  if a[i] < x:
+    return count_lt(a, x, i + 1)
+  return i
+
+fn insert_at(a: Vec<i32>, x: i32, p: u32, i: u32, acc: Vec<i32>) -> Vec<i32>:
+  if i > a.len():
+    return acc
+  if i == p:
+    acc.push(x)
+  if i < a.len():
+    acc.push(a[i])
+  return insert_at(a, x, p, i + 1, acc)
+
+# The blow lands.
+fn strike(boss: Boss mut) -> unit:
+  if boss.kind == Attack::Stomp:
+    let f = boss::floor()
+    let mut n: i32 = 1
+    if boss.phase >= 1:
+      n = 2
+    strike_waves(&mut boss, 0, n, f)
+
+fn strike_waves(boss: Boss mut, k: i32, n: i32, f: i32) -> unit:
+  if k >= n:
+    return
+  # The second wave follows the first.
+  boss.hazards.push(Hazard{x: boss.x - 8 - k * 40, y: f - 14, w: 16, h: 14, vx: -3, tell: (k * 14) as u32, live: 70})
+  boss.hazards.push(Hazard{x: boss.x - 8 + k * 40, y: f - 14, w: 16, h: 14, vx: 3, tell: (k * 14) as u32, live: 70})
+  strike_waves(&mut boss, k + 1, n, f)
+
+# A slam landed with its feet at (x, y) pixels: whether a plate fell.
+fn slam(boss: Boss mut, x: i32, y: i32) -> bool:
+  if boss.beat != BossBeat::Wince:
+    return false
+  let top = boss::floor() - boss.head
+  if boss.plates > 0 && (x - boss.x).abs() <= 24 && (y - top).abs() <= 3:
+    boss.plates -= 1
+    boss.flinch = 14
+    if boss.plates == 0:
+      fall(&mut boss)
+    return true
+  return false
+
+# A crown falls: the next, or the last of them.
+fn fall(boss: Boss mut) -> unit:
+  boss.phase += 1
+  boss.hazards = Vec::new()
+  if boss.phase >= PHASES:
+    boss.beat = BossBeat::Down
+    boss.t = 0
+  else:
+    boss.beat = BossBeat::Rage
+    boss.t = 54
+
+case pattern
+case step: feet=at => 
+case slam: => boss=boss, hit=ret

@@ -532,7 +532,7 @@
   "resample": "BOX premultiplied alpha",
   "runtime": true,
   "slot": "rafterwake.sweep",
-  "source_path": "/work/artifacts/art-prod/slots/rafterwake.sweep/v01/source-sheet.png",
+  "source_path": "artifacts/art-prod/slots/rafterwake.sweep/v01/source-sheet.png",
   "source_sha256": "bd11e47a424ea6439bbe7ecaebb08e5f6935e59abca3cbd3d6ca768c5a4fc3c0",
   "tool_version": 2
 }

@@ -1,0 +1,202 @@
+# Parallel department analysis followed by ordered workspace writers. The graph
+# engine requires writers sharing a workspace to be ordered; separate sessions
+# can run independent departments in separate workspaces.
+name = "polyglot-departments"
+description = "Department-sized non-game Rust migration: parallel analysis, ordered implementation, integration and review."
+
+[[node]]
+id = "tools_analysis"
+tools = "read_only"
+prompt = """Own the Tools department: cockpit/src/agent/tools/**/*.rs (about 22,800 Rust
+lines). Inventory substantial non-game functionality that can move to Bend or
+fast, reloadable modules. Rank real reductions, preserve confinement and process
+authority, and identify tests and performance costs. Report exact files and a
+concrete first migration.
+Task: {task}"""
+
+[[node]]
+id = "provider_analysis"
+tools = "read_only"
+prompt = """Own Providers and Integrations: cockpit/src/agent/club/**/*.rs,
+cockpit/src/agent/openai_codex.rs, cockpit/src/agent/openai_codex/**/*.rs and
+cockpit/src/agent/mcp.rs (about 24,300 Rust lines). Find substantial modular
+boundaries without weakening authentication, privacy, cancellation, streaming or
+budget controls. Report a concrete migration, parity tests and latency costs.
+Task: {task}"""
+
+[[node]]
+id = "knowledge_analysis"
+tools = "read_only"
+prompt = """Own Knowledge and Analytics: cockpit/src/knowledge/**/*.rs,
+cockpit/src/agent/swarm/**/*.rs and cockpit/src/drive/reinforce/**/*.rs
+(about 25,500 Rust lines). Find substantial non-game analysis that can move to
+reloadable modules while native code retains durable state and verification.
+Report the migration, exact paths, tests and performance implications.
+Task: {task}"""
+
+[[node]]
+id = "conversation_analysis"
+tools = "read_only"
+prompt = """Own Conversation: cockpit/src/agent/harness/{book,cartridges,turn}/,
+context.rs, task_mode.rs and skills.rs (about 25,200 unlocked Rust lines).
+Find substantial modular migrations preserving conversation continuity and
+route semantics. The protected advisory chapter is outside your scope.
+Task: {task}"""
+
+[[node]]
+id = "execution_analysis"
+tools = "read_only"
+prompt = """Own Execution: cockpit/src/agent/harness/agent_graph.rs, exec.rs,
+exec/, compact.rs, rollout/, spawn.rs, registry.rs, confined_fs.rs,
+comp_watch.rs, knowledge_graph.rs, handle_store.rs, workspace_state.rs,
+code_mode.rs and orchestrator.rs (about 25,000 Rust lines). Identify substantial
+replaceable logic while keeping process ownership, confinement and verification
+authoritative. Report exact boundaries and tests.
+Task: {task}"""
+
+[[node]]
+id = "research_analysis"
+tools = "read_only"
+prompt = """Own Research Operations: cockpit/src/drive/competition/,
+cockpit/src/drive/labyrinth/ (scientific campaigns), cockpit/src/drive/rl_ctl/,
+cockpit/src/drive/rl_ctl.rs and cockpit/src/drive/science.rs (about 27,000 Rust
+lines). Work on research and evaluation rather than games. Identify substantial
+reloadable operations while retaining native evidence and state ownership.
+Task: {task}"""
+
+[[node]]
+id = "terminal_analysis"
+tools = "read_only"
+prompt = """Own Terminal and Platform: crates/term/src/, cockpit/src/platform/ and
+cockpit/src/remote/ (about 27,400 Rust lines). Identify substantial application
+logic that can be reloaded without slowing terminal input or rendering. Keep
+process, filesystem and transport boundaries native. Do not edit host settings.
+Task: {task}"""
+
+[[node]]
+id = "application_analysis"
+tools = "read_only"
+prompt = """Own Application Controls: cockpit/src/app/control/{commands,turn_io,session_meta}.rs,
+cockpit/src/ui/{input,loop_card,markdown,media,toolstrip,transcript,ui_inspect,viewer}.rs
+and cockpit/src/ui/term/ (about 23,900 Rust lines). Work only on the serious
+application, not game features. Identify substantial reloadable logic without
+adding per-frame overhead. Report exact paths, tests and performance costs.
+Task: {task}"""
+
+[[node]]
+id = "tools_work"
+tools = "code"
+depends_on = ["tools_analysis"]
+prompt = """Implement the largest sound migration in the Tools department from the analysis.
+Work only in that department and its newly created module/tests. Do not edit
+shared release lists or package files; report resource paths for integration.
+Preserve existing work, run focused tests, and report Rust lines moved and limits.
+Do not edit host or user system configuration. Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*, chivalry, cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system, cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile, locks/locked.sha256, release/supply-chain-policy.json, cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "provider_work"
+tools = "code"
+depends_on = ["provider_analysis", "tools_work"]
+prompt = """Implement the largest sound migration in Providers and Integrations from the
+analysis. Work only in that department and its newly created module/tests. Do
+not edit shared release lists or package files; report resource paths. Preserve
+auth, privacy, streaming and existing work; test parity and latency.
+Do not edit host or user system configuration. Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*, chivalry, cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system, cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile, locks/locked.sha256, release/supply-chain-policy.json, cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "knowledge_work"
+tools = "code"
+depends_on = ["knowledge_analysis", "provider_work"]
+prompt = """Implement the largest sound migration in Knowledge and Analytics from the
+analysis. Work only in that department and its newly created module/tests. Do
+not edit shared release lists or package files; report resource paths. Preserve
+state ownership and existing work; test behavioral parity.
+Do not edit host or user system configuration. Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*, chivalry, cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system, cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile, locks/locked.sha256, release/supply-chain-policy.json, cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "conversation_work"
+tools = "code"
+depends_on = ["conversation_analysis", "knowledge_work"]
+prompt = """Implement the largest sound migration in Conversation from the analysis.
+Work only in that department and its newly created module/tests. Do not edit
+shared release lists or package files; report resource paths. Preserve saved
+session continuity, route semantics and existing work; run focused tests.
+Do not edit host or user system configuration. Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*, chivalry, cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system, cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile, locks/locked.sha256, release/supply-chain-policy.json, cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "execution_work"
+tools = "code"
+depends_on = ["execution_analysis", "conversation_work"]
+prompt = """Implement the largest sound migration in Execution from the analysis. Work
+only in that department and its newly created module/tests. Do not edit shared
+release lists or package files; report resource paths. Preserve confinement,
+process ownership and existing work; run focused tests.
+Do not edit host or user system configuration. Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*, chivalry, cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system, cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile, locks/locked.sha256, release/supply-chain-policy.json, cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "research_work"
+tools = "code"
+depends_on = ["research_analysis", "execution_work"]
+prompt = """Implement the largest sound migration in Research Operations from the analysis.
+Work only in that department and its newly created module/tests. Do not edit
+shared release lists or package files; report resource paths. Preserve evidence,
+state ownership and existing work; run focused tests.
+Do not edit host or user system configuration. Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*, chivalry, cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system, cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile, locks/locked.sha256, release/supply-chain-policy.json, cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "terminal_work"
+tools = "code"
+depends_on = ["terminal_analysis", "research_work"]
+prompt = """Implement the largest sound migration in Terminal and Platform from the
+analysis. Work only in that department and its newly created module/tests. Do
+not edit shared release lists or package files; report resource paths. Preserve
+process, filesystem and transport boundaries; do not edit host or user system
+configuration. Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*,
+chivalry, cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system,
+cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile,
+locks/locked.sha256, release/supply-chain-policy.json,
+cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs
+or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "application_work"
+tools = "code"
+depends_on = ["application_analysis", "terminal_work"]
+prompt = """Implement the largest sound migration in Application Controls from the
+analysis. Work only in that department and its newly created module/tests. Do
+not edit shared release lists or package files; report resource paths. Preserve
+responsiveness and existing work; do not edit host or user system configuration.
+Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*, chivalry,
+cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system,
+cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile,
+locks/locked.sha256, release/supply-chain-policy.json,
+cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs
+or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "integrate"
+tools = "code"
+depends_on = ["tools_work", "provider_work", "knowledge_work", "conversation_work", "execution_work", "research_work", "terminal_work", "application_work"]
+prompt = """Integrate the departments' resource registration, documentation and tests.
+Verify the combined worktree, report actual Rust line counts and any incomplete
+department; do not claim the overall target is reached without evidence.
+Respect the protected and reserved files identified by the task.
+Do not edit host or user system configuration. Do not touch game code, cockpit/src/stage, cockpit/src/drive/together_*, chivalry, cockpit/src/ui/game_pipeline.rs, crates/live, crates/delve-system, cockpit/src/agent/hotload.rs, cockpit/src/agent/code_mode.rs, either lockfile, locks/locked.sha256, release/supply-chain-policy.json, cockpit/src/agent/harness/book/d3456_advisories.rs, cockpit/src/drive/loop_ctl.rs or cockpit/src/drive/loop_ctl/evidence.rs.
+Task: {task}"""
+
+[[node]]
+id = "review"
+tools = "read_only"
+depends_on = ["integrate"]
+prompt = """Review the integrated migration for behavioral regressions, lost data,
+performance costs, packaging omissions and unsupported completion claims.
+Give concrete evidence and unresolved issues.
+Task: {task}"""

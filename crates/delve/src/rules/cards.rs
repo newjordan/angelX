@@ -34,7 +34,12 @@ pub const SPELL_COOLDOWN: (u32, u32) = (1, 120);
 pub const MAX_EFFECTS: usize = 3;
 /// Card art is at most this many ink pixels on a side.
 pub const ART: usize = 16;
-pub const MAX_BOOK: usize = 96;
+/// The book's room: every built-in card, and room beside them for the
+/// wishes, brews and forgings a run learns. Each tier of a wish is a card of
+/// its own, so a party wishing all evening filled 127 and was told "the book
+/// is full" (2026-10-23); a thousand keeps a run's save well under the
+/// restore's limit.
+pub const MAX_BOOK: usize = 1024;
 pub const MAX_NAME: usize = 22;
 /// The slowest a forged arm's bolt may fly, in arena units a second.
 pub const FORGED_SPEED: f32 = 36.0;
@@ -257,6 +262,20 @@ pub enum Effect {
     Linnet(u32),
     /// The marrow sip's leech sips a foe and mends the knight who called it.
     Leech(u32),
+    /// A champion's own spell (`champions`): the card names the feat, and
+    /// on any other card it does nothing. Appended, so saved names keep.
+    Feat(u32),
+    /// The Gravecaller's: a ghoul claws up and fights (a spell's cast, or a
+    /// play card's).
+    Ghoul(u32),
+    /// A barrow warden stands up with his shield and takes the shots meant
+    /// for his caller.
+    Warden(u32),
+    /// A bone totem is planted where the caster aims and spits grave-fire.
+    Totem(u32),
+    /// Soul Rip: every foe near the aim takes N, and what is torn mends the
+    /// caster and their dead (a spell's cast).
+    Rip(u32),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -812,6 +831,56 @@ const SPECS: &[Spec] = &[
         make: Effect::Scale,
         says: "a dragon scale to carry home (spoils)",
     },
+    Spec {
+        word: "feat",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: false,
+        make: Effect::Feat,
+        says: "a champion's own spell, cast by the card's name; on any other card it does nothing",
+    },
+    Spec {
+        word: "ghoul",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Ghoul,
+        says: "a ghoul claws up beside you and fights",
+    },
+    Spec {
+        word: "warden",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Warden,
+        says: "a barrow warden takes the shots meant for you and roars foes onto himself",
+    },
+    Spec {
+        word: "totem",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: true,
+        make: Effect::Totem,
+        says: "a bone totem is planted where you aim and spits grave-fire",
+    },
+    Spec {
+        word: "rip",
+        low: 10,
+        high: 40,
+        cap: 0,
+        hold: false,
+        spend: false,
+        make: Effect::Rip,
+        says: "every foe near your aim takes N, and what is torn mends you and your dead",
+    },
 ];
 
 impl Effect {
@@ -841,6 +910,9 @@ impl Effect {
             Effect::Newt(_) => AllyKind::Newt,
             Effect::Linnet(_) => AllyKind::Linnet,
             Effect::Leech(_) => AllyKind::Leech,
+            Effect::Ghoul(_) => AllyKind::Ghoul,
+            Effect::Warden(_) => AllyKind::Warden,
+            Effect::Totem(_) => AllyKind::Totem,
             _ => return None,
         })
     }
@@ -898,7 +970,12 @@ impl Effect {
             | Effect::Mote(v)
             | Effect::Newt(v)
             | Effect::Linnet(v)
-            | Effect::Leech(v) => v,
+            | Effect::Leech(v)
+            | Effect::Feat(v) => v,
+            | Effect::Ghoul(v)
+            | Effect::Warden(v)
+            | Effect::Totem(v)
+            | Effect::Rip(v) => v,
         };
         let word = SPECS
             .iter()
@@ -967,6 +1044,10 @@ pub struct Card {
     /// orbits, what it summons, an aura (`looks`).
     #[serde(default, skip_serializing_if = "super::looks::Looks::is_empty")]
     pub looks: super::looks::Looks,
+    /// The ultimate a held card bestows (`ult <name>`): the identity
+    /// start's third wish (`identity`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ult: Option<super::ults::Ult>,
 }
 
 impl Card {
@@ -975,6 +1056,18 @@ impl Card {
         self.effects
             .iter()
             .any(|e| e.spoil().is_some_and(|(s, _)| s != Spoil::Gold))
+    }
+
+    /// A bottle: a card that mends or wards whoever drinks it.
+    pub fn drinks(&self) -> bool {
+        self.effects.iter().any(|e| matches!(e, Effect::Heal(_) | Effect::Ward(_)))
+    }
+
+    /// Written magic: a spell, or a card that says it is a scroll (the
+    /// Thunder Scroll). It lies on the floor as a scroll or a tome
+    /// (`pickup_cards::plate_for`), and lands with a flutter and a shimmer.
+    pub fn scroll(&self) -> bool {
+        self.kind == Kind::Spell || format!("{} {}", self.id, self.name).to_ascii_lowercase().contains("scroll")
     }
 
     fn drops_in(&self, pack: Pack) -> bool {
@@ -990,6 +1083,25 @@ impl Card {
         self.effects
             .iter()
             .find_map(|e| e.summon().map(|kind| (kind, e.parts().1)))
+    }
+
+    /// The minion a card calls, a spell's or a play card's, and the card's
+    /// number for it (`minions`).
+    pub fn minion(&self) -> Option<(AllyKind, u32)> {
+        if !matches!(self.kind, Kind::Play | Kind::Spell) {
+            return None;
+        }
+        self.effects
+            .iter()
+            .find_map(|e| e.summon().map(|kind| (kind, e.parts().1)))
+    }
+
+    /// A spell's soul rip, and what it tears from each foe.
+    pub fn rip(&self) -> Option<u32> {
+        self.effects.iter().find_map(|e| match *e {
+            Effect::Rip(n) if self.kind == Kind::Spell => Some(n),
+            _ => None,
+        })
     }
 
     /// The creatures a card's `summon` calls: how many and how they behave.
@@ -1054,6 +1166,124 @@ impl Card {
             }
         }
     }
+
+    /// One effect as the card line that says it: `nova 40`, `cast ring`,
+    /// `summon 3 swarm`.
+    pub fn line(effect: Effect) -> String {
+        match effect {
+            Effect::Cast(shape) => format!("cast {}", shape.word()),
+            Effect::Summon(n, behaviour) => format!("summon {n} {}", behaviour.word()),
+            _ => {
+                let (word, value) = effect.parts();
+                format!("{word} {value}")
+            }
+        }
+    }
+
+    /// The card as the card file that says it, for a brief to show it
+    /// whole: its name, kind, numbers, flavour, effects, looks and art as
+    /// the checker took them. A weapon's or a guard's own lines are left
+    /// out (no brief shows those).
+    pub fn file(&self) -> String {
+        let mut out = format!(
+            "name {}\nkind {}\nrarity {}\ntext {}\n",
+            self.name,
+            self.kind.word(),
+            self.rarity.word(),
+            self.text
+        );
+        if !self.by.is_empty() {
+            out.push_str(&format!("by {}\n", self.by));
+        }
+        out.push_str(&format!("drop {}\nchest {}\n", self.drop, self.chest));
+        if self.kind == Kind::Spell {
+            out.push_str(&format!("cooldown {}\n", self.cooldown));
+        }
+        for effect in &self.effects {
+            out.push_str(&Card::line(*effect));
+            out.push('\n');
+        }
+        if let Some(ult) = self.ult {
+            out.push_str(&format!("ult {}\n", ult.word()));
+        }
+        if let Some((colour, shape)) = &self.looks.style {
+            out.push_str(&format!("look {colour} {shape}\n"));
+        }
+        for layer in &self.looks.vfx.layers {
+            out.push_str(&layer.line());
+            out.push('\n');
+        }
+        for slot in super::looks::Slot::ALL {
+            if let Some(sprite) = self.looks.get(slot) {
+                out.push_str(&sprite.to_block(slot));
+                out.push('\n');
+            }
+        }
+        if !self.art.is_empty() {
+            out.push_str("art\n");
+            for row in &self.art {
+                out.push_str(row);
+                out.push('\n');
+            }
+        }
+        out
+    }
+
+    /// Complete authored definition for validation and implementation handoff.
+    /// `file` remains the compact brief excerpt used by existing spell callers.
+    pub fn definition_file(&self) -> String {
+        let mut out = String::new();
+        if let Some(arm) = &self.arm {
+            match arm {
+                Arm::Plain(weapon) => out.push_str(&format!(
+                    "arm {}\n",
+                    match weapon {
+                        Weapon::Fists => "fists",
+                        Weapon::Bow => "bow",
+                        Weapon::Crossbow => "crossbow",
+                        Weapon::Handgonne => "handgonne",
+                        Weapon::Notes => "notes",
+                        Weapon::Stones => "stones",
+                    }
+                )),
+                Arm::Forged(weapon) => {
+                    for line in weapon
+                        .runes
+                        .lines()
+                        .filter(|line| !line.starts_with("name "))
+                    {
+                        out.push_str(line);
+                        out.push('\n');
+                    }
+                }
+            }
+        }
+        if let Some(guard) = self.guard {
+            out.push_str(&match guard {
+                Guard::Roll => "guard roll\n".into(),
+                Guard::Shield => "guard shield\n".into(),
+                Guard::Spin => "guard spin\n".into(),
+                Guard::Wall(w) => format!(
+                    "guard wall width={} drain={} empower={}\n",
+                    w.width, w.drain, w.empower
+                ),
+            });
+        }
+        if let Some(pack) = self.only_in {
+            out.push_str(&format!(
+                "where {}\n",
+                match pack {
+                    Pack::Crypt => "crypt",
+                    Pack::Cavern => "mines",
+                    Pack::Hellforge => "keep",
+                    other => other.name(),
+                }
+            ));
+        }
+        out.push_str(&self.file());
+        out
+    }
+
 }
 
 /// Art for a card that drew none: a rune for its kind.
@@ -1120,6 +1350,42 @@ pub fn slug(name: &str) -> String {
     out.trim_end_matches('-').chars().take(32).collect()
 }
 
+/// Words a card or a wish never carries: the game is played in public, by
+/// anyone, so everything in it stays safe for work. Sex and the body's
+/// private parts, slurs, the strongest swearing. Toilet humour (a fart, a
+/// poop) is the game's own and stays. Whole words only, any case; kept in
+/// rot13 so the list itself reads clean.
+const NOT_FOR_WORK: &[&str] = &[
+    "frk", "frkl", "frkhny", "cravf", "cravfrf", "qvpx", "qvpxf", "pbpx", "pbpxf", "fpuybat",
+    "crpxre", "jrvare", "jvrare", "grfgvpyr", "grfgvpyrf", "fpebghz", "onyyfnpx", "ahgfnpx",
+    "obbo", "obbof", "obbovrf", "gvgf", "gvggl", "gvggvrf", "avccyr", "avccyrf", "intvan",
+    "chffl", "pyvg", "fcrez", "frzra", "phz", "wvmm", "betnfz", "ubeal", "rerpgvba", "obare",
+    "qvyqb", "ivoengbe", "pbaqbz", "cbea", "cbeab", "ahqr", "ahqrf", "fgevccre", "ubbxre",
+    "juber", "fyhg", "zvys", "uragnv", "afsj", "nany", "nahf", "ohggubyr", "nffubyr",
+    "cbjreobggbz", "oqfz", "srgvfu", "xvaxl", "yvatrevr", "cnagvrf", "gubat", "travgny",
+    "travgnyf", "znfgheongr", "jnax", "oybjwbo", "unaqwbo", "evzwbo", "shpx", "shpxvat",
+    "shpxre", "zbgureshpxre", "fuvg", "fuvggl", "ohyyfuvg", "ovgpu", "ovgpurf", "phag",
+    "avttre", "avttn", "snttbg", "snt", "ergneq", "ergneqrq", "genaal", "fcvp", "puvax", "xvxr",
+    "qlxr",
+];
+
+/// The first word of `text` the game never carries (`NOT_FOR_WORK`), if any.
+pub fn not_for_work(text: &str) -> Option<String> {
+    let rot13 = |w: &str| -> String {
+        w.chars()
+            .map(|c| match c.to_ascii_lowercase() {
+                l @ 'a'..='m' => (l as u8 + 13) as char,
+                l @ 'n'..='z' => (l as u8 - 13) as char,
+                l => l,
+            })
+            .collect()
+    };
+    text.split(|c: char| !c.is_alphanumeric())
+        .filter(|w| !w.is_empty())
+        .find(|w| NOT_FOR_WORK.contains(&rot13(w).as_str()))
+        .map(str::to_lowercase)
+}
+
 /// Check one card file. `id` usually comes from the file name.
 pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
     let mut errors = Vec::new();
@@ -1140,6 +1406,7 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
     let mut plain = None;
     let mut only_in = None;
     let mut guard = None;
+    let mut ult = None;
     let mut cooldown = None;
     let script = super::script::read(raw);
     let art = script.art;
@@ -1155,29 +1422,100 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
     }
     let mut looks = super::looks::Looks::default();
     for (n, header, rows) in &script.sprites {
-        // `draw <slot> [at=<place>]`: a worn piece drawn small is put on
-        // the knight at the place named.
+        // `draw <slot> [at=<place>] [paint=<sha256> [normal=<sha256>]
+        // [pixel]] [hd=<sha256>] [move=<words>]`: a worn piece drawn small is
+        // put on the knight at the place named; a painted one names its
+        // picture in the paint store (and its normal map's, and whether it is
+        // pixel art); a moving one its motion words.
         let mut parts = header.split_whitespace();
         let word = parts.next().unwrap_or("");
-        let at = match parts.next() {
-            None => None,
-            Some(part) => match part.strip_prefix("at=") {
-                Some(place) if word == "worn" && parts.next().is_none() => Some(place),
-                _ => {
-                    errors.push(format!(
-                        "line {n}: `draw {header}` — a sprite line is `draw <slot>`, and a worn one may add `at=<place>`"
-                    ));
-                    continue;
+        let (mut at, mut paint, mut normal, mut moves, mut placed) = (None, None, None, None, None);
+        let (mut hd, mut pixel) = (None, None);
+        let mut pal: Option<Vec<(char, [u8; 3])>> = None;
+        let mut bad = None;
+        for part in parts {
+            let (key, value) = part.split_once('=').unwrap_or((part, ""));
+            let seen = match key {
+                "at" if word == "worn" => at.replace(value).is_some(),
+                // Already put at its place on the canvas (a sheet cut, a
+                // card written back out): only the place is kept.
+                "placed" if word == "worn" && super::looks::place(value).is_some() => {
+                    placed.replace(value).is_some()
                 }
-            },
-        };
+                "paint" if super::looks::paint_name(value) => {
+                    paint.replace(value.to_string()).is_some()
+                }
+                "paint" => {
+                    bad = Some(format!(
+                        "line {n}: paint=`{value}` — a painting is named by its sha256, 64 hex digits"
+                    ));
+                    break;
+                }
+                "normal" if super::looks::paint_name(value) => {
+                    normal.replace(value.to_string()).is_some()
+                }
+                "normal" => {
+                    bad = Some(format!(
+                        "line {n}: normal=`{value}` — a normal map is named by its sha256, 64 hex digits"
+                    ));
+                    break;
+                }
+                // A painting shown only deep enough down (`Sprite::hd`).
+                "hd" if super::looks::paint_name(value) => hd.replace(value.to_string()).is_some(),
+                "hd" => {
+                    bad = Some(format!(
+                        "line {n}: hd=`{value}` — a painting is named by its sha256, 64 hex digits"
+                    ));
+                    break;
+                }
+                "pixel" if value.is_empty() && !part.contains('=') => pixel.replace(true).is_some(),
+                // The sprite's own inks, any colour (`Sprite::pal`).
+                "pal" => match super::looks::parse_pal(value) {
+                    Ok(list) => pal.replace(list).is_some(),
+                    Err(why) => {
+                        bad = Some(format!("line {n}: {why}"));
+                        break;
+                    }
+                },
+                "move" => match super::looks::Move::parse_list(value) {
+                    Ok(list) => moves.replace(list).is_some(),
+                    Err(why) => {
+                        bad = Some(format!("line {n}: {why}"));
+                        break;
+                    }
+                },
+                _ => {
+                    bad = Some(format!(
+                        "line {n}: `draw {header}` — a sprite line is `draw <slot>`, and may add `paint=<sha256>` (and `pixel`) and `move=<words>`, and `pal=<inks>` for colours of its own; a worn one `at=<place>`"
+                    ));
+                    break;
+                }
+            };
+            if seen {
+                bad = Some(format!("line {n}: `{key}=` appears twice on `draw {word}`"));
+                break;
+            }
+        }
+        if bad.is_none() && normal.is_some() && paint.is_none() {
+            bad = Some(format!("line {n}: `normal=` is a painting's, beside its `paint=`"));
+        }
+        if bad.is_none() && pixel.is_some() && paint.is_none() {
+            bad = Some(format!("line {n}: `pixel` is a painting's, beside its `paint=`"));
+        }
+        if let Some(why) = bad {
+            errors.push(why);
+            continue;
+        }
         let rows = match at.map(|place| {
             super::looks::Sprite::from_strip(super::looks::Slot::Worn, rows)
                 .and_then(|small| super::looks::place_on_body(&small.frames, place))
         }) {
             None => rows.clone(),
-            Some(Ok(frames)) => super::looks::Sprite { frames }
-                .to_block(super::looks::Slot::Worn)
+            Some(Ok(frames)) => super::looks::Sprite {
+                frames,
+                ..Default::default()
+            }
+            .to_block(super::looks::Slot::Worn)
                 .lines()
                 .skip(1)
                 .map(str::to_string)
@@ -1196,7 +1534,33 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                 errors.push(format!("line {n}: draw {} appears twice", slot.word()))
             }
             Some(slot) => match super::looks::Sprite::from_strip(slot, rows) {
-                Ok(sprite) => *looks.slot_mut(slot) = Some(sprite),
+                Ok(mut sprite) => {
+                    sprite.pal = pal.unwrap_or_default();
+                    if let Some(c) = sprite.unnamed_ink() {
+                        errors.push(format!(
+                            "line {n}: draw {} uses its own ink `{c}` but its pal= gives it no colour",
+                            slot.word()
+                        ));
+                        continue;
+                    }
+                    if slot == super::looks::Slot::Worn {
+                        if let Err(why) = super::artistry::fit_worn(&mut sprite, at.or(placed).unwrap_or("whole")) {
+                            errors.push(format!("line {n}: {why}"));
+                            continue;
+                        }
+                    }
+                    *looks.slot_mut(slot) = Some(super::looks::Sprite {
+                        // Shown whole wherever it is, a painting needs no
+                        // deep-floor twin.
+                        hd: if paint.is_some() { None } else { hd },
+                        paint,
+                        normal,
+                        pixel: pixel.unwrap_or(false),
+                        moves: moves.unwrap_or_default(),
+                        at: at.or(placed).and_then(super::looks::place).map(str::to_string),
+                        ..sprite
+                    })
+                }
                 Err(why) => errors.push(format!("line {n}: {why}")),
             },
         }
@@ -1295,6 +1659,16 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
             "bolt" | "spread" | "melee" | "throw" => runes.push(format!("{word} {rest}")),
             // On a weapon, a rune; on any other card, the colour and shape
             // its knight's shots take.
+            // How its magic moves: a line that does not read is set aside
+            // with a note, never the card (`vfx`).
+            "vfx" => match super::vfx::Layer::read(rest) {
+                Ok((layer, moved)) if looks.vfx.layers.len() < super::vfx::MOST_LAYERS => {
+                    looks.vfx.layers.push(layer);
+                    notes.extend(moved);
+                }
+                Ok(_) => notes.push(format!("line {n}: a card's look has at most {} vfx lines; this one is set aside", super::vfx::MOST_LAYERS)),
+                Err(why) => notes.push(format!("line {n}: {why}; set aside")),
+            },
             "look" => {
                 runes.push(format!("{word} {rest}"));
                 style_line = Some((n, rest.to_ascii_lowercase()));
@@ -1327,6 +1701,11 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                     )),
                 }
             }
+            "ult" => match super::ults::Ult::parse(rest) {
+                Some(found) if ult.is_none() => ult = Some(found),
+                Some(_) => errors.push(format!("line {n}: ult appears twice")),
+                None => errors.push(format!("line {n}: ult `{rest}` — use {}", super::ults::Ult::words())),
+            },
             "guard" => {
                 let lower = rest.to_ascii_lowercase();
                 let mut parts = lower.split_whitespace();
@@ -1423,6 +1802,11 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
     if id.is_empty() && !name.is_empty() {
         errors.push("the card's name needs a letter or digit".into());
     }
+    if let Some(word) = [&id, &name, &text].into_iter().find_map(|s| not_for_work(s)) {
+        errors.push(format!(
+            "`{word}` is not for this game: every card stays safe for work (a rude ask is made a harmless, funny stand-in)"
+        ));
+    }
     if text.chars().count() > MAX_TEXT {
         notes.push(format!("text cut to {MAX_TEXT} characters"));
         text = text.chars().take(MAX_TEXT).collect();
@@ -1516,6 +1900,9 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
     } else if kind != Kind::Spell && cooldown.is_some() {
         errors.push("`cooldown` belongs on `kind spell`".into());
     }
+    if ult.is_some() && kind != Kind::Hold {
+        errors.push("`ult` belongs on `kind hold`".into());
+    }
     let mut arm = None;
     if kind == Kind::Guard {
         if guard.is_none() {
@@ -1560,7 +1947,9 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                 kind.word()
             ));
         }
-        if effects.is_empty() {
+        // A held worn picture may be ink alone (the bathroom mirror).
+        // It is still checked by the ordinary sprite/card painter pipeline.
+        if effects.is_empty() && ult.is_none() && !(kind == Kind::Hold && looks.worn.is_some()) {
             errors.push(format!("a {} card needs at least one effect", kind.word()));
         }
         if effects.len() > MAX_EFFECTS {
@@ -1574,6 +1963,7 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                 matches!(
                     effect,
                     Effect::Heal(_)
+                        | Effect::Blink(_)
                         | Effect::Bombs(_)
                         | Effect::Nova(_)
                         | Effect::Ward(_)
@@ -1582,6 +1972,11 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                         | Effect::Imposture(_)
                         | Effect::Hedge(_)
                         | Effect::Summon(..)
+                        | Effect::Feat(_)
+                        | Effect::Ghoul(_)
+                        | Effect::Warden(_)
+                        | Effect::Totem(_)
+                        | Effect::Rip(_)
                 )
             } else if matches!(effect, Effect::Summon(..)) {
                 kind == Kind::Play
@@ -1597,9 +1992,9 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                 errors.push(format!(
                     "line {n}: {} works on {} cards, not {}",
                     spec.word,
-                    if spec.word == "cast" {
+                    if spec.word == "cast" || spec.word == "rip" {
                         "spell"
-                    } else if spec.word == "summon" {
+                    } else if matches!(spec.word, "summon" | "ghoul" | "warden" | "totem") {
                         "spell or play"
                     } else if spec.hold {
                         "hold"
@@ -1626,6 +2021,13 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
     if !art.is_empty() && art.iter().all(|row| row.chars().all(|c| c == '.')) {
         errors.push("art has no inked pixel; use realm inks (see /dungeon cards)".into());
     }
+    if let Some(sprite) = looks.worn.as_mut().filter(|s| s.at.is_none()) {
+        let at = super::looks::default_worn_part(&name);
+        if at != "whole" {
+            sprite.at = Some(at.into());
+            if let Err(why) = super::artistry::fit_worn(sprite, at) { errors.push(why); }
+        }
+    }
     if !errors.is_empty() {
         return Err(Rejected { errors });
     }
@@ -1645,6 +2047,7 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
             art,
             only_in,
             guard,
+            ult,
             cooldown: cooldown.unwrap_or(0),
             looks,
         },
@@ -1732,6 +2135,13 @@ pub fn wish_cap(word: &str) -> u32 {
         "shots" => 1,
         _ => cap(word).min(2),
     }
+}
+
+/// The most a wish can ever give of held word `word`, from all of a
+/// knight's wishes together (`wish_cap`, under the card cap): `None` for a
+/// word wishes are not capped on (`max_hp`, `volley`).
+pub fn wish_most(word: &str) -> Option<u32> {
+    WORDS.contains(&word).then(|| wish_cap(word).min(cap(word)))
 }
 
 /// How much a knight's wishes may give together, by the floor they stand
@@ -1940,7 +2350,129 @@ impl Default for Book {
 }
 
 /// The delve's own cards, as files a friend can copy.
+/// What all the spells together weigh on an ordinary drop and as a chest's
+/// prize: what the book's first nine spells weighed before the 10-30
+/// catalogue grew them to ninety, so a delve still finds two or three.
+pub const SPELL_DROP_SHARE: u32 = 27;
+pub const SPELL_CHEST_SHARE: u32 = 15;
+
 pub const BUILTIN: &[(&str, &str)] = &[
+    ("cellar-key", include_str!("../../../../cockpit/assets/dungeon/cards/cellar-key.card")),
+    ("cinder-service", include_str!("../../../../cockpit/assets/dungeon/cards/cinder-service.card")),
+    ("moonshine-prism", include_str!("../../../../cockpit/assets/dungeon/cards/moonshine-prism.card")),
+    ("last-call-fork", include_str!("../../../../cockpit/assets/dungeon/cards/last-call-fork.card")),
+    ("mothwing-tea", include_str!("../../../../cockpit/assets/dungeon/cards/mothwing-tea.card")),
+    ("astral-barspoon", include_str!("../../../../cockpit/assets/dungeon/cards/astral-barspoon.card")),
+    ("phoenix-matchbook", include_str!("../../../../cockpit/assets/dungeon/cards/phoenix-matchbook.card")),
+    ("undertow-anchor", include_str!("../../../../cockpit/assets/dungeon/cards/undertow-anchor.card")),
+    ("stormglass-dial", include_str!("../../../../cockpit/assets/dungeon/cards/stormglass-dial.card")),
+    ("abyssal-bellhelm", include_str!("../../../../cockpit/assets/dungeon/cards/abyssal-bellhelm.card")),
+    ("pinwheel-break", include_str!("../../../../cockpit/assets/dungeon/cards/pinwheel-break.card")),
+    ("ghostlight-lantern", include_str!("../../../../cockpit/assets/dungeon/cards/ghostlight-lantern.card")),
+    ("kraken-corkscrew", include_str!("../../../../cockpit/assets/dungeon/cards/kraken-corkscrew.card")),
+    ("widows-toast", include_str!("../../../../cockpit/assets/dungeon/cards/widows-toast.card")),
+    ("blackcap-reserve", include_str!("../../../../cockpit/assets/dungeon/cards/blackcap-reserve.card")),
+    ("crescendo-clef", include_str!("../../../../cockpit/assets/dungeon/cards/crescendo-clef.card")),
+    ("viper-decanter", include_str!("../../../../cockpit/assets/dungeon/cards/viper-decanter.card")),
+    ("roulette-spur", include_str!("../../../../cockpit/assets/dungeon/cards/roulette-spur.card")),
+    ("railway-shaker", include_str!("../../../../cockpit/assets/dungeon/cards/railway-shaker.card")),
+    ("crabclaw-pauldron", include_str!("../../../../cockpit/assets/dungeon/cards/crabclaw-pauldron.card")),
+    ("last-call-buckler", include_str!("../../../../cockpit/assets/dungeon/cards/last-call-buckler.card")),
+    ("witching-turntable", include_str!("../../../../cockpit/assets/dungeon/cards/witching-turntable.card")),
+    ("candlefish-skewer", include_str!("../../../../cockpit/assets/dungeon/cards/candlefish-skewer.card")),
+    ("lobster-telegraph", include_str!("../../../../cockpit/assets/dungeon/cards/lobster-telegraph.card")),
+    ("comet-dumpling", include_str!("../../../../cockpit/assets/dungeon/cards/comet-dumpling.card")),
+    ("mantis-tongs", include_str!("../../../../cockpit/assets/dungeon/cards/mantis-tongs.card")),
+    ("sawtooth-menu", include_str!("../../../../cockpit/assets/dungeon/cards/sawtooth-menu.card")),
+    ("stormpipe-organ", include_str!("../../../../cockpit/assets/dungeon/cards/stormpipe-organ.card")),
+    ("matchstick-ferry", include_str!("../../../../cockpit/assets/dungeon/cards/matchstick-ferry.card")),
+    ("dragonfruit-kebab", include_str!("../../../../cockpit/assets/dungeon/cards/dragonfruit-kebab.card")),
+    ("cuckoo-breach", include_str!("../../../../cockpit/assets/dungeon/cards/cuckoo-breach.card")),
+    ("lobster-caliper", include_str!("../../../../cockpit/assets/dungeon/cards/lobster-caliper.card")),
+    ("cinderpear-bisque", include_str!("../../../../cockpit/assets/dungeon/cards/cinderpear-bisque.card")),
+    ("stormglass-eclair", include_str!("../../../../cockpit/assets/dungeon/cards/stormglass-eclair.card")),
+    ("comet-siphon", include_str!("../../../../cockpit/assets/dungeon/cards/comet-siphon.card")),
+    ("oyster-aegis", include_str!("../../../../cockpit/assets/dungeon/cards/oyster-aegis.card")),
+    ("last-call-censer", include_str!("../../../../cockpit/assets/dungeon/cards/last-call-censer.card")),
+    ("gallows-sun", include_str!("../../../../cockpit/assets/dungeon/cards/gallows-sun.card")),
+    ("rookstep-sigil", include_str!("../../../../cockpit/assets/dungeon/cards/rookstep-sigil.card")),
+    ("escapement-heart", include_str!("../../../../cockpit/assets/dungeon/cards/escapement-heart.card")),
+    ("tempest-skate", include_str!("../../../../cockpit/assets/dungeon/cards/tempest-skate.card")),
+    ("borrowed-regular", include_str!("../../../../cockpit/assets/dungeon/cards/borrowed-regular.card")),
+    ("widowglass-hourglass", include_str!("../../../../cockpit/assets/dungeon/cards/widowglass-hourglass.card")),
+    ("saints-saltcellar", include_str!("../../../../cockpit/assets/dungeon/cards/saints-saltcellar.card")),
+    ("parlour-labyrinth", include_str!("../../../../cockpit/assets/dungeon/cards/parlour-labyrinth.card")),
+    ("siege-samovar", include_str!("../../../../cockpit/assets/dungeon/cards/siege-samovar.card")),
+    ("last-call-saucers", include_str!("../../../../cockpit/assets/dungeon/cards/last-call-saucers.card")),
+    ("vesper-apiary", include_str!("../../../../cockpit/assets/dungeon/cards/vesper-apiary.card")),
+    ("sanguine-ampoule", include_str!("../../../../cockpit/assets/dungeon/cards/sanguine-ampoule.card")),
+    ("tollkeepers-visor", include_str!("../../../../cockpit/assets/dungeon/cards/tollkeepers-visor.card")),
+    ("needlewake-spool", include_str!("../../../../cockpit/assets/dungeon/cards/needlewake-spool.card")),
+    ("redshift-cuff", include_str!("../../../../cockpit/assets/dungeon/cards/redshift-cuff.card")),
+    ("starfall-warrant", include_str!("../../../../cockpit/assets/dungeon/cards/starfall-warrant.card")),
+    ("breachbell-tonic", include_str!("../../../../cockpit/assets/dungeon/cards/breachbell-tonic.card")),
+    ("glassway-ticket", include_str!("../../../../cockpit/assets/dungeon/cards/glassway-ticket.card")),
+    ("undertow-carillon", include_str!("../../../../cockpit/assets/dungeon/cards/undertow-carillon.card")),
+    ("cinder-votive", include_str!("../../../../cockpit/assets/dungeon/cards/cinder-votive.card")),
+    ("pearlwake-flask", include_str!("../../../../cockpit/assets/dungeon/cards/pearlwake-flask.card")),
+    ("railwake-prism", include_str!("../../../../cockpit/assets/dungeon/cards/railwake-prism.card")),
+    ("embercrab-bento", include_str!("../../../../cockpit/assets/dungeon/cards/embercrab-bento.card")),
+    ("lantern-jury", include_str!("../../../../cockpit/assets/dungeon/cards/lantern-jury.card")),
+    ("blackberry-buckler", include_str!("../../../../cockpit/assets/dungeon/cards/blackberry-buckler.card")),
+    ("powderplum-tart", include_str!("../../../../cockpit/assets/dungeon/cards/powderplum-tart.card")),
+    ("mothlight-censer", include_str!("../../../../cockpit/assets/dungeon/cards/mothlight-censer.card")),
+    ("oyster-mortgage", include_str!("../../../../cockpit/assets/dungeon/cards/oyster-mortgage.card")),
+    ("firefly-sorbet", include_str!("../../../../cockpit/assets/dungeon/cards/firefly-sorbet.card")),
+    ("widow-kite", include_str!("../../../../cockpit/assets/dungeon/cards/widow-kite.card")),
+    ("cinder-seahorse", include_str!("../../../../cockpit/assets/dungeon/cards/cinder-seahorse.card")),
+    ("pearl-diver-fork", include_str!("../../../../cockpit/assets/dungeon/cards/pearl-diver-fork.card")),
+    ("scorpion-tap", include_str!("../../../../cockpit/assets/dungeon/cards/scorpion-tap.card")),
+    ("mooncrab-cracker", include_str!("../../../../cockpit/assets/dungeon/cards/mooncrab-cracker.card")),
+    ("undertow-bell", include_str!("../../../../cockpit/assets/dungeon/cards/undertow-bell.card")),
+    ("phantom-cue", include_str!("../../../../cockpit/assets/dungeon/cards/phantom-cue.card")),
+    ("harpoon-ratchet", include_str!("../../../../cockpit/assets/dungeon/cards/harpoon-ratchet.card")),
+    ("railjaw-stapler", include_str!("../../../../cockpit/assets/dungeon/cards/railjaw-stapler.card")),
+    ("copperhead-spool", include_str!("../../../../cockpit/assets/dungeon/cards/copperhead-spool.card")),
+    ("orchard-hourglass", include_str!("../../../../cockpit/assets/dungeon/cards/orchard-hourglass.card")),
+    ("eventide-fan", include_str!("../../../../cockpit/assets/dungeon/cards/eventide-fan.card")),
+    ("kettle-eclipse", include_str!("../../../../cockpit/assets/dungeon/cards/kettle-eclipse.card")),
+    ("corkscrew-comet", include_str!("../../../../cockpit/assets/dungeon/cards/corkscrew-comet.card")),
+    ("copperhead-siphon", include_str!("../../../../cockpit/assets/dungeon/cards/copperhead-siphon.card")),
+    ("last-orders-ladle", include_str!("../../../../cockpit/assets/dungeon/cards/last-orders-ladle.card")),
+    ("coatcheck-comet", include_str!("../../../../cockpit/assets/dungeon/cards/coatcheck-comet.card")),
+    ("last-call-carom", include_str!("../../../../cockpit/assets/dungeon/cards/last-call-carom.card")),
+    ("velvet-intermission", include_str!("../../../../cockpit/assets/dungeon/cards/velvet-intermission.card")),
+    ("masquerade-matchbox", include_str!("../../../../cockpit/assets/dungeon/cards/masquerade-matchbox.card")),
+    ("confetti-antidote", include_str!("../../../../cockpit/assets/dungeon/cards/confetti-antidote.card")),
+    ("velvet-rope-ticket", include_str!("../../../../cockpit/assets/dungeon/cards/velvet-rope-ticket.card")),
+    ("permafrost-flywheel", include_str!("../../../../cockpit/assets/dungeon/cards/permafrost-flywheel.card")),
+    ("thundercomb", include_str!("../../../../cockpit/assets/dungeon/cards/thundercomb.card")),
+    ("queenstorm-decree", include_str!("../../../../cockpit/assets/dungeon/cards/queenstorm-decree.card")),
+    ("bottled-squall-honey", include_str!("../../../../cockpit/assets/dungeon/cards/bottled-squall-honey.card")),
+    ("zero-hour-bell", include_str!("../../../../cockpit/assets/dungeon/cards/zero-hour-bell.card")),
+    ("umbra-switchfork", include_str!("../../../../cockpit/assets/dungeon/cards/umbra-switchfork.card")),
+    ("last-platform-signal", include_str!("../../../../cockpit/assets/dungeon/cards/last-platform-signal.card")),
+    ("eclipse-punchcard", include_str!("../../../../cockpit/assets/dungeon/cards/eclipse-punchcard.card")),
+    ("keeltooth-spur", include_str!("../../../../cockpit/assets/dungeon/cards/keeltooth-spur.card")),
+    ("drydock-salute", include_str!("../../../../cockpit/assets/dungeon/cards/drydock-salute.card")),
+    ("widowglass-ampoule", include_str!("../../../../cockpit/assets/dungeon/cards/widowglass-ampoule.card")),
+    ("mothwake-lantern", include_str!("../../../../cockpit/assets/dungeon/cards/mothwake-lantern.card")),
+    ("orrery-heart", include_str!("../../../../cockpit/assets/dungeon/cards/orrery-heart.card")),
+    ("eventide-key", include_str!("../../../../cockpit/assets/dungeon/cards/eventide-key.card")),
+    ("stormrail-ticket", include_str!("../../../../cockpit/assets/dungeon/cards/stormrail-ticket.card")),
+    ("thunderhead-gavel", include_str!("../../../../cockpit/assets/dungeon/cards/thunderhead-gavel.card")),
+    ("rimewheel-bearing", include_str!("../../../../cockpit/assets/dungeon/cards/rimewheel-bearing.card")),
+    ("whiteout-parasol", include_str!("../../../../cockpit/assets/dungeon/cards/whiteout-parasol.card")),
+    ("redoubt-tuning-fork", include_str!("../../../../cockpit/assets/dungeon/cards/redoubt-tuning-fork.card")),
+    ("velvet-rebuttal", include_str!("../../../../cockpit/assets/dungeon/cards/velvet-rebuttal.card")),
+    ("plague-switchboard", include_str!("../../../../cockpit/assets/dungeon/cards/plague-switchboard.card")),
+    ("quarantine-star", include_str!("../../../../cockpit/assets/dungeon/cards/quarantine-star.card")),
+    ("cinderpin-escapement", include_str!("../../../../cockpit/assets/dungeon/cards/cinderpin-escapement.card")),
+    ("furnace-curtain", include_str!("../../../../cockpit/assets/dungeon/cards/furnace-curtain.card")),
+    ("widows-spindle", include_str!("../../../../cockpit/assets/dungeon/cards/widows-spindle.card")),
+    ("last-call-thunder", include_str!("../../../../cockpit/assets/dungeon/cards/last-call-thunder.card")),
+    ("sundial-mortar", include_str!("../../../../cockpit/assets/dungeon/cards/sundial-mortar.card")),
+    ("adder-hourglass", include_str!("../../../../cockpit/assets/dungeon/cards/adder-hourglass.card")),
     (
         "gold",
         include_str!("../../../../cockpit/assets/dungeon/cards/gold.card"),
@@ -1972,6 +2504,7 @@ pub const BUILTIN: &[(&str, &str)] = &[
         include_str!("../../../../cockpit/assets/dungeon/cards/crossbow.card"),
     ),
     ("thrown-stones", include_str!("../../../../cockpit/assets/dungeon/cards/thrown-stones.card")),
+    ("the-ball", include_str!("../../../../cockpit/assets/dungeon/cards/the-ball.card")),
     ("note-stream", include_str!("../../../../cockpit/assets/dungeon/cards/note-stream.card")),
     (
         "handgonne",
@@ -2125,12 +2658,228 @@ pub const BUILTIN: &[(&str, &str)] = &[
         "marrow-sip",
         include_str!("../../../../cockpit/assets/dungeon/cards/marrow-sip.card"),
     ),
+    (
+        "chapel-cincture",
+        include_str!("../../../../cockpit/assets/dungeon/cards/chapel-cincture.card"),
+    ),
+    (
+        "college-orb",
+        include_str!("../../../../cockpit/assets/dungeon/cards/college-orb.card"),
+    ),
+    (
+        "crescent-quiver",
+        include_str!("../../../../cockpit/assets/dungeon/cards/crescent-quiver.card"),
+    ),
+    (
+        "deeps-harness",
+        include_str!("../../../../cockpit/assets/dungeon/cards/deeps-harness.card"),
+    ),
+    (
+        "forge-matchcord",
+        include_str!("../../../../cockpit/assets/dungeon/cards/forge-matchcord.card"),
+    ),
+    (
+        "gate-aegis",
+        include_str!("../../../../cockpit/assets/dungeon/cards/gate-aegis.card"),
+    ),
+    (
+        "grave-axes",
+        include_str!("../../../../cockpit/assets/dungeon/cards/grave-axes.card"),
+    ),
+    (
+        "oathshield",
+        include_str!("../../../../cockpit/assets/dungeon/cards/oathshield.card"),
+    ),
+    (
+        "rookery-longbow",
+        include_str!("../../../../cockpit/assets/dungeon/cards/rookery-longbow.card"),
+    ),
+    (
+        "round-table-blade",
+        include_str!("../../../../cockpit/assets/dungeon/cards/round-table-blade.card"),
+    ),
+    (
+        "stock-blade",
+        include_str!("../../../../cockpit/assets/dungeon/cards/stock-blade.card"),
+    ),
+    (
+        "stock-staff",
+        include_str!("../../../../cockpit/assets/dungeon/cards/stock-staff.card"),
+    ),
+    (
+        "spark-staff",
+        include_str!("../../../../cockpit/assets/dungeon/cards/spark-staff.card"),
+    ),
+    (
+        "stock-maul",
+        include_str!("../../../../cockpit/assets/dungeon/cards/stock-maul.card"),
+    ),
+    (
+        "sigil-staff",
+        include_str!("../../../../cockpit/assets/dungeon/cards/sigil-staff.card"),
+    ),
+    (
+        "smithys-dragonmouth",
+        include_str!("../../../../cockpit/assets/dungeon/cards/smithys-dragonmouth.card"),
+    ),
+    (
+        "table-gauntlet",
+        include_str!("../../../../cockpit/assets/dungeon/cards/table-gauntlet.card"),
+    ),
+    (
+        "vestal-censer",
+        include_str!("../../../../cockpit/assets/dungeon/cards/vestal-censer.card"),
+    ),
+    // The champions at the bar: their arms and their spells (`champions`).
+    ("far-sightline", include_str!("../../../../cockpit/assets/dungeon/cards/far-sightline.card")),
+    ("far-brass-rain", include_str!("../../../../cockpit/assets/dungeon/cards/far-brass-rain.card")),
+    ("far-steady", include_str!("../../../../cockpit/assets/dungeon/cards/far-steady.card")),
+    ("gale-power", include_str!("../../../../cockpit/assets/dungeon/cards/gale-power.card")),
+    ("gale-shackle", include_str!("../../../../cockpit/assets/dungeon/cards/gale-shackle.card")),
+    ("gale-windrun", include_str!("../../../../cockpit/assets/dungeon/cards/gale-windrun.card")),
+    ("ember-wave", include_str!("../../../../cockpit/assets/dungeon/cards/ember-wave.card")),
+    ("ember-pillar", include_str!("../../../../cockpit/assets/dungeon/cards/ember-pillar.card")),
+    ("ember-kindle", include_str!("../../../../cockpit/assets/dungeon/cards/ember-kindle.card")),
+    ("horizon-rifle", include_str!("../../../../cockpit/assets/dungeon/cards/horizon-rifle.card")),
+    ("reedwake-bow", include_str!("../../../../cockpit/assets/dungeon/cards/reedwake-bow.card")),
+    ("kilnheart-staff", include_str!("../../../../cockpit/assets/dungeon/cards/kilnheart-staff.card")),
+    ("great-maul", include_str!("../../../../cockpit/assets/dungeon/cards/great-maul.card")),
+    ("storm-hammer", include_str!("../../../../cockpit/assets/dungeon/cards/storm-hammer.card")),
+    ("groundslam", include_str!("../../../../cockpit/assets/dungeon/cards/groundslam.card")),
+    ("brute-force", include_str!("../../../../cockpit/assets/dungeon/cards/brute-force.card")),
+    ("cleaver", include_str!("../../../../cockpit/assets/dungeon/cards/cleaver.card")),
+    ("meat-hook", include_str!("../../../../cockpit/assets/dungeon/cards/meat-hook.card")),
+    ("rot", include_str!("../../../../cockpit/assets/dungeon/cards/rot.card")),
+    ("reaver-axes", include_str!("../../../../cockpit/assets/dungeon/cards/reaver-axes.card")),
+    ("hurl-axe", include_str!("../../../../cockpit/assets/dungeon/cards/hurl-axe.card")),
+    ("leap", include_str!("../../../../cockpit/assets/dungeon/cards/leap.card")),
+    ("bloodlust", include_str!("../../../../cockpit/assets/dungeon/cards/bloodlust.card")),
+    ("war-lance", include_str!("../../../../cockpit/assets/dungeon/cards/war-lance.card")),
+    ("javelin", include_str!("../../../../cockpit/assets/dungeon/cards/javelin.card")),
+    ("vault", include_str!("../../../../cockpit/assets/dungeon/cards/vault.card")),
+    ("brace", include_str!("../../../../cockpit/assets/dungeon/cards/brace.card")),
+    ("chain-haul", include_str!("../../../../cockpit/assets/dungeon/cards/chain-haul.card")),
+    ("flask-bandolier", include_str!("../../../../cockpit/assets/dungeon/cards/flask-bandolier.card")),
+    ("miasma-flask", include_str!("../../../../cockpit/assets/dungeon/cards/miasma-flask.card")),
+    ("quickfire", include_str!("../../../../cockpit/assets/dungeon/cards/quickfire.card")),
+    ("elixir", include_str!("../../../../cockpit/assets/dungeon/cards/elixir.card")),
+    // The Gravecaller's staff and his four spells (`minions`).
+    (
+        "grave-staff",
+        include_str!("../../../../cockpit/assets/dungeon/cards/grave-staff.card"),
+    ),
+    (
+        "raise-ghoul",
+        include_str!("../../../../cockpit/assets/dungeon/cards/raise-ghoul.card"),
+    ),
+    (
+        "barrow-warden",
+        include_str!("../../../../cockpit/assets/dungeon/cards/barrow-warden.card"),
+    ),
+    (
+        "bone-totem",
+        include_str!("../../../../cockpit/assets/dungeon/cards/bone-totem.card"),
+    ),
+    (
+        "soul-rip",
+        include_str!("../../../../cockpit/assets/dungeon/cards/soul-rip.card"),
+    ),
+    ("eclipse-toll", include_str!("../../../../cockpit/assets/dungeon/cards/eclipse-toll.card")),
+    ("mercy-lantern", include_str!("../../../../cockpit/assets/dungeon/cards/mercy-lantern.card")),
+    ("cinder-tithe", include_str!("../../../../cockpit/assets/dungeon/cards/cinder-tithe.card")),
+    ("last-light", include_str!("../../../../cockpit/assets/dungeon/cards/last-light.card")),
+    ("noon-shatter", include_str!("../../../../cockpit/assets/dungeon/cards/noon-shatter.card")),
+    ("borrowed-minute", include_str!("../../../../cockpit/assets/dungeon/cards/borrowed-minute.card")),
+    ("dialkeepers-ring", include_str!("../../../../cockpit/assets/dungeon/cards/dialkeepers-ring.card")),
+    ("storm-receipt", include_str!("../../../../cockpit/assets/dungeon/cards/storm-receipt.card")),
+    ("eye-of-the-squall", include_str!("../../../../cockpit/assets/dungeon/cards/eye-of-the-squall.card")),
+    ("fulgurite-spurs", include_str!("../../../../cockpit/assets/dungeon/cards/fulgurite-spurs.card")),
+    ("keelbreaker", include_str!("../../../../cockpit/assets/dungeon/cards/keelbreaker.card")),
+    ("pressure-seal", include_str!("../../../../cockpit/assets/dungeon/cards/pressure-seal.card")),
+    ("undertow-coil", include_str!("../../../../cockpit/assets/dungeon/cards/undertow-coil.card")),
+    ("comet-glass", include_str!("../../../../cockpit/assets/dungeon/cards/comet-glass.card")),
+    ("bellkeepers-mail", include_str!("../../../../cockpit/assets/dungeon/cards/bellkeepers-mail.card")),
+    ("wayfarer-wick", include_str!("../../../../cockpit/assets/dungeon/cards/wayfarer-wick.card")),
+    ("lastlight-postmark", include_str!("../../../../cockpit/assets/dungeon/cards/lastlight-postmark.card")),
+    ("deadletter-flare", include_str!("../../../../cockpit/assets/dungeon/cards/deadletter-flare.card")),
+    ("pallbearer-lanterns", include_str!("../../../../cockpit/assets/dungeon/cards/pallbearer-lanterns.card")),
+    ("foxstep-spindle", include_str!("../../../../cockpit/assets/dungeon/cards/foxstep-spindle.card")),
+    ("glassway-key", include_str!("../../../../cockpit/assets/dungeon/cards/glassway-key.card")),
+    ("switchglass-escapement", include_str!("../../../../cockpit/assets/dungeon/cards/switchglass-escapement.card")),
+    ("starfall-writ", include_str!("../../../../cockpit/assets/dungeon/cards/starfall-writ.card")),
+    ("needlewake-sight", include_str!("../../../../cockpit/assets/dungeon/cards/needlewake-sight.card")),
+    ("bankshot-medallion", include_str!("../../../../cockpit/assets/dungeon/cards/bankshot-medallion.card")),
+    ("vipers-hourglass", include_str!("../../../../cockpit/assets/dungeon/cards/vipers-hourglass.card")),
+    ("stormrail-conductor", include_str!("../../../../cockpit/assets/dungeon/cards/stormrail-conductor.card")),
+    ("winterfang-bayonet", include_str!("../../../../cockpit/assets/dungeon/cards/winterfang-bayonet.card")),
+    ("choirwire-coil", include_str!("../../../../cockpit/assets/dungeon/cards/choirwire-coil.card")),
+    ("mothglass-lens", include_str!("../../../../cockpit/assets/dungeon/cards/mothglass-lens.card")),
+    ("whiteout-muzzle", include_str!("../../../../cockpit/assets/dungeon/cards/whiteout-muzzle.card")),
+    ("copperhead-volley", include_str!("../../../../cockpit/assets/dungeon/cards/copperhead-volley.card")),
+    ("mercy-trigger", include_str!("../../../../cockpit/assets/dungeon/cards/mercy-trigger.card")),
+    ("bastion-bell", include_str!("../../../../cockpit/assets/dungeon/cards/bastion-bell.card")),
+    ("orrery-collapse", include_str!("../../../../cockpit/assets/dungeon/cards/orrery-collapse.card")),
+    ("needle-cathedra", include_str!("../../../../cockpit/assets/dungeon/cards/needle-cathedra.card")),
+    ("stormglass-writ", include_str!("../../../../cockpit/assets/dungeon/cards/stormglass-writ.card")),
+    ("hearthglass-pear", include_str!("../../../../cockpit/assets/dungeon/cards/hearthglass-pear.card")),
+    ("wake-lantern", include_str!("../../../../cockpit/assets/dungeon/cards/wake-lantern.card")),
+    ("undertow-benediction", include_str!("../../../../cockpit/assets/dungeon/cards/undertow-benediction.card")),
+    ("fulgurite-fork", include_str!("../../../../cockpit/assets/dungeon/cards/fulgurite-fork.card")),
+    ("arcwell-salute", include_str!("../../../../cockpit/assets/dungeon/cards/arcwell-salute.card")),
+    ("rimewheel-escapement", include_str!("../../../../cockpit/assets/dungeon/cards/rimewheel-escapement.card")),
+    ("kilnwing-reprieve", include_str!("../../../../cockpit/assets/dungeon/cards/kilnwing-reprieve.card")),
+    ("vesper-knell", include_str!("../../../../cockpit/assets/dungeon/cards/vesper-knell.card")),
+    ("moonmilk-flask", include_str!("../../../../cockpit/assets/dungeon/cards/moonmilk-flask.card")),
+    ("votive-aegis", include_str!("../../../../cockpit/assets/dungeon/cards/votive-aegis.card")),
+    ("brineheart-fig", include_str!("../../../../cockpit/assets/dungeon/cards/brineheart-fig.card")),
+    ("firefly-prism", include_str!("../../../../cockpit/assets/dungeon/cards/firefly-prism.card")),
+    ("arcneedle-spindle", include_str!("../../../../cockpit/assets/dungeon/cards/arcneedle-spindle.card")),
+    ("vaultkey-spur", include_str!("../../../../cockpit/assets/dungeon/cards/vaultkey-spur.card")),
+    ("wayfarer-stitch", include_str!("../../../../cockpit/assets/dungeon/cards/wayfarer-stitch.card")),
+    ("undertow-crown", include_str!("../../../../cockpit/assets/dungeon/cards/undertow-crown.card")),
+    ("cinder-parasol", include_str!("../../../../cockpit/assets/dungeon/cards/cinder-parasol.card")),
+    ("mercy-procession", include_str!("../../../../cockpit/assets/dungeon/cards/mercy-procession.card")),
+    ("plague-divers-rebreather", include_str!("../../../../cockpit/assets/dungeon/cards/plague-divers-rebreather.card")),
+    ("redshift-ripcord", include_str!("../../../../cockpit/assets/dungeon/cards/redshift-ripcord.card")),
+
+    ("wishbone-reticle", include_str!("../../../../cockpit/assets/dungeon/cards/wishbone-reticle.card")),
+    ("halo-breach", include_str!("../../../../cockpit/assets/dungeon/cards/halo-breach.card")),
+    ("wake-engine", include_str!("../../../../cockpit/assets/dungeon/cards/wake-engine.card")),
+    ("rook-mortar", include_str!("../../../../cockpit/assets/dungeon/cards/rook-mortar.card")),
+    ("saints-tourniquet", include_str!("../../../../cockpit/assets/dungeon/cards/saints-tourniquet.card")),
+    ("thunderhead-phial", include_str!("../../../../cockpit/assets/dungeon/cards/thunderhead-phial.card")),
+    ("blacktide-censer", include_str!("../../../../cockpit/assets/dungeon/cards/blacktide-censer.card")),
+    ("duelists-mainspring", include_str!("../../../../cockpit/assets/dungeon/cards/duelists-mainspring.card")),
+    ("stormglass-vespers", include_str!("../../../../cockpit/assets/dungeon/cards/stormglass-vespers.card")),
+    ("orchard-of-ashes", include_str!("../../../../cockpit/assets/dungeon/cards/orchard-of-ashes.card")),
+    ("gallows-bell", include_str!("../../../../cockpit/assets/dungeon/cards/gallows-bell.card")),
+    ("moth-sanctuary", include_str!("../../../../cockpit/assets/dungeon/cards/moth-sanctuary.card")),
+    ("crown-of-cinders", include_str!("../../../../cockpit/assets/dungeon/cards/crown-of-cinders.card")),
+    ("frostbite-ampoule", include_str!("../../../../cockpit/assets/dungeon/cards/frostbite-ampoule.card")),
+    ("railglass-prism", include_str!("../../../../cockpit/assets/dungeon/cards/railglass-prism.card")),
+    ("gravewire-spool", include_str!("../../../../cockpit/assets/dungeon/cards/gravewire-spool.card")),
+    ("sunken-mint", include_str!("../../../../cockpit/assets/dungeon/cards/sunken-mint.card")),
+    ("emberwake-charge", include_str!("../../../../cockpit/assets/dungeon/cards/emberwake-charge.card")),
+    ("choir-grenade", include_str!("../../../../cockpit/assets/dungeon/cards/choir-grenade.card")),
+    ("phoenix-suture", include_str!("../../../../cockpit/assets/dungeon/cards/phoenix-suture.card")),
+    ("abyssal-compass", include_str!("../../../../cockpit/assets/dungeon/cards/abyssal-compass.card")),
+    ("powder-saint", include_str!("../../../../cockpit/assets/dungeon/cards/powder-saint.card")),
+    ("rustwing-locket", include_str!("../../../../cockpit/assets/dungeon/cards/rustwing-locket.card")),
+    ("meteor-cordial", include_str!("../../../../cockpit/assets/dungeon/cards/meteor-cordial.card")),
+    ("thorn-testament", include_str!("../../../../cockpit/assets/dungeon/cards/thorn-testament.card")),
+    ("glasshouse-mercy", include_str!("../../../../cockpit/assets/dungeon/cards/glasshouse-mercy.card")),
+    ("widowseed-cage", include_str!("../../../../cockpit/assets/dungeon/cards/widowseed-cage.card")),
+    ("storm-tab", include_str!("../../../../cockpit/assets/dungeon/cards/storm-tab.card")),
+    ("velvet-rope", include_str!("../../../../cockpit/assets/dungeon/cards/velvet-rope.card")),
+    ("ricochet-decanter", include_str!("../../../../cockpit/assets/dungeon/cards/ricochet-decanter.card")),
 ];
 
 impl Book {
     pub fn builtin() -> Book {
         let mut book = Book {
-            cards: Vec::new(),
+            // The compiled catalog's size is known: avoid repeated vector growth
+            // as the expanding world-loot catalog is loaded.
+            cards: Vec::with_capacity(BUILTIN.len()),
             revision: 0,
         };
         for (id, raw) in BUILTIN {
@@ -2167,19 +2916,41 @@ impl Book {
     }
 
     fn roll(&self, rng: &mut Rng, keep: impl Fn(&Card) -> u32) -> Option<String> {
-        let table: Vec<(usize, u32)> = self
-            .cards
-            .iter()
-            .enumerate()
-            .map(|(i, c)| (i, keep(c)))
-            .filter(|&(_, w)| w > 0)
-            .collect();
-        (!table.is_empty()).then(|| self.cards[rng.pick(&table)].id.clone())
+        // Two passes avoid a temporary weighted table on every loot roll.
+        // Keep catalog order and exactly one RNG draw for nonempty tables so
+        // existing seeded raids replay identically. `keep` is a pure weight
+        // lookup at each call site.
+        // A damaged save can carry any weight (`drop` up to u32::MAX, the
+        // restore fuzz); the total saturates so the roll cannot overflow.
+        let total: u32 = self.cards.iter().map(&keep).fold(0u32, u32::saturating_add);
+        if total == 0 {
+            return None;
+        }
+        let mut roll = rng.below(total as usize) as u32;
+        for card in &self.cards {
+            let weight = keep(card);
+            if roll < weight {
+                return Some(card.id.clone());
+            }
+            roll -= weight;
+        }
+        None
+    }
+
+    /// A roll in which the spells, together, weigh `share` against the
+    /// rest's own weights, however many spells the book holds; each spell
+    /// keeps its own weight within the share.
+    fn roll_sharing(&self, rng: &mut Rng, share: u32, keep: impl Fn(&Card) -> u32) -> Option<String> {
+        let spells: u32 = self.cards.iter().filter(|c| c.kind == Kind::Spell).map(&keep).fold(0u32, u32::saturating_add);
+        if spells == 0 {
+            return self.roll(rng, keep);
+        }
+        self.roll(rng, |c| if c.kind == Kind::Spell { keep(c).saturating_mul(share) } else { keep(c).saturating_mul(spells) })
     }
 
     /// An ordinary drop: any card but the delve's materials.
     pub fn roll_drop(&self, rng: &mut Rng, pack: Pack) -> Option<String> {
-        self.roll(rng, |c| {
+        self.roll_sharing(rng, SPELL_DROP_SHARE, |c| {
             if c.is_spoil() || !c.drops_in(pack) {
                 0
             } else {
@@ -2201,7 +2972,7 @@ impl Book {
 
     /// A chest holds one prize plus two ordinary drops.
     pub fn roll_chest(&self, rng: &mut Rng, pack: Pack) -> Vec<String> {
-        let prize = self.roll(rng, |c| if c.drops_in(pack) { c.chest } else { 0 });
+        let prize = self.roll_sharing(rng, SPELL_CHEST_SHARE, |c| if c.drops_in(pack) { c.chest } else { 0 });
         let rest = [self.roll_drop(rng, pack), self.roll_drop(rng, pack)];
         prize
             .into_iter()
@@ -2232,13 +3003,15 @@ pub fn read_into(book: &mut Book, stem: &str, raw: &str) -> String {
 
 /// The card format, for a friend or their AI.
 /// The effects a held card (and so a known wish's tier) may carry: word,
-/// range and meaning, a line each.
+/// range and meaning, a line each. The top of each range is the most a
+/// wish can give (`wish_most`): past it a tier is turned away.
 pub fn hold_effects() -> String {
     SPECS
         .iter()
         .filter(|s| s.hold)
         .map(|s| {
             let high = if s.cap > 0 { s.high.min(s.cap) } else { s.high };
+            let high = wish_most(s.word).map_or(high, |most| high.min(most));
             format!("{} {}-{high}: {}", s.word, s.low, s.says)
         })
         .collect::<Vec<_>>()
@@ -2257,6 +3030,8 @@ pub fn rules() -> String {
                 match (s.hold, s.spend) {
                     (true, true) => "any card",
                     (true, false) => "hold",
+                    _ if matches!((s.make)(s.low), Effect::Ghoul(_) | Effect::Warden(_) | Effect::Totem(_)) => "spell/play",
+                    _ if matches!((s.make)(s.low), Effect::Rip(_)) => "spell",
                     _ if (s.make)(s.low).summon().is_some() => "play",
                     _ => "take/play",
                 },
@@ -2284,19 +3059,24 @@ Spell cards: `cooldown <1–120 seconds>` is required; use heal, bombs, nova, wa
 Arm cards: `arm bow|crossbow|handgonne|notes`, or Forge rune lines (bolt/spread/melee/look; see /dungeon forge).\n\
 Summons (spell or play cards): `summon N swarm|guard|turret` — {summon}.\n\
 Looks on the field: `draw <slot>` then rows of inks, 1–{frames} frames side by side with `|` between (a worn piece drawn small may add `at=<place>`: {places}):\n{slots}\n\
-`sheet <slot> <file.png> [frames=N] [size=N] [at=<place>]` names a picture in .angel/dungeon/sheets/ (a strip of up to {frames} frames on a flat background, at most 2 MiB) that is cut into those rows when the card loads. Hold and spell cards may also say `look <colour> <shape>` for their knight's shots.\n\
+`sheet <slot> <file.png> [frames=N] [size=N] [at=<place>]` names a picture in .angel/dungeon/sheets/ (a strip of up to {frames} frames on a flat background, at most 2 MiB) that is cut into those rows when the card loads. `paint <slot> <file.png> [frames=N] [size=N] [at=<place>] [move=<words>]` is the same for a painting (a PNG on a transparent background, at most 4 MiB): cut into rows too, and kept whole, so the top level of a wish shows the picture itself (`draw <slot> paint=<sha256>`); `normal=<file_n.png>` adds its normal map (its size, green up), lit pixel by pixel in a lit room (`normal=<sha256>`); `pixel` says it is pixel art, drawn with hard pixel edges; rows of inks right under a paint line are its inks in place of the cut. `move=` sets a look moving: {moves}, comma-separated. Hold and spell cards may also say `look <colour> <shape>` for their knight's shots.\n\
 art    then up to {ART} rows of up to {ART} inks; `.` is black paper. Inks:\n\
   greys  k K Z X g j G J h i H   greens f D F E e l N m L A M y C Y\n\
   wood   n b I B p P r R o O t T   stone  s x S u U v V W q Q z\n\
+  violet d ( ) [ ] ^   pink   ! ? ; % +\n\
   signal 0 1 2 3 w (blues) a 4 @ 5 6 $ c 9 (golds) 8 7 (reds) — signal inks glow; use them for what matters\n\
 New spells in .angel/dungeon/cards hot-load into the host's first empty slot with a flourish; full slots drop them at the host's feet. /dungeon cards reload reads the folder again; /dungeon card <file> adds one and drops it at your feet.",
         summon = SUMMON_SPEC.says,
         frames = super::looks::MAX_FRAMES,
         places = super::looks::PLACES,
         slots = super::looks::slots(),
+        moves = super::looks::Move::words(),
     )
 }
 
 #[cfg(test)]
 #[path = "../../tests/rules/together_cards__tests.rs"]
 mod tests;
+#[cfg(all(test, feature = "bend-cases-home"))]
+#[path = "../../tests/rules/cards_bend_cases__tests.rs"]
+mod cards_bend_cases_tests;

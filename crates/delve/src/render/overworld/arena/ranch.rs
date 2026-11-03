@@ -738,7 +738,7 @@ fn barn(cv: &mut Img) {
     cv.stamp(&vane, vx - 4, vy - 14);
 }
 
-fn stall(cv: &mut Img, tick: u32) {
+fn stall(cv: &mut Img, _tick: u32) {
     let (x, y, w, h) = px(STALL);
     cv.rect(x, y, w, h, 'P');
     for xx in x..x + w {
@@ -765,8 +765,8 @@ fn stall(cv: &mut Img, tick: u32) {
     cv.ellipse(rx as f32, ry as f32, 1.5, 1.5, '6');
     cv.line(rx - 1, ry + 3, rx - 3, ry + 9, '1');
     cv.line(rx + 1, ry + 3, rx + 3, ry + 9, '1');
-    // A horseshoe over the door, points up for luck.
-    let (hx, hy) = (x + w / 2, y + 11 + (tick / 60 % 2) as i32 * 0);
+    // A horseshoe over the door, points up for luck. The bob is held off.
+    let (hx, hy) = (x + w / 2, y + 11);
     let shoe = Img::from_rows(&["v...v", "v...v", ".vvv."]);
     cv.stamp(&shoe, hx - 2 + 24, hy - 1);
 }
@@ -941,7 +941,7 @@ fn face(im: Img, east: bool) -> Img {
 }
 
 /// The horses and the folk of the two rooms.
-pub(super) fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
+pub(super) fn figures_with(cv: &mut Img, run: &Run) {
     let kind = run.room().kind;
     if !r::is_room(kind) {
         return;
@@ -955,11 +955,9 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
     };
     if kind == RoomKind::Pasture {
         let mut horses: Vec<((f32, f32), Img)> = Vec::new();
-        if !modern {
-            for (i, ((x, y), east)) in r::grazers(run.tick).into_iter().enumerate() {
-                let pose = if (tick / 90 + i as u32) % 3 == 0 { Pose::Stand } else { Pose::Graze };
-                horses.push(((x, y), face(draft(MARES[i], pose, 0.62, None, false), east)));
-            }
+        for (i, ((x, y), east)) in r::grazers(run.tick).into_iter().enumerate() {
+            let pose = if (tick / 90 + i as u32) % 3 == 0 { Pose::Stand } else { Pose::Graze };
+            horses.push(((x, y), face(draft(MARES[i], pose, 0.62, None, false), east)));
         }
         if let Some(foal) = r::herd_foal(&run.home.stable) {
             let k = match r::age(foal, run.home.ranch.wins) {
@@ -983,11 +981,9 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
             horses.push(white);
         }
         let ((hx, hy), east, gait) = r::helios(run.tick);
-        if !modern {
-            let pose = gait.map_or(Pose::Stand, Pose::Gallop);
-            let fire = gait.map(|_| tick);
-            horses.push(((hx, hy), face(draft(HELIOS, pose, 0.82, fire, false), east)));
-        }
+        let pose = gait.map_or(Pose::Stand, Pose::Gallop);
+        let fire = gait.map(|_| tick);
+        horses.push(((hx, hy), face(draft(HELIOS, pose, 0.82, fire, false), east)));
         horses.sort_by(|a, b| a.0.1.total_cmp(&b.0.1));
         for ((x, y), im) in &horses {
             let (px, py) = feet((*x, *y));
@@ -1005,7 +1001,7 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
     // The ranch: Old Barley at the rail, his groom, the war horses.
     let barley = draft(BARLEY, Pose::Stand, 0.76, None, true);
     let (bx, by) = feet((DRAFT_AT.0, DRAFT_AT.1 + 1.2));
-    if !modern { stand(cv, &barley, bx, by); }
+    stand(cv, &barley, bx, by);
     // He shines: a glint travels along his back.
     let glint = (tick / 3) as i32 % 50;
     let glint = glint * 3 / 5;
@@ -1015,7 +1011,7 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
     stand(cv, &groom(tick), gx, gy);
     let (px, py, pw, ph) = px(PADDOCK);
     let (cx, cy) = (px as f32 + pw as f32 / 2.0, py as f32 + ph as f32 / 2.0 + 8.0);
-    if !modern { for (i, hide) in WAR.iter().enumerate() {
+    for (i, hide) in WAR.iter().enumerate() {
         let a = tick as f32 / 70.0 + i as f32 * std::f32::consts::PI / 2.0;
         let trotting = i != 1;
         let (x, y) = if trotting {
@@ -1027,7 +1023,6 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, modern: bool) {
         let pose = if trotting { Pose::Gallop(tick / 5 + i as u32) } else { Pose::Graze };
         let im = face(draft(*hide, pose, 0.58, None, false), east || !trotting);
         stand(cv, &im, x as i32, y as i32);
-    }
     }
     let book = (
         STUD_BOOK.0 as f32 + STUD_BOOK.2 as f32 / 2.0,

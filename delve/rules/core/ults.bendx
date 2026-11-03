@@ -1,0 +1,75 @@
+# crates/delve/src/rules/ults.rs — the ultimates. A `Ult` is its snake_case word. Ported: the table
+# (`of`, `parse`, `name`), the charge and `phantom_shots`. Not ported: `cast_ults` and `tick_ults`
+# (each ultimate's effect and its upkeep); they stand as stubs that do nothing.
+
+def ults.Ult.of(knight: J.Val) -> String:
+    k: String = Bool.pick(String, J.is_null(knight), "percival", J.str(knight))
+    if String.eq(k, "lynette"):
+        return "ladys_veil"
+    if String.eq(k, "gareth"):
+        return "trebuchet"
+    if String.eq(k, "galahad"):
+        return "bladewind"
+    if String.eq(k, "composer"):
+        return "grand_chord"
+    if String.eq(k, "dispatcher"):
+        return "sealed_writs"
+    if String.eq(k, "loop"):
+        return "stillhour"
+    if String.eq(k, "money"):
+        return "midas_touch"
+    if String.eq(k, "competition"):
+        return "assassinate"
+    if String.eq(k, "scryglass"):
+        return "phantasm"
+    if String.eq(k, "ironbraid"):
+        return "axe_storm"
+    if String.eq(k, "bard"):
+        return "lullaby"
+    if String.eq(k, "peasant"):
+        return "desertion"
+    if String.eq(k, "hammerer"):
+        return "earthsplitter"
+    if String.eq(k, "butcher"):
+        return "dismember"
+    if String.eq(k, "alchemist"):
+        return "philosophers_rain"
+    if String.eq(k, "gravecaller"):
+        return "tombstone"
+    return "pilgrims_arrow"
+
+# The ultimate this knight casts: their own, or All Random's.
+def ults.Hero.ult(h: J.Val) -> String:
+    if Bool.not(J.is_null(J.get(h, "ult"))):
+        return J.str(J.get(h, "ult"))
+    return ults.Ult.of(J.get(h, "knight"))
+
+# A knight's charge: a tick of a fight is worth one, and the damage they deal half its worth.
+def ults.Run.charge_ults(run: J.Val, credits: J.Val) -> J.Val:
+    fighting: Bool = depths.Run.fighting(run)
+    players: J.Val = J.get(run, "players")
+    for (k: String, h: J.Val) in J.fields(players):
+        if Bool.and(Bool.and(U32.is_ne(core.u(h, "hp"), 0), Bool.not(core.b(h, "stone"))), Bool.or(J.is_null(J.get(h, "shape")), Bool.not(J.is_null(J.get(h, "ult"))))):
+            if fighting:
+                players = J.set(players, k, core.set_u(h, "ult_charge", U32.min(core.uadd(core.u(h, "ult_charge"), ults.PER_TICK()), ults.ULT_FULL())))
+    for c: J.Val in J.items(credits):
+        key: String = U32.show(J.u32(J.nth(c, 0)))
+        h: J.Val = J.get(players, key)
+        if Bool.not(J.is_null(h)):
+            players = J.set(players, key, core.set_u(h, "ult_charge", U32.min(core.uadd(core.u(h, "ult_charge"), U32.div(J.u32(J.nth(c, 1)), 2)), ults.ULT_FULL())))
+    return J.set(run, "players", players)
+
+# Copies of this tick's knight shots from each of their phantoms, at a share of the damage.
+def ults.phantom_shots(phantoms: J.Val, players: J.Val, shots: J.Val) -> J.Val:
+    copies: [J.Val] = []
+    for ph: J.Val in J.items(phantoms):
+        owner: U32 = core.u(ph, "owner")
+        h: J.Val = J.get(players, U32.show(owner))
+        if Bool.not(J.is_null(h)):
+            for s: J.Val in J.items(shots):
+                if Bool.and(Bool.and(Bool.not(core.b(s, "hostile")), U32.is_eq(core.u(J.get(s, "traits"), "owner"), owner)), Bool.not(String.eq(core.s(s, "kind"), "blade"))):
+                    s = core.set_f(s, "x", (core.f(s, "x") + (core.f(ph, "x") - core.f(h, "x") : F32) : F32))
+                    s = core.set_f(s, "y", (core.f(s, "y") + (core.f(ph, "y") - core.f(h, "y") : F32) : F32))
+                    s = core.set_u(s, "damage", U32.max(U32.div((core.u(s, "damage") * ults.PHANTOM_SHARE() : U32), 100), 1))
+                    copies = List.append(&2, J.Val, copies, [s])
+    return J.JA{List.append(&2, J.Val, J.items(shots), copies)}

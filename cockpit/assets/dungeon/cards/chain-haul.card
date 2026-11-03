@@ -1,0 +1,23 @@
+# The Butcher's third: the hook thrown at the far wall, and him after it.
+name   Chain Haul
+kind   spell
+rarity relic
+text   Hook a wall or foe where you aim and haul in, bowling them over.
+drop   0
+chest  0
+cooldown 9
+feat 1
+art
+.xx.xx.xx....
+xHhxHhxHhx...
+.xhxxhxxhxx..
+..xx.xx.xHhx.
+........xhix.
+........xHhx.
+.......xxhix.
+...xxxxhihx..
+..xHihihhx...
+.xHhxxxxxx...
+xHhx.........
+xihx.........
+.xx..........

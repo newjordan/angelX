@@ -89,15 +89,7 @@ const fn door(
         needs: None,
     }
 }
-pub const DOORS: [Entrance; 18] = [
-    door(
-        "college-gate",
-        RoomKind::Gate,
-        (20, 4, 2, 1),
-        RoomKind::CollegeGrounds,
-        (12.0, 10.5),
-        "COLLEGE GATE",
-    ),
+pub const DOORS: [Entrance; 17] = [
     door(
         "college-out",
         RoomKind::CollegeGrounds,
@@ -704,7 +696,7 @@ impl Run {
     pub(super) fn deal_college_spell(&mut self, id: u32) {
         if self.home.college.done.contains("map")
             && let Some(card) = self.book.get("hedge-maze")
-            && let Some(hero) = self.players.get_mut(&id)
+            && let Some(hero) = self.players.get_mut(&id).filter(|h| h.shape.is_none())
         {
             hero.equip_spell(card);
         }

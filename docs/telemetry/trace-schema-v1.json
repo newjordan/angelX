@@ -150,6 +150,18 @@
             "null"
           ]
         },
+        "live": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "combined_sha256": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "bound_at_ms": {
           "type": [
             "integer",

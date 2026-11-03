@@ -37,9 +37,6 @@ use crate::agent::sandbox::process_owner::OwnedCommandExt;
 pub(crate) mod private_io;
 
 use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitStatus, Stdio};
 use std::sync::{Mutex, OnceLock};
@@ -57,98 +54,39 @@ pub fn angel_subdir(name: &str) -> PathBuf {
     angel_dir().join(name)
 }
 
-/// A stable, filesystem-safe key for a workspace path: a sanitized,
-/// length-bounded prefix plus a deterministic hash suffix.
-pub fn workspace_key(workspace: &Path) -> String {
-    let s = workspace.to_string_lossy();
-    let mut hasher = DefaultHasher::new();
-    if workspace.to_str().is_some() {
-        // Keep existing keys for all UTF-8 paths; invalid paths must not
-        // collapse to the same replacement-character spelling.
-        s.hash(&mut hasher);
-    } else {
-        b"angel-workspace-non-utf8-v1".hash(&mut hasher);
-        workspace.as_os_str().as_encoded_bytes().hash(&mut hasher);
-    }
-    let h = hasher.finish();
-    let sanitized: String = s
-        .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c } else { '-' })
-        .collect();
-    let trimmed: String = sanitized.trim_matches('-').chars().take(60).collect();
-    let trimmed = if trimmed.is_empty() {
-        "ws".to_string()
-    } else {
-        trimmed
-    };
-    format!("{trimmed}-{h:016x}")
+// The key, the atomic writers and the private lock live in the Kernel's host
+// services (`angel_live::host::workspace_store`) so the realm host stands on
+// the same code; they are re-exported here at their old paths.
+pub use angel_live::host::workspace_store::workspace_key;
+#[cfg(not(test))]
+pub(crate) use angel_live::host::workspace_store::{write_atomic, write_private_atomic, write_private_atomic_exact};
+
+#[cfg(test)]
+pub(crate) fn install_test_hooks() {
+    use angel_live::host::workspace_store::fault::{AFTER_RENAME, BEFORE_OPEN, BEFORE_RENAME};
+    BEFORE_OPEN.with(|slot| *slot.borrow_mut() = Some(Box::new(|path| { install_test_hooks(); storage_atomic_tests::before_atomic_open(path); })));
+    BEFORE_RENAME.with(|slot| *slot.borrow_mut() = Some(Box::new(|path| { install_test_hooks(); storage_atomic_tests::before_atomic_rename(path); })));
+    AFTER_RENAME.with(|slot| *slot.borrow_mut() = Some(Box::new(|path| { install_test_hooks(); storage_atomic_tests::after_atomic_rename(path) })));
 }
+#[cfg(test)]
+pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    install_test_hooks();
+    angel_live::host::workspace_store::write_atomic(path, bytes)
+}
+#[cfg(test)]
+pub(crate) fn write_private_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    install_test_hooks();
+    angel_live::host::workspace_store::write_private_atomic(path, bytes)
+}
+#[cfg(test)]
+pub(crate) fn write_private_atomic_exact(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    install_test_hooks();
+    angel_live::host::workspace_store::write_private_atomic_exact(path, bytes)
+}
+pub(crate) use angel_live::host::workspace_store::try_private_lock;
 
 pub fn workspace_json_path_in(dir: &Path, workspace: &Path) -> PathBuf {
     dir.join(format!("{}.json", workspace_key(workspace)))
-}
-
-/// Atomically publish a private state file and make the file plus directory
-/// entry durable before returning. A unique same-directory temporary keeps
-/// concurrent cockpit processes from corrupting each other's staging bytes.
-pub(crate) fn write_private_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
-    let redacted = crate::platform::secrets::redact_bytes(bytes);
-    let bytes = redacted.as_slice();
-    let parent = path
-        .parent()
-        .filter(|parent| !parent.as_os_str().is_empty())
-        .unwrap_or_else(|| Path::new("."));
-    std::fs::create_dir_all(parent)
-        .map_err(|error| format!("create state directory {}: {error}", parent.display()))?;
-    static TEMP_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-    let serial = TEMP_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-    let file_name = path
-        .file_name()
-        .ok_or_else(|| format!("state path has no file name: {}", path.display()))?
-        .to_string_lossy();
-    let temp = parent.join(format!(
-        ".{file_name}.{}.{}.tmp",
-        std::process::id(),
-        serial
-    ));
-    #[cfg(test)]
-    storage_atomic_tests::before_atomic_open(&temp);
-    let mut owns_temp = false;
-    let result = (|| {
-        let mut options = std::fs::OpenOptions::new();
-        options.write(true).create_new(true);
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt as _;
-            options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
-        }
-        let mut file = options
-            .open(&temp)
-            .map_err(|error| format!("open state temp {}: {error}", temp.display()))?;
-        owns_temp = true;
-        file.write_all(bytes)
-            .map_err(|error| format!("write state temp {}: {error}", temp.display()))?;
-        file.sync_all()
-            .map_err(|error| format!("sync state temp {}: {error}", temp.display()))?;
-        drop(file);
-        std::fs::rename(&temp, path).map_err(|error| {
-            format!(
-                "publish state {} from {}: {error}",
-                path.display(),
-                temp.display()
-            )
-        })?;
-        owns_temp = false;
-        #[cfg(unix)]
-        std::fs::File::open(parent)
-            .and_then(|directory| directory.sync_all())
-            .map_err(|error| format!("sync state directory {}: {error}", parent.display()))?;
-        Ok(())
-    })();
-    if result.is_err() && owns_temp {
-        let _ = std::fs::remove_file(&temp);
-    }
-    result
 }
 
 /// Remove one state file and durably publish the deletion. Missing files are
@@ -766,7 +704,7 @@ mod storage_identity_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/workspace_store__storage_atomic_tests.rs"]
-mod storage_atomic_tests;
+pub(crate) mod storage_atomic_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/workspace_store__tests.rs"]

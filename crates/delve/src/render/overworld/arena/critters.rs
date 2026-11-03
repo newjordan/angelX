@@ -24,8 +24,12 @@ fn side(run: &Run, enemy: &Enemy) -> f32 {
         .values()
         .filter(|h| h.hp > 0 && !h.stone)
         .min_by(|a, b| {
-            let d =
-                |h: &&crate::rules::Hero| (h.x - enemy.x).hypot(h.y - enemy.y);
+            // Squared distance orders the same as distance, and picks the
+            // same nearest knight, without the square root per comparison.
+            let d = |h: &&crate::rules::Hero| {
+                let (dx, dy) = (h.x - enemy.x, h.y - enemy.y);
+                dx * dx + dy * dy
+            };
             d(a).total_cmp(&d(b))
         })
         .map_or(1.0, |h| h.x - enemy.x)

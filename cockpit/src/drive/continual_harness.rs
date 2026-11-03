@@ -36,7 +36,11 @@ const DEFAULT_MAX_CONTENT: usize = 180;
 const DEFAULT_MAX_BLOCK_BYTES: usize = 3 * 1024;
 const MAX_TITLE: usize = 120;
 const MAX_CONTENT: usize = 4 * 1024;
-const MAX_ENTRIES_TOTAL: usize = 64;
+/// Entries are ranked per turn (see [`rank_entries`]), so a store larger than
+/// the prompt block stays reachable; `ANGEL_CONTINUAL_HARNESS_MAX_ENTRIES` overrides.
+const DEFAULT_MAX_ENTRIES_TOTAL: usize = 256;
+const DEFAULT_SEARCH_LIMIT: usize = 5;
+const MAX_SEARCH_LIMIT: usize = 16;
 
 // ---------------------------------------------------------------------------
 // Types
@@ -300,9 +304,8 @@ fn save_state(path: &Path, state: &HarnessState) -> Result<(), String> {
     }
     let bytes = crate::platform::secrets::to_redacted_vec_pretty(state)
         .map_err(|e| format!("encode harness: {e}"))?;
-    let tmp = path.with_extension(format!("json.tmp.{}", std::process::id()));
-    std::fs::write(&tmp, bytes).map_err(|e| format!("write harness: {e}"))?;
-    std::fs::rename(&tmp, path).map_err(|e| format!("commit harness: {e}"))
+    crate::platform::workspace_store::write_private_atomic(path, &bytes)
+        .map_err(|e| format!("write harness: {e}"))
 }
 
 pub(crate) fn load_project(workspace: &Path) -> HarnessState {
@@ -438,8 +441,9 @@ pub(crate) fn apply_edits(
                     failures.push(format!("{id}: already exists (use update)"));
                     continue;
                 }
-                if state.entry_count() >= MAX_ENTRIES_TOTAL {
-                    failures.push(format!("{id}: harness full ({MAX_ENTRIES_TOTAL} entries)"));
+                let cap = max_entries_total();
+                if state.entry_count() >= cap {
+                    failures.push(format!("{id}: harness full ({cap} entries)"));
                     continue;
                 }
                 let now = now_iso();
@@ -629,8 +633,15 @@ fn enabled() -> bool {
 }
 
 /// Compact overview for system prompt / task warm-start. Empty when disabled
-/// or no entries exist.
+/// or no entries exist. With no turn text to rank against, each kind shows its
+/// most recently updated entries.
 pub(crate) fn context_block(workspace: &Path) -> String {
+    context_block_for(workspace, "")
+}
+
+/// [`context_block`], with each kind's visible entries chosen by BM25 relevance
+/// to `query` (the turn's own text) instead of name order.
+pub(crate) fn context_block_for(workspace: &Path, query: &str) -> String {
     if !enabled() {
         return String::new();
     }
@@ -657,7 +668,7 @@ pub(crate) fn context_block(workspace: &Path) -> String {
             continue;
         }
         lines.push(format!("{}: {}", kind.as_str(), entries.len()));
-        for entry in entries.iter().take(max_per) {
+        for entry in rank_entries(&entries, query, max_per) {
             lines.push(format!(
                 "- [{}:{}] {} ({} v{}): {}",
                 entry.scope.as_str(),
@@ -670,7 +681,7 @@ pub(crate) fn context_block(workspace: &Path) -> String {
         }
         if entries.len() > max_per {
             lines.push(format!(
-                "- +{} more {} entries",
+                "- +{} more {} entries (continual_harness action=search query=...)",
                 entries.len() - max_per,
                 kind.as_str()
             ));
@@ -716,6 +727,83 @@ fn env_usize(key: &str, default: usize) -> usize {
         .and_then(|v| v.trim().parse().ok())
         .unwrap_or(default)
         .max(1)
+}
+
+fn max_entries_total() -> usize {
+    env_usize(
+        "ANGEL_CONTINUAL_HARNESS_MAX_ENTRIES",
+        DEFAULT_MAX_ENTRIES_TOTAL,
+    )
+}
+
+fn updated_secs(entry: &HarnessEntry) -> u64 {
+    entry.updated_at.parse().unwrap_or(0)
+}
+
+/// The `limit` entries most relevant to `query` (BM25 over title + content,
+/// best first), topped up with the most recently updated when fewer match.
+fn rank_entries<'a>(
+    entries: &[&'a HarnessEntry],
+    query: &str,
+    limit: usize,
+) -> Vec<&'a HarnessEntry> {
+    let docs = entries
+        .iter()
+        .enumerate()
+        .map(|(i, e)| (i, format!("{} {}", e.title, e.content)))
+        .collect::<Vec<_>>();
+    let mut picked = crate::agent::harness::bm25_rank(query, &docs, limit);
+    let mut recent = (0..entries.len()).collect::<Vec<_>>();
+    recent.sort_by_key(|&i| std::cmp::Reverse(updated_secs(entries[i])));
+    for i in recent {
+        if picked.len() >= limit {
+            break;
+        }
+        if !picked.contains(&i) {
+            picked.push(i);
+        }
+    }
+    picked.into_iter().map(|i| entries[i]).collect()
+}
+
+/// `continual_harness action=search`: full text of the entries that best match
+/// `query`, best first. Only entries sharing a term with the query are returned.
+fn search_text(workspace: &Path, query: &str, kind: Option<EntryKind>, limit: usize) -> String {
+    let state = load_merged(workspace);
+    let entries = state
+        .entries
+        .values()
+        .filter(|e| kind.is_none_or(|k| e.kind == k))
+        .collect::<Vec<_>>();
+    let docs = entries
+        .iter()
+        .enumerate()
+        .map(|(i, e)| (i, format!("{} {}", e.title, e.content)))
+        .collect::<Vec<_>>();
+    let hits = crate::agent::harness::bm25_rank(query, &docs, limit);
+    let mut out = format!(
+        "continual harness search · {} of {} entries · query: {}\n",
+        hits.len(),
+        entries.len(),
+        compact_text(query, 120)
+    );
+    if hits.is_empty() {
+        out.push_str("no entry shares a term with the query — try other words or action=list\n");
+    }
+    for i in hits {
+        let e = entries[i];
+        out.push_str(&format!(
+            "\n[{}:{}] {} ({} {} v{})\n{}\n",
+            e.scope.as_str(),
+            e.id,
+            e.title,
+            e.kind.as_str(),
+            e.path,
+            e.version,
+            e.content
+        ));
+    }
+    out
 }
 
 // ---------------------------------------------------------------------------
@@ -1013,6 +1101,7 @@ impl crate::agent::harness::Tool for ContinualHarnessTool {
             name: "continual_harness".into(),
             description: "Continual harness (Prime-style): durable supplemental prompt notes, \
 memories, skill procedures, and subagent specs that survive turns. action=list (default), \
+search (query: full text of the best-matching entries, optional kind and limit), \
 create, update, delete, rollback, seed_light. Scope project (default) or global. ⠫⠊"
                 .into(),
             params: serde_json::json!({
@@ -1020,9 +1109,11 @@ create, update, delete, rollback, seed_light. Scope project (default) or global.
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["list", "create", "update", "delete", "rollback", "seed_light"],
+                        "enum": ["list", "search", "create", "update", "delete", "rollback", "seed_light"],
                         "description": "⠫⠊⠃"
                     },
+                    "query": { "type": "string" },
+                    "limit": { "type": "integer" },
                     "scope": {
                         "type": "string",
                         "enum": ["project", "global"],
@@ -1057,6 +1148,20 @@ create, update, delete, rollback, seed_light. Scope project (default) or global.
 
         match action {
             "list" => Ok(status_text(&self.workspace)),
+            "search" => {
+                let query = args["query"]
+                    .as_str()
+                    .map(str::trim)
+                    .filter(|q| !q.is_empty())
+                    .ok_or("missing 'query'")?;
+                let kind = args["kind"].as_str().and_then(EntryKind::parse);
+                let limit = args["limit"]
+                    .as_u64()
+                    .map(|n| n as usize)
+                    .unwrap_or(DEFAULT_SEARCH_LIMIT)
+                    .clamp(1, MAX_SEARCH_LIMIT);
+                Ok(search_text(&self.workspace, query, kind, limit))
+            }
             "seed_light" => Ok(seed_light_prover(&self.workspace)),
             "create" | "update" => {
                 let kind = args["kind"]
@@ -1139,7 +1244,7 @@ create, update, delete, rollback, seed_light. Scope project (default) or global.
                 rollback(&self.workspace, scope, id)
             }
             other => Err(format!(
-                "unknown action {other:?} (list|create|update|delete|rollback|seed_light)"
+                "unknown action {other:?} (list|search|create|update|delete|rollback|seed_light)"
             )),
         }
     }

@@ -183,7 +183,6 @@ fn a_lone_knight_clearing_bales_wins_and_the_purse_pays() {
     let id = p.knights[0].id;
     p.bales.clear();
     *p.burned.entry(id).or_insert(0) = ALL_BALES.len() as u8;
-    drop(round);
     run.tick_pastimes(&BTreeMap::new());
     let (_, _, said) = run.found.clone().unwrap();
     assert!(said.contains("complete!"), "{said}");

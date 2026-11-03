@@ -124,6 +124,19 @@ ln -sfn "releases/$version-$platform" "$home_dir/current"
 mkdir -p "$bin_dir"
 ln -sfn "$home_dir/current/bin/angelX" "$bin_dir/angelX"
 ln -sfn "$home_dir/current/bin/angelX" "$bin_dir/angelx"
+# glass, the terminal that shows everything angelX shows. Never replace a
+# glass the user put there themselves; refresh only a link this installer made.
+glass_note=""
+if [ -x "$home_dir/current/bin/glass" ]; then
+  if [ ! -e "$bin_dir/glass" ] && [ ! -L "$bin_dir/glass" ]; then
+    ln -s "$home_dir/current/bin/glass" "$bin_dir/glass"
+    glass_note="installed"
+  elif [ -L "$bin_dir/glass" ] && [ "$(readlink "$bin_dir/glass")" = "$home_dir/current/bin/glass" ]; then
+    glass_note="installed"
+  else
+    glass_note="kept"
+  fi
+fi
 
 # Keep the two newest releases; older ones only take space.
 ls -1dt "$home_dir/releases/"*-"$platform" 2>/dev/null | tail -n +3 | while IFS= read -r old; do
@@ -132,6 +145,10 @@ done
 
 say ""
 say "angelX $version is installed."
+case "$glass_note" in
+  installed) say "glass, its terminal, is installed too: run \`glass\` for a terminal that shows pictures, video and charts." ;;
+  kept) say "glass, its terminal, is at $home_dir/current/bin/glass (your own $bin_dir/glass was left as it is)." ;;
+esac
 # A command that is not on the PATH is the first thing a new user trips on, so
 # the shell's startup file gets the line itself (once). ANGELX_NO_MODIFY_PATH=1
 # prints the line instead.

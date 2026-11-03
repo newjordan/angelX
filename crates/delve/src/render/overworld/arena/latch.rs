@@ -763,11 +763,7 @@ fn draw(run: &Run, focus: Option<u32>, labels: bool) -> (Img, Img) {
             center(&mut words, 102, 82, "COUNTER", 't');
         }
     }
-    let shake = if d.freeze > 0 {
-        if d.freeze % 2 == 0 { 2 } else { -2 }
-    } else {
-        0
-    };
+    let shake = super::camera::smooth_shake(run.tick, u32::from(d.freeze), run.tune.latch_stop, 2.0).0;
     let recoil = if d.beat == Beat::Clean {
         if d.freeze > 0 { 4 } else { 2 }
     } else {

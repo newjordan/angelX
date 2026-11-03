@@ -1,0 +1,22 @@
+{
+ "name": "rogue",
+ "body": "hero",
+ "colors": {
+  "primary": [
+   "X",
+   "K"
+  ],
+  "secondary": [
+   "g",
+   "K"
+  ],
+  "leather": [
+   "g",
+   "X"
+  ]
+ },
+ "equip": [
+  "leather_vest",
+  "dagger"
+ ]
+}

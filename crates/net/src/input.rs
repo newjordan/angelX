@@ -91,6 +91,8 @@ pub mod button {
 
     /// A button's bit by its controls-JSON name.
     pub fn named(name: &str) -> Option<u32> {
+        // A named chord leaves all 32 physical button bits unchanged.
+        if name == "TEAM" { return Some(OK | SHIFT); }
         NAMES.iter().find(|(n, _)| *n == name).map(|&(_, bit)| bit)
     }
 }

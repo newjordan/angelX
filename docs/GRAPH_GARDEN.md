@@ -128,7 +128,7 @@ no filesystem, network, or arbitrary-code execution capability.
 
 - `cockpit/src/knowledge/graph_crop.rs`: chart contract and bounded mutations.
 - `cockpit/src/agent/tools/graph.rs`: native tool and full event emission.
-- `cockpit/src/stage/world_viz/overworld/garden.rs`: correlated calls, crop
+- `crates/realm-host/src/world_viz/overworld/garden.rs`: correlated calls, crop
   geometry, growth, dirt reset, farmers, and sprite dialogue.
 - `cockpit/src/app/control/turn_io.rs`: event retention and failure settlement.
 

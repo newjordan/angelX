@@ -1,0 +1,23 @@
+# TEMPLATE: a one-screen room, drawn as its top-left quadrant (11 by 6) and
+# mirrored both ways, so it is fair from every door.
+# Copy this file, then draw. Check it with
+#   cargo run -p angel-delve --example content_check -- <your file>
+# and add the quadrant to its pack's `SMALL` in crates/delve/src/rules/rooms/<pack>.rs,
+# with a line saying what the room is and how it is fought.
+#
+# Marks: `.` floor, `#` a block (pillar, tomb, shelf: stops feet and shots),
+#   `~` a hazard pool (stops feet, not shots or wings). Nothing else.
+# Keep: the last column of the top row and the first column of the last row
+#   open (the doorway lanes come in there); the last 3x3 (bottom right, the
+#   room's middle) open, where the stairs and a guardian stand; every floor tile
+#   walkable from every door; 55% floor or more.
+# The bar: something to fight round (cover to duck behind, a pool to shoot
+#   over), lanes wide enough for two knights, no pocket a monster can hide in.
+# The Split Nave: two tomb pairs flank the aisle, a shrine pool in the corner;
+# fight down the open middle or round the tombs.
+...........
+.~~..##....
+.~~..##....
+...........
+..##.......
+...........

@@ -12,16 +12,11 @@
 use crate::agent::club::ToolDef;
 use crate::agent::harness::{Tool, env_flag};
 use crate::agent::tools::build::{TestOutcome, parse_test_result};
-use crate::agent::tools::nav::is_outline_decl;
 use serde_json::Value;
 use std::hash::{Hash, Hasher};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
-
-/// How many leading lines of a file to scan for its `//!` doc block — doc
-/// comments live at the very top by convention, so this bounds the work.
-const DOC_SCAN_LINES: usize = 80;
 
 // ---------------------------------------------------------------------------
 // Locating our own source.
@@ -69,113 +64,55 @@ fn is_cockpit_root(dir: &Path) -> bool {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Parsing module purpose + symbols out of the live source (pure helpers).
-// ---------------------------------------------------------------------------
-
-/// Extract a one-line purpose for a module from its leading `//!` doc block:
-/// the first contiguous run of `//!` lines, joined and trimmed to one sentence.
-/// `""` when the module has no doc comment (e.g. UI glue files).
-pub(crate) fn module_purpose(src: &str) -> String {
-    let mut parts: Vec<&str> = Vec::new();
-    let mut started = false;
-    for line in src.lines().take(DOC_SCAN_LINES) {
-        let t = line.trim_start();
-        if let Some(rest) = t.strip_prefix("//!") {
-            let rest = rest.trim();
-            if rest.is_empty() {
-                if started {
-                    break; // blank `//!` ends the lead paragraph
-                }
-                continue;
-            }
-            started = true;
-            parts.push(rest);
-        } else if started {
-            break; // doc block ended (a code/use/attr line)
-        }
-    }
-    first_sentence(&parts.join(" "))
+// The projection is hotloaded JavaScript. These focused test helpers exercise
+// the same module used by the application rather than retaining a Rust copy.
+#[cfg(test)]
+fn module_purpose(src: &str) -> String {
+    test_projection(serde_json::json!({"op":"analyze", "src":src}))["purpose"]
+        .as_str()
+        .unwrap()
+        .to_string()
 }
 
-/// First sentence of `s` (up to the first `". "`/trailing `.`), capped to a
-/// readable length so one verbose module can't blow the budget.
-fn first_sentence(s: &str) -> String {
-    let s = s.trim();
-    if s.is_empty() {
-        return String::new();
-    }
-    let mut end = s.len();
-    let bytes = s.as_bytes();
-    for i in 0..bytes.len() {
-        if bytes[i] == b'.' && (i + 1 == bytes.len() || bytes[i + 1] == b' ') {
-            end = i + 1;
-            break;
-        }
-    }
-    let mut out: String = s[..end].trim().to_string();
-    const MAX: usize = 200;
-    if out.chars().count() > MAX {
-        out = out.chars().take(MAX).collect::<String>() + "…";
-    }
-    out
+#[cfg(test)]
+struct ModuleSymbols {
+    count: usize,
+    key_types: Vec<String>,
 }
 
-/// A module's symbol surface: how many top-level items it declares, and the names
-/// of its key **public** types/traits (the navigational anchors).
-pub(crate) struct ModuleSymbols {
-    pub count: usize,
-    pub key_types: Vec<String>,
-}
-
-/// Count top-level declarations (via the shared outline heuristic) and pull out
-/// the names of `pub`/`pub(crate)` `struct`/`enum`/`trait` items.
-pub(crate) fn module_symbols(src: &str) -> ModuleSymbols {
-    let mut count = 0;
-    let mut key_types = Vec::new();
-    for line in src.lines() {
-        if !is_outline_decl(line) {
-            continue;
-        }
-        count += 1;
-        if let Some(name) = pub_type_name(line)
-            && key_types.len() < 8
-            && !key_types.contains(&name)
-        {
-            key_types.push(name);
-        }
+#[cfg(test)]
+fn module_symbols(src: &str) -> ModuleSymbols {
+    let value = test_projection(serde_json::json!({"op":"analyze", "src":src}));
+    ModuleSymbols {
+        count: value["count"].as_u64().unwrap() as usize,
+        key_types: value["keyTypes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|name| name.as_str().unwrap().to_string())
+            .collect(),
     }
-    ModuleSymbols { count, key_types }
 }
 
-/// If `line` declares a `pub`/`pub(crate)`/`pub(super)` `struct`/`enum`/`trait`,
-/// return its name. `None` otherwise (private items, fns, impls, …).
+#[cfg(test)]
 fn pub_type_name(line: &str) -> Option<String> {
-    let mut s = line.trim_start();
-    let mut had_pub = false;
-    for p in ["pub(crate) ", "pub(super) ", "pub "] {
-        if let Some(rest) = s.strip_prefix(p) {
-            s = rest.trim_start();
-            had_pub = true;
-            break;
-        }
-    }
-    if !had_pub {
-        return None;
-    }
-    for kw in ["struct ", "enum ", "trait "] {
-        if let Some(rest) = s.strip_prefix(kw) {
-            let name: String = rest
-                .trim_start()
-                .chars()
-                .take_while(|c| c.is_alphanumeric() || *c == '_')
-                .collect();
-            if !name.is_empty() {
-                return Some(name);
-            }
-        }
-    }
-    None
+    test_projection(serde_json::json!({"op":"publicType", "line":line}))["name"]
+        .as_str()
+        .map(str::to_string)
+}
+
+#[cfg(test)]
+fn group_of(stem: &str) -> String {
+    test_projection(serde_json::json!({"op":"group", "stem":stem}))["group"]
+        .as_str()
+        .unwrap()
+        .to_string()
+}
+
+#[cfg(test)]
+fn test_projection(input: Value) -> Value {
+    let _guard = crate::tests::env_lock();
+    self_map_worker(&self_map_module().unwrap(), &input).unwrap()
 }
 
 // ---------------------------------------------------------------------------
@@ -241,44 +178,12 @@ fn parse_crate_meta(toml: &str) -> CrateMeta {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Module grouping — stable membership (a structural fact about the tree); the
-// descriptions come from the live `//!` docs, so the map stays fresh.
-// ---------------------------------------------------------------------------
-
-/// Functional area for a top-level module, by file stem. Unknown modules fall
-/// into "Other" so a newly-added module is never silently dropped from the map.
-fn group_of(stem: &str) -> &'static str {
-    match stem {
-        "main" | "app" | "app_control" | "draw" | "term" | "input" | "status_view"
-        | "transcript" | "hud" | "glyphs" | "anim" | "loader" | "chart" | "markdown" | "viewer"
-        | "media" | "agent_view" | "turn_event_view" | "approval_view" | "artifacts_view"
-        | "agentviz" | "terminal_art" | "raytrace" | "world_viz" => "Entry & TUI / display",
-        "swarm" | "swarm_delegate" | "deli" | "overwatch" | "club" | "turn" | "session"
-        | "bootstrap" | "self_loop" => "Drivers & orchestration",
-        "harness" | "lsp" | "mcp" | "code_mode" | "sandbox" | "pty" | "reinforce" | "skills"
-        | "approval" | "local_command" => "Agent harness & tooling",
-        "memory" | "memory_store" | "librarian" | "compaction" => "Memory & compaction",
-        "codex_import" | "openai_codex" | "agent_profile" => "External agents & import",
-        _ => "Other",
-    }
-}
-
-/// Group display order.
-const GROUP_ORDER: &[&str] = &[
-    "Drivers & orchestration",
-    "Agent harness & tooling",
-    "Entry & TUI / display",
-    "Memory & compaction",
-    "External agents & import",
-    "Other",
-];
-
-struct ModuleInfo {
+// The host owns discovery and input bounds; the module owns presentation.
+#[derive(serde::Serialize)]
+struct ModuleInput {
     stem: String,
-    rel: String, // path relative to crate root, e.g. "src/harness.rs"
-    purpose: String,
-    symbols: ModuleSymbols,
+    rel: String,
+    src: String,
 }
 
 #[derive(Clone)]
@@ -293,7 +198,7 @@ static SELF_CONTEXT_CACHE: OnceLock<Mutex<Option<SelfContextCache>>> = OnceLock:
 /// The seven dependency layers `src/` is grouped into. They are directories,
 /// not modules in their own right, so every scan reaches *through* them: the
 /// stems one level down are the modules this map has always described, which
-/// is what keeps [`group_of`] keyed on bare stems.
+/// is what keeps the report keyed on bare stems.
 const LAYERS: &[&str] = &[
     "agent",
     "app",
@@ -373,79 +278,162 @@ fn module_source_stamp(root: &Path) -> u64 {
     hasher.finish()
 }
 
-/// Read every module under `src/`, reaching through the layer directories, plus
-/// `src/agent/tools/*.rs`, extracting purpose + symbols. `top_level` is the
-/// module set; `tools` is the tool-impl set.
-fn scan_modules(root: &Path) -> (Vec<ModuleInfo>, Vec<ModuleInfo>) {
-    let (mut top_level, mut tools) = (Vec::new(), Vec::new());
-    for (dir, rel_prefix, skip) in scan_roots(root) {
-        let scanned = scan_dir(&dir, root, &rel_prefix, &skip);
-        if rel_prefix == TOOLS_REL {
-            tools = scanned;
-        } else {
-            top_level.extend(scanned);
-        }
+const SELF_MAP_SOURCE_LIMIT: u64 = 2 * 1024 * 1024;
+const SELF_MAP_TOTAL_LIMIT: usize = 12 * 1024 * 1024;
+const SELF_MAP_INPUT_LIMIT: usize = 16 * 1024 * 1024;
+const SELF_MAP_OUTPUT_LIMIT: usize = 1024 * 1024;
+
+/// Use the shared confined reader; on Linux it anchors resolution to the source
+/// directory descriptor. The worker receives source bytes, not file paths.
+fn read_source(path: &Path, root: &Path, total: &mut usize) -> Result<Option<String>, String> {
+    let relative = path
+        .strip_prefix(root)
+        .map_err(|_| "source is outside src/")?;
+    let bytes = match crate::agent::harness::confined_read_limited(
+        root,
+        relative,
+        SELF_MAP_SOURCE_LIMIT as usize,
+    ) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => return Err("self-map source exceeds its byte limit".into()),
+        Err(_) => return Ok(None),
+    };
+    *total = total.saturating_add(bytes.len());
+    if bytes.len() as u64 > SELF_MAP_SOURCE_LIMIT || *total > SELF_MAP_TOTAL_LIMIT {
+        return Err("self-map source exceeds its byte limit".into());
     }
-    top_level.sort_by(|a, b| a.stem.cmp(&b.stem));
-    (top_level, tools)
+    Ok(String::from_utf8(bytes).ok())
 }
 
-fn scan_dir(dir: &Path, root: &Path, rel_prefix: &str, skip: &[&str]) -> Vec<ModuleInfo> {
-    let mut out = Vec::new();
-    let entries = match std::fs::read_dir(dir) {
-        Ok(e) => e,
-        Err(_) => return out,
-    };
-    for entry in entries.flatten() {
-        // `skip` holds the names this pass must not fold in: the layer dirs when
-        // scanning `src/`, each layer's own `mod.rs` facade, and `tools/`, which
-        // keeps its own dedicated section below.
-        if entry
-            .file_name()
-            .to_str()
-            .is_some_and(|name| skip.contains(&name))
-        {
+fn scan_modules(root: &Path) -> Result<(Vec<ModuleInput>, Vec<ModuleInput>), String> {
+    let source_root = root.join("src");
+    let (mut top, mut tools, mut total) = (Vec::new(), Vec::new(), 0);
+    for (dir, rel_prefix, skip) in scan_roots(root) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
             continue;
-        }
-        // Directory modules (e.g. `src/agent/swarm/`) are read through their
-        // `mod.rs` facade so the map keeps listing them after a file→dir split.
-        let path = if entry.path().is_dir() && entry.path().join("mod.rs").is_file() {
-            entry.path().join("mod.rs")
-        } else {
-            entry.path()
         };
-        if path.extension().and_then(|e| e.to_str()) != Some("rs") {
-            continue;
-        }
-        let stem = if path.file_name().and_then(|s| s.to_str()) == Some("mod.rs") {
-            match path
-                .parent()
-                .and_then(|p| p.file_name())
-                .and_then(|s| s.to_str())
+        for entry in entries {
+            let entry = entry.map_err(|e| format!("scan source: {e}"))?;
+            if entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| skip.contains(&name))
             {
-                Some(s) => s.to_string(),
-                None => continue,
+                continue;
             }
-        } else {
-            match path.file_stem().and_then(|s| s.to_str()) {
-                Some(s) => s.to_string(),
-                None => continue,
+            let path = if entry.path().is_dir() && entry.path().join("mod.rs").is_file() {
+                entry.path().join("mod.rs")
+            } else {
+                entry.path()
+            };
+            if path.extension().and_then(|e| e.to_str()) != Some("rs") {
+                continue;
             }
-        };
-        let src = std::fs::read_to_string(&path).unwrap_or_default();
-        let rel = path
-            .strip_prefix(root)
-            .map(|p| p.to_string_lossy().replace('\\', "/"))
-            .unwrap_or_else(|_| format!("{rel_prefix}/{stem}.rs"));
-        out.push(ModuleInfo {
-            stem,
-            rel,
-            purpose: module_purpose(&src),
-            symbols: module_symbols(&src),
-        });
+            let stem = if path.file_name().and_then(|s| s.to_str()) == Some("mod.rs") {
+                path.parent()
+                    .and_then(|p| p.file_name())
+                    .and_then(|s| s.to_str())
+            } else {
+                path.file_stem().and_then(|s| s.to_str())
+            };
+            let Some(stem) = stem else { continue };
+            if top.len() + tools.len() >= 1024 {
+                return Err("self-map source count exceeds its limit".into());
+            }
+            let rel = path
+                .strip_prefix(root)
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_else(|_| format!("{rel_prefix}/{stem}.rs"));
+            let input = ModuleInput {
+                stem: stem.into(),
+                rel,
+                src: read_source(&path, &source_root, &mut total)?.unwrap_or_default(),
+            };
+            if rel_prefix == TOOLS_REL {
+                tools.push(input)
+            } else {
+                top.push(input)
+            }
+        }
     }
-    out.sort_by(|a, b| a.stem.cmp(&b.stem));
-    out
+    Ok((top, tools))
+}
+
+const SELF_MAP_FILES: &[&str] = &["scripts/runtime/self-map.mjs", "lib/self-map/report.mjs"];
+
+/// Pin both the entry point and its analysis rules for one request. Their
+/// exact contents also invalidate the compact-context cache on an edit.
+struct SelfMapModule {
+    snapshot: crate::platform::worker_snapshot::Snapshot,
+    fingerprint: u64,
+}
+
+fn self_map_module() -> Result<SelfMapModule, String> {
+    let root = crate::platform::runtime_paths::root();
+    let snapshot =
+        crate::platform::worker_snapshot::Snapshot::capture(&root, SELF_MAP_FILES, "self-map")?;
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    for path in SELF_MAP_FILES {
+        let bytes = crate::platform::worker_snapshot::read(&snapshot.dir.join(path), "self-map")?;
+        if bytes.len() > 64 * 1024 {
+            return Err("self-map module exceeds its byte limit".into());
+        }
+        path.hash(&mut hasher);
+        bytes.hash(&mut hasher);
+    }
+    Ok(SelfMapModule {
+        snapshot,
+        fingerprint: hasher.finish(),
+    })
+}
+
+fn self_map_worker(module: &SelfMapModule, request: &Value) -> Result<Value, String> {
+    let node = crate::agent::tools::runtime_missing::resolve("node")
+        .map_err(|_| "Node.js unavailable".to_string())?;
+    let input = serde_json::to_vec(request).map_err(|e| format!("self-map request: {e}"))?;
+    let mut command = Command::new(node);
+    command
+        .arg(module.snapshot.dir.join(SELF_MAP_FILES[0]))
+        .env_clear();
+    let context = crate::agent::tools::http_transport::context();
+    let output = crate::platform::worker::run_cancellable(
+        command,
+        &input,
+        std::time::Duration::from_secs(10),
+        SELF_MAP_INPUT_LIMIT,
+        SELF_MAP_OUTPUT_LIMIT,
+        || context.interrupted(),
+    )
+    .map_err(|e| format!("self-map module: {e}"))?;
+    let result: Value = serde_json::from_slice(&output).map_err(|_| "invalid self-map response")?;
+    if result.get("version").and_then(Value::as_u64) != Some(1) {
+        return Err("unsupported self-map response".into());
+    }
+    Ok(result)
+}
+
+fn render_modules(root: &Path, module: &SelfMapModule) -> Result<Value, String> {
+    let (top, tools) = scan_modules(root)?;
+    let has_top = !top.is_empty();
+    let has_tools = !tools.is_empty();
+    let request = serde_json::json!({"op":"render", "top":top, "tools":tools});
+    let result = self_map_worker(module, &request)?;
+    for key in ["full", "compact", "tools", "toolNames"] {
+        if result.get(key).and_then(Value::as_str).is_none() {
+            return Err(format!("invalid self-map {key} response"));
+        }
+    }
+    for key in ["hasTop", "hasTools"] {
+        if result.get(key).and_then(Value::as_bool).is_none() {
+            return Err(format!("invalid self-map {key} response"));
+        }
+    }
+    if result["hasTop"].as_bool() != Some(has_top)
+        || result["hasTools"].as_bool() != Some(has_tools)
+    {
+        return Err("inconsistent self-map source counts".into());
+    }
+    Ok(result)
 }
 
 // ---------------------------------------------------------------------------
@@ -482,13 +470,14 @@ pub fn generate_self_model() -> String {
             );
         }
     };
-    generate_self_model_at(&root)
+    generate_self_model_at(&root).unwrap_or_else(|error| format!("self-model unavailable: {error}"))
 }
 
-fn generate_self_model_at(root: &Path) -> String {
+fn generate_self_model_at(root: &Path) -> Result<String, String> {
     let toml = std::fs::read_to_string(root.join("Cargo.toml")).unwrap_or_default();
     let meta = parse_crate_meta(&toml);
-    let (top, tools) = scan_modules(root);
+    let module = self_map_module()?;
+    let report = render_modules(root, &module)?;
 
     use crate::agent::harness::book::d46_recovery::run;
     use crate::agent::harness::book::d56_replies as replies;
@@ -515,26 +504,12 @@ fn generate_self_model_at(root: &Path) -> String {
 
     s.push_str(&replies::MAP_MODULES.cells());
     s.push('\n');
-    for group in GROUP_ORDER {
-        let mut members: Vec<&ModuleInfo> =
-            top.iter().filter(|m| group_of(&m.stem) == *group).collect();
-        if members.is_empty() {
-            continue;
-        }
-        members.sort_by(|a, b| a.stem.cmp(&b.stem));
-        s.push_str(&format!("\n### {group}\n"));
-        for m in members {
-            s.push_str(&module_line(m));
-        }
-    }
-
-    if !tools.is_empty() {
+    s.push_str(report["full"].as_str().unwrap());
+    if report["hasTools"].as_bool() == Some(true) {
         s.push('\n');
         s.push_str(&replies::MAP_TOOLS.cells());
         s.push('\n');
-        for m in &tools {
-            s.push_str(&module_line(m));
-        }
+        s.push_str(report["tools"].as_str().unwrap());
     }
 
     s.push('\n');
@@ -543,28 +518,7 @@ fn generate_self_model_at(root: &Path) -> String {
     s.push('\n');
     s.push_str(&replies::MAP_FOOTER.cells());
     s.push('\n');
-    s
-}
-
-/// One module's line in the map: path, purpose, symbol count, key types.
-fn module_line(m: &ModuleInfo) -> String {
-    let purpose = if m.purpose.is_empty() {
-        "(no module doc — see outline)".to_string()
-    } else {
-        m.purpose.clone()
-    };
-    let types = if m.symbols.key_types.is_empty() {
-        String::new()
-    } else {
-        format!("  [{}]", m.symbols.key_types.join(", "))
-    };
-    format!(
-        "- `{rel}` ({n} symbols) — {purpose}{types}\n",
-        rel = m.rel,
-        n = m.symbols.count,
-        purpose = purpose,
-        types = types,
-    )
+    Ok(s)
 }
 
 /// Locate Angel source within the active project, never the installed binary's
@@ -600,7 +554,14 @@ pub fn self_context(workspace: &Path) -> String {
     let Some(root) = workspace_source_root(workspace) else {
         return String::new();
     };
-    let source_stamp = module_source_stamp(&root);
+    let module = match self_map_module() {
+        Ok(module) => module,
+        Err(error) => return self_context_unavailable(&error),
+    };
+    let mut hasher = std::collections::hash_map::DefaultHasher::new();
+    module_source_stamp(&root).hash(&mut hasher);
+    module.fingerprint.hash(&mut hasher);
+    let source_stamp = hasher.finish();
     let cache = SELF_CONTEXT_CACHE.get_or_init(|| Mutex::new(None));
     if let Ok(cached) = cache.lock()
         && let Some(cached) = cached.as_ref()
@@ -609,49 +570,31 @@ pub fn self_context(workspace: &Path) -> String {
     {
         return cached.rendered.clone();
     }
-    let (top, tools) = scan_modules(&root);
-    if top.is_empty() {
-        return String::new();
+    let report = match render_modules(&root, &module) {
+        Ok(report) => report,
+        Err(error) => return self_context_unavailable(&error),
+    };
+    if report["hasTop"].as_bool() != Some(true) {
+        return self_context_unavailable("no source modules found");
     }
-
-    // `⠝⠓` carries the self-model's words (its ledger pages); the module map
-    // is the data.
+    // Guidance remains native; the worker supplies only the source summary.
     let mut s = format!(
-        "\n\n{}\n",
-        crate::agent::harness::book::n_environment::SELF_MODEL.cells()
+        "\n\n{}\n{}",
+        crate::agent::harness::book::n_environment::SELF_MODEL.cells(),
+        report["compact"].as_str().unwrap()
     );
-    for group in GROUP_ORDER {
-        let members: Vec<&ModuleInfo> =
-            top.iter().filter(|m| group_of(&m.stem) == *group).collect();
-        if members.is_empty() {
-            continue;
-        }
-        s.push_str(&format!("- **{group}**: "));
-        let items: Vec<String> = members
-            .iter()
-            .map(|m| {
-                let p = first_clause(&m.purpose);
-                if p.is_empty() {
-                    m.stem.clone()
-                } else {
-                    format!("{} ({})", m.stem, p)
-                }
-            })
-            .collect();
-        s.push_str(&items.join("; "));
-        s.push('\n');
-    }
-    if !tools.is_empty() {
-        let names: Vec<&str> = tools.iter().map(|m| m.stem.as_str()).collect();
-        // `⠝⠓⠓`, the tool modules beside it.
+    if report["hasTools"].as_bool() == Some(true) {
         s.push_str(&format!(
             "{} {}\n",
             crate::agent::harness::book::d3_roles::pages(
                 crate::agent::harness::book::n_environment::SELF_MODEL,
                 [8]
             ),
-            names.join(", ")
+            report["toolNames"].as_str().unwrap()
         ));
+    }
+    if s.len() >= 16 * 1024 {
+        return self_context_unavailable("self-map context exceeds its byte limit");
     }
     if let Ok(mut cached) = cache.lock() {
         *cached = Some(SelfContextCache {
@@ -663,16 +606,11 @@ pub fn self_context(workspace: &Path) -> String {
     s
 }
 
-/// A very short clause (first ~8 words) of a purpose line, for the compact
-/// injected list where the full sentence would be too long.
-fn first_clause(purpose: &str) -> String {
-    if purpose.is_empty() {
-        return String::new();
-    }
-    let words: Vec<&str> = purpose.split_whitespace().take(8).collect();
-    let mut out = words.join(" ");
-    out = out.trim_end_matches([',', '.', ';', ':']).to_string();
-    out
+fn self_context_unavailable(error: &str) -> String {
+    format!(
+        "\n\n{}\n[self-map unavailable: {error}]\n",
+        crate::agent::harness::book::n_environment::SELF_MODEL.cells()
+    )
 }
 
 // ---------------------------------------------------------------------------
@@ -799,7 +737,7 @@ impl Tool for SelfMapTool {
         if let Some(module) = args.get("module").and_then(|v| v.as_str()) {
             return module_outline(&root, module);
         }
-        let map = generate_self_model_at(&root);
+        let map = generate_self_model_at(&root)?;
         if args.get("write").and_then(|v| v.as_bool()) == Some(true) {
             let target = root.join("SELF.md");
             return crate::agent::harness::hardlink_result(|| {
@@ -854,33 +792,22 @@ fn module_outline(root: &Path, module: &str) -> Result<String, String> {
     if !path.starts_with(&source_root) {
         return Err(format!("module resolves outside src/: {module}"));
     }
-    let src = std::fs::read_to_string(&path).map_err(|e| format!("read {module}: {e}"))?;
-    let purpose = module_purpose(&src);
-    let mut out = String::new();
+    let mut total = 0;
+    let src = read_source(&path, &source_root, &mut total)?
+        .ok_or_else(|| format!("could not read {module} as UTF-8 source"))?;
     let rel = path
         .strip_prefix(&source_root)
         .map(|p| Path::new("src").join(p).to_string_lossy().to_string())
         .unwrap_or_else(|_| module.to_string());
-    out.push_str(&format!("# {rel}\n"));
-    if !purpose.is_empty() {
-        out.push_str(&format!("{purpose}\n"));
-    }
-    out.push_str("\nSymbols:\n");
-    let mut n = 0;
-    for (i, line) in src.lines().enumerate() {
-        if is_outline_decl(line) {
-            out.push_str(&format!("{}: {}\n", i + 1, line.trim_end()));
-            n += 1;
-            if n >= 400 {
-                out.push_str("…[truncated at 400 symbols]\n");
-                break;
-            }
-        }
-    }
-    if n == 0 {
-        out.push_str("(no top-level symbols)\n");
-    }
-    Ok(out)
+    let result = self_map_worker(
+        &self_map_module()?,
+        &serde_json::json!({"op":"outline", "rel":rel, "src":src}),
+    )?;
+    result
+        .get("outline")
+        .and_then(Value::as_str)
+        .map(str::to_string)
+        .ok_or_else(|| "invalid self-map outline response".to_string())
 }
 
 // ---------------------------------------------------------------------------

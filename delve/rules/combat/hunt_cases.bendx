@@ -1,0 +1,61 @@
+# Cases recorded from the Rust original (tests/rules/hunt_bend_cases__tests.rs).
+import Base
+
+def cb.leaf_out(enemy: Enemy, shots: J.Val, deeds: Deeds, done: Bool) -> J.Val:
+  o: J.Val = J.obj()
+  o = J.set(o, "enemy", enemy)
+  o = J.set(o, "shots", shots)
+  o = J.set(o, "deeds", deeds)
+  J.set(o, "done", J.of_bool(done))
+
+def case.hunt.Run.foes_turn(input: J.Val) -> J.Val:
+  &(run: J.Val, sortie: J.Val, deeds: J.Val) = hunt.Run.foes_turn(J.get(input, "run"), J.get(input, "sortie"))
+  o: J.Val = J.obj()
+  o = J.set(o, "run", J.set(J.obj(), "enemies", J.get(run, "enemies")))
+  o = J.set(o, "sortie", J.set(J.obj(), "shots", J.get(sortie, "shots")))
+  J.set(o, "deeds", deeds)
+
+def case.monsters.act(input: J.Val) -> J.Val:
+  (enemy: Enemy, shots: J.Val, deeds: Deeds) = monsters.act(J.get(input, "enemy"), J.get(input, "heroes"), J.get(input, "room"), cb.gb(input, "barred"), cb.gw(input, "seed"), J.get(input, "bosses"), J.get(input, "shots"), foes.Deeds.default())
+  o: J.Val = J.obj()
+  o = J.set(o, "enemy", enemy)
+  o = J.set(o, "shots", shots)
+  J.set(o, "deeds", deeds)
+
+def case.foes.act(input: J.Val) -> J.Val:
+  (enemy: Enemy, shots: J.Val, deeds: Deeds, done: Bool) = foes.act(J.get(input, "enemy"), J.get(input, "heroes"), J.get(input, "room"), cb.gb(input, "barred"), cb.gw(input, "seed"), J.get(input, "shots"), foes.Deeds.default())
+  cb.leaf_out(enemy, shots, deeds, done)
+
+def case.critters.act(input: J.Val) -> J.Val:
+  (enemy: Enemy, shots: J.Val, deeds: Deeds, done: Bool) = critters.act(J.get(input, "enemy"), J.get(input, "heroes"), J.get(input, "room"), cb.gb(input, "barred"), J.get(input, "shots"), foes.Deeds.default())
+  cb.leaf_out(enemy, shots, deeds, done)
+
+def case.pit.act(input: J.Val) -> J.Val:
+  (enemy: Enemy, shots: J.Val, deeds: Deeds, done: Bool) = pit.act(J.get(input, "enemy"), J.get(input, "heroes"), J.get(input, "room"), cb.gb(input, "barred"), J.get(input, "shots"), foes.Deeds.default())
+  cb.leaf_out(enemy, shots, deeds, done)
+
+def case.hollow.act(input: J.Val) -> J.Val:
+  (enemy: Enemy, shots: J.Val, deeds: Deeds, done: Bool) = hollow.act(J.get(input, "enemy"), J.get(input, "heroes"), J.get(input, "room"), cb.gb(input, "barred"), J.get(input, "shots"), foes.Deeds.default())
+  cb.leaf_out(enemy, shots, deeds, done)
+
+def case.horrors.act(input: J.Val) -> J.Val:
+  (enemy: Enemy, shots: J.Val, deeds: Deeds, done: Bool) = horrors.act(J.get(input, "enemy"), J.get(input, "heroes"), J.get(input, "room"), cb.gb(input, "barred"), J.get(input, "shots"), foes.Deeds.default())
+  cb.leaf_out(enemy, shots, deeds, done)
+
+def case.patterns.volley(input: J.Val) -> J.Val:
+  (enemy: Enemy, shots: J.Val) = patterns.volley(J.get(input, "enemy"), J.get(input, "knights"), J.get(input, "paces"), cb.gs(input, "pack"), cb.gu(input, "depth"), cb.gu(input, "heads"), J.get(input, "room"), cb.gb(input, "barred"), cb.gw(input, "seed"), J.get(input, "bosses"), J.get(input, "shots"))
+  o: J.Val = J.obj()
+  o = J.set(o, "enemy", enemy)
+  J.set(o, "shots", shots)
+
+def case.press.held(input: J.Val) -> J.Val:
+  (enemy: Enemy, held: Bool) = press.held(J.get(input, "enemy"))
+  o: J.Val = J.obj()
+  o = J.set(o, "enemy", enemy)
+  J.set(o, "held", J.of_bool(held))
+
+def case.press.sights(input: J.Val) -> J.Val:
+  press.sights(J.get(input, "enemy"), J.get(input, "knights"), J.get(input, "images"))
+
+def case.critters.quicken(input: J.Val) -> J.Val:
+  critters.quicken(J.get(input, "enemy"), cb.gf(input, "fx"), cb.gf(input, "fy"), J.get(input, "room"), cb.gb(input, "barred"))

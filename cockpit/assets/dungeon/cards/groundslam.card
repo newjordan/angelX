@@ -1,0 +1,17 @@
+# The Hammerer's second: the maul brought down on the floor itself.
+name   Groundslam
+kind   spell
+rarity relic
+text   Wind up, bring the maul down: a shockwave throws back and stuns.
+drop   0
+chest  0
+cooldown 10
+feat 1
+art
+...WW...
+...hh...
+...BB...
+.iWWWWi.
+h.hhhh.h
+.h....h.
+hh.hh.hh
