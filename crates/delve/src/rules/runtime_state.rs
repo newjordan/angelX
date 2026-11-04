@@ -240,31 +240,458 @@ fn restore_parts(schema: u32, state: &serde_json::Value) -> Result<Run, String> 
     }
     super::scrolls::validate_run(&run)?;
     // Missing transient fields would otherwise take durable-save defaults.
-    if !same_shape(&capture(&run)?.run, state) {
+    if !matches_shape(&run, state) {
         return Err("incomplete or incompatible Delve live checkpoint".into());
     }
     Ok(run)
 }
 
-fn same_shape(a: &serde_json::Value, b: &serde_json::Value) -> bool {
-    use serde_json::Value;
-    match (a, b) {
-        (Value::Object(a), Value::Object(b)) => {
-            a.len() == b.len()
-                && a.iter()
-                    .all(|(k, v)| b.get(k).is_some_and(|w| same_shape(v, w)))
+fn matches_shape(run: &Run, state: &serde_json::Value) -> bool {
+    run.serialize(ShapeCheck(state)).is_ok()
+}
+
+#[derive(Debug)]
+struct ShapeError;
+
+impl std::fmt::Display for ShapeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("shape mismatch")
+    }
+}
+
+impl std::error::Error for ShapeError {}
+
+impl serde::ser::Error for ShapeError {
+    fn custom<T: std::fmt::Display>(_: T) -> Self {
+        ShapeError
+    }
+}
+
+struct ShapeCheck<'a>(&'a serde_json::Value);
+
+struct SeqCheck<'a> {
+    arr: &'a [serde_json::Value],
+    idx: usize,
+}
+
+struct MapCheck<'a> {
+    map: &'a serde_json::Map<String, serde_json::Value>,
+    next_val: Option<&'a serde_json::Value>,
+    count: usize,
+}
+
+struct MapKeyLookup<'a>(&'a serde_json::Map<String, serde_json::Value>);
+
+impl<'a> serde::Serializer for ShapeCheck<'a> {
+    type Ok = ();
+    type Error = ShapeError;
+    type SerializeSeq = SeqCheck<'a>;
+    type SerializeTuple = SeqCheck<'a>;
+    type SerializeTupleStruct = SeqCheck<'a>;
+    type SerializeTupleVariant = SeqCheck<'a>;
+    type SerializeMap = MapCheck<'a>;
+    type SerializeStruct = MapCheck<'a>;
+    type SerializeStructVariant = MapCheck<'a>;
+
+    fn serialize_bool(self, _: bool) -> Result<(), ShapeError> {
+        self.0.is_boolean().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_i8(self, _: i8) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_i16(self, _: i16) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_i32(self, _: i32) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_i64(self, _: i64) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_i128(self, _: i128) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_u8(self, _: u8) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_u16(self, _: u16) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_u32(self, _: u32) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_u64(self, _: u64) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_u128(self, _: u128) -> Result<(), ShapeError> {
+        self.0.is_number().then_some(()).ok_or(ShapeError)
+    }
+    // JSON transport may change the last f64 bit representing an f32.
+    // Typed deserialization has already checked values; completeness is
+    // about fields, not spelling or float formatting.
+    fn serialize_f32(self, v: f32) -> Result<(), ShapeError> {
+        let ok = if v.is_finite() {
+            self.0.is_number()
+        } else {
+            self.0.is_null()
+        };
+        ok.then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_f64(self, v: f64) -> Result<(), ShapeError> {
+        let ok = if v.is_finite() {
+            self.0.is_number()
+        } else {
+            self.0.is_null()
+        };
+        ok.then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_char(self, _: char) -> Result<(), ShapeError> {
+        self.0.is_string().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_str(self, _: &str) -> Result<(), ShapeError> {
+        self.0.is_string().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_bytes(self, v: &[u8]) -> Result<(), ShapeError> {
+        let arr = self.0.as_array().ok_or(ShapeError)?;
+        (arr.len() == v.len() && arr.iter().all(serde_json::Value::is_number))
+            .then_some(())
+            .ok_or(ShapeError)
+    }
+    fn serialize_none(self) -> Result<(), ShapeError> {
+        self.0.is_null().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_some<T: ?Sized + Serialize>(self, value: &T) -> Result<(), ShapeError> {
+        value.serialize(self)
+    }
+    fn serialize_unit(self) -> Result<(), ShapeError> {
+        self.0.is_null().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_unit_struct(self, _: &'static str) -> Result<(), ShapeError> {
+        self.0.is_null().then_some(()).ok_or(ShapeError)
+    }
+    fn serialize_unit_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        variant: &'static str,
+    ) -> Result<(), ShapeError> {
+        self.serialize_str(variant)
+    }
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
+        self,
+        _: &'static str,
+        value: &T,
+    ) -> Result<(), ShapeError> {
+        value.serialize(self)
+    }
+    fn serialize_newtype_variant<T: ?Sized + Serialize>(
+        self,
+        _: &'static str,
+        _: u32,
+        variant: &'static str,
+        value: &T,
+    ) -> Result<(), ShapeError> {
+        let map = self.0.as_object().ok_or(ShapeError)?;
+        if map.len() != 1 {
+            return Err(ShapeError);
         }
-        (Value::Array(a), Value::Array(b)) => {
-            a.len() == b.len() && a.iter().zip(b).all(|(v, w)| same_shape(v, w))
+        let inner = map.get(variant).ok_or(ShapeError)?;
+        value.serialize(ShapeCheck(inner))
+    }
+    fn serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq, ShapeError> {
+        let arr = self.0.as_array().ok_or(ShapeError)?;
+        Ok(SeqCheck { arr, idx: 0 })
+    }
+    fn serialize_tuple(self, len: usize) -> Result<Self::SerializeTuple, ShapeError> {
+        self.serialize_seq(Some(len))
+    }
+    fn serialize_tuple_struct(
+        self,
+        _: &'static str,
+        len: usize,
+    ) -> Result<Self::SerializeTupleStruct, ShapeError> {
+        self.serialize_seq(Some(len))
+    }
+    fn serialize_tuple_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        variant: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeTupleVariant, ShapeError> {
+        let map = self.0.as_object().ok_or(ShapeError)?;
+        if map.len() != 1 {
+            return Err(ShapeError);
         }
-        // JSON transport may change the last f64 bit representing an f32.
-        // Typed deserialization has already checked values; completeness is
-        // about fields, not spelling or float formatting.
-        (Value::Number(_), Value::Number(_))
-        | (Value::String(_), Value::String(_))
-        | (Value::Bool(_), Value::Bool(_))
-        | (Value::Null, Value::Null) => true,
-        _ => false,
+        let arr = map.get(variant).and_then(serde_json::Value::as_array).ok_or(ShapeError)?;
+        Ok(SeqCheck { arr, idx: 0 })
+    }
+    fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap, ShapeError> {
+        let map = self.0.as_object().ok_or(ShapeError)?;
+        Ok(MapCheck {
+            map,
+            next_val: None,
+            count: 0,
+        })
+    }
+    fn serialize_struct(
+        self,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeStruct, ShapeError> {
+        self.serialize_map(None)
+    }
+    fn serialize_struct_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        variant: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeStructVariant, ShapeError> {
+        let outer = self.0.as_object().ok_or(ShapeError)?;
+        if outer.len() != 1 {
+            return Err(ShapeError);
+        }
+        let map = outer.get(variant).and_then(serde_json::Value::as_object).ok_or(ShapeError)?;
+        Ok(MapCheck {
+            map,
+            next_val: None,
+            count: 0,
+        })
+    }
+}
+
+impl<'a> serde::ser::SerializeSeq for SeqCheck<'a> {
+    type Ok = ();
+    type Error = ShapeError;
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), ShapeError> {
+        let target = self.arr.get(self.idx).ok_or(ShapeError)?;
+        self.idx += 1;
+        value.serialize(ShapeCheck(target))
+    }
+    fn end(self) -> Result<(), ShapeError> {
+        (self.idx == self.arr.len()).then_some(()).ok_or(ShapeError)
+    }
+}
+
+impl<'a> serde::ser::SerializeTuple for SeqCheck<'a> {
+    type Ok = ();
+    type Error = ShapeError;
+    fn serialize_element<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), ShapeError> {
+        serde::ser::SerializeSeq::serialize_element(self, value)
+    }
+    fn end(self) -> Result<(), ShapeError> {
+        serde::ser::SerializeSeq::end(self)
+    }
+}
+
+impl<'a> serde::ser::SerializeTupleStruct for SeqCheck<'a> {
+    type Ok = ();
+    type Error = ShapeError;
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), ShapeError> {
+        serde::ser::SerializeSeq::serialize_element(self, value)
+    }
+    fn end(self) -> Result<(), ShapeError> {
+        serde::ser::SerializeSeq::end(self)
+    }
+}
+
+impl<'a> serde::ser::SerializeTupleVariant for SeqCheck<'a> {
+    type Ok = ();
+    type Error = ShapeError;
+    fn serialize_field<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), ShapeError> {
+        serde::ser::SerializeSeq::serialize_element(self, value)
+    }
+    fn end(self) -> Result<(), ShapeError> {
+        serde::ser::SerializeSeq::end(self)
+    }
+}
+
+impl<'a> serde::ser::SerializeMap for MapCheck<'a> {
+    type Ok = ();
+    type Error = ShapeError;
+    fn serialize_key<T: ?Sized + Serialize>(&mut self, key: &T) -> Result<(), ShapeError> {
+        self.next_val = Some(key.serialize(MapKeyLookup(self.map))?);
+        Ok(())
+    }
+    fn serialize_value<T: ?Sized + Serialize>(&mut self, value: &T) -> Result<(), ShapeError> {
+        let target = self.next_val.take().ok_or(ShapeError)?;
+        self.count += 1;
+        value.serialize(ShapeCheck(target))
+    }
+    fn end(self) -> Result<(), ShapeError> {
+        (self.count == self.map.len()).then_some(()).ok_or(ShapeError)
+    }
+}
+
+impl<'a> serde::ser::SerializeStruct for MapCheck<'a> {
+    type Ok = ();
+    type Error = ShapeError;
+    fn serialize_field<T: ?Sized + Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), ShapeError> {
+        let target = self.map.get(key).ok_or(ShapeError)?;
+        self.count += 1;
+        value.serialize(ShapeCheck(target))
+    }
+    fn end(self) -> Result<(), ShapeError> {
+        (self.count == self.map.len()).then_some(()).ok_or(ShapeError)
+    }
+}
+
+impl<'a> serde::ser::SerializeStructVariant for MapCheck<'a> {
+    type Ok = ();
+    type Error = ShapeError;
+    fn serialize_field<T: ?Sized + Serialize>(
+        &mut self,
+        key: &'static str,
+        value: &T,
+    ) -> Result<(), ShapeError> {
+        serde::ser::SerializeStruct::serialize_field(self, key, value)
+    }
+    fn end(self) -> Result<(), ShapeError> {
+        serde::ser::SerializeStruct::end(self)
+    }
+}
+
+impl<'a> serde::Serializer for MapKeyLookup<'a> {
+    type Ok = &'a serde_json::Value;
+    type Error = ShapeError;
+    type SerializeSeq = serde::ser::Impossible<Self::Ok, ShapeError>;
+    type SerializeTuple = serde::ser::Impossible<Self::Ok, ShapeError>;
+    type SerializeTupleStruct = serde::ser::Impossible<Self::Ok, ShapeError>;
+    type SerializeTupleVariant = serde::ser::Impossible<Self::Ok, ShapeError>;
+    type SerializeMap = serde::ser::Impossible<Self::Ok, ShapeError>;
+    type SerializeStruct = serde::ser::Impossible<Self::Ok, ShapeError>;
+    type SerializeStructVariant = serde::ser::Impossible<Self::Ok, ShapeError>;
+
+    fn serialize_str(self, v: &str) -> Result<Self::Ok, ShapeError> {
+        self.0.get(v).ok_or(ShapeError)
+    }
+    fn serialize_i8(self, v: i8) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_i16(self, v: i16) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_i32(self, v: i32) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_i64(self, v: i64) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_i128(self, v: i128) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_u8(self, v: u8) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_u16(self, v: u16) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_u32(self, v: u32) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_u64(self, v: u64) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_u128(self, v: u128) -> Result<Self::Ok, ShapeError> {
+        self.0.get(&v.to_string()).ok_or(ShapeError)
+    }
+    fn serialize_bool(self, _: bool) -> Result<Self::Ok, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_f32(self, _: f32) -> Result<Self::Ok, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_f64(self, _: f64) -> Result<Self::Ok, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_char(self, v: char) -> Result<Self::Ok, ShapeError> {
+        let mut buf = [0u8; 4];
+        self.0.get(v.encode_utf8(&mut buf)).ok_or(ShapeError)
+    }
+    fn serialize_bytes(self, _: &[u8]) -> Result<Self::Ok, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_none(self) -> Result<Self::Ok, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_some<T: ?Sized + Serialize>(self, v: &T) -> Result<Self::Ok, ShapeError> {
+        v.serialize(self)
+    }
+    fn serialize_unit(self) -> Result<Self::Ok, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_unit_struct(self, _: &'static str) -> Result<Self::Ok, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_unit_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        variant: &'static str,
+    ) -> Result<Self::Ok, ShapeError> {
+        self.serialize_str(variant)
+    }
+    fn serialize_newtype_struct<T: ?Sized + Serialize>(
+        self,
+        _: &'static str,
+        value: &T,
+    ) -> Result<Self::Ok, ShapeError> {
+        value.serialize(self)
+    }
+    fn serialize_newtype_variant<T: ?Sized + Serialize>(
+        self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: &T,
+    ) -> Result<Self::Ok, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_seq(self, _: Option<usize>) -> Result<Self::SerializeSeq, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_tuple(self, _: usize) -> Result<Self::SerializeTuple, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_tuple_struct(
+        self,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeTupleStruct, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_tuple_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeTupleVariant, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_map(self, _: Option<usize>) -> Result<Self::SerializeMap, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_struct(
+        self,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeStruct, ShapeError> {
+        Err(ShapeError)
+    }
+    fn serialize_struct_variant(
+        self,
+        _: &'static str,
+        _: u32,
+        _: &'static str,
+        _: usize,
+    ) -> Result<Self::SerializeStructVariant, ShapeError> {
+        Err(ShapeError)
     }
 }
 

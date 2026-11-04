@@ -1115,13 +1115,15 @@ fn persist_checkpoint(
 }
 fn write_shared_checkpoint(path: &Path, raid_serial: u64, shared: &Shared) -> Result<(), String> {
     persist_checkpoint(path, || {
-        let core = lock(&shared.core);
-        encode_checkpoint(
-            raid_serial,
-            &core.run,
-            lock(&shared.invitation).clone(),
-            Some(&core.commands),
-        )
+        let (run, invitation, commands) = {
+            let core = lock(&shared.core);
+            (
+                core.run.clone(),
+                lock(&shared.invitation).clone(),
+                core.commands.clone(),
+            )
+        };
+        encode_checkpoint(raid_serial, &run, invitation, Some(&commands))
     })
 }
 /// Legacy checkpoint fixture, also proving schema-1 restore compatibility.
@@ -1567,11 +1569,12 @@ impl Sim {
             edited,
             ..
         } = &mut *core;
+        let had_pending = commands.has_pending_home();
         let claim = match context {
             Some(context) => commands.claim_home_with_context(run, context)?,
             None => commands.claim_home(run)?,
         };
-        *edited |= claim.is_some();
+        *edited |= !had_pending && claim.is_some();
         Ok(claim)
     }
     pub fn home_completion(
@@ -1645,8 +1648,9 @@ impl Sim {
             edited,
             ..
         } = &mut *core;
+        let had_pending = commands.has_pending_realm();
         let claim = commands.claim_realm(run)?;
-        *edited |= claim.is_some();
+        *edited |= !had_pending && claim.is_some();
         Ok(claim)
     }
     pub fn prepare_votes(

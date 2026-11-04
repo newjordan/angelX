@@ -3,45 +3,62 @@
 //! truncates an array. A path is object keys (strings) and indices (integers).
 use serde_json::{Value, json};
 
+#[derive(Clone, Copy)]
+enum Key<'a> {
+    Str(&'a str),
+    Idx(usize),
+}
+
+fn to_path(path: &[Key<'_>]) -> Value {
+    Value::Array(
+        path.iter()
+            .map(|k| match *k {
+                Key::Str(s) => Value::String(s.to_owned()),
+                Key::Idx(i) => Value::from(i),
+            })
+            .collect(),
+    )
+}
+
 /// Ops that turn `old` into `new`, applied in order.
 pub fn diff(old: &Value, new: &Value) -> Vec<Value> {
     let mut ops = Vec::new();
-    walk(old, new, &mut Vec::new(), &mut ops);
+    walk(old, new, &mut Vec::with_capacity(16), &mut ops);
     ops
 }
-fn walk(old: &Value, new: &Value, path: &mut Vec<Value>, ops: &mut Vec<Value>) {
+fn walk<'a>(old: &'a Value, new: &'a Value, path: &mut Vec<Key<'a>>, ops: &mut Vec<Value>) {
     match (old, new) {
         (Value::Object(a), Value::Object(b)) => {
             for (key, value) in b {
-                path.push(key.as_str().into());
+                path.push(Key::Str(key.as_str()));
                 match a.get(key) {
                     Some(old) => walk(old, value, path, ops),
-                    None => ops.push(json!(["s", path, value])),
+                    None => ops.push(json!(["s", to_path(path), value])),
                 }
                 path.pop();
             }
             for key in a.keys().filter(|key| !b.contains_key(*key)) {
-                path.push(key.as_str().into());
-                ops.push(json!(["d", path]));
+                path.push(Key::Str(key.as_str()));
+                ops.push(json!(["d", to_path(path)]));
                 path.pop();
             }
         }
         (Value::Array(a), Value::Array(b)) => {
             for (i, (old, new)) in a.iter().zip(b).enumerate() {
-                path.push(i.into());
+                path.push(Key::Idx(i));
                 walk(old, new, path, ops);
                 path.pop();
             }
             if b.len() < a.len() {
-                ops.push(json!(["t", path, b.len()]));
+                ops.push(json!(["t", to_path(path), b.len()]));
             }
             for (i, value) in b.iter().enumerate().skip(a.len()) {
-                path.push(i.into());
-                ops.push(json!(["s", path, value]));
+                path.push(Key::Idx(i));
+                ops.push(json!(["s", to_path(path), value]));
                 path.pop();
             }
         }
-        _ if !same(old, new) => ops.push(json!(["s", path, new])),
+        _ if !same(old, new) => ops.push(json!(["s", to_path(path), new])),
         _ => {}
     }
 }

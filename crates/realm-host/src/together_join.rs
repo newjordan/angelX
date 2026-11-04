@@ -167,19 +167,31 @@ impl Joined {
 
     /// Take the seat's newest run, once a frame.
     pub fn refresh(&mut self, now: Instant) {
-        let Some(run) = self.seat.run() else {
+        let Some(run) = self.seat.run_arc() else {
             return;
         };
         let tick = run.tick;
-        if self.moved.is_none_or(|(was, _)| was != tick) {
+        let tick_changed = self.moved.is_none_or(|(was, _)| was != tick);
+        if tick_changed {
             self.moved = Some((tick, now));
         }
         let paused = self
             .moved
             .is_some_and(|(_, at)| now.saturating_duration_since(at) >= PAUSED_AFTER);
         let me = self.actor();
-        self.state = serde_json::to_value(Hud::of(&run, me, paused)).ok();
-        self.run = Some(Arc::new(run));
+        let reuse = !tick_changed
+            && self
+                .run
+                .as_ref()
+                .is_some_and(|prev| Arc::ptr_eq(prev, &run))
+            && self.state.as_ref().is_some_and(|s| {
+                s["actor"].as_u64() == Some(u64::from(me))
+                    && s["paused"].as_bool() == Some(paused)
+            });
+        if !reuse {
+            self.state = serde_json::to_value(Hud::of(&run, me, paused)).ok();
+            self.run = Some(run);
+        }
     }
 
     /// The host's delve as this seat holds it, newest tick.

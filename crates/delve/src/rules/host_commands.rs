@@ -1045,6 +1045,13 @@ fn projected_home(
     pending: Option<&super::home::Home>,
 ) -> super::home::Home {
     let mut home = home.clone();
+    for hero in run.players.values() {
+        home.adopt(
+            &super::talents::knight_key(hero),
+            &super::talents::profile_key(hero),
+        );
+    }
+    super::ranch::migrate(&mut home.ranch, &mut home.stable);
     // rebuild_home retains the run's chosen landing. Compare that effective
     // projection here too, avoiding a whole-world transaction on every poll.
     home.landing = run.home.landing;

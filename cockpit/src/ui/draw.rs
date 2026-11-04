@@ -696,10 +696,12 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             true
         } else if let Some(joined) = &app.realm.dungeon.joined {
             // Cells drawn from the seat's own picture, made off this thread.
-            if !native {
+            let picture = if native {
+                None
+            } else {
                 joined.seat.request(now);
-            }
-            let picture = joined.seat.picture();
+                joined.seat.picture()
+            };
             crate::ui::viz::joined_viz::render(
                 frame,
                 joined,
@@ -739,14 +741,18 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             // worker while the server steps on its own thread, and here when
             // the delve is stepped by hand (tests), so a test sees this frame's.
             let seat = app.realm.dungeon.shooter.seat(*knight);
-            if !native && let Some(seat) = seat {
+            let picture = if native {
+                None
+            } else if let Some(seat) = seat {
                 if app.realm.dungeon.shooter.threaded() {
                     seat.request(now);
                 } else {
                     seat.frame(now);
                 }
-            }
-            let picture = seat.and_then(|seat| seat.picture());
+                seat.picture()
+            } else {
+                None
+            };
             crate::ui::viz::shooter_viz::render_room(
                 frame,
                 &snapshot.run,
