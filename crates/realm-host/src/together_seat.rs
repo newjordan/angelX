@@ -65,14 +65,26 @@ impl Picture {
 
 struct Inner {
     link: NativeLink<Client>,
-    lines: Vec<String>,
-    picture: Option<Picture>,
+    cached_run: Option<(u32, Arc<Run>)>,
+}
+
+#[derive(Clone)]
+struct CachedState {
+    status: LinkStatus,
+    knight: Option<u32>,
+    ballot_open: Option<bool>,
+    menu_open: Option<bool>,
+    run: Option<Arc<Run>>,
+    media_origin: Option<(String, angel_serve::client::Trust)>,
 }
 
 /// One seat: its client and link, the keys waiting for them, and the
 /// one-off actions waiting to go.
 struct Core {
     inner: Mutex<Inner>,
+    lines: Mutex<Vec<String>>,
+    picture: Mutex<Option<Picture>>,
+    state: Mutex<CachedState>,
     keys: Mutex<Vec<Key>>,
     /// Taps waiting, each its own press: one goes to the sampler once the
     /// one before has been sampled, so their order is the order they came.
@@ -106,17 +118,35 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl Seat {
-    pub fn media_origin(&self)->Option<(String,angel_serve::client::Trust)>{
-        let inner=lock(&self.core.inner);
-        inner.link.remote().map(|(url,trust)|(url.to_owned(),trust.clone()))
+    pub fn media_origin(&self) -> Option<(String, angel_serve::client::Trust)> {
+        if let Ok(inner) = self.core.inner.try_lock() {
+            return inner
+                .link
+                .remote()
+                .map(|(url, trust)| (url.to_owned(), trust.clone()));
+        }
+        lock(&self.core.state).media_origin.clone()
     }
     fn of(link: NativeLink<Client>) -> Seat {
-        Seat {
+        let status = link.status().clone();
+        let media_origin = link
+            .remote()
+            .map(|(url, trust)| (url.to_owned(), trust.clone()));
+        let seat = Seat {
             core: Arc::new(Core {
                 inner: Mutex::new(Inner {
                     link,
-                    lines: Vec::new(),
-                    picture: None,
+                    cached_run: None,
+                }),
+                lines: Mutex::new(Vec::new()),
+                picture: Mutex::new(None),
+                state: Mutex::new(CachedState {
+                    status,
+                    knight: None,
+                    ballot_open: Some(false),
+                    menu_open: Some(false),
+                    run: None,
+                    media_origin,
                 }),
                 keys: Mutex::new(Vec::new()),
                 taps: Mutex::new(VecDeque::new()),
@@ -127,7 +157,12 @@ impl Seat {
                 scene: Mutex::new(None),
             }),
             worker: Arc::new(std::sync::OnceLock::new()),
+        };
+        {
+            let mut inner = lock(&seat.core.inner);
+            seat.core.sync_state(&mut inner);
         }
+        seat
     }
 
     /// A seat on this angelX's own server, waiting (a moment at most) for
@@ -152,6 +187,7 @@ impl Seat {
             let mut inner = lock(&seat.core.inner);
             let now_ms = seat.core.now_ms(Instant::now());
             inner.link.poll(now_ms);
+            seat.core.sync_state(&mut inner);
             let ready = inner
                 .link
                 .runtime()
@@ -297,8 +333,7 @@ impl Seat {
         core.feed(&mut inner, now);
         let now_ms = core.now_ms(now);
         inner.link.tick(now_ms);
-        let lines = inner.link.take_lines();
-        inner.lines.extend(lines);
+        core.sync_state(&mut inner);
     }
 
     /// The seat's player has left the game's screen: what arrived taken,
@@ -312,8 +347,7 @@ impl Seat {
         core.feed(&mut inner, now);
         let now_ms = core.now_ms(now);
         inner.link.idle(now_ms);
-        let lines = inner.link.take_lines();
-        inner.lines.extend(lines);
+        core.sync_state(&mut inner);
     }
 
     /// Whether the seat's ballot is open, as its client shows it (at once,
@@ -323,11 +357,13 @@ impl Seat {
         if !lock(&self.core.keys).is_empty() || !lock(&self.core.taps).is_empty() {
             return None;
         }
-        let mut inner = lock(&self.core.inner);
-        if inner.link.hands().peek().pressed != 0 {
-            return None;
+        if let Ok(mut inner) = self.core.inner.try_lock() {
+            if inner.link.hands().peek().pressed != 0 {
+                return None;
+            }
+            return Some(inner.link.runtime().game().is_some_and(Client::ballot_open));
         }
-        Some(inner.link.runtime().game().is_some_and(Client::ballot_open))
+        lock(&self.core.state).ballot_open
     }
 
     /// The activity menu after this client's pending keys have been sampled.
@@ -335,45 +371,81 @@ impl Seat {
         if !lock(&self.core.keys).is_empty() || !lock(&self.core.taps).is_empty() {
             return None;
         }
-        let mut inner = lock(&self.core.inner);
-        if inner.link.hands().peek().pressed != 0 {
-            return None;
+        if let Ok(mut inner) = self.core.inner.try_lock() {
+            if inner.link.hands().peek().pressed != 0 {
+                return None;
+            }
+            return Some(inner.link.runtime().game().is_some_and(Client::menu_open));
         }
-        Some(inner.link.runtime().game().is_some_and(Client::menu_open))
+        lock(&self.core.state).menu_open
     }
 
     /// Lines the seat's client made (`sfx <name>`, `say <name>: <words>`,
     /// `notice <words>`, `music <track>`) since the last look.
     pub fn take_lines(&self) -> Vec<String> {
-        std::mem::take(&mut lock(&self.core.inner).lines)
+        if let Ok(mut inner) = self.core.inner.try_lock() {
+            let lines = inner.link.take_lines();
+            if !lines.is_empty() {
+                lock(&self.core.lines).extend(lines);
+            }
+        }
+        std::mem::take(&mut *lock(&self.core.lines))
     }
 
     /// The last picture drawn.
     pub fn picture(&self) -> Option<Picture> {
-        lock(&self.core.inner).picture.clone()
+        lock(&self.core.picture).clone()
     }
 
     pub fn status(&self) -> LinkStatus {
-        lock(&self.core.inner).link.status().clone()
+        if let Ok(inner) = self.core.inner.try_lock() {
+            return inner.link.status().clone();
+        }
+        lock(&self.core.state).status.clone()
     }
 
     /// The knight this seat plays, once seated.
     pub fn knight(&self) -> Option<u32> {
-        lock(&self.core.inner)
-            .link
-            .runtime()
-            .seat()
-            .map(angel_delve::wire::knight_of)
+        if let Ok(inner) = self.core.inner.try_lock() {
+            return inner
+                .link
+                .runtime()
+                .seat()
+                .map(angel_delve::wire::knight_of);
+        }
+        lock(&self.core.state).knight
     }
 
     /// The run as this seat's client holds it: the newest tick it has.
     pub fn run(&self) -> Option<Run> {
-        lock(&self.core.inner)
-            .link
-            .runtime()
-            .game()
-            .and_then(Client::newest)
-            .cloned()
+        self.run_arc().map(|run| (*run).clone())
+    }
+
+    /// Shared reference to the newest run this seat's client holds, avoiding
+    /// a deep clone when the snapshot tick has not changed.
+    pub fn run_arc(&self) -> Option<Arc<Run>> {
+        if let Ok(mut inner) = self.core.inner.try_lock() {
+            self.core.sync_state(&mut inner);
+            if let Some(run) = &lock(&self.core.state).run {
+                return Some(Arc::clone(run));
+            }
+            let Inner { link, cached_run } = &mut *inner;
+            return link
+                .runtime()
+                .game()
+                .and_then(|client| {
+                    let tick = client.newest_tick()?;
+                    if let Some((prev_tick, cached)) = cached_run.as_ref()
+                        && *prev_tick == tick
+                    {
+                        return Some(Arc::clone(cached));
+                    }
+                    let arc = Arc::new(client.newest()?.clone());
+                    *cached_run = Some((tick, Arc::clone(&arc)));
+                    Some(arc)
+                });
+        }
+        lock(&self.core.state).run.clone()
     }
 
     /// Leave on purpose: the seat is freed.
@@ -385,6 +457,45 @@ impl Seat {
 impl Core {
     fn now_ms(&self, now: Instant) -> f64 {
         now.saturating_duration_since(self.epoch).as_secs_f64() * 1000.0
+    }
+
+    fn sync_state(&self, inner: &mut Inner) {
+        let lines = inner.link.take_lines();
+        if !lines.is_empty() {
+            lock(&self.lines).extend(lines);
+        }
+        let pressed = inner.link.hands().peek().pressed != 0;
+        let runtime = inner.link.runtime();
+        let game = runtime.game();
+        let ballot_open = (!pressed).then(|| game.is_some_and(Client::ballot_open));
+        let menu_open = (!pressed).then(|| game.is_some_and(Client::menu_open));
+        let status = inner.link.status().clone();
+        let knight = runtime.seat().map(angel_delve::wire::knight_of);
+        let remote = inner.link.remote();
+        let media_origin = remote.map(|(url, trust)| (url.to_owned(), trust.clone()));
+        let run = if remote.is_some() {
+            game.and_then(|client| {
+                let tick = client.newest_tick()?;
+                if let Some((cached_tick, cached)) = &inner.cached_run
+                    && *cached_tick == tick
+                {
+                    return Some(Arc::clone(cached));
+                }
+                let arc = Arc::new(client.newest()?.clone());
+                inner.cached_run = Some((tick, Arc::clone(&arc)));
+                Some(arc)
+            })
+        } else {
+            None
+        };
+        *lock(&self.state) = CachedState {
+            status,
+            knight,
+            ballot_open,
+            menu_open,
+            run,
+            media_origin,
+        };
     }
 
     /// The keys heard since the last frame, into the sampler, in order;
@@ -435,19 +546,25 @@ impl Core {
             .map(|client| client.lifted().to_vec())
             .unwrap_or_default();
         *lock(&self.lifted) = Arc::new(lifted);
-        if let Some(scene) = inner.link.runtime().game().and_then(|client| client.scene()) {
+        let has_scene = if let Some(scene) = inner.link.runtime().game().and_then(|client| client.scene()) {
             *lock(&self.scene) = Some(scene);
-        }
-        let frame = inner.link.runtime().last_frame();
-        let picture = (frame.w > 0 && frame.h > 0).then(|| Picture {
-            w: frame.w,
-            h: frame.h,
-            px: Arc::new(frame.px.clone()),
-        });
-        let lines = inner.link.take_lines();
-        inner.lines.extend(lines);
+            true
+        } else {
+            false
+        };
+        let picture = if has_scene {
+            None
+        } else {
+            let frame = inner.link.runtime().last_frame();
+            (frame.w > 0 && frame.h > 0).then(|| Picture {
+                w: frame.w,
+                h: frame.h,
+                px: Arc::new(frame.px.clone()),
+            })
+        };
+        self.sync_state(&mut inner);
         if picture.is_some() {
-            inner.picture.clone_from(&picture);
+            *lock(&self.picture) = picture.clone();
         }
         picture
     }

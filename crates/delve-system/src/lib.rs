@@ -114,6 +114,7 @@ struct Worker<S> {
     staged: bool,
     active: bool,
     context: Option<(String, Vec<String>)>,
+    resident: Option<(Value, angel_delve::rules::Run)>,
     owned_staged: Option<Owner>,
     owned_active: Option<Owner>,
 }
@@ -125,6 +126,7 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
             staged: false,
             active: false,
             context: None,
+            resident: None,
             owned_staged: None,
             owned_active: None,
         }
@@ -134,6 +136,7 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
             "owned.restore" => {
                 // Failed restore cannot accidentally activate an older candidate.
                 self.owned_staged = None;
+                self.resident = None;
                 let checkpoint = serde_json::from_value(body).map_err(|e| e.to_string())?;
                 let candidate = session::Session::restore(checkpoint)?;
                 let canonical =
@@ -257,13 +260,16 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
         }
         match method {
             "prepare" => Ok(
-                json!({"id":"delve", "api":angel_live::system::API, "state_schema":runtime_state::SCHEMA,
+                json!({"id":"delve", "api":angel_live::system::API, "state_schema":runtime_state::SCHEMA, "resident":true,
                 "contracts":{"kernel.owned-state":1,(session::CONTRACT):session::API,(scrolls::CONTRACT):scrolls::API,(card_paint::CONTRACT):card_paint::API,(home_settlement::POLICY_CONTRACT):home_settlement::POLICY_API, (brew_jobs::CONTRACT):brew_jobs::API, (reforge_jobs::CONTRACT):reforge_jobs::API, (wish_jobs::CONTRACT):wish_jobs::API}}),
             ),
             "restore" if self.owned_active.is_none() && self.owned_staged.is_none() => {
+                self.resident = None;
                 let run = runtime_state::restore_value(&body)?;
+                let canonical = runtime_state::capture(&run)?.into_value();
                 self.staged = true;
-                Ok(runtime_state::capture(&run)?.into_value())
+                self.resident = Some((canonical.clone(), run));
+                Ok(canonical)
             }
             "activate"
                 if self.staged && self.owned_active.is_none() && self.owned_staged.is_none() =>
@@ -272,7 +278,41 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
                 Ok(Value::Null)
             }
             "apply" if self.active && self.owned_active.is_none() => {
-                apply(&body, &mut self.context, &mut self.step)
+                if let Some(delta) = body.get("delta") {
+                    let (mut held_val, mut run) =
+                        self.resident.take().ok_or("missing resident state")?;
+                    let ops = delta.as_array().ok_or("invalid delta")?;
+                    if !ops.is_empty() {
+                        angel_live::delta::patch(&mut held_val, ops)?;
+                        run = runtime_state::restore_value(&held_val)?;
+                    }
+                    let event: Event = serde_json::from_value(
+                        body.get("event").cloned().ok_or("missing event")?,
+                    )
+                    .map_err(|e| e.to_string())?;
+                    angel_delve::settings::set(event.settings);
+                    if self.context.as_ref() != Some(&event.phrasebook) {
+                        phrasebook::install(
+                            event.phrasebook.0.clone(),
+                            event.phrasebook.1.clone(),
+                        )
+                        .ok_or("phrasebook unavailable")?;
+                        self.context = Some(event.phrasebook);
+                    }
+                    if event.step {
+                        (self.step)(&mut run, &event.inputs);
+                    }
+                    let next_val = runtime_state::capture(&run)?.into_value();
+                    let out_ops = angel_live::delta::diff(&held_val, &next_val);
+                    self.resident = Some((next_val, run));
+                    Ok(Value::Object(serde_json::Map::from_iter([
+                        ("delta".into(), Value::Array(out_ops)),
+                        ("output".into(), Value::Null),
+                    ])))
+                } else {
+                    self.resident = None;
+                    apply(&body, &mut self.context, &mut self.step)
+                }
             }
             "compute" if self.active || self.owned_active.is_some() => {
                 let request: angel_live::system::Compute =
@@ -337,6 +377,7 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
                 self.owned_active = None;
                 self.owned_staged = None;
                 self.context = None;
+                self.resident = None;
                 Ok(Value::Null)
             }
             _ => Err(format!("invalid Delve system lifecycle request {method}")),
