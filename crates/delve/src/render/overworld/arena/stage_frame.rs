@@ -1188,7 +1188,7 @@ fn send_tiled(
         out.push((base + i as u32, x, y, w, h));
     }
     if any {
-        *kept = Some(TileKept { span, words: words.to_vec(), tiles: Default::default(), layout: Default::default(), hash: TileKept::fingerprint(words) });
+        *kept = Some(TileKept { span, words: words.to_vec(), tiles: Default::default(), layout: out.clone(), hash: TileKept::fingerprint(words) });
     }
     out
 }
