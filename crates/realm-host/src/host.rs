@@ -55,6 +55,7 @@ impl GameHost {
     /// The island's realm (the play economy), loaded beside the world's
     /// rewards on first use.
     pub fn economy(&mut self) -> &mut crate::together_realm::Realm {
+        self.dungeon.collect_settled(true);
         crate::control::economy(&mut self.dungeon.realm, &self.world)
     }
 
@@ -62,11 +63,12 @@ impl GameHost {
     /// id (the cockpit's per-frame step).
     pub fn sync_loop(&mut self, summary: &LoopSummary) {
         let player = crate::control::host_name();
-        let tavern = self
-            .economy()
-            .home
-            .level(crate::together_shooter::home::Station::Wing)
-            >= 1;
+        let wing = crate::together_shooter::home::Station::Wing;
+        // Every frame: while the realm is away settling, its copy answers.
+        let tavern = match self.dungeon.realm_shown() {
+            Some(realm) => realm.home.level(wing) >= 1,
+            None => self.economy().home.level(wing) >= 1,
+        };
         self.world.sync_settlement(summary, &player, tavern);
     }
 

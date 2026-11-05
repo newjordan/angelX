@@ -29,6 +29,10 @@ impl App {
         self.with_realm(|r, cx| r.session(cx).settle_realm())
     }
 
+    pub(crate) fn settle_off_frame(&mut self) -> bool {
+        self.with_realm(|r, cx| r.session(cx).settle_off_frame())
+    }
+
     pub(crate) fn advance_shooter_at(&mut self, now: Instant) {
         self.with_realm(|r, cx| r.session(cx).advance_shooter_at(now));
     }

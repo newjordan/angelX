@@ -239,6 +239,10 @@ impl DungeonView {
 
 impl Session<'_> {
     pub(super) fn prepare_votes(&mut self) {
+        // The realm is away settling: its votes are read next frame.
+        if self.dungeon.settling.is_some() {
+            return;
+        }
         if self.dungeon.shooter.as_ref().is_none() || self.dungeon.shooter.playtest_votes_ready() {
             return;
         }
@@ -1052,6 +1056,7 @@ impl Session<'_> {
     /// (`together_sim`); stepped by hand (the tests) the same clock is run
     /// here, to `now`. Pauses discard controls and elapsed time.
     pub fn advance_shooter_at(&mut self, now: Instant) {
+        self.dungeon.collect_settled(false);
         self.dungeon.audio.pump_live(now);
         self.prepare_votes();
         let keyboard = self.dungeon_keyboard_active();
@@ -1260,8 +1265,10 @@ impl Session<'_> {
                 .is_none_or(|at| now.saturating_duration_since(at) >= SETTLE);
         if settle {
             self.dungeon.settled = Some(now);
-            self.settle_votes();
-            if self.settle_realm() {
+            if self.dungeon.settling.is_none() {
+                self.settle_votes();
+            }
+            if !self.settle_off_frame() && self.settle_realm() {
                 self.settle_home();
             }
         }
