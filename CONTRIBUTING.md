@@ -88,6 +88,14 @@ cargo fmt --manifest-path cockpit/Cargo.toml --check
 
 Fork the repository, branch off `main`, and open the pull request against `main`.
 
+This tree does not ship `website/` (it is gitignored, and was removed from the
+public repository on purpose). The Vercel project linked here serves
+[angelx.dev](https://angelx.dev) from an earlier deploy. Its Root Directory is
+the repository root, and [`vercel.json`](vercel.json) tells that check to skip
+the build (`ignoreCommand` exits 0). A pull request should not fail because a
+directory this repo no longer contains is missing. Do not point that project
+back at `website/`.
+
 - Keep each patch focused.
 - Run the check scripts listed in [Setup](#setup) before opening the pull request.
 - Expect review from [@newjordan](https://github.com/newjordan). Jordan reviews and merges; there are no other human maintainers yet.
