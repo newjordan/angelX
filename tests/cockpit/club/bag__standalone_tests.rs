@@ -200,3 +200,39 @@ fn driver_startup_notice_is_silent_for_implicit_defaults_and_satisfied_pins() {
     let _satisfied = crate::tests::TestEnvGuard::set("ANGEL_DRIVER", "practice");
     assert!(bag.driver_startup_notice().is_none());
 }
+
+#[test]
+fn available_cached_reads_the_prober_bit_without_a_live_probe() {
+    struct LiveProbeClub;
+    impl Club for LiveProbeClub {
+        fn label(&self) -> &str {
+            "live-probe"
+        }
+        fn respond(&self, _: &str) -> Result<String, String> {
+            Err("fixture only".into())
+        }
+        fn is_available(&self) -> bool {
+            panic!("a live probe must never run on the cached path")
+        }
+    }
+    let club: Arc<dyn Club> = Arc::new(LiveProbeClub);
+    let bit = Arc::new(AtomicBool::new(false));
+    let mut bag = Bag::practice_only();
+    bag.agents = vec![Agent {
+        name: "fixture-box".into(),
+        slots: vec![Slot {
+            label: "live-probe".into(),
+            club: Arc::clone(&club),
+            available: Arc::clone(&bit),
+        }],
+        active: 0,
+    }];
+    assert!(!bag.available_cached(&club), "the prober bit says down");
+    bit.store(true, Ordering::Relaxed);
+    assert!(bag.available_cached(&club), "the prober bit says up");
+    let stranger: Arc<dyn Club> = Arc::new(LiveProbeClub);
+    assert!(
+        bag.available_cached(&stranger),
+        "a club with no slot here reports available"
+    );
+}
