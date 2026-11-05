@@ -1030,6 +1030,7 @@ pub struct Card {
     pub effects: Vec<Effect>,
     pub arm: Option<Arm>,
     /// Ink rows, at most 16 by 16; empty means the kind's own glyph.
+    #[serde(serialize_with = "super::runtime_state::serialize_card_art")]
     pub art: Vec<String>,
     /// The only delve it drops in; none drops anywhere.
     #[serde(default)]
@@ -2313,6 +2314,7 @@ pub struct Book {
     /// Content changes, including replacement, require a whole mirror update.
     #[serde(default)]
     pub revision: usize,
+    #[serde(serialize_with = "super::runtime_state::serialize_book_cards")]
     pub cards: Vec<Card>,
 }
 

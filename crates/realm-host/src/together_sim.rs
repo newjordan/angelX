@@ -328,11 +328,12 @@ fn step_system(core: &mut Core, inputs: &BTreeMap<u32, Input>, step: bool) {
     };
     let result = (|| {
         use angel_delve::rules::{phrasebook, runtime_state};
-        let state = runtime_state::capture_for_rules(&core.run)?.into_value();
+        let state = runtime_state::capture_for_step(&core.run)?.into_value();
         let event = serde_json::json!({"inputs":inputs, "settings":angel_delve::settings::get(), "phrasebook":phrasebook::snapshot(), "step":step});
         let validated = std::cell::RefCell::new(None);
         engine.apply(state, event, |state| {
-            let run = runtime_state::restore_value(state)?;
+            let mut run = runtime_state::restore_value(state)?;
+            runtime_state::lay_book_art(&mut run, &core.run);
             if !run.module_visuals.is_empty() || run.players.values().any(|hero| hero.avatar.is_some()) {
                 return Err("rules worker returned host-owned appearance data".into());
             }
