@@ -117,7 +117,10 @@ fn assert_verification_cases(group: &str, expected_count: usize, expected_assert
         );
         total_assertions += assertions;
     }
-    assert_eq!(total_assertions, expected_assertions, "{group}: assertion count");
+    assert_eq!(
+        total_assertions, expected_assertions,
+        "{group}: assertion count"
+    );
 }
 
 /// The stop checkpoint raised for edits no verifier has covered.
@@ -1625,11 +1628,10 @@ fn verify_policy_leg_falls_back_when_its_answer_breaks_the_contract() {
         "module.exports={apiVersion:1,render:()=>({requires_verification:true,is_verification:true,is_progress_verifier:true,runs_tests_anywhere:true})}",
     )
     .unwrap();
-    let mut registry = angel_live::Registry::validated(
-        root.clone(),
-        crate::agent::hotload::evaluate,
-        |_, _| Ok(()),
-    );
+    let mut registry =
+        angel_live::Registry::validated(root.clone(), crate::agent::hotload::evaluate, |_, _| {
+            Ok(())
+        });
     registry.refresh(true);
     let broken = registry
         .snapshot()
@@ -1705,8 +1707,6 @@ fn verify_policy_leg_costs_microseconds_per_decision() {
     native.sort_unstable();
     eprintln!(
         "verify-policy over 200 decisions: median {} µs live, {} µs native; p95 {} µs live",
-        live[100],
-        native[100],
-        live[190]
+        live[100], native[100], live[190]
     );
 }

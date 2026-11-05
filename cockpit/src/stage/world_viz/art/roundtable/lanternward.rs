@@ -39,7 +39,8 @@ fn s(text: impl Into<String>, color: Color) -> Span<'static> {
 
 /// `n` of `of` cells filled, as blocks.
 fn bar(n: u32, of: u32, width: u32) -> String {
-    let full = (u64::from(n) * u64::from(width) / u64::from(of.max(1))).min(u64::from(width)) as u32;
+    let full =
+        (u64::from(n) * u64::from(width) / u64::from(of.max(1))).min(u64::from(width)) as u32;
     "\u{2588}".repeat(full as usize) + &"\u{2591}".repeat((width - full) as usize)
 }
 
@@ -89,7 +90,14 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
     }
     if sess.inv.lantern {
         line.push(s("  FLAME ", INK));
-        line.push(s(bar(k.flame, r.flame, 8), if k.flaring() { Color::Rgb(228, 255, 248) } else { GOLD }));
+        line.push(s(
+            bar(k.flame, r.flame, 8),
+            if k.flaring() {
+                Color::Rgb(228, 255, 248)
+            } else {
+                GOLD
+            },
+        ));
     }
     put(frame, area, 1, line);
     // The room, the seat and the table.
@@ -118,14 +126,20 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
             vec![
                 s(" WARDEN ", INK),
                 s(bar(w.hp, w.full, 24), if open { GOLD } else { RED }),
-                s(if open { "  HEART OPEN" } else { "  HEART SHUT" }, if open { GOLD } else { DIM }),
+                s(
+                    if open { "  HEART OPEN" } else { "  HEART SHUT" },
+                    if open { GOLD } else { DIM },
+                ),
             ],
         );
     }
     // The foot: one line from the wisp, then the keys.
     let mut foot = vec![s(" ", INK)];
     if let Some(banner) = sess.banner {
-        foot.push(s(format!("{}  {}", banner.item.name(), banner.item.how()), GOLD));
+        foot.push(s(
+            format!("{}  {}", banner.item.name(), banner.item.how()),
+            GOLD,
+        ));
     } else if sess.wipe > 0 {
         foot.push(s("TRY AGAIN", RED));
     } else if let Some(t) = sess.done {

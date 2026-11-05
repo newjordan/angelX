@@ -10,7 +10,6 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/r_relentless.book");
 pub(crate) const CELL: char = '⠗';
 pub(crate) const ARMED: Route = Route::new(CELL, '⠁');

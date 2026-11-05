@@ -10,8 +10,8 @@ pub(crate) mod continual_harness;
 #[allow(dead_code)]
 pub(crate) mod deli;
 pub(crate) mod goal;
-pub(crate) mod guardian;
 pub(crate) mod graph_ctl;
+pub(crate) mod guardian;
 pub(crate) mod habits;
 pub(crate) mod handoff_rl;
 pub(crate) mod iterate;
@@ -24,36 +24,36 @@ pub(crate) mod realm_support;
 #[allow(dead_code)] // reinforce-loop core; wired to DICE/GEPA in a follow-up
 pub(crate) mod reinforce;
 pub(crate) mod research_workspace;
-pub(crate) mod round_table;
 pub(crate) mod rl_ctl;
+pub(crate) mod round_table;
 pub(crate) mod science;
 pub(crate) mod self_loop;
 pub(crate) mod settlement_input;
+pub(crate) use angel_delve::realm::forge as together_forge;
 pub(crate) use angel_realm_host::chivalry;
 pub(crate) use angel_realm_host::together;
+pub(crate) use angel_realm_host::together_abilities;
+pub(crate) use angel_realm_host::together_appearance;
 pub(crate) use angel_realm_host::together_audio;
 pub(crate) use angel_realm_host::together_avatar;
-pub(crate) use angel_realm_host::together_appearance;
-pub(crate) use angel_realm_host::together_abilities;
-pub(crate) use angel_realm_host::together_loadouts;
-pub(crate) use angel_realm_host::together_media;
 pub(crate) use angel_realm_host::together_chorus;
-pub(crate) use angel_realm_host::together_dungeon;
-pub(crate) use angel_delve::realm::forge as together_forge;
 pub(crate) use angel_realm_host::together_door;
+pub(crate) use angel_realm_host::together_dungeon;
 pub(crate) use angel_realm_host::together_files;
 pub(crate) use angel_realm_host::together_gear;
 pub(crate) use angel_realm_host::together_grants;
-pub(crate) use angel_realm_host::together_sheets;
 pub(crate) use angel_realm_host::together_join;
+pub(crate) use angel_realm_host::together_loadouts;
+pub(crate) use angel_realm_host::together_media;
 pub(crate) use angel_realm_host::together_painter;
 pub(crate) use angel_realm_host::together_realm;
+pub(crate) use angel_realm_host::together_sheets;
 pub(crate) mod together_rules;
 pub(crate) use angel_realm_host::together_frames;
 pub(crate) use angel_realm_host::together_visuals;
-pub(crate) mod together_salvage;
 #[cfg(test)]
 mod deathmatch_rules;
+pub(crate) mod together_salvage;
 pub(crate) mod together_settlement;
 // The Delve's rules are `angel_delve`'s.
 pub(crate) use angel_delve::rules as together_shooter;
@@ -79,7 +79,9 @@ pub(crate) fn delve_settings_from_env() {
         feel_ledger: std::env::var("ANGEL_DELVE_FEEL").is_ok_and(|v| v == "1"),
         open_floors: std::env::var("ANGEL_DELVE_OPEN").map_or(true, |v| v != "0"),
     });
-    angel_delve::world3d::room::set_mode(angel_delve::world3d::room::Mode::from_env(std::env::var("ANGEL_WORLD3D").ok().as_deref()));
+    angel_delve::world3d::room::set_mode(angel_delve::world3d::room::Mode::from_env(
+        std::env::var("ANGEL_WORLD3D").ok().as_deref(),
+    ));
     // ANGEL_BEND_RULES=1: the rules ported to Bend modules run as those modules.
     together_rules::arm_from_env();
 }
@@ -94,8 +96,8 @@ mod delve_moonfall_rules_tests;
 mod delve_rooms_rules_tests;
 // The Lightgallop's rules as a Bend module, against the Rust they came from.
 #[cfg(test)]
-#[path = "../../../tests/cockpit/app/together_lightgallop__tests.rs"]
-mod together_lightgallop_tests;
+#[path = "../../../tests/cockpit/drive/together_abilities__tests.rs"]
+mod together_abilities_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/together_boss_gates__tests.rs"]
 mod together_boss_gates_tests;
@@ -106,14 +108,14 @@ mod together_feel_tests;
 #[path = "../../../tests/cockpit/app/together_floor_plates__tests.rs"]
 mod together_floor_plates_tests;
 #[cfg(test)]
-#[path = "../../../tests/cockpit/drive/together_abilities__tests.rs"]
-mod together_abilities_tests;
+#[path = "../../../tests/cockpit/app/together_hireling__tests.rs"]
+mod together_hireling_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/together_layout__tests.rs"]
 mod together_layout_tests;
 #[cfg(test)]
-#[path = "../../../tests/cockpit/app/together_hireling__tests.rs"]
-mod together_hireling_tests;
+#[path = "../../../tests/cockpit/app/together_lightgallop__tests.rs"]
+mod together_lightgallop_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/together_polish__tests.rs"]
 mod together_polish_tests;

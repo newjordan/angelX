@@ -363,9 +363,10 @@ impl Session {
             .iter()
             .any(|p| p.kind == Pk::Rest && dist(p.x - k.x, p.y - k.y) < BRAZIER_R * Q);
         // A friend's flare kindles yours: stand by it and the tank fills.
-        let kindled = self.seats.values().any(|o| {
-            o.id != k.id && o.flaring() && dist(o.x - k.x, o.y - k.y) < KINDLE_R * Q
-        });
+        let kindled = self
+            .seats
+            .values()
+            .any(|o| o.id != k.id && o.flaring() && dist(o.x - k.x, o.y - k.y) < KINDLE_R * Q);
         let up = if near_rest {
             3
         } else if kindled {
@@ -434,7 +435,11 @@ impl Session {
 
     pub fn lock_point(&self, l: Lock) -> Option<(i32, i32)> {
         match l {
-            Lock::Foe(id) => self.foes.iter().find(|f| f.id == id && f.alive()).map(|f| (f.x, f.y)),
+            Lock::Foe(id) => self
+                .foes
+                .iter()
+                .find(|f| f.id == id && f.alive())
+                .map(|f| (f.x, f.y)),
             Lock::Boss => self.boss.as_ref().filter(|w| w.hp > 0).map(|w| w.heart()),
             Lock::Prop(i) => self
                 .props
@@ -478,7 +483,10 @@ impl Session {
         let want = unit(dir.0, dir.1);
         let mut best: Option<(i32, Lock)> = None;
         for (l, x, y, _) in self.targets() {
-            if Some(l) == k.lock || dist(x - k.x, y - k.y) > r.lock || !self.line_open((k.x, k.y), (x, y)) {
+            if Some(l) == k.lock
+                || dist(x - k.x, y - k.y) > r.lock
+                || !self.line_open((k.x, k.y), (x, y))
+            {
                 continue;
             }
             let v = (x - cur.0, y - cur.1);
@@ -809,10 +817,13 @@ impl Session {
             return;
         }
         if press & B_SWORD != 0 && k.carry == Carry::Nothing {
-            let forward = k.lock.and_then(|l| self.lock_point(l)).is_some_and(|(tx, ty)| {
-                let v = unit(i32::from(inp.move_x), i32::from(inp.move_y));
-                v != (0, 0) && dot(v, unit(tx - k.x, ty - k.y)) >= LUNGE_FORWARD
-            });
+            let forward = k
+                .lock
+                .and_then(|l| self.lock_point(l))
+                .is_some_and(|(tx, ty)| {
+                    let v = unit(i32::from(inp.move_x), i32::from(inp.move_y));
+                    v != (0, 0) && dot(v, unit(tx - k.x, ty - k.y)) >= LUNGE_FORWARD
+                });
             if forward && k.chain == 0 {
                 self.begin_lunge(k, ev);
             } else {
@@ -831,7 +842,12 @@ impl Session {
             k.bombs -= 1;
             let (x, y) = (k.x + k.face.0 * 12, k.y + k.face.1 * 12);
             if self.fuses.len() < FUSE_CAP {
-                self.fuses.push(Fuse { x, y, t: FUSE_TICKS, owner: id as u8 });
+                self.fuses.push(Fuse {
+                    x,
+                    y,
+                    t: FUSE_TICKS,
+                    owner: id as u8,
+                });
             }
             ev.sound("bomb_toss");
         }
@@ -890,7 +906,15 @@ impl Session {
                     k.queued = true;
                 }
                 if t > wind && t <= wind + active {
-                    let hit = self.sweep(id, k, SLASH_REACH[n], SLASH_COS[n], SLASH_DAMAGE[n], n == 2, ev);
+                    let hit = self.sweep(
+                        id,
+                        k,
+                        SLASH_REACH[n],
+                        SLASH_COS[n],
+                        SLASH_DAMAGE[n],
+                        n == 2,
+                        ev,
+                    );
                     if hit {
                         k.freeze = k.freeze.max(if n == 2 { 4 } else { 2 });
                     }
@@ -956,7 +980,8 @@ impl Session {
         let seat = (id as usize - 1).min(5);
         let inside = |x: i32, y: i32, extra: i32| {
             let d = dist(x - k.x, y - k.y);
-            d <= reach * Q + extra && (cos <= -Q || d < 6 * Q || dot(unit(x - k.x, y - k.y), k.face) >= cos)
+            d <= reach * Q + extra
+                && (cos <= -Q || d < 6 * Q || dot(unit(x - k.x, y - k.y), k.face) >= cos)
         };
         for i in 0..self.foes.len() {
             let f = &self.foes[i];
@@ -1016,7 +1041,13 @@ impl Session {
         let seat = (id as usize - 1).min(5);
         let a = (k.x, k.y);
         let b = (k.x + k.face.0 * LUNGE_REACH, k.y + k.face.1 * LUNGE_REACH);
-        let line = Danger::Capsule { ax: a.0, ay: a.1, bx: b.0, by: b.1, r: 5 * Q };
+        let line = Danger::Capsule {
+            ax: a.0,
+            ay: a.1,
+            bx: b.0,
+            by: b.1,
+            r: 5 * Q,
+        };
         let mut landed = false;
         for i in 0..self.foes.len() {
             let f = &self.foes[i];
@@ -1055,7 +1086,11 @@ impl Session {
         if let Some((tx, ty)) = locked {
             let fwd = unit(tx - k.x, ty - k.y);
             let side = (-fwd.1, fwd.0);
-            let (f, s) = if walk == (0, 0) { (-Q, 0) } else { (dot(walk, fwd), dot(walk, side)) };
+            let (f, s) = if walk == (0, 0) {
+                (-Q, 0)
+            } else {
+                (dot(walk, fwd), dot(walk, side))
+            };
             let (kind, v, speed) = if s.abs() > f.abs() && s.abs() > Q / 4 {
                 let sign = s.signum();
                 (0u8, (side.0 * sign, side.1 * sign), HOP_SIDE)
@@ -1097,7 +1132,9 @@ impl Session {
                 k.act = Act::Fall;
             }
         }
-        k.inv = k.inv.max(u32::from((ROLL_IFRAMES.0..=ROLL_IFRAMES.1).contains(&k.t)));
+        k.inv = k
+            .inv
+            .max(u32::from((ROLL_IFRAMES.0..=ROLL_IFRAMES.1).contains(&k.t)));
     }
 
     fn hopping(&mut self, id: u32, k: &mut Seat, press: u8, r: &Rules, ev: &mut Events) {
@@ -1216,13 +1253,19 @@ impl Session {
     fn camera(&mut self, k: &mut Seat, _r: &Rules) {
         let mut target = (k.x, k.y);
         if let Some((tx, ty)) = k.lock.and_then(|l| self.lock_point(l)) {
-            target = (k.x + (tx - k.x) * LOCK_LEAN / 100, k.y + (ty - k.y) * LOCK_LEAN / 100);
+            target = (
+                k.x + (tx - k.x) * LOCK_LEAN / 100,
+                k.y + (ty - k.y) * LOCK_LEAN / 100,
+            );
         }
         // The Warden stands head and shoulders over a knight: while it is up
         // and not the lock, the view leans toward it so its body clears the
         // top of the picture (and the bar), up to BOSS_PULL pixels.
         if !matches!(k.lock, Some(Lock::Boss))
-            && let Some(w) = self.boss.as_ref().filter(|w| w.hp > 0 && w.st != Ws::Asleep)
+            && let Some(w) = self
+                .boss
+                .as_ref()
+                .filter(|w| w.hp > 0 && w.st != Ws::Asleep)
         {
             let (dx, dy) = (w.x - target.0, w.y - target.1);
             let d = dist(dx, dy).max(1);
@@ -1240,7 +1283,10 @@ impl Session {
             } else {
                 t as i32 * 100 / 8
             };
-            target = (target.0 + (cx - target.0) * on / 100, target.1 + (cy - target.1) * on / 100);
+            target = (
+                target.0 + (cx - target.0) * on / 100,
+                target.1 + (cy - target.1) * on / 100,
+            );
             cued = on > 0;
         }
         let rate = if cued {
@@ -1259,8 +1305,16 @@ impl Session {
         let p = plan(usize::from(self.room));
         let (hw, hh) = (VIEW_W / 2 * Q, VIEW_H / 2 * Q);
         let (rw, rh) = (p.w() * TILE * Q, p.h() * TILE * Q);
-        k.cam.0 = if rw <= 2 * hw { rw / 2 } else { k.cam.0.clamp(hw, rw - hw) };
-        k.cam.1 = if rh <= 2 * hh { rh / 2 } else { k.cam.1.clamp(hh, rh - hh) };
+        k.cam.0 = if rw <= 2 * hw {
+            rw / 2
+        } else {
+            k.cam.0.clamp(hw, rw - hw)
+        };
+        k.cam.1 = if rh <= 2 * hh {
+            rh / 2
+        } else {
+            k.cam.1.clamp(hh, rh - hh)
+        };
     }
 }
 

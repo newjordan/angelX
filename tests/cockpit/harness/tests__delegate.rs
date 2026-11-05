@@ -510,7 +510,9 @@ fn integrate_lock_waits_observe_cancellation_without_releasing_the_held_lock() {
         Ok(error) => error,
         Err(_) => {
             drop(process_guard);
-            process_result_rx.recv_timeout(Duration::from_secs(1)).unwrap()
+            process_result_rx
+                .recv_timeout(Duration::from_secs(1))
+                .unwrap()
         }
     };
     let process_deadline = std::time::Instant::now() + Duration::from_secs(1);
@@ -525,7 +527,9 @@ fn integrate_lock_waits_observe_cancellation_without_releasing_the_held_lock() {
     }
     assert!(process_finished, "process lock waiter must settle");
     assert!(
-        process_error.as_ref().is_some_and(|error| error.contains("integrate cancelled")),
+        process_error
+            .as_ref()
+            .is_some_and(|error| error.contains("integrate cancelled")),
         "{process_error:?}"
     );
 
@@ -572,7 +576,9 @@ fn integrate_lock_waits_observe_cancellation_without_releasing_the_held_lock() {
     }
     assert!(repo_finished, "repository lock waiter must settle");
     assert!(
-        repo_error.as_ref().is_some_and(|error| error.contains("integrate cancelled")),
+        repo_error
+            .as_ref()
+            .is_some_and(|error| error.contains("integrate cancelled")),
         "{repo_error:?}"
     );
     let _ = std::fs::remove_dir_all(ws);

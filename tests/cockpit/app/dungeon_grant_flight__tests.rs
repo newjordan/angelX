@@ -20,9 +20,13 @@ fn local_model_dungeon_grant_flight() {
     let club: Arc<dyn Club> = Arc::new(HttpClub::new("dungeon-flight", url, model, None));
     let oracle = crate::drive::realm_services::oracle(club);
     let runners = Runners::new(1);
-    for (index, words) in ["stars spinning round me", "ticking poison damage", "a bigger spiked shield"]
-        .into_iter()
-        .enumerate()
+    for (index, words) in [
+        "stars spinning round me",
+        "ticking poison damage",
+        "a bigger spiked shield",
+    ]
+    .into_iter()
+    .enumerate()
     {
         let brief = grant_brief_for("A knight", words, None, Target::You);
         std::fs::write(out.join(format!("wish-{index}-brief.txt")), &brief).unwrap();
@@ -38,7 +42,10 @@ fn local_model_dungeon_grant_flight() {
             if let Some(done) = runners.poll().into_iter().next() {
                 break done;
             }
-            assert!(started.elapsed() < Duration::from_secs(330), "grant runner did not return");
+            assert!(
+                started.elapsed() < Duration::from_secs(330),
+                "grant runner did not return"
+            );
             std::thread::sleep(Duration::from_millis(100));
         };
         let mut result = format!(
@@ -46,7 +53,9 @@ fn local_model_dungeon_grant_flight() {
             done.timing.queued, done.timing.model, done.timing.mend
         );
         match done.result {
-            Ok((entry, wish)) => result.push_str(&format!("CHECKER ACCEPTED: {}\n{entry}", wish.id)),
+            Ok((entry, wish)) => {
+                result.push_str(&format!("CHECKER ACCEPTED: {}\n{entry}", wish.id))
+            }
             Err(error) => result.push_str(&format!("CHECKER/TRANSPORT REJECTED: {error}\n")),
         }
         std::fs::write(out.join(format!("wish-{index}-result.txt")), &result).unwrap();

@@ -11,7 +11,6 @@
 
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/d45_iteration.book");
 pub(crate) const CELL: char = '⠘';
 pub(crate) const PROGRESS: Route = Route::new(CELL, '⠁');

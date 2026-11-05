@@ -243,11 +243,18 @@ fn multidigraph_keeps_parallel_predicates_and_folds_exact_duplicates() {
 fn query_ranking_keeps_unicode_alias_hits_stable_and_preserves_fact_sources() {
     let mut graph = KnowledgeGraph::default();
     for (name, aliases) in [("A", vec!["CAFÉ"]), ("B", vec![])] {
-        graph.nodes.insert(name.into(), KnowledgeNode {
-            name: name.into(), entity_type: EntityType::Artifact, description: String::new(),
-            aliases: aliases.into_iter().map(str::to_string).collect(),
-            source_docs: BTreeSet::new(), mentions: 1, profile: None,
-        });
+        graph.nodes.insert(
+            name.into(),
+            KnowledgeNode {
+                name: name.into(),
+                entity_type: EntityType::Artifact,
+                description: String::new(),
+                aliases: aliases.into_iter().map(str::to_string).collect(),
+                source_docs: BTreeSet::new(),
+                mentions: 1,
+                profile: None,
+            },
+        );
     }
     for (source, predicate, target, source_doc) in [
         ("A", "link", "B", "doc1"),
@@ -256,13 +263,18 @@ fn query_ranking_keeps_unicode_alias_hits_stable_and_preserves_fact_sources() {
         ("Ghost", "café", "B", "doc4"),
     ] {
         graph.edges.push(KnowledgeEdge {
-            source: source.into(), predicate: predicate.into(),
-            target: target.into(), source_doc: source_doc.into(),
+            source: source.into(),
+            predicate: predicate.into(),
+            target: target.into(),
+            source_doc: source_doc.into(),
         });
     }
     let (text, listed, total) = serialize_subgraph(&graph, "CAFÉ", 3);
     assert_eq!((listed, total), (3, 4));
-    assert_eq!(text, "Entities:\n- A [ARTIFACT] —  (aka CAFÉ)\n- B [ARTIFACT] — \n\nFacts (edges):\n- A —same→ A [doc3]\n- A —link→ B [doc1]\n- B —relates→ A [doc2]\n");
+    assert_eq!(
+        text,
+        "Entities:\n- A [ARTIFACT] —  (aka CAFÉ)\n- B [ARTIFACT] — \n\nFacts (edges):\n- A —same→ A [doc3]\n- A —link→ B [doc1]\n- B —relates→ A [doc2]\n"
+    );
     let (text, listed, total) = serialize_subgraph(&graph, "", 4);
     assert_eq!((listed, total), (4, 4));
     assert!(text.ends_with("- A —link→ B [doc1]\n- B —relates→ A [doc2]\n- A —same→ A [doc3]\n- Ghost —café→ B [doc4]\n"));
@@ -273,31 +285,52 @@ fn query_ranking_keeps_unicode_alias_hits_stable_and_preserves_fact_sources() {
 fn indexed_large_fold_preserves_exact_edge_order_and_provenance() {
     let mut graph = KnowledgeGraph::default();
     for name in ["alpha", "beta"] {
-        graph.nodes.insert(name.into(), KnowledgeNode {
-            name: name.into(), entity_type: EntityType::Artifact,
-            description: String::new(), aliases: BTreeSet::new(),
-            source_docs: BTreeSet::new(), mentions: 1, profile: None,
-        });
+        graph.nodes.insert(
+            name.into(),
+            KnowledgeNode {
+                name: name.into(),
+                entity_type: EntityType::Artifact,
+                description: String::new(),
+                aliases: BTreeSet::new(),
+                source_docs: BTreeSet::new(),
+                mentions: 1,
+                profile: None,
+            },
+        );
     }
     for i in 0..350 {
         graph.edges.push(KnowledgeEdge {
-            source: "alpha".into(), target: "beta".into(),
-            predicate: format!("predicate {i}"), source_doc: "source-a".into(),
+            source: "alpha".into(),
+            target: "beta".into(),
+            predicate: format!("predicate {i}"),
+            source_doc: "source-a".into(),
         });
     }
-    let relations = (0..400).map(|i| Relation {
-        source: "ALPHA".into(), target: "beta".into(),
-        predicate: format!("predicate {}", i % 275),
-    }).collect();
-    let extracted = ExtractedGraph { entities: vec![], relations };
+    let relations = (0..400)
+        .map(|i| Relation {
+            source: "ALPHA".into(),
+            target: "beta".into(),
+            predicate: format!("predicate {}", i % 275),
+        })
+        .collect();
+    let extracted = ExtractedGraph {
+        entities: vec![],
+        relations,
+    };
     let mut expected = graph.edges.clone();
     let mut duplicates = 0;
     for relation in &extracted.relations {
         let edge = KnowledgeEdge {
-            source: "alpha".into(), target: "beta".into(),
-            predicate: relation.predicate.clone(), source_doc: "source-b".into(),
+            source: "alpha".into(),
+            target: "beta".into(),
+            predicate: relation.predicate.clone(),
+            source_doc: "source-b".into(),
         };
-        if expected.contains(&edge) { duplicates += 1; } else { expected.push(edge); }
+        if expected.contains(&edge) {
+            duplicates += 1;
+        } else {
+            expected.push(edge);
+        }
     }
     let report = graph.fold(&extracted, "source-b");
     assert_eq!(graph.edges, expected);
@@ -308,10 +341,15 @@ fn indexed_large_fold_preserves_exact_edge_order_and_provenance() {
 #[test]
 fn indexed_edges_still_compare_the_original_values_on_hash_collision() {
     let edge = KnowledgeEdge {
-        source: "a".into(), predicate: "says".into(),
-        target: "b".into(), source_doc: "one".into(),
+        source: "a".into(),
+        predicate: "says".into(),
+        target: "b".into(),
+        source_doc: "one".into(),
     };
-    let other = KnowledgeEdge { source_doc: "two".into(), ..edge.clone() };
+    let other = KnowledgeEdge {
+        source_doc: "two".into(),
+        ..edge.clone()
+    };
     let edges = vec![edge.clone()];
     let mut index = EdgeIndex::from_edges(&edges);
     // Force both lookups into the same bucket without relying on chance.
@@ -325,26 +363,43 @@ fn indexed_edges_still_compare_the_original_values_on_hash_collision() {
 fn indexed_resolution_dedup_preserves_first_edge_and_drops_only_merge_loops() {
     let mut graph = KnowledgeGraph::default();
     for name in ["a", "b", "c"] {
-        graph.nodes.insert(name.into(), KnowledgeNode {
-            name: name.into(), entity_type: EntityType::Artifact,
-            description: String::new(), aliases: BTreeSet::new(),
-            source_docs: BTreeSet::new(), mentions: 1, profile: None,
-        });
+        graph.nodes.insert(
+            name.into(),
+            KnowledgeNode {
+                name: name.into(),
+                entity_type: EntityType::Artifact,
+                description: String::new(),
+                aliases: BTreeSet::new(),
+                source_docs: BTreeSet::new(),
+                mentions: 1,
+                profile: None,
+            },
+        );
     }
     for i in 0..400 {
         graph.edges.push(KnowledgeEdge {
             source: if i % 2 == 0 { "a" } else { "b" }.into(),
             target: if i % 7 == 0 { "b" } else { "c" }.into(),
-            predicate: format!("predicate {}", i % 80), source_doc: "source".into(),
+            predicate: format!("predicate {}", i % 80),
+            source_doc: "source".into(),
         });
     }
     let mut expected = Vec::new();
     let mut dropped = 0;
     for mut edge in graph.edges.clone() {
-        if edge.source == "b" { edge.source = "a".into(); }
-        if edge.target == "b" { edge.target = "a".into(); }
-        if edge.source == "a" && edge.target == "a" { dropped += 1; continue; }
-        if !expected.contains(&edge) { expected.push(edge); }
+        if edge.source == "b" {
+            edge.source = "a".into();
+        }
+        if edge.target == "b" {
+            edge.target = "a".into();
+        }
+        if edge.source == "a" && edge.target == "a" {
+            dropped += 1;
+            continue;
+        }
+        if !expected.contains(&edge) {
+            expected.push(edge);
+        }
     }
     assert_eq!(graph.merge_cluster("a", &["a".into(), "b".into()]), dropped);
     assert_eq!(graph.edges, expected);

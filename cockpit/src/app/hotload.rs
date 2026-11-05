@@ -1,8 +1,8 @@
 //! The live module boundary: asynchronous projections, cached presentation,
 //! and next-turn guidance. The loader never owns an active model/tool request.
 use super::*;
-use crate::ui::input::ParsedInput;
 use crate::agent::hotload::{Client, Snapshot};
+use crate::ui::input::ParsedInput;
 
 struct Pending {
     session: String,
@@ -227,7 +227,8 @@ impl App {
                 self.live_modules.ui = std::sync::Arc::clone(policy);
             }
             if self.live_modules.snapshot.game != snapshot.game {
-                self.realm.dungeon
+                self.realm
+                    .dungeon
                     .shooter
                     .set_live_rules(snapshot.game.clone().unwrap_or_default());
             }
@@ -295,15 +296,17 @@ impl App {
         // A workspace can replace its Sim without changing module code.
         // Pointer equality makes the ordinary tick a no-op here.
         if let Some(policy) = &self.live_modules.snapshot.game {
-            self.realm.dungeon
+            self.realm
+                .dungeon
                 .shooter
                 .set_live_rules(std::sync::Arc::clone(policy));
         }
         // The native owner applies slots and prepared character presentation
         // under one lock before a selection acknowledgement becomes visible.
-        self.realm.dungeon.shooter.set_live_characters(
-            self.live_modules.snapshot.resources.values(),
-        );
+        self.realm
+            .dungeon
+            .shooter
+            .set_live_characters(self.live_modules.snapshot.resources.values());
         for mut request in pending {
             let Some(result) = request.resolved.take() else {
                 self.live_modules.pending.push(request);

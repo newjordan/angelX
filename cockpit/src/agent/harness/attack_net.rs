@@ -150,8 +150,7 @@ impl AttackPlan {
             return Err("a leader role cannot be empty".to_string());
         }
         let mandate = mandate.map(|m| cap(m.trim(), TEXT_CAP));
-        let changed = leader.role != role
-            || mandate.as_ref().is_some_and(|m| *m != leader.mandate);
+        let changed = leader.role != role || mandate.as_ref().is_some_and(|m| *m != leader.mandate);
         if !changed {
             return Ok(false);
         }

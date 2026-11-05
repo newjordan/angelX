@@ -470,9 +470,7 @@ fn submission_words(command: &str) -> Result<Vec<Vec<Word>>, String> {
             .and_then(|p| p.to_str())
             .unwrap_or("");
         if matches!(name, "sudo" | "timeout" | "nice" | "nohup" | "xargs")
-            && words
-                .iter()
-                .any(|w| is_board(&w.value))
+            && words.iter().any(|w| is_board(&w.value))
             && words.iter().any(|w| w.value == "submit")
         {
             return Err(

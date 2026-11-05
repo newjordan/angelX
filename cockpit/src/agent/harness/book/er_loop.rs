@@ -7,7 +7,6 @@
 
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/er_loop.book");
 pub(crate) const CELL: char = '⠻';
 pub(crate) const WORKER: Route = Route::new(CELL, '⠁');

@@ -42,11 +42,26 @@ fn rank_scope_cached_document_frequency_preserves_golden_scores_and_order() {
     let alpha_score = 2.0f32.ln();
     let beta_score = (10.0f32 / 3.0).ln();
     let expected = vec![
-        ("beta".to_string(), beta_score.to_bits(), vec!["beta".to_string()]),
-        ("a-alpha".to_string(), alpha_score.to_bits(), vec!["alpha".to_string()]),
-        ("z-alpha".to_string(), alpha_score.to_bits(), vec!["alpha".to_string()]),
+        (
+            "beta".to_string(),
+            beta_score.to_bits(),
+            vec!["beta".to_string()],
+        ),
+        (
+            "a-alpha".to_string(),
+            alpha_score.to_bits(),
+            vec!["alpha".to_string()],
+        ),
+        (
+            "z-alpha".to_string(),
+            alpha_score.to_bits(),
+            vec!["alpha".to_string()],
+        ),
     ];
-    assert_eq!(actual, expected, "document frequency affects IDF; exact scores, filtering, and tie order stay stable");
+    assert_eq!(
+        actual, expected,
+        "document frequency affects IDF; exact scores, filtering, and tie order stay stable"
+    );
 }
 
 fn stable_rank_signature(rows: &[RankedItem<'_>]) -> u64 {
@@ -76,12 +91,19 @@ fn stable_rank_signature(rows: &[RankedItem<'_>]) -> u64 {
 fn rank_scope_document_frequency_paired_benchmark() {
     use std::time::Instant;
 
-    let query_hit = ["alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta"]
-        .map(str::to_string);
-    let query_miss = ["absent_a", "absent_b", "absent_c", "absent_d", "absent_e", "absent_f", "absent_g", "absent_h"]
-        .map(str::to_string);
-    let query_mixed = ["alpha", "beta", "gamma", "delta", "absent_e", "absent_f", "absent_g", "absent_h"]
-        .map(str::to_string);
+    let query_hit = [
+        "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta",
+    ]
+    .map(str::to_string);
+    let query_miss = [
+        "absent_a", "absent_b", "absent_c", "absent_d", "absent_e", "absent_f", "absent_g",
+        "absent_h",
+    ]
+    .map(str::to_string);
+    let query_mixed = [
+        "alpha", "beta", "gamma", "delta", "absent_e", "absent_f", "absent_g", "absent_h",
+    ]
+    .map(str::to_string);
 
     for count in [100usize, 500, 1_500] {
         let content = "alpha beta gamma delta epsilon zeta eta theta";
@@ -100,12 +122,17 @@ fn rank_scope_document_frequency_paired_benchmark() {
                 let started = Instant::now();
                 let ranked = rank_scope(query, &items);
                 samples.push(started.elapsed().as_nanos());
-                assert_eq!(stable_rank_signature(&ranked), expected,
-                           "rank output changed during benchmark workload={workload} docs={count}");
+                assert_eq!(
+                    stable_rank_signature(&ranked),
+                    expected,
+                    "rank output changed during benchmark workload={workload} docs={count}"
+                );
             }
             samples.sort_unstable();
-            eprintln!("F23_BENCH workload={workload} docs={count} samples=7 median_ns={} p95_ns={} signature={expected:016x}",
-                      samples[3], samples[6]);
+            eprintln!(
+                "F23_BENCH workload={workload} docs={count} samples=7 median_ns={} p95_ns={} signature={expected:016x}",
+                samples[3], samples[6]
+            );
         }
     }
 }

@@ -1186,15 +1186,9 @@ fn report_module_with_timeout(
         .arg(dir)
         .arg("--workspace")
         .arg(workspace);
-    let bytes = crate::platform::worker::run_cancellable(
-        command,
-        &[],
-        timeout,
-        0,
-        256 * 1024,
-        || false,
-    )
-    .map_err(|error| format!("report module: {error}"))?;
+    let bytes =
+        crate::platform::worker::run_cancellable(command, &[], timeout, 0, 256 * 1024, || false)
+            .map_err(|error| format!("report module: {error}"))?;
     String::from_utf8(bytes).map_err(|_| "report output was not UTF-8".to_string())
 }
 

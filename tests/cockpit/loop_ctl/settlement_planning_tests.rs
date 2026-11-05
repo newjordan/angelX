@@ -238,6 +238,8 @@ fn settlement_planning_unavailable_map_and_invalid_provenance_cannot_expand_auth
     assert!(!st.settlement_plans.contains_key(&1));
     let mut store = together_settlement::Store::beside(None, 77, "Miner").unwrap();
     // The third in-memory row is uncommitted; only the confirmed two rows work.
-    store.sync_with_plans(&st.summary(), false, &durable.plans).unwrap();
+    store
+        .sync_with_plans(&st.summary(), false, &durable.plans)
+        .unwrap();
     assert_eq!(store.site.work, 2);
 }

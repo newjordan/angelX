@@ -384,5 +384,8 @@ fn crash_signals_keep_their_names_without_crashing_a_process() {
     assert_eq!(signal_name(libc::SIGSEGV), "SIGSEGV");
     assert_eq!(signal_name(libc::SIGPIPE), "SIGPIPE");
     assert_eq!(signal_name(libc::SIGTERM), "SIGTERM");
-    assert_eq!(signal_name(libc::SIGABRT), format!("signal-{}", libc::SIGABRT));
+    assert_eq!(
+        signal_name(libc::SIGABRT),
+        format!("signal-{}", libc::SIGABRT)
+    );
 }

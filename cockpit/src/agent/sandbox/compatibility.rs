@@ -181,9 +181,9 @@ fn wait_for_probe_exit(pid: u32, remaining: std::time::Duration) {
                 revents: 0,
             };
             // Round up to avoid spinning during the last sub-millisecond.
-            let millis = remaining.as_millis().saturating_add(u128::from(
-                remaining.subsec_nanos() % 1_000_000 != 0,
-            ));
+            let millis = remaining
+                .as_millis()
+                .saturating_add(u128::from(remaining.subsec_nanos() % 1_000_000 != 0));
             let timeout = millis.min(i32::MAX as u128) as i32;
             // SAFETY: one initialized pollfd, alive for the whole call.
             let result = unsafe { libc::poll(&mut pollfd, 1, timeout) };

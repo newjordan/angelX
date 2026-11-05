@@ -8,7 +8,6 @@
 
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/d4_angles.book");
 pub(crate) const CELL: char = '⠈';
 pub(crate) const FIRST_PRINCIPLES: Route = Route::new(CELL, '⠁');

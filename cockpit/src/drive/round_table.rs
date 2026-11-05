@@ -30,7 +30,9 @@ const SEATS: u32 = 8;
 const TICK_HZ: u32 = 2;
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+    mutex
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
 /// What the server thread and the host cockpit share: the board, the
@@ -48,7 +50,11 @@ impl Shared {
             .and_then(|p| std::fs::read_to_string(p).ok())
             .and_then(|text| Board::import_jsonl(&text).ok())
             .unwrap_or_default();
-        Shared { board: Mutex::new(board), tick: AtomicU64::new(0), log_path }
+        Shared {
+            board: Mutex::new(board),
+            tick: AtomicU64::new(0),
+            log_path,
+        }
     }
 
     /// One op, checked by the board's rules; a success rewrites the
@@ -64,10 +70,8 @@ impl Shared {
             }
             // Exact: the JSONL checkpoint embeds patch bundles verbatim;
             // text redaction could alter bundle bytes and corrupt restore.
-            let _ = crate::platform::workspace_store::write_private_atomic_exact(
-                path,
-                text.as_bytes(),
-            );
+            let _ =
+                crate::platform::workspace_store::write_private_atomic_exact(path, text.as_bytes());
         }
         Ok(seq)
     }
@@ -95,7 +99,10 @@ impl GameServer for TableServer {
     const GAME: &'static str = angel_table::GAME;
 
     fn rates(&self) -> Rates {
-        Rates { tick_hz: TICK_HZ, snapshot_hz: TICK_HZ }
+        Rates {
+            tick_hz: TICK_HZ,
+            snapshot_hz: TICK_HZ,
+        }
     }
 
     fn seats(&self) -> u32 {
@@ -146,7 +153,9 @@ impl GameServer for TableServer {
     }
 
     fn publish(&mut self, _tick: u32) -> DocTick {
-        DocTick { tree: lock(&self.shared.board).to_value() }
+        DocTick {
+            tree: lock(&self.shared.board).to_value(),
+        }
     }
 }
 
@@ -176,22 +185,35 @@ impl TableHost {
     /// (tailnet, then LAN, then loopback) on its own port, restore
     /// the board from its JSONL log if one is there, and seat the
     /// host as the arbiter. Returns the join links to show friends.
-    pub(crate) fn start(workspace: &Path, host_name: &str) -> Result<(TableHost, Vec<String>), String> {
+    pub(crate) fn start(
+        workspace: &Path,
+        host_name: &str,
+    ) -> Result<(TableHost, Vec<String>), String> {
         let log_path = workspace.join(".angel").join("round-table.jsonl");
         let shared = Arc::new(Shared::load(Some(log_path)));
         lock(&shared.board).join(ARBITER, host_name);
-        let bind: SocketAddr = crate::drive::together_door::bind(
-            &crate::drive::together_door::default_bind(8797),
-        )?;
+        let bind: SocketAddr =
+            crate::drive::together_door::bind(&crate::drive::together_door::default_bind(8797))?;
         let server = Server::start(
-            TableServer { shared: Arc::clone(&shared), uploads: Default::default() },
+            TableServer {
+                shared: Arc::clone(&shared),
+                uploads: Default::default(),
+            },
             ServeConfig::new(bind),
         )
         .map_err(|e| format!("the table's server did not start: {e}"))?;
         // Seat 0 before the links exist outside this process.
         let anchor = anchor(&server, host_name)?;
         let links = server.links();
-        Ok((TableHost { shared, server, anchor, epoch: Instant::now() }, links))
+        Ok((
+            TableHost {
+                shared,
+                server,
+                anchor,
+                epoch: Instant::now(),
+            },
+            links,
+        ))
     }
 
     /// Keep the arbiter's seat alive; call from `advance`.
@@ -265,10 +287,8 @@ fn save_tokens_to_disk(tokens: &std::collections::HashMap<String, String>) {
     if let Ok(text) = serde_json::to_string_pretty(tokens) {
         // Guest tokens are live credentials: exact durable publish (0600,
         // no redaction) instead of a bare umask-permissioned write.
-        let _ = crate::platform::workspace_store::write_private_atomic_exact(
-            &path,
-            text.as_bytes(),
-        );
+        let _ =
+            crate::platform::workspace_store::write_private_atomic_exact(&path, text.as_bytes());
     }
 }
 
@@ -292,9 +312,17 @@ impl TableGuest {
         let link = NativeLink::connect(
             link,
             name,
-            LinkOptions { resume, ..LinkOptions::default() },
+            LinkOptions {
+                resume,
+                ..LinkOptions::default()
+            },
         )?;
-        Ok(TableGuest { target, link, epoch: Instant::now(), outbox: VecDeque::new() })
+        Ok(TableGuest {
+            target,
+            link,
+            epoch: Instant::now(),
+            outbox: VecDeque::new(),
+        })
     }
 
     pub(crate) fn target(&self) -> &str {
@@ -407,7 +435,10 @@ mod tests {
         let shared = Arc::new(Shared::load(None));
         lock(&shared.board).join(ARBITER, "Host");
         let server = Server::start(
-            TableServer { shared: Arc::clone(&shared), uploads: Default::default() },
+            TableServer {
+                shared: Arc::clone(&shared),
+                uploads: Default::default(),
+            },
             ServeConfig::new("127.0.0.1:0".parse().unwrap()),
         )
         .expect("the table server starts");
@@ -421,12 +452,27 @@ mod tests {
         let mut guest = TableGuest::connect(&link, "Percival").expect("a knight connects");
         // Cast before the seat is held: the op must wait in the
         // offline outbox and land once the link is Playing.
-        guest.cast(&Op::NewIssue { title: "Oil the gate".into(), body: "It squeaks.".into() });
-        until(&mut anchor, epoch, &mut guest, "both seats", |b| b.seats.len() >= 2);
-        assert_eq!(anchor.runtime().seat(), Some(ARBITER), "the anchor holds seat 0");
-        assert_eq!(guest.seat(), Some(1), "the first guest is seat 1, never the arbiter");
+        guest.cast(&Op::NewIssue {
+            title: "Oil the gate".into(),
+            body: "It squeaks.".into(),
+        });
+        until(&mut anchor, epoch, &mut guest, "both seats", |b| {
+            b.seats.len() >= 2
+        });
+        assert_eq!(
+            anchor.runtime().seat(),
+            Some(ARBITER),
+            "the anchor holds seat 0"
+        );
+        assert_eq!(
+            guest.seat(),
+            Some(1),
+            "the first guest is seat 1, never the arbiter"
+        );
 
-        let board = until(&mut anchor, epoch, &mut guest, "the proposal", |b| !b.issues.is_empty());
+        let board = until(&mut anchor, epoch, &mut guest, "the proposal", |b| {
+            !b.issues.is_empty()
+        });
         let id = *board.issues.keys().next().unwrap();
 
         // A guest's Accept is refused server-side: still Proposed
@@ -435,14 +481,24 @@ mod tests {
         std::thread::sleep(Duration::from_millis(600));
         anchor.tick(epoch.elapsed().as_secs_f64() * 1000.0);
         let board = guest.board().expect("a board");
-        assert_eq!(board.issues[&id].state, State::Proposed, "guests cannot accept");
+        assert_eq!(
+            board.issues[&id].state,
+            State::Proposed,
+            "guests cannot accept"
+        );
 
         // The arbiter's own ops land directly on the shared board.
-        shared.apply(ARBITER, Op::Accept { id }).expect("the arbiter accepts");
-        until(&mut anchor, epoch, &mut guest, "acceptance", |b| b.issues[&id].state == State::Accepted);
+        shared
+            .apply(ARBITER, Op::Accept { id })
+            .expect("the arbiter accepts");
+        until(&mut anchor, epoch, &mut guest, "acceptance", |b| {
+            b.issues[&id].state == State::Accepted
+        });
 
         guest.cast(&Op::Claim { id });
-        until(&mut anchor, epoch, &mut guest, "the claim", |b| b.issues[&id].state == State::InProgress);
+        until(&mut anchor, epoch, &mut guest, "the claim", |b| {
+            b.issues[&id].state == State::InProgress
+        });
 
         // A bundle bigger than one client message travels in pieces.
         let bundle: Vec<u8> = (0..3000u32).map(|i| (i % 253) as u8).collect();
@@ -455,10 +511,20 @@ mod tests {
         until(&mut anchor, epoch, &mut guest, "the submission", |b| {
             b.issues[&id].state == State::Submitted
         });
-        assert_eq!(shared.bundle(id).as_deref(), Some(bundle.as_slice()), "arbiter holds the bytes");
+        assert_eq!(
+            shared.bundle(id).as_deref(),
+            Some(bundle.as_slice()),
+            "arbiter holds the bytes"
+        );
 
         shared
-            .apply(ARBITER, Op::Merge { id, commit: "abc123".into() })
+            .apply(
+                ARBITER,
+                Op::Merge {
+                    id,
+                    commit: "abc123".into(),
+                },
+            )
             .expect("the arbiter records the merge");
         let board = until(&mut anchor, epoch, &mut guest, "the merge", |b| {
             b.issues[&id].state == State::Merged
@@ -475,7 +541,10 @@ mod tests {
         let shared = Arc::new(Shared::load(None));
         lock(&shared.board).join(ARBITER, "Host");
         let server = Server::start(
-            TableServer { shared: Arc::clone(&shared), uploads: Default::default() },
+            TableServer {
+                shared: Arc::clone(&shared),
+                uploads: Default::default(),
+            },
             ServeConfig::new("127.0.0.1:0".parse().unwrap()),
         )
         .expect("the table server starts");
@@ -487,8 +556,13 @@ mod tests {
             .find(|l| l.contains("127.0.0.1"))
             .expect("a loopback link");
         let mut guest = TableGuest::connect(&link, "Mordred").expect("guest connects");
-        guest.cast(&Op::NewIssue { title: "Guard the gate".into(), body: "Check locks.".into() });
-        let board = until(&mut anchor, epoch, &mut guest, "the proposal", |b| !b.issues.is_empty());
+        guest.cast(&Op::NewIssue {
+            title: "Guard the gate".into(),
+            body: "Check locks.".into(),
+        });
+        let board = until(&mut anchor, epoch, &mut guest, "the proposal", |b| {
+            !b.issues.is_empty()
+        });
         let id = *board.issues.keys().next().unwrap();
         assert_eq!(guest.seat(), Some(1));
 
@@ -496,18 +570,31 @@ mod tests {
         for op in [
             Op::Accept { id },
             Op::Reject { id },
-            Op::Merge { id, commit: "deadbeef".into() },
+            Op::Merge {
+                id,
+                commit: "deadbeef".into(),
+            },
             Op::Close { id },
         ] {
             guest.cast(&op);
         }
         // Send a benign comment afterward as a fence: once the comment lands on
         // the replicated board, every preceding forged op has been processed.
-        guest.cast(&Op::Comment { id, text: "probe-proposed".into() });
-        let board = until(&mut anchor, epoch, &mut guest, "proposed fence", |b| {
-            b.issues[&id].comments.iter().any(|c| c.text == "probe-proposed")
+        guest.cast(&Op::Comment {
+            id,
+            text: "probe-proposed".into(),
         });
-        assert_eq!(board.issues[&id].state, State::Proposed, "guest forged a Proposed transition");
+        let board = until(&mut anchor, epoch, &mut guest, "proposed fence", |b| {
+            b.issues[&id]
+                .comments
+                .iter()
+                .any(|c| c.text == "probe-proposed")
+        });
+        assert_eq!(
+            board.issues[&id].state,
+            State::Proposed,
+            "guest forged a Proposed transition"
+        );
         assert!(board.issues[&id].merged_commit.is_none());
 
         // 2. Arbiter accepts, guest claims and submits; guest then tries to forge
@@ -524,17 +611,30 @@ mod tests {
             b.issues[&id].state == State::Submitted
         });
         for op in [
-            Op::Merge { id, commit: "forged-sha".into() },
+            Op::Merge {
+                id,
+                commit: "forged-sha".into(),
+            },
             Op::Reject { id },
             Op::Close { id },
         ] {
             guest.cast(&op);
         }
-        guest.cast(&Op::Comment { id, text: "probe-submitted".into() });
-        let board = until(&mut anchor, epoch, &mut guest, "submitted fence", |b| {
-            b.issues[&id].comments.iter().any(|c| c.text == "probe-submitted")
+        guest.cast(&Op::Comment {
+            id,
+            text: "probe-submitted".into(),
         });
-        assert_eq!(board.issues[&id].state, State::Submitted, "guest forged a Submitted decision");
+        let board = until(&mut anchor, epoch, &mut guest, "submitted fence", |b| {
+            b.issues[&id]
+                .comments
+                .iter()
+                .any(|c| c.text == "probe-submitted")
+        });
+        assert_eq!(
+            board.issues[&id].state,
+            State::Submitted,
+            "guest forged a Submitted decision"
+        );
         assert!(board.issues[&id].merged_commit.is_none());
 
         // 3. Drop socket without goodbye, wipe the in-memory cache to simulate
@@ -547,8 +647,14 @@ mod tests {
         );
         lock(&GUEST_TOKENS).remove(link.trim());
         let mut resumed = TableGuest::connect(&link, "Mordred").expect("guest reconnects");
-        until(&mut anchor, epoch, &mut resumed, "resumed board", |b| !b.issues.is_empty());
-        assert_eq!(resumed.seat(), Some(1), "reconnected guest must reclaim seat 1 via disk seat_token");
+        until(&mut anchor, epoch, &mut resumed, "resumed board", |b| {
+            !b.issues.is_empty()
+        });
+        assert_eq!(
+            resumed.seat(),
+            Some(1),
+            "reconnected guest must reclaim seat 1 via disk seat_token"
+        );
 
         resumed.bye();
         assert!(

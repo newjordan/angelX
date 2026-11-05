@@ -39,7 +39,8 @@ fn queue(app: &mut App, player: u32, words: &str) -> wish_jobs::Claim {
         making: None,
         target: Default::default(),
     });
-    app.realm.dungeon
+    app.realm
+        .dungeon
         .shooter
         .new_wish_claims(&mut None, "Original maker")
         .unwrap()
@@ -78,7 +79,8 @@ fn committed_wish_survives_checkpoint_failure_source_edit_and_restore_without_re
     let done = lesson.completed.clone().unwrap();
     assert!(matches!(&done.outcome, Outcome::Granted(name) if name == "Captured Grace I"));
     assert!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -117,11 +119,16 @@ fn committed_wish_survives_checkpoint_failure_source_edit_and_restore_without_re
     )
     .unwrap();
     let sounds = app.realm.dungeon.shooter.as_ref().unwrap().sounds.clone();
-    assert!(!sounds.iter().any(|s| angel_delve::rules::overclass::LAND_SOUNDS.contains(s)));
+    assert!(
+        !sounds
+            .iter()
+            .any(|s| angel_delve::rules::overclass::LAND_SOUNDS.contains(s))
+    );
     poll(&mut app);
     assert!(app.realm.dungeon.forge.learning.is_empty());
     assert!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .new_wish_claims(&mut None, "")
             .unwrap()
@@ -129,7 +136,8 @@ fn committed_wish_survives_checkpoint_failure_source_edit_and_restore_without_re
     );
     assert_eq!(app.realm.dungeon.shooter.as_ref().unwrap().sounds, sounds);
     assert_eq!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -176,7 +184,8 @@ fn speculative_job_is_promoted_once_but_never_adopted_by_a_reused_seat() {
     let _guard = crate::tests::env_lock();
     let (mut app, dir) = fixture("promotion");
     let club = crate::drive::together_grants::Scripted::new(&[ANSWER], Duration::from_millis(200));
-    app.realm.dungeon.forge.grants.oracle = Some(crate::drive::realm_services::oracle(club.clone()));
+    app.realm.dungeon.forge.grants.oracle =
+        Some(crate::drive::realm_services::oracle(club.clone()));
     app.teach_spoken(vec![(2, "golden grace".into(), 1, Default::default())]);
     let job = app.realm.dungeon.forge.learning[0].job;
     let runners = app.realm.dungeon.forge.grants.runners.clone().unwrap();
@@ -234,9 +243,11 @@ fn simultaneous_same_name_results_share_one_captured_definition_and_id() {
     let (mut app, dir) = fixture("same-name");
     let club =
         crate::drive::together_grants::Scripted::new(&[ANSWER, ANSWER], Duration::from_millis(20));
-    app.realm.dungeon.forge.grants.oracle = Some(crate::drive::realm_services::oracle(club.clone()));
+    app.realm.dungeon.forge.grants.oracle =
+        Some(crate::drive::realm_services::oracle(club.clone()));
     for player in [1, 2] {
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .forge
             .learning
             .push(Lesson::new(player, "golden grace".into()));
@@ -245,7 +256,14 @@ fn simultaneous_same_name_results_share_one_captured_definition_and_id() {
     let deadline = Instant::now() + Duration::from_secs(5);
     // The model counter drops before its runner queues the completed answer.
     // Wait for both observable lessons, including separate drain batches.
-    while app.realm.dungeon.forge.learning.iter().any(|lesson| !lesson.returned) {
+    while app
+        .realm
+        .dungeon
+        .forge
+        .learning
+        .iter()
+        .any(|lesson| !lesson.returned)
+    {
         app.take_grants();
         assert!(Instant::now() < deadline);
         std::thread::sleep(Duration::from_millis(5));
@@ -262,7 +280,8 @@ fn admission_checkpoint_failure_delays_model_launch_and_retries_original_claim_o
     let _guard = crate::tests::env_lock();
     let (mut app, dir) = fixture("admission");
     let club = crate::drive::together_grants::Scripted::new(&[ANSWER], Duration::ZERO);
-    app.realm.dungeon.forge.grants.oracle = Some(crate::drive::realm_services::oracle(club.clone()));
+    app.realm.dungeon.forge.grants.oracle =
+        Some(crate::drive::realm_services::oracle(club.clone()));
     let claim = queue(&mut app, 1, "golden grace");
     app.teach_claim(claim.clone());
     let path = app.realm.dungeon.save_path.take().unwrap();
@@ -273,7 +292,10 @@ fn admission_checkpoint_failure_delays_model_launch_and_retries_original_claim_o
     assert_eq!(app.realm.dungeon.forge.jobs, 0);
     assert!(app.realm.dungeon.forge.grants.runners.is_none());
     assert!(club.asked.lock().unwrap().is_empty());
-    assert_eq!(app.realm.dungeon.forge.learning[0].claim.as_ref(), Some(&claim));
+    assert_eq!(
+        app.realm.dungeon.forge.learning[0].claim.as_ref(),
+        Some(&claim)
+    );
     app.realm.dungeon.save_path = Some(path);
     let deadline = Instant::now() + Duration::from_secs(5);
     while !app.realm.dungeon.forge.learning.is_empty() {
@@ -298,7 +320,8 @@ fn source_lock_contention_retains_terminal_delivery_until_source_and_ack_are_dur
     assert!(!app.deliver_wish_lesson(&mut lesson));
     assert!(lesson.completed.is_some() && !lesson.acknowledged);
     assert!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .wish_completion(&claim)
             .unwrap()
@@ -349,7 +372,13 @@ fn a_conflicting_policy_answer_refunds_without_overwriting_the_accepted_source_o
     ));
     assert_eq!(std::fs::read(&source).unwrap(), bytes);
     assert_eq!(
-        app.realm.dungeon.shooter.as_ref().unwrap().book.get(&card.id),
+        app.realm
+            .dungeon
+            .shooter
+            .as_ref()
+            .unwrap()
+            .book
+            .get(&card.id),
         Some(&card)
     );
     assert_eq!(

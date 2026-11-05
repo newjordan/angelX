@@ -138,7 +138,12 @@ fn sealed_cargo_payload_grants_exclude_default_and_custom_home_credentials() {
     }
     for credential in credentials {
         assert!(profile.deny_roots.contains(&credential));
-        assert!(profile.read_roots.iter().all(|root| !credential.starts_with(root)));
+        assert!(
+            profile
+                .read_roots
+                .iter()
+                .all(|root| !credential.starts_with(root))
+        );
     }
 }
 
@@ -346,7 +351,9 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
             "--nocapture",
         ]);
         command.env(CHILD, "1");
-        let output = command.output().expect("spawn isolated sealed runtime test");
+        let output = command
+            .output()
+            .expect("spawn isolated sealed runtime test");
         assert!(
             output.status.success(),
             "sealed runtime child failed\nstdout:\n{}\nstderr:\n{}",
@@ -416,7 +423,10 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        assert_ne!(std::fs::metadata(&helper).unwrap().permissions().mode() & 0o111, 0);
+        assert_ne!(
+            std::fs::metadata(&helper).unwrap().permissions().mode() & 0o111,
+            0
+        );
     }
 
     // Exercise the public HOME/CARGO_HOME discovery branch used by startup.
@@ -434,8 +444,16 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
         "python3",
         std::iter::once("-c".to_owned())
             .chain(std::iter::once(SEALED_RUNTIME_PAYLOAD.to_owned()))
-            .chain(marker_paths.iter().map(|path| path.to_string_lossy().into_owned()))
-            .chain(credentials.iter().map(|path| path.to_string_lossy().into_owned())),
+            .chain(
+                marker_paths
+                    .iter()
+                    .map(|path| path.to_string_lossy().into_owned()),
+            )
+            .chain(
+                credentials
+                    .iter()
+                    .map(|path| path.to_string_lossy().into_owned()),
+            ),
         &ordinary,
     )
     .expect("construct production sandbox command");
@@ -455,8 +473,7 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
     let encoded = command
         .get_envs()
         .find_map(|(key, value)| {
-            (key == super::super::HELPER_POLICY_ENV)
-                .then(|| value.unwrap().to_string_lossy())
+            (key == super::super::HELPER_POLICY_ENV).then(|| value.unwrap().to_string_lossy())
         })
         .expect("serialized helper policy");
     let effective: super::super::SandboxPolicy = serde_json::from_str(&encoded).unwrap();
@@ -489,7 +506,10 @@ fn sealed_runtime_activation_allows_toolchain_and_denies_credentials() {
         .chain(&credentials)
         .map(|path| super::super::sha256_hex(&std::fs::read(path).unwrap()))
         .collect();
-    assert_eq!(hashes_after, hashes_before, "sandbox probe modified fixtures");
+    assert_eq!(
+        hashes_after, hashes_before,
+        "sandbox probe modified fixtures"
+    );
 }
 
 #[cfg(target_os = "linux")]

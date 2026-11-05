@@ -87,7 +87,6 @@ impl FleetState {
     }
 }
 
-
 /// Start one sweep of `cartridge`'s fleet on its own thread.
 pub(crate) fn spawn_poll(
     cartridge: &'static super::Cartridge,
@@ -100,7 +99,10 @@ pub(crate) fn spawn_poll(
             let _ = worker_tx.send(cartridge.fleet_sweep());
         });
     if let Err(error) = spawn {
-        let _ = tx.send(Err(format!("start {} fleet watcher: {error}", cartridge.label())));
+        let _ = tx.send(Err(format!(
+            "start {} fleet watcher: {error}",
+            cartridge.label()
+        )));
     }
     rx
 }
@@ -130,7 +132,10 @@ pub(crate) fn sweep_command(
         submissions: Vec<Row>,
     }
     let mut process = std::process::Command::new("bash");
-    process.arg("-c").arg(command).stdin(std::process::Stdio::null());
+    process
+        .arg("-c")
+        .arg(command)
+        .stdin(std::process::Stdio::null());
     if let Some(folder) = folder {
         process.env("ANGEL_CARTRIDGE_DIR", folder);
     }

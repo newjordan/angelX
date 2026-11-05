@@ -171,11 +171,31 @@ pub fn plan(room: usize) -> &'static Plan {
 }
 
 pub static PLANS: [Plan; ROOMS] = [
-    Plan { name: "THE STAIR", rows: STAIR, dark: false },
-    Plan { name: "THE LAMP HALL", rows: LAMP, dark: false },
-    Plan { name: "THE ARROW GALLERY", rows: GALLERY, dark: false },
-    Plan { name: "THE KEY VAULT", rows: VAULT, dark: true },
-    Plan { name: "THE WARDEN", rows: WARDEN, dark: false },
+    Plan {
+        name: "THE STAIR",
+        rows: STAIR,
+        dark: false,
+    },
+    Plan {
+        name: "THE LAMP HALL",
+        rows: LAMP,
+        dark: false,
+    },
+    Plan {
+        name: "THE ARROW GALLERY",
+        rows: GALLERY,
+        dark: false,
+    },
+    Plan {
+        name: "THE KEY VAULT",
+        rows: VAULT,
+        dark: true,
+    },
+    Plan {
+        name: "THE WARDEN",
+        rows: WARDEN,
+        dark: false,
+    },
 ];
 
 const STAIR: &[&str] = &[

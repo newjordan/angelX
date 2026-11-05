@@ -64,7 +64,9 @@ fn engagement_table() -> Vec<Vec<ChatMsg>> {
     // Uppercase and path-like near misses: only the launch vocabulary counts.
     table.push(vec![ChatMsg::user("FIRE NOW")]);
     table.push(vec![ChatMsg::user("run PodRace please")]);
-    table.push(vec![ChatMsg::user("look at src/competition_loop/parser.rs")]);
+    table.push(vec![ChatMsg::user(
+        "look at src/competition_loop/parser.rs",
+    )]);
     table.push(vec![ChatMsg::user("the leaderboard page looks nice")]);
     // A goal block with no competitive word is not intent to compete.
     table.push(vec![
@@ -224,9 +226,7 @@ fn live_competition_mode_leg_matches_native_shell_inventory() {
         thrash > 0 && legal > 0,
         "the table missed a branch: {thrash} thrash / {legal} legal"
     );
-    eprintln!(
-        "competition-mode leg classified {checked} commands: {thrash} thrash, {legal} legal"
-    );
+    eprintln!("competition-mode leg classified {checked} commands: {thrash} thrash, {legal} legal");
 }
 
 /// A throwaway policy module, so a deliberately out-of-contract leg can be
@@ -352,7 +352,10 @@ fn a_turn_with_no_live_generation_uses_the_shipped_competition_leg() {
     );
     // Callers hand the scan a lowercased command, as the shell scan does.
     let (hit, source) = ls_decided(None, &"ls -laR".to_ascii_lowercase());
-    assert!(hit, "the shipped scan still calls a recursive listing thrash");
+    assert!(
+        hit,
+        "the shipped scan still calls a recursive listing thrash"
+    );
     assert!(
         matches!(source, LegSource::Shipped { .. }),
         "{source:?} did not name the shipped leg"

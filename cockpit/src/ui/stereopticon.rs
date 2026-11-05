@@ -47,10 +47,7 @@ pub(crate) fn decode_viewport(area: Rect, cell: (u16, u16)) -> (usize, usize) {
     }
     let w = (u32::from(area.width) * u32::from(cell.0)).div_ceil(2);
     let h = (u32::from(area.height) * u32::from(cell.1)).div_ceil(4);
-    (
-        w.clamp(1, 640) as usize,
-        h.clamp(1, 180) as usize,
-    )
+    (w.clamp(1, 640) as usize, h.clamp(1, 180) as usize)
 }
 
 /// What a `present` did: nothing (no window), drew the frame, or held an
@@ -191,7 +188,8 @@ fn blank(buffer: &mut Buffer, area: Rect) {
     for y in area.y..area.bottom() {
         for x in area.x..area.right() {
             if let Some(cell) = buffer.cell_mut((x, y)) {
-                cell.set_symbol(" ").set_bg(ratatui::style::Color::Rgb(0, 0, 0));
+                cell.set_symbol(" ")
+                    .set_bg(ratatui::style::Color::Rgb(0, 0, 0));
             }
         }
     }
@@ -244,10 +242,16 @@ fn centre_of(rect: Rect) -> [f32; 2] {
 /// A quad in cells, leaned with the panel: the Orrery's own lean, so the
 /// two panels read as objects from one world.
 #[cfg(feature = "glass")]
-fn leaned(id: u64, z: i32, rect: [f32; 4], kind: angel_glass::LayerKind, centre: [f32; 2]) -> angel_glass::Layer {
+fn leaned(
+    id: u64,
+    z: i32,
+    rect: [f32; 4],
+    kind: angel_glass::LayerKind,
+    centre: [f32; 2],
+) -> angel_glass::Layer {
     // The lean turns in pixels, as the window turns the quad.
-    let unit = crate::ui::glass::cell_pixels()
-        .map_or((12.0, 25.0), |(w, h)| (f32::from(w), f32::from(h)));
+    let unit =
+        crate::ui::glass::cell_pixels().map_or((12.0, 25.0), |(w, h)| (f32::from(w), f32::from(h)));
     let (rect, angle) = crate::ui::orrery::tilted_rect_in(rect, centre, unit);
     let mut layer = angel_glass::Layer::new(id, z, angel_glass::Placement::Cells(rect), kind);
     layer.angle = angle;
@@ -323,7 +327,13 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
         [sx - 0.24, sy - 0.24, 0.10, sh + 0.48],
         [sx + sw + 0.14, sy - 0.24, 0.10, sh + 0.48],
     ] {
-        let mut bar = leaned(id, 5, rim, LayerKind::Solid([CHROME[0], CHROME[1], CHROME[2], 0.55]), centre);
+        let mut bar = leaned(
+            id,
+            5,
+            rim,
+            LayerKind::Solid([CHROME[0], CHROME[1], CHROME[2], 0.55]),
+            centre,
+        );
         bar.additive = true;
         bar.flicker = 0.06;
         out.push(bar);
@@ -406,12 +416,7 @@ fn frame_layers(placed: Rect, k: f32, paused: bool, clock: f32) -> Vec<angel_gla
     let mut sweep = Layer::new(
         60,
         9,
-        Placement::Cells([
-            sx,
-            sy + sweep * sh,
-            sw,
-            0.7_f32.min(sh * 0.12),
-        ]),
+        Placement::Cells([sx, sy + sweep * sh, sw, 0.7_f32.min(sh * 0.12)]),
         LayerKind::Solid([0.35, 0.75, 1.0, 0.08]),
     );
     sweep.additive = true;
@@ -438,7 +443,13 @@ fn warming_layers(plate: Rect, centre: [f32; 2], t: f32) -> Vec<angel_glass::Lay
         Placement::Cells([px + 0.6, py + ph * 0.55, pw, ph * 0.5]),
         LayerKind::Solid([0.0, 0.0, 0.0, 0.18]),
     ));
-    out.push(leaned(2, 1, [px, py, pw, ph], LayerKind::Solid(PLATE), centre));
+    out.push(leaned(
+        2,
+        1,
+        [px, py, pw, ph],
+        LayerKind::Solid(PLATE),
+        centre,
+    ));
     let arm_w = (pw * 0.14).min(3.6).max(1.2);
     let arm_h = (ph * 0.14).min(2.4).max(0.9);
     let mut id = 20u64;

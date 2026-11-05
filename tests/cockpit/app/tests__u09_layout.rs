@@ -12,7 +12,8 @@ fn fixture() -> App {
         "cmd=echo U09_COMMAND {}; echo END",
         "long-command-界 ".repeat(40)
     );
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call_event(id.clone(), "shell", &command);
     app.realm.world.note_tool_result_event(
         &id,
@@ -138,7 +139,8 @@ fn u09_header_activity_never_shares_the_picker_row() {
             "picker row contains tool text: {text}"
         );
         assert!(
-            app.realm.world
+            app.realm
+                .world
                 .causal_ribbon()
                 .is_some_and(|ribbon| ribbon.contains("failed")),
             "failure remains in the event state"

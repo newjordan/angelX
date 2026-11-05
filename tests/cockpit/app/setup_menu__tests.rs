@@ -624,13 +624,19 @@ fn setup_card_mouse_reads_the_cells_and_ignores_clicks_off_the_card() {
     use angel_glass::card::Card;
     use ratatui::buffer::Buffer;
     let mut app = App::new(Bag::practice_for_test(), Viewer::new());
-    app.setup.menu = Some(Menu::new(Found::default(), Tools::default(), Instant::now()));
+    app.setup.menu = Some(Menu::new(
+        Found::default(),
+        Tools::default(),
+        Instant::now(),
+    ));
     let area = Rect::new(10, 5, 80, 30);
     let target = Rect::new(15, 15, 1, 1);
     app.setup.hits = vec![(target, Hit::Back), (Rect::new(5, 2, 1, 1), Hit::Back)];
     app.setup.card = Card::new(area, Buffer::empty(Rect::new(0, 0, 80, 30)));
     let mut event = MouseEvent {
-        kind: MouseEventKind::Down(MouseButton::Left), column: 5, row: 2,
+        kind: MouseEventKind::Down(MouseButton::Left),
+        column: 5,
+        row: 2,
         modifiers: KeyModifiers::NONE,
     };
     app.setup_mouse(event);
@@ -638,5 +644,8 @@ fn setup_card_mouse_reads_the_cells_and_ignores_clicks_off_the_card() {
     event.column = target.x;
     event.row = target.y;
     app.setup_mouse(event);
-    assert!(!app.setup.open(), "the Back target on the card closes the home page");
+    assert!(
+        !app.setup.open(),
+        "the Back target on the card closes the home page"
+    );
 }

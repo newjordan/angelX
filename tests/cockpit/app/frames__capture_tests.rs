@@ -279,7 +279,8 @@ fn frames_capture() {
     // ── FIG.01 — the console at work ─────────────────────────────────────
     let mut app = seed_preview_app();
     let id = crate::agent::harness::ToolEventId("frames-read".into());
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call_event(id.clone(), "shell", "cargo test --no-default-features");
     app.realm.world.note_tool_result_event(
         &id,
@@ -291,7 +292,8 @@ fn frames_capture() {
         },
     );
     let read = crate::agent::harness::ToolEventId("frames-edit".into());
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call_event(read, "edit", "hashline · cockpit.rs");
     // Seed a real session so the plate shows the console in use, not a cold
     // shell: two committed turns, a live tool trace, and an in-flight partial.

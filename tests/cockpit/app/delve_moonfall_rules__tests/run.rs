@@ -47,7 +47,6 @@ fn two_seats_play_at_once_and_a_late_knight_sits_down() {
     assert!(s.valid() && angel_delve::wire::drawable(&r));
 }
 
-
 #[test]
 fn six_seats_play_at_once_and_replay_byte_identically() {
     let (mut a, mut b) = (table(MAX_PLAYERS), table(MAX_PLAYERS));
@@ -67,7 +66,6 @@ fn six_seats_play_at_once_and_replay_byte_identically() {
     );
     assert_eq!(a.wire_copy().moonfall, a.moonfall);
 }
-
 
 #[test]
 fn holding_leave_stands_one_seat_up_and_the_last_out_closes_the_run() {
@@ -111,4 +109,3 @@ fn holding_leave_stands_one_seat_up_and_the_last_out_closes_the_run() {
     assert_eq!(r.room().kind, RoomKind::Kingdom);
     assert!(r.moonfall.is_none() && r.exits.outside.is_empty() && !r.minigame_showing());
 }
-

@@ -1022,7 +1022,12 @@ fn richer_shared_inputs_keep_validation_and_griffinwing_parity() {
     let mut pair = Pair::new(1, Nums::default(), "shared input fields");
     for mirror in [0, 1, 6, 7, 255] {
         for team in [false, true] {
-            let input = Input { mirror, team, fire: true, ..Input::default() };
+            let input = Input {
+                mirror,
+                team,
+                fire: true,
+                ..Input::default()
+            };
             assert_eq!(input.valid(), mirror <= 6);
             pair.tick(&BTreeMap::from([(1, input)]));
         }

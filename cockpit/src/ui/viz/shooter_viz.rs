@@ -3,18 +3,18 @@
 mod race3d;
 mod scroll;
 
-pub(crate) use scroll::{Scroll, offer_box, scroll_of};
 pub(super) use scroll::reforge_box;
+pub(crate) use scroll::{Scroll, offer_box, scroll_of};
 
 use super::delve_hud;
 use crate::drive::together_realm::{Realm, Status};
+use crate::drive::together_seat::{Picture, Seat};
 use crate::drive::together_shooter::hud::Keys;
 use crate::drive::together_shooter::{
     Card, EnemyKind, Phase, RoomKind, Run,
     cards::{Kind, Rarity},
 };
 use crate::stage::world_viz::overworld::{Img, arena};
-use crate::drive::together_seat::{Picture, Seat};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -109,15 +109,42 @@ pub(crate) fn paint_pixels(frame: &mut Frame, area: Rect, img: &Img) {
 /// The room in cells drawn here from the run itself: the review route
 /// (live play draws each seat's picture on its own client).
 #[cfg(test)]
-pub(crate) fn paint_room(frame:&mut Frame,area:Rect,run:&Run,focus:Option<u32>) {
-    if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.pennon_showing() || run.rafterwake_showing() {
-        if let Some((base,fx))=arena::terminal_layers_live(run,focus) {
-            if run.pennon_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::pennon_contour_colour(run,focus));} else if run.rafterwake_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::rafterwake_contour_colour(run,focus));} else {crate::stage::world_viz::art::paint_cells(frame,area,&base,&fx);}
+pub(crate) fn paint_room(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>) {
+    if run.race3d_showing()
+        || run.forest_road_showing()
+        || run.roundtable_showing()
+        || run.cinder_showing()
+        || run.latch_showing()
+        || run.mossbell_showing()
+        || run.brasswake_showing()
+        || run.pennon_showing()
+        || run.rafterwake_showing()
+    {
+        if let Some((base, fx)) = arena::terminal_layers_live(run, focus) {
+            if run.pennon_showing() {
+                crate::stage::world_viz::art::paint_rafterwake_cells(
+                    frame,
+                    area,
+                    &base,
+                    &fx,
+                    arena::pennon_contour_colour(run, focus),
+                );
+            } else if run.rafterwake_showing() {
+                crate::stage::world_viz::art::paint_rafterwake_cells(
+                    frame,
+                    area,
+                    &base,
+                    &fx,
+                    arena::rafterwake_contour_colour(run, focus),
+                );
+            } else {
+                crate::stage::world_viz::art::paint_cells(frame, area, &base, &fx);
+            }
             return;
         }
     }
-    let img=arena::frame_for(run,area.width as i32,area.height as i32*2,focus);
-    paint_pixels(frame,area,&img);
+    let img = arena::frame_for(run, area.width as i32, area.height as i32 * 2, focus);
+    paint_pixels(frame, area, &img);
 }
 
 /// A seat's own picture in half blocks, scaled to the room's cells.
@@ -142,18 +169,55 @@ pub(crate) fn paint_picture(frame: &mut Frame, area: Rect, picture: &Picture) {
 
 /// The room in cells from the seat's own picture (black before its first),
 /// with the tray and panels over it as the cell route draws them.
-pub(crate) fn paint_picture_ui(frame: &mut Frame, area: Rect, run: &Run, picture: Option<&Picture>, focus: Option<u32>) {
-    if run.race3d_showing() || run.forest_road_showing() || run.roundtable_showing() || run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.rafterwake_showing() || run.pennon_showing() {
+pub(crate) fn paint_picture_ui(
+    frame: &mut Frame,
+    area: Rect,
+    run: &Run,
+    picture: Option<&Picture>,
+    focus: Option<u32>,
+) {
+    if run.race3d_showing()
+        || run.forest_road_showing()
+        || run.roundtable_showing()
+        || run.cinder_showing()
+        || run.latch_showing()
+        || run.mossbell_showing()
+        || run.brasswake_showing()
+        || run.rafterwake_showing()
+        || run.pennon_showing()
+    {
         let (base, fx) = arena::terminal_layers_live(run, focus).expect("Mini-game cell layers");
-        if run.pennon_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::pennon_contour_colour(run,focus));} else if run.rafterwake_showing() {crate::stage::world_viz::art::paint_rafterwake_cells(frame,area,&base,&fx,arena::rafterwake_contour_colour(run,focus));} else {crate::stage::world_viz::art::paint_cells(frame,area,&base,&fx);}
+        if run.pennon_showing() {
+            crate::stage::world_viz::art::paint_rafterwake_cells(
+                frame,
+                area,
+                &base,
+                &fx,
+                arena::pennon_contour_colour(run, focus),
+            );
+        } else if run.rafterwake_showing() {
+            crate::stage::world_viz::art::paint_rafterwake_cells(
+                frame,
+                area,
+                &base,
+                &fx,
+                arena::rafterwake_contour_colour(run, focus),
+            );
+        } else {
+            crate::stage::world_viz::art::paint_cells(frame, area, &base, &fx);
+        }
     } else {
         match picture {
             Some(picture) => {
                 paint_picture(frame, area, picture);
                 if arena::has_boss_projectiles(run) {
-                    crate::stage::world_viz::art::paint_projectile_cells(frame, area, &picture.img());
+                    crate::stage::world_viz::art::paint_projectile_cells(
+                        frame,
+                        area,
+                        &picture.img(),
+                    );
                 }
-            },
+            }
             None => frame.render_widget(Clear, area),
         }
     }
@@ -162,8 +226,8 @@ pub(crate) fn paint_picture_ui(frame: &mut Frame, area: Rect, run: &Run, picture
 
 /// The cell route used by review.
 #[cfg(test)]
-pub(crate) fn paint_room_ui(frame:&mut Frame,area:Rect,run:&Run,focus:Option<u32>) {
-    paint_room(frame,area,run,focus);
+pub(crate) fn paint_room_ui(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>) {
+    paint_room(frame, area, run, focus);
     paint_overlay(frame, area, run, focus);
 }
 
@@ -177,27 +241,45 @@ fn paint_overlay(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>) {
         // Older stages carry the native HUD in their seat picture. Cover
         // its two sampled rows before placing the legible cell label.
         let backing = Rect::new(area.right() - 24, area.bottom() - 2, 24, 2);
-        frame.render_widget(Block::default().style(Style::new().bg(Color::Rgb(0x19, 0x29, 0x34))), backing);
+        frame.render_widget(
+            Block::default().style(Style::new().bg(Color::Rgb(0x19, 0x29, 0x34))),
+            backing,
+        );
         let hud = Rect::new(area.right() - 24, area.bottom() - 1, 24, 1);
-        frame.render_widget(Paragraph::new(text).style(Style::new().fg(PARCHMENT).bg(Color::Rgb(0x19, 0x29, 0x34))), hud);
+        frame.render_widget(
+            Paragraph::new(text).style(Style::new().fg(PARCHMENT).bg(Color::Rgb(0x19, 0x29, 0x34))),
+            hud,
+        );
     }
 }
 
 fn paint_game_panels(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>) {
-    if run.forest_road_showing() {crate::stage::world_viz::art::paint_forest_road_panels(frame,area,run,focus);return;}
-    if run.roundtable_showing() {crate::stage::world_viz::art::paint_roundtable_panels(frame,area,run,focus);return;}
-    if run.race3d_showing() { race3d::paint(frame, area, run, focus); return; }
-    if run.pennon_showing() {crate::stage::world_viz::art::paint_pennon_panels(frame,area,run,focus);return;}
+    if run.forest_road_showing() {
+        crate::stage::world_viz::art::paint_forest_road_panels(frame, area, run, focus);
+        return;
+    }
+    if run.roundtable_showing() {
+        crate::stage::world_viz::art::paint_roundtable_panels(frame, area, run, focus);
+        return;
+    }
+    if run.race3d_showing() {
+        race3d::paint(frame, area, run, focus);
+        return;
+    }
+    if run.pennon_showing() {
+        crate::stage::world_viz::art::paint_pennon_panels(frame, area, run, focus);
+        return;
+    }
     if run.rafterwake_showing() {
-        crate::stage::world_viz::art::paint_rafterwake_panels(frame,area,run,focus);
+        crate::stage::world_viz::art::paint_rafterwake_panels(frame, area, run, focus);
         return;
     }
     if run.brasswake_showing() {
-        crate::stage::world_viz::art::paint_brasswake_panels(frame,area,run,focus);
+        crate::stage::world_viz::art::paint_brasswake_panels(frame, area, run, focus);
         return;
     }
     if run.mossbell_showing() {
-        crate::stage::world_viz::art::paint_mossbell_panels(frame,area,run,focus);
+        crate::stage::world_viz::art::paint_mossbell_panels(frame, area, run, focus);
         return;
     }
     if run.latch_showing() {
@@ -208,9 +290,9 @@ fn paint_game_panels(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32
         crate::stage::world_viz::art::paint_cinder_panels(frame, area, run, focus.unwrap_or(1));
         return;
     }
-    let id=focus.unwrap_or_else(||run.playtest.local_seat());
+    let id = focus.unwrap_or_else(|| run.playtest.local_seat());
     if run.floor_plate(focus).is_none() {
-        delve_hud::paint_tray(frame,area,run,id,Keys::of(id,focus.is_none()));
+        delve_hud::paint_tray(frame, area, run, id, Keys::of(id, focus.is_none()));
     }
 }
 
@@ -315,7 +397,22 @@ pub(crate) fn render(
     reforge: Option<Wish>,
     native: bool,
 ) -> bool {
-    render_room(frame, run, Room::Run, area, notice, key_releases, paused, hosted, harness, cards, realm, said, reforge, native)
+    render_room(
+        frame,
+        run,
+        Room::Run,
+        area,
+        notice,
+        key_releases,
+        paused,
+        hosted,
+        harness,
+        cards,
+        realm,
+        said,
+        reforge,
+        native,
+    )
 }
 
 /// The delve's whole screen around `room`.
@@ -370,9 +467,7 @@ pub(crate) fn render_room(
             Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Trophies => {
                 "WHAT THE REALM FELLED"
             }
-            Phase::Exploring if run.room().kind == RoomKind::Kingdom => {
-                "WALK, E ENTERS"
-            }
+            Phase::Exploring if run.room().kind == RoomKind::Kingdom => "WALK, E ENTERS",
             Phase::Exploring if run.at_home_now() && run.room().kind == RoomKind::Gate => {
                 "DOWN THE STAIR"
             }
@@ -394,30 +489,20 @@ pub(crate) fn render_room(
             {
                 "E TALKS"
             }
-            Phase::Exploring if run.at_home_now() && run.room().kind.in_world() => {
-                "WALK ON"
-            }
-            Phase::Exploring if run.at_home_now() => {
-                "HOLD E ON A PLATE: BUILD"
-            }
+            Phase::Exploring if run.at_home_now() && run.room().kind.in_world() => "WALK ON",
+            Phase::Exploring if run.at_home_now() => "HOLD E ON A PLATE: BUILD",
             Phase::Exploring if run.boss_gate_line().is_some_and(|s| s.contains(": sealed")) => {
                 "SEALED: BEAT THE CHIEFS"
             }
-            Phase::Exploring if run.light.is_some() => {
-                "THE DRAGON IS SLAIN"
-            }
+            Phase::Exploring if run.light.is_some() => "THE DRAGON IS SLAIN",
             Phase::Fighting if run.side_on() => "FIGHT  W JUMPS TWICE",
             Phase::Fighting => "FIGHT",
             Phase::Exploring if run.side_on() => "CLEAR  WEST DOOR BACK",
             Phase::Exploring if run.can_wish(1) && run.room().kind != RoomKind::Sanctuary => {
                 "CLEAR  T: A WISH"
             }
-            Phase::Exploring if run.room().kind == RoomKind::Sanctuary => {
-                "SANCTUARY  T: A WISH"
-            }
-            Phase::Exploring if run.room().kind == RoomKind::Stairs => {
-                "CLEAR  DOWN THE STAIRS"
-            }
+            Phase::Exploring if run.room().kind == RoomKind::Sanctuary => "SANCTUARY  T: A WISH",
+            Phase::Exploring if run.room().kind == RoomKind::Stairs => "CLEAR  DOWN THE STAIRS",
             Phase::Exploring => "CLEAR",
             Phase::Won => "VICTORY  R: HOME",
             Phase::Wiped => "FALLEN  R: HOME",
@@ -876,7 +961,7 @@ pub(crate) fn render_room(
             ));
             rows.push((String::new(), DIM));
         }
-        floor_chrome=Some(rows.len());
+        floor_chrome = Some(rows.len());
         rows.push((run.dungeon.pack.name().to_string(), PARCHMENT));
         // The chiefs, the key and the camps, in plain words, here only.
         for (i, said) in gate.into_iter().enumerate() {
@@ -884,11 +969,11 @@ pub(crate) fn render_room(
                 rows.push((chunk, if i == 0 { GOLD } else { STONE }));
             }
         }
-        let map_start=rows.len();
+        let map_start = rows.len();
         for map_row in floor_map(run) {
             rows.push((map_row, STONE));
         }
-        map_chrome=Some((map_start,rows.len()-map_start));
+        map_chrome = Some((map_start, rows.len() - map_start));
         for legend in MAP_LEGEND {
             rows.push((legend.to_string(), DIM));
         }
@@ -897,7 +982,11 @@ pub(crate) fn render_room(
     if arena::hud_art::enabled(run) {
         for (row, name) in chrome_rows {
             if row < usize::from(side.height) {
-                delve_hud::paint_chrome(frame, Rect::new(side.x,side.y+row as u16,side.width,1),name);
+                delve_hud::paint_chrome(
+                    frame,
+                    Rect::new(side.x, side.y + row as u16, side.width, 1),
+                    name,
+                );
             }
         }
     }
@@ -908,14 +997,25 @@ pub(crate) fn render_room(
         );
     }
     if arena::hud_art::enabled(run) {
-        if let Some(row)=floor_chrome {
-            let y=side.y+hud_height+row as u16;
-            if y < side.bottom() {delve_hud::paint_chrome(frame,Rect::new(side.x,y,side.width,1),"floor");}
-        }
-        if let Some((row,height))=map_chrome {
-            let y=side.y+hud_height+row as u16;
+        if let Some(row) = floor_chrome {
+            let y = side.y + hud_height + row as u16;
             if y < side.bottom() {
-                delve_hud::paint_chrome(frame,Rect::new(side.x,y,side.width,(height as u16).min(side.bottom()-y)),"minimap");
+                delve_hud::paint_chrome(frame, Rect::new(side.x, y, side.width, 1), "floor");
+            }
+        }
+        if let Some((row, height)) = map_chrome {
+            let y = side.y + hud_height + row as u16;
+            if y < side.bottom() {
+                delve_hud::paint_chrome(
+                    frame,
+                    Rect::new(
+                        side.x,
+                        y,
+                        side.width,
+                        (height as u16).min(side.bottom() - y),
+                    ),
+                    "minimap",
+                );
             }
         }
     }
@@ -1150,7 +1250,9 @@ pub(super) fn wish_confirm(frame: &mut Frame, room: Rect, wish: &Wish, seal: boo
     );
 }
 
-pub(crate) use angel_realm_host::card_pages::{BOOK_PAGE, REALM_PAGE, bestiary_page, book_pages, card_pages};
+pub(crate) use angel_realm_host::card_pages::{
+    BOOK_PAGE, REALM_PAGE, bestiary_page, book_pages, card_pages,
+};
 const CARD_W: u16 = 20;
 const CARD_H: u16 = 13;
 
@@ -1262,7 +1364,9 @@ pub(crate) fn cards_of(
             for (slot, id) in hero.spells.iter().enumerate() {
                 if let Some(card) = id.as_deref().and_then(|id| book.get(id)) {
                     let tier = usize::from(hero.tiers.get(&card.id).copied().unwrap_or(0)).min(2);
-                    let name = if card.id.starts_with("wish-") { card.name.clone() } else {
+                    let name = if card.id.starts_with("wish-") {
+                        card.name.clone()
+                    } else {
                         format!("{} {}", card.name, ["I", "II", "III"][tier])
                     };
                     shown.push((format!("{} {name}", Keys::FIRST.spells[slot]), card));
@@ -1625,16 +1729,24 @@ pub(crate) fn render_seat(
         let placed = crate::ui::viewer::game_placement(room, size);
         crate::ui::glass::stage(&scene, room, placed, frame.buffer_mut());
         // Thrown things follow the stage's floor where it tips away.
-        let tilt = if scene.is_flat() { 0.0 } else { arena::stage_frame::TILT };
+        let tilt = if scene.is_flat() {
+            0.0
+        } else {
+            arena::stage_frame::TILT
+        };
         crate::ui::glass::lifted(&seat.lifted(), size, placed, tilt);
         return true;
     }
     // Terminal picture path. Every display frame is a new picture: the
     // seat's own knight answers its keys at once, everyone else moves
     // between ticks. Glass never reaches here: it draws from parts above.
-    let sequence = now.duration_since(*EPOCH.get_or_init(std::time::Instant::now)).as_micros() as u64;
+    let sequence = now
+        .duration_since(*EPOCH.get_or_init(std::time::Instant::now))
+        .as_micros() as u64;
     let draw = seat.drawer();
-    viewer.render_game_async(frame, room, sequence, size, render_wait(), move || draw(now))
+    viewer.render_game_async(frame, room, sequence, size, render_wait(), move || {
+        draw(now)
+    })
 }
 
 /// Where display frames are counted from.
@@ -1693,24 +1805,67 @@ mod escape_review {
     fn write_escape_hold_review() {
         let dir = std::path::PathBuf::from(std::env::var_os("ANGEL_ESCAPE_SHOTS").unwrap());
         std::fs::create_dir_all(&dir).unwrap();
-        for (name, make) in [("brasswake", Run::brasswake_for_test as fn() -> Run), ("mossbell", Run::mossbell_for_test)] {
+        for (name, make) in [
+            ("brasswake", Run::brasswake_for_test as fn() -> Run),
+            ("mossbell", Run::mossbell_for_test),
+        ] {
             let mut run = make();
-            for id in 2..=4 { run.join_seat(id, &format!("Knight {id}")); }
+            for id in 2..=4 {
+                run.join_seat(id, &format!("Knight {id}"));
+            }
             run.floor_plates.clear();
-            run.step(&std::collections::BTreeMap::from([(1, angel_delve::rules::Input { interact: true, ..Default::default() })]));
-            for _ in 0..90 { run.step(&Default::default()); }
+            run.step(&std::collections::BTreeMap::from([(
+                1,
+                angel_delve::rules::Input {
+                    interact: true,
+                    ..Default::default()
+                },
+            )]));
+            for _ in 0..90 {
+                run.step(&Default::default());
+            }
             for moment in ["hint", "hold"] {
                 if moment == "hold" {
-                    for _ in 0..8 { run.step(&std::collections::BTreeMap::from([(1, angel_delve::rules::Input { leave_held: true, ..Default::default() })])); }
+                    for _ in 0..8 {
+                        run.step(&std::collections::BTreeMap::from([(
+                            1,
+                            angel_delve::rules::Input {
+                                leave_held: true,
+                                ..Default::default()
+                            },
+                        )]));
+                    }
                 }
                 let mut native = arena::frame_for(&run, 768, 448, Some(1));
                 angel_delve::render::escape::paint(&mut native, &run, Some(1));
-                image::save_buffer(dir.join(format!("{name}-{moment}-native.png")), &native.rgb_bytes(), native.w as u32, native.h as u32, image::ColorType::Rgb8).unwrap();
+                image::save_buffer(
+                    dir.join(format!("{name}-{moment}-native.png")),
+                    &native.rgb_bytes(),
+                    native.w as u32,
+                    native.h as u32,
+                    image::ColorType::Rgb8,
+                )
+                .unwrap();
                 let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
-                terminal.draw(|f| paint_room_ui(f, Rect::new(0, 0, 96, 28), &run, Some(1))).unwrap();
-                let rgb = |c| match c { Color::Rgb(r,g,b) => [r,g,b], _ => [0,0,0] };
-                let cells: Vec<_> = terminal.backend().buffer().content().iter().map(|c| serde_json::json!({"glyph":c.symbol(),"fg":rgb(c.fg),"bg":rgb(c.bg)})).collect();
-                std::fs::write(dir.join(format!("{name}-{moment}-cells.json")), serde_json::to_vec(&cells).unwrap()).unwrap();
+                terminal
+                    .draw(|f| paint_room_ui(f, Rect::new(0, 0, 96, 28), &run, Some(1)))
+                    .unwrap();
+                let rgb = |c| match c {
+                    Color::Rgb(r, g, b) => [r, g, b],
+                    _ => [0, 0, 0],
+                };
+                let cells: Vec<_> = terminal
+                    .backend()
+                    .buffer()
+                    .content()
+                    .iter()
+                    .map(|c| serde_json::json!({"glyph":c.symbol(),"fg":rgb(c.fg),"bg":rgb(c.bg)}))
+                    .collect();
+                std::fs::write(
+                    dir.join(format!("{name}-{moment}-cells.json")),
+                    serde_json::to_vec(&cells).unwrap(),
+                )
+                .unwrap();
             }
         }
     }

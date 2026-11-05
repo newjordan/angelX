@@ -96,7 +96,11 @@ fn item_of(media: &Media) -> Option<Item> {
     } else {
         return None;
     };
-    Some(Item::Media { kind, source, title: media.label().to_string() })
+    Some(Item::Media {
+        kind,
+        source,
+        title: media.label().to_string(),
+    })
 }
 
 /// Whether two showings are of the same file.
@@ -135,7 +139,10 @@ pub(crate) fn open_chart(chart: &crate::knowledge::graph_crop::Chart) -> bool {
         if crate::ui::glass::host().is_none() {
             return false;
         }
-        present(Item::Chart(crate::ui::showcase_chart::Plot::from_chart(chart)), true)
+        present(
+            Item::Chart(crate::ui::showcase_chart::Plot::from_chart(chart)),
+            true,
+        )
     }
     #[cfg(not(feature = "glass"))]
     {
@@ -178,21 +185,40 @@ pub(crate) fn poll() -> Option<crate::ui::scryglass::StageCopyPayload> {
 fn copy_payload(item: &Item) -> Option<crate::ui::scryglass::StageCopyPayload> {
     use crate::ui::scryglass::StageCopyPayload;
     Some(match item {
-        Item::Media { kind: Kind::Still, source, title } => StageCopyPayload {
+        Item::Media {
+            kind: Kind::Still,
+            source,
+            title,
+        } => StageCopyPayload {
             text: source.path.display().to_string(),
             fallback_file: "showcase-image-path.txt",
             description: format!("Showcase image · {title}"),
-            image: Some(crate::ui::clipboard::ClipboardImageSource::File(source.clone())),
+            image: Some(crate::ui::clipboard::ClipboardImageSource::File(
+                source.clone(),
+            )),
         },
-        Item::Media { kind: Kind::Page, source, title } => {
+        Item::Media {
+            kind: Kind::Page,
+            source,
+            title,
+        } => {
             use std::io::Read as _;
             let mut bytes = Vec::new();
             let text = source
                 .open()
-                .and_then(|file| file.take(PAGE_BYTES).read_to_end(&mut bytes).map_err(|e| e.to_string()))
+                .and_then(|file| {
+                    file.take(PAGE_BYTES)
+                        .read_to_end(&mut bytes)
+                        .map_err(|e| e.to_string())
+                })
                 .map(|_| String::from_utf8_lossy(&bytes).into_owned())
                 .unwrap_or_else(|_| source.path.display().to_string());
-            StageCopyPayload { text, fallback_file: "showcase-page.txt", description: format!("Showcase text · {title}"), image: None }
+            StageCopyPayload {
+                text,
+                fallback_file: "showcase-page.txt",
+                description: format!("Showcase text · {title}"),
+                image: None,
+            }
         }
         Item::Media { source, title, .. } => StageCopyPayload {
             text: source.path.display().to_string(),
@@ -237,7 +263,11 @@ fn step(host: &'static angel_glass::Host) {
 #[cfg(feature = "glass")]
 #[derive(Clone)]
 enum Item {
-    Media { kind: Kind, source: MediaSource, title: String },
+    Media {
+        kind: Kind,
+        source: MediaSource,
+        title: String,
+    },
     Chart(crate::ui::showcase_chart::Plot),
 }
 
@@ -260,7 +290,8 @@ struct History {
 const HISTORY_KEEP: usize = 32;
 
 #[cfg(feature = "glass")]
-static HISTORY: std::sync::LazyLock<std::sync::Mutex<History>> = std::sync::LazyLock::new(Default::default);
+static HISTORY: std::sync::LazyLock<std::sync::Mutex<History>> =
+    std::sync::LazyLock::new(Default::default);
 
 /// Show `item`, a new one (`fresh`, which ends any forward history) or
 /// one stepped to.
@@ -295,10 +326,18 @@ fn present(item: Item, fresh: bool) -> bool {
     let ticket = TICKET.fetch_add(1, std::sync::atomic::Ordering::AcqRel) + 1;
     let asked = std::time::Instant::now();
     let kind = match &item {
-        Item::Media { kind: Kind::Still, .. } => "picture",
-        Item::Media { kind: Kind::Video, .. } => "video",
-        Item::Media { kind: Kind::Page, .. } => "page",
-        Item::Media { kind: Kind::Model, .. } => "model",
+        Item::Media {
+            kind: Kind::Still, ..
+        } => "picture",
+        Item::Media {
+            kind: Kind::Video, ..
+        } => "video",
+        Item::Media {
+            kind: Kind::Page, ..
+        } => "page",
+        Item::Media {
+            kind: Kind::Model, ..
+        } => "model",
         Item::Chart(_) => "chart",
     };
     std::thread::Builder::new()
@@ -308,12 +347,39 @@ fn present(item: Item, fresh: bool) -> bool {
                 Item::Media { title, .. } => title.clone(),
                 Item::Chart(plot) => plot.title.clone(),
             };
-            let shown = Shown { host, title: &title, livery, retinue, names, back, forward, ticket, asked, kind };
+            let shown = Shown {
+                host,
+                title: &title,
+                livery,
+                retinue,
+                names,
+                back,
+                forward,
+                ticket,
+                asked,
+                kind,
+            };
             let outcome = match &item {
-                Item::Media { kind: Kind::Still, source, .. } => still(&shown, source),
-                Item::Media { kind: Kind::Video, source, .. } => video(&shown, source),
-                Item::Media { kind: Kind::Page, source, .. } => page(&shown, source),
-                Item::Media { kind: Kind::Model, source, .. } => model(&shown, source),
+                Item::Media {
+                    kind: Kind::Still,
+                    source,
+                    ..
+                } => still(&shown, source),
+                Item::Media {
+                    kind: Kind::Video,
+                    source,
+                    ..
+                } => video(&shown, source),
+                Item::Media {
+                    kind: Kind::Page,
+                    source,
+                    ..
+                } => page(&shown, source),
+                Item::Media {
+                    kind: Kind::Model,
+                    source,
+                    ..
+                } => model(&shown, source),
                 Item::Chart(plot) => shown.chart(plot),
             };
             if let Err(error) = outcome {
@@ -391,17 +457,27 @@ impl Shown<'_> {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map_or(0, |d| d.as_millis() as u64),
         });
-        if let Ok(mut file) = std::fs::OpenOptions::new().create(true).append(true).open(path) {
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(path)
+        {
             use std::io::Write as _;
             let _ = writeln!(file, "{line}");
         }
     }
 
     fn open(&self, size: (u32, u32), fit: angel_glass::Fit) -> u64 {
-        self.host.showcase(self.showing(size, fit, angel_glass::Herald::Squire))
+        self.host
+            .showcase(self.showing(size, fit, angel_glass::Herald::Squire))
     }
 
-    fn showing(&self, size: (u32, u32), fit: angel_glass::Fit, herald: angel_glass::Herald) -> angel_glass::Showing {
+    fn showing(
+        &self,
+        size: (u32, u32),
+        fit: angel_glass::Fit,
+        herald: angel_glass::Herald,
+    ) -> angel_glass::Showing {
         let mut showing = angel_glass::Showing::new(self.title, size, fit);
         showing.herald = herald;
         showing.livery = self.livery;
@@ -419,10 +495,13 @@ impl Shown<'_> {
             ((room.0 as f32 * 0.66) as u32).clamp(640, 1800),
             ((room.1 as f32 * 0.62) as u32).clamp(360, 1000),
         );
-        let cell_height = u16::try_from(self.host.grid_size().cell_height).unwrap_or(16).max(8);
-        let (rgba, marks) =
-            crate::ui::showcase_chart::render(plot, size, cell_height).ok_or("the chart has no room to draw")?;
-        let mut showing = self.showing(size, angel_glass::Fit::Contain, angel_glass::Herald::Wizard);
+        let cell_height = u16::try_from(self.host.grid_size().cell_height)
+            .unwrap_or(16)
+            .max(8);
+        let (rgba, marks) = crate::ui::showcase_chart::render(plot, size, cell_height)
+            .ok_or("the chart has no room to draw")?;
+        let mut showing =
+            self.showing(size, angel_glass::Fit::Contain, angel_glass::Herald::Wizard);
         // The wizard comes alone.
         showing.retinue.clear();
         self.publish(|| {
@@ -430,7 +509,11 @@ impl Shown<'_> {
             self.host.showcase_marks(
                 marks
                     .into_iter()
-                    .map(|m| angel_glass::Mark { rect: m.rect, anchor: m.anchor, text: m.text })
+                    .map(|m| angel_glass::Mark {
+                        rect: m.rect,
+                        anchor: m.anchor,
+                        text: m.text,
+                    })
                     .collect(),
             );
             self.host.showcase(showing);
@@ -444,10 +527,19 @@ impl Shown<'_> {
 /// serves and the squire wears the Keep's own; and the colours of the
 /// houses a formation seated beside it.
 #[cfg(feature = "glass")]
-fn liveries() -> (Option<angel_glass::Livery>, Vec<angel_glass::Livery>, Vec<Vec<String>>) {
+fn liveries() -> (
+    Option<angel_glass::Livery>,
+    Vec<angel_glass::Livery>,
+    Vec<Vec<String>>,
+) {
     let serving = crate::stage::houses::serving();
     let lead = serving.lead.and_then(livery_of);
-    let seated: Vec<_> = serving.seated.iter().filter(|&&id| livery_of(id).is_some()).copied().collect();
+    let seated: Vec<_> = serving
+        .seated
+        .iter()
+        .filter(|&&id| livery_of(id).is_some())
+        .copied()
+        .collect();
     let retinue = seated.iter().filter_map(|&id| livery_of(id)).collect();
     // Who each squire is: the house's first knight, by name, castle and
     // epithet; the Keep's own squire has no name to give.
@@ -517,9 +609,18 @@ fn model(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     let size = (side.clamp(360, 1400) * 4 / 3, side.clamp(360, 1400));
     shown.publish(|| {
         for (id, width, height, rgba) in model.textures {
-            shown.host.upload_picture(angel_glass::graphics::Picture { id, width, height, rgba, cols: 0, rows: 0 });
+            shown.host.upload_picture(angel_glass::graphics::Picture {
+                id,
+                width,
+                height,
+                rgba,
+                cols: 0,
+                rows: 0,
+            });
         }
-        shown.host.upload_mesh(crate::ui::showcase_model::MESH, model.mesh);
+        shown
+            .host
+            .upload_mesh(crate::ui::showcase_model::MESH, model.mesh);
         shown.host.showcase_model(model.nodes);
         shown.open(size, angel_glass::Fit::Contain);
     });
@@ -532,7 +633,10 @@ fn model(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
 #[cfg(feature = "glass")]
 fn room(host: &angel_glass::Host) -> (u32, u32) {
     let grid = host.grid_size();
-    (grid.width_px.clamp(320, 8192), grid.height_px.clamp(240, 8192))
+    (
+        grid.width_px.clamp(320, 8192),
+        grid.height_px.clamp(240, 8192),
+    )
 }
 
 /// `size` shrunk to fit in `room`, aspect kept; never grown.
@@ -557,7 +661,10 @@ fn still(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     // Up to twice the window, so zooming in finds real detail; no more,
     // so whole it is never shrunk past what smooth sampling holds.
     let (rw, rh) = room(host);
-    let (w, h) = fit_within((image.width(), image.height()), ((rw * 2).min(4096), (rh * 2).min(4096)));
+    let (w, h) = fit_within(
+        (image.width(), image.height()),
+        ((rw * 2).min(4096), (rh * 2).min(4096)),
+    );
     let image = if (w, h) == (image.width(), image.height()) {
         image
     } else {
@@ -608,7 +715,9 @@ fn say(shown: &Shown<'_>, text: &str) -> Result<(), String> {
 #[cfg(feature = "glass")]
 fn show_lines(shown: &Shown<'_>, mut lines: Vec<String>) -> Result<(), String> {
     let host = shown.host;
-    let cell_height = u16::try_from(host.grid_size().cell_height).unwrap_or(16).max(8);
+    let cell_height = u16::try_from(host.grid_size().cell_height)
+        .unwrap_or(16)
+        .max(8);
     // A page is one picture; past the texture's height the rest is
     // named, not dropped silently.
     let most = (8000 / u32::from(cell_height)).max(1) as usize;
@@ -719,8 +828,27 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     // ffmpeg from `at` seconds on, looping.
     let decode = |at: f64| -> Result<crate::agent::sandbox::process_owner::Child, String> {
         Command::new("ffmpeg")
-            .args(["-hide_banner", "-loglevel", "error", "-ss", &format!("{at:.3}"), "-stream_loop", "-1", "-i", "/dev/stdin", "-an"])
-            .args(["-vf", &format!("scale={w}:{h}:flags=bicubic"), "-pix_fmt", "rgba", "-f", "rawvideo", "pipe:1"])
+            .args([
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-ss",
+                &format!("{at:.3}"),
+                "-stream_loop",
+                "-1",
+                "-i",
+                "/dev/stdin",
+                "-an",
+            ])
+            .args([
+                "-vf",
+                &format!("scale={w}:{h}:flags=bicubic"),
+                "-pix_fmt",
+                "rgba",
+                "-f",
+                "rawvideo",
+                "pipe:1",
+            ])
             .stdin(source.open()?)
             .stdout(Stdio::piped())
             .stderr(Stdio::null())
@@ -732,7 +860,17 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     // in silence) or the file has no sound (ffplay just ends).
     let sound = |at: f64| -> Option<crate::agent::sandbox::process_owner::Child> {
         Command::new("ffplay")
-            .args(["-nodisp", "-loglevel", "quiet", "-loop", "0", "-ss", &format!("{at:.3}"), "-i", "/dev/stdin"])
+            .args([
+                "-nodisp",
+                "-loglevel",
+                "quiet",
+                "-loop",
+                "0",
+                "-ss",
+                &format!("{at:.3}"),
+                "-i",
+                "/dev/stdin",
+            ])
             .stdin(source.open().ok()?)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
@@ -764,7 +902,8 @@ fn video(shown: &Shown<'_>, source: &MediaSource) -> Result<(), String> {
     let period = std::time::Duration::from_secs_f64(1.0 / fps);
     // Where it is: the seconds it started from, and frames shown since.
     let (mut base, mut shown_frames) = (0.0f64, 1u64);
-    let place = |base: f64, frames: u64| duration.map(|d| (((base + frames as f64 / fps) % d) / d) as f32);
+    let place =
+        |base: f64, frames: u64| duration.map(|d| (((base + frames as f64 / fps) % d) / d) as f32);
     let seconds = |base: f64, frames: u64| {
         let t = base + frames as f64 / fps;
         duration.map_or(t, |d| t % d)
@@ -908,7 +1047,10 @@ mod tests {
 
     #[test]
     fn probe_lines_read_size_and_rate() {
-        assert_eq!(probe_line("1920,1080,30000/1001\n").map(|(s, _)| s), Some((1920, 1080)));
+        assert_eq!(
+            probe_line("1920,1080,30000/1001\n").map(|(s, _)| s),
+            Some((1920, 1080))
+        );
         let (_, fps) = probe_line("640,360,30000/1001").unwrap();
         assert!((fps - 29.97).abs() < 0.01);
         assert_eq!(probe_line("640,360,0/0").map(|(_, f)| f), Some(30.0));
@@ -935,9 +1077,18 @@ mod tests {
             let livery = livery_of(id).expect("every house has inks");
             if let Ok(path) = std::env::var("ANGEL_SQUIRE_LIVERIES") {
                 use std::io::Write as _;
-                let mut out = std::fs::OpenOptions::new().create(true).append(true).open(path).unwrap();
+                let mut out = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(path)
+                    .unwrap();
                 let key = &crate::stage::houses::get(id).key;
-                writeln!(out, "{key} {:?} {:?} {:?}", livery.field, livery.shadow, livery.charge).unwrap();
+                writeln!(
+                    out,
+                    "{key} {:?} {:?} {:?}",
+                    livery.field, livery.shadow, livery.charge
+                )
+                .unwrap();
             }
             seen.insert((livery.field, livery.charge));
         }

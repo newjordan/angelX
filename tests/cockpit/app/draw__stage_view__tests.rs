@@ -64,7 +64,6 @@ fn dancer_overlay_assets_use_dots_even_when_native_images_are_available() {
     for path in [
         root.join("assets/loop/hammertime-a.png"),
         root.join("assets/loop/hammertime-b.png"),
-
     ] {
         let mut terminal =
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(16, 8)).unwrap();
@@ -100,22 +99,33 @@ fn spend_coin_overlay_is_gold_clipped_and_expires_without_touching_turn_state() 
     let messages = app.messages.len();
     let stage = Rect::new(4, 3, 23, 8);
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(32, 16)).unwrap();
-    terminal.draw(|frame| {
-        for cell in &mut frame.buffer_mut().content { cell.set_char('·'); }
-        render_spend_coin_overlay(frame, &mut app, stage);
-    }).unwrap();
+    terminal
+        .draw(|frame| {
+            for cell in &mut frame.buffer_mut().content {
+                cell.set_char('·');
+            }
+            render_spend_coin_overlay(frame, &mut app, stage);
+        })
+        .unwrap();
     let buffer = terminal.backend().buffer();
     for y in 0..16 {
         for x in 0..32 {
-            if !stage.contains((x, y).into()) { assert_eq!(buffer[(x, y)].symbol(), "·"); }
+            if !stage.contains((x, y).into()) {
+                assert_eq!(buffer[(x, y)].symbol(), "·");
+            }
         }
     }
-    assert!(buffer.content.iter().any(|c| c.symbol().chars()
-        .any(|ch| ('\u{2801}'..='\u{28ff}').contains(&ch))));
+    assert!(buffer.content.iter().any(|c| {
+        c.symbol()
+            .chars()
+            .any(|ch| ('\u{2801}'..='\u{28ff}').contains(&ch))
+    }));
     assert_eq!(app.messages.len(), messages);
     assert!(!app.should_quit);
     app.spend_coin.as_mut().unwrap().started = Instant::now() - std::time::Duration::from_secs(3);
-    terminal.draw(|frame| render_spend_coin_overlay(frame, &mut app, stage)).unwrap();
+    terminal
+        .draw(|frame| render_spend_coin_overlay(frame, &mut app, stage))
+        .unwrap();
     assert!(app.spend_coin.is_none());
     assert_eq!(app.messages.len(), messages);
 }
@@ -129,7 +139,8 @@ fn dotmax_room_plate_requires_explicit_entry_and_closes_on_leave() {
         crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let mut app = App::preview(crate::ui::viewer::Viewer::new());
     app.realm.world = crate::stage::world_viz::World::new(71);
-    app.realm.world
+    app.realm
+        .world
         .select_landmark(crate::stage::world_viz::Building::Smithy);
     for _ in 0..500 {
         app.realm.world.tick();

@@ -214,8 +214,7 @@ fn descendants() -> Vec<(i32, u64)> {
     loop {
         let previous = owned.len();
         for &(pid, parent, session, start) in &rows {
-            if owned.contains(&parent) && !owned.contains(&pid) && !is_spared(pid, session, start)
-            {
+            if owned.contains(&parent) && !owned.contains(&pid) && !is_spared(pid, session, start) {
                 owned.push(pid);
             }
         }

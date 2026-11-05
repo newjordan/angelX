@@ -2271,8 +2271,7 @@ pub(crate) fn grok_http_clubs() -> Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)>
         let shared = GrokOauthShared::new(auth);
         let configured = grok_model_from_env();
         let mut models = vec![configured];
-        for candidate in
-            std::iter::once(GROK_DEFAULT_MODEL.to_string()).chain(grok_cli_model_ids())
+        for candidate in std::iter::once(GROK_DEFAULT_MODEL.to_string()).chain(grok_cli_model_ids())
         {
             if GROK_SOTA_MODEL_OPTIONS
                 .iter()

@@ -76,7 +76,11 @@ impl DotProtocol {
                 rgba.into_raw(),
                 (size.width, size.height),
             );
-            return Ok(Self { size, id, upload: None });
+            return Ok(Self {
+                size,
+                id,
+                upload: None,
+            });
         }
         let mut png = Vec::new();
         image::codecs::png::PngEncoder::new_with_quality(
@@ -162,9 +166,7 @@ pub(crate) fn placeholders(id: u32, size: Size, area: Rect, buffer: &mut Buffer)
     // `CompactString` inline every cell symbol without touching the allocator.
     let mut scratch = [0xF4u8, 0x8E, 0xBB, 0xAE, 0, 0, 0, 0, 0, 0, 0, 0];
     for y in 0..height {
-        let y_len = mark(usize::from(y))
-            .encode_utf8(&mut scratch[4..8])
-            .len();
+        let y_len = mark(usize::from(y)).encode_utf8(&mut scratch[4..8]).len();
         let row_len = 4 + y_len;
         for x in 0..width {
             if let Some(cell) = buffer.cell_mut((area.x + x, area.y + y)) {

@@ -32,7 +32,12 @@ pub(crate) enum Showing {
     /// the content: the same key at the same size is uploaded once.
     /// Per-frame producers whose pixels are expensive to make should
     /// prefer [`picture`], which only asks for them on a cache miss.
-    Picture { key: u64, width: u32, height: u32, rgba: Vec<u8> },
+    Picture {
+        key: u64,
+        width: u32,
+        height: u32,
+        rgba: Vec<u8>,
+    },
     /// Declared window layers, in absolute cell placements. Nothing
     /// is clipped to the anchor: a layer may break out of it and
     /// float over the terminal. Layer ids are the caller's, unique
@@ -66,9 +71,12 @@ pub(crate) enum Showing {
 #[allow(dead_code)] // First producers (stills, layers) land in later slices.
 pub(crate) fn show(showing: &Showing, anchor: Rect, buffer: &mut Buffer) -> bool {
     match showing {
-        Showing::Picture { key, width, height, rgba } => {
-            picture(*key, (*width, *height), anchor, buffer, || rgba.clone())
-        }
+        Showing::Picture {
+            key,
+            width,
+            height,
+            rgba,
+        } => picture(*key, (*width, *height), anchor, buffer, || rgba.clone()),
         #[cfg(feature = "glass")]
         Showing::Layers(layers) => show_layers(layers),
         #[cfg(feature = "glass")]
@@ -126,9 +134,8 @@ pub(crate) fn video(
 
 /// The last decode sequence [`video`] uploaded, per source key.
 #[cfg(feature = "glass")]
-static VIDEO_SEQUENCES: std::sync::LazyLock<
-    std::sync::Mutex<std::collections::HashMap<u64, u64>>,
-> = std::sync::LazyLock::new(Default::default);
+static VIDEO_SEQUENCES: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<u64, u64>>> =
+    std::sync::LazyLock::new(Default::default);
 
 /// Present a scrolled document (`receipt` + `text` at `scroll`) as a
 /// high-density rasterized page inside `anchor`. Rasterization via `swash` in
@@ -159,19 +166,20 @@ pub(crate) fn document(
         );
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        ("document", receipt, text, scroll, anchor.width, anchor.height, cell_px)
+        (
+            "document",
+            receipt,
+            text,
+            scroll,
+            anchor.width,
+            anchor.height,
+            cell_px,
+        )
             .hash(&mut hasher);
         picture(hasher.finish(), size, anchor, buffer, || {
-            angel_glass::render_page(
-                receipt,
-                text,
-                scroll,
-                anchor.width,
-                anchor.height,
-                cell_px,
-            )
-            .map(|(_, _, rgba)| rgba)
-            .unwrap_or_default()
+            angel_glass::render_page(receipt, text, scroll, anchor.width, anchor.height, cell_px)
+                .map(|(_, _, rgba)| rgba)
+                .unwrap_or_default()
         })
     }
     #[cfg(not(feature = "glass"))]
@@ -431,7 +439,8 @@ fn blank(buffer: &mut Buffer, area: Rect) {
     for y in area.y..area.bottom() {
         for x in area.x..area.right() {
             if let Some(cell) = buffer.cell_mut((x, y)) {
-                cell.set_symbol(" ").set_bg(ratatui::style::Color::Rgb(0, 0, 0));
+                cell.set_symbol(" ")
+                    .set_bg(ratatui::style::Color::Rgb(0, 0, 0));
             }
         }
     }
@@ -603,8 +612,16 @@ mod tests {
         let mut buffer = Buffer::empty(Rect::new(0, 0, 10, 4));
         let anchor = Rect::new(0, 0, 10, 4);
         assert!(!document("receipt", "hello", 0, anchor, &mut buffer));
-        assert!(!video("ride.mp4", 1, (2, 2), anchor, &mut buffer, || vec![0; 16]));
-        assert!(!show(&Showing::Mesh { scene: "keep".into() }, anchor, &mut buffer));
+        assert!(!video("ride.mp4", 1, (2, 2), anchor, &mut buffer, || {
+            vec![0; 16]
+        }));
+        assert!(!show(
+            &Showing::Mesh {
+                scene: "keep".into()
+            },
+            anchor,
+            &mut buffer
+        ));
         // A video frame outside the window is refused like a picture.
         assert!(!show(
             &Showing::Video {

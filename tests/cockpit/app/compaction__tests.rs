@@ -1242,7 +1242,7 @@ fn summary_section_pages_mirror_the_parsed_sections() {
 
 // --- the `compaction-window` live leg -------------------------------------
 
-use crate::agent::harness::live_policy::{decide_with, LegSource};
+use crate::agent::harness::live_policy::{LegSource, decide_with};
 
 /// The shipped leg in `cockpit/live/compaction-window`, pinned for a test.
 fn window_leg() -> angel_live::Program {
@@ -1365,7 +1365,11 @@ fn the_shipped_window_leg_matches_the_native_choice_over_a_table() {
             windows += 1;
         }
     }
-    assert!(cases.len() >= 200, "only {} inputs were compared", cases.len());
+    assert!(
+        cases.len() >= 200,
+        "only {} inputs were compared",
+        cases.len()
+    );
     assert!(windows >= 60, "only {windows} inputs produced a window");
     assert!(
         pulled_tool_results >= 10,
@@ -1431,7 +1435,8 @@ fn with_no_live_generation_the_shipped_window_leg_answers() {
     let mut windows = 0;
     for (keep_recent, keep_recent_tokens) in [(0usize, 0usize), (2, 0), (3, 8), (3, 16), (12, 4000)]
     {
-        let native = select_window_with_token_tail_native(&history, keep_recent, keep_recent_tokens);
+        let native =
+            select_window_with_token_tail_native(&history, keep_recent, keep_recent_tokens);
         let (window, source) = select_window_with_source(&history, keep_recent, keep_recent_tokens);
         assert_eq!(
             window, native,

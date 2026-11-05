@@ -43,14 +43,21 @@ impl App {
                 None => "usage: /table show <id>".into(),
             },
             "comment" => match split_id(rest) {
-                Some((id, text)) => {
-                    self.table_cast(Op::Comment { id, text: text.to_string() }, "spoken")
-                }
+                Some((id, text)) => self.table_cast(
+                    Op::Comment {
+                        id,
+                        text: text.to_string(),
+                    },
+                    "spoken",
+                ),
                 None => "usage: /table comment <id> <text>".into(),
             },
             "vote" => match split_id(rest) {
                 Some((id, dir)) => self.table_cast(
-                    Op::Vote { id, support: !matches!(dir, "down" | "no" | "-") },
+                    Op::Vote {
+                        id,
+                        support: !matches!(dir, "down" | "no" | "-"),
+                    },
                     "voted",
                 ),
                 None => "usage: /table vote <id> up|down".into(),
@@ -61,8 +68,13 @@ impl App {
             "reject" => self.table_id_op(rest, "reject", |id| Op::Reject { id }, "rejected"),
             "close" => self.table_id_op(rest, "close", |id| Op::Close { id }, "closed"),
             "merge" => match split_id(rest) {
-                Some((id, commit)) => self
-                    .table_cast(Op::Merge { id, commit: commit.to_string() }, "merge recorded"),
+                Some((id, commit)) => self.table_cast(
+                    Op::Merge {
+                        id,
+                        commit: commit.to_string(),
+                    },
+                    "merge recorded",
+                ),
                 None => "usage: /table merge <id> <commit>".into(),
             },
             "work" => match parse_id(rest) {
@@ -96,7 +108,10 @@ impl App {
         match crate::drive::round_table::TableHost::start(self.tools.current_workspace(), name) {
             Ok((host, links)) => {
                 self.table_host = Some(host);
-                format_host_links("The Round Table is set. You are the arbiter (seat 0).", &links)
+                format_host_links(
+                    "The Round Table is set. You are the arbiter (seat 0).",
+                    &links,
+                )
             }
             Err(e) => format!("the table did not rise: {e}"),
         }
@@ -126,13 +141,19 @@ impl App {
         if link.is_empty() {
             return "usage: /table join <link> [your name]".into();
         }
-        let name = words.next().map(str::trim).filter(|n| !n.is_empty()).unwrap_or("Knight");
+        let name = words
+            .next()
+            .map(str::trim)
+            .filter(|n| !n.is_empty())
+            .unwrap_or("Knight");
         match crate::drive::round_table::TableGuest::connect(link, name) {
             Ok(mut guest) => {
                 guest.poll();
                 let status = guest.status_line();
                 self.table_guest = Some(guest);
-                format!("taking a seat at the Round Table as {name}… ({status})\n/table shows the board once it lands.")
+                format!(
+                    "taking a seat at the Round Table as {name}… ({status})\n/table shows the board once it lands."
+                )
             }
             Err(e) => format!("could not reach that table: {e}"),
         }
@@ -198,7 +219,10 @@ impl App {
             return if let Some(guest) = &self.table_guest {
                 // Say *why* there is no board: a rejected or dropped
                 // link must not read as "wait longer".
-                format!("the board has not landed yet — link: {}", guest.status_line())
+                format!(
+                    "the board has not landed yet — link: {}",
+                    guest.status_line()
+                )
             } else if self.table_host.is_some() {
                 "the board has not landed yet — a breath, then /table again".into()
             } else {
@@ -238,18 +262,41 @@ impl App {
         let Some(issue) = board.issues.get(&id) else {
             return format!("no issue #{id}");
         };
-        let name = |seat: u32| board.seats.get(&seat).cloned().unwrap_or_else(|| format!("seat {seat}"));
-        let mut out = format!("#{id} [{}] {}\nby {}\n{}", issue.state.label(), issue.title, name(issue.author), issue.body);
+        let name = |seat: u32| {
+            board
+                .seats
+                .get(&seat)
+                .cloned()
+                .unwrap_or_else(|| format!("seat {seat}"))
+        };
+        let mut out = format!(
+            "#{id} [{}] {}\nby {}\n{}",
+            issue.state.label(),
+            issue.title,
+            name(issue.author),
+            issue.body
+        );
         if let Some(claim) = &issue.claim {
-            out.push_str(&format!("\nclaimed by {} (until tick {})", name(claim.seat), claim.until));
+            out.push_str(&format!(
+                "\nclaimed by {} (until tick {})",
+                name(claim.seat),
+                claim.until
+            ));
         }
-        out.push_str(&format!("\nvotes: {:+} ({} for, {} against)", issue.score(),
+        out.push_str(&format!(
+            "\nvotes: {:+} ({} for, {} against)",
+            issue.score(),
             issue.votes.values().filter(|v| **v).count(),
-            issue.votes.values().filter(|v| !**v).count()));
+            issue.votes.values().filter(|v| !**v).count()
+        ));
         if let Some(sub) = &issue.submission {
             out.push_str(&format!(
                 "\nsubmitted by {}: {} (bundle {}, {} bytes)\n  evidence: {}",
-                name(sub.seat), sub.summary, sub.bundle_hash, sub.bundle_len, sub.evidence
+                name(sub.seat),
+                sub.summary,
+                sub.bundle_hash,
+                sub.bundle_len,
+                sub.evidence
             ));
         }
         if let Some(commit) = &issue.merged_commit {
@@ -274,9 +321,21 @@ fn format_host_links(header: &str, links: &[String]) -> String {
 fn issue_line(board: &Board, issue: &Issue) -> String {
     let claim = issue
         .claim
-        .map(|c| format!(" · claimed by {}", board.seats.get(&c.seat).map_or("?", String::as_str)))
+        .map(|c| {
+            format!(
+                " · claimed by {}",
+                board.seats.get(&c.seat).map_or("?", String::as_str)
+            )
+        })
         .unwrap_or_default();
-    format!("#{:<3} {:<11} {:+ }  {}{}", issue.id, issue.state.label(), issue.score(), issue.title, claim)
+    format!(
+        "#{:<3} {:<11} {:+ }  {}{}",
+        issue.id,
+        issue.state.label(),
+        issue.score(),
+        issue.title,
+        claim
+    )
 }
 
 fn parse_id(text: &str) -> Option<u64> {
@@ -307,7 +366,11 @@ fn git(dir: &Path, args: &[&str]) -> Result<Vec<u8>, String> {
         Ok(out.stdout)
     } else {
         let err = String::from_utf8_lossy(&out.stderr);
-        Err(format!("git {}: {}", args.join(" "), err.lines().next().unwrap_or("failed")))
+        Err(format!(
+            "git {}: {}",
+            args.join(" "),
+            err.lines().next().unwrap_or("failed")
+        ))
     }
 }
 
@@ -404,7 +467,10 @@ impl App {
             return claimed;
         }
         let workspace = self.tools.current_workspace().to_path_buf();
-        let dir = workspace.join(".angel").join("table-work").join(format!("issue-{id}"));
+        let dir = workspace
+            .join(".angel")
+            .join("table-work")
+            .join(format!("issue-{id}"));
         if !dir.exists() {
             let branch = format!("table/issue-{id}-seat{}", seat.unwrap_or(0));
             if let Some(parent) = dir.parent() {
@@ -412,8 +478,11 @@ impl App {
             }
             let dir_arg = dir.to_string_lossy().to_string();
             // A leftover branch from a re-claim is fine to reuse.
-            let made = git(&workspace, &["worktree", "add", "-b", &branch, &dir_arg, "HEAD"])
-                .or_else(|_| git(&workspace, &["worktree", "add", &dir_arg, &branch]));
+            let made = git(
+                &workspace,
+                &["worktree", "add", "-b", &branch, &dir_arg, "HEAD"],
+            )
+            .or_else(|_| git(&workspace, &["worktree", "add", &dir_arg, &branch]));
             if let Err(e) = made {
                 return format!("claimed #{id}, but no worktree: {e}");
             }
@@ -436,14 +505,21 @@ impl App {
         if summary.trim().is_empty() || evidence.trim().is_empty() {
             return "a submission needs a summary and its test evidence:\n/table submit <id> <summary> | <evidence>".into();
         }
-        let bundle = git(&dir, &["add", "-A"])
-            .and_then(|_| git(&dir, &["diff", "--cached", "--binary"]));
+        let bundle =
+            git(&dir, &["add", "-A"]).and_then(|_| git(&dir, &["diff", "--cached", "--binary"]));
         match bundle {
-            Ok(bytes) if bytes.is_empty() => format!("the worktree for #{id} has no changes to submit"),
+            Ok(bytes) if bytes.is_empty() => {
+                format!("the worktree for #{id} has no changes to submit")
+            }
             Ok(bytes) => {
                 let kb = bytes.len() / 1024;
                 let said = self.table_cast(
-                    Op::Submit { id, summary, evidence, bundle: bytes },
+                    Op::Submit {
+                        id,
+                        summary,
+                        evidence,
+                        bundle: bytes,
+                    },
                     &format!("submitted ({} KiB patch)", kb.max(1)),
                 );
                 said
@@ -461,16 +537,24 @@ impl App {
             return "only the arbiter applies bundles, and this terminal is not hosting".into();
         };
         let Some(bundle) = host.shared.bundle(id) else {
-            return format!("no bundle on file for #{id} (nothing submitted, or the table restarted from a guest's view)");
+            return format!(
+                "no bundle on file for #{id} (nothing submitted, or the table restarted from a guest's view)"
+            );
         };
         let workspace = self.tools.current_workspace().to_path_buf();
-        let dir = workspace.join(".angel").join("table-scratch").join(format!("issue-{id}"));
+        let dir = workspace
+            .join(".angel")
+            .join("table-scratch")
+            .join(format!("issue-{id}"));
         if !dir.exists() {
             if let Some(parent) = dir.parent() {
                 let _ = std::fs::create_dir_all(parent);
             }
             let dir_arg = dir.to_string_lossy().to_string();
-            if let Err(e) = git(&workspace, &["worktree", "add", "--detach", &dir_arg, "HEAD"]) {
+            if let Err(e) = git(
+                &workspace,
+                &["worktree", "add", "--detach", &dir_arg, "HEAD"],
+            ) {
                 return format!("no scratch worktree: {e}");
             }
         }
@@ -578,4 +662,3 @@ mod tests {
         let _ = std::fs::remove_dir_all(&workspace);
     }
 }
-

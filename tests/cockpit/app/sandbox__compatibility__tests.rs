@@ -81,7 +81,10 @@ fn probe_wait_deadline_does_not_reap_or_accept_a_running_child() {
     let status = child.try_wait().unwrap();
     let _ = child.kill();
     let _ = child.wait();
-    assert!(status.is_none(), "readiness wait must not invent an exit status");
+    assert!(
+        status.is_none(),
+        "readiness wait must not invent an exit status"
+    );
     assert!(started.elapsed() < std::time::Duration::from_secs(2));
 }
 

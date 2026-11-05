@@ -40,7 +40,10 @@ fn graph_status_reports_catalog_preflight_failure() {
     }
     let status = status_text(&state);
     assert!(status.contains("'fixture' · FAILED"), "{status}");
-    assert!(status.contains("book catalog manifest is missing"), "{status}");
+    assert!(
+        status.contains("book catalog manifest is missing"),
+        "{status}"
+    );
 }
 
 #[test]

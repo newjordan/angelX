@@ -4,7 +4,6 @@
 
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/z_brevity.book");
 pub(crate) const CELL: char = '⠵';
 pub(crate) const MARKER: Route = Route::new(CELL, '⠁');

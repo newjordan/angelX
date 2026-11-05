@@ -12,7 +12,6 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/d467_receipts.book");
 pub(crate) const CELL: char = '⡨';
 pub(crate) const HANDOFF: Route = Route::new(CELL, '⠁');

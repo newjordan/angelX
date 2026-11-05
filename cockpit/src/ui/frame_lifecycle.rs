@@ -36,7 +36,11 @@ mod tests {
             .unwrap();
         }
         assert_eq!(draws.get(), 0);
-        assert_eq!(finishes.get(), 0, "a skipped draw must not remove the stage");
+        assert_eq!(
+            finishes.get(),
+            0,
+            "a skipped draw must not remove the stage"
+        );
     }
 
     #[test]

@@ -1,7 +1,6 @@
 use super::deep_cut_policy::{
-    DeepCutDirectionV1, DirectionDecisionBasisV1, DirectionEvidenceUseKindV1,
-    DirectionDecisionV1, DirectionEvidenceUseV1, DirectionLegOutV1,
-    allocate_direction_via_leg, decided, prepare,
+    DeepCutDirectionV1, DirectionDecisionBasisV1, DirectionDecisionV1, DirectionEvidenceUseKindV1,
+    DirectionEvidenceUseV1, DirectionLegOutV1, allocate_direction_via_leg, decided, prepare,
 };
 use super::patterns::{FieldPatternMemoryV1, PatternKeyV1, PatternOutcomeV1};
 use super::patterns_adversarial_tests::corrected_memory;
@@ -386,11 +385,7 @@ fn table(fixture: &Fixture) -> Vec<(&'static str, Vec<DeepCutDirectionV1>, &'sta
         elsewhere.mechanism = "elsewhere".into();
         cases.push((
             "evidence for another target",
-            vec![direction(
-                "mismatch",
-                elsewhere,
-                vec![usage(id, marked)],
-            )],
+            vec![direction("mismatch", elsewhere, vec![usage(id, marked)])],
             "fresh-direction",
         ));
     }
@@ -509,7 +504,10 @@ fn deep_cut_leg_matches_the_native_allocator_over_a_table_of_directions() {
                 basis: native.basis,
             },
         );
-        assert!(matches!(source, LegSource::Live { .. }), "{name}: {source:?}");
+        assert!(
+            matches!(source, LegSource::Live { .. }),
+            "{name}: {source:?}"
+        );
         assert_eq!(
             answer,
             DirectionLegOutV1 {
@@ -579,11 +577,8 @@ fn doctored_leg() -> angel_live::Program {
         "module.exports={apiVersion:1,render:()=>({selected_direction_id:'ghost-direction',basis:'target_evidence'})}",
     )
     .unwrap();
-    let mut registry = angel_live::Registry::validated(
-        root,
-        crate::agent::hotload::evaluate,
-        |_, _| Ok(()),
-    );
+    let mut registry =
+        angel_live::Registry::validated(root, crate::agent::hotload::evaluate, |_, _| Ok(()));
     registry.refresh(true);
     registry
         .snapshot()

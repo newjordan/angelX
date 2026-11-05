@@ -1,6 +1,6 @@
 //! Griffinwing's flight recorder (the private tap, acquire, release and
 //! push_bolt), for the Bend port. Called from the main recorder's sampling.
-use super::super::bend_kit::{self as kit, j, rec, want, want_with, Rng};
+use super::super::bend_kit::{self as kit, Rng, j, rec, want, want_with};
 use super::*;
 use serde_json::json;
 
@@ -16,7 +16,8 @@ fn some_craft(s: &Session, rng: &mut Rng) -> Option<(u32, Craft)> {
 /// A reticle that points at foe `f` from craft `c`.
 fn aim_at(c: &mut Craft, s_c: i32, f: &Foe, jitter: i32) {
     let ds = (f.s - s_c).max(1);
-    c.rx = ((i64::from(f.x - c.x + jitter) * i64::from(FAR) / i64::from(ds)) as i32).clamp(-RX_MAX, RX_MAX);
+    c.rx = ((i64::from(f.x - c.x + jitter) * i64::from(FAR) / i64::from(ds)) as i32)
+        .clamp(-RX_MAX, RX_MAX);
     c.rz = ((i64::from(f.z - c.z) * i64::from(FAR) / i64::from(ds)) as i32).clamp(-RZ_MAX, RZ_MAX);
 }
 
@@ -26,11 +27,33 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             let mut c = s.clone();
             if k == 2 {
                 while c.bolts.len() < MAX_BOLTS {
-                    c.bolts.push(Bolt { shot: Arm::Lance, owner: 1, s: 0, x: 0, z: 0, vs: 0, vx: 0, vz: 0, dmg: 10, life: 5, aim: 0, src: 0, delay: 0, full: false });
+                    c.bolts.push(Bolt {
+                        shot: Arm::Lance,
+                        owner: 1,
+                        s: 0,
+                        x: 0,
+                        z: 0,
+                        vs: 0,
+                        vx: 0,
+                        vz: 0,
+                        dmg: 10,
+                        life: 5,
+                        aim: 0,
+                        src: 0,
+                        delay: 0,
+                        full: false,
+                    });
                 }
             }
             let b = Bolt {
-                shot: [Arm::Lance, Arm::Star, Arm::Ally, Arm::Spark, Arm::Gloam, Arm::Turned][rng.below(6) as usize],
+                shot: [
+                    Arm::Lance,
+                    Arm::Star,
+                    Arm::Ally,
+                    Arm::Spark,
+                    Arm::Gloam,
+                    Arm::Turned,
+                ][rng.below(6) as usize],
                 owner: rng.below(11) as u8,
                 s: rng.range(-500, 90_000),
                 x: rng.range(-900, 900),
@@ -47,10 +70,16 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             };
             let before = kit::sj(&c);
             c.push_bolt(b.clone());
-            rec("griffinwing.flight.Session.push_bolt", json!({"s": before, "b": j(&b)}), json!({"s": kit::sj(&c)}));
+            rec(
+                "griffinwing.flight.Session.push_bolt",
+                json!({"s": before, "b": j(&b)}),
+                json!({"s": kit::sj(&c)}),
+            );
         }
     }
-    let Some((id, craft)) = some_craft(s, rng) else { return };
+    let Some((id, craft)) = some_craft(s, rng) else {
+        return;
+    };
     let s_c = s.craft_s(&craft);
     if want("griffinwing.flight.Session.tap") {
         for _ in 0..2 {
@@ -62,7 +91,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             let mut t = s.clone();
             let before = kit::sj(&t);
             t.tap(id as u8, &c, s_c);
-            rec("griffinwing.flight.Session.tap", json!({"s": before, "owner": id, "c": j(&c), "s_c": s_c}), json!({"s": kit::sj(&t)}));
+            rec(
+                "griffinwing.flight.Session.tap",
+                json!({"s": before, "owner": id, "c": j(&c), "s_c": s_c}),
+                json!({"s": kit::sj(&t)}),
+            );
         }
     }
     let live = !s.foes.is_empty();
@@ -78,7 +111,10 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
                 // some locks held already (some stale, some good)
                 c.locks.clear();
                 for g in s.foes.iter().take(rng.below(4) as usize) {
-                    c.locks.push(Lock { foe: g.id, n: 1 + rng.below(2) as u8 });
+                    c.locks.push(Lock {
+                        foe: g.id,
+                        n: 1 + rng.below(2) as u8,
+                    });
                 }
                 if rng.chance(3) {
                     c.locks.push(Lock { foe: 59_999, n: 1 });
@@ -88,7 +124,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             let before = kit::sj(&t);
             let mut cc = c.clone();
             t.acquire(&mut cc, s_c);
-            rec("griffinwing.flight.Session.acquire", json!({"s": before, "c": j(&c), "s_c": s_c}), json!({"s": kit::sj(&t), "c": j(&cc)}));
+            rec(
+                "griffinwing.flight.Session.acquire",
+                json!({"s": before, "c": j(&c), "s_c": s_c}),
+                json!({"s": kit::sj(&t), "c": j(&cc)}),
+            );
         }
     }
     if live && want("griffinwing.flight.Session.release") {
@@ -96,7 +136,10 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             let mut c = craft.clone();
             c.locks.clear();
             for g in s.foes.iter().take(1 + rng.below(4) as usize) {
-                c.locks.push(Lock { foe: g.id, n: 1 + (rng.below(3) as u8) });
+                c.locks.push(Lock {
+                    foe: g.id,
+                    n: 1 + (rng.below(3) as u8),
+                });
             }
             while c.locks.iter().map(|l| usize::from(l.n)).sum::<usize>() > MAX_LOCKS {
                 c.locks.pop();

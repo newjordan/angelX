@@ -49,7 +49,11 @@ pub fn heroes(ids: &Value) -> BTreeMap<u32, Hero> {
 /// The five numbers, as the ask carries them.
 pub fn numbers(ask: &Value) -> Numbers {
     let n = ask.get("numbers");
-    let get = |name: &str, base: i32| n.and_then(|n| n.get(name)).and_then(Value::as_i64).map_or(base, |v| v as i32);
+    let get = |name: &str, base: i32| {
+        n.and_then(|n| n.get(name))
+            .and_then(Value::as_i64)
+            .map_or(base, |v| v as i32)
+    };
     let d = Numbers::default();
     Numbers {
         slope: get("slope", d.slope),
@@ -61,7 +65,9 @@ pub fn numbers(ask: &Value) -> Numbers {
 }
 
 fn skill(ask: &Value) -> Skill {
-    let Some(s) = ask.get("skill") else { return Skill::ACE };
+    let Some(s) = ask.get("skill") else {
+        return Skill::ACE;
+    };
     Skill {
         spur: s["spur"].as_bool().unwrap_or(false),
         roll: s["roll"].as_bool().unwrap_or(false),
@@ -73,12 +79,18 @@ fn skill(ask: &Value) -> Skill {
 fn sounds(names: &[&'static str]) -> Vec<usize> {
     names
         .iter()
-        .map(|name| host::SOUNDS.iter().position(|s| s == name).expect("a sound the table knows"))
+        .map(|name| {
+            host::SOUNDS
+                .iter()
+                .position(|s| s == name)
+                .expect("a sound the table knows")
+        })
         .collect()
 }
 
 fn take<T: serde::de::DeserializeOwned>(ask: &Value, name: &str) -> Result<T, String> {
-    serde_json::from_value(ask.get(name).cloned().unwrap_or(Value::Null)).map_err(|e| format!("{name}: {e}"))
+    serde_json::from_value(ask.get(name).cloned().unwrap_or(Value::Null))
+        .map_err(|e| format!("{name}: {e}"))
 }
 
 /// The module's asks and answers, served by the rules as they were. The

@@ -159,19 +159,22 @@ impl Session {
         for i in 0..self.props.len() {
             let p = &mut self.props[i];
             match p.kind {
-                Pk::Brazier
-                    if p.t > 0 => {
-                        p.t -= 1;
-                        if p.t == 0 && p.on == 0 {
-                            let (x, y) = (p.x, p.y);
-                            self.fx(Fxk::Puff, x, y, 0);
-                            ev.sound("step_ash");
-                        }
+                Pk::Brazier if p.t > 0 => {
+                    p.t -= 1;
+                    if p.t == 0 && p.on == 0 {
+                        let (x, y) = (p.x, p.y);
+                        self.fx(Fxk::Puff, x, y, 0);
+                        ev.sound("step_ash");
                     }
+                }
                 Pk::Plate => {
                     let was = p.on;
                     let (x, y) = (p.x, p.y);
-                    p.on = u8::from(weights.iter().any(|&(wx, wy)| dist(wx - x, wy - y) < PLATE_R * Q));
+                    p.on = u8::from(
+                        weights
+                            .iter()
+                            .any(|&(wx, wy)| dist(wx - x, wy - y) < PLATE_R * Q),
+                    );
                     if was != p.on {
                         ev.sound(if p.on == 1 { "wall_up" } else { "step_stone" });
                     }
@@ -201,7 +204,10 @@ impl Session {
                 }
                 Pk::Sigil if p.on == 0 => {
                     let (x, y) = (p.x, p.y);
-                    if flares.iter().any(|&(fx, fy)| dist(fx - x, fy - y) < FLARE_R * Q) {
+                    if flares
+                        .iter()
+                        .any(|&(fx, fy)| dist(fx - x, fy - y) < FLARE_R * Q)
+                    {
                         p.t += 1;
                         if p.t >= SIGIL_TICKS {
                             p.on = 1;
@@ -258,7 +264,9 @@ impl Session {
         // The way on: stand in it.
         if self.exiting == 0 && self.exit_open() && self.room < 4 {
             let hit = self.seats.values().any(|k| {
-                k.up() && k.z == 0 && plan(usize::from(self.room)).at(tile_of(k.x), tile_of(k.y)) == b'Q'
+                k.up()
+                    && k.z == 0
+                    && plan(usize::from(self.room)).at(tile_of(k.x), tile_of(k.y)) == b'Q'
             });
             if hit {
                 self.exiting = EXIT_TICKS;
@@ -290,34 +298,38 @@ impl Session {
     fn stage_lamp_hall(&mut self, ev: &mut Events) {
         match self.stage {
             // Three braziers, all alight at once, from one ember.
-            0
-                if self.all_lit(Pk::Brazier) => {
-                    self.stage = 1;
-                    let at = self.prop_of(Pk::Chest, 0).map_or((0, 0), |i| (self.props[i].x, self.props[i].y));
-                    self.set_gate(1, true);
-                    self.solved(at.0, at.1, ev);
-                    ev.sound("door_open");
-                }
+            0 if self.all_lit(Pk::Brazier) => {
+                self.stage = 1;
+                let at = self
+                    .prop_of(Pk::Chest, 0)
+                    .map_or((0, 0), |i| (self.props[i].x, self.props[i].y));
+                self.set_gate(1, true);
+                self.solved(at.0, at.1, ev);
+                ev.sound("door_open");
+            }
             // The niche stands open; the Lantern is in the chest.
-            1
-                if self.prop_of(Pk::Chest, 0).is_some_and(|i| self.props[i].on == 1) => {
-                    self.stage = 2;
-                    self.stage_t = 0;
-                    self.spawn_wave();
-                    ev.sound("wave_gate");
-                }
+            1 if self
+                .prop_of(Pk::Chest, 0)
+                .is_some_and(|i| self.props[i].on == 1) =>
+            {
+                self.stage = 2;
+                self.stage_t = 0;
+                self.spawn_wave();
+                ev.sound("wave_gate");
+            }
             // The Gloam answers.
-            2
-                if self.stage_t > 20 && self.foes_down() => {
-                    self.stage = 3;
-                    ev.sound("play_card");
-                }
+            2 if self.stage_t > 20 && self.foes_down() => {
+                self.stage = 3;
+                ev.sound("play_card");
+            }
             // One light left to throw.
-            3
-                if self.prop_of(Pk::Great, 0).is_some_and(|i| self.props[i].on == 1) => {
-                    self.stage = 4;
-                    self.open_exit(ev);
-                }
+            3 if self
+                .prop_of(Pk::Great, 0)
+                .is_some_and(|i| self.props[i].on == 1) =>
+            {
+                self.stage = 4;
+                self.open_exit(ev);
+            }
             _ => {}
         }
     }
@@ -325,12 +337,22 @@ impl Session {
     fn stage_gallery(&mut self, ev: &mut Events) {
         // Two plates for two or more knights: the block (or a knight) on the
         // first, another knight on the second; one plate alone for one.
-        let held = |id: u8| self.props.iter().any(|p| p.kind == Pk::Plate && p.id == id && p.on == 1);
+        let held = |id: u8| {
+            self.props
+                .iter()
+                .any(|p| p.kind == Pk::Plate && p.id == id && p.on == 1)
+        };
         let plate = held(0) && (held(1) || self.seats.len() < 2);
-        let crystal = self.props.iter().any(|p| p.kind == Pk::Crystal && p.on == 1);
+        let crystal = self
+            .props
+            .iter()
+            .any(|p| p.kind == Pk::Crystal && p.on == 1);
         // The plate-gate holds open only while it is held, or for good once
         // the crystal has woken.
-        let was = self.props.iter().any(|p| p.kind == Pk::Gate && p.id == 1 && p.on == 1);
+        let was = self
+            .props
+            .iter()
+            .any(|p| p.kind == Pk::Gate && p.id == 1 && p.on == 1);
         let want = plate || crystal;
         if self.set_gate(1, want) && want != was {
             let at = self
@@ -351,36 +373,38 @@ impl Session {
 
     fn stage_vault(&mut self, ev: &mut Events) {
         match self.stage {
-            0
-                if self.foes_down() => {
-                    self.stage = 1;
-                    if let Some(i) = self.prop_of(Pk::Chest, 1) {
-                        self.props[i].on = 0;
-                        let (x, y) = (self.props[i].x, self.props[i].y);
-                        self.fx(Fxk::Light, x, y, 0);
-                        self.solved(x, y, ev);
-                    }
-                    // The spark the last snuffer gave back lights the
-                    // vault's braziers for good.
-                    for p in self.props.iter_mut().filter(|p| p.kind == Pk::Brazier) {
-                        p.on = 1;
-                    }
+            0 if self.foes_down() => {
+                self.stage = 1;
+                if let Some(i) = self.prop_of(Pk::Chest, 1) {
+                    self.props[i].on = 0;
+                    let (x, y) = (self.props[i].x, self.props[i].y);
+                    self.fx(Fxk::Light, x, y, 0);
+                    self.solved(x, y, ev);
                 }
-            1
-                if self.prop_of(Pk::Chest, 1).is_some_and(|i| self.props[i].on == 1) => {
-                    self.stage = 2;
+                // The spark the last snuffer gave back lights the
+                // vault's braziers for good.
+                for p in self.props.iter_mut().filter(|p| p.kind == Pk::Brazier) {
+                    p.on = 1;
                 }
-            2
-                if self.props.iter().any(|p| p.kind == Pk::Lock && p.on == 1) => {
-                    self.stage = 3;
-                }
-            3
-                if self.prop_of(Pk::Chest, 0).is_some_and(|i| self.props[i].on == 1) => {
-                    self.stage = 4;
-                    // The way out is the Boss Key door; its carrier opens
-                    // it (`Ctx::Unlock`).
-                    self.stage = 4;
-                }
+            }
+            1 if self
+                .prop_of(Pk::Chest, 1)
+                .is_some_and(|i| self.props[i].on == 1) =>
+            {
+                self.stage = 2;
+            }
+            2 if self.props.iter().any(|p| p.kind == Pk::Lock && p.on == 1) => {
+                self.stage = 3;
+            }
+            3 if self
+                .prop_of(Pk::Chest, 0)
+                .is_some_and(|i| self.props[i].on == 1) =>
+            {
+                self.stage = 4;
+                // The way out is the Boss Key door; its carrier opens
+                // it (`Ctx::Unlock`).
+                self.stage = 4;
+            }
             _ => {}
         }
         if self.props.iter().any(|p| p.kind == Pk::Boss && p.on == 1) && self.stage >= 4 {
@@ -495,7 +519,9 @@ impl Session {
             let auto = k.t >= DOWN_AUTO;
             if k.rev >= REVIVE_HOLD || auto {
                 let at = if auto { None } else { Some((k.x, k.y)) };
-                k.hp = if auto { REVIVE_HP / 2 } else { REVIVE_HP }.min(k.max_hp).max(1);
+                k.hp = if auto { REVIVE_HP / 2 } else { REVIVE_HP }
+                    .min(k.max_hp)
+                    .max(1);
                 k.act = Act::Free;
                 k.t = 0;
                 k.rev = 0;
@@ -567,7 +593,10 @@ impl Session {
         }
         // Carried keys are put down at the start.
         if let Hold::Carried(id, _, _) = self.inv.boss {
-            let at = self.seats.get(&u32::from(id)).map_or((0, 0), |k| (k.x, k.y));
+            let at = self
+                .seats
+                .get(&u32::from(id))
+                .map_or((0, 0), |k| (k.x, k.y));
             self.inv.boss = Hold::Carried(id, at.0, at.1);
         }
         match (self.room, self.stage) {

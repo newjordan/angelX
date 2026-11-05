@@ -988,11 +988,8 @@ impl IntegrateTool {
             return Err("invalid branch name".to_string());
         }
         let repo = ensure_git_workspace(&self.workspace)?;
-        let _repo_guard = acquire_repo_integrate_lock_with_timeout_and_cancel(
-            &repo,
-            git_timeout(),
-            cancel,
-        )?;
+        let _repo_guard =
+            acquire_repo_integrate_lock_with_timeout_and_cancel(&repo, git_timeout(), cancel)?;
         run_git(&repo, &["check-ref-format", "--branch", branch])?;
         let selected = delegate_git(
             &repo,

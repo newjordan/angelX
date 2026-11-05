@@ -487,7 +487,8 @@ fn settlement_entry_requires_a_real_loop_association_even_before_work() {
             .contains("PLAYER HALL")
     );
     assert_eq!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -649,7 +650,8 @@ fn settlement_failed_refresh_cannot_admit_a_cached_site_through_noop_sync() {
     // advertise success or admit cached settlement tiles after a disk failure.
     app.dungeon_command(Some("start"));
     assert!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -667,7 +669,8 @@ fn settlement_failed_refresh_cannot_admit_a_cached_site_through_noop_sync() {
             .contains("PLAYER HALL")
     );
     assert_eq!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()

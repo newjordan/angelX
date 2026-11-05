@@ -10,7 +10,6 @@
 
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/d6_long_run.book");
 pub(crate) const CELL: char = '⠠';
 pub(crate) const RECOVERY: Route = Route::new(CELL, '⠁');

@@ -127,7 +127,10 @@ fn wait_bounded(
 /// output must prove the one child test actually ran and passed.
 fn assert_single_test_passed(log_path: &Path, test_name: &str) {
     let log = std::fs::read_to_string(log_path).unwrap();
-    assert!(log.contains("running 1 test"), "child ran the wrong filter: {log}");
+    assert!(
+        log.contains("running 1 test"),
+        "child ran the wrong filter: {log}"
+    );
     assert!(log.contains(test_name), "{log}");
     assert!(log.contains("test result: ok. 1 passed; 0 failed"), "{log}");
 }

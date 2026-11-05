@@ -70,7 +70,10 @@ pub(crate) fn release_stream_tail<R: std::io::Read + Send + 'static>(reader: R) 
     let _ = std::thread::Builder::new()
         .name("angel-stream-tail".into())
         .spawn(move || {
-            let _ = std::io::copy(&mut reader.take(STREAM_TAIL_DRAIN_BYTES), &mut std::io::sink());
+            let _ = std::io::copy(
+                &mut reader.take(STREAM_TAIL_DRAIN_BYTES),
+                &mut std::io::sink(),
+            );
         });
 }
 
@@ -3061,7 +3064,9 @@ impl HttpClub {
             // stays its only exit from a dead server.
             // A caller may raise it for its own long call (a wish's grant:
             // `with_read_timeout_at_least`).
-            let mut overall = abort.is_none().then(|| read_timeout_on_this_thread(p.read_timeout));
+            let mut overall = abort
+                .is_none()
+                .then(|| read_timeout_on_this_thread(p.read_timeout));
             if let Some(remaining) =
                 crate::agent::harness::formation_budget::request_wall_remaining()
             {
@@ -3898,7 +3903,10 @@ impl Club for HttpClub {
 // that was not sent.
 pub(super) fn attribute_wire_effort(defaults: &mut serde_json::Value, body: &serde_json::Value) {
     let wire = crate::agent::harness::run_identity::wire_effort(body);
-    let effective = body.get("reasoning_effort").cloned().unwrap_or_else(|| wire.clone());
+    let effective = body
+        .get("reasoning_effort")
+        .cloned()
+        .unwrap_or_else(|| wire.clone());
     if defaults["reasoning_effort"] != effective {
         defaults["reasoning_effort_source"] = serde_json::json!("wire");
     }

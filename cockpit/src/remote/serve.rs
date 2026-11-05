@@ -15,7 +15,9 @@ const SERVE_ENV: &str = "ANGEL_SESSION_SERVE";
 
 /// The session this process is to serve, when it is one.
 pub(crate) fn serve_requested() -> Option<String> {
-    std::env::var(SERVE_ENV).ok().filter(|name| super::valid_name(name))
+    std::env::var(SERVE_ENV)
+        .ok()
+        .filter(|name| super::valid_name(name))
 }
 
 /// The far end of an attach, run by `ssh <host> angelX --session-host
@@ -69,7 +71,11 @@ pub(crate) fn connect_or_start(name: &str) -> io::Result<UnixStream> {
     }
     // One starter at a time: two windows attaching at once start one session.
     let lock_path = super::dir()?.join(format!("{name}.lock"));
-    let lock = std::fs::OpenOptions::new().create(true).truncate(false).write(true).open(&lock_path)?;
+    let lock = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(false)
+        .write(true)
+        .open(&lock_path)?;
     use std::os::fd::AsRawFd;
     unsafe {
         libc::flock(lock.as_raw_fd(), libc::LOCK_EX);
@@ -109,7 +115,10 @@ fn start(name: &str) -> io::Result<()> {
     } else {
         std::env::current_exe()?
     };
-    let log = std::fs::OpenOptions::new().create(true).append(true).open(log(name)?)?;
+    let log = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(log(name)?)?;
     let mut command = std::process::Command::new(exe);
     command
         // `ps` names it for what it is.
@@ -144,31 +153,43 @@ pub(crate) fn serve(
         use std::os::unix::fs::PermissionsExt;
         std::fs::set_permissions(&socket, std::fs::Permissions::from_mode(0o600))?;
     }
-    eprintln!("=== {} session {name} pid {} ===", chrono_now(), std::process::id());
+    eprintln!(
+        "=== {} session {name} pid {} ===",
+        chrono_now(),
+        std::process::id()
+    );
     // No cell pixels until a window says (its window opens after its hello).
-    let size = GridSize { cols: 120, rows: 40, ..GridSize::default() };
+    let size = GridSize {
+        cols: 120,
+        rows: 40,
+        ..GridSize::default()
+    };
     let (host, hub) = angel_glass::remote::headless(name, size);
     {
         let hub = hub.clone();
-        std::thread::Builder::new().name("remote-accept".into()).spawn(move || {
-            for stream in listener.incoming() {
-                let Ok(stream) = stream else { continue };
-                let hub = hub.clone();
-                std::thread::spawn(move || {
-                    let reader = match stream.try_clone() {
-                        Ok(reader) => reader,
-                        Err(_) => return,
-                    };
-                    if let Err(e) = hub.serve(reader, stream) {
-                        eprintln!("REMOTE: a link failed: {e}");
-                    }
-                });
-            }
-        })?;
+        std::thread::Builder::new()
+            .name("remote-accept".into())
+            .spawn(move || {
+                for stream in listener.incoming() {
+                    let Ok(stream) = stream else { continue };
+                    let hub = hub.clone();
+                    std::thread::spawn(move || {
+                        let reader = match stream.try_clone() {
+                            Ok(reader) => reader,
+                            Err(_) => return,
+                        };
+                        if let Err(e) = hub.serve(reader, stream) {
+                            eprintln!("REMOTE: a link failed: {e}");
+                        }
+                    });
+                }
+            })?;
     }
     // The first window sizes the cockpit, cells and pixels, before it draws.
     let deadline = Instant::now() + Duration::from_secs(10);
-    while (hub.status().clients == 0 || hub.status().size.cell_width == 0) && Instant::now() < deadline {
+    while (hub.status().clients == 0 || hub.status().size.cell_width == 0)
+        && Instant::now() < deadline
+    {
         std::thread::sleep(Duration::from_millis(10));
     }
     hub.default_cell((10, 20));
@@ -204,8 +225,14 @@ static HUB: std::sync::OnceLock<(angel_glass::remote::Hub, String)> = std::sync:
 /// Who is at work in the session, for kingdoms watching it
 /// (docs/REMOTE_GLASS.md, "Presence").
 fn presence(hub: angel_glass::remote::Hub, workspace: PathBuf) {
-    let workspace = workspace.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-    hub.set_presence(Presence { workspace: workspace.clone(), ..Presence::default() });
+    let workspace = workspace
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    hub.set_presence(Presence {
+        workspace: workspace.clone(),
+        ..Presence::default()
+    });
     let _ = HUB.set((hub, workspace));
 }
 
@@ -215,7 +242,9 @@ pub(crate) fn presence_tick(app: &crate::app::App) {
     use angel_glass::remote::{Knight, KnightStatus};
     use std::sync::Mutex;
     static LAST: Mutex<Option<Instant>> = Mutex::new(None);
-    let Some((hub, workspace)) = HUB.get() else { return };
+    let Some((hub, workspace)) = HUB.get() else {
+        return;
+    };
     {
         let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner());
         if last.is_some_and(|at| at.elapsed() < Duration::from_secs(1)) {
@@ -231,8 +260,15 @@ pub(crate) fn presence_tick(app: &crate::app::App) {
             let house = crate::stage::houses::get(id);
             Knight {
                 family: house.key.to_string(),
-                persona: house.knight(0).map(|k| k.name.clone()).unwrap_or_else(|| house.label()),
-                doing: if serving.turn && i == 0 { "working".into() } else { String::new() },
+                persona: house
+                    .knight(0)
+                    .map(|k| k.name.clone())
+                    .unwrap_or_else(|| house.label()),
+                doing: if serving.turn && i == 0 {
+                    "working".into()
+                } else {
+                    String::new()
+                },
                 status: match (serving.turn, i) {
                     (true, 0) => KnightStatus::Working,
                     (true, _) => KnightStatus::Waiting,
@@ -242,7 +278,11 @@ pub(crate) fn presence_tick(app: &crate::app::App) {
             }
         })
         .collect();
-    hub.set_presence(Presence { workspace: workspace.clone(), knights, ..Presence::default() });
+    hub.set_presence(Presence {
+        workspace: workspace.clone(),
+        knights,
+        ..Presence::default()
+    });
 }
 
 fn chrono_now() -> String {

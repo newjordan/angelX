@@ -240,7 +240,10 @@ impl Checkpoint {
                 .filter(|raise| {
                     (raise.route == v_verification::FLAKY && !self.flaky_shown)
                         || (markup_restop
-                            && matches!(raise.route, x_execution::MARKUP | d3456_advisories::NO_EDIT))
+                            && matches!(
+                                raise.route,
+                                x_execution::MARKUP | d3456_advisories::NO_EDIT
+                            ))
                 })
                 .cloned()
                 .collect::<Vec<_>>();

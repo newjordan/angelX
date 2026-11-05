@@ -51,11 +51,17 @@ fn every_moment_prints_its_words_over_cells_that_fill_the_screen() {
         let terminal = draw(&run, 1);
         let header = row(&terminal, 0);
         assert!(header.contains("LANTERNWARD"), "{moment}: {header:?}");
-        assert!(header.contains(&format!("{seats} seated")), "{moment}: {header:?}");
+        assert!(
+            header.contains(&format!("{seats} seated")),
+            "{moment}: {header:?}"
+        );
         // Hearts (full or, for a downed knight, empty) on the second row, the
         // keys at the foot.
         let hearts = row(&terminal, 1);
-        assert!(hearts.contains('\u{2665}') || hearts.contains('\u{2661}'), "{moment}: {hearts:?}");
+        assert!(
+            hearts.contains('\u{2665}') || hearts.contains('\u{2661}'),
+            "{moment}: {hearts:?}"
+        );
         assert!(row(&terminal, 27).contains("Space shield"), "{moment}");
         let lit = (1..28u16)
             .flat_map(|y| (0..96u16).map(move |x| (x, y)))
@@ -64,7 +70,10 @@ fn every_moment_prints_its_words_over_cells_that_fill_the_screen() {
                 cell.bg != Color::Black && cell.bg != Color::Reset || cell.symbol() != " "
             })
             .count();
-        assert!(lit > 96 * 27 / 3, "{moment}: the picture fills the cells ({lit})");
+        assert!(
+            lit > 96 * 27 / 3,
+            "{moment}: the picture fills the cells ({lit})"
+        );
     }
 }
 
@@ -72,7 +81,10 @@ fn every_moment_prints_its_words_over_cells_that_fill_the_screen() {
 fn the_warden_bar_and_the_wisps_line_are_terminal_text() {
     let run = crate::lanternward_oracle::review::review("warden-open", 2);
     let terminal = draw(&run, 1);
-    let all: String = (0..28).map(|y| row(&terminal, y)).collect::<Vec<_>>().join("\n");
+    let all: String = (0..28)
+        .map(|y| row(&terminal, y))
+        .collect::<Vec<_>>()
+        .join("\n");
     assert!(all.contains("WARDEN"), "{all}");
     assert!(all.contains("HEART OPEN"), "{all}");
     let run = crate::lanternward_oracle::review::review("stair", 1);
@@ -107,13 +119,14 @@ fn write_lanternward_terminal_review() {
                 let symbol = cell.symbol();
                 text.push_str(symbol);
                 let c = symbol.chars().next().unwrap_or(' ');
-                let put = |img: &mut image::RgbaImage, px: u32, py: u32, w: u32, h: u32, c: [u8; 3]| {
-                    for yy in py..py + h {
-                        for xx in px..px + w {
-                            img.put_pixel(xx, yy, image::Rgba([c[0], c[1], c[2], 255]));
+                let put =
+                    |img: &mut image::RgbaImage, px: u32, py: u32, w: u32, h: u32, c: [u8; 3]| {
+                        for yy in py..py + h {
+                            for xx in px..px + w {
+                                img.put_pixel(xx, yy, image::Rgba([c[0], c[1], c[2], 255]));
+                            }
                         }
-                    }
-                };
+                    };
                 let (px, py) = (u32::from(x) * cw, u32::from(y) * ch);
                 put(&mut img, px, py, cw, ch, bg);
                 match c {
@@ -122,9 +135,18 @@ fn write_lanternward_terminal_review() {
                     '\u{2588}' => put(&mut img, px, py, cw, ch, fg),
                     '\u{2800}'..='\u{28ff}' => {
                         let bits = c as u32 - 0x2800;
-                        for (bit, (dx, dy)) in [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1), (1, 2), (0, 3), (1, 3)]
-                            .into_iter()
-                            .enumerate()
+                        for (bit, (dx, dy)) in [
+                            (0, 0),
+                            (0, 1),
+                            (0, 2),
+                            (1, 0),
+                            (1, 1),
+                            (1, 2),
+                            (0, 3),
+                            (1, 3),
+                        ]
+                        .into_iter()
+                        .enumerate()
                         {
                             if bits & (1 << bit) != 0 {
                                 put(&mut img, px + dx * 4 + 1, py + dy * 4 + 1, 2, 2, fg);

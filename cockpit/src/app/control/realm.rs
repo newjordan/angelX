@@ -169,10 +169,9 @@ impl App {
                         self.cursor = self.input.len();
                     }
                 }
-                Move::DismissIntro => self.startup_intro.dismiss(
-                    std::time::Instant::now(),
-                    crate::telemetry::MotionMode::Off,
-                ),
+                Move::DismissIntro => self
+                    .startup_intro
+                    .dismiss(std::time::Instant::now(), crate::telemetry::MotionMode::Off),
                 Move::ResetWorldYaw => self.reset_world_yaw(),
             }
         }

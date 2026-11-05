@@ -121,7 +121,12 @@ pub struct Level {
 impl Level {
     /// The indices of things within `reach` pixels of column `x`, for a
     /// list sorted by its x.
-    pub fn near<T>(items: &[T], x: i32, reach: i32, at: impl Fn(&T) -> i32) -> std::ops::Range<usize> {
+    pub fn near<T>(
+        items: &[T],
+        x: i32,
+        reach: i32,
+        at: impl Fn(&T) -> i32,
+    ) -> std::ops::Range<usize> {
         let lo = items.partition_point(|i| at(i) < x - reach);
         let hi = items.partition_point(|i| at(i) <= x + reach);
         lo..hi.max(lo)
@@ -162,7 +167,8 @@ pub fn foe_at(level: &Level, spot: &FoeSpot, clock: u32) -> (i32, i32, i32) {
         FoeKind::Floater => {
             // A slow bob and a slower drift about home.
             let bob = (i64::from(math::sin((t as i32 * 3) % 256)) * 5 / i64::from(ONE)) as i32;
-            let drift = (i64::from(math::sin((t as i32 * 3 / 2) % 256)) * i64::from(spot.range) / i64::from(ONE)) as i32;
+            let drift = (i64::from(math::sin((t as i32 * 3 / 2) % 256)) * i64::from(spot.range)
+                / i64::from(ONE)) as i32;
             (spot.x + drift, spot.y + bob, -1)
         }
     }

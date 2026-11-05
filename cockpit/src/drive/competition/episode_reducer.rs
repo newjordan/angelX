@@ -1,6 +1,6 @@
 use super::episode::{
-    post_terminal_evidence, validate_link, validate_terminal, EpisodeEventKindV1, EpisodeEventV1,
-    EpisodeEvidenceLinkV1, EpisodeStartedV1, EpisodeTerminalV1, DEEP_CUT_EPISODE_SCHEMA_V1,
+    DEEP_CUT_EPISODE_SCHEMA_V1, EpisodeEventKindV1, EpisodeEventV1, EpisodeEvidenceLinkV1,
+    EpisodeStartedV1, EpisodeTerminalV1, post_terminal_evidence, validate_link, validate_terminal,
 };
 use super::episode_store::DurableEpisodeJournalV1;
 use super::journal::{ActionJournalEventV1, ActionUpdateV1};

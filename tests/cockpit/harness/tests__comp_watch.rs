@@ -16,7 +16,6 @@ fn shell(cmd: &str) -> ToolCall {
     call("shell", serde_json::json!({"command": cmd}))
 }
 
-
 // Test vectors are read at runtime so new classification cases need no rebuild.
 #[derive(serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -64,7 +63,6 @@ fn assert_comp_path_cases(group: &str, expected_count: usize) {
         );
     }
 }
-
 
 fn write_src() -> ToolCall {
     call(

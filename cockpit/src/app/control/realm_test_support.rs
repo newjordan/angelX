@@ -9,18 +9,48 @@ use angel_realm_host::together_shooter::knights::Part;
 use std::time::Instant;
 
 impl App {
-    pub(crate) fn joined_actor(&self) -> u32 { self.realm.dungeon.joined_actor() }
-    pub(crate) fn joined_knight(&self) -> Option<serde_json::Value> { self.realm.dungeon.joined_knight() }
-    pub(crate) fn joined_card_pages(&self) -> usize { self.realm.dungeon.joined_card_pages() }
-    pub(crate) fn wish_upgrades(&self, id: u32) -> (Vec<angel_delve::rules::genie::Upgrade>, Option<&'static str>) { self.realm.dungeon.wish_upgrades(id) }
-    pub(crate) fn wish_offer_open(&self, id: u32) -> bool { self.realm.dungeon.wish_offer_open(id) }
-    pub(crate) fn can_leave_dungeon_activity(&self, id: u32) -> bool { self.realm.dungeon.can_leave_dungeon_activity(id) }
-    pub(crate) fn open_lamp_wish(&mut self) { self.with_realm(|r, cx| r.session(cx).open_lamp_wish()); }
-    pub(crate) fn mirror_key(&mut self, key: event::KeyEvent) -> Option<bool> { self.with_realm(|r, cx| r.session(cx).mirror_key(key)) }
-    pub(crate) fn activity_key(&mut self, key: event::KeyEvent) -> bool { self.with_realm(|r, cx| r.session(cx).activity_key(key)) }
-    pub(crate) fn flush_speculative(&mut self) -> bool { self.with_realm(|r, cx| r.session(cx).flush_speculative()) }
-    pub(crate) fn sync_wish_session(&mut self) -> bool { self.with_realm(|r, cx| r.session(cx).sync_wish_session()) }
-    pub(crate) fn drain_detached_lessons(&mut self) { self.with_realm(|r, cx| r.session(cx).drain_detached_lessons()); }
+    pub(crate) fn joined_actor(&self) -> u32 {
+        self.realm.dungeon.joined_actor()
+    }
+    pub(crate) fn joined_knight(&self) -> Option<serde_json::Value> {
+        self.realm.dungeon.joined_knight()
+    }
+    pub(crate) fn joined_card_pages(&self) -> usize {
+        self.realm.dungeon.joined_card_pages()
+    }
+    pub(crate) fn wish_upgrades(
+        &self,
+        id: u32,
+    ) -> (
+        Vec<angel_delve::rules::genie::Upgrade>,
+        Option<&'static str>,
+    ) {
+        self.realm.dungeon.wish_upgrades(id)
+    }
+    pub(crate) fn wish_offer_open(&self, id: u32) -> bool {
+        self.realm.dungeon.wish_offer_open(id)
+    }
+    pub(crate) fn can_leave_dungeon_activity(&self, id: u32) -> bool {
+        self.realm.dungeon.can_leave_dungeon_activity(id)
+    }
+    pub(crate) fn open_lamp_wish(&mut self) {
+        self.with_realm(|r, cx| r.session(cx).open_lamp_wish());
+    }
+    pub(crate) fn mirror_key(&mut self, key: event::KeyEvent) -> Option<bool> {
+        self.with_realm(|r, cx| r.session(cx).mirror_key(key))
+    }
+    pub(crate) fn activity_key(&mut self, key: event::KeyEvent) -> bool {
+        self.with_realm(|r, cx| r.session(cx).activity_key(key))
+    }
+    pub(crate) fn flush_speculative(&mut self) -> bool {
+        self.with_realm(|r, cx| r.session(cx).flush_speculative())
+    }
+    pub(crate) fn sync_wish_session(&mut self) -> bool {
+        self.with_realm(|r, cx| r.session(cx).sync_wish_session())
+    }
+    pub(crate) fn drain_detached_lessons(&mut self) {
+        self.with_realm(|r, cx| r.session(cx).drain_detached_lessons());
+    }
     pub(crate) fn settle_home(&mut self) -> bool {
         self.with_realm(|r, cx| r.session(cx).settle_home())
     }
@@ -57,7 +87,15 @@ impl App {
         self.with_realm(|r, cx| r.session(cx).teach_claim(claim));
     }
 
-    pub(crate) fn teach_spoken(&mut self, open: Vec<(u32, String, u64, angel_realm_host::together_shooter::dead_wishes::Target)>) {
+    pub(crate) fn teach_spoken(
+        &mut self,
+        open: Vec<(
+            u32,
+            String,
+            u64,
+            angel_realm_host::together_shooter::dead_wishes::Target,
+        )>,
+    ) {
         self.with_realm(|r, cx| r.session(cx).teach_spoken(open));
     }
 
@@ -85,7 +123,11 @@ impl App {
         self.with_realm(|r, cx| r.session(cx).watch_delve_gate());
     }
 
-    pub(crate) fn reforged_dir(&self) -> PathBuf { self.tools.current_workspace().join(".angel/dungeon/reforged") }
+    pub(crate) fn reforged_dir(&self) -> PathBuf {
+        self.tools
+            .current_workspace()
+            .join(".angel/dungeon/reforged")
+    }
 
     pub(crate) fn brewed_dir(&mut self) -> PathBuf {
         self.with_realm(|r, cx| r.session(cx).brewed_dir())
@@ -124,7 +166,9 @@ impl App {
     }
 
     pub(crate) fn dungeon_keyboard_active(&self) -> bool {
-        self.realm.view().dungeon_keyboard_active(&self.realm_facts())
+        self.realm
+            .view()
+            .dungeon_keyboard_active(&self.realm_facts())
     }
 
     pub(crate) fn host_name(&self) -> String {
@@ -148,37 +192,37 @@ use angel_realm_host::together_shooter as shooter;
 #[allow(unused_imports)]
 use std::time::Duration;
 
-#[path = "../../../../tests/cockpit/app/dungeon_controls__tests.rs"]
-mod controls_tests;
 #[path = "../../../../tests/cockpit/app/dungeon_brew__tests.rs"]
 mod brew_tests;
 #[path = "../../../../tests/cockpit/app/dungeon_chivalry__tests.rs"]
 mod chivalry_tests;
+#[path = "../../../../tests/cockpit/app/dungeon_controls__tests.rs"]
+mod controls_tests;
+#[path = "../../../../tests/cockpit/app/dungeon_grant_flight__tests.rs"]
+mod grant_flight_tests;
 #[path = "../../../../tests/cockpit/app/dungeon_paint__tests.rs"]
 mod paint_tests;
 #[path = "../../../../tests/cockpit/app/dungeon_reforge_jobs__tests.rs"]
 mod reforge_jobs_tests;
-#[path = "../../../../tests/cockpit/app/dungeon_wish_jobs__tests.rs"]
-mod wish_jobs_tests;
-#[path = "../../../../tests/cockpit/app/dungeon_grant_flight__tests.rs"]
-mod grant_flight_tests;
 #[path = "../../../../tests/cockpit/app/overworld_walk__tests.rs"]
 mod walk_tests;
+#[path = "../../../../tests/cockpit/app/dungeon_wish_jobs__tests.rs"]
+mod wish_jobs_tests;
 
 #[allow(unused_imports)]
-use angel_delve::rules::{cards, cauldron};
-#[allow(unused_imports)]
-use angel_realm_host::control::dungeon_brew::brew_brief;
-#[allow(unused_imports)]
-use angel_realm_host::control::dungeon_reforge::{SPELL_LINES, SUMMONS, INKS};
-#[allow(unused_imports)]
-use angel_realm_host::control::Pick;
+use crate::app::WorldButton;
 #[allow(unused_imports)]
 use angel_delve::rules::wish_jobs::Outcome;
 #[allow(unused_imports)]
-use angel_realm_host::together_painter as painter;
+use angel_delve::rules::{cards, cauldron};
 #[allow(unused_imports)]
-use crate::app::WorldButton;
+use angel_realm_host::control::Pick;
+#[allow(unused_imports)]
+use angel_realm_host::control::dungeon_brew::brew_brief;
+#[allow(unused_imports)]
+use angel_realm_host::control::dungeon_reforge::{INKS, SPELL_LINES, SUMMONS};
+#[allow(unused_imports)]
+use angel_realm_host::together_painter as painter;
 
 #[path = "../../../../tests/cockpit/app/dungeon_mirror_controls__tests.rs"]
 mod mirror_tests;

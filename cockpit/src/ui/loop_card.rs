@@ -951,13 +951,7 @@ pub(crate) fn render_ticker(
             } else {
                 ("·", FAINT)
             };
-            buf.set_stringn(
-                road_start + i as u16,
-                road_y,
-                mark,
-                1,
-                Style::new().fg(ink),
-            );
+            buf.set_stringn(road_start + i as u16, road_y, mark, 1, Style::new().fg(ink));
         }
         if race.complete && len >= 2 {
             buf.set_stringn(

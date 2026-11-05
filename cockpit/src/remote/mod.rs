@@ -44,7 +44,9 @@ pub(crate) fn valid_name(name: &str) -> bool {
     !name.is_empty()
         && name.len() <= 32
         && !name.starts_with('.')
-        && name.chars().all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-'))
 }
 
 /// `host`, `host:name` or `:name` (this machine). `local` and `localhost`
@@ -61,18 +63,29 @@ impl Target {
             Some((host, name)) => (host, name),
             None => (text, DEFAULT_SESSION),
         };
-        let name = if name.is_empty() { DEFAULT_SESSION } else { name };
+        let name = if name.is_empty() {
+            DEFAULT_SESSION
+        } else {
+            name
+        };
         if !valid_name(name) {
-            return Err(invalid("a session name is letters, digits, '.', '_' and '-', up to 32"));
+            return Err(invalid(
+                "a session name is letters, digits, '.', '_' and '-', up to 32",
+            ));
         }
         let host = match host {
             "" | "local" | "localhost" => None,
-            host if host.starts_with('-') || host.chars().any(|c| c.is_whitespace() || c == '\'') => {
+            host if host.starts_with('-')
+                || host.chars().any(|c| c.is_whitespace() || c == '\'') =>
+            {
                 return Err(invalid("not a host"));
             }
             host => Some(host.to_string()),
         };
-        Ok(Self { host, name: name.to_string() })
+        Ok(Self {
+            host,
+            name: name.to_string(),
+        })
     }
 
     pub(crate) fn label(&self) -> String {
@@ -96,7 +109,12 @@ pub(crate) fn cli(args: &[OsString]) -> io::Result<()> {
         .iter()
         .map(|a| a.to_str().map(str::to_string).ok_or_else(usage))
         .collect::<io::Result<_>>()?;
-    let result = match args.iter().map(String::as_str).collect::<Vec<_>>().as_slice() {
+    let result = match args
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
         ["--session-host", name] if valid_name(name) => return serve::host_session(name),
         ["--attach", target] => attach::attach(&Target::parse(target)?, None),
         ["--attach", target, "--term"] => attach::attach(&Target::parse(target)?, Some(false)),
@@ -121,11 +139,41 @@ mod tests {
     #[test]
     fn targets_name_a_host_and_a_session() {
         let t = |s: &str| Target::parse(s).unwrap();
-        assert_eq!(t("gpu-host"), Target { host: Some("gpu-host".into()), name: "main".into() });
-        assert_eq!(t("gpu-host:work"), Target { host: Some("gpu-host".into()), name: "work".into() });
-        assert_eq!(t("me@10.0.0.2:x"), Target { host: Some("me@10.0.0.2".into()), name: "x".into() });
-        assert_eq!(t(":x"), Target { host: None, name: "x".into() });
-        assert_eq!(t("local"), Target { host: None, name: "main".into() });
+        assert_eq!(
+            t("gpu-host"),
+            Target {
+                host: Some("gpu-host".into()),
+                name: "main".into()
+            }
+        );
+        assert_eq!(
+            t("gpu-host:work"),
+            Target {
+                host: Some("gpu-host".into()),
+                name: "work".into()
+            }
+        );
+        assert_eq!(
+            t("me@10.0.0.2:x"),
+            Target {
+                host: Some("me@10.0.0.2".into()),
+                name: "x".into()
+            }
+        );
+        assert_eq!(
+            t(":x"),
+            Target {
+                host: None,
+                name: "x".into()
+            }
+        );
+        assert_eq!(
+            t("local"),
+            Target {
+                host: None,
+                name: "main".into()
+            }
+        );
         assert!(Target::parse("gpu-host:../x").is_err());
         assert!(Target::parse("-oProxyCommand=x").is_err());
         assert!(Target::parse("a b").is_err());

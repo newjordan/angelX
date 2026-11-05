@@ -3,8 +3,8 @@
 //! reaches the Delve's gate on the map and the player clicks through.
 
 use crate::drive::together_realm::{Realm, Status};
-pub(crate) use angel_realm_host::delve_intro::{DELVES, Field, Intro, PARTIES};
 use crate::stage::world_viz::overworld::{Img, arena};
+pub(crate) use angel_realm_host::delve_intro::{DELVES, Field, Intro, PARTIES};
 use ratatui::{
     Frame,
     layout::Rect,

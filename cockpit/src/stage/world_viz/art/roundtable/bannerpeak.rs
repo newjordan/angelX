@@ -65,7 +65,11 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
     // The banners as eight cells, the table as a line.
     let mut banners = String::from(" ");
     for n in 0..8 {
-        banners.push_str(if s.banners & (1 << n) != 0 { "[#] " } else { "[ ] " });
+        banners.push_str(if s.banners & (1 << n) != 0 {
+            "[#] "
+        } else {
+            "[ ] "
+        });
     }
     line(frame, 1, banners, GOLD);
     let mut table = String::new();
@@ -112,7 +116,11 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
         centre(
             frame,
             4,
-            &format!(" BANNER {} OF 8: {} ", s.count(), BANNER_NAMES[usize::from(a.banner)]),
+            &format!(
+                " BANNER {} OF 8: {} ",
+                s.count(),
+                BANNER_NAMES[usize::from(a.banner)]
+            ),
             GOLD,
             true,
         );
@@ -153,18 +161,34 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
                     "[ ]".to_string()
                 };
                 let text = format!(" {} {:<14} {} ", if on { ">" } else { " " }, name, tag);
-                let fg = if locked { DIM } else if on { GOLD } else { INK };
+                let fg = if locked {
+                    DIM
+                } else if on {
+                    GOLD
+                } else {
+                    INK
+                };
                 centre(frame, 8 + n as u16, &text, fg, on);
             }
             let left = SELECT_TICKS.saturating_sub(s.phase_t) / HZ;
-            centre(frame, 15, &format!(" W S choose   E go   {left} "), DIM, false);
+            centre(
+                frame,
+                15,
+                &format!(" W S choose   E go   {left} "),
+                DIM,
+                false,
+            );
         }
         Phase::Finale => {
             let t = s.phase_t;
             centre(
                 frame,
                 4,
-                if t > 120 { " THE COURT IS LIT " } else { " EIGHT BANNERS FLY " },
+                if t > 120 {
+                    " THE COURT IS LIT "
+                } else {
+                    " EIGHT BANNERS FLY "
+                },
                 GOLD,
                 true,
             );
@@ -237,7 +261,11 @@ mod tests {
             "bubble" => {
                 s.elapsed = 900;
                 if let Some(k) = s.seats.get_mut(&1) {
-                    k.bubble = Some(Bubble { x: 80 * 256, y: 700 * 256, t: 40 });
+                    k.bubble = Some(Bubble {
+                        x: 80 * 256,
+                        y: 700 * 256,
+                        t: 40,
+                    });
                 }
             }
             other => panic!("no moment {other}"),
@@ -275,32 +303,63 @@ mod tests {
     fn the_board_the_banner_the_finale_and_the_bubble_are_plain_words_over_the_cells() {
         let board = rows(&draw(&moment("select", 4)));
         let all = board.join("\n");
-        for line in ["MOONWELL MOUNTAIN", "MARSH FLAG", "MILL RACE", "BELL SHAFT", "SNOW RUN", "EIGHT SPARKS", "KING CINDER"] {
+        for line in [
+            "MOONWELL MOUNTAIN",
+            "MARSH FLAG",
+            "MILL RACE",
+            "BELL SHAFT",
+            "SNOW RUN",
+            "EIGHT SPARKS",
+            "KING CINDER",
+        ] {
             assert!(all.contains(line), "the board names {line}");
         }
         assert!(all.contains("W S choose"), "and how to choose");
         assert!(board[0].contains("BANNERS 2/8") && board[0].contains("4 seated"));
 
         let up = rows(&draw(&moment("announce", 2))).join("\n");
-        assert!(up.contains("BANNER 3 OF 8"), "the banner just raised is named");
+        assert!(
+            up.contains("BANNER 3 OF 8"),
+            "the banner just raised is named"
+        );
 
         let lit = rows(&draw(&moment("finale", 3))).join("\n");
         assert!(lit.contains("EIGHT BANNERS FLY") || lit.contains("THE COURT IS LIT"));
         let done = rows(&draw(&moment("finale-done", 3))).join("\n");
-        assert!(done.contains("E return to the kingdom"), "the way home is said");
+        assert!(
+            done.contains("E return to the kingdom"),
+            "the way home is said"
+        );
 
         let bubble = rows(&draw(&moment("bubble", 2))).join("\n");
-        assert!(bubble.contains("IN A BUBBLE"), "the fallen knight is told what to do");
+        assert!(
+            bubble.contains("IN A BUBBLE"),
+            "the fallen knight is told what to do"
+        );
 
         let start = rows(&draw(&moment("start", 1))).join("\n");
-        assert!(start.contains("RAISE EIGHT BANNERS"), "the title card words");
+        assert!(
+            start.contains("RAISE EIGHT BANNERS"),
+            "the title card words"
+        );
         assert!(start.contains("Hold Esc"), "the keys line");
-        assert!(start.contains("RUN. JUMP."), "the first sign, said in plain text");
+        assert!(
+            start.contains("RUN. JUMP."),
+            "the first sign, said in plain text"
+        );
     }
 
     #[test]
     fn every_moment_fills_the_cells_for_one_and_six_seats() {
-        for name in ["start", "late", "select", "announce", "finale", "finale-done", "bubble"] {
+        for name in [
+            "start",
+            "late",
+            "select",
+            "announce",
+            "finale",
+            "finale-done",
+            "bubble",
+        ] {
             for seats in [1, 6] {
                 let t = draw(&moment(name, seats));
                 let lit = (1..28u16)
@@ -327,7 +386,15 @@ mod tests {
             Color::Rgb(r, g, b) => [r, g, b],
             _ => [0, 0, 0],
         };
-        for name in ["start", "late", "select", "announce", "finale", "finale-done", "bubble"] {
+        for name in [
+            "start",
+            "late",
+            "select",
+            "announce",
+            "finale",
+            "finale-done",
+            "bubble",
+        ] {
             for seats in [1, 6] {
                 let t = draw(&moment(name, seats));
                 let buf = t.backend().buffer();
@@ -362,8 +429,11 @@ mod tests {
                 }
                 img.save(dir.join(format!("bannerpeak-term-{name}-seats{seats}.png")))
                     .unwrap();
-                std::fs::write(dir.join(format!("bannerpeak-term-{name}-seats{seats}.txt")), text)
-                    .unwrap();
+                std::fs::write(
+                    dir.join(format!("bannerpeak-term-{name}-seats{seats}.txt")),
+                    text,
+                )
+                .unwrap();
             }
         }
     }

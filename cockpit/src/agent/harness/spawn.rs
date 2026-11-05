@@ -415,9 +415,9 @@ impl Grant {
         // inspect a different repository from the seat's actual tools.
         r.set_workspace(workspace.to_path_buf());
         if self != Self::None {
-            r.register(Box::new(crate::agent::tools::labyrinth::LabyrinthTool::new(
-                workspace.to_path_buf(),
-            )));
+            r.register(Box::new(
+                crate::agent::tools::labyrinth::LabyrinthTool::new(workspace.to_path_buf()),
+            ));
         }
         match self {
             // No workspace tools — only the ledger reader, so the seat reads its

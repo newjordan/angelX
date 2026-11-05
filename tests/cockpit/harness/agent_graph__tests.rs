@@ -446,22 +446,34 @@ fn direct_graph_pins_one_catalog_across_nodes_when_source_changes() {
         observed: Mutex<Option<String>>,
     }
     impl Club for CatalogClub {
-        fn label(&self) -> &str { "catalog-graph-fixture" }
-        fn respond(&self, _prompt: &str) -> Result<String, String> { Err("expected structured chat".into()) }
+        fn label(&self) -> &str {
+            "catalog-graph-fixture"
+        }
+        fn respond(&self, _prompt: &str) -> Result<String, String> {
+            Err("expected structured chat".into())
+        }
         fn chat(&self, messages: &[ChatMsg], _tools: &[ToolDef]) -> Result<ClubReply, String> {
-            let system = messages.iter().find(|message| message.role == ChatRole::System)
-                .map(|message| message.content.as_ref()).unwrap_or("");
+            let system = messages
+                .iter()
+                .find(|message| message.role == ChatRole::System)
+                .map(|message| message.content.as_ref())
+                .unwrap_or("");
             if system.contains("node=first ") {
                 publish_navigation(&self.book, &self.replacement);
                 return Ok(ClubReply::Text("first node completed".into()));
             }
             if system.contains("node=second ") {
-                if let Some(result) = messages.iter().rev().find(|message| message.tool_call_id.as_deref() == Some("book-page")) {
+                if let Some(result) = messages
+                    .iter()
+                    .rev()
+                    .find(|message| message.tool_call_id.as_deref() == Some("book-page"))
+                {
                     *self.observed.lock().unwrap() = Some(result.content.to_string());
                     return Ok(ClubReply::Text("second node completed".into()));
                 }
                 return Ok(ClubReply::Calls(vec![ToolCall {
-                    id: "book-page".into(), name: "read_file".into(),
+                    id: "book-page".into(),
+                    name: "read_file".into(),
                     args: serde_json::json!({"path":"ledger://⠣⠁⠁"}),
                 }]));
             }
@@ -484,21 +496,45 @@ fn direct_graph_pins_one_catalog_across_nodes_when_source_changes() {
     }
     let baseline = std::fs::read_to_string(
         Path::new(env!("CARGO_MANIFEST_DIR")).join("book/gh_navigation.tsv"),
-    ).unwrap();
-    let generation_one = baseline.replace("path inside the workspace (relative or absolute)", "graph generation one");
-    let generation_two = baseline.replace("path inside the workspace (relative or absolute)", "graph generation two");
+    )
+    .unwrap();
+    let generation_one = baseline.replace(
+        "path inside the workspace (relative or absolute)",
+        "graph generation one",
+    );
+    let generation_two = baseline.replace(
+        "path inside the workspace (relative or absolute)",
+        "graph generation two",
+    );
     publish_navigation(&book, &generation_one);
     let _home = crate::tests::TestEnvGuard::set("HOME", home.to_str().unwrap());
-    let _resource = crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", resource.to_str().unwrap());
+    let _resource =
+        crate::tests::TestEnvGuard::set("ANGEL_RESOURCE_DIR", resource.to_str().unwrap());
     let _advisor = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "0");
     let _skill = crate::tests::TestEnvGuard::set("ANGEL_SKILL_HINT", "0");
     assert!(super::super::book::catalog::current().is_none());
-    let club = Arc::new(CatalogClub { book, replacement: generation_two, observed: Mutex::new(None) });
-    let engine = AgentGraphEngine::new(root.to_path_buf(), Some(club.clone()), Vec::new()).without_persistence();
-    let mut graph = spec("catalog-pin", vec![node("first", "first", &[]), node("second", "second", &["first"])]);
+    let club = Arc::new(CatalogClub {
+        book,
+        replacement: generation_two,
+        observed: Mutex::new(None),
+    });
+    let engine = AgentGraphEngine::new(root.to_path_buf(), Some(club.clone()), Vec::new())
+        .without_persistence();
+    let mut graph = spec(
+        "catalog-pin",
+        vec![
+            node("first", "first", &[]),
+            node("second", "second", &["first"]),
+        ],
+    );
     graph.nodes[1].tools = Some("read_only".into());
     engine.run(&graph, "task", &AtomicBool::new(false)).unwrap();
-    let page = club.observed.lock().unwrap().clone().expect("second node read the ledger");
+    let page = club
+        .observed
+        .lock()
+        .unwrap()
+        .clone()
+        .expect("second node read the ledger");
     assert!(page.contains("graph generation one"), "{page}");
     assert!(!page.contains("graph generation two"), "{page}");
 }
@@ -2912,13 +2948,23 @@ fn direct_graph_keeps_tool_generation_when_override_changes_between_nodes() {
         seen: Mutex<Vec<String>>,
     }
     impl Club for ToolCatalogClub {
-        fn label(&self) -> &str { "tool-catalog-graph" }
-        fn respond(&self, _: &str) -> Result<String, String> { Err("expected structured chat".into()) }
+        fn label(&self) -> &str {
+            "tool-catalog-graph"
+        }
+        fn respond(&self, _: &str) -> Result<String, String> {
+            Err("expected structured chat".into())
+        }
         fn chat(&self, messages: &[ChatMsg], _: &[ToolDef]) -> Result<ClubReply, String> {
             let mut definition = super::super::core_catalog::baseline_def("git_diff");
-            super::super::core_catalog::current().ok_or("missing tool generation")?.overlay(&mut definition);
+            super::super::core_catalog::current()
+                .ok_or("missing tool generation")?
+                .overlay(&mut definition);
             self.seen.lock().unwrap().push(definition.description);
-            let system = messages.iter().find(|m| m.role == ChatRole::System).map(|m| m.content.as_ref()).unwrap_or("");
+            let system = messages
+                .iter()
+                .find(|m| m.role == ChatRole::System)
+                .map(|m| m.content.as_ref())
+                .unwrap_or("");
             if system.contains("node=first ") {
                 std::fs::write(&self.path, &self.replacement).map_err(|e| e.to_string())?;
             }
@@ -2928,20 +2974,43 @@ fn direct_graph_keeps_tool_generation_when_override_changes_between_nodes() {
     let _guard = crate::tests::env_lock();
     let workspace = crate::tests::TestGitWorkspace::new("graph-tool-generation");
     let path = workspace.path().join("tool-catalog.json");
-    let resource = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("lib/tools/definitions.json");
+    let resource = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("lib/tools/definitions.json");
     let mut catalog: Value = serde_json::from_slice(&std::fs::read(resource).unwrap()).unwrap();
     catalog["tools"]["git_diff"]["description"] = "graph tool generation one".into();
     std::fs::write(&path, serde_json::to_vec(&catalog).unwrap()).unwrap();
     catalog["tools"]["git_diff"]["description"] = "graph tool generation two".into();
     let replacement = serde_json::to_vec(&catalog).unwrap();
-    let _catalog = crate::tests::TestEnvGuard::set("ANGEL_CORE_TOOL_CATALOG", path.to_str().unwrap());
+    let _catalog =
+        crate::tests::TestEnvGuard::set("ANGEL_CORE_TOOL_CATALOG", path.to_str().unwrap());
     let _advisor = crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "0");
     let _skill = crate::tests::TestEnvGuard::set("ANGEL_SKILL_HINT", "0");
-    let club = Arc::new(ToolCatalogClub { path, replacement, seen: Mutex::new(Vec::new()) });
-    let engine = AgentGraphEngine::new(workspace.path().to_path_buf(), Some(club.clone()), Vec::new()).without_persistence();
-    let graph = spec("tool-catalog-pin", vec![node("first", "first", &[]), node("second", "second", &["first"])]);
+    let club = Arc::new(ToolCatalogClub {
+        path,
+        replacement,
+        seen: Mutex::new(Vec::new()),
+    });
+    let engine = AgentGraphEngine::new(
+        workspace.path().to_path_buf(),
+        Some(club.clone()),
+        Vec::new(),
+    )
+    .without_persistence();
+    let graph = spec(
+        "tool-catalog-pin",
+        vec![
+            node("first", "first", &[]),
+            node("second", "second", &["first"]),
+        ],
+    );
     engine.run(&graph, "task", &AtomicBool::new(false)).unwrap();
     let seen = club.seen.lock().unwrap();
     assert!(seen.len() >= 2, "{seen:?}");
-    assert!(seen.iter().all(|value| value == "graph tool generation one"), "{seen:?}");
+    assert!(
+        seen.iter()
+            .all(|value| value == "graph tool generation one"),
+        "{seen:?}"
+    );
 }

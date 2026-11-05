@@ -12,7 +12,10 @@ fn the_music_is_not_in_the_binary_and_every_track_reaches_the_page() {
         embedded.iter().all(|(name, _)| !name.starts_with("music-")),
         "no music is compiled in"
     );
-    assert_eq!(web_bundle::beside(), &[("music-", "cockpit/assets/dungeon/music")]);
+    assert_eq!(
+        web_bundle::beside(),
+        &[("music-", "cockpit/assets/dungeon/music")]
+    );
     let bundle = bundle().expect("the page");
     let json = bundle
         .index_html

@@ -174,8 +174,7 @@ fn write_arcade_review() {
             }
         }
     }
-    let proof =
-        json!({"version":1,"stage":[384,224],"cells":[96,28],"frames":evidence});
+    let proof = json!({"version":1,"stage":[384,224],"cells":[96,28],"frames":evidence});
     std::fs::write(
         root.join("cell-proof.json"),
         serde_json::to_vec_pretty(&proof).unwrap(),

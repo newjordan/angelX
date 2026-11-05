@@ -252,9 +252,16 @@ fn a_cancelled_turn_interrupts_the_teacher_wait_without_a_timeout() {
     }
 
     assert!(started, "teacher request did not enter its mock API");
-    assert_eq!(observed_cancel, Some(true), "worker must see turn cancellation");
+    assert_eq!(
+        observed_cancel,
+        Some(true),
+        "worker must see turn cancellation"
+    );
     assert_eq!(answer, Some(None), "cancelled teacher answer is discarded");
-    assert!(ask_finished, "cancelled teacher wait must terminate promptly");
+    assert!(
+        ask_finished,
+        "cancelled teacher wait must terminate promptly"
+    );
     assert!(
         !TEACHER_ASK_IN_FLIGHT.load(Ordering::Acquire),
         "teacher worker lease must clear before releasing the test lock"

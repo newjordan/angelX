@@ -276,7 +276,13 @@ fn a_predicted_stage_names_its_boards_tag() {
 fn the_plate_draws_exactly_as_it_did() {
     fn fnv(ink: &Ink) -> u64 {
         let mut h: u64 = 0xcbf2_9ce4_8422_2325;
-        for b in ink.0.to_le_bytes().iter().chain(&ink.1.to_le_bytes()).chain(&ink.2) {
+        for b in ink
+            .0
+            .to_le_bytes()
+            .iter()
+            .chain(&ink.1.to_le_bytes())
+            .chain(&ink.2)
+        {
             h ^= u64::from(*b);
             h = h.wrapping_mul(0x0100_0000_01b3);
         }
@@ -298,16 +304,32 @@ fn the_plate_draws_exactly_as_it_did() {
         ],
     };
     let hashes: Vec<u64> = [
-        View { campaign: None, cloud: None, dir: "~/.angelX/vec" },
-        View { campaign: Some(&c), cloud: None, dir: "~/.angelX/vec" },
-        View { campaign: Some(&c), cloud: Some(&cloud), dir: "~/.angelX/vec" },
+        View {
+            campaign: None,
+            cloud: None,
+            dir: "~/.angelX/vec",
+        },
+        View {
+            campaign: Some(&c),
+            cloud: None,
+            dir: "~/.angelX/vec",
+        },
+        View {
+            campaign: Some(&c),
+            cloud: Some(&cloud),
+            dir: "~/.angelX/vec",
+        },
     ]
     .iter()
     .map(|view| fnv(&plate::draw(&l, view, 2.0, &mut Blocks)))
     .collect();
     assert_eq!(
         hashes,
-        vec![0xf1dd_920c_858d_7868, 0xf59e_79d3_6d1a_20a0, 0xdbd4_b837_bbbc_7fe6],
+        vec![
+            0xf1dd_920c_858d_7868,
+            0xf59e_79d3_6d1a_20a0,
+            0xdbd4_b837_bbbc_7fe6
+        ],
         "{hashes:#x?}"
     );
 }

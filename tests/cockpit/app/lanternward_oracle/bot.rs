@@ -58,7 +58,11 @@ impl Session {
             return self.bot_goto(me, (f.x, f.y), 30, false);
         }
         // A friend on the ground, and nothing about: lift them.
-        if let Some(o) = self.seats.values().find(|o| o.id != me.id && o.act == Act::Down) {
+        if let Some(o) = self
+            .seats
+            .values()
+            .find(|o| o.id != me.id && o.act == Act::Down)
+        {
             let mut i = self.bot_goto(me, (o.x, o.y), 10, false);
             if dist(o.x - me.x, o.y - me.y) < 18 * Q {
                 i.interact = true;
@@ -80,7 +84,10 @@ impl Session {
             return (0, 0);
         }
         if from == to {
-            return (sign(middle(to.0) - me.x, 2 * Q), sign(middle(to.1) - me.y, 2 * Q));
+            return (
+                sign(middle(to.0) - me.x, 2 * Q),
+                sign(middle(to.1) - me.y, 2 * Q),
+            );
         }
         let open = |x: i32, y: i32| -> bool {
             if x < 0 || y < 0 || x >= w || y >= h {
@@ -106,7 +113,12 @@ impl Session {
                 }
             }
         }
-        if to.0 < 0 || to.1 < 0 || to.0 >= w || to.1 >= h || came[(to.1 * w + to.0) as usize].is_none() {
+        if to.0 < 0
+            || to.1 < 0
+            || to.0 >= w
+            || to.1 >= h
+            || came[(to.1 * w + to.0) as usize].is_none()
+        {
             return (0, 0);
         }
         // Back from the goal to the tile after ours.
@@ -213,7 +225,9 @@ impl Session {
             && let Some(f) = self
                 .foes
                 .iter()
-                .filter(|f| f.alive() && f.kind == Fk::Snuffer && dist(f.x - me.x, f.y - me.y) < 45 * Q)
+                .filter(|f| {
+                    f.alive() && f.kind == Fk::Snuffer && dist(f.x - me.x, f.y - me.y) < 45 * Q
+                })
                 .min_by_key(|f| dist(f.x - me.x, f.y - me.y))
         {
             return self.bot_fight(id, me, f, r);
@@ -266,7 +280,10 @@ impl Session {
                 let elapsed = i32::from(SLAM_TICKS - w.t);
                 let ring = (12 + SLAM_SPEED * elapsed) * Q;
                 // The ring is three or four ticks off: up and over.
-                if (6 * Q..=20 * Q).contains(&(dm - ring)) && me.z == 0 && !matches!(me.act, Act::Hop | Act::Roll | Act::Item) {
+                if (6 * Q..=20 * Q).contains(&(dm - ring))
+                    && me.z == 0
+                    && !matches!(me.act, Act::Hop | Act::Roll | Act::Item)
+                {
                     // Over it: a backflip, locked on.
                     i.interact = self.elapsed.is_multiple_of(2);
                     i.ult = true;
@@ -336,7 +353,8 @@ impl Session {
         let first = ids.first() == Some(&id);
         let rank = ids.iter().position(|&x| x == id).unwrap_or(0);
         let prop_pos = |kind: Pk, i: u8| -> Option<(i32, i32)> {
-            self.prop_of(kind, i).map(|j| (self.props[j].x, self.props[j].y))
+            self.prop_of(kind, i)
+                .map(|j| (self.props[j].x, self.props[j].y))
         };
         match (self.room, self.stage) {
             (0, 0) => {
@@ -382,21 +400,29 @@ impl Session {
                 i.aim_x = 0;
                 i.aim_y = -1;
                 let cost = r.flame / BOLT_COST_PARTS;
-                if dist(spot.0 - me.x, spot.1 - me.y) < 8 * Q && me.flame >= cost && me.lamp_cd == 0 {
+                if dist(spot.0 - me.x, spot.1 - me.y) < 8 * Q && me.flame >= cost && me.lamp_cd == 0
+                {
                     i.fire = self.elapsed % 8 < 3;
                 }
                 i
             }
             (1, 2) => Input::default(),
             (1, _) => self.bot_exit(me),
-            (2, 0) if self.props.iter().any(|p| p.kind == Pk::Gate && p.id == 1 && p.on == 1) => {
+            (2, 0)
+                if self
+                    .props
+                    .iter()
+                    .any(|p| p.kind == Pk::Gate && p.id == 1 && p.on == 1) =>
+            {
                 self.bot_gallery(id, me)
             }
             // The second knight holds the second plate for the rest.
-            (2, 0) if rank == 1 => match self.props.iter().find(|p| p.kind == Pk::Plate && p.id == 1) {
-                Some(p) => self.bot_goto(me, (p.x, p.y), 2, false),
-                None => Input::default(),
-            },
+            (2, 0) if rank == 1 => {
+                match self.props.iter().find(|p| p.kind == Pk::Plate && p.id == 1) {
+                    Some(p) => self.bot_goto(me, (p.x, p.y), 2, false),
+                    None => Input::default(),
+                }
+            }
             (2, 0) => {
                 let block = self.props.iter().find(|p| p.kind == Pk::Block);
                 let plate = self.props.iter().find(|p| p.kind == Pk::Plate);
@@ -526,7 +552,12 @@ impl Session {
         }
         if rank != 0 {
             // Wait well back, off the turret's line.
-            return self.bot_goto(me, (middle(19), middle(2 + (2 * rank as i32) % 9)), 10, false);
+            return self.bot_goto(
+                me,
+                (middle(19), middle(2 + (2 * rank as i32) % 9)),
+                10,
+                false,
+            );
         }
         let spot = (middle(29), middle(5));
         let mut i = self.bot_goto(me, spot, 5, false);

@@ -107,7 +107,15 @@ pub fn drive(seats: u32, seed: u64, limit: u32, every: u32, mut f: impl FnMut(&F
             }
         }
         if tick % every == 0 {
-            f(&Frame { s: &s, heroes: &heroes, inputs: &inputs, r: &r, tick, seats, seed });
+            f(&Frame {
+                s: &s,
+                heroes: &heroes,
+                inputs: &inputs,
+                r: &r,
+                tick,
+                seats,
+                seed,
+            });
         }
         s.step(&inputs, &heroes, &r);
         if seed % 2 == 1 && tick % 97 == 50 && !s.seats.is_empty() {

@@ -84,7 +84,13 @@ fn seating_tables() -> Vec<Vec<Link>> {
     let glm = || {
         vec![
             link("glm", "glm-5.3", Some("glm-5.3"), true, true),
-            link("glm-5.3-flash", "glm-5.3-flash", Some("glm-5.3-flash"), true, true),
+            link(
+                "glm-5.3-flash",
+                "glm-5.3-flash",
+                Some("glm-5.3-flash"),
+                true,
+                true,
+            ),
             link("glm-5.2", "glm-5.2", Some("glm-5.2"), true, true),
         ]
     };
@@ -154,7 +160,13 @@ fn seating_tables() -> Vec<Vec<Link>> {
             link("glm-5.3", "glm-5.3", Some("glm-5.3"), true, true),
         ],
         // One link matched by three different cheap order names.
-        vec![link("deepseek-v4-flash", "deepseek-flash", Some("deepseek-flash"), true, true)],
+        vec![link(
+            "deepseek-v4-flash",
+            "deepseek-flash",
+            Some("deepseek-flash"),
+            true,
+            true,
+        )],
         // The same club offered twice under two different aliases.
         {
             let club: Arc<dyn Club> = Arc::new(SeatClub {
@@ -164,8 +176,16 @@ fn seating_tables() -> Vec<Vec<Link>> {
                 answers: true,
             });
             vec![
-                ("glm-flash".to_string(), Arc::clone(&club), Arc::new(AtomicBool::new(true))),
-                ("glm-5.3-flash".to_string(), club, Arc::new(AtomicBool::new(true))),
+                (
+                    "glm-flash".to_string(),
+                    Arc::clone(&club),
+                    Arc::new(AtomicBool::new(true)),
+                ),
+                (
+                    "glm-5.3-flash".to_string(),
+                    club,
+                    Arc::new(AtomicBool::new(true)),
+                ),
             ]
         },
         // An empty-but-present alias seats nothing under that alias alone.
@@ -207,7 +227,12 @@ fn seat_order_leg_reproduces_the_native_cheap_seating() {
                 plan: native.clone(),
             },
         );
-        assert_eq!(plan.plan, native, "seating differs for {:?}", aliases(links));
+        assert_eq!(
+            plan.plan,
+            native,
+            "seating differs for {:?}",
+            aliases(links)
+        );
         assert!(matches!(source, LegSource::Live { .. }), "{source:?}");
         checked += 1;
     }
@@ -238,7 +263,9 @@ fn a_refused_link_is_never_seated_and_an_alias_seats_once() {
         SEAT_ORDER_LEG,
         &input,
         |plan: &SeatPlan| seat_plan_check(&plan.plan, 4, false),
-        || SeatPlan { plan: vec![3, 3, 3] },
+        || SeatPlan {
+            plan: vec![3, 3, 3],
+        },
     );
     assert!(matches!(source, LegSource::Live { .. }), "{source:?}");
     // Slot 0 seats link 3 (link 0 is refused); slot 1 then seats link 1, and
@@ -285,11 +312,7 @@ fn seat_order_leg_reproduces_the_native_walk() {
             (Some(detected(200, true)), false, true),
             (Some(detected(0, false)), true, true),
         ],
-        vec![
-            (None, true, true),
-            (None, true, true),
-            (None, true, true),
-        ],
+        vec![(None, true, true), (None, true, true), (None, true, true)],
         vec![(Some(detected(131_072, false)), true, true)],
         vec![
             (Some(detected(131_072, true)), true, true),
@@ -348,13 +371,8 @@ fn seat_order_leg_reproduces_the_native_step_after_a_failure() {
             for streaming in [false, true] {
                 for emitted in [false, true] {
                     for cancelled in [false, true] {
-                        let native = next_step_native(
-                            step,
-                            plan_len,
-                            streaming,
-                            emitted,
-                            cancelled,
-                        );
+                        let native =
+                            next_step_native(step, plan_len, streaming, emitted, cancelled);
                         let input = serde_json::json!({
                             "mode": "advance",
                             "step": step,
@@ -367,9 +385,7 @@ fn seat_order_leg_reproduces_the_native_step_after_a_failure() {
                             Some(leg.clone()),
                             SEAT_ORDER_LEG,
                             &input,
-                            move |decision: &AdvanceStep| {
-                                advance_check(decision, step, plan_len)
-                            },
+                            move |decision: &AdvanceStep| advance_check(decision, step, plan_len),
                             || native.clone(),
                         );
                         assert_eq!(
@@ -396,11 +412,23 @@ fn next_step_native(
     cancelled: bool,
 ) -> AdvanceStep {
     if streaming && (emitted || cancelled) {
-        AdvanceStep { proceed: false, next: 0, abort: true }
+        AdvanceStep {
+            proceed: false,
+            next: 0,
+            abort: true,
+        }
     } else if step + 1 >= plan_len {
-        AdvanceStep { proceed: false, next: 0, abort: false }
+        AdvanceStep {
+            proceed: false,
+            next: 0,
+            abort: false,
+        }
     } else {
-        AdvanceStep { proceed: true, next: step + 1, abort: false }
+        AdvanceStep {
+            proceed: true,
+            next: step + 1,
+            abort: false,
+        }
     }
 }
 
@@ -464,7 +492,10 @@ fn a_failing_link_hands_the_turn_to_the_next_seated_link() {
     );
 
     let empty = FallbackClub::new(Vec::new());
-    assert_eq!(empty.respond("hello").unwrap_err(), "fallback chain is empty");
+    assert_eq!(
+        empty.respond("hello").unwrap_err(),
+        "fallback chain is empty"
+    );
 }
 
 /// A generation that breaks the leg's contract is rejected and the native
@@ -485,11 +516,10 @@ fn a_broken_seat_order_generation_keeps_the_native_seating() {
         "module.exports={apiVersion:1,render:()=>({plan:[9,9]})}",
     )
     .unwrap();
-    let mut registry = angel_live::Registry::validated(
-        root.clone(),
-        crate::agent::hotload::evaluate,
-        |_, _| Ok(()),
-    );
+    let mut registry =
+        angel_live::Registry::validated(root.clone(), crate::agent::hotload::evaluate, |_, _| {
+            Ok(())
+        });
     registry.refresh(true);
     let broken = registry
         .snapshot()

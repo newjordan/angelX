@@ -13,8 +13,8 @@ use angel_delve::rules::{
     BOMB_CLEAR, BOMB_DAMAGE, BOMB_REARM, Book, Card, DT, FORK_TTL, FORK_TURN, HERO_RADIUS,
     HOMING_TURN, HZ, Input, MAX_ARMOR, MAX_PROJECTILES, ORBIT_DAMAGE, ORBIT_EVERY, PLAY_REARM,
     Projectile, Run, SWORD_ARC, SWORD_DAMAGE, SWORD_REACH, SWORD_REARM, Shot, ShotTraits, Weapon,
-    aoe, cards, champions, classes, lich, mix, orbit_points, shield, skills, spin, stakes, unit,
-    wishcraft, melee,
+    aoe, cards, champions, classes, lich, melee, mix, orbit_points, shield, skills, spin, stakes,
+    unit, wishcraft,
 };
 use std::collections::BTreeMap;
 
@@ -231,8 +231,20 @@ impl NativeSession for Session {
         if f.hero.hp == before {
             return false;
         }
-        let tier = if damage >= 45 { melee::Tier::Heavy } else if damage >= 20 { melee::Tier::Medium } else { melee::Tier::Light };
-        self.melee.hit(target, (f.hero.x, f.hero.y), unit(way.0, way.1), tier, false);
+        let tier = if damage >= 45 {
+            melee::Tier::Heavy
+        } else if damage >= 20 {
+            melee::Tier::Medium
+        } else {
+            melee::Tier::Light
+        };
+        self.melee.hit(
+            target,
+            (f.hero.x, f.hero.y),
+            unit(way.0, way.1),
+            tier,
+            false,
+        );
         if f.hero.hp == 0 {
             f.respawn = RESPAWN;
             f.deaths = f.deaths.saturating_add(1);
@@ -319,7 +331,13 @@ impl NativeSession for Session {
         let f = &self.fighters[&owner];
         let h = &f.hero;
         let at = (h.x, h.y);
-        let stroke = if h.sword { melee::Stroke::Slash } else if h.unarmed() { melee::Stroke::Fist } else { melee::stroke(h, arc) };
+        let stroke = if h.sword {
+            melee::Stroke::Slash
+        } else if h.unarmed() {
+            melee::Stroke::Fist
+        } else {
+            melee::stroke(h, arc)
+        };
         self.melee.swing(owner, h, stroke, reach, arc);
         let yaw = f.yaw;
         let mut targets: Vec<_> = self
@@ -422,7 +440,8 @@ impl NativeSession for Session {
         };
         if let Some(damage) = spin_damage {
             let h = &self.fighters[&id].hero;
-            self.melee.swing(id, h, melee::Stroke::Chain, spin::REACH, 360.0);
+            self.melee
+                .swing(id, h, melee::Stroke::Chain, spin::REACH, 360.0);
             self.native_area(id, (h.x, h.y), spin::REACH, damage);
         }
         let f = self.fighters.get_mut(&id).unwrap();

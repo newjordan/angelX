@@ -40,7 +40,9 @@ pub(crate) fn parse_mode(raw: &str) -> SentinelMode {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Verdict {
     Quiet,
-    Drift { budget_spent_bp: u64 },
+    Drift {
+        budget_spent_bp: u64,
+    },
     Deliver {
         budget_spent_bp: u64,
         artifacts_missing: Option<usize>,
@@ -137,10 +139,7 @@ impl Sentinel {
             .checked_div(budget.as_millis() as u64)
             .unwrap_or(10_000);
         let artifacts_open = obs.artifacts_missing.is_some_and(|n| n > 0);
-        if spent_bp >= DELIVER_BP
-            && !self.deliver_fired
-            && (!self.any_mutation || artifacts_open)
-        {
+        if spent_bp >= DELIVER_BP && !self.deliver_fired && (!self.any_mutation || artifacts_open) {
             self.deliver_fired = true;
             self.drift_fired = true;
             return Verdict::Deliver {
@@ -299,11 +298,7 @@ pub(crate) fn exact_dir_violations(specs: &[ExactDir], workspace: &Path) -> Vec<
                 "{} must contain exactly {{{}}}; extra: [{}], missing: [{}] \
                  (move build outputs elsewhere, e.g. /tmp)",
                 dir.display(),
-                spec.expected
-                    .iter()
-                    .cloned()
-                    .collect::<Vec<_>>()
-                    .join(", "),
+                spec.expected.iter().cloned().collect::<Vec<_>>().join(", "),
                 extra.join(", "),
                 missing.join(", ")
             ));

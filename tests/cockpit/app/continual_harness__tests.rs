@@ -232,7 +232,15 @@ fn seed_eight(ws: &Path) {
         "Zz payload trap",
         "The submission ships the working tree, so a regenerated __pycache__ goes with it.",
     ));
-    apply_edits(ws, Scope::Project, "seed", "unit test", "entries exist", &edits).unwrap();
+    apply_edits(
+        ws,
+        Scope::Project,
+        "seed",
+        "unit test",
+        "entries exist",
+        &edits,
+    )
+    .unwrap();
 }
 
 #[test]
@@ -291,7 +299,11 @@ fn the_entry_cap_is_an_env_knob() {
         "seed",
         "unit test",
         "entries exist",
-        &[memory("m1", "One", "first"), memory("m2", "Two", "second"), memory("m3", "Three", "third")],
+        &[
+            memory("m1", "One", "first"),
+            memory("m2", "Two", "second"),
+            memory("m3", "Three", "third"),
+        ],
     )
     .unwrap();
     assert!(msg.contains("m3: harness full (2 entries)"), "{msg}");

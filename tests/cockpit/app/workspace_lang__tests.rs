@@ -45,7 +45,6 @@ fn assert_runner_cases(group: &str, expected_cases: usize) {
     }
 }
 
-
 fn parse_runner_output(lang: Lang, stdout: &str, stderr: &str) -> RunnerCounts {
     let _guard = crate::tests::env_lock();
     super::parse_runner_output(lang, stdout, stderr, None).expect("test summary module")

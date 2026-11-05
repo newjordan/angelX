@@ -57,7 +57,11 @@ impl Tool for CartridgeTool {
         self.call_with_cancel(args, None)
     }
 
-    fn call_with_cancel(&self, args: &Value, cancel: Option<&AtomicBool>) -> Result<String, String> {
+    fn call_with_cancel(
+        &self,
+        args: &Value,
+        cancel: Option<&AtomicBool>,
+    ) -> Result<String, String> {
         let name = &self.spec.name;
         let program = self.folder.join(&self.spec.run);
         let mut child = std::process::Command::new(&program)
@@ -104,7 +108,9 @@ impl Tool for CartridgeTool {
                 end -= 1;
             }
             output.truncate(end);
-            output.push_str(&format!("\n[{name}: output cut at {MAX_OUTPUT_BYTES} bytes]"));
+            output.push_str(&format!(
+                "\n[{name}: output cut at {MAX_OUTPUT_BYTES} bytes]"
+            ));
         }
         Ok(output)
     }
@@ -136,7 +142,13 @@ pub(crate) fn is_core(name: &str) -> bool {
     super::all()
         .iter()
         .filter(|cartridge| cartridge.folder.is_some())
-        .any(|cartridge| cartridge.config.tools.iter().any(|tool| tool.core && tool.name == name))
+        .any(|cartridge| {
+            cartridge
+                .config
+                .tools
+                .iter()
+                .any(|tool| tool.core && tool.name == name)
+        })
 }
 
 /// Every plugged-in config-only cartridge's tools: deferred, or core. A name already
@@ -155,7 +167,11 @@ pub(crate) fn register(r: &mut ToolRegistry, workspace: &Path) {
                 );
                 continue;
             }
-            let tool = Box::new(CartridgeTool::new(spec.clone(), folder.clone(), workspace.to_path_buf()));
+            let tool = Box::new(CartridgeTool::new(
+                spec.clone(),
+                folder.clone(),
+                workspace.to_path_buf(),
+            ));
             if spec.core {
                 r.register(tool);
             } else {

@@ -9,16 +9,18 @@
 #![allow(unused_imports)]
 use super::oracle::{self, Old, plan, story};
 use crate::agent::harness::live_policy::install_scripted_rules;
+use angel_delve::realm::{Spoil, Spoils};
+use angel_delve::rules::layout::RoomKind;
 use angel_delve::rules::moonfall::{
-    self, BEGUN, CAMPAIGN_MARK, GOLD_PER_SEAT, NAME, PARTY_MARKS, SLOT, WAX_PER_SEAT, nums_start, CALL_TICKS, LIMIT, NUMBERS, SKIP_LEN, Session, WON_LEN, clock, control,
+    self, BEGUN, CALL_TICKS, CAMPAIGN_MARK, GOLD_PER_SEAT, LIMIT, NAME, NUMBERS, PARTY_MARKS,
+    SKIP_LEN, SLOT, Session, WAX_PER_SEAT, WON_LEN, clock, control,
     folk::{self, CAST, Folk, figure},
     ledger::{self, Fact, Memory},
+    nums_start,
     says::{self, Topic},
     state::*,
     town::{self, Spot},
 };
-use angel_delve::realm::{Spoil, Spoils};
-use angel_delve::rules::layout::RoomKind;
 use angel_delve::rules::{HZ, Hero, Input, MAX_PLAYERS, Run, activity};
 use std::collections::BTreeMap;
 
@@ -73,7 +75,10 @@ pub(super) fn beside(s: &mut Session, id: u32, who: Folk) {
 }
 
 pub(super) fn tap_e() -> Input {
-    Input { interact: true, ..Default::default() }
+    Input {
+        interact: true,
+        ..Default::default()
+    }
 }
 
 /// A key pressed for one tick, then let go.
@@ -95,7 +100,11 @@ fn the_clock_runs_three_days_of_the_numbers_length_and_ends_at_the_fall() {
     s.nums.day = 3000;
     // The moon falls: the ritual starts at once, no menu.
     let cues = tick(&mut s, &h, &Held::new());
-    assert!(matches!(s.phase, Phase::Rewind { fell: true, .. }), "{:?}", s.phase);
+    assert!(
+        matches!(s.phase, Phase::Rewind { fell: true, .. }),
+        "{:?}",
+        s.phase
+    );
     assert!(cues.contains(&"circle_toll"));
 }
 
@@ -110,7 +119,15 @@ fn the_rewind_takes_under_a_second_to_hand_back_control_and_keeps_what_was_learn
     s.seats.get_mut(&1).unwrap().knight.held = Item::Ink;
     s.seats.get_mut(&1).unwrap().knight.mask = Mask::Swift;
     // R opens the bell, E rings the first line: back to the first dawn.
-    tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            ult: true,
+            ..Default::default()
+        },
+    );
     assert_eq!(s.seats[&1].knight.panel, Panel::Bell(0));
     s.step(&press(1, tap_e()), &h);
     assert!(matches!(s.phase, Phase::Rewind { fell: false, .. }));
@@ -122,7 +139,10 @@ fn the_rewind_takes_under_a_second_to_hand_back_control_and_keeps_what_was_learn
         }
     }
     let free = free_at.expect("control returns");
-    assert!(free <= 30, "the ritual hands control back inside a second: {free}");
+    assert!(
+        free <= 30,
+        "the ritual hands control back inside a second: {free}"
+    );
     // The town is at the first dawn, the notebook and the mask remain.
     assert!(s.clock < 40 && s.memory.loops == 1);
     assert!(s.memory.knows(Fact::OrinLost) && s.memory.witnessed(Folk::Mira, 1));
@@ -140,7 +160,15 @@ fn the_rewind_takes_under_a_second_to_hand_back_control_and_keeps_what_was_learn
 fn the_rewind_ritual_spins_the_shown_clock_backward_to_dawn() {
     let (mut s, h) = session(1);
     s.clock = hours(s.nums.day, 40);
-    tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            ult: true,
+            ..Default::default()
+        },
+    );
     s.step(&press(1, tap_e()), &h);
     let from = s.clock;
     let mut last = s.shown_clock();
@@ -159,17 +187,57 @@ fn the_rewind_ritual_spins_the_shown_clock_backward_to_dawn() {
 fn the_bell_can_skip_to_the_next_dusk_or_dawn_and_not_past_the_third_midnight() {
     let (mut s, h) = session(1);
     // Down once and ring: wait for dusk.
-    tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
-    tapped(&mut s, &h, 1, Input { move_y: 1, ..Default::default() });
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            ult: true,
+            ..Default::default()
+        },
+    );
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            move_y: 1,
+            ..Default::default()
+        },
+    );
     s.step(&press(1, tap_e()), &h);
     assert!(matches!(s.phase, Phase::Skip { .. }));
     idle(&mut s, &h, SKIP_LEN);
     assert_eq!(s.clock, s.nums.day / 2, "dusk of the first day");
     assert!(clock::night(s.clock, s.nums.day));
     // The next dawn.
-    tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
-    tapped(&mut s, &h, 1, Input { move_y: 1, ..Default::default() });
-    tapped(&mut s, &h, 1, Input { move_y: 1, ..Default::default() });
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            ult: true,
+            ..Default::default()
+        },
+    );
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            move_y: 1,
+            ..Default::default()
+        },
+    );
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            move_y: 1,
+            ..Default::default()
+        },
+    );
     s.step(&press(1, tap_e()), &h);
     idle(&mut s, &h, SKIP_LEN);
     assert_eq!(s.clock, s.nums.day);
@@ -190,16 +258,46 @@ fn at_a_table_the_bell_needs_more_than_half_the_hands_and_a_lapsed_call_does_not
         stand(&mut s, id, (16 + id as i32, 16));
     }
     s.clock = hours(s.nums.day, 30);
-    tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            ult: true,
+            ..Default::default()
+        },
+    );
     s.step(&press(1, tap_e()), &h);
-    assert!(s.call.is_some() && s.phase == Phase::Play, "one hand is not a table");
+    assert!(
+        s.call.is_some() && s.phase == Phase::Play,
+        "one hand is not a table"
+    );
     assert_eq!(s.bell_need(), 2);
     // A second knight puts a hand on the rope with R.
-    tapped(&mut s, &h, 2, Input { ult: true, ..Default::default() });
-    assert!(matches!(s.phase, Phase::Rewind { .. }), "two of three rings it");
+    tapped(
+        &mut s,
+        &h,
+        2,
+        Input {
+            ult: true,
+            ..Default::default()
+        },
+    );
+    assert!(
+        matches!(s.phase, Phase::Rewind { .. }),
+        "two of three rings it"
+    );
     // A call nobody joins lapses.
     let (mut s, h) = session(3);
-    tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            ult: true,
+            ..Default::default()
+        },
+    );
     s.step(&press(1, tap_e()), &h);
     assert!(s.call.is_some());
     idle(&mut s, &h, CALL_TICKS + 2);
@@ -214,9 +312,14 @@ fn the_ledger_writes_what_any_knight_sees_for_every_knight_and_only_once() {
     stand(&mut s, 1, (30, 19));
     beside(&mut s, 2, Folk::Mira);
     idle(&mut s, &h, 6);
-    assert!(s.memory.witnessed(Folk::Mira, 1), "knight 2 saw her, so the Ledger has her");
     assert!(
-        s.news.iter().any(|&(n, _)| matches!(n, Note::Wrote(Folk::Mira, 1))),
+        s.memory.witnessed(Folk::Mira, 1),
+        "knight 2 saw her, so the Ledger has her"
+    );
+    assert!(
+        s.news
+            .iter()
+            .any(|&(n, _)| matches!(n, Note::Wrote(Folk::Mira, 1))),
         "and it says so to the whole table"
     );
     let news = s.news.len();
@@ -242,7 +345,11 @@ fn a_known_appointment_pops_a_reminder_an_hour_before_it_begins() {
         .unwrap();
     s.clock = leg - s.nums.day / 24 - 1;
     s.step(&Held::new(), &h);
-    assert!(s.news.iter().any(|&(n, _)| matches!(n, Note::Remind(Folk::Mira, 4))));
+    assert!(
+        s.news
+            .iter()
+            .any(|&(n, _)| matches!(n, Note::Remind(Folk::Mira, 4)))
+    );
 }
 
 #[test]
@@ -253,16 +360,40 @@ fn the_bridge_goes_up_at_eight_and_only_the_swift_mask_crosses_the_planks() {
     // At the bridge's south end walking north: the water stops a bare knight.
     stand(&mut s, 1, (18, 11));
     for _ in 0..90 {
-        s.step(&press(1, Input { move_y: -1, ..Default::default() }), &h);
+        s.step(
+            &press(
+                1,
+                Input {
+                    move_y: -1,
+                    ..Default::default()
+                },
+            ),
+            &h,
+        );
     }
-    assert!(s.seats[&1].knight.px().1 > 10 * town::TILE, "stopped at the water");
+    assert!(
+        s.seats[&1].knight.px().1 > 10 * town::TILE,
+        "stopped at the water"
+    );
     // Swift, at the planks, crosses.
     stand(&mut s, 1, (4, 11));
     s.seats.get_mut(&1).unwrap().knight.mask = Mask::Swift;
     for _ in 0..120 {
-        s.step(&press(1, Input { move_y: -1, ..Default::default() }), &h);
+        s.step(
+            &press(
+                1,
+                Input {
+                    move_y: -1,
+                    ..Default::default()
+                },
+            ),
+            &h,
+        );
     }
-    assert!(s.seats[&1].knight.px().1 < 8 * town::TILE, "over the planks");
+    assert!(
+        s.seats[&1].knight.px().1 < 8 * town::TILE,
+        "over the planks"
+    );
 }
 
 #[test]
@@ -290,9 +421,12 @@ pub(super) fn talk(s: &mut Session, h: &BTreeMap<u32, Hero>, who: Folk) -> Topic
     beside(s, 1, who);
     s.step(&press(1, tap_e()), h);
     s.step(&Held::new(), h);
-    s.seats[&1].knight.say.map(|say| say.topic).expect("they spoke")
+    s.seats[&1]
+        .knight
+        .say
+        .map(|say| say.topic)
+        .expect("they spoke")
 }
-
 
 fn hand(s: &Session) -> Item {
     s.seats[&1].knight.held
@@ -341,7 +475,11 @@ fn the_scroll_is_handed_over_at_seven_the_first_morning_and_read_at_the_evening_
     // Mira will not take it at her porch by day.
     at_time(&mut s, 1, 12, 0);
     idle(&mut s, &h, 2);
-    assert_eq!(talk(&mut s, &h, Folk::Mira), Topic::Nag(2), "not yet: she reads at the well at nine");
+    assert_eq!(
+        talk(&mut s, &h, Folk::Mira),
+        Topic::Nag(2),
+        "not yet: she reads at the well at nine"
+    );
     assert_eq!(hand(&s), Item::Scroll);
     close_talk(&mut s);
     // Nor on the first evening.
@@ -360,7 +498,11 @@ fn the_scroll_is_handed_over_at_seven_the_first_morning_and_read_at_the_evening_
     let (mut late, h2) = session(1);
     late.memory.learn(Fact::PellaScroll);
     at_time(&mut late, 1, 10, 0);
-    assert_eq!(talk(&mut late, &h2, Folk::Pella), Topic::Nag(1), "the post went out at seven");
+    assert_eq!(
+        talk(&mut late, &h2, Folk::Pella),
+        Topic::Nag(1),
+        "the post went out at seven"
+    );
     assert_eq!(late.seats[&1].knight.held, Item::Empty);
 }
 
@@ -386,7 +528,11 @@ fn dry_reeds_take_twelve_hours_in_the_hand_and_the_oven_wants_them_on_the_second
     at_time(&mut s, 2, 11, 0);
     s.seats.get_mut(&1).unwrap().knight.held_at = held_at;
     s.step(&Held::new(), &h);
-    assert_eq!(talk(&mut s, &h, Folk::Nessa), Topic::Nag(3), "the oven's hour has gone");
+    assert_eq!(
+        talk(&mut s, &h, Folk::Nessa),
+        Topic::Nag(3),
+        "the oven's hour has gone"
+    );
     close_talk(&mut s);
     // In the window, dry.
     s.seats.get_mut(&1).unwrap().knight.held_at = held_at;
@@ -450,7 +596,11 @@ fn the_pass_takes_five_hours_to_write_and_two_to_smudge_and_the_key_is_kept_for_
     at_time(&mut late, 1, 15, 0);
     late.clock = 8 * late.nums.day / 24;
     late.step(&Held::new(), &h2);
-    assert_eq!(talk(&mut late, &h2, Folk::Orin), Topic::Nag(2), "two hours, no more");
+    assert_eq!(
+        talk(&mut late, &h2, Folk::Orin),
+        Topic::Nag(2),
+        "two hours, no more"
+    );
 }
 
 #[test]
@@ -512,12 +662,20 @@ fn the_seal_wants_both_masks_and_a_fresh_pen_and_is_kept() {
     at_time(&mut s, 2, 7, 30);
     s.step(&Held::new(), &h);
     s.memory.masks = ledger::SWIFT;
-    assert_eq!(talk(&mut s, &h, Folk::Mira), Topic::Nag(0), "one mask is not both");
+    assert_eq!(
+        talk(&mut s, &h, Folk::Mira),
+        Topic::Nag(0),
+        "one mask is not both"
+    );
     close_talk(&mut s);
     s.memory.masks = ledger::SWIFT | ledger::STOUT;
     at_time(&mut s, 2, 12, 0);
     s.step(&Held::new(), &h);
-    assert_eq!(talk(&mut s, &h, Folk::Mira), Topic::Nag(1), "her pen is dry by day");
+    assert_eq!(
+        talk(&mut s, &h, Folk::Mira),
+        Topic::Nag(1),
+        "her pen is dry by day"
+    );
     close_talk(&mut s);
     at_time(&mut s, 2, 7, 30);
     s.step(&Held::new(), &h);
@@ -534,14 +692,35 @@ fn the_south_tower_needs_the_seal_and_a_stout_knight_to_fill_the_ditch_first() {
     // The door opens to the seal... if you can reach it. Bare, the crate stops you.
     stand(&mut s, 1, (17, 19));
     for _ in 0..120 {
-        s.step(&press(1, Input { move_y: 1, ..Default::default() }), &h);
+        s.step(
+            &press(
+                1,
+                Input {
+                    move_y: 1,
+                    ..Default::default()
+                },
+            ),
+            &h,
+        );
     }
-    assert!(s.seats[&1].knight.px().1 < 21 * town::TILE, "stopped behind the crate");
+    assert!(
+        s.seats[&1].knight.px().1 < 21 * town::TILE,
+        "stopped behind the crate"
+    );
     // Stout: push it down the causeway and into the ditch, then the door.
     s.seats.get_mut(&1).unwrap().knight.mask = Mask::Stout;
     stand(&mut s, 1, (17, 19));
     for _ in 0..360 {
-        s.step(&press(1, Input { move_y: 1, ..Default::default() }), &h);
+        s.step(
+            &press(
+                1,
+                Input {
+                    move_y: 1,
+                    ..Default::default()
+                },
+            ),
+            &h,
+        );
     }
     assert!(s.world.has(DITCH_FILLED) && s.world.crates.is_empty());
     stand(&mut s, 1, (17, 24));
@@ -572,7 +751,16 @@ fn a_hand_holds_one_thing_and_x_puts_it_down() {
     assert_eq!(hand(&s), Item::Reeds, "full hands cannot take the pot");
     assert!(!s.world.has(INK_TAKEN));
     s.step(&Held::new(), &h);
-    s.step(&press(1, Input { bomb: true, ..Default::default() }), &h);
+    s.step(
+        &press(
+            1,
+            Input {
+                bomb: true,
+                ..Default::default()
+            },
+        ),
+        &h,
+    );
     assert_eq!(hand(&s), Item::Empty);
 }
 
@@ -584,12 +772,31 @@ fn the_keepsakes_the_masks_and_the_ledger_survive_the_bell_and_the_doors_do_not(
     s.world.set(NORTH_OPEN);
     s.world.set(DITCH_FILLED);
     s.world.crates.clear();
-    tapped(&mut s, &h, 1, Input { ult: true, ..Default::default() });
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            ult: true,
+            ..Default::default()
+        },
+    );
     s.step(&press(1, tap_e()), &h);
     idle(&mut s, &h, 60);
-    assert!(s.memory.has_keep(ledger::NORTH_KEY) && s.memory.has_keep(ledger::OIL) && s.memory.has_mask(ledger::STOUT));
-    assert!(!s.world.has(NORTH_OPEN) && !s.world.has(DITCH_FILLED), "the doors are shut again");
-    assert_eq!(s.world.crates, vec![town::CRATE_START], "and the crate is back above the ditch");
+    assert!(
+        s.memory.has_keep(ledger::NORTH_KEY)
+            && s.memory.has_keep(ledger::OIL)
+            && s.memory.has_mask(ledger::STOUT)
+    );
+    assert!(
+        !s.world.has(NORTH_OPEN) && !s.world.has(DITCH_FILLED),
+        "the doors are shut again"
+    );
+    assert_eq!(
+        s.world.crates,
+        vec![town::CRATE_START],
+        "and the crate is back above the ditch"
+    );
 }
 
 /// A night, a lit lantern, and a wisp on its way to it.
@@ -597,7 +804,10 @@ fn night_with_a_wisp(seats: u32) -> (Session, BTreeMap<u32, Hero>) {
     let (mut s, h) = session(seats);
     at_time(&mut s, 1, 21, 30);
     for n in 0..6 {
-        assert!(s.lantern_lit(n), "the lamplighter has been round by half past nine");
+        assert!(
+            s.lantern_lit(n),
+            "the lamplighter has been round by half past nine"
+        );
     }
     let (tx, ty) = town::LAMPS[2];
     s.world.wisps.push(Wisp {
@@ -619,7 +829,10 @@ fn a_wisp_puts_out_the_lantern_it_reaches_if_nobody_stands_by_it() {
     for _ in 0..150 {
         s.step(&Held::new(), &h);
     }
-    assert!(s.world.snuffed & (1 << 2) != 0 || s.world.snuffed != 0, "a lantern is out");
+    assert!(
+        s.world.snuffed & (1 << 2) != 0 || s.world.snuffed != 0,
+        "a lantern is out"
+    );
     assert!(s.news.iter().any(|&(n, _)| n == Note::Out) || s.world.snuffed != 0);
 }
 
@@ -638,7 +851,8 @@ fn a_knight_beside_a_lantern_keeps_it_lit_and_the_wisp_gives_way() {
 }
 
 #[test]
-fn a_touch_costs_a_candle_three_snuff_a_knight_who_is_carried_to_the_well_and_loses_what_they_held() {
+fn a_touch_costs_a_candle_three_snuff_a_knight_who_is_carried_to_the_well_and_loses_what_they_held()
+{
     let (mut s, h) = session(1);
     at_time(&mut s, 1, 21, 30);
     s.nums.wisps = 1;
@@ -646,7 +860,13 @@ fn a_touch_costs_a_candle_three_snuff_a_knight_who_is_carried_to_the_well_and_lo
     s.world.set(INK_TAKEN);
     for touch in 1..=3 {
         let me = s.seats[&1].knight.px();
-        s.world.wisps = vec![Wisp { x: me.0 * town::Q, y: me.1 * town::Q, mode: WispMode::Hunt, aim: 0, born: 0 }];
+        s.world.wisps = vec![Wisp {
+            x: me.0 * town::Q,
+            y: me.1 * town::Q,
+            mode: WispMode::Hunt,
+            aim: 0,
+            born: 0,
+        }];
         s.seats.get_mut(&1).unwrap().knight.hurt = 0;
         s.step(&Held::new(), &h);
         let k = &s.seats[&1].knight;
@@ -664,7 +884,10 @@ fn a_touch_costs_a_candle_three_snuff_a_knight_who_is_carried_to_the_well_and_lo
     let k = &s.seats[&1].knight;
     assert!(k.up() && k.candles == 1 && k.hurt > 0);
     let spawn = SPAWN[0];
-    assert!((k.px().0 - (spawn.0 * 16 + 8)).abs() < 40, "back at the well");
+    assert!(
+        (k.px().0 - (spawn.0 * 16 + 8)).abs() < 40,
+        "back at the well"
+    );
 }
 
 #[test]
@@ -674,12 +897,40 @@ fn a_sidestep_goes_through_a_wisp_without_a_touch() {
     s.nums.wisps = 1;
     stand(&mut s, 1, (20, 15));
     let me = s.seats[&1].knight.px();
-    s.world.wisps = vec![Wisp { x: (me.0 + 10) * town::Q, y: me.1 * town::Q, mode: WispMode::Hunt, aim: 0, born: 0 }];
-    s.step(&press(1, Input { dash: true, move_x: 1, ..Default::default() }), &h);
+    s.world.wisps = vec![Wisp {
+        x: (me.0 + 10) * town::Q,
+        y: me.1 * town::Q,
+        mode: WispMode::Hunt,
+        aim: 0,
+        born: 0,
+    }];
+    s.step(
+        &press(
+            1,
+            Input {
+                dash: true,
+                move_x: 1,
+                ..Default::default()
+            },
+        ),
+        &h,
+    );
     for _ in 0..4 {
-        s.step(&press(1, Input { move_x: 1, ..Default::default() }), &h);
+        s.step(
+            &press(
+                1,
+                Input {
+                    move_x: 1,
+                    ..Default::default()
+                },
+            ),
+            &h,
+        );
     }
-    assert_eq!(s.seats[&1].knight.candles, CANDLES, "the roll was through it");
+    assert_eq!(
+        s.seats[&1].knight.candles, CANDLES,
+        "the roll was through it"
+    );
 }
 
 #[test]
@@ -731,7 +982,10 @@ fn a_knight_who_joins_mid_run_sits_down_at_the_well_and_reads_the_same_ledger() 
     let k = &s.seats[&3].knight;
     assert_eq!(k.candles, CANDLES);
     let at = SPAWN[2];
-    assert!((k.px().0 - (at.0 * 16 + 8)).abs() <= 8, "at the shared checkpoint, the well");
+    assert!(
+        (k.px().0 - (at.0 * 16 + 8)).abs() <= 8,
+        "at the shared checkpoint, the well"
+    );
     assert!(s.memory.knows(Fact::OrinLost), "one Ledger for all of them");
     assert!(s.valid());
 }
@@ -750,13 +1004,28 @@ fn two_knights_light_two_flames_at_once_and_one_cannot() {
     let both = Held::from([(1, tap_e()), (2, tap_e())]);
     s.step(&both, &h);
     let hold = Held::from([
-        (1, Input { interact: true, ..Default::default() }),
-        (2, Input { interact: true, ..Default::default() }),
+        (
+            1,
+            Input {
+                interact: true,
+                ..Default::default()
+            },
+        ),
+        (
+            2,
+            Input {
+                interact: true,
+                ..Default::default()
+            },
+        ),
     ]);
     for _ in 0..story::LIGHT_HOLD + 2 {
         s.step(&hold, &h);
     }
-    assert!(s.flame(0) && s.flame(2) && !s.flame(1), "two seats, two flames, together");
+    assert!(
+        s.flame(0) && s.flame(2) && !s.flame(1),
+        "two seats, two flames, together"
+    );
 }
 
 #[test]
@@ -778,12 +1047,27 @@ fn the_three_lights_held_together_turn_the_moon_back_and_the_purse_is_paid_once(
         stand(s, 2, (17, 14));
         stand(s, 3, (17, 24));
     }
-    let hold = |ids: &[u32]| -> Held { ids.iter().map(|&i| (i, Input { interact: true, ..Default::default() })).collect() };
+    let hold = |ids: &[u32]| -> Held {
+        ids.iter()
+            .map(|&i| {
+                (
+                    i,
+                    Input {
+                        interact: true,
+                        ..Default::default()
+                    },
+                )
+            })
+            .collect()
+    };
     r.step(&hold(&[1, 2, 3]));
     for _ in 0..story::LIGHT_HOLD + 4 {
         r.step(&hold(&[1, 2, 3]));
     }
-    assert!(matches!(r.moonfall.as_ref().unwrap().phase, Phase::Won { .. }), "all three burn");
+    assert!(
+        matches!(r.moonfall.as_ref().unwrap().phase, Phase::Won { .. }),
+        "all three burn"
+    );
     assert!(r.sounds.contains(&"circle_toll"));
     for _ in 0..WON_LEN + 2 {
         r.step(&BTreeMap::new());
@@ -793,18 +1077,31 @@ fn the_three_lights_held_together_turn_the_moon_back_and_the_purse_is_paid_once(
     assert!(r.marks.contains_key(CAMPAIGN_MARK) && r.marks.contains_key(PARTY_MARKS[2]));
     assert_ne!(r.home.roundtable[SLOT] & BEGUN, 0);
     let score = &r.home.countryside.games.roundtable[SLOT];
-    assert_eq!((score.wins, score.best), (1, 850), "one win, a second loop: 1000 - 150");
+    assert_eq!(
+        (score.wins, score.best),
+        (1, 850),
+        "one win, a second loop: 1000 - 150"
+    );
     // The purse: gold and wax for three at the table, once.
     let mut home = angel_delve::rules::home::Home::default();
     let mut treasury = Spoils::default();
     let reclaimed = BTreeMap::new();
-    let mut realm = activity::Realm { home: &mut home, treasury: &mut treasury, reclaimed: &reclaimed, raids_won: 0 };
+    let mut realm = activity::Realm {
+        home: &mut home,
+        treasury: &mut treasury,
+        reclaimed: &reclaimed,
+        raids_won: 0,
+    };
     let paid = activity::settle_all(&mut realm, &r.marks);
     assert!(paid.changed);
     assert_eq!(realm.treasury.get(Spoil::Gold), GOLD_PER_SEAT * 3);
     assert_eq!(realm.treasury.get(Spoil::Wax), WAX_PER_SEAT * 3);
     assert!(!activity::settle_all(&mut realm, &r.marks).changed);
-    assert_eq!(realm.treasury.get(Spoil::Gold), GOLD_PER_SEAT * 3, "paid once");
+    assert_eq!(
+        realm.treasury.get(Spoil::Gold),
+        GOLD_PER_SEAT * 3,
+        "paid once"
+    );
     // E with nothing near returns the knight to the kingdom's tile.
     {
         let s = r.moonfall.as_mut().unwrap();
@@ -812,7 +1109,12 @@ fn the_three_lights_held_together_turn_the_moon_back_and_the_purse_is_paid_once(
     }
     r.step(&BTreeMap::new());
     r.step(&BTreeMap::from([(1, tap_e())]));
-    assert!(r.exits.outside.contains_key(&1) || r.room().kind == RoomKind::Kingdom || !r.moonfall_showing() || r.moonfall.as_ref().unwrap().seats.len() == 2);
+    assert!(
+        r.exits.outside.contains_key(&1)
+            || r.room().kind == RoomKind::Kingdom
+            || !r.moonfall_showing()
+            || r.moonfall.as_ref().unwrap().seats.len() == 2
+    );
 }
 
 #[test]
@@ -831,9 +1133,15 @@ fn the_moon_falling_is_a_wipe_the_town_wound_back_and_control_back_inside_a_seco
             break;
         }
     }
-    assert!(free > 0 && free <= 30, "the fall hands the table back in {free} ticks");
+    assert!(
+        free > 0 && free <= 30,
+        "the fall hands the table back in {free} ticks"
+    );
     assert_eq!(s.memory.loops, 1);
-    assert!(s.memory.has_keep(ledger::NORTH_KEY) && s.memory.knows(Fact::Verse), "what was earned stays");
+    assert!(
+        s.memory.has_keep(ledger::NORTH_KEY) && s.memory.knows(Fact::Verse),
+        "what was earned stays"
+    );
     assert!(s.clock < 40);
 }
 
@@ -846,7 +1154,10 @@ fn a_run_replays_byte_for_byte_from_the_same_keys() {
         a.0.step(&ia, &a.1);
         b.0.step(&ib, &b.1);
     }
-    assert_eq!(serde_json::to_vec(&a.0).unwrap(), serde_json::to_vec(&b.0).unwrap());
+    assert_eq!(
+        serde_json::to_vec(&a.0).unwrap(),
+        serde_json::to_vec(&b.0).unwrap()
+    );
     assert!(a.0.valid());
 }
 
@@ -868,7 +1179,10 @@ fn a_blind_single_pass_cannot_finish_however_many_knights_play_it() {
     let table = folk::timetable(day);
     let rider_seen = table.seen[Folk::Aster.index()][0].0;
     let cart_gone = clock::ticks(day, ((24 + 8 - 6) * 2) as u32);
-    assert!(rider_seen > cart_gone, "the rider is first seen at {rider_seen}, the cart is gone by {cart_gone}");
+    assert!(
+        rider_seen > cart_gone,
+        "the rider is first seen at {rider_seen}, the cart is gone by {cart_gone}"
+    );
 }
 
 #[test]
@@ -887,13 +1201,24 @@ fn one_hand_cannot_do_two_of_the_four_favours_in_a_loop_so_a_lone_knight_needs_f
         day(1, story::KEYS.0),
     );
     // The reeds: twelve hours in the hand before the oven's hour on the second morning.
-    let reeds = (day(1, story::OVEN.0) - story::DRY_HOURS * 60, day(1, story::OVEN.0));
+    let reeds = (
+        day(1, story::OVEN.0) - story::DRY_HOURS * 60,
+        day(1, story::OVEN.0),
+    );
     // The shoe: from the iron cart's last half hour to the rider's arrival.
     let shoe = (day(1, story::IRON.1), day(1, 21));
-    let held = [("scroll", scroll), ("pass", pass), ("reeds", reeds), ("shoe", shoe)];
+    let held = [
+        ("scroll", scroll),
+        ("pass", pass),
+        ("reeds", reeds),
+        ("shoe", shoe),
+    ];
     for (i, (a, x)) in held.iter().enumerate() {
         for (b, y) in &held[i + 1..] {
-            assert!(x.0 < y.1 && y.0 < x.1, "{a} {x:?} and {b} {y:?} are held at the same time");
+            assert!(
+                x.0 < y.1 && y.0 < x.1,
+                "{a} {x:?} and {b} {y:?} are held at the same time"
+            );
         }
     }
     // And all four are needed: the scroll and the reeds for the seal, the pass for the
@@ -941,7 +1266,11 @@ fn a_knight_who_steps_away_keeps_what_they_carry_and_is_back_where_they_stood() 
     h.get_mut(&1).unwrap().away = false;
     idle(&mut s, &h, 2);
     let k = &s.seats[&1].knight;
-    assert_eq!((k.held, k.px()), (Item::Scroll, at), "the scroll is still in their hand");
+    assert_eq!(
+        (k.held, k.px()),
+        (Item::Scroll, at),
+        "the scroll is still in their hand"
+    );
     assert!(!s.parked.contains_key(&1));
     // A knight who left the party altogether is forgotten.
     let mut gone = h.clone();
@@ -991,7 +1320,11 @@ fn four_bots_through_the_real_run_turn_the_moon_back_and_the_campaign_is_marked(
         ticks += 1;
     }
     let s = r.moonfall.as_ref().expect("the run is still open");
-    assert!(s.completed.is_some(), "not won in {ticks} ticks, clock {}", s.clock);
+    assert!(
+        s.completed.is_some(),
+        "not won in {ticks} ticks, clock {}",
+        s.clock
+    );
     assert_eq!(s.memory.loops, 0, "a single loop");
     assert!(r.marks.contains_key(CAMPAIGN_MARK) && r.marks.contains_key(PARTY_MARKS[3]));
     assert!(r.valid_snapshot() && angel_delve::wire::drawable(&r));
@@ -1078,10 +1411,28 @@ fn a_damaged_session_is_mended_by_repair_and_a_knob_moved_mid_loop_never_breaks_
     s.peak = 40;
     s.nums.day = 10;
     s.nums.walk = 9999;
-    s.phase = Phase::Rewind { t: 999, from: 99_999, fell: true };
-    s.call = Some(Call { ring: Ring::Rewind, by: 99, ayes: 255, left: 9999 });
+    s.phase = Phase::Rewind {
+        t: 999,
+        from: 99_999,
+        fell: true,
+    };
+    s.call = Some(Call {
+        ring: Ring::Rewind,
+        by: 99,
+        ayes: 255,
+        left: 9999,
+    });
     s.world.flags = 255;
-    s.world.wisps = vec![Wisp { x: i32::MAX, y: i32::MIN, mode: WispMode::Hunt, aim: 77, born: 0 }; 200];
+    s.world.wisps = vec![
+        Wisp {
+            x: i32::MAX,
+            y: i32::MIN,
+            mode: WispMode::Hunt,
+            aim: 77,
+            born: 0
+        };
+        200
+    ];
     s.world.lit_until = [u32::MAX; 3];
     s.world.ink_given = Some(u32::MAX);
     s.memory.facts = u16::MAX;
@@ -1117,7 +1468,11 @@ fn a_damaged_session_is_mended_by_repair_and_a_knob_moved_mid_loop_never_breaks_
     t.clock = 7000;
     t.nums.day = 1800;
     t.step(&Held::new(), &h);
-    assert!(t.valid() && matches!(t.phase, Phase::Rewind { fell: true, .. }), "{:?}", t.phase);
+    assert!(
+        t.valid() && matches!(t.phase, Phase::Rewind { fell: true, .. }),
+        "{:?}",
+        t.phase
+    );
     idle(&mut t, &h, 60);
     assert!(t.valid() && t.phase == Phase::Play && t.clock < 100);
 }
@@ -1129,9 +1484,21 @@ fn the_ledger_key_says_new_until_a_knight_has_read_what_was_written() {
     s.memory.learn(Fact::OrinLost);
     s.memory.witness(Folk::Mira, 1);
     assert!(s.memory.written() > s.seats[&1].knight.read);
-    tapped(&mut s, &h, 1, Input { swing: true, ..Default::default() });
+    tapped(
+        &mut s,
+        &h,
+        1,
+        Input {
+            swing: true,
+            ..Default::default()
+        },
+    );
     assert_eq!(s.seats[&1].knight.panel, Panel::Ledger(0));
-    assert_eq!(s.seats[&1].knight.read, s.memory.written(), "knight 1 has read it");
+    assert_eq!(
+        s.seats[&1].knight.read,
+        s.memory.written(),
+        "knight 1 has read it"
+    );
     assert_eq!(s.seats[&2].knight.read, 0, "knight 2 has not");
     // More is written while it is open: still read, as it is on the page.
     s.memory.witness(Folk::Mira, 4);
@@ -1141,7 +1508,10 @@ fn the_ledger_key_says_new_until_a_knight_has_read_what_was_written() {
 
 /// What the table's bots press this tick.
 pub(super) fn bots(s: &Session, h: &BTreeMap<u32, Hero>) -> Held {
-    h.iter().filter(|(id, _)| s.seats.contains_key(id)).map(|(&id, _)| (id, plan::bot(s, id))).collect()
+    h.iter()
+        .filter(|(id, _)| s.seats.contains_key(id))
+        .map(|(&id, _)| (id, plan::bot(s, id)))
+        .collect()
 }
 
 #[derive(Debug, Default)]
@@ -1186,7 +1556,11 @@ pub(super) fn play_from(
         watch(&s);
         ticks += 1;
     }
-    let out = Outcome { loops: s.memory.loops + 1, ticks, won: s.completed.is_some() };
+    let out = Outcome {
+        loops: s.memory.loops + 1,
+        ticks,
+        won: s.completed.is_some(),
+    };
     (s, out)
 }
 
@@ -1203,24 +1577,57 @@ fn tried(seats: u32, day: u32, walk: u32, wisps: u32, notice: u32) -> Outcome {
         s.step(&inputs, &h);
         ticks += 1;
     }
-    Outcome { loops: s.memory.loops + 1, ticks, won: s.completed.is_some() }
+    Outcome {
+        loops: s.memory.loops + 1,
+        ticks,
+        won: s.completed.is_some(),
+    }
 }
 
 #[test]
 #[ignore = "writes the tuning table"]
 fn tuning_table() {
     for (label, rows) in [
-        ("walk", [100u32, 120, 150, 200, 300].iter().map(|&w| (3000, w, 3, 64, format!("walk {w}"))).collect::<Vec<_>>()),
-        ("day", [1800u32, 2400, 3000, 4000, 6000].iter().map(|&d| (d, 150, 3, 64, format!("day {d}"))).collect()),
-        ("wisps", [0u32, 2, 3, 4, 5, 8].iter().map(|&w| (3000, 150, w, 64, format!("wisps {w}"))).collect()),
-        ("notice", [24u32, 48, 64, 96, 160].iter().map(|&n| (3000, 150, 3, n, format!("notice {n}"))).collect()),
+        (
+            "walk",
+            [100u32, 120, 150, 200, 300]
+                .iter()
+                .map(|&w| (3000, w, 3, 64, format!("walk {w}")))
+                .collect::<Vec<_>>(),
+        ),
+        (
+            "day",
+            [1800u32, 2400, 3000, 4000, 6000]
+                .iter()
+                .map(|&d| (d, 150, 3, 64, format!("day {d}")))
+                .collect(),
+        ),
+        (
+            "wisps",
+            [0u32, 2, 3, 4, 5, 8]
+                .iter()
+                .map(|&w| (3000, 150, w, 64, format!("wisps {w}")))
+                .collect(),
+        ),
+        (
+            "notice",
+            [24u32, 48, 64, 96, 160]
+                .iter()
+                .map(|&n| (3000, 150, 3, n, format!("notice {n}")))
+                .collect(),
+        ),
     ] {
         for (day, walk, wisps, notice, name) in rows {
             let cells: Vec<String> = [1u32, 2, 4, 6]
                 .iter()
                 .map(|&n| {
                     let o = tried(n, day, walk, wisps, notice);
-                    format!("{n}s {}{} {}", o.loops, if o.won { "" } else { "+" }, o.ticks)
+                    format!(
+                        "{n}s {}{} {}",
+                        o.loops,
+                        if o.won { "" } else { "+" },
+                        o.ticks
+                    )
                 })
                 .collect();
             eprintln!("TUNE {label:6} {name:12} | {}", cells.join(" | "));
@@ -1231,16 +1638,38 @@ fn tuning_table() {
 #[test]
 #[ignore = "explores what bots do"]
 fn explore_bots() {
-    let n: u32 = std::env::var("BOTS").ok().and_then(|v| v.parse().ok()).unwrap_or(1);
+    let n: u32 = std::env::var("BOTS")
+        .ok()
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(1);
     let seed = std::env::var("INFORMED").is_ok();
     let mut last = (0, 0u16, 0u8, 0u16, 0u8);
     let start = if seed { informed(n) } else { session(n) };
     let (_, out) = play_from(start, 200_000, |s| {
-        let now = (s.memory.loops, s.memory.facts, s.memory.ticks, s.world.flags, s.memory.masks | s.memory.keeps << 4);
-        let lo: u32 = std::env::var("FROM").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
-        let hi: u32 = std::env::var("TO").ok().and_then(|v| v.parse().ok()).unwrap_or(9000);
-        let lp: u32 = std::env::var("LOOP").ok().and_then(|v| v.parse().ok()).unwrap_or(2);
-        if std::env::var("WATCH").is_ok() && s.clock % 50 == 0 && s.memory.loops + 1 == lp && (lo..hi).contains(&s.clock) {
+        let now = (
+            s.memory.loops,
+            s.memory.facts,
+            s.memory.ticks,
+            s.world.flags,
+            s.memory.masks | s.memory.keeps << 4,
+        );
+        let lo: u32 = std::env::var("FROM")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(0);
+        let hi: u32 = std::env::var("TO")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(9000);
+        let lp: u32 = std::env::var("LOOP")
+            .ok()
+            .and_then(|v| v.parse().ok())
+            .unwrap_or(2);
+        if std::env::var("WATCH").is_ok()
+            && s.clock % 50 == 0
+            && s.memory.loops + 1 == lp
+            && (lo..hi).contains(&s.clock)
+        {
             for (id, seat) in &s.seats {
                 let k = &seat.knight;
                 eprintln!(

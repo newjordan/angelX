@@ -43,8 +43,7 @@ const GOAL_PHRASES: &[&str] = &[
 
 /// Command words that are inventory or search rather than a board digest.
 const INVENTORY_WORDS: &[&str] = &[
-    "find", "rg", "ripgrep", "grep", "egrep", "fgrep", "ugrep", "ag", "ack", "fd", "tree",
-    "locate",
+    "find", "rg", "ripgrep", "grep", "egrep", "fgrep", "ugrep", "ag", "ack", "fd", "tree", "locate",
 ];
 
 /// The `git` inventory subcommands, in the native scan's order. The first three
@@ -191,7 +190,9 @@ fn goal_text(history: &[ChatMsg]) -> &str {
         .rev()
         .find(|message| {
             message.role == ChatRole::Harness
-                && message.content.contains(crate::drive::goal::GOAL_BLOCK_HEADER)
+                && message
+                    .content
+                    .contains(crate::drive::goal::GOAL_BLOCK_HEADER)
         })
         .map(|message| message.content.as_ref())
         .unwrap_or_default()
@@ -315,7 +316,9 @@ impl TriggerDecision {
             }
             TriggerKind::Goal => {
                 if !facts.goal_present || !facts.goal_phrases.iter().any(|hit| *hit) {
-                    return Err("live competition-mode leg engaged on a non-competitive goal".into());
+                    return Err(
+                        "live competition-mode leg engaged on a non-competitive goal".into(),
+                    );
                 }
                 Ok(())
             }
@@ -398,7 +401,11 @@ fn ls_words(cmd: &str) -> Vec<LsWord> {
                 return LsWord::Plain;
             }
             if !base.starts_with('-') {
-                return if base == "ls" { LsWord::Ls } else { LsWord::Word };
+                return if base == "ls" {
+                    LsWord::Ls
+                } else {
+                    LsWord::Word
+                };
             }
             if base.starts_with("--") {
                 let recursive = base == "--recursive"
@@ -473,10 +480,7 @@ fn git_show_names_a_blob(cmd: &str) -> bool {
         }
         match part.split_once(':') {
             Some((rev, path)) => {
-                !rev.is_empty()
-                    && !path.is_empty()
-                    && !rev.contains('/')
-                    && !part.contains("://")
+                !rev.is_empty() && !path.is_empty() && !rev.contains('/') && !part.contains("://")
             }
             None => false,
         }
@@ -1044,7 +1048,10 @@ pub(crate) fn git_show_is_inventory_thrash_native(cmd: &str) -> bool {
 pub(crate) fn trigger_decided(
     leg: Option<angel_live::Program>,
     history: &[ChatMsg],
-) -> (Option<&'static str>, crate::agent::harness::live_policy::LegSource) {
+) -> (
+    Option<&'static str>,
+    crate::agent::harness::live_policy::LegSource,
+) {
     let facts = trigger_facts(history);
     let input = facts.input();
     let (decision, source) = match leg {
@@ -1055,9 +1062,11 @@ pub(crate) fn trigger_decided(
             |decision: &TriggerDecision| decision.check(&facts),
             || TriggerDecision::of(competition_mode_trigger(history)),
         ),
-        None => crate::agent::harness::live_policy::decide_shipped(LEG, &input, |decision: &TriggerDecision| {
-            decision.check(&facts)
-        }),
+        None => crate::agent::harness::live_policy::decide_shipped(
+            LEG,
+            &input,
+            |decision: &TriggerDecision| decision.check(&facts),
+        ),
     };
     (decision.back(), source)
 }
@@ -1077,7 +1086,11 @@ pub(crate) fn ls_decided(
             |_verdict: &Verdict| Ok(()),
             || Verdict::of(ls_cmd_is_recursive_listing(cmd)),
         ),
-        None => crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| Ok(())),
+        None => {
+            crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| {
+                Ok(())
+            })
+        }
     };
     (verdict.hit, source)
 }
@@ -1097,7 +1110,11 @@ pub(crate) fn git_show_decided(
             |_verdict: &Verdict| Ok(()),
             || Verdict::of(git_show_is_inventory_thrash(cmd)),
         ),
-        None => crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| Ok(())),
+        None => {
+            crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| {
+                Ok(())
+            })
+        }
     };
     (verdict.hit, source)
 }
@@ -1116,7 +1133,11 @@ pub(crate) fn shell_decided(
             |_verdict: &Verdict| Ok(()),
             || Verdict::of(shell_cmd_is_inventory_thrash(cmd)),
         ),
-        None => crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| Ok(())),
+        None => {
+            crate::agent::harness::live_policy::decide_shipped(LEG, &input, |_verdict: &Verdict| {
+                Ok(())
+            })
+        }
     };
     (verdict.hit, source)
 }

@@ -9,7 +9,10 @@ fn call(name: &str, args: serde_json::Value) -> Vec<ToolCall> {
 }
 
 fn cargo_test() -> Vec<ToolCall> {
-    call("shell", serde_json::json!({"command": "cargo test 2>&1 | tail -30"}))
+    call(
+        "shell",
+        serde_json::json!({"command": "cargo test 2>&1 | tail -30"}),
+    )
 }
 
 #[test]
@@ -17,7 +20,9 @@ fn a_call_repeated_silently_three_times_earns_one_note_naming_it() {
     let mut guard = SilenceGuard::default();
     assert_eq!(guard.observe(None, &cargo_test()), None);
     assert_eq!(guard.observe(Some("  "), &cargo_test()), None);
-    let note = guard.observe(None, &cargo_test()).expect("third silent repeat");
+    let note = guard
+        .observe(None, &cargo_test())
+        .expect("third silent repeat");
     assert!(note.contains("`shell "), "{note}");
     assert!(note.contains("cargo test"), "{note}");
     assert!(note.contains("3 times in a row"), "{note}");
@@ -60,12 +65,18 @@ fn a_pasted_back_reply_is_no_new_text() {
 fn eight_textless_hops_earn_a_note_even_when_the_calls_differ() {
     let mut guard = SilenceGuard::default();
     for n in 1..SILENT_HOP_LIMIT {
-        let probe = call("shell", serde_json::json!({"command": format!("cargo test case_{n}")}));
+        let probe = call(
+            "shell",
+            serde_json::json!({"command": format!("cargo test case_{n}")}),
+        );
         assert_eq!(guard.observe(None, &probe), None, "hop {n}");
     }
     let last = call("shell", serde_json::json!({"command": "cargo test last"}));
     let note = guard.observe(None, &last).expect("eighth silent hop");
-    assert!(note.contains("last 8 tool calls came with no text"), "{note}");
+    assert!(
+        note.contains("last 8 tool calls came with no text"),
+        "{note}"
+    );
     assert!(guard.take_wake());
 }
 
@@ -78,7 +89,10 @@ fn the_rust_bowling_loop_is_interrupted_and_the_guard_stays_bounded() {
     let mut wakes = 0;
     for hop in 0..60 {
         let calls = if hop < 15 {
-            call("shell", serde_json::json!({"command": format!("cargo test t{hop}")}))
+            call(
+                "shell",
+                serde_json::json!({"command": format!("cargo test t{hop}")}),
+            )
         } else {
             cargo_test()
         };
@@ -92,5 +106,9 @@ fn the_rust_bowling_loop_is_interrupted_and_the_guard_stays_bounded() {
     assert_eq!(wakes, NOTES_PER_TURN);
     assert_eq!(notes[0], SILENT_HOP_LIMIT - 1, "{notes:?}");
     // Each later note needs a fresh run of its own.
-    assert!(notes.windows(2).all(|pair| pair[1] - pair[0] >= SAME_CALL_LIMIT));
+    assert!(
+        notes
+            .windows(2)
+            .all(|pair| pair[1] - pair[0] >= SAME_CALL_LIMIT)
+    );
 }

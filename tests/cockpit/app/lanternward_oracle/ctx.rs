@@ -104,7 +104,13 @@ impl Session {
 
     /// E pressed with a thing in reach. False when there is nothing to do
     /// (the caller rolls or hops).
-    pub(super) fn use_context(&mut self, id: u32, k: &mut Seat, r: &Rules, ev: &mut Events) -> bool {
+    pub(super) fn use_context(
+        &mut self,
+        id: u32,
+        k: &mut Seat,
+        r: &Rules,
+        ev: &mut Events,
+    ) -> bool {
         match self.context_for(id, k) {
             Ctx::None => false,
             Ctx::Open(i) => {

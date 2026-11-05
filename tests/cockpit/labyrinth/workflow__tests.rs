@@ -1077,11 +1077,13 @@ fn frontier_sota_bindings_find_unsorted_sizes_and_reject_missing_or_stale_values
         {"size":-3,"lo":0,"hi":10,"bounds":{"upper":3}},
         {"size":2,"lo":0,"hi":10,"bounds":{"upper":2}}
     ]});
-    let entry = |id: &str, size, value| json!({
-        "id":id,"group":"g","cls":"class","result":"result",
-        "status":"status","updated":"today","refs":[],"lit":[],
-        "frontier":{"size":size,"field":"upper","value":value}
-    });
+    let entry = |id: &str, size, value| {
+        json!({
+            "id":id,"group":"g","cls":"class","result":"result",
+            "status":"status","updated":"today","refs":[],"lit":[],
+            "frontier":{"size":size,"field":"upper","value":value}
+        })
+    };
     let mut sota = json!({"groups":["g"],"entries":[
         entry("a",2,2),entry("b",9,9),entry("c",-3,3)
     ]});
@@ -1090,13 +1092,25 @@ fn frontier_sota_bindings_find_unsorted_sizes_and_reject_missing_or_stale_values
     assert_eq!(status["sizes"][1]["size"], -3);
     assert_eq!(status["sizes"][2]["size"], 2);
     sota["entries"][1]["frontier"]["size"] = json!(8);
-    assert!(frontier_status(&frontier, Some(&sota)).unwrap_err().contains("SOTA size is absent"));
+    assert!(
+        frontier_status(&frontier, Some(&sota))
+            .unwrap_err()
+            .contains("SOTA size is absent")
+    );
     sota["entries"][1]["frontier"]["size"] = json!(9);
     sota["entries"][1]["frontier"]["value"] = json!(8);
-    assert!(frontier_status(&frontier, Some(&sota)).unwrap_err().contains("disagree on upper"));
+    assert!(
+        frontier_status(&frontier, Some(&sota))
+            .unwrap_err()
+            .contains("disagree on upper")
+    );
     let mut duplicate = frontier.clone();
     duplicate["sizes"][1]["size"] = json!(9);
-    assert!(frontier_status(&duplicate, None).unwrap_err().contains("duplicate frontier size"));
+    assert!(
+        frontier_status(&duplicate, None)
+            .unwrap_err()
+            .contains("duplicate frontier size")
+    );
 }
 
 #[test]

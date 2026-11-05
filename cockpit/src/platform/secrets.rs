@@ -26,12 +26,12 @@
 // The redactor lives in the Kernel's host services
 // (`angel_live::host::secrets`) so the realm host and the atomic writers stand
 // on the same code; every item is re-exported here at its old path.
+#[cfg(test)]
+pub(crate) use angel_live::host::secrets::{REDACTED, secret_values};
 pub(crate) use angel_live::host::secrets::{
     Redactor, contains_secret, redact_bytes, redact_error, redact_str, redact_value,
     to_redacted_vec, to_redacted_vec_pretty,
 };
-#[cfg(test)]
-pub(crate) use angel_live::host::secrets::{REDACTED, secret_values};
 #[cfg(test)]
 use std::borrow::Cow;
 

@@ -13,7 +13,10 @@ fn the_viewport_asks_for_pane_pixels_in_scaler_units() {
     let area = Rect::new(0, 0, 40, 20);
     assert_eq!(decode_viewport(area, (12, 25)), (240, 125));
     // A cinema-sized pane decodes like a television instead.
-    assert_eq!(decode_viewport(Rect::new(0, 0, 400, 200), (12, 25)), (640, 180));
+    assert_eq!(
+        decode_viewport(Rect::new(0, 0, 400, 200), (12, 25)),
+        (640, 180)
+    );
     // Degenerate cells keep a tiny sane viewport.
     assert_eq!(decode_viewport(area, (0, 25)), (2, 2));
     assert_eq!(decode_viewport(area, (12, 0)), (2, 2));
@@ -52,11 +55,19 @@ fn a_terminal_present_stays_hidden() {
         &mut buffer,
     );
     #[cfg(feature = "glass")]
-    assert_eq!(played, crate::ui::stereopticon::Played::Hidden, "no window in a test");
+    assert_eq!(
+        played,
+        crate::ui::stereopticon::Played::Hidden,
+        "no window in a test"
+    );
     #[cfg(not(feature = "glass"))]
     assert_eq!(played, crate::ui::stereopticon::Played::Hidden);
     assert_eq!(buffer, before, "no window, no painting");
-    assert!(!crate::ui::stereopticon::warming(Rect::new(0, 0, 10, 4), &mut buffer, 0.5));
+    assert!(!crate::ui::stereopticon::warming(
+        Rect::new(0, 0, 10, 4),
+        &mut buffer,
+        0.5
+    ));
 }
 
 #[cfg(feature = "glass")]
@@ -106,7 +117,10 @@ mod glass {
                 })
                 .unwrap()
         };
-        assert!((sweep_y(&half) - sweep_y(&empty)).abs() > 1e-3, "the sweep moved");
+        assert!(
+            (sweep_y(&half) - sweep_y(&empty)).abs() > 1e-3,
+            "the sweep moved"
+        );
         // Deterministic: the same replay moment is the same frame.
         assert_eq!(
             crate::ui::stereopticon::frame_layers(placed, 0.5, false, 1.0),
@@ -116,7 +130,8 @@ mod glass {
 
     #[test]
     fn the_warming_frame_is_sound() {
-        let warming = crate::ui::stereopticon::warming_layers(Rect::new(10, 5, 40, 20), [30.0, 15.0], 0.25);
+        let warming =
+            crate::ui::stereopticon::warming_layers(Rect::new(10, 5, 40, 20), [30.0, 15.0], 0.25);
         assert!(!warming.is_empty() && warming.len() <= 16);
         for layer in &warming {
             assert!(layer.clone().sanitized().is_some());

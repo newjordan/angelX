@@ -7,13 +7,13 @@
 //! lantern post any knight lights is lit for all and holds the Dimming back,
 //! and a fallen knight is carried to the last lit post. More knights at the
 //! table means more foes on the road and a quicker Dimming, never weaker foes.
+use super::host::{HZ, Hero, Input, MAX_PLAYERS};
 use super::level::{HOLD, level};
 use super::math::{self, Q};
 use super::rider::*;
 use super::world::*;
-use super::host::{HZ, Hero, Input, MAX_PLAYERS};
-use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 /// A run never runs past an hour; a longer one is not a run to play.
 pub const LIMIT: u32 = 60 * 60 * HZ;
@@ -136,7 +136,15 @@ impl Session {
             foes: lvl
                 .foes
                 .iter()
-                .map(|f| FoeState { hp: if f.kind == FoeKind::Warden { WARDEN_BASE } else { 1 }, pop: 0, flinch: 0 })
+                .map(|f| FoeState {
+                    hp: if f.kind == FoeKind::Warden {
+                        WARDEN_BASE
+                    } else {
+                        1
+                    },
+                    pop: 0,
+                    flinch: 0,
+                })
                 .collect(),
             spring_t: vec![0; lvl.springs.len()],
             pad_t: vec![0; lvl.pads.len()],
@@ -171,7 +179,9 @@ impl Session {
 
     /// The highest post lit, if any.
     pub fn last_post(&self) -> Option<usize> {
-        (0..level().posts.len()).rev().find(|&n| self.posts >> n & 1 == 1)
+        (0..level().posts.len())
+            .rev()
+            .find(|&n| self.posts >> n & 1 == 1)
     }
 
     /// Which act the road is in at column `x` (pixels).
@@ -190,7 +200,9 @@ impl Session {
     fn grow_warden(&mut self, add: u32) {
         for (i, f) in level().foes.iter().enumerate() {
             if f.kind == FoeKind::Warden && self.foes[i].hp > 0 {
-                self.foes[i].hp = (u32::from(self.foes[i].hp) + add).min(u32::from(WARDEN_BASE) + MAX_PLAYERS - 1) as u8;
+                self.foes[i].hp = (u32::from(self.foes[i].hp) + add)
+                    .min(u32::from(WARDEN_BASE) + MAX_PLAYERS - 1)
+                    as u8;
             }
         }
     }
@@ -205,7 +217,8 @@ impl Session {
     ) -> Vec<&'static str> {
         let mut snd: Vec<&'static str> = Vec::new();
         self.elapsed = (self.elapsed + 1).min(LIMIT);
-        self.seats.retain(|id, _| heroes.get(id).is_some_and(|h| !h.away && !h.stone));
+        self.seats
+            .retain(|id, _| heroes.get(id).is_some_and(|h| !h.away && !h.stone));
         let post = self.last_post();
         for (&id, _) in heroes.iter().filter(|(_, h)| !h.away && !h.stone) {
             if !self.seats.contains_key(&id) && self.seats.len() < MAX_PLAYERS as usize {
@@ -230,14 +243,26 @@ impl Session {
             .map(|(&id, s)| {
                 let r = &s.rider;
                 let live = r.down == 0 && r.finish.is_none();
-                (id, r.x / Q, r.y / Q, r.dir, if live { r.speed() } else { 0 })
+                (
+                    id,
+                    r.x / Q,
+                    r.y / Q,
+                    r.dir,
+                    if live { r.speed() } else { 0 },
+                )
             })
             .collect();
 
         let ids: Vec<u32> = self.seats.keys().copied().collect();
         for id in ids {
-            let Some(mut seat) = self.seats.remove(&id) else { continue };
-            let input = inputs.get(&id).copied().filter(|i| i.valid()).unwrap_or_default();
+            let Some(mut seat) = self.seats.remove(&id) else {
+                continue;
+            };
+            let input = inputs
+                .get(&id)
+                .copied()
+                .filter(|i| i.valid())
+                .unwrap_or_default();
             let keys = Keys::of(&input);
             if self.tally.is_some() && input.interact && !seat.rider.jump_key {
                 if self.elapsed >= self.tally.as_ref().map_or(0, |t| t.at) + TALLY_HOLD {
@@ -274,7 +299,10 @@ impl Session {
                 st.pop -= 1;
                 if st.pop == 0 {
                     let (fx, _, _) = foe_at(lvl, &spot, self.elapsed);
-                    let near = self.seats.values().any(|s| (s.rider.x / Q - fx).abs() < 160);
+                    let near = self
+                        .seats
+                        .values()
+                        .any(|s| (s.rider.x / Q - fx).abs() < 160);
                     if near {
                         self.foes[i].pop = 20;
                     } else {
@@ -294,7 +322,12 @@ impl Session {
         let pace = n.dimming * (100 + SEAT_PACE * (seated - 1).max(0)) / 100 * ACT_PACE[act] / 100;
         self.dim += pace;
         // Never so far behind the rearmost knight that the chase is lost.
-        let rear = self.seats.values().filter(|s| s.rider.finish.is_none() && s.rider.down == 0).map(|s| s.rider.x).min();
+        let rear = self
+            .seats
+            .values()
+            .filter(|s| s.rider.finish.is_none() && s.rider.down == 0)
+            .map(|s| s.rider.x)
+            .min();
         if let Some(rear) = rear {
             self.dim = self.dim.max(rear - LEAD_MAX * Q);
         }
@@ -399,7 +432,12 @@ impl Session {
     /// The gate's warden bars the road: nothing rides past it alive.
     fn wall(&mut self, r: &mut Rider) {
         let lvl = level();
-        let Some((i, w)) = lvl.foes.iter().enumerate().find(|(_, f)| f.kind == FoeKind::Warden) else {
+        let Some((i, w)) = lvl
+            .foes
+            .iter()
+            .enumerate()
+            .find(|(_, f)| f.kind == FoeKind::Warden)
+        else {
             return;
         };
         if self.foes[i].hp == 0 || r.x / Q <= w.x + 6 {
@@ -465,7 +503,10 @@ impl Session {
             }
             let (fx, fy, _) = foe_at(lvl, spot, self.elapsed);
             let (_, fh) = foe_body(spot.kind);
-            let (dx, dy) = (i64::from(fx * Q - cen.0), i64::from((fy - fh / 2) * Q - cen.1));
+            let (dx, dy) = (
+                i64::from(fx * Q - cen.0),
+                i64::from((fy - fh / 2) * Q - cen.1),
+            );
             if dx * i64::from(r.dir) < -i64::from(6 * Q) {
                 continue;
             }
@@ -491,7 +532,10 @@ impl Session {
         }
         match self.find_lock(r, n) {
             Some(i) => {
-                r.lock = Some(Lock { target: i as u16, ticks: LOCK_TICKS });
+                r.lock = Some(Lock {
+                    target: i as u16,
+                    ticks: LOCK_TICKS,
+                });
                 snd.push("swing");
             }
             None if !r.lunged => {
@@ -504,7 +548,13 @@ impl Session {
     }
 
     /// What the rider's swept body does to the foes it meets.
-    fn touch_foes(&mut self, r: &mut Rider, c0: (i32, i32), c1: (i32, i32), snd: &mut Vec<&'static str>) {
+    fn touch_foes(
+        &mut self,
+        r: &mut Rider,
+        c0: (i32, i32),
+        c1: (i32, i32),
+        snd: &mut Vec<&'static str>,
+    ) {
         let lvl = level();
         let (hw, h) = r.body();
         let (lox, hix) = (c0.0.min(c1.0) - hw * Q, c0.0.max(c1.0) + hw * Q);
@@ -553,7 +603,11 @@ impl Session {
 
     /// A foe popped into cold smoke and a spark of returned light.
     fn pop(&mut self, i: usize, r: &mut Rider, snd: &mut Vec<&'static str>) {
-        self.foes[i] = FoeState { hp: 0, pop: REFORM, flinch: 8 };
+        self.foes[i] = FoeState {
+            hp: 0,
+            pop: REFORM,
+            flinch: 8,
+        };
         let was_air = !r.grounded() || r.lock.is_some();
         let link = r.strike();
         r.freeze = 2;
@@ -645,12 +699,20 @@ impl Session {
     }
 
     /// Sparks, springs, pads, posts, crates and the bell.
-    fn touch_things(&mut self, r: &mut Rider, c0: (i32, i32), c1: (i32, i32), snd: &mut Vec<&'static str>) {
+    fn touch_things(
+        &mut self,
+        r: &mut Rider,
+        c0: (i32, i32),
+        c1: (i32, i32),
+        snd: &mut Vec<&'static str>,
+    ) {
         let lvl = level();
         let (hw, h) = r.body();
         let (lox, hix) = (c0.0.min(c1.0) - hw * Q, c0.0.max(c1.0) + hw * Q);
         let (loy, hiy) = (c0.1.min(c1.1) - h * Q / 2, c0.1.max(c1.1) + h * Q / 2);
-        let over = |l: i32, rr: i32, tp: i32, bt: i32| hix >= l * Q && lox <= rr * Q && hiy >= tp * Q && loy <= bt * Q;
+        let over = |l: i32, rr: i32, tp: i32, bt: i32| {
+            hix >= l * Q && lox <= rr * Q && hiy >= tp * Q && loy <= bt * Q
+        };
         let cx = c1.0 / Q;
 
         // Sparks: a bit each, taken once by this knight.
@@ -676,7 +738,11 @@ impl Session {
         for i in Level::near(&lvl.springs, cx, 40, |s| s.x) {
             let sp = lvl.springs[i];
             if r.spring_cd == 0 && over(sp.x - 14, sp.x + 14, sp.y - 18, sp.y + 4) {
-                let carry = if r.grounded() { r.gsp.abs().max(r.vx.abs()) } else { r.vx.abs() };
+                let carry = if r.grounded() {
+                    r.gsp.abs().max(r.vx.abs())
+                } else {
+                    r.vx.abs()
+                };
                 let dir = if r.dir >= 0 { 1 } else { -1 };
                 r.ground = None;
                 r.roll = false;
@@ -770,7 +836,8 @@ impl Session {
         let before = r.loose.len();
         let mut got = 0;
         r.loose.retain(|l| {
-            let near = l.age >= LOOSE_DELAY && (l.x - c.0).abs() < 18 * Q && (l.y - c.1).abs() < 24 * Q;
+            let near =
+                l.age >= LOOSE_DELAY && (l.x - c.0).abs() < 18 * Q && (l.y - c.1).abs() < 24 * Q;
             got += u32::from(near);
             !near
         });
@@ -790,9 +857,19 @@ impl Session {
             }
         }
         let seated = self.seats.len().max(1) as u32;
-        let time = self.seats.values().filter_map(|s| s.rider.finish).max().unwrap_or(now);
+        let time = self
+            .seats
+            .values()
+            .filter_map(|s| s.rider.finish)
+            .max()
+            .unwrap_or(now);
         let sparks = self.seats.values().map(|s| s.rider.collected).sum::<u32>() / seated;
-        let chain = self.seats.values().map(|s| s.rider.best_chain).max().unwrap_or(0);
+        let chain = self
+            .seats
+            .values()
+            .map(|s| s.rider.best_chain)
+            .max()
+            .unwrap_or(0);
         let posts = self.posts.count_ones();
         let falls = self.seats.values().map(|s| s.rider.falls).sum::<u32>();
         let total = lvl.sparks.len().max(1) as u32;
@@ -801,7 +878,8 @@ impl Session {
         let personal = |collected: u32, best_chain: u32, falls: u32, finish: u32| {
             let s = finish / HZ;
             let t = 400 * (SLOW.saturating_sub(s)).min(SLOW - FAST) / (SLOW - FAST);
-            (t + (300 * collected / total).min(300) + 25 * best_chain.min(8)).saturating_sub(falls * 15)
+            (t + (300 * collected / total).min(300) + 25 * best_chain.min(8))
+                .saturating_sub(falls * 15)
         };
         let points = (time_pts
             + (300 * sparks / total).min(300)
@@ -809,17 +887,37 @@ impl Session {
             + 100 * posts / lvl.posts.len().max(1) as u32)
             .saturating_sub((falls * 15).min(100))
             .min(1000);
-        let rank = RANKS.iter().position(|&line| points >= line).map_or(0, |i| 3 - i as u8);
+        let rank = RANKS
+            .iter()
+            .position(|&line| points >= line)
+            .map_or(0, |i| 3 - i as u8);
         let scores: BTreeMap<u32, u32> = self
             .seats
             .iter()
             .map(|(&id, s)| {
                 let r = &s.rider;
-                (id, personal(r.collected, r.best_chain, r.falls, r.finish.unwrap_or(now)).min(1000))
+                (
+                    id,
+                    personal(r.collected, r.best_chain, r.falls, r.finish.unwrap_or(now)).min(1000),
+                )
             })
             .collect();
-        let best = scores.iter().max_by_key(|&(&id, &v)| (v, std::cmp::Reverse(id))).map_or(0, |(&id, _)| id);
-        self.tally = Some(Tally { at: now, time, sparks, chain, posts, falls, points, rank, best, scores });
+        let best = scores
+            .iter()
+            .max_by_key(|&(&id, &v)| (v, std::cmp::Reverse(id)))
+            .map_or(0, |(&id, _)| id);
+        self.tally = Some(Tally {
+            at: now,
+            time,
+            sparks,
+            chain,
+            posts,
+            falls,
+            points,
+            rank,
+            best,
+            scores,
+        });
     }
 
     pub fn valid(&self) -> bool {
@@ -837,17 +935,27 @@ impl Session {
             && (1..=MAX_PLAYERS).contains(&self.provisioned)
             && self.foes.len() == lvl.foes.len()
             && self.foes.iter().zip(&lvl.foes).all(|(f, spot)| {
-                f.hp <= if spot.kind == FoeKind::Warden { WARDEN_BASE + MAX_PLAYERS as u8 - 1 } else { 1 }
-                    && f.pop <= REFORM
+                f.hp <= if spot.kind == FoeKind::Warden {
+                    WARDEN_BASE + MAX_PLAYERS as u8 - 1
+                } else {
+                    1
+                } && f.pop <= REFORM
                     && f.flinch <= 16
             })
             && self.spring_t.len() == lvl.springs.len()
             && self.pad_t.len() == lvl.pads.len()
-            && self.spring_t.iter().chain(&self.pad_t).all(|&p| p <= self.elapsed + 1)
+            && self
+                .spring_t
+                .iter()
+                .chain(&self.pad_t)
+                .all(|&p| p <= self.elapsed + 1)
             && self.warden_inv <= WARDEN_INV
             && self.bell_t.is_none_or(|b| b <= self.elapsed)
             && self.tally.as_ref().is_none_or(|y| {
-                y.at <= self.elapsed && y.points <= 1000 && y.rank <= 3 && y.scores.len() <= MAX_PLAYERS as usize
+                y.at <= self.elapsed
+                    && y.points <= 1000
+                    && y.rank <= 3
+                    && y.scores.len() <= MAX_PLAYERS as usize
                     && y.scores.values().all(|&v| v <= 1000)
             })
             && (self.tally.is_none() || self.bell_t.is_some())
@@ -870,34 +978,62 @@ impl Session {
         self.dim = self.dim.clamp(-4000 * Q, 30000 * Q);
         self.posts &= (1u32 << lvl.posts.len()) - 1;
         self.post_t.resize(lvl.posts.len(), 0);
-        self.post_t.iter_mut().for_each(|p| *p = (*p).min(elapsed + 1));
+        self.post_t
+            .iter_mut()
+            .for_each(|p| *p = (*p).min(elapsed + 1));
         self.provisioned = self.provisioned.clamp(1, MAX_PLAYERS);
         if self.foes.len() != lvl.foes.len() {
             self.foes = lvl
                 .foes
                 .iter()
-                .map(|f| FoeState { hp: if f.kind == FoeKind::Warden { WARDEN_BASE } else { 1 }, pop: 0, flinch: 0 })
+                .map(|f| FoeState {
+                    hp: if f.kind == FoeKind::Warden {
+                        WARDEN_BASE
+                    } else {
+                        1
+                    },
+                    pop: 0,
+                    flinch: 0,
+                })
                 .collect();
             self.grow_warden(self.provisioned - 1);
         }
         for (f, spot) in self.foes.iter_mut().zip(&lvl.foes) {
-            let most = if spot.kind == FoeKind::Warden { WARDEN_BASE + MAX_PLAYERS as u8 - 1 } else { 1 };
+            let most = if spot.kind == FoeKind::Warden {
+                WARDEN_BASE + MAX_PLAYERS as u8 - 1
+            } else {
+                1
+            };
             f.hp = f.hp.min(most);
             f.pop = f.pop.min(REFORM);
             f.flinch = f.flinch.min(16);
         }
         self.spring_t.resize(lvl.springs.len(), 0);
         self.pad_t.resize(lvl.pads.len(), 0);
-        self.spring_t.iter_mut().chain(self.pad_t.iter_mut()).for_each(|p| *p = (*p).min(elapsed + 1));
+        self.spring_t
+            .iter_mut()
+            .chain(self.pad_t.iter_mut())
+            .for_each(|p| *p = (*p).min(elapsed + 1));
         self.warden_inv = self.warden_inv.min(WARDEN_INV);
         if self.bell_t.is_some_and(|b| b > elapsed) {
             self.bell_t = None;
         }
-        if self.bell_t.is_none() || self.tally.as_ref().is_some_and(|y| y.points > 1000 || y.rank > 3 || y.at > elapsed) {
+        if self.bell_t.is_none()
+            || self
+                .tally
+                .as_ref()
+                .is_some_and(|y| y.points > 1000 || y.rank > 3 || y.at > elapsed)
+        {
             self.tally = None;
         }
     }
 }
 
 /// The sounds of a chain of lance-locks, rising a step with each link.
-pub const CHAIN_PITCH: [&str; 5] = ["hit_magic", "card_pickup", "gold", "spoil_pickup", "wish_grant"];
+pub const CHAIN_PITCH: [&str; 5] = [
+    "hit_magic",
+    "card_pickup",
+    "gold",
+    "spoil_pickup",
+    "wish_grant",
+];

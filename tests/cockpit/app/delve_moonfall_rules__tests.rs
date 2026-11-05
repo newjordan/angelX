@@ -112,7 +112,14 @@ impl Seen {
         self.bots += other.bots;
     }
 
-    fn note(&mut self, before: &Session, after: &Session, cues: &[&'static str], leaving: usize, won: bool) {
+    fn note(
+        &mut self,
+        before: &Session,
+        after: &Session,
+        cues: &[&'static str],
+        leaving: usize,
+        won: bool,
+    ) {
         self.ticks += 1;
         for c in cues {
             self.cues.extend(CUES.iter().position(|n| n == c));
@@ -132,7 +139,13 @@ impl Seen {
             self.hurts += u32::from(b.is_some_and(|b| seat.knight.candles < b.candles));
             self.talks += u32::from(seat.knight.say.is_some());
             if let Some((n, _)) = seat.knight.note {
-                self.notes.insert(format!("{:?}", n).split(['(', ' ']).next().unwrap_or("").to_string());
+                self.notes.insert(
+                    format!("{:?}", n)
+                        .split(['(', ' '])
+                        .next()
+                        .unwrap_or("")
+                        .to_string(),
+                );
             }
         }
         self.away += u32::from(before.seats.len() != after.seats.len());
@@ -154,7 +167,11 @@ fn diff(want: &Value, got: &Value, path: &str) -> Option<String> {
     match (want, got) {
         (Value::Object(a), Value::Object(b)) => {
             for k in a.keys().chain(b.keys()).collect::<BTreeSet<_>>() {
-                if let Some(d) = diff(a.get(k).unwrap_or(&Value::Null), b.get(k).unwrap_or(&Value::Null), &format!("{path}.{k}")) {
+                if let Some(d) = diff(
+                    a.get(k).unwrap_or(&Value::Null),
+                    b.get(k).unwrap_or(&Value::Null),
+                    &format!("{path}.{k}"),
+                ) {
                     return Some(d);
                 }
             }
@@ -169,7 +186,14 @@ fn diff(want: &Value, got: &Value, path: &str) -> Option<String> {
 
 /// One tick through the native rules and through the module, from the same session.
 /// `s` becomes the module's session; every part of the answer must equal the oracle's.
-fn compare(label: &str, tick: u32, s: &mut Session, inputs: &Held, heroes: &Heroes, seen: &mut Seen) {
+fn compare(
+    label: &str,
+    tick: u32,
+    s: &mut Session,
+    inputs: &Held,
+    heroes: &Heroes,
+    seen: &mut Seen,
+) {
     let before = s.clone();
     let mut native = s.clone();
     let want = oracle::tick(&mut native, inputs, heroes);
@@ -177,13 +201,22 @@ fn compare(label: &str, tick: u32, s: &mut Session, inputs: &Held, heroes: &Hero
         .advance(inputs, heroes)
         .unwrap_or_else(|error| panic!("{label} tick {tick}: the module refused: {error}"));
     if *s != native {
-        let (a, b) = (serde_json::to_value(&native).unwrap(), serde_json::to_value(&*s).unwrap());
+        let (a, b) = (
+            serde_json::to_value(&native).unwrap(),
+            serde_json::to_value(&*s).unwrap(),
+        );
         let at = diff(&a, &b, "session").unwrap_or_else(|| "pending sounds differ".into());
         panic!("{label} tick {tick}: {at}");
     }
     assert_eq!(got.cues, want.cues, "{label} tick {tick}: sounds");
-    assert_eq!(got.leaving, want.leaving, "{label} tick {tick}: who walks out");
-    assert_eq!(got.won, want.won, "{label} tick {tick}: the first deliverance");
+    assert_eq!(
+        got.leaving, want.leaving,
+        "{label} tick {tick}: who walks out"
+    );
+    assert_eq!(
+        got.won, want.won,
+        "{label} tick {tick}: the first deliverance"
+    );
     seen.note(&before, s, &got.cues, got.leaving.len(), got.won.is_some());
 }
 
@@ -221,7 +254,10 @@ fn noise_input(r: &mut Rng) -> Input {
 
 fn walkable(r: &mut Rng, ground: town::Ground) -> (i32, i32) {
     loop {
-        let (tx, ty) = (r.range(0, town::COLS as u32 - 1) as i32, r.range(0, town::ROWS as u32 - 1) as i32);
+        let (tx, ty) = (
+            r.range(0, town::COLS as u32 - 1) as i32,
+            r.range(0, town::ROWS as u32 - 1) as i32,
+        );
         let (x, y) = ((tx * 16 + 8) * 256, (ty * 16 + 8) * 256);
         if oracle::town::clear(x, y, ground, &[]) {
             return (x, y);
@@ -252,7 +288,9 @@ fn some_note(r: &mut Rng) -> Note {
         2 => Note::Ticked(some_folk(r)),
         3 => Note::Remind(some_folk(r), r.below(12) as u8),
         4 => Note::Sign(Sign::TooHeavy),
-        5 => Note::Got([Item::Ink, Item::Reeds, Item::Pass, Item::Scroll, Item::Shoe][r.below(5) as usize]),
+        5 => Note::Got(
+            [Item::Ink, Item::Reeds, Item::Pass, Item::Scroll, Item::Shoe][r.below(5) as usize],
+        ),
         6 => Note::Mask([Mask::Bare, Mask::Swift, Mask::Stout][r.below(3) as usize]),
         7 => Note::Candle(r.below(3) as u8),
         8 => Note::Snuffed,
@@ -265,7 +303,14 @@ fn some_note(r: &mut Rng) -> Note {
 /// A point near something a knight might want: a villager, the pot, the doors, the well, a lantern.
 fn near(r: &mut Rng, s: &Session) -> (i32, i32) {
     let ground = s.world.ground(s.clock, s.nums.day, true);
-    let mut pts: Vec<(i32, i32)> = vec![town::INK_POT, town::REED_STACK, town::NORTH_DOOR, town::SOUTH_DOOR, town::WELL, town::BELL_POST];
+    let mut pts: Vec<(i32, i32)> = vec![
+        town::INK_POT,
+        town::REED_STACK,
+        town::NORTH_DOOR,
+        town::SOUTH_DOOR,
+        town::WELL,
+        town::BELL_POST,
+    ];
     for &(tx, ty) in &town::LAMPS {
         pts.push((tx * 16 + 8, ty * 16 + 4));
     }
@@ -276,7 +321,10 @@ fn near(r: &mut Rng, s: &Session) -> (i32, i32) {
     let (px, py) = pts[r.below(pts.len() as u64) as usize];
     for _ in 0..20 {
         let (dx, dy) = (r.range(0, 40) as i32 - 20, r.range(0, 40) as i32 - 20);
-        let (x, y) = ((px + dx) * 256 + r.range(0, 255) as i32, (py + dy) * 256 + r.range(0, 255) as i32);
+        let (x, y) = (
+            (px + dx) * 256 + r.range(0, 255) as i32,
+            (py + dy) * 256 + r.range(0, 255) as i32,
+        );
         if oracle::town::clear(x, y, ground, &s.world.crates) {
             return (x, y);
         }
@@ -286,12 +334,23 @@ fn near(r: &mut Rng, s: &Session) -> (i32, i32) {
 
 fn knight_noise(r: &mut Rng, s: &Session, k: &mut Knight) {
     let ground = s.world.ground(s.clock, s.nums.day, true);
-    let (x, y) = if r.chance(55) { near(r, s) } else { walkable(r, ground) };
+    let (x, y) = if r.chance(55) {
+        near(r, s)
+    } else {
+        walkable(r, ground)
+    };
     k.x = x;
     k.y = y;
     k.face = r.below(4) as u8;
     k.stride = if r.chance(50) { 0 } else { r.range(0, 70_000) };
-    k.held = [Item::Empty, Item::Ink, Item::Reeds, Item::Pass, Item::Scroll, Item::Shoe][r.below(6) as usize];
+    k.held = [
+        Item::Empty,
+        Item::Ink,
+        Item::Reeds,
+        Item::Pass,
+        Item::Scroll,
+        Item::Shoe,
+    ][r.below(6) as usize];
     k.held_at = r.range(0, clock::end(s.nums.day));
     k.mask = [Mask::Bare, Mask::Swift, Mask::Stout][r.below(3) as usize];
     k.candles = r.below(4) as u8;
@@ -303,7 +362,11 @@ fn knight_noise(r: &mut Rng, s: &Session, k: &mut Knight) {
     k.roll = if r.chance(80) { 0 } else { r.range(1, 6) };
     k.roll_rest = if r.chance(60) { 0 } else { r.range(1, 40) };
     k.roll_dir = (r.axis(), r.axis());
-    k.keys = if r.chance(50) { 0 } else { r.below(1024) as u16 };
+    k.keys = if r.chance(50) {
+        0
+    } else {
+        r.below(1024) as u16
+    };
     k.panel = match r.below(6) {
         0 => Panel::Ledger(r.below(7) as u8),
         1 => Panel::Bell(r.below(3) as u8),
@@ -316,12 +379,20 @@ fn knight_noise(r: &mut Rng, s: &Session, k: &mut Knight) {
             folk: some_folk(r),
             topic: some_topic(r),
             page: r.below(4) as u8,
-            age: if r.chance(90) { r.range(0, 100) } else { r.range(340, 361) },
+            age: if r.chance(90) {
+                r.range(0, 100)
+            } else {
+                r.range(340, 361)
+            },
         })
     };
     k.hold = if r.chance(70) { 0 } else { r.range(0, 24) };
     k.push = if r.chance(80) { 0 } else { r.range(0, 10) };
-    k.note = if r.chance(70) { None } else { Some((some_note(r), r.range(1, 120))) };
+    k.note = if r.chance(70) {
+        None
+    } else {
+        Some((some_note(r), r.range(1, 120)))
+    };
     k.read = if r.chance(50) { 0 } else { r.range(0, 60) };
 }
 
@@ -366,21 +437,39 @@ fn perturb(r: &mut Rng, s: &mut Session) {
     let control = angel_delve::rules::moonfall::control(&s.nums);
     s.phase = match r.below(10) {
         0 => Phase::Rewind {
-            t: if r.chance(40) { control.saturating_sub(r.range(1, 2)) } else { r.range(0, control) },
+            t: if r.chance(40) {
+                control.saturating_sub(r.range(1, 2))
+            } else {
+                r.range(0, control)
+            },
             from: r.range(0, end),
             fell: r.chance(50),
         },
         1 => {
             let a = r.range(0, end);
             let b = r.range(a, end);
-            Phase::Skip { t: if r.chance(40) { 35 } else { r.range(0, 36) }, from: a, to: b }
+            Phase::Skip {
+                t: if r.chance(40) { 35 } else { r.range(0, 36) },
+                from: a,
+                to: b,
+            }
         }
-        2 => Phase::Won { t: if r.chance(40) { 119 } else { r.range(0, 120) } },
+        2 => Phase::Won {
+            t: if r.chance(40) { 119 } else { r.range(0, 120) },
+        },
         _ => Phase::Play,
     };
     s.world.flags = r.below(16) as u16;
-    s.world.ink_given = if r.chance(50) { None } else { Some(r.range(0, end)) };
-    s.world.shod = if r.chance(60) { None } else { Some(r.range(0, end)) };
+    s.world.ink_given = if r.chance(50) {
+        None
+    } else {
+        Some(r.range(0, end))
+    };
+    s.world.shod = if r.chance(60) {
+        None
+    } else {
+        Some(r.range(0, end))
+    };
     s.world.crates = match r.below(4) {
         0 => vec![],
         1 => vec![(r.range(14, 22) as i32, r.range(18, 22) as i32)],
@@ -405,18 +494,35 @@ fn perturb(r: &mut Rng, s: &mut Session) {
         let (x, y) = if r.chance(40) {
             near(r, s)
         } else {
-            (r.range(0, 600) as i32 * 256 - 20 * 256, r.range(0, 440) as i32 * 256 - 20 * 256)
+            (
+                r.range(0, 600) as i32 * 256 - 20 * 256,
+                r.range(0, 440) as i32 * 256 - 20 * 256,
+            )
         };
-        s.world.wisps.push(Wisp { x: x + r.range(0, 255) as i32, y, mode, aim: r.below(9) as u8, born: r.range(0, 4000) });
+        s.world.wisps.push(Wisp {
+            x: x + r.range(0, 255) as i32,
+            y,
+            mode,
+            aim: r.below(9) as u8,
+            born: r.range(0, 4000),
+        });
     }
     s.memory.facts = r.below(256) as u16;
     for ri in &mut s.memory.routines {
-        *ri = if r.chance(30) { 0 } else { r.below(1 << 13) as u32 };
+        *ri = if r.chance(30) {
+            0
+        } else {
+            r.below(1 << 13) as u32
+        };
     }
     s.memory.ticks = r.below(64) as u8;
     s.memory.masks = r.below(4) as u8;
     s.memory.keeps = r.below(8) as u8;
-    s.memory.loops = if r.chance(70) { r.range(0, 3) } else { r.range(0, 99) };
+    s.memory.loops = if r.chance(70) {
+        r.range(0, 3)
+    } else {
+        r.range(0, 99)
+    };
     if r.chance(20) {
         s.memory.facts |= 1 << (Fact::Verse as u16);
         s.memory.keeps = 7;
@@ -432,12 +538,20 @@ fn perturb(r: &mut Rng, s: &mut Session) {
             left: r.range(0, 150),
         })
     };
-    s.cry = if r.chance(70) { None } else { Some((some_folk(r), some_topic(r), r.range(0, 151))) };
+    s.cry = if r.chance(70) {
+        None
+    } else {
+        Some((some_folk(r), some_topic(r), r.range(0, 151)))
+    };
     s.news.clear();
     for _ in 0..r.below(4) {
         s.news.push((some_note(r), r.range(1, 120)));
     }
-    s.completed = if r.chance(88) { None } else { Some(r.range(0, s.elapsed)) };
+    s.completed = if r.chance(88) {
+        None
+    } else {
+        Some(r.range(0, s.elapsed))
+    };
     s.parked.clear();
     let ids: Vec<u32> = s.seats.keys().copied().collect();
     for id in &ids {
@@ -450,7 +564,13 @@ fn perturb(r: &mut Rng, s: &mut Session) {
         if !s.seats.contains_key(&id) && r.chance(30) {
             let mut k = Knight::at((16, 15));
             knight_noise(r, s, &mut k);
-            s.parked.insert(id, Seat { joined: r.range(0, s.elapsed), knight: k });
+            s.parked.insert(
+                id,
+                Seat {
+                    joined: r.range(0, s.elapsed),
+                    knight: k,
+                },
+            );
         }
     }
     s.peak = s.peak.max(s.seats.len() as u32).min(6);
@@ -492,7 +612,13 @@ fn roster(r: &mut Rng, base: &Heroes) -> Heroes {
 #[test]
 fn bots_play_whole_games_and_every_tick_agrees() {
     let mut all = Seen::default();
-    for (seats, day, walk, wisps) in [(1u32, 3000u32, 150u32, 4u32), (2, 3000, 150, 4), (4, 1800, 150, 3), (6, 2400, 200, 4), (3, 3000, 100, 8)] {
+    for (seats, day, walk, wisps) in [
+        (1u32, 3000u32, 150u32, 4u32),
+        (2, 3000, 150, 4),
+        (4, 1800, 150, 3),
+        (6, 2400, 200, 4),
+        (3, 3000, 100, 8),
+    ] {
         let h = heroes(seats.max(2));
         let mut s = Session::new(&h);
         s.nums.day = day;
@@ -512,8 +638,16 @@ fn bots_play_whole_games_and_every_tick_agrees() {
         }
         all.add(&seen);
     }
-    assert!(all.wins >= 3, "bots turned the moon back in {} games", all.wins);
-    assert!(all.phases.len() == 3 || all.phases.contains("won"), "{:?}", all.phases);
+    assert!(
+        all.wins >= 3,
+        "bots turned the moon back in {} games",
+        all.wins
+    );
+    assert!(
+        all.phases.len() == 3 || all.phases.contains("won"),
+        "{:?}",
+        all.phases
+    );
     assert!(all.bots > 1000, "bot presses compared: {}", all.bots);
 }
 
@@ -565,7 +699,11 @@ fn random_towns_agree_after_one_tick() {
             }
         }
         perturb(&mut r, &mut s);
-        let roster = if r.chance(30) { roster(&mut r, &h) } else { h.clone() };
+        let roster = if r.chance(30) {
+            roster(&mut r, &h)
+        } else {
+            h.clone()
+        };
         let ids: Vec<u32> = (1..=6).collect();
         let inputs = random_inputs(&mut r, &ids);
         if r.chance(10) {
@@ -578,12 +716,34 @@ fn random_towns_agree_after_one_tick() {
         }
     }
     for want in [0, 1, 2, 3, 4, 5, 7, 8, 9, 10, 11] {
-        assert!(all.cues.contains(&want), "no tick made sound {} ({:?})", CUES[want], all.cues);
+        assert!(
+            all.cues.contains(&want),
+            "no tick made sound {} ({:?})",
+            CUES[want],
+            all.cues
+        );
     }
     assert!(all.phases.len() == 4, "{:?}", all.phases);
-    assert!(all.wins > 20 && all.leaving > 20, "wins {} leaving {}", all.wins, all.leaving);
-    assert!(all.parked > 100 && all.away > 50, "parked {} away {}", all.parked, all.away);
-    assert!(all.snuffs > 50 && all.shy > 50 && all.hurts > 0 && all.downs > 50, "{} {} {} {}", all.snuffs, all.shy, all.hurts, all.downs);
+    assert!(
+        all.wins > 20 && all.leaving > 20,
+        "wins {} leaving {}",
+        all.wins,
+        all.leaving
+    );
+    assert!(
+        all.parked > 100 && all.away > 50,
+        "parked {} away {}",
+        all.parked,
+        all.away
+    );
+    assert!(
+        all.snuffs > 50 && all.shy > 50 && all.hurts > 0 && all.downs > 50,
+        "{} {} {} {}",
+        all.snuffs,
+        all.shy,
+        all.hurts,
+        all.downs
+    );
     assert!(all.notes.len() >= 8, "{:?}", all.notes);
 }
 
@@ -615,9 +775,21 @@ fn knights_who_come_and_go_agree_every_tick() {
             }
         }
         let inputs = random_inputs(&mut r, &(1..=6).collect::<Vec<_>>());
-        compare("a table coming and going", tick, &mut s, &inputs, &roster, &mut seen);
+        compare(
+            "a table coming and going",
+            tick,
+            &mut s,
+            &inputs,
+            &roster,
+            &mut seen,
+        );
     }
-    assert!(seen.parked > 200 && seen.away > 20, "parked {} away {}", seen.parked, seen.away);
+    assert!(
+        seen.parked > 200 && seen.away > 20,
+        "parked {} away {}",
+        seen.parked,
+        seen.away
+    );
 }
 
 /// The module's bot presses what the native bot presses in towns it has never played itself into.
@@ -663,7 +835,14 @@ fn a_knight_beside_any_villager_at_any_hour_agrees() {
         if !s.valid() {
             continue;
         }
-        compare("a knight beside a villager", round, &mut s, &Held::new(), &h, &mut seen);
+        compare(
+            "a knight beside a villager",
+            round,
+            &mut s,
+            &Held::new(),
+            &h,
+            &mut seen,
+        );
     }
     assert!(seen.ticks > 400, "{}", seen.ticks);
 }
@@ -741,4 +920,3 @@ fn moonfall_rules_cost() {
         costs[costs.len() - 1]
     );
 }
-

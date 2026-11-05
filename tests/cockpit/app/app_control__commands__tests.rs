@@ -17,7 +17,8 @@ fn together_commands_are_local_and_the_mode_joins_replaceable_turn_context() {
         assert!(app.pending_turn.is_none());
     }
     assert_eq!(
-        app.realm.together
+        app.realm
+            .together
             .room
             .as_ref()
             .unwrap()
@@ -717,10 +718,7 @@ fn start_turn_worker_reuses_cached_in_hand_route_identity() {
 struct CountingPalaceStatus(std::sync::atomic::AtomicUsize);
 
 impl crate::knowledge::memory::store::MemoryStore for CountingPalaceStatus {
-    fn deposit(
-        &self,
-        _drawer: &crate::knowledge::memory::store::Drawer,
-    ) -> Result<String, String> {
+    fn deposit(&self, _drawer: &crate::knowledge::memory::store::Drawer) -> Result<String, String> {
         Ok(String::new())
     }
 
@@ -816,7 +814,10 @@ fn fork_save_failure_keeps_the_active_session_and_history() {
     let response = app.fork_session();
 
     assert!(response.contains("save failed"), "{response}");
-    assert!(response.contains("continuing in session active-session"), "{response}");
+    assert!(
+        response.contains("continuing in session active-session"),
+        "{response}"
+    );
     assert_eq!(app.session.id, "active-session");
     assert_eq!(app.session.path(), original_path);
     assert_eq!(

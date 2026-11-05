@@ -33,8 +33,8 @@ pub use props::{Dk, Drop, Fuse, Fx, Fxk, Item, Pk, Prop};
 // Named, so they win over the glob of the Delve's own `unit` and friends.
 #[allow(unused_imports)]
 use world::{
-    PLANS, Plan, Q, ROOMS, TILE, TILE_SHIFT, angle_of, cos_q, dir, dist, dot, isqrt, middle, plan, sin_q, tile_of,
-    turn, unit, wall,
+    PLANS, Plan, Q, ROOMS, TILE, TILE_SHIFT, angle_of, cos_q, dir, dist, dot, isqrt, middle, plan,
+    sin_q, tile_of, turn, unit, wall,
 };
 
 /// The five numbers as the rules read them.
@@ -506,15 +506,18 @@ impl Session {
             ("seats", self.seats.len() <= MAX_PLAYERS as usize),
             (
                 "knight",
-                self.seats
-                    .iter()
-                    .all(|(&id, k)| (1..=MAX_PLAYERS).contains(&id) && k.valid(id, self.elapsed, w, h)),
+                self.seats.iter().all(|(&id, k)| {
+                    (1..=MAX_PLAYERS).contains(&id) && k.valid(id, self.elapsed, w, h)
+                }),
             ),
             ("props", self.props.len() <= PROP_CAP),
             (
                 "prop",
                 self.props.iter().all(|q| {
-                    i32::from(q.tx) < p.w() && i32::from(q.ty) < p.h() && q.on <= 4 && inside(q.x, q.y)
+                    i32::from(q.tx) < p.w()
+                        && i32::from(q.ty) < p.h()
+                        && q.on <= 4
+                        && inside(q.x, q.y)
                 }),
             ),
             ("foes", self.foes.len() <= FOE_CAP),
@@ -541,11 +544,18 @@ impl Session {
                         && u32::from(b.owner) <= MAX_PLAYERS
                 }),
             ),
-            ("drops", self.drops.len() <= DROP_CAP && self.drops.iter().all(|d| inside(d.x, d.y))),
+            (
+                "drops",
+                self.drops.len() <= DROP_CAP && self.drops.iter().all(|d| inside(d.x, d.y)),
+            ),
             ("fx", self.fx.len() <= FX_CAP),
             (
                 "fuses",
-                self.fuses.len() <= FUSE_CAP && self.fuses.iter().all(|f| inside(f.x, f.y) && f.t <= FUSE_TICKS),
+                self.fuses.len() <= FUSE_CAP
+                    && self
+                        .fuses
+                        .iter()
+                        .all(|f| inside(f.x, f.y) && f.t <= FUSE_TICKS),
             ),
             (
                 "boss",
@@ -555,22 +565,28 @@ impl Session {
             ),
             ("keys", self.inv.small_keys <= 8 && self.inv.containers <= 8),
             ("shake", self.shake <= 64 && self.flash <= 64),
-            ("exit", self.exiting <= EXIT_TICKS && self.wipe <= WIPE_TICKS),
+            (
+                "exit",
+                self.exiting <= EXIT_TICKS && self.wipe <= WIPE_TICKS,
+            ),
             (
                 "cue",
-                self.cue.is_none_or(|(x, y, t)| inside(x, y) && t <= CUE_TICKS),
+                self.cue
+                    .is_none_or(|(x, y, t)| inside(x, y) && t <= CUE_TICKS),
             ),
             ("paid", self.paid & 1 == 0 && self.paid < 128),
             ("done", self.done.is_none_or(|t| t <= self.elapsed)),
-            ("banner", self.banner.is_none_or(|b| u32::from(b.t) <= ITEM_TICKS)),
+            (
+                "banner",
+                self.banner.is_none_or(|b| u32::from(b.t) <= ITEM_TICKS),
+            ),
             ("tries", self.tries < 1_000_000),
             (
                 "kept",
                 self.kept.len() <= MAX_PLAYERS as usize
-                    && self
-                        .kept
-                        .iter()
-                        .all(|(id, &(g, b))| (1..=MAX_PLAYERS).contains(id) && g <= 100_000 && b <= BOMB_CAP),
+                    && self.kept.iter().all(|(id, &(g, b))| {
+                        (1..=MAX_PLAYERS).contains(id) && g <= 100_000 && b <= BOMB_CAP
+                    }),
             ),
         ];
         checks.iter().find(|(_, ok)| !ok).map(|&(name, _)| name)

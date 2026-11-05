@@ -14,12 +14,12 @@
 //! because it must reach the operator's real session.
 
 use crate::agent::club::ToolDef;
-use crate::agent::harness::{env_flag, Tool, ToolRegistry};
-use serde_json::{json, Value};
+use crate::agent::harness::{Tool, ToolRegistry, env_flag};
+use serde_json::{Value, json};
 use std::io::{BufRead, BufReader, Write};
 use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
-use std::sync::{mpsc, Arc, Mutex};
+use std::sync::{Arc, Mutex, mpsc};
 use std::time::{Duration, Instant};
 
 pub(crate) const MAX_TYPE_CHARS: usize = 4_000;
@@ -31,8 +31,10 @@ const DRIVER_TIMEOUT: Duration = Duration::from_secs(45);
 pub(crate) fn is_act(tool: &str, action: &str) -> bool {
     !matches!(
         (tool, action),
-        ("desktop", "status" | "windows" | "screenshot" | "cursor" | "ground")
-            | ("browser", "status" | "snapshot" | "screenshot")
+        (
+            "desktop",
+            "status" | "windows" | "screenshot" | "cursor" | "ground"
+        ) | ("browser", "status" | "snapshot" | "screenshot")
     )
 }
 
@@ -165,8 +167,12 @@ pub(crate) fn frame_to_px(point: (f64, f64), size: (u32, u32)) -> (f64, f64) {
 pub(crate) fn zoom_window(at: (f64, f64), shot: (u32, u32), zoom: u32) -> (u32, u32, u32, u32) {
     let zoom = zoom.max(1);
     let (w, h) = ((shot.0 / zoom).max(1), (shot.1 / zoom).max(1));
-    let x0 = (at.0 - f64::from(w) / 2.0).round().clamp(0.0, f64::from(shot.0 - w)) as u32;
-    let y0 = (at.1 - f64::from(h) / 2.0).round().clamp(0.0, f64::from(shot.1 - h)) as u32;
+    let x0 = (at.0 - f64::from(w) / 2.0)
+        .round()
+        .clamp(0.0, f64::from(shot.0 - w)) as u32;
+    let y0 = (at.1 - f64::from(h) / 2.0)
+        .round()
+        .clamp(0.0, f64::from(shot.1 - h)) as u32;
     (x0, y0, w, h)
 }
 
@@ -256,7 +262,8 @@ fn ground_point(shot: &image::RgbImage, target: &str) -> Result<((f64, f64), usi
     for zoom in GROUND_ZOOMS {
         let (x0, y0, w, h) = zoom_window(at, size, zoom);
         let crop = image::imageops::crop_imm(shot, x0, y0, w, h).to_image();
-        let up = image::imageops::resize(&crop, size.0, size.1, image::imageops::FilterType::Lanczos3);
+        let up =
+            image::imageops::resize(&crop, size.0, size.1, image::imageops::FilterType::Lanczos3);
         let Ok((ux, uy)) = ground_look(&up, target) else {
             break;
         };
@@ -448,7 +455,13 @@ pub(crate) fn present_envelope(label: &str, url: &str, note: &str) -> String {
 /// Wrap a saved screenshot in the Stage envelope (default) so the operator
 /// watches the action land above the cockpit; `present: false` — or a path
 /// the workspace-bound presentation check rejects — keeps the plain receipt.
-fn presented_shot(workspace: &Path, file: &Path, label: &str, note: String, present: bool) -> String {
+fn presented_shot(
+    workspace: &Path,
+    file: &Path,
+    label: &str,
+    note: String,
+    present: bool,
+) -> String {
     if !present {
         return note;
     }
@@ -736,7 +749,15 @@ impl Tool for DesktopTool {
                 let monitors = run_capture("hyprctl", &["-j", "monitors"])?;
                 let active = run_capture("hyprctl", &["-j", "activewindow"]).unwrap_or_default();
                 let backends = [
-                    "hyprctl", "grim", "wtype", "wl-copy", "ydotool", "wlrctl", "google-chrome-stable", "chromium", "node",
+                    "hyprctl",
+                    "grim",
+                    "wtype",
+                    "wl-copy",
+                    "ydotool",
+                    "wlrctl",
+                    "google-chrome-stable",
+                    "chromium",
+                    "node",
                 ]
                 .iter()
                 .map(|b| format!("{b}={}", if which(b).is_some() { "yes" } else { "MISSING" }))
@@ -839,8 +860,7 @@ impl Tool for DesktopTool {
                     for _ in 0..10 {
                         std::thread::sleep(Duration::from_millis(300));
                         let raw = run_capture("hyprctl", &["-j", "clients"]).unwrap_or_default();
-                        let clients: Value =
-                            serde_json::from_str(&raw).unwrap_or(Value::Null);
+                        let clients: Value = serde_json::from_str(&raw).unwrap_or(Value::Null);
                         let addr = clients.as_array().and_then(|cs| {
                             cs.iter().find_map(|c| {
                                 (c.get("pid").and_then(Value::as_i64) == Some(pid))
@@ -938,10 +958,7 @@ pub(crate) fn read_browser_choice(workspace: &Path) -> Option<PathBuf> {
     path.is_file().then_some(path)
 }
 
-pub(crate) fn write_browser_choice(
-    workspace: &Path,
-    choice: Option<&Path>,
-) -> Result<(), String> {
+pub(crate) fn write_browser_choice(workspace: &Path, choice: Option<&Path>) -> Result<(), String> {
     let file = browser_choice_path(workspace);
     match choice {
         Some(path) => {

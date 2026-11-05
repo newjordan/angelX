@@ -72,7 +72,10 @@ pub fn bots(step: Step, seats: u32, route: Option<&str>, skill: Value, limit: u3
         if session["tally"].is_object() && t % 2 == 0 {
             inputs.insert("1".into(), json!({"move_x": 0, "move_y": 0, "aim_x": 0, "aim_y": 0, "fire": false, "dash": false, "bomb": false, "interact": true}));
         }
-        let tick = step(ask("tick", json!({"session": session, "inputs": inputs, "present": present})));
+        let tick = step(ask(
+            "tick",
+            json!({"session": session, "inputs": inputs, "present": present}),
+        ));
         session = tick["session"].clone();
         if session["again"] == json!(true) {
             session = step(ask("start", json!({"present": present})))["session"].clone();
@@ -107,7 +110,10 @@ pub fn fuzz(step: Step, seed: u64, seats: u32, limit: u32) {
         for &id in &present {
             inputs.insert(id.to_string(), keys(&mut d));
         }
-        let mut a = ask("tick", json!({"session": session, "inputs": inputs, "present": present}));
+        let mut a = ask(
+            "tick",
+            json!({"session": session, "inputs": inputs, "present": present}),
+        );
         if t % 5 == 0 {
             a["numbers"] = json!({"slope": 20 + d.next(280), "loop_min": 128 + d.next(1400), "spur_cap": 1280 + d.next(1800), "lock_reach": 32 + d.next(208), "dimming": d.next(2048)});
         }
@@ -130,7 +136,11 @@ pub fn features(step: Step) {
     for q in main.portals.iter().filter(|q| q.dir > 0) {
         let at = main.sample(q.s).x / 256;
         // The loop's mouth from a standing start falls off the ceiling; from a run-up it holds.
-        let (near, slow, fast) = if q.min_speed > 0 { (40, 700, 1700) } else { (80, 0, 1500) };
+        let (near, slow, fast) = if q.min_speed > 0 {
+            (40, 700, 1700)
+        } else {
+            (80, 0, 1500)
+        };
         spots.push((at + near, Some(slow)));
         spots.push((at + 300, Some(fast)));
     }
@@ -141,7 +151,12 @@ pub fn features(step: Step) {
         let present: Vec<u32> = (1..=seats).collect();
         let mut session = step(ask("start", json!({"present": present})))["session"].clone();
         for id in 1..=seats {
-            put(&mut session, id, x - 80 - 40 * id as i32, speed.unwrap_or(600 + d.next(1800) as i32));
+            put(
+                &mut session,
+                id,
+                x - 80 - 40 * id as i32,
+                speed.unwrap_or(600 + d.next(1800) as i32),
+            );
         }
         session["provisioned"] = json!(6);
         let go = if speed.is_some() { 1 } else { d.next(4) };
@@ -149,14 +164,24 @@ pub fn features(step: Step) {
             let mut inputs = serde_json::Map::new();
             for id in 1..=seats {
                 let k = match go {
-                    0 => json!({"move_x": 1, "move_y": if t > 6 { 1 } else { 0 }, "aim_x": 0, "aim_y": 0, "fire": false, "dash": false, "bomb": false}),
-                    1 => json!({"move_x": 1, "move_y": 0, "aim_x": 0, "aim_y": 0, "fire": false, "dash": speed.is_none() && t % 9 == 0, "bomb": false, "interact": speed.is_none() && t % 11 == u64::from(id) % 11}),
-                    2 => json!({"move_x": 1, "move_y": 0, "aim_x": 0, "aim_y": 0, "fire": true, "dash": false, "bomb": false, "interact": t % 6 == 0}),
+                    0 => {
+                        json!({"move_x": 1, "move_y": if t > 6 { 1 } else { 0 }, "aim_x": 0, "aim_y": 0, "fire": false, "dash": false, "bomb": false})
+                    }
+                    1 => {
+                        json!({"move_x": 1, "move_y": 0, "aim_x": 0, "aim_y": 0, "fire": false, "dash": speed.is_none() && t % 9 == 0, "bomb": false, "interact": speed.is_none() && t % 11 == u64::from(id) % 11})
+                    }
+                    2 => {
+                        json!({"move_x": 1, "move_y": 0, "aim_x": 0, "aim_y": 0, "fire": true, "dash": false, "bomb": false, "interact": t % 6 == 0})
+                    }
                     _ => keys(&mut d),
                 };
                 inputs.insert(id.to_string(), k);
             }
-            session = step(ask("tick", json!({"session": session, "inputs": inputs, "present": present})))["session"].clone();
+            session = step(ask(
+                "tick",
+                json!({"session": session, "inputs": inputs, "present": present}),
+            ))["session"]
+                .clone();
         }
     }
 }
@@ -165,7 +190,11 @@ pub fn features(step: Step) {
 /// little before the warden with the Dimming far behind, bots riding them on.
 pub fn finale(step: Step, seats: u32, limit: u32) {
     let lvl = level::level();
-    let warden = lvl.foes.iter().find(|f| f.kind == super::world::FoeKind::Warden).map_or(19_000, |f| f.x);
+    let warden = lvl
+        .foes
+        .iter()
+        .find(|f| f.kind == super::world::FoeKind::Warden)
+        .map_or(19_000, |f| f.x);
     let present: Vec<u32> = (1..=seats).collect();
     let mut session = step(ask("start", json!({"present": present})))["session"].clone();
     for id in 1..=seats {
@@ -185,7 +214,11 @@ pub fn finale(step: Step, seats: u32, limit: u32) {
                 inputs.insert(id.to_string(), json!({"move_x": 0, "move_y": 0, "aim_x": 0, "aim_y": 0, "fire": false, "dash": false, "bomb": false, "interact": held}));
             }
         }
-        session = step(ask("tick", json!({"session": session, "inputs": inputs, "present": present})))["session"].clone();
+        session = step(ask(
+            "tick",
+            json!({"session": session, "inputs": inputs, "present": present}),
+        ))["session"]
+            .clone();
         if session["again"] == json!(true) {
             rounds += 1;
             session = step(ask("start", json!({"present": present})))["session"].clone();
@@ -204,13 +237,33 @@ pub fn bots_all(step: Step) {
     let mut step = step;
     bots(&mut step, 1, None, Value::Null, 6200);
     bots(&mut step, 2, Some("Upper"), Value::Null, 3000);
-    bots(&mut step, 3, Some("Lower"), json!({"spur": false, "roll": false, "lag": 30, "hesitate": 240}), 3000);
-    bots(&mut step, 4, None, json!({"spur": false, "roll": false, "lag": 40, "hesitate": 60}), 3000);
+    bots(
+        &mut step,
+        3,
+        Some("Lower"),
+        json!({"spur": false, "roll": false, "lag": 30, "hesitate": 240}),
+        3000,
+    );
+    bots(
+        &mut step,
+        4,
+        None,
+        json!({"spur": false, "roll": false, "lag": 40, "hesitate": 60}),
+        3000,
+    );
 }
 
 pub fn fuzz_all(step: Step) {
     let mut step = step;
-    for (seed, seats) in [(11u64, 1u32), (23, 2), (37, 3), (41, 4), (59, 4), (61, 6), (73, 2)] {
+    for (seed, seats) in [
+        (11u64, 1u32),
+        (23, 2),
+        (37, 3),
+        (41, 4),
+        (59, 4),
+        (61, 6),
+        (73, 2),
+    ] {
         fuzz(&mut step, seed, seats, 1500);
     }
 }

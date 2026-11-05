@@ -6,7 +6,7 @@
 use super::overworld::ink::Img;
 
 mod cells;
-pub(crate) use cells::{paint_cells, paint_rafterwake_cells, paint_projectile_cells};
+pub(crate) use cells::{paint_cells, paint_projectile_cells, paint_rafterwake_cells};
 
 #[cfg(test)]
 mod signature_tests {
@@ -20,12 +20,18 @@ mod signature_tests {
         // A pale-blue pigment of the enlarged effect frames, and the native
         // kit's ink (four fifths of its value) that it stands for.
         let lash = [178, 203, 210];
-        let native = angel_delve::render::overworld::arena::cell_effect_ink(lash).expect("a pit boss effect pigment");
+        let native = angel_delve::render::overworld::arena::cell_effect_ink(lash)
+            .expect("a pit boss effect pigment");
         assert_eq!(native, [143, 163, 168]);
         base.set(3, 3, lash);
         let mut terminal = Terminal::new(TestBackend::new(1, 1)).unwrap();
-        terminal.draw(|f| paint_cells(f, Rect::new(0, 0, 1, 1), &base, &fx)).unwrap();
-        assert_eq!(terminal.backend().buffer()[(0, 0)].fg, Color::Rgb(native[0], native[1], native[2]));
+        terminal
+            .draw(|f| paint_cells(f, Rect::new(0, 0, 1, 1), &base, &fx))
+            .unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(0, 0)].fg,
+            Color::Rgb(native[0], native[1], native[2])
+        );
         assert_eq!(terminal.backend().buffer()[(0, 0)].bg, Color::Rgb(0, 0, 0));
     }
 
@@ -36,12 +42,22 @@ mod signature_tests {
         let core = [241, 189, 90];
         base.set(3, 3, core);
         let mut terminal = Terminal::new(TestBackend::new(1, 1)).unwrap();
-        terminal.draw(|f| paint_cells(f, Rect::new(0, 0, 1, 1), &base, &fx)).unwrap();
-        assert_eq!(terminal.backend().buffer()[(0, 0)].fg, Color::Rgb(core[0], core[1], core[2]));
+        terminal
+            .draw(|f| paint_cells(f, Rect::new(0, 0, 1, 1), &base, &fx))
+            .unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[(0, 0)].fg,
+            Color::Rgb(core[0], core[1], core[2])
+        );
         let plate = [180, 170, 185];
         base.set(3, 3, plate);
-        terminal.draw(|f| paint_cells(f, Rect::new(0, 0, 1, 1), &base, &fx)).unwrap();
-        assert_ne!(terminal.backend().buffer()[(0, 0)].fg, Color::Rgb(plate[0], plate[1], plate[2]));
+        terminal
+            .draw(|f| paint_cells(f, Rect::new(0, 0, 1, 1), &base, &fx))
+            .unwrap();
+        assert_ne!(
+            terminal.backend().buffer()[(0, 0)].fg,
+            Color::Rgb(plate[0], plate[1], plate[2])
+        );
     }
 }
 
@@ -82,9 +98,20 @@ pub(crate) fn paint_cinder_panels(
     // Match the room's native 384x224 layout at any terminal size.
     let pos = |x: u16, y: u16| (x * area.width / 384, y * area.height / 224);
     let label = |frame: &mut ratatui::Frame, x, y, width: u16, value: String| {
-        let Some((x, y, centered)) = angel_delve::render::overworld::arena::slot_art::cell_layout("cinder").place(i32::from(x), i32::from(y), s.left == 0, angel_delve::rules::cinder::LENGTH - s.left) else { return; };
+        let Some((x, y, centered)) =
+            angel_delve::render::overworld::arena::slot_art::cell_layout("cinder").place(
+                i32::from(x),
+                i32::from(y),
+                s.left == 0,
+                angel_delve::rules::cinder::LENGTH - s.left,
+            )
+        else {
+            return;
+        };
         let (mut x, y) = pos(x as u16, y as u16);
-        if centered { x = x.saturating_sub(value.chars().count() as u16 / 2); }
+        if centered {
+            x = x.saturating_sub(value.chars().count() as u16 / 2);
+        }
         text(frame, x, y, (width * area.width / 384).max(1), value);
     };
     if s.left == 0 {
@@ -132,11 +159,7 @@ pub(crate) fn paint_cinder_panels(
                 .filter(|v| (v.cracks, v.crack_tick) == (b.cracks, b.crack_tick))
                 .count() as u32;
             let total = angel_delve::rules::cinder::GOLD_PER_SEAT * s.boards.len() as u32;
-            let mut payout = format!(
-                "{}G{}",
-                total / tied,
-                if tied > 1 { " EACH" } else { "" }
-            );
+            let mut payout = format!("{}G{}", total / tied, if tied > 1 { " EACH" } else { "" });
             if total % tied > 0 {
                 payout.push_str(&format!(", SEAT {} +{}G", s.order[0], total % tied));
             }
@@ -241,9 +264,22 @@ pub(crate) fn paint_latch_panels(
         *s.duels.keys().next().unwrap()
     };
     let label = |frame: &mut ratatui::Frame, x: u16, y: u16, w: u16, value: String| {
-        let Some((x, y, centered)) = angel_delve::render::overworld::arena::slot_art::cell_layout("latch").place(i32::from(x), i32::from(y), s.left == 0, angel_delve::rules::latch::LENGTH - s.left) else { return; };
+        let Some((x, y, centered)) =
+            angel_delve::render::overworld::arena::slot_art::cell_layout("latch").place(
+                i32::from(x),
+                i32::from(y),
+                s.left == 0,
+                angel_delve::rules::latch::LENGTH - s.left,
+            )
+        else {
+            return;
+        };
         let x = (x.max(0) as u32 * u32::from(area.width) / 384) as u16;
-        let x = if centered { x.saturating_sub(value.chars().count() as u16 / 2) } else { x };
+        let x = if centered {
+            x.saturating_sub(value.chars().count() as u16 / 2)
+        } else {
+            x
+        };
         let rect = Rect::new(
             area.x + x,
             area.y + (y.max(0) as u32 * u32::from(area.height) / 224) as u16,
@@ -255,7 +291,8 @@ pub(crate) fn paint_latch_panels(
         // Paragraph rectangle made every field a separate black slab.
         for (dx, ch) in value.chars().take(rect.width as usize).enumerate() {
             if let Some(cell) = frame.buffer_mut().cell_mut((rect.x + dx as u16, rect.y)) {
-                cell.set_char(ch).set_style(Style::new().fg(Color::Rgb(176, 178, 168)));
+                cell.set_char(ch)
+                    .set_style(Style::new().fg(Color::Rgb(176, 178, 168)));
             }
         }
     };
@@ -284,17 +321,26 @@ pub(crate) fn paint_latch_panels(
                 48,
                 y,
                 92,
-                format!("S{who} {}", run.players
-                    .get(&who)
-                    .map_or("Knight", |h| h.name.as_str())
-                    .chars()
-                    .take(11)
-                    .collect::<String>()),
+                format!(
+                    "S{who} {}",
+                    run.players
+                        .get(&who)
+                        .map_or("Knight", |h| h.name.as_str())
+                        .chars()
+                        .take(11)
+                        .collect::<String>()
+                ),
             );
             label(frame, 148, y, 48, format!("{}/3", d.counters));
             label(frame, 212, y, 40, d.misses.to_string());
             if d.counters > 0 {
-                label(frame, 272, y, 60, angel_delve::rules::latch::timing(d.error));
+                label(
+                    frame,
+                    272,
+                    y,
+                    60,
+                    angel_delve::rules::latch::timing(d.error),
+                );
             }
         }
         let first = s.order[0];
@@ -389,88 +435,237 @@ pub(crate) fn paint_latch_panels(
     for (n, (&who, d)) in s.duels.iter().enumerate() {
         label(frame, 12 + n as u16 * 92, 192, 16, who.to_string());
         let x = 12 + n as u16 * 92;
-        let colour = run.players.get(&who).map(|h| h.colours())
+        let colour = run
+            .players
+            .get(&who)
+            .map(|h| h.colours())
             .filter(|c| !c.is_empty())
             .unwrap_or(match who {
-                2 => &[('7', '1')], 3 => &[('7', 'A')], 4 => &[('7', '4')], _ => &[],
-            }).iter().find(|&&(from, _)| from == '7').map_or('7', |&(_, to)| to);
-        let [r,g,b] = angel_delve::render::overworld::ink::ink(colour).unwrap();
+                2 => &[('7', '1')],
+                3 => &[('7', 'A')],
+                4 => &[('7', '4')],
+                _ => &[],
+            })
+            .iter()
+            .find(|&&(from, _)| from == '7')
+            .map_or('7', |&(_, to)| to);
+        let [r, g, b] = angel_delve::render::overworld::ink::ink(colour).unwrap();
         let sx = area.x + x * area.width / 384;
         let sy = area.y + 218 * area.height / 224;
         if let Some(cell) = frame.buffer_mut().cell_mut((sx, sy)) {
-            cell.set_symbol("■").set_fg(Color::Rgb(r,g,b));
+            cell.set_symbol("■").set_fg(Color::Rgb(r, g, b));
         }
         label(frame, x + 12, 218, 64, format!("{} / 3", d.counters));
     }
     label(frame, 92, 202, 220, "UP DOWN GUARD  F COUNTER".into());
 }
 
-pub(crate) fn paint_mossbell_panels(frame:&mut ratatui::Frame,area:ratatui::layout::Rect,run:&angel_delve::rules::Run,focus:Option<u32>) {
+pub(crate) fn paint_mossbell_panels(
+    frame: &mut ratatui::Frame,
+    area: ratatui::layout::Rect,
+    run: &angel_delve::rules::Run,
+    focus: Option<u32>,
+) {
     let podium = run.mossbell.as_ref().is_some_and(|s| s.left == 0);
-    for (x,y,text) in angel_delve::render::overworld::arena::mossbell_labels(run,focus) {
-        let elapsed=run.mossbell.as_ref().map_or(0,|s| angel_delve::rules::mossbell::LENGTH-s.left);
-        let Some((x,y,centered))=angel_delve::render::overworld::arena::slot_art::cell_layout("mossbell").place(x,y,podium,elapsed) else {continue;};
+    for (x, y, text) in angel_delve::render::overworld::arena::mossbell_labels(run, focus) {
+        let elapsed = run
+            .mossbell
+            .as_ref()
+            .map_or(0, |s| angel_delve::rules::mossbell::LENGTH - s.left);
+        let Some((x, y, centered)) =
+            angel_delve::render::overworld::arena::slot_art::cell_layout("mossbell")
+                .place(x, y, podium, elapsed)
+        else {
+            continue;
+        };
         // Terminal glyphs have a different pitch from the native bitmap font.
         // Anchor the score header and values by their common right edge.
         let score = podium && (49..238).contains(&x) && (y == 47 || (66..=138).contains(&y));
-        let x=area.x+if score {
-            ((238*u32::from(area.width)/384) as u16).saturating_sub(text.chars().count() as u16)
-        } else { (x.max(0) as u32*u32::from(area.width)/384) as u16 };
-        let x=if centered {x.saturating_sub(text.chars().count() as u16/2)} else {x};
-        let y=area.y+(y.max(0) as u32*u32::from(area.height)/224) as u16;
-        for (dx,ch) in text.chars().enumerate(){if x+dx as u16>=area.right(){break;}else if let Some(cell)=frame.buffer_mut().cell_mut((x+dx as u16,y)){cell.set_char(ch).set_fg(ratatui::style::Color::Rgb(176,178,168));}}
+        let x = area.x
+            + if score {
+                ((238 * u32::from(area.width) / 384) as u16)
+                    .saturating_sub(text.chars().count() as u16)
+            } else {
+                (x.max(0) as u32 * u32::from(area.width) / 384) as u16
+            };
+        let x = if centered {
+            x.saturating_sub(text.chars().count() as u16 / 2)
+        } else {
+            x
+        };
+        let y = area.y + (y.max(0) as u32 * u32::from(area.height) / 224) as u16;
+        for (dx, ch) in text.chars().enumerate() {
+            if x + dx as u16 >= area.right() {
+                break;
+            } else if let Some(cell) = frame.buffer_mut().cell_mut((x + dx as u16, y)) {
+                cell.set_char(ch)
+                    .set_fg(ratatui::style::Color::Rgb(176, 178, 168));
+            }
+        }
     }
 }
 
-pub(crate) fn paint_brasswake_panels(frame:&mut ratatui::Frame,area:ratatui::layout::Rect,run:&angel_delve::rules::Run,focus:Option<u32>) {
-    let podium=run.brasswake.as_ref().is_some_and(|s|s.left==0);
-    for (x,y,text) in angel_delve::render::overworld::arena::brasswake_labels(run,focus) {
-        let elapsed=run.brasswake.as_ref().map_or(0,|s| angel_delve::rules::brasswake::LENGTH-s.left);
-        let Some((x,y,centered))=angel_delve::render::overworld::arena::slot_art::cell_layout("brasswake").place(x,y,podium,elapsed) else {continue;};
-        let x=area.x+(x.max(0) as u32*u32::from(area.width)/384) as u16;
-        let x=if centered {x.saturating_sub(text.chars().count() as u16/2)} else {x};
-        let y=area.y+(y.max(0) as u32*u32::from(area.height)/224) as u16;
-        for (dx,ch) in text.chars().enumerate(){if x+dx as u16>=area.right(){break;}else if let Some(cell)=frame.buffer_mut().cell_mut((x+dx as u16,y)){cell.set_char(ch).set_fg(ratatui::style::Color::Rgb(176,178,168));}}
+pub(crate) fn paint_brasswake_panels(
+    frame: &mut ratatui::Frame,
+    area: ratatui::layout::Rect,
+    run: &angel_delve::rules::Run,
+    focus: Option<u32>,
+) {
+    let podium = run.brasswake.as_ref().is_some_and(|s| s.left == 0);
+    for (x, y, text) in angel_delve::render::overworld::arena::brasswake_labels(run, focus) {
+        let elapsed = run
+            .brasswake
+            .as_ref()
+            .map_or(0, |s| angel_delve::rules::brasswake::LENGTH - s.left);
+        let Some((x, y, centered)) =
+            angel_delve::render::overworld::arena::slot_art::cell_layout("brasswake")
+                .place(x, y, podium, elapsed)
+        else {
+            continue;
+        };
+        let x = area.x + (x.max(0) as u32 * u32::from(area.width) / 384) as u16;
+        let x = if centered {
+            x.saturating_sub(text.chars().count() as u16 / 2)
+        } else {
+            x
+        };
+        let y = area.y + (y.max(0) as u32 * u32::from(area.height) / 224) as u16;
+        for (dx, ch) in text.chars().enumerate() {
+            if x + dx as u16 >= area.right() {
+                break;
+            } else if let Some(cell) = frame.buffer_mut().cell_mut((x + dx as u16, y)) {
+                cell.set_char(ch)
+                    .set_fg(ratatui::style::Color::Rgb(176, 178, 168));
+            }
+        }
     }
 }
 
-pub(crate) fn paint_rafterwake_panels(frame:&mut ratatui::Frame,area:ratatui::layout::Rect,run:&angel_delve::rules::Run,focus:Option<u32>) {
-    let podium=run.rafterwake.as_ref().is_some_and(|s|s.left==0);
-    for (x,y,text) in angel_delve::render::overworld::arena::rafterwake_labels(run,focus) {
-        let elapsed=run.rafterwake.as_ref().map_or(0,|s| angel_delve::rules::rafterwake::LENGTH-s.left);
-        let Some((x,y,centered))=angel_delve::render::overworld::arena::slot_art::cell_layout("rafterwake").place(x,y,podium,elapsed) else {continue;};
-        let count=text.chars().count() as u16;
-        let row=podium && (64..=136).contains(&y);
-        let header=if row && (148..196).contains(&x) {Some((148,8))}
-            else if row && (212..242).contains(&x) {Some((212,5))}
-            else if row && x>=250 {Some((274,6))} else {None};
-        let x=area.x+if matches!(text.as_str(),"E AGAIN"|"LOFT CLEARED"|"SHIFT FINISHED"|"MOST HEIGHT, FEWER FALLS, EARLIER FINISH"|"TIE SPLIT") || text.ends_with("G POT + CROWN") {area.width.saturating_sub(count)/2}
-            else if let Some((start,len))=header {((start*u32::from(area.width)/384) as u16+len).saturating_sub(count)}
-            else if !podium && x>=340 && (56..=152).contains(&y) {((377*u32::from(area.width)/384) as u16).saturating_sub(count)}
-            else {(x.max(0) as u32*u32::from(area.width)/384) as u16};
-        let x=if centered {x.saturating_sub(text.chars().count() as u16/2)} else {x};
-        let y=area.y+(y.max(0) as u32*u32::from(area.height)/224) as u16;
-        for (dx,ch) in text.chars().enumerate(){if x+dx as u16>=area.right(){break;}else if let Some(cell)=frame.buffer_mut().cell_mut((x+dx as u16,y)){cell.set_char(ch).set_fg(ratatui::style::Color::Rgb(176,178,168));}}
+pub(crate) fn paint_rafterwake_panels(
+    frame: &mut ratatui::Frame,
+    area: ratatui::layout::Rect,
+    run: &angel_delve::rules::Run,
+    focus: Option<u32>,
+) {
+    let podium = run.rafterwake.as_ref().is_some_and(|s| s.left == 0);
+    for (x, y, text) in angel_delve::render::overworld::arena::rafterwake_labels(run, focus) {
+        let elapsed = run
+            .rafterwake
+            .as_ref()
+            .map_or(0, |s| angel_delve::rules::rafterwake::LENGTH - s.left);
+        let Some((x, y, centered)) =
+            angel_delve::render::overworld::arena::slot_art::cell_layout("rafterwake")
+                .place(x, y, podium, elapsed)
+        else {
+            continue;
+        };
+        let count = text.chars().count() as u16;
+        let row = podium && (64..=136).contains(&y);
+        let header = if row && (148..196).contains(&x) {
+            Some((148, 8))
+        } else if row && (212..242).contains(&x) {
+            Some((212, 5))
+        } else if row && x >= 250 {
+            Some((274, 6))
+        } else {
+            None
+        };
+        let x = area.x
+            + if matches!(
+                text.as_str(),
+                "E AGAIN"
+                    | "LOFT CLEARED"
+                    | "SHIFT FINISHED"
+                    | "MOST HEIGHT, FEWER FALLS, EARLIER FINISH"
+                    | "TIE SPLIT"
+            ) || text.ends_with("G POT + CROWN")
+            {
+                area.width.saturating_sub(count) / 2
+            } else if let Some((start, len)) = header {
+                ((start * u32::from(area.width) / 384) as u16 + len).saturating_sub(count)
+            } else if !podium && x >= 340 && (56..=152).contains(&y) {
+                ((377 * u32::from(area.width) / 384) as u16).saturating_sub(count)
+            } else {
+                (x.max(0) as u32 * u32::from(area.width) / 384) as u16
+            };
+        let x = if centered {
+            x.saturating_sub(text.chars().count() as u16 / 2)
+        } else {
+            x
+        };
+        let y = area.y + (y.max(0) as u32 * u32::from(area.height) / 224) as u16;
+        for (dx, ch) in text.chars().enumerate() {
+            if x + dx as u16 >= area.right() {
+                break;
+            } else if let Some(cell) = frame.buffer_mut().cell_mut((x + dx as u16, y)) {
+                cell.set_char(ch)
+                    .set_fg(ratatui::style::Color::Rgb(176, 178, 168));
+            }
+        }
     }
 }
 
-pub(crate) fn paint_pennon_panels(frame:&mut ratatui::Frame,area:ratatui::layout::Rect,run:&angel_delve::rules::Run,focus:Option<u32>) {
-    let podium=run.pennon.as_ref().is_some_and(|s|s.left==0);
-    for (x,y,text) in angel_delve::render::overworld::arena::pennon_labels(run,focus) {
-        let elapsed=run.pennon.as_ref().map_or(0,|s| angel_delve::rules::pennon::LENGTH-s.left);
-        let Some((x,y,centered))=angel_delve::render::overworld::arena::slot_art::cell_layout("pennon").place(x,y,podium,elapsed) else {continue;};
-        let count=text.chars().count() as u16;
-        let row=podium && (64..=136).contains(&y);
-        let header=if row && (148..196).contains(&x) {Some((148,8))}
-            else if row && (212..242).contains(&x) {Some((212,5))}
-            else if row && x>=250 {Some((274,6))} else {None};
-        let x=area.x+if matches!(text.as_str(),"E AGAIN"|"SIEGE BROKEN"|"SHIFT FINISHED"|"MOST WORK, FEWER FALLS, EARLIER FINISH"|"TIE SPLIT") || text.ends_with("G POT + CROWN") {area.width.saturating_sub(count)/2}
-            else if let Some((start,len))=header {((start*u32::from(area.width)/384) as u16+len).saturating_sub(count)}
-            else if !podium && x>=340 && (56..=152).contains(&y) {((377*u32::from(area.width)/384) as u16).saturating_sub(count)}
-            else {(x.max(0) as u32*u32::from(area.width)/384) as u16};
-        let x=if centered {x.saturating_sub(text.chars().count() as u16/2)} else {x};
-        let y=area.y+(y.max(0) as u32*u32::from(area.height)/224) as u16;
-        for (dx,ch) in text.chars().enumerate(){if x+dx as u16>=area.right(){break;}else if let Some(cell)=frame.buffer_mut().cell_mut((x+dx as u16,y)){cell.set_char(ch).set_fg(ratatui::style::Color::Rgb(176,178,168));}}
+pub(crate) fn paint_pennon_panels(
+    frame: &mut ratatui::Frame,
+    area: ratatui::layout::Rect,
+    run: &angel_delve::rules::Run,
+    focus: Option<u32>,
+) {
+    let podium = run.pennon.as_ref().is_some_and(|s| s.left == 0);
+    for (x, y, text) in angel_delve::render::overworld::arena::pennon_labels(run, focus) {
+        let elapsed = run
+            .pennon
+            .as_ref()
+            .map_or(0, |s| angel_delve::rules::pennon::LENGTH - s.left);
+        let Some((x, y, centered)) =
+            angel_delve::render::overworld::arena::slot_art::cell_layout("pennon")
+                .place(x, y, podium, elapsed)
+        else {
+            continue;
+        };
+        let count = text.chars().count() as u16;
+        let row = podium && (64..=136).contains(&y);
+        let header = if row && (148..196).contains(&x) {
+            Some((148, 8))
+        } else if row && (212..242).contains(&x) {
+            Some((212, 5))
+        } else if row && x >= 250 {
+            Some((274, 6))
+        } else {
+            None
+        };
+        let x = area.x
+            + if matches!(
+                text.as_str(),
+                "E AGAIN"
+                    | "SIEGE BROKEN"
+                    | "SHIFT FINISHED"
+                    | "MOST WORK, FEWER FALLS, EARLIER FINISH"
+                    | "TIE SPLIT"
+            ) || text.ends_with("G POT + CROWN")
+            {
+                area.width.saturating_sub(count) / 2
+            } else if let Some((start, len)) = header {
+                ((start * u32::from(area.width) / 384) as u16 + len).saturating_sub(count)
+            } else if !podium && x >= 340 && (56..=152).contains(&y) {
+                ((377 * u32::from(area.width) / 384) as u16).saturating_sub(count)
+            } else {
+                (x.max(0) as u32 * u32::from(area.width) / 384) as u16
+            };
+        let x = if centered {
+            x.saturating_sub(text.chars().count() as u16 / 2)
+        } else {
+            x
+        };
+        let y = area.y + (y.max(0) as u32 * u32::from(area.height) / 224) as u16;
+        for (dx, ch) in text.chars().enumerate() {
+            if x + dx as u16 >= area.right() {
+                break;
+            } else if let Some(cell) = frame.buffer_mut().cell_mut((x + dx as u16, y)) {
+                cell.set_char(ch)
+                    .set_fg(ratatui::style::Color::Rgb(176, 178, 168));
+            }
+        }
     }
 }
 #[cfg(test)]

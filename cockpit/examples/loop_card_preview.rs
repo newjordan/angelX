@@ -340,14 +340,7 @@ fn main() {
                     let area = f.area();
                     cockpit(f.buffer_mut(), area);
                     if let Some((r, a, s)) = dock.as_ref() {
-                        loop_card::render_ticker(
-                            f.buffer_mut(),
-                            *a,
-                            r,
-                            *s,
-                            at.max(0.0),
-                            false,
-                        );
+                        loop_card::render_ticker(f.buffer_mut(), *a, r, *s, at.max(0.0), false);
                     }
                     if let Some(d) = box_dialog.as_ref() {
                         loop_card::render_terminal(f.buffer_mut(), area, d);
@@ -356,13 +349,7 @@ fn main() {
                         loop_card::render_terminal(f.buffer_mut(), small, d);
                     }
                     if let Some((r, a)) = terminal_dock {
-                        loop_card::render_terminal_ticker(
-                            f.buffer_mut(),
-                            a,
-                            r,
-                            Some(0.25),
-                            0.5,
-                        );
+                        loop_card::render_terminal_ticker(f.buffer_mut(), a, r, Some(0.25), 0.5);
                     }
                 })
                 .unwrap();

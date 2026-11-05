@@ -900,11 +900,31 @@ fn verify_plan_table() -> Vec<plan::PlanFacts> {
         f("auto", "none", "tests", [false, false, false, false, true]),
         // The entrypoint settles the language before the manifests.
         f("auto", "node", "tests", [false, false, false, false, false]),
-        f("auto", "unittest", "tests", [false, false, false, false, false]),
-        f("auto", "pytest", "tests", [false, false, false, false, false]),
+        f(
+            "auto",
+            "unittest",
+            "tests",
+            [false, false, false, false, false],
+        ),
+        f(
+            "auto",
+            "pytest",
+            "tests",
+            [false, false, false, false, false],
+        ),
         f("auto", "node", "tests", [true, false, false, false, false]),
-        f("auto", "unittest", "tests", [false, true, false, false, false]),
-        f("auto", "other", "tests", [false, false, false, false, false]),
+        f(
+            "auto",
+            "unittest",
+            "tests",
+            [false, true, false, false, false],
+        ),
+        f(
+            "auto",
+            "other",
+            "tests",
+            [false, false, false, false, false],
+        ),
         f("auto", "other", "tests", [false, true, false, false, false]),
         // An explicit Rust request never plans a verifier step.
         f("rust", "none", "tests", [false, false, false, false, false]),
@@ -918,12 +938,37 @@ fn verify_plan_table() -> Vec<plan::PlanFacts> {
         f("node", "none", "check", [false, false, false, false, false]),
         f("node", "none", "tests", [false, false, false, false, false]),
         f("node", "node", "tests", [false, true, false, false, true]),
-        f("python", "none", "check", [false, false, true, false, false]),
-        f("python", "none", "tests", [false, false, true, false, false]),
+        f(
+            "python",
+            "none",
+            "check",
+            [false, false, true, false, false],
+        ),
+        f(
+            "python",
+            "none",
+            "tests",
+            [false, false, true, false, false],
+        ),
         f("python", "none", "tests", [false, false, true, false, true]),
-        f("python", "unittest", "tests", [false, false, true, false, true]),
-        f("python", "pytest", "tests", [false, false, false, false, false]),
-        f("python", "other", "tests", [false, false, true, false, true]),
+        f(
+            "python",
+            "unittest",
+            "tests",
+            [false, false, true, false, true],
+        ),
+        f(
+            "python",
+            "pytest",
+            "tests",
+            [false, false, false, false, false],
+        ),
+        f(
+            "python",
+            "other",
+            "tests",
+            [false, false, true, false, true],
+        ),
         // A lint request has no trusted adapter in either language.
         f("python", "none", "lint", [false, false, true, false, false]),
         f("node", "none", "lint", [false, true, false, false, false]),
@@ -971,11 +1016,10 @@ fn verify_plan_leg_falls_back_when_its_answer_breaks_the_contract() {
         "module.exports={apiVersion:1,render:()=>({route:2,runtime:1,mode:0,driver:0,reject:0})}",
     )
     .unwrap();
-    let mut registry = angel_live::Registry::validated(
-        root.clone(),
-        crate::agent::hotload::evaluate,
-        |_, _| Ok(()),
-    );
+    let mut registry =
+        angel_live::Registry::validated(root.clone(), crate::agent::hotload::evaluate, |_, _| {
+            Ok(())
+        });
     registry.refresh(true);
     let broken = registry
         .snapshot()

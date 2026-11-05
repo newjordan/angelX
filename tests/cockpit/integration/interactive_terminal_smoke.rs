@@ -1389,12 +1389,25 @@ fn ordinary_cockpit_real_pty_live_game_rules_smoke() {
 }
 
 fn install_character_modules(scratch: &ScratchDir) -> Result<(), String> {
-    for module in ["abilities", "ability-code", "ability-sounds", "ability-effects", "characters"] {
+    for module in [
+        "abilities",
+        "ability-code",
+        "ability-sounds",
+        "ability-effects",
+        "characters",
+    ] {
         let destination = scratch.path().join("live").join(module);
         fs::create_dir_all(&destination).map_err(|e| e.to_string())?;
-        for entry in fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("live").join(module)).map_err(|e| e.to_string())? {
+        for entry in fs::read_dir(
+            Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("live")
+                .join(module),
+        )
+        .map_err(|e| e.to_string())?
+        {
             let entry = entry.map_err(|e| e.to_string())?;
-            fs::copy(entry.path(), destination.join(entry.file_name())).map_err(|e| e.to_string())?;
+            fs::copy(entry.path(), destination.join(entry.file_name()))
+                .map_err(|e| e.to_string())?;
         }
     }
     Ok(())
@@ -1424,7 +1437,11 @@ fn ordinary_cockpit_real_pty_native_system_swap_preserves_the_host_and_run() {
         cockpit.send_until_visible(b"/reload status\r", "initial native system", |s| {
             s.contains("swaps=1") && s.contains("score=0")
         })?;
-        cockpit.send_until_visible(b"/character gold 1\r", "character module alongside native rules", |s|s.contains("character gold selected for player 1"))?;
+        cockpit.send_until_visible(
+            b"/character gold 1\r",
+            "character module alongside native rules",
+            |s| s.contains("character gold selected for player 1"),
+        )?;
         let pending = engine.with_extension("pending");
         fs::copy(replacement, &pending).map_err(|e| e.to_string())?;
         fs::rename(pending, &engine).map_err(|e| e.to_string())?;
@@ -1666,7 +1683,8 @@ fn ordinary_cockpit_real_pty_visual_swap_keeps_effects_after_cast_completion() {
         let scratch = ScratchDir::new("pty-module-vfx")?;
         install_character_modules(&scratch)?;
         let module = scratch.path().join("live/ability-effects");
-        let spells = fs::read_to_string(scratch.path().join("live/ability-code/spells.js")).map_err(|e| e.to_string())?;
+        let spells = fs::read_to_string(scratch.path().join("live/ability-code/spells.js"))
+            .map_err(|e| e.to_string())?;
         fs::write(
             scratch.path().join("live/ability-code/spells.js"),
             spells
@@ -2076,42 +2094,67 @@ fn ordinary_cockpit_real_pty_brain_route_controls_smoke() {
 
 #[test]
 fn ordinary_cockpit_registers_stateful_command_and_surface_then_swaps_them_live() {
-    let result=(|| -> Result<(),String> {
-        let scratch=ScratchDir::new("pty-stateful-system")?;
-        fs::create_dir_all(scratch.path().join("live")).map_err(|e|e.to_string())?;
-        let mut cockpit=CockpitPty::spawn(40,144,&scratch)?;
-        cockpit.wait_for("kernel host startup",|s|s.contains("Write a message"))?;
-        let pid=cockpit.child.process_id();
+    let result = (|| -> Result<(), String> {
+        let scratch = ScratchDir::new("pty-stateful-system")?;
+        fs::create_dir_all(scratch.path().join("live")).map_err(|e| e.to_string())?;
+        let mut cockpit = CockpitPty::spawn(40, 144, &scratch)?;
+        cockpit.wait_for("kernel host startup", |s| s.contains("Write a message"))?;
+        let pid = cockpit.child.process_id();
         // Install a completely new command and surface after the host booted.
-        let module=scratch.path().join("live/tally");
-        fs::create_dir_all(&module).map_err(|e|e.to_string())?;
-        let manifest=|schema|format!(r#"{{"api_version":2,"id":"tally","kind":"system","entry":"index.js","state_schema":{schema},"exports":[{{"kind":"command","name":"tally","contract":"command/1"}},{{"kind":"surface","name":"tally","contract":"surface/1"}}]}}"#);
-        fs::write(module.join("module.json"),manifest(1)).map_err(|e|e.to_string())?;
+        let module = scratch.path().join("live/tally");
+        fs::create_dir_all(&module).map_err(|e| e.to_string())?;
+        let manifest = |schema| {
+            format!(
+                r#"{{"api_version":2,"id":"tally","kind":"system","entry":"index.js","state_schema":{schema},"exports":[{{"kind":"command","name":"tally","contract":"command/1"}},{{"kind":"surface","name":"tally","contract":"surface/1"}}]}}"#
+            )
+        };
+        fs::write(module.join("module.json"), manifest(1)).map_err(|e| e.to_string())?;
         fs::write(module.join("index.js"),"module.exports={apiVersion:2,initialize:()=>({n:0}),reduce:(s,e)=>({state:{n:s.n+1},output:'TALLY-FIRST-'+(s.n+1)}),view:s=>({tally:{title:'Tally module',lines:['LIVE-SURFACE-FIRST-'+s.n]}})}").map_err(|e|e.to_string())?;
         cockpit.drain_for(Duration::from_millis(1500))?;
-        cockpit.send_until_visible(b"/tally\r","registered command",|s|s.contains("TALLY-FIRST-1"))?;
-        cockpit.send_until_visible(b"/open live.tally\r","registered Glass surface",|s|s.contains("LIVE-SURFACE-FIRST-1"))?;
+        cockpit.send_until_visible(b"/tally\r", "registered command", |s| {
+            s.contains("TALLY-FIRST-1")
+        })?;
+        cockpit.send_until_visible(b"/open live.tally\r", "registered Glass surface", |s| {
+            s.contains("LIVE-SURFACE-FIRST-1")
+        })?;
         // Change the state shape and executable reducer. The old count survives.
-        let edited=Instant::now();
+        let edited = Instant::now();
         fs::write(module.join("next.js"),"module.exports={apiVersion:2,migrate:p=>({total:p.state.n}),reduce:(s,e)=>({state:{total:s.total+10},output:'TALLY-SECOND-'+(s.total+10)}),view:s=>({tally:{title:'Migrated tally',lines:['LIVE-SURFACE-SECOND-'+s.total]}})}").map_err(|e|e.to_string())?;
-        fs::rename(module.join("next.js"),module.join("index.js")).map_err(|e|e.to_string())?;
-        fs::write(module.join("module.json"),manifest(2)).map_err(|e|e.to_string())?;
-        cockpit.wait_for("surface replaced while it stayed open",|s|s.contains("LIVE-SURFACE-SECOND-1"))?;
-        eprintln!("PTY stateful system edit-to-paint: {:?}",edited.elapsed());
+        fs::rename(module.join("next.js"), module.join("index.js")).map_err(|e| e.to_string())?;
+        fs::write(module.join("module.json"), manifest(2)).map_err(|e| e.to_string())?;
+        cockpit.wait_for("surface replaced while it stayed open", |s| {
+            s.contains("LIVE-SURFACE-SECOND-1")
+        })?;
+        eprintln!("PTY stateful system edit-to-paint: {:?}", edited.elapsed());
         cockpit.send(b"/tally\r")?;
-        cockpit.wait_for("new reducer on migrated state",|s|s.contains("LIVE-SURFACE-SECOND-11"))?;
+        cockpit.wait_for("new reducer on migrated state", |s| {
+            s.contains("LIVE-SURFACE-SECOND-11")
+        })?;
         fs::write(module.join("index.js"),"module.exports={apiVersion:2,migrate:()=>{throw Error('bad migration')},reduce:()=>{}}").map_err(|e|e.to_string())?;
         cockpit.drain_for(Duration::from_millis(1500))?;
         cockpit.send(b"/tally\r")?;
-        cockpit.wait_for("failed migration retained state and code",|s|s.contains("LIVE-SURFACE-SECOND-21"))?;
+        cockpit.wait_for("failed migration retained state and code", |s| {
+            s.contains("LIVE-SURFACE-SECOND-21")
+        })?;
         cockpit.send(b"/close live.tally\r")?;
         cockpit.send(b"\x1bOQ")?;
-        cockpit.wait_for("returned to coding",|s|s.contains("Write a message"))?;
-        if pid!=cockpit.child.process_id() || cockpit.child.try_wait().map_err(|e|e.to_string())?.is_some() {return Err("module transaction restarted the host".into());}
+        cockpit.wait_for("returned to coding", |s| s.contains("Write a message"))?;
+        if pid != cockpit.child.process_id()
+            || cockpit
+                .child
+                .try_wait()
+                .map_err(|e| e.to_string())?
+                .is_some()
+        {
+            return Err("module transaction restarted the host".into());
+        }
         assert_terminal_restored(&cockpit.finish()?)
     })();
-    if let Err(error)=result {
-        if !strict_pty_smoke() && error.starts_with("open PTY:") {eprintln!("PTY_SYSTEM_SKIPPED: {error}");return;}
+    if let Err(error) = result {
+        if !strict_pty_smoke() && error.starts_with("open PTY:") {
+            eprintln!("PTY_SYSTEM_SKIPPED: {error}");
+            return;
+        }
         panic!("PTY stateful module smoke failed: {error}");
     }
 }
@@ -2410,8 +2453,8 @@ fn ordinary_cockpit_real_pty_pending_home_purchase_survives_a_native_rules_swap(
         use angel_delve::rules::{
             Run,
             home::{Home, Order, Station},
-            host_commands::Journal,
             home_settlement::{HomeOutbox, settle},
+            host_commands::Journal,
         };
         let scratch = ScratchDir::new("pty-home-claim-swap")?;
         let worker = std::env::var("ANGEL_SYSTEM_TEST_WORKER")

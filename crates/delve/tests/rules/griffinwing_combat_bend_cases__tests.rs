@@ -1,8 +1,8 @@
 //! Griffinwing's combat recorder (the private parts of combat.rs), for the
 //! Bend port. Called from the main recorder's sampling.
-use super::super::bend_kit::{self as kit, j, rec, want, want_with, Rng};
+use super::super::bend_kit::{self as kit, Rng, j, rec, want, want_with};
 use super::*;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 fn pick<'a, T>(v: &'a [T], rng: &mut Rng) -> Option<&'a T> {
     if v.is_empty() {
@@ -47,12 +47,42 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             if k == 3 {
                 while c.foes.len() < MAX_FOES {
                     let id = c.next_id();
-                    c.foes.push(Foe { id, kind: Kind::Wisp, s: 0, x: 0, z: 0, vs: 0, vx: 0, vz: 0, hp: 1, full: 1, seats: 1, st: St::Fly, ticks: 0, fx: 0, fz: 0, on: 0, flash: 0, mode: 0, phase: 0 });
+                    c.foes.push(Foe {
+                        id,
+                        kind: Kind::Wisp,
+                        s: 0,
+                        x: 0,
+                        z: 0,
+                        vs: 0,
+                        vx: 0,
+                        vz: 0,
+                        hp: 1,
+                        full: 1,
+                        seats: 1,
+                        st: St::Fly,
+                        ticks: 0,
+                        fx: 0,
+                        fz: 0,
+                        on: 0,
+                        flash: 0,
+                        mode: 0,
+                        phase: 0,
+                    });
                 }
             }
-            let kind = [Kind::Wisp, Kind::Kite, Kind::Turret, Kind::Bomber, Kind::Lamp][rng.below(5) as usize];
+            let kind = [
+                Kind::Wisp,
+                Kind::Kite,
+                Kind::Turret,
+                Kind::Bomber,
+                Kind::Lamp,
+            ][rng.below(5) as usize];
             let st = [St::Fly, St::Hide, St::Rest, St::Hunt, St::Shut][rng.below(5) as usize];
-            let at = (rng.range(0, 90_000), rng.range(-900, 900), rng.range(-400, 400));
+            let at = (
+                rng.range(0, 90_000),
+                rng.range(-900, 900),
+                rng.range(-400, 400),
+            );
             let vel = (rng.range(-30, 30), rng.range(-60, 60), rng.range(-20, 20));
             let (mode, phase) = (rng.below(4) as u8, rng.below(30) as u8);
             let before = kit::sj(&c);
@@ -80,17 +110,29 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
                     _ => seat.craft.hurt = 0,
                 }
             }
-            let id = if k == 4 { 7 + rng.below(5) as u8 } else { pick(&ids, rng).map_or(1, |&i| i as u8) };
+            let id = if k == 4 {
+                7 + rng.below(5) as u8
+            } else {
+                pick(&ids, rng).map_or(1, |&i| i as u8)
+            };
             let dmg = [10, 15, 25, 35, 20, 60][rng.below(6) as usize];
             let before = kit::sj(&c);
             let r = c.hurt_craft(id, dmg);
-            rec("griffinwing.combat.Session.hurt_craft", json!({"s": before, "id": id, "dmg": dmg}), json!({"s": kit::sj(&c), "r": r}));
+            rec(
+                "griffinwing.combat.Session.hurt_craft",
+                json!({"s": before, "id": id, "dmg": dmg}),
+                json!({"s": kit::sj(&c), "r": r}),
+            );
         }
     }
     if want("griffinwing.combat.Session.drain") {
         for _ in 0..4 {
             let mut c = s.clone();
-            let id = if rng.chance(2) { pick(&ids, rng).map_or(1, |&i| i as u8) } else { 7 + rng.below(4) as u8 };
+            let id = if rng.chance(2) {
+                pick(&ids, rng).map_or(1, |&i| i as u8)
+            } else {
+                7 + rng.below(4) as u8
+            };
             if let Some(seat) = c.seats.get_mut(&u32::from(id)) {
                 if rng.chance(3) {
                     seat.craft.down = 20;
@@ -99,7 +141,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             let amount = [2, 3, 5][rng.below(3) as usize];
             let before = kit::sj(&c);
             c.drain(id, amount);
-            rec("griffinwing.combat.Session.drain", json!({"s": before, "id": id, "amount": amount}), json!({"s": kit::sj(&c)}));
+            rec(
+                "griffinwing.combat.Session.drain",
+                json!({"s": before, "id": id, "amount": amount}),
+                json!({"s": kit::sj(&c)}),
+            );
         }
     }
     if want("griffinwing.combat.Session.latched") {
@@ -111,7 +157,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             }
         }
         for id in 0..=10u8 {
-            rec("griffinwing.combat.Session.latched", json!({"s": kit::sj_keys(&c, &["foes"]), "id": id}), json!(c.latched(id)));
+            rec(
+                "griffinwing.combat.Session.latched",
+                json!({"s": kit::sj_keys(&c, &["foes"]), "id": id}),
+                json!(c.latched(id)),
+            );
         }
     }
     if want("griffinwing.combat.Session.victim") {
@@ -129,7 +179,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
         }
         for hunter in [0u16, 1, 2, 3, 7, 40] {
             let r = c.victim(hunter);
-            rec("griffinwing.combat.Session.victim", json!({"s": kit::sj_keys(&c, &["stage", "t", "seats", "wing", "foes"]), "hunter": hunter}), json!(r));
+            rec(
+                "griffinwing.combat.Session.victim",
+                json!({"s": kit::sj_keys(&c, &["stage", "t", "seats", "wing", "foes"]), "hunter": hunter}),
+                json!(r),
+            );
         }
     }
     if want("griffinwing.combat.Session.target") {
@@ -143,12 +197,20 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
         }
         for turn in [0usize, 1, 2, 3, 5, 9, 14] {
             let r = c.target(turn);
-            rec("griffinwing.combat.Session.target", json!({"s": kit::sj_keys(&c, &["seats"]), "turn": turn}), json!(r.map(|(x, z)| [x, z])));
+            rec(
+                "griffinwing.combat.Session.target",
+                json!({"s": kit::sj_keys(&c, &["seats"]), "turn": turn}),
+                json!(r.map(|(x, z)| [x, z])),
+            );
         }
     }
     if want("griffinwing.combat.Session.plane_shot") {
         for _ in 0..6 {
-            let o = (s.anchor() + rng.range(-100, 4000), rng.range(-700, 700), rng.range(-300, 600));
+            let o = (
+                s.anchor() + rng.range(-100, 4000),
+                rng.range(-700, 700),
+                rng.range(-300, 600),
+            );
             let to = (rng.range(-500, 500), rng.range(-300, 300));
             let closing = [dm(4), dm(5), 0, 1, dm(9)][rng.below(5) as usize];
             let v = s.plane_shot(o, to, closing);
@@ -161,8 +223,37 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
     }
     if want("griffinwing.combat.Session.marks") {
         for seats in 0..=7u8 {
-            let f = Foe { id: 3, kind: Kind::Turret, s: 0, x: 0, z: 0, vs: 0, vx: 0, vz: 0, hp: 1, full: 1, seats: 1, st: St::Tell, ticks: 0, fx: rng.range(-700, 700), fz: rng.range(-300, 300), on: 0, flash: 0, mode: 0, phase: 0 };
-            rec("griffinwing.combat.Session.marks", json!({"f": j(&f), "seats": seats}), json!(Session::marks(&f, seats).into_iter().map(|(x, z)| [x, z]).collect::<Vec<_>>()));
+            let f = Foe {
+                id: 3,
+                kind: Kind::Turret,
+                s: 0,
+                x: 0,
+                z: 0,
+                vs: 0,
+                vx: 0,
+                vz: 0,
+                hp: 1,
+                full: 1,
+                seats: 1,
+                st: St::Tell,
+                ticks: 0,
+                fx: rng.range(-700, 700),
+                fz: rng.range(-300, 300),
+                on: 0,
+                flash: 0,
+                mode: 0,
+                phase: 0,
+            };
+            rec(
+                "griffinwing.combat.Session.marks",
+                json!({"f": j(&f), "seats": seats}),
+                json!(
+                    Session::marks(&f, seats)
+                        .into_iter()
+                        .map(|(x, z)| [x, z])
+                        .collect::<Vec<_>>()
+                ),
+            );
         }
     }
     if let Some(f) = pick(&s.foes, rng) {
@@ -173,7 +264,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             let mut c = s.clone();
             let before = kit::sj(&c);
             c.fire_marks(&f);
-            rec("griffinwing.combat.Session.fire_marks", json!({"s": before, "f": j(&f)}), json!({"s": kit::sj(&c)}));
+            rec(
+                "griffinwing.combat.Session.fire_marks",
+                json!({"s": before, "f": j(&f)}),
+                json!({"s": kit::sj(&c)}),
+            );
         }
     }
     // ── the foes' own turns: each state a foe can be in ───────────────────
@@ -195,7 +290,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
                 let by = rng.below(11) as u8;
                 let before = kit::sj(&c);
                 let r = c.hit_foe(fi, dmg, by);
-                rec("griffinwing.combat.Session.hit_foe", json!({"s": before, "fi": fi, "dmg": dmg, "by": by}), json!({"s": kit::sj(&c), "r": r}));
+                rec(
+                    "griffinwing.combat.Session.hit_foe",
+                    json!({"s": before, "fi": fi, "dmg": dmg, "by": by}),
+                    json!({"s": kit::sj(&c), "r": r}),
+                );
             }
         }
         if want("griffinwing.combat.Session.kill") {
@@ -206,31 +305,54 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
                     c.foes[fi].st = St::Latched;
                     c.foes[fi].on = 1 + rng.below(8) as u8;
                 }
-                let by = if rng.chance(4) { 7 + rng.below(4) as u8 } else { pick(&ids, rng).map_or(1, |&i| i as u8) };
+                let by = if rng.chance(4) {
+                    7 + rng.below(4) as u8
+                } else {
+                    pick(&ids, rng).map_or(1, |&i| i as u8)
+                };
                 if let Some(seat) = c.seats.get_mut(&u32::from(by)) {
                     seat.craft.chain = [0u16, 1, 2, 3, 4, 7, 40][rng.below(7) as usize];
                 }
                 let before = kit::sj(&c);
                 c.kill(fi, by);
-                rec("griffinwing.combat.Session.kill", json!({"s": before, "fi": fi, "by": by}), json!({"s": kit::sj(&c)}));
+                rec(
+                    "griffinwing.combat.Session.kill",
+                    json!({"s": before, "fi": fi, "by": by}),
+                    json!({"s": kit::sj(&c)}),
+                );
             }
         }
         if want("griffinwing.combat.Session.starfall") {
             let mut c = s.clone();
             let by = pick(&ids, rng).map_or(1, |&i| i as u8);
-            let s_c = c.craft_s(&c.seats.values().next().map(|x| x.craft.clone()).unwrap_or_else(|| Craft::new(0, 0)));
+            let s_c = c.craft_s(
+                &c.seats
+                    .values()
+                    .next()
+                    .map(|x| x.craft.clone())
+                    .unwrap_or_else(|| Craft::new(0, 0)),
+            );
             let before = kit::sj(&c);
             c.starfall(by, s_c, 0, 0);
-            rec("griffinwing.combat.Session.starfall", json!({"s": before, "by": by, "s_c": s_c, "x": 0, "z": 0}), json!({"s": kit::sj(&c)}));
+            rec(
+                "griffinwing.combat.Session.starfall",
+                json!({"s": before, "by": by, "s_c": s_c, "x": 0, "z": 0}),
+                json!({"s": kit::sj(&c)}),
+            );
         }
     }
-    if s.foes.iter().any(|f| f.kind == Kind::Lamp) && want("griffinwing.combat.Session.break_lamp") {
+    if s.foes.iter().any(|f| f.kind == Kind::Lamp) && want("griffinwing.combat.Session.break_lamp")
+    {
         let mut c = s.clone();
         let fi = c.foes.iter().position(|f| f.kind == Kind::Lamp).unwrap();
         let by = pick(&ids, rng).map_or(1, |&i| i as u8);
         let before = kit::sj(&c);
         c.break_lamp(fi, by);
-        rec("griffinwing.combat.Session.break_lamp", json!({"s": before, "fi": fi, "by": by}), json!({"s": kit::sj(&c)}));
+        rec(
+            "griffinwing.combat.Session.break_lamp",
+            json!({"s": before, "fi": fi, "by": by}),
+            json!({"s": kit::sj(&c)}),
+        );
     }
     // ── bolts against foes and craft ──────────────────────────────────────
     bolts(s, n, rng);
@@ -240,7 +362,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
         for &id in ids.iter().take(2) {
             let cr = c.seats[&id].craft.clone();
             let s_c = c.craft_s(&cr);
-            let at = (s_c + rng.range(-40, 120), cr.x + rng.range(-90, 90), cr.z + rng.range(-90, 90));
+            let at = (
+                s_c + rng.range(-40, 120),
+                cr.x + rng.range(-90, 90),
+                cr.z + rng.range(-90, 90),
+            );
             let vel = (-rng.range(20, 80), rng.range(-30, 30), rng.range(-30, 30));
             c.spawn_foe(Kind::Bomber, at, vel, St::Dive, 0, 0);
         }
@@ -251,7 +377,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
         }
         let before = kit::sj(&c);
         c.bombers_ram();
-        rec("griffinwing.combat.Session.bombers_ram", json!({"s": before}), json!({"s": kit::sj(&c)}));
+        rec(
+            "griffinwing.combat.Session.bombers_ram",
+            json!({"s": before}),
+            json!({"s": kit::sj(&c)}),
+        );
     }
 }
 
@@ -263,8 +393,15 @@ fn steps(s: &Session, n: &Nums, rng: &mut Rng) {
         return;
     }
     let anchor = s.anchor();
-    let interesting = s.foes.iter().any(|f| matches!(f.st, St::Tell | St::Hunt | St::Latched | St::Dive | St::Hide | St::Rest | St::Flee));
-    if (interesting && want_with("griffinwing.combat.Session.step_foe", 5, 30)) || want("griffinwing.combat.Session.step_foe") {
+    let interesting = s.foes.iter().any(|f| {
+        matches!(
+            f.st,
+            St::Tell | St::Hunt | St::Latched | St::Dive | St::Hide | St::Rest | St::Flee
+        )
+    });
+    if (interesting && want_with("griffinwing.combat.Session.step_foe", 5, 30))
+        || want("griffinwing.combat.Session.step_foe")
+    {
         let mut c = s.clone();
         let foes = std::mem::take(&mut c.foes);
         let mut c2 = c.clone();
@@ -296,7 +433,11 @@ fn steps(s: &Session, n: &Nums, rng: &mut Rng) {
             let before = kit::sj(&c);
             let fb = f.clone();
             c.hunt(&mut f);
-            rec("griffinwing.combat.Session.hunt", json!({"s": before, "f": j(&fb)}), json!({"s": kit::sj(&c), "f": j(&f)}));
+            rec(
+                "griffinwing.combat.Session.hunt",
+                json!({"s": before, "f": j(&fb)}),
+                json!({"s": kit::sj(&c), "f": j(&f)}),
+            );
         }
     }
     if let Some(f) = s.foes.iter().find(|f| f.st == St::Latched) {
@@ -310,7 +451,11 @@ fn steps(s: &Session, n: &Nums, rng: &mut Rng) {
             let before = kit::sj(&c);
             let fb = f.clone();
             c.hang(&mut f);
-            rec("griffinwing.combat.Session.hang", json!({"s": before, "f": j(&fb)}), json!({"s": kit::sj(&c), "f": j(&f)}));
+            rec(
+                "griffinwing.combat.Session.hang",
+                json!({"s": before, "f": j(&fb)}),
+                json!({"s": kit::sj(&c), "f": j(&f)}),
+            );
         }
     }
     // a hunter placed near a craft or a rider, and a latched kite on one, to be
@@ -319,27 +464,83 @@ fn steps(s: &Session, n: &Nums, rng: &mut Rng) {
         let mut c = s.clone();
         c.foes.clear();
         let who = [1u8, 7, 8, 0, 3][rng.below(5) as usize];
-        let at = c.craft_at(who).map_or((c.anchor() + 3000, 0, 0), |(a, b, d, _)| (a - dm(18) + rng.range(-200, 200), b + rng.range(-100, 100), d + dm(4) + rng.range(-100, 100)));
+        let at = c
+            .craft_at(who)
+            .map_or((c.anchor() + 3000, 0, 0), |(a, b, d, _)| {
+                (
+                    a - dm(18) + rng.range(-200, 200),
+                    b + rng.range(-100, 100),
+                    d + dm(4) + rng.range(-100, 100),
+                )
+            });
         let id = 5 + rng.below(30) as u16;
-        let mut f = Foe { id, kind: Kind::Kite, s: at.0, x: at.1, z: at.2, vs: 0, vx: 0, vz: 0, hp: 20, full: 20, seats: 1, st: St::Hunt, ticks: 0, fx: 0, fz: 0, on: who, flash: 0, mode: 1, phase: 0 };
+        let mut f = Foe {
+            id,
+            kind: Kind::Kite,
+            s: at.0,
+            x: at.1,
+            z: at.2,
+            vs: 0,
+            vx: 0,
+            vz: 0,
+            hp: 20,
+            full: 20,
+            seats: 1,
+            st: St::Hunt,
+            ticks: 0,
+            fx: 0,
+            fz: 0,
+            on: who,
+            flash: 0,
+            mode: 1,
+            phase: 0,
+        };
         if rng.chance(3) {
             f.on = 0;
         }
         let before = kit::sj(&c);
         let fb = f.clone();
         c.hunt(&mut f);
-        rec("griffinwing.combat.Session.hunt", json!({"s": before, "f": j(&fb)}), json!({"s": kit::sj(&c), "f": j(&f)}));
+        rec(
+            "griffinwing.combat.Session.hunt",
+            json!({"s": before, "f": j(&fb)}),
+            json!({"s": kit::sj(&c), "f": j(&f)}),
+        );
         let mut c = s.clone();
         c.foes.clear();
         let who = [1u8, 2, 7, 8, 0, 3][rng.below(6) as usize];
-        let mut f = Foe { id, kind: Kind::Kite, s: 0, x: 0, z: 0, vs: 0, vx: 0, vz: 0, hp: 20, full: 20, seats: 1, st: St::Latched, ticks: rng.below(30) as u32, fx: 0, fz: 0, on: who, flash: 0, mode: 1, phase: 0 };
+        let mut f = Foe {
+            id,
+            kind: Kind::Kite,
+            s: 0,
+            x: 0,
+            z: 0,
+            vs: 0,
+            vx: 0,
+            vz: 0,
+            hp: 20,
+            full: 20,
+            seats: 1,
+            st: St::Latched,
+            ticks: rng.below(30) as u32,
+            fx: 0,
+            fz: 0,
+            on: who,
+            flash: 0,
+            mode: 1,
+            phase: 0,
+        };
         if let Some(seat) = c.seats.get_mut(&u32::from(who)) {
             seat.craft.roll = if rng.chance(3) { 9 } else { 0 };
         }
         let before = kit::sj(&c);
         let fb = f.clone();
         c.hang(&mut f);
-        rec("griffinwing.combat.Session.hang", json!({"s": before, "f": j(&fb)}), json!({"s": kit::sj(&c), "f": j(&f)}));
+        rec(
+            "griffinwing.combat.Session.hang",
+            json!({"s": before, "f": j(&fb)}),
+            json!({"s": kit::sj(&c), "f": j(&f)}),
+        );
     }
 }
 
@@ -352,10 +553,31 @@ fn bolts(s: &Session, n: &Nums, rng: &mut Rng) {
             let mut c = s.clone();
             // aim through a foe, or through a spark in the air
             let (shot, to) = match pick(&c.foes, rng) {
-                Some(f) if rng.chance(3) => (friendly(rng), (f.s + rng.range(-60, 60), f.x + rng.range(-100, 100), f.z + rng.range(-100, 100))),
+                Some(f) if rng.chance(3) => (
+                    friendly(rng),
+                    (
+                        f.s + rng.range(-60, 60),
+                        f.x + rng.range(-100, 100),
+                        f.z + rng.range(-100, 100),
+                    ),
+                ),
                 _ => match c.bolts.iter().find(|b| b.shot == Arm::Spark) {
-                    Some(b) if rng.chance(2) => (Arm::Lance, (b.s + rng.range(-10, 10), b.x + rng.range(-40, 40), b.z + rng.range(-40, 40))),
-                    _ => (friendly(rng), (c.anchor() + rng.range(0, 5000), rng.range(-600, 600), rng.range(-300, 300))),
+                    Some(b) if rng.chance(2) => (
+                        Arm::Lance,
+                        (
+                            b.s + rng.range(-10, 10),
+                            b.x + rng.range(-40, 40),
+                            b.z + rng.range(-40, 40),
+                        ),
+                    ),
+                    _ => (
+                        friendly(rng),
+                        (
+                            c.anchor() + rng.range(0, 5000),
+                            rng.range(-600, 600),
+                            rng.range(-300, 300),
+                        ),
+                    ),
                 },
             };
             let (mut b, from) = bolt_through(shot, to, rng);
@@ -388,13 +610,21 @@ fn bolts(s: &Session, n: &Nums, rng: &mut Rng) {
             let (b, _) = bolt_through(friendly(rng), (0, 0, 0), rng);
             let before = kit::sj(&c);
             c.land(i, &b);
-            rec("griffinwing.combat.Session.land", json!({"s": before, "i": i, "b": j(&b)}), json!({"s": kit::sj(&c)}));
+            rec(
+                "griffinwing.combat.Session.land",
+                json!({"s": before, "i": i, "b": j(&b)}),
+                json!({"s": kit::sj(&c)}),
+            );
         }
     }
     if want("griffinwing.combat.Session.hostile_bolt") {
         for _ in 0..4 {
             let mut c = s.clone();
-            let shot = if rng.chance(2) { Arm::Gloam } else { Arm::Spark };
+            let shot = if rng.chance(2) {
+                Arm::Gloam
+            } else {
+                Arm::Spark
+            };
             // aim through a craft: sometimes rolling, sometimes just hurt
             let ids: Vec<u32> = c.seats.keys().copied().collect();
             let to = match pick(&ids, rng) {
@@ -410,7 +640,11 @@ fn bolts(s: &Session, n: &Nums, rng: &mut Rng) {
                         _ => {}
                     }
                     let cr = seat.craft.clone();
-                    (c.craft_s(&cr) + rng.range(-30, 30), cr.x + rng.range(-120, 120), cr.z + rng.range(-120, 120))
+                    (
+                        c.craft_s(&cr) + rng.range(-30, 30),
+                        cr.x + rng.range(-120, 120),
+                        cr.z + rng.range(-120, 120),
+                    )
                 }
                 None => (c.anchor() + 500, 0, 0),
             };
@@ -430,8 +664,20 @@ fn bolts(s: &Session, n: &Nums, rng: &mut Rng) {
     if want("griffinwing.combat.Session.turn") {
         for _ in 0..4 {
             let mut c = s.clone();
-            let at = (c.anchor() + rng.range(-100, 600), rng.range(-500, 500), rng.range(-300, 300));
-            let (mut b, _) = bolt_through(if rng.chance(2) { Arm::Gloam } else { Arm::Spark }, at, rng);
+            let at = (
+                c.anchor() + rng.range(-100, 600),
+                rng.range(-500, 500),
+                rng.range(-300, 300),
+            );
+            let (mut b, _) = bolt_through(
+                if rng.chance(2) {
+                    Arm::Gloam
+                } else {
+                    Arm::Spark
+                },
+                at,
+                rng,
+            );
             b.owner = 0;
             b.src = pick(&c.foes, rng).map_or(rng.below(5) as u16, |f| f.id);
             let by = rng.below(7) as u32;

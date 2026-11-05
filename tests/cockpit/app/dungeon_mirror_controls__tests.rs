@@ -113,8 +113,10 @@ fn creator_name_uses_the_existing_text_draft_without_spending_a_wish() {
         run.walk_alehouse();
         let hero = run.players.get_mut(&1).unwrap();
         (hero.x, hero.y) = (
-            crate::drive::together_shooter::alehouse::MIRROR_STAND.0 * crate::drive::together_shooter::TILE_UNITS,
-            crate::drive::together_shooter::alehouse::MIRROR_STAND.1 * crate::drive::together_shooter::TILE_UNITS,
+            crate::drive::together_shooter::alehouse::MIRROR_STAND.0
+                * crate::drive::together_shooter::TILE_UNITS,
+            crate::drive::together_shooter::alehouse::MIRROR_STAND.1
+                * crate::drive::together_shooter::TILE_UNITS,
         );
         hero.mirror.open = true;
         hero.mirror.row = 9;

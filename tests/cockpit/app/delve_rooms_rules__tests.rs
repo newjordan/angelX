@@ -73,7 +73,11 @@ fn drawn(answer: &Value) -> Vec<(usize, usize, Vec<String>)> {
 /// One authored quadrant as the same shape.
 fn authored(rows: &[&str]) -> (usize, usize, Vec<String>) {
     let width = rows.first().map_or(0, |row| row.len());
-    (width, rows.len(), rows.iter().map(|row| (*row).to_owned()).collect())
+    (
+        width,
+        rows.len(),
+        rows.iter().map(|row| (*row).to_owned()).collect(),
+    )
 }
 
 /// The three draws the layout rules make, for every pack and every size the
@@ -82,22 +86,33 @@ fn authored(rows: &[&str]) -> (usize, usize, Vec<String>) {
 fn the_module_answers_every_room_the_old_rules_drew() {
     install_scripted_rules();
     for pack in PACKS {
-        let small: Vec<_> = oracle::small(pack).iter().map(|q| authored(&q[..])).collect();
+        let small: Vec<_> = oracle::small(pack)
+            .iter()
+            .map(|q| authored(&q[..]))
+            .collect();
         assert_eq!(
             drawn(&step(json!({"op": "small", "pack": index(pack)}))),
             small,
             "{pack:?} one-screen rooms"
         );
-        let great: Vec<_> = oracle::all_great(pack).iter().map(|q| authored(q)).collect();
+        let great: Vec<_> = oracle::all_great(pack)
+            .iter()
+            .map(|q| authored(q))
+            .collect();
         assert_eq!(
             drawn(&step(json!({"op": "great", "pack": index(pack)}))),
             great,
             "{pack:?} great rooms"
         );
         for (w, h) in oracle::SIZES {
-            let sized: Vec<_> = oracle::great(pack, w, h).iter().map(|q| authored(q)).collect();
+            let sized: Vec<_> = oracle::great(pack, w, h)
+                .iter()
+                .map(|q| authored(q))
+                .collect();
             assert_eq!(
-                drawn(&step(json!({"op": "sized", "pack": index(pack), "w": w, "h": h}))),
+                drawn(&step(
+                    json!({"op": "sized", "pack": index(pack), "w": w, "h": h})
+                )),
                 sized,
                 "{pack:?} {w}x{h} rooms"
             );
@@ -110,8 +125,14 @@ fn the_module_answers_every_room_the_old_rules_drew() {
 fn the_module_owns_the_sizes_and_the_shares_the_layout_rules_read() {
     install_scripted_rules();
     let consts = step(json!({"op": "consts"}));
-    assert_eq!(consts["share"].as_u64(), Some(u64::from(oracle::AUTHORED_SHARE)));
-    assert_eq!(consts["least_floor"].as_u64(), Some(oracle::LEAST_FLOOR as u64));
+    assert_eq!(
+        consts["share"].as_u64(),
+        Some(u64::from(oracle::AUTHORED_SHARE))
+    );
+    assert_eq!(
+        consts["least_floor"].as_u64(),
+        Some(oracle::LEAST_FLOOR as u64)
+    );
     let sizes: Vec<(usize, usize)> = consts["sizes"]
         .as_array()
         .expect("the shared sizes")
@@ -133,15 +154,30 @@ fn the_delves_adapter_hands_the_layout_rules_the_same_rooms() {
     install_scripted_rules();
     use angel_delve::rules::rooms;
     for pack in PACKS {
-        let small: Vec<_> = rooms::small(pack).iter().map(|q| authored(&q[..])).collect();
-        let want: Vec<_> = oracle::small(pack).iter().map(|q| authored(&q[..])).collect();
+        let small: Vec<_> = rooms::small(pack)
+            .iter()
+            .map(|q| authored(&q[..]))
+            .collect();
+        let want: Vec<_> = oracle::small(pack)
+            .iter()
+            .map(|q| authored(&q[..]))
+            .collect();
         assert_eq!(small, want, "{pack:?} one-screen rooms through the adapter");
         let great: Vec<_> = rooms::all_great(pack).iter().map(|q| authored(q)).collect();
-        let want: Vec<_> = oracle::all_great(pack).iter().map(|q| authored(q)).collect();
+        let want: Vec<_> = oracle::all_great(pack)
+            .iter()
+            .map(|q| authored(q))
+            .collect();
         assert_eq!(great, want, "{pack:?} great rooms through the adapter");
         for (w, h) in oracle::SIZES {
-            let sized: Vec<_> = rooms::great(pack, w, h).iter().map(|q| authored(q)).collect();
-            let want: Vec<_> = oracle::great(pack, w, h).iter().map(|q| authored(q)).collect();
+            let sized: Vec<_> = rooms::great(pack, w, h)
+                .iter()
+                .map(|q| authored(q))
+                .collect();
+            let want: Vec<_> = oracle::great(pack, w, h)
+                .iter()
+                .map(|q| authored(q))
+                .collect();
             assert_eq!(sized, want, "{pack:?} {w}x{h} rooms through the adapter");
         }
     }
@@ -158,14 +194,23 @@ fn an_unknown_pack_and_an_undrawn_size_answer_nothing() {
     assert_eq!(drawn(&step(json!({"op": "small", "pack": 7}))), Vec::new());
     assert_eq!(drawn(&step(json!({"op": "great", "pack": 7}))), Vec::new());
     assert_eq!(drawn(&step(json!({"op": "small", "pack": 99}))), Vec::new());
-    assert_eq!(drawn(&step(json!({"op": "sized", "pack": 0, "w": 1, "h": 1}))), Vec::new());
-    assert_eq!(drawn(&step(json!({"op": "sized", "pack": 6, "w": 15, "h": 9}))), Vec::new());
+    assert_eq!(
+        drawn(&step(json!({"op": "sized", "pack": 0, "w": 1, "h": 1}))),
+        Vec::new()
+    );
+    assert_eq!(
+        drawn(&step(json!({"op": "sized", "pack": 6, "w": 15, "h": 9}))),
+        Vec::new()
+    );
     // The host says so as loudly as it can rather than inventing a room: the
     // module has no such op and no native leg stands behind it.
     let refused = std::panic::catch_unwind(|| {
         angel_delve::scripted::step::<Value, Value>(MODULE, &json!({"op": "levitate"}))
     });
-    assert!(refused.is_err(), "an op the module has not got is refused, not guessed");
+    assert!(
+        refused.is_err(),
+        "an op the module has not got is refused, not guessed"
+    );
 }
 
 /// The answers the Delve's own tests read when no JavaScript engine is in the
@@ -178,13 +223,20 @@ fn the_captured_answers_are_the_modules_answers() {
         .join(MODULE)
         .join("rooms-art.json");
     let captured: Value = serde_json::from_str(
-        &std::fs::read_to_string(&path).unwrap_or_else(|error| panic!("{}: {error}", path.display())),
+        &std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("{}: {error}", path.display())),
     )
     .expect("the captured answers parse");
     for pack in PACKS {
         let index = index(pack);
-        assert_eq!(captured["small"][index.to_string()], step(json!({"op": "small", "pack": index})));
-        assert_eq!(captured["great"][index.to_string()], step(json!({"op": "great", "pack": index})));
+        assert_eq!(
+            captured["small"][index.to_string()],
+            step(json!({"op": "small", "pack": index}))
+        );
+        assert_eq!(
+            captured["great"][index.to_string()],
+            step(json!({"op": "great", "pack": index}))
+        );
         for (w, h) in oracle::SIZES {
             let key = format!("{index},{w},{h}");
             assert_eq!(
@@ -231,7 +283,11 @@ fn fault(quadrant: &[&str]) -> Option<String> {
     if quadrant.iter().any(|r| r.len() != w) {
         return Some("rows of different lengths".into());
     }
-    if let Some(c) = quadrant.iter().flat_map(|r| r.chars()).find(|c| !matches!(c, '.' | '#' | '~')) {
+    if let Some(c) = quadrant
+        .iter()
+        .flat_map(|r| r.chars())
+        .find(|c| !matches!(c, '.' | '#' | '~'))
+    {
         return Some(format!("a mark that is none of . # ~: {c:?}"));
     }
     // The doorway lanes' far ends: the last column at the top row and the
@@ -242,7 +298,10 @@ fn fault(quadrant: &[&str]) -> Option<String> {
     }
     // The middle of the room (each quadrant's corner by both lanes) stays
     // open: the stairs and a guardian stand there.
-    if quadrant[h - 3..].iter().any(|r| r.as_bytes()[w - 3..].iter().any(|&b| b != b'.')) {
+    if quadrant[h - 3..]
+        .iter()
+        .any(|r| r.as_bytes()[w - 3..].iter().any(|&b| b != b'.'))
+    {
         return Some("the middle of the room is not open (the last 3x3 of the quadrant)".into());
     }
     let room = laid(quadrant);
@@ -268,7 +327,10 @@ fn fault(quadrant: &[&str]) -> Option<String> {
         .flat_map(|r| (0..cols as i32).map(move |c| (c, r)))
         .filter(|&(c, r)| room.tile(c, r) == Tile::Floor)
         .collect();
-    if let Some(&(c, r)) = floor.iter().find(|&&(c, r)| !seen[r as usize * cols + c as usize]) {
+    if let Some(&(c, r)) = floor
+        .iter()
+        .find(|&&(c, r)| !seen[r as usize * cols + c as usize])
+    {
         return Some(format!("floor at {c},{r} that no one can walk to"));
     }
     let interior = (cols - 2) * (rows - 2);
@@ -300,7 +362,10 @@ fn the_moved_checks_hold_on_the_modules_rooms() {
             );
             assert_eq!(fault(&rows), None, "{pack:?} small {i}");
         }
-        for (i, (w, h, rows)) in drawn(&step(json!({"op": "great", "pack": index}))).into_iter().enumerate() {
+        for (i, (w, h, rows)) in drawn(&step(json!({"op": "great", "pack": index})))
+            .into_iter()
+            .enumerate()
+        {
             assert!(
                 oracle::SIZES.contains(&(w, h)),
                 "{pack:?} great {i}: {w}x{h} is no room's size"
@@ -309,15 +374,32 @@ fn the_moved_checks_hold_on_the_modules_rooms() {
             assert_eq!(fault(&rows), None, "{pack:?} great {i}");
         }
     }
-    assert!(least_floor <= 100, "the least floor is a share: {least_floor}");
+    assert!(
+        least_floor <= 100,
+        "the least floor is a share: {least_floor}"
+    );
 }
 
 /// The checks still catch a room that is not whole.
 #[test]
 fn the_check_catches_a_shut_room() {
-    let walled = ["...........", "...........", "...........", "...........", "...........", "#.........."];
+    let walled = [
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "...........",
+        "#..........",
+    ];
     assert!(fault(&walled).is_some(), "a doorway lane shut at its door");
-    let island = ["...........", ".###.......", ".#.#.......", ".###.......", "...........", "..........."];
+    let island = [
+        "...........",
+        ".###.......",
+        ".#.#.......",
+        ".###.......",
+        "...........",
+        "...........",
+    ];
     assert!(fault(&island).unwrap().contains("no one can walk to"));
 }
 
@@ -360,6 +442,12 @@ fn a_draw_costs_a_sliver_of_a_frame() {
     let step_p95 = report("rooms-rules draw (engine)", step_micros);
     let cache_p95 = report("rooms draw through the Delve adapter (kept)", cache_micros);
     println!("input {input_bytes} bytes, answer {answer_bytes} bytes");
-    assert!(step_p95 < 33_000.0, "a draw inside one frame: {step_p95:.0} µs");
-    assert!(cache_p95 < 1_000.0, "a kept draw inside one frame: {cache_p95:.0} µs");
+    assert!(
+        step_p95 < 33_000.0,
+        "a draw inside one frame: {step_p95:.0} µs"
+    );
+    assert!(
+        cache_p95 < 1_000.0,
+        "a kept draw inside one frame: {cache_p95:.0} µs"
+    );
 }

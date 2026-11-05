@@ -287,16 +287,28 @@ pub(crate) fn tilted_rect(rect: [f32; 4], centre: [f32; 2]) -> ([f32; 4], f32) {
 /// quad, so a lean in cells of 12 x 25 px is the same lean as in pixels.
 /// The quad keeps its own size: the window turns it about its own centre,
 /// so only that centre moves round the panel's.
-pub(crate) fn tilted_rect_in(rect: [f32; 4], centre: [f32; 2], unit: (f32, f32)) -> ([f32; 4], f32) {
+pub(crate) fn tilted_rect_in(
+    rect: [f32; 4],
+    centre: [f32; 2],
+    unit: (f32, f32),
+) -> ([f32; 4], f32) {
     tilted_rect_by(rect, centre, unit, TILT)
 }
 
 /// [`tilted_rect_in`] for a panel that leans by `tilt` instead of the
 /// Orrery's [`TILT`] (the Heartglass, taller, leans less).
-pub(crate) fn tilted_rect_by(rect: [f32; 4], centre: [f32; 2], unit: (f32, f32), tilt: f32) -> ([f32; 4], f32) {
+pub(crate) fn tilted_rect_by(
+    rect: [f32; 4],
+    centre: [f32; 2],
+    unit: (f32, f32),
+    tilt: f32,
+) -> ([f32; 4], f32) {
     let [x, y, w, h] = rect;
     let (sin, cos) = tilt.sin_cos();
-    let (dx, dy) = ((x + w / 2.0 - centre[0]) * unit.0, (y + h / 2.0 - centre[1]) * unit.1);
+    let (dx, dy) = (
+        (x + w / 2.0 - centre[0]) * unit.0,
+        (y + h / 2.0 - centre[1]) * unit.1,
+    );
     let (rx, ry) = (
         centre[0] + (dx * cos - dy * sin) / unit.0,
         centre[1] + (dx * sin + dy * cos) / unit.1,
@@ -315,7 +327,10 @@ pub(crate) fn leaned_point(p: [f32; 2], centre: [f32; 2]) -> [f32; 2] {
 pub(crate) fn leaned_point_by(p: [f32; 2], centre: [f32; 2], tilt: f32) -> [f32; 2] {
     let (sin, cos) = tilt.sin_cos();
     let (dx, dy) = (p[0] - centre[0], p[1] - centre[1]);
-    [centre[0] + dx * cos - dy * sin, centre[1] + dx * sin + dy * cos]
+    [
+        centre[0] + dx * cos - dy * sin,
+        centre[1] + dx * sin + dy * cos,
+    ]
 }
 
 /// How much smaller things `p` far up the panel draw: the plate tips
@@ -340,7 +355,12 @@ pub(crate) fn deep_rect(rect: [f32; 4], centre: [f32; 2]) -> ([f32; 4], f32) {
     let c = [rect[0] + rect[2] / 2.0, rect[1] + rect[3] / 2.0];
     let s = depth_scale(c, centre);
     tilted_rect(
-        [c[0] - rect[2] * s / 2.0, c[1] - rect[3] * s / 2.0, rect[2] * s, rect[3] * s],
+        [
+            c[0] - rect[2] * s / 2.0,
+            c[1] - rect[3] * s / 2.0,
+            rect[2] * s,
+            rect[3] * s,
+        ],
         centre,
     )
 }
@@ -375,7 +395,8 @@ pub(crate) fn ribbon_points(content: Panel, t: f32) -> Vec<[f32; 2]> {
         .map(|i| {
             let k = f32::from(i) / f32::from(DOTS - 1);
             let x = content.x + content.w * k;
-            let y = content.y + content.h * 0.62
+            let y = content.y
+                + content.h * 0.62
                 + ((x - content.x) * 0.02 - t * 1.4).sin() * content.h * 0.12
                 + ((x - content.x) * 0.05 + t * 0.6).sin() * content.h * 0.05;
             [x, y]
@@ -499,7 +520,10 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
     // The content: the graph as a constellation, or an idle ribbon
     // waiting for one, inside the plate.
     let content = panel.content();
-    match snapshot.map(|s| &s.nodes[..]).filter(|nodes| !nodes.is_empty()) {
+    match snapshot
+        .map(|s| &s.nodes[..])
+        .filter(|nodes| !nodes.is_empty())
+    {
         Some(nodes) => constellation(&mut out, nodes, content, centre, t),
         None => idle_ribbon(&mut out, content, centre, t),
     }
@@ -550,12 +574,7 @@ fn layers(t: f32, grid: Grid, snapshot: Option<&GraphSnapshot>) -> Vec<angel_gla
     let mut motes = Layer::new(
         61,
         8,
-        Placement::Pixels([
-            panel.x + 8.0,
-            panel.y + 8.0,
-            panel.w - 16.0,
-            panel.h - 16.0,
-        ]),
+        Placement::Pixels([panel.x + 8.0, panel.y + 8.0, panel.w - 16.0, panel.h - 16.0]),
         LayerKind::Particles(angel_glass::Particles {
             color: [0.45, 0.85, 1.0, 0.28],
             count: 14,
@@ -608,8 +627,8 @@ fn constellation(
                 break 'edges;
             }
             edges += 1;
-            let lit = node.phase == GraphNodePhase::Running
-                && nodes[j].phase == GraphNodePhase::Done;
+            let lit =
+                node.phase == GraphNodePhase::Running && nodes[j].phase == GraphNodePhase::Done;
             let color = phase_color(node.phase);
             let (a, b) = (deep_point(at[j], centre), deep_point(at[i], centre));
             let (rect, angle) = segment_rect(a, b, 2.4);
@@ -652,7 +671,12 @@ fn constellation(
             300 + i as u64,
             5,
             Placement::Pixels(halo_rect),
-            LayerKind::Glow([color[0], color[1], color[2], if running { 0.9 } else { 0.6 }]),
+            LayerKind::Glow([
+                color[0],
+                color[1],
+                color[2],
+                if running { 0.9 } else { 0.6 },
+            ]),
         );
         halo.angle = halo_angle;
         halo.additive = true;

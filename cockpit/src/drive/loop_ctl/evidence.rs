@@ -196,7 +196,10 @@ pub(crate) fn apply_reply_with_tools(
 
     if let Some(workspace) = st.workspace.as_deref()
         && let Err(error) = crate::drive::labyrinth::observe_iteration(
-            workspace, "loop", &st.task, &st.findings[findings_before..],
+            workspace,
+            "loop",
+            &st.task,
+            &st.findings[findings_before..],
             &st.hypotheses[hypotheses_before..],
         )
     {
@@ -509,14 +512,15 @@ pub(crate) fn reconcile_submission_results(st: &mut LoopState) -> usize {
         return 0;
     };
     let results = match crate::agent::harness::cartridges::active()
-        .map_or(Ok(Vec::new()), |cartridge| cartridge.hooks().terminal_results(workspace))
-    {
-            Ok(results) => results,
-            Err(error) => {
-                st.verifier_blocked = Some(error);
-                return 0;
-            }
-        };
+        .map_or(Ok(Vec::new()), |cartridge| {
+            cartridge.hooks().terminal_results(workspace)
+        }) {
+        Ok(results) => results,
+        Err(error) => {
+            st.verifier_blocked = Some(error);
+            return 0;
+        }
+    };
     let mut improvements = 0;
     for row in results {
         if row.dispatch_owner.as_deref() != Some(st.id.as_str()) {

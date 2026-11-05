@@ -1323,11 +1323,9 @@ fn persistent_shell_quote(value: &str) -> String {
 /// then on (stop it via shell `kill <pid>`).
 fn run_persistent_service(command: &str, name: &str, cwd: &Path) -> Result<String, String> {
     if !persistent_services_enabled() {
-        return Err(
-            "persistent services are not enabled for this run \
+        return Err("persistent services are not enabled for this run \
              (set ANGEL_PROC_PERSISTENT_SERVICES=1); use a tracked proc_run job instead"
-                .to_string(),
-        );
+            .to_string());
     }
     let dir = proc_dir().join("persistent");
     std::fs::create_dir_all(&dir).map_err(|e| format!("persistent log dir: {e}"))?;
@@ -2209,7 +2207,10 @@ fn annotate_receipt_sandbox(path: &Path, sandbox: &Value) -> Result<(), String> 
     };
     object.insert(
         "sandbox_profile".into(),
-        sandbox.get("sandbox_profile").cloned().unwrap_or(Value::Null),
+        sandbox
+            .get("sandbox_profile")
+            .cloned()
+            .unwrap_or(Value::Null),
     );
     object.insert("sandbox".into(), sandbox.clone());
     let encoded = serde_json::to_vec(&value).map_err(|error| format!("encode {error}"))?;

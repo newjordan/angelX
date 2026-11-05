@@ -70,7 +70,10 @@ fn headless_task_gets_a_private_cache_instead_of_the_shared_one() {
     let private = crate::agent::harness::install_private_task_cache_in(&base)
         .expect("the shared default cache is replaced");
     assert!(private.is_dir() && std::fs::read_dir(&private).unwrap().next().is_none());
-    assert_eq!(std::env::var_os("XDG_CACHE_HOME"), Some(private.clone().into()));
+    assert_eq!(
+        std::env::var_os("XDG_CACHE_HOME"),
+        Some(private.clone().into())
+    );
     let roots = SandboxPolicy::permissive().writable_roots;
     assert!(roots.contains(&private), "{roots:?}");
     assert!(!roots.contains(&shared), "{roots:?}");

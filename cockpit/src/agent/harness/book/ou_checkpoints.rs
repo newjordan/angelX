@@ -4,7 +4,6 @@
 
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/ou_checkpoints.book");
 pub(crate) const CELL: char = '⠳';
 pub(crate) const BLOCKED: Route = Route::new(CELL, '⠁');

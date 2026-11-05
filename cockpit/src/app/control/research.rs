@@ -122,7 +122,11 @@ impl App {
             return self.research.context.clone();
         }
         let mut extra = Vec::new();
-        extra.extend(self.research.labyrinth.refresh(self.tools.current_workspace()));
+        extra.extend(
+            self.research
+                .labyrinth
+                .refresh(self.tools.current_workspace()),
+        );
         extra.extend(
             self.research
                 .journal
@@ -347,7 +351,10 @@ impl App {
                 .filter_map(|entry| Some((entry.title.clone(), entry.measurement.clone()?)))
                 .collect();
             for (title, measurement) in measured {
-                let _ = self.realm.world.competition_test_measurement(&title, &measurement);
+                let _ = self
+                    .realm
+                    .world
+                    .competition_test_measurement(&title, &measurement);
             }
         }
         let active = self

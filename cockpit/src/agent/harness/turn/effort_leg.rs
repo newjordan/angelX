@@ -79,17 +79,15 @@ pub(super) fn decide(
         "task": task.head,
         "task_len": task.len,
     });
-    let (choice, source) = live_policy::decide_pinned(
-        registry,
-        "effort",
-        &input,
-        |choice: &Choice| match &choice.effort {
+    let (choice, source) =
+        live_policy::decide_pinned(registry, "effort", &input, |choice: &Choice| match &choice
+            .effort
+        {
             Some(effort) if Some(effort) != resolved.as_ref() && !levels.contains(effort) => {
                 Err(format!("{effort} is not an effort this seat accepts"))
             }
             _ => Ok(()),
-        },
-    );
+        });
     let effort = if choice.effort == resolved {
         native
     } else {

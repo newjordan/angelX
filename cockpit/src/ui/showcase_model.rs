@@ -64,8 +64,17 @@ pub(crate) fn from_obj(text: &str) -> Result<Model, String> {
             Some("f") => {
                 let corners: Vec<usize> = words
                     .map(|w| {
-                        let raw: i64 = w.split('/').next().unwrap_or("").parse().map_err(|_| format!("a face corner that is not a number: {w}"))?;
-                        let i = if raw < 0 { points.len() as i64 + raw } else { raw - 1 };
+                        let raw: i64 = w
+                            .split('/')
+                            .next()
+                            .unwrap_or("")
+                            .parse()
+                            .map_err(|_| format!("a face corner that is not a number: {w}"))?;
+                        let i = if raw < 0 {
+                            points.len() as i64 + raw
+                        } else {
+                            raw - 1
+                        };
                         usize::try_from(i)
                             .ok()
                             .filter(|&i| i < points.len())
@@ -93,19 +102,35 @@ pub(crate) fn from_obj(text: &str) -> Result<Model, String> {
         points
     };
     // Centred on its middle, fitted to a sphere a little inside the unit.
-    let (lo, hi) = points.iter().fold(([f32::MAX; 3], [f32::MIN; 3]), |(lo, hi), p| {
-        ([lo[0].min(p[0]), lo[1].min(p[1]), lo[2].min(p[2])], [hi[0].max(p[0]), hi[1].max(p[1]), hi[2].max(p[2])])
-    });
-    let centre = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+    let (lo, hi) = points
+        .iter()
+        .fold(([f32::MAX; 3], [f32::MIN; 3]), |(lo, hi), p| {
+            (
+                [lo[0].min(p[0]), lo[1].min(p[1]), lo[2].min(p[2])],
+                [hi[0].max(p[0]), hi[1].max(p[1]), hi[2].max(p[2])],
+            )
+        });
+    let centre = [
+        (lo[0] + hi[0]) / 2.0,
+        (lo[1] + hi[1]) / 2.0,
+        (lo[2] + hi[2]) / 2.0,
+    ];
     let reach = points
         .iter()
-        .map(|p| ((p[0] - centre[0]).powi(2) + (p[1] - centre[1]).powi(2) + (p[2] - centre[2]).powi(2)).sqrt())
+        .map(|p| {
+            ((p[0] - centre[0]).powi(2) + (p[1] - centre[1]).powi(2) + (p[2] - centre[2]).powi(2))
+                .sqrt()
+        })
         .fold(0.0f32, f32::max)
         .max(1e-6);
     let k = 0.95 / reach;
     let at = |i: usize| {
         let p = points[i];
-        [(p[0] - centre[0]) * k, (p[1] - centre[1]) * k, (p[2] - centre[2]) * k]
+        [
+            (p[0] - centre[0]) * k,
+            (p[1] - centre[1]) * k,
+            (p[2] - centre[2]) * k,
+        ]
     };
     // Flat shaded: each triangle its own corners and its face's normal,
     // laid out part by part so each part is one group.
@@ -144,7 +169,12 @@ pub(crate) fn from_obj(text: &str) -> Result<Model, String> {
     let mut node = Node::new(2, MeshRef::Uploaded(MESH), lit(STEEL, 0.0));
     node.parent = Some(angel_glass::MODEL_ROOT);
     node.face_materials = materials;
-    Ok(Model { mesh, nodes: vec![node], triangles: tris.len(), textures: Vec::new() })
+    Ok(Model {
+        mesh,
+        nodes: vec![node],
+        triangles: tris.len(),
+        textures: Vec::new(),
+    })
 }
 
 /// A binary glTF (`.glb`), as Hunyuan and most tools write it: every mesh
@@ -165,12 +195,18 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
     if u32_at(16)? != 0x4E4F_534A {
         return Err("the first chunk is not JSON".into());
     }
-    let json: serde_json::Value = serde_json::from_slice(bytes.get(20..20 + json_len).ok_or("the JSON chunk is cut short")?)
-        .map_err(|e| format!("its JSON: {e}"))?;
+    let json: serde_json::Value = serde_json::from_slice(
+        bytes
+            .get(20..20 + json_len)
+            .ok_or("the JSON chunk is cut short")?,
+    )
+    .map_err(|e| format!("its JSON: {e}"))?;
     let bin_at = 20 + json_len;
     let bin: &[u8] = if bin_at + 8 <= bytes.len() && u32_at(bin_at + 4)? == 0x004E_4942 {
         let len = u32_at(bin_at)? as usize;
-        bytes.get(bin_at + 8..(bin_at + 8).saturating_add(len)).ok_or("the binary chunk is cut short")?
+        bytes
+            .get(bin_at + 8..(bin_at + 8).saturating_add(len))
+            .ok_or("the binary chunk is cut short")?
     } else {
         &[]
     };
@@ -179,10 +215,15 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
     let scene = json["scene"].as_u64().unwrap_or(0) as usize;
     let roots: Vec<usize> = json["scenes"][scene]["nodes"]
         .as_array()
-        .map(|a| a.iter().filter_map(|n| n.as_u64().map(|n| n as usize)).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(|n| n.as_u64().map(|n| n as usize))
+                .collect()
+        })
         .unwrap_or_else(|| (0..json["nodes"].as_array().map_or(0, |a| a.len())).collect());
     let mut placed: Vec<(usize, [[f32; 4]; 4])> = Vec::new();
-    let mut stack: Vec<(usize, [[f32; 4]; 4], u32)> = roots.into_iter().map(|n| (n, IDENTITY, 0)).collect();
+    let mut stack: Vec<(usize, [[f32; 4]; 4], u32)> =
+        roots.into_iter().map(|n| (n, IDENTITY, 0)).collect();
     while let Some((n, parent, depth)) = stack.pop() {
         let node = &json["nodes"][n];
         if node.is_null() || depth > 32 {
@@ -212,16 +253,34 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
     let mut materials = Vec::new();
     let mut textures: Vec<(usize, u32)> = Vec::new();
     for (m, world) in placed {
-        for prim in json["meshes"][m]["primitives"].as_array().into_iter().flatten() {
+        for prim in json["meshes"][m]["primitives"]
+            .as_array()
+            .into_iter()
+            .flatten()
+        {
             if prim["mode"].as_u64().unwrap_or(4) != 4 {
                 continue; // only triangle lists
             }
             let attrs = &prim["attributes"];
-            let positions = gltf.floats(attrs["POSITION"].as_u64().ok_or("a part with no positions")? as usize, 3)?;
+            let positions = gltf.floats(
+                attrs["POSITION"]
+                    .as_u64()
+                    .ok_or("a part with no positions")? as usize,
+                3,
+            )?;
             let count = positions.len() / 3;
-            let normals = attrs["NORMAL"].as_u64().map(|a| gltf.floats(a as usize, 3)).transpose()?;
-            let uvs = attrs["TEXCOORD_0"].as_u64().map(|a| gltf.floats(a as usize, 2)).transpose()?;
-            let colors = attrs["COLOR_0"].as_u64().map(|a| gltf.colors(a as usize)).transpose()?;
+            let normals = attrs["NORMAL"]
+                .as_u64()
+                .map(|a| gltf.floats(a as usize, 3))
+                .transpose()?;
+            let uvs = attrs["TEXCOORD_0"]
+                .as_u64()
+                .map(|a| gltf.floats(a as usize, 2))
+                .transpose()?;
+            let colors = attrs["COLOR_0"]
+                .as_u64()
+                .map(|a| gltf.colors(a as usize))
+                .transpose()?;
             let indices: Vec<u32> = match prim["indices"].as_u64() {
                 Some(a) => gltf.indices(a as usize)?,
                 None => (0..count as u32).collect(),
@@ -237,15 +296,27 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
             for i in 0..count {
                 let p = [positions[i * 3], positions[i * 3 + 1], positions[i * 3 + 2]];
                 mesh.positions.push(apply(world, p, 1.0));
-                let n = normals.as_ref().map(|n| [n[i * 3], n[i * 3 + 1], n[i * 3 + 2]]).unwrap_or([0.0, 0.0, 0.0]);
+                let n = normals
+                    .as_ref()
+                    .map(|n| [n[i * 3], n[i * 3 + 1], n[i * 3 + 2]])
+                    .unwrap_or([0.0, 0.0, 0.0]);
                 mesh.normals.push(unit(apply(world, n, 0.0)));
-                mesh.uvs.push(uvs.as_ref().map(|uv| [uv[i * 2], uv[i * 2 + 1]]).unwrap_or([0.0, 0.0]));
-                mesh.colors.push(colors.as_ref().map(|c| c[i]).unwrap_or([1.0; 4]));
+                mesh.uvs.push(
+                    uvs.as_ref()
+                        .map(|uv| [uv[i * 2], uv[i * 2 + 1]])
+                        .unwrap_or([0.0, 0.0]),
+                );
+                mesh.colors
+                    .push(colors.as_ref().map(|c| c[i]).unwrap_or([1.0; 4]));
             }
             mesh.indices.extend(indices.iter().map(|i| base + i));
             if normals.is_none() {
                 // No normals given: each triangle's own.
-                for tri in mesh.indices[first as usize..].chunks(3).map(|t| [t[0], t[1], t[2]]).collect::<Vec<_>>() {
+                for tri in mesh.indices[first as usize..]
+                    .chunks(3)
+                    .map(|t| [t[0], t[1], t[2]])
+                    .collect::<Vec<_>>()
+                {
                     let [a, b, c] = tri.map(|i| mesh.positions[i as usize]);
                     let n = normal(a, b, c);
                     for i in tri {
@@ -255,13 +326,22 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
             }
             mesh.groups.push((first, mesh.indices.len() as u32 - first));
             // Its material: the base colour, and its texture if it has one.
-            let material = &json["materials"][prim["material"].as_u64().unwrap_or(u64::MAX) as usize];
+            let material =
+                &json["materials"][prim["material"].as_u64().unwrap_or(u64::MAX) as usize];
             let pbr = &material["pbrMetallicRoughness"];
             let factor: Vec<f32> = pbr["baseColorFactor"]
                 .as_array()
-                .map(|a| a.iter().filter_map(|v| v.as_f64().map(|v| v as f32)).collect())
+                .map(|a| {
+                    a.iter()
+                        .filter_map(|v| v.as_f64().map(|v| v as f32))
+                        .collect()
+                })
                 .unwrap_or_default();
-            let tint = if factor.len() == 4 { [factor[0], factor[1], factor[2], factor[3]] } else { [1.0; 4] };
+            let tint = if factor.len() == 4 {
+                [factor[0], factor[1], factor[2], factor[3]]
+            } else {
+                [1.0; 4]
+            };
             let image = pbr["baseColorTexture"]["index"]
                 .as_u64()
                 .and_then(|t| json["textures"][t as usize]["source"].as_u64())
@@ -298,11 +378,17 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
     // The textures, decoded and kept within the window's means.
     let mut pictures = Vec::new();
     for (image, id) in textures {
-        let view = json["images"][image]["bufferView"].as_u64().ok_or("a texture that is not embedded")? as usize;
+        let view = json["images"][image]["bufferView"]
+            .as_u64()
+            .ok_or("a texture that is not embedded")? as usize;
         let data = gltf.view(view)?;
         let decoded = image::load_from_memory(data).map_err(|e| format!("a texture: {e}"))?;
         let decoded = if decoded.width().max(decoded.height()) > TEXTURE_SIDE {
-            decoded.resize(TEXTURE_SIDE, TEXTURE_SIDE, image::imageops::FilterType::Triangle)
+            decoded.resize(
+                TEXTURE_SIDE,
+                TEXTURE_SIDE,
+                image::imageops::FilterType::Triangle,
+            )
         } else {
             decoded
         };
@@ -313,7 +399,12 @@ pub(crate) fn from_glb(bytes: &[u8]) -> Result<Model, String> {
     let mut node = Node::new(2, MeshRef::Uploaded(MESH), lit(STEEL, 0.0));
     node.parent = Some(angel_glass::MODEL_ROOT);
     node.face_materials = materials;
-    Ok(Model { mesh, nodes: vec![node], triangles, textures: pictures })
+    Ok(Model {
+        mesh,
+        nodes: vec![node],
+        triangles,
+        textures: pictures,
+    })
 }
 
 /// A glTF's JSON and its binary chunk, read by accessor.
@@ -330,14 +421,20 @@ impl Gltf<'_> {
         }
         let at = v["byteOffset"].as_u64().unwrap_or(0) as usize;
         let len = v["byteLength"].as_u64().ok_or("a view with no length")? as usize;
-        let end = at.checked_add(len).ok_or("a view past the end of the data")?;
-        self.bin.get(at..end).ok_or_else(|| "a view past the end of the data".into())
+        let end = at
+            .checked_add(len)
+            .ok_or("a view past the end of the data")?;
+        self.bin
+            .get(at..end)
+            .ok_or_else(|| "a view past the end of the data".into())
     }
 
     /// An accessor's elements as `(bytes, component type, count, width, stride)`.
     fn accessor(&self, a: usize, width: usize) -> Result<(&[u8], u64, usize, usize), String> {
         let acc = &self.json["accessors"][a];
-        let view = acc["bufferView"].as_u64().ok_or("an accessor with no data")? as usize;
+        let view = acc["bufferView"]
+            .as_u64()
+            .ok_or("an accessor with no data")? as usize;
         let data = self.view(view)?;
         let at = acc["byteOffset"].as_u64().unwrap_or(0) as usize;
         let kind = acc["componentType"].as_u64().unwrap_or(0);
@@ -348,7 +445,9 @@ impl Gltf<'_> {
             5125 | 5126 => 4,
             _ => return Err(format!("component type {kind}")),
         };
-        let stride = self.json["bufferViews"][view]["byteStride"].as_u64().map_or(size * width, |s| s as usize);
+        let stride = self.json["bufferViews"][view]["byteStride"]
+            .as_u64()
+            .map_or(size * width, |s| s as usize);
         // Checked: a hostile count or stride must not wrap past the bound
         // (and then size an allocation from it).
         let need = if count == 0 {
@@ -382,19 +481,38 @@ impl Gltf<'_> {
     }
 
     fn colors(&self, a: usize) -> Result<Vec<[f32; 4]>, String> {
-        let width = if self.json["accessors"][a]["type"] == "VEC3" { 3 } else { 4 };
+        let width = if self.json["accessors"][a]["type"] == "VEC3" {
+            3
+        } else {
+            4
+        };
         let (data, kind, count, stride) = self.accessor(a, width)?;
         let one = |i: usize, k: usize| -> f32 {
             let o = i * stride;
             match kind {
-                5126 => f32::from_le_bytes([data[o + k * 4], data[o + k * 4 + 1], data[o + k * 4 + 2], data[o + k * 4 + 3]]),
+                5126 => f32::from_le_bytes([
+                    data[o + k * 4],
+                    data[o + k * 4 + 1],
+                    data[o + k * 4 + 2],
+                    data[o + k * 4 + 3],
+                ]),
                 5121 => f32::from(data[o + k]) / 255.0,
-                5123 => f32::from(u16::from_le_bytes([data[o + k * 2], data[o + k * 2 + 1]])) / 65535.0,
+                5123 => {
+                    f32::from(u16::from_le_bytes([data[o + k * 2], data[o + k * 2 + 1]])) / 65535.0
+                }
                 _ => 1.0,
             }
         };
         Ok((0..count)
-            .map(|i| [one(i, 0), one(i, 1), one(i, 2), if width == 4 { one(i, 3) } else { 1.0 }].map(|v| v.clamp(0.0, 1.0)))
+            .map(|i| {
+                [
+                    one(i, 0),
+                    one(i, 1),
+                    one(i, 2),
+                    if width == 4 { one(i, 3) } else { 1.0 },
+                ]
+                .map(|v| v.clamp(0.0, 1.0))
+            })
             .collect())
     }
 
@@ -414,28 +532,72 @@ impl Gltf<'_> {
     }
 }
 
-const IDENTITY: [[f32; 4]; 4] = [[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], [0.0, 0.0, 0.0, 1.0]];
+const IDENTITY: [[f32; 4]; 4] = [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 1.0],
+];
 
 /// A node's own transform, column-major: its matrix, or its translation,
 /// rotation and scale.
 fn local(node: &serde_json::Value) -> [[f32; 4]; 4] {
     let nums = |key: &str| -> Vec<f32> {
-        node[key].as_array().map(|a| a.iter().filter_map(|v| v.as_f64().map(|v| v as f32)).collect()).unwrap_or_default()
+        node[key]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_f64().map(|v| v as f32))
+                    .collect()
+            })
+            .unwrap_or_default()
     };
     let m = nums("matrix");
     if m.len() == 16 {
-        return [[m[0], m[1], m[2], m[3]], [m[4], m[5], m[6], m[7]], [m[8], m[9], m[10], m[11]], [m[12], m[13], m[14], m[15]]];
+        return [
+            [m[0], m[1], m[2], m[3]],
+            [m[4], m[5], m[6], m[7]],
+            [m[8], m[9], m[10], m[11]],
+            [m[12], m[13], m[14], m[15]],
+        ];
     }
     let t = nums("translation");
     let r = nums("rotation");
     let s = nums("scale");
-    let t = if t.len() == 3 { [t[0], t[1], t[2]] } else { [0.0; 3] };
-    let [x, y, z, w] = if r.len() == 4 { [r[0], r[1], r[2], r[3]] } else { [0.0, 0.0, 0.0, 1.0] };
-    let s = if s.len() == 3 { [s[0], s[1], s[2]] } else { [1.0; 3] };
+    let t = if t.len() == 3 {
+        [t[0], t[1], t[2]]
+    } else {
+        [0.0; 3]
+    };
+    let [x, y, z, w] = if r.len() == 4 {
+        [r[0], r[1], r[2], r[3]]
+    } else {
+        [0.0, 0.0, 0.0, 1.0]
+    };
+    let s = if s.len() == 3 {
+        [s[0], s[1], s[2]]
+    } else {
+        [1.0; 3]
+    };
     [
-        [(1.0 - 2.0 * (y * y + z * z)) * s[0], 2.0 * (x * y + z * w) * s[0], 2.0 * (x * z - y * w) * s[0], 0.0],
-        [2.0 * (x * y - z * w) * s[1], (1.0 - 2.0 * (x * x + z * z)) * s[1], 2.0 * (y * z + x * w) * s[1], 0.0],
-        [2.0 * (x * z + y * w) * s[2], 2.0 * (y * z - x * w) * s[2], (1.0 - 2.0 * (x * x + y * y)) * s[2], 0.0],
+        [
+            (1.0 - 2.0 * (y * y + z * z)) * s[0],
+            2.0 * (x * y + z * w) * s[0],
+            2.0 * (x * z - y * w) * s[0],
+            0.0,
+        ],
+        [
+            2.0 * (x * y - z * w) * s[1],
+            (1.0 - 2.0 * (x * x + z * z)) * s[1],
+            2.0 * (y * z + x * w) * s[1],
+            0.0,
+        ],
+        [
+            2.0 * (x * z + y * w) * s[2],
+            2.0 * (y * z - x * w) * s[2],
+            (1.0 - 2.0 * (x * x + y * y)) * s[2],
+            0.0,
+        ],
         [t[0], t[1], t[2], 1.0],
     ]
 }
@@ -457,24 +619,44 @@ fn apply(m: [[f32; 4]; 4], p: [f32; 3], w: f32) -> [f32; 3] {
 
 fn unit(v: [f32; 3]) -> [f32; 3] {
     let len = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-    if len > 1e-12 { [v[0] / len, v[1] / len, v[2] / len] } else { [0.0, 1.0, 0.0] }
+    if len > 1e-12 {
+        [v[0] / len, v[1] / len, v[2] / len]
+    } else {
+        [0.0, 1.0, 0.0]
+    }
 }
 
 /// Centre points on their middle and fit them in a sphere a little
 /// inside the unit, the turntable's room.
 fn fit(points: &mut [[f32; 3]]) {
-    let (lo, hi) = points.iter().fold(([f32::MAX; 3], [f32::MIN; 3]), |(lo, hi), p| {
-        ([lo[0].min(p[0]), lo[1].min(p[1]), lo[2].min(p[2])], [hi[0].max(p[0]), hi[1].max(p[1]), hi[2].max(p[2])])
-    });
-    let centre = [(lo[0] + hi[0]) / 2.0, (lo[1] + hi[1]) / 2.0, (lo[2] + hi[2]) / 2.0];
+    let (lo, hi) = points
+        .iter()
+        .fold(([f32::MAX; 3], [f32::MIN; 3]), |(lo, hi), p| {
+            (
+                [lo[0].min(p[0]), lo[1].min(p[1]), lo[2].min(p[2])],
+                [hi[0].max(p[0]), hi[1].max(p[1]), hi[2].max(p[2])],
+            )
+        });
+    let centre = [
+        (lo[0] + hi[0]) / 2.0,
+        (lo[1] + hi[1]) / 2.0,
+        (lo[2] + hi[2]) / 2.0,
+    ];
     let reach = points
         .iter()
-        .map(|p| ((p[0] - centre[0]).powi(2) + (p[1] - centre[1]).powi(2) + (p[2] - centre[2]).powi(2)).sqrt())
+        .map(|p| {
+            ((p[0] - centre[0]).powi(2) + (p[1] - centre[1]).powi(2) + (p[2] - centre[2]).powi(2))
+                .sqrt()
+        })
         .fold(0.0f32, f32::max)
         .max(1e-6);
     let k = 0.95 / reach;
     for p in points.iter_mut() {
-        *p = [(p[0] - centre[0]) * k, (p[1] - centre[1]) * k, (p[2] - centre[2]) * k];
+        *p = [
+            (p[0] - centre[0]) * k,
+            (p[1] - centre[1]) * k,
+            (p[2] - centre[2]) * k,
+        ];
     }
 }
 
@@ -509,10 +691,21 @@ fn realm_tone(word: &str) -> Option<([f32; 3], f32)> {
 }
 
 fn normal(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> [f32; 3] {
-    let (u, v) = ([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]);
-    let n = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+    let (u, v) = (
+        [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
+        [c[0] - a[0], c[1] - a[1], c[2] - a[2]],
+    );
+    let n = [
+        u[1] * v[2] - u[2] * v[1],
+        u[2] * v[0] - u[0] * v[2],
+        u[0] * v[1] - u[1] * v[0],
+    ];
     let len = (n[0] * n[0] + n[1] * n[1] + n[2] * n[2]).sqrt();
-    if len > 1e-12 { [n[0] / len, n[1] / len, n[2] / len] } else { [0.0, 1.0, 0.0] }
+    if len > 1e-12 {
+        [n[0] / len, n[1] / len, n[2] / len]
+    } else {
+        [0.0, 1.0, 0.0]
+    }
 }
 
 #[cfg(test)]
@@ -534,7 +727,10 @@ mod tests {
             .iter()
             .map(|p| (p[0] * p[0] + p[1] * p[1] + p[2] * p[2]).sqrt())
             .fold(0.0f32, f32::max);
-        assert!((reach - 0.95).abs() < 1e-4, "fitted to the turntable's sphere");
+        assert!(
+            (reach - 0.95).abs() < 1e-4,
+            "fitted to the turntable's sphere"
+        );
         assert!(model.mesh.validate().is_ok());
         assert_eq!(model.nodes[0].parent, Some(angel_glass::MODEL_ROOT));
     }
@@ -556,7 +752,11 @@ mod tests {
         for i in [0u16, 1, 2, 0] {
             bin.extend_from_slice(&i.to_le_bytes());
         }
-        let rotation = if rotated { r#","rotation":[0.7071068,0,0,0.7071068]"# } else { "" };
+        let rotation = if rotated {
+            r#","rotation":[0.7071068,0,0,0.7071068]"#
+        } else {
+            ""
+        };
         let mut json = format!(
             r#"{{"asset":{{"version":"2.0"}},"scene":0,"scenes":[{{"nodes":[0]}}],"nodes":[{{"mesh":0{rotation}}}],
             "meshes":[{{"primitives":[{{"attributes":{{"POSITION":0}},"indices":1,"material":0}}]}}],
@@ -598,8 +798,13 @@ mod tests {
         assert!(span(2) > span(1), "the node's rotation is applied");
         assert!(from_glb(b"not a model").is_err());
         // A count that would wrap the bound is refused, not trusted.
-        let mut hostile = String::from_utf8_lossy(&tiny_glb(false)).into_owned().into_bytes();
-        let at = hostile.windows(9).position(|w| w == b"\"count\":3").unwrap();
+        let mut hostile = String::from_utf8_lossy(&tiny_glb(false))
+            .into_owned()
+            .into_bytes();
+        let at = hostile
+            .windows(9)
+            .position(|w| w == b"\"count\":3")
+            .unwrap();
         let huge = b"\"count\":9";
         hostile[at..at + 9].copy_from_slice(huge);
         assert!(from_glb(&hostile).is_err());
@@ -610,8 +815,18 @@ mod tests {
         // A thin post along z, in the realm's z-up words, ends up along y.
         let post = "usemtl stone\nv 0 0 0\nv 0.1 0 0\nv 0 0 5\nf 1 2 3\n";
         let model = from_obj(post).unwrap();
-        let tall = model.mesh.positions.iter().map(|p| p[1]).fold(f32::MIN, f32::max)
-            - model.mesh.positions.iter().map(|p| p[1]).fold(f32::MAX, f32::min);
+        let tall = model
+            .mesh
+            .positions
+            .iter()
+            .map(|p| p[1])
+            .fold(f32::MIN, f32::max)
+            - model
+                .mesh
+                .positions
+                .iter()
+                .map(|p| p[1])
+                .fold(f32::MAX, f32::min);
         assert!(tall > 1.5);
     }
 }

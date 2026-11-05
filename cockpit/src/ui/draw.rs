@@ -546,20 +546,20 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         !app.input.is_empty(),
         app.visual_motion,
     );
-    app.overwatch.set_peer_activity(
-        if app.thinking.is_some() || app.pending_turn.is_some() {
+    app.overwatch
+        .set_peer_activity(if app.thinking.is_some() || app.pending_turn.is_some() {
             "turn"
         } else {
             "idle"
-        },
-    );
+        });
     app.overwatch.refresh();
     // The sleeping giant in the realm mirrors the same peer scan.
     let peer_now_ms = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    app.realm.world
+    app.realm
+        .world
         .note_guardian_peers(&app.overwatch.peers, peer_now_ms);
     // Peer transitions belong to the ambient world, not the conversation.
     // Drain them into diagnostics so routine activity never adds chat rows.
@@ -645,7 +645,13 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             .map(|d| app.realm.dungeon.wish_deck(d.player))
             .unwrap_or_default();
         let player = app.realm.dungeon.forge.draft.as_ref().map(|d| d.player);
-        let (making, depth) = app.with_realm(|r, cx| { let session = r.session(cx); (player.and_then(|id| session.wish_making(id)), session.wish_depth()) });
+        let (making, depth) = app.with_realm(|r, cx| {
+            let session = r.session(cx);
+            (
+                player.and_then(|id| session.wish_making(id)),
+                session.wish_depth(),
+            )
+        });
         let known = crate::app::control::known_wishes(&deck, making.as_ref(), depth);
         let (upgrades, upgrade_note) = app
             .dungeon
@@ -667,7 +673,12 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         app.image_occluders.push(root);
         app.viewer.clear_still();
         app.realm.dungeon.controls_visible = if let Some(intro) = &app.realm.dungeon.intro {
-            crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.realm.dungeon.realm.as_ref());
+            crate::ui::viz::delve_intro_viz::render(
+                frame,
+                root,
+                intro,
+                app.realm.dungeon.realm.as_ref(),
+            );
             true
         } else if let Some(seat) = app.realm.dungeon.activity_menu {
             frame.render_widget(ratatui::widgets::Clear, root);
@@ -709,7 +720,8 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                 root,
                 &app.realm.dungeon.notice,
                 app.realm.dungeon.chorus.subtitle(std::time::Instant::now()),
-                app.realm.dungeon
+                app.realm
+                    .dungeon
                     .forge
                     .draft
                     .as_ref()
@@ -726,12 +738,15 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                                 .map(|k| (k.1.clone(), k.2.clone()))
                         }),
                         sanctuary: d.sanctuary,
-                        scroll: joined.run().and_then(|run| crate::ui::viz::shooter_viz::scroll_of(&run, joined.actor())),
+                        scroll: joined.run().and_then(|run| {
+                            crate::ui::viz::shooter_viz::scroll_of(&run, joined.actor())
+                        }),
                         upgrades: upgrades.clone(),
                         upgrade_note,
                         upgrade_page: d.upgrade_page,
                     }),
-                app.realm.dungeon
+                app.realm
+                    .dungeon
                     .cards_open
                     .then_some((app.realm.dungeon.cards_page, app.realm.dungeon.cards_sel)),
                 native,
@@ -763,12 +778,14 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                 !app.terminal_focused || app.dungeon_controls_blocked(),
                 app.realm.dungeon.hosting.is_some(),
                 &app.dungeon_harness_status(),
-                app.realm.dungeon
+                app.realm
+                    .dungeon
                     .cards_open
                     .then_some((app.realm.dungeon.cards_page, app.realm.dungeon.cards_sel)),
                 app.realm.dungeon.realm.as_ref(),
                 app.realm.dungeon.chorus.subtitle(std::time::Instant::now()),
-                app.realm.dungeon
+                app.realm
+                    .dungeon
                     .forge
                     .draft
                     .as_ref()
@@ -803,7 +820,11 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         // The wish scroll's choices, the wish sealed, the genie freed: the
         // seat's picture carries them when it is shown whole; in cells,
         // the scroll's own half-block version.
-        if !native && app.realm.dungeon.forge.draft.is_none() && app.realm.dungeon.activity_menu.is_none() && !app.realm.dungeon.cards_open {
+        if !native
+            && app.realm.dungeon.forge.draft.is_none()
+            && app.realm.dungeon.activity_menu.is_none()
+            && !app.realm.dungeon.cards_open
+        {
             if let Some(joined) = &app.realm.dungeon.joined {
                 if let Some(run) = joined.run() {
                     crate::ui::viz::shooter_viz::offer_box(frame, root, &run, joined.actor());
@@ -1048,8 +1069,18 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
             .push(mouse::PaneId::Artifacts, mouse::inner_border(cockpit_area));
     } else if let Some((id, surface)) = app.focused_live_surface() {
         let block = hud_block(surface.title.as_str());
-        let lines = surface.lines.iter().cloned().map(Line::from).collect::<Vec<_>>();
-        frame.render_widget(Paragraph::new(lines).block(block).wrap(Wrap { trim: false }), cockpit_area);
+        let lines = surface
+            .lines
+            .iter()
+            .cloned()
+            .map(Line::from)
+            .collect::<Vec<_>>();
+        frame.render_widget(
+            Paragraph::new(lines)
+                .block(block)
+                .wrap(Wrap { trim: false }),
+            cockpit_area,
+        );
         app.module_host.set_rect(&id, cockpit_area);
     } else if root.width < 100 || root.height < 30 {
         // On compact terminals F3/F4 become true full-body focus modes. This
@@ -2516,7 +2547,10 @@ fn render_browser_picker(frame: &mut Frame, app: &mut App) {
             Style::new().fg(HUD_BLUE)
         };
         let row_area = Rect::new(inner.x, y, inner.width, 1);
-        frame.render_widget(Paragraph::new(Line::from(Span::styled(text, style))), row_area);
+        frame.render_widget(
+            Paragraph::new(Line::from(Span::styled(text, style))),
+            row_area,
+        );
         hits.push((row_area, index));
     }
     let footer = Rect::new(

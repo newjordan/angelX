@@ -291,7 +291,7 @@ fn worker_health_leg() -> angel_live::Program {
 fn native_recovery_step(
     phase: &LeasePhaseV1,
 ) -> crate::drive::competition::worker_policy::LiveRecoveryStep {
-    use crate::drive::competition::worker_policy::{phase_code, LiveRecoveryStep};
+    use crate::drive::competition::worker_policy::{LiveRecoveryStep, phase_code};
     match phase {
         LeasePhaseV1::Suspect => LiveRecoveryStep { state: 1, phase: 2 },
         LeasePhaseV1::Nudged => LiveRecoveryStep { state: 2, phase: 3 },
@@ -331,7 +331,9 @@ fn native_semantic_step(
     }
 }
 
-fn expected_recovery(phase: LeasePhaseV1) -> crate::drive::competition::worker_policy::LiveRecoveryStep {
+fn expected_recovery(
+    phase: LeasePhaseV1,
+) -> crate::drive::competition::worker_policy::LiveRecoveryStep {
     native_recovery_step(&phase)
 }
 
@@ -357,11 +359,9 @@ fn worker_health_leg_matches_native_for_every_feature_value() {
             Some(leg.clone()),
             "worker-health",
             &input,
-            |step: &crate::drive::competition::worker_policy::LiveRecoveryStep| {
-                match step.state {
-                    0..=3 => Ok(()),
-                    _ => Err("out of contract".into()),
-                }
+            |step: &crate::drive::competition::worker_policy::LiveRecoveryStep| match step.state {
+                0..=3 => Ok(()),
+                _ => Err("out of contract".into()),
             },
             || expected.clone(),
         );
@@ -383,11 +383,11 @@ fn worker_health_leg_matches_native_for_every_feature_value() {
                     Some(leg.clone()),
                     "worker-health",
                     &input,
-                    |step: &crate::drive::competition::worker_policy::LiveSemanticStep| {
-                        match step.state {
-                            0..=3 => Ok(()),
-                            _ => Err("out of contract".into()),
-                        }
+                    |step: &crate::drive::competition::worker_policy::LiveSemanticStep| match step
+                        .state
+                    {
+                        0..=3 => Ok(()),
+                        _ => Err("out of contract".into()),
                     },
                     || expected.clone(),
                 );
@@ -424,11 +424,9 @@ fn worker_health_out_of_contract_step_falls_back_to_native() {
         Some(leg),
         "worker-health",
         &serde_json::json!({"kind": "recovery", "phase": 9}),
-        |step: &crate::drive::competition::worker_policy::LiveRecoveryStep| {
-            match step.state {
-                0..=3 => Ok(()),
-                _ => Err("out of contract".into()),
-            }
+        |step: &crate::drive::competition::worker_policy::LiveRecoveryStep| match step.state {
+            0..=3 => Ok(()),
+            _ => Err("out of contract".into()),
         },
         || crate::drive::competition::worker_policy::LiveRecoveryStep { state: 7, phase: 9 },
     );

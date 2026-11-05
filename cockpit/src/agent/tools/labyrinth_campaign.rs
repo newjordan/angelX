@@ -24,7 +24,8 @@ impl Tool for LabyrinthCampaignTool {
         "labyrinth_campaign"
     }
     fn def(&self) -> ToolDef {
-        let mut definition = crate::agent::harness::core_catalog::baseline_def("labyrinth_campaign");
+        let mut definition =
+            crate::agent::harness::core_catalog::baseline_def("labyrinth_campaign");
         definition.description = legend::CAMPAIGN.cells();
         definition.params["properties"]["spec"] = labyrinth::entry::spec_schema();
         definition

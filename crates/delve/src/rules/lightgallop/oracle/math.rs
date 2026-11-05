@@ -79,7 +79,10 @@ pub fn unit(dx: i64, dy: i64) -> (i32, i32) {
     if len == 0 {
         return (ONE, 0);
     }
-    ((dx * i64::from(ONE) / len) as i32, (dy * i64::from(ONE) / len) as i32)
+    (
+        (dx * i64::from(ONE) / len) as i32,
+        (dy * i64::from(ONE) / len) as i32,
+    )
 }
 
 /// The angle of the vector `(x, y)` in brads, 0 to 1023, measured on screen
@@ -96,7 +99,11 @@ pub fn atan2(y: i32, x: i32) -> i32 {
         let (a, b) = (i32::from(ATAN[k.min(64)]), i32::from(ATAN[(k + 1).min(64)]));
         a + (b - a) * f / 64
     };
-    let first = if ay <= ax { octant(ay, ax) } else { 256 - octant(ax, ay) };
+    let first = if ay <= ax {
+        octant(ay, ax)
+    } else {
+        256 - octant(ax, ay)
+    };
     // `first` is the angle in the quadrant of (|x|, |y|), 0..=256.
     let a = match (x >= 0, y >= 0) {
         (true, true) => first,
@@ -113,7 +120,11 @@ pub fn turn_toward(from: i32, to: i32, ease: i32, slew: i32) -> i32 {
     let gap = (to - from + 512).rem_euclid(1024) - 512;
     let step = (gap / ease.max(1)).clamp(-slew, slew);
     // A small gap closes outright rather than hovering.
-    let step = if gap != 0 && step == 0 { gap.signum() } else { step };
+    let step = if gap != 0 && step == 0 {
+        gap.signum()
+    } else {
+        step
+    };
     (from + step).rem_euclid(1024)
 }
 

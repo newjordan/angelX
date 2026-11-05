@@ -238,8 +238,10 @@ impl App {
         if let Err(error) = self.realm.dungeon.restore(&target) {
             self.realm.dungeon.notice = format!("Could not restore delve: {error}");
         }
-        self.scryglass = crate::ui::scryglass::Scryglass::for_session(self.realm.world.destination());
-        self.realm.world
+        self.scryglass =
+            crate::ui::scryglass::Scryglass::for_session(self.realm.world.destination());
+        self.realm
+            .world
             .enable_districts(crate::app::scan_workspace_districts(&target));
         self.world_buttons.clear();
         self.agent_buttons.clear();

@@ -644,7 +644,8 @@ fn live_realm_stage_surfaces_degraded_memory_at_the_chapel() {
         "memory__recall",
         "project conventions",
     );
-    app.realm.world
+    app.realm
+        .world
         .note_memory_health(crate::knowledge::memory::store::MemoryHealth::Degraded);
 
     let screen = render_app_text(&mut app, 120, 40);
@@ -1307,7 +1308,8 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
     );
     assert!(crate::tests::contains_dotmax(&standard));
     assert!(
-        app.object_dock.offers(crate::app::WorldButton::ScryglassLibrary)
+        app.object_dock
+            .offers(crate::app::WorldButton::ScryglassLibrary)
             && app.object_dock.offers(crate::app::WorldButton::Back),
         "default still carries navigation controls (floated from the dock)\n{standard}"
     );
@@ -1781,7 +1783,8 @@ fn hidden_and_comp_mode_skip_world_animating_without_slowing_default() {
 
     let mut app = seed_preview_app();
     app.world_pane_visible = true;
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call("apply_patch", "move the knight for cadence testing");
     assert!(
         app.realm.world.animating(),
@@ -1933,14 +1936,17 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
         "an idle town shows none of the adventure chrome\n{town}"
     );
 
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(world_viz::AdventureEvent::LoopStarted {
             kind: world_viz::LoopKind::Competition,
             task: "kernel benchmark".to_string(),
         });
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(world_viz::AdventureEvent::Iteration { n: 7 });
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(world_viz::AdventureEvent::Stall { level: 2 });
 
     let mut terminal = Terminal::new(TestBackend::new(144, 48)).unwrap();
@@ -2010,7 +2016,8 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     // The live tool path: classify → journey → the knight settles at the
     // landmark, which is what arms the ARRIVAL overlay.
     let call_id = crate::agent::harness::ToolEventId("z5-quest-arrival".into());
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call_event(call_id.clone(), "write_file", "cockpit/src/lib.rs");
     app.scryglass
         .begin_journey(call_id, world_viz::Building::Smithy, false);
@@ -2064,7 +2071,10 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     for _ in 0..130 {
         app.realm.world.tick();
     }
-    assert_eq!(app.realm.world.quest().region(), world_viz::Region::CastleTown);
+    assert_eq!(
+        app.realm.world.quest().region(),
+        world_viz::Region::CastleTown
+    );
     assert!(!app.realm.world.quest_owns_pane());
 
     app.scryglass.navigate(scryglass::StageRoute::Realm);
@@ -2185,12 +2195,14 @@ fn a_loops_crawl_says_what_the_party_does_under_its_picture() {
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
     app.scryglass.navigate(scryglass::StageRoute::Realm);
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(world_viz::AdventureEvent::LoopStarted {
             kind: world_viz::LoopKind::Coding,
             task: "an actual coding loop".to_string(),
         });
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(world_viz::AdventureEvent::Iteration { n: 1 });
     let screen = render_app_text(&mut app, 144, 48);
     if let Some(dir) = std::env::var_os("ANGEL_CRAWL_SHOTS") {
@@ -2221,12 +2233,14 @@ fn the_quintain_shows_the_loops_crawl_with_its_numbers() {
     app.loop_ctl.status = LoopStatus::Running;
     app.loop_ctl.iteration = 1;
     app.scryglass.navigate(scryglass::StageRoute::Loop);
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(world_viz::AdventureEvent::LoopStarted {
             kind: world_viz::LoopKind::Coding,
             task: "an actual coding loop".to_string(),
         });
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(world_viz::AdventureEvent::Iteration { n: 1 });
     let screen = render_app_text(&mut app, 144, 48);
     assert!(screen.contains("Quintain"), "the Loop view\n{screen}");

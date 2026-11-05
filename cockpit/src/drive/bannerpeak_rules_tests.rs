@@ -19,7 +19,7 @@ mod oracle;
 
 #[cfg(test)]
 mod tests {
-    use super::boss::{Attack, Beat, Boss, Hazard, HEAD_DOWN, HEAD_UP, PHASES, floor, home};
+    use super::boss::{Attack, Beat, Boss, HEAD_DOWN, HEAD_UP, Hazard, PHASES, floor, home};
     use super::oracle;
     use serde_json::{Value, json};
 
@@ -29,8 +29,9 @@ mod tests {
 
     /// The leg's answer for one tick of King Cinder.
     fn bent(boss: &Boss, feet: &[(i32, i32)], seats: u8, elapsed: u32) -> Boss {
-        let answer: Value = angel_delve::scripted::step("bannerpeak-rules", &ask(boss, feet, seats, elapsed))
-            .expect("the leg answers a boss tick");
+        let answer: Value =
+            angel_delve::scripted::step("bannerpeak-rules", &ask(boss, feet, seats, elapsed))
+                .expect("the leg answers a boss tick");
         serde_json::from_value(answer["boss"].clone()).expect("the leg's boss is a boss")
     }
 
@@ -43,9 +44,12 @@ mod tests {
 
     fn bent_slam(boss: &Boss, x: i32, y: i32) -> (bool, Boss) {
         let input = json!({"op": "slam", "x": x, "y": y, "boss": boss});
-        let answer: Value = angel_delve::scripted::step("bannerpeak-rules", &input).expect("the leg answers a slam");
+        let answer: Value = angel_delve::scripted::step("bannerpeak-rules", &input)
+            .expect("the leg answers a slam");
         (
-            answer["hit"].as_bool().expect("a slam is a hit or it is not"),
+            answer["hit"]
+                .as_bool()
+                .expect("a slam is a hit or it is not"),
             serde_json::from_value(answer["boss"].clone()).expect("a boss"),
         )
     }
@@ -59,7 +63,12 @@ mod tests {
             .map(|seat| {
                 let span = right - left;
                 let phase = (tick as i32 * 7 + seat as i32 * 61) % (2 * span);
-                let x = left + if phase < span { phase } else { 2 * span - phase };
+                let x = left
+                    + if phase < span {
+                        phase
+                    } else {
+                        2 * span - phase
+                    };
                 (x, floor() - if seat % 2 == 0 { 0 } else { 32 })
             })
             .collect()
@@ -74,7 +83,12 @@ mod tests {
                 let at = feet(seats, tick);
                 let was = boss.beat;
                 let shown = bent(&boss, &at, seats, tick);
-                assert_eq!(shown, native(&boss, &at, seats, tick), "seats {seats} tick {tick} {:?}", was);
+                assert_eq!(
+                    shown,
+                    native(&boss, &at, seats, tick),
+                    "seats {seats} tick {tick} {:?}",
+                    was
+                );
                 boss = shown;
                 // Every tick, a slam at the crown, at either edge of its box and
                 // well off it: the leg's plate and the oracle's plate agree.
@@ -88,7 +102,11 @@ mod tests {
                     let (hit, after) = bent_slam(&boss, x, y);
                     let mut want = boss.clone();
                     let native_hit = oracle::slam(&mut want, x, y);
-                    assert_eq!((hit, &after), (native_hit, &want), "seats {seats} tick {tick} slam {x},{y}");
+                    assert_eq!(
+                        (hit, &after),
+                        (native_hit, &want),
+                        "seats {seats} tick {tick} slam {x},{y}"
+                    );
                     boss = after;
                 }
             }
@@ -213,7 +231,10 @@ mod tests {
                         let at = feet(seats, elapsed);
                         let leg = bent(&b, &at, seats, elapsed);
                         let want = native(&b, &at, seats, elapsed);
-                        assert_eq!(leg.hazards, want.hazards, "seats {seats} phase {phase} kind {kind} t {elapsed}");
+                        assert_eq!(
+                            leg.hazards, want.hazards,
+                            "seats {seats} phase {phase} kind {kind} t {elapsed}"
+                        );
                         b = leg;
                     }
                 }
@@ -239,7 +260,11 @@ mod tests {
                 let (x, y) = (through_wire.x, floor() - through_wire.head);
                 let hit = through_boss.slam(x, y);
                 let (want, after) = bent_slam(&through_wire, x, y);
-                assert_eq!((hit, &through_boss), (want, &after), "seats {seats} tick {tick} slam");
+                assert_eq!(
+                    (hit, &through_boss),
+                    (want, &after),
+                    "seats {seats} tick {tick} slam"
+                );
             }
         }
     }
@@ -277,7 +302,10 @@ mod tests {
              {:.4}% of the 30 Hz frame; json in {asked} B, out {answered} B",
             100.0 * median / frame
         );
-        assert!(median < frame / 10.0, "a tick may not eat a tenth of the frame");
+        assert!(
+            median < frame / 10.0,
+            "a tick may not eat a tenth of the frame"
+        );
     }
 
     /// A hazard list is a list: the leg never loses one it kept, and the cap on

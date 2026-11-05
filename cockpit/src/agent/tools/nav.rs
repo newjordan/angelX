@@ -231,9 +231,18 @@ impl Tool for GrepTool {
     }
     fn def(&self) -> ToolDef {
         let mut definition = crate::agent::harness::core_catalog::baseline_def("grep");
-        *definition.params.pointer_mut("/properties/paths/maxItems").expect("embedded tool schema") = serde_json::json!(GREP_MAX_PATHS);
-        *definition.params.pointer_mut("/properties/skip_files/maxItems").expect("embedded tool schema") = serde_json::json!(GREP_MAX_SKIP_FILES);
-        *definition.params.pointer_mut("/properties/context/maximum").expect("embedded tool schema") = serde_json::json!(GREP_MAX_CONTEXT_LINES);
+        *definition
+            .params
+            .pointer_mut("/properties/paths/maxItems")
+            .expect("embedded tool schema") = serde_json::json!(GREP_MAX_PATHS);
+        *definition
+            .params
+            .pointer_mut("/properties/skip_files/maxItems")
+            .expect("embedded tool schema") = serde_json::json!(GREP_MAX_SKIP_FILES);
+        *definition
+            .params
+            .pointer_mut("/properties/context/maximum")
+            .expect("embedded tool schema") = serde_json::json!(GREP_MAX_CONTEXT_LINES);
         definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -1330,7 +1339,10 @@ impl Tool for DefsTool {
     }
     fn def(&self) -> ToolDef {
         let mut definition = crate::agent::harness::core_catalog::baseline_def("defs");
-        *definition.params.pointer_mut("/properties/names/maxItems").expect("embedded tool schema") = serde_json::json!(DEFS_MAX_NAMES);
+        *definition
+            .params
+            .pointer_mut("/properties/names/maxItems")
+            .expect("embedded tool schema") = serde_json::json!(DEFS_MAX_NAMES);
         definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {

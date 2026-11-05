@@ -92,12 +92,22 @@ impl Path {
         let n = self.segments();
         let (lo, hi, from, to) = if s <= self.mid[i] {
             if i == 0 {
-                return Sample { x, y, tx: d.0, ty: d.1 };
+                return Sample {
+                    x,
+                    y,
+                    tx: d.0,
+                    ty: d.1,
+                };
             }
             (i - 1, i, self.mid[i - 1], self.mid[i])
         } else {
             if i + 1 >= n {
-                return Sample { x, y, tx: d.0, ty: d.1 };
+                return Sample {
+                    x,
+                    y,
+                    tx: d.0,
+                    ty: d.1,
+                };
             }
             (i, i + 1, self.mid[i], self.mid[i + 1])
         };
@@ -105,7 +115,12 @@ impl Path {
         let w = i64::from(s - from);
         let (p, q) = (self.dir[lo], self.dir[hi]);
         let blend = |a: i32, b: i32| (i64::from(a) + (i64::from(b - a) * w / span)) as i32;
-        Sample { x, y, tx: blend(p.0, q.0), ty: blend(p.1, q.1) }
+        Sample {
+            x,
+            y,
+            tx: blend(p.0, q.0),
+            ty: blend(p.1, q.1),
+        }
     }
     /// The distance along the path of the point at pixel column `x_px`, for a
     /// path that runs left to right.
@@ -156,7 +171,10 @@ pub struct Terrain {
 
 impl Terrain {
     pub fn new(paths: Vec<Path>) -> Self {
-        let mut t = Terrain { paths, buckets: Vec::new() };
+        let mut t = Terrain {
+            paths,
+            buckets: Vec::new(),
+        };
         t.index();
         t
     }
@@ -195,9 +213,7 @@ impl Terrain {
                 let p = &self.paths[pi];
                 let (p0, p1) = (p.pts[si], p.pts[si + 1]);
                 let (ex, ey) = (i64::from(p1.0 - p0.0), i64::from(p1.1 - p0.1));
-                let side = |q: (i32, i32)| {
-                    ex * i64::from(q.1 - p0.1) - ey * i64::from(q.0 - p0.0)
-                };
+                let side = |q: (i32, i32)| ex * i64::from(q.1 - p0.1) - ey * i64::from(q.0 - p0.0);
                 let (d0, d1) = (side(a), side(b));
                 // A hair of slack, in the segment's own units: 1.5 px.
                 let slack = isqrt_i64(ex * ex + ey * ey) * i64::from(Q) * 3 / 2;
@@ -206,7 +222,11 @@ impl Terrain {
                 }
                 // How far along a->b the line is crossed (0 to 65536).
                 let denom = d0 - d1;
-                let t = if denom == 0 { 0 } else { (d0 * 65536 / denom).clamp(0, 65536) };
+                let t = if denom == 0 {
+                    0
+                } else {
+                    (d0 * 65536 / denom).clamp(0, 65536)
+                };
                 let cx = i64::from(a.0) + i64::from(b.0 - a.0) * t / 65536;
                 // The crossing must lie over the segment (a little leeway).
                 if cx < i64::from(p0.0) - i64::from(Q) || cx > i64::from(p1.0) + i64::from(Q) {
@@ -221,12 +241,18 @@ impl Terrain {
         let p = &self.paths[pi];
         let (p0, d) = (p.pts[si], p.dir[si]);
         // Project the arrival point on the segment to find the distance.
-        let along = (i64::from(b.0 - p0.0) * i64::from(d.0) + i64::from(b.1 - p0.1) * i64::from(d.1))
+        let along = (i64::from(b.0 - p0.0) * i64::from(d.0)
+            + i64::from(b.1 - p0.1) * i64::from(d.1))
             / i64::from(ONE);
         let seg = i64::from(p.cum[si + 1] - p.cum[si]);
         let s = p.cum[si] + along.clamp(0, seg) as i32;
         let at = p.sample(s);
-        Some(Hit { path: pi, s, x: at.x, y: at.y })
+        Some(Hit {
+            path: pi,
+            s,
+            x: at.x,
+            y: at.y,
+        })
     }
 }
 
@@ -246,7 +272,10 @@ const CUT: i32 = 24;
 
 impl Builder {
     pub fn new(kind: Kind, x: i32, y: i32) -> Self {
-        Builder { kind, pts: vec![(x * Q, y * Q)] }
+        Builder {
+            kind,
+            pts: vec![(x * Q, y * Q)],
+        }
     }
     /// Where the path stands now, in pixels.
     pub fn here(&self) -> (i32, i32) {
@@ -262,7 +291,8 @@ impl Builder {
     pub fn line(&mut self, x: i32, y: i32) -> &mut Self {
         let (x0, y0) = self.pts[self.pts.len() - 1];
         let (x1, y1) = (x * Q, y * Q);
-        let len = math::isqrt(((i64::from(x1 - x0)).pow(2) + (i64::from(y1 - y0)).pow(2)) as u64) as i32;
+        let len =
+            math::isqrt(((i64::from(x1 - x0)).pow(2) + (i64::from(y1 - y0)).pow(2)) as u64) as i32;
         let n = (len / (CUT * Q) + 1).max(1);
         for i in 1..=n {
             self.push(
@@ -348,10 +378,29 @@ pub fn attach_ring(paths: &mut Vec<Path>, road: usize, mut ring: Path) -> usize 
     let at = paths.len();
     let (enter, leave) = (ring.pts[0].0 / Q, ring.pts[ring.pts.len() - 1].0 / Q);
     let (s_in, s_out) = (paths[road].s_at_x(enter), paths[road].s_at_x(leave));
-    ring.prev = Some(Link { path: road, s: s_in });
-    ring.next = Some(Link { path: road, s: s_out });
-    paths[road].portals.push(Portal { s: s_in, dir: 1, min_speed: 0, to: Link { path: at, s: 0 } });
-    paths[road].portals.push(Portal { s: s_out, dir: -1, min_speed: 0, to: Link { path: at, s: ring.len() } });
+    ring.prev = Some(Link {
+        path: road,
+        s: s_in,
+    });
+    ring.next = Some(Link {
+        path: road,
+        s: s_out,
+    });
+    paths[road].portals.push(Portal {
+        s: s_in,
+        dir: 1,
+        min_speed: 0,
+        to: Link { path: at, s: 0 },
+    });
+    paths[road].portals.push(Portal {
+        s: s_out,
+        dir: -1,
+        min_speed: 0,
+        to: Link {
+            path: at,
+            s: ring.len(),
+        },
+    });
     paths.push(ring);
     at
 }
@@ -395,18 +444,37 @@ mod tests {
         let r = ring(100, 300, 40, 16);
         let (first, last) = (r.pts[0], r.pts[r.pts.len() - 1]);
         assert_eq!(first, (100 * Q, 300 * Q));
-        assert!((last.0 - 116 * Q).abs() <= 2 && (last.1 - 300 * Q).abs() <= 2, "{last:?}");
+        assert!(
+            (last.0 - 116 * Q).abs() <= 2 && (last.1 - 300 * Q).abs() <= 2,
+            "{last:?}"
+        );
         // The circumference is about 2*pi*40 plus the drift's share.
         assert!((r.len() / Q - 251).abs() < 6, "{}", r.len() / Q);
         let at = |s: i32| r.sample(s);
         // Bottom, near wall, top, far wall.
         let q = r.len() / 4;
         assert!(at(0).tx > 3900 && at(0).ty.abs() < 200);
-        assert!(at(q).tx.abs() < 600 && at(q).ty < -3800, "rising: {:?}", at(q));
-        assert!(at(2 * q).tx < -3800 && at(2 * q).ty.abs() < 400, "upside down: {:?}", at(2 * q));
-        assert!(at(3 * q).tx.abs() < 600 && at(3 * q).ty > 3800, "falling: {:?}", at(3 * q));
+        assert!(
+            at(q).tx.abs() < 600 && at(q).ty < -3800,
+            "rising: {:?}",
+            at(q)
+        );
+        assert!(
+            at(2 * q).tx < -3800 && at(2 * q).ty.abs() < 400,
+            "upside down: {:?}",
+            at(2 * q)
+        );
+        assert!(
+            at(3 * q).tx.abs() < 600 && at(3 * q).ty > 3800,
+            "falling: {:?}",
+            at(3 * q)
+        );
         let top = at(2 * q);
-        assert!((top.y - 220 * Q).abs() < 2 * Q, "the top is a diameter up: {}", top.y / Q);
+        assert!(
+            (top.y - 220 * Q).abs() < 2 * Q,
+            "the top is a diameter up: {}",
+            top.y / Q
+        );
     }
 
     #[test]
@@ -414,15 +482,28 @@ mod tests {
         let t = Terrain::new(vec![flat(400)]);
         let hit = t.land((100 * Q, 90 * Q), (104 * Q, 108 * Q)).unwrap();
         assert_eq!((hit.path, hit.y), (0, 100 * Q));
-        assert!((hit.x - 104 * Q).abs() < Q, "it lands where it was going: {}", hit.x);
-        assert!(t.land((100 * Q, 120 * Q), (104 * Q, 90 * Q)).is_none(), "a one-way road");
-        assert!(t.land((100 * Q, 60 * Q), (104 * Q, 70 * Q)).is_none(), "still above");
+        assert!(
+            (hit.x - 104 * Q).abs() < Q,
+            "it lands where it was going: {}",
+            hit.x
+        );
+        assert!(
+            t.land((100 * Q, 120 * Q), (104 * Q, 90 * Q)).is_none(),
+            "a one-way road"
+        );
+        assert!(
+            t.land((100 * Q, 60 * Q), (104 * Q, 70 * Q)).is_none(),
+            "still above"
+        );
     }
 
     #[test]
     fn a_body_a_hair_under_the_road_still_lands_and_a_ring_is_not_landable() {
         let t = Terrain::new(vec![flat(400), ring(200, 100, 40, 16)]);
-        assert!(t.land((100 * Q, 100 * Q + 128), (100 * Q, 104 * Q)).is_some());
+        assert!(
+            t.land((100 * Q, 100 * Q + 128), (100 * Q, 104 * Q))
+                .is_some()
+        );
         // Through the ring's far wall from above is just air.
         assert!(t.land((240 * Q, 40 * Q), (240 * Q, 90 * Q)).is_none());
     }

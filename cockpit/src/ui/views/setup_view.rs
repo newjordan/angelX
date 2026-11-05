@@ -94,7 +94,13 @@ enum RowHit {
 /// Lay `page` out on a card `width` columns wide and at most `most_rows`
 /// tall, its first `title_rows` left for the title. `pill` is true where a
 /// glass pill marks the chosen row; a terminal shades it instead.
-pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, pill: bool) -> Composed {
+pub(crate) fn compose(
+    page: &Page,
+    width: u16,
+    most_rows: u16,
+    title_rows: u16,
+    pill: bool,
+) -> Composed {
     let room = usize::from(width.saturating_sub(2 * INSET)).max(1);
     let text = Style::default().fg(TEXT);
     let soft = Style::default().fg(SOFT);
@@ -107,7 +113,10 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
         rows.push((Vec::new(), None));
         field = Some(rows.len());
         let shown = if f.shown.is_empty() {
-            vec![("› ".to_string(), Style::default().fg(ACCENT)), (f.hint.to_string(), soft)]
+            vec![
+                ("› ".to_string(), Style::default().fg(ACCENT)),
+                (f.hint.to_string(), soft),
+            ]
         } else {
             // The end of a long entry stays in view, with the caret after it.
             let chars: Vec<char> = f.shown.chars().collect();
@@ -135,7 +144,8 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
         .unwrap_or_default();
     // What must fit around the choices: the title, the about lines, the
     // key bar and the margins.
-    let fixed = usize::from(title_rows) + rows.len() + 1 + about.len() + usize::from(!about.is_empty()) + 3;
+    let fixed =
+        usize::from(title_rows) + rows.len() + 1 + about.len() + usize::from(!about.is_empty()) + 3;
     let item_rows = page
         .items
         .len()
@@ -144,19 +154,34 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
     let mut cursor = None;
     if !page.items.is_empty() {
         rows.push((Vec::new(), None));
-        let start = if page.cursor < item_rows { 0 } else { page.cursor + 1 - item_rows };
+        let start = if page.cursor < item_rows {
+            0
+        } else {
+            page.cursor + 1 - item_rows
+        };
         let numbered = page.field.is_none();
         for (index, item) in page.items.iter().enumerate().skip(start).take(item_rows) {
             let picked = index == page.cursor;
             if picked {
                 cursor = Some(rows.len());
             }
-            let number = if numbered && index < 9 { format!("{}  ", index + 1) } else { "   ".into() };
+            let number = if numbered && index < 9 {
+                format!("{}  ", index + 1)
+            } else {
+                "   ".into()
+            };
             let mut runs = vec![
-                (number, Style::default().fg(if picked { ACCENT } else { SOFT })),
+                (
+                    number,
+                    Style::default().fg(if picked { ACCENT } else { SOFT }),
+                ),
                 (
                     item.label.clone(),
-                    if picked { Style::default().fg(BRIGHT).add_modifier(Modifier::BOLD) } else { text },
+                    if picked {
+                        Style::default().fg(BRIGHT).add_modifier(Modifier::BOLD)
+                    } else {
+                        text
+                    },
                 ),
             ];
             if item.ready {
@@ -195,8 +220,24 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
             let mut x = INSET;
             for (key, word) in &keys {
                 let start = x;
-                x = buffer.set_stringn(x, bar_y, key, usize::from(right.saturating_sub(x)), Style::default().fg(ACCENT)).0;
-                x = buffer.set_stringn(x, bar_y, format!(" {word}"), usize::from(right.saturating_sub(x)), soft).0;
+                x = buffer
+                    .set_stringn(
+                        x,
+                        bar_y,
+                        key,
+                        usize::from(right.saturating_sub(x)),
+                        Style::default().fg(ACCENT),
+                    )
+                    .0;
+                x = buffer
+                    .set_stringn(
+                        x,
+                        bar_y,
+                        format!(" {word}"),
+                        usize::from(right.saturating_sub(x)),
+                        soft,
+                    )
+                    .0;
                 let what = match *key {
                     "Esc" => Some(Hit::Back),
                     "Ctrl+O" => Some(Hit::Open),
@@ -223,14 +264,29 @@ pub(crate) fn compose(page: &Page, width: u16, most_rows: u16, title_rows: u16, 
         let mut x = INSET;
         for (words, style) in runs {
             let style = if shaded { style.bg(PICK_BG) } else { *style };
-            x = buffer.set_stringn(x, y, words, usize::from(right.saturating_sub(x)), style).0;
+            x = buffer
+                .set_stringn(x, y, words, usize::from(right.saturating_sub(x)), style)
+                .0;
         }
         if let Some(RowHit::Item(index)) = hit {
-            hits.push((Rect::new(INSET.saturating_sub(1), y, width.saturating_sub(2 * INSET - 2), 1), Hit::Item(*index)));
+            hits.push((
+                Rect::new(
+                    INSET.saturating_sub(1),
+                    y,
+                    width.saturating_sub(2 * INSET - 2),
+                    1,
+                ),
+                Hit::Item(*index),
+            ));
         }
     }
     let row = |r: Option<usize>| r.map(|r| title_rows + r as u16).filter(|r| *r < bar_y);
-    Composed { buffer, cursor: row(cursor), field: row(field), hits }
+    Composed {
+        buffer,
+        cursor: row(cursor),
+        field: row(field),
+        hits,
+    }
 }
 
 /// Where a card `width` by `height` sits in `root`: centred.
@@ -256,7 +312,16 @@ fn roomy(root: Rect) -> bool {
 
 pub(crate) fn offset<T>(hits: Vec<(Rect, T)>, area: Rect) -> Vec<(Rect, T)> {
     hits.into_iter()
-        .map(|(rect, hit)| (Rect { x: rect.x + area.x, y: rect.y + area.y, ..rect }, hit))
+        .map(|(rect, hit)| {
+            (
+                Rect {
+                    x: rect.x + area.x,
+                    y: rect.y + area.y,
+                    ..rect
+                },
+                hit,
+            )
+        })
         .collect()
 }
 
@@ -331,7 +396,13 @@ pub(crate) fn render(frame: &mut Frame, root: Rect, app: &mut App) {
         app.setup.hits = offset(composed.hits, root);
         return;
     }
-    let composed = compose(&page, card_width(root), root.height.saturating_sub(2), 3, false);
+    let composed = compose(
+        &page,
+        card_width(root),
+        root.height.saturating_sub(2),
+        3,
+        false,
+    );
     let area = card_rect(root, card_width(root), composed.buffer.area.height);
     paint_box(buf, area, &page.title, &composed.buffer);
     app.setup.hits = offset(composed.hits, area);
@@ -348,7 +419,16 @@ pub(crate) fn register_image_occlusion(root: Rect, app: &mut App) {
     let area = match app.setup.menu.as_ref() {
         Some(menu) if roomy(root) => {
             let page = menu.page(Instant::now());
-            let height = compose(&page, card_width(root), root.height.saturating_sub(2), 3, false).buffer.area.height;
+            let height = compose(
+                &page,
+                card_width(root),
+                root.height.saturating_sub(2),
+                3,
+                false,
+            )
+            .buffer
+            .area
+            .height;
             card_rect(root, card_width(root), height)
         }
         _ => root,
@@ -407,13 +487,19 @@ fn serial(page: &Page) -> u64 {
 /// Pure card construction, so the native contract is testable without a
 /// window or provider discovery.
 #[cfg(feature = "glass")]
-pub(crate) fn native_card(root: Rect, page: &Page) -> Option<(angel_glass::card::Card, Vec<(Rect, Hit)>)> {
+pub(crate) fn native_card(
+    root: Rect,
+    page: &Page,
+) -> Option<(angel_glass::card::Card, Vec<(Rect, Hit)>)> {
     use angel_glass::card::TITLE_ROWS;
     let width = card_width(root);
     // Rows above are kept for the squire on the roof.
     let composed = compose(page, width, root.height.saturating_sub(6), TITLE_ROWS, true);
     let area = card_rect(root, width, composed.buffer.area.height);
-    let area = Rect { y: area.y.max(root.y + 3.min(root.height)), ..area };
+    let area = Rect {
+        y: area.y.max(root.y + 3.min(root.height)),
+        ..area
+    };
     let mut card = angel_glass::card::Card::new(area, composed.buffer)?;
     card.title = page.title.clone();
     card.serial = serial(page);

@@ -1,7 +1,12 @@
 use super::*;
 use crate::ui::viz::agentviz::StageSnapshot;
 
-fn wave(sequence: u64, name: &str, agents: Vec<String>, seat_states: Vec<SeatState>) -> ActivitySnapshot {
+fn wave(
+    sequence: u64,
+    name: &str,
+    agents: Vec<String>,
+    seat_states: Vec<SeatState>,
+) -> ActivitySnapshot {
     ActivitySnapshot {
         sequence,
         stage: Some(StageSnapshot {
@@ -20,7 +25,12 @@ fn presentation_is_utf8_safe_and_bounded() {
         .map(|index| format!("seat-{index}-{}", "🛰".repeat(20)))
         .collect();
     let mut council = Council::painted();
-    council.note_activity(&wave(91, &format!("{}tail", "界".repeat(30)), agents, Vec::new()));
+    council.note_activity(&wave(
+        91,
+        &format!("{}tail", "界".repeat(30)),
+        agents,
+        Vec::new(),
+    ));
     let shown = council.presentation().expect("stage presents");
     assert_eq!(shown.seats.len(), MAX_SEATS);
     assert_eq!(shown.omitted_seats, 3);

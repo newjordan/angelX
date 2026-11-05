@@ -8,9 +8,9 @@ mod competition;
 mod dispatch;
 mod effort_leg;
 mod provider_failure;
-mod silence_guard;
 mod reasoning;
 pub(crate) mod research;
+mod silence_guard;
 mod verify;
 
 use super::*;
@@ -1369,7 +1369,9 @@ fn run_turn_tiered(
         .unwrap_or(0);
     if !map_context.is_empty()
         && !history[turn_start..].iter().any(|message| {
-            message.content.contains(crate::drive::labyrinth::CONTEXT_MARK)
+            message
+                .content
+                .contains(crate::drive::labyrinth::CONTEXT_MARK)
         })
     {
         history.push(ChatMsg::harness(map_context));
@@ -2499,8 +2501,7 @@ fn run_turn_tiered(
         // rolling gauge alone, so this gate can never skip a compaction the
         // pass itself would consider due.
         let compaction_used = estimate_tokens(history) + estimate_tool_tokens(&defs);
-        let over_budget_for_compaction =
-            effective_budget > 0 && compaction_used > effective_budget;
+        let over_budget_for_compaction = effective_budget > 0 && compaction_used > effective_budget;
         // A model-backed compaction request still enters the pass under budget;
         // the pass keeps its own budget guard for the summary itself.
         let model_compaction_requested = crate::agent::compaction::sync_compaction_uses_model();
@@ -2615,10 +2616,7 @@ fn run_turn_tiered(
             )));
         }
         let bg_due = bg_owner
-            && crate::agent::harness::compact::bg_compact_due(
-                compaction_used,
-                effective_budget,
-            );
+            && crate::agent::harness::compact::bg_compact_due(compaction_used, effective_budget);
         if bg_owner && bg_defer && !bg_due {
             // The deferred sync path was skipped, so this boundary still owns
             // the one-shot lift notice the background entry would have drained.
@@ -2992,9 +2990,7 @@ fn run_turn_tiered(
                 let previous = metered_input_accounted;
                 metered_input_accounted = metered_input_accounted
                     .saturating_add(provider_reported.max(estimated_request_input));
-                if let Some(input_tokens) =
-                    input_milestone(previous, metered_input_accounted)
-                {
+                if let Some(input_tokens) = input_milestone(previous, metered_input_accounted) {
                     let _ = events.send(TurnEvent::SpendMilestone { input_tokens });
                 }
             }
@@ -3501,8 +3497,7 @@ fn run_turn_tiered(
                 // stop for a failed confirming re-run (`⠧⠑`).
                 let mut stop_facts: Vec<book::Raise> = Vec::new();
                 let mut add_fact = |raise: book::Raise| {
-                    if raise.available()
-                        && !stop_facts.iter().any(|seen| seen.route == raise.route)
+                    if raise.available() && !stop_facts.iter().any(|seen| seen.route == raise.route)
                     {
                         stop_facts.push(raise);
                     }
@@ -3742,10 +3737,7 @@ fn run_turn_tiered(
                         registry.current_workspace(),
                     );
                     let liveness = sentinel_liveness_cmd.as_deref().map(|cmd| {
-                        book::v_verification::run_task_accept(
-                            cmd,
-                            registry.current_workspace(),
-                        )
+                        book::v_verification::run_task_accept(cmd, registry.current_workspace())
                     });
                     let liveness_failed = liveness.as_ref().is_some_and(|proof| !proof.passed);
                     // An endpoint served by an Angel-owned `proc_run` job
@@ -3801,25 +3793,16 @@ fn run_turn_tiered(
                             );
                         }
                         let evidence = evidence_lines.join("\n");
-                        crate::agent::harness::trajectory::note_escalation(
-                            hop,
-                            "sentinel_gate",
-                        );
+                        crate::agent::harness::trajectory::note_escalation(hop, "sentinel_gate");
                         let _ = events.send(TurnEvent::Notice(format!(
                             "sentinel gate ({sentinel_gate_blocks}/{}): answer withheld — {evidence}",
                             super::sentinel::GATE_MAX_BLOCKS
                         )));
                         let _ = events.send(TurnEvent::SuppressPartial);
-                        history.push(ChatMsg::assistant_with_reasoning(
-                            answer,
-                            answer_reasoning,
-                        ));
+                        history.push(ChatMsg::assistant_with_reasoning(answer, answer_reasoning));
                         history.push(ChatMsg::harness(book::warpath(
                             registry.current_workspace(),
-                            &[book::Raise::new(
-                                book::v_verification::ACCEPTANCE,
-                                evidence,
-                            )],
+                            &[book::Raise::new(book::v_verification::ACCEPTANCE, evidence)],
                         )));
                         continue;
                     }

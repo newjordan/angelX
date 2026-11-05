@@ -63,7 +63,11 @@ fn sealed_task_rejects_typed_commit_execution_before_touching_git() {
 #[test]
 fn execute_split_preserves_prestaged_docs_until_docs_unit() {
     let repo = TempGitRepo::new();
-    fs::write(repo.path().join("src/lib.rs"), "pub fn value() -> u8 { 2 }\n").unwrap();
+    fs::write(
+        repo.path().join("src/lib.rs"),
+        "pub fn value() -> u8 { 2 }\n",
+    )
+    .unwrap();
     fs::create_dir_all(repo.path().join("docs")).unwrap();
     fs::write(repo.path().join("docs/change.md"), "Change notes.\n").unwrap();
     run_git(repo.path(), &["add", "--", "docs/change.md"]).unwrap();
@@ -84,8 +88,10 @@ fn execute_split_preserves_prestaged_docs_until_docs_unit() {
         committed_paths(repo.path(), "HEAD"),
         vec!["docs/change.md".to_string()]
     );
-    assert!(run_git(repo.path(), &["status", "--porcelain"])
-        .unwrap()
-        .trim()
-        .is_empty());
+    assert!(
+        run_git(repo.path(), &["status", "--porcelain"])
+            .unwrap()
+            .trim()
+            .is_empty()
+    );
 }

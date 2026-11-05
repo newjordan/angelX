@@ -66,7 +66,11 @@ impl SilenceGuard {
             let what = if calls.len() == 1 {
                 format!("`{} {args}`", call.name)
             } else {
-                format!("the same {}-call batch (first `{} {args}`)", calls.len(), call.name)
+                format!(
+                    "the same {}-call batch (first `{} {args}`)",
+                    calls.len(),
+                    call.name
+                )
             };
             format!(
                 "{} You have issued {what} {} times in a row with nothing new written between \

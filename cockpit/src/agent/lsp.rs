@@ -1521,7 +1521,6 @@ impl NavKind {
             NavKind::Hover => "textDocument/hover",
         }
     }
-
 }
 
 /// `lsp_definition` / `lsp_references` / `lsp_hover` — position queries over the

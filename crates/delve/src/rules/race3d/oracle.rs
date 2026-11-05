@@ -12,9 +12,9 @@
 //! It is included by `#[path]` from both trees, so it may only name what a
 //! `super::` can supply: the race's types and course, and `Input` and `HZ`.
 use super::{
-    broken, crossing_carts, laid, rotten, track, Bolt, Course, Input, ItemKind, Race3d, Rider, Track, Wreck,
-    BALL_R, BOLT_LIFE, BOLT_PACE, BOLT_REST, BURST, CRASH, Ground, HZ, LANES, ROLL, ROLL_REST, ROT,
-    RUFFLE, SKY_X, SKY_Z, TIMBER_H, TITLE,
+    BALL_R, BOLT_LIFE, BOLT_PACE, BOLT_REST, BURST, Bolt, CRASH, Course, Ground, HZ, Input,
+    ItemKind, LANES, ROLL, ROLL_REST, ROT, RUFFLE, Race3d, Rider, SKY_X, SKY_Z, TIMBER_H, TITLE,
+    Track, Wreck, broken, crossing_carts, laid, rotten, track,
 };
 use serde::Deserialize;
 use std::collections::BTreeMap;
@@ -271,7 +271,13 @@ const JUMP: f32 = 5.6;
 const JUMP_G: f32 = 15.0;
 const SWITCH: f32 = 11.0;
 
-fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool, bool), noise: &mut Noise) {
+fn ride_cart(
+    race: &mut Race3d,
+    rider: &mut Rider,
+    input: Input,
+    pressed: (bool, bool),
+    noise: &mut Noise,
+) {
     let track = track(race.course);
     if rider.finish.is_some() {
         rider.vs *= 0.92;
@@ -283,7 +289,11 @@ fn ride_cart(race: &mut Race3d, rider: &mut Rider, input: Input, pressed: (bool,
         rider.crash -= 1;
         // The cart goes over and the knight goes up; then the rope.
         rider.vz -= JUMP_G * DT;
-        rider.z = (rider.z + rider.vz * DT).max(if rider.wreck == Wreck::Gap { -12.0 } else { 0.0 });
+        rider.z = (rider.z + rider.vz * DT).max(if rider.wreck == Wreck::Gap {
+            -12.0
+        } else {
+            0.0
+        });
         rider.s += rider.vs * DT;
         rider.vs *= 0.9;
         rider.spin += 0.4;
@@ -382,7 +392,11 @@ fn bump_carts(race: &mut Race3d, noise: &mut Noise) {
     for (k, &a) in ids.iter().enumerate() {
         for &b in &ids[k + 1..] {
             let (ra, rb) = (&race.riders[&a], &race.riders[&b]);
-            if !ra.racing() || !rb.racing() || (ra.x - rb.x).abs() > 0.8 || (ra.z - rb.z).abs() > 0.8 {
+            if !ra.racing()
+                || !rb.racing()
+                || (ra.x - rb.x).abs() > 0.8
+                || (ra.z - rb.z).abs() > 0.8
+            {
                 continue;
             }
             if (ra.s - rb.s).abs() >= 1.4 {
@@ -412,7 +426,14 @@ const WING_RUFFLED: f32 = 5.0;
 const REIN: f32 = 16.0;
 const ROLL_THROW: f32 = 7.0;
 
-fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, rolled: bool, noise: &mut Noise) {
+fn fly_griffin(
+    race: &mut Race3d,
+    id: u32,
+    rider: &mut Rider,
+    input: Input,
+    rolled: bool,
+    noise: &mut Noise,
+) {
     let track = track(race.course);
     rider.spin += 0.35;
     if rider.finish.is_some() {
@@ -434,8 +455,7 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
         }
         return;
     }
-    let goal = WING
-        + if rider.burst > 0 { WING_BURST } else { 0.0 }
+    let goal = WING + if rider.burst > 0 { WING_BURST } else { 0.0 }
         - if rider.stun > 0 { WING_RUFFLED } else { 0.0 };
     rider.vs += (goal - rider.vs).clamp(-0.5, 0.4);
     rider.burst = rider.burst.saturating_sub(1);
@@ -456,7 +476,13 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
     // Held, F looses a bolt every rest.
     if input.fire && rider.reload == 0 {
         rider.reload = BOLT_REST;
-        race.bolts.push(Bolt { owner: id, s: rider.s + 1.0, x: rider.x, z: rider.z, life: BOLT_LIFE });
+        race.bolts.push(Bolt {
+            owner: id,
+            s: rider.s + 1.0,
+            x: rider.x,
+            z: rider.z,
+            life: BOLT_LIFE,
+        });
         noise.sounds.push("shot_bolt");
     }
     let before = rider.s;
@@ -496,13 +522,25 @@ fn fly_griffin(race: &mut Race3d, id: u32, rider: &mut Rider, input: Input, roll
     });
     if hit_block || hit_goyle {
         // Off the stone the way it came: beside a spire, under a rampart.
-        if let Some(b) = track.blocks.iter().find(|b| rider.s + 0.5 > b.s && before - 0.5 < b.s + b.len) {
+        if let Some(b) = track
+            .blocks
+            .iter()
+            .find(|b| rider.s + 0.5 > b.s && before - 0.5 < b.s + b.len)
+        {
             if b.x.1 - b.x.0 > 2.0 * SKY_X {
-                rider.z = if b.z.0 - 0.6 > -SKY_Z { b.z.0 - 0.6 } else { (b.z.1 + 0.6).min(SKY_Z) };
+                rider.z = if b.z.0 - 0.6 > -SKY_Z {
+                    b.z.0 - 0.6
+                } else {
+                    (b.z.1 + 0.6).min(SKY_Z)
+                };
             } else {
                 let left = b.x.0 - 0.7;
                 let right = b.x.1 + 0.7;
-                rider.x = if (rider.x - left).abs() < (rider.x - right).abs() && left > -SKY_X { left } else { right.min(SKY_X) };
+                rider.x = if (rider.x - left).abs() < (rider.x - right).abs() && left > -SKY_X {
+                    left
+                } else {
+                    right.min(SKY_X)
+                };
             }
         }
         rider.vs = 4.0;
@@ -557,7 +595,11 @@ fn fly_bolts(race: &mut Race3d, noise: &mut Noise) {
 
 /// The race's tick as it was for the three courses the leg answers: one rider
 /// at a time, then what the field does to itself, then the finish line.
-pub fn tick(race: &mut Race3d, inputs: &BTreeMap<u32, Input>, standing: &[u32]) -> (bool, bool, Vec<&'static str>) {
+pub fn tick(
+    race: &mut Race3d,
+    inputs: &BTreeMap<u32, Input>,
+    standing: &[u32],
+) -> (bool, bool, Vec<&'static str>) {
     let mut noise = Noise::new();
     let ids: Vec<u32> = race.riders.keys().copied().collect();
     for &id in &ids {

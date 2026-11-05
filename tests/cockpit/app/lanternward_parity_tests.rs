@@ -14,7 +14,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// What the oracle did, as the corpus the Node harness replays.
 fn dump(sc: &mut Scenario, ticks: u32, dir: &std::path::Path) -> usize {
-    let mut file = std::io::BufWriter::new(std::fs::File::create(dir.join(format!("{}.jsonl", sc.name))).unwrap());
+    let mut file = std::io::BufWriter::new(
+        std::fs::File::create(dir.join(format!("{}.jsonl", sc.name))).unwrap(),
+    );
     let start = drive::wire(&sc.session);
     writeln!(file, "{}", json!({"name": sc.name, "start": start})).unwrap();
     let mut n = 0;
@@ -24,7 +26,11 @@ fn dump(sc: &mut Scenario, ticks: u32, dir: &std::path::Path) -> usize {
         let after = drive::wire(&t.after);
         let mut delta = serde_json::Map::new();
         for (k, v) in after.as_object().unwrap() {
-            let was = if t.reset.is_some() { t.reset.as_ref().unwrap().get(k) } else { last.get(k) };
+            let was = if t.reset.is_some() {
+                t.reset.as_ref().unwrap().get(k)
+            } else {
+                last.get(k)
+            };
             if was != Some(v) {
                 delta.insert(k.clone(), v.clone());
             }
@@ -63,17 +69,45 @@ fn dump(sc: &mut Scenario, ticks: u32, dir: &std::path::Path) -> usize {
 fn matrix(scale: u32) -> Vec<(u64, u32, Start, Driver, bool, u32)> {
     let mut out = Vec::new();
     for (i, players) in [1u32, 2, 3, 4].into_iter().enumerate() {
-        out.push((100 + i as u64, players, Start::Fresh, Driver::Bots, false, 9000 * scale));
+        out.push((
+            100 + i as u64,
+            players,
+            Start::Fresh,
+            Driver::Bots,
+            false,
+            9000 * scale,
+        ));
     }
     for room in 0..5usize {
         for (j, players) in [1u32, 2, 4].into_iter().enumerate() {
-            out.push((200 + room as u64 * 10 + j as u64, players, Start::Room(room), Driver::Bots, false, 2500 * scale));
+            out.push((
+                200 + room as u64 * 10 + j as u64,
+                players,
+                Start::Room(room),
+                Driver::Bots,
+                false,
+                2500 * scale,
+            ));
         }
     }
     for k in 0..20u64 {
         let players = 1 + (k % 4) as u32;
-        out.push((300 + k, players, Start::Random, Driver::Fuzz, k % 2 == 0, 2500 * scale));
-        out.push((400 + k, players, Start::Random, Driver::Noisy, true, 2500 * scale));
+        out.push((
+            300 + k,
+            players,
+            Start::Random,
+            Driver::Fuzz,
+            k % 2 == 0,
+            2500 * scale,
+        ));
+        out.push((
+            400 + k,
+            players,
+            Start::Random,
+            Driver::Noisy,
+            true,
+            2500 * scale,
+        ));
     }
     out
 }
@@ -81,7 +115,10 @@ fn matrix(scale: u32) -> Vec<(u64, u32, Start, Driver, bool, u32)> {
 #[test]
 #[ignore = "writes the Node harness's corpus: LANTERNWARD_CORPUS=dir cargo test ... write_lanternward_corpus -- --ignored"]
 fn write_lanternward_corpus() {
-    let dir = std::env::var_os("LANTERNWARD_CORPUS").map_or_else(|| std::env::temp_dir().join("lw/corpus"), std::path::PathBuf::from);
+    let dir = std::env::var_os("LANTERNWARD_CORPUS").map_or_else(
+        || std::env::temp_dir().join("lw/corpus"),
+        std::path::PathBuf::from,
+    );
     std::fs::create_dir_all(&dir).unwrap();
     let only: Option<String> = std::env::var("LANTERNWARD_ONLY").ok();
     let mut total = 0;
@@ -157,14 +194,32 @@ fn lockstep(mut sc: Scenario, ticks: u32, seen: &Mutex<Seen>) {
             local.resets += 1;
             mine_now = mine(&t.before);
         }
-        let rules = Rules { lock: t.rules.lock, parry: t.rules.parry, combo: t.rules.combo, flame: t.rules.flame, tell: t.rules.tell };
+        let rules = Rules {
+            lock: t.rules.lock,
+            parry: t.rules.parry,
+            combo: t.rules.combo,
+            flame: t.rules.flame,
+            tell: t.rules.tell,
+        };
         let events = mine_now.step(&t.inputs, &sc.heroes, &rules);
-        let (want, got) = (serde_json::to_value(&t.after).unwrap(), serde_json::to_value(&mine_now).unwrap());
+        let (want, got) = (
+            serde_json::to_value(&t.after).unwrap(),
+            serde_json::to_value(&mine_now).unwrap(),
+        );
         if let Some(at) = first_difference(&want, &got, &mut Vec::new()) {
             panic!("{name} tick {}: the sessions part at {at}", sc.tick);
         }
-        assert_eq!(events.sounds, t.sounds, "{name} tick {}: the sounds", sc.tick);
-        assert_eq!(format!("{:?}", events.stop), format!("{:?}", t.stop), "{name} tick {}: the impact", sc.tick);
+        assert_eq!(
+            events.sounds, t.sounds,
+            "{name} tick {}: the sounds",
+            sc.tick
+        );
+        assert_eq!(
+            format!("{:?}", events.stop),
+            format!("{:?}", t.stop),
+            "{name} tick {}: the impact",
+            sc.tick
+        );
         assert_eq!(events.won, t.won, "{name} tick {}: the win", sc.tick);
         local.ticks += 1;
         local.sounds.extend(events.sounds.iter().copied());
@@ -191,8 +246,12 @@ fn lockstep(mut sc: Scenario, ticks: u32, seen: &Mutex<Seen>) {
 /// may not carry.
 fn scenarios() -> Vec<(Scenario, u32)> {
     crate::agent::harness::live_policy::install_scripted_rules();
-    let mut out: Vec<(Scenario, u32)> =
-        matrix(1).into_iter().map(|(seed, players, start, driver, chaos, ticks)| (Scenario::new(seed, players, start, driver, chaos), ticks)).collect();
+    let mut out: Vec<(Scenario, u32)> = matrix(1)
+        .into_iter()
+        .map(|(seed, players, start, driver, chaos, ticks)| {
+            (Scenario::new(seed, players, start, driver, chaos), ticks)
+        })
+        .collect();
     for (k, players) in [1u32, 2, 4].into_iter().enumerate() {
         let mut sc = Scenario::new(500 + k as u64, players, Start::Fresh, Driver::Bots, false);
         sc.name += "-timeout";
@@ -202,7 +261,16 @@ fn scenarios() -> Vec<(Scenario, u32)> {
     }
     for k in 0..6u64 {
         let players = 1 + (k % 4) as u32;
-        out.push((Scenario::new(600 + k, players, if k < 3 { Start::Fresh } else { Start::Random }, Driver::Edge, k % 2 == 0), 2500));
+        out.push((
+            Scenario::new(
+                600 + k,
+                players,
+                if k < 3 { Start::Fresh } else { Start::Random },
+                Driver::Edge,
+                k % 2 == 0,
+            ),
+            2500,
+        ));
     }
     out
 }
@@ -247,12 +315,25 @@ fn the_bend_rules_match_the_rust_rules_tick_by_tick_in_every_scenario() {
         seen.rooms
     );
     // The branches the matrix is there to reach.
-    assert!(seen.wins >= 4, "the fresh games reach the Beacon: {}", seen.wins);
+    assert!(
+        seen.wins >= 4,
+        "the fresh games reach the Beacon: {}",
+        seen.wins
+    );
     assert!(seen.wipes >= 1, "a party is wiped and put back");
     assert!(seen.exits >= 1, "a room is left by its door");
-    assert_eq!(seen.stops.len(), 4, "every weight of impact: {:?}", seen.stops);
+    assert_eq!(
+        seen.stops.len(),
+        4,
+        "every weight of impact: {:?}",
+        seen.stops
+    );
     assert_eq!(seen.rooms.len(), 5, "every room is played");
-    assert!(seen.sounds.len() >= 36, "the sounds the game makes: {:?}", seen.sounds);
+    assert!(
+        seen.sounds.len() >= 36,
+        "the sounds the game makes: {:?}",
+        seen.sounds
+    );
 }
 
 #[test]

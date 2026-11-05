@@ -49,13 +49,27 @@ fn text(buf: &Buffer) -> String {
 fn the_page_lays_out_numbered_rows_and_each_row_is_clickable() {
     let composed = compose(&page(), 60, 30, 3, false);
     let shown = text(&composed.buffer);
-    assert!(shown.contains("1  Use Ollama on this computer   ready"), "{shown}");
+    assert!(
+        shown.contains("1  Use Ollama on this computer   ready"),
+        "{shown}"
+    );
     assert!(shown.contains("2  Sign in with ChatGPT"));
-    assert!(shown.contains("Your browser opens."), "the picked row explains itself");
-    let items: Vec<_> = composed.hits.iter().filter(|(_, h)| matches!(h, Hit::Item(_))).collect();
+    assert!(
+        shown.contains("Your browser opens."),
+        "the picked row explains itself"
+    );
+    let items: Vec<_> = composed
+        .hits
+        .iter()
+        .filter(|(_, h)| matches!(h, Hit::Item(_)))
+        .collect();
     assert_eq!(items.len(), 3);
     assert_eq!(items[1].1, Hit::Item(1));
-    assert_eq!(composed.cursor, Some(items[1].0.y), "the pill row is the picked row");
+    assert_eq!(
+        composed.cursor,
+        Some(items[1].0.y),
+        "the pill row is the picked row"
+    );
     // The title is the card's own to set; the composer leaves its rows clear.
     assert!(!shown.lines().take(3).any(|l| l.contains("Connect")));
 }
@@ -64,10 +78,17 @@ fn the_page_lays_out_numbered_rows_and_each_row_is_clickable() {
 fn a_short_card_scrolls_its_rows_to_keep_the_cursor_in_view() {
     let mut page = page();
     page.items = (0..12)
-        .map(|i| Item { label: format!("model-{i}"), about: String::new(), ready: false })
+        .map(|i| Item {
+            label: format!("model-{i}"),
+            about: String::new(),
+            ready: false,
+        })
         .collect();
     page.cursor = 11;
-    page.field = Some(Field { shown: String::new(), hint: "type to search" });
+    page.field = Some(Field {
+        shown: String::new(),
+        hint: "type to search",
+    });
     let composed = compose(&page, 40, 16, 2, true);
     let shown = text(&composed.buffer);
     assert!(shown.contains("model-11"), "{shown}");
@@ -75,9 +96,17 @@ fn a_short_card_scrolls_its_rows_to_keep_the_cursor_in_view() {
     assert!(shown.contains("type to search"));
     assert!(shown.contains('↑'));
     assert!(composed.field.is_some());
-    let last = composed.hits.iter().filter(|(_, h)| matches!(h, Hit::Item(_))).last().unwrap();
+    let last = composed
+        .hits
+        .iter()
+        .filter(|(_, h)| matches!(h, Hit::Item(_)))
+        .last()
+        .unwrap();
     assert_eq!(last.1, Hit::Item(11));
-    assert!(composed.hits.iter().any(|(_, h)| *h == Hit::Back), "the key bar always shows");
+    assert!(
+        composed.hits.iter().any(|(_, h)| *h == Hit::Back),
+        "the key bar always shows"
+    );
 }
 
 #[test]
@@ -88,7 +117,12 @@ fn the_key_bar_makes_esc_and_ctrl_o_clickable() {
     let shown = text(&composed.buffer);
     assert!(shown.contains("Esc back"), "{shown}");
     assert!(shown.contains("Ctrl+O open in browser"));
-    let keys: Vec<_> = composed.hits.iter().map(|h| h.1).filter(|h| !matches!(h, Hit::Item(_))).collect();
+    let keys: Vec<_> = composed
+        .hits
+        .iter()
+        .map(|h| h.1)
+        .filter(|h| !matches!(h, Hit::Item(_)))
+        .collect();
     assert_eq!(keys, [Hit::Back, Hit::Open]);
 }
 
@@ -97,7 +131,9 @@ fn a_tiny_terminal_gets_plain_words() {
     let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
     app.open_setup();
     let mut terminal = Terminal::new(TestBackend::new(40, 11)).unwrap();
-    terminal.draw(|frame| render(frame, frame.area(), &mut app)).unwrap();
+    terminal
+        .draw(|frame| render(frame, frame.area(), &mut app))
+        .unwrap();
     let shown = text(terminal.backend().buffer());
     assert!(shown.contains("Connect angelX"), "{shown}");
     assert!(!shown.contains('╭'), "no box when there is no room for one");
@@ -143,12 +179,17 @@ fn a_floating_card_preserves_the_workspace_outside_it() {
     let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
     app.open_setup();
     let mut terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();
-    terminal.draw(|frame| {
-        frame.buffer_mut()[(0, 0)].set_symbol("W");
-        render(frame, frame.area(), &mut app);
-    }).unwrap();
-    assert_eq!(terminal.backend().buffer()[(0, 0)].symbol(), "W",
-        "a floating card must not clear the workspace behind it");
+    terminal
+        .draw(|frame| {
+            frame.buffer_mut()[(0, 0)].set_symbol("W");
+            render(frame, frame.area(), &mut app);
+        })
+        .unwrap();
+    assert_eq!(
+        terminal.backend().buffer()[(0, 0)].symbol(),
+        "W",
+        "a floating card must not clear the workspace behind it"
+    );
 }
 
 #[test]
@@ -163,11 +204,20 @@ fn the_native_card_carries_its_title_choices_and_click_targets() {
     assert!(card.area.y >= 3, "room above the card for the squire");
     assert!(hits.iter().any(|(_, hit)| matches!(hit, Hit::Back)));
     for (rect, _) in &hits {
-        assert!(rect.x >= card.area.x && rect.y >= card.area.y && rect.right() <= card.area.right());
-        assert_eq!(card.hit(rect.x + 1, rect.y), Some((rect.x + 1, rect.y)), "the card lies flat on its cells");
+        assert!(
+            rect.x >= card.area.x && rect.y >= card.area.y && rect.right() <= card.area.right()
+        );
+        assert_eq!(
+            card.hit(rect.x + 1, rect.y),
+            Some((rect.x + 1, rect.y)),
+            "the card lies flat on its cells"
+        );
     }
     let cursor = card.cursor.unwrap();
-    assert!(hits.iter().any(|(r, h)| *h == Hit::Item(1) && r.y == card.area.y + cursor));
+    assert!(
+        hits.iter()
+            .any(|(r, h)| *h == Hit::Item(1) && r.y == card.area.y + cursor)
+    );
     assert_eq!(card.knight, angel_glass::card::Knight::Sit);
     let mut busy = page();
     busy.busy = true;
@@ -206,7 +256,10 @@ fn an_approval_suppresses_the_card_and_closing_releases_input() {
     assert_eq!(app.setup.hits, hits);
     app.setup_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
     assert!(!app.setup.open());
-    assert!(app.setup.hits.is_empty(), "closing releases input before the next frame");
+    assert!(
+        app.setup.hits.is_empty(),
+        "closing releases input before the next frame"
+    );
     assert!(app.setup.card.is_none());
     app.on_key(KeyEvent::new(KeyCode::Char('x'), KeyModifiers::NONE));
     assert_eq!(app.input, "x", "a closed menu keeps no composer input");

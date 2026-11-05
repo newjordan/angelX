@@ -92,7 +92,11 @@ impl Session {
         }
         self.fx(Fxk::Spark, kx, ky - 6 * Q, 0);
         self.shake = self.shake.max(SHAKE_HIT);
-        ev.sound(if dmg >= 4 { "knight_hit_big" } else { "knight_hit" });
+        ev.sound(if dmg >= 4 {
+            "knight_hit_big"
+        } else {
+            "knight_hit"
+        });
         if down {
             ev.sound("knight_fall");
         }
@@ -101,7 +105,13 @@ impl Session {
 
     /// A blade, a bolt or a blast on foe `i`. True when it hurt (a blade
     /// passes through a hooded snuffer; nothing hurts the turret).
-    pub(super) fn hurt_foe(&mut self, i: usize, dmg: u32, from: (i32, i32), ev: &mut Events) -> bool {
+    pub(super) fn hurt_foe(
+        &mut self,
+        i: usize,
+        dmg: u32,
+        from: (i32, i32),
+        ev: &mut Events,
+    ) -> bool {
         let f = &mut self.foes[i];
         if !f.alive() {
             return false;
@@ -230,7 +240,9 @@ impl Session {
             Bk::Iron => {
                 let ids: Vec<u32> = self.seats.keys().copied().collect();
                 for id in ids {
-                    let Some(k) = self.seats.get(&id) else { continue };
+                    let Some(k) = self.seats.get(&id) else {
+                        continue;
+                    };
                     if !k.up() || dist(k.x - px, k.y - py) > KNIGHT_R + 3 * Q {
                         continue;
                     }
@@ -327,7 +339,11 @@ impl Session {
             .filter(|&d| dot(d, k.face) >= REFLECT_COS)
             .unwrap_or(k.face);
         let at = (k.x + k.face.0 * SHIELD_REACH, k.y + k.face.1 * SHIELD_REACH);
-        let speed = if parried { BOLT_SPEED * 3 / 2 } else { BOLT_SPEED };
+        let speed = if parried {
+            BOLT_SPEED * 3 / 2
+        } else {
+            BOLT_SPEED
+        };
         let b = &mut self.bolts[i];
         b.kind = if parried { Bk::Bright } else { Bk::Dim };
         b.owner = id as u8;

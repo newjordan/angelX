@@ -9,7 +9,6 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/d5_frames.book");
 pub(crate) const CELL: char = '⠐';
 pub(crate) const SCORING: Route = Route::new(CELL, '⠁');

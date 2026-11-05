@@ -11,11 +11,11 @@ use super::loop_ctl::{self, LoopState};
 use crate::agent::harness::cartridges::fleet::SubmissionPhase;
 use crate::agent::harness::cartridges::records::SubmissionStatus;
 
+#[cfg(test)]
+use super::together_settlement::planning::Input;
 pub(crate) use angel_realm_host::loop_summary::{
     DurableEvents, EscalationTier, LoopStatus, LoopSummary,
 };
-#[cfg(test)]
-use super::together_settlement::planning::Input;
 
 impl From<loop_ctl::LoopStatus> for LoopStatus {
     fn from(status: loop_ctl::LoopStatus) -> Self {

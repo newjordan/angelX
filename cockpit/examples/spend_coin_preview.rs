@@ -9,18 +9,21 @@ mod ui {
     pub mod viz {
         pub mod lifecycle_viz {
             #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-            pub(crate) enum MotionMode { Full, Reduced, Off }
+            pub(crate) enum MotionMode {
+                Full,
+                Reduced,
+                Off,
+            }
         }
         pub(crate) use crate::spend_source as spend_viz;
     }
 }
 
-use ui::viz::{lifecycle_viz::MotionMode, spend_viz};
 use angel_glass::{Layer, LayerKind, Placement};
+use ui::viz::{lifecycle_viz::MotionMode, spend_viz};
 
 fn main() {
-    let out = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../artifacts/spend-coin");
+    let out = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../artifacts/spend-coin");
     std::fs::create_dir_all(&out).unwrap();
     let mut options = angel_glass::Options::from_environment();
     options.columns = 80;

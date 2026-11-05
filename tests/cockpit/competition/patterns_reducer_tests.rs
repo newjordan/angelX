@@ -634,7 +634,10 @@ fn the_leg_decides_in_microseconds() {
                 };
                 rows.push(evidence(
                     &format!("evidence-{index}"),
-                    at(&format!("benchmark-{bucket}"), &format!("mechanism-{pattern}")),
+                    at(
+                        &format!("benchmark-{bucket}"),
+                        &format!("mechanism-{pattern}"),
+                    ),
                     class,
                     outcome((index % 5) as usize),
                     (index % 40) as u16,

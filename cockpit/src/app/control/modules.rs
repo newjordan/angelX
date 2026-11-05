@@ -14,7 +14,9 @@ impl App {
         match self.module_host.activate(&id) {
             Ok(()) => {
                 self.apply_module_activation(id.as_str());
-                if id.as_str().starts_with("live.") { self.focus_module(id.as_str()); }
+                if id.as_str().starts_with("live.") {
+                    self.focus_module(id.as_str());
+                }
                 format!("module {id} active")
             }
             Err(e) => format!("/open: {e}"),

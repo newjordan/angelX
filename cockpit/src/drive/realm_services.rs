@@ -55,7 +55,10 @@ impl Service for Owned {
 struct Lent;
 
 impl Host for Lent {
-    fn spawn_service(&self, command: &mut std::process::Command) -> std::io::Result<Box<dyn Service>> {
+    fn spawn_service(
+        &self,
+        command: &mut std::process::Command,
+    ) -> std::io::Result<Box<dyn Service>> {
         ServiceChild::spawn(command).map(|child| Box::new(Owned(child)) as Box<dyn Service>)
     }
 

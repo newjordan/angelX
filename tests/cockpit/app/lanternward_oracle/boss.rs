@@ -117,7 +117,11 @@ impl Warden {
         if self.st == Ws::Stagger {
             return true;
         }
-        let lit = self.lit.iter().filter(|&&t| t > 0 && t + EXPOSE_TICKS > now).count() as u32;
+        let lit = self
+            .lit
+            .iter()
+            .filter(|&&t| t > 0 && t + EXPOSE_TICKS > now)
+            .count() as u32;
         lit >= self.need(seats)
     }
 
@@ -160,15 +164,28 @@ impl Session {
     }
 
     /// A blade or a pot on the Warden. Only the open heart can be hurt.
-    pub(super) fn hurt_boss(&mut self, dmg: u32, from: (i32, i32), _owner: u32, ev: &mut Events) -> bool {
+    pub(super) fn hurt_boss(
+        &mut self,
+        dmg: u32,
+        from: (i32, i32),
+        _owner: u32,
+        ev: &mut Events,
+    ) -> bool {
         if !self.boss_exposed() {
             let (bx, by) = self.boss.as_ref().map_or((0, 0), |w| (w.x, w.y));
             let _ = from;
-            self.fx(Fxk::Ring, bx + (from.0 - bx) / 6, by + (from.1 - by) / 6, 12);
+            self.fx(
+                Fxk::Ring,
+                bx + (from.0 - bx) / 6,
+                by + (from.1 - by) / 6,
+                12,
+            );
             ev.sound("clang");
             return false;
         }
-        let Some(w) = self.boss.as_mut() else { return false };
+        let Some(w) = self.boss.as_mut() else {
+            return false;
+        };
         if w.hp == 0 || w.st == Ws::Dying {
             return false;
         }
@@ -283,7 +300,9 @@ impl Session {
                 self.light_heart(id);
             }
         }
-        let Some(mut w) = self.boss.take() else { return };
+        let Some(mut w) = self.boss.take() else {
+            return;
+        };
         w.flinch = w.flinch.saturating_sub(1);
         let target = self.nearest_knight(w.x, w.y);
         match w.st {
@@ -295,7 +314,8 @@ impl Session {
                 }
             }
             Ws::Asleep => {
-                let woke = target.is_some_and(|(_, _, _, d)| d < WARDEN_WAKE * Q) || self.stage_t > WARDEN_NAP;
+                let woke = target.is_some_and(|(_, _, _, d)| d < WARDEN_WAKE * Q)
+                    || self.stage_t > WARDEN_NAP;
                 if woke {
                     w.st = Ws::Rest;
                     w.t = 70;
@@ -309,7 +329,10 @@ impl Session {
                     w.face = unit(tx - w.x, ty - w.y);
                     // Close the gap, never into the knight's face.
                     if d > w.radius() + 26 * Q {
-                        let (nx, ny) = (w.x + w.face.0 * WARDEN_WALK / Q, w.y + w.face.1 * WARDEN_WALK / Q);
+                        let (nx, ny) = (
+                            w.x + w.face.0 * WARDEN_WALK / Q,
+                            w.y + w.face.1 * WARDEN_WALK / Q,
+                        );
                         if self.clear(nx, ny, w.radius() / 2) {
                             w.x = nx;
                             w.y = ny;
@@ -359,17 +382,33 @@ impl Session {
                             let a = angle + 180 * b;
                             let d = dir(a);
                             let tip = (w.x + d.0 * BEAM_LEN, w.y + d.1 * BEAM_LEN);
-                            let line = Danger::Capsule { ax: w.x, ay: w.y, bx: tip.0, by: tip.1, r: 6 * Q };
+                            let line = Danger::Capsule {
+                                ax: w.x,
+                                ay: w.y,
+                                bx: tip.0,
+                                by: tip.1,
+                                r: 6 * Q,
+                            };
                             if b == 0 {
                                 w.danger = line;
                             }
-                            parried |= self.warden_hits(&mut w, line, BEAM_DAMAGE, Hit::Beam, r, ev);
+                            parried |=
+                                self.warden_hits(&mut w, line, BEAM_DAMAGE, Hit::Beam, r, ev);
                         }
                     }
                     Atk::Slam => {
                         let radius = (12 + SLAM_SPEED * elapsed) * Q;
-                        let ring = Danger::Ring { x: w.x, y: w.y, r: radius, w: 6 * Q };
-                        w.danger = Danger::Circle { x: w.x, y: w.y, r: SLAM_REACH * Q };
+                        let ring = Danger::Ring {
+                            x: w.x,
+                            y: w.y,
+                            r: radius,
+                            w: 6 * Q,
+                        };
+                        w.danger = Danger::Circle {
+                            x: w.x,
+                            y: w.y,
+                            r: SLAM_REACH * Q,
+                        };
                         parried |= self.warden_hits(&mut w, ring, SLAM_DAMAGE, Hit::Low, r, ev);
                         if elapsed == 0 {
                             self.fx(Fxk::Wave, w.x, w.y, 0);
@@ -389,7 +428,11 @@ impl Session {
                     w.t = w.t.saturating_sub(1);
                     if w.t == 0 {
                         w.st = Ws::Recover;
-                        w.t = if w.atk == Atk::Summon { 30 } else { RECOVER_TICKS };
+                        w.t = if w.atk == Atk::Summon {
+                            30
+                        } else {
+                            RECOVER_TICKS
+                        };
                         w.danger = Danger::None;
                     }
                 }
@@ -445,10 +488,20 @@ impl Session {
         match w.atk {
             Atk::Beam => {
                 w.aim = angle_of(at.0 - w.x, at.1 - w.y);
-                w.danger = Danger::Fan { x: w.x, y: w.y, deg: w.aim, half: BEAM_HALF + 6, r: BEAM_LEN * Q };
+                w.danger = Danger::Fan {
+                    x: w.x,
+                    y: w.y,
+                    deg: w.aim,
+                    half: BEAM_HALF + 6,
+                    r: BEAM_LEN * Q,
+                };
             }
             Atk::Slam => {
-                w.danger = Danger::Circle { x: w.x, y: w.y, r: SLAM_REACH * Q };
+                w.danger = Danger::Circle {
+                    x: w.x,
+                    y: w.y,
+                    r: SLAM_REACH * Q,
+                };
             }
             Atk::Summon => {
                 w.danger = Danger::None;
@@ -458,11 +511,21 @@ impl Session {
 
     /// The Warden's blow on every knight in `line` it has not yet struck. A
     /// parry returns true.
-    fn warden_hits(&mut self, w: &mut Warden, line: Danger, dmg: u32, kind: Hit, r: &Rules, ev: &mut Events) -> bool {
+    fn warden_hits(
+        &mut self,
+        w: &mut Warden,
+        line: Danger,
+        dmg: u32,
+        kind: Hit,
+        r: &Rules,
+        ev: &mut Events,
+    ) -> bool {
         let mut parried = false;
         let ids: Vec<u32> = self.seats.keys().copied().collect();
         for id in ids {
-            let Some(k) = self.seats.get(&id) else { continue };
+            let Some(k) = self.seats.get(&id) else {
+                continue;
+            };
             let bit = 1u8 << (id.min(7) as u8);
             if w.struck & bit != 0 || !k.up() || !line.hits(k.x, k.y, KNIGHT_R) {
                 continue;
@@ -510,7 +573,12 @@ impl Session {
             let holders = self
                 .seats
                 .values()
-                .filter(|k| k.up() && k.act == Act::Free && k.held & super::kit::B_CTX != 0 && k.ctx == Ctx::Relight)
+                .filter(|k| {
+                    k.up()
+                        && k.act == Act::Free
+                        && k.held & super::kit::B_CTX != 0
+                        && k.ctx == Ctx::Relight
+                })
                 .count() as u16;
             if let Some(i) = self.props.iter().position(|p| p.kind == Pk::Beacon) {
                 let p = &mut self.props[i];

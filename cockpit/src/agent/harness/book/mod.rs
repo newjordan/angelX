@@ -266,7 +266,11 @@ pub(crate) const fn catalog_pages<const N: usize>(
     pages
 }
 
-const fn catalog_page(catalog: &'static str, route: u8, mut offset: usize) -> (&'static str, usize) {
+const fn catalog_page(
+    catalog: &'static str,
+    route: u8,
+    mut offset: usize,
+) -> (&'static str, usize) {
     const PREFIX: &[u8] = b"@@book-page ";
     let bytes = catalog.as_bytes();
     while offset < bytes.len() {

@@ -15,7 +15,6 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/d456_knowledge.book");
 pub(crate) const CELL: char = '⠸';
 pub(crate) const DOSSIER: Route = Route::new(CELL, '⠁');

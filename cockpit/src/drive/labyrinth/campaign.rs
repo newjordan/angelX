@@ -3167,8 +3167,7 @@ pub(crate) fn run(
     let book_catalog = match book::catalog::current() {
         Some(catalog) => catalog,
         None => Arc::new(
-            book::catalog::Catalog::fresh()
-                .map_err(|error| format!("book generation: {error}"))?,
+            book::catalog::Catalog::fresh().map_err(|error| format!("book generation: {error}"))?,
         ),
     };
     let book_catalog = crate::agent::harness::core_catalog::bind_book(book_catalog);

@@ -1066,8 +1066,11 @@ fn report_rejects_oversized_or_invalid_utf8_output() {
     let error = report_module(root.path(), root.path()).unwrap_err();
     assert!(error.contains("not UTF-8"), "{error}");
 
-    std::fs::write(&fake, "#!/bin/sh\ndd if=/dev/zero bs=1024 count=257 2>/dev/null\n")
-        .unwrap();
+    std::fs::write(
+        &fake,
+        "#!/bin/sh\ndd if=/dev/zero bs=1024 count=257 2>/dev/null\n",
+    )
+    .unwrap();
     let error = report_module(root.path(), root.path()).unwrap_err();
     assert!(error.contains("output exceeded its limit"), "{error}");
 }

@@ -668,7 +668,6 @@ fn cues_appear_when_the_models_actions_make_them_relevant() {
 /// addresses that must rebuild it. A page dropped, merged or paraphrased fails
 /// here: the book is a refactor of these hints, never a reduction.
 
-
 /// Every page of an address run, in order: a section gives all its pages, a
 /// page address gives that page.
 fn verbatim_pages(cells: &str) -> String {
@@ -706,9 +705,9 @@ fn every_original_hint_is_rebuilt_verbatim_from_its_pages() {
     }
     let fixture = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../tests/cockpit/fixtures/original-book-hints.json");
-    let originals: OriginalHints = serde_json::from_slice(
-        &std::fs::read(fixture).expect("original book hints fixture"),
-    ).expect("valid original book hints fixture");
+    let originals: OriginalHints =
+        serde_json::from_slice(&std::fs::read(fixture).expect("original book hints fixture"))
+            .expect("valid original book hints fixture");
     assert_eq!(originals.version, 1);
     assert_eq!(originals.hints.len(), 502);
     // A length-framed digest of the original compiled Rust literals ensures

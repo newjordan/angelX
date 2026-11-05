@@ -47,10 +47,18 @@ pub(crate) fn candidates(text: &str) -> Vec<Candidate> {
             continue;
         }
         let evidence = lines.get(link.line).is_some_and(|line| {
-            let words: String = line.spans.iter().map(|s| s.content.as_ref()).collect::<String>().to_lowercase();
+            let words: String = line
+                .spans
+                .iter()
+                .map(|s| s.content.as_ref())
+                .collect::<String>()
+                .to_lowercase();
             EVIDENCE_WORDS.iter().any(|word| words.contains(word))
         });
-        found.push(Candidate { target: Arc::from(target), evidence });
+        found.push(Candidate {
+            target: Arc::from(target),
+            evidence,
+        });
     }
     found.reverse();
     // Stable: evidence lines first, each group last link first.
@@ -76,15 +84,39 @@ pub(crate) fn worth_showing(path: &Path, evidence: bool) -> bool {
     let extension = extension.to_ascii_lowercase();
     let media = matches!(
         extension.as_str(),
-        "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "tif" | "tiff" | "qoi"
-            | "mp4" | "mkv" | "mov" | "webm" | "avi"
-            | "obj" | "glb"
-            | "csv" | "tsv"
+        "png"
+            | "jpg"
+            | "jpeg"
+            | "gif"
+            | "webp"
+            | "bmp"
+            | "tif"
+            | "tiff"
+            | "qoi"
+            | "mp4"
+            | "mkv"
+            | "mov"
+            | "webm"
+            | "avi"
+            | "obj"
+            | "glb"
+            | "csv"
+            | "tsv"
     );
     let report = matches!(
         extension.as_str(),
-        "md" | "markdown" | "txt" | "text" | "log" | "json" | "jsonl" | "ndjson" | "yaml" | "yml"
-            | "toml" | "diff" | "patch"
+        "md" | "markdown"
+            | "txt"
+            | "text"
+            | "log"
+            | "json"
+            | "jsonl"
+            | "ndjson"
+            | "yaml"
+            | "yml"
+            | "toml"
+            | "diff"
+            | "patch"
     );
     media || (evidence && report)
 }
@@ -121,7 +153,10 @@ pub(crate) fn evidence_media(reply: &str, root: &Path) -> Option<super::media::M
             continue;
         };
         let root = root.canonicalize().ok()?;
-        return Some(super::media::Media::Confined { card: Box::new(card), root });
+        return Some(super::media::Media::Confined {
+            card: Box::new(card),
+            root,
+        });
     }
     None
 }

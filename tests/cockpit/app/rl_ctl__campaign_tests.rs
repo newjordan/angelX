@@ -968,8 +968,12 @@ fn direct_campaign_book_pins_tool_generation_for_late_workers() {
     let _guard = env_lock();
     let workspace = TestGitWorkspace::new("rl-campaign-tool-catalog");
     let path = workspace.path().join("definitions.json");
-    let resource = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("lib/tools/definitions.json");
-    let mut data: serde_json::Value = serde_json::from_slice(&std::fs::read(resource).unwrap()).unwrap();
+    let resource = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("lib/tools/definitions.json");
+    let mut data: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(resource).unwrap()).unwrap();
     data["tools"]["git_diff"]["description"] = "rl generation one".into();
     std::fs::write(&path, serde_json::to_vec(&data).unwrap()).unwrap();
     let _catalog = TestEnvGuard::set("ANGEL_CORE_TOOL_CATALOG", path.to_str().unwrap());
@@ -981,7 +985,8 @@ fn direct_campaign_book_pins_tool_generation_for_late_workers() {
         let mut def = core_catalog::baseline_def("git_diff");
         core_catalog::current().unwrap().overlay(&mut def);
         tx.send(def.description).unwrap();
-    }).unwrap();
+    })
+    .unwrap();
     worker.join().unwrap();
     assert_eq!(rx.recv().unwrap(), "rl generation one");
     assert!(catalog::current().is_none());

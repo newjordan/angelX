@@ -9,7 +9,7 @@
 //! It is included by `#[path]` from both trees, so it may only name what a
 //! `super::` can supply: the boss's types, the summit's geometry, the tile size
 //! and serde's JSON.
-use super::boss::{Attack, Beat, Boss, Hazard, HEAD_DOWN, HEAD_UP, PHASES, REACH, floor, home};
+use super::boss::{Attack, Beat, Boss, HEAD_DOWN, HEAD_UP, Hazard, PHASES, REACH, floor, home};
 use super::layout::{SUMMIT, info};
 use super::world::TILE;
 use serde::{Deserialize, Serialize};
@@ -40,7 +40,11 @@ pub fn step(boss: &mut Boss, at: &[(i32, i32)], seats: u8, elapsed: u32) {
     let arena = |x: i32, y: i32| {
         x > (SUMMIT.ox + 3) * TILE && x < (SUMMIT.ox + 38) * TILE && y > (SUMMIT.oy) * TILE
     };
-    let near = at.iter().copied().filter(|&(x, y)| arena(x, y)).collect::<Vec<_>>();
+    let near = at
+        .iter()
+        .copied()
+        .filter(|&(x, y)| arena(x, y))
+        .collect::<Vec<_>>();
     let crowd = i32::from(seats.max(1)) - 1;
     match boss.beat {
         Beat::Dormant => {

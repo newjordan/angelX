@@ -2664,9 +2664,13 @@ fn swarm_route_leg_matches_every_native_decision() {
     for case in &cases {
         let input = Features::of(case).json();
         let native = route_oracle(case);
-        let (route, source) = decide_with(Some(leg.clone()), "swarm-route", &input, Route::check, || {
-            route_oracle(case)
-        });
+        let (route, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-route",
+            &input,
+            Route::check,
+            || route_oracle(case),
+        );
         assert_eq!(route, native, "{case:?}");
         assert!(
             matches!(source, LegSource::Live { .. }),
@@ -2695,11 +2699,10 @@ fn a_broken_swarm_route_generation_keeps_the_native_decision() {
         "module.exports={apiVersion:1,render:()=>({tight:false,moa:true,synthesis:true,deliberation:false,research:true,hard:true})}",
     )
     .unwrap();
-    let mut registry = angel_live::Registry::validated(
-        root.clone(),
-        crate::agent::hotload::evaluate,
-        |_, _| Ok(()),
-    );
+    let mut registry =
+        angel_live::Registry::validated(root.clone(), crate::agent::hotload::evaluate, |_, _| {
+            Ok(())
+        });
     registry.refresh(true);
     let broken = registry
         .snapshot()
@@ -3199,45 +3202,167 @@ fn swarm_wave_cases() -> Vec<WaveInputs> {
     vec![
         base,
         // Width floor, exactly and over.
-        WaveInputs { launched_total: 16, ..base },
-        WaveInputs { launched_total: 17, max_width: 16, ..base },
-        WaveInputs { launched_total: 0, max_width: 0, ..base },
-        WaveInputs { launched_total: 15, returned: 3, ..base },
+        WaveInputs {
+            launched_total: 16,
+            ..base
+        },
+        WaveInputs {
+            launched_total: 17,
+            max_width: 16,
+            ..base
+        },
+        WaveInputs {
+            launched_total: 0,
+            max_width: 0,
+            ..base
+        },
+        WaveInputs {
+            launched_total: 15,
+            returned: 3,
+            ..base
+        },
         // Wave budget, last wave and already past it.
-        WaveInputs { wave_index: 2, ..base },
-        WaveInputs { wave_index: 0, max_waves: 1, ..base },
-        WaveInputs { wave_index: 5, max_waves: 3, ..base },
+        WaveInputs {
+            wave_index: 2,
+            ..base
+        },
+        WaveInputs {
+            wave_index: 0,
+            max_waves: 1,
+            ..base
+        },
+        WaveInputs {
+            wave_index: 5,
+            max_waves: 3,
+            ..base
+        },
         // Nothing came back.
-        WaveInputs { returned: 0, ..base },
-        WaveInputs { returned: 0, novel: 0, ..base },
+        WaveInputs {
+            returned: 0,
+            ..base
+        },
+        WaveInputs {
+            returned: 0,
+            novel: 0,
+            ..base
+        },
         // Novelty floor: just under, exactly on, comfortably over.
-        WaveInputs { returned: 20, novel: 6, ..base },
-        WaveInputs { returned: 20, novel: 7, ..base },
-        WaveInputs { returned: 20, novel: 8, ..base },
-        WaveInputs { novel: 0, returned: 4, ..base },
-        WaveInputs { novelty_floor: 1.0, novel: 3, returned: 4, ..base },
+        WaveInputs {
+            returned: 20,
+            novel: 6,
+            ..base
+        },
+        WaveInputs {
+            returned: 20,
+            novel: 7,
+            ..base
+        },
+        WaveInputs {
+            returned: 20,
+            novel: 8,
+            ..base
+        },
+        WaveInputs {
+            novel: 0,
+            returned: 4,
+            ..base
+        },
+        WaveInputs {
+            novelty_floor: 1.0,
+            novel: 3,
+            returned: 4,
+            ..base
+        },
         // Dissent agreement: below, exactly on, just over.
-        WaveInputs { dissent: Some(0.2), ..base },
-        WaveInputs { dissent: Some(0.45), ..base },
-        WaveInputs { dissent: Some(0.451), ..base },
-        WaveInputs { dissent: None, ..base },
+        WaveInputs {
+            dissent: Some(0.2),
+            ..base
+        },
+        WaveInputs {
+            dissent: Some(0.45),
+            ..base
+        },
+        WaveInputs {
+            dissent: Some(0.451),
+            ..base
+        },
+        WaveInputs {
+            dissent: None,
+            ..base
+        },
         // Dissent stability: inside epsilon, exactly on, just outside.
-        WaveInputs { dissent: Some(0.62), prev_dissent: Some(0.60), ..base },
-        WaveInputs { dissent: Some(0.85), prev_dissent: Some(0.80), ..base },
-        WaveInputs { dissent: Some(0.86), prev_dissent: Some(0.80), ..base },
-        WaveInputs { dissent: Some(0.60), prev_dissent: None, ..base },
-        WaveInputs { dissent: None, prev_dissent: Some(0.60), ..base },
+        WaveInputs {
+            dissent: Some(0.62),
+            prev_dissent: Some(0.60),
+            ..base
+        },
+        WaveInputs {
+            dissent: Some(0.85),
+            prev_dissent: Some(0.80),
+            ..base
+        },
+        WaveInputs {
+            dissent: Some(0.86),
+            prev_dissent: Some(0.80),
+            ..base
+        },
+        WaveInputs {
+            dissent: Some(0.60),
+            prev_dissent: None,
+            ..base
+        },
+        WaveInputs {
+            dissent: None,
+            prev_dissent: Some(0.60),
+            ..base
+        },
         // Growth: identity, below one, non-finite, and clamped by the room.
-        WaveInputs { growth: 1.0, ..base },
-        WaveInputs { growth: 0.5, ..base },
-        WaveInputs { growth: f64::NAN, ..base },
-        WaveInputs { growth: f64::INFINITY, ..base },
-        WaveInputs { wave_size: 8, max_width: 10, launched_total: 4, ..base },
-        WaveInputs { wave_size: 0, growth: 3.0, ..base },
-        WaveInputs { wave_size: 1, growth: 1.5, ..base },
-        WaveInputs { wave_size: 7, growth: 1.1, launched_total: 12, ..base },
+        WaveInputs {
+            growth: 1.0,
+            ..base
+        },
+        WaveInputs {
+            growth: 0.5,
+            ..base
+        },
+        WaveInputs {
+            growth: f64::NAN,
+            ..base
+        },
+        WaveInputs {
+            growth: f64::INFINITY,
+            ..base
+        },
+        WaveInputs {
+            wave_size: 8,
+            max_width: 10,
+            launched_total: 4,
+            ..base
+        },
+        WaveInputs {
+            wave_size: 0,
+            growth: 3.0,
+            ..base
+        },
+        WaveInputs {
+            wave_size: 1,
+            growth: 1.5,
+            ..base
+        },
+        WaveInputs {
+            wave_size: 7,
+            growth: 1.1,
+            launched_total: 12,
+            ..base
+        },
         // Odd shapes that still reach an expand.
-        WaveInputs { wave_size: 13, growth: 2.0, max_width: 40, launched_total: 0, ..base },
+        WaveInputs {
+            wave_size: 13,
+            growth: 2.0,
+            max_width: 40,
+            launched_total: 0,
+            ..base
+        },
     ]
 }
 
@@ -3293,9 +3418,13 @@ fn swarm_waves_leg_matches_every_native_decision() {
     for case in &cases {
         let input = decide_wave_input(*case);
         let native = wave_oracle(*case);
-        let (live, source) = decide_with(Some(leg.clone()), "swarm-waves", &input, Decision::check, || {
-            wave_oracle(*case)
-        });
+        let (live, source) = decide_with(
+            Some(leg.clone()),
+            "swarm-waves",
+            &input,
+            Decision::check,
+            || wave_oracle(*case),
+        );
         assert_eq!(live, native, "{case:?}");
         assert!(
             matches!(source, LegSource::Live { .. }),
@@ -3317,7 +3446,11 @@ fn swarm_waves_leg_matches_every_native_decision() {
         assert!(labels.contains(stop), "no case reached {stop}: {labels:?}");
     }
     assert!(
-        labels.iter().filter(|label| label.starts_with("expand:")).count() >= 4,
+        labels
+            .iter()
+            .filter(|label| label.starts_with("expand:"))
+            .count()
+            >= 4,
         "the table must reach several wave sizes: {labels:?}"
     );
 }
@@ -3338,7 +3471,9 @@ fn swarm_waves_gate_matches_the_native_order() {
                 (true, GateAction::Relax) | (false, _) => Ok(()),
                 (true, _) => Err("a dominant pool must relax".to_string()),
             },
-            || GateOut { gate: gate_oracle(relax, escalate) },
+            || GateOut {
+                gate: gate_oracle(relax, escalate),
+            },
         );
         assert_eq!(out.gate, native, "relax={relax} escalate={escalate}");
         assert!(

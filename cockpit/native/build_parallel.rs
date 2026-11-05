@@ -7,7 +7,10 @@
 use std::io;
 use std::process::Command;
 
-pub fn run_commands<T>(commands: Vec<Command>, mut extra_slot: impl FnMut() -> Option<T>) -> io::Result<()> {
+pub fn run_commands<T>(
+    commands: Vec<Command>,
+    mut extra_slot: impl FnMut() -> Option<T>,
+) -> io::Result<()> {
     let mut permits = Vec::new();
     for _ in 1..commands.len() {
         match extra_slot() {
@@ -25,11 +28,18 @@ pub fn run_commands<T>(commands: Vec<Command>, mut extra_slot: impl FnMut() -> O
             let Some(mut command) = command else { break };
             let description = format!("{command:?}");
             let result = command.status().and_then(|status| {
-                if status.success() { Ok(()) }
-                else { Err(io::Error::other(format!("native compiler failed ({status}): {description}"))) }
+                if status.success() {
+                    Ok(())
+                } else {
+                    Err(io::Error::other(format!(
+                        "native compiler failed ({status}): {description}"
+                    )))
+                }
             });
             if let Err(error) = result {
-                if first_error.is_none() { first_error = Some(error); }
+                if first_error.is_none() {
+                    first_error = Some(error);
+                }
             }
         }
         first_error.map_or(Ok(()), Err)
@@ -39,7 +49,9 @@ pub fn run_commands<T>(commands: Vec<Command>, mut extra_slot: impl FnMut() -> O
         let mut result = worker();
         for thread in threads {
             let completed = thread.join().expect("native compiler worker panicked");
-            if result.is_ok() { result = completed; }
+            if result.is_ok() {
+                result = completed;
+            }
         }
         result
     });
@@ -58,7 +70,11 @@ mod tests {
     struct Temp(PathBuf);
     impl Temp {
         fn new() -> Self {
-            let path = std::env::temp_dir().join(format!("angel-native-jobs-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+            let path = std::env::temp_dir().join(format!(
+                "angel-native-jobs-{}-{}",
+                std::process::id(),
+                NEXT.fetch_add(1, Ordering::Relaxed)
+            ));
             fs::create_dir(&path).unwrap();
             Self(path)
         }
@@ -68,16 +84,29 @@ mod tests {
             command
         }
     }
-    impl Drop for Temp { fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); } }
+    impl Drop for Temp {
+        fn drop(&mut self) {
+            let _ = fs::remove_dir_all(&self.0);
+        }
+    }
 
     #[test]
     fn serial_fallback_never_requests_more_after_no_token() {
         let temp = Temp::new();
         let mut requests = 0;
-        let commands = (0..4).map(|n| temp.command(&format!("echo {n} >> order"))).collect();
-        run_commands(commands, || { requests += 1; None::<()> }).unwrap();
+        let commands = (0..4)
+            .map(|n| temp.command(&format!("echo {n} >> order")))
+            .collect();
+        run_commands(commands, || {
+            requests += 1;
+            None::<()>
+        })
+        .unwrap();
         assert_eq!(requests, 1);
-        assert_eq!(fs::read_to_string(temp.0.join("order")).unwrap(), "0\n1\n2\n3\n");
+        assert_eq!(
+            fs::read_to_string(temp.0.join("order")).unwrap(),
+            "0\n1\n2\n3\n"
+        );
     }
 
     #[test]
@@ -96,9 +125,17 @@ mod tests {
         let temp = Temp::new();
         struct Permit<'a>(&'a PathBuf);
         impl Drop for Permit<'_> {
-            fn drop(&mut self) { assert!(self.0.join("finished").exists(), "permit released with child still running"); }
+            fn drop(&mut self) {
+                assert!(
+                    self.0.join("finished").exists(),
+                    "permit released with child still running"
+                );
+            }
         }
-        let commands = vec![temp.command("exit 19"), temp.command("sleep .1; touch finished")];
+        let commands = vec![
+            temp.command("exit 19"),
+            temp.command("sleep .1; touch finished"),
+        ];
         assert!(run_commands(commands, || Some(Permit(&temp.0))).is_err());
         assert!(temp.0.join("finished").exists());
     }
@@ -106,7 +143,10 @@ mod tests {
     #[test]
     fn spawn_failure_is_not_success_and_other_children_are_reaped() {
         let temp = Temp::new();
-        let commands = vec![Command::new(temp.0.join("missing-compiler")), temp.command("touch finished")];
+        let commands = vec![
+            Command::new(temp.0.join("missing-compiler")),
+            temp.command("touch finished"),
+        ];
         assert!(run_commands(commands, || Some(())).is_err());
         assert!(temp.0.join("finished").exists());
     }

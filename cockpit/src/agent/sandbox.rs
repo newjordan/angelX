@@ -216,8 +216,8 @@ impl SandboxPolicy {
             // installed its own XDG_CACHE_HOME (granted above) leaves the
             // shared ~/.cache read-only: its hard-linked tool caches would
             // otherwise put every launch on the Bubblewrap alias path.
-            let private_task_cache = std::env::var_os("ANGEL_TASK_CACHE_HOME")
-                .is_some_and(|value| !value.is_empty());
+            let private_task_cache =
+                std::env::var_os("ANGEL_TASK_CACHE_HOME").is_some_and(|value| !value.is_empty());
             if !private_task_cache {
                 writable_roots.push(home.join(".cache"));
             }

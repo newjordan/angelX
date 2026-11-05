@@ -41,7 +41,8 @@ pub(super) fn dispatch_parallel_segment(
                 let live_turn = crate::agent::harness::run_identity::live_turn();
                 let book_catalog = crate::agent::harness::book::catalog::current();
                 let handle = scope.spawn(move || {
-                    let _book_catalog = book_catalog.map(crate::agent::harness::book::catalog::enter);
+                    let _book_catalog =
+                        book_catalog.map(crate::agent::harness::book::catalog::enter);
                     let _model =
                         crate::agent::harness::run_identity::LiveModelScope::enter(live_model);
                     let _turn =

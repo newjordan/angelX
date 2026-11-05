@@ -1,12 +1,12 @@
 use angel_delve::rules::abilities::{Command, Origin};
-use angel_delve::rules::{Input, Run, RoomKind};
+use angel_delve::rules::{Input, RoomKind, Run};
+use angel_live::Registry;
 use angel_live::kernel::Resource;
 use angel_realm_host::together_abilities::*;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-use std::sync::Arc;
-use angel_live::Registry;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 struct Fixture {
     root: PathBuf,
@@ -1039,8 +1039,18 @@ fn two_players_resolve_distinct_executable_providers_without_a_native_branch() {
         fixture.source().replace("damage: 28", "damage: 91"),
     )
     .unwrap();
-    for name in ["fairies.bend", "LAWS.bend", "PROOF.bend", "fairies.compiled.js", "bend-build.json"] {
-        std::fs::copy(fixture.root.join("ability-code").join(name), other.join(name)).unwrap();
+    for name in [
+        "fairies.bend",
+        "LAWS.bend",
+        "PROOF.bend",
+        "fairies.compiled.js",
+        "bend-build.json",
+    ] {
+        std::fs::copy(
+            fixture.root.join("ability-code").join(name),
+            other.join(name),
+        )
+        .unwrap();
     }
     let path = fixture.root.join("abilities/module.json");
     let mut manifest: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
@@ -1390,7 +1400,10 @@ fn invalid_fairy_art_or_status_contract_keeps_the_whole_working_loadout() {
             .is_some_and(|error| error.contains("indexed sprite"))
     }));
     std::fs::write(art, good).unwrap();
-    fixture.edit(&fixture.source().replace("parameters: fairyParameters", "parameters: { ...fairyParameters, hold: 0 }"));
+    fixture.edit(&fixture.source().replace(
+        "parameters: fairyParameters",
+        "parameters: { ...fairyParameters, hold: 0 }",
+    ));
     registry.refresh(true);
     assert_eq!(
         registry.snapshot().resources,

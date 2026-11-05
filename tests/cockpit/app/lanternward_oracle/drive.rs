@@ -257,7 +257,10 @@ impl Scenario {
 fn open_spot(s: &Session, rng: &mut Rng) -> (i32, i32) {
     let p = plan(usize::from(s.room));
     for _ in 0..200 {
-        let (tx, ty) = (rng.below(p.w() as u32) as i32, rng.below(p.h() as u32) as i32);
+        let (tx, ty) = (
+            rng.below(p.w() as u32) as i32,
+            rng.below(p.h() as u32) as i32,
+        );
         let (x, y) = (middle(tx), middle(ty));
         if s.clear(x, y, KNIGHT_R) && !s.pit(x, y) {
             return (x, y);
@@ -304,7 +307,11 @@ pub fn scatter(s: &mut Session, rng: &mut Rng) {
             }
             5 => {
                 let at = open_spot(s, rng);
-                let kind = if rng.chance(500) { Fk::Snuffer } else { Fk::Turret };
+                let kind = if rng.chance(500) {
+                    Fk::Snuffer
+                } else {
+                    Fk::Turret
+                };
                 let hooded = rng.chance(400);
                 s.spawn_foe(kind, at.0, at.1, hooded);
             }
@@ -350,8 +357,19 @@ pub fn scatter(s: &mut Session, rng: &mut Rng) {
                     let i = rng.below(n) as usize;
                     let p = &mut s.props[i];
                     p.on = match p.kind {
-                        Pk::Pot | Pk::Grass | Pk::Gate | Pk::Lock | Pk::Boss | Pk::Cracked | Pk::Plate | Pk::Crystal
-                        | Pk::Great | Pk::Lever | Pk::Sigil | Pk::Chest | Pk::Beacon => rng.below(2) as u8,
+                        Pk::Pot
+                        | Pk::Grass
+                        | Pk::Gate
+                        | Pk::Lock
+                        | Pk::Boss
+                        | Pk::Cracked
+                        | Pk::Plate
+                        | Pk::Crystal
+                        | Pk::Great
+                        | Pk::Lever
+                        | Pk::Sigil
+                        | Pk::Chest
+                        | Pk::Beacon => rng.below(2) as u8,
                         Pk::Brazier => rng.below(2) as u8,
                         _ => p.on,
                     };
@@ -389,7 +407,12 @@ pub fn scatter(s: &mut Session, rng: &mut Rng) {
             _ => {
                 if s.fuses.len() < FUSE_CAP {
                     let at = open_spot(s, rng);
-                    s.fuses.push(Fuse { x: at.0, y: at.1, t: 1 + rng.below(70) as u8, owner: 1 });
+                    s.fuses.push(Fuse {
+                        x: at.0,
+                        y: at.1,
+                        t: 1 + rng.below(70) as u8,
+                        owner: 1,
+                    });
                 }
             }
         }
@@ -416,7 +439,11 @@ pub struct Tick {
 pub fn play(sc: &mut Scenario, ticks: u32, mut on_tick: impl FnMut(&Scenario, Tick)) {
     for _ in 0..ticks {
         sc.tick += 1;
-        let reset = if sc.meddle() { Some(wire(&sc.session)) } else { None };
+        let reset = if sc.meddle() {
+            Some(wire(&sc.session))
+        } else {
+            None
+        };
         sc.churn();
         let inputs = sc.inputs();
         let here: Vec<u32> = sc
@@ -427,7 +454,9 @@ pub fn play(sc: &mut Scenario, ticks: u32, mut on_tick: impl FnMut(&Scenario, Ti
             .collect();
         let before = sc.session.clone();
         let mut trace = Vec::new();
-        let ev = sc.session.step_traced(&inputs, &sc.heroes, &sc.rules, &mut trace);
+        let ev = sc
+            .session
+            .step_traced(&inputs, &sc.heroes, &sc.rules, &mut trace);
         let tick = Tick {
             reset,
             inputs,
@@ -441,7 +470,11 @@ pub fn play(sc: &mut Scenario, ticks: u32, mut on_tick: impl FnMut(&Scenario, Ti
             trace,
         };
         on_tick(sc, tick);
-        if sc.session.done.is_some_and(|t| sc.session.elapsed >= t + FINALE_TICKS + 300) {
+        if sc
+            .session
+            .done
+            .is_some_and(|t| sc.session.elapsed >= t + FINALE_TICKS + 300)
+        {
             break;
         }
     }
@@ -455,7 +488,12 @@ pub fn ask(t: &Tick) -> Value {
         .here
         .iter()
         .map(|id| {
-            let i = t.inputs.get(id).copied().filter(|i| i.valid()).unwrap_or_default();
+            let i = t
+                .inputs
+                .get(id)
+                .copied()
+                .filter(|i| i.valid())
+                .unwrap_or_default();
             json!([id, i.move_x, i.move_y, i.aim_x, i.aim_y, mask(&i)])
         })
         .collect();
@@ -468,10 +506,50 @@ pub fn ask(t: &Tick) -> Value {
 }
 
 pub const SOUNDS: [&str; 46] = [
-    "axe_spin", "bomb", "bomb_toss", "boss_death", "boss_fall", "boss_rage", "boss_roar", "card_pickup", "chest_open",
-    "circle_toll", "clang", "crack_open", "descend", "door_open", "door_pass", "door_seal", "gold", "hit_axe",
-    "hit_blade", "hit_magic", "holy_water", "kill", "knight_fall", "knight_hit", "knight_hit_big", "mana_empty",
-    "play_card", "potion", "rock_land", "roll", "shield_block", "shield_up", "shot_arcane", "shot_bolt", "shot_spark",
-    "spell_cast", "spell_fire", "spoil_pickup", "step_ash", "step_moss", "step_stone", "swing", "wall_up", "wave_gate",
-    "wheel_land", "wish_grant",
+    "axe_spin",
+    "bomb",
+    "bomb_toss",
+    "boss_death",
+    "boss_fall",
+    "boss_rage",
+    "boss_roar",
+    "card_pickup",
+    "chest_open",
+    "circle_toll",
+    "clang",
+    "crack_open",
+    "descend",
+    "door_open",
+    "door_pass",
+    "door_seal",
+    "gold",
+    "hit_axe",
+    "hit_blade",
+    "hit_magic",
+    "holy_water",
+    "kill",
+    "knight_fall",
+    "knight_hit",
+    "knight_hit_big",
+    "mana_empty",
+    "play_card",
+    "potion",
+    "rock_land",
+    "roll",
+    "shield_block",
+    "shield_up",
+    "shot_arcane",
+    "shot_bolt",
+    "shot_spark",
+    "spell_cast",
+    "spell_fire",
+    "spoil_pickup",
+    "step_ash",
+    "step_moss",
+    "step_stone",
+    "swing",
+    "wall_up",
+    "wave_gate",
+    "wheel_land",
+    "wish_grant",
 ];

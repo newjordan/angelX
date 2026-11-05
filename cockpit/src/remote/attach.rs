@@ -19,10 +19,18 @@ fn remote_command(args: &str) -> String {
     let env: String = std::env::var("ANGEL_REMOTE_ENV")
         .unwrap_or_default()
         .split_whitespace()
-        .filter(|word| word.split_once('=').is_some_and(|(k, _)| !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')))
+        .filter(|word| {
+            word.split_once('=').is_some_and(|(k, _)| {
+                !k.is_empty() && k.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
+            })
+        })
         .map(|word| format!("{} ", quote(word)))
         .collect();
-    let exec = if env.is_empty() { "exec ".to_string() } else { format!("exec env {env}") };
+    let exec = if env.is_empty() {
+        "exec ".to_string()
+    } else {
+        format!("exec env {env}")
+    };
     format!(
         "p={}; [ -x \"$p\" ] || p=$(command -v angelX 2>/dev/null); \
          [ -x \"$p\" ] || p=\"$HOME/.local/bin/angelX\"; [ -x \"$p\" ] || p=\"$HOME/angelX/bin/angelX\"; \
@@ -43,9 +51,17 @@ fn spawn(target: &Target) -> io::Result<Child> {
             let mut c = Command::new("ssh");
             // No terminal on the far side: the link is binary. Keepalives
             // notice a dead link within seconds, so the window reconnects.
-            c.args(["-T", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=3", "-o", "ConnectTimeout=10"])
-                .arg(host)
-                .arg(remote_command(&format!("--session-host {}", target.name)));
+            c.args([
+                "-T",
+                "-o",
+                "ServerAliveInterval=5",
+                "-o",
+                "ServerAliveCountMax=3",
+                "-o",
+                "ConnectTimeout=10",
+            ])
+            .arg(host)
+            .arg(remote_command(&format!("--session-host {}", target.name)));
             c
         }
         None => {
@@ -54,7 +70,11 @@ fn spawn(target: &Target) -> io::Result<Child> {
             c
         }
     };
-    command.stdin(Stdio::piped()).stdout(Stdio::piped()).stderr(Stdio::piped()).spawn()
+    command
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
 }
 
 fn self_exe() -> io::Result<std::path::PathBuf> {
@@ -97,12 +117,26 @@ impl Said {
     }
 
     fn last(&self) -> String {
-        self.0.lock().unwrap().0.iter().rev().find(|l| !l.trim().is_empty()).cloned().unwrap_or_default()
+        self.0
+            .lock()
+            .unwrap()
+            .0
+            .iter()
+            .rev()
+            .find(|l| !l.trim().is_empty())
+            .cloned()
+            .unwrap_or_default()
     }
 }
 
 /// A link to the session, through its hello.
-fn connect(target: &Target, kind: Kind, size: GridSize, have: Vec<wire::Hash>, echo: bool) -> Result<Link, Fail> {
+fn connect(
+    target: &Target,
+    kind: Kind,
+    size: GridSize,
+    have: Vec<wire::Hash>,
+    echo: bool,
+) -> Result<Link, Fail> {
     let mut child = spawn(target).map_err(|e| Fail::Fatal(format!("could not run ssh: {e}")))?;
     let said = Said::default();
     if let Some(stderr) = child.stderr.take() {
@@ -110,7 +144,11 @@ fn connect(target: &Target, kind: Kind, size: GridSize, have: Vec<wire::Hash>, e
     }
     let reader = Box::new(child.stdout.take().expect("piped stdout"));
     let writer = Box::new(child.stdin.take().expect("piped stdin"));
-    let mut link = Link { reader, writer, child: Some(child) };
+    let mut link = Link {
+        reader,
+        writer,
+        child: Some(child),
+    };
     let who = whoami();
     match handshake(&mut link, kind, size, have, &who) {
         Ok(_) => {
@@ -140,16 +178,24 @@ fn explain(fail: Fail, said: &str) -> Fail {
         || said.contains("unknown option")
         || said.contains("unexpected argument");
     match fail {
-        _ if old => Fail::Fatal("the angelX there is too old for remote glass; update it there (angelX update)".into()),
-        _ if said.contains("no angelX on this machine") => Fail::Fatal("there is no angelX there".into()),
-        Fail::Again(why) if !said.is_empty() && why.contains("closed") => Fail::Again(said.to_string()),
+        _ if old => Fail::Fatal(
+            "the angelX there is too old for remote glass; update it there (angelX update)".into(),
+        ),
+        _ if said.contains("no angelX on this machine") => {
+            Fail::Fatal("there is no angelX there".into())
+        }
+        Fail::Again(why) if !said.is_empty() && why.contains("closed") => {
+            Fail::Again(said.to_string())
+        }
         other => other,
     }
 }
 
 fn whoami() -> String {
     let user = std::env::var("USER").unwrap_or_default();
-    let host = std::fs::read_to_string("/etc/hostname").map(|h| h.trim().to_string()).unwrap_or_default();
+    let host = std::fs::read_to_string("/etc/hostname")
+        .map(|h| h.trim().to_string())
+        .unwrap_or_default();
     format!("{user}@{host}")
 }
 
@@ -179,9 +225,14 @@ pub(super) fn attach(target: &Target, window: Option<bool>) -> io::Result<()> {
     let window = window_wanted(window);
     let outcome = if window {
         let options = angel_glass::Options::from_environment();
-        let size = GridSize { cols: options.columns, rows: options.rows, ..GridSize::default() };
+        let size = GridSize {
+            cols: options.columns,
+            rows: options.rows,
+            ..GridSize::default()
+        };
         eprintln!("angelX: attaching to {label}…");
-        let first = connect(target, Kind::Window, size, Vec::new(), true).map_err(|f| fail(&label, f))?;
+        let first =
+            connect(target, Kind::Window, size, Vec::new(), true).map_err(|f| fail(&label, f))?;
         let again = target.clone();
         angel_glass::remote::attach_window(options, first, label.clone(), move |size, have| {
             connect(&again, Kind::Window, size, have, false)
@@ -189,9 +240,12 @@ pub(super) fn attach(target: &Target, window: Option<bool>) -> io::Result<()> {
         .map_err(io::Error::other)?
     } else {
         let size = super::term::size();
-        let first = connect(target, Kind::Terminal, size, Vec::new(), true).map_err(|f| fail(&label, f))?;
+        let first =
+            connect(target, Kind::Terminal, size, Vec::new(), true).map_err(|f| fail(&label, f))?;
         let again = target.clone();
-        super::term::attach(first, &label, move |size, have| connect(&again, Kind::Terminal, size, have, false))?
+        super::term::attach(first, &label, move |size, have| {
+            connect(&again, Kind::Terminal, size, have, false)
+        })?
     };
     match outcome {
         Outcome::Detached => {
@@ -219,29 +273,47 @@ pub(super) fn sessions(host: Option<&str>) -> io::Result<()> {
     let mut found: Vec<Status> = Vec::new();
     let mut names: Vec<String> = std::fs::read_dir(super::dir()?)?
         .filter_map(|e| e.ok())
-        .filter_map(|e| e.file_name().to_str()?.strip_suffix(".sock").map(str::to_string))
+        .filter_map(|e| {
+            e.file_name()
+                .to_str()?
+                .strip_suffix(".sock")
+                .map(str::to_string)
+        })
         .collect();
     names.sort();
     for name in names {
         match probe(&name, false) {
             Ok(status) => found.push(status),
             // Nothing listens: a session that died without cleaning up.
-            Err(e) if matches!(e.kind(), io::ErrorKind::ConnectionRefused | io::ErrorKind::NotFound) => {
+            Err(e)
+                if matches!(
+                    e.kind(),
+                    io::ErrorKind::ConnectionRefused | io::ErrorKind::NotFound
+                ) =>
+            {
                 let _ = std::fs::remove_file(super::socket(&name)?);
             }
             // Something listens but did not answer as this angelX would
             // (another version): say so and leave it be.
-            Err(e) => println!("{name}: running, but it did not answer this angelX ({e}); it may be another version"),
+            Err(e) => println!(
+                "{name}: running, but it did not answer this angelX ({e}); it may be another version"
+            ),
         }
     }
     if found.is_empty() {
         println!("no sessions");
         return Ok(());
     }
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
     for s in found {
         let age = now.saturating_sub(s.started);
-        let age = if age >= 3600 { format!("{}h{:02}m", age / 3600, age / 60 % 60) } else { format!("{}m", age / 60) };
+        let age = if age >= 3600 {
+            format!("{}h{:02}m", age / 3600, age / 60 % 60)
+        } else {
+            format!("{}m", age / 60)
+        };
         let windows = match s.clients {
             0 => "detached".to_string(),
             1 => "1 window".to_string(),
@@ -251,11 +323,29 @@ pub(super) fn sessions(host: Option<&str>) -> io::Result<()> {
             .presence
             .knights
             .iter()
-            .map(|k| format!("{} ({}, {})", k.persona, k.family, format!("{:?}", k.status).to_lowercase()))
+            .map(|k| {
+                format!(
+                    "{} ({}, {})",
+                    k.persona,
+                    k.family,
+                    format!("{:?}", k.status).to_lowercase()
+                )
+            })
             .collect();
-        let at = if s.presence.workspace.is_empty() { String::new() } else { format!(" in {}", s.presence.workspace) };
-        let knights = if knights.is_empty() { String::new() } else { format!("; {}", knights.join(", ")) };
-        println!("{}: {}x{}, up {age}, {windows}{at}, pid {}{knights}", s.name, s.size.cols, s.size.rows, s.pid);
+        let at = if s.presence.workspace.is_empty() {
+            String::new()
+        } else {
+            format!(" in {}", s.presence.workspace)
+        };
+        let knights = if knights.is_empty() {
+            String::new()
+        } else {
+            format!("; {}", knights.join(", "))
+        };
+        println!(
+            "{}: {}x{}, up {age}, {windows}{at}, pid {}{knights}",
+            s.name, s.size.cols, s.size.rows, s.pid
+        );
     }
     Ok(())
 }
@@ -271,21 +361,31 @@ pub(super) fn kill(target: &Target) -> io::Result<()> {
 }
 
 fn over_ssh(host: &str, args: &str) -> io::Result<()> {
-    let status = Command::new("ssh").args(["-T", host]).arg(remote_command(args)).status()?;
-    if status.success() { Ok(()) } else { Err(io::Error::other(format!("{host}: {status}"))) }
+    let status = Command::new("ssh")
+        .args(["-T", host])
+        .arg(remote_command(args))
+        .status()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(io::Error::other(format!("{host}: {status}")))
+    }
 }
 
 /// Ask a session on this machine who it is, and maybe to end.
 fn probe(name: &str, kill: bool) -> io::Result<Status> {
     let mut stream = std::os::unix::net::UnixStream::connect(super::socket(name)?)?;
     stream.set_read_timeout(Some(Duration::from_secs(3)))?;
-    wire::write(&mut stream, &angel_glass::remote::wire::Up::Hello {
-        version: wire::VERSION,
-        kind: Kind::Probe,
-        size: GridSize::default(),
-        have: Vec::new(),
-        who: whoami(),
-    })?;
+    wire::write(
+        &mut stream,
+        &angel_glass::remote::wire::Up::Hello {
+            version: wire::VERSION,
+            kind: Kind::Probe,
+            size: GridSize::default(),
+            have: Vec::new(),
+            who: whoami(),
+        },
+    )?;
     let mut status = None;
     while let Some(down) = wire::read::<wire::Down>(&mut stream)? {
         match down {
@@ -310,17 +410,31 @@ mod tests {
 
     #[test]
     fn an_old_angelx_is_named_in_one_line() {
-        let f = explain(Fail::Again("the link closed before a session answered".into()), "angelX: unknown or trailing interactive argument");
-        assert!(matches!(f, Fail::Fatal(ref s) if s.contains("too old")), "{f:?}");
-        let f = explain(Fail::Again("the link closed before a session answered".into()), "ssh: connect to host x port 22: No route to host");
-        assert!(matches!(f, Fail::Again(ref s) if s.contains("No route")), "{f:?}");
+        let f = explain(
+            Fail::Again("the link closed before a session answered".into()),
+            "angelX: unknown or trailing interactive argument",
+        );
+        assert!(
+            matches!(f, Fail::Fatal(ref s) if s.contains("too old")),
+            "{f:?}"
+        );
+        let f = explain(
+            Fail::Again("the link closed before a session answered".into()),
+            "ssh: connect to host x port 22: No route to host",
+        );
+        assert!(
+            matches!(f, Fail::Again(ref s) if s.contains("No route")),
+            "{f:?}"
+        );
     }
 
     #[test]
     fn the_far_command_is_quoted() {
         assert_eq!(quote("a'b"), "'a'\\''b'");
         if std::env::var_os("ANGEL_REMOTE_ENV").is_none() {
-            assert!(remote_command("--session-host main").ends_with("exec \"$p\" --session-host main"));
+            assert!(
+                remote_command("--session-host main").ends_with("exec \"$p\" --session-host main")
+            );
         }
     }
 }

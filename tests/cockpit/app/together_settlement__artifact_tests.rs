@@ -56,13 +56,15 @@ impl Fixture {
         std::fs::write(path, serde_json::to_vec(&manifest).unwrap()).unwrap();
     }
     fn deposit_named(&mut self, name: &str) -> Result<usize, String> {
-        self.store.deposit(&self.st.summary(), self.dir.path(), Some(name))
+        self.store
+            .deposit(&self.st.summary(), self.dir.path(), Some(name))
     }
     fn disk(&self) -> Vec<u8> {
         std::fs::read(self.store.path.as_ref().unwrap()).unwrap()
     }
     fn deposit(&mut self) -> Result<usize, String> {
-        self.store.deposit(&self.st.summary(), self.dir.path(), None)
+        self.store
+            .deposit(&self.st.summary(), self.dir.path(), None)
     }
     fn run(&self) -> Run {
         let mut run = Run::at_home(77, 91, None, Home::default(), Default::default());
@@ -110,12 +112,20 @@ fn settlement_durable_receipts_require_canonical_save_not_watchdog_cursor() {
     let asides: Vec<_> = std::fs::read_dir(dir.path())
         .unwrap()
         .map(|entry| entry.unwrap().path())
-        .filter(|p| p.file_name().unwrap().to_string_lossy().starts_with("loop.json.corrupt-"))
+        .filter(|p| {
+            p.file_name()
+                .unwrap()
+                .to_string_lossy()
+                .starts_with("loop.json.corrupt-")
+        })
         .collect();
     assert_eq!(asides.len(), 1, "the corrupt checkpoint is preserved once");
     assert_eq!(std::fs::read(&asides[0]).unwrap(), corrupt);
     let saved: LoopState = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
-    assert_eq!(saved.id, st.id, "credit follows the canonical restart checkpoint");
+    assert_eq!(
+        saved.id, st.id,
+        "credit follows the canonical restart checkpoint"
+    );
     assert_eq!(st.persisted_log.get(), 1);
     assert!(store.sync(&st.summary(), false).unwrap());
     assert_eq!(store.site.work, 1);
@@ -381,7 +391,10 @@ fn settlement_exhibits_named_host_command_preserves_live_run_and_legacy() {
     let message = app.dungeon_command(Some(" \tdeposit  missing \t"));
     assert!(message.contains("not committed"));
     assert!(message.contains(".angelX/settlement-exhibits/missing.json"));
-    assert_eq!(value(app.realm.world.settlement_site().unwrap().unwrap()), site);
+    assert_eq!(
+        value(app.realm.world.settlement_site().unwrap().unwrap()),
+        site
+    );
     // Empty/whitespace-only tails use None and preserve legacy admission.
     assert!(
         app.dungeon_command(Some(" \tdeposit \t\n"))
@@ -392,7 +405,13 @@ fn settlement_exhibits_named_host_command_preserves_live_run_and_legacy() {
         live
     );
     assert_eq!(
-        app.realm.world.settlement_site().unwrap().unwrap().exhibits.len(),
+        app.realm
+            .world
+            .settlement_site()
+            .unwrap()
+            .unwrap()
+            .exhibits
+            .len(),
         2
     );
     let legacy = value(app.realm.world.settlement_site().unwrap().unwrap());
@@ -400,7 +419,10 @@ fn settlement_exhibits_named_host_command_preserves_live_run_and_legacy() {
     for command in ["deposit", "deposit ", " \tdeposit\t \n"] {
         let message = app.dungeon_command(Some(command));
         assert!(message.contains("Deposited 0"), "{command:?}: {message}");
-        assert_eq!(value(app.realm.world.settlement_site().unwrap().unwrap()), legacy);
+        assert_eq!(
+            value(app.realm.world.settlement_site().unwrap().unwrap()),
+            legacy
+        );
         assert_eq!(std::fs::read(&ledger).unwrap(), disk);
         assert_eq!(
             serde_json::to_value(app.realm.dungeon.shooter.as_ref().unwrap()).unwrap(),
@@ -489,7 +511,10 @@ fn settlement_exhibits_bad_named_admission_rejected_before_reads_or_sync() {
                 .contains("invalid manifest name"),
             "{command:?}"
         );
-        assert_eq!(value(app.realm.world.settlement_site().unwrap().unwrap()), before);
+        assert_eq!(
+            value(app.realm.world.settlement_site().unwrap().unwrap()),
+            before
+        );
         assert_eq!(std::fs::read(&ledger).unwrap(), disk);
     }
 }
@@ -941,7 +966,8 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
             .contains("never sent to guests")
     );
     assert!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .exhibit_text
             .as_ref()
             .unwrap()
@@ -969,7 +995,8 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
     app.terminal_focused = true;
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE)));
     assert!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .exhibit_text
             .as_ref()
             .unwrap()
@@ -991,9 +1018,19 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
         .get_mut(&1)
         .unwrap();
     hero.x += 4.0 * crate::drive::together_shooter::TILE_UNITS;
-    assert!(!app.realm.dungeon.shooter.as_ref().unwrap().beside_exhibit(1));
+    assert!(
+        !app.realm
+            .dungeon
+            .shooter
+            .as_ref()
+            .unwrap()
+            .beside_exhibit(1)
+    );
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE)));
-    assert!(app.realm.dungeon.exhibit_text.is_none(), "E away from an exhibit opens nothing");
+    assert!(
+        app.realm.dungeon.exhibit_text.is_none(),
+        "E away from an exhibit opens nothing"
+    );
 }
 
 #[test]

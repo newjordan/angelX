@@ -12,35 +12,33 @@ impl App {
         let workspace = self.tools.current_workspace().to_path_buf();
         let effective = hands::browser_binary_in(&workspace);
         let saved = hands::read_browser_choice(&workspace);
-        let mut rows: Vec<crate::app::BrowserPickRow> =
-            hands::detected_browsers()
-                .into_iter()
-                .map(|(name, path, version)| {
-                    let pretty = match name.as_str() {
-                        "google-chrome-stable" | "google-chrome" => "Google Chrome",
-                        "chromium" | "chromium-browser" => "Chromium",
-                        other => other,
-                    };
-                    let detail = if version.is_empty() {
-                        path.display().to_string()
-                    } else {
-                        format!("{version} · {}", path.display())
-                    };
-                    let current = effective.as_deref() == Some(path.as_path());
-                    crate::app::BrowserPickRow {
-                        label: pretty.to_string(),
-                        detail,
-                        path: Some(path),
-                        current,
-                    }
-                })
-                .collect();
+        let mut rows: Vec<crate::app::BrowserPickRow> = hands::detected_browsers()
+            .into_iter()
+            .map(|(name, path, version)| {
+                let pretty = match name.as_str() {
+                    "google-chrome-stable" | "google-chrome" => "Google Chrome",
+                    "chromium" | "chromium-browser" => "Chromium",
+                    other => other,
+                };
+                let detail = if version.is_empty() {
+                    path.display().to_string()
+                } else {
+                    format!("{version} · {}", path.display())
+                };
+                let current = effective.as_deref() == Some(path.as_path());
+                crate::app::BrowserPickRow {
+                    label: pretty.to_string(),
+                    detail,
+                    path: Some(path),
+                    current,
+                }
+            })
+            .collect();
         rows.push(crate::app::BrowserPickRow {
             label: "Auto".to_string(),
             detail: "Chrome first, then Chromium (clears the saved pick)".to_string(),
             path: None,
-            current: saved.is_none()
-                && std::env::var_os("ANGEL_BROWSER_BIN").is_none(),
+            current: saved.is_none() && std::env::var_os("ANGEL_BROWSER_BIN").is_none(),
         });
         if rows.len() == 1 {
             self.system_msg(
@@ -92,10 +90,7 @@ impl App {
             return;
         };
         let workspace = self.tools.current_workspace().to_path_buf();
-        match crate::agent::tools::hands::write_browser_choice(
-            &workspace,
-            row.path.as_deref(),
-        ) {
+        match crate::agent::tools::hands::write_browser_choice(&workspace, row.path.as_deref()) {
             Ok(()) => {
                 let what = match &row.path {
                     Some(path) => format!("{} ({})", row.label, path.display()),

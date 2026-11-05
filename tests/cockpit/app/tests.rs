@@ -284,16 +284,28 @@ fn render_app_text(app: &mut App, width: u16, height: u16) -> String {
 
 /// The world's row of actions floats as the object dock: open it, page to
 /// `action` and return the click target it floats there, with the frame.
-fn float_dock_action(app: &mut App, width: u16, height: u16, action: WorldButton) -> (Rect, String) {
+fn float_dock_action(
+    app: &mut App,
+    width: u16,
+    height: u16,
+    action: WorldButton,
+) -> (Rect, String) {
     app.object_dock.open_settled();
     for _ in 0..8 {
         let text = render_app_text(app, width, height);
-        if let Some((rect, _)) = app.world_buttons.iter().find(|(_, button)| *button == action) {
+        if let Some((rect, _)) = app
+            .world_buttons
+            .iter()
+            .find(|(_, button)| *button == action)
+        {
             return (*rect, text);
         }
         app.apply_world_button(WorldButton::DockNext);
     }
-    panic!("the dock never floated {action:?}; buttons={:?}", app.world_buttons);
+    panic!(
+        "the dock never floated {action:?}; buttons={:?}",
+        app.world_buttons
+    );
 }
 
 fn normalize_rendered_text(text: &str) -> String {
@@ -333,7 +345,8 @@ fn hidden_raytrace_route_does_not_request_a_fast_tick() {
 fn world_motion_uses_the_scenery_lane_and_yields_to_agent_work() {
     let mut app = App::preview(Viewer::static_preview());
     app.world_pane_visible = true;
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call("apply_patch", "move the knight for cadence testing");
 
     assert!(app.world_animating());
@@ -531,7 +544,10 @@ fn world_visit_and_follow_only_move_the_camera() {
     }
     app.input = "/world visit nowhere".into();
     app.submit();
-    assert_eq!(app.realm.world.overworld_view_label(), Some("KNIGHTS TOURNAMENT"));
+    assert_eq!(
+        app.realm.world.overworld_view_label(),
+        Some("KNIGHTS TOURNAMENT")
+    );
     assert!(
         app.messages
             .last()
@@ -555,12 +571,14 @@ fn world_visit_and_follow_only_move_the_camera() {
 fn world_quest_and_help_answer_in_one_system_message() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(crate::stage::world_viz::AdventureEvent::LoopStarted {
             kind: crate::stage::world_viz::LoopKind::Research,
             task: "survey the fleet".to_string(),
         });
-    app.realm.world
+    app.realm
+        .world
         .note_adventure(crate::stage::world_viz::AdventureEvent::Iteration { n: 3 });
 
     let route_before = app.scryglass.controller.route();
@@ -3626,7 +3644,9 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
 
     for _ in 0..400 {
         app.realm.world.tick();
-        if app.realm.world.arrived_building() == Some(crate::stage::world_viz::Building::Scriptorium) {
+        if app.realm.world.arrived_building()
+            == Some(crate::stage::world_viz::Building::Scriptorium)
+        {
             break;
         }
     }
@@ -3944,7 +3964,8 @@ fn session_meta_workspace_switch_swaps_districts_deterministically() {
 
     app.change_workspace(second.to_str());
     assert_eq!(
-        app.realm.world
+        app.realm
+            .world
             .district_signature()
             .iter()
             .map(|district| district.0.as_str())
@@ -9201,7 +9222,13 @@ fn manifest_reload_command_updates_modules_from_configured_resource_root() {
     app.module_host.declare_data_source("unavailable", false);
     app.input = "/layout reload-manifests".to_string();
     app.submit();
-    assert!(app.messages.last().unwrap().text.contains("module manifests reloaded"));
+    assert!(
+        app.messages
+            .last()
+            .unwrap()
+            .text
+            .contains("module manifests reloaded")
+    );
     assert_eq!(
         app.module_host.state("graph"),
         Some(runtime::ModuleState::Suspended)
@@ -9260,7 +9287,9 @@ fn memories_persist_and_inject_into_turns() {
         })
         .expect("Harness-role memory context");
     assert!(
-        !app.history[task_index].content.contains("deploys on staging"),
+        !app.history[task_index]
+            .content
+            .contains("deploys on staging"),
         "persistent memory must not become fresh operator prose"
     );
     assert!(context_index > task_index);
@@ -10441,7 +10470,9 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
-    app.realm.world.settle_at_for_test(world_viz::Building::Keep);
+    app.realm
+        .world
+        .settle_at_for_test(world_viz::Building::Keep);
     let before = app
         .world
         .scryglass_frame_paced(40, 16, false, 0.0, 0.0, 1.05)
@@ -10464,7 +10495,8 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
         );
         assert!(!app.realm.world.inside_interior());
         assert_eq!(
-            app.realm.world
+            app.realm
+                .world
                 .scryglass_frame_paced(40, 16, false, 0.0, 0.0, 1.05)
                 .unwrap(),
             before
@@ -10479,7 +10511,8 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
         assert!(app.messages.last().unwrap().text.contains("Dotmax 3D"));
         assert!(!app.realm.world.inside_interior());
         assert_eq!(
-            app.realm.world
+            app.realm
+                .world
                 .scryglass_frame_paced(40, 16, false, 0.0, 0.0, 1.05)
                 .unwrap(),
             before
@@ -10735,7 +10768,9 @@ fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_co
     assert!(app.object_dock.offers(WorldButton::ScryglassMap));
     assert!(app.object_dock.offers(WorldButton::Back));
 
-    app.realm.world.note_tool_call("apply_patch", "cockpit miniviz");
+    app.realm
+        .world
+        .note_tool_call("apply_patch", "cockpit miniviz");
     for _ in 0..12 {
         app.realm.world.tick();
     }
@@ -10769,7 +10804,8 @@ fn arrival_ride_scene_renders_noir_caption_and_verbs() {
 
     // ARRIVAL exists only after a correlated call really reaches its landmark.
     let call_id = crate::agent::harness::ToolEventId("arrival-test".into());
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call_event(call_id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
         .begin_journey(call_id, crate::stage::world_viz::Building::Smithy, false);
@@ -10960,7 +10996,8 @@ fn obsolete_cinematic_env_does_not_replace_the_braille_scryglass() {
         );
 
         let id = crate::agent::harness::ToolEventId("obsolete-cinematic".into());
-        app.realm.world
+        app.realm
+            .world
             .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
         app.scryglass
             .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
@@ -10988,7 +11025,8 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
 
     // Send the knight riding and capture the short journey cue before arrival.
     let id = crate::agent::harness::ToolEventId("travel-test".into());
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
         .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
@@ -11028,7 +11066,8 @@ fn obsolete_world_fp_env_does_not_override_scryglass_view_mode() {
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
     let id = crate::agent::harness::ToolEventId("obsolete-world-fp".into());
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
         .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
@@ -12509,10 +12548,14 @@ fn spend_coin_milestone_counts_queue_without_erasing_coins_in_flight() {
     assert_eq!(app.spend_coin.as_ref().unwrap().coins, 3);
     assert_eq!(app.spend_coin.as_ref().unwrap().started, started);
     let duration = crate::ui::viz::spend_viz::burst_duration_secs(3, app.spend_coin_motion());
-    app.spend_coin.as_mut().unwrap().started = Instant::now()
-        - std::time::Duration::from_secs_f64(duration + 1.0);
+    app.spend_coin.as_mut().unwrap().started =
+        Instant::now() - std::time::Duration::from_secs_f64(duration + 1.0);
     app.show_spend_coin(5_000_000);
-    assert_eq!(app.spend_coin.as_ref().unwrap().coins, 5, "expired burst must reset");
+    assert_eq!(
+        app.spend_coin.as_ref().unwrap().coins,
+        5,
+        "expired burst must reset"
+    );
 }
 
 #[test]
@@ -13724,7 +13767,8 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     app.focus_module("artifacts");
 
     let call_id = crate::agent::harness::ToolEventId("arrival-orbit-test".into());
-    app.realm.world
+    app.realm
+        .world
         .note_tool_call_event(call_id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
         .begin_journey(call_id, crate::stage::world_viz::Building::Smithy, false);
@@ -13782,7 +13826,9 @@ fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
         crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
     let _guard = env_lock();
     let mut app = seed_preview_app();
-    app.realm.world.settle_at_for_test(world_viz::Building::Smithy);
+    app.realm
+        .world
+        .settle_at_for_test(world_viz::Building::Smithy);
     app.scryglass
         .sync_arrival(Some(world_viz::Building::Smithy));
     let (_, arrival) = float_dock_action(&mut app, 120, 40, WorldButton::ScryglassEnter);
@@ -13798,7 +13844,9 @@ fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
     assert!(!inside.contains("[Enter]"), "{inside}");
 
     app.realm.world.leave_interior();
-    app.realm.world.settle_at_for_test(world_viz::Building::Chapel);
+    app.realm
+        .world
+        .settle_at_for_test(world_viz::Building::Chapel);
     app.scryglass
         .sync_arrival(Some(world_viz::Building::Chapel));
     let (_, unsupported) = float_dock_action(&mut app, 120, 40, WorldButton::ScryglassEnter);
@@ -13812,7 +13860,8 @@ fn back_leaves_an_interior_before_it_unwinds_the_world_route() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     let mut app = seed_preview_app();
-    app.realm.world
+    app.realm
+        .world
         .settle_at_for_test(world_viz::Building::Scriptorium);
     app.scryglass.navigate(scryglass::StageRoute::Explore(
         world_viz::Building::Scriptorium,
@@ -13846,7 +13895,9 @@ fn first_person_camera_keys_change_free_look_but_map_keys_do_not() {
     let _lean = TestEnvGuard::unset("ANGEL_LEAN");
 
     let mut app = seed_preview_app();
-    app.realm.world.settle_at_for_test(world_viz::Building::Keep);
+    app.realm
+        .world
+        .settle_at_for_test(world_viz::Building::Keep);
     app.focus_module("artifacts");
     app.scryglass
         .navigate(scryglass::StageRoute::Explore(world_viz::Building::Keep));
@@ -14013,7 +14064,9 @@ fn commands_world_ride_enter_leave_and_weather_use_live_world_state() {
         "Saddle up — the road fills the glass."
     );
 
-    app.realm.world.settle_at_for_test(world_viz::Building::Keep);
+    app.realm
+        .world
+        .settle_at_for_test(world_viz::Building::Keep);
     app.input = "/world enter".to_string();
     app.submit();
     assert!(app.realm.world.inside_interior());
@@ -14042,7 +14095,8 @@ fn commands_world_ride_enter_leave_and_weather_use_live_world_state() {
     );
     assert!(!app.realm.world.inside_interior());
 
-    app.realm.world
+    app.realm
+        .world
         .weather_state_for_test(world_viz::life::Weather::Fair, 3, 0);
     app.input = "/world weather".to_string();
     app.submit();
@@ -14050,7 +14104,8 @@ fn commands_world_ride_enter_leave_and_weather_use_live_world_state() {
     assert!(forced.contains("Sky: drizzle — clock fair"), "{forced}");
     assert!(forced.contains("error streak 3 forces drizzle"), "{forced}");
 
-    app.realm.world
+    app.realm
+        .world
         .weather_state_for_test(world_viz::life::Weather::Fair, 0, 4);
     app.input = "/world weather".to_string();
     app.submit();
@@ -14852,22 +14907,42 @@ fn handoff_restart_waits_for_foreground_owner_without_wiping_request_or_history(
     // Model a campaign already on its first roll without launching a real
     // provider worker; this test owns the foreground result channel below.
     app.handoff_rl.handoff_count = 1;
-    app.history = vec![ChatMsg::system("bootstrap"), ChatMsg::user("still-owned history")];
+    app.history = vec![
+        ChatMsg::system("bootstrap"),
+        ChatMsg::user("still-owned history"),
+    ];
 
     app.force_handoff_rl_restart(Some("submitted candidate summary"))
         .expect("restart request should park behind active worker");
 
     assert!(app.thinking.as_ref().is_some_and(Thinking::is_draining));
-    assert!(app.history.iter().any(|m| m.content.as_ref() == "still-owned history"), "history must survive until drain");
-    assert_eq!(app.pending_handoff_rl_restart.as_ref().map(|summary| summary.as_deref()), Some(Some("submitted candidate summary")));
-    assert_eq!(app.handoff_rl.handoff_count, 1, "the next roll is not counted before restart");
+    assert!(
+        app.history
+            .iter()
+            .any(|m| m.content.as_ref() == "still-owned history"),
+        "history must survive until drain"
+    );
+    assert_eq!(
+        app.pending_handoff_rl_restart
+            .as_ref()
+            .map(|summary| summary.as_deref()),
+        Some(Some("submitted candidate summary"))
+    );
+    assert_eq!(
+        app.handoff_rl.handoff_count, 1,
+        "the next roll is not counted before restart"
+    );
 
     // A live owner with no result must keep the request parked across frames.
     app.advance();
     assert!(app.thinking.as_ref().is_some_and(Thinking::is_draining));
     assert!(app.pending_handoff_rl_restart.is_some());
     assert_eq!(app.handoff_rl.handoff_count, 1);
-    assert!(app.history.iter().any(|m| m.content.as_ref() == "still-owned history"));
+    assert!(
+        app.history
+            .iter()
+            .any(|m| m.content.as_ref() == "still-owned history")
+    );
 
     // The late result belongs to the retired worker and must be discarded at
     // the terminal boundary rather than replacing the history being handed off.
@@ -14889,26 +14964,48 @@ fn handoff_restart_waits_for_foreground_owner_without_wiping_request_or_history(
         .unwrap();
     app.advance();
 
-    assert!(app.pending_handoff_rl_restart.is_none(), "drain consumes the queued request");
-    assert_eq!(app.handoff_rl.handoff_count, 2, "the queued restart is counted exactly once");
-    assert!(app.thinking.as_ref().is_some_and(|thinking| !thinking.is_draining()), "restart owns a fresh foreground worker");
+    assert!(
+        app.pending_handoff_rl_restart.is_none(),
+        "drain consumes the queued request"
+    );
+    assert_eq!(
+        app.handoff_rl.handoff_count, 2,
+        "the queued restart is counted exactly once"
+    );
+    assert!(
+        app.thinking
+            .as_ref()
+            .is_some_and(|thinking| !thinking.is_draining()),
+        "restart owns a fresh foreground worker"
+    );
     assert_eq!(
         app.history
             .iter()
-            .filter(|m| m.content.starts_with("hit it chewy") && m.content.contains("submitted candidate summary"))
+            .filter(|m| m.content.starts_with("hit it chewy")
+                && m.content.contains("submitted candidate summary"))
             .count(),
         1,
         "the queued summary is injected exactly once"
     );
-    assert!(!app.history.iter().any(|m| m.content.contains("stale worker")), "retired result must not overwrite the restart history");
+    assert!(
+        !app.history
+            .iter()
+            .any(|m| m.content.contains("stale worker")),
+        "retired result must not overwrite the restart history"
+    );
     assert_eq!(
-        app.messages.iter().filter(|m| m.text.contains("HANDOFF DEMANDED · roll #2")).count(),
+        app.messages
+            .iter()
+            .filter(|m| m.text.contains("HANDOFF DEMANDED · roll #2"))
+            .count(),
         1,
         "the restart banner is emitted once"
     );
 
     // The new worker is not part of this regression; stop it before returning.
     if let Some(thinking) = app.thinking.take() {
-        thinking.cancel.store(true, std::sync::atomic::Ordering::Release);
+        thinking
+            .cancel
+            .store(true, std::sync::atomic::Ordering::Release);
     }
 }

@@ -100,7 +100,10 @@ impl Config {
         for page in &config.pages {
             let cells: Vec<char> = page.route.chars().collect();
             if cells.len() != 2 || !cells.iter().all(|c| ('\u{2800}'..='\u{28FF}').contains(c)) {
-                return Err(format!("page route `{}` is not two braille cells", page.route));
+                return Err(format!(
+                    "page route `{}` is not two braille cells",
+                    page.route
+                ));
             }
             if page.pages.is_empty() {
                 return Err(format!("page route `{}` has no pages", page.route));
@@ -150,7 +153,10 @@ impl Config {
                 ));
             }
             if !(tool.params.is_null() || tool.params.is_object()) {
-                return Err(format!("tool `{}` params are not a JSON schema object", tool.name));
+                return Err(format!(
+                    "tool `{}` params are not a JSON schema object",
+                    tool.name
+                ));
             }
         }
         Ok(config)

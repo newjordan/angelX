@@ -65,7 +65,12 @@ const GLASS_PICTURES: std::ops::Range<u32> = 0x00E0_0000..0x00F0_0000;
 /// says. In angelX's own window the pixels go to it as they are, resized
 /// here once to the cells they cover, with no terminal format in between;
 /// in a terminal the picker makes its protocol.
-fn new_pic(picker: &Picker, image: image::DynamicImage, area: Rect, resize: Resize) -> Result<Pic, String> {
+fn new_pic(
+    picker: &Picker,
+    image: image::DynamicImage,
+    area: Rect,
+    resize: Resize,
+) -> Result<Pic, String> {
     if !crate::ui::glass::active() {
         return picker
             .new_protocol(image, area.into(), resize)
@@ -81,7 +86,10 @@ fn new_pic(picker: &Picker, image: image::DynamicImage, area: Rect, resize: Resi
     }
     let fit = (aw as f32 / iw as f32).min(ah as f32 / ih as f32);
     let scaled = |k: f32, filter| {
-        let (w, h) = (((iw as f32 * k).round() as u32).max(1), ((ih as f32 * k).round() as u32).max(1));
+        let (w, h) = (
+            ((iw as f32 * k).round() as u32).max(1),
+            ((ih as f32 * k).round() as u32).max(1),
+        );
         image.resize_exact(w, h, filter).into_rgba8()
     };
     let nearest = image::imageops::FilterType::Nearest;
@@ -929,12 +937,13 @@ impl Viewer {
                                 pixel[3] = 255;
                             }
                         }
-                        let protocol = new_pic(&picker, 
-                                image::DynamicImage::ImageRgba8(image),
-                                Rect::new(0, 0, worker_key.width, worker_key.height).into(),
-                                Resize::Fit(None),
-                            )
-                            .map_err(|e| format!("prepare requested image: {e}"))?;
+                        let protocol = new_pic(
+                            &picker,
+                            image::DynamicImage::ImageRgba8(image),
+                            Rect::new(0, 0, worker_key.width, worker_key.height).into(),
+                            Resize::Fit(None),
+                        )
+                        .map_err(|e| format!("prepare requested image: {e}"))?;
                         Ok(PreparedArtifact { decoded, protocol })
                     })();
                     let _ = tx.send(result);
@@ -1059,12 +1068,13 @@ impl Viewer {
                 {
                     Err("video preview exceeds the pixel budget".into())
                 } else {
-                    new_pic(&picker, 
-                            image::DynamicImage::ImageRgba8(pixels.rgba.clone()),
-                            target.into(),
-                            Resize::Scale(Some(image::imageops::FilterType::Triangle)),
-                        )
-                        .map_err(|error| format!("prepare video frame: {error}"))
+                    new_pic(
+                        &picker,
+                        image::DynamicImage::ImageRgba8(pixels.rgba.clone()),
+                        target.into(),
+                        Resize::Scale(Some(image::imageops::FilterType::Triangle)),
+                    )
+                    .map_err(|error| format!("prepare video frame: {error}"))
                 };
                 let _ = tx.send(result);
             }))
@@ -1101,12 +1111,13 @@ impl Viewer {
             .spawn(move || {
                 let result = cached_bounded_preview(&shown.path).and_then(|(preview, original)| {
                     let preview_size = (preview.width(), preview.height());
-                    let protocol = new_pic(&picker, 
-                            preview,
-                            target.into(),
-                            Resize::Fit(Some(image::imageops::FilterType::Lanczos3)),
-                        )
-                        .map_err(|e| format!("prepare {}: {e}", shown.path.display()))?;
+                    let protocol = new_pic(
+                        &picker,
+                        preview,
+                        target.into(),
+                        Resize::Fit(Some(image::imageops::FilterType::Lanczos3)),
+                    )
+                    .map_err(|e| format!("prepare {}: {e}", shown.path.display()))?;
                     Ok(PreparedPreview {
                         label: shown.label,
                         original,
@@ -1197,15 +1208,16 @@ impl Viewer {
             } else {
                 image
             };
-            new_pic(&picker, 
-                    image,
-                    size.into(),
-                    // `anchor_portrait_canvas` already produced the exact
-                    // rounded pixel canvas; Crop prevents a second Fit pass
-                    // from reintroducing origin padding.
-                    Resize::Crop(None),
-                )
-                .map_err(|error| error.to_string())
+            new_pic(
+                &picker,
+                image,
+                size.into(),
+                // `anchor_portrait_canvas` already produced the exact
+                // rounded pixel canvas; Crop prevents a second Fit pass
+                // from reintroducing origin padding.
+                Resize::Crop(None),
+            )
+            .map_err(|error| error.to_string())
         }) {
             Ok(protocol) => protocol,
             Err(_) => {
@@ -1264,12 +1276,13 @@ impl Viewer {
                 .name("angel-council-table-kitty".to_string())
                 .spawn(move || {
                     let table = crate::ui::viz::council_table::fit(&compose(), target);
-                    let result = new_pic(&picker, 
-                            image::DynamicImage::ImageRgba8(table),
-                            size.into(),
-                            Resize::Fit(Some(image::imageops::FilterType::Nearest)),
-                        )
-                        .map_err(|error| format!("prepare Kitty council table: {error}"));
+                    let result = new_pic(
+                        &picker,
+                        image::DynamicImage::ImageRgba8(table),
+                        size.into(),
+                        Resize::Fit(Some(image::imageops::FilterType::Nearest)),
+                    )
+                    .map_err(|error| format!("prepare Kitty council table: {error}"));
                     let _ = tx.send(result);
                 });
             match spawn {
@@ -1712,11 +1725,11 @@ impl Viewer {
                     )
                     .map(|id| (id, String::new()))
                     .or_else(|| {
-                        crate::ui::dots::protocol::png_upload(&bytes, size, next)
-                            .map(|s| (next, s))
+                        crate::ui::dots::protocol::png_upload(&bytes, size, next).map(|s| (next, s))
                     }),
-                    None => crate::ui::dots::protocol::png_upload(&bytes, size, next)
-                        .map(|s| (next, s)),
+                    None => {
+                        crate::ui::dots::protocol::png_upload(&bytes, size, next).map(|s| (next, s))
+                    }
                 });
                 match upload {
                     Some((id, upload)) => {
@@ -1844,28 +1857,29 @@ impl Viewer {
             let result = image::RgbaImage::from_raw(width, height, bytes)
                 .ok_or_else(|| "map frame length did not match RGBA dimensions".to_string())
                 .and_then(|rgba| {
-                    new_pic(&picker, 
-                            image::DynamicImage::ImageRgba8(rgba),
-                            size.into(),
-                            // Scale, not Fit. Fit returns early when the
-                            // image already fits the area in cells and
-                            // renders it at natural size — a 152x208 map
-                            // is ~13x8 cells, so in a 43x30 pane it sat as
-                            // a stamp in the middle and never enlarged.
-                            // Scale is excluded from that early-return and
-                            // always fills the pane.
-                            //
-                            // Nearest keeps the pixel art crisp; a smooth
-                            // filter turns 8px tiles into mush.
-                            if pre_scaled {
-                                // The map arrives pre-scaled with whole
-                                // pixels: place it at natural size.
-                                Resize::Fit(Some(image::imageops::FilterType::Nearest))
-                            } else {
-                                Resize::Scale(Some(image::imageops::FilterType::Nearest))
-                            },
-                        )
-                        .map_err(|error| format!("prepare world image: {error}"))
+                    new_pic(
+                        &picker,
+                        image::DynamicImage::ImageRgba8(rgba),
+                        size.into(),
+                        // Scale, not Fit. Fit returns early when the
+                        // image already fits the area in cells and
+                        // renders it at natural size — a 152x208 map
+                        // is ~13x8 cells, so in a 43x30 pane it sat as
+                        // a stamp in the middle and never enlarged.
+                        // Scale is excluded from that early-return and
+                        // always fills the pane.
+                        //
+                        // Nearest keeps the pixel art crisp; a smooth
+                        // filter turns 8px tiles into mush.
+                        if pre_scaled {
+                            // The map arrives pre-scaled with whole
+                            // pixels: place it at natural size.
+                            Resize::Fit(Some(image::imageops::FilterType::Nearest))
+                        } else {
+                            Resize::Scale(Some(image::imageops::FilterType::Nearest))
+                        },
+                    )
+                    .map_err(|error| format!("prepare world image: {error}"))
                 });
             #[cfg(test)]
             eprintln!(
@@ -2308,11 +2322,7 @@ fn bottom_right_protocol_area(proto: &Pic, available: Rect) -> Rect {
 /// smallest whole multiple at or past the size it shows (up to three), so
 /// the terminal only shrinks it a little and pixel edges stay hard, while
 /// the picture stays small enough to send sixty times a second.
-fn scaled_png(
-    img: &crate::stage::world_viz::overworld::Img,
-    cols: u16,
-    rows: u16,
-) -> Vec<u8> {
+fn scaled_png(img: &crate::stage::world_viz::overworld::Img, cols: u16, rows: u16) -> Vec<u8> {
     let (cw, ch) = cell_shape();
     let (tw, th) = (f32::from(cols) * cw, f32::from(rows) * ch);
     let k = (tw / img.w.max(1) as f32)
@@ -2608,7 +2618,9 @@ fn cached_bounded_preview(path: &Path) -> Result<(image::DynamicImage, (u32, u32
     Ok((preview, original))
 }
 
-pub(crate) fn artifact_preview(source: &crate::ui::media::MediaSource) -> Result<image::DynamicImage, String> {
+pub(crate) fn artifact_preview(
+    source: &crate::ui::media::MediaSource,
+) -> Result<image::DynamicImage, String> {
     let file = source.open()?;
     if file.metadata().map_err(|error| error.to_string())?.len() > 64 * 1024 * 1024 {
         return Err("image preview exceeds the 64 MiB source limit".into());

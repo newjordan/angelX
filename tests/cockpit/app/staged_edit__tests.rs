@@ -296,10 +296,7 @@ fn stage_accept_writes() {
 
 #[test]
 fn commit_actions_reports_rollback_write_failure() {
-    let root = std::env::temp_dir().join(format!(
-        "angel-stage-rollback-{}",
-        std::process::id()
-    ));
+    let root = std::env::temp_dir().join(format!("angel-stage-rollback-{}", std::process::id()));
     let _ = fs::remove_dir_all(&root);
     fs::create_dir_all(&root).unwrap();
     fs::write(root.join("a.txt"), "old-a").unwrap();

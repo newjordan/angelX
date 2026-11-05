@@ -136,35 +136,33 @@ fn loop_gallery() {
         },
     ];
     let mut fleet = FleetState::default();
-    fleet.apply(
-        crate::agent::harness::cartridges::fleet::FleetSnapshot {
-            entries: vec![
-                crate::agent::harness::cartridges::fleet::FleetSubmission {
-                    benchmark: "bench/flock".into(),
-                    id: "3347e70".into(),
-                    status: "validating".into(),
-                    score: None,
-                    phase: SubmissionPhase::Running,
-                },
-                crate::agent::harness::cartridges::fleet::FleetSubmission {
-                    benchmark: "bench/qwen".into(),
-                    id: "7871bd4".into(),
-                    status: "promoted".into(),
-                    score: Some("519469.35".into()),
-                    phase: SubmissionPhase::Accepted,
-                },
-                crate::agent::harness::cartridges::fleet::FleetSubmission {
-                    benchmark: "bench/ssi".into(),
-                    id: "ddddddd".into(),
-                    status: "rejected".into(),
-                    score: None,
-                    phase: SubmissionPhase::Rejected,
-                },
-            ],
-            benchmark_count: 3,
-            failed_benchmarks: 0,
-        },
-    );
+    fleet.apply(crate::agent::harness::cartridges::fleet::FleetSnapshot {
+        entries: vec![
+            crate::agent::harness::cartridges::fleet::FleetSubmission {
+                benchmark: "bench/flock".into(),
+                id: "3347e70".into(),
+                status: "validating".into(),
+                score: None,
+                phase: SubmissionPhase::Running,
+            },
+            crate::agent::harness::cartridges::fleet::FleetSubmission {
+                benchmark: "bench/qwen".into(),
+                id: "7871bd4".into(),
+                status: "promoted".into(),
+                score: Some("519469.35".into()),
+                phase: SubmissionPhase::Accepted,
+            },
+            crate::agent::harness::cartridges::fleet::FleetSubmission {
+                benchmark: "bench/ssi".into(),
+                id: "ddddddd".into(),
+                status: "rejected".into(),
+                score: None,
+                phase: SubmissionPhase::Rejected,
+            },
+        ],
+        benchmark_count: 3,
+        failed_benchmarks: 0,
+    });
     for ((label, time), slot) in [("a", 2.3f32), ("b", 9.8), ("c", 17.4)]
         .into_iter()
         .zip(slots.iter())
@@ -432,30 +430,28 @@ fn target_brightens_only_after_an_accepted_receipt() {
 #[test]
 fn fleet_line_pulses_live_rows_and_counts_every_status() {
     let mut fleet = FleetState::default();
-    fleet.apply(
-        crate::agent::harness::cartridges::fleet::FleetSnapshot {
-            entries: [
-                SubmissionPhase::Queued,
-                SubmissionPhase::Running,
-                SubmissionPhase::Accepted,
-                SubmissionPhase::Rejected,
-            ]
-            .into_iter()
-            .enumerate()
-            .map(|(index, phase)| {
-                crate::agent::harness::cartridges::fleet::FleetSubmission {
-                    benchmark: format!("bench/{index}"),
-                    id: format!("aaaaaa{index}"),
-                    status: format!("{phase:?}"),
-                    score: None,
-                    phase,
-                }
-            })
-            .collect(),
-            benchmark_count: 4,
-            failed_benchmarks: 0,
-        },
-    );
+    fleet.apply(crate::agent::harness::cartridges::fleet::FleetSnapshot {
+        entries: [
+            SubmissionPhase::Queued,
+            SubmissionPhase::Running,
+            SubmissionPhase::Accepted,
+            SubmissionPhase::Rejected,
+        ]
+        .into_iter()
+        .enumerate()
+        .map(
+            |(index, phase)| crate::agent::harness::cartridges::fleet::FleetSubmission {
+                benchmark: format!("bench/{index}"),
+                id: format!("aaaaaa{index}"),
+                status: format!("{phase:?}"),
+                score: None,
+                phase,
+            },
+        )
+        .collect(),
+        benchmark_count: 4,
+        failed_benchmarks: 0,
+    });
     let lit = fleet_line(&fleet, 0.0, 48);
     let dim = fleet_line(&fleet, 0.6, 48);
     assert_eq!(line_width(&lit), 48);

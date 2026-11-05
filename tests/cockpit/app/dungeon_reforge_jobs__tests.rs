@@ -81,7 +81,14 @@ fn checkpoint_failure_retains_exact_reforge_answer_and_drains_without_a_new_mode
     app.realm.dungeon.save_path = Some(saved_path);
     app.watch_reforge();
     assert!(app.realm.dungeon.forge.forging.is_none());
-    assert!(app.realm.dungeon.shooter.pending_reforges().unwrap().is_empty());
+    assert!(
+        app.realm
+            .dungeon
+            .shooter
+            .pending_reforges()
+            .unwrap()
+            .is_empty()
+    );
     assert_eq!(app.realm.dungeon.shooter.as_ref().unwrap().sounds, sounds);
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
     assert!(
@@ -108,7 +115,14 @@ fn uncheckpointed_claim_waits_and_recovery_starts_the_original_model_request() {
     app.realm.dungeon.save_path = Some(original);
     app.watch_reforge();
     assert_eq!(
-        app.realm.dungeon.forge.forging.as_ref().unwrap().claim.as_ref(),
+        app.realm
+            .dungeon
+            .forge
+            .forging
+            .as_ref()
+            .unwrap()
+            .claim
+            .as_ref(),
         Some(&claims[0])
     );
     assert!(app.realm.dungeon.forge.forging.as_ref().unwrap().persisted);
@@ -128,7 +142,8 @@ fn a_new_session_detaches_the_old_reforge_without_granting_its_file() {
     app.watch_reforge();
     assert!(app.realm.dungeon.forge.forging.is_none());
     assert!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -154,7 +169,14 @@ fn a_rejected_card_releases_the_reservation_without_another_model_turn() {
     end_model(&mut app);
     app.watch_reforge();
     assert!(app.realm.dungeon.forge.forging.is_none());
-    assert!(app.realm.dungeon.shooter.pending_reforges().unwrap().is_empty());
+    assert!(
+        app.realm
+            .dungeon
+            .shooter
+            .pending_reforges()
+            .unwrap()
+            .is_empty()
+    );
     assert!(app.realm.dungeon.shooter.as_ref().unwrap().can_reforge(1));
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
     drop(app);
@@ -202,14 +224,29 @@ fn a_restored_terminal_reforge_retires_without_rereading_the_file_or_starting_a_
     app.watch_reforge();
     app.watch_reforge();
     assert!(app.realm.dungeon.forge.forging.is_none());
-    assert!(app.realm.dungeon.shooter.pending_reforges().unwrap().is_empty());
+    assert!(
+        app.realm
+            .dungeon
+            .shooter
+            .pending_reforges()
+            .unwrap()
+            .is_empty()
+    );
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
     assert!(
         app.realm.dungeon.notice.contains("Silver Shield"),
         "{}",
         app.realm.dungeon.notice
     );
-    assert!(app.realm.dungeon.shooter.as_ref().unwrap().sounds.is_empty());
+    assert!(
+        app.realm
+            .dungeon
+            .shooter
+            .as_ref()
+            .unwrap()
+            .sounds
+            .is_empty()
+    );
     let published = std::fs::read_to_string(app.reforged_dir().join(format!("{id}.card"))).unwrap();
     assert_eq!(
         cards::check(&id, &published).unwrap().card,
@@ -238,12 +275,22 @@ fn failed_accepted_definition_publication_retains_the_terminal_receipt_until_rec
     let held = app.realm.dungeon.forge.forging.as_ref().unwrap();
     assert!(held.completed.as_ref().unwrap().result.is_ok());
     assert!(!held.acknowledged);
-    assert_eq!(app.realm.dungeon.shooter.pending_reforges().unwrap().len(), 1);
+    assert_eq!(
+        app.realm.dungeon.shooter.pending_reforges().unwrap().len(),
+        1
+    );
     let sounds = app.realm.dungeon.shooter.as_ref().unwrap().sounds.clone();
     std::fs::remove_dir(&path).unwrap();
     app.watch_reforge();
     assert!(app.realm.dungeon.forge.forging.is_none());
-    assert!(app.realm.dungeon.shooter.pending_reforges().unwrap().is_empty());
+    assert!(
+        app.realm
+            .dungeon
+            .shooter
+            .pending_reforges()
+            .unwrap()
+            .is_empty()
+    );
     assert_eq!(app.realm.dungeon.shooter.as_ref().unwrap().sounds, sounds);
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
     assert!(cards::check(&id, &std::fs::read_to_string(&path).unwrap()).is_ok());

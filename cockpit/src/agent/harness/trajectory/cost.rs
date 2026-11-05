@@ -229,9 +229,7 @@ fn reasoning_separate(usage: Option<&Value>, output: Option<u64>, reasoning: Opt
             .and_then(|usage| usage.get("reasoning_convention_attempts"))
             .is_none_or(|conventions| {
                 conventions["separate"].as_u64() == usage.unwrap()["attempts"].as_u64()
-                    && usage.unwrap()["attempts"]
-                        .as_u64()
-                        .is_some_and(|n| n > 0)
+                    && usage.unwrap()["attempts"].as_u64().is_some_and(|n| n > 0)
             })
 }
 
@@ -270,8 +268,7 @@ fn cost_leg_input(usage: Option<&Value>, row: Option<&PriceRow>) -> Option<CostL
     {
         return None;
     }
-    if output.is_some() && rate_output_p && !fits_leg_nat(output.unwrap_or(0), rate_output_cents)
-    {
+    if output.is_some() && rate_output_p && !fits_leg_nat(output.unwrap_or(0), rate_output_cents) {
         return None;
     }
     if reasoning.is_some()
@@ -325,7 +322,9 @@ fn cost_leg_input(usage: Option<&Value>, row: Option<&PriceRow>) -> Option<CostL
 fn cost_leg_check(row: Option<&PriceRow>, decision: &CostLegDecision) -> Result<(), String> {
     let expected_fee = row.and_then(|row| row.plan_fee_usd_month);
     match decision.basis.as_str() {
-        "subscription-marginal" if expected_fee.is_some() && decision.fee_e8 == fee_e8(expected_fee) => {
+        "subscription-marginal"
+            if expected_fee.is_some() && decision.fee_e8 == fee_e8(expected_fee) =>
+        {
             Ok(())
         }
         "list-price" if row.is_some() => Ok(()),
@@ -353,7 +352,10 @@ fn native_decision(
             .map(|amount| (amount * 1e8).round() as u64)
     };
     CostLegDecision {
-        basis: value["basis"].as_str().unwrap_or("unreported-usage").to_string(),
+        basis: value["basis"]
+            .as_str()
+            .unwrap_or("unreported-usage")
+            .to_string(),
         paid_e8: e8("paid").unwrap_or(0),
         cached_e8: e8("cached"),
         fee_e8: e8("plan_fee_usd_month").unwrap_or(0),
@@ -406,12 +408,23 @@ fn cost_record(
         // usable usage block at all, and the table source when it reported
         // fields that no rate priced.
         _ => {
-            let priced = usage.filter(|usage| usage.is_object()).is_some_and(|usage| {
-                ["input", "uncached_input", "cache_read", "output", "reasoning"]
+            let priced = usage
+                .filter(|usage| usage.is_object())
+                .is_some_and(|usage| {
+                    [
+                        "input",
+                        "uncached_input",
+                        "cache_read",
+                        "output",
+                        "reasoning",
+                    ]
                     .iter()
                     .any(|key| u64_field(usage, key).is_some())
-            });
-            unpriced("unreported-usage", if priced { source } else { "no-price-table" })
+                });
+            unpriced(
+                "unreported-usage",
+                if priced { source } else { "no-price-table" },
+            )
         }
     }
 }

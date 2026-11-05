@@ -132,7 +132,10 @@ impl Prop {
     /// Whether a bolt flies through it. Bars, gates, the great brazier's
     /// cage and the crystals' niches let light and iron pass.
     pub fn lets_bolts(&self) -> bool {
-        matches!(self.kind, Pk::Gate | Pk::Sigil | Pk::Grass | Pk::Plate | Pk::Fissure | Pk::Pot)
+        matches!(
+            self.kind,
+            Pk::Gate | Pk::Sigil | Pk::Grass | Pk::Plate | Pk::Fissure | Pk::Pot
+        )
     }
 
     /// Whether the knight in front of it can lock on to it.
@@ -344,7 +347,13 @@ pub fn folk_text(room: usize, id: u8) -> &'static str {
 impl Session {
     pub(super) fn fx(&mut self, kind: Fxk, x: i32, y: i32, a: i16) {
         if self.fx.len() < FX_CAP {
-            self.fx.push(Fx { kind, x, y, t: 0, a });
+            self.fx.push(Fx {
+                kind,
+                x,
+                y,
+                t: 0,
+                a,
+            });
         }
     }
 
@@ -379,7 +388,11 @@ impl Session {
         } else {
             self.scatter(kind, x, y);
         }
-        ev.sound(if kind == Pk::Pot { "rock_land" } else { "step_moss" });
+        ev.sound(if kind == Pk::Pot {
+            "rock_land"
+        } else {
+            "step_moss"
+        });
     }
 
     /// What a cut or broken thing lets fall.
@@ -449,18 +462,21 @@ impl Session {
             if (tile_of(x), tile_of(y)) == ta || (tile_of(x), tile_of(y)) == tb {
                 return true;
             }
-            p.at(tile_of(x), tile_of(y)) != b'#' && !self.props.iter().any(|q| !q.lets_bolts() && q.blocks(x, y))
+            p.at(tile_of(x), tile_of(y)) != b'#'
+                && !self.props.iter().any(|q| !q.lets_bolts() && q.blocks(x, y))
         })
     }
 
     /// Whether a point is held lit by a flare or a burning brazier (what
     /// strips a snuffer's cloak).
     pub fn burning(&self, x: i32, y: i32) -> bool {
-        self.seats.values().any(|k| {
-            k.flaring() && dist(k.x - x, k.y - y) < FLARE_R * Q
-        }) || self.props.iter().any(|p| {
-            p.lit() && dist(p.x - x, p.y - y) < BRAZIER_R * Q
-        })
+        self.seats
+            .values()
+            .any(|k| k.flaring() && dist(k.x - x, k.y - y) < FLARE_R * Q)
+            || self
+                .props
+                .iter()
+                .any(|p| p.lit() && dist(p.x - x, p.y - y) < BRAZIER_R * Q)
     }
 
     /// Every light in the room as `(x, y, reach)` in `Q` pixels: knights'
@@ -500,7 +516,11 @@ impl Session {
     /// The gate with this number, opened or shut.
     pub(super) fn set_gate(&mut self, id: u8, open: bool) -> bool {
         let mut changed = false;
-        for p in self.props.iter_mut().filter(|p| p.kind == Pk::Gate && p.id == id) {
+        for p in self
+            .props
+            .iter_mut()
+            .filter(|p| p.kind == Pk::Gate && p.id == id)
+        {
             let want = u8::from(open);
             if p.on != want {
                 p.on = want;

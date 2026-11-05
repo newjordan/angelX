@@ -112,11 +112,7 @@ impl RouteId {
     /// ID shape written by route-preference schema v2 before model identity was
     /// included. Kept only to restore those preferences when their saved tuple
     /// still matches; new routes must use [`Self::chat`].
-    pub(crate) fn legacy_chat(
-        agent: &str,
-        driver: &str,
-        reasoning_effort: Option<&str>,
-    ) -> Self {
+    pub(crate) fn legacy_chat(agent: &str, driver: &str, reasoning_effort: Option<&str>) -> Self {
         let surface = SurfaceId::new(SurfaceProtocol::Chat, agent);
         Self(stable_id(
             "route",

@@ -9,7 +9,7 @@
 //! The race's own tests run in `crates/delve`, against the same oracle.
 
 pub use angel_delve::rules::race3d::*;
-pub use angel_delve::rules::{Input, HZ};
+pub use angel_delve::rules::{HZ, Input};
 
 // Its `answer` is the engine half that serves crates/delve's own tests.
 #[allow(dead_code)]
@@ -76,7 +76,8 @@ fn field(seats: u32) -> Race3d {
 /// sessions, with the odd held key and a hop now and then.
 fn hand(tick: u32, id: u32) -> Input {
     // A hash: the products are meant to wrap.
-    let mut h = u64::from(tick).wrapping_mul(0x9e37_79b9_7f4a_7c15) ^ u64::from(id).wrapping_mul(0x1234_5678_9abc_def);
+    let mut h = u64::from(tick).wrapping_mul(0x9e37_79b9_7f4a_7c15)
+        ^ u64::from(id).wrapping_mul(0x1234_5678_9abc_def);
     h ^= h >> 29;
     let axis = |bits: u64| match bits % 5 {
         0 => -1,
@@ -103,8 +104,14 @@ fn differ(a: &Rider, b: &Rider) -> Vec<&'static str> {
         ("vx", a.vx.to_bits() == b.vx.to_bits()),
         ("vz", a.vz.to_bits() == b.vz.to_bits()),
         ("spin", a.spin.to_bits() == b.spin.to_bits()),
-        ("heading", a.drift.heading.to_bits() == b.drift.heading.to_bits()),
-        ("travel", a.drift.travel.to_bits() == b.drift.travel.to_bits()),
+        (
+            "heading",
+            a.drift.heading.to_bits() == b.drift.heading.to_bits(),
+        ),
+        (
+            "travel",
+            a.drift.travel.to_bits() == b.drift.travel.to_bits(),
+        ),
         ("lane", a.lane == b.lane),
         ("crash", a.crash == b.crash),
         ("wreck", a.wreck == b.wreck),
@@ -138,10 +145,7 @@ fn parity_of(mut race: Race3d, ticks: u32) -> BTreeSet<&'static str> {
     let mut heard = BTreeSet::new();
     let ids: Vec<u32> = race.riders.keys().copied().collect();
     for _ in 0..ticks {
-        let inputs: BTreeMap<u32, Input> = ids
-            .iter()
-            .map(|&id| (id, hand(race.t, id)))
-            .collect();
+        let inputs: BTreeMap<u32, Input> = ids.iter().map(|&id| (id, hand(race.t, id))).collect();
         let mut oracle = race.clone();
         oracle.t += 1;
         let (oracle_home, oracle_out, oracle_sounds) = oracle::tick(&mut oracle, &inputs, &ids);
@@ -160,12 +164,24 @@ fn parity_of(mut race: Race3d, ticks: u32) -> BTreeSet<&'static str> {
                 inputs[&id],
             );
         }
-        assert_eq!(oracle.taken, bent.taken, "the gems taken part at {}", bent.t);
+        assert_eq!(
+            oracle.taken, bent.taken,
+            "the gems taken part at {}",
+            bent.t
+        );
         assert_eq!(oracle.planks, bent.planks, "the planks part at {}", bent.t);
         assert_eq!(oracle.bolts.len(), bent.bolts.len());
-        assert_eq!(ran.sounds, oracle_sounds, "the room's sounds part at {}", bent.t);
+        assert_eq!(
+            ran.sounds, oracle_sounds,
+            "the room's sounds part at {}",
+            bent.t
+        );
         heard.extend(ran.sounds.iter().copied());
-        assert_eq!(ran.all_home, oracle_home, "the home flag parts at {}", bent.t);
+        assert_eq!(
+            ran.all_home, oracle_home,
+            "the home flag parts at {}",
+            bent.t
+        );
         assert_eq!(ran.timed_out, oracle_out, "the clock parts at {}", bent.t);
         race = bent;
     }
@@ -205,12 +221,20 @@ fn crowd(seed: u64) -> Race3d {
             (at, across) = (gem.s - 0.4, gem.x);
         }
         1 => {
-            let post = course.posts.iter().copied().filter(|&p| course.at(p).ground == Ground::Crossing);
+            let post = course
+                .posts
+                .iter()
+                .copied()
+                .filter(|&p| course.at(p).ground == Ground::Crossing);
             let posts: Vec<f32> = post.collect();
             at = posts[next(0.0, posts.len() as f32) as usize] + next(4.0, 14.0);
         }
         2 => {
-            let post = course.posts.iter().copied().filter(|&p| course.at(p).ground == Ground::Collapse);
+            let post = course
+                .posts
+                .iter()
+                .copied()
+                .filter(|&p| course.at(p).ground == Ground::Collapse);
             let posts: Vec<f32> = post.collect();
             at = posts[next(0.0, posts.len() as f32) as usize] + next(0.0, 28.0);
             for plank in 0..(at as u16 / 2 + 3) {
@@ -227,13 +251,28 @@ fn crowd(seed: u64) -> Race3d {
         rider.x = across + next(-1.2, 1.2);
         rider.vs = next(-1.0, 9.0);
         rider.vx = next(-2.0, 2.0);
-        rider.z = if next(0.0, 1.0) < 0.2 { next(0.0, 0.6) } else { 0.0 };
-        rider.stun = if next(0.0, 1.0) < 0.2 { next(1.0, 45.0) as u32 } else { 0 };
-        rider.rest = if next(0.0, 1.0) < 0.2 { next(1.0, 45.0) as u32 } else { 0 };
+        rider.z = if next(0.0, 1.0) < 0.2 {
+            next(0.0, 0.6)
+        } else {
+            0.0
+        };
+        rider.stun = if next(0.0, 1.0) < 0.2 {
+            next(1.0, 45.0) as u32
+        } else {
+            0
+        };
+        rider.rest = if next(0.0, 1.0) < 0.2 {
+            next(1.0, 45.0) as u32
+        } else {
+            0
+        };
         rider.keys = next(0.0, 4.0) as u8;
         rider.haul = next(0.0, 3.0) as u16;
         match next(0.0, 10.0) as u32 {
-            0 => (rider.crash, rider.wreck, rider.z) = (next(1.0, 46.0) as u32, Wreck::Fall, next(-3.0, 1.0)),
+            0 => {
+                (rider.crash, rider.wreck, rider.z) =
+                    (next(1.0, 46.0) as u32, Wreck::Fall, next(-3.0, 1.0))
+            }
             1 => (rider.crash, rider.wreck) = (next(1.0, 21.0) as u32, Wreck::Bonk),
             2 => rider.finish = Some(race_t - next(0.0, 20.0) as u32),
             _ => {}
@@ -250,8 +289,19 @@ fn the_leg_bumps_and_picks_up_exactly_as_the_native_rules_did() {
     for seed in 0..600 {
         heard.extend(parity_of(crowd(seed), 4));
     }
-    for sound in ["roll", "clang", "gold", "knight_fall", "helmet_pop", "wheel_land", "step_wet"] {
-        assert!(heard.contains(sound), "no crowd was ever heard to make {sound}: {heard:?}");
+    for sound in [
+        "roll",
+        "clang",
+        "gold",
+        "knight_fall",
+        "helmet_pop",
+        "wheel_land",
+        "step_wet",
+    ] {
+        assert!(
+            heard.contains(sound),
+            "no crowd was ever heard to make {sound}: {heard:?}"
+        );
     }
 }
 
@@ -286,7 +336,8 @@ fn the_shaft_tick_is_a_small_slice_of_a_frame_at_four_riders() {
         "op": "tick", "race": race, "inputs": inputs, "standing": ids, "track": track(Course::Shaft), "sine": {},
     });
     let sent = ask.to_string().len();
-    let answered: serde_json::Value = angel_delve::scripted::step(leg::LEG, &ask).expect("the leg answers");
+    let answered: serde_json::Value =
+        angel_delve::scripted::step(leg::LEG, &ask).expect("the leg answers");
     let answered = answered.to_string().len();
     let frame_us = 1_000_000.0 / f64::from(HZ);
     eprintln!(
@@ -294,5 +345,8 @@ fn the_shaft_tick_is_a_small_slice_of_a_frame_at_four_riders() {
         median / frame_us * 100.0,
         p95 / frame_us * 100.0
     );
-    assert!(median < 4_000.0, "the tick took {median:.0} us of a {frame_us:.0} us frame");
+    assert!(
+        median < 4_000.0,
+        "the tick took {median:.0} us of a {frame_us:.0} us frame"
+    );
 }

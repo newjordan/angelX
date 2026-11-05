@@ -1,7 +1,7 @@
 use super::*;
-use crate::agent::harness::{link_child_owner, output_timed_captured_cancellable};
 #[cfg(target_os = "linux")]
 use crate::agent::harness::take_tool_idle_escalation;
+use crate::agent::harness::{link_child_owner, output_timed_captured_cancellable};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 

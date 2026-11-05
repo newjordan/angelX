@@ -678,9 +678,11 @@ fn submission_slot_label(slot: &SubmissionSlotTelemetry) -> (&'static str, Strin
             ("[+] ", format!("ACCEPTED{score}"), TUI_PHOSPHOR_HOT)
         }
         SubmissionSlotPhase::Rejected => ("[X] ", "REJECTED".to_string(), TUI_ALERT_RED),
-        SubmissionSlotPhase::TimedOut => {
-            ("[~] ", "TIMED OUT · UNVERIFIED".to_string(), TUI_WARNING_AMBER)
-        }
+        SubmissionSlotPhase::TimedOut => (
+            "[~] ",
+            "TIMED OUT · UNVERIFIED".to_string(),
+            TUI_WARNING_AMBER,
+        ),
     }
 }
 

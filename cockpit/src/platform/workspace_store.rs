@@ -59,14 +59,31 @@ pub fn angel_subdir(name: &str) -> PathBuf {
 // the same code; they are re-exported here at their old paths.
 pub use angel_live::host::workspace_store::workspace_key;
 #[cfg(not(test))]
-pub(crate) use angel_live::host::workspace_store::{write_atomic, write_private_atomic, write_private_atomic_exact};
+pub(crate) use angel_live::host::workspace_store::{
+    write_atomic, write_private_atomic, write_private_atomic_exact,
+};
 
 #[cfg(test)]
 pub(crate) fn install_test_hooks() {
     use angel_live::host::workspace_store::fault::{AFTER_RENAME, BEFORE_OPEN, BEFORE_RENAME};
-    BEFORE_OPEN.with(|slot| *slot.borrow_mut() = Some(Box::new(|path| { install_test_hooks(); storage_atomic_tests::before_atomic_open(path); })));
-    BEFORE_RENAME.with(|slot| *slot.borrow_mut() = Some(Box::new(|path| { install_test_hooks(); storage_atomic_tests::before_atomic_rename(path); })));
-    AFTER_RENAME.with(|slot| *slot.borrow_mut() = Some(Box::new(|path| { install_test_hooks(); storage_atomic_tests::after_atomic_rename(path) })));
+    BEFORE_OPEN.with(|slot| {
+        *slot.borrow_mut() = Some(Box::new(|path| {
+            install_test_hooks();
+            storage_atomic_tests::before_atomic_open(path);
+        }))
+    });
+    BEFORE_RENAME.with(|slot| {
+        *slot.borrow_mut() = Some(Box::new(|path| {
+            install_test_hooks();
+            storage_atomic_tests::before_atomic_rename(path);
+        }))
+    });
+    AFTER_RENAME.with(|slot| {
+        *slot.borrow_mut() = Some(Box::new(|path| {
+            install_test_hooks();
+            storage_atomic_tests::after_atomic_rename(path)
+        }))
+    });
 }
 #[cfg(test)]
 pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {

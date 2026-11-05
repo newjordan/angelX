@@ -74,8 +74,14 @@ impl Plot {
             return None;
         }
         let numeric = |col: usize| {
-            let filled = rows.iter().filter(|r| r.get(col).is_some_and(|c| !c.is_empty())).count();
-            let numbers = rows.iter().filter(|r| r.get(col).and_then(|c| number(c)).is_some()).count();
+            let filled = rows
+                .iter()
+                .filter(|r| r.get(col).is_some_and(|c| !c.is_empty()))
+                .count();
+            let numbers = rows
+                .iter()
+                .filter(|r| r.get(col).and_then(|c| number(c)).is_some())
+                .count();
             filled > 0 && numbers * 10 >= filled * 9
         };
         let value_cols: Vec<usize> = (0..header.len()).filter(|&c| numeric(c)).collect();
@@ -87,17 +93,33 @@ impl Plot {
         let (kind, x_col, labels, xs) = if !first_is_value && header.len() > 1 {
             // Labels, then values: bars, one per label.
             let rows = &rows[..rows.len().min(MOST_BARS)];
-            let labels: Vec<String> = rows.iter().map(|r| r.first().cloned().unwrap_or_default()).collect();
+            let labels: Vec<String> = rows
+                .iter()
+                .map(|r| r.first().cloned().unwrap_or_default())
+                .collect();
             let xs = (0..rows.len()).map(|i| i as f64).collect();
             (ChartKind::Bar, None, labels, xs)
         } else if value_cols.len() >= 2 {
             // Numbers against numbers: lines over the first column.
-            let xs: Vec<f64> = rows.iter().map(|r| r.first().and_then(|c| number(c)).unwrap_or(f64::NAN)).collect();
-            (ChartKind::Line, Some(0), xs.iter().map(|x| short(*x)).collect(), xs)
+            let xs: Vec<f64> = rows
+                .iter()
+                .map(|r| r.first().and_then(|c| number(c)).unwrap_or(f64::NAN))
+                .collect();
+            (
+                ChartKind::Line,
+                Some(0),
+                xs.iter().map(|x| short(*x)).collect(),
+                xs,
+            )
         } else {
             // One column of numbers: a line over their order.
             let xs: Vec<f64> = (0..rows.len()).map(|i| i as f64 + 1.0).collect();
-            (ChartKind::Line, None, xs.iter().map(|x| short(*x)).collect(), xs)
+            (
+                ChartKind::Line,
+                None,
+                xs.iter().map(|x| short(*x)).collect(),
+                xs,
+            )
         };
         let n = xs.len();
         let series: Vec<(String, Vec<f64>)> = value_cols
@@ -119,7 +141,9 @@ impl Plot {
         let (mut lo, mut hi) = series
             .iter()
             .flat_map(|(_, v)| v.iter().copied().filter(finite))
-            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(v), b.max(v)));
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| {
+                (a.min(v), b.max(v))
+            });
         if !lo.is_finite() {
             return None;
         }
@@ -132,8 +156,14 @@ impl Plot {
             .iter()
             .copied()
             .filter(finite)
-            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| (a.min(v), b.max(v)));
-        let x_domain = if xlo.is_finite() && xhi > xlo { (xlo, xhi) } else { (0.0, 1.0) };
+            .fold((f64::INFINITY, f64::NEG_INFINITY), |(a, b), v| {
+                (a.min(v), b.max(v))
+            });
+        let x_domain = if xlo.is_finite() && xhi > xlo {
+            (xlo, xhi)
+        } else {
+            (0.0, 1.0)
+        };
         Some(Self {
             title: title.to_string(),
             kind,
@@ -142,7 +172,11 @@ impl Plot {
                 None if kind == ChartKind::Bar => header[0].clone(),
                 None => String::new(),
             },
-            y_label: if series.len() == 1 { series[0].0.clone() } else { String::new() },
+            y_label: if series.len() == 1 {
+                series[0].0.clone()
+            } else {
+                String::new()
+            },
             labels,
             xs,
             series,
@@ -157,9 +191,17 @@ impl Plot {
     /// series, a header row first.
     pub(crate) fn csv(&self) -> String {
         let field = |text: &str| {
-            if text.contains([',', '"', '\n']) { format!("\"{}\"", text.replace('"', "\"\"")) } else { text.to_string() }
+            if text.contains([',', '"', '\n']) {
+                format!("\"{}\"", text.replace('"', "\"\""))
+            } else {
+                text.to_string()
+            }
         };
-        let x_name = if self.x_label.is_empty() { "x".to_string() } else { self.x_label.clone() };
+        let x_name = if self.x_label.is_empty() {
+            "x".to_string()
+        } else {
+            self.x_label.clone()
+        };
         let mut out = std::iter::once(field(&x_name))
             .chain(self.series.iter().map(|(name, _)| field(name)))
             .collect::<Vec<_>>()
@@ -172,7 +214,12 @@ impl Plot {
                 short(self.xs[i])
             };
             let row = std::iter::once(x)
-                .chain(self.series.iter().map(|(_, v)| v.get(i).filter(|v| v.is_finite()).map(|v| v.to_string()).unwrap_or_default()))
+                .chain(self.series.iter().map(|(_, v)| {
+                    v.get(i)
+                        .filter(|v| v.is_finite())
+                        .map(|v| v.to_string())
+                        .unwrap_or_default()
+                }))
                 .collect::<Vec<_>>()
                 .join(",");
             out.push_str(&row);
@@ -220,10 +267,16 @@ fn json_table(text: &str) -> Option<Table> {
         serde_json::Value::Array(items) if !items.is_empty() => match &items[0] {
             serde_json::Value::Number(_) => Some(Table {
                 header: vec!["value".into()],
-                rows: items.iter().take(MOST_POINTS).map(|v| vec![cell(v)]).collect(),
+                rows: items
+                    .iter()
+                    .take(MOST_POINTS)
+                    .map(|v| vec![cell(v)])
+                    .collect(),
             }),
             serde_json::Value::Array(first) => Some(Table {
-                header: (0..first.len()).map(|i| if i == 0 { "x".into() } else { format!("y{i}") }).collect(),
+                header: (0..first.len())
+                    .map(|i| if i == 0 { "x".into() } else { format!("y{i}") })
+                    .collect(),
                 rows: items
                     .iter()
                     .take(MOST_POINTS)
@@ -236,7 +289,12 @@ fn json_table(text: &str) -> Option<Table> {
                     .iter()
                     .take(MOST_POINTS)
                     .filter_map(|v| v.as_object())
-                    .map(|o| header.iter().map(|k| o.get(k).map(cell).unwrap_or_default()).collect())
+                    .map(|o| {
+                        header
+                            .iter()
+                            .map(|k| o.get(k).map(cell).unwrap_or_default())
+                            .collect()
+                    })
                     .collect();
                 Some(Table { header, rows })
             }
@@ -244,12 +302,15 @@ fn json_table(text: &str) -> Option<Table> {
         },
         serde_json::Value::Object(map) => {
             let header: Vec<String> = map.keys().cloned().collect();
-            let columns: Vec<&Vec<serde_json::Value>> = map.values().filter_map(|v| v.as_array()).collect();
+            let columns: Vec<&Vec<serde_json::Value>> =
+                map.values().filter_map(|v| v.as_array()).collect();
             if columns.len() != header.len() || columns.is_empty() {
                 return None;
             }
             let n = columns.iter().map(|c| c.len()).min()?.min(MOST_POINTS);
-            let rows = (0..n).map(|i| columns.iter().map(|c| cell(&c[i])).collect()).collect();
+            let rows = (0..n)
+                .map(|i| columns.iter().map(|c| cell(&c[i])).collect())
+                .collect();
             Some(Table { header, rows })
         }
         _ => None,
@@ -263,7 +324,11 @@ fn number(text: &str) -> Option<f64> {
 
 /// A domain padded out to round ticks.
 fn nice_domain(lo: f64, hi: f64) -> (f64, f64) {
-    let (lo, hi) = if hi > lo { (lo, hi) } else { (lo - 1.0, hi + 1.0) };
+    let (lo, hi) = if hi > lo {
+        (lo, hi)
+    } else {
+        (lo - 1.0, hi + 1.0)
+    };
     let step = nice_step((hi - lo) / 5.0);
     ((lo / step).floor() * step, (hi / step).ceil() * step)
 }
@@ -272,7 +337,17 @@ fn nice_step(raw: f64) -> f64 {
     let raw = raw.abs().max(1e-12);
     let mag = 10f64.powf(raw.log10().floor());
     let f = raw / mag;
-    let nice = if f <= 1.0 { 1.0 } else if f <= 2.0 { 2.0 } else if f <= 2.5 { 2.5 } else if f <= 5.0 { 5.0 } else { 10.0 };
+    let nice = if f <= 1.0 {
+        1.0
+    } else if f <= 2.0 {
+        2.0
+    } else if f <= 2.5 {
+        2.5
+    } else if f <= 5.0 {
+        5.0
+    } else {
+        10.0
+    };
     nice * mag
 }
 
@@ -298,7 +373,9 @@ fn short(v: f64) -> String {
     if s.contains('.') && !s.ends_with(['k', 'M', 'B']) {
         s.trim_end_matches('0').trim_end_matches('.').to_string()
     } else {
-        s.replace(".0k", "k").replace(".0M", "M").replace(".0B", "B")
+        s.replace(".0k", "k")
+            .replace(".0M", "M")
+            .replace(".0B", "B")
     }
 }
 
@@ -310,7 +387,12 @@ const GRID: [u8; 4] = [255, 255, 255, 14];
 const AXIS: [u8; 4] = [255, 255, 255, 40];
 const INK: [u8; 3] = [150, 156, 166];
 /// The data: the warm accent first, then the cool greys of the realm.
-const SERIES: [[u8; 3]; 4] = [[196, 134, 92], [143, 163, 168], [128, 140, 196], [176, 170, 150]];
+const SERIES: [[u8; 3]; 4] = [
+    [196, 134, 92],
+    [143, 163, 168],
+    [128, 140, 196],
+    [176, 170, 150],
+];
 const BAR: [u8; 3] = [66, 80, 132];
 
 /// A straight-RGBA drawing surface with anti-aliased marks (shared with
@@ -324,7 +406,11 @@ pub(crate) struct Canvas {
 impl Canvas {
     /// Clear: the chart is drawn on the showcase's glass, not on paper.
     pub(crate) fn new(w: usize, h: usize) -> Self {
-        Self { w, h, rgba: vec![0; w * h * 4] }
+        Self {
+            w,
+            h,
+            rgba: vec![0; w * h * 4],
+        }
     }
 
     /// `[r, g, b]` at coverage `a` over what is there, straight alpha.
@@ -341,7 +427,9 @@ impl Canvas {
         }
         for (i, c) in [r, g, b].into_iter().enumerate() {
             let d = f32::from(self.rgba[o + i]);
-            self.rgba[o + i] = ((f32::from(c) * a + d * below * (1.0 - a)) / out).round().clamp(0.0, 255.0) as u8;
+            self.rgba[o + i] = ((f32::from(c) * a + d * below * (1.0 - a)) / out)
+                .round()
+                .clamp(0.0, 255.0) as u8;
         }
         self.rgba[o + 3] = (out * 255.0).round() as u8;
     }
@@ -361,14 +449,24 @@ impl Canvas {
     /// A round-capped stroke from `p` to `q`, `width` across.
     pub(crate) fn line(&mut self, p: [f32; 2], q: [f32; 2], width: f32, color: [u8; 3], a: f32) {
         let r = width / 2.0;
-        let (x0, x1) = ((p[0].min(q[0]) - r - 1.0).floor() as i64, (p[0].max(q[0]) + r + 1.0).ceil() as i64);
-        let (y0, y1) = ((p[1].min(q[1]) - r - 1.0).floor() as i64, (p[1].max(q[1]) + r + 1.0).ceil() as i64);
+        let (x0, x1) = (
+            (p[0].min(q[0]) - r - 1.0).floor() as i64,
+            (p[0].max(q[0]) + r + 1.0).ceil() as i64,
+        );
+        let (y0, y1) = (
+            (p[1].min(q[1]) - r - 1.0).floor() as i64,
+            (p[1].max(q[1]) + r + 1.0).ceil() as i64,
+        );
         let (dx, dy) = (q[0] - p[0], q[1] - p[1]);
         let len = dx * dx + dy * dy;
         for y in y0..=y1 {
             for x in x0..=x1 {
                 let (px, py) = (x as f32 + 0.5, y as f32 + 0.5);
-                let t = if len > 0.0 { (((px - p[0]) * dx + (py - p[1]) * dy) / len).clamp(0.0, 1.0) } else { 0.0 };
+                let t = if len > 0.0 {
+                    (((px - p[0]) * dx + (py - p[1]) * dy) / len).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
                 let d = ((px - p[0] - dx * t).powi(2) + (py - p[1] - dy * t).powi(2)).sqrt();
                 let cover = (r + 0.5 - d).clamp(0.0, 1.0);
                 if cover > 0.0 {
@@ -394,7 +492,12 @@ impl Canvas {
             for tx in 0..*w as usize {
                 let o = (ty * *w as usize + tx) * 4;
                 let a = f32::from(rgba[o + 3]) / 255.0;
-                self.blend(x + tx as i64, y + ty as i64, [rgba[o], rgba[o + 1], rgba[o + 2]], a);
+                self.blend(
+                    x + tx as i64,
+                    y + ty as i64,
+                    [rgba[o], rgba[o + 1], rgba[o + 2]],
+                    a,
+                );
             }
         }
     }
@@ -407,7 +510,12 @@ fn words(text: &str, ink: [u8; 3], cell_height: u16) -> Option<(u32, u32, Vec<u8
         return None;
     }
     crate::ui::present::with_pager(cell_height, |pager| {
-        pager.render(&[line.as_str()], angel_glass::page::PLAIN, ink, [0, 0, 0, 0])
+        pager.render(
+            &[line.as_str()],
+            angel_glass::page::PLAIN,
+            ink,
+            [0, 0, 0, 0],
+        )
     })
     .flatten()
 }
@@ -423,7 +531,11 @@ pub(crate) struct ChartMark {
 
 /// The plot drawn at `size`, with text one window cell tall: straight
 /// RGBA, and the marks its bars and points leave for the pointer.
-pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<(Vec<u8>, Vec<ChartMark>)> {
+pub(crate) fn render(
+    plot: &Plot,
+    size: (u32, u32),
+    cell_height: u16,
+) -> Option<(Vec<u8>, Vec<ChartMark>)> {
     let mut marks = Vec::new();
     let (w, h) = (size.0 as usize, size.1 as usize);
     if w < 120 || h < 90 || plot.series.is_empty() || plot.xs.is_empty() {
@@ -470,13 +582,27 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
         let y = ys(v).round() + 0.5;
         let zero = v == 0.0 && y0 < 0.0;
         let [r, g, b, a] = if zero { AXIS } else { GRID };
-        canvas.rect(area[0], y - 0.5, area[0] + area[2], y + 0.5, [r, g, b], f32::from(a) / 255.0);
+        canvas.rect(
+            area[0],
+            y - 0.5,
+            area[0] + area[2],
+            y + 0.5,
+            [r, g, b],
+            f32::from(a) / 255.0,
+        );
         if let Some(t) = words(&label, INK, cell_height) {
             canvas.text(&t, left - 10.0 * s - t.0 as f32, y - t.1 as f32 / 2.0);
         }
     }
     let base = ys(if y0 <= 0.0 && y1 >= 0.0 { 0.0 } else { y0 });
-    canvas.rect(area[0], base - 0.5, area[0] + area[2], base + 0.5, [AXIS[0], AXIS[1], AXIS[2]], f32::from(AXIS[3]) / 255.0);
+    canvas.rect(
+        area[0],
+        base - 0.5,
+        area[0] + area[2],
+        base + 0.5,
+        [AXIS[0], AXIS[1], AXIS[2]],
+        f32::from(AXIS[3]) / 255.0,
+    );
     match plot.kind {
         ChartKind::Bar => {
             let slot = area[2] / n as f32;
@@ -499,7 +625,14 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                         (f32::from(BAR[1]) + 22.0 * lift) as u8,
                         (f32::from(BAR[2]) + 26.0 * lift) as u8,
                     ];
-                    canvas.rect(cx - bw / 2.0, ya + k as f32, cx + bw / 2.0, (ya + k as f32 + 1.0).min(yb), c, 1.0);
+                    canvas.rect(
+                        cx - bw / 2.0,
+                        ya + k as f32,
+                        cx + bw / 2.0,
+                        (ya + k as f32 + 1.0).min(yb),
+                        c,
+                        1.0,
+                    );
                 }
                 marks.push(ChartMark {
                     rect: [cx - slot / 2.0, area[1], slot, area[3]],
@@ -511,11 +644,22 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                 });
                 let cap = (2.5 * s).max(2.0);
                 let cap_y = if *v >= 0.0 { top_y } else { top_y - cap };
-                canvas.rect(cx - bw / 2.0, cap_y, cx + bw / 2.0, cap_y + cap, SERIES[0], 1.0);
+                canvas.rect(
+                    cx - bw / 2.0,
+                    cap_y,
+                    cx + bw / 2.0,
+                    cap_y + cap,
+                    SERIES[0],
+                    1.0,
+                );
                 if n <= 24
                     && let Some(t) = words(&short(*v), INK, cell_height)
                 {
-                    let ty = if *v >= 0.0 { top_y - t.1 as f32 - 4.0 * s } else { top_y + 4.0 * s };
+                    let ty = if *v >= 0.0 {
+                        top_y - t.1 as f32 - 4.0 * s
+                    } else {
+                        top_y + 4.0 * s
+                    };
                     canvas.text(&t, cx - t.0 as f32 / 2.0, ty);
                 }
             }
@@ -523,7 +667,11 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
             let every = label_stride(plot, slot, cell_height);
             for (i, label) in plot.labels.iter().enumerate().step_by(every) {
                 if let Some(t) = words(label, INK, cell_height) {
-                    canvas.text(&t, xs(i, 0.0) - t.0 as f32 / 2.0, area[1] + area[3] + ch * 0.5);
+                    canvas.text(
+                        &t,
+                        xs(i, 0.0) - t.0 as f32 / 2.0,
+                        area[1] + area[3] + ch * 0.5,
+                    );
                 }
             }
         }
@@ -542,12 +690,25 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                 // width (sparse points; a dense line keeps every one).
                 let reach = (area[2] / pts.len().max(1) as f32).clamp(6.0 * s, 40.0 * s);
                 let name = &plot.series[si].0;
-                for ((x, y), p) in plot.xs.iter().zip(values).filter(|(x, y)| x.is_finite() && y.is_finite()).zip(&pts) {
-                    let x_name = if plot.x_label.is_empty() { String::new() } else { format!("{} ", plot.x_label) };
+                for ((x, y), p) in plot
+                    .xs
+                    .iter()
+                    .zip(values)
+                    .filter(|(x, y)| x.is_finite() && y.is_finite())
+                    .zip(&pts)
+                {
+                    let x_name = if plot.x_label.is_empty() {
+                        String::new()
+                    } else {
+                        format!("{} ", plot.x_label)
+                    };
                     marks.push(ChartMark {
                         rect: [p[0] - reach / 2.0, p[1] - reach, reach, 2.0 * reach],
                         anchor: *p,
-                        text: vec![format!("{x_name}{}", short(*x)), format!("{name} {}", short(*y)).trim().to_string()],
+                        text: vec![
+                            format!("{x_name}{}", short(*x)),
+                            format!("{name} {}", short(*y)).trim().to_string(),
+                        ],
                     });
                 }
                 if plot.kind == ChartKind::Line {
@@ -557,7 +718,8 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                             let [a, b] = [pair[0], pair[1]];
                             // Each column once: a seam drawn twice shows.
                             for x in a[0].round() as i64..b[0].round() as i64 {
-                                let t = ((x as f32 + 0.5 - a[0]) / (b[0] - a[0]).max(1e-3)).clamp(0.0, 1.0);
+                                let t = ((x as f32 + 0.5 - a[0]) / (b[0] - a[0]).max(1e-3))
+                                    .clamp(0.0, 1.0);
                                 let y = a[1] + (b[1] - a[1]) * t;
                                 let depth = (base - y).max(0.0);
                                 for yy in y.ceil() as i64..base as i64 {
@@ -589,7 +751,11 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
             let mut v = (x0 / step).ceil() * step;
             while v <= x1 + step * 1e-6 {
                 if let Some(t) = words(&short(v), INK, cell_height) {
-                    canvas.text(&t, xs(0, v) - t.0 as f32 / 2.0, area[1] + area[3] + ch * 0.5);
+                    canvas.text(
+                        &t,
+                        xs(0, v) - t.0 as f32 / 2.0,
+                        area[1] + area[3] + ch * 0.5,
+                    );
                 }
                 v += step;
             }
@@ -601,7 +767,12 @@ pub(crate) fn render(plot: &Plot, size: (u32, u32), cell_height: u16) -> Option<
                         x -= t.0 as f32;
                         canvas.text(&t, x, ch * 0.7);
                         x -= 14.0 * s;
-                        canvas.disc([x + 5.0 * s, ch * 0.7 + t.1 as f32 / 2.0], 4.5 * s, SERIES[si % SERIES.len()], 1.0);
+                        canvas.disc(
+                            [x + 5.0 * s, ch * 0.7 + t.1 as f32 / 2.0],
+                            4.5 * s,
+                            SERIES[si % SERIES.len()],
+                            1.0,
+                        );
                         x -= 22.0 * s;
                     }
                 }
@@ -653,7 +824,8 @@ mod tests {
 
     #[test]
     fn numbers_against_numbers_make_lines_with_every_series() {
-        let plot = Plot::from_data("run", "step,loss,acc\n1,2.0,0.1\n2,1.5,0.3\n3,1.1,0.5\n").unwrap();
+        let plot =
+            Plot::from_data("run", "step,loss,acc\n1,2.0,0.1\n2,1.5,0.3\n3,1.1,0.5\n").unwrap();
         assert_eq!(plot.kind, ChartKind::Line);
         assert_eq!(plot.xs, vec![1.0, 2.0, 3.0]);
         assert_eq!(plot.series.len(), 2);
@@ -662,8 +834,16 @@ mod tests {
 
     #[test]
     fn json_shapes_chart_too_and_prose_does_not() {
-        assert_eq!(Plot::from_data("t", "[3, 1, 4, 1, 5]").unwrap().series[0].1.len(), 5);
-        assert_eq!(Plot::from_data("t", "[[0, 1], [1, 3], [2, 2]]").unwrap().xs, vec![0.0, 1.0, 2.0]);
+        assert_eq!(
+            Plot::from_data("t", "[3, 1, 4, 1, 5]").unwrap().series[0]
+                .1
+                .len(),
+            5
+        );
+        assert_eq!(
+            Plot::from_data("t", "[[0, 1], [1, 3], [2, 2]]").unwrap().xs,
+            vec![0.0, 1.0, 2.0]
+        );
         let rows = r#"[{"city": "a", "pop": 3}, {"city": "b", "pop": 5}]"#;
         assert_eq!(Plot::from_data("t", rows).unwrap().kind, ChartKind::Bar);
         assert!(Plot::from_data("t", "# Notes\n\nSome words, and more words.\n").is_none());
@@ -696,7 +876,10 @@ mod tests {
         assert_eq!(marks.len(), 3, "one mark per point");
         assert!(marks[0].anchor[0] < marks[2].anchor[0]);
         assert_eq!(marks[1].text[1], "y 3");
-        let warm = rgba.chunks(4).filter(|p| p[0] > 150 && p[1] > 100 && p[2] < 110).count();
+        let warm = rgba
+            .chunks(4)
+            .filter(|p| p[0] > 150 && p[1] > 100 && p[2] < 110)
+            .count();
         assert!(warm > 50, "the line is drawn in the warm accent");
         assert_eq!(rgba[3], 0, "no paper: the corner is clear");
     }

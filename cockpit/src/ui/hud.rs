@@ -20,9 +20,9 @@ pub const HUD_VERIFIED: Color = Color::Rgb(99, 241, 169);
 pub const HUD_PURPLE: Color = Color::Rgb(200, 130, 255);
 // Candlelight gold and caution amber are the world pane's chrome too, so the
 // realm host owns them; they keep their old path here.
-pub use angel_realm_host::hud_palette::HUD_GOLD;
 #[cfg(test)]
 pub use angel_realm_host::hud_palette::HUD_AMBER;
+pub use angel_realm_host::hud_palette::HUD_GOLD;
 const PANEL_STYLE: Style = Style::new().fg(HUD_TEXT);
 const DIM_PANEL_STYLE: Style = Style::new().fg(HUD_DIM);
 const CHROME_STYLE: Style = Style::new().fg(HUD_TEXT);

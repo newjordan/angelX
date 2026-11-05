@@ -1145,20 +1145,42 @@ fn heart_is_a_built_in_command_ahead_of_any_cartridges() {
     assert!(!matches!(parse("/hear clip.wav"), Ok(ParsedInput::Heart)));
     // Its two looks: floating over the window, and back on the plate; and
     // the floating modules back where they were designed.
-    assert!(matches!(parse("/heart float").unwrap(), ParsedInput::HeartLook(true)));
-    assert!(matches!(parse("/heart  plate ").unwrap(), ParsedInput::HeartLook(false)));
-    assert!(matches!(parse("/heart reset").unwrap(), ParsedInput::HeartReset));
-    assert!(matches!(parse("/heart demo").unwrap(), ParsedInput::HeartDemo));
-    assert!(!matches!(parse("/heart gold"), Ok(ParsedInput::HeartLook(_))));
+    assert!(matches!(
+        parse("/heart float").unwrap(),
+        ParsedInput::HeartLook(true)
+    ));
+    assert!(matches!(
+        parse("/heart  plate ").unwrap(),
+        ParsedInput::HeartLook(false)
+    ));
+    assert!(matches!(
+        parse("/heart reset").unwrap(),
+        ParsedInput::HeartReset
+    ));
+    assert!(matches!(
+        parse("/heart demo").unwrap(),
+        ParsedInput::HeartDemo
+    ));
+    assert!(!matches!(
+        parse("/heart gold"),
+        Ok(ParsedInput::HeartLook(_))
+    ));
 }
 
 #[test]
 fn the_heart_panel_floats_by_default() {
     assert!(super::DEFAULT_FLOATING);
-    assert!(super::floating(), "the Heartglass must start as the floating HUD, not on its plate");
+    assert!(
+        super::floating(),
+        "the Heartglass must start as the floating HUD, not on its plate"
+    );
     assert_eq!(super::launch_look("1"), Some(true));
     assert_eq!(super::launch_look("float"), Some(true));
-    assert_eq!(super::launch_look("plate"), Some(false), "the plate is an explicit opt-in");
+    assert_eq!(
+        super::launch_look("plate"),
+        Some(false),
+        "the plate is an explicit opt-in"
+    );
     assert_eq!(super::launch_look(""), None);
 }
 
@@ -1169,11 +1191,18 @@ fn the_demo_campaign_is_synthetic_labelled_and_in_bounds() {
     assert_eq!(campaign.phase.name, "DEMO", "the panel names what it shows");
     assert_eq!(campaign.boards.len(), 5);
     assert!(
-        campaign.events.iter().any(|e| e.text.contains("no VE data")),
+        campaign
+            .events
+            .iter()
+            .any(|e| e.text.contains("no VE data")),
         "the ticker says it is a demo"
     );
     for board in &campaign.boards {
-        assert!(board.key.starts_with("demo:") && board.label.contains("demo"), "{}", board.key);
+        assert!(
+            board.key.starts_with("demo:") && board.label.contains("demo"),
+            "{}",
+            board.key
+        );
         let ours = board.ours_best.as_ref().expect("a demo best").score;
         assert!(ours > board.floor && ours < 100.0);
         assert!(board.history.iter().all(|m| m.score.is_finite()));
@@ -1205,7 +1234,8 @@ fn the_demo_watcher_serves_from_memory_and_never_polls_a_folder() {
     let changes = watcher.poll(Instant::now());
     assert!(!changes.board && !changes.cloud, "the demo is static");
     assert_eq!(
-        watcher.campaign().unwrap().phase.name, "DEMO",
+        watcher.campaign().unwrap().phase.name,
+        "DEMO",
         "a poll must not replace the demo with a folder read"
     );
 }
@@ -1218,7 +1248,10 @@ fn outside_the_window_heart_says_where_the_panel_lives() {
     super::launch_if_requested();
     assert!(!super::visible());
     assert_eq!(super::reset_layout(), super::Toggled::NoWindow);
-    assert!(!super::take_reset(), "no reset is asked for outside the window");
+    assert!(
+        !super::take_reset(),
+        "no reset is asked for outside the window"
+    );
     assert_eq!(super::show_demo(), super::Toggled::NoWindow);
     assert!(!super::demo(), "no demo is armed outside the window");
 }

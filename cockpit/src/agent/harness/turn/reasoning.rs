@@ -59,7 +59,9 @@ fn effort_check<'a>(
     move |choice| match choice.effort.as_deref() {
         Some(effort)
             if Some(effort) != pin
-                && !levels.iter().any(|level| level.eq_ignore_ascii_case(effort)) =>
+                && !levels
+                    .iter()
+                    .any(|level| level.eq_ignore_ascii_case(effort)) =>
         {
             Err(format!("{effort} is not an effort this seat accepts"))
         }

@@ -735,7 +735,8 @@ impl SwarmClub {
                 let ledger = crate::agent::harness::book::connect::workspace();
                 let book_catalog = crate::agent::harness::book::catalog::current();
                 std::thread::spawn(move || {
-                    let _book_catalog = book_catalog.map(crate::agent::harness::book::catalog::enter);
+                    let _book_catalog =
+                        book_catalog.map(crate::agent::harness::book::catalog::enter);
                     let _budget_scope = crate::agent::harness::formation_budget::enter(budget);
                     let _seat_role = crate::agent::harness::formation_budget::enter_role(&role);
                     let _ledger = crate::agent::harness::book::connect::enter(&ledger);

@@ -99,14 +99,9 @@ fn stack_encoded_placeholders_match_format_across_grid() {
     for y in 0..36u16 {
         for x in 0..80u16 {
             let cell = buffer.cell((area.x + x, area.y + y)).unwrap();
-            let want = format!(
-                "\u{10eeee}{}{}",
-                mark(usize::from(y)),
-                mark(usize::from(x))
-            );
+            let want = format!("\u{10eeee}{}{}", mark(usize::from(y)), mark(usize::from(x)));
             assert_eq!(cell.symbol(), want);
             assert_eq!(cell.fg, Color::Rgb(0xfa, 0x57, 0xa4));
         }
     }
 }
-

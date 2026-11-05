@@ -1,6 +1,6 @@
 //! Griffinwing's bot recorder (the private helpers of bot.rs), for the Bend
 //! port. Called from the main recorder's sampling.
-use super::super::bend_kit::{self as kit, j, rec, want, Rng};
+use super::super::bend_kit::{self as kit, Rng, j, rec, want};
 use super::*;
 use serde_json::json;
 
@@ -11,7 +11,11 @@ pub fn noise_cases() {
         let t = rng.below(9000) as u32 / [1u32, 14, 45, 60, 90][(k % 5) as usize];
         let salt = [1u32, 2, 3, 5, 9][(k % 5) as usize];
         let span = [dm(15), dm(10), 2, 1, 2][(k % 5) as usize];
-        rec("griffinwing.bot.noise", json!({"id": id, "t": t, "salt": salt, "span": span}), json!(noise(id, t, salt, span)));
+        rec(
+            "griffinwing.bot.noise",
+            json!({"id": id, "t": t, "salt": salt, "span": span}),
+            json!(noise(id, t, salt, span)),
+        );
     }
 }
 
@@ -22,7 +26,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
     }
     if want("griffinwing.bot.Session.reflector") {
         for id in 1..=6u32 {
-            rec("griffinwing.bot.Session.reflector", json!({"s": kit::sj_keys(s, &["seats"]), "id": id}), json!(s.reflector(id)));
+            rec(
+                "griffinwing.bot.Session.reflector",
+                json!({"s": kit::sj_keys(s, &["seats"]), "id": id}),
+                json!(s.reflector(id)),
+            );
         }
     }
     let id = ids[rng.below(ids.len() as u64) as usize];
@@ -32,11 +40,23 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
         let mut c = s.clone();
         // a few hostile bolts sent at the craft's plane
         for _ in 0..rng.below(4) {
-            let to = (s_c + rng.range(40, 2200), craft.x + rng.range(-300, 300), craft.z + rng.range(-200, 200));
-            let v = (PACE - rng.range(20, 90), rng.range(-30, 30), rng.range(-30, 30));
+            let to = (
+                s_c + rng.range(40, 2200),
+                craft.x + rng.range(-300, 300),
+                craft.z + rng.range(-200, 200),
+            );
+            let v = (
+                PACE - rng.range(20, 90),
+                rng.range(-30, 30),
+                rng.range(-30, 30),
+            );
             if c.bolts.len() < MAX_BOLTS {
                 c.bolts.push(Bolt {
-                    shot: if rng.chance(2) { Arm::Gloam } else { Arm::Spark },
+                    shot: if rng.chance(2) {
+                        Arm::Gloam
+                    } else {
+                        Arm::Spark
+                    },
                     owner: 0,
                     s: to.0,
                     x: to.1,
@@ -67,7 +87,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             c.z = rng.range(-n.wz(), n.wz());
             let (ox, oz) = (c.x + rng.range(-200, 200), c.z + rng.range(-150, 150));
             let r = Session::room_from(&c, ox, oz, n);
-            rec("griffinwing.bot.Session.room_from", json!({"c": j(&c), "ox": ox, "oz": oz, "n": kit::nums_j(n)}), json!([r.0, r.1]));
+            rec(
+                "griffinwing.bot.Session.room_from",
+                json!({"c": j(&c), "ox": ox, "oz": oz, "n": kit::nums_j(n)}),
+                json!([r.0, r.1]),
+            );
         }
     }
     if want("griffinwing.bot.Session.footprint_away") {
@@ -113,7 +137,8 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
                 c.rise();
             }
             if let Some(b) = &mut c.boss {
-                b.st = [Wyrm::Tell, Wyrm::Coil, Wyrm::Roar, Wyrm::Idle, Wyrm::Hurt][rng.below(5) as usize];
+                b.st = [Wyrm::Tell, Wyrm::Coil, Wyrm::Roar, Wyrm::Idle, Wyrm::Hurt]
+                    [rng.below(5) as usize];
                 b.atk = rng.below(3) as u8;
                 b.gap = rng.range(-300, 300);
                 b.col = craft.x + rng.range(-250, 250);
@@ -134,7 +159,10 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
                 c.foes.clear();
                 c.rise();
             }
-            let lit = c.boss.as_ref().map_or(0, |b| b.lamps[usize::from(b.phase.min(2))]);
+            let lit = c
+                .boss
+                .as_ref()
+                .map_or(0, |b| b.lamps[usize::from(b.phase.min(2))]);
             if rng.chance(4) {
                 for f in c.foes.iter_mut().filter(|f| f.id == lit) {
                     f.st = St::Open;
@@ -143,7 +171,11 @@ pub fn sample(s: &Session, n: &Nums, rng: &mut Rng) {
             for _ in 0..rng.below(4) {
                 if c.bolts.len() < MAX_BOLTS {
                     c.bolts.push(Bolt {
-                        shot: if rng.chance(5) { Arm::Spark } else { Arm::Gloam },
+                        shot: if rng.chance(5) {
+                            Arm::Spark
+                        } else {
+                            Arm::Gloam
+                        },
                         owner: 0,
                         s: s_c + rng.range(-100, 2200),
                         x: rng.range(-400, 400),

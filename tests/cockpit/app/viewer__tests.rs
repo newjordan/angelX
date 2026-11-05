@@ -287,10 +287,12 @@ fn changing_council_and_map_sequences_coalesce_behind_one_pending_encode() {
     let counter = Arc::clone(&council_composed);
     terminal
         .draw(|frame| {
-            assert!(!viewer.render_council_table(frame, frame.area(), 2, move || {
-                counter.fetch_add(1, Ordering::Relaxed);
-                image::RgbaImage::new(8, 8)
-            }));
+            assert!(
+                !viewer.render_council_table(frame, frame.area(), 2, move || {
+                    counter.fetch_add(1, Ordering::Relaxed);
+                    image::RgbaImage::new(8, 8)
+                })
+            );
         })
         .expect("render coalesced council table");
     assert_eq!(council_composed.load(Ordering::Relaxed), 0);

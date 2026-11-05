@@ -214,7 +214,12 @@ mod tests {
                 assert_eq!(bend.output_digest, receipt["output_digest"], "{}", leg.id);
             }
         }
-        assert!(before.legs.iter().any(|leg| leg.id == "ability-code" && leg.bend.is_some()));
+        assert!(
+            before
+                .legs
+                .iter()
+                .any(|leg| leg.id == "ability-code" && leg.bend.is_some())
+        );
         let router = root.join("tool-router/index.js");
         let edited = std::fs::read_to_string(&router)
             .unwrap()

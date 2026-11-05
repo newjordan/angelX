@@ -809,10 +809,7 @@ fn grok_http_registration_defers_refresh_until_first_request() {
     use std::net::TcpListener;
 
     let _lock = env_lock();
-    let dir = std::env::temp_dir().join(format!(
-        "angelX-grok-lazy-refresh-{}",
-        std::process::id()
-    ));
+    let dir = std::env::temp_dir().join(format!("angelX-grok-lazy-refresh-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let auth_path = dir.join("auth.json");
     let models_path = dir.join("models_cache.json");
@@ -847,7 +844,10 @@ fn grok_http_registration_defers_refresh_until_first_request() {
     let links = grok_http_clubs();
     assert!(links.iter().any(|(alias, _, _)| alias == "grok"));
     assert!(
-        matches!(token_seen_rx.try_recv(), Err(std::sync::mpsc::TryRecvError::Empty)),
+        matches!(
+            token_seen_rx.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        ),
         "registering Grok routes must not contact the token endpoint"
     );
 
@@ -870,11 +870,23 @@ fn grok_http_registration_defers_refresh_until_first_request() {
     assert!(matches!(reply, ClubReply::Text(text) if text == "fixture answer"));
 
     let token_request = token_server.join().unwrap();
-    assert!(token_request.starts_with("POST /oauth2/token "), "{token_request}");
-    assert!(token_request.contains("refresh_token=refresh-fixture"), "{token_request}");
+    assert!(
+        token_request.starts_with("POST /oauth2/token "),
+        "{token_request}"
+    );
+    assert!(
+        token_request.contains("refresh_token=refresh-fixture"),
+        "{token_request}"
+    );
     let api_request = api_server.join().unwrap();
-    assert!(api_request.starts_with("POST /v1/chat/completions "), "{api_request}");
-    assert!(api_request.contains("Authorization: Bearer fresh-access-token"), "{api_request}");
+    assert!(
+        api_request.starts_with("POST /v1/chat/completions "),
+        "{api_request}"
+    );
+    assert!(
+        api_request.contains("Authorization: Bearer fresh-access-token"),
+        "{api_request}"
+    );
     let _ = std::fs::remove_dir_all(dir);
 }
 

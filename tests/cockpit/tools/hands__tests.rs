@@ -144,7 +144,9 @@ fn screenshot_envelope_parses_as_stage_presentation() {
     // The model-facing receipt survives inside the envelope.
     assert!(envelope.contains("screenshot saved:"));
     assert!(wants_present(&json!({"action": "screenshot"})));
-    assert!(!wants_present(&json!({"action": "screenshot", "present": false})));
+    assert!(!wants_present(
+        &json!({"action": "screenshot", "present": false})
+    ));
 }
 
 /// Live Omarchy proof: run with `ANGEL_HANDS_LIVE=1 cargo test hands_live -- --ignored`
@@ -192,26 +194,47 @@ fn ground_fails_closed_on_garbage_or_off_screen() {
     assert!(parse_ground_reply("").is_err());
     assert!(parse_ground_reply("<think>\n<think>\n<think>").is_err());
     assert!(parse_ground_reply("I would click the Save button at 300, 40.").is_err());
-    let off = "<tool_call>{\"arguments\":{\"action\":\"click\",\"coordinate\":[1200,40]}}</tool_call>";
+    let off =
+        "<tool_call>{\"arguments\":{\"action\":\"click\",\"coordinate\":[1200,40]}}</tool_call>";
     assert!(parse_ground_reply(off).unwrap_err().contains("off-screen"));
-    let neg = "<tool_call>{\"arguments\":{\"action\":\"click\",\"coordinate\":[-1,40]}}</tool_call>";
+    let neg =
+        "<tool_call>{\"arguments\":{\"action\":\"click\",\"coordinate\":[-1,40]}}</tool_call>";
     assert!(parse_ground_reply(neg).is_err());
-    let three = "<tool_call>{\"arguments\":{\"action\":\"click\",\"coordinate\":[1,2,3]}}</tool_call>";
+    let three =
+        "<tool_call>{\"arguments\":{\"action\":\"click\",\"coordinate\":[1,2,3]}}</tool_call>";
     assert!(parse_ground_reply(three).is_err());
 }
 
 #[test]
 fn ground_maps_model_frame_to_layout_coords() {
     // 1080p output at the layout origin: the frame's corners are the pixel corners.
-    assert_eq!(ground_to_layout((0.0, 0.0), (1920, 1080), (0, 0), 1.0), (0, 0));
-    assert_eq!(ground_to_layout((999.0, 999.0), (1920, 1080), (0, 0), 1.0), (1919, 1079));
-    assert_eq!(ground_to_layout((500.0, 500.0), (1920, 1080), (0, 0), 1.0), (960, 540));
+    assert_eq!(
+        ground_to_layout((0.0, 0.0), (1920, 1080), (0, 0), 1.0),
+        (0, 0)
+    );
+    assert_eq!(
+        ground_to_layout((999.0, 999.0), (1920, 1080), (0, 0), 1.0),
+        (1919, 1079)
+    );
+    assert_eq!(
+        ground_to_layout((500.0, 500.0), (1920, 1080), (0, 0), 1.0),
+        (960, 540)
+    );
     // A monitor right of another: its origin offsets the point.
-    assert_eq!(ground_to_layout((500.0, 500.0), (3440, 1440), (1920, 0), 1.0), (1920 + 1721, 720));
+    assert_eq!(
+        ground_to_layout((500.0, 500.0), (3440, 1440), (1920, 0), 1.0),
+        (1920 + 1721, 720)
+    );
     // HiDPI: the screenshot is in physical pixels, the layout in logical ones.
-    assert_eq!(ground_to_layout((999.0, 999.0), (3840, 2160), (0, 0), 2.0), (1920, 1080));
+    assert_eq!(
+        ground_to_layout((999.0, 999.0), (3840, 2160), (0, 0), 2.0),
+        (1920, 1080)
+    );
     // A bogus scale never divides by zero.
-    assert_eq!(ground_to_layout((500.0, 0.0), (1920, 1080), (0, 0), 0.0), (960, 0));
+    assert_eq!(
+        ground_to_layout((500.0, 0.0), (1920, 1080), (0, 0), 0.0),
+        (960, 0)
+    );
     let monitors = json!([
         {"name": "HDMI-A-1", "x": 0, "y": 0, "scale": 1.0},
         {"name": "DP-3", "x": 1920, "y": 0, "scale": 1.25}
@@ -231,16 +254,28 @@ fn ground_turn_names_the_target_once() {
 #[test]
 fn ground_zoom_windows_stay_inside_the_frame() {
     // Centred on the point when there is room.
-    assert_eq!(zoom_window((960.0, 540.0), (1920, 1080), 2), (480, 270, 960, 540));
-    assert_eq!(zoom_window((960.0, 540.0), (1920, 1080), 3), (640, 360, 640, 360));
+    assert_eq!(
+        zoom_window((960.0, 540.0), (1920, 1080), 2),
+        (480, 270, 960, 540)
+    );
+    assert_eq!(
+        zoom_window((960.0, 540.0), (1920, 1080), 3),
+        (640, 360, 640, 360)
+    );
     // Pushed back inside at every edge.
     assert_eq!(zoom_window((10.0, 5.0), (1920, 1080), 2), (0, 0, 960, 540));
-    assert_eq!(zoom_window((1915.0, 1079.0), (1920, 1080), 3), (1280, 720, 640, 360));
+    assert_eq!(
+        zoom_window((1915.0, 1079.0), (1920, 1080), 3),
+        (1280, 720, 640, 360)
+    );
     // The cascade is the probe-picked fixed pair.
     assert_eq!(GROUND_ZOOMS, [2, 3]);
     // Frame point → pixels → layout composes to the one-step mapping.
     let px = frame_to_px((500.0, 500.0), (1920, 1080));
-    assert_eq!(px_to_layout(px, (1920, 0), 1.0), ground_to_layout((500.0, 500.0), (1920, 1080), (1920, 0), 1.0));
+    assert_eq!(
+        px_to_layout(px, (1920, 0), 1.0),
+        ground_to_layout((500.0, 500.0), (1920, 1080), (1920, 0), 1.0)
+    );
 }
 
 /// Live: `ground` end to end on whatever Hyprland the env points at (run it

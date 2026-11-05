@@ -159,9 +159,7 @@ fn auto_language(facts: &PlanFacts) -> Language {
 /// pytest is selected by an explicit request, or by a configured pytest when the
 /// entrypoint is not an explicit unittest one.
 fn python_driver(facts: &PlanFacts) -> u32 {
-    if facts.entrypoint == "pytest"
-        || (facts.entrypoint != "unittest" && facts.has_pytest_config)
-    {
+    if facts.entrypoint == "pytest" || (facts.entrypoint != "unittest" && facts.has_pytest_config) {
         DRIVER_PYTEST
     } else {
         DRIVER_UNITTEST
@@ -250,7 +248,9 @@ fn step_contract(facts: &PlanFacts, step: &Step) -> Result<(), String> {
         }
         ROUTE_VERIFY => {
             if facts.requested == "rust" || facts.requested == "go" || facts.kind == "lint" {
-                return Err("verify plan ran a verifier for an explicit non-verifier request".into());
+                return Err(
+                    "verify plan ran a verifier for an explicit non-verifier request".into(),
+                );
             }
             match (step.mode, step.runtime, step.driver) {
                 (MODE_CHECK, RUNTIME_NODE | RUNTIME_PYTHON, DRIVER_NONE) => {}

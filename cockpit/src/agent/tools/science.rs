@@ -15,7 +15,11 @@ impl Tool for ScienceTool {
     }
     fn def(&self) -> ToolDef {
         let mut definition = crate::agent::harness::core_catalog::baseline_def("science_search");
-        *definition.params.pointer_mut("/properties/query/maxLength").expect("embedded tool schema") = serde_json::json!(crate::drive::science::MAX_QUERY_CHARS);
+        *definition
+            .params
+            .pointer_mut("/properties/query/maxLength")
+            .expect("embedded tool schema") =
+            serde_json::json!(crate::drive::science::MAX_QUERY_CHARS);
         definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {

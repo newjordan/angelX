@@ -19,9 +19,18 @@ pub(crate) const OSSUARY_LEG: &str = "delve-ossuary";
 /// One tick from `program` (`None`: no generation to ask). Any evaluation or
 /// decode failure is an error here, which the rules answer by running the
 /// native tick.
-fn ask_with(program: Option<angel_live::Program>, frame: &OssuaryFrame) -> Result<OssuaryStep, String> {
+fn ask_with(
+    program: Option<angel_live::Program>,
+    frame: &OssuaryFrame,
+) -> Result<OssuaryStep, String> {
     let input = serde_json::to_value(frame).map_err(|error| error.to_string())?;
-    let (step, source) = live_policy::decide_with::<Option<OssuaryStep>>(program, OSSUARY_LEG, &input, |_| Ok(()), || None);
+    let (step, source) = live_policy::decide_with::<Option<OssuaryStep>>(
+        program,
+        OSSUARY_LEG,
+        &input,
+        |_| Ok(()),
+        || None,
+    );
     step.ok_or_else(|| format!("{OSSUARY_LEG}: {}", source.as_str()))
 }
 
@@ -29,7 +38,8 @@ fn ask_with(program: Option<angel_live::Program>, frame: &OssuaryFrame) -> Resul
 /// client last offered it.
 fn ask_latest(frame: &OssuaryFrame) -> Result<OssuaryStep, String> {
     let input = serde_json::to_value(frame).map_err(|error| error.to_string())?;
-    let (step, source) = live_policy::decide_latest::<Option<OssuaryStep>>(OSSUARY_LEG, &input, |_| Ok(()), || None);
+    let (step, source) =
+        live_policy::decide_latest::<Option<OssuaryStep>>(OSSUARY_LEG, &input, |_| Ok(()), || None);
     step.ok_or_else(|| format!("{OSSUARY_LEG}: {}", source.as_str()))
 }
 
@@ -46,12 +56,16 @@ pub(crate) fn arm(on: bool) {
 /// The setting, pinned to one generation (`None`: the leg is missing), for tests.
 #[cfg(test)]
 pub(crate) fn arm_pinned(program: Option<angel_live::Program>) {
-    install_shared_ossuary_brain(Some(Arc::new(move |frame| ask_with(program.clone(), frame))));
+    install_shared_ossuary_brain(Some(Arc::new(move |frame| {
+        ask_with(program.clone(), frame)
+    })));
 }
 
 /// A brain pinned to one generation, for tests and measurements.
 #[cfg(test)]
-pub(crate) fn pinned_brain(program: angel_live::Program) -> angel_delve::rules::nooks::OssuaryBrain {
+pub(crate) fn pinned_brain(
+    program: angel_live::Program,
+) -> angel_delve::rules::nooks::OssuaryBrain {
     std::rc::Rc::new(move |frame| {
         let input = serde_json::to_value(frame).map_err(|error| error.to_string())?;
         let value = program.render(&input)?;

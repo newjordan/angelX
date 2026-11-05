@@ -1782,11 +1782,13 @@ fn rank_scope<'a>(query_terms: &[String], items: &[&'a AtlasItem]) -> Vec<Ranked
                 continue;
             }
             matched.push(term.clone());
-            let df = *document_frequencies.entry(term.as_str()).or_insert_with(|| {
-                docs.iter()
-                    .filter(|other| other.iter().any(|token| token == term))
-                    .count() as f32
-            });
+            let df = *document_frequencies
+                .entry(term.as_str())
+                .or_insert_with(|| {
+                    docs.iter()
+                        .filter(|other| other.iter().any(|token| token == term))
+                        .count() as f32
+                });
             let idf = (((docs.len() as f32 - df + 0.5) / (df + 0.5)) + 1.0).ln();
             let k1 = 1.2;
             let b = 0.75;

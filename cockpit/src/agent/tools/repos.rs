@@ -18,7 +18,11 @@ impl Tool for RepoSearchTool {
     }
     fn def(&self) -> ToolDef {
         let mut definition = crate::agent::harness::core_catalog::baseline_def("repo_search");
-        *definition.params.pointer_mut("/properties/query/maxLength").expect("embedded tool schema") = serde_json::json!(crate::knowledge::repos::MAX_QUERY_CHARS);
+        *definition
+            .params
+            .pointer_mut("/properties/query/maxLength")
+            .expect("embedded tool schema") =
+            serde_json::json!(crate::knowledge::repos::MAX_QUERY_CHARS);
         definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {

@@ -112,12 +112,7 @@ impl FallbackClub {
 
     /// The per-link features a walk decision is made from: gate presence and
     /// position, and the detected metadata `compatible_chat_chain` consults.
-    fn walk_input(
-        &self,
-        chat: bool,
-        messages: &[ChatMsg],
-        tools: &[ToolDef],
-    ) -> serde_json::Value {
+    fn walk_input(&self, chat: bool, messages: &[ChatMsg], tools: &[ToolDef]) -> serde_json::Value {
         // Only the links this walk can reach are worth a probe, exactly as
         // before: an unreachable link reports whatever is already cached, so a
         // shut gate costs nothing and the native read pattern is unchanged.
@@ -169,12 +164,7 @@ impl FallbackClub {
     /// `seat-order` leg (newest live generation, else the shipped one): a
     /// generation that names an attempt outside the chain, or out of order,
     /// keeps the shipped walk.
-    fn walk_plan(
-        &self,
-        chat: bool,
-        messages: &[ChatMsg],
-        tools: &[ToolDef],
-    ) -> Vec<usize> {
+    fn walk_plan(&self, chat: bool, messages: &[ChatMsg], tools: &[ToolDef]) -> Vec<usize> {
         self.walk_plan_decided(chat, messages, tools).0
     }
 
@@ -235,12 +225,7 @@ impl FallbackClub {
 
     /// Today's walk, unchanged, as the leg's parity oracle: test builds only.
     #[cfg(test)]
-    fn walk_plan_native(
-        &self,
-        chat: bool,
-        messages: &[ChatMsg],
-        tools: &[ToolDef],
-    ) -> Vec<usize> {
+    fn walk_plan_native(&self, chat: bool, messages: &[ChatMsg], tools: &[ToolDef]) -> Vec<usize> {
         let chain = if chat {
             self.compatible_chat_chain(messages, tools)
         } else {
@@ -277,12 +262,11 @@ impl FallbackClub {
             "emitted": emitted,
             "cancelled": cancelled,
         });
-        let (decision, _source) =
-            crate::agent::harness::live_policy::decide_shipped::<AdvanceStep>(
-                SEAT_ORDER_LEG,
-                &input,
-                move |decision| advance_check(decision, step, plan_len),
-            );
+        let (decision, _source) = crate::agent::harness::live_policy::decide_shipped::<AdvanceStep>(
+            SEAT_ORDER_LEG,
+            &input,
+            move |decision| advance_check(decision, step, plan_len),
+        );
         decision
     }
 }
@@ -393,15 +377,13 @@ impl Club for FallbackClub {
                     self.note_resolved(&**club);
                     return Ok(v);
                 }
-                Err(e) => {
-                    match self.after_failure(&chain, step, e, false, false, false) {
-                        Walk::Retry { error, next } => {
-                            last = error;
-                            step = next;
-                        }
-                        Walk::Stop(error) => return error,
+                Err(e) => match self.after_failure(&chain, step, e, false, false, false) {
+                    Walk::Retry { error, next } => {
+                        last = error;
+                        step = next;
                     }
-                }
+                    Walk::Stop(error) => return error,
+                },
             }
         }
         last
@@ -423,15 +405,13 @@ impl Club for FallbackClub {
                     self.note_resolved(&**club);
                     return Ok(v);
                 }
-                Err(e) => {
-                    match self.after_failure(&chain, step, e, false, false, false) {
-                        Walk::Retry { error, next } => {
-                            last = error;
-                            step = next;
-                        }
-                        Walk::Stop(error) => return error,
+                Err(e) => match self.after_failure(&chain, step, e, false, false, false) {
+                    Walk::Retry { error, next } => {
+                        last = error;
+                        step = next;
                     }
-                }
+                    Walk::Stop(error) => return error,
+                },
             }
         }
         last
@@ -461,15 +441,13 @@ impl Club for FallbackClub {
                     self.note_resolved(&**club);
                     return Ok(v);
                 }
-                Err(e) => {
-                    match self.after_failure(&chain, step, e, false, false, false) {
-                        Walk::Retry { error, next } => {
-                            last = error;
-                            step = next;
-                        }
-                        Walk::Stop(error) => return error,
+                Err(e) => match self.after_failure(&chain, step, e, false, false, false) {
+                    Walk::Retry { error, next } => {
+                        last = error;
+                        step = next;
                     }
-                }
+                    Walk::Stop(error) => return error,
+                },
             }
         }
         last
@@ -757,12 +735,16 @@ fn seat_order_input(links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)]) -> serde
     seat_order_input_with(links, &moa_preferences())
 }
 
-fn seat_order_input_with(links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)], preferences: &MoaPreferences) -> serde_json::Value {
+fn seat_order_input_with(
+    links: &[(String, Arc<dyn Club>, Arc<AtomicBool>)],
+    preferences: &MoaPreferences,
+) -> serde_json::Value {
     let features: Vec<serde_json::Value> = links
         .iter()
         .enumerate()
         .map(|(index, entry)| {
-            let matches: Vec<usize> = preferences.cheap_fallback
+            let matches: Vec<usize> = preferences
+                .cheap_fallback
                 .iter()
                 .enumerate()
                 .filter(|(_, wanted)| link_matches(entry, wanted))

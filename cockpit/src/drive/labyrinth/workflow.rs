@@ -2248,15 +2248,13 @@ pub(crate) fn frontier_status(frontier: &Value, sota: Option<&Value>) -> Result<
                         )
                     })?;
                 let value = integer(&binding["value"], "SOTA bound")?;
-                let row = sizes_by_value
-                    .get(&size)
-                    .ok_or_else(|| {
-                        error(
-                            "sota_frontier",
-                            None,
-                            "SOTA size is absent from the frontier",
-                        )
-                    })?;
+                let row = sizes_by_value.get(&size).ok_or_else(|| {
+                    error(
+                        "sota_frontier",
+                        None,
+                        "SOTA size is absent from the frontier",
+                    )
+                })?;
                 if row["bounds"][field] != value {
                     return Err(error(
                         "sota_frontier",

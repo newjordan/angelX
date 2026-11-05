@@ -387,8 +387,14 @@ impl Tool for SemanticReadTool {
 
     fn def(&self) -> ToolDef {
         let mut definition = crate::agent::harness::core_catalog::baseline_def("semantic_read");
-        *definition.params.pointer_mut("/properties/paths/maxItems").expect("embedded tool schema") = serde_json::json!(MAX_PATHS);
-        *definition.params.pointer_mut("/properties/max_results/maximum").expect("embedded tool schema") = serde_json::json!(MAX_RESULTS);
+        *definition
+            .params
+            .pointer_mut("/properties/paths/maxItems")
+            .expect("embedded tool schema") = serde_json::json!(MAX_PATHS);
+        *definition
+            .params
+            .pointer_mut("/properties/max_results/maximum")
+            .expect("embedded tool schema") = serde_json::json!(MAX_RESULTS);
         definition
     }
 
@@ -556,8 +562,15 @@ pub(crate) fn maybe_register_embedding_tools(r: &mut ToolRegistry, workspace: Pa
 #[path = "../../../../tests/cockpit/tools/embed__tests.rs"]
 mod tests;
 
-
 #[cfg(test)]
 pub(crate) fn catalog_current_semantic_read() -> ToolDef {
-    SemanticReadTool { root: PathBuf::new(), config: EmbeddingConfig { base_url: String::new(), model: String::new(), api_key: None } }.def()
+    SemanticReadTool {
+        root: PathBuf::new(),
+        config: EmbeddingConfig {
+            base_url: String::new(),
+            model: String::new(),
+            api_key: None,
+        },
+    }
+    .def()
 }

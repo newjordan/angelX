@@ -67,7 +67,10 @@ fn override_reloads_per_request_and_old_capture_is_unchanged() {
         next.render(Some("all"), "·", false)
             .contains("/graph [edited")
     );
-    assert_eq!(next.render(Some("all"), "·", true), next.render(Some("all"), "·", false));
+    assert_eq!(
+        next.render(Some("all"), "·", true),
+        next.render(Some("all"), "·", false)
+    );
     std::fs::write(&path, b"invalid").unwrap();
     assert!(capture(Some(&path)).is_err());
     assert!(capture(Some(Path::new("relative.json"))).is_err());

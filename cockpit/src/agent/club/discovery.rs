@@ -307,7 +307,11 @@ pub(crate) fn resolve_openrouter_model_alias(raw: &str) -> String {
 pub(crate) fn api_club_enabled(alias: &str) -> bool {
     let family = if alias.starts_with("glm-") {
         "glm"
-    } else if alias.starts_with("kimi-") || alias == "k3" || alias.starts_with("k3-") || alias.starts_with("k3.") {
+    } else if alias.starts_with("kimi-")
+        || alias == "k3"
+        || alias.starts_with("k3-")
+        || alias.starts_with("k3.")
+    {
         // Kimi Code plan ids (`k3`, `k3-256k`, `k3.1-pro*`) share the seat.
         "kimi"
     } else if alias == "deepseek-flash" {

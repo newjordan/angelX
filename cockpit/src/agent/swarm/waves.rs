@@ -1,7 +1,7 @@
 //! Pure progressive-wave decision logic.
 
-use crate::agent::harness::live_policy;
 use super::GateAction;
+use crate::agent::harness::live_policy;
 
 const LEG: &str = "swarm-waves";
 
@@ -33,9 +33,7 @@ impl StopReason {
 #[serde(rename_all = "snake_case")]
 pub(crate) enum Decision {
     Stop(StopReason),
-    Expand {
-        next_wave: usize,
-    },
+    Expand { next_wave: usize },
 }
 
 impl Decision {
@@ -45,9 +43,9 @@ impl Decision {
         match self {
             Decision::Stop(_) => Ok(()),
             Decision::Expand { next_wave } if *next_wave >= 1 => Ok(()),
-            Decision::Expand { next_wave } => {
-                Err(format!("an expand needs a positive next wave, got {next_wave}"))
-            }
+            Decision::Expand { next_wave } => Err(format!(
+                "an expand needs a positive next wave, got {next_wave}"
+            )),
         }
     }
 
@@ -143,4 +141,3 @@ pub(crate) fn gate_at(relax: bool, escalate: bool) -> (GateAction, live_policy::
 pub(crate) fn gate_input(relax: bool, escalate: bool) -> serde_json::Value {
     serde_json::json!({"kind": "gate", "relax": relax, "escalate": escalate})
 }
-

@@ -71,9 +71,18 @@ impl Tool for TodoTool {
     }
     fn def(&self) -> ToolDef {
         let mut definition = crate::agent::harness::core_catalog::baseline_def("todo");
-        *definition.params.pointer_mut("/properties/text/maxLength").expect("embedded tool schema") = serde_json::json!(TODO_TEXT_MAX_CHARS);
-        *definition.params.pointer_mut("/properties/items/maxItems").expect("embedded tool schema") = serde_json::json!(TODO_MAX_ITEMS);
-        *definition.params.pointer_mut("/properties/items/items/maxLength").expect("embedded tool schema") = serde_json::json!(TODO_TEXT_MAX_CHARS);
+        *definition
+            .params
+            .pointer_mut("/properties/text/maxLength")
+            .expect("embedded tool schema") = serde_json::json!(TODO_TEXT_MAX_CHARS);
+        *definition
+            .params
+            .pointer_mut("/properties/items/maxItems")
+            .expect("embedded tool schema") = serde_json::json!(TODO_MAX_ITEMS);
+        *definition
+            .params
+            .pointer_mut("/properties/items/items/maxLength")
+            .expect("embedded tool schema") = serde_json::json!(TODO_TEXT_MAX_CHARS);
         definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {
@@ -295,8 +304,14 @@ impl Tool for HandoffTool {
     }
     fn def(&self) -> ToolDef {
         let mut definition = crate::agent::harness::core_catalog::baseline_def("handoff");
-        *definition.params.pointer_mut("/properties/note/minLength").expect("embedded tool schema") = serde_json::json!(HANDOFF_NOTE_MIN_CHARS);
-        *definition.params.pointer_mut("/properties/note/maxLength").expect("embedded tool schema") = serde_json::json!(HANDOFF_NOTE_MAX_CHARS);
+        *definition
+            .params
+            .pointer_mut("/properties/note/minLength")
+            .expect("embedded tool schema") = serde_json::json!(HANDOFF_NOTE_MIN_CHARS);
+        *definition
+            .params
+            .pointer_mut("/properties/note/maxLength")
+            .expect("embedded tool schema") = serde_json::json!(HANDOFF_NOTE_MAX_CHARS);
         definition
     }
     fn call(&self, args: &Value) -> Result<String, String> {

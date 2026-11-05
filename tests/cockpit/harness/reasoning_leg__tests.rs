@@ -198,11 +198,11 @@ fn the_shipped_leg_reproduces_every_native_reasoning_decision() {
     }
 
     // The reasoning-burn demotion, on locked and open seats.
-    for (ladder, locked) in LADDERS.iter().map(|l| (*l, false)).chain(
-        LADDERS
-            .iter()
-            .map(|l| (*l, true)),
-    ) {
+    for (ladder, locked) in LADDERS
+        .iter()
+        .map(|l| (*l, false))
+        .chain(LADDERS.iter().map(|l| (*l, true)))
+    {
         let seat = if locked {
             Seat::glm(ladder, Some("low"))
         } else {
@@ -211,8 +211,7 @@ fn the_shipped_leg_reproduces_every_native_reasoning_decision() {
         for cumulative in [0u64, 999, 1_024, 1_000_000, 4_294_967_295] {
             for submitted in [false, true] {
                 for limit in [0u64, 1_024, 2_048] {
-                    let native =
-                        glm_thinking_burn_demotion(&seat, cumulative, submitted, limit);
+                    let native = glm_thinking_burn_demotion(&seat, cumulative, submitted, limit);
                     let input = serde_json::json!({
                         "op": "burn",
                         "levels": ladder,
@@ -350,11 +349,10 @@ fn a_broken_reasoning_generation_keeps_the_native_decision() {
         "module.exports={apiVersion:1,render:()=>({effort:'extreme'})}",
     )
     .unwrap();
-    let mut registry = angel_live::Registry::validated(
-        root.clone(),
-        crate::agent::hotload::evaluate,
-        |_, _| Ok(()),
-    );
+    let mut registry =
+        angel_live::Registry::validated(root.clone(), crate::agent::hotload::evaluate, |_, _| {
+            Ok(())
+        });
     registry.refresh(true);
     let broken = registry
         .snapshot()

@@ -23,8 +23,14 @@ fn provision_cache_keys_the_same_ask_by_book_generation() {
         ask_hash(ask)
     };
     assert_ne!(key_a, key_b);
-    let a = ProvisionDirective { max_tokens: Some(11), ..Default::default() };
-    let b = ProvisionDirective { max_tokens: Some(22), ..Default::default() };
+    let a = ProvisionDirective {
+        max_tokens: Some(11),
+        ..Default::default()
+    };
+    let b = ProvisionDirective {
+        max_tokens: Some(22),
+        ..Default::default()
+    };
     {
         let mut cache = JUDGE_CACHE.lock().unwrap();
         cache.push((key_a, Some(a.clone())));
@@ -39,7 +45,10 @@ fn provision_cache_keys_the_same_ask_by_book_generation() {
         let _scope = crate::agent::harness::book::catalog::enter(second);
         assert_eq!(judge_directive("fixture", &messages), Some(b));
     }
-    JUDGE_CACHE.lock().unwrap().retain(|(key, _)| *key != key_a && *key != key_b);
+    JUDGE_CACHE
+        .lock()
+        .unwrap()
+        .retain(|(key, _)| *key != key_a && *key != key_b);
 }
 
 #[test]

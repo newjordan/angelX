@@ -7,7 +7,8 @@ fn plan() -> Plan {
     let mut yard = Salvage::default();
     for place in Place::CORE {
         let id = yard.add(place, Grade::Fine, "You", Pack::Archive);
-        yard.pieces.iter_mut().find(|p| p.id == id).unwrap().wish = Some(format!("a purple drank {}", place.word()));
+        yard.pieces.iter_mut().find(|p| p.id == id).unwrap().wish =
+            Some(format!("a purple drank {}", place.word()));
     }
     yard.plan().expect("the core four")
 }
@@ -21,7 +22,10 @@ fn the_model_reads_every_piece_and_its_checked_answer_is_the_vessel() {
     assert_eq!(made.name, "The Sizzurp Belle");
     let asked = club.asked.lock().unwrap();
     assert_eq!(asked.len(), 1);
-    assert!(asked[0].contains("a purple drank prow"), "the brief reads the wishes");
+    assert!(
+        asked[0].contains("a purple drank prow"),
+        "the brief reads the wishes"
+    );
 }
 
 #[test]
@@ -31,9 +35,15 @@ fn an_answer_the_checker_turns_away_is_mended_once() {
     assert!(design(club.as_ref(), &plan(), &[]).is_ok());
     let asked = club.asked.lock().unwrap();
     assert_eq!(asked.len(), 2);
-    assert!(asked[1].contains("`sparkly` is not one of"), "the mend says why");
+    assert!(
+        asked[1].contains("`sparkly` is not one of"),
+        "the mend says why"
+    );
     let club = Scripted::new(&[&bad], Duration::ZERO);
-    assert!(design(club.as_ref(), &plan(), &[]).is_err(), "a second bad answer is not taken");
+    assert!(
+        design(club.as_ref(), &plan(), &[]).is_err(),
+        "a second bad answer is not taken"
+    );
 }
 
 #[test]
@@ -52,14 +62,22 @@ fn a_build_is_never_lost_the_fallback_makes_her_when_the_model_fails() {
     let (job, made, by_model) = landed.expect("the job lands");
     assert!(!by_model);
     assert_eq!(job.ids().len(), 4);
-    assert!(salvage::check(&format!(
-        "vessel {}\nsays {}\ntraits {}\nquirks {}\n{}",
-        made.name,
-        made.says,
-        made.traits.join(", "),
-        made.quirks.join(", "),
-        made.voice.iter().map(|(m, l)| format!("voice {m} :: {l}\n")).collect::<String>()
-    ), &[])
-    .is_ok());
+    assert!(
+        salvage::check(
+            &format!(
+                "vessel {}\nsays {}\ntraits {}\nquirks {}\n{}",
+                made.name,
+                made.says,
+                made.traits.join(", "),
+                made.quirks.join(", "),
+                made.voice
+                    .iter()
+                    .map(|(m, l)| format!("voice {m} :: {l}\n"))
+                    .collect::<String>()
+            ),
+            &[]
+        )
+        .is_ok()
+    );
     assert!(wright.job.is_none());
 }

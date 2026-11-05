@@ -766,16 +766,19 @@ struct LeanSchemaCase {
 fn assert_lean_schema_case(name: &str) {
     let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../tests/cockpit/fixtures/lean-schema-cases.json");
-    let fixture: LeanSchemaFixture = serde_json::from_slice(
-        &std::fs::read(path).expect("lean schema fixture"),
-    ).expect("valid lean schema fixture");
+    let fixture: LeanSchemaFixture =
+        serde_json::from_slice(&std::fs::read(path).expect("lean schema fixture"))
+            .expect("valid lean schema fixture");
     assert_eq!(fixture.version, 1);
     assert_eq!(fixture.cases.len(), 6);
     let mut seen = std::collections::HashSet::new();
     for case in &fixture.cases {
         assert!(seen.insert(&case.name), "duplicate schema fixture name");
     }
-    let case = fixture.cases.iter().find(|case| case.name == name)
+    let case = fixture
+        .cases
+        .iter()
+        .find(|case| case.name == name)
         .expect("known lean schema fixture");
     let _guard = crate::tests::env_lock();
     let _anchors = (name == "read_file").then(|| EnvGuard::unset("ANGEL_HASHLINE_ANCHORS"));
@@ -798,13 +801,25 @@ fn assert_lean_schema_case(name: &str) {
         "grep" => lean_grep_description(),
         _ => unreachable!(),
     };
-    assert!(full_def.description.contains(&case.full_marker), "{name}: full marker");
+    assert!(
+        full_def.description.contains(&case.full_marker),
+        "{name}: full marker"
+    );
     let lean = lean_advertised_tool_def(&full_def);
     assert_eq!(lean.name, name);
     assert_eq!(lean.description, expected_description);
-    assert!(lean.description.len() < full_def.description.len(), "{name}: lean description size");
-    assert!(!lean.description.contains(&case.full_marker), "{name}: full marker in lean");
-    assert!(lean.description.contains(&case.lean_marker), "{name}: lean marker");
+    assert!(
+        lean.description.len() < full_def.description.len(),
+        "{name}: lean description size"
+    );
+    assert!(
+        !lean.description.contains(&case.full_marker),
+        "{name}: full marker in lean"
+    );
+    assert!(
+        lean.description.contains(&case.lean_marker),
+        "{name}: lean marker"
+    );
     let expected_params = match case.schema.as_str() {
         "full" => full_def.params.clone(),
         "lean_grep" if name == "grep" => lean_grep_params(),
@@ -814,16 +829,28 @@ fn assert_lean_schema_case(name: &str) {
     if case.schema == "lean_grep" {
         assert!(lean.params.to_string().len() < full_def.params.to_string().len());
     }
-    assert!(param_pages(&full_def.params, &case.page_key).contains(&case.page_marker), "{name}: page");
+    assert!(
+        param_pages(&full_def.params, &case.page_key).contains(&case.page_marker),
+        "{name}: page"
+    );
     assert_eq!(lean.params["required"], full_def.params["required"]);
     if let Some(key) = &case.equal_property {
-        assert_eq!(lean.params["properties"][key], full_def.params["properties"][key]);
+        assert_eq!(
+            lean.params["properties"][key],
+            full_def.params["properties"][key]
+        );
     }
     if let Some(key) = &case.maximum_property {
-        assert_eq!(lean.params["properties"][key]["maximum"], full_def.params["properties"][key]["maximum"]);
+        assert_eq!(
+            lean.params["properties"][key]["maximum"],
+            full_def.params["properties"][key]["maximum"]
+        );
         // grep's paths limit is maxItems; read_file's limit is maximum.
         if name == "grep" {
-            assert_eq!(lean.params["properties"][key]["maxItems"], full_def.params["properties"][key]["maxItems"]);
+            assert_eq!(
+                lean.params["properties"][key]["maxItems"],
+                full_def.params["properties"][key]["maxItems"]
+            );
         }
     }
 
@@ -833,21 +860,38 @@ fn assert_lean_schema_case(name: &str) {
     let mut registry = ToolRegistry::with_defaults();
     registry.enable_tool_search();
     let full = registry.defs_for_turn(Some(1_000_000), false, false);
-    let full_tool = full.iter().find(|tool| tool.name == name)
+    let full_tool = full
+        .iter()
+        .find(|tool| tool.name == name)
         .expect("default set advertises tool");
-    assert!(full_tool.description.contains(&case.full_marker), "{name}: registry full marker");
+    assert!(
+        full_tool.description.contains(&case.full_marker),
+        "{name}: registry full marker"
+    );
     if case.registry_page {
-        assert!(param_pages(&full_tool.params, &case.page_key).contains(&case.page_marker), "{name}: registry page");
+        assert!(
+            param_pages(&full_tool.params, &case.page_key).contains(&case.page_marker),
+            "{name}: registry page"
+        );
     }
     if let Some(marker) = &case.registry_schema_marker {
-        assert!(full_tool.params.to_string().contains(marker), "{name}: registry schema marker");
+        assert!(
+            full_tool.params.to_string().contains(marker),
+            "{name}: registry schema marker"
+        );
     }
     for (bounded, competition) in [(true, false), (false, true)] {
         let tools = registry.defs_for_turn(Some(1_000_000), bounded, competition);
-        let tool = tools.iter().find(|tool| tool.name == name)
+        let tool = tools
+            .iter()
+            .find(|tool| tool.name == name)
             .expect("bounded or competition set advertises tool");
         assert_eq!(tool.description, expected_description);
-        let expected = if case.schema == "lean_grep" { lean_grep_params() } else { full_tool.params.clone() };
+        let expected = if case.schema == "lean_grep" {
+            lean_grep_params()
+        } else {
+            full_tool.params.clone()
+        };
         assert_eq!(tool.params, expected);
     }
 }
@@ -1208,16 +1252,14 @@ fn live_tool_routing_changes_the_next_turn_and_preserves_in_flight_schemas() {
             let _ = std::fs::remove_dir_all(&self.0);
         }
     }
-    let root = Cleanup(
-        std::env::temp_dir().join(format!(
+    let root = Cleanup(std::env::temp_dir().join(format!(
             "angel-live-tool-policy-{}-{}",
             std::process::id(),
             SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .unwrap()
                 .as_nanos()
-        )),
-    );
+        )));
     let module = root.0.join("tool-router");
     std::fs::create_dir_all(&module).unwrap();
     std::fs::write(

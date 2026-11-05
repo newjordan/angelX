@@ -50,7 +50,11 @@ fn main() {
                 .and_then(|n| n.to_str())
                 .unwrap_or("unnamed")
                 .chars()
-                .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+                .map(|c| if c.is_ascii_alphanumeric() {
+                    c.to_ascii_lowercase()
+                } else {
+                    '_'
+                })
                 .collect::<String>()
         );
         let toml = folder.join("cartridge.toml");
@@ -70,7 +74,10 @@ fn main() {
     );
     let out = PathBuf::from(env::var_os("OUT_DIR").expect("OUT_DIR")).join("cartridges.rs");
     write_if_changed(&out, code.as_bytes());
-    println!("cargo:rustc-env=ANGEL_COMPILED_CARTRIDGES={}", ids.join(";"));
+    println!(
+        "cargo:rustc-env=ANGEL_COMPILED_CARTRIDGES={}",
+        ids.join(";")
+    );
     build_paths();
 }
 
@@ -84,10 +91,16 @@ fn build_paths() {
         return;
     }
     if let Some(dir) = env::var_os("CARGO_MANIFEST_DIR") {
-        println!("cargo:rustc-env=ANGEL_SOURCE_COCKPIT_DIR={}", PathBuf::from(dir).display());
+        println!(
+            "cargo:rustc-env=ANGEL_SOURCE_COCKPIT_DIR={}",
+            PathBuf::from(dir).display()
+        );
     }
     if let Some(cargo) = env::var_os("CARGO") {
-        println!("cargo:rustc-env=ANGEL_BUILD_CARGO={}", PathBuf::from(cargo).display());
+        println!(
+            "cargo:rustc-env=ANGEL_BUILD_CARGO={}",
+            PathBuf::from(cargo).display()
+        );
     }
 }
 
@@ -102,7 +115,10 @@ fn folders(roots: &[PathBuf]) -> Vec<PathBuf> {
     // (`touch cockpit/build.rs`).
     for root in roots {
         if root.join("cartridge.toml").is_file() {
-            println!("cargo:rerun-if-changed={}", root.join("cartridge.toml").display());
+            println!(
+                "cargo:rerun-if-changed={}",
+                root.join("cartridge.toml").display()
+            );
             found.push(root.clone());
             continue;
         }
@@ -115,7 +131,10 @@ fn folders(roots: &[PathBuf]) -> Vec<PathBuf> {
             .filter(|path| path.join("cartridge.toml").is_file())
             .collect();
         for dir in &dirs {
-            println!("cargo:rerun-if-changed={}", dir.join("cartridge.toml").display());
+            println!(
+                "cargo:rerun-if-changed={}",
+                dir.join("cartridge.toml").display()
+            );
         }
         dirs.sort();
         found.extend(dirs);

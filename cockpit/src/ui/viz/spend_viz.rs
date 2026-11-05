@@ -45,7 +45,8 @@ pub(crate) fn burst_duration_secs(coins: u64, motion: MotionMode) -> f64 {
 }
 
 pub(crate) fn burst_active(elapsed_secs: f64, coins: u64, motion: MotionMode) -> bool {
-    elapsed_secs.is_finite() && elapsed_secs >= 0.0
+    elapsed_secs.is_finite()
+        && elapsed_secs >= 0.0
         && elapsed_secs < burst_duration_secs(coins, motion)
 }
 
@@ -66,11 +67,21 @@ pub(crate) fn pose(stage: Rect, elapsed_secs: f32, motion: MotionMode) -> Option
         MotionMode::Reduced => u16::from(travel > 0 && (0.20..0.75).contains(&progress)),
         MotionMode::Off => 0,
     };
-    let x = stage.right().saturating_sub(width.saturating_add(1)).max(stage.x);
-    let y = stage.bottom().saturating_sub(height.saturating_add(1))
-        .max(stage.y).saturating_sub(lift).max(stage.y);
+    let x = stage
+        .right()
+        .saturating_sub(width.saturating_add(1))
+        .max(stage.x);
+    let y = stage
+        .bottom()
+        .saturating_sub(height.saturating_add(1))
+        .max(stage.y)
+        .saturating_sub(lift)
+        .max(stage.y);
     let face_scale = match motion {
-        MotionMode::Full => (progress * std::f32::consts::TAU * 2.0).cos().abs().max(0.08),
+        MotionMode::Full => (progress * std::f32::consts::TAU * 2.0)
+            .cos()
+            .abs()
+            .max(0.08),
         MotionMode::Reduced | MotionMode::Off => 1.0,
     };
     Some(CoinPose {
@@ -82,7 +93,12 @@ pub(crate) fn pose(stage: Rect, elapsed_secs: f32, motion: MotionMode) -> Option
 
 /// Return just the coins currently in flight, with stable lanes and no history
 /// traversal. Motion-off uses a static fan (and a count badge for large totals).
-pub(crate) fn poses(stage: Rect, elapsed_secs: f64, coins: u64, motion: MotionMode) -> Vec<CoinPose> {
+pub(crate) fn poses(
+    stage: Rect,
+    elapsed_secs: f64,
+    coins: u64,
+    motion: MotionMode,
+) -> Vec<CoinPose> {
     if !burst_active(elapsed_secs, coins, motion) {
         return Vec::new();
     }
@@ -95,7 +111,11 @@ pub(crate) fn poses(stage: Rect, elapsed_secs: f64, coins: u64, motion: MotionMo
     };
     let mut result = Vec::with_capacity(MAX_LIVE_COINS as usize);
     for index in first..=last {
-        let age = if motion == MotionMode::Off { 0.0 } else { elapsed_secs - index as f64 * STAGGER_SECS };
+        let age = if motion == MotionMode::Off {
+            0.0
+        } else {
+            elapsed_secs - index as f64 * STAGGER_SECS
+        };
         if let Some(mut coin) = pose(stage, age as f32, motion) {
             let offset = (index % u64::from(lanes)) as u16 * (COIN_WIDTH + 1);
             coin.area.x = coin.area.x.saturating_sub(offset).max(stage.x);
@@ -116,7 +136,9 @@ pub(crate) fn gold_pixel(x: f32, y: f32, face_scale: f32) -> Option<[u8; 3]> {
     let radius = fx.hypot(fy);
     if radius > 1.0 {
         let edge_x = ((x + thickness * 0.5).abs() - thickness).max(0.0) / (0.82 * scale);
-        if edge_x.hypot(fy) > 1.0 { return None; }
+        if edge_x.hypot(fy) > 1.0 {
+            return None;
+        }
         let reed = (y * 56.0).sin() * 0.12;
         let light = (0.72 - y * 0.18 + reed).clamp(0.4, 1.0);
         return Some([235.0, 159.0, 34.0].map(|c| (c * light) as u8));
@@ -129,7 +151,9 @@ pub(crate) fn gold_pixel(x: f32, y: f32, face_scale: f32) -> Option<[u8; 3]> {
     } else {
         [249.0, 183.0, 42.0]
     };
-    const STAMP: [u8; 7] = [0b00100, 0b01111, 0b10100, 0b01110, 0b00101, 0b11110, 0b00100];
+    const STAMP: [u8; 7] = [
+        0b00100, 0b01111, 0b10100, 0b01110, 0b00101, 0b11110, 0b00100,
+    ];
     if fx.abs() < 0.42 && fy.abs() < 0.57 {
         let col = ((fx + 0.42) / 0.84 * 5.0) as usize;
         let row = ((fy + 0.57) / 1.14 * 7.0) as usize;
@@ -142,8 +166,14 @@ pub(crate) fn gold_pixel(x: f32, y: f32, face_scale: f32) -> Option<[u8; 3]> {
 
 pub(crate) fn render_coin(frame: &mut Frame<'_>, coin: CoinPose) {
     const BITS: [(u16, u16, u8); 8] = [
-        (0, 0, 0), (0, 1, 1), (0, 2, 2), (1, 0, 3),
-        (1, 1, 4), (1, 2, 5), (0, 3, 6), (1, 3, 7),
+        (0, 0, 0),
+        (0, 1, 1),
+        (0, 2, 2),
+        (1, 0, 3),
+        (1, 1, 4),
+        (1, 2, 5),
+        (0, 3, 6),
+        (1, 3, 7),
     ];
     let area = coin.area.intersection(frame.area());
     for row in area.y..area.bottom() {
@@ -153,12 +183,18 @@ pub(crate) fn render_coin(frame: &mut Frame<'_>, coin: CoinPose) {
             let mut count = 0;
             for (dx, dy, bit) in BITS {
                 let x = (f32::from((col - coin.area.x) * 2 + dx) + 0.5)
-                    / f32::from(coin.area.width * 2) * 2.0 - 1.0;
+                    / f32::from(coin.area.width * 2)
+                    * 2.0
+                    - 1.0;
                 let y = (f32::from((row - coin.area.y) * 4 + dy) + 0.5)
-                    / f32::from(coin.area.height * 4) * 2.0 - 1.0;
+                    / f32::from(coin.area.height * 4)
+                    * 2.0
+                    - 1.0;
                 if let Some(color) = gold_pixel(x, y, coin.face_scale) {
                     bits |= 1 << bit;
-                    for (sum, c) in rgb.iter_mut().zip(color) { *sum += u32::from(c); }
+                    for (sum, c) in rgb.iter_mut().zip(color) {
+                        *sum += u32::from(c);
+                    }
                     count += 1;
                 }
             }

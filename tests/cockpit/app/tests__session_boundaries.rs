@@ -128,8 +128,7 @@ fn session_boundaries_preserve_unsaved_history_and_retry_after_failure() {
             message.as_object_mut().unwrap().remove("book_memory");
         }
         assert_eq!(
-            durable,
-            exact_history,
+            durable, exact_history,
             "{case}: old thread checkpointed exactly before replacement"
         );
         assert!(

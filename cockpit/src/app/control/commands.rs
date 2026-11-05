@@ -734,7 +734,9 @@ impl App {
         let parsed_input = if self.tutor_draft.is_some() {
             Ok(ParsedInput::AskQuestion(raw.to_string()))
         } else if let Some(id) = raw.strip_prefix("/open ").map(str::trim).filter(|id| {
-            self.module_host.status(&crate::platform::runtime::ModuleId::new(*id)).is_some()
+            self.module_host
+                .status(&crate::platform::runtime::ModuleId::new(*id))
+                .is_some()
         }) {
             Ok(ParsedInput::ModuleOpen(id.into()))
         } else {
@@ -756,7 +758,9 @@ impl App {
         };
         let parsed = if matches!(&parsed, ParsedInput::Message(_)) {
             self.registered_live_input(&raw).unwrap_or(parsed)
-        } else { parsed };
+        } else {
+            parsed
+        };
         if let ParsedInput::AskQuestion(question) = &parsed
             && (question.trim().is_empty() || question.chars().count() > 4096)
         {
@@ -995,8 +999,12 @@ impl App {
                     crate::ui::heartglass::Toggled::NoWindow => {
                         "heart · the Heartglass floats in angelX's window (ANGEL_GLASS=1); a terminal has nothing to float it over"
                     }
-                    _ if float => "heart · the Heartglass floats over the window; drag a module to move it, its corner to resize it (/heart reset, /heart plate)",
-                    _ => "heart · the Heartglass is up on its plate (/heart float to float it over the window)",
+                    _ if float => {
+                        "heart · the Heartglass floats over the window; drag a module to move it, its corner to resize it (/heart reset, /heart plate)"
+                    }
+                    _ => {
+                        "heart · the Heartglass is up on its plate (/heart float to float it over the window)"
+                    }
                 };
                 self.system_msg(text.to_string());
                 return;
@@ -2336,9 +2344,10 @@ impl App {
                 let msg = self.handoff_rl.record_victory(cand, score_val, &hyp);
                 let summary = format!("victory {cand} @ {score_val:.4}");
                 match self.force_handoff_rl_restart(Some(&summary)) {
-                    Ok(()) if self.pending_handoff_rl_restart.is_some() =>
-                        format!("{msg}
-handoff restart queued until the foreground worker drains"),
+                    Ok(()) if self.pending_handoff_rl_restart.is_some() => format!(
+                        "{msg}
+handoff restart queued until the foreground worker drains"
+                    ),
                     Ok(()) => msg,
                     Err(budget) => format!("{msg}\n{budget}"),
                 }
@@ -2959,10 +2968,14 @@ handoff restart queued until the foreground worker drains"),
                         ));
                     }
                 }
-                self.live_projection("peers", serde_json::json!({
-                    "directory": dir.to_string_lossy(), "peers": peers,
-                    "now_ms": at_ms, "records": records,
-                }), text);
+                self.live_projection(
+                    "peers",
+                    serde_json::json!({
+                        "directory": dir.to_string_lossy(), "peers": peers,
+                        "now_ms": at_ms, "records": records,
+                    }),
+                    text,
+                );
             }
             "usage" => {
                 let t = self.usage_text();
@@ -3325,7 +3338,9 @@ handoff restart queued until the foreground worker drains"),
                         self.tools.current_workspace(),
                     ) {
                         Ok(result) => {
-                            if !self.realm.together.enabled() && self.realm.dungeon.shooter.is_none() {
+                            if !self.realm.together.enabled()
+                                && self.realm.dungeon.shooter.is_none()
+                            {
                                 self.realm.dungeon.reset_retaining_wish_jobs();
                             }
                             if self.realm.together.enabled() {
@@ -3384,7 +3399,9 @@ handoff restart queued until the foreground worker drains"),
                         return None;
                     }
                     if let Some(label) = self.realm.world.visit_overworld(name) {
-                        if self.realm.dungeon.expanded { self.collapse_dungeon(); }
+                        if self.realm.dungeon.expanded {
+                            self.collapse_dungeon();
+                        }
                         self.scryglass_enabled = true;
                         self.scryglass.return_to_world();
                         self.focus_module("artifacts");
@@ -3413,12 +3430,14 @@ handoff restart queued until the foreground worker drains"),
                         self.system_msg("Already in the saddle.".to_string());
                     } else {
                         self.reset_world_yaw();
-                        self.scryglass.toggle_world_route(self.realm.world.destination());
+                        self.scryglass
+                            .toggle_world_route(self.realm.world.destination());
                         if !matches!(
                             self.scryglass.controller.route(),
                             crate::ui::scryglass::StageRoute::Explore(_)
                         ) {
-                            self.scryglass.toggle_world_route(self.realm.world.destination());
+                            self.scryglass
+                                .toggle_world_route(self.realm.world.destination());
                         }
                         self.focus_module("artifacts");
                         self.system_msg("Saddle up — the road fills the glass.".to_string());
@@ -3452,7 +3471,12 @@ handoff restart queued until the foreground worker drains"),
                         .next()
                         .is_some_and(|w| w.eq_ignore_ascii_case("rail")) =>
                 {
-                    match a.split_whitespace().nth(1).map(str::to_ascii_lowercase).as_deref() {
+                    match a
+                        .split_whitespace()
+                        .nth(1)
+                        .map(str::to_ascii_lowercase)
+                        .as_deref()
+                    {
                         Some("on") => self.loop_rail.display.enabled = true,
                         Some("off") => self.loop_rail.display.enabled = false,
                         None => self.loop_rail.display.enabled = !self.loop_rail.display.enabled,
@@ -3464,7 +3488,11 @@ handoff restart queued until the foreground worker drains"),
                     self.request_redraw("loop rail display");
                     self.system_msg(format!(
                         "Loop border rail {} · glass only; reduced/off motion keeps it asleep",
-                        if self.loop_rail.display.enabled { "on" } else { "off" },
+                        if self.loop_rail.display.enabled {
+                            "on"
+                        } else {
+                            "off"
+                        },
                     ));
                 }
                 Some(a)
@@ -3523,7 +3551,11 @@ handoff restart queued until the foreground worker drains"),
                 }
                 Some(a) if a.eq_ignore_ascii_case("help") => {
                     let help = world_help_text();
-                    self.live_projection("world-help", serde_json::json!({"native_help": help}), help);
+                    self.live_projection(
+                        "world-help",
+                        serde_json::json!({"native_help": help}),
+                        help,
+                    );
                 }
                 Some(a) => {
                     // An unknown verb is a question, not a fault: answer it
@@ -3750,7 +3782,7 @@ handoff restart queued until the foreground worker drains"),
             "feedback" => self.system_msg(
                 "/feedback: no built-in channel — file issues on the angelX repo.".to_string(),
             ),
-            other if self.run_registered_live_command(other, arg) => {},
+            other if self.run_registered_live_command(other, arg) => {}
             other => self.system_msg(format!("/{other}: not handled")),
         }
         None

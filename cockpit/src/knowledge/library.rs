@@ -602,7 +602,6 @@ pub(crate) fn primary_shelf(discipline: Discipline) -> &'static CurriculumShelf 
         .expect("every teaching discipline has a curriculum shelf")
 }
 
-
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/library__tests.rs"]
 mod tests;

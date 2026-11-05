@@ -227,7 +227,9 @@ fn rgba_canvas_to_colored_braille(
         };
         let rgba = fitted.get_pixel(x as u32, y as u32).0;
         let alpha = f32::from(rgba[3]) / 255.0;
-        let luma = (0.299 * f32::from(rgba[0]) + 0.587 * f32::from(rgba[1]) + 0.114 * f32::from(rgba[2])) / 255.0;
+        let luma =
+            (0.299 * f32::from(rgba[0]) + 0.587 * f32::from(rgba[1]) + 0.114 * f32::from(rgba[2]))
+                / 255.0;
         DotSample {
             // Any inked pixel clears the floor; its own brightness and its
             // coverage carry the cell's structure.

@@ -28,9 +28,15 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
         .filter(|id| s.seats.contains_key(id))
         .or_else(|| s.seats.keys().next().copied())
         .unwrap_or(1);
-    let plain = Style::default().fg(Color::Rgb(205, 207, 198)).bg(Color::Black);
-    let warm = Style::default().fg(Color::Rgb(247, 202, 88)).bg(Color::Black);
-    let red = Style::default().fg(Color::Rgb(231, 96, 72)).bg(Color::Black);
+    let plain = Style::default()
+        .fg(Color::Rgb(205, 207, 198))
+        .bg(Color::Black);
+    let warm = Style::default()
+        .fg(Color::Rgb(247, 202, 88))
+        .bg(Color::Black);
+    let red = Style::default()
+        .fg(Color::Rgb(231, 96, 72))
+        .bg(Color::Black);
     let line = |frame: &mut Frame, row: u16, text: String, style: Style| {
         if row < area.height {
             let rect = Rect::new(area.x, area.y + row, area.width, 1);
@@ -52,7 +58,11 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
             st.text(),
             s.memory.loops + 1,
             s.seats.len(),
-            if fin { format!("   FINAL HOURS {}:{:02}", left / 60, left % 60) } else { String::new() }
+            if fin {
+                format!("   FINAL HOURS {}:{:02}", left / 60, left % 60)
+            } else {
+                String::new()
+            }
         ),
         if fin { red } else { plain },
     );
@@ -112,15 +122,33 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
             bar[width * d / 3] = '|';
         }
         let at = (u64::from(shown.min(end)) * width as u64 / u64::from(end)) as usize;
-        bar[at.min(width - 1)] = if clock::night(shown, s.nums.day) { ')' } else { '*' };
-        line(frame, h - 3, format!(" {}", bar.into_iter().collect::<String>()), if fin { red } else { warm });
+        bar[at.min(width - 1)] = if clock::night(shown, s.nums.day) {
+            ')'
+        } else {
+            '*'
+        };
+        line(
+            frame,
+            h - 3,
+            format!(" {}", bar.into_iter().collect::<String>()),
+            if fin { red } else { warm },
+        );
     }
     match me.panel {
         Panel::Ledger(page) => {
-            for (i, text) in page_lines(s, page).into_iter().take(usize::from(area.height).saturating_sub(9)).enumerate() {
+            for (i, text) in page_lines(s, page)
+                .into_iter()
+                .take(usize::from(area.height).saturating_sub(9))
+                .enumerate()
+            {
                 line(frame, 3 + i as u16, format!(" {text}"), plain);
             }
-            line(frame, area.height.saturating_sub(2), " A D  pages   Q close".into(), plain);
+            line(
+                frame,
+                area.height.saturating_sub(2),
+                " A D  pages   Q close".into(),
+                plain,
+            );
         }
         Panel::Bell(at) => {
             let rows = ["REWIND TO FIRST DAWN", "WAIT FOR DUSK", "WAIT FOR DAWN"];
@@ -133,14 +161,34 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
                     plain,
                 );
             }
-            line(frame, area.height.saturating_sub(2), " W S choose   E ring   Q back".into(), plain);
+            line(
+                frame,
+                area.height.saturating_sub(2),
+                " W S choose   E ring   Q back".into(),
+                plain,
+            );
         }
         Panel::Shut => {
             if let Some(say) = me.say {
                 let lines = s.words(say.folk, say.topic);
-                line(frame, area.height.saturating_sub(4), format!(" {}", say.folk.name()), warm);
-                for (i, text) in lines.iter().skip(usize::from(say.page) * 2).take(2).enumerate() {
-                    line(frame, area.height.saturating_sub(3) + i as u16, format!(" {text}"), plain);
+                line(
+                    frame,
+                    area.height.saturating_sub(4),
+                    format!(" {}", say.folk.name()),
+                    warm,
+                );
+                for (i, text) in lines
+                    .iter()
+                    .skip(usize::from(say.page) * 2)
+                    .take(2)
+                    .enumerate()
+                {
+                    line(
+                        frame,
+                        area.height.saturating_sub(3) + i as u16,
+                        format!(" {text}"),
+                        plain,
+                    );
                 }
             }
             let hint = if s.completed.is_some() && s.phase == Phase::Play {
@@ -192,14 +240,22 @@ mod tests {
         let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
         terminal
             .draw(|f| {
-                crate::ui::viz::shooter_viz::paint_picture_ui(f, Rect::new(0, 0, 96, 28), run, None, Some(1))
+                crate::ui::viz::shooter_viz::paint_picture_ui(
+                    f,
+                    Rect::new(0, 0, 96, 28),
+                    run,
+                    None,
+                    Some(1),
+                )
             })
             .unwrap();
         terminal
     }
 
     fn row(t: &Terminal<TestBackend>, y: u16) -> String {
-        (0..96).map(|x| t.backend().buffer()[(x, y)].symbol().to_string()).collect()
+        (0..96)
+            .map(|x| t.backend().buffer()[(x, y)].symbol().to_string())
+            .collect()
     }
 
     fn dump(t: &Terminal<TestBackend>) -> String {
@@ -211,15 +267,26 @@ mod tests {
         let mut r = party(2);
         at(&mut r, 2, 14);
         let t = draw(&r);
-        assert!(row(&t, 0).contains("DAY 2") && row(&t, 0).contains("14:00"), "{:?}", row(&t, 0));
+        assert!(
+            row(&t, 0).contains("DAY 2") && row(&t, 0).contains("14:00"),
+            "{:?}",
+            row(&t, 0)
+        );
         let text = dump(&t);
         assert!(text.contains("candles ooo"), "the candles are text");
         assert!(text.contains("WASD walk"), "the keys are text");
-        assert!(row(&t, 25).contains('*') && row(&t, 25).contains('|'), "the day bar and its sun: {:?}", row(&t, 25));
+        assert!(
+            row(&t, 25).contains('*') && row(&t, 25).contains('|'),
+            "the day bar and its sun: {:?}",
+            row(&t, 25)
+        );
         at(&mut r, 3, 2);
         let t = draw(&r);
         assert!(row(&t, 0).contains("FINAL HOURS"), "{:?}", row(&t, 0));
-        assert!(row(&t, 25).contains('!'), "the red hours are marked on the bar");
+        assert!(
+            row(&t, 25).contains('!'),
+            "the red hours are marked on the bar"
+        );
     }
 
     #[test]
@@ -232,19 +299,47 @@ mod tests {
             s.seats.get_mut(&1).unwrap().knight.panel = Panel::Ledger(4);
         }
         let text = dump(&draw(&r));
-        assert!(text.contains("ORIN WREN") && text.contains("INK POT"), "{text}");
+        assert!(
+            text.contains("ORIN WREN") && text.contains("INK POT"),
+            "{text}"
+        );
         {
             let s = r.moonfall.as_mut().unwrap();
             let k = &mut s.seats.get_mut(&1).unwrap().knight;
             k.panel = Panel::Shut;
-            k.say = Some(Say { folk: Folk::Mira, topic: Topic::Request, page: 0, age: 0 });
+            k.say = Some(Say {
+                folk: Folk::Mira,
+                topic: Topic::Request,
+                page: 0,
+                age: 0,
+            });
         }
         let text = dump(&draw(&r));
-        assert!(text.contains("MIRA QUILL") && text.contains("SOUTH DOOR"), "{text}");
-        r.moonfall.as_mut().unwrap().seats.get_mut(&1).unwrap().knight.say = None;
-        r.moonfall.as_mut().unwrap().seats.get_mut(&1).unwrap().knight.panel = Panel::Bell(1);
+        assert!(
+            text.contains("MIRA QUILL") && text.contains("SOUTH DOOR"),
+            "{text}"
+        );
+        r.moonfall
+            .as_mut()
+            .unwrap()
+            .seats
+            .get_mut(&1)
+            .unwrap()
+            .knight
+            .say = None;
+        r.moonfall
+            .as_mut()
+            .unwrap()
+            .seats
+            .get_mut(&1)
+            .unwrap()
+            .knight
+            .panel = Panel::Bell(1);
         let text = dump(&draw(&r));
-        assert!(text.contains("REWIND TO FIRST DAWN") && text.contains("WAIT FOR DUSK"), "{text}");
+        assert!(
+            text.contains("REWIND TO FIRST DAWN") && text.contains("WAIT FOR DUSK"),
+            "{text}"
+        );
     }
 
     #[test]
@@ -280,11 +375,29 @@ mod tests {
         }
         runs.push(("ledger", r));
         let mut r = party(2);
-        r.moonfall.as_mut().unwrap().seats.get_mut(&1).unwrap().knight.panel = Panel::Bell(0);
+        r.moonfall
+            .as_mut()
+            .unwrap()
+            .seats
+            .get_mut(&1)
+            .unwrap()
+            .knight
+            .panel = Panel::Bell(0);
         runs.push(("bell", r));
         let mut r = party(1);
-        r.moonfall.as_mut().unwrap().seats.get_mut(&1).unwrap().knight.say =
-            Some(Say { folk: Folk::Pella, topic: Topic::Request, page: 0, age: 0 });
+        r.moonfall
+            .as_mut()
+            .unwrap()
+            .seats
+            .get_mut(&1)
+            .unwrap()
+            .knight
+            .say = Some(Say {
+            folk: Folk::Pella,
+            topic: Topic::Request,
+            page: 0,
+            age: 0,
+        });
         runs.push(("talk", r));
         for (name, run) in runs {
             let terminal = draw(&run);
@@ -299,7 +412,12 @@ mod tests {
                     let symbol = cell.symbol();
                     text.push_str(symbol);
                     let c = symbol.chars().next().unwrap_or(' ');
-                    let put = |img: &mut image::RgbaImage, px: u32, py: u32, w: u32, h: u32, c: [u8; 3]| {
+                    let put = |img: &mut image::RgbaImage,
+                               px: u32,
+                               py: u32,
+                               w: u32,
+                               h: u32,
+                               c: [u8; 3]| {
                         for yy in py..py + h {
                             for xx in px..px + w {
                                 img.put_pixel(xx, yy, image::Rgba([c[0], c[1], c[2], 255]));
@@ -319,7 +437,8 @@ mod tests {
                 }
                 text.push('\n');
             }
-            img.save(dir.join(format!("moonfall-terminal-{name}.png"))).unwrap();
+            img.save(dir.join(format!("moonfall-terminal-{name}.png")))
+                .unwrap();
             std::fs::write(dir.join(format!("moonfall-terminal-{name}.txt")), text).unwrap();
         }
     }

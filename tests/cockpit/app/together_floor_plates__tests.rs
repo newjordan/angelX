@@ -1,7 +1,7 @@
 //! The floor plates under the cockpit's keys.
 
-use crate::drive::together_shooter::*;
 use crate::drive::together_shooter::floor_plates::*;
+use crate::drive::together_shooter::*;
 
 #[test]
 fn together_floor_plates_any_terminal_key_is_consumed_before_game_actions() {
@@ -15,7 +15,8 @@ fn together_floor_plates_any_terminal_key_is_consumed_before_game_actions() {
     app.terminal_focused = true;
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Char('?'), KeyModifiers::NONE)));
     assert!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -43,7 +44,8 @@ fn together_floor_plates_any_terminal_key_is_consumed_before_game_actions() {
         assert_eq!(run.playtest.records, votes.records);
         assert_eq!(run.playtest.seats, votes.seats);
         assert!(
-            app.realm.dungeon
+            app.realm
+                .dungeon
                 .shooter
                 .as_ref()
                 .unwrap()

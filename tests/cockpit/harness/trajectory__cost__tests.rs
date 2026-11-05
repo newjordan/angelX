@@ -344,45 +344,107 @@ fn leg_row<'a>(rows: &'a [PriceRow], model: &str) -> Option<&'a PriceRow> {
 /// conventions, zero counts, a subscription row, an unparseable row and no usage.
 fn leg_cases() -> Vec<(&'static str, Option<Value>)> {
     vec![
-        ("glm-5.3-air", usage(json!({"input":1_000_000,"cache_read":200_000,"uncached_input":800_000,"output":500_000,"reasoning":100_000,"attempts":1}))),
+        (
+            "glm-5.3-air",
+            usage(
+                json!({"input":1_000_000,"cache_read":200_000,"uncached_input":800_000,"output":500_000,"reasoning":100_000,"attempts":1}),
+            ),
+        ),
         ("glm-5.3-air", usage(json!({"input":1_000_000}))),
         ("glm-5.3-air", usage(json!({"output":500_000}))),
         ("glm-5.3-air", usage(json!({"cache_read":200_000}))),
-        ("glm-5.3-air", usage(json!({"input":1_000,"cache_read":100}))),
-        ("glm-5.3-air", usage(json!({"input":100,"cache_read":1_000}))),
-        ("glm-5.3-air", usage(json!({"input":1_000,"cache_read":1_000}))),
+        (
+            "glm-5.3-air",
+            usage(json!({"input":1_000,"cache_read":100})),
+        ),
+        (
+            "glm-5.3-air",
+            usage(json!({"input":100,"cache_read":1_000})),
+        ),
+        (
+            "glm-5.3-air",
+            usage(json!({"input":1_000,"cache_read":1_000})),
+        ),
         ("glm-5.3-air", usage(json!({"uncached_input":7_000}))),
         ("glm-5.3-air", usage(json!({"reasoning":9_000}))),
-        ("glm-5.3-air", usage(json!({"output":1_000,"reasoning":9_000,"attempts":2,
-            "reasoning_convention_attempts":{"separate":2}}))),
-        ("glm-5.3-air", usage(json!({"output":1_000,"reasoning":9_000,"attempts":2,
-            "reasoning_convention_attempts":{"separate":1}}))),
-        ("glm-5.3-air", usage(json!({"output":1_000,"reasoning":9_000,"attempts":0,
-            "reasoning_convention_attempts":{"separate":0}}))),
-        ("glm-5.3-air", usage(json!({"input":0,"cache_read":0,"uncached_input":0,"output":0,"reasoning":0,"attempts":1}))),
+        (
+            "glm-5.3-air",
+            usage(json!({"output":1_000,"reasoning":9_000,"attempts":2,
+            "reasoning_convention_attempts":{"separate":2}})),
+        ),
+        (
+            "glm-5.3-air",
+            usage(json!({"output":1_000,"reasoning":9_000,"attempts":2,
+            "reasoning_convention_attempts":{"separate":1}})),
+        ),
+        (
+            "glm-5.3-air",
+            usage(json!({"output":1_000,"reasoning":9_000,"attempts":0,
+            "reasoning_convention_attempts":{"separate":0}})),
+        ),
+        (
+            "glm-5.3-air",
+            usage(
+                json!({"input":0,"cache_read":0,"uncached_input":0,"output":0,"reasoning":0,"attempts":1}),
+            ),
+        ),
         ("glm-5.3-air", usage(json!({"output":0}))),
-        ("glm-5.3-air", usage(json!({"input":1_000_000_000,"output":1_000_000_000}))),
-        ("glm-5.3-air", usage(json!({"input":123_457,"output":9_876,"cache_read":57}))),
-        ("glm-5.3-air", usage(json!({"input":5,"cache_read":5,"uncached_input":0}))),
-        ("glm-5.3-air", usage(json!({"input":3,"output":3,"attempts":1,
-            "reasoning_convention_attempts":{"separate":1}}))),
-        ("deepseek-v4-flash", usage(json!({"input":2_000_000,"cache_read":500_000,"output":1_500_000,"reasoning":250_000,"attempts":1}))),
-        ("deepseek-v4-flash", usage(json!({"input":10_000,"output":20_000}))),
+        (
+            "glm-5.3-air",
+            usage(json!({"input":1_000_000_000,"output":1_000_000_000})),
+        ),
+        (
+            "glm-5.3-air",
+            usage(json!({"input":123_457,"output":9_876,"cache_read":57})),
+        ),
+        (
+            "glm-5.3-air",
+            usage(json!({"input":5,"cache_read":5,"uncached_input":0})),
+        ),
+        (
+            "glm-5.3-air",
+            usage(json!({"input":3,"output":3,"attempts":1,
+            "reasoning_convention_attempts":{"separate":1}})),
+        ),
+        (
+            "deepseek-v4-flash",
+            usage(
+                json!({"input":2_000_000,"cache_read":500_000,"output":1_500_000,"reasoning":250_000,"attempts":1}),
+            ),
+        ),
+        (
+            "deepseek-v4-flash",
+            usage(json!({"input":10_000,"output":20_000})),
+        ),
         ("deepseek-v4-flash", usage(json!({"cache_read":4_000}))),
-        ("deepseek-v4-flash-exp", usage(json!({"input":1_000_000,"output":1_000_000}))),
+        (
+            "deepseek-v4-flash-exp",
+            usage(json!({"input":1_000_000,"output":1_000_000})),
+        ),
         ("deepseek-v4-flash-exp", usage(json!({"output":0}))),
-        ("subscription-model", usage(json!({"input":1_000,"output":500}))),
+        (
+            "subscription-model",
+            usage(json!({"input":1_000,"output":500})),
+        ),
         ("subscription-model", usage(json!({}))),
         ("subscription-model", None),
         ("subscription-model", usage(json!({"input":0,"output":0}))),
-        ("unknown-price-model", usage(json!({"input":1_000,"output":500}))),
+        (
+            "unknown-price-model",
+            usage(json!({"input":1_000,"output":500})),
+        ),
         ("unknown-price-model", None),
         ("unknown-price-model", usage(json!({}))),
         ("glm-5.3-air", usage(json!({}))),
         ("glm-5.3-air", None),
         ("glm-5.3-air", usage(json!({"attempts":3}))),
-        ("glm-5.3-air", usage(json!({"input":9_000_000,"cache_read":3_000_000,"output":4_000_000,
-            "reasoning":2_000_000,"attempts":2,"reasoning_convention_attempts":{"separate":2}}))),
+        (
+            "glm-5.3-air",
+            usage(
+                json!({"input":9_000_000,"cache_read":3_000_000,"output":4_000_000,
+            "reasoning":2_000_000,"attempts":2,"reasoning_convention_attempts":{"separate":2}}),
+            ),
+        ),
     ]
 }
 
@@ -409,7 +471,10 @@ fn cost_leg_decides_every_record_exactly_like_the_native_ladder() {
             || native_decision(model, usage.as_ref(), row, "fixture"),
         );
         assert!(
-            matches!(source, crate::agent::harness::live_policy::LegSource::Live { .. }),
+            matches!(
+                source,
+                crate::agent::harness::live_policy::LegSource::Live { .. }
+            ),
             "{model}/{usage:?} did not decide in the leg: {source:?}"
         );
         assert_eq!(
@@ -436,11 +501,10 @@ fn out_of_contract_leg() -> angel_live::Program {
         "module.exports={apiVersion:1,render: () => ({basis: 'list-price', paid_e8: 1})}",
     )
     .unwrap();
-    let mut registry = angel_live::Registry::validated(
-        root.clone(),
-        crate::agent::hotload::evaluate,
-        |_, _| Ok(()),
-    );
+    let mut registry =
+        angel_live::Registry::validated(root.clone(), crate::agent::hotload::evaluate, |_, _| {
+            Ok(())
+        });
     registry.refresh(true);
     let program = registry
         .snapshot()
@@ -459,8 +523,7 @@ fn cost_leg_out_of_contract_answer_keeps_the_native_decision() {
     let usage = usage(json!({"input":1_000,"output":500}));
     let row = leg_row(&rows, model);
     assert!(row.is_none(), "this case has no price row to claim");
-    let input =
-        serde_json::to_value(cost_leg_input(usage.as_ref(), row).unwrap()).unwrap();
+    let input = serde_json::to_value(cost_leg_input(usage.as_ref(), row).unwrap()).unwrap();
     let native = cost_with_rows(Some(model), usage.as_ref(), &rows, "fixture");
     let (decision, source) = crate::agent::harness::live_policy::decide_with(
         Some(out_of_contract_leg()),
@@ -498,8 +561,10 @@ fn cost_leg_decision_timing() {
     let rows = parse_rows(TABLE);
     let leg = crate::agent::harness::live_policy::shipped_leg("cost");
     let model = "glm-5.3-air";
-    let usage = usage(json!({"input":1_000_000,"cache_read":200_000,"uncached_input":800_000,
-        "output":500_000,"reasoning":100_000,"attempts":1}));
+    let usage = usage(
+        json!({"input":1_000_000,"cache_read":200_000,"uncached_input":800_000,
+        "output":500_000,"reasoning":100_000,"attempts":1}),
+    );
     let row = leg_row(&rows, model);
     let input = serde_json::to_value(cost_leg_input(usage.as_ref(), row).unwrap()).unwrap();
     let mut samples = Vec::with_capacity(200);
@@ -521,9 +586,7 @@ fn cost_leg_decision_timing() {
     samples.sort_unstable();
     eprintln!(
         "cost leg: median {} µs per decision over 200 calls (p95 {} µs, max {} µs)",
-        samples[100],
-        samples[190],
-        samples[199]
+        samples[100], samples[190], samples[199]
     );
 }
 

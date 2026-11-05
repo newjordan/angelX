@@ -374,11 +374,18 @@ fn resumed_image_history_keeps_book_and_recovery_metadata_through_both_rewrites(
         chats: std::sync::atomic::AtomicUsize::new(0),
     });
     let _vision = TestVisionClubGuard::install(Arc::clone(&vision) as Arc<dyn Club>);
-    let driver = HttpClub::new("dsflash", "http://127.0.0.1:18888/v1", "deepseek-v4-flash", None);
+    let driver = HttpClub::new(
+        "dsflash",
+        "http://127.0.0.1:18888/v1",
+        "deepseek-v4-flash",
+        None,
+    );
     let mut history = vec![ChatMsg::user_with_media("read this", vec![png_stub()])];
     let digest = "a".repeat(64);
     crate::agent::harness::book::continuity::bind_generation(&mut history, &digest).unwrap();
-    history[0].recovery_context.push(crate::agent::club::owned_recovery_context_ref());
+    history[0]
+        .recovery_context
+        .push(crate::agent::club::owned_recovery_context_ref());
     // Exercise a genuinely restored history, rather than only an in-memory
     // message carrying the binding.
     let saved = serde_json::to_vec(&history).unwrap();
@@ -390,13 +397,19 @@ fn resumed_image_history_keeps_book_and_recovery_metadata_through_both_rewrites(
     assert_eq!(notices.len(), 1);
     assert!(success[0].content.contains("a red square"));
     assert!(success[0].attachments.is_empty());
-    assert_eq!(crate::agent::harness::book::continuity::generation_digest(&success), Some(digest.as_str()));
+    assert_eq!(
+        crate::agent::harness::book::continuity::generation_digest(&success),
+        Some(digest.as_str())
+    );
     assert_eq!(success[0].recovery_context, expected_recovery);
 
     let mut failure = restored;
     drop_images_if_text_only(&driver, &mut failure[0]);
     assert!(failure[0].attachments.is_empty());
-    assert_eq!(crate::agent::harness::book::continuity::generation_digest(&failure), Some(digest.as_str()));
+    assert_eq!(
+        crate::agent::harness::book::continuity::generation_digest(&failure),
+        Some(digest.as_str())
+    );
     assert_eq!(failure[0].recovery_context, expected_recovery);
 }
 

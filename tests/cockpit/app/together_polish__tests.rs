@@ -1,7 +1,7 @@
 //! The Delve's screens as the cockpit draws them.
 
-use crate::drive::together_shooter::*;
 use crate::drive::together_shooter::polish_testing::*;
+use crate::drive::together_shooter::*;
 use std::collections::BTreeMap;
 
 /// A game's whole screen, as the host sees it, written as JSON lines of

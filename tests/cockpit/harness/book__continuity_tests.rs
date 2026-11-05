@@ -123,11 +123,7 @@ fn legacy_session_binds_the_embedded_baseline_not_live_edits() {
     }
     let shipped = std::fs::read_to_string(shipped_dir.join("gh_navigation.tsv")).unwrap();
     let edited = format!("{} edited\n", shipped.trim_end());
-    std::fs::write(
-        chapter_dir.join("gh_navigation.tsv"),
-        &edited,
-    )
-    .unwrap();
+    std::fs::write(chapter_dir.join("gh_navigation.tsv"), &edited).unwrap();
     let manifest_path = chapter_dir.join("catalog-manifest.json");
     let mut manifest: serde_json::Value =
         serde_json::from_slice(&std::fs::read(&manifest_path).unwrap()).unwrap();

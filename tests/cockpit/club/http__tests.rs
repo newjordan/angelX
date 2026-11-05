@@ -1703,7 +1703,6 @@ fn the_legend_reaches_the_chat_and_deepseek_messages_wires() {
     );
 }
 
-
 /// One chunked SSE answer as a keep-alive server sends it, terminator included.
 fn chunked_sse_answer(answer: &str) -> String {
     let event = format!(
@@ -1731,12 +1730,17 @@ fn streamed_calls_reuse_one_provider_connection() {
             .unwrap();
         for answer in ["first", "second"] {
             let request = read_http_request(&mut socket);
-            assert!(request.starts_with("POST"), "no request on the kept connection: {request:?}");
+            assert!(
+                request.starts_with("POST"),
+                "no request on the kept connection: {request:?}"
+            );
             assert!(
                 !request.to_ascii_lowercase().contains("connection: close"),
                 "{request}"
             );
-            socket.write_all(chunked_sse_answer(answer).as_bytes()).unwrap();
+            socket
+                .write_all(chunked_sse_answer(answer).as_bytes())
+                .unwrap();
             socket.flush().unwrap();
         }
         listener.set_nonblocking(true).unwrap();
@@ -1756,7 +1760,10 @@ fn streamed_calls_reuse_one_provider_connection() {
                 &crate::agent::stream_rules::StreamRules::from_json_for_test("[]"),
             )
             .unwrap();
-        assert!(matches!(&reply, ClubReply::Text(text) if text == answer), "{reply:?}");
+        assert!(
+            matches!(&reply, ClubReply::Text(text) if text == answer),
+            "{reply:?}"
+        );
         // The finished body's terminator is read on its own thread; a real
         // turn runs its tools in that gap.
         std::thread::sleep(Duration::from_millis(100));
@@ -1790,7 +1797,10 @@ fn serve_chunked_counting(
                 if !request.starts_with("POST") {
                     break; // the client hung up; take the next connection
                 }
-                if socket.write_all(chunked_sse_answer(answer).as_bytes()).is_err() {
+                if socket
+                    .write_all(chunked_sse_answer(answer).as_bytes())
+                    .is_err()
+                {
                     break;
                 }
                 answers.next();
@@ -1803,7 +1813,10 @@ fn serve_chunked_counting(
 fn read_body(response: ureq::Response) -> std::io::Result<String> {
     use std::io::Read;
     let mut body = String::new();
-    response.into_reader().read_to_string(&mut body).map(|_| body)
+    response
+        .into_reader()
+        .read_to_string(&mut body)
+        .map(|_| body)
 }
 
 /// An abort handle is detached before its connection returns to the pool:
@@ -1828,7 +1841,11 @@ fn a_finished_request_abort_never_reaches_the_pooled_connection() {
         .unwrap();
     assert!(read_body(reply).unwrap().contains("two"));
     server.join().unwrap();
-    assert_eq!(accepted.load(Ordering::SeqCst), 1, "the pooled connection carried both");
+    assert_eq!(
+        accepted.load(Ordering::SeqCst),
+        1,
+        "the pooled connection carried both"
+    );
 }
 
 /// A request aborted after its body arrived closes its socket instead of
@@ -1852,9 +1869,12 @@ fn an_aborted_request_socket_is_never_pooled() {
         .unwrap();
     assert!(read_body(reply).unwrap().contains("two"));
     server.join().unwrap();
-    assert_eq!(accepted.load(Ordering::SeqCst), 2, "the aborted socket was reused");
+    assert_eq!(
+        accepted.load(Ordering::SeqCst),
+        2,
+        "the aborted socket was reused"
+    );
 }
-
 
 /// Close a server-side socket the way a provider drops an idle keep-alive
 /// connection: a clean FIN, or an RST (SO_LINGER 0).
@@ -1908,7 +1928,10 @@ fn serve_dropping_kept_connection(
     let url = format!("http://{}/v1", listener.local_addr().unwrap());
     let accepted = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let requests = std::sync::Arc::new(Mutex::new(Vec::new()));
-    let (count, seen) = (std::sync::Arc::clone(&accepted), std::sync::Arc::clone(&requests));
+    let (count, seen) = (
+        std::sync::Arc::clone(&accepted),
+        std::sync::Arc::clone(&requests),
+    );
     let handle = std::thread::spawn(move || {
         let mut answers = answers.into_iter();
         let (mut first, _) = listener.accept().unwrap();
@@ -1938,7 +1961,8 @@ fn serve_dropping_kept_connection(
             sock.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
             let request = read_http_request(&mut sock);
             seen.lock().unwrap().push(request);
-            sock.write_all(chunked_sse_answer(answer).as_bytes()).unwrap();
+            sock.write_all(chunked_sse_answer(answer).as_bytes())
+                .unwrap();
         }
     });
     (url, accepted, requests, handle)
@@ -1969,7 +1993,10 @@ fn a_provider_closed_idle_connection_is_replaced_without_an_error() {
         let club = HttpClub::new("idle-drop-fixture", url, "fixture", None);
         let cancel = AtomicBool::new(false);
         let first = stream_once(&club, &cancel).unwrap();
-        assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
+        assert!(
+            matches!(&first, ClubReply::Text(text) if text == "first"),
+            "{first:?}"
+        );
         std::thread::sleep(Duration::from_millis(400)); // the server drops it meanwhile
         let second = stream_once(&club, &cancel);
         assert!(
@@ -1978,7 +2005,11 @@ fn a_provider_closed_idle_connection_is_replaced_without_an_error() {
         );
         server.join().unwrap();
         assert_eq!(accepted.load(Ordering::SeqCst), 2, "rst={rst}");
-        assert_eq!(requests.lock().unwrap().len(), 2, "rst={rst}: one request per call");
+        assert_eq!(
+            requests.lock().unwrap().len(),
+            2,
+            "rst={rst}: one request per call"
+        );
     }
 }
 
@@ -1996,7 +2027,10 @@ fn a_request_lost_to_an_idle_close_is_resent_once_on_a_fresh_connection() {
         let club = HttpClub::new("idle-race-fixture", url, "fixture", None);
         let cancel = AtomicBool::new(false);
         let first = stream_once(&club, &cancel).unwrap();
-        assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
+        assert!(
+            matches!(&first, ClubReply::Text(text) if text == "first"),
+            "{first:?}"
+        );
         std::thread::sleep(Duration::from_millis(100));
         let second = stream_once(&club, &cancel);
         assert!(
@@ -2006,9 +2040,17 @@ fn a_request_lost_to_an_idle_close_is_resent_once_on_a_fresh_connection() {
         server.join().unwrap();
         assert_eq!(accepted.load(Ordering::SeqCst), 2, "rst={rst}");
         let requests = requests.lock().unwrap();
-        assert_eq!(requests.len(), 3, "rst={rst}: the lost request and its one resend");
+        assert_eq!(
+            requests.len(),
+            3,
+            "rst={rst}: the lost request and its one resend"
+        );
         let body = |request: &String| request.split_once("\r\n\r\n").map(|(_, b)| b.to_string());
-        assert_eq!(body(&requests[1]), body(&requests[2]), "the resend carries the same body");
+        assert_eq!(
+            body(&requests[1]),
+            body(&requests[2]),
+            "the resend carries the same body"
+        );
     }
 }
 
@@ -2034,10 +2076,12 @@ fn esc_during_the_resend_after_a_dead_kept_connection_ends_the_call() {
             loop {
                 match listener.accept() {
                     Ok((socket, _)) => break socket,
-                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock
-                        && Instant::now() < until => {
-                            std::thread::sleep(Duration::from_millis(2));
-                        }
+                    Err(error)
+                        if error.kind() == std::io::ErrorKind::WouldBlock
+                            && Instant::now() < until =>
+                    {
+                        std::thread::sleep(Duration::from_millis(2));
+                    }
                     Err(error) => panic!("bounded cancel fixture accept: {error}"),
                 }
             }
@@ -2045,27 +2089,38 @@ fn esc_during_the_resend_after_a_dead_kept_connection_ends_the_call() {
         let mut kept = accept();
         kept.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         let _ = read_http_request(&mut kept);
-        kept.write_all(chunked_sse_answer("first").as_bytes()).unwrap();
+        kept.write_all(chunked_sse_answer("first").as_bytes())
+            .unwrap();
         let _ = read_http_request(&mut kept);
         drop_connection(kept, true); // the idle close crossed the request
         let mut fresh = accept();
-        fresh.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        fresh
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
         let request = read_http_request(&mut fresh);
         resent.send(request).unwrap();
         // Never answer; the client's cancel must close this socket.
         let mut byte = [0u8];
         assert_eq!(
-            fresh.read(&mut byte).expect("cancel must produce EOF, not timeout or a read error"),
+            fresh
+                .read(&mut byte)
+                .expect("cancel must produce EOF, not timeout or a read error"),
             0,
             "cancel must close the resend's socket"
         );
         let peer_closed_at = Instant::now();
-        assert!(peer_cancel.load(Ordering::Acquire), "peer EOF preceded cancellation");
+        assert!(
+            peer_cancel.load(Ordering::Acquire),
+            "peer EOF preceded cancellation"
+        );
         peer_closed_at
     });
     let club = HttpClub::new("idle-cancel-fixture", url, "fixture", None);
     let first = stream_once(&club, &cancel).unwrap();
-    assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
+    assert!(
+        matches!(&first, ClubReply::Text(text) if text == "first"),
+        "{first:?}"
+    );
     std::thread::sleep(Duration::from_millis(100));
     let (second, cancelled_at, returned_at, returned_after_cancel) = std::thread::scope(|scope| {
         let cancel_ref = &cancel;
@@ -2084,18 +2139,32 @@ fn esc_during_the_resend_after_a_dead_kept_connection_ends_the_call() {
         (second, cancelled_at, returned_at, returned_after_cancel)
     });
     let peer_closed_at = server.join().unwrap();
-    assert!(returned_after_cancel, "provider returned before cancellation was signalled");
-    let client_latency = returned_at.checked_duration_since(cancelled_at)
+    assert!(
+        returned_after_cancel,
+        "provider returned before cancellation was signalled"
+    );
+    let client_latency = returned_at
+        .checked_duration_since(cancelled_at)
         .expect("provider returned before cancellation timestamp");
-    assert!(client_latency < Duration::from_secs(2), "cancel was not prompt: {client_latency:?}");
+    assert!(
+        client_latency < Duration::from_secs(2),
+        "cancel was not prompt: {client_latency:?}"
+    );
     assert!(
         !matches!(&second, Ok(ClubReply::Text(text)) if !text.is_empty()),
         "a cancelled call must not yield a reply: {second:?}"
     );
-    let peer_latency = peer_closed_at.checked_duration_since(cancelled_at)
+    let peer_latency = peer_closed_at
+        .checked_duration_since(cancelled_at)
         .expect("peer EOF preceded cancellation timestamp");
-    assert!(peer_latency < Duration::from_secs(2), "peer EOF was late: {peer_latency:?}");
-    eprintln!("H01 case=pooled_cancel peer_eof=true peer_latency_ms={}", peer_latency.as_millis());
+    assert!(
+        peer_latency < Duration::from_secs(2),
+        "peer EOF was late: {peer_latency:?}"
+    );
+    eprintln!(
+        "H01 case=pooled_cancel peer_eof=true peer_latency_ms={}",
+        peer_latency.as_millis()
+    );
 }
 
 /// Esc that lands while the request is still on the dead kept socket: the
@@ -2114,7 +2183,8 @@ fn esc_before_the_resend_sends_nothing_more() {
         let (mut kept, _) = listener.accept().unwrap();
         kept.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
         let _ = read_http_request(&mut kept);
-        kept.write_all(chunked_sse_answer("first").as_bytes()).unwrap();
+        kept.write_all(chunked_sse_answer("first").as_bytes())
+            .unwrap();
         let _ = read_http_request(&mut kept);
         taken.send(()).unwrap();
         // Hold the request unanswered until the client's abort closes it.
@@ -2122,12 +2192,18 @@ fn esc_before_the_resend_sends_nothing_more() {
         let _ = kept.read(&mut byte);
         listener.set_nonblocking(true).unwrap();
         std::thread::sleep(Duration::from_millis(300));
-        assert!(listener.accept().is_err(), "a cancelled call resent its request");
+        assert!(
+            listener.accept().is_err(),
+            "a cancelled call resent its request"
+        );
     });
     let club = HttpClub::new("idle-cancel-early-fixture", url, "fixture", None);
     let cancel = AtomicBool::new(false);
     let first = stream_once(&club, &cancel).unwrap();
-    assert!(matches!(&first, ClubReply::Text(text) if text == "first"), "{first:?}");
+    assert!(
+        matches!(&first, ClubReply::Text(text) if text == "first"),
+        "{first:?}"
+    );
     std::thread::sleep(Duration::from_millis(100));
     std::thread::scope(|scope| {
         let cancel_ref = &cancel;
@@ -2137,7 +2213,10 @@ fn esc_before_the_resend_sends_nothing_more() {
         });
         let started = Instant::now();
         let second = stream_once(&club, &cancel);
-        assert!(started.elapsed() < Duration::from_secs(2), "the cancel was not prompt");
+        assert!(
+            started.elapsed() < Duration::from_secs(2),
+            "the cancel was not prompt"
+        );
         assert!(
             !matches!(&second, Ok(ClubReply::Text(text)) if !text.is_empty()),
             "a cancelled call must not yield a reply: {second:?}"
@@ -2182,7 +2261,8 @@ fn serve_slow_probes(
                     body.len()
                 )
             } else {
-                "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_string()
+                "HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                    .to_string()
             };
             let _ = sock.write_all(response.as_bytes());
         }
@@ -2211,7 +2291,11 @@ fn prewarm_runs_the_window_probe_early_and_publishes_it_where_it_always_was() {
     Club::prewarm(Arc::clone(&warm));
     Club::prewarm(Arc::clone(&warm)); // a second prewarm starts nothing more
     std::thread::sleep(plain_wait + Duration::from_millis(200));
-    assert_eq!(warm.metadata_cached(), None, "prewarm must not publish early");
+    assert_eq!(
+        warm.metadata_cached(),
+        None,
+        "prewarm must not publish early"
+    );
     let started = Instant::now();
     let warm_meta = warm.metadata();
     let warm_wait = started.elapsed();
@@ -2219,14 +2303,20 @@ fn prewarm_runs_the_window_probe_early_and_publishes_it_where_it_always_was() {
     server.join().unwrap();
 
     assert!(plain_meta.is_some());
-    assert_eq!(warm_meta, plain_meta, "the same window, learned the same way");
+    assert_eq!(
+        warm_meta, plain_meta,
+        "the same window, learned the same way"
+    );
     assert_eq!(
         *warm_paths.lock().unwrap(),
         *plain_paths.lock().unwrap(),
         "the same probe requests, once"
     );
     assert!(plain_wait >= delay, "{plain_wait:?}");
-    assert!(warm_wait < delay, "the first reader waited for a finished probe: {warm_wait:?}");
+    assert!(
+        warm_wait < delay,
+        "the first reader waited for a finished probe: {warm_wait:?}"
+    );
 }
 
 /// A provider error that says `x-should-retry: false` is sent once: no club
@@ -2265,7 +2355,10 @@ fn a_provider_retry_veto_is_sent_once() {
             "{status} {header:?}: {error}"
         );
         assert_eq!(error.contains(PROVIDER_RETRY_VETO), vetoed, "{error}");
-        assert!(error.starts_with(&format!("HTTP {}", &status[..3])), "{error}");
+        assert!(
+            error.starts_with(&format!("HTTP {}", &status[..3])),
+            "{error}"
+        );
     }
 }
 

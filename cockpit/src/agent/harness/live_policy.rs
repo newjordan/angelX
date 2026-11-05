@@ -38,10 +38,17 @@ pub(super) fn rank_tools(
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum LegSource {
     Native,
-    Live { digest: String },
-    LiveFallback { digest: String, error: String },
+    Live {
+        digest: String,
+    },
+    LiveFallback {
+        digest: String,
+        error: String,
+    },
     /// The generation compiled into this binary; no live one was active.
-    Shipped { digest: String },
+    Shipped {
+        digest: String,
+    },
 }
 
 impl LegSource {
@@ -154,11 +161,18 @@ fn with_shipped<T: serde::de::DeserializeOwned>(
         check(&value)?;
         Ok(value)
     };
-    let shipped = angel_live::shipped::program(name)
-        .unwrap_or_else(|| panic!("no shipped leg named {name}"));
+    let shipped =
+        angel_live::shipped::program(name).unwrap_or_else(|| panic!("no shipped leg named {name}"));
     let fallback = match live {
         Some(program) => match answer(&program) {
-            Ok(value) => return (value, LegSource::Live { digest: program.digest().into() }),
+            Ok(value) => {
+                return (
+                    value,
+                    LegSource::Live {
+                        digest: program.digest().into(),
+                    },
+                );
+            }
             Err(error) => {
                 tracing::debug!(%error, leg = name, "live leg kept the shipped decision");
                 Some((program.digest().to_string(), error))
@@ -172,7 +186,9 @@ fn with_shipped<T: serde::de::DeserializeOwned>(
         .unwrap_or_else(|error| panic!("shipped leg {name} failed: {error}"));
     let source = match fallback {
         Some((digest, error)) => LegSource::LiveFallback { digest, error },
-        None => LegSource::Shipped { digest: shipped.digest().into() },
+        None => LegSource::Shipped {
+            digest: shipped.digest().into(),
+        },
     };
     (value, source)
 }
@@ -181,11 +197,8 @@ fn with_shipped<T: serde::de::DeserializeOwned>(
 #[cfg(test)]
 pub(crate) fn shipped_leg(id: &str) -> angel_live::Program {
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("live");
-    let mut registry = angel_live::Registry::validated(
-        root,
-        crate::agent::hotload::evaluate,
-        |_, _| Ok(()),
-    );
+    let mut registry =
+        angel_live::Registry::validated(root, crate::agent::hotload::evaluate, |_, _| Ok(()));
     registry.refresh(true);
     let snapshot = registry.snapshot();
     snapshot.policies.get(id).cloned().unwrap_or_else(|| {
@@ -202,8 +215,11 @@ fn every_shipped_leg_is_the_directory_generation_and_answers_its_probe() {
         .unwrap()
         .map(|entry| entry.unwrap().path())
         .filter(|dir| {
-            std::fs::read_to_string(dir.join("module.json"))
-                .is_ok_and(|m| m.split_whitespace().collect::<String>().contains("\"kind\":\"policy\""))
+            std::fs::read_to_string(dir.join("module.json")).is_ok_and(|m| {
+                m.split_whitespace()
+                    .collect::<String>()
+                    .contains("\"kind\":\"policy\"")
+            })
         })
         .map(|dir| dir.file_name().unwrap().to_string_lossy().into_owned())
         .collect();

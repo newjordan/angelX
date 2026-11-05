@@ -2,7 +2,9 @@
 //! pulses, without a window. The layer assembly itself is glass-gated
 //! and covered below when the feature runs.
 
-use crate::agent::harness::{GraphFaninTruth, GraphNodePhase, GraphNodeSnap, GraphRunPhase, GraphSnapshot};
+use crate::agent::harness::{
+    GraphFaninTruth, GraphNodePhase, GraphNodeSnap, GraphRunPhase, GraphSnapshot,
+};
 use crate::ui::orrery::{
     Grid, MAX_EDGES, MAX_LAYERS, MAX_NODES, Panel, leaned_point, node_depths, node_positions,
     phase_color, pulse_at, ribbon_points, segment_rect, tilted_rect,
@@ -45,9 +47,24 @@ fn snapshot(nodes: Vec<GraphNodeSnap>, phase: GraphRunPhase) -> GraphSnapshot {
 
 #[test]
 fn the_panel_hides_on_small_grids_and_fits_large_ones() {
-    assert_eq!(Panel::for_grid(Grid { width: 540, height: 1000 }), None);
-    assert_eq!(Panel::for_grid(Grid { width: 1440, height: 525 }), None);
-    let grid = Grid { width: 1440, height: 1000 };
+    assert_eq!(
+        Panel::for_grid(Grid {
+            width: 540,
+            height: 1000
+        }),
+        None
+    );
+    assert_eq!(
+        Panel::for_grid(Grid {
+            width: 1440,
+            height: 525
+        }),
+        None
+    );
+    let grid = Grid {
+        width: 1440,
+        height: 1000,
+    };
     let panel = Panel::for_grid(grid).expect("a roomy window floats one");
     // Anchored top right, two cells in and below the header, clamped tall and wide.
     assert!((panel.x + panel.w - (1440.0 - 24.0)).abs() < 1e-4);
@@ -141,7 +158,12 @@ fn depths_follow_chains_ignore_outsiders_and_survive_cycles() {
 
 #[test]
 fn positions_stay_inside_content_and_rows_spread() {
-    let content = Panel { x: 700.0, y: 90.0, w: 360.0, h: 240.0 };
+    let content = Panel {
+        x: 700.0,
+        y: 90.0,
+        w: 360.0,
+        h: 240.0,
+    };
     let nodes = vec![
         node("a", &[], GraphNodePhase::Done),
         node("b", &[], GraphNodePhase::Done),
@@ -150,10 +172,7 @@ fn positions_stay_inside_content_and_rows_spread() {
     let at = node_positions(&nodes, content);
     assert_eq!(at.len(), 3);
     for p in &at {
-        assert!(
-            content.contains(*p, 1e-4),
-            "inside the content: {p:?}"
-        );
+        assert!(content.contains(*p, 1e-4), "inside the content: {p:?}");
     }
     // Two roots share the top row either side of its middle; their
     // dependent sits below them.
@@ -166,7 +185,12 @@ fn positions_stay_inside_content_and_rows_spread() {
 
 #[test]
 fn the_idle_ribbon_keeps_to_the_content() {
-    let content = Panel { x: 700.0, y: 90.0, w: 360.0, h: 240.0 };
+    let content = Panel {
+        x: 700.0,
+        y: 90.0,
+        w: 360.0,
+        h: 240.0,
+    };
     for t in [0.0f32, 2.7, 91.3] {
         let points = ribbon_points(content, t);
         assert_eq!(points.len(), 22);
@@ -200,7 +224,10 @@ fn the_panel_recedes_above_its_centre() {
     // Depth scales rects: the same rect further up the panel is smaller.
     let (high, _) = crate::ui::orrery::deep_rect([46.0, 2.0, 8.0, 4.0], centre);
     let (low, _) = crate::ui::orrery::deep_rect([46.0, 18.0, 8.0, 4.0], centre);
-    assert!(low[2] > high[2] && low[3] > high[3], "nearer rows draw larger");
+    assert!(
+        low[2] > high[2] && low[3] > high[3],
+        "nearer rows draw larger"
+    );
 }
 
 #[test]
@@ -233,7 +260,11 @@ mod glass {
         // A crowd past the node cap, three woven deps each so the edges
         // blow past their own cap and it bites.
         for i in 0..MAX_NODES + 10 {
-            nodes.push(node(&format!("n{i}"), &["a", "b", "c"], GraphNodePhase::Pending));
+            nodes.push(node(
+                &format!("n{i}"),
+                &["a", "b", "c"],
+                GraphNodePhase::Pending,
+            ));
         }
         snapshot(nodes, GraphRunPhase::Running)
     }
@@ -241,9 +272,16 @@ mod glass {
     #[test]
     fn the_panel_is_sound_bounded_and_deterministic() {
         let busy = busy_snapshot();
-        let grid = Grid { width: 1440, height: 1000 };
+        let grid = Grid {
+            width: 1440,
+            height: 1000,
+        };
         let drawn = layers(1.0, grid, Some(&busy));
-        assert!(drawn.len() > 60, "a busy graph draws its lights: {}", drawn.len());
+        assert!(
+            drawn.len() > 60,
+            "a busy graph draws its lights: {}",
+            drawn.len()
+        );
         assert!(drawn.len() <= MAX_LAYERS, "{}", drawn.len());
         for layer in &drawn {
             assert!(layer.clone().sanitized().is_some(), "sound: {:?}", layer.id);
@@ -256,7 +294,17 @@ mod glass {
         for layer in &idle {
             assert!(layer.clone().sanitized().is_some());
         }
-        assert!(layers(1.0, Grid { width: 480, height: 500 }, Some(&busy)).is_empty());
+        assert!(
+            layers(
+                1.0,
+                Grid {
+                    width: 480,
+                    height: 500
+                },
+                Some(&busy)
+            )
+            .is_empty()
+        );
         // The edge cap bites on a woven crowd: every shown crowd node
         // names three deps, far past the cap.
         let beams = drawn
@@ -269,12 +317,22 @@ mod glass {
     #[test]
     fn running_lights_lift_and_breathe() {
         let busy = busy_snapshot();
-        let drawn = layers(0.0, Grid { width: 1440, height: 1000 }, Some(&busy));
+        let drawn = layers(
+            0.0,
+            Grid {
+                width: 1440,
+                height: 1000,
+            },
+            Some(&busy),
+        );
         let lifting = drawn
             .iter()
             .filter(|l| l.height > 0.0 && l.breathe > 0.0 && l.flicker > 0.0)
             .count();
-        assert!(lifting >= 1, "the running node flickers, lifts and breathes");
+        assert!(
+            lifting >= 1,
+            "the running node flickers, lifts and breathes"
+        );
         for layer in &drawn {
             assert!(layer.height >= 0.0 && layer.height <= 6.0, "a small lift");
         }

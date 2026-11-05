@@ -18,12 +18,26 @@ pub fn wasm_cargo(sysroot: &Path) -> Command {
     let bin = sysroot.join("bin");
     let mut cargo = Command::new(bin.join(format!("cargo{}", std::env::consts::EXE_SUFFIX)));
     cargo.env_clear();
-    for key in ["PATH", "HOME", "CARGO_HOME", "RUSTUP_HOME", "RUSTUP_TOOLCHAIN", "TMPDIR", "TEMP", "TMP", "SystemRoot", "USERPROFILE"] {
+    for key in [
+        "PATH",
+        "HOME",
+        "CARGO_HOME",
+        "RUSTUP_HOME",
+        "RUSTUP_TOOLCHAIN",
+        "TMPDIR",
+        "TEMP",
+        "TMP",
+        "SystemRoot",
+        "USERPROFILE",
+    ] {
         if let Some(value) = std::env::var_os(key) {
             cargo.env(key, value);
         }
     }
-    cargo.env("RUSTC", bin.join(format!("rustc{}", std::env::consts::EXE_SUFFIX)));
+    cargo.env(
+        "RUSTC",
+        bin.join(format!("rustc{}", std::env::consts::EXE_SUFFIX)),
+    );
     cargo
 }
 
@@ -50,7 +64,9 @@ pub fn skip_web_bundle(
     let allowed = matches!(profile, "fast" | "devfast")
         || (matches!(profile, "debug" | "dev") && matches!(profile_env, "debug" | "dev"));
     if requested == Some("1") && !allowed {
-        return Err("ANGEL_DEV_SKIP_WEB_BUNDLE is allowed only for debug, dev, devfast or fast builds");
+        return Err(
+            "ANGEL_DEV_SKIP_WEB_BUNDLE is allowed only for debug, dev, devfast or fast builds",
+        );
     }
     Ok(requested == Some("1"))
 }
@@ -58,7 +74,10 @@ pub fn skip_web_bundle(
 /// The profile directory in cargo's layout: `$target/$profile/build/$pkg/out`,
 /// or `$target/$triple/$profile/build/$pkg/out`.
 pub fn profile_from_out_dir(out_dir: &str) -> Option<&str> {
-    let parts: Vec<&str> = out_dir.split(['/', '\\']).filter(|part| !part.is_empty()).collect();
+    let parts: Vec<&str> = out_dir
+        .split(['/', '\\'])
+        .filter(|part| !part.is_empty())
+        .collect();
     let build = parts.iter().rposition(|part| *part == "build")?;
     if build == 0 {
         return None;
@@ -80,14 +99,23 @@ pub fn should_watch(path: &Path) -> bool {
 pub fn minimal_watch_paths(paths: impl IntoIterator<Item = PathBuf>) -> Vec<PathBuf> {
     use std::collections::BTreeSet;
     let paths: BTreeSet<_> = paths.into_iter().collect();
-    let canonical: BTreeSet<_> = paths.iter()
+    let canonical: BTreeSet<_> = paths
+        .iter()
         .filter(|p| p.canonicalize().is_ok_and(|resolved| resolved == **p))
-        .cloned().collect();
+        .cloned()
+        .collect();
     let directories: BTreeSet<_> = canonical.iter().filter(|p| p.is_dir()).cloned().collect();
-    paths.iter().filter(|path| {
-        !canonical.contains(*path)
-            || !path.ancestors().skip(1).any(|parent| directories.contains(parent))
-    }).cloned().collect()
+    paths
+        .iter()
+        .filter(|path| {
+            !canonical.contains(*path)
+                || !path
+                    .ancestors()
+                    .skip(1)
+                    .any(|parent| directories.contains(parent))
+        })
+        .cloned()
+        .collect()
 }
 
 /// Cargo's aggregate `.d` file includes transitive sources, compile-time assets
@@ -95,31 +123,46 @@ pub fn minimal_watch_paths(paths: impl IntoIterator<Item = PathBuf>) -> Vec<Path
 /// and other backslashes literal (this is not fully Make-escaped text). The
 /// first rule is the artifact's complete input list.
 pub fn nested_dependency_paths(dep_info: &str) -> Result<Vec<String>, &'static str> {
-    let (_, inputs) = dep_info.split_once(": ").ok_or("nested Cargo dep-info has no dependency rule")?;
+    let (_, inputs) = dep_info
+        .split_once(": ")
+        .ok_or("nested Cargo dep-info has no dependency rule")?;
     let mut paths = Vec::new();
     let mut path = String::new();
     let mut chars = inputs.chars().peekable();
     while let Some(ch) = chars.next() {
         match ch {
             '\\' => match chars.peek() {
-                Some(' ') => { chars.next(); path.push(' '); },
-                Some('\n') => { chars.next(); },
+                Some(' ') => {
+                    chars.next();
+                    path.push(' ');
+                }
+                Some('\n') => {
+                    chars.next();
+                }
                 Some('\r') => {
                     chars.next();
-                    if chars.peek() == Some(&'\n') { chars.next(); }
-                },
+                    if chars.peek() == Some(&'\n') {
+                        chars.next();
+                    }
+                }
                 Some(_) => path.push('\\'),
                 None => return Err("nested Cargo dep-info ends with an escape"),
             },
             '\n' | '\r' => break,
             ch if ch.is_whitespace() => {
-                if !path.is_empty() { paths.push(std::mem::take(&mut path)); }
-            },
+                if !path.is_empty() {
+                    paths.push(std::mem::take(&mut path));
+                }
+            }
             _ => path.push(ch),
         }
     }
-    if !path.is_empty() { paths.push(path); }
-    if paths.is_empty() { return Err("nested Cargo dep-info has no inputs"); }
+    if !path.is_empty() {
+        paths.push(path);
+    }
+    if paths.is_empty() {
+        return Err("nested Cargo dep-info has no inputs");
+    }
     Ok(paths)
 }
 
@@ -142,8 +185,15 @@ mod tests {
         std::fs::write(&external, b"{}").unwrap();
         let missing = watched.join("not-created");
         let alias = sub.join("..").join("kit/sprite.png");
-        let mut inputs = vec![child.clone(), sub, watched.clone(), external.clone(),
-            watched.clone(), missing.clone(), alias.clone()];
+        let mut inputs = vec![
+            child.clone(),
+            sub,
+            watched.clone(),
+            external.clone(),
+            watched.clone(),
+            missing.clone(),
+            alias.clone(),
+        ];
         let mut expected = vec![watched, external, missing, alias];
         #[cfg(unix)]
         {
@@ -164,7 +214,18 @@ mod tests {
         // are literal, including repeated dollars and a backslash before '#'.
         // Captured real Cargo probes: web-bundle-{escape,literal}-depinfo receipts.
         let info = "C:\\target\\game.wasm: /repo/a\\ b.rs /repo/c#d.png /repo/cost$$.png /repo/back\\slash.txt /repo/back\\#hash.txt /repo/back\\\\ space.txt \\\n /repo/last.rs\n\n/repo/phony.rs:\n";
-        assert_eq!(nested_dependency_paths(info).unwrap(), ["/repo/a b.rs", "/repo/c#d.png", "/repo/cost$$.png", "/repo/back\\slash.txt", "/repo/back\\#hash.txt", "/repo/back\\ space.txt", "/repo/last.rs"]);
+        assert_eq!(
+            nested_dependency_paths(info).unwrap(),
+            [
+                "/repo/a b.rs",
+                "/repo/c#d.png",
+                "/repo/cost$$.png",
+                "/repo/back\\slash.txt",
+                "/repo/back\\#hash.txt",
+                "/repo/back\\ space.txt",
+                "/repo/last.rs"
+            ]
+        );
         assert!(nested_dependency_paths("no rule").is_err());
         assert!(nested_dependency_paths("out: ").is_err());
         assert!(nested_dependency_paths("out: unfinished\\").is_err());
@@ -174,12 +235,33 @@ mod tests {
     fn nested_wasm_uses_sysroot_tools_not_build_engine_aliases() {
         let sysroot = Path::new("/pinned/toolchain");
         let cargo = wasm_cargo(sysroot);
-        assert_eq!(cargo.get_program(), sysroot.join("bin").join(format!("cargo{}", std::env::consts::EXE_SUFFIX)));
+        assert_eq!(
+            cargo.get_program(),
+            sysroot
+                .join("bin")
+                .join(format!("cargo{}", std::env::consts::EXE_SUFFIX))
+        );
         let vars: std::collections::BTreeMap<_, _> = cargo.get_envs().collect();
-        let rustc = sysroot.join("bin").join(format!("rustc{}", std::env::consts::EXE_SUFFIX));
-        assert_eq!(vars.get(std::ffi::OsStr::new("RUSTC")), Some(&Some(rustc.as_os_str())));
-        for key in ["CARGO", "RUSTC_WRAPPER", "RUSTC_WORKSPACE_WRAPPER", "RA_JIT_BUILD_SCRIPT", "RA_JIT_SCRIPT_RUSTC", "CARGO_TARGET_DIR", "RUSTFLAGS"] {
-            assert!(!vars.contains_key(std::ffi::OsStr::new(key)), "nested compiler must not receive {key}");
+        let rustc = sysroot
+            .join("bin")
+            .join(format!("rustc{}", std::env::consts::EXE_SUFFIX));
+        assert_eq!(
+            vars.get(std::ffi::OsStr::new("RUSTC")),
+            Some(&Some(rustc.as_os_str()))
+        );
+        for key in [
+            "CARGO",
+            "RUSTC_WRAPPER",
+            "RUSTC_WORKSPACE_WRAPPER",
+            "RA_JIT_BUILD_SCRIPT",
+            "RA_JIT_SCRIPT_RUSTC",
+            "CARGO_TARGET_DIR",
+            "RUSTFLAGS",
+        ] {
+            assert!(
+                !vars.contains_key(std::ffi::OsStr::new(key)),
+                "nested compiler must not receive {key}"
+            );
         }
     }
 
@@ -191,11 +273,17 @@ mod tests {
         assert_eq!(nested_web_profile("bench", ""), "web");
         // `--profile fast` still reports PROFILE=release on this toolchain.
         assert_eq!(
-            nested_web_profile("release", "/work/targets/s9/fast/build/angelX-cockpit-hash/out"),
+            nested_web_profile(
+                "release",
+                "/work/targets/s9/fast/build/angelX-cockpit-hash/out"
+            ),
             "web-fast"
         );
         assert_eq!(
-            nested_web_profile("release", "/work/targets/s9/release/build/angelX-cockpit-hash/out"),
+            nested_web_profile(
+                "release",
+                "/work/targets/s9/release/build/angelX-cockpit-hash/out"
+            ),
             "web"
         );
         assert_eq!(
@@ -214,13 +302,22 @@ mod tests {
     #[test]
     fn normal_builds_keep_browser_functionality_and_skip_requires_explicit_opt_out() {
         assert_eq!(skip_web_bundle(None, "debug", ""), Ok(false));
-        assert_eq!(skip_web_bundle(None, "release", "/tmp/target/fast/build/pkg/out"), Ok(false));
+        assert_eq!(
+            skip_web_bundle(None, "release", "/tmp/target/fast/build/pkg/out"),
+            Ok(false)
+        );
         assert_eq!(skip_web_bundle(None, "release", ""), Ok(false));
         assert_eq!(skip_web_bundle(None, "bench", ""), Ok(false));
         assert_eq!(skip_web_bundle(Some("0"), "debug", ""), Ok(false));
-        assert_eq!(skip_web_bundle(Some("0"), "release", "/tmp/target/fast/build/pkg/out"), Ok(false));
+        assert_eq!(
+            skip_web_bundle(Some("0"), "release", "/tmp/target/fast/build/pkg/out"),
+            Ok(false)
+        );
         assert_eq!(skip_web_bundle(Some("1"), "debug", ""), Ok(true));
-        assert_eq!(skip_web_bundle(Some("1"), "debug", "/tmp/target/devfast/build/pkg/out"), Ok(true));
+        assert_eq!(
+            skip_web_bundle(Some("1"), "debug", "/tmp/target/devfast/build/pkg/out"),
+            Ok(true)
+        );
         assert_eq!(
             skip_web_bundle(Some("1"), "release", "/tmp/target/fast/build/pkg/out"),
             Ok(true)
@@ -232,9 +329,7 @@ mod tests {
         assert!(
             skip_web_bundle(Some("1"), "release", "/tmp/target/production/build/pkg/out").is_err()
         );
-        assert!(
-            skip_web_bundle(Some("1"), "release", "/tmp/target/debug/build/pkg/out").is_err()
-        );
+        assert!(skip_web_bundle(Some("1"), "release", "/tmp/target/debug/build/pkg/out").is_err());
         assert!(
             skip_web_bundle(
                 Some("1"),

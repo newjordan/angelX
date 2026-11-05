@@ -147,23 +147,20 @@ child.wait()
             .unwrap(),
         stop,
     };
-    let sleeping = SleepingProbe(
-        Command::new("sleep")
-            .arg("10")
-            .spawn_owned()
-            .unwrap(),
-    );
+    let sleeping = SleepingProbe(Command::new("sleep").arg("10").spawn_owned().unwrap());
 
     let deadline = Instant::now() + Duration::from_secs(5);
     let (payload_pid, parent_pid) = loop {
         if let Ok(raw) = std::fs::read_to_string(&ready)
             && let Ok(info) = serde_json::from_str::<serde_json::Value>(&raw)
-            && let (Some(pid), Some(parent)) =
-                (info["pid"].as_u64(), info["parent"].as_u64())
+            && let (Some(pid), Some(parent)) = (info["pid"].as_u64(), info["parent"].as_u64())
         {
             break (pid as u32, parent as u32);
         }
-        assert!(Instant::now() < deadline, "owned payload did not become ready");
+        assert!(
+            Instant::now() < deadline,
+            "owned payload did not become ready"
+        );
         std::thread::sleep(Duration::from_millis(10));
     };
 
@@ -188,22 +185,29 @@ child.wait()
     let deadline = Instant::now() + Duration::from_secs(5);
     loop {
         let current = cpu_ticks(busy.parent.id());
-        if current.get(&payload_key).is_some_and(|cpu| {
-            *cpu > initial.get(&payload_key).copied().unwrap_or(0)
-        }) {
+        if current
+            .get(&payload_key)
+            .is_some_and(|cpu| *cpu > initial.get(&payload_key).copied().unwrap_or(0))
+        {
             assert!(
                 current.keys().all(|(pid, _)| *pid != sleeping.0.id()),
                 "an unrelated sleeping process must not enter the busy owner's tree"
             );
             break;
         }
-        assert!(Instant::now() < deadline, "owned silent payload CPU was invisible");
+        assert!(
+            Instant::now() < deadline,
+            "owned silent payload CPU was invisible"
+        );
         std::thread::sleep(Duration::from_millis(20));
     }
 
     let deadline = Instant::now() + Duration::from_secs(3);
     while proc_activity(sleeping.0.id()).is_none_or(|row| row.state != 'S') {
-        assert!(Instant::now() < deadline, "unrelated sleep process never settled");
+        assert!(
+            Instant::now() < deadline,
+            "unrelated sleep process never settled"
+        );
         std::thread::sleep(Duration::from_millis(10));
     }
     let sleeping_tree = cpu_ticks(sleeping.0.id());

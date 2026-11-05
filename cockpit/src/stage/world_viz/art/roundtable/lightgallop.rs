@@ -33,7 +33,10 @@ fn row(frame: &mut Frame, area: Rect, y: u16, text: String, fg: Color) {
     }
     let r = Rect::new(area.x, area.y + y, area.width, 1);
     frame.render_widget(Clear, r);
-    frame.render_widget(Paragraph::new(text).style(Style::default().fg(fg).bg(Color::Black)), r);
+    frame.render_widget(
+        Paragraph::new(text).style(Style::default().fg(fg).bg(Color::Black)),
+        r,
+    );
 }
 
 pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>) {
@@ -41,7 +44,10 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
         return;
     };
     super::header(frame, area, rules::NAME, s.elapsed, s.seats.len());
-    let Some(id) = focus.filter(|id| s.seats.contains_key(id)).or_else(|| s.seats.keys().next().copied()) else {
+    let Some(id) = focus
+        .filter(|id| s.seats.contains_key(id))
+        .or_else(|| s.seats.keys().next().copied())
+    else {
         return;
     };
     let lvl = level();
@@ -63,8 +69,13 @@ pub(super) fn paint(frame: &mut Frame, area: Rect, run: &Run, focus: Option<u32>
         if r.gauge < 150 { RED } else { AMBER },
     );
     let gap = ((r.x - s.dim) / 256).max(0);
-    let act = ["DOWNHILL GATE", "WHEEL ARCH", "REED FEN", "BELL GATE"][rules::Session::act_at(r.x / 256)];
-    let hint = if s.elapsed < 300 { "A D RUN   E LEAP   SPACE SPUR" } else { "HOLD ESC LEAVE" };
+    let act =
+        ["DOWNHILL GATE", "WHEEL ARCH", "REED FEN", "BELL GATE"][rules::Session::act_at(r.x / 256)];
+    let hint = if s.elapsed < 300 {
+        "A D RUN   E LEAP   SPACE SPUR"
+    } else {
+        "HOLD ESC LEAVE"
+    };
     row(
         frame,
         area,
@@ -94,7 +105,12 @@ fn row_of(area: Rect, y: i32) -> u16 {
 /// title card in the sky, the fall and the bell's prompt under it, the keys at
 /// the bottom, the bell's name over the bell). Every plate is cleared before any
 /// text is laid down, so one never wipes another.
-fn words_over_the_picture(frame: &mut Frame, area: Rect, s: &rules::Session, r: &rules::rider::Rider) {
+fn words_over_the_picture(
+    frame: &mut Frame,
+    area: Rect,
+    s: &rules::Session,
+    r: &rules::rider::Rider,
+) {
     if area.width < 48 || area.height < 14 {
         return;
     }
@@ -116,7 +132,10 @@ fn words_over_the_picture(frame: &mut Frame, area: Rect, s: &rules::Session, r: 
     if s.bell_t.is_none() {
         // The bell's name stands over the bell as tall as the bell is drawn.
         let (bx, by) = level().bell;
-        let (sx, sy) = (((bx - r.cam_x) * r.zoom).div_euclid(256), ((by - r.cam_y) * r.zoom).div_euclid(256));
+        let (sx, sy) = (
+            ((bx - r.cam_x) * r.zoom).div_euclid(256),
+            ((by - r.cam_y) * r.zoom).div_euclid(256),
+        );
         if (0..384).contains(&sx) && (0..224).contains(&sy) {
             words.push((sx, sy - 72 * r.zoom / 256 - 12, "BELL GATE".into(), GOLD));
         }
@@ -124,11 +143,19 @@ fn words_over_the_picture(frame: &mut Frame, area: Rect, s: &rules::Session, r: 
     let bounds = |cx: i32, y: i32, text: &str| {
         // The plate the picture lays behind its lettering: six pixels a letter, a pixel round.
         let half = (6 * text.chars().count() as i32 + 1) / 2;
-        (col_of(area, cx - half), col_of(area, cx + half), row_of(area, y - 1), row_of(area, y + 8))
+        (
+            col_of(area, cx - half),
+            col_of(area, cx + half),
+            row_of(area, y - 1),
+            row_of(area, y + 8),
+        )
     };
     for (cx, y, text, _) in &words {
         let (c0, c1, r0, r1) = bounds(*cx, *y, text);
-        frame.render_widget(Clear, Rect::new(c0, r0, c1 - c0 + 1, r1 - r0 + 1).intersection(area));
+        frame.render_widget(
+            Clear,
+            Rect::new(c0, r0, c1 - c0 + 1, r1 - r0 + 1).intersection(area),
+        );
     }
     for (cx, y, text, fg) in &words {
         let n = text.chars().count() as u16;
@@ -138,7 +165,10 @@ fn words_over_the_picture(frame: &mut Frame, area: Rect, s: &rules::Session, r: 
             continue;
         }
         let line = Rect::new(x, row_of(area, *y + 3), w, 1).intersection(area);
-        frame.render_widget(Paragraph::new(text.as_str()).style(Style::default().fg(*fg).bg(Color::Black)), line);
+        frame.render_widget(
+            Paragraph::new(text.as_str()).style(Style::default().fg(*fg).bg(Color::Black)),
+            line,
+        );
     }
 }
 
@@ -160,13 +190,20 @@ fn tally_box(frame: &mut Frame, area: Rect, s: &rules::Session, y: &rules::Tally
     let mut lines = vec![
         "MOONWELL ROAD CLEAR".to_string(),
         String::new(),
-        table("TIME", format!("{}   PAR {}", clock(y.time), clock(lvl.par))),
+        table(
+            "TIME",
+            format!("{}   PAR {}", clock(y.time), clock(lvl.par)),
+        ),
         table("SPARKS", format!("{} / {}", y.sparks, lvl.sparks.len())),
         table("BEST CHAIN", y.chain.to_string()),
         table("LANTERNS", format!("{} / {}", y.posts, lvl.posts.len())),
         table("LANTERN BONUS", format!("+{bonus}")),
         table("POINTS", y.points.to_string()),
-        if t >= 110 { table("RANK", rank.to_string()) } else { String::new() },
+        if t >= 110 {
+            table("RANK", rank.to_string())
+        } else {
+            String::new()
+        },
         String::new(),
         "EACH KNIGHT".to_string(),
     ];
@@ -180,7 +217,11 @@ fn tally_box(frame: &mut Frame, area: Rect, s: &rules::Session, y: &rules::Tally
         }
     }
     lines.push(String::new());
-    lines.push(if t >= 45 { "E RIDE AGAIN   HOLD ESC LEAVE".to_string() } else { String::new() });
+    lines.push(if t >= 45 {
+        "E RIDE AGAIN   HOLD ESC LEAVE".to_string()
+    } else {
+        String::new()
+    });
     let (x0, x1) = (col_of(area, 56), col_of(area, 327) + 1);
     let (y0, y1) = (row_of(area, 36), row_of(area, 203) + 1);
     let w = (x1 - x0).max(36).min(area.width);
@@ -190,22 +231,45 @@ fn tally_box(frame: &mut Frame, area: Rect, s: &rules::Session, y: &rules::Tally
     // The table is one block, centred; the headings and the scores are each centred alone.
     let block = 30;
     let spaces = |n: usize| " ".repeat(n);
-    let table_names = ["TIME", "SPARKS", "BEST CHAIN", "LANTERNS", "LANTERN BONUS", "POINTS", "RANK"];
+    let table_names = [
+        "TIME",
+        "SPARKS",
+        "BEST CHAIN",
+        "LANTERNS",
+        "LANTERN BONUS",
+        "POINTS",
+        "RANK",
+    ];
     let centred: Vec<String> = lines
         .iter()
         .map(|l| {
-            let width = if table_names.iter().any(|n| l.starts_with(n) && l.len() > n.len()) { block } else { l.chars().count() };
+            let width = if table_names
+                .iter()
+                .any(|n| l.starts_with(n) && l.len() > n.len())
+            {
+                block
+            } else {
+                l.chars().count()
+            };
             spaces(inner.saturating_sub(width) / 2) + l
         })
         .collect();
     let pad = usize::from(h).saturating_sub(2 + centred.len()) / 2;
-    let text = (0..pad).map(|_| String::new()).chain(centred).collect::<Vec<_>>().join("\n");
+    let text = (0..pad)
+        .map(|_| String::new())
+        .chain(centred)
+        .collect::<Vec<_>>()
+        .join("\n");
     let r = Rect::new(x, y, w, h);
     frame.render_widget(Clear, r);
     frame.render_widget(
         Paragraph::new(text)
             .style(Style::default().fg(GOLD).bg(Color::Black))
-            .block(Block::default().borders(Borders::ALL).border_style(Style::default().fg(GOLD))),
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(GOLD)),
+            ),
         r,
     );
 }
@@ -220,14 +284,22 @@ mod tests {
         let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
         terminal
             .draw(|f| {
-                crate::ui::viz::shooter_viz::paint_picture_ui(f, Rect::new(0, 0, 96, 28), run, None, Some(focus))
+                crate::ui::viz::shooter_viz::paint_picture_ui(
+                    f,
+                    Rect::new(0, 0, 96, 28),
+                    run,
+                    None,
+                    Some(focus),
+                )
             })
             .unwrap();
         terminal
     }
 
     fn row(t: &Terminal<TestBackend>, y: u16) -> String {
-        (0..96).map(|x| t.backend().buffer()[(x, y)].symbol().to_string()).collect()
+        (0..96)
+            .map(|x| t.backend().buffer()[(x, y)].symbol().to_string())
+            .collect()
     }
 
     /// A table of `seats` bots ridden `ticks` ticks.
@@ -269,8 +341,14 @@ mod tests {
         let r = ridden(2, 400);
         let t = draw(&r, 1);
         let (r1, r2) = (row(&t, 1), row(&t, 2));
-        assert!(r1.contains("SPARKS") && r1.contains("SPUR") && r1.contains("LANTERNS"), "{r1:?}");
-        assert!(r2.contains("GLOAM") && r2.contains("DOWNHILL GATE"), "{r2:?}");
+        assert!(
+            r1.contains("SPARKS") && r1.contains("SPUR") && r1.contains("LANTERNS"),
+            "{r1:?}"
+        );
+        assert!(
+            r2.contains("GLOAM") && r2.contains("DOWNHILL GATE"),
+            "{r2:?}"
+        );
         assert!(row(&t, 0).contains("LIGHTGALLOP") && row(&t, 0).contains("2 seated"));
     }
 
@@ -308,28 +386,56 @@ mod tests {
             let r = ridden(seats, 12);
             let rows = rows_of(&draw(&r, 1));
             let all = rows.join("\n");
-            let at = |word: &str| rows.iter().position(|l| l.contains(word)).unwrap_or_else(|| panic!("{word}\n{all}"));
+            let at = |word: &str| {
+                rows.iter()
+                    .position(|l| l.contains(word))
+                    .unwrap_or_else(|| panic!("{word}\n{all}"))
+            };
             let (a, b) = (at("MOONWELL ROAD"), at("THE DIMMING COMES"));
             // In the sky, under the three rows of the heads-up display, one line over the other.
-            assert!(a >= 3 && a < b && b <= 8, "{seats} seats: the title is on rows {a} and {b}\n{all}");
+            assert!(
+                a >= 3 && a < b && b <= 8,
+                "{seats} seats: the title is on rows {a} and {b}\n{all}"
+            );
             // The keys, on the bottom rows (the top rows carry them too).
-            assert!(rows[24..].iter().any(|l| l.contains("A D RUN   E LEAP   SPACE SPUR")), "{seats} seats\n{all}");
+            assert!(
+                rows[24..]
+                    .iter()
+                    .any(|l| l.contains("A D RUN   E LEAP   SPACE SPUR")),
+                "{seats} seats\n{all}"
+            );
         }
         // Gone with the title card and, a few seconds on, the keys.
         let rows = rows_of(&draw(&ridden(1, 400), 1)).join("\n");
-        assert!(!rows.contains("MOONWELL ROAD") && !rows.contains("DIMMING COMES"), "{rows}");
+        assert!(
+            !rows.contains("MOONWELL ROAD") && !rows.contains("DIMMING COMES"),
+            "{rows}"
+        );
     }
 
     #[test]
     fn the_fall_and_the_bells_prompt_are_said_in_text() {
         let mut r = ridden(2, 200);
-        r.lightgallop.as_mut().unwrap().seats.get_mut(&1).unwrap().rider.down = 12;
+        r.lightgallop
+            .as_mut()
+            .unwrap()
+            .seats
+            .get_mut(&1)
+            .unwrap()
+            .rider
+            .down = 12;
         let rows = rows_of(&draw(&r, 1));
-        let fall = rows.iter().position(|l| l.contains("THE LANTERN CARRIES YOU")).expect("the fall is said");
+        let fall = rows
+            .iter()
+            .position(|l| l.contains("THE LANTERN CARRIES YOU"))
+            .expect("the fall is said");
         assert!((3..=12).contains(&fall), "row {fall}");
         r.lightgallop.as_mut().unwrap().bell_t = Some(5);
         let rows = rows_of(&draw(&r, 1));
-        let ring = rows.iter().position(|l| l.contains("RING THE BELL")).expect("the bell's prompt is said");
+        let ring = rows
+            .iter()
+            .position(|l| l.contains("RING THE BELL"))
+            .expect("the bell's prompt is said");
         assert!(ring > fall && ring <= 12, "rows {fall} and {ring}");
     }
 
@@ -340,18 +446,32 @@ mod tests {
             let t = draw(&r, 1);
             let rows = rows_of(&t);
             let all = rows.join("\n");
-            for word in ["LANTERN BONUS", "+100", "POINTS", "EACH KNIGHT", "RANK", "RIDE AGAIN"] {
+            for word in [
+                "LANTERN BONUS",
+                "+100",
+                "POINTS",
+                "EACH KNIGHT",
+                "RANK",
+                "RIDE AGAIN",
+            ] {
                 assert!(all.contains(word), "{seats} seats: {word}\n{all}");
             }
             let y = r.lightgallop.as_ref().unwrap().tally.clone().unwrap();
             for (id, v) in &y.scores {
-                assert!(all.contains(&format!("{id}")) && all.contains(&v.to_string()), "{seats} seats: seat {id}'s {v}\n{all}");
+                assert!(
+                    all.contains(&format!("{id}")) && all.contains(&v.to_string()),
+                    "{seats} seats: seat {id}'s {v}\n{all}"
+                );
             }
             // The picture's own panel (columns 14 to 81, rows 4 to 25) is covered: no picture cell shows inside.
             let buf = t.backend().buffer();
             for yy in 5..25u16 {
                 for xx in 15..81u16 {
-                    assert_ne!(buf[(xx, yy)].symbol(), "\u{2580}", "{seats} seats: the picture shows through at {xx},{yy}\n{all}");
+                    assert_ne!(
+                        buf[(xx, yy)].symbol(),
+                        "\u{2580}",
+                        "{seats} seats: the picture shows through at {xx},{yy}\n{all}"
+                    );
                 }
             }
         }
@@ -410,7 +530,8 @@ mod tests {
                 }
                 text.push('\n');
             }
-            img.save(dir.join(format!("lightgallop-terminal-{name}.png"))).unwrap();
+            img.save(dir.join(format!("lightgallop-terminal-{name}.png")))
+                .unwrap();
             std::fs::write(dir.join(format!("lightgallop-terminal-{name}.txt")), text).unwrap();
         }
     }

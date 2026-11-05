@@ -5,9 +5,9 @@
 //!
 //! Numbers are fixed point: positions in 1/256 pixel, speeds in 1/256 pixel
 //! a tick, accelerations in 1/256 pixel a tick squared, on the 30 Hz sim.
+use super::host::Input;
 use super::math::{self, ONE};
 use super::terrain::{Hit, Terrain};
-use super::host::Input;
 use serde::{Deserialize, Serialize};
 
 /// The pace a gallop settles at: 5 pixels a tick.
@@ -98,7 +98,13 @@ pub struct Numbers {
 
 impl Default for Numbers {
     fn default() -> Self {
-        Numbers { slope: 100, loop_min: 512, spur_cap: 2048, lock_reach: 96, dimming: 1000 }
+        Numbers {
+            slope: 100,
+            loop_min: 512,
+            spur_cap: 2048,
+            lock_reach: 96,
+            dimming: 1000,
+        }
     }
 }
 
@@ -239,7 +245,10 @@ impl Rider {
             y: at.y,
             vx: 0,
             vy: 0,
-            ground: Some(Ground { path: path as u8, s }),
+            ground: Some(Ground {
+                path: path as u8,
+                s,
+            }),
             gsp: 0,
             dir: 1,
             roll: false,
@@ -305,7 +314,10 @@ impl Rider {
             gauge: self.gauge.max(GAUGE_START * 3 / 5),
             ..Rider::new_on(t, path, s)
         };
-        *self = Rider { hurt: HURT_TICKS, ..keep };
+        *self = Rider {
+            hurt: HURT_TICKS,
+            ..keep
+        };
         self.snap_camera(at.x / 256, at.y / 256);
     }
 
@@ -351,8 +363,10 @@ impl Rider {
         match self.ground {
             Some(g) => {
                 let s = t.paths[g.path as usize].sample(g.s);
-                (self.x + (i64::from(s.ty) * i64::from(h) / i64::from(ONE)) as i32,
-                 self.y - (i64::from(s.tx) * i64::from(h) / i64::from(ONE)) as i32)
+                (
+                    self.x + (i64::from(s.ty) * i64::from(h) / i64::from(ONE)) as i32,
+                    self.y - (i64::from(s.tx) * i64::from(h) / i64::from(ONE)) as i32,
+                )
             }
             None => (self.x, self.y - h),
         }
@@ -408,7 +422,8 @@ impl Rider {
 
     /// The slope's pull on the ground speed this tick.
     fn pull(&self, ty: i32, n: &Numbers) -> i32 {
-        let base = (i64::from(SLOPE) * i64::from(n.slope) * i64::from(ty) / (100 * i64::from(ONE))) as i32;
+        let base =
+            (i64::from(SLOPE) * i64::from(n.slope) * i64::from(ty) / (100 * i64::from(ONE))) as i32;
         if !self.roll || base == 0 || self.gsp == 0 {
             return base;
         }
@@ -417,7 +432,15 @@ impl Rider {
         base * if downhill { ROLL_DOWN } else { ROLL_UP } / 100
     }
 
-    fn ground_tick(&mut self, k: Keys, t: &Terrain, n: &Numbers, ev: &mut Vec<Ev>, jump_edge: bool, spur_edge: bool) {
+    fn ground_tick(
+        &mut self,
+        k: Keys,
+        t: &Terrain,
+        n: &Numbers,
+        ev: &mut Vec<Ev>,
+        jump_edge: bool,
+        spur_edge: bool,
+    ) {
         let Some(g) = self.ground else { return };
         let smp = t.paths[g.path as usize].sample(g.s);
         self.coyote = COYOTE;
@@ -481,8 +504,10 @@ impl Rider {
         if self.buffer > 0 && !self.crouch && !locked {
             let (c, d) = (i64::from(smp.tx), i64::from(smp.ty));
             let up = (smp.ty, -smp.tx);
-            self.vx = ((i64::from(self.gsp) * c + i64::from(JUMP) * i64::from(up.0)) / i64::from(ONE)) as i32;
-            self.vy = ((i64::from(self.gsp) * d + i64::from(JUMP) * i64::from(up.1)) / i64::from(ONE)) as i32;
+            self.vx = ((i64::from(self.gsp) * c + i64::from(JUMP) * i64::from(up.0))
+                / i64::from(ONE)) as i32;
+            self.vy = ((i64::from(self.gsp) * d + i64::from(JUMP) * i64::from(up.1))
+                / i64::from(ONE)) as i32;
             self.ground = None;
             self.buffer = 0;
             self.coyote = 0;
@@ -500,7 +525,11 @@ impl Rider {
         // Forces along the path. A horse pushes well on the flat and not at
         // all up a wall: his traction fades with the slope's steepness, so a
         // steep rise is climbed on momentum, never walked.
-        let grip = if smp.tx < 0 { 0 } else { (ONE - smp.ty.abs() * 3 / 2).max(0) };
+        let grip = if smp.tx < 0 {
+            0
+        } else {
+            (ONE - smp.ty.abs() * 3 / 2).max(0)
+        };
         let acc = ACC * grip / ONE;
         let mut gsp = self.gsp;
         gsp += self.pull(smp.ty, n);
@@ -596,12 +625,23 @@ impl Rider {
             ev.push(Ev::Loop);
         }
         self.looping = on_ring;
-        self.ground = Some(Ground { path: path as u8, s });
+        self.ground = Some(Ground {
+            path: path as u8,
+            s,
+        });
         self.x = at.x;
         self.y = at.y;
     }
 
-    fn air_tick(&mut self, k: Keys, t: &Terrain, n: &Numbers, ev: &mut Vec<Ev>, jump_edge: bool, spur_edge: bool) {
+    fn air_tick(
+        &mut self,
+        k: Keys,
+        t: &Terrain,
+        n: &Numbers,
+        ev: &mut Vec<Ev>,
+        jump_edge: bool,
+        spur_edge: bool,
+    ) {
         self.air += 1;
         self.coyote = self.coyote.saturating_sub(1);
         self.crouch = false;
@@ -672,7 +712,11 @@ impl Rider {
         let (lo, hi) = (12 * 256, WORLD_PX * 256 - 8 * 256);
         if to.0 < lo || to.0 > hi {
             to.0 = to.0.clamp(lo, hi);
-            self.vx = if to.0 == lo { self.vx.max(0) } else { self.vx.min(0) };
+            self.vx = if to.0 == lo {
+                self.vx.max(0)
+            } else {
+                self.vx.min(0)
+            };
         }
         if let Some(h) = t.land(from, to) {
             self.land(h, t, k, ev);
@@ -685,10 +729,15 @@ impl Rider {
     /// Touch down on `h`.
     fn land(&mut self, h: Hit, t: &Terrain, k: Keys, ev: &mut Vec<Ev>) {
         let s = t.paths[h.path].sample(h.s);
-        let along = (i64::from(self.vx) * i64::from(s.tx) + i64::from(self.vy) * i64::from(s.ty)) / i64::from(ONE);
-        let normal = (i64::from(self.vx) * i64::from(s.ty) - i64::from(self.vy) * i64::from(s.tx)) / i64::from(ONE);
+        let along = (i64::from(self.vx) * i64::from(s.tx) + i64::from(self.vy) * i64::from(s.ty))
+            / i64::from(ONE);
+        let normal = (i64::from(self.vx) * i64::from(s.ty) - i64::from(self.vy) * i64::from(s.tx))
+            / i64::from(ONE);
         self.gsp = along as i32;
-        self.ground = Some(Ground { path: h.path as u8, s: h.s });
+        self.ground = Some(Ground {
+            path: h.path as u8,
+            s: h.s,
+        });
         self.x = h.x;
         self.y = h.y;
         self.vx = 0;
@@ -712,7 +761,9 @@ impl Rider {
                 let s = t.paths[g.path as usize].sample(g.s);
                 (math::atan2(s.ty, s.tx), 2, 40)
             }
-            None if self.lock.is_some() => (math::atan2(self.vy, self.vx.abs().max(1) * self.dir), 3, 30),
+            None if self.lock.is_some() => {
+                (math::atan2(self.vy, self.vx.abs().max(1) * self.dir), 3, 30)
+            }
             None => (0, 5, 16),
         };
         self.ang = math::turn_toward(self.ang, target, ease, slew);
@@ -924,7 +975,11 @@ pub fn advance(t: &Terrain, path: &mut usize, s: &mut i32, d: i32) -> Leave {
         let p = &t.paths[*path];
         let target = *s + left;
         if left > 0 {
-            if let Some(q) = p.portals.iter().find(|q| q.dir > 0 && q.s > *s && q.s <= target && d >= q.min_speed) {
+            if let Some(q) = p
+                .portals
+                .iter()
+                .find(|q| q.dir > 0 && q.s > *s && q.s <= target && d >= q.min_speed)
+            {
                 left = target - q.s;
                 *path = q.to.path;
                 *s = q.to.s;
@@ -947,7 +1002,11 @@ pub fn advance(t: &Terrain, path: &mut usize, s: &mut i32, d: i32) -> Leave {
             *s = target;
             return Leave::Stay;
         } else if left < 0 {
-            if let Some(q) = p.portals.iter().find(|q| q.dir < 0 && q.s < *s && q.s >= target && -d >= q.min_speed) {
+            if let Some(q) = p
+                .portals
+                .iter()
+                .find(|q| q.dir < 0 && q.s < *s && q.s >= target && -d >= q.min_speed)
+            {
                 left = target - q.s;
                 *path = q.to.path;
                 *s = q.to.s;

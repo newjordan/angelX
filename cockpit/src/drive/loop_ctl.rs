@@ -1113,12 +1113,15 @@ impl crate::App {
             .as_ref()
             .map(|g| !g.text.trim().is_empty())
             .unwrap_or(false);
-        let (saved, set_aside) = match carry_on_if_set_aside(self.saved_loop_for_current_workspace())
+        let (saved, set_aside) =
+            match carry_on_if_set_aside(self.saved_loop_for_current_workspace()) {
+                Ok(saved) => saved,
+                Err(error) => return format!("saved loop checkpoint unreadable: {error}"),
+            };
+        if task.is_empty()
+            && !has_goal
+            && let Some(saved) = saved
         {
-            Ok(saved) => saved,
-            Err(error) => return format!("saved loop checkpoint unreadable: {error}"),
-        };
-        if task.is_empty() && !has_goal && let Some(saved) = saved {
             task = saved.task;
             interval = saved.interval_secs;
             deli |= saved.deli;
@@ -1154,11 +1157,11 @@ impl crate::App {
         let was_active = self.loop_active();
         self.loop_cancel_inflight();
         self.loop_ctl.last_failed_acceptance = None;
-        let (saved, set_aside) = match carry_on_if_set_aside(self.saved_loop_for_current_workspace())
-        {
-            Ok(saved) => saved,
-            Err(error) => return format!("saved loop checkpoint unreadable: {error}"),
-        };
+        let (saved, set_aside) =
+            match carry_on_if_set_aside(self.saved_loop_for_current_workspace()) {
+                Ok(saved) => saved,
+                Err(error) => return format!("saved loop checkpoint unreadable: {error}"),
+            };
         let limits = if self.loop_ctl.status != LoopStatus::Idle {
             Some(&self.loop_ctl)
         } else {
@@ -2062,8 +2065,22 @@ impl crate::App {
         // What ranks the learned entries below. The task is often a one-line
         // pointer to a brief, so recent hypotheses and findings carry the topic.
         let harness_query = std::iter::once(prompt.as_str())
-            .chain(self.loop_ctl.hypotheses.iter().rev().take(8).map(String::as_str))
-            .chain(self.loop_ctl.findings.iter().rev().take(8).map(String::as_str))
+            .chain(
+                self.loop_ctl
+                    .hypotheses
+                    .iter()
+                    .rev()
+                    .take(8)
+                    .map(String::as_str),
+            )
+            .chain(
+                self.loop_ctl
+                    .findings
+                    .iter()
+                    .rev()
+                    .take(8)
+                    .map(String::as_str),
+            )
             .collect::<Vec<_>>()
             .join("\n");
         let mut user = ChatMsg::user(prompt);
@@ -2991,7 +3008,8 @@ impl crate::App {
             st.measured_at_submission = st.measured_candidates;
             st.first_measured_iteration = None;
         }
-        if st.measured_candidates > st.measured_at_submission && st.first_measured_iteration.is_none()
+        if st.measured_candidates > st.measured_at_submission
+            && st.first_measured_iteration.is_none()
         {
             st.first_measured_iteration = Some(st.iteration);
         }
@@ -4375,10 +4393,7 @@ pub fn load_for(workspace: &Path) -> Option<LoopState> {
 /// Load only the loop checkpoint owned by this cockpit session. Default storage
 /// is keyed by both repository and session; `ANGEL_LOOP_FILE` remains an
 /// explicit single-file override for tests and operator-directed recovery.
-pub fn load_for_session(
-    workspace: &Path,
-    session_id: &str,
-) -> Result<Option<LoopState>, String> {
+pub fn load_for_session(workspace: &Path, session_id: &str) -> Result<Option<LoopState>, String> {
     let expected = crate::platform::workspace_store::repo_identity(workspace);
     let explicit = explicit_loop_file().is_some();
     let state = match load_from_path(store_path_for_session(Some(workspace), Some(session_id))) {

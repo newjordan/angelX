@@ -32,12 +32,33 @@ pub enum Fs {
 pub enum Danger {
     None,
     /// A line `a` to `b`, `r` either side.
-    Capsule { ax: i32, ay: i32, bx: i32, by: i32, r: i32 },
-    Circle { x: i32, y: i32, r: i32 },
+    Capsule {
+        ax: i32,
+        ay: i32,
+        bx: i32,
+        by: i32,
+        r: i32,
+    },
+    Circle {
+        x: i32,
+        y: i32,
+        r: i32,
+    },
     /// A wedge: `half` degrees either side of `deg`, out to `r`.
-    Fan { x: i32, y: i32, deg: i32, half: i32, r: i32 },
+    Fan {
+        x: i32,
+        y: i32,
+        deg: i32,
+        half: i32,
+        r: i32,
+    },
     /// A band `w` either side of radius `r`.
-    Ring { x: i32, y: i32, r: i32, w: i32 },
+    Ring {
+        x: i32,
+        y: i32,
+        r: i32,
+        w: i32,
+    },
 }
 
 fn seg_dist2(p: (i64, i64), a: (i64, i64), b: (i64, i64)) -> i64 {
@@ -66,7 +87,13 @@ impl Danger {
                 ) <= reach * reach
             }
             Danger::Circle { x: cx, y: cy, r } => dist(x - cx, y - cy) <= r + rad,
-            Danger::Fan { x: cx, y: cy, deg, half, r } => {
+            Danger::Fan {
+                x: cx,
+                y: cy,
+                deg,
+                half,
+                r,
+            } => {
                 let d = dist(x - cx, y - cy);
                 d <= r + rad && (d < rad || dot(unit(x - cx, y - cy), dir(deg)) >= cos_q(half))
             }
@@ -318,13 +345,23 @@ impl Session {
             self.strike_with(i, danger, dmg, r, ev);
         }
         // Those that have puffed out are gone; a lock on one lets go.
-        self.foes.retain(|f| !(f.st == Fs::Dying && f.dead >= DEATH_TICKS));
+        self.foes
+            .retain(|f| !(f.st == Fs::Dying && f.dead >= DEATH_TICKS));
     }
 
     /// The nearest open point to one that is in a wall.
     pub(super) fn nudge(&self, x: i32, y: i32, r: i32) -> (i32, i32) {
         for ring in 1..=8 {
-            for (dx, dy) in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1), (1, -1), (-1, 1)] {
+            for (dx, dy) in [
+                (1, 0),
+                (-1, 0),
+                (0, 1),
+                (0, -1),
+                (1, 1),
+                (-1, -1),
+                (1, -1),
+                (-1, 1),
+            ] {
                 let (px, py) = (x + dx * ring * 4 * Q, y + dy * ring * 4 * Q);
                 if self.clear(px, py, r) {
                     return (px, py);
@@ -339,7 +376,9 @@ impl Session {
     fn strike_with(&mut self, i: usize, danger: Danger, dmg: u32, r: &Rules, ev: &mut Events) {
         let ids: Vec<u32> = self.seats.keys().copied().collect();
         for id in ids {
-            let Some(k) = self.seats.get(&id) else { continue };
+            let Some(k) = self.seats.get(&id) else {
+                continue;
+            };
             let bit = 1u8 << (id.min(7) as u8);
             if self.foes[i].struck & bit != 0 || !k.up() || !danger.hits(k.x, k.y, KNIGHT_R) {
                 continue;

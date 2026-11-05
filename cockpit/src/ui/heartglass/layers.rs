@@ -58,7 +58,8 @@ const GOLD: [f32; 4] = [1.0, 0.78, 0.30, 1.0];
 /// file. `ANGEL_GLASS_HEART_FONT` names another (a family or a file); the
 /// window's own font stands in when the file cannot be written.
 fn heart_font() -> String {
-    const SHARE_TECH_MONO: &[u8] = include_bytes!("../../../assets/fonts/ShareTechMono-Regular.ttf");
+    const SHARE_TECH_MONO: &[u8] =
+        include_bytes!("../../../assets/fonts/ShareTechMono-Regular.ttf");
     if let Ok(family) = std::env::var("ANGEL_GLASS_HEART_FONT")
         && !family.trim().is_empty()
     {

@@ -514,7 +514,9 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "think" | "thinking" | "effort" => " [filter]",
         "world" => " [visit artisans|colosseum|tournament|follow|help]",
         "together" => " [demo|forge|build|ready|raid|move|fire|cast|return|help]",
-        "table" => " [host|join <link>|new|claim|work|submit|apply|merge] · the Round Table work board",
+        "table" => {
+            " [host|join <link>|new|claim|work|submit|apply|merge] · the Round Table work board"
+        }
         "dungeon" => " [start|host|join <link>] · invite|kick · F4 menu · Esc composer",
         "dungeon_host" => {
             " --N [--watch]  (N friends, up to 5, or 6 with --watch: one link for everyone; --watch: no knight of your own)"

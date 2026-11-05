@@ -1,7 +1,7 @@
 //! The hireling on the cockpit's own screen.
 
-use crate::drive::together_shooter::*;
 use crate::drive::together_shooter::hireling::testing::*;
+use crate::drive::together_shooter::*;
 
 #[test]
 fn the_side_panel_names_the_minion_and_not_beaumains() {

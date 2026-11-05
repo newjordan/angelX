@@ -63,8 +63,12 @@ impl Drop for HookGuard {
         BEFORE_OPEN.with(|slot| {
             slot.borrow_mut().take();
         });
-        BEFORE_RENAME.with(|slot| { slot.borrow_mut().take(); });
-        AFTER_RENAME.with(|slot| { slot.borrow_mut().take(); });
+        BEFORE_RENAME.with(|slot| {
+            slot.borrow_mut().take();
+        });
+        AFTER_RENAME.with(|slot| {
+            slot.borrow_mut().take();
+        });
     }
 }
 struct Fixture(PathBuf);
@@ -158,9 +162,7 @@ fn abort_between_temp_write_and_rename_keeps_old_state_and_reads_ignore_temps() 
     if let Some(root) = std::env::var_os(CHILD_ROOT) {
         let peers = PathBuf::from(root);
         // A real abrupt death: no unwind, no cleanup, no rename.
-        BEFORE_RENAME.with(|slot| {
-            *slot.borrow_mut() = Some(Box::new(|_| std::process::abort()))
-        });
+        BEFORE_RENAME.with(|slot| *slot.borrow_mut() = Some(Box::new(|_| std::process::abort())));
         crate::platform::guardian::write_record(&peers, &record("never published")).unwrap();
         unreachable!("the abort hook fires before the rename");
     }
@@ -242,7 +244,10 @@ fn abort_between_temp_write_and_rename_keeps_old_state_and_reads_ignore_temps() 
     );
     assert_eq!(std::fs::read(&torn).unwrap(), b"{\"dead_instance\":\"dead");
     assert_eq!(std::fs::read(&truncated).unwrap(), b"");
-    assert_eq!(unpublished, String::from_utf8(std::fs::read(&temps[0]).unwrap()).unwrap());
+    assert_eq!(
+        unpublished,
+        String::from_utf8(std::fs::read(&temps[0]).unwrap()).unwrap()
+    );
 }
 
 #[cfg(unix)]

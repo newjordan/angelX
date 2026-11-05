@@ -720,9 +720,12 @@ impl App {
         // (ANGEL_BACKDROP=off / shell / image / compact Core). Comp / lean
         // keeps chrome but must not pay the badge/classify tax.
         if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible) {
-            self.realm.world.note_memory_health(self.tools.store.health());
+            self.realm
+                .world
+                .note_memory_health(self.tools.store.health());
             let atlas_status = self.atlas.status();
-            self.realm.world
+            self.realm
+                .world
                 .note_atlas_status(atlas_status.health, atlas_status.review_count);
             let clerk_status = clerk.status();
             self.realm.world.note_backplane_status(
@@ -822,7 +825,8 @@ impl App {
                     deadline_secs: self.loop_ctl.deadline_secs,
                 }
             });
-            self.realm.world
+            self.realm
+                .world
                 .note_loop(active, iteration, agitated, done, loop_budget);
             let visiting_quintain = self.realm.world.visiting_quintain();
             if visiting_quintain
@@ -1046,9 +1050,12 @@ impl App {
                     self.scroll = 0;
                     self.request_terminal_attention();
                     if let Some(candidate_summary) = self.pending_handoff_rl_restart.take()
-                        && let Err(error) = self.force_handoff_rl_restart(candidate_summary.as_deref())
+                        && let Err(error) =
+                            self.force_handoff_rl_restart(candidate_summary.as_deref())
                     {
-                        self.system_msg(format!("handoff restart could not resume after drain: {error}"));
+                        self.system_msg(format!(
+                            "handoff restart could not resume after drain: {error}"
+                        ));
                     }
                 }
                 Err(mpsc::TryRecvError::Empty) => {
@@ -1215,7 +1222,10 @@ impl App {
                     // A finished chart also opens full size in the glass
                     // window, conjured by the wizard.
                     if let crate::knowledge::graph_crop::GraphEvent::Returned(receipt) = &*event
-                        && matches!(receipt.request, crate::knowledge::graph_crop::GraphRequest::Finish { .. })
+                        && matches!(
+                            receipt.request,
+                            crate::knowledge::graph_crop::GraphRequest::Finish { .. }
+                        )
                         && let Some(chart) = receipt.chart.as_ref().filter(|chart| chart.finished)
                     {
                         crate::ui::showcase::open_chart(chart);
@@ -1250,7 +1260,8 @@ impl App {
                         let destination =
                             crate::stage::world_viz::classify_tool_activity(&name, &args_summary)
                                 .building;
-                        self.realm.world
+                        self.realm
+                            .world
                             .note_tool_call_event(id.clone(), &name, &args_summary);
                         self.reset_world_yaw();
                         self.scryglass.begin_journey(
@@ -1285,7 +1296,8 @@ impl App {
                     // A2: Stage-only result sparks — strip/trace still update.
                     if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
                     {
-                        self.realm.world
+                        self.realm
+                            .world
                             .note_tool_result_event(&id, &name, &summary, outcome);
                     }
                     if self.transcript_mode == crate::app::TranscriptMode::Trace {
@@ -1310,7 +1322,10 @@ impl App {
                 TurnEvent::Notice(note) | TurnEvent::RolloutCaptureError(note) => {
                     // The scriptorium copies a scroll for every compaction.
                     if note.starts_with("compacting context") {
-                        self.realm.dungeon.ops.note(crate::drive::together_shooter::holdings::Op::Compactions);
+                        self.realm
+                            .dungeon
+                            .ops
+                            .note(crate::drive::together_shooter::holdings::Op::Compactions);
                     }
                     // A2: world notice banners are Stage chrome.
                     if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
@@ -1358,7 +1373,8 @@ impl App {
                     ));
                 }
                 TurnEvent::ResearchEvidence(evidence) => {
-                    self.realm.world
+                    self.realm
+                        .world
                         .note_school(crate::stage::world_viz::SchoolSnapshot {
                             active: evidence.active,
                             observations: evidence.observations,
@@ -1382,7 +1398,10 @@ impl App {
                         let id = slot.id.as_deref().unwrap_or("unknown");
                         let board = crate::agent::harness::cartridges::active()
                             .map_or("Board", |cartridge| cartridge.label());
-                        let label = format!("{board} submission {}", id.chars().take(8).collect::<String>());
+                        let label = format!(
+                            "{board} submission {}",
+                            id.chars().take(8).collect::<String>()
+                        );
                         match slot.phase {
                             SubmissionSlotPhase::InFlight if new_flight => {
                                 self.realm.world.competition_test_started(&label);
@@ -1392,7 +1411,9 @@ impl App {
                             }
                             SubmissionSlotPhase::Accepted => {
                                 if let Some(score) = slot.score.as_deref() {
-                                    self.realm.world.competition_test_reported_score(&label, score);
+                                    self.realm
+                                        .world
+                                        .competition_test_reported_score(&label, score);
                                 } else {
                                     self.realm.world.competition_test_complete(&format!(
                                         "{label} · accepted; score not reported"
@@ -1936,7 +1957,8 @@ impl App {
                     self.comp_fleet.apply(snapshot);
                 }
                 Err(error) => {
-                    self.realm.world
+                    self.realm
+                        .world
                         .competition_test_error(&format!("{label} status poll"), &error);
                     self.comp_fleet.fail(error);
                 }
@@ -1952,7 +1974,9 @@ impl App {
             && self.comp_fleet_polled_at.elapsed() >= cartridge.fleet_interval()
         {
             self.comp_fleet.begin_scan();
-            self.comp_fleet_rx = Some(crate::agent::harness::cartridges::fleet::spawn_poll(cartridge));
+            self.comp_fleet_rx = Some(crate::agent::harness::cartridges::fleet::spawn_poll(
+                cartridge,
+            ));
         }
     }
 
@@ -3951,7 +3975,9 @@ impl App {
                 }
                 // Visible controls own their cells, before map walking, camera
                 // gestures or the Delve's gate can consume the press.
-                if let Some(&(_, button)) = self.world_buttons.iter()
+                if let Some(&(_, button)) = self
+                    .world_buttons
+                    .iter()
                     .find(|(rect, _)| mouse::point_in(*rect, x, y))
                 {
                     self.apply_world_button(button);
@@ -4104,7 +4130,8 @@ impl App {
             self.scryglass.return_to_world();
             self.scryglass.follow();
         } else if !self.realm.world.visiting_school() && !self.realm.world.inside_interior() {
-            self.scryglass.toggle_world_route(self.realm.world.destination());
+            self.scryglass
+                .toggle_world_route(self.realm.world.destination());
         }
     }
 

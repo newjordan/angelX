@@ -1,7 +1,7 @@
 //! The boss gates on the cockpit's screens and a guest's.
 
-use crate::drive::together_shooter::*;
 use crate::drive::together_shooter::boss_gate_testing::*;
+use crate::drive::together_shooter::*;
 use std::collections::BTreeMap;
 
 #[test]

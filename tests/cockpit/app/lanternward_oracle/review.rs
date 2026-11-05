@@ -18,7 +18,8 @@ fn start() -> Run {
 
 /// An oracle method on the crate's session, through the shape both save as.
 fn through<R>(sess: &mut Session, f: impl FnOnce(&mut super::Session) -> R) -> R {
-    let mut oracle: super::Session = serde_json::from_value(serde_json::to_value(&*sess).unwrap()).unwrap();
+    let mut oracle: super::Session =
+        serde_json::from_value(serde_json::to_value(&*sess).unwrap()).unwrap();
     let out = f(&mut oracle);
     *sess = serde_json::from_value(serde_json::to_value(&oracle).unwrap()).unwrap();
     out
@@ -102,7 +103,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
     }
     r.step(&BTreeMap::new());
     s(&mut r).elapsed = 500;
-    let lock = Input { ult: true, ..Default::default() };
+    let lock = Input {
+        ult: true,
+        ..Default::default()
+    };
     match moment {
         "stair" => {}
         // A foe ahead, the lock just taken.
@@ -116,7 +120,11 @@ pub fn review(moment: &str, seats: u32) -> Run {
             place(&mut r, 1, 8, 8, (1, 0));
             s(&mut r).foes.clear();
             spawn(&mut r, middle(11), middle(8));
-            let k = Input { ult: true, move_y: -1, ..Default::default() };
+            let k = Input {
+                ult: true,
+                move_y: -1,
+                ..Default::default()
+            };
             hold(&mut r, &[(1, k)], 14);
         }
         "slash" | "slash3" | "spin" | "lunge" => {
@@ -125,7 +133,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
             spawn(&mut r, middle(9) + 6 * Q, middle(8));
             s(&mut r).foes[0].hp = 40;
             s(&mut r).foes[0].full = 40;
-            let sword = Input { swing: true, ..Default::default() };
+            let sword = Input {
+                swing: true,
+                ..Default::default()
+            };
             match moment {
                 "slash" => hold(&mut r, &[(1, sword)], 5),
                 "slash3" => {
@@ -143,7 +154,12 @@ pub fn review(moment: &str, seats: u32) -> Run {
                     hold(&mut r, &[], 6);
                 }
                 _ => {
-                    let go = Input { swing: true, ult: true, move_x: 1, ..Default::default() };
+                    let go = Input {
+                        swing: true,
+                        ult: true,
+                        move_x: 1,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, lock)], 3);
                     hold(&mut r, &[(1, go)], 6);
                 }
@@ -157,7 +173,11 @@ pub fn review(moment: &str, seats: u32) -> Run {
             f.st = Fs::Drift;
             f.t = 1;
             hold(&mut r, &[(1, lock)], 1);
-            let guard = Input { ult: true, dash: true, ..Default::default() };
+            let guard = Input {
+                ult: true,
+                dash: true,
+                ..Default::default()
+            };
             // Tell shown, then up with the shield.
             for _ in 0..60 {
                 let f = &r.lanternward.as_ref().unwrap().foes[0];
@@ -183,24 +203,46 @@ pub fn review(moment: &str, seats: u32) -> Run {
             hold(&mut r, &[(1, lock)], 2);
             match moment {
                 "hop" => {
-                    let e = Input { ult: true, interact: true, move_y: -1, ..Default::default() };
+                    let e = Input {
+                        ult: true,
+                        interact: true,
+                        move_y: -1,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, e)], 1);
                     hold(&mut r, &[(1, lock)], 8);
                 }
                 "flip" => {
-                    let e = Input { ult: true, interact: true, ..Default::default() };
+                    let e = Input {
+                        ult: true,
+                        interact: true,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, e)], 1);
                     hold(&mut r, &[(1, lock)], 8);
                 }
                 "plunge" => {
-                    let e = Input { ult: true, interact: true, move_x: 1, ..Default::default() };
+                    let e = Input {
+                        ult: true,
+                        interact: true,
+                        move_x: 1,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, e)], 1);
                     hold(&mut r, &[(1, lock)], 7);
-                    let q = Input { ult: true, swing: true, ..Default::default() };
+                    let q = Input {
+                        ult: true,
+                        swing: true,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, q)], 2);
                 }
                 _ => {
-                    let e = Input { interact: true, move_x: 1, ..Default::default() };
+                    let e = Input {
+                        interact: true,
+                        move_x: 1,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, e)], 1);
                     hold(&mut r, &[], 5);
                 }
@@ -208,7 +250,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
         }
         "talk" => {
             place(&mut r, 1, 6, 3, (-1, 0));
-            let e = Input { interact: true, ..Default::default() };
+            let e = Input {
+                interact: true,
+                ..Default::default()
+            };
             hold(&mut r, &[(1, e)], 1);
             hold(&mut r, &[], 6);
         }
@@ -217,7 +262,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
             set_gate(&mut r, 1, true);
             place(&mut r, 1, 22, 11, (0, 1));
             s(&mut r).seats.get_mut(&1).unwrap().bombs = 3;
-            let x = Input { bomb: true, ..Default::default() };
+            let x = Input {
+                bomb: true,
+                ..Default::default()
+            };
             hold(&mut r, &[(1, x)], 1);
             hold(&mut r, &[], if moment == "bomb" { 60 } else { 82 });
         }
@@ -229,14 +277,20 @@ pub fn review(moment: &str, seats: u32) -> Run {
                 k.flame = OracleRules::default().flame;
             }
             place(&mut r, 1, 24, 12, (1, 1));
-            let f = Input { fire: true, ..Default::default() };
+            let f = Input {
+                fire: true,
+                ..Default::default()
+            };
             hold(&mut r, &[(1, f)], 30);
         }
         "lever" => {
             rooms_to(&mut r, 3);
             s(&mut r).foes.clear();
             place(&mut r, 1, 3, 10, (-1, 0));
-            let e = Input { interact: true, ..Default::default() };
+            let e = Input {
+                interact: true,
+                ..Default::default()
+            };
             hold(&mut r, &[(1, e)], 1);
             hold(&mut r, &[], 14);
         }
@@ -248,7 +302,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
                 let _ = (x, y);
             }
             place(&mut r, 1, 18, 7, (1, 0));
-            let e = Input { interact: true, ..Default::default() };
+            let e = Input {
+                interact: true,
+                ..Default::default()
+            };
             hold(&mut r, &[(1, e)], 1);
             hold(&mut r, &[], 18);
         }
@@ -258,7 +315,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
             match moment {
                 "lamp" => {
                     place(&mut r, 1, 3, 8, (1, 0));
-                    let e = Input { interact: true, ..Default::default() };
+                    let e = Input {
+                        interact: true,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, e)], 1);
                     hold(&mut r, &[], 20);
                 }
@@ -275,7 +335,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
                     }
                     hold(&mut r, &[], 2);
                     place(&mut r, 1, 13, 3, (0, -1));
-                    let e = Input { interact: true, ..Default::default() };
+                    let e = Input {
+                        interact: true,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, e)], 1);
                     hold(&mut r, &[], 14);
                 }
@@ -289,19 +352,26 @@ pub fn review(moment: &str, seats: u32) -> Run {
                     if moment == "lamp-wave" {
                         place(&mut r, 1, 12, 8, (1, 0));
                         hold(&mut r, &[], 3);
-                        let wave: Vec<(i32, i32)> = plan(1).find(b'S').into_iter().take(2).collect();
+                        let wave: Vec<(i32, i32)> =
+                            plan(1).find(b'S').into_iter().take(2).collect();
                         for (tx, ty) in wave {
                             spawn(&mut r, middle(tx), middle(ty));
                         }
                         hold(&mut r, &[], 40);
                     } else if moment == "lamp-flare" {
                         place(&mut r, 1, 12, 8, (1, 0));
-                        let f = Input { fire: true, ..Default::default() };
+                        let f = Input {
+                            fire: true,
+                            ..Default::default()
+                        };
                         hold(&mut r, &[(1, f)], 16);
                     } else {
                         s(&mut r).stage = 3;
                         place(&mut r, 1, 24, 7, (0, -1));
-                        let f = Input { fire: true, ..Default::default() };
+                        let f = Input {
+                            fire: true,
+                            ..Default::default()
+                        };
                         hold(&mut r, &[(1, f)], 2);
                         hold(&mut r, &[], 6);
                     }
@@ -323,12 +393,21 @@ pub fn review(moment: &str, seats: u32) -> Run {
                     for _ in 0..200 {
                         let t = &r.lanternward.as_ref().unwrap().foes[0];
                         if (moment == "gallery-tell" && t.st == Fs::Tell && t.t < 30)
-                            || (moment == "gallery-parry" && !r.lanternward.as_ref().unwrap().bolts.is_empty() && r.lanternward.as_ref().unwrap().bolts[0].kind == Bk::Bright)
+                            || (moment == "gallery-parry"
+                                && !r.lanternward.as_ref().unwrap().bolts.is_empty()
+                                && r.lanternward.as_ref().unwrap().bolts[0].kind == Bk::Bright)
                         {
                             break;
                         }
-                        let guard = r.lanternward.as_ref().unwrap().bolts.iter().any(|b| b.hostile() && dist(b.x - middle(22), b.y - middle(7)) < 60 * Q);
-                        let held = Input { dash: guard, aim_x: 1, aim_y: -1, ..Default::default() };
+                        let guard = r.lanternward.as_ref().unwrap().bolts.iter().any(|b| {
+                            b.hostile() && dist(b.x - middle(22), b.y - middle(7)) < 60 * Q
+                        });
+                        let held = Input {
+                            dash: guard,
+                            aim_x: 1,
+                            aim_y: -1,
+                            ..Default::default()
+                        };
                         hold(&mut r, &[(1, held)], 1);
                     }
                 }
@@ -340,7 +419,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
                 "vault" => place(&mut r, 1, 6, 12, (1, 0)),
                 "vault-flare" => {
                     place(&mut r, 1, 9, 9, (1, -1));
-                    let f = Input { fire: true, ..Default::default() };
+                    let f = Input {
+                        fire: true,
+                        ..Default::default()
+                    };
                     hold(&mut r, &[(1, f)], 20);
                 }
                 _ => {
@@ -361,7 +443,8 @@ pub fn review(moment: &str, seats: u32) -> Run {
                 }
             }
         }
-        "warden" | "warden-beam" | "warden-slam" | "warden-open" | "warden-dark" | "warden-parry" | "warden-dead" | "beacon" | "finale" => {
+        "warden" | "warden-beam" | "warden-slam" | "warden-open" | "warden-dark"
+        | "warden-parry" | "warden-dead" | "beacon" | "finale" => {
             rooms_to(&mut r, 4);
             s(&mut r).stage_t = 1000;
             hold(&mut r, &[], 2);
@@ -373,11 +456,22 @@ pub fn review(moment: &str, seats: u32) -> Run {
             match moment {
                 "warden" => {}
                 "warden-beam" | "warden-slam" | "warden-parry" => {
-                    let want = if moment == "warden-slam" { Ws::Strike } else { Ws::Tell };
-                    let atk = if moment == "warden-slam" { Atk::Slam } else { Atk::Beam };
+                    let want = if moment == "warden-slam" {
+                        Ws::Strike
+                    } else {
+                        Ws::Tell
+                    };
+                    let atk = if moment == "warden-slam" {
+                        Atk::Slam
+                    } else {
+                        Atk::Beam
+                    };
                     for _ in 0..600 {
                         let w = r.lanternward.as_ref().unwrap().boss.as_ref().unwrap();
-                        if w.st == want && w.atk == atk && w.t < if moment == "warden-slam" { 24 } else { 20 } {
+                        if w.st == want
+                            && w.atk == atk
+                            && w.t < if moment == "warden-slam" { 24 } else { 20 }
+                        {
                             break;
                         }
                         hold(&mut r, &[], 1);
@@ -411,7 +505,9 @@ pub fn review(moment: &str, seats: u32) -> Run {
                     s(&mut r).boss.as_mut().unwrap().lit = [now; 6];
                     let sess = s(&mut r);
                     let (bx, by) = sess.boss.as_ref().map(|w| (w.x, w.y)).unwrap();
-                    through(sess, |o| o.hurt_boss(10_000, (bx, by), 1, &mut Events::default()));
+                    through(sess, |o| {
+                        o.hurt_boss(10_000, (bx, by), 1, &mut Events::default())
+                    });
                     hold(&mut r, &[], 50);
                 }
                 "beacon" | "finale" => {
@@ -423,7 +519,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
                         k.hp = k.max_hp;
                     }
                     place(&mut r, 1, 15, 5, (0, -1));
-                    let e = Input { interact: true, ..Default::default() };
+                    let e = Input {
+                        interact: true,
+                        ..Default::default()
+                    };
                     if moment == "beacon" {
                         hold(&mut r, &[(1, e)], 40);
                     } else {
@@ -452,7 +551,10 @@ pub fn review(moment: &str, seats: u32) -> Run {
             }
             if seats > 1 {
                 place(&mut r, 2, 9, 8, (-1, 0));
-                let e = Input { interact: true, ..Default::default() };
+                let e = Input {
+                    interact: true,
+                    ..Default::default()
+                };
                 hold(&mut r, &[(2, e)], 20);
             }
         }

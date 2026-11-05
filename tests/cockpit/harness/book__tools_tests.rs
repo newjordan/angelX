@@ -30,10 +30,12 @@ fn original_tool_notes() -> Vec<(String, String, Vec<String>)> {
         }
     }
     assert_eq!(notes.len(), 85);
-    assert_eq!(crate::knowledge::cut::sha256_hex(&framed), "c51ff6e43c34deda1d9ef6098a6832f7affe25eb5e10a0f99a7842c4369e9d6c");
+    assert_eq!(
+        crate::knowledge::cut::sha256_hex(&framed),
+        "c51ff6e43c34deda1d9ef6098a6832f7affe25eb5e10a0f99a7842c4369e9d6c"
+    );
     notes
 }
-
 
 /// Volume II's chapters, in table-of-contents order.
 const VOLUME_TWO: &str = "⠡⠩⠹⠱⠫⠣⠷⠾⠯⠮";
@@ -77,7 +79,11 @@ fn every_moved_sentence_is_a_verbatim_page_of_its_tools_section() {
         let sub = section(cells);
         assert_eq!(sub.name, tool.as_str(), "{cells} is named for its tool");
         let expected: Vec<&str> = sentences.iter().map(String::as_str).collect();
-        assert_eq!(sub.pages, expected.as_slice(), "{cells} lost or changed a sentence");
+        assert_eq!(
+            sub.pages,
+            expected.as_slice(),
+            "{cells} lost or changed a sentence"
+        );
     }
 }
 

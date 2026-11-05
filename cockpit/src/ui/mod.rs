@@ -21,7 +21,6 @@ pub(crate) mod math;
 pub(crate) mod media;
 pub(crate) mod mouse;
 pub(crate) mod orrery;
-pub(crate) mod stereopticon;
 pub(crate) mod pane_motion;
 pub(crate) mod panels;
 pub(crate) mod present;
@@ -32,6 +31,7 @@ pub(crate) mod showcase;
 pub(crate) mod showcase_chart;
 #[cfg(feature = "glass")]
 pub(crate) mod showcase_model;
+pub(crate) mod stereopticon;
 pub(crate) mod still_inspector;
 pub(crate) mod surfaces;
 pub(crate) mod term;

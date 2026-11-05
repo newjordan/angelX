@@ -21,7 +21,10 @@ pub fn unpack(stored: &[u8], original_len: Option<usize>) -> Result<Vec<u8>, Str
     let plain = miniz_oxide::inflate::decompress_to_vec_zlib_with_limit(stored, original_len)
         .map_err(|error| format!("invalid packed browser asset: {error:?}"))?;
     if plain.len() != original_len {
-        return Err(format!("browser asset length mismatch: {} != {original_len}", plain.len()));
+        return Err(format!(
+            "browser asset length mismatch: {} != {original_len}",
+            plain.len()
+        ));
     }
     Ok(plain)
 }
@@ -34,7 +37,10 @@ mod tests {
     fn compressible_assets_shrink_and_round_trip_exactly() {
         let plain = b"\0asm:the same browser page and executable bytes".repeat(8192);
         let (stored, original_len) = pack(&plain);
-        assert!(stored.len() < plain.len() / 2, "large repeated input must shrink");
+        assert!(
+            stored.len() < plain.len() / 2,
+            "large repeated input must shrink"
+        );
         assert_eq!(original_len, Some(plain.len()));
         assert_eq!(unpack(&stored, original_len).unwrap(), plain);
     }
@@ -51,12 +57,14 @@ mod tests {
     #[test]
     fn unhelpful_compression_keeps_original_bytes() {
         let mut state = 0x1234_5678_u32;
-        let plain: Vec<u8> = (0..32768).map(|_| {
-            state ^= state << 13;
-            state ^= state >> 17;
-            state ^= state << 5;
-            state as u8
-        }).collect();
+        let plain: Vec<u8> = (0..32768)
+            .map(|_| {
+                state ^= state << 13;
+                state ^= state >> 17;
+                state ^= state << 5;
+                state as u8
+            })
+            .collect();
         let (stored, original_len) = pack(&plain);
         assert_eq!(original_len, None);
         assert_eq!(stored, plain);

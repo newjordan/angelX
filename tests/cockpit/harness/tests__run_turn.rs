@@ -35,10 +35,9 @@ fn board_classification_cases<T: serde::de::DeserializeOwned>(
     let groups: std::collections::BTreeMap<String, serde_json::Value> =
         serde_json::from_slice(&std::fs::read(path).expect("board classification fixture"))
             .expect("valid board classification fixture");
-    let cases: Vec<T> = serde_json::from_value(
-        groups.get(group).expect("known board case group").clone(),
-    )
-    .expect("valid board case group");
+    let cases: Vec<T> =
+        serde_json::from_value(groups.get(group).expect("known board case group").clone())
+            .expect("valid board case group");
     assert_eq!(cases.len(), expected, "{group}: case count");
     cases
 }
@@ -105,9 +104,9 @@ fn run_turn_labyrinth_context_is_scoped_once_and_preserves_system_history() {
         &events,
     )
     .unwrap();
-    registry.register_deferred(Box::new(crate::agent::tools::labyrinth::LabyrinthTool::new(
-        root.clone(),
-    )));
+    registry.register_deferred(Box::new(
+        crate::agent::tools::labyrinth::LabyrinthTool::new(root.clone()),
+    ));
     for already_in_prompt in [false, true] {
         let mut prompt = task.to_string();
         if already_in_prompt {
@@ -2947,7 +2946,10 @@ fn parallel_ledger_reads_use_the_turns_pinned_book_generation() {
     std::fs::write(manifest_path, manifest_bytes).unwrap();
     let _home = EnvGuard::set("HOME", home.to_str().unwrap());
     let _resources = EnvGuard::set("ANGEL_RESOURCE_DIR", resources.to_str().unwrap());
-    let _hooks = EnvGuard::set("ANGEL_HOOKS_CONFIG", root.join("absent-hooks.json").to_str().unwrap());
+    let _hooks = EnvGuard::set(
+        "ANGEL_HOOKS_CONFIG",
+        root.join("absent-hooks.json").to_str().unwrap(),
+    );
     let _advisor = EnvGuard::set("ANGEL_ADVISOR", "0");
     let _skill = EnvGuard::set("ANGEL_SKILL_HINT", "0");
     let _capsules = EnvGuard::set("ANGEL_ACTION_CAPSULES", "off");
@@ -3007,8 +3009,16 @@ fn parallel_ledger_reads_use_the_turns_pinned_book_generation() {
         .iter()
         .find(|message| message.tool_call_id.as_deref() == Some("second-ledger"))
         .unwrap();
-    assert!(first.content.contains("parallel pinned page one"), "{}", first.content);
-    assert!(second.content.contains("parallel pinned page two"), "{}", second.content);
+    assert!(
+        first.content.contains("parallel pinned page one"),
+        "{}",
+        first.content
+    );
+    assert!(
+        second.content.contains("parallel pinned page two"),
+        "{}",
+        second.content
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -5306,8 +5316,7 @@ fn competition_board_state_does_not_launder_git_show_inventory() {
 /// when the query or path only *mentions* a handoff marker.
 #[test]
 fn competition_board_state_does_not_launder_lsp_recon() {
-    let cases =
-        board_classification_cases::<(String, serde_json::Value)>("lsp_recon_cases", 5);
+    let cases = board_classification_cases::<(String, serde_json::Value)>("lsp_recon_cases", 5);
     for (name, args) in cases {
         let call = ToolCall {
             id: "t".into(),
@@ -9817,7 +9826,9 @@ fn a_kept_cut_off_reply_stands_once_the_notes_are_spent() {
     let limit = book::x_execution::OUTPUT_CAP_LIMIT;
     assert_eq!(calls, limit + 1, "the first reply plus one retry per note");
     assert!(
-        outcome.answer.contains("response incomplete: configured request cap was 8192 tokens"),
+        outcome
+            .answer
+            .contains("response incomplete: configured request cap was 8192 tokens"),
         "{}",
         outcome.answer
     );
@@ -10588,7 +10599,9 @@ fn a_completion_with_a_changed_task_test_meets_the_checkpoint_once() {
     let (script, history) = run_spec_turn(
         &root,
         vec![
-            shell("sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js"),
+            shell(
+                "sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js",
+            ),
             Move::Say("All tests pass."),
             shell("git checkout -- grep.spec.js"),
             Move::Say("Restored the spec; the fix is in grep.js."),
@@ -10630,7 +10643,9 @@ fn a_completion_with_a_changed_task_test_meets_the_checkpoint_once() {
     let (script, history) = run_spec_turn(
         &root,
         vec![
-            shell("sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js"),
+            shell(
+                "sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js",
+            ),
             Move::Say("Done."),
             Move::Say("The task asked me to enable every test."),
         ],
@@ -10650,7 +10665,11 @@ fn test_edits_are_only_questioned_in_task_mode_and_for_the_models_own_changes() 
     let _guard = crate::tests::env_lock();
     let _env = root_turn_env();
     let shell = |command: &str| Move::Call(tc("shell", json!({ "command": command })));
-    let unskip = || shell("sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js");
+    let unskip = || {
+        shell(
+            "sed 's/xit(/it(/' grep.spec.js > grep.spec.js.tmp && mv grep.spec.js.tmp grep.spec.js",
+        )
+    };
 
     let _interactive = EnvGuard::unset("ANGEL_TASK_ACTIVE");
     let root = spec_fixture("test_edit_interactive");
@@ -11423,8 +11442,14 @@ fn h01_loopback_retry_controls() {
                 let now = Instant::now();
                 if name == "retry_after" && attempt == 1 {
                     let waited = now.duration_since(prior_post.unwrap());
-                    eprintln!("H01 case=retry_after server_interval_ms={}", waited.as_millis());
-                    assert!(waited >= Duration::from_millis(900), "Retry-After ignored: {waited:?}");
+                    eprintln!(
+                        "H01 case=retry_after server_interval_ms={}",
+                        waited.as_millis()
+                    );
+                    assert!(
+                        waited >= Duration::from_millis(900),
+                        "Retry-After ignored: {waited:?}"
+                    );
                 }
                 prior_post = Some(now);
                 let status = if attempt < failures { first } else { "200 OK" };

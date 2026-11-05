@@ -28,13 +28,13 @@ mod realm;
 pub(crate) use angel_realm_host::control::dungeon_reforge;
 #[cfg(test)]
 mod realm_test_support;
+#[cfg(test)]
+pub(crate) use angel_realm_host::control::ReforgeDraft;
 #[allow(unused_imports)]
 pub(crate) use angel_realm_host::control::{
     DungeonView, Forge, Hosting, MAX_FRIENDS, MAX_WATCHED_FRIENDS, UPGRADES_PER_PAGE, Walk,
     known_wishes,
 };
-#[cfg(test)]
-pub(crate) use angel_realm_host::control::ReforgeDraft;
 pub(crate) use commands::is_turn_context_message;
 #[cfg(test)]
 pub(crate) use commands::{TURN_CONTEXT_HEADER, retry_last_request, undo_last_exchange};

@@ -4,7 +4,10 @@ fn spawn_default_is_unbounded_and_explicit_seconds_are_exact() {
     let _guard = crate::tests::env_lock();
     let _unset = crate::tests::TestEnvGuard::unset("ANGEL_SPAWN_TIMEOUT");
     let default = configured_formation_timeout(&serde_json::json!({}));
-    assert!(default.is_zero(), "no clock cancels a seat unless one is set");
+    assert!(
+        default.is_zero(),
+        "no clock cancels a seat unless one is set"
+    );
     let _cap = crate::tests::TestEnvGuard::set("ANGEL_SPAWN_TIMEOUT", "7200");
     assert_eq!(
         configured_formation_timeout(&serde_json::json!({})).as_secs(),
@@ -58,10 +61,8 @@ impl crate::agent::club::Club for ParentCancelSeat {
 #[test]
 fn parent_turn_cancellation_stops_formation_collector_and_cancels_seat() {
     let _guard = crate::tests::env_lock();
-    let workspace = std::env::temp_dir().join(format!(
-        "angel_spawn_parent_cancel_{}",
-        std::process::id()
-    ));
+    let workspace =
+        std::env::temp_dir().join(format!("angel_spawn_parent_cancel_{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&workspace);
     std::fs::create_dir_all(&workspace).unwrap();
     let (started_tx, started_rx) = std::sync::mpsc::channel();
@@ -91,20 +92,26 @@ fn parent_turn_cancellation_stops_formation_collector_and_cancels_seat() {
         let _ = result_tx.send(result);
     });
 
-    let started = started_rx.recv_timeout(std::time::Duration::from_secs(5)).is_ok();
+    let started = started_rx
+        .recv_timeout(std::time::Duration::from_secs(5))
+        .is_ok();
     cancel.store(true, std::sync::atomic::Ordering::Release);
     let observed = match observed_rx.recv_timeout(std::time::Duration::from_secs(2)) {
         Ok(observed) => Some(observed),
         Err(_) => {
             release.store(true, std::sync::atomic::Ordering::Release);
-            observed_rx.recv_timeout(std::time::Duration::from_secs(2)).ok()
+            observed_rx
+                .recv_timeout(std::time::Duration::from_secs(2))
+                .ok()
         }
     };
     let result = match result_rx.recv_timeout(std::time::Duration::from_secs(2)) {
         Ok(result) => Some(result),
         Err(_) => {
             release.store(true, std::sync::atomic::Ordering::Release);
-            result_rx.recv_timeout(std::time::Duration::from_secs(2)).ok()
+            result_rx
+                .recv_timeout(std::time::Duration::from_secs(2))
+                .ok()
         }
     };
     let worker_deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);

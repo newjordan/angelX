@@ -1483,5 +1483,9 @@ fn sandbox_annotation_write_failure_is_reported() {
     let warning = sandbox_annotation_warning(&error);
     assert!(warning.contains("not persisted"), "{warning}");
     assert!(warning.contains("write"), "{warning}");
-    assert_eq!(std::fs::read(&path).unwrap(), original, "a failed annotation keeps the original receipt");
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        original,
+        "a failed annotation keeps the original receipt"
+    );
 }

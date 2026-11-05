@@ -305,8 +305,7 @@ fn write_queue_values(queue_path: &Path, values: &[serde_json::Value]) -> std::i
     }
     crate::platform::workspace_store::write_private_atomic(
         queue_path,
-        &crate::platform::secrets::to_redacted_vec_pretty(values)
-            .map_err(std::io::Error::other)?,
+        &crate::platform::secrets::to_redacted_vec_pretty(values).map_err(std::io::Error::other)?,
     )
     .map_err(std::io::Error::other)
 }

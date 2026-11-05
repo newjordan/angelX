@@ -42,7 +42,12 @@ impl Shipwright {
         self.start_oracle(crate::drive::realm_services::oracle(club), plan, fleet);
     }
 
-    pub(crate) fn start_oracle(&mut self, oracle: Arc<dyn angel_realm_host::services::Oracle>, plan: Plan, fleet: Vec<Vessel>) {
+    pub(crate) fn start_oracle(
+        &mut self,
+        oracle: Arc<dyn angel_realm_host::services::Oracle>,
+        plan: Plan,
+        fleet: Vec<Vessel>,
+    ) {
         let answer = Arc::new(Mutex::new(None));
         let slot = Arc::clone(&answer);
         let (p, f) = (plan.clone(), fleet.clone());
@@ -56,9 +61,15 @@ impl Shipwright {
             });
         if spawned.is_err() {
             // No thread to ask on: the fallback makes her at once.
-            *answer.lock().unwrap_or_else(|e| e.into_inner()) = Some(Err("no shipwright thread".into()));
+            *answer.lock().unwrap_or_else(|e| e.into_inner()) =
+                Some(Err("no shipwright thread".into()));
         }
-        self.job = Some(Job { plan, fleet, started: Instant::now(), answer });
+        self.job = Some(Job {
+            plan,
+            fleet,
+            started: Instant::now(),
+            answer,
+        });
     }
 
     /// The build whose answer is in (or that has waited past
@@ -69,7 +80,9 @@ impl Shipwright {
         let answer = job.answer.lock().ok().and_then(|mut a| a.take());
         let answer = match answer {
             Some(answer) => answer,
-            None if job.started.elapsed() > GRANT_MOST + Duration::from_secs(10) => Err("the shipwrights took too long".into()),
+            None if job.started.elapsed() > GRANT_MOST + Duration::from_secs(10) => {
+                Err("the shipwrights took too long".into())
+            }
             None => return None,
         };
         let job = self.job.take()?;
@@ -86,10 +99,16 @@ impl Shipwright {
 /// One build asked of `club`: the brief, the checker, one mend.
 #[cfg(test)]
 pub(crate) fn design(club: &dyn Club, plan: &Plan, fleet: &[Vessel]) -> Result<Design, String> {
-    design_with(plan, fleet, |prompt| crate::agent::club::with_read_timeout_at_least(GRANT_CALL, || club.respond(prompt)))
+    design_with(plan, fleet, |prompt| {
+        crate::agent::club::with_read_timeout_at_least(GRANT_CALL, || club.respond(prompt))
+    })
 }
 
-fn design_with(plan: &Plan, fleet: &[Vessel], ask: impl Fn(&str) -> Result<String, String>) -> Result<Design, String> {
+fn design_with(
+    plan: &Plan,
+    fleet: &[Vessel],
+    ask: impl Fn(&str) -> Result<String, String>,
+) -> Result<Design, String> {
     let brief = salvage::brief(plan, fleet);
     let first = ask(&brief)?;
     match salvage::check(&first, fleet) {
@@ -114,5 +133,7 @@ impl Club for crate::drive::together_grants::Scripted {
     fn respond(&self, prompt: &str) -> Result<String, String> {
         angel_realm_host::services::Oracle::respond(self, prompt, GRANT_CALL)
     }
-    fn label(&self) -> &str { "scripted" }
+    fn label(&self) -> &str {
+        "scripted"
+    }
 }

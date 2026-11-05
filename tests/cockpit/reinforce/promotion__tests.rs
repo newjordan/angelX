@@ -1737,7 +1737,13 @@ fn gate_case(complete: bool, incumbent: &[f32], candidate: &[f32]) -> GateCase {
     }
 }
 
-fn gate_config(min_cases: usize, samples: usize, floor: f32, delta: f32, regression: f32) -> PromotionConfig {
+fn gate_config(
+    min_cases: usize,
+    samples: usize,
+    floor: f32,
+    delta: f32,
+    regression: f32,
+) -> PromotionConfig {
     PromotionConfig {
         min_cases,
         samples_per_case: samples,
@@ -1755,11 +1761,7 @@ struct GateFixture {
     cases: Vec<GateCase>,
 }
 
-fn gate_fixture(
-    name: &'static str,
-    config: PromotionConfig,
-    cases: Vec<GateCase>,
-) -> GateFixture {
+fn gate_fixture(name: &'static str, config: PromotionConfig, cases: Vec<GateCase>) -> GateFixture {
     let case_count = cases.len();
     GateFixture {
         name,
@@ -1829,7 +1831,11 @@ fn promotion_gate_fixtures() -> Vec<GateFixture> {
         gate_fixture(
             "wide-spread-single-case",
             gate_config(1, 5, 0.0, 0.01, 0.4),
-            vec![gate_case(true, &[0.1, 0.9, 0.3, 0.7, 0.5], &[0.2, 0.95, 0.35, 0.8, 0.55])],
+            vec![gate_case(
+                true,
+                &[0.1, 0.9, 0.3, 0.7, 0.5],
+                &[0.2, 0.95, 0.35, 0.8, 0.55],
+            )],
         ),
         gate_fixture(
             "zero-variance-twelve-cases",
@@ -1859,13 +1865,7 @@ fn promotion_gate_fixtures() -> Vec<GateFixture> {
                 gate_case(true, &incumbent, &candidate)
             })
             .collect();
-        let config = gate_config(
-            2,
-            samples,
-            next() * 0.4,
-            0.01 + next() * 0.2,
-            next() * 0.1,
-        );
+        let config = gate_config(2, samples, next() * 0.4, 0.01 + next() * 0.2, next() * 0.1);
         fixtures.push(gate_fixture("generated-cohort", config, cases));
     }
     fixtures
@@ -1957,7 +1957,9 @@ fn temporary_policy_leg(id: &str, render: &str) -> angel_live::Program {
     std::fs::create_dir_all(&module).unwrap();
     std::fs::write(
         module.join("module.json"),
-        format!(r#"{{"api_version":1,"id":"{id}","kind":"policy","entry":"index.js","probe":{{}}}}"#),
+        format!(
+            r#"{{"api_version":1,"id":"{id}","kind":"policy","entry":"index.js","probe":{{}}}}"#
+        ),
     )
     .unwrap();
     std::fs::write(module.join("index.js"), render).unwrap();

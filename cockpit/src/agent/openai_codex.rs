@@ -1613,9 +1613,17 @@ impl CodexClub {
                             on_delta(StreamDelta::Content(STREAM_INTERRUPTED_SUFFIX));
                             return Ok(ClubReply::Text(mark_stream_interrupted(&content)));
                         }
-                        if self.stream_stall_secs > 0 && matches!(e.kind(), std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock) {
+                        if self.stream_stall_secs > 0
+                            && matches!(
+                                e.kind(),
+                                std::io::ErrorKind::TimedOut | std::io::ErrorKind::WouldBlock
+                            )
+                        {
                             attempt.outcome("stalled");
-                            return Err(format!("stream stalled: no bytes for {}s on {} (bound: {CODEX_STREAM_STALL_ENV})", self.stream_stall_secs, self.model));
+                            return Err(format!(
+                                "stream stalled: no bytes for {}s on {} (bound: {CODEX_STREAM_STALL_ENV})",
+                                self.stream_stall_secs, self.model
+                            ));
                         }
                         // A socket or decode failure mid-stream is a stream that
                         // died without a terminal event, as on the Chat route: the
@@ -1641,9 +1649,13 @@ impl CodexClub {
                 }
                 if self.stream_stall_secs > 0 {
                     if matches!(event, ResponseEvent::Ignore | ResponseEvent::Usage(_)) {
-                        if last_meaningful.elapsed() >= Duration::from_secs(self.stream_stall_secs) {
+                        if last_meaningful.elapsed() >= Duration::from_secs(self.stream_stall_secs)
+                        {
                             attempt.outcome("stalled");
-                            return Err(format!("stream stalled: keep-alives without progress for {}s on {} (bound: {CODEX_STREAM_STALL_ENV})", self.stream_stall_secs, self.model));
+                            return Err(format!(
+                                "stream stalled: keep-alives without progress for {}s on {} (bound: {CODEX_STREAM_STALL_ENV})",
+                                self.stream_stall_secs, self.model
+                            ));
                         }
                     } else {
                         last_meaningful = std::time::Instant::now();

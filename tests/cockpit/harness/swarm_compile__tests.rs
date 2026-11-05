@@ -266,19 +266,22 @@ fn campaign_execution_forwards_cancellation_to_an_in_flight_delegate_stage() {
         contract_digest: "d1".repeat(32),
         base,
     };
-    let prepared = tool.engine.campaign_prepare(
-        CampaignCompileRequest {
-            goal: "stop the active delegate stage".into(),
-            task_type: "campaign".into(),
-            targeted_test_cmd: "sh baseline.sh".into(),
-            accept_cmd: "sh baseline.sh".into(),
-            quality_cmds: Vec::new(),
-            test_scope: vec!["baseline.sh".into()],
-            default_route: "mid-stage-cancel".into(),
-            role_routes: BTreeMap::new(),
-        },
-        authorization.clone(),
-    ).unwrap();
+    let prepared = tool
+        .engine
+        .campaign_prepare(
+            CampaignCompileRequest {
+                goal: "stop the active delegate stage".into(),
+                task_type: "campaign".into(),
+                targeted_test_cmd: "sh baseline.sh".into(),
+                accept_cmd: "sh baseline.sh".into(),
+                quality_cmds: Vec::new(),
+                test_scope: vec!["baseline.sh".into()],
+                default_route: "mid-stage-cancel".into(),
+                role_routes: BTreeMap::new(),
+            },
+            authorization.clone(),
+        )
+        .unwrap();
     let engine = Arc::clone(&tool.engine);
     let cancelled = Arc::new(AtomicBool::new(false));
     let worker_cancelled = Arc::clone(&cancelled);
@@ -286,7 +289,8 @@ fn campaign_execution_forwards_cancellation_to_an_in_flight_delegate_stage() {
         engine.campaign_execute(prepared.run_id, authorization, &worker_cancelled)
     });
 
-    started_rx.recv_timeout(std::time::Duration::from_secs(10))
+    started_rx
+        .recv_timeout(std::time::Duration::from_secs(10))
         .expect("campaign reaches its first delegate stage");
     cancelled.store(true, std::sync::atomic::Ordering::Release);
     let observed = match observed_rx.recv_timeout(std::time::Duration::from_secs(2)) {
@@ -298,12 +302,19 @@ fn campaign_execution_forwards_cancellation_to_an_in_flight_delegate_stage() {
         }
     };
     let receipt = worker.join().unwrap().unwrap();
-    assert!(observed, "the delegate must receive the campaign cancellation token");
-    assert_eq!(receipt.outcome, crate::agent::harness::SwarmRunOutcome::Paused);
     assert!(
-        receipt.error.as_deref().is_some_and(|error| {
-            error.starts_with("specialist did not complete: Interrupt;")
-        }),
+        observed,
+        "the delegate must receive the campaign cancellation token"
+    );
+    assert_eq!(
+        receipt.outcome,
+        crate::agent::harness::SwarmRunOutcome::Paused
+    );
+    assert!(
+        receipt
+            .error
+            .as_deref()
+            .is_some_and(|error| { error.starts_with("specialist did not complete: Interrupt;") }),
         "unexpected cancellation receipt: {:?}",
         receipt.error
     );

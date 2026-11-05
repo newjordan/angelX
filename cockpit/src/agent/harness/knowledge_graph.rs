@@ -216,7 +216,10 @@ impl EdgeIndex {
     }
 
     fn insert(&mut self, edge: &KnowledgeEdge, index: usize) {
-        self.positions.entry(self.key(edge)).or_default().push(index);
+        self.positions
+            .entry(self.key(edge))
+            .or_default()
+            .push(index);
     }
 
     fn from_edges(edges: &[KnowledgeEdge]) -> Self {
@@ -435,9 +438,10 @@ impl KnowledgeGraph {
         let mut seen: Vec<KnowledgeEdge> = Vec::with_capacity(self.edges.len());
         let mut index = (self.edges.len() >= 256).then(EdgeIndex::new);
         for edge in self.edges.drain(..) {
-            let duplicate = index
-                .as_ref()
-                .map_or_else(|| seen.contains(&edge), |index| index.contains(&seen, &edge));
+            let duplicate = index.as_ref().map_or_else(
+                || seen.contains(&edge),
+                |index| index.contains(&seen, &edge),
+            );
             if !duplicate {
                 if let Some(index) = &mut index {
                     index.insert(&edge, seen.len());
@@ -1124,7 +1128,12 @@ fn serialize_subgraph(
             let alias_hay: Vec<String> = graph
                 .nodes
                 .get(name)
-                .map(|node| node.aliases.iter().map(|alias| alias.to_lowercase()).collect())
+                .map(|node| {
+                    node.aliases
+                        .iter()
+                        .map(|alias| alias.to_lowercase())
+                        .collect()
+                })
                 .unwrap_or_default();
             terms
                 .iter()

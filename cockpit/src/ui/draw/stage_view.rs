@@ -51,7 +51,8 @@ pub(super) fn render_artifacts(frame: &mut Frame, app: &mut App, area: Rect) {
     }
     app.clear_expired_lifecycle_ceremony();
 
-    app.scryglass.sync_arrival(app.realm.world.arrived_building());
+    app.scryglass
+        .sync_arrival(app.realm.world.arrived_building());
     let media_is_video = app
         .scryglass
         .active_media()
@@ -606,7 +607,8 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
             lazy.as_ref().to_vec()
         }) {
             if walkable {
-                app.realm.overworld_map = Some((area, overworld::view_sized(&scene, view_w, view_h)));
+                app.realm.overworld_map =
+                    Some((area, overworld::view_sized(&scene, view_w, view_h)));
             }
             return;
         }
@@ -615,7 +617,8 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
             .render_map_pixels(frame, area, key, move || (lazy, frame_w, frame_h));
         if state == crate::ui::viewer::WorldPixelsState::Ready {
             if walkable {
-                app.realm.overworld_map = Some((area, overworld::view_sized(&scene, view_w, view_h)));
+                app.realm.overworld_map =
+                    Some((area, overworld::view_sized(&scene, view_w, view_h)));
             }
             return;
         }
@@ -706,7 +709,11 @@ fn paint_halfblock_frame(
                 } else {
                     img.get(x, y).unwrap_or([0, 0, 0])
                 };
-                sum = [sum[0] + u32::from(r), sum[1] + u32::from(g), sum[2] + u32::from(b)];
+                sum = [
+                    sum[0] + u32::from(r),
+                    sum[1] + u32::from(g),
+                    sum[2] + u32::from(b),
+                ];
                 n += 1;
             }
         }
@@ -813,7 +820,8 @@ fn render_dotmax_interior(frame: &mut Frame, app: &mut App, area: Rect) -> bool 
         return false;
     }
     let (width, height) = world_sample_size(app, area);
-    let explicit_still = app.realm.world.visiting_scrying_tower() && crate::drive::comp_mode::enabled();
+    let explicit_still =
+        app.realm.world.visiting_scrying_tower() && crate::drive::comp_mode::enabled();
     let paint = || {
         let Some(image) = app.realm.world.ambient_braille_frame(
             width,
@@ -869,7 +877,8 @@ fn paint_dot_frame(
         let mut scene = std::collections::hash_map::DefaultHasher::new();
         scene_tag.hash(&mut scene);
         app.tools.current_workspace().hash(&mut scene);
-        app.realm.world
+        app.realm
+            .world
             .interior_building()
             .map(|building| building as u8)
             .hash(&mut scene);
@@ -1870,7 +1879,9 @@ fn render_scryglass(
     if let Some(label) = &camera_title {
         block = block.title_top(Line::from(label.clone()).alignment(Alignment::Right));
     }
-    let quest_tint = world_pane.then(|| app.realm.world.quest_border_style()).flatten();
+    let quest_tint = world_pane
+        .then(|| app.realm.world.quest_border_style())
+        .flatten();
     match (focused, quest_tint) {
         (true, Some(style)) => {
             block = block.border_style(style.add_modifier(Modifier::BOLD));
@@ -1903,8 +1914,11 @@ fn render_scryglass(
     let formation_h = 0;
     let object_dock = world_pane
         && active_index.is_none()
-        && matches!(resolved, crate::ui::scryglass::StageSurface::WorldMap
-            | crate::ui::scryglass::StageSurface::WorldFirstPerson)
+        && matches!(
+            resolved,
+            crate::ui::scryglass::StageSurface::WorldMap
+                | crate::ui::scryglass::StageSurface::WorldFirstPerson
+        )
         && !app.realm.world.inside_interior()
         && !app.realm.together.enabled();
     let footer_h = u16::from(inner.height >= 2);
@@ -2407,14 +2421,17 @@ fn render_scryglass(
         let (width, height) = world_sample_size(app, scene_rect);
         if !render_dotmax_interior(frame, app, scene_rect)
             && let Some(world) = maybe_paint_world_scene(resolved, || {
-                app.realm.world
+                app.realm
+                    .world
                     .ambient_braille_frame(width, height, app.visual_motion)
             })
             .flatten()
         {
             paint_world_frame(frame, app, scene_rect, &world);
         }
-        if app.realm.world.interior_building() == Some(crate::stage::world_viz::Building::Observatory) {
+        if app.realm.world.interior_building()
+            == Some(crate::stage::world_viz::Building::Observatory)
+        {
             app.world_buttons.push((
                 Rect::new(
                     scene_rect.x + scene_rect.width / 3,
@@ -2728,12 +2745,22 @@ fn render_scryglass(
         // The dock stands in for the ordinary world's or an arrival's row,
         // floating that row's own actions, where the pane is wide enough to
         // float them; any other row (a walk's, a narrow pane's) stays.
-        let dock_offer = dock_offer.filter(|_| object_dock && inner.width >= crate::ui::object_dock::MIN_WIDTH);
+        let dock_offer =
+            dock_offer.filter(|_| object_dock && inner.width >= crate::ui::object_dock::MIN_WIDTH);
         if let Some(offered) = dock_offer {
             let dock_height = inner.height.saturating_sub(1).clamp(1, 5);
-            let dock_area = Rect::new(inner.x, inner.bottom() - dock_height, inner.width, dock_height);
-            crate::ui::object_dock::prepare(app, dock_area,
-                resolved == crate::ui::scryglass::StageSurface::WorldFirstPerson, offered);
+            let dock_area = Rect::new(
+                inner.x,
+                inner.bottom() - dock_height,
+                inner.width,
+                dock_height,
+            );
+            crate::ui::object_dock::prepare(
+                app,
+                dock_area,
+                resolved == crate::ui::scryglass::StageSurface::WorldFirstPerson,
+                offered,
+            );
         } else {
             render_scene_caption(frame, app, footer_rect, caption, &controls);
         }

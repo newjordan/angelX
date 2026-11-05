@@ -145,11 +145,17 @@ fn outfit(run: &mut Run, id: u32, kit: &str) {
         // the parity sweep covers every kind of field however the book deals.
         "arena-fields" => {
             run.take_up(id, "hammerer");
-            let base = run.players[&id].spells[0].clone().expect("a champion has a first spell");
+            let base = run.players[&id].spells[0]
+                .clone()
+                .expect("a champion has a first spell");
             let base = run.book.get(&base).unwrap().clone();
-            for (slot, effect) in [cards::Effect::Hedge(1), cards::Effect::Imposture(1), cards::Effect::Totem(8)]
-                .into_iter()
-                .enumerate()
+            for (slot, effect) in [
+                cards::Effect::Hedge(1),
+                cards::Effect::Imposture(1),
+                cards::Effect::Totem(8),
+            ]
+            .into_iter()
+            .enumerate()
             {
                 let mut card = base.clone();
                 card.id = format!("arena-field-{slot}");
@@ -462,13 +468,28 @@ fn the_leg_holds_the_same_numbers_the_hud_and_saves_read() {
 #[test]
 fn deathmatch_melee_decisions_match_native_boundaries() {
     engine();
-    for (damage, expected) in [(0, "Light"), (19, "Light"), (20, "Medium"), (44, "Medium"), (45, "Heavy"), (u32::MAX, "Heavy")] {
-        let got: String = angel_delve::scripted::step("deathmatch-rules", &serde_json::json!({"op": "contact_tier", "damage": damage})).unwrap();
+    for (damage, expected) in [
+        (0, "Light"),
+        (19, "Light"),
+        (20, "Medium"),
+        (44, "Medium"),
+        (45, "Heavy"),
+        (u32::MAX, "Heavy"),
+    ] {
+        let got: String = angel_delve::scripted::step(
+            "deathmatch-rules",
+            &serde_json::json!({"op": "contact_tier", "damage": damage}),
+        )
+        .unwrap();
         assert_eq!(got, expected);
     }
     for winner in [false, true] {
         for connected in 0..=3 {
-            let got: bool = angel_delve::scripted::step("deathmatch-rules", &serde_json::json!({"op": "melee_tick", "winner": winner, "connected": connected})).unwrap();
+            let got: bool = angel_delve::scripted::step(
+                "deathmatch-rules",
+                &serde_json::json!({"op": "melee_tick", "winner": winner, "connected": connected}),
+            )
+            .unwrap();
             assert_eq!(got, !winner && connected >= 2);
         }
     }
@@ -780,8 +801,18 @@ fn deathmatch_head_melee_and_hero_kit_parity() {
     let mut pair = Pair::new(six());
     for damage in [19, 20, 44, 45] {
         pair.both(|run| ready_in(run.deathmatch.as_mut().unwrap(), 2, (15., 15.)));
-        let a = pair.native.deathmatch.as_mut().unwrap().native_hit(1, 2, damage, (1., 0.));
-        let b = pair.leg.deathmatch.as_mut().unwrap().hit(1, 2, damage, (1., 0.));
+        let a = pair
+            .native
+            .deathmatch
+            .as_mut()
+            .unwrap()
+            .native_hit(1, 2, damage, (1., 0.));
+        let b = pair
+            .leg
+            .deathmatch
+            .as_mut()
+            .unwrap()
+            .hit(1, 2, damage, (1., 0.));
         assert_eq!(a, b);
         assert_eq!(slice(&pair.native), slice(&pair.leg));
     }
@@ -796,7 +827,13 @@ fn deathmatch_head_melee_and_hero_kit_parity() {
         f.respawn = 1;
     });
     pair.tick(&Inputs::new());
-    assert_eq!(pair.leg.deathmatch.as_ref().unwrap().fighters[&2].hero.hero_kit.windrun, 0);
+    assert_eq!(
+        pair.leg.deathmatch.as_ref().unwrap().fighters[&2]
+            .hero
+            .hero_kit
+            .windrun,
+        0
+    );
 }
 
 #[test]

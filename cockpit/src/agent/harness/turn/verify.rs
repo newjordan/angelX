@@ -273,7 +273,10 @@ fn verify_policy_check(
 fn verify_policy_with(
     call: &ToolCall,
     program: Option<angel_live::Program>,
-) -> (VerifyDecision, crate::agent::harness::live_policy::LegSource) {
+) -> (
+    VerifyDecision,
+    crate::agent::harness::live_policy::LegSource,
+) {
     let features = verify_features(call);
     let input = serde_json::to_value(&features).unwrap_or(Value::Null);
     crate::agent::harness::live_policy::decide_with(
@@ -331,7 +334,10 @@ pub(crate) fn shell_runs_tests_anywhere(call: &ToolCall) -> bool {
 pub(crate) fn verification_decision_with(
     call: &ToolCall,
     program: Option<angel_live::Program>,
-) -> (VerifyDecision, crate::agent::harness::live_policy::LegSource) {
+) -> (
+    VerifyDecision,
+    crate::agent::harness::live_policy::LegSource,
+) {
     verify_policy_with(call, program)
 }
 

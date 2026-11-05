@@ -42,7 +42,10 @@ struct Road {
 
 impl Road {
     fn new() -> Self {
-        Road { b: Builder::new(Kind::Road, 0, G), y: 0 }
+        Road {
+            b: Builder::new(Kind::Road, 0, G),
+            y: 0,
+        }
     }
     /// Level ground to column `x`.
     fn flat(&mut self, x: i32) -> &mut Self {
@@ -62,11 +65,20 @@ fn build() -> Level {
     let mut r = Road::new();
 
     // ---- Act 1: the Downhill Gate -------------------------------------
-    r.flat(a1 + 380).slope(760, 60).flat(1060).slope(1260, -35).slope(1500, 35).flat(1700);
+    r.flat(a1 + 380)
+        .slope(760, 60)
+        .flat(1060)
+        .slope(1260, -35)
+        .slope(1500, 35)
+        .flat(1700);
     // The trench: down, a foot of floor, up.
     r.slope(1840, 70).flat(1870).slope(2010, -70).flat(2560);
     // The rolling meadow, then the long downhill into the Wheel Arch.
-    r.slope(2760, -30).slope(2960, 30).slope(3160, -30).slope(3360, 30).flat(3560);
+    r.slope(2760, -30)
+        .slope(2960, 30)
+        .slope(3160, -30)
+        .slope(3360, 30)
+        .flat(3560);
     r.slope(a2, 110).flat(a2 + 380);
     let y_loop1 = r.y;
 
@@ -76,10 +88,18 @@ fn build() -> Level {
     r.flat(a2 + 900).slope(a2 + 1040, -30);
     // The half-pipe: a drop, a floor, a climb.
     let pipe = a2 + 1120;
-    r.flat(pipe).slope(pipe + 80, 66).flat(pipe + 240).slope(pipe + 320, -66).flat(pipe + 680);
+    r.flat(pipe)
+        .slope(pipe + 80, 66)
+        .flat(pipe + 240)
+        .slope(pipe + 320, -66)
+        .flat(pipe + 680);
     // Four rolling crests.
     let crests = pipe + 680;
-    r.slope(crests + 220, -50).slope(crests + 440, 50).slope(crests + 660, -50).slope(crests + 880, 50).flat(crests + 1020);
+    r.slope(crests + 220, -50)
+        .slope(crests + 440, 50)
+        .slope(crests + 660, -50)
+        .slope(crests + 880, 50)
+        .flat(crests + 1020);
     let y_coil = r.y;
     // The corkscrew coil stands at coil_x and leaves 130 pixels on.
     let coil_x = crests + 1020;
@@ -94,16 +114,32 @@ fn build() -> Level {
     let y_fork = r.y;
     r.flat(fork_x);
     // The valley road under the fork.
-    r.slope(fork_x + 300, 70).flat(fork_x + 600).slope(fork_x + 1040, -70).flat(a3 - 700);
+    r.slope(fork_x + 300, 70)
+        .flat(fork_x + 600)
+        .slope(fork_x + 1040, -70)
+        .flat(a3 - 700);
 
     // ---- Act 3: the Reed Fen ------------------------------------------
-    r.flat(a3).slope(a3 + 240, 50).slope(a3 + 420, 90).flat(a3 + 1300).slope(a3 + 1580, -90).slope(a3 + 1720, -50).flat(a3 + 2300);
+    r.flat(a3)
+        .slope(a3 + 240, 50)
+        .slope(a3 + 420, 90)
+        .flat(a3 + 1300)
+        .slope(a3 + 1580, -90)
+        .slope(a3 + 1720, -50)
+        .flat(a3 + 2300);
     // Reed hills.
     let reeds = a3 + 2300;
-    r.slope(reeds + 220, -14).slope(reeds + 440, 14).slope(reeds + 660, -14).slope(reeds + 880, 14).flat(reeds + 1400);
+    r.slope(reeds + 220, -14)
+        .slope(reeds + 440, 14)
+        .slope(reeds + 660, -14)
+        .slope(reeds + 880, 14)
+        .flat(reeds + 1400);
     // The second, shorter marsh.
     let marsh = reeds + 1400;
-    r.slope(marsh + 160, 70).flat(marsh + 480).slope(marsh + 700, -70).flat(a4);
+    r.slope(marsh + 160, 70)
+        .flat(marsh + 480)
+        .slope(marsh + 700, -70)
+        .flat(a4);
 
     // ---- Act 4: the Bell Gate -----------------------------------------
     r.slope(a4 + 600, 60).flat(a4 + 1060);
@@ -125,7 +161,9 @@ fn build() -> Level {
     let rail_a = paths.len();
     {
         let mut b = Builder::new(Kind::Rail, fork_x, G + y_fork);
-        b.line(fork_x + 100, G + y_fork).ease(fork_x + 380, top).line(fork_x + 560, top);
+        b.line(fork_x + 100, G + y_fork)
+            .ease(fork_x + 380, top)
+            .line(fork_x + 560, top);
         paths.push(b.build());
     }
     // Planks with gaps between them, to jump.
@@ -150,10 +188,18 @@ fn build() -> Level {
     }
     // The fork's mouth: a rider at speed rides on to the rail.
     let s_fork = paths[main].s_at_x(fork_x);
-    paths[main].portals.push(Portal { s: s_fork, dir: 1, min_speed: 1200, to: Link { path: rail_a, s: 0 } });
+    paths[main].portals.push(Portal {
+        s: s_fork,
+        dir: 1,
+        min_speed: 1200,
+        to: Link { path: rail_a, s: 0 },
+    });
     // The rail's far end drops back onto the road.
     let s_rejoin = paths[main].s_at_x(fork_x + 1180);
-    paths[rail_c].next = Some(Link { path: main, s: s_rejoin });
+    paths[rail_c].next = Some(Link {
+        path: main,
+        s: s_rejoin,
+    });
 
     let terrain = Terrain::new(paths);
     let t = &terrain;
@@ -202,7 +248,9 @@ fn build() -> Level {
     // Act 3: the fen, the bridge of sparks, the reeds and the marsh.
     line(a3 + 60, a3 + 230, 30, 14, &road);
     line(a3 + 440, a3 + 1280, 56, 14, &road);
-    line(a3 + 1340, a3 + 1700, 28, 40, &|x| road(x) - (((x - (a3 + 1340)) * (a3 + 1700 - x)) / 560).min(90));
+    line(a3 + 1340, a3 + 1700, 28, 40, &|x| {
+        road(x) - (((x - (a3 + 1340)) * (a3 + 1700 - x)) / 560).min(90)
+    });
     line(a3 + 1760, a3 + 2260, 46, 14, &road);
     line(reeds + 20, reeds + 1380, 48, 14, &road);
     line(marsh + 20, marsh + 140, 30, 14, &road);
@@ -226,21 +274,59 @@ fn build() -> Level {
     sparks.dedup();
 
     let springs = vec![
-        Spring { x: 1855, y: road(1855), kind: SpringKind::Up },
-        Spring { x: 3480, y: road(3480), kind: SpringKind::Up },
-        Spring { x: pipe + 420, y: road(pipe + 420), kind: SpringKind::Diag },
-        Spring { x: a3 + 700, y: road(a3 + 700), kind: SpringKind::Up },
-        Spring { x: marsh + 330, y: road(marsh + 330), kind: SpringKind::Up },
+        Spring {
+            x: 1855,
+            y: road(1855),
+            kind: SpringKind::Up,
+        },
+        Spring {
+            x: 3480,
+            y: road(3480),
+            kind: SpringKind::Up,
+        },
+        Spring {
+            x: pipe + 420,
+            y: road(pipe + 420),
+            kind: SpringKind::Diag,
+        },
+        Spring {
+            x: a3 + 700,
+            y: road(a3 + 700),
+            kind: SpringKind::Up,
+        },
+        Spring {
+            x: marsh + 330,
+            y: road(marsh + 330),
+            kind: SpringKind::Up,
+        },
     ];
     let pads = vec![
-        Pad { x: 880, y: road(880) },
-        Pad { x: fork_x + 450, y: top },
-        Pad { x: fork_x + 700, y: top },
-        Pad { x: a4 + 460, y: road(a4 + 460) },
+        Pad {
+            x: 880,
+            y: road(880),
+        },
+        Pad {
+            x: fork_x + 450,
+            y: top,
+        },
+        Pad {
+            x: fork_x + 700,
+            y: top,
+        },
+        Pad {
+            x: a4 + 460,
+            y: road(a4 + 460),
+        },
     ];
     let post_at = |x: i32, hold: i32| {
         let s = t.paths[main].s_at_x(x);
-        Post { x, y: road(x), path: main, s, hold }
+        Post {
+            x,
+            y: road(x),
+            path: main,
+            s,
+            hold,
+        }
     };
     // The last lantern, before the warden, holds the Gloam furthest back.
     let posts = vec![
@@ -252,13 +338,41 @@ fn build() -> Level {
         post_at(a4 + 2800, LAST_HOLD),
     ];
     let crates = vec![
-        Crate { x: 1560, y: road(1560), kind: CrateKind::Shield },
-        Crate { x: 3700, y: loft_top, kind: CrateKind::Sparks },
-        Crate { x: crests + 140, y: road(crests + 140), kind: CrateKind::Shield },
-        Crate { x: fork_x + 500, y: top, kind: CrateKind::Spur },
-        Crate { x: a3 + 2200, y: road(a3 + 2200), kind: CrateKind::Shield },
-        Crate { x: a4 + 300, y: road(a4 + 300), kind: CrateKind::Spur },
-        Crate { x: a4 + 2400, y: road(a4 + 2400), kind: CrateKind::Shield },
+        Crate {
+            x: 1560,
+            y: road(1560),
+            kind: CrateKind::Shield,
+        },
+        Crate {
+            x: 3700,
+            y: loft_top,
+            kind: CrateKind::Sparks,
+        },
+        Crate {
+            x: crests + 140,
+            y: road(crests + 140),
+            kind: CrateKind::Shield,
+        },
+        Crate {
+            x: fork_x + 500,
+            y: top,
+            kind: CrateKind::Spur,
+        },
+        Crate {
+            x: a3 + 2200,
+            y: road(a3 + 2200),
+            kind: CrateKind::Shield,
+        },
+        Crate {
+            x: a4 + 300,
+            y: road(a4 + 300),
+            kind: CrateKind::Spur,
+        },
+        Crate {
+            x: a4 + 2400,
+            y: road(a4 + 2400),
+            kind: CrateKind::Shield,
+        },
     ];
 
     let spot = |kind, x: i32, range, min_seats, phase| FoeSpot {
@@ -301,9 +415,33 @@ fn build() -> Level {
         spot(Snuffer, a3 - 1000, 90, 2, 0),
         spot(Snuffer, a3 - 500, 80, 0, 0),
         // The rails carry a bramble or two.
-        FoeSpot { kind: Bramble, x: fork_x + 530, y: top, path: rail_a, range: 0, min_seats: 0, phase: 0 },
-        FoeSpot { kind: Bramble, x: fork_x + 780, y: top, path: rail_b, range: 0, min_seats: 3, phase: 0 },
-        FoeSpot { kind: Snuffer, x: fork_x + 1020, y: top, path: rail_c, range: 40, min_seats: 0, phase: 0 },
+        FoeSpot {
+            kind: Bramble,
+            x: fork_x + 530,
+            y: top,
+            path: rail_a,
+            range: 0,
+            min_seats: 0,
+            phase: 0,
+        },
+        FoeSpot {
+            kind: Bramble,
+            x: fork_x + 780,
+            y: top,
+            path: rail_b,
+            range: 0,
+            min_seats: 3,
+            phase: 0,
+        },
+        FoeSpot {
+            kind: Snuffer,
+            x: fork_x + 1020,
+            y: top,
+            path: rail_c,
+            range: 40,
+            min_seats: 0,
+            phase: 0,
+        },
         // Act 3: the fen's low road.
         spot(Bramble, a3 + 600, 0, 0, 0),
         spot(Snuffer, a3 + 740, 90, 0, 0),
@@ -368,18 +506,66 @@ fn build() -> Level {
     foes.sort_by_key(|f| (f.x, f.min_seats));
 
     let signs = vec![
-        Sign { x: 150, y: road(150), words: "A D RUN" },
-        Sign { x: 560, y: road(560), words: "E JUMP" },
-        Sign { x: 760, y: road(760), words: "S ROLL" },
-        Sign { x: 1700, y: road(1700), words: "SPACE SPUR" },
-        Sign { x: 3400, y: road(3400), words: "HAY LOFT" },
-        Sign { x: a2 + 200, y: road(a2 + 200), words: "SPEED HOLDS" },
-        Sign { x: pipe - 60, y: road(pipe - 60), words: "S E CHARGE" },
-        Sign { x: fork_x - 230, y: road(fork_x - 230), words: "FAST UP" },
-        Sign { x: fork_x - 60, y: road(fork_x - 60), words: "SLOW DOWN" },
-        Sign { x: a3 + 160, y: road(a3 + 160), words: "E E E CHAIN" },
-        Sign { x: fork_x + 440, y: top, words: "E HOP" },
-        Sign { x: a4 + 3100, y: road(a4 + 3100), words: "ROLL OR LEAP" },
+        Sign {
+            x: 150,
+            y: road(150),
+            words: "A D RUN",
+        },
+        Sign {
+            x: 560,
+            y: road(560),
+            words: "E JUMP",
+        },
+        Sign {
+            x: 760,
+            y: road(760),
+            words: "S ROLL",
+        },
+        Sign {
+            x: 1700,
+            y: road(1700),
+            words: "SPACE SPUR",
+        },
+        Sign {
+            x: 3400,
+            y: road(3400),
+            words: "HAY LOFT",
+        },
+        Sign {
+            x: a2 + 200,
+            y: road(a2 + 200),
+            words: "SPEED HOLDS",
+        },
+        Sign {
+            x: pipe - 60,
+            y: road(pipe - 60),
+            words: "S E CHARGE",
+        },
+        Sign {
+            x: fork_x - 230,
+            y: road(fork_x - 230),
+            words: "FAST UP",
+        },
+        Sign {
+            x: fork_x - 60,
+            y: road(fork_x - 60),
+            words: "SLOW DOWN",
+        },
+        Sign {
+            x: a3 + 160,
+            y: road(a3 + 160),
+            words: "E E E CHAIN",
+        },
+        Sign {
+            x: fork_x + 440,
+            y: top,
+            words: "E HOP",
+        },
+        Sign {
+            x: a4 + 3100,
+            y: road(a4 + 3100),
+            words: "ROLL OR LEAP",
+        },
     ];
 
     let start = (main, terrain.paths[main].s_at_x(96));
@@ -421,7 +607,10 @@ mod tests {
         assert!(l.foes.windows(2).all(|w| w[0].x <= w[1].x));
         assert!(l.foes.iter().filter(|f| f.kind == FoeKind::Warden).count() == 1);
         assert!(l.crates.len() <= 32 && l.posts.len() <= 16);
-        assert!(l.posts.windows(2).all(|w| w[0].x < w[1].x), "posts in road order");
+        assert!(
+            l.posts.windows(2).all(|w| w[0].x < w[1].x),
+            "posts in road order"
+        );
         assert!(l.bell.0 < END && l.signs.iter().all(|s| s.x > 0 && s.x < END));
     }
 }

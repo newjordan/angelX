@@ -3,12 +3,18 @@ use super::*;
 #[test]
 fn a_brew_brief_shows_both_spells_whole_and_every_name_taken() {
     let book = cards::Book::builtin();
-    let (storm, hedge) = (book.get("cabbage-storm").unwrap(), book.get("hedge-maze").unwrap());
+    let (storm, hedge) = (
+        book.get("cabbage-storm").unwrap(),
+        book.get("hedge-maze").unwrap(),
+    );
     let imposture = book.get("the-imposture").unwrap().clone();
     let taken = cauldron::taken(&book);
     let text = brew_brief(
         "Jordan",
-        [(storm, None), (hedge, Some("It was granted from the wish “Hedge Maze”"))],
+        [
+            (storm, None),
+            (hedge, Some("It was granted from the wish “Hedge Maze”")),
+        ],
         std::slice::from_ref(&imposture),
         &taken,
         "Kitchen Garden",
@@ -26,7 +32,13 @@ fn a_brew_brief_shows_both_spells_whole_and_every_name_taken() {
     assert!(text.contains(&imposture.name) && text.contains("Kitchen Garden"));
     // Every name taken: the book's spells, the pot's recipes.
     assert!(text.contains("Never reuse one of these names"));
-    for name in ["Cabbage Storm", "Hedge Maze", "Hot Cabbages", "Steam Burst", "Twin Moons"] {
+    for name in [
+        "Cabbage Storm",
+        "Hedge Maze",
+        "Hot Cabbages",
+        "Steam Burst",
+        "Twin Moons",
+    ] {
         assert!(text.contains(&format!("| {name} |")), "{name} is taken");
     }
     // A cabbage went in, so cabbages may come out.
@@ -40,7 +52,13 @@ fn a_brew_brief_shows_both_spells_whole_and_every_name_taken() {
     let ward = book
         .cards
         .iter()
-        .find(|c| c.kind == cards::Kind::Spell && !c.effects.iter().any(|e| matches!(e, cards::Effect::Cabbages(_))))
+        .find(|c| {
+            c.kind == cards::Kind::Spell
+                && !c
+                    .effects
+                    .iter()
+                    .any(|e| matches!(e, cards::Effect::Cabbages(_)))
+        })
         .unwrap();
     let text = brew_brief(
         "Jordan",
@@ -83,7 +101,18 @@ fn brewing(workspace: &std::path::Path) -> (App, cauldron::Brewing) {
 
 /// angelX's brewing turn ends, having written `card` (or nothing).
 fn turn_ends(app: &mut App, ask: &cauldron::Brewing, card: Option<&str>) {
-    let result_id = app.realm.dungeon.forge.kettles.iter().find(|k| k.claim.work.ask.knight == ask.knight).unwrap().claim.work.result_id.clone();
+    let result_id = app
+        .realm
+        .dungeon
+        .forge
+        .kettles
+        .iter()
+        .find(|k| k.claim.work.ask.knight == ask.knight)
+        .unwrap()
+        .claim
+        .work
+        .result_id
+        .clone();
     let path = app.brewed_dir().join(format!("{result_id}.card"));
     if let Some(card) = card {
         std::fs::write(&path, card).unwrap();
@@ -119,19 +148,47 @@ fn a_brewed_answer_takes_the_stand_ins_place_while_the_game_runs() {
     app.thinking = None;
     app.pending_turn = None;
     app.watch_brewing();
-    assert!(app.realm.dungeon.shooter.as_ref().unwrap().brewing.is_empty(), "the cockpit took the ask");
+    assert!(
+        app.realm
+            .dungeon
+            .shooter
+            .as_ref()
+            .unwrap()
+            .brewing
+            .is_empty(),
+        "the cockpit took the ask"
+    );
     assert_eq!(app.realm.dungeon.forge.kettles.len(), 1);
-    assert!(app.realm.dungeon.forge.kettles[0].started.is_some(), "angelX is brewing");
-    let result_id = app.realm.dungeon.forge.kettles[0].claim.work.result_id.clone();
+    assert!(
+        app.realm.dungeon.forge.kettles[0].started.is_some(),
+        "angelX is brewing"
+    );
+    let result_id = app.realm.dungeon.forge.kettles[0]
+        .claim
+        .work
+        .result_id
+        .clone();
     turn_ends(&mut app, &ask, Some(ORCHARD));
     // The first draft goes back for its review turn, a second look by the
     // model before the game installs it (`Kettle::reviewed`).
-    assert!(app.realm.dungeon.forge.kettles[0].reviewed && app.realm.dungeon.forge.kettles[0].answer.is_none());
+    assert!(
+        app.realm.dungeon.forge.kettles[0].reviewed
+            && app.realm.dungeon.forge.kettles[0].answer.is_none()
+    );
     turn_ends(&mut app, &ask, Some(ORCHARD));
     let run = app.realm.dungeon.shooter.as_ref().unwrap();
-    assert_eq!(run.players[&1].spells[0].as_deref(), Some(result_id.as_str()), "{}", app.realm.dungeon.notice);
+    assert_eq!(
+        run.players[&1].spells[0].as_deref(),
+        Some(result_id.as_str()),
+        "{}",
+        app.realm.dungeon.notice
+    );
     assert_eq!(run.book.get(&result_id).unwrap().name, "Frostbriar Orchard");
-    assert!(app.realm.dungeon.notice.contains("Frostbriar Orchard"), "{}", app.realm.dungeon.notice);
+    assert!(
+        app.realm.dungeon.notice.contains("Frostbriar Orchard"),
+        "{}",
+        app.realm.dungeon.notice
+    );
     assert!(app.realm.dungeon.forge.kettles.is_empty() && !app.realm.dungeon.forge.stirring);
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -145,23 +202,47 @@ fn a_rejected_brew_is_mended_once_and_then_leaves_the_stand_in() {
     app.pending_turn = None;
     app.watch_brewing();
     // Over the power budget: turned away, and sent back to be mended.
-    let binding = app.realm.dungeon.forge.kettles[0].claim.work.placeholder.id.clone();
-    let result_id = app.realm.dungeon.forge.kettles[0].claim.work.result_id.clone();
+    let binding = app.realm.dungeon.forge.kettles[0]
+        .claim
+        .work
+        .placeholder
+        .id
+        .clone();
+    let result_id = app.realm.dungeon.forge.kettles[0]
+        .claim
+        .work
+        .result_id
+        .clone();
     let greedy = ORCHARD.replace("cooldown 20", "cooldown 2");
     turn_ends(&mut app, &ask, Some(&greedy));
     // The first draft goes back for its review turn, a second look by the
     // model before the game installs it (`Kettle::reviewed`).
     turn_ends(&mut app, &ask, Some(&greedy));
-    assert!(app.realm.dungeon.notice.contains("mending"), "{}", app.realm.dungeon.notice);
+    assert!(
+        app.realm.dungeon.notice.contains("mending"),
+        "{}",
+        app.realm.dungeon.notice
+    );
     let kettle = &app.realm.dungeon.forge.kettles[0];
-    assert!(kettle.mending.as_ref().unwrap().iter().any(|e| e.contains("power")));
+    assert!(
+        kettle
+            .mending
+            .as_ref()
+            .unwrap()
+            .iter()
+            .any(|e| e.contains("power"))
+    );
     assert!(kettle.started.is_some(), "the mending turn has begun");
     // Still turned away: the stand-in stays.
     turn_ends(&mut app, &ask, Some(&greedy));
     let run = app.realm.dungeon.shooter.as_ref().unwrap();
     assert_eq!(run.players[&1].spells[0].as_deref(), Some(binding.as_str()));
     assert!(run.book.get(&result_id).is_none());
-    assert!(app.realm.dungeon.notice.contains("keeps Kitchen Garden"), "{}", app.realm.dungeon.notice);
+    assert!(
+        app.realm.dungeon.notice.contains("keeps Kitchen Garden"),
+        "{}",
+        app.realm.dungeon.notice
+    );
     assert!(app.realm.dungeon.forge.kettles.is_empty());
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -209,7 +290,8 @@ fn an_uncertain_brew_checkpoint_retries_the_same_answer_without_a_second_grant_o
     assert!(app.realm.dungeon.forge.kettles.is_empty());
     assert_eq!(app.realm.dungeon.shooter.as_ref().unwrap().sounds, before);
     assert_eq!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -220,12 +302,20 @@ fn an_uncertain_brew_checkpoint_retries_the_same_answer_without_a_second_grant_o
         "Frostbriar Orchard"
     );
     assert!(app.thinking.is_none() && app.pending_turn.is_none());
-    assert!(app.realm.dungeon.shooter.pending_brews().unwrap().is_empty());
+    assert!(
+        app.realm
+            .dungeon
+            .shooter
+            .pending_brews()
+            .unwrap()
+            .is_empty()
+    );
     let raw = std::fs::read_to_string(&answer_path).unwrap();
     let published = cards::check(&claim.work.result_id, &raw).unwrap().card;
     assert_eq!(
         Some(&published),
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()
@@ -246,7 +336,12 @@ fn a_full_receipt_queue_still_drains_existing_brews_before_admitting_new_work() 
     let first = app.realm.dungeon.forge.kettles[0].claim.clone();
     let mut filler = ask.clone();
     filler.knight = 2;
-    app.realm.dungeon.shooter.as_mut().unwrap().join_seat(2, "Guest");
+    app.realm
+        .dungeon
+        .shooter
+        .as_mut()
+        .unwrap()
+        .join_seat(2, "Guest");
     for _ in 0..63 {
         {
             let mut run = app.realm.dungeon.shooter.as_mut().unwrap();
@@ -270,7 +365,8 @@ fn a_full_receipt_queue_still_drains_existing_brews_before_admitting_new_work() 
     assert!(pending.iter().all(|claim| claim.request != first.request));
     assert_eq!(app.realm.dungeon.shooter.as_ref().unwrap().brewing.len(), 1);
     assert_eq!(
-        app.realm.dungeon
+        app.realm
+            .dungeon
             .shooter
             .as_ref()
             .unwrap()

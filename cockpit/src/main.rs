@@ -483,8 +483,10 @@ where
                     }
                     terminal.draw(|frame| {
                         let ui_broker = std::sync::Arc::clone(&app.ui_broker);
-                        let prepared =
-                            crate::ui::ui_inspect::prepare_next_capture(&mut app, ui_broker.as_ref());
+                        let prepared = crate::ui::ui_inspect::prepare_next_capture(
+                            &mut app,
+                            ui_broker.as_ref(),
+                        );
                         ui(frame, &mut app);
                         if let Some(prepared) = prepared {
                             crate::ui::ui_inspect::capture_after_draw(
@@ -1166,7 +1168,11 @@ fn main() -> std::io::Result<()> {
             if path == "-" {
                 print!("{text}");
             } else {
-                crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), text.as_bytes()).map_err(std::io::Error::other)?;
+                crate::platform::workspace_store::write_atomic(
+                    std::path::Path::new(&path),
+                    text.as_bytes(),
+                )
+                .map_err(std::io::Error::other)?;
             }
             return Ok(());
         }
@@ -1194,7 +1200,11 @@ fn main() -> std::io::Result<()> {
             if path == "-" {
                 print!("{text}");
             } else {
-                crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), text.as_bytes()).map_err(std::io::Error::other)?;
+                crate::platform::workspace_store::write_atomic(
+                    std::path::Path::new(&path),
+                    text.as_bytes(),
+                )
+                .map_err(std::io::Error::other)?;
             }
             return Ok(());
         }
@@ -1218,7 +1228,11 @@ fn main() -> std::io::Result<()> {
             if path == "-" {
                 print!("{text}");
             } else {
-                crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), text.as_bytes()).map_err(std::io::Error::other)?;
+                crate::platform::workspace_store::write_atomic(
+                    std::path::Path::new(&path),
+                    text.as_bytes(),
+                )
+                .map_err(std::io::Error::other)?;
             }
             return Ok(());
         }
@@ -1268,7 +1282,11 @@ fn main() -> std::io::Result<()> {
                 {
                     std::fs::create_dir_all(parent)?;
                 }
-                crate::platform::workspace_store::write_atomic(&path, format!("{json}\n").as_bytes()).map_err(std::io::Error::other)?;
+                crate::platform::workspace_store::write_atomic(
+                    &path,
+                    format!("{json}\n").as_bytes(),
+                )
+                .map_err(std::io::Error::other)?;
             }
             return Ok(());
         }
@@ -1925,7 +1943,8 @@ fn run_glass(
         // The window is up and drawn: the launcher waiting on it (bin/angelX)
         // leaves it be instead of running the cockpit in the terminal.
         if let Some(path) = std::env::var_os("ANGEL_GLASS_READY") {
-            let _ = crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), b"");
+            let _ =
+                crate::platform::workspace_store::write_atomic(std::path::Path::new(&path), b"");
         }
         cockpit_on_host(host, launch, workspace)
     })
@@ -1980,7 +1999,9 @@ fn cockpit_on_host(
 /// The phoenix step: `/self reborn` staged a freshly-built binary — replace
 /// this process with the new self, resuming the same session. Must happen
 /// after terminal teardown; the new process sets the terminal up again.
-pub(crate) fn phoenix(result: std::io::Result<Option<(std::path::PathBuf, String)>>) -> std::io::Result<()> {
+pub(crate) fn phoenix(
+    result: std::io::Result<Option<(std::path::PathBuf, String)>>,
+) -> std::io::Result<()> {
     match result {
         Ok(Some((exe, session_id))) => {
             eprintln!("PHOENIX: exec {} --resume {session_id}", exe.display());

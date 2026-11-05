@@ -551,15 +551,18 @@ fn legacy_v5_publication_remains_loadable_after_v6_expansion() {
     for (name, _) in &SOURCES[..V5_SOURCE_COUNT] {
         std::fs::copy(embedded.join(name), root.join(name)).unwrap();
     }
-    let mut manifest: serde_json::Value = serde_json::from_slice(
-        &std::fs::read(embedded.join("catalog-manifest.json")).unwrap(),
-    )
-    .unwrap();
+    let mut manifest: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(embedded.join("catalog-manifest.json")).unwrap())
+            .unwrap();
     manifest["schema"] = MANIFEST_V5_SCHEMA.into();
     manifest["chapters"]
         .as_object_mut()
         .unwrap()
-        .retain(|name, _| SOURCES[..V5_SOURCE_COUNT].iter().any(|(old, _)| name == old));
+        .retain(|name, _| {
+            SOURCES[..V5_SOURCE_COUNT]
+                .iter()
+                .any(|(old, _)| name == old)
+        });
     let path = root.join("catalog-manifest.json");
     let mut bytes = serde_json::to_vec(&manifest).unwrap();
     bytes.push(b'\n');
@@ -606,7 +609,10 @@ fn labyrinth_publication_preserves_pinned_generations() {
     assert_eq!(old.pages(route).unwrap()[0], original);
     assert_eq!(newer.pages(route).unwrap()[0], "Changed research guidance.");
     assert_eq!(
-        Catalog::from_bytes(&old.bytes()).unwrap().pages(route).unwrap()[0],
+        Catalog::from_bytes(&old.bytes())
+            .unwrap()
+            .pages(route)
+            .unwrap()[0],
         original
     );
 }

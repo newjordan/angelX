@@ -8,7 +8,6 @@
 use super::d46_recovery::Page;
 use super::{Primary, Route, Sub};
 
-
 const BOOK_PAGES_CATALOG: &str = include_str!("../../../../book/u_skills.book");
 pub(crate) const CELL: char = '⠥';
 pub(crate) const CATALOG: Route = Route::new(CELL, '⠁');

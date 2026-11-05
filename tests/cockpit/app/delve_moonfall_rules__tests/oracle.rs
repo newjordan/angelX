@@ -42,11 +42,17 @@ pub mod town {
     type FieldKey = ((i32, i32), u8, Option<(i32, i32)>, bool);
 
     /// The flood from `goal` (cached: a pure function of its arguments).
-    pub fn field(goal: (i32, i32), ground: Ground, crate_at: Option<(i32, i32)>) -> std::sync::Arc<Field> {
+    pub fn field(
+        goal: (i32, i32),
+        ground: Ground,
+        crate_at: Option<(i32, i32)>,
+    ) -> std::sync::Arc<Field> {
         static CACHE: OnceLock<Mutex<BTreeMap<FieldKey, std::sync::Arc<Field>>>> = OnceLock::new();
         let key = (
             goal,
-            u8::from(ground.bridge_up) | u8::from(ground.swift) << 1 | u8::from(ground.ditch_filled) << 2,
+            u8::from(ground.bridge_up)
+                | u8::from(ground.swift) << 1
+                | u8::from(ground.ditch_filled) << 2,
             crate_at,
             false,
         );
@@ -85,7 +91,10 @@ pub mod town {
                 },
                 &[]
             ));
-            assert!(!clear(at(20), at(17), Ground::default(), &[(20, 17)]), "a crate");
+            assert!(
+                !clear(at(20), at(17), Ground::default(), &[(20, 17)]),
+                "a crate"
+            );
         }
     }
 }
@@ -201,7 +210,11 @@ pub mod walk {
             dx = i32::from(k.roll_dir.0);
             dy = i32::from(k.roll_dir.1);
         } else if rolled && k.roll_rest == 0 && k.up() {
-            let dir = if (dx, dy) == (0, 0) { facing(k.face) } else { (dx, dy) };
+            let dir = if (dx, dy) == (0, 0) {
+                facing(k.face)
+            } else {
+                (dx, dy)
+            };
             k.roll = ROLL;
             k.roll_rest = ROLL_REST;
             k.roll_dir = (dir.0 as i8, dir.1 as i8);
@@ -219,7 +232,11 @@ pub mod walk {
         k.stride = (k.stride + 1).min(60_000);
         let speed = if rolling { pace * 22 / 10 } else { pace };
         // A diagonal is not faster: 181/256 of the pace on each axis.
-        let each = if dx != 0 && dy != 0 { speed * 181 / 256 } else { speed };
+        let each = if dx != 0 && dy != 0 {
+            speed * 181 / 256
+        } else {
+            speed
+        };
         let mut leaning = false;
         for (ax, ay) in [(dx, 0), (0, dy)] {
             if (ax, ay) == (0, 0) {
@@ -286,7 +303,15 @@ pub mod walk {
             Knight::at((tx, ty))
         }
 
-        fn go(k: &mut Knight, dx: i8, dy: i8, ticks: u32, mask: Mask, crates: &mut Vec<(i32, i32)>, ground: Ground) {
+        fn go(
+            k: &mut Knight,
+            dx: i8,
+            dy: i8,
+            ticks: u32,
+            mask: Mask,
+            crates: &mut Vec<(i32, i32)>,
+            ground: Ground,
+        ) {
             k.mask = mask;
             for _ in 0..ticks {
                 let input = Input {
@@ -302,14 +327,24 @@ pub mod walk {
         fn the_masks_set_the_stride() {
             let bare = speed(150, Mask::Bare);
             assert_eq!(bare, 576);
-            assert!(speed(150, Mask::Swift) > bare * 3 / 2 && speed(150, Mask::Stout) < bare * 3 / 4);
+            assert!(
+                speed(150, Mask::Swift) > bare * 3 / 2 && speed(150, Mask::Stout) < bare * 3 / 4
+            );
         }
 
         #[test]
         fn walls_and_water_stop_a_knight_and_open_ground_does_not() {
             let mut k = at(17, 15);
             let mut crates = vec![];
-            go(&mut k, 0, -1, 60, Mask::Bare, &mut crates, Ground::default());
+            go(
+                &mut k,
+                0,
+                -1,
+                60,
+                Mask::Bare,
+                &mut crates,
+                Ground::default(),
+            );
             // The Moonwell is in the way north of the plaza's middle.
             assert!(k.y > 14 * TILE * Q, "the well holds {}", k.y / Q);
             let mut k = at(15, 15);
@@ -498,7 +533,8 @@ pub mod ledger {
         let table = folk::timetable(day);
         let mut out = Vec::new();
         for &(who, id, only) in &APPOINTMENTS {
-            let known = mem.witnessed(who, id) || (who == Folk::Aster && mem.knows(Fact::AsterComing));
+            let known =
+                mem.witnessed(who, id) || (who == Folk::Aster && mem.knows(Fact::AsterComing));
             if !known {
                 continue;
             }
@@ -743,7 +779,11 @@ pub mod plan {
             );
         }
         // The seal at dawn, for a knight who wears both masks.
-        if m.knows(Fact::MiraSeal) && m.has_mask(SWIFT) && m.has_mask(STOUT) && !m.has_keep(SOUTH_SEAL) {
+        if m.knows(Fact::MiraSeal)
+            && m.has_mask(SWIFT)
+            && m.has_mask(STOUT)
+            && !m.has_keep(SOUTH_SEAL)
+        {
             for d in 0..3 {
                 add(
                     "seal from Mira",
@@ -756,7 +796,11 @@ pub mod plan {
             }
         }
         // The shoe on the iron cart day, for the rider.
-        if m.knows(Fact::AsterLame) && s.world.shod.is_none() && !m.has_keep(OIL) && !held_by_any(s, Item::Shoe) {
+        if m.knows(Fact::AsterLame)
+            && s.world.shod.is_none()
+            && !m.has_keep(OIL)
+            && !held_by_any(s, Item::Shoe)
+        {
             add(
                 "shoe from Nessa",
                 Hand::Free,
@@ -780,7 +824,11 @@ pub mod plan {
             }
         }
         // The favours that earn the masks and the pass.
-        if m.knows(Fact::OrinLost) && s.world.ink_given.is_none() && !s.world.has(INK_TAKEN) && !m.has_keep(NORTH_KEY) {
+        if m.knows(Fact::OrinLost)
+            && s.world.ink_given.is_none()
+            && !s.world.has(INK_TAKEN)
+            && !m.has_keep(NORTH_KEY)
+        {
             add(
                 "ink pot",
                 Hand::Free,
@@ -859,7 +907,14 @@ pub mod plan {
         if clock::night(now, day) && (now + 2 * hour < fin || now >= fin) {
             for (n, &(tx, ty)) in town::LAMPS.iter().enumerate() {
                 if s.lantern_scheduled(n as u8) && s.world.snuffed & (1 << n) != 0 {
-                    add("relight", Hand::Free, Aim::Tile((tx, ty + 1)), Act::Tap, 0, end);
+                    add(
+                        "relight",
+                        Hand::Free,
+                        Aim::Tile((tx, ty + 1)),
+                        Act::Tap,
+                        0,
+                        end,
+                    );
                 }
             }
         }
@@ -984,7 +1039,12 @@ pub mod plan {
 
     /// The step toward a tile, one tile at a time, centred in each so the
     /// feet never catch a corner.
-    fn walk_to(s: &Session, k: &Knight, goal: (i32, i32), crate_at: Option<(i32, i32)>) -> (i8, i8) {
+    fn walk_to(
+        s: &Session,
+        k: &Knight,
+        goal: (i32, i32),
+        crate_at: Option<(i32, i32)>,
+    ) -> (i8, i8) {
         let swift = k.mask == Mask::Swift;
         let ground = s.world.ground(s.clock, s.nums.day, swift);
         let field = town::field(goal, ground, crate_at);
@@ -1172,7 +1232,13 @@ pub mod plan {
         go(s, k, goal, None, 8)
     }
 
-    fn go(s: &Session, k: &Knight, goal: (i32, i32), crate_at: Option<(i32, i32)>, reach: i32) -> Input {
+    fn go(
+        s: &Session,
+        k: &Knight,
+        goal: (i32, i32),
+        crate_at: Option<(i32, i32)>,
+        reach: i32,
+    ) -> Input {
         let (px, py) = k.px();
         let target = (goal.0 * TILE + TILE / 2, goal.1 * TILE + TILE / 2);
         if (px - target.0).abs() + (py - target.1).abs() <= reach {
@@ -1277,7 +1343,11 @@ pub mod plan {
 /// The native rules of Moonfall, as they ran in Rust: every method the module now answers.
 pub trait Old {
     fn sit(&mut self, id: u32, joined: u32);
-    fn old_step(&mut self, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>) -> Vec<&'static str>;
+    fn old_step(
+        &mut self,
+        inputs: &BTreeMap<u32, Input>,
+        heroes: &BTreeMap<u32, Hero>,
+    ) -> Vec<&'static str>;
     fn age(&mut self);
     fn play(&mut self, inputs: &BTreeMap<u32, Input>, cues: &mut Vec<&'static str>);
     fn act(&mut self, id: u32, input: Input, cues: &mut Vec<&'static str>);
@@ -1339,7 +1409,11 @@ impl Old for Session {
     /// One tick: the seats are whoever is here and awake, so a knight who
     /// leaves stands up and one who joins late sits down at the well.
     /// Returns the sounds to make.
-    fn old_step(&mut self, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>) -> Vec<&'static str> {
+    fn old_step(
+        &mut self,
+        inputs: &BTreeMap<u32, Input>,
+        heroes: &BTreeMap<u32, Hero>,
+    ) -> Vec<&'static str> {
         let mut cues = Vec::new();
         self.elapsed = (self.elapsed + 1).min(LIMIT);
         let gone: Vec<u32> = self
@@ -1410,7 +1484,11 @@ impl Old for Session {
     fn play(&mut self, inputs: &BTreeMap<u32, Input>, cues: &mut Vec<&'static str>) {
         let ids: Vec<u32> = self.seats.keys().copied().collect();
         for id in ids {
-            let input = inputs.get(&id).copied().filter(|i| i.valid()).unwrap_or_default();
+            let input = inputs
+                .get(&id)
+                .copied()
+                .filter(|i| i.valid())
+                .unwrap_or_default();
             self.act(id, input, cues);
         }
         self.bell_tick(cues);
@@ -1433,7 +1511,9 @@ impl Old for Session {
         let nums = self.nums;
         let clock = self.clock;
         let before = {
-            let Some(s) = self.seats.get_mut(&id) else { return };
+            let Some(s) = self.seats.get_mut(&id) else {
+                return;
+            };
             let before = s.knight.keys;
             s.knight.keys = keys;
             s.knight.hurt = s.knight.hurt.saturating_sub(1);
@@ -1806,7 +1886,10 @@ impl Old for Session {
         let day = self.nums.day;
         let table = folk::timetable(day);
         for (who, routine) in [(Folk::Pella, 2u8), (Folk::Pella, 4), (Folk::Mira, 10)] {
-            for leg in table.legs[who.index()].iter().filter(|l| l.routine == routine) {
+            for leg in table.legs[who.index()]
+                .iter()
+                .filter(|l| l.routine == routine)
+            {
                 if leg.arrive != self.clock || leg.arrive == 0 {
                     continue;
                 }
@@ -2032,12 +2115,20 @@ impl Old for Session {
             self.world.set(flag);
             self.note(
                 who,
-                Note::Sign(if north { Sign::NorthOpened } else { Sign::SouthOpened }),
+                Note::Sign(if north {
+                    Sign::NorthOpened
+                } else {
+                    Sign::SouthOpened
+                }),
             );
         } else {
             self.note(
                 who,
-                Note::Sign(if north { Sign::NorthLocked } else { Sign::SouthLocked }),
+                Note::Sign(if north {
+                    Sign::NorthLocked
+                } else {
+                    Sign::SouthLocked
+                }),
             );
         }
     }
@@ -2374,9 +2465,9 @@ impl Old for Session {
                     let (dx, dy) = (target.0 * Q - w.x, target.1 * Q - w.y);
                     let len = isqrt(dx, dy);
                     if len <= 5 * Q {
-                        let guarded = knights
-                            .iter()
-                            .any(|&(x, y)| (x - target.0).pow(2) + (y - target.1).pow(2) <= WARD * WARD);
+                        let guarded = knights.iter().any(|&(x, y)| {
+                            (x - target.0).pow(2) + (y - target.1).pow(2) <= WARD * WARD
+                        });
                         w.mode = if guarded {
                             WispMode::Shy(90)
                         } else {
@@ -2415,7 +2506,11 @@ impl Old for Session {
                     let len = isqrt(dx, dy).max(1);
                     w.x += (i64::from(dx) * i64::from(drift * 3 / 2) / i64::from(len)) as i32;
                     w.y += (i64::from(dy) * i64::from(drift * 3 / 2) / i64::from(len)) as i32;
-                    w.mode = if t <= 1 { WispMode::Hunt } else { WispMode::Shy(t - 1) };
+                    w.mode = if t <= 1 {
+                        WispMode::Hunt
+                    } else {
+                        WispMode::Shy(t - 1)
+                    };
                 }
             }
         }
@@ -2453,7 +2548,9 @@ impl Old for Session {
                 .map(|w| (w.x / Q, w.y / Q))
                 .min_by_key(|p| (p.0 - me.0).pow(2) + (p.1 - me.1).pow(2))
                 .unwrap_or(me);
-            let Some(s) = self.seats.get_mut(&id) else { continue };
+            let Some(s) = self.seats.get_mut(&id) else {
+                continue;
+            };
             let k = &mut s.knight;
             k.candles = k.candles.saturating_sub(1);
             k.hurt = WARDED;
@@ -2495,7 +2592,11 @@ pub struct Ticked {
 
 /// `Run::tick_moonfall` as it was, less the writes into the Run: the native step, the
 /// first deliverance, and the knights who walk out after the moon has turned back.
-pub fn tick(s: &mut Session, inputs: &BTreeMap<u32, Input>, heroes: &BTreeMap<u32, Hero>) -> Ticked {
+pub fn tick(
+    s: &mut Session,
+    inputs: &BTreeMap<u32, Input>,
+    heroes: &BTreeMap<u32, Hero>,
+) -> Ticked {
     let was_free = s.completed.is_some();
     let cues = s.old_step(inputs, heroes);
     let won = if let (Some(_), false) = (s.completed, was_free) {

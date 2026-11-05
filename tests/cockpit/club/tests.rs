@@ -642,7 +642,11 @@ fn meta_clubs_seat_muse_wonder_beside_the_configured_seat() {
     assert!(is_sota_label("muse-wonder-1.0"));
 
     let _pinned = ScopedEnv::set("ANGEL_META_MODEL", "muse-wonder-1.0");
-    assert_eq!(optional_meta_http_clubs().len(), 1, "pinned seat is not duplicated");
+    assert_eq!(
+        optional_meta_http_clubs().len(),
+        1,
+        "pinned seat is not duplicated"
+    );
 
     let _chat = ScopedEnv::set("ANGEL_META_API", "chat");
     let _unpin = ScopedEnv::unset("ANGEL_META_MODEL");
@@ -3633,7 +3637,10 @@ fn kimi_code_plan_catalog_serves_its_own_k3_1_ids() {
         vec![
             ("kimi".to_string(), "k3".to_string()),
             ("k3.1-pro".to_string(), "k3.1-pro".to_string()),
-            ("k3.1-pro-highspeed".to_string(), "k3.1-pro-highspeed".to_string()),
+            (
+                "k3.1-pro-highspeed".to_string(),
+                "k3.1-pro-highspeed".to_string()
+            ),
         ]
     );
     // A K3.1 pin on the plan's own seat canonicalizes instead of 400ing.
@@ -3714,7 +3721,11 @@ fn sota_moa_judge_defaults_to_codex_oauth_before_longcat() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let judge = pick_sota_role(&links, "ANGEL_SOTA_MOA_JUDGE_CLUB", &baseline_preferences().standard);
+    let judge = pick_sota_role(
+        &links,
+        "ANGEL_SOTA_MOA_JUDGE_CLUB",
+        &baseline_preferences().standard,
+    );
     assert_eq!(judge.label(), "openai");
 }
 
@@ -3766,7 +3777,11 @@ fn sota_moa_verify_defaults_to_codex_oauth_before_longcat() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let verify = pick_sota_role(&links, "ANGEL_SOTA_MOA_VERIFY_CLUB", &baseline_preferences().standard);
+    let verify = pick_sota_role(
+        &links,
+        "ANGEL_SOTA_MOA_VERIFY_CLUB",
+        &baseline_preferences().standard,
+    );
     assert_eq!(verify.label(), "openai");
 }
 
@@ -3957,7 +3972,11 @@ fn sota_moa_aggregate_defaults_to_smartest_link_codex_oauth() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let agg = pick_sota_role(&links, "ANGEL_SOTA_MOA_AGG_CLUB", &baseline_preferences().standard);
+    let agg = pick_sota_role(
+        &links,
+        "ANGEL_SOTA_MOA_AGG_CLUB",
+        &baseline_preferences().standard,
+    );
     assert_eq!(agg.label(), "openai");
 }
 
@@ -3984,7 +4003,11 @@ fn sota_moa_aggregate_degrades_to_next_smartest_without_codex() {
             Arc::new(AtomicBool::new(true)),
         ),
     ];
-    let agg = pick_sota_role(&links, "ANGEL_SOTA_MOA_AGG_CLUB", &baseline_preferences().standard);
+    let agg = pick_sota_role(
+        &links,
+        "ANGEL_SOTA_MOA_AGG_CLUB",
+        &baseline_preferences().standard,
+    );
     assert_eq!(agg.label(), "kimi-k3");
 }
 
@@ -8672,23 +8695,47 @@ fn reordered_cheap_generation_cannot_expand_the_native_pool() {
     let dir = std::env::temp_dir().join(format!(
         "angel-moa-cheap-{}-{}",
         std::process::id(),
-        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
     ));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join("preferences.json");
-    let mut config: serde_json::Value = serde_json::from_str(include_str!("../../../lib/club/moa-preferences.json")).unwrap();
+    let mut config: serde_json::Value =
+        serde_json::from_str(include_str!("../../../lib/club/moa-preferences.json")).unwrap();
     config["cheap_fallback"].as_array_mut().unwrap().reverse();
     std::fs::write(&path, serde_json::to_vec(&config).unwrap()).unwrap();
     let generation = test_preferences(&path);
     let links: Vec<(String, Arc<dyn Club>, Arc<AtomicBool>)> = [
-        ("codex-run", "openai"), ("kimi", "kimi-k3"),
-        ("openrouter", "tencent/hy3:free"), ("longcat", "longcat"),
-    ].into_iter().map(|(name, model)| (
-        name.to_string(), Arc::new(LabelClub(model)) as Arc<dyn Club>, Arc::new(AtomicBool::new(true))
-    )).collect();
+        ("codex-run", "openai"),
+        ("kimi", "kimi-k3"),
+        ("openrouter", "tencent/hy3:free"),
+        ("longcat", "longcat"),
+    ]
+    .into_iter()
+    .map(|(name, model)| {
+        (
+            name.to_string(),
+            Arc::new(LabelClub(model)) as Arc<dyn Club>,
+            Arc::new(AtomicBool::new(true)),
+        )
+    })
+    .collect();
     let cheap = ordered_cheap_links_for_test(&links, &generation);
-    assert_eq!(cheap.iter().map(|(name, _, _)| name.as_str()).collect::<Vec<_>>(), vec!["longcat", "openrouter"]);
-    for preferences in [&generation.cheap_propose, &generation.cheap_judge, &generation.cheap_verify, &generation.cheap_aggregate] {
+    assert_eq!(
+        cheap
+            .iter()
+            .map(|(name, _, _)| name.as_str())
+            .collect::<Vec<_>>(),
+        vec!["longcat", "openrouter"]
+    );
+    for preferences in [
+        &generation.cheap_propose,
+        &generation.cheap_judge,
+        &generation.cheap_verify,
+        &generation.cheap_aggregate,
+    ] {
         let selected = pick_sota_role(&cheap, "ANGEL_SOTA_MOA_TEST_UNSET", preferences);
         assert!(matches!(selected.label(), "longcat" | "tencent/hy3:free"));
     }

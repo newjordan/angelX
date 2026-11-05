@@ -1,13 +1,13 @@
 //! What a bot presses: it reads the road ahead the way a player does (a
 //! bramble to clear, a snuffer to roll through, a loop to take at speed, a
 //! line of foes to chain, a gate to break) and presses the same keys.
+use super::host::{Hero, Input};
 use super::level::level;
 use super::math::Q;
 use super::rider::{Keys, Numbers, Rider};
 use super::session::Session;
 use super::terrain::Kind;
 use super::world::*;
-use super::host::{Hero, Input};
 
 /// Which way through the fork a bot rides.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -21,7 +21,11 @@ pub enum Route {
 impl Route {
     /// The shell's bots: odd seats ride high, even seats low.
     pub fn of_seat(id: u32) -> Route {
-        if id % 2 == 1 { Route::Upper } else { Route::Lower }
+        if id % 2 == 1 {
+            Route::Upper
+        } else {
+            Route::Lower
+        }
     }
 }
 
@@ -40,10 +44,25 @@ pub struct Skill {
 }
 
 impl Skill {
-    pub const ACE: Skill = Skill { spur: true, roll: true, lag: 0, hesitate: 0 };
-    pub const FIRST_RIDE: Skill = Skill { spur: false, roll: false, lag: 30, hesitate: 240 };
+    pub const ACE: Skill = Skill {
+        spur: true,
+        roll: true,
+        lag: 0,
+        hesitate: 0,
+    };
+    pub const FIRST_RIDE: Skill = Skill {
+        spur: false,
+        roll: false,
+        lag: 30,
+        hesitate: 240,
+    };
     /// A careful rider: a quarter of the ride spent easing off.
-    pub const SLOW: Skill = Skill { spur: false, roll: false, lag: 40, hesitate: 60 };
+    pub const SLOW: Skill = Skill {
+        spur: false,
+        roll: false,
+        lag: 40,
+        hesitate: 60,
+    };
 }
 
 impl Session {
@@ -59,7 +78,9 @@ impl Session {
 
     /// The same, riding as `skill` says.
     pub fn drive_as(&self, id: u32, route: Route, n: &Numbers, skill: Skill) -> Input {
-        let Some(seat) = self.seats.get(&id) else { return Input::default() };
+        let Some(seat) = self.seats.get(&id) else {
+            return Input::default();
+        };
         let r = &seat.rider;
         if self.tally.is_some() || r.down > 0 || r.finish.is_some() {
             return Input::default();
@@ -84,12 +105,19 @@ impl Session {
         let t = &lvl.terrain;
         let (x, y) = (r.x / Q, r.y / Q);
         let speed = (r.speed() / Q).max(2);
-        let mut k = Keys { x: 1, ..Keys::default() };
+        let mut k = Keys {
+            x: 1,
+            ..Keys::default()
+        };
         let airborne = !r.grounded();
-        let on_rail = r.ground.is_some_and(|g| t.paths[g.path as usize].kind == Kind::Rail);
-        let fork = lvl.terrain.paths[lvl.main].portals.iter().find(|p| p.min_speed > 0).map(|p| {
-            t.paths[lvl.main].sample(p.s).x / Q
-        });
+        let on_rail = r
+            .ground
+            .is_some_and(|g| t.paths[g.path as usize].kind == Kind::Rail);
+        let fork = lvl.terrain.paths[lvl.main]
+            .portals
+            .iter()
+            .find(|p| p.min_speed > 0)
+            .map(|p| t.paths[lvl.main].sample(p.s).x / Q);
 
         // Hold the leap while rising.
         if r.jumping && r.vy < 0 {
@@ -98,7 +126,15 @@ impl Session {
 
         // Stuck at the foot of a wall: crouch and rev a charge, then go.
         let stuck = r.grounded() && r.gsp.abs() < 160 && !r.roll;
-        if r.crouch || (stuck && self.elapsed > 90 && self.elapsed % 3 == 0 && r.charge == 0 && r.coyote > 0 && x > 40 && stalled(r)) {
+        if r.crouch
+            || (stuck
+                && self.elapsed > 90
+                && self.elapsed % 3 == 0
+                && r.charge == 0
+                && r.coyote > 0
+                && x > 40
+                && stalled(r))
+        {
             k.down = r.charge < 1100;
             k.jump = r.charge < 1100 && !r.jump_key && self.elapsed % 2 == 0;
             k.x = r.dir;
@@ -132,7 +168,9 @@ impl Session {
                         k.jump = k.jump || (r.jumping && r.vy < 0);
                     }
                 }
-                FoeKind::Snuffer if same_level && (24..=110).contains(&dx) && r.speed() > 300 => roll_at = skill.roll,
+                FoeKind::Snuffer if same_level && (24..=110).contains(&dx) && r.speed() > 300 => {
+                    roll_at = skill.roll
+                }
                 FoeKind::Floater if dx > 0 && dx < reach => chain = true,
                 FoeKind::Warden => warden = Some(dx),
                 _ => {}
@@ -172,9 +210,8 @@ impl Session {
         }
         if chain && r.grounded() && warden.is_none() {
             // Off the bank into the line of floaters.
-            let near = Level::near(&lvl.foes, x + 70, 70, |f| f.x).any(|i| {
-                lvl.foes[i].kind == FoeKind::Floater && self.foes[i].hp > 0
-            });
+            let near = Level::near(&lvl.foes, x + 70, 70, |f| f.x)
+                .any(|i| lvl.foes[i].kind == FoeKind::Floater && self.foes[i].hp > 0);
             if near && r.speed() > 600 {
                 k.jump = true;
             }

@@ -102,7 +102,6 @@ fn classify_with(host: &ReloadHost<Generation>, problem: &str, mode: i32) -> boo
         .expect("built-in MoA router failed")
 }
 
-
 /// The shipped Bend leg: one evaluation per problem answers every question here.
 const LEG: &str = "swarm-route";
 
@@ -249,11 +248,17 @@ pub(crate) fn route_decisions(problem: &str) -> Route {
 
 pub(crate) fn route_with_source(problem: &str) -> (Route, live_policy::LegSource) {
     if std::env::var_os("ANGEL_MOA_ROUTING_MODULE").is_some_and(|path| !path.is_empty()) {
-        return (Route {
-            tight: classify(problem, 0), moa: classify(problem, 1),
-            synthesis: classify(problem, 2), deliberation: classify(problem, 3),
-            research: classify(problem, 4), hard: classify(problem, 5),
-        }, live_policy::LegSource::Native);
+        return (
+            Route {
+                tight: classify(problem, 0),
+                moa: classify(problem, 1),
+                synthesis: classify(problem, 2),
+                deliberation: classify(problem, 3),
+                research: classify(problem, 4),
+                hard: classify(problem, 5),
+            },
+            live_policy::LegSource::Native,
+        );
     }
     live_policy::decide_shipped(LEG, &Features::of(problem).json(), Route::check)
 }
@@ -378,15 +383,7 @@ pub(crate) const LIVE_PHRASES: &[&str] = &[
     "twitter",
 ];
 pub(crate) const LIVE_WORDS: &[&str] = &[
-    "latest",
-    "recent",
-    "trending",
-    "viral",
-    "breaking",
-    "news",
-    "online",
-    "internet",
-    "live",
+    "latest", "recent", "trending", "viral", "breaking", "news", "online", "internet", "live",
 ];
 
 /// Whether the request needs live outside-world context. This is intentionally

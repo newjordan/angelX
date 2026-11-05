@@ -222,7 +222,10 @@ fn without_a_live_module_the_shipped_leg_decides() {
     let club = Seat::new(LADDERS[0], Some("medium"));
     let (effort, source) = turn(&tools, &club, "fix it");
     assert_eq!(effort, None);
-    assert!(matches!(source, Some(LegSource::Shipped { .. })), "{source:?}");
+    assert!(
+        matches!(source, Some(LegSource::Shipped { .. })),
+        "{source:?}"
+    );
 }
 
 #[test]
@@ -512,7 +515,10 @@ fn a_red_or_a_silent_repeat_wakes_a_thinking_off_seat_for_one_hop() {
     }
     // A thinking-off seat with no `high` keeps native.
     let narrow = Seat::new(&["none", "low"], Some("none"));
-    assert_eq!(decide(&tools, &narrow, &task, &hop_with(true, true), None).0, None);
+    assert_eq!(
+        decide(&tools, &narrow, &task, &hop_with(true, true), None).0,
+        None
+    );
     // A seat with no ladder is never consulted.
     let bare = Seat::new(&[], Some("none"));
     assert_eq!(
@@ -533,7 +539,10 @@ fn the_shipped_leg_wakes_a_thinking_off_seat_after_a_red() {
         None,
     );
     assert_eq!(effort.as_deref(), Some("high"));
-    assert!(matches!(source, Some(LegSource::Shipped { .. })), "{source:?}");
+    assert!(
+        matches!(source, Some(LegSource::Shipped { .. })),
+        "{source:?}"
+    );
 }
 
 #[test]
@@ -562,7 +571,12 @@ impl Script {
     }
 
     fn efforts(&self) -> Vec<Option<String>> {
-        self.asked.lock().unwrap().iter().map(|(e, _)| e.clone()).collect()
+        self.asked
+            .lock()
+            .unwrap()
+            .iter()
+            .map(|(e, _)| e.clone())
+            .collect()
     }
 }
 
@@ -694,9 +708,17 @@ fn a_silent_repeat_in_a_real_turn_gets_one_note_and_one_thinking_hop() {
 #[test]
 fn a_red_test_in_a_real_turn_lifts_thinking_for_the_next_request_only() {
     let _guard = crate::tests::env_lock();
-    let club = Script::new(vec![step("probe", 0), step("run_tests", 1), step("probe", 2)]);
+    let club = Script::new(vec![
+        step("probe", 0),
+        step("run_tests", 1),
+        step("probe", 2),
+    ]);
     scripted_turn(&club);
     let efforts = club.efforts();
-    assert_eq!(efforts[..4], [None, None, Some("high".into()), None], "{efforts:?}");
+    assert_eq!(
+        efforts[..4],
+        [None, None, Some("high".into()), None],
+        "{efforts:?}"
+    );
     assert_eq!(efforts.iter().flatten().count(), 1, "{efforts:?}");
 }

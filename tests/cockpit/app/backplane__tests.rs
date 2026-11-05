@@ -27,10 +27,7 @@ fn ids_are_stable_but_surface_specific_and_revision_sensitive() {
 
 #[test]
 fn same_surface_driver_and_effort_keep_model_descriptors_and_attribution_distinct() {
-    let bag = Bag::for_render_test(&[(
-        "alpha",
-        &[("model-a", true), ("model-b", true)],
-    )]);
+    let bag = Bag::for_render_test(&[("alpha", &[("model-a", true), ("model-b", true)])]);
     let registry = BackplaneRegistry::from_bag(&bag);
     let model_a_id = RouteId::chat("alpha", "practice", "model-a", None);
     let model_b_id = RouteId::chat("alpha", "practice", "model-b", None);
@@ -475,20 +472,24 @@ fn broker_append_references_visible_bodies_and_reselects_latest_manifest() {
         assert_eq!(history.len(), len);
         let candidates = KnowledgeBroker::existing_candidates(&history, "p");
         assert_eq!(candidates.len(), 3, "omitted older sources must not return");
-        assert!(candidates
-            .iter()
-            .any(|item| item.source_id == stable.source_id
-                && item.digest == stable.digest
-                && item.content == stable.content
-                && item.kind == stable.kind
-                && item.authority == stable.authority));
-        assert!(candidates
-            .iter()
-            .any(|item| item.source_id == another.source_id
-                && item.digest == another.digest
-                && item.content == another.content
-                && item.kind == another.kind
-                && item.authority == another.authority));
+        assert!(
+            candidates
+                .iter()
+                .any(|item| item.source_id == stable.source_id
+                    && item.digest == stable.digest
+                    && item.content == stable.content
+                    && item.kind == stable.kind
+                    && item.authority == stable.authority)
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|item| item.source_id == another.source_id
+                    && item.digest == another.digest
+                    && item.content == another.content
+                    && item.kind == another.kind
+                    && item.authority == another.authority)
+        );
         let reselected = select(candidates);
         assert_eq!(
             &reselected, selection,

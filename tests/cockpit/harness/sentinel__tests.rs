@@ -16,7 +16,10 @@ fn obs(secs: u64, mutated: bool, green: bool, missing: Option<usize>) -> Observa
 #[test]
 fn no_budget_is_always_quiet() {
     let mut s = Sentinel::new(None, SentinelMode::Intervene);
-    assert_eq!(s.observe(obs(10_000, false, false, Some(3))), Verdict::Quiet);
+    assert_eq!(
+        s.observe(obs(10_000, false, false, Some(3))),
+        Verdict::Quiet
+    );
     let mut zero = Sentinel::new(Some(Duration::ZERO), SentinelMode::Intervene);
     assert_eq!(zero.observe(obs(10, false, false, None)), Verdict::Quiet);
 }
@@ -33,7 +36,9 @@ fn early_hops_are_quiet_and_drift_fires_once() {
     assert_eq!(s.observe(obs(10, false, false, None)), Verdict::Quiet);
     assert!(matches!(
         s.observe(obs(50, false, false, None)),
-        Verdict::Drift { budget_spent_bp: 5_000 }
+        Verdict::Drift {
+            budget_spent_bp: 5_000
+        }
     ));
     // Latched: a later hop says nothing more.
     assert_eq!(s.observe(obs(60, false, false, None)), Verdict::Quiet);
@@ -58,7 +63,10 @@ fn jumping_straight_past_deliver_fires_deliver_not_drift() {
     let mut s = Sentinel::new(budget(), SentinelMode::Observe);
     assert!(matches!(
         s.observe(obs(90, false, false, None)),
-        Verdict::Deliver { budget_spent_bp: 9_000, artifacts_missing: None }
+        Verdict::Deliver {
+            budget_spent_bp: 9_000,
+            artifacts_missing: None
+        }
     ));
     assert_eq!(s.observe(obs(95, false, false, None)), Verdict::Quiet);
 }
@@ -68,7 +76,10 @@ fn deliver_after_edits_needs_named_artifacts_missing() {
     // Edits landed and every named artifact exists: stay quiet.
     let mut landed = Sentinel::new(budget(), SentinelMode::Observe);
     landed.observe(obs(30, true, false, Some(0)));
-    assert_eq!(landed.observe(obs(95, false, false, Some(0))), Verdict::Quiet);
+    assert_eq!(
+        landed.observe(obs(95, false, false, Some(0))),
+        Verdict::Quiet
+    );
     // Edits landed, artifacts un-named: nothing factual to demand.
     let mut unnamed = Sentinel::new(budget(), SentinelMode::Observe);
     unnamed.observe(obs(30, true, false, None));
@@ -78,7 +89,10 @@ fn deliver_after_edits_needs_named_artifacts_missing() {
     missing.observe(obs(30, true, false, Some(1)));
     assert!(matches!(
         missing.observe(obs(90, false, false, Some(1))),
-        Verdict::Deliver { artifacts_missing: Some(1), .. }
+        Verdict::Deliver {
+            artifacts_missing: Some(1),
+            ..
+        }
     ));
 }
 
@@ -124,7 +138,15 @@ fn gate_blocks_only_when_armed_actionable_and_budgeted() {
     // Armed + missing artifact + budget left: block, twice at most.
     assert!(gate_should_block(true, 1, 0, false, false, 0, true));
     assert!(gate_should_block(true, 1, 0, false, false, 1, true));
-    assert!(!gate_should_block(true, 1, 0, false, false, GATE_MAX_BLOCKS, true));
+    assert!(!gate_should_block(
+        true,
+        1,
+        0,
+        false,
+        false,
+        GATE_MAX_BLOCKS,
+        true
+    ));
     // Failed liveness, exact-dir violation, or an Angel-owned server each
     // block alone; all-clear never does.
     assert!(gate_should_block(true, 0, 0, true, false, 0, true));
@@ -171,10 +193,19 @@ fn missing_artifact_paths_names_what_is_absent() {
 
 #[test]
 fn verdicts_describe_themselves_for_the_notice_stream() {
-    assert!(Verdict::Drift { budget_spent_bp: 5_500 }.describe().contains("55%"));
     assert!(
-        Verdict::Deliver { budget_spent_bp: 9_000, artifacts_missing: Some(2) }
-            .describe()
-            .contains("2 named artifact")
+        Verdict::Drift {
+            budget_spent_bp: 5_500
+        }
+        .describe()
+        .contains("55%")
+    );
+    assert!(
+        Verdict::Deliver {
+            budget_spent_bp: 9_000,
+            artifacts_missing: Some(2)
+        }
+        .describe()
+        .contains("2 named artifact")
     );
 }

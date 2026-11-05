@@ -1474,7 +1474,8 @@ impl App {
         }
         // The carousel starts EMPTY — it's the angel's delivery surface: cards
         // appear only when the agent calls the `present` tool (see harness.rs).
-        app.scryglass.sync_arrival(app.realm.world.arrived_building());
+        app.scryglass
+            .sync_arrival(app.realm.world.arrived_building());
         app
     }
 
@@ -1702,8 +1703,12 @@ impl App {
     /// instead of waiting on the 200 ms idle lane. Scryglass transitions also
     /// satisfy this predicate, but `needs_fast_tick` wins in the event loop.
     pub(crate) fn needs_responsive_tick(&self) -> bool {
-        self.bg_job.is_some() || self.world_animating() || self.setup.wants_tick()
-            || (self.terminal_focused && self.object_dock.visible && self.object_dock.open
+        self.bg_job.is_some()
+            || self.world_animating()
+            || self.setup.wants_tick()
+            || (self.terminal_focused
+                && self.object_dock.visible
+                && self.object_dock.open
                 && self.visual_motion == crate::ui::viz::lifecycle_viz::MotionMode::Full)
     }
 

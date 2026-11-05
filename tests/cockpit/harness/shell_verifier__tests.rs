@@ -187,11 +187,23 @@ fn routed_receipt_survives_typed_reads_then_is_consumed_attribution() {
     };
     let text = registry.dispatch(&call.name, &call.args).unwrap();
 
-    assert!(registry.take_routed_execution(&call, "different output").is_none());
-    assert!(registry.routed_execution(&call, &text).is_some(), "typed verification read must not consume receipt");
-    let attributed = registry.take_routed_execution(&call, &text).expect("final attribution consumes receipt");
+    assert!(
+        registry
+            .take_routed_execution(&call, "different output")
+            .is_none()
+    );
+    assert!(
+        registry.routed_execution(&call, &text).is_some(),
+        "typed verification read must not consume receipt"
+    );
+    let attributed = registry
+        .take_routed_execution(&call, &text)
+        .expect("final attribution consumes receipt");
     assert_eq!(attributed.receipt.routed_call.unwrap().name, "run_tests");
-    assert!(registry.routed_execution(&call, &text).is_none(), "completed call must release retained output");
+    assert!(
+        registry.routed_execution(&call, &text).is_none(),
+        "completed call must release retained output"
+    );
     assert!(registry.take_routed_execution(&call, &text).is_none());
 }
 

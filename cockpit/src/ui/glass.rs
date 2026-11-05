@@ -105,7 +105,8 @@ struct Groups {
 }
 
 #[cfg(feature = "glass")]
-static GROUPS: std::sync::LazyLock<std::sync::Mutex<Groups>> = std::sync::LazyLock::new(Default::default);
+static GROUPS: std::sync::LazyLock<std::sync::Mutex<Groups>> =
+    std::sync::LazyLock::new(Default::default);
 
 /// Show `layers` as `group` this frame (an empty list clears it).
 #[cfg(feature = "glass")]
@@ -125,10 +126,17 @@ pub(crate) fn show_group(host: &angel_glass::Host, group: u32, layers: Vec<angel
 
 /// GPU geometry for the mini-viz dock. frame_done removes this group on any
 /// frame where its route/pane is no longer rendered.
-pub(crate) fn object_dock(dock: &crate::ui::object_dock::ObjectDock, motion: crate::ui::viz::lifecycle_viz::MotionMode) {
+pub(crate) fn object_dock(
+    dock: &crate::ui::object_dock::ObjectDock,
+    motion: crate::ui::viz::lifecycle_viz::MotionMode,
+) {
     #[cfg(feature = "glass")]
     if let Some(host) = HOST.get() {
-        show_group(host, 0x444F_434B, crate::ui::object_dock::layers(dock, motion));
+        show_group(
+            host,
+            0x444F_434B,
+            crate::ui::object_dock::layers(dock, motion),
+        );
     }
     let _ = (dock, motion);
 }
@@ -145,7 +153,9 @@ pub(crate) fn spend_coins(coins: &[crate::ui::viz::spend_viz::CoinPose]) -> bool
         const SIDE: u32 = 96;
         let mut layers = Vec::with_capacity(coins.len());
         for (index, coin) in coins.iter().enumerate() {
-            let frame = ((coin.face_scale - 0.08) / 0.92 * 15.0).round().clamp(0.0, 15.0) as u32;
+            let frame = ((coin.face_scale - 0.08) / 0.92 * 15.0)
+                .round()
+                .clamp(0.0, 15.0) as u32;
             let id = BASE + frame;
             if UPLOADED.lock().unwrap().insert(id) {
                 let scale = 0.08 + frame as f32 / 15.0 * 0.92;
@@ -161,13 +171,26 @@ pub(crate) fn spend_coins(coins: &[crate::ui::viz::spend_viz::CoinPose]) -> bool
                     }
                 }
                 host.upload_picture(angel_glass::graphics::Picture {
-                    id, width: SIDE, height: SIDE, rgba, cols: 0, rows: 0,
+                    id,
+                    width: SIDE,
+                    height: SIDE,
+                    rgba,
+                    cols: 0,
+                    rows: 0,
                 });
             }
             let area = coin.area;
-            let mut layer = Layer::new(u64::from(GROUP) + index as u64, 8,
-                Placement::Cells([area.x as f32, area.y as f32, area.width as f32, area.height as f32]),
-                LayerKind::Picture(id));
+            let mut layer = Layer::new(
+                u64::from(GROUP) + index as u64,
+                8,
+                Placement::Cells([
+                    area.x as f32,
+                    area.y as f32,
+                    area.width as f32,
+                    area.height as f32,
+                ]),
+                LayerKind::Picture(id),
+            );
             layer.stand = Stand::Screen;
             layers.push(layer);
         }
@@ -186,7 +209,10 @@ const PORTRAIT_GROUP: u32 = 0x504F_5254;
 /// pixels at the window's own density in `area`, breathing, a warm glow
 /// behind and its shadow on the ground. False outside the window, where the
 /// caller paints its cells.
-pub(crate) fn portrait(sprite: &crate::stage::world_viz::overworld::Img, area: ratatui::layout::Rect) -> bool {
+pub(crate) fn portrait(
+    sprite: &crate::stage::world_viz::overworld::Img,
+    area: ratatui::layout::Rect,
+) -> bool {
     #[cfg(feature = "glass")]
     if let Some(host) = HOST.get() {
         use angel_glass::{Layer, LayerKind, Placement};
@@ -226,7 +252,12 @@ pub(crate) fn portrait(sprite: &crate::stage::world_viz::overworld::Img, area: r
             LayerKind::Glow([0.95, 0.72, 0.38, 0.16]),
         );
         glow.breathe = 0.0;
-        let mut knight = Layer::new(1, 2, Placement::Cells([x, y, aw, ah]), LayerKind::Picture(id));
+        let mut knight = Layer::new(
+            1,
+            2,
+            Placement::Cells([x, y, aw, ah]),
+            LayerKind::Picture(id),
+        );
         knight.breathe = PORTRAIT_BREATH_PX;
         show_group(host, PORTRAIT_GROUP, vec![glow, knight]);
         return true;
@@ -286,9 +317,14 @@ fn lifted_layers(
     placed: ratatui::layout::Rect,
     cell_height: u16,
     tilt: Option<angel_glass::Tilt>,
-    mut sprite: impl FnMut(crate::stage::world_viz::overworld::arena::LiftedKind, u8) -> (u32, (u32, u32)),
+    mut sprite: impl FnMut(
+        crate::stage::world_viz::overworld::arena::LiftedKind,
+        u8,
+    ) -> (u32, (u32, u32)),
 ) -> Vec<angel_glass::Layer> {
-    use crate::stage::world_viz::overworld::arena::{BAND_H, HUD_H, LiftedKind, NATIVE_H, NATIVE_W};
+    use crate::stage::world_viz::overworld::arena::{
+        BAND_H, HUD_H, LiftedKind, NATIVE_H, NATIVE_W,
+    };
     use angel_glass::{Layer, LayerKind, Placement};
     let (fw, fh) = (frame.0.max(1) as f32, frame.1.max(1) as f32);
     // The picture is a seat's whole screen: the party's band over the room,
@@ -330,7 +366,9 @@ fn lifted_layers(
 #[cfg(all(test, feature = "glass"))]
 mod tests {
     use super::*;
-    use crate::stage::world_viz::overworld::arena::{BAND_H, HUD_H, Lifted, LiftedKind, NATIVE_H, NATIVE_W};
+    use crate::stage::world_viz::overworld::arena::{
+        BAND_H, HUD_H, Lifted, LiftedKind, NATIVE_H, NATIVE_W,
+    };
 
     /// A seat's whole screen, native pixels tall.
     const TALL: f32 = (NATIVE_H + BAND_H + HUD_H) as f32;
@@ -347,7 +385,9 @@ mod tests {
             k: 0.5,
             variant: 0,
         };
-        let layers = lifted_layers(&[bomb], (768, 2 * TALL as u32), placed, 25, None, |_, _| (7, (4, 4)));
+        let layers = lifted_layers(&[bomb], (768, 2 * TALL as u32), placed, 25, None, |_, _| {
+            (7, (4, 4))
+        });
         assert_eq!(layers.len(), 1);
         let layer = &layers[0];
         let angel_glass::Placement::Cells([x, y, w, h]) = layer.placement else {
@@ -417,8 +457,9 @@ fn lifted_picture(
 
 /// The size of each thrown thing's uploaded sprite, by picture id.
 #[cfg(feature = "glass")]
-static SPRITE_SIZES: std::sync::LazyLock<std::sync::Mutex<std::collections::HashMap<u32, (u32, u32)>>> =
-    std::sync::LazyLock::new(Default::default);
+static SPRITE_SIZES: std::sync::LazyLock<
+    std::sync::Mutex<std::collections::HashMap<u32, (u32, u32)>>,
+> = std::sync::LazyLock::new(Default::default);
 
 /// The Delve's stage: its cells name it, so its id fits the placeholder's
 /// 24 bits, and is a multiple of four, which the viewer's own pictures
@@ -542,7 +583,11 @@ impl ArtPack {
                 .append(true)
                 .open(dir.join("looks.jsonl"))
             {
-                let _ = writeln!(index, "{{\"look\":\"{:016x}\",\"w\":{w},\"h\":{h}}}", body.key);
+                let _ = writeln!(
+                    index,
+                    "{{\"look\":\"{:016x}\",\"w\":{w},\"h\":{h}}}",
+                    body.key
+                );
             }
         }
     }
@@ -593,12 +638,20 @@ fn painting_bytes(sha: &str, source: &PaintSource) -> Option<Vec<u8>> {
     if let Some(bytes) = source.dir.as_ref().and_then(|dir| read(dir.join(&name))) {
         return Some(bytes);
     }
-    let cache = std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".angelX/cache/paint"));
+    let cache =
+        std::env::var_os("HOME").map(|h| std::path::PathBuf::from(h).join(".angelX/cache/paint"));
     if let Some(bytes) = cache.as_ref().and_then(|dir| read(dir.join(&name))) {
         return Some(bytes);
     }
     let (url, trust) = source.host.as_ref()?;
-    let bytes = angel_serve::client::http_get(url, &format!("/paint/{name}"), trust, std::time::Duration::from_secs(30), limit).ok()?;
+    let bytes = angel_serve::client::http_get(
+        url,
+        &format!("/paint/{name}"),
+        trust,
+        std::time::Duration::from_secs(30),
+        limit,
+    )
+    .ok()?;
     if sha256_hex(&bytes) != sha {
         return None;
     }
@@ -613,23 +666,40 @@ fn painting_bytes(sha: &str, source: &PaintSource) -> Option<Vec<u8>> {
 /// again after a while).
 #[cfg(feature = "glass")]
 enum Painted {
-    Loading { slot: u32, shown: Option<(u32, usize)> },
-    Ready { slot: u32, side: u32, frames: usize, whole: bool },
-    Missing { slot: u32, until: std::time::Instant },
+    Loading {
+        slot: u32,
+        shown: Option<(u32, usize)>,
+    },
+    Ready {
+        slot: u32,
+        side: u32,
+        frames: usize,
+        whole: bool,
+    },
+    Missing {
+        slot: u32,
+        until: std::time::Instant,
+    },
 }
 
 /// A painting read and cut off the frame: its hash, the side asked for,
 /// and the frames cut (their side), if it could be, with each frame's
 /// normal map when cards are lit by them (`card_normals`).
 #[cfg(feature = "glass")]
-type PaintCut = (String, u32, Option<(u32, Vec<Vec<u8>>)>, Option<Vec<Vec<u8>>>);
+type PaintCut = (
+    String,
+    u32,
+    Option<(u32, Vec<Vec<u8>>)>,
+    Option<Vec<Vec<u8>>>,
+);
 
 /// Whether the window's lit cards turn by their normal maps
 /// (docs/WORLD-TIERS.md, "Normal maps"): a painting's and an HD drawing's
 /// are made, or read, only then.
 #[cfg(feature = "glass")]
 fn card_normals() -> bool {
-    angel_delve::world3d::rooms_lit_look::lit_cards_on() && angel_delve::world3d::rooms_lit_look::card_normals_on()
+    angel_delve::world3d::rooms_lit_look::lit_cards_on()
+        && angel_delve::world3d::rooms_lit_look::card_normals_on()
 }
 
 /// The window's paintings: each one's frames, flipped and not, sent up
@@ -658,15 +728,31 @@ static PAINTINGS: std::sync::LazyLock<std::sync::Mutex<Paintings>> =
 impl Paintings {
     /// The window picture of `p`'s frame, flipped or not, shown `scale`
     /// window pixels to a room pixel; `None` until it is read and sent up.
-    fn picture(&mut self, host: &angel_glass::Host, p: &crate::stage::world_viz::overworld::arena::Painting, scale: f32) -> Option<u32> {
+    fn picture(
+        &mut self,
+        host: &angel_glass::Host,
+        p: &crate::stage::world_viz::overworld::arena::Painting,
+        scale: f32,
+    ) -> Option<u32> {
         use crate::stage::world_viz::overworld::arena::paintings;
         self.sent(host);
-        let key = if p.subject { format!("{}:subject",p.sha) } else { p.sha.clone() };
+        let key = if p.subject {
+            format!("{}:subject", p.sha)
+        } else {
+            p.sha.clone()
+        };
         let subject = p.subject;
         let side = paintings::side_for(p.rect[2].max(p.rect[3]) * scale);
-        let picture = |slot: u32, frames: usize| (p.frame < frames).then(|| paintings::picture(slot, p.frame, p.flip));
+        let picture = |slot: u32, frames: usize| {
+            (p.frame < frames).then(|| paintings::picture(slot, p.frame, p.flip))
+        };
         let (slot, shown) = match self.known.get(&key) {
-            Some(&Painted::Ready { slot, side: had, frames, whole }) => {
+            Some(&Painted::Ready {
+                slot,
+                side: had,
+                frames,
+                whole,
+            }) => {
                 // Shown bigger than it was cut for: cut again, drawn as it
                 // was meanwhile.
                 if whole || side <= had + had / 2 {
@@ -674,8 +760,12 @@ impl Paintings {
                 }
                 (slot, Some((had, frames)))
             }
-            Some(&Painted::Loading { slot, shown }) => return shown.and_then(|(_, frames)| picture(slot, frames)),
-            Some(&Painted::Missing { slot, until }) if std::time::Instant::now() >= until => (slot, None),
+            Some(&Painted::Loading { slot, shown }) => {
+                return shown.and_then(|(_, frames)| picture(slot, frames));
+            }
+            Some(&Painted::Missing { slot, until }) if std::time::Instant::now() >= until => {
+                (slot, None)
+            }
             Some(Painted::Missing { .. }) => return None,
             None if (self.next as usize) < paintings::MAX_PAINTINGS as usize => {
                 self.next += 1;
@@ -683,43 +773,84 @@ impl Paintings {
             }
             None => return None,
         };
-        if self.known.values().filter(|k| matches!(k, Painted::Loading { .. })).count() >= PAINT_LOADS {
+        if self
+            .known
+            .values()
+            .filter(|k| matches!(k, Painted::Loading { .. }))
+            .count()
+            >= PAINT_LOADS
+        {
             return shown.and_then(|(_, frames)| picture(slot, frames));
         }
-        self.known.insert(key.clone(), Painted::Loading { slot, shown });
-        let (sha, frames, pixel, done) = (p.sha.clone(), p.frames, p.pixel, std::sync::Arc::clone(&self.done));
+        self.known
+            .insert(key.clone(), Painted::Loading { slot, shown });
+        let (sha, frames, pixel, done) = (
+            p.sha.clone(),
+            p.frames,
+            p.pixel,
+            std::sync::Arc::clone(&self.done),
+        );
         let source = PAINT_SOURCE.lock().unwrap().clone();
         // Its normal map's hash, when cards turn by them; the art pixels
         // its square spans, for one made from it.
         let normal = card_normals().then(|| p.normal.clone());
         let art = p.rect[2].max(p.rect[3]).max(1.0);
         let cache_key = key.clone();
-        let started = std::thread::Builder::new().name("painting".into()).spawn(move || {
-            let mut normals = None;
-            let cut = painting_bytes(&sha, &source).and_then(|bytes| {
-                let image = image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).ok()?.to_rgba8();
-                let (w, h) = image.dimensions();
-                (w <= 2048 && h <= 2048).then_some(())?;
-                // Pixel art in hard blocks, anything else averaged down.
-                let (side, cut) = if subject { paintings::cut_subject(image.as_raw(), (w,h), frames, side)? } else { paintings::cut_as(pixel, image.as_raw(), (w, h), frames, side)? };
-                if let Some(normal) = &normal {
-                    // Its own map where it names one that reads and cuts;
-                    // else one made from it.
-                    let authored = normal
-                        .as_ref().filter(|_| !subject)
-                        .and_then(|n| painting_bytes(n, &source))
-                        .and_then(|bytes| image::load_from_memory_with_format(&bytes, image::ImageFormat::Png).ok())
-                        .map(|n| n.to_rgba8())
-                        .filter(|n| n.dimensions() == (w, h))
-                        .and_then(|n| paintings::cut_normals(image.as_raw(), n.as_raw(), (w, h), frames, side));
-                    normals = Some(authored.unwrap_or_else(|| paintings::made_normals(&cut, side, art)));
-                }
-                Some((side, cut))
+        let started = std::thread::Builder::new()
+            .name("painting".into())
+            .spawn(move || {
+                let mut normals = None;
+                let cut = painting_bytes(&sha, &source).and_then(|bytes| {
+                    let image =
+                        image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
+                            .ok()?
+                            .to_rgba8();
+                    let (w, h) = image.dimensions();
+                    (w <= 2048 && h <= 2048).then_some(())?;
+                    // Pixel art in hard blocks, anything else averaged down.
+                    let (side, cut) = if subject {
+                        paintings::cut_subject(image.as_raw(), (w, h), frames, side)?
+                    } else {
+                        paintings::cut_as(pixel, image.as_raw(), (w, h), frames, side)?
+                    };
+                    if let Some(normal) = &normal {
+                        // Its own map where it names one that reads and cuts;
+                        // else one made from it.
+                        let authored = normal
+                            .as_ref()
+                            .filter(|_| !subject)
+                            .and_then(|n| painting_bytes(n, &source))
+                            .and_then(|bytes| {
+                                image::load_from_memory_with_format(&bytes, image::ImageFormat::Png)
+                                    .ok()
+                            })
+                            .map(|n| n.to_rgba8())
+                            .filter(|n| n.dimensions() == (w, h))
+                            .and_then(|n| {
+                                paintings::cut_normals(
+                                    image.as_raw(),
+                                    n.as_raw(),
+                                    (w, h),
+                                    frames,
+                                    side,
+                                )
+                            });
+                        normals = Some(
+                            authored.unwrap_or_else(|| paintings::made_normals(&cut, side, art)),
+                        );
+                    }
+                    Some((side, cut))
+                });
+                done.lock().unwrap().push((cache_key, side, cut, normals));
             });
-            done.lock().unwrap().push((cache_key, side, cut, normals));
-        });
         if started.is_err() {
-            self.known.insert(key.clone(), Painted::Missing { slot, until: std::time::Instant::now() + PAINT_RETRY });
+            self.known.insert(
+                key.clone(),
+                Painted::Missing {
+                    slot,
+                    until: std::time::Instant::now() + PAINT_RETRY,
+                },
+            );
         }
         shown.and_then(|(_, frames)| picture(slot, frames))
     }
@@ -740,29 +871,52 @@ impl Paintings {
                                 id: paintings::picture(slot, f, flip),
                                 width: side,
                                 height: side,
-                                rgba: if flip { paintings::flipped(rgba, side) } else { rgba.clone() },
+                                rgba: if flip {
+                                    paintings::flipped(rgba, side)
+                                } else {
+                                    rgba.clone()
+                                },
                                 cols: 0,
                                 rows: 0,
                             });
                             // Its normal map beside it, mirrored with it.
                             if let Some(map) = normals.as_ref().and_then(|n| n.get(f)) {
                                 host.upload_picture(angel_glass::graphics::Picture {
-                                    id: angel_stage::normals::picture_of(paintings::picture(slot, f, flip)),
+                                    id: angel_stage::normals::picture_of(paintings::picture(
+                                        slot, f, flip,
+                                    )),
                                     width: side,
                                     height: side,
-                                    rgba: if flip { angel_stage::normals::mirrored(map, (side, side)) } else { map.clone() },
+                                    rgba: if flip {
+                                        angel_stage::normals::mirrored(map, (side, side))
+                                    } else {
+                                        map.clone()
+                                    },
                                     cols: 0,
                                     rows: 0,
                                 });
                             }
                         }
                     }
-                    Painted::Ready { slot, side, frames: frames.len(), whole: side < asked }
+                    Painted::Ready {
+                        slot,
+                        side,
+                        frames: frames.len(),
+                        whole: side < asked,
+                    }
                 }
                 // Drawn as it was, if it was.
                 None => match shown {
-                    Some((side, frames)) => Painted::Ready { slot, side, frames, whole: true },
-                    None => Painted::Missing { slot, until: std::time::Instant::now() + PAINT_RETRY },
+                    Some((side, frames)) => Painted::Ready {
+                        slot,
+                        side,
+                        frames,
+                        whole: true,
+                    },
+                    None => Painted::Missing {
+                        slot,
+                        until: std::time::Instant::now() + PAINT_RETRY,
+                    },
                 },
             };
             self.known.insert(sha, state);
@@ -895,7 +1049,9 @@ pub(crate) fn game_keyboard(active: bool) -> bool {
 
 pub(crate) fn game_surface(active: bool) {
     #[cfg(feature = "glass")]
-    if let Some(host) = HOST.get() { host.set_game_surface(active); }
+    if let Some(host) = HOST.get() {
+        host.set_game_surface(active);
+    }
     let _ = active;
 }
 

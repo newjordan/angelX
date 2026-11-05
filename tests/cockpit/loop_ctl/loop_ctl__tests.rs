@@ -459,13 +459,21 @@ fn podrace_submission_clock_steers_a_measured_but_unsubmitted_run() {
     for i in 1..=4 {
         app.loop_harvest(format!("DIRECTION: sit {i}"));
     }
-    assert!(app.loop_submission_overdue(), "unsent winner is overdue again");
-    assert_eq!(app.loop_ctl.status, LoopStatus::Running, "podrace never stops");
-    assert!(app
-        .loop_ctl
-        .last_setback
-        .as_deref()
-        .is_some_and(|s| s.starts_with(crate::agent::harness::book::d45_iteration::SUBMIT_DUE)));
+    assert!(
+        app.loop_submission_overdue(),
+        "unsent winner is overdue again"
+    );
+    assert_eq!(
+        app.loop_ctl.status,
+        LoopStatus::Running,
+        "podrace never stops"
+    );
+    assert!(
+        app.loop_ctl
+            .last_setback
+            .as_deref()
+            .is_some_and(|s| s.starts_with(crate::agent::harness::book::d45_iteration::SUBMIT_DUE))
+    );
 
     // Knob 0: never fires.
     let mut app = crate::seed_preview_app();
@@ -2213,17 +2221,18 @@ fn each_harvest_records_the_direction_its_verdict_observes() {
 #[test]
 fn stop_and_pause_report_checkpoint_publication_failures() {
     let _lock = crate::tests::env_lock();
-    let root = std::env::temp_dir().join(format!("angel-loop-checkpoint-failure-{}", std::process::id()));
+    let root = std::env::temp_dir().join(format!(
+        "angel-loop-checkpoint-failure-{}",
+        std::process::id()
+    ));
     let workspace = root.join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
 
     let stop_parent = root.join("blocked-stop-parent");
     std::fs::write(&stop_parent, "not a directory").unwrap();
     let stop_file = stop_parent.join("loop.json");
-    let _stop_path = crate::tests::TestEnvGuard::set(
-        "ANGEL_LOOP_FILE",
-        stop_file.to_str().unwrap(),
-    );
+    let _stop_path =
+        crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", stop_file.to_str().unwrap());
     let mut stop_app = crate::seed_preview_app();
     stop_app.loop_ctl = LoopState {
         status: LoopStatus::Running,
@@ -2239,10 +2248,8 @@ fn stop_and_pause_report_checkpoint_publication_failures() {
     let pause_parent = root.join("blocked-pause-parent");
     std::fs::write(&pause_parent, "not a directory").unwrap();
     let pause_file = pause_parent.join("loop.json");
-    let _pause_path = crate::tests::TestEnvGuard::set(
-        "ANGEL_LOOP_FILE",
-        pause_file.to_str().unwrap(),
-    );
+    let _pause_path =
+        crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", pause_file.to_str().unwrap());
     let mut pause_app = crate::seed_preview_app();
     pause_app.loop_ctl = LoopState {
         status: LoopStatus::Running,
@@ -2251,7 +2258,10 @@ fn stop_and_pause_report_checkpoint_publication_failures() {
         ..Default::default()
     };
     let pause_message = pause_app.loop_command(Some("pause".into()));
-    assert!(pause_message.contains("checkpoint failed"), "{pause_message}");
+    assert!(
+        pause_message.contains("checkpoint failed"),
+        "{pause_message}"
+    );
     assert_eq!(pause_app.loop_ctl.status, LoopStatus::Paused);
     let _ = std::fs::remove_dir_all(root);
 }
@@ -2278,7 +2288,10 @@ fn truncated_loop_checkpoint_is_an_error_not_absent() {
         !error.contains("does not belong"),
         "a parse failure must not be reported as a project mismatch: {error}"
     );
-    assert!(!path.exists(), "the corrupt file must not keep wedging the checkpoint path");
+    assert!(
+        !path.exists(),
+        "the corrupt file must not keep wedging the checkpoint path"
+    );
     assert_eq!(std::fs::read(&aside).unwrap(), truncated);
     let startup = format!("saved loop checkpoint unreadable: {error}");
     assert!(startup.contains(&aside.display().to_string()), "{startup}");
@@ -2352,10 +2365,7 @@ fn non_utf8_loop_checkpoint_is_an_error_not_absent() {
 #[test]
 fn missing_loop_checkpoint_stays_absent() {
     let _lock = crate::tests::env_lock();
-    let path = std::env::temp_dir().join(format!(
-        "angel-loop-missing-{}.json",
-        std::process::id()
-    ));
+    let path = std::env::temp_dir().join(format!("angel-loop-missing-{}.json", std::process::id()));
     let _ = std::fs::remove_file(&path);
     let _file = crate::tests::TestEnvGuard::set("ANGEL_LOOP_FILE", path.to_str().unwrap());
     assert!(

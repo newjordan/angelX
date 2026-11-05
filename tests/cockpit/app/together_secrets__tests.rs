@@ -1,7 +1,7 @@
 //! The Delve's secrets, settled into the cockpit's realm.
 
-use crate::drive::together_shooter::*;
 use crate::drive::together_shooter::secrets::testing::*;
+use crate::drive::together_shooter::*;
 use std::collections::BTreeMap;
 
 #[test]

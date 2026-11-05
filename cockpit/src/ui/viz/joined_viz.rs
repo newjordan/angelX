@@ -128,7 +128,9 @@ pub(crate) fn render(
         cards_screen(frame, joined, &state, room, page, selected);
     } else if !native {
         // Cells, unless the terminal's own picture is placed over them.
-        joined.with_latest(|run| super::shooter_viz::paint_picture_ui(frame, room, run, picture, Some(me)));
+        joined.with_latest(|run| {
+            super::shooter_viz::paint_picture_ui(frame, room, run, picture, Some(me))
+        });
     }
 
     let side = Rect::new(room.right() + 1, room.y, SIDEBAR, room.height);
@@ -290,7 +292,14 @@ fn cards_screen(
         .and_then(|k| k["spell_ids"].as_array())
         .map(|a| a.iter().map(|v| v.as_str().map(str::to_owned)).collect())
         .unwrap_or_default();
-    let tiers = joined.run().and_then(|run| run.players.get(&joined.actor()).map(|h| h.spell_tiers.clone())).unwrap_or_default();
+    let tiers = joined
+        .run()
+        .and_then(|run| {
+            run.players
+                .get(&joined.actor())
+                .map(|h| h.spell_tiers.clone())
+        })
+        .unwrap_or_default();
     let mine = super::shooter_viz::Mine {
         hand: &hand,
         spells: &spells,

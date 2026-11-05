@@ -1,16 +1,22 @@
 //! The realm host's build script's working-build choices.
 #[path = "../../crates/realm-host/build_fast.rs"]
 mod build_fast;
-#[path = "../../cockpit/build_fast.rs"]
-mod cockpit_build_fast;
 #[path = "../../cockpit/native/build_parallel.rs"]
 mod build_parallel;
+#[path = "../../cockpit/build_fast.rs"]
+mod cockpit_build_fast;
 
 #[test]
 fn build_script_selects_the_nested_profile() {
-    for src in [include_str!("../../cockpit/web-bundle/build.rs"), include_str!("../../crates/realm-host/build.rs")] {
+    for src in [
+        include_str!("../../cockpit/web-bundle/build.rs"),
+        include_str!("../../crates/realm-host/build.rs"),
+    ] {
         assert!(src.contains("nested_web_profile"));
-        assert!(!src.contains("--profile\", \"web\""), "the nested browser build must not hard-code profile web");
+        assert!(
+            !src.contains("--profile\", \"web\""),
+            "the nested browser build must not hard-code profile web"
+        );
     }
 }
 

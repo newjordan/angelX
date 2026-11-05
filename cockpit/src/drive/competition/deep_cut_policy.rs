@@ -111,7 +111,6 @@ impl DeepCutCall {
             answer.selected_direction_id
         ))
     }
-
 }
 
 fn outcome_tag(outcome: PatternOutcomeV1) -> &'static str {
@@ -239,10 +238,9 @@ pub(crate) fn allocate_direction_via_leg(
     now_ms: u64,
 ) -> Result<(DirectionDecisionV1, LegSource), String> {
     let call = prepare(memory, directions, fallback_direction_id)?;
-    let (answer, source) = live_policy::decide_shipped(
-        "deep-cut",
-        &call.input,
-        |answer: &DirectionLegOutV1| call.check(answer),
-    );
+    let (answer, source) =
+        live_policy::decide_shipped("deep-cut", &call.input, |answer: &DirectionLegOutV1| {
+            call.check(answer)
+        });
     Ok((decided(answer, now_ms), source))
 }

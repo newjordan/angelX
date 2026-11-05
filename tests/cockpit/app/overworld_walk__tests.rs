@@ -39,7 +39,10 @@ fn overworld_walk_explicit_control_opens_the_kingdom_and_keeps_the_harness_knigh
     let knight = app.realm.world.overworld_scene().knight;
     app.start_walk();
     assert!(app.realm.dungeon.expanded);
-    assert_eq!(app.realm.dungeon.shooter.as_ref().unwrap().room().kind, RoomKind::Kingdom);
+    assert_eq!(
+        app.realm.dungeon.shooter.as_ref().unwrap().room().kind,
+        RoomKind::Kingdom
+    );
     assert_eq!(app.realm.world.overworld_scene().knight, knight);
     assert!(!app.realm.walk.on);
     app.on_key(event::KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE));
@@ -125,9 +128,18 @@ fn miniviz_blank_click_does_not_start_a_dungeon_or_kingdom() {
         app.realm.world.delve_called = called;
         let (area, _) = app.realm.overworld_map.unwrap();
         click(&mut app, area.x + 1, area.y + 1);
-        assert!(app.realm.dungeon.shooter.is_none(), "blank map click started a run (called={called})");
-        assert!(app.realm.dungeon.intro.is_none(), "blank map click opened the menu (called={called})");
-        assert!(!app.realm.dungeon.expanded, "blank map click expanded the game (called={called})");
+        assert!(
+            app.realm.dungeon.shooter.is_none(),
+            "blank map click started a run (called={called})"
+        );
+        assert!(
+            app.realm.dungeon.intro.is_none(),
+            "blank map click opened the menu (called={called})"
+        );
+        assert!(
+            !app.realm.dungeon.expanded,
+            "blank map click expanded the game (called={called})"
+        );
     }
 }
 
@@ -143,7 +155,10 @@ fn miniviz_buttons_dispatch_before_map_and_gate_handlers() {
     app.world_buttons.insert(0, (hit, WorldButton::DockToggle));
     let was_open = app.object_dock.open;
     click(&mut app, hit.x + 1, hit.y);
-    assert_eq!(app.object_dock.open, !was_open, "visible control lost its click to the map");
+    assert_eq!(
+        app.object_dock.open, !was_open,
+        "visible control lost its click to the map"
+    );
     assert!(app.realm.dungeon.shooter.is_none());
     assert!(app.realm.dungeon.intro.is_none());
 }
@@ -165,14 +180,28 @@ fn miniviz_only_rendered_dungeon_sprite_opens_gate_menu() {
     app.realm.dungeon.intro = None;
     app.scryglass.return_to_world();
     let area = ratatui::layout::Rect::new(12, 6, 40, 20);
-    app.realm.overworld_map = Some((area, overworld::View { x: cx - 40, y: cy - 40, w: 80, h: 80 }));
+    app.realm.overworld_map = Some((
+        area,
+        overworld::View {
+            x: cx - 40,
+            y: cy - 40,
+            w: 80,
+            h: 80,
+        },
+    ));
     app.world_buttons.clear();
     assert!(!app.delve_map_hit(area.x, area.y));
     let (x, y) = (area.x + 20, area.y + 10);
-    assert!(app.delve_map_hit(x, y), "gate center must pick in the displayed projection");
+    assert!(
+        app.delve_map_hit(x, y),
+        "gate center must pick in the displayed projection"
+    );
     click(&mut app, x, y);
     assert!(app.realm.dungeon.intro.is_some());
     app.realm.dungeon.intro = None;
     app.scryglass.surface = crate::ui::scryglass::StageSurface::WorldFirstPerson;
-    assert!(!app.delve_map_hit(x, y), "stale map coordinates must not hit in 3D view");
+    assert!(
+        !app.delve_map_hit(x, y),
+        "stale map coordinates must not hit in 3D view"
+    );
 }

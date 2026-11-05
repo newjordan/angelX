@@ -5,7 +5,6 @@
 
 use super::{Primary, Route, Sub};
 
-
 const CATALOG: &str = include_str!("../../../../book/ow_ledgers.book");
 pub(crate) const CELL: char = '⠪';
 pub(crate) const FILES: Route = Route::new(CELL, '⠁');

@@ -9,7 +9,15 @@ use drive::*;
 
 const CAP: usize = 70;
 
-fn scase(name: &str, qual: bool, stride: usize, s: &Session, r: &Rules, args: Value, f: impl FnOnce(&mut Session, &mut Events) -> Value) {
+fn scase(
+    name: &str,
+    qual: bool,
+    stride: usize,
+    s: &Session,
+    r: &Rules,
+    args: Value,
+    f: impl FnOnce(&mut Session, &mut Events) -> Value,
+) {
     if !qual || !take(name, stride) || cases::count(name) >= CAP {
         return;
     }
@@ -17,7 +25,12 @@ fn scase(name: &str, qual: bool, stride: usize, s: &Session, r: &Rules, args: Va
     let input = json!({"s": jv(&t), "r": rj(r), "a": args});
     let mut ev = Events::default();
     let ret = f(&mut t, &mut ev);
-    cases::rec_cap(name, &input, &json!({"s": jv(&t), "ev": evj(&ev), "ret": ret}), CAP);
+    cases::rec_cap(
+        name,
+        &input,
+        &json!({"s": jv(&t), "ev": evj(&ev), "ret": ret}),
+        CAP,
+    );
 }
 
 #[test]
@@ -27,14 +40,30 @@ fn record_lanternward_blow() {
         drive(seats, seed, limit, 3, |f| {
             let (s, r) = (f.s, f.r);
             for i in 0..s.bolts.len() {
-                scase("lanternward.blow.Session.bolt_meets", s.bolts[i].ttl > 0, 3, s, r, json!({"i": i}), |t, ev| {
-                    t.bolt_meets(i, r, ev);
-                    Value::Null
-                });
-                scase("lanternward.blow.Session.bolt_ends", true, 4, s, r, json!({"i": i}), |t, ev| {
-                    t.bolt_ends(i, ev);
-                    Value::Null
-                });
+                scase(
+                    "lanternward.blow.Session.bolt_meets",
+                    s.bolts[i].ttl > 0,
+                    3,
+                    s,
+                    r,
+                    json!({"i": i}),
+                    |t, ev| {
+                        t.bolt_meets(i, r, ev);
+                        Value::Null
+                    },
+                );
+                scase(
+                    "lanternward.blow.Session.bolt_ends",
+                    true,
+                    4,
+                    s,
+                    r,
+                    json!({"i": i}),
+                    |t, ev| {
+                        t.bolt_ends(i, ev);
+                        Value::Null
+                    },
+                );
                 for (&id, _) in s.seats.iter().take(1) {
                     for parried in [true, false] {
                         scase(
@@ -53,10 +82,18 @@ fn record_lanternward_blow() {
                 }
             }
             for i in 0..s.foes.len() {
-                scase("lanternward.blow.Session.light_foe", true, 3, s, r, json!({"i": i}), |t, ev| {
-                    t.light_foe(i, ev);
-                    Value::Null
-                });
+                scase(
+                    "lanternward.blow.Session.light_foe",
+                    true,
+                    3,
+                    s,
+                    r,
+                    json!({"i": i}),
+                    |t, ev| {
+                        t.light_foe(i, ev);
+                        Value::Null
+                    },
+                );
             }
         });
     }

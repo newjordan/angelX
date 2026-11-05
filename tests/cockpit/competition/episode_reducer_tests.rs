@@ -1,8 +1,8 @@
 use super::episode::*;
 use super::episode_reducer::*;
 use super::journal::{
-    canonical_action_key, ActionJournalEventV1, ActionJournalStateV1, ActionUpdateV1,
-    PrepareActionV1, ACTION_JOURNAL_SCHEMA_V1,
+    ACTION_JOURNAL_SCHEMA_V1, ActionJournalEventV1, ActionJournalStateV1, ActionUpdateV1,
+    PrepareActionV1, canonical_action_key,
 };
 use super::profile::*;
 use super::schema::{
@@ -260,11 +260,13 @@ fn terminal_closes_range_but_official_corrections_remain_append_only() {
         count,
         "rejected effects never reach durability"
     );
-    assert!(EpisodeEventV1::link_evidence(
-        &state.evidence_permit().unwrap(),
-        link(EpisodeEvidenceKindV1::Candidate, "late")
-    )
-    .is_err());
+    assert!(
+        EpisodeEventV1::link_evidence(
+            &state.evidence_permit().unwrap(),
+            link(EpisodeEvidenceKindV1::Candidate, "late")
+        )
+        .is_err()
+    );
     for (kind, id) in [
         (EpisodeEvidenceKindV1::OfficialResult, "official-r1"),
         (EpisodeEvidenceKindV1::RewardBinding, "reward-r1"),

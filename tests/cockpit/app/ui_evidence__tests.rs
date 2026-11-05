@@ -23,7 +23,10 @@ fn tempdir(tag: &str) -> TempDir {
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap()
         .as_nanos();
-    let path = std::env::temp_dir().join(format!("angel-evidence-{tag}-{}-{unique}", std::process::id()));
+    let path = std::env::temp_dir().join(format!(
+        "angel-evidence-{tag}-{}-{unique}",
+        std::process::id()
+    ));
     std::fs::create_dir_all(&path).unwrap();
     TempDir(path)
 }
@@ -43,7 +46,8 @@ fn evidence_line_link_comes_first_even_when_earlier() {
 
 #[test]
 fn the_last_evidence_link_wins_and_list_items_count_as_lines() {
-    let text = "- Evidence: [first](a/one.md), [second](a/two.png)\n- Proof: [third](a/three.log)\n";
+    let text =
+        "- Evidence: [first](a/one.md), [second](a/two.png)\n- Proof: [third](a/three.log)\n";
     let found = targets(text);
     assert_eq!(found[0], ("a/three.log".into(), true));
     assert_eq!(found[1], ("a/two.png".into(), true));
@@ -70,15 +74,26 @@ fn plain_prose_has_no_candidates() {
 
 #[test]
 fn media_always_shows_reports_only_as_evidence_and_code_never() {
-    for media in ["a.png", "b.JPG", "c.mp4", "d.glb", "e.obj", "f.csv", "g.tsv", "h.webp"] {
+    for media in [
+        "a.png", "b.JPG", "c.mp4", "d.glb", "e.obj", "f.csv", "g.tsv", "h.webp",
+    ] {
         assert!(worth_showing(Path::new(media), false), "{media}");
         assert!(worth_showing(Path::new(media), true), "{media}");
     }
-    for report in ["r.md", "r.txt", "r.log", "r.json", "r.jsonl", "r.yaml", "r.diff"] {
+    for report in [
+        "r.md", "r.txt", "r.log", "r.json", "r.jsonl", "r.yaml", "r.diff",
+    ] {
         assert!(!worth_showing(Path::new(report), false), "{report}");
         assert!(worth_showing(Path::new(report), true), "{report}");
     }
-    for never in ["main.rs", "app.py", "page.html", "archive.zip", "binary", "doc.pdf"] {
+    for never in [
+        "main.rs",
+        "app.py",
+        "page.html",
+        "archive.zip",
+        "binary",
+        "doc.pdf",
+    ] {
         assert!(!worth_showing(Path::new(never), true), "{never}");
     }
 }
@@ -105,10 +120,16 @@ fn evidence_media_resolves_inside_the_workspace_only() {
     // Not called evidence: a report alone stays a link.
     assert!(evidence_media("Wrote [notes](reports/iteration-7.md).", root).is_none());
     // Outside the workspace, source code and missing files never open.
-    let rest = format!("Evidence: [outside]({}) [code](main.rs) [gone](missing.png)", stray.display());
+    let rest = format!(
+        "Evidence: [outside]({}) [code](main.rs) [gone](missing.png)",
+        stray.display()
+    );
     assert!(evidence_media(&rest, root).is_none());
     // An absolute path inside the workspace resolves like a relative one.
-    let absolute = format!("Evidence: [report]({})", root.join("reports/iteration-7.md").display());
+    let absolute = format!(
+        "Evidence: [report]({})",
+        root.join("reports/iteration-7.md").display()
+    );
     assert!(evidence_media(&absolute, root).is_some());
 }
 

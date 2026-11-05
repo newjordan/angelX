@@ -165,7 +165,10 @@ pub(crate) fn card(
             if chars.is_empty() {
                 return vec![String::new()];
             }
-            chars.chunks(room).map(|c| c.iter().collect()).collect::<Vec<String>>()
+            chars
+                .chunks(room)
+                .map(|c| c.iter().collect())
+                .collect::<Vec<String>>()
         })
         .collect();
     if prompt_rows.len() > MOST_PROMPT_ROWS {
@@ -187,12 +190,24 @@ pub(crate) fn card(
     let mut y = TITLE_ROWS;
     for (i, row) in prompt_rows.iter().enumerate() {
         let ink = if i == 0 { BRIGHT } else { TEXT };
-        buffer.set_stringn(INSET, y, row, usize::from(right - INSET), Style::new().fg(ink));
+        buffer.set_stringn(
+            INSET,
+            y,
+            row,
+            usize::from(right - INSET),
+            Style::new().fg(ink),
+        );
         y += 1;
     }
     if let Some(scope) = scope_label {
         y += 1;
-        buffer.set_stringn(INSET, y, format!("{SCOPE_PREFIX}{scope}"), usize::from(right - INSET), Style::new().fg(SOFT));
+        buffer.set_stringn(
+            INSET,
+            y,
+            format!("{SCOPE_PREFIX}{scope}"),
+            usize::from(right - INSET),
+            Style::new().fg(SOFT),
+        );
         y += 1;
     }
     y += 1;
@@ -203,9 +218,21 @@ pub(crate) fn card(
             break;
         }
         let picked = y == first;
-        let x = buffer.set_stringn(INSET, y, key, 1, Style::new().fg(ACCENT)).0;
-        let style = if picked { Style::new().fg(BRIGHT).add_modifier(Modifier::BOLD) } else { Style::new().fg(TEXT) };
-        buffer.set_stringn(x + 2, y, words, usize::from(right.saturating_sub(x + 2)), style);
+        let x = buffer
+            .set_stringn(INSET, y, key, 1, Style::new().fg(ACCENT))
+            .0;
+        let style = if picked {
+            Style::new().fg(BRIGHT).add_modifier(Modifier::BOLD)
+        } else {
+            Style::new().fg(TEXT)
+        };
+        buffer.set_stringn(
+            x + 2,
+            y,
+            words,
+            usize::from(right.saturating_sub(x + 2)),
+            style,
+        );
         hits.push((Rect::new(INSET - 1, y, width - 2 * INSET + 2, 1), decision));
         y += 1;
     }

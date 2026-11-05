@@ -147,8 +147,7 @@ pub(super) fn paint(
             );
             frame.render_widget(Clear, Rect::new(area.x, area.bottom() - 1, area.width, 1));
             frame.render_widget(
-                Paragraph::new("W GAS  S BRAKE  A/D STEER  SPACE DRIFT")
-                    .style(text_style),
+                Paragraph::new("W GAS  S BRAKE  A/D STEER  SPACE DRIFT").style(text_style),
                 Rect::new(area.x, area.bottom() - 1, area.width, 1),
             );
         }

@@ -43,19 +43,34 @@ fn each_million_milestone_launches_that_many_staggered_coins() {
         for index in 0..count {
             let t = index as f64 * STAGGER_SECS + 0.001;
             let live = poses(stage, t, count, MotionMode::Full);
-            assert_eq!(live.iter().filter(|p| p.area.y == 15).count(), 1,
-                "coin {index} of {count} must launch from the foot of the arc");
+            assert_eq!(
+                live.iter().filter(|p| p.area.y == 15).count(),
+                1,
+                "coin {index} of {count} must launch from the foot of the arc"
+            );
             assert!(live.len() <= MAX_LIVE_COINS as usize);
         }
-        assert!(poses(stage, burst_duration_secs(count, MotionMode::Full), count, MotionMode::Full).is_empty());
+        assert!(
+            poses(
+                stage,
+                burst_duration_secs(count, MotionMode::Full),
+                count,
+                MotionMode::Full
+            )
+            .is_empty()
+        );
     }
 }
 
 #[test]
 fn bursts_are_bounded_even_for_huge_counts_and_small_panes() {
     for motion in [MotionMode::Full, MotionMode::Reduced, MotionMode::Off] {
-        for stage in [Rect::new(0, 0, 0, 0), Rect::new(3, 4, 2, 1),
-            Rect::new(4, 5, 3, 1), Rect::new(8, 9, 11, 4)] {
+        for stage in [
+            Rect::new(0, 0, 0, 0),
+            Rect::new(3, 4, 2, 1),
+            Rect::new(4, 5, 3, 1),
+            Rect::new(8, 9, 11, 4),
+        ] {
             for t in [0.0, 0.5, 1_000_000.0, f64::NAN, f64::INFINITY, -1.0] {
                 let live = poses(stage, t, u64::MAX, motion);
                 assert!(live.len() <= MAX_LIVE_COINS as usize);
@@ -71,19 +86,26 @@ fn bursts_are_bounded_even_for_huge_counts_and_small_panes() {
 
 #[test]
 fn coin_has_a_gold_face_embossed_rim_and_visible_reeded_edge() {
-    assert!(gold_pixel(0.99, 0.99, 1.0).is_none(), "corners must be transparent");
+    assert!(
+        gold_pixel(0.99, 0.99, 1.0).is_none(),
+        "corners must be transparent"
+    );
     let mut colors = std::collections::HashSet::new();
     for row in 0..64 {
         for col in 0..64 {
-            if let Some([r, g, b]) = gold_pixel(col as f32 / 32.0 - 1.0,
-                row as f32 / 32.0 - 1.0, 1.0) {
+            if let Some([r, g, b]) =
+                gold_pixel(col as f32 / 32.0 - 1.0, row as f32 / 32.0 - 1.0, 1.0)
+            {
                 assert!(r > g && g > b, "coin must be gold, not a sparkle");
                 colors.insert([r, g, b]);
             }
         }
     }
     assert!(colors.len() > 50, "material needs shading and rim detail");
-    assert!(gold_pixel(0.0, 0.0, 0.08).is_some(), "edge-on coin must not vanish");
+    assert!(
+        gold_pixel(0.0, 0.0, 0.08).is_some(),
+        "edge-on coin must not vanish"
+    );
     let face = gold_pixel(0.10, -0.78, 1.0).unwrap();
     assert!(face[0] > 200 && face[1] > 120);
 }
@@ -92,13 +114,27 @@ fn coin_has_a_gold_face_embossed_rim_and_visible_reeded_edge() {
 fn coin_draws_a_gold_disc_not_a_sparkle_and_motion_off_is_static() {
     use ratatui::{Terminal, backend::TestBackend};
     let stage = Rect::new(0, 0, 30, 14);
-    assert_eq!(poses(stage, 0.1, 5, MotionMode::Off), poses(stage, 0.8, 5, MotionMode::Off));
+    assert_eq!(
+        poses(stage, 0.1, 5, MotionMode::Off),
+        poses(stage, 0.8, 5, MotionMode::Off)
+    );
     let mut terminal = Terminal::new(TestBackend::new(30, 14)).unwrap();
-    terminal.draw(|f| {
-        for p in poses(stage, 0.0, 1, MotionMode::Off) { render_coin(f, p); }
-    }).unwrap();
+    terminal
+        .draw(|f| {
+            for p in poses(stage, 0.0, 1, MotionMode::Off) {
+                render_coin(f, p);
+            }
+        })
+        .unwrap();
     let cells = &terminal.backend().buffer().content;
-    let dots = cells.iter().filter(|c| c.symbol().chars().any(|ch| ('\u{2801}'..='\u{28ff}').contains(&ch))).count();
+    let dots = cells
+        .iter()
+        .filter(|c| {
+            c.symbol()
+                .chars()
+                .any(|ch| ('\u{2801}'..='\u{28ff}').contains(&ch))
+        })
+        .count();
     assert!(dots > 6);
     assert!(!cells.iter().any(|c| c.symbol() == "✦" || c.symbol() == "│"));
 }

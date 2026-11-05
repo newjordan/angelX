@@ -86,16 +86,22 @@ where
         generation += 1;
         let mut writer = std::mem::replace(&mut link.writer, Box::new(io::sink()));
         {
-            let (tx, mut reader, g) = (tx.clone(), std::mem::replace(&mut link.reader, Box::new(io::empty())), generation);
-            std::thread::spawn(move || loop {
-                match wire::read::<Down>(&mut reader) {
-                    Ok(Some(down)) => {
-                        if tx.send(Ev::Down(g, Box::new(down))).is_err() {
-                            return;
+            let (tx, mut reader, g) = (
+                tx.clone(),
+                std::mem::replace(&mut link.reader, Box::new(io::empty())),
+                generation,
+            );
+            std::thread::spawn(move || {
+                loop {
+                    match wire::read::<Down>(&mut reader) {
+                        Ok(Some(down)) => {
+                            if tx.send(Ev::Down(g, Box::new(down))).is_err() {
+                                return;
+                            }
                         }
+                        Ok(None) => return drop(tx.send(Ev::Lost(g, "the link closed".into()))),
+                        Err(e) => return drop(tx.send(Ev::Lost(g, e.to_string()))),
                     }
-                    Ok(None) => return drop(tx.send(Ev::Lost(g, "the link closed".into()))),
-                    Err(e) => return drop(tx.send(Ev::Lost(g, e.to_string()))),
                 }
             });
         }
@@ -127,7 +133,10 @@ where
                         let _ = crate::ui::term::write_game_keyboard_mode(&mut io::stdout(), on);
                     }
                     Down::Title(title) => {
-                        let _ = ratatui::crossterm::execute!(io::stdout(), terminal::SetTitle(format!("{title} — {label}")));
+                        let _ = ratatui::crossterm::execute!(
+                            io::stdout(),
+                            terminal::SetTitle(format!("{title} — {label}"))
+                        );
                     }
                     Down::Attention => {
                         let _ = io::stdout().write_all(b"\x07");
@@ -145,8 +154,13 @@ where
         let mut attempt = 0u32;
         link = loop {
             attempt += 1;
-            banner(&mut tty, &screen, &format!(" reconnecting to {label}… ({lost}) "))?;
-            let until = Instant::now() + Duration::from_millis((250 * u64::from(attempt.min(8))).min(2000));
+            banner(
+                &mut tty,
+                &screen,
+                &format!(" reconnecting to {label}… ({lost}) "),
+            )?;
+            let until =
+                Instant::now() + Duration::from_millis((250 * u64::from(attempt.min(8))).min(2000));
             while Instant::now() < until {
                 match rx.recv_timeout(until.saturating_duration_since(Instant::now())) {
                     Ok(Ev::Input(event)) if is_detach(&event) => return Ok(Outcome::Detached),
@@ -175,7 +189,10 @@ type Tty = ratatui::Terminal<CrosstermBackend<io::Stdout>>;
 /// The session's grid into the terminal; ratatui sends only what changed.
 fn draw(tty: &mut Tty, screen: &Screen) -> io::Result<()> {
     let cols = usize::from(screen.cols.max(1));
-    let cell_px = (screen.size.cell_width.max(1), screen.size.cell_height.max(1));
+    let cell_px = (
+        screen.size.cell_width.max(1),
+        screen.size.cell_height.max(1),
+    );
     tty.draw(|frame| {
         let area = frame.area();
         let buffer = frame.buffer_mut();
@@ -184,7 +201,9 @@ fn draw(tty: &mut Tty, screen: &Screen) -> io::Result<()> {
             if x >= area.width || y >= area.height {
                 continue;
             }
-            let Some(slot) = buffer.cell_mut((x, y)) else { continue };
+            let Some(slot) = buffer.cell_mut((x, y)) else {
+                continue;
+            };
             *slot = match angel_glass::graphics::read_placeholder(cell.symbol(), cell.fg) {
                 Some(place) => half_block(screen, place, cell_px),
                 None => cell.clone(),
@@ -199,11 +218,17 @@ fn draw(tty: &mut Tty, screen: &Screen) -> io::Result<()> {
 
 /// A picture cell as a half block: its top and bottom halves' colours,
 /// taken from the picture where the window would draw that cell.
-fn half_block(screen: &Screen, place: angel_glass::graphics::Placeholder, cell: (u32, u32)) -> Cell {
+fn half_block(
+    screen: &Screen,
+    place: angel_glass::graphics::Placeholder,
+    cell: (u32, u32),
+) -> Cell {
     let mut out = Cell::default();
     out.set_symbol(" ");
     out.bg = Color::Rgb(0, 0, 0);
-    let Some(picture) = screen.picture(place.image) else { return out };
+    let Some(picture) = screen.picture(place.image) else {
+        return out;
+    };
     let image = (picture.width, picture.height);
     let boxed = angel_glass::graphics::box_cells(image, picture.cols, picture.rows, cell);
     let Some(([dx, dy, dw, dh], [sx, sy, sw, sh])) =
@@ -223,7 +248,11 @@ fn half_block(screen: &Screen, place: angel_glass::graphics::Placeholder, cell: 
         let at = ((iy * image.0 + ix) * 4) as usize;
         let p = &picture.rgba[at..at + 4];
         let a = u32::from(p[3]);
-        [(u32::from(p[0]) * a / 255) as u8, (u32::from(p[1]) * a / 255) as u8, (u32::from(p[2]) * a / 255) as u8]
+        [
+            (u32::from(p[0]) * a / 255) as u8,
+            (u32::from(p[1]) * a / 255) as u8,
+            (u32::from(p[2]) * a / 255) as u8,
+        ]
     };
     let top = sample(cw * 0.5, ch * 0.25);
     let bottom = sample(cw * 0.5, ch * 0.75);
@@ -241,7 +270,11 @@ fn banner(tty: &mut Tty, screen: &Screen, text: &str) -> io::Result<()> {
         let chars: Vec<char> = text.chars().collect();
         for x in 0..width {
             if let Some(cell) = buffer.cell_mut((x, 0)) {
-                cell.set_symbol(&chars.get(usize::from(x)).map_or(" ".to_string(), |c| c.to_string()));
+                cell.set_symbol(
+                    &chars
+                        .get(usize::from(x))
+                        .map_or(" ".to_string(), |c| c.to_string()),
+                );
                 cell.fg = Color::Rgb(230, 220, 200);
                 cell.bg = Color::Rgb(70, 40, 20);
                 cell.modifier = Modifier::BOLD;
