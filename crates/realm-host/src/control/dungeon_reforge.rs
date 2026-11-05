@@ -728,7 +728,16 @@ impl Session<'_> {
     // A missing world may recover the same private journal. A replacement
     // journal detaches its coordinator; Pool workers finish under native ownership.
     pub fn sync_wish_session(&mut self) -> bool {
-        let Some(session) = self.dungeon.shooter.wish_session() else { return false; };
+        // Without waiting on the game's lock: while the server holds it, the
+        // session last read stands (it changes only with a new game).
+        let session = match self.dungeon.shooter.try_wish_session() {
+            Some(Some(session)) => session,
+            Some(None) => return false,
+            None => match self.dungeon.forge.wish_session.clone() {
+                Some(session) => session,
+                None => return false,
+            },
+        };
         if self.dungeon.forge.wish_session.as_ref().is_some_and(|old| old != &session) {
             self.dungeon.forge.detach_wish_jobs();
             self.dungeon.forge.spoken.clear();
@@ -937,10 +946,17 @@ impl Session<'_> {
             self.paint_mirror_look(asked);
         }
         let maker = self.host_name();
-        match self
-            .dungeon
-            .shooter
-            .new_wish_claims(&mut self.dungeon.forge.wish_cursor, &maker)
+        // On its own threads the server publishes every step (and a restored
+        // game at once): nothing asked in the frame's picture means no claim
+        // to take, and no wait on the game's lock to find that out.
+        let asked = !self.dungeon.shooter.threaded()
+            || self.dungeon.shooter.as_ref().is_some_and(|run| !run.asked.is_empty());
+        let claimed = if asked {
+            self.dungeon.shooter.new_wish_claims(&mut self.dungeon.forge.wish_cursor, &maker)
+        } else {
+            Ok(Vec::new())
+        };
+        match claimed
         {
             Ok(claims) => {
                 for claim in claims {
@@ -1186,7 +1202,7 @@ impl Session<'_> {
         self.teach_asked();
         self.take_grants();
         self.drain_detached_lessons();
-        if self.dungeon.shooter.wish_session().is_none() { return; }
+        if self.dungeon.shooter.is_none() { return; }
         if self
             .dungeon
             .forge

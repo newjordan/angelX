@@ -258,6 +258,15 @@ struct Shared {
     tune_file: Mutex<Option<PathBuf>>,
 }
 
+/// The lock if it is free now (a poisoned one is taken as `lock` takes it).
+fn try_lock<T>(mutex: &Mutex<T>) -> Option<MutexGuard<'_, T>> {
+    match mutex.try_lock() {
+        Ok(guard) => Some(guard),
+        Err(std::sync::TryLockError::Poisoned(poisoned)) => Some(poisoned.into_inner()),
+        Err(std::sync::TryLockError::WouldBlock) => None,
+    }
+}
+
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex
         .lock()
@@ -1829,6 +1838,30 @@ impl Sim {
         core.edited = true;
         true
     }
+    /// The live voices for a frame's sounds, under one lock of the game.
+    pub fn live_voices(&self, names: &[String]) -> Vec<Option<crate::together_media::Voice>> {
+        let Some(live) = self.live.as_ref() else {
+            return names.iter().map(|_| None).collect();
+        };
+        let mut core = lock(&live.shared().core);
+        names.iter().map(|name| core.abilities.media.voice(name)).collect()
+    }
+    /// The wish session, without waiting: `None` while the game's lock is
+    /// held (the caller keeps what it last knew), `Some(None)` with no game.
+    pub fn try_wish_session(&self) -> Option<Option<String>> {
+        let Some(live) = self.live.as_ref() else {
+            return Some(None);
+        };
+        let core = try_lock(&live.shared().core)?;
+        Some(Some(core.commands.session().to_owned()))
+    }
+    /// Whether the playtest votes are ready, without waiting: `None` while
+    /// the game's lock is held.
+    pub fn try_playtest_votes_ready(&self) -> Option<bool> {
+        let Some(live) = self.live.as_ref() else { return Some(false); };
+        let core = try_lock(&live.shared().core)?;
+        Some(core.commands.votes_ready(&core.run))
+    }
     pub fn live_voice(&self, name: &str) -> Option<crate::together_media::Voice> {
         let shared = self.live.as_ref()?.shared();
         let mut core = lock(&shared.core);
@@ -2133,9 +2166,16 @@ impl Sim {
     /// the run (the host's knight as stone, a couch partner, a wish being
     /// forged) is seen by the next read, as an edit's is.
     pub fn set_controls(&mut self, controls: Controls) {
+        let threaded = self.threaded();
         let Some(live) = self.live.as_mut() else {
             return;
         };
+        // On its own threads the server applies them at its next step: the
+        // host's frame never waits on the game's lock for its own controls.
+        if threaded {
+            *lock(&live.shared().controls) = controls;
+            return;
+        }
         let shared = live.shared();
         let mut core = lock(&shared.core);
         if apply_controls(&mut core.run, &controls, shared.first_is_friends.load(Ordering::Relaxed)) {
