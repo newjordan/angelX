@@ -118,6 +118,10 @@ pub struct DungeonView {
     /// A home claim just came back changing nothing: no new claim (and its
     /// three saved checkpoints) until then.
     pub home_quiet_until: Option<std::time::Instant>,
+    /// A settlement cycle off the frame, holding the realm.
+    pub(crate) settling: Option<super::dungeon_settle::Settling>,
+    /// The realm as it left to settle, for the screen meanwhile.
+    pub(crate) realm_copy: Option<crate::together_realm::Realm>,
 }
 
 impl Session<'_> {

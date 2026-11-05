@@ -273,6 +273,7 @@ impl DungeonView {
 
 impl Drop for DungeonView {
     fn drop(&mut self) {
+        self.collect_settled(true);
         if let Err(error) = self.checkpoint(Instant::now(), true) {
             tracing::warn!(%error, "could not save dungeon on exit");
         }

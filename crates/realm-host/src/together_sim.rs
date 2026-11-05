@@ -1113,6 +1113,143 @@ fn persist_checkpoint(
     // exactly. This payload contains no harness conversation or credentials.
     angel_live::host::workspace_store::write_private_atomic_exact(path, &bytes)
 }
+use angel_delve::rules::home_settlement as home_claims;
+use angel_delve::rules::host_commands::RealmClaim;
+
+/// The game's shared state for the host's settlement, held off the
+/// cockpit's frame: claims, their results and checkpoints go through it
+/// while the server steps on its own threads.
+#[derive(Clone)]
+pub struct Link(Arc<Shared>);
+
+impl Link {
+    pub fn claim_realm(&self) -> Result<Option<RealmClaim>, String> {
+        claim_realm_on(&self.0)
+    }
+    pub fn acknowledge_realm(&self, claim: &RealmClaim) -> Result<(), String> {
+        acknowledge_realm_on(&self.0, claim)
+    }
+    pub fn sync_home(&self, home: angel_delve::rules::home::Home, treasury: angel_delve::realm::Spoils) -> Result<(), String> {
+        sync_home_on(&self.0, home, treasury)
+    }
+    pub fn claim_home_with_context(&self, context: &home_claims::HomeContext) -> Result<Option<home_claims::HomeClaim>, String> {
+        claim_home_on(&self.0, Some(context))
+    }
+    pub fn home_completion(&self, claim: &home_claims::HomeClaim) -> Result<Option<home_claims::HomeCompletion>, String> {
+        home_completion_on(&self.0, claim)
+    }
+    pub fn evaluate_home(&self, request: &home_claims::HomePolicyRequest) -> Result<home_claims::HomeResult, String> {
+        evaluate_home_on(&self.0, request)
+    }
+    pub fn complete_home(&self, claim: &home_claims::HomeClaim, result: home_claims::HomeResult) -> Result<(), String> {
+        complete_home_on(&self.0, claim, result)
+    }
+    pub fn acknowledge_home(&self, claim: &home_claims::HomeClaim, completed: &home_claims::HomeCompletion) -> Result<(), String> {
+        acknowledge_home_on(&self.0, claim, completed)
+    }
+    pub fn home_facts_pending(&self) -> bool {
+        home_facts_on(&self.0)
+    }
+    /// A checkpoint, serialized with the service's own under the same gate.
+    pub fn checkpoint(&self, path: &Path, raid_serial: u64) -> Result<(), String> {
+        let _gate = lock(&self.0.checkpoint);
+        write_shared_checkpoint(path, raid_serial, &self.0)
+    }
+}
+
+fn evaluate_home_on(shared: &Shared, request: &home_claims::HomePolicyRequest) -> Result<home_claims::HomeResult, String> {
+    use home_claims::{HomeResult, POLICY_API, POLICY_CONTRACT};
+    request.validate()?;
+    let mut core = lock(&shared.core);
+    let Some(engine) = core.engine.as_mut() else {
+        return request.evaluate();
+    };
+
+        let validated = std::cell::RefCell::new(None);
+        engine.compute(
+            POLICY_CONTRACT,
+            POLICY_API,
+            serde_json::to_value(request).map_err(|e| e.to_string())?,
+            |value| {
+                let result = <HomeResult as serde::Deserialize>::deserialize(value)
+                    .map_err(|e| e.to_string())?;
+                request.validate_result(&result)?;
+                validated.replace(Some(result));
+                Ok(())
+            },
+        )?;
+        validated
+            .into_inner()
+            .ok_or("home policy reply was not validated".into())
+}
+
+/// Whether the run holds facts a home claim carries: orders, sales, deeds,
+/// marks. With none, a claim can only re-read what the home already holds.
+fn home_facts_on(shared: &Shared) -> bool {
+    let core = lock(&shared.core);
+    let run = &core.run;
+    !(run.orders.is_empty()
+        && run.lane_squire_orders.is_empty()
+        && run.raise_orders.is_empty()
+        && run.peddled.is_empty()
+        && run.feats.is_empty()
+        && run.marks.is_empty())
+}
+
+fn claim_realm_on(shared: &Shared) -> Result<Option<RealmClaim>, String> {
+    let mut core = lock(&shared.core);
+    let Core { run, commands, edited, .. } = &mut *core;
+    let had_pending = commands.has_pending_realm();
+    let claim = commands.claim_realm(run)?;
+    *edited |= !had_pending && claim.is_some();
+    Ok(claim)
+}
+
+fn acknowledge_realm_on(shared: &Shared, claim: &RealmClaim) -> Result<(), String> {
+    let mut core = lock(&shared.core);
+    core.commands.acknowledge_realm(claim)?;
+    core.edited = true;
+    Ok(())
+}
+
+fn claim_home_on(shared: &Shared, context: Option<&home_claims::HomeContext>) -> Result<Option<home_claims::HomeClaim>, String> {
+    let mut core = lock(&shared.core);
+    let Core { run, commands, edited, .. } = &mut *core;
+    let had_pending = commands.has_pending_home();
+    let claim = match context {
+        Some(context) => commands.claim_home_with_context(run, context)?,
+        None => commands.claim_home(run)?,
+    };
+    *edited |= !had_pending && claim.is_some();
+    Ok(claim)
+}
+
+fn home_completion_on(shared: &Shared, claim: &home_claims::HomeClaim) -> Result<Option<home_claims::HomeCompletion>, String> {
+    lock(&shared.core).commands.home_completion(claim)
+}
+
+fn complete_home_on(shared: &Shared, claim: &home_claims::HomeClaim, result: home_claims::HomeResult) -> Result<(), String> {
+    let mut core = lock(&shared.core);
+    let Core { run, commands, edited, .. } = &mut *core;
+    commands.complete_home(run, claim, result)?;
+    *edited = true;
+    Ok(())
+}
+
+fn acknowledge_home_on(shared: &Shared, claim: &home_claims::HomeClaim, completed: &home_claims::HomeCompletion) -> Result<(), String> {
+    let mut core = lock(&shared.core);
+    core.commands.acknowledge_home(claim, completed)?;
+    core.edited = true;
+    Ok(())
+}
+
+fn sync_home_on(shared: &Shared, home: angel_delve::rules::home::Home, treasury: angel_delve::realm::Spoils) -> Result<(), String> {
+    let mut core = lock(&shared.core);
+    let Core { run, commands, edited, .. } = &mut *core;
+    *edited |= commands.sync_home(run, home, treasury)?;
+    Ok(())
+}
+
 fn write_shared_checkpoint(path: &Path, raid_serial: u64, shared: &Shared) -> Result<(), String> {
     persist_checkpoint(path, || {
         let (run, invitation, commands) = {
@@ -1456,29 +1593,8 @@ impl Sim {
         &mut self,
         request: &angel_delve::rules::home_settlement::HomePolicyRequest,
     ) -> Result<angel_delve::rules::home_settlement::HomeResult, String> {
-        use angel_delve::rules::home_settlement::{HomeResult, POLICY_CONTRACT, POLICY_API};
-        request.validate()?;
         let live = self.live.as_mut().ok_or("no active game session")?;
-        let mut core = lock(&live.shared().core);
-        let Some(engine) = core.engine.as_mut() else {
-            return request.evaluate();
-        };
-        let validated = std::cell::RefCell::new(None);
-        engine.compute(
-            POLICY_CONTRACT,
-            POLICY_API,
-            serde_json::to_value(request).map_err(|e| e.to_string())?,
-            |value| {
-                let result = <HomeResult as serde::Deserialize>::deserialize(value)
-                    .map_err(|e| e.to_string())?;
-                request.validate_result(&result)?;
-                validated.replace(Some(result));
-                Ok(())
-            },
-        )?;
-        validated
-            .into_inner()
-            .ok_or("home policy reply was not validated".into())
+        evaluate_home_on(live.shared(), request)
     }
 
     pub fn command(
@@ -1562,27 +1678,14 @@ impl Sim {
             return Ok(None);
         };
         live.view.take();
-        let mut core = lock(&live.shared().core);
-        let Core {
-            run,
-            commands,
-            edited,
-            ..
-        } = &mut *core;
-        let had_pending = commands.has_pending_home();
-        let claim = match context {
-            Some(context) => commands.claim_home_with_context(run, context)?,
-            None => commands.claim_home(run)?,
-        };
-        *edited |= !had_pending && claim.is_some();
-        Ok(claim)
+        claim_home_on(live.shared(), context)
     }
     pub fn home_completion(
         &self,
         claim: &angel_delve::rules::home_settlement::HomeClaim,
     ) -> Result<Option<angel_delve::rules::home_settlement::HomeCompletion>, String> {
         let live = self.live.as_ref().ok_or("no active game session")?;
-        lock(&live.shared().core).commands.home_completion(claim)
+        home_completion_on(live.shared(), claim)
     }
     pub fn complete_home(
         &mut self,
@@ -1591,16 +1694,7 @@ impl Sim {
     ) -> Result<(), String> {
         let live = self.live.as_mut().ok_or("no active game session")?;
         live.view.take();
-        let mut core = lock(&live.shared().core);
-        let Core {
-            run,
-            commands,
-            edited,
-            ..
-        } = &mut *core;
-        commands.complete_home(run, claim, result)?;
-        *edited = true;
-        Ok(())
+        complete_home_on(live.shared(), claim, result)
     }
     pub fn acknowledge_home(
         &mut self,
@@ -1608,10 +1702,7 @@ impl Sim {
         completed: &angel_delve::rules::home_settlement::HomeCompletion,
     ) -> Result<(), String> {
         let live = self.live.as_mut().ok_or("no active game session")?;
-        let mut core = lock(&live.shared().core);
-        core.commands.acknowledge_home(claim, completed)?;
-        core.edited = true;
-        Ok(())
+        acknowledge_home_on(live.shared(), claim, completed)
     }
     pub fn sync_home(
         &mut self,
@@ -1622,15 +1713,7 @@ impl Sim {
             return Ok(());
         };
         live.view.take();
-        let mut core = lock(&live.shared().core);
-        let Core {
-            run,
-            commands,
-            edited,
-            ..
-        } = &mut *core;
-        *edited |= commands.sync_home(run, home, treasury)?;
-        Ok(())
+        sync_home_on(live.shared(), home, treasury)
     }
 
     pub fn claim_realm(
@@ -1640,18 +1723,7 @@ impl Sim {
             return Ok(None);
         };
         live.view.take();
-        let shared = live.shared();
-        let mut core = lock(&shared.core);
-        let Core {
-            run,
-            commands,
-            edited,
-            ..
-        } = &mut *core;
-        let had_pending = commands.has_pending_realm();
-        let claim = commands.claim_realm(run)?;
-        *edited |= !had_pending && claim.is_some();
-        Ok(claim)
+        claim_realm_on(live.shared())
     }
     pub fn prepare_votes(
         &mut self,
@@ -1701,10 +1773,7 @@ impl Sim {
     ) -> Result<(), String> {
         let live = self.live.as_mut().ok_or("no active game session")?;
         live.view.take();
-        let mut core = lock(&live.shared().core);
-        core.commands.acknowledge_realm(claim)?;
-        core.edited = true;
-        Ok(())
+        acknowledge_realm_on(live.shared(), claim)
     }
     pub fn save_checkpoint(&self, path: &Path, raid_serial: u64) -> Result<(), String> {
         let Some(live) = &self.live else {
@@ -1945,6 +2014,20 @@ impl Sim {
 
     /// The caller may hold this independent fence across realm IO without
     /// borrowing Sim or stopping its ticks. Acquire it before taking Core.
+    /// Whether the run holds facts for a home claim (`home_facts_on`).
+    pub fn home_facts_pending(&self) -> bool {
+        self.live.as_ref().is_some_and(|live| home_facts_on(live.shared()))
+    }
+
+    /// The game's shared state for host work off the cockpit's frame, while
+    /// the server steps on its own threads.
+    pub fn link(&self) -> Option<Link> {
+        if !self.threaded() {
+            return None;
+        }
+        self.live.as_ref().map(|live| Link(Arc::clone(live.shared())))
+    }
+
     pub fn checkpoint_gate(&self) -> Option<Arc<Mutex<()>>> {
         self.live.as_ref().map(|live| Arc::clone(&live.shared().checkpoint))
     }
