@@ -115,6 +115,9 @@ pub struct DungeonView {
     pub joined: Option<crate::together_join::Joined>,
     /// Bounty progress not yet saved: it is, between fights.
     pub bounties_unsaved: bool,
+    /// A home claim just came back changing nothing: no new claim (and its
+    /// three saved checkpoints) until then.
+    pub home_quiet_until: Option<std::time::Instant>,
 }
 
 impl Session<'_> {
