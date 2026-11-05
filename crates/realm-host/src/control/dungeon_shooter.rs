@@ -243,7 +243,8 @@ impl Session<'_> {
         if self.dungeon.settling.is_some() {
             return;
         }
-        if self.dungeon.shooter.as_ref().is_none() || self.dungeon.shooter.playtest_votes_ready() {
+        // Without waiting on the game's lock: a busy game is read next frame.
+        if self.dungeon.shooter.as_ref().is_none() || self.dungeon.shooter.try_playtest_votes_ready() != Some(false) {
             return;
         }
         let (records, seen) = {
@@ -1310,10 +1311,12 @@ impl Session<'_> {
                 }
             }
         }
-        for sound in sounds {
-            let voice=self.dungeon.shooter.live_voice(&sound);
-            let origin=self.dungeon.shooter.media_origin();
-            self.dungeon.audio.sfx_from(&sound, now,voice,origin);
+        if !sounds.is_empty() {
+            let voices = self.dungeon.shooter.live_voices(&sounds);
+            let origin = self.dungeon.shooter.media_origin();
+            for (sound, voice) in sounds.iter().zip(voices) {
+                self.dungeon.audio.sfx_from(sound, now, voice, origin.clone());
+            }
         }
         if ask && self.dungeon.forge.draft.is_none() {
             self.open_lamp_wish();
