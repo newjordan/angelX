@@ -281,3 +281,65 @@ fn custom_length_takes_an_exact_round_count_the_presets_do_not_offer() {
         "the committed length survives"
     );
 }
+
+#[test]
+fn committed_custom_length_reopens_for_editing() {
+    let mut d = LoopLaunchDialog::new("long haul", 0, false);
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert!(d.custom_entry_active());
+    for ch in "42".chars() {
+        assert!(d.custom_length_digit(ch));
+    }
+    assert!(d.commit_custom_length());
+    assert_eq!(d.settings().max_iters, 42);
+
+    // Selecting the custom slot again reopens the editor, seeded — for the
+    // mouse (apply) and for the keyboard (adjust cycling onto the slot) alike.
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert!(d.custom_entry_active(), "a set length can be revised");
+    assert_eq!(d.custom_entry_text(), Some("42"));
+    d.custom_length_backspace();
+    assert!(d.custom_length_digit('7'));
+    assert!(d.commit_custom_length());
+    assert_eq!(d.settings().max_iters, 47);
+
+    d.adjust(false); // off the custom slot, back to endless
+    assert_eq!(d.settings().max_iters, 0);
+    d.adjust(true); // cycling onto the custom slot opens the entry too
+    assert!(d.custom_entry_active());
+    assert_eq!(d.custom_entry_text(), Some("47"));
+    assert!(d.cancel_custom_length());
+    assert_eq!(
+        d.settings().max_iters,
+        0,
+        "Esc hands the row back to the preset it left"
+    );
+    assert_eq!(d.custom_iterations, Some(47), "the committed length survives");
+}
+
+#[test]
+fn settings_honour_the_typed_draft() {
+    let mut d = LoopLaunchDialog::new("long haul", 0, false);
+    d.apply(LoopDialogAction::SelectIterations(1));
+    assert_eq!(d.settings().max_iters, 25);
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert_eq!(
+        d.settings().max_iters,
+        25,
+        "an empty draft claims nothing yet"
+    );
+    for ch in "99".chars() {
+        assert!(d.custom_length_digit(ch));
+    }
+    // The row shows 99, so a start from here launches with 99 — the draft is
+    // never silently dropped for the preset underneath.
+    assert_eq!(d.settings().max_iters, 99);
+    assert!(d.cancel_custom_length());
+    assert_eq!(d.settings().max_iters, 25, "dropping the draft restores 25");
+}
