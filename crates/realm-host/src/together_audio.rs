@@ -509,14 +509,34 @@ fn quiet(command: &mut Command) -> &mut Command {
 }
 
 /// One effect, fire and forget.
+/// One effect, played by a player process of its own. The process is
+/// started off the frame, by the effects' own thread: a party's volleys ask
+/// for dozens of effects a second, and starting each on the host's frame
+/// cost the host its smoothness (the browser seats play theirs in the page).
 fn play_once(path: &Path, level: f32) {
     if cfg!(any(test, feature = "testing")) {
         return;
     }
-    if let Some(mut child) = once_player(path, level) {
-        std::thread::spawn(move || {
-            let _ = child.wait();
-        });
+    static PLAYER: std::sync::OnceLock<Option<std::sync::mpsc::Sender<(PathBuf, f32)>>> =
+        std::sync::OnceLock::new();
+    let player = PLAYER.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<(PathBuf, f32)>();
+        std::thread::Builder::new()
+            .name("delve-sfx".into())
+            .spawn(move || {
+                let mut playing: Vec<Child> = Vec::new();
+                for (path, level) in rx {
+                    playing.retain_mut(|child| !matches!(child.try_wait(), Ok(Some(_)) | Err(_)));
+                    if let Some(child) = once_player(&path, level) {
+                        playing.push(child);
+                    }
+                }
+            })
+            .ok()
+            .map(|_| tx)
+    });
+    if let Some(player) = player {
+        let _ = player.send((path.to_path_buf(), level));
     }
 }
 
