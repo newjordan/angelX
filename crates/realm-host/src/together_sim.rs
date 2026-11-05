@@ -1150,6 +1150,36 @@ impl Link {
     pub fn home_facts_pending(&self) -> bool {
         home_facts_on(&self.0)
     }
+    pub fn acknowledge_brew(
+        &self,
+        claim: &angel_delve::rules::brew_jobs::Claim,
+        done: &angel_delve::rules::brew_jobs::Completion,
+    ) -> Result<(), String> {
+        let mut core = lock(&self.0.core);
+        core.commands.acknowledge_brew(claim, done)?;
+        core.edited = true;
+        Ok(())
+    }
+    pub fn acknowledge_reforge(
+        &self,
+        claim: &angel_delve::rules::reforge_jobs::Claim,
+        done: &angel_delve::rules::reforge_jobs::Completion,
+    ) -> Result<(), String> {
+        let mut core = lock(&self.0.core);
+        core.commands.acknowledge_reforge(claim, done)?;
+        core.edited = true;
+        Ok(())
+    }
+    pub fn acknowledge_wish(
+        &self,
+        claim: &angel_delve::rules::wish_jobs::Claim,
+        done: &angel_delve::rules::wish_jobs::Completion,
+    ) -> Result<(), String> {
+        let mut core = lock(&self.0.core);
+        core.commands.acknowledge_wish(claim, done)?;
+        core.edited = true;
+        Ok(())
+    }
     /// A checkpoint, serialized with the service's own under the same gate.
     pub fn checkpoint(&self, path: &Path, raid_serial: u64) -> Result<(), String> {
         let _gate = lock(&self.0.checkpoint);

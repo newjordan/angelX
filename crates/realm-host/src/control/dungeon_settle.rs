@@ -466,3 +466,104 @@ impl DungeonView {
         true
     }
 }
+
+/// A save running off the frame on a thread of its own, and the slot it
+/// fills when it is done (taken once by the frame that finds it).
+pub struct Saving<T>(std::sync::Arc<std::sync::Mutex<Option<T>>>);
+
+impl<T> Clone for Saving<T> {
+    fn clone(&self) -> Self {
+        Saving(std::sync::Arc::clone(&self.0))
+    }
+}
+
+impl<T> std::fmt::Debug for Saving<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Saving")
+    }
+}
+
+impl<T: Send + 'static> Saving<T> {
+    pub(super) fn start(job: impl FnOnce() -> T + Send + 'static) -> Saving<T> {
+        let slot = Saving(std::sync::Arc::new(std::sync::Mutex::new(None)));
+        let fill = std::sync::Arc::clone(&slot.0);
+        std::thread::Builder::new()
+            .name("delve-save".into())
+            .spawn(move || {
+                let done = job();
+                *fill.lock().unwrap_or_else(|p| p.into_inner()) = Some(done);
+            })
+            .expect("a save thread starts");
+        slot
+    }
+
+    /// What the save came to, once it is done.
+    pub(super) fn done(&self) -> Option<T> {
+        self.0.lock().unwrap_or_else(|p| p.into_inner()).take()
+    }
+}
+
+/// A finished job's delivery off the frame: a checkpoint, then (unless it
+/// was acknowledged before) its card file published and its receipt
+/// acknowledged, then a checkpoint. The slot says whether it was
+/// acknowledged, and how the saves went.
+pub(super) fn deliver_off_frame(
+    link: Link,
+    save: PathBuf,
+    serial: u64,
+    acknowledged: bool,
+    publish: Option<(PathBuf, Vec<u8>)>,
+    acknowledge: impl FnOnce(&Link) -> Result<(), String> + Send + 'static,
+) -> Saving<(bool, Result<(), String>)> {
+    Saving::start(move || {
+        let mut acked = false;
+        let saved = (|| {
+            link.checkpoint(&save, serial)?;
+            if !acknowledged {
+                if let Some((path, bytes)) = &publish {
+                    angel_live::host::workspace_store::write_private_atomic_exact(path, bytes)?;
+                }
+                acknowledge(&link)?;
+                acked = true;
+            }
+            link.checkpoint(&save, serial)
+        })();
+        (acked, saved)
+    })
+}
+
+/// An admission save off the frame: the claims (session, request) it covers
+/// are persisted once it is done.
+pub type Admitting = Option<(Saving<Result<(), String>>, Vec<(String, u64)>)>;
+
+/// Start an admission save for `covered` where the server runs on its own
+/// threads. False where it is stepped by hand: the caller saves in place.
+pub(super) fn admit_off_frame(
+    view: &mut DungeonView,
+    admitting: fn(&mut DungeonView) -> &mut Admitting,
+    covered: Vec<(String, u64)>,
+) -> Result<bool, String> {
+    let Some(link) = view.shooter.link() else {
+        return Ok(false);
+    };
+    if admitting(view).is_some() {
+        return Ok(true);
+    }
+    let save = view
+        .save_path
+        .clone()
+        .ok_or("the checkpoint path is unavailable")?;
+    let serial = view.raid_serial;
+    *admitting(view) = Some((
+        Saving::start(move || link.checkpoint(&save, serial)),
+        covered,
+    ));
+    Ok(true)
+}
+
+/// The claims an admission save covered, once it is done (Err when it failed).
+pub(super) fn admitted(slot: &mut Admitting) -> Option<Result<Vec<(String, u64)>, String>> {
+    let saved = slot.as_ref()?.0.done()?;
+    let (_, covered) = slot.take().expect("checked above");
+    Some(saved.map(|()| covered))
+}

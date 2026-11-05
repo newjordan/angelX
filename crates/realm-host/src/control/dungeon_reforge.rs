@@ -148,6 +148,9 @@ pub struct Lesson {
     pub failed: Option<String>,
     /// Where its time went on the runner (`together_grants::Timing`).
     pub timing: Option<crate::together_grants::Timing>,
+    /// Its delivery's saves, running off the frame: whether it was
+    /// acknowledged, and how the saves went.
+    pub saving: Option<super::Saving<(bool, Result<(), String>)>>,
 }
 
 impl Lesson {
@@ -174,6 +177,7 @@ impl Lesson {
             learned_id: None,
             failed: None,
             timing: None,
+            saving: None,
         }
     }
 
@@ -241,6 +245,8 @@ pub struct Forging {
     pub words: String,
     pub started: Instant,
     pub seen: bool,
+    /// Its delivery's saves, running off the frame.
+    pub saving: Option<super::Saving<(bool, Result<(), String>)>>,
 }
 
 #[derive(Clone, Default)]
@@ -266,6 +272,12 @@ impl GrantPool {
 /// Reforges waiting their turn behind the one being drafted.
 #[derive(Clone, Debug, Default)]
 pub struct Forge {
+    /// An admission save off the frame, and the claims (session, request)
+    /// it covers: those lessons are persisted once it is done.
+    pub admitting: Option<(super::Saving<Result<(), String>>, Vec<(String, u64)>)>,
+    /// The same for newly discovered brews and reforges.
+    pub brew_admitting: super::Admitting,
+    pub reforge_admitting: super::Admitting,
     /// Discovery cursor only; the game journal owns the captured brew work.
     pub brew_cursor: Option<(String, u64)>,
     pub reforge_cursor: Option<(String, u64)>,
@@ -951,6 +963,24 @@ impl Session<'_> {
     /// lesson waits on another, nor on the host's own turns.
     pub fn teach_next(&mut self) {
         if !self.flush_speculative() { return; }
+        // An admission save off the frame: wait for it, then the lessons it
+        // covered are persisted and may be taught.
+        if let Some((saving, _)) = &self.dungeon.forge.admitting {
+            let Some(saved) = saving.done() else { return };
+            let (_, covered) = self.dungeon.forge.admitting.take().expect("checked above");
+            if let Err(error) = saved {
+                self.dungeon.notice = format!("Wish admission retained: {error}");
+                return;
+            }
+            for lesson in &mut self.dungeon.forge.learning {
+                if let Some(claim) = &lesson.claim
+                    && !lesson.detached
+                    && covered.iter().any(|(session, request)| *session == claim.session && *request == claim.request)
+                {
+                    lesson.persisted = true;
+                }
+            }
+        }
         if self
             .dungeon
             .forge
@@ -958,6 +988,24 @@ impl Session<'_> {
             .iter()
             .any(|l| !l.detached && l.claim.is_some() && !l.persisted)
         {
+            if let Some(link) = self.dungeon.shooter.link() {
+                let Some(path) = self.dungeon.save_path.clone() else {
+                    self.dungeon.notice = "Wish admission retained: wish checkpoint path is unavailable".into();
+                    return;
+                };
+                let covered = self
+                    .dungeon
+                    .forge
+                    .learning
+                    .iter()
+                    .filter(|l| !l.detached)
+                    .filter_map(|l| l.claim.as_ref().map(|c| (c.session.clone(), c.request)))
+                    .collect();
+                let serial = self.dungeon.raid_serial;
+                let saving = super::Saving::start(move || link.checkpoint(&path, serial));
+                self.dungeon.forge.admitting = Some((saving, covered));
+                return;
+            }
             let saved = if self.dungeon.save_path.is_some() {
                 self.dungeon.checkpoint(Instant::now(), true)
             } else {
@@ -1343,6 +1391,7 @@ impl Session<'_> {
             words: words.clone(),
             started: Instant::now(),
             seen: false,
+            saving: None,
         });
         self.dungeon.notice = format!(
             "angelX is reforging {name}'s {}… keep playing.",
