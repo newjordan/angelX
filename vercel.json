@@ -1,0 +1,4 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "ignoreCommand": "echo 'angelX public tree has no website/; skip this deploy' && exit 0"
+}
