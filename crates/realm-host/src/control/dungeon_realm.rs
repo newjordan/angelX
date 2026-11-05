@@ -5,6 +5,10 @@ use super::dungeon::DungeonView;
 use crate::together_realm::{self as realm, Realm, Status};
 use crate::together_shooter as shooter;
 
+/// How long the realm waits after a home claim that changed nothing
+/// before it claims again.
+const HOME_QUIET: std::time::Duration = std::time::Duration::from_secs(2);
+
 impl Session<'_> {
     /// The island's realm, loaded beside the world's rewards on first use.
     pub(crate) fn realm(&mut self) -> &mut Realm {
@@ -78,6 +82,12 @@ impl Session<'_> {
     /// chosen, and tell the run what now stands and what it can spend.
     pub fn settle_home(&mut self) -> bool {
         self.flush_holdings_ops();
+        // A claim that changed nothing was followed at once by another,
+        // each saving the game three times on this thread: dozens of synced
+        // writes a second, and the host's frames stalled behind them.
+        if self.dungeon.home_quiet_until.is_some_and(|until| std::time::Instant::now() < until) {
+            return true;
+        }
         for _ in 0..16 {
             let settled = (|| {
                 let context = self.realm().home_context();
@@ -131,6 +141,14 @@ impl Session<'_> {
             };
             self.dungeon.bounties_unsaved = false;
             let now = std::time::Instant::now();
+            if !completed.result.changed
+                && completed.result.said.is_empty()
+                && completed.result.announced.is_empty()
+                && completed.delivered.refund.is_empty()
+            {
+                self.dungeon.home_quiet_until = Some(now + HOME_QUIET);
+                return true;
+            }
             let built_or_opened = !completed.result.said.is_empty();
             for (cue, notice) in completed.result.said {
                 self.dungeon.chorus.cue(&cue, now);
