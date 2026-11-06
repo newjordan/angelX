@@ -1,5 +1,9 @@
 # angelX
 
+The product website is [omni-space.tech](https://omni-space.tech): install,
+documentation, the Glass reel and the measurements published in this
+repository. Source and release downloads stay on GitHub.
+
 angelX is a terminal coding agent. It works inside your repository with the
 models you choose, asks before it runs a command or edits a file, checks its
 work before it reports done, and keeps what it learns about your project.
@@ -41,7 +45,7 @@ To compile with Blaze instead of Cargo, install it once with
 `python3 scripts/runtime/install-blaze.py`, then launch with
 `ANGEL_BUILD_BACKEND=blaze ./bin/angelX`.
 
-[Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
+[Product site](https://omni-space.tech) · [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Backup and peer watch](docs/BACKUP.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE) ·
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 

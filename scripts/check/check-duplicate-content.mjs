@@ -77,21 +77,21 @@ export const DEFAULT_RULES = [
   {
     id: 'art-slot-kits',
     reason:
-      'Imported slot art keeps a v1 and a v2 kit for each slot, and crates/delve/build.rs embeds the kits a slot\'s map.json names under `embed_kits`; a piece the v2 pass left alone is the same file in both kits, and frames of one animation that hold still (blank ghosts, held poses) share pixels. build.rs embeds by slot and piece name, so each name is load-bearing.',
+      "Imported slot art keeps a v1 and a v2 kit for each slot, and crates/delve/build.rs embeds the kits a slot's map.json names under `embed_kits`; a piece the v2 pass left alone is the same file in both kits, and frames of one animation that hold still (blank ghosts, held poses) share pixels. build.rs embeds by slot and piece name, so each name is load-bearing.",
     all_match: ['crates/delve/assets/art-slots/**'],
     min_members: 2,
   },
   {
     id: 'boss-library-studies',
     reason:
-      'A boss\'s library keeps every study it was chosen from (`library-vN-study-K-pose.png`) beside the chosen pose (`library-vN-pose.png`), which is a copy of the winning study; crates/delve/build.rs embeds the chosen names and the studies only under the boss-library-review feature.',
+      "A boss's library keeps every study it was chosen from (`library-vN-study-K-pose.png`) beside the chosen pose (`library-vN-pose.png`), which is a copy of the winning study; crates/delve/build.rs embeds the chosen names and the studies only under the boss-library-review feature.",
     all_match: ['cockpit/assets/dungeon/bosses/**'],
     min_members: 2,
   },
   {
     id: 'held-animation-frames',
     reason:
-      'Hall-game and arcade frames are looked up by state and beat: a tell\'s last beat (`-tell-3`) holds its first, a damage beat or a stage\'s idle shares that stage\'s pose, and the arcade knight\'s defeat holds a frame. The copies keep every state\'s frame table whole.',
+      "Hall-game and arcade frames are looked up by state and beat: a tell's last beat (`-tell-3`) holds its first, a damage beat or a stage's idle shares that stage's pose, and the arcade knight's defeat holds a frame. The copies keep every state's frame table whole.",
     all_match: [
       'crates/delve/assets/pennon/**',
       'crates/delve/assets/rafterwake/**',
@@ -137,6 +137,14 @@ export const DEFAULT_RULES = [
     reason:
       'Immutable validation evidence under `notes/validation/`. A capture is written both as a raw `.log` and as its JSON receipt, and re-captured per install candidate.',
     all_match: ['notes/validation/**'],
+    min_members: 2,
+  },
+  {
+    id: 'website-doc-figures',
+    reason:
+      'The product site at website/ serves the figures its guides discuss from website/assets/docs-images/, byte-for-byte the same files as docs/images/, so a page does not depend on another host for those pictures and cannot drift from the guide.',
+    all_match: ['website/assets/docs-images/**', 'docs/images/**'],
+    each_match: ['website/assets/docs-images/**', 'docs/images/**'],
     min_members: 2,
   },
   {
@@ -198,14 +206,14 @@ export const DEFAULT_RULES = [
   {
     id: 'bend-game-case-mains',
     reason:
-      'delve/rules/games_a builds each game into delve/.ga/<game>/ with the same generated cases_main.bend driver, which imports that folder\'s own rules.bend; the bytes are equal but each folder is a separate Bend build root.',
+      "delve/rules/games_a builds each game into delve/.ga/<game>/ with the same generated cases_main.bend driver, which imports that folder's own rules.bend; the bytes are equal but each folder is a separate Bend build root.",
     all_match: ['delve/.ga/*/cases_main.bend'],
     min_members: 2,
   },
   {
     id: 'game-palette-for-two-painters',
     reason:
-      'The game\'s ink palette, written by scripts/delve/inks_hex.py: crates/delve reads it for its arena dyes test and pxl, and crates/kiln embeds it as realm.hex for its painter. Each crate builds on its own, so each keeps the file in its tree.',
+      "The game's ink palette, written by scripts/delve/inks_hex.py: crates/delve reads it for its arena dyes test and pxl, and crates/kiln embeds it as realm.hex for its painter. Each crate builds on its own, so each keeps the file in its tree.",
     exact_paths: [['crates/delve/assets/demon-hand/inks.hex', 'crates/kiln/assets/realm.hex']],
   },
   {
