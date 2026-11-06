@@ -1,0 +1,20 @@
+{
+  "wide": {
+    "file": "glass-hero-16x9.mp4",
+    "poster": "glass-hero-16x9.jpg",
+    "sha256": "ca498c329295a95b39526d1f0797c7d88ee764b740e93117b67f1a1dd9c626d4",
+    "width": 1280,
+    "height": 720,
+    "duration": 12.8,
+    "frames": 384
+  },
+  "tall": {
+    "file": "glass-hero-9x16.mp4",
+    "poster": "glass-hero-9x16.jpg",
+    "sha256": "8fc1f4c5fa5d1b30ba9c4decc46e3c2383f10b52c142c4d921401d12e78bc29f",
+    "width": 1080,
+    "height": 1920,
+    "duration": 12.8,
+    "frames": 384
+  }
+}

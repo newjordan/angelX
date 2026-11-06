@@ -88,13 +88,19 @@ cargo fmt --manifest-path cockpit/Cargo.toml --check
 
 Fork the repository, branch off `main`, and open the pull request against `main`.
 
-This tree does not ship `website/` (it is gitignored, and was removed from the
-public repository on purpose). The Vercel project linked here serves
-[angelx.dev](https://angelx.dev) from an earlier deploy. Its Root Directory is
-the repository root, and [`vercel.json`](vercel.json) tells that check to skip
-the build (`ignoreCommand` exits 0). A pull request should not fail because a
-directory this repo no longer contains is missing. Do not point that project
-back at `website/`.
+The public product website is [https://omni-space.tech](https://omni-space.tech).
+Its source is `website/`. Preview it with `python3 -m http.server` from that
+directory. Publishing it, and any later change to the older hostname that still
+serves a previous deployment, is the manual cutover in
+[docs/site-rollout.md](docs/site-rollout.md).
+
+[https://angelx.dev](https://angelx.dev) keeps serving that previous deployment
+until the cutover is approved. It is not the product website. The Vercel
+project linked to this repository (`angelx`) has its root at the repository
+root, and [`vercel.json`](vercel.json) skips that project's build
+(`ignoreCommand` exits 0) so a merge does not replace the previous deployment.
+Do not point that project at `website/` and do not remove the skip until that
+cutover is explicitly approved.
 
 - Keep each patch focused.
 - Run the check scripts listed in [Setup](#setup) before opening the pull request.

@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Model setup — angelX docs</title>
+  <meta name="description" content="Connect a model. Rendered from docs/MODELS.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/models.html">
+  <meta property="og:title" content="Model setup — angelX docs">
+  <meta property="og:description" content="Connect a model. Rendered from docs/MODELS.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/models.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/MODELS.md" rel="noopener">docs/MODELS.md</a></p>
+<h1 id="model-setup">Model setup</h1>
+<p>Type <code>/setup</code> in the cockpit (or run <code>angelX setup</code>) to connect a model. The menu lists what this machine already has (a model server on localhost such as Ollama, LM Studio, llama.cpp or vLLM, an API key in your environment, a ChatGPT or Grok login), signs in to a plan through your browser, checks a pasted key or a server address, and saves the choice to <code>~/.angelX/angel.env</code>. The new model takes over without a restart. With nothing configured anywhere, the first interactive launch opens the menu by itself; <code>ANGEL_SETUP=0</code> turns that off. <code>angelX setup --text</code> asks the same questions as plain text.</p>
+<p>In the cockpit, <code>/connect &lt;provider&gt;</code> lists a provider's settings, <code>/model</code> to choose a route, and <code>/think</code> to choose a supported reasoning level. <code>/status</code> shows the current session. Provider adapters live in <code>cockpit/src/agent/club</code>; your credentials and preferences belong in your environment or account login files.</p>
+<p>For interactive launches, settings load from <code>~/.angelX/angel.env</code>, then from the checkout's ignored <code>.angel.auto.env</code> and <code>.angel.env</code> (the checkout wins); restart Angel after a change. The launcher also reads <code>~/.config/host_env/*</code>, <code>~/.env</code> and <code>~/.openrouter.env</code>, but only when <code>ANGEL_HOST_ENV=1</code> is exported or set in one of those files. For headless runs, export settings in the caller or set <code>ANGEL_RUNNER_ENV_FILE=/path/to/your.env</code>.</p>
+<div class="table-wrap"><table><thead><tr><th>Connection</th><th>Setup</th><th>Route</th></tr></thead><tbody><tr><td>Grok account</td><td>Run <code>grok login --oauth</code> with the Grok CLI. Angel reads <code>~/.grok/auth.json</code>; <code>ANGEL_GROK_OAUTH_FILE</code> overrides the path.</td><td><code>grok</code></td></tr><tr><td>Grok API</td><td>Set <code>XAI_API_KEY</code> and optionally <code>ANGEL_GROK_API_MODEL</code> / <code>ANGEL_GROK_API_URL</code>.</td><td><code>grok-api</code></td></tr><tr><td>ChatGPT account</td><td>Run <code>codex login</code>. Angel reads <code>~/.codex/auth.json</code> and the local model catalog; <code>CODEX_HOME</code> overrides the directory.</td><td><code>openai</code></td></tr><tr><td>OpenAI API</td><td>Set <code>OPENAI_API_KEY</code> and <code>ANGEL_OPENAI_API_MODEL</code>. Optional endpoint: <code>ANGEL_OPENAI_API_URL</code>.</td><td><code>openai-api</code></td></tr><tr><td>GLM</td><td>Set <code>ANGEL_GLM_KEY</code> or the endpoint's matching key, plus <code>ANGEL_GLM_URL</code> and <code>ANGEL_GLM_MODEL</code> when overriding defaults.</td><td><code>glm</code></td></tr><tr><td>DeepSeek</td><td>Set <code>DEEPSEEK_API_KEY</code>. Optional settings: <code>ANGEL_DEEPSEEK_URL</code>, <code>ANGEL_DEEPSEEK_MODEL</code>.</td><td><code>deepseek</code></td></tr><tr><td>OpenRouter</td><td>Set <code>OPENROUTER_API_KEY</code> and <code>ANGEL_OPENROUTER_MODEL</code>. Optional endpoint: <code>ANGEL_OPENROUTER_URL</code>.</td><td><code>openrouter</code></td></tr><tr><td>Anthropic</td><td>Set <code>ANTHROPIC_API_KEY</code> or <code>ANGEL_ANTHROPIC_KEY</code>. The <code>anthropic</code> seat uses <code>ANGEL_ANTHROPIC_MODEL</code> (default <code>claude-sonnet-5-5</code>). Claude Opus 5.5 is its own seat on that same key.</td><td><code>anthropic</code>, <code>claude-opus-5-5</code></td></tr><tr><td>Local server</td><td>Set <code>ANGEL_LOCAL_URL</code> to an OpenAI-compatible base URL. Set <code>ANGEL_LOCAL_MODEL</code>, or let <code>/models</code> discovery identify the served model.</td><td><code>local</code></td></tr></tbody></table></div>
+<p>Select a startup route with <code>ANGEL_DRIVER</code>, for example:</p>
+<pre><code class="language-sh">ANGEL_DRIVER=local ANGEL_LOCAL_URL=http://127.0.0.1:8080/v1 ./bin/angelX</code></pre>
+<p>OAuth and API routes have separate labels and credentials. An API key does not replace the account login. Grok's optional <code>grok_research</code> tool uses the CLI OAuth session; the <code>grok-api</code> driver uses native HTTP tool calls.</p>
+<p>Configured API providers are available by default. To restrict them, set <code>ANGEL_API_CLUBS</code>: <code>glm,grok</code> allows those API providers; <code>none</code> or an explicitly empty value disables API routes; unset, <code>*</code>, or <code>all</code> allows configured providers. This setting does not disable account OAuth or local routes. <code>/connect</code> shows the current policy. Availability in the model list is not a completed live test.</p>
+<p>Consultation and delegation use configured models by default. <code>/solo</code> restricts remote consultation; <code>ANGEL_ALLOW_SOTA_CONSULT=0</code> or <code>ANGEL_ALLOW_SOTA_DELEGATE=0</code> restricts the corresponding tools. Autonomous loops prefer the selected model; <code>ANGEL_LOOP_SOTA_CLUB</code> pins an escalation route and <code>ANGEL_LOOP_SOTA=0</code> disables that escalation. Configure budgets and run limits for your workload in the <a href="https://github.com/newjordan/angelX/blob/main/cockpit/docs/ENV.md" rel="noopener">environment reference</a>.</p>
+<h2 id="treebeard-compactor">Treebeard compactor</h2>
+<p>In the Treebeard lane (the default), a local model can work beside a paid driver as its rolling compactor. When the lane parks a large tool result under a handle, the compactor reads it and writes the driver a short digest in the receipt, so the details stay local. It also writes the background compaction summaries. Without one, receipts stay bare and compaction stays in-hand.</p>
+<p>Recommended model: <a href="https://huggingface.co/unsloth/Qwen3.6-35B-A3B-GGUF" rel="noopener">unsloth/Qwen3.6-35B-A3B-GGUF</a>, file <code>Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf</code> (26.6 GB, Apache-2.0). It is a mixture-of-experts model with about 3B active parameters, fast enough to digest inside a hop. Serve it with llama.cpp b9743 or newer; older builds lack its <code>qwen35moe</code> architecture.</p>
+<pre><code class="language-sh">hf download unsloth/Qwen3.6-35B-A3B-GGUF Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf --local-dir ~/models/treebeard
+llama-server -m ~/models/treebeard/Qwen3.6-35B-A3B-UD-Q5_K_XL.gguf \
+  --host 127.0.0.1 --port 8001 -ngl 99 -c 131072 -np 4 --kv-unified \
+  -fa on --jinja --reasoning-budget 0 -a treebeard</code></pre>
+<p>Then, in <code>.angel.env</code>:</p>
+<pre><code class="language-sh">ANGEL_COMPACT_URL=http://127.0.0.1:8001/v1
+ANGEL_COMPACT_MODEL=treebeard
+ANGEL_COMPACT_REASONING_DIALECT=qwen
+ANGEL_COMPACT_REASONING_EFFORT=none
+ANGEL_COMPACT_BG_TIMEOUT_SECS=120</code></pre>
+<p><code>ANGEL_TREEBEARD_DIGEST=0</code> turns the digests off; see the <a href="https://github.com/newjordan/angelX/blob/main/cockpit/docs/ENV.md" rel="noopener">environment reference</a>. Nothing cuts a digest off: the hop waits for every one it started.</p>
+<p>Other providers, endpoint aliases, fleet discovery, timeouts and model-specific controls are listed in the <a href="https://github.com/newjordan/angelX/blob/main/cockpit/docs/ENV.md" rel="noopener">environment reference</a>.</p>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

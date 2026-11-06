@@ -1,0 +1,87 @@
+<section class="hero">
+  <div class="wrap prose">
+    <p class="eyebrow">Evidence</p>
+    <h1>Measurements published with the source.</h1>
+    <p class="lede">Every figure on this page is already in the angelX repository. This site does not add a run, drop a failure, or combine partial cells into a new total. Where the notes name a limit, the limit is kept.</p>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap prose">
+    <h2>angelX 0.2.7 · polyglot-v1 · 2026-11-01</h2>
+    <p>136 repository-repair tasks. One attempt per task, 600 seconds, fresh environment, graded by each task's tests. The README table:</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>polyglot-v1, 2026-11-01</th><th>solved</th><th>agent time</th><th>median task</th><th>input tokens</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>angelX 0.2.7</strong> · Muse Spark 1.3</td><td><strong>136 / 136</strong></td><td><strong>37.2 min</strong></td><td><strong>14.3 s</strong></td><td><strong>6.58 M</strong></td></tr>
+          <tr><td>Muse Code 1.4.14 · Muse Spark 1.3</td><td>136 / 136</td><td>119.8 min</td><td>41.9 s</td><td>26.33 M</td></tr>
+          <tr><td><strong>angelX 0.2.7</strong> · Grok 4.7 low</td><td><strong>136 / 136</strong></td><td><strong>45.6 min</strong></td><td><strong>16.9 s</strong></td><td><strong>5.38 M</strong></td></tr>
+          <tr><td>Grok CLI 1.0.70 · Grok 4.7</td><td>135 / 136</td><td>74.9 min</td><td>28.3 s</td><td>13.68 M</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine">Prime Intellect Verifiers v0.3.1 · one attempt per task, 600 s, fresh environment · each tool as it ships. The release notes add model calls and output tokens, and they name how each tool was run. Read them here: <a href="/docs/release-0.2.7.html">angelX 0.2.7 release notes</a>. Repository copy: <a href="https://github.com/newjordan/angelX/blob/main/README.md#new-in-027-the-muse-hackathon-update" rel="noopener">README</a>, <a href="https://github.com/newjordan/angelX/blob/main/docs/RELEASE_0.2.7.md" rel="noopener">docs/RELEASE_0.2.7.md</a>.</p>
+
+    <h2>Glass, from the same release notes</h2>
+    <p>Against kitty 0.49.2 on one machine: first output on screen in 46.1 ms (kitty 185), a key press reaching the program while it floods output in 3.0 ms (kitty 38.6). Over 16 runs the window was on screen in 31 ms (kitty 73) and the program was running in 39.5 ms (kitty 193). The README rounds the first output figure to 46 ms. Only kitty has been measured. Detail: <a href="/docs/glass-term.html">Glass terminal</a> and <a href="/glass.html">the reel</a>.</p>
+
+    <h2>angelX 0.1.8 · polyglot-v1 · 2026-09-30</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>model</th><th>solved</th><th>wall (median)</th><th>calls / task</th><th>input tokens</th><th>cache hit</th><th>output tokens</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>DeepSeek V4.1 Flash, thinking off · run 1</td><td>135 / 136</td><td>9.9 s</td><td>6.0</td><td>8.7 M</td><td>84%</td><td>205 k</td></tr>
+          <tr><td>DeepSeek V4.1 Flash, thinking off · run 2</td><td>135 / 136</td><td>9.1 s</td><td>5.3</td><td>6.9 M</td><td>80%</td><td>195 k</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine">Evaluator: Prime Intellect Verifiers v0.3.1 · angelX 0.1.8 · temperature 0 · 600 s per attempt · fresh environment per attempt · 2026-09-30. The other models' latest results in that README section are 0.1.6's, below.</p>
+
+    <h2>angelX 0.1.6 · polyglot-v1 · 2026-09-23</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>model</th><th>solved</th><th>wall (median)</th><th>calls / task</th><th>input tokens</th><th>cache hit</th><th>output tokens</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>DeepSeek V4.1 Flash, thinking off</td><td>134 / 136</td><td>10.7 s</td><td>7.8</td><td>12.7 M</td><td>89%</td><td>310 k</td></tr>
+          <tr><td>GLM-5.3-Flash, thinking low</td><td>134 / 136</td><td>46.1 s</td><td>7.9</td><td>9.4 M</td><td>83%</td><td>222 k</td></tr>
+          <tr><td>Grok 4.7, thinking low</td><td>136 / 136</td><td>17.5 s</td><td>5.0</td><td>6.7 M</td><td>57%</td><td>134 k</td></tr>
+          <tr><td>gpt-6-luna, thinking medium</td><td>136 / 136</td><td>31.3 s</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+          <tr><td>Muse Spark, thinking low</td><td>136 / 136</td><td>25.5 s</td><td>4.9</td><td>5.9 M</td><td>54%</td><td>311 k</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine">Evaluator: Prime Intellect Verifiers v0.3.1 · angelX 0.1.6 · temperature 0; Muse Spark 1.0 (Meta's recommended setting); gpt-6-luna on its ChatGPT plan, which reports no token counts · 600 s per attempt · fresh environment per attempt · 2026-09-23.</p>
+
+    <h2>Harness comparison · polyglot-v1 · 2026-09-21</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>model</th><th>harness</th><th>solved</th><th>wall (median)</th><th>calls / task</th><th>input tokens</th><th>cache hit</th><th>output tokens</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>DeepSeek V4.1 Flash, thinking off</td><td>angelX</td><td>133 / 136</td><td>9.9 s</td><td>7.5</td><td>11.5 M</td><td>88%</td><td>257 k</td></tr>
+          <tr><td></td><td>OpenCode 1.18.31</td><td>132 / 136</td><td>8.6 s</td><td>12.5</td><td>67.7 M</td><td>97%</td><td>349 k</td></tr>
+          <tr><td></td><td>oh-my-pi 18.2.4</td><td>86 / 93 *</td><td>15.3 s</td><td>35.5</td><td>200.1 M</td><td>99%</td><td>866 k</td></tr>
+          <tr><td>GLM-5.3-Flash, thinking low</td><td>angelX</td><td>135 / 136</td><td>50.7 s</td><td>8.9</td><td>10.9 M</td><td>84%</td><td>256 k</td></tr>
+          <tr><td></td><td>OpenCode 1.18.31</td><td>133 / 136</td><td>38.9 s</td><td>7.4</td><td>10.1 M</td><td>85%</td><td>179 k</td></tr>
+          <tr><td></td><td>oh-my-pi 18.2.4</td><td>133 / 136</td><td>37.7 s</td><td>8.9</td><td>24.1 M</td><td>90%</td><td>203 k</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine">* oh-my-pi on DeepSeek reached its 200M-token budget cap after 93 tasks. The full GLM cohort took 34.5% longer than OpenCode in the September 21 comparison and 17.6% longer in the September 23 Angel run. The later gap is in model time; Angel's measured non-model time was lower. Verification alone does not explain the difference. The README points to the <a href="https://github.com/newjordan/angelX/blob/main/docs/telemetry/polyglot-full136-slowdown-20260926.md" rel="noopener">full 136-task slowdown audit</a> for totals, tails, task-level causes and comparison limits.</p>
+    <p class="fine">Evaluator: Prime Intellect Verifiers v0.3.1 · angelX 98d7340 · OpenCode 1.18.31 · oh-my-pi 18.2.4 · DeepSeek V4.1 Flash, thinking off · GLM-5.3-Flash, thinking low (lowest available) · temperature 0 · 8,192-token output cap · 600 s per attempt · fresh environment per attempt · 2026-09-21.</p>
+
+    <h2>Field line in the README</h2>
+    <blockquote><p>Field proven: 100+ records on Yukon public research leaderboards, with first-place results in kernel optimization, LLM inference and cryptography research, and 2nd place on the GPU MODE Cholesky leaderboard.</p></blockquote>
+    <p class="fine">That sentence is the repository's field line, not a new count. Links as published there: <a href="https://www.yukon.org/" rel="noopener">yukon.org</a>, <a href="https://www.gpumode.com/leaderboard/776?tab=rankings" rel="noopener">GPU MODE Cholesky</a>, <a href="https://github.com/newjordan/angelX/blob/main/README.md#field-results" rel="noopener">README field results</a>. The 0.2.7 notes also record Virtual Embryo standings as of 2026-11-01; those standings stay in the <a href="/docs/release-0.2.7.html">release notes</a> rather than being restated as a newer total.</p>
+
+    <h2>Feature evidence</h2>
+    <p>Twelve implemented behaviors, each tied to a source path, are on <a href="/docs/features.html">the features page</a>. Comparative performance against peer harnesses is the benchmark section above, not that table.</p>
+  </div>
+</section>

@@ -30,8 +30,7 @@ angel_test_output/
 .refactor-notes/
 artifacts/
 .vercel
-.vercelignore
-website/
+/.vercelignore
 HANDOFF.md
 
 # Research-map state that `/labyrinth init` writes into this checkout.

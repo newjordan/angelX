@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Glass — angelX terminal reel</title>
+  <meta name="description" content="The 12.8 second Glass cockpit reel, in 16:9 and 9:16, served from omni-space.tech with controls.">
+  <link rel="canonical" href="https://omni-space.tech/glass.html">
+  <meta property="og:title" content="Glass — angelX terminal reel">
+  <meta property="og:description" content="The 12.8 second Glass cockpit reel, in 16:9 and 9:16, served from omni-space.tech with controls.">
+  <meta property="og:url" content="https://omni-space.tech/glass.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/">Docs</a><a href="/glass.html" aria-current="page">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Glass</p>
+    <h1>The Glass reel.</h1>
+    <p class="lede">Twelve point eight seconds of angelX's GPU terminal. The wide film plays on a wide window; the portrait film is the same reel for a narrow window. Both files are on this origin. Press play to start. Nothing plays by itself.</p>
+    <figure class="reel" data-reel>
+  <div class="reel-stage">
+    <video class="reel-wide" controls playsinline preload="none" poster="/assets/glass-hero-16x9.jpg" width="1280" height="720" aria-label="Glass cockpit demonstration, 16 by 9, 12.8 seconds">
+      <source src="/assets/glass-hero-16x9.mp4" type="video/mp4">
+    </video>
+    <video class="reel-tall" controls playsinline preload="none" poster="/assets/glass-hero-9x16.jpg" width="1080" height="1920" aria-label="Glass cockpit demonstration, 9 by 16, 12.8 seconds">
+      <source src="/assets/glass-hero-9x16.mp4" type="video/mp4">
+    </video>
+  </div>
+  <figcaption>Glass, angelX's GPU terminal, 12.8 seconds. A wide window plays the 16:9 cut. A narrow window plays the 9:16 cut of the same film. Use the controls to play, pause and seek. The other cut stays unloaded. Files: <a href="/assets/glass-hero-16x9.mp4">16:9</a> · <a href="/assets/glass-hero-9x16.mp4">9:16</a>.</figcaption>
+  <script>
+    (function () {
+      var root = document.currentScript.parentNode
+      var wide = root.querySelector('.reel-wide')
+      var tall = root.querySelector('.reel-tall')
+      var mq = window.matchMedia('(max-width: 760px)')
+      function tune() {
+        var show = mq.matches ? tall : wide
+        var hide = mq.matches ? wide : tall
+        show.preload = 'metadata'
+        hide.preload = 'none'
+        if (!hide.paused) hide.pause()
+      }
+      tune()
+      if (mq.addEventListener) mq.addEventListener('change', tune)
+    })()
+  </script>
+</figure>
+    <p class="fine">The opening line in the film is “angelX glass — the cockpit's text is one layer of a GPU compositor.” The reel then shows text styles, a color ramp, braille, and a small 3D scene. Each file is H.264 with an AAC audio track, 30 fps, 384 frames. The still behind the player is one frame of that same file, so the player has a picture before the video bytes arrive.</p>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap prose">
+    <h2>What ships with angelX</h2>
+    <p>Every prebuilt install also installs glass, linked as <code>glass</code> next to <code>angelX</code>. The installer never replaces a <code>glass</code> you already have. Run angelX inside glass and pictures, video and charts show in the terminal too.</p>
+    <p>The 0.2.7 release notes record the measurements taken against kitty 0.49.2 on one machine. They are not a new run for this page:</p>
+    <ul>
+      <li>First output on screen in 46.1 ms (kitty 185).</li>
+      <li>A key press reaching the program while it floods output in 3.0 ms (kitty 38.6).</li>
+      <li>The window on screen in 31 ms (kitty 73) and the program running in 39.5 ms (kitty 193), medians of 16 runs through Hyprland on a headless output.</li>
+    </ul>
+    <p>The repository README rounds the first of those to 46 ms. Host CPU, GPU and memory for the terminal comparison are the machine named in <a href="/docs/glass-term.html">the Glass terminal guide</a> and the <a href="/docs/release-0.2.7.html">0.2.7 release notes</a>. Only kitty has been measured there.</p>
+    <p><a href="/docs/showcase.html">Showcase</a> · <a href="/docs/glass-term.html">Glass terminal guide</a> · <a href="/install.html">Install</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

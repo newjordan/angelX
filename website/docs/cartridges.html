@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cartridges — angelX docs</title>
+  <meta name="description" content="Plug a tool or command in as a folder. Rendered from docs/CARTRIDGES.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/cartridges.html">
+  <meta property="og:title" content="Cartridges — angelX docs">
+  <meta property="og:description" content="Plug a tool or command in as a folder. Rendered from docs/CARTRIDGES.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/cartridges.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/CARTRIDGES.md" rel="noopener">docs/CARTRIDGES.md</a></p>
+<h1 id="cartridges">Cartridges</h1>
+<p>angelX ships the competition engine: the loop, the submission watcher, the fleet line on the loop HUD, truthful <code>--model</code>/<code>--harness</code> attribution on board submissions, and the book of behaviors. A <strong>cartridge</strong> plugs one competition into that engine: its board CLI, its loop worker's brief, its status API, its book pages. Cartridges are yours. They live outside the angelX tree, so a private setup never ships with the harness.</p>
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="/assets/docs-images/cartridges/slot-dark.png">
+<img alt="The engine's plug points, and which ones the yukon and lean-kernel cartridges fill, in Rust or in cartridge.toml" src="/assets/docs-images/cartridges/slot-light.png">
+</picture>
+<h2 id="plugging-one-in">Plugging one in</h2>
+<p>Put the cartridge's folder in <code>~/.angelX/cartridges/</code>, or point <code>ANGEL_CARTRIDGES</code> at it (a path list; each entry is a cartridge or a folder of them). The first cartridge found is active; <code>ANGEL_CARTRIDGE=&lt;id&gt;</code> picks another. <code>angel --build-info --json</code> lists the cartridges a binary carries.</p>
+<p>With no cartridge plugged in, the engine runs on its own: competition loops, the watcher and the HUD work, and the book names only the platform CLI.</p>
+<h2 id="how-yukon-uses-it">How Yukon uses it</h2>
+<p>Yukon is the operator's own cartridge, and the reason the slot exists. It is a source cartridge: a <code>cartridge.toml</code> plus Rust that the build compiles in. It lives in <code>~/.angelX/cartridges/yukon</code>, a private repository of its own, and none of it is in this tree.</p>
+<ul><li><p><strong>The toml</strong> names the board CLI (<code>yukon</code>, installed as <code>hilbert</code> too), the local measurements (<code>yukon run</code>, <code>yukon validate</code>), the worker's page, and how a result is read (<code>yukon_status or the platform CLI</code>).</p></li><li><p><strong>The Rust</strong> adds the <code>yukon_status</code> tool, the authenticated status API behind a live submission watch, the fleet sweep across every open benchmark, the seat's strategy brief and its experiment ledger, <code>angel --comp-status</code>, and the book pages that name all of it, in the words they had before cartridges. A golden test holds those pages to the old text.</p></li><li><p><strong>Angel Y</strong>, the pinned competition launcher, ships inside the cartridge and refuses a binary built without it.</p></li></ul>
+<p>Every turn of a Yukon loop passes through the cartridge at seven points:</p>
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="/assets/docs-images/cartridges/turn-dark.png">
+<img alt="A competition turn in seven steps, with the hook behind each and what the yukon and lean-kernel cartridges do there" src="/assets/docs-images/cartridges/turn-light.png">
+</picture>
+<p>What the split moved, measured in lines (data in <a href="/assets/docs-images/cartridges/cartridges.json"><code>cartridges.json</code></a>):</p>
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="/assets/docs-images/cartridges/lines-dark.png">
+<img alt="Lines of code that ship with angelX's engine, and lines that stay in the private yukon cartridge" src="/assets/docs-images/cartridges/lines-light.png">
+</picture>
+<h2 id="another-competition-the-lean-kernel-challenge">Another competition: the Lean Kernel Challenge</h2>
+<p><a href="https://competition.sair.foundation/competitions/lean-kernel-challenge" rel="noopener">The Lean Kernel Challenge</a> (Lean FRO and the SAIR Foundation; submissions close 2026-11-20) asks for verified computation: for each problem, an algorithm <code>impl</code> and a proof <code>impl_correct</code> that it matches the specification for every input. The rank is the sum of per-case median kernel instruction counts, lowest first.</p>
+<p><a href="https://github.com/newjordan/angelX/blob/main/docs/examples/cartridges/lean-kernel" rel="noopener"><code>examples/cartridges/lean-kernel</code></a> is that competition as a config-only cartridge, written from its public rules and starter repository. It has not been run on the live challenge.</p>
+<ul><li><p><strong>No board to stamp.</strong> Submissions go through the SAIR web platform, so <code>boards</code> is empty.</p></li><li><p><strong>The worker's pages are data.</strong> <code>[[pages]]</code> in the toml give the loop worker its brief at <code>⠻⠊</code>, the same address Yukon's Rust pages use.</p></li><li><p><strong>Measuring.</strong> <code>bench.sh</code> proves a candidate with <code>lake build</code>, then replays it in the kernel with the challenge's <code>evaluation/run.py</code>. angelX already counts a <code>bench*</code> script as a measurement.</p></li><li><p><strong>The fleet line.</strong> <code>fleet.sh</code> reads each problem's latest local evaluation.</p></li><li><p><strong>When to add Rust.</strong> To read the official leaderboard, watch a submission, or keep an instruction-count ledger, the cartridge would grow a <code>src/</code> with those hooks, as Yukon's did.</p></li></ul>
+<h2 id="a-tool-cartridge-rea">A tool cartridge: REA</h2>
+<p>A cartridge can also carry slash commands instead of a competition. Each <code>[[commands]]</code> entry names a word and a stack of skills from the cartridge's <code>skills/</code> folder. <code>/&lt;word&gt; &lt;task&gt;</code> sends one turn with those skills and the task, as <code>/skills</code> would. Until then the cartridge costs nothing: no process starts, no tool joins the registry, and its skills stay out of the catalog. A cartridge with commands and no board or worker is never the active competition. In a skill, <code>${ANGEL_CARTRIDGE_DIR}</code> becomes the cartridge's folder.</p>
+<p>It can carry tools too. Each <code>[[tools]]</code> entry names a program in the cartridge's folder, a description and a JSON schema for its arguments. The tool joins every session deferred, so its schema costs nothing until <code>tool_search</code> brings it in. A call runs the program in the session's workspace with the call's arguments as JSON on stdin, <code>ANGEL_CARTRIDGE_DIR</code> and <code>ANGEL_WORKSPACE</code> set; its stdout is the result, and a failing exit is an error with the end of its stderr. A name another tool already has keeps that tool. <code>core = true</code> advertises the tool with the core coding tools instead, beside <code>grep</code>, at the cost of its schema on every request.</p>
+<p><a href="https://github.com/newjordan/angelX/blob/main/docs/examples/cartridges/rea" rel="noopener"><code>examples/cartridges/rea</code></a> plugs in <a href="https://github.com/morluto/rea" rel="noopener">REA</a> (Reverse Engineer Anything, MIT), which reverse engineers native binaries, JavaScript/Electron apps, .NET assemblies, APKs, firmware and websites. REA's MCP server has 207 tools with 3.3 MB of schema. Attached through <code>mcp.json</code>, every turn would carry them, so the cartridge drives REA's CLI instead.</p>
+<pre><code class="language-sh">docs/examples/cartridges/rea/install.sh   # into ~/.angelX/cartridges/rea</code></pre>
+<p>The install pins <code>rea-agents</code> (6.5.0; <code>REA_VERSION</code> picks another release) and takes REA's skill from that package, so the skill matches the CLI. Then:</p>
+<pre><code class="language-text">/rea /usr/lib/obsidian/app.asar how does search work? build a version here</code></pre>
+<p>The turn carries the cartridge's <code>rea</code> skill (where the CLI is, and how REA's tool names map to its commands), then REA's own <code>reverse-engineer-anything</code>. Remove <code>~/.angelX/cartridges/rea</code> to unplug it. Native decompilation needs Ghidra, IDA or Hopper; the other targets need none.</p>
+<h3 id="digup">DigUp</h3>
+<p><a href="https://github.com/newjordan/angelX/blob/main/docs/examples/cartridges/dig" rel="noopener"><code>examples/cartridges/dig</code></a> plugs in <a href="https://github.com/ARahim3/DigUp" rel="noopener">DigUp</a> (MIT), which finds files by what they show or say: pictures, PDFs, documents, recordings and video, and code in the folders added for it. It runs Google DeepMind's EmbeddingGemma 2 on llama.cpp, on this machine, and keeps one SQLite index of vectors and exact words. A hit names the page, the second or the line.</p>
+<pre><code class="language-sh">DIG_HOME=~/digup docs/examples/cartridges/dig/install.sh   # into ~/.angelX/cartridges/dig
+~/.angelX/cartridges/dig/bin/digup estimate ~/Pictures         # the first pass's time
+~/.angelX/cartridges/dig/bin/digup index ~/Pictures            # adds the folder; again to catch up</code></pre>
+<p>The install pins DigUp's Linux x86_64 release (0.7.0-beta.2, checked by its SHA-256), takes its command-line helper from the package and fetches the model (865 MB, once). <code>DIG_HOME</code>, optional, keeps the helper, model and index outside the cartridge. Then:</p>
+<pre><code class="language-text">/dig the knight sheet with the lance first</code></pre>
+<p>The turn carries the cartridge's <code>dig</code> skill (where the CLI is, what a hit says, how to add a folder) and searches the index built ahead of time.</p>
+<p>While coding, the agent has <code>dig_search</code> (<code>bin/dig-search</code>), a core tool beside <code>grep</code>. It searches the workspace's code by what it does or a name in it and answers <code>path:line</code>; a worktree of an indexed checkout is served from that checkout's index, its hits mapped onto the worktree's files. With <code>kinds</code>, it searches those kinds of file in every indexed folder instead. Index a repository's code with <code>digup index --code &lt;repo&gt;</code>. Nothing watches the folders; re-running <code>digup index</code> on a schedule (a systemd timer, say) keeps the index current, and an unchanged repository costs seconds. Remove <code>~/.angelX/cartridges/dig</code> to unplug it.</p>
+<h3 id="bend-pixel-vfx">Bend Pixel VFX</h3>
+<p><a href="https://github.com/newjordan/angelX/blob/main/docs/examples/cartridges/vfx" rel="noopener"><code>examples/cartridges/vfx</code></a> carries a local pixel VFX renderer written in Bend 2, with a Node adapter for PNG sheets, GIFs, atlas JSON, Godot SpriteFrames and ZIP exports. It is an independent MIT implementation; it uses no Scenario source, accounts or paid generation.</p>
+<pre><code class="language-sh">docs/examples/cartridges/vfx/install.sh   # into ~/.angelX/cartridges/vfx</code></pre>
+<p>After restarting angelX, <code>/vfx &lt;effect&gt;</code> loads its authoring skill, and the deferred <code>vfx_catalog</code> and <code>vfx_render</code> tools list and render effects. The same adapter also exposes stdio MCP (<code>bin/vfx mcp</code>) and a loopback HTTP API (<code>bin/vfx serve</code>). The cartridge's README documents the recipe format, pinned toolchain, output limits and interface examples.</p>
+<h2 id="a-config-only-cartridge">A config-only cartridge</h2>
+<p>A folder holding one <code>cartridge.toml</code> is a whole cartridge. It is read at startup; nothing is rebuilt.</p>
+<pre><code class="language-toml">id = &quot;kernelbench&quot;
+label = &quot;KernelBench&quot;
+# The board CLI's program names. `&lt;board&gt; submit` gets angelX's own --model and
+# --harness; `&lt;board&gt; submit|submissions|status|list` count as outcomes.
+boards = [&quot;kb&quot;]
+# `&lt;board&gt; &lt;sub&gt;` commands that are local measurements.
+measures = [&quot;run&quot;, &quot;validate&quot;]
+# The loop worker's brief: a page address, defined below.
+worker = &quot;⠻⠊&quot;
+# How the prompts name reading a submission's result.
+status_check = &quot;`kb status` or the platform CLI&quot;
+# The fleet line: a command printing one snapshot. It runs in the session's
+# directory; ANGEL_CARTRIDGE_DIR names this folder.
+fleet_command = &quot;\&quot;$ANGEL_CARTRIDGE_DIR/fleet.sh\&quot;&quot;
+fleet_interval_secs = 45
+
+[[pages]]
+route = &quot;⠻⠊&quot;
+name = &quot;kernelbench&quot;
+signal = &quot;the KernelBench loop worker&quot;
+pages = [&quot;You are a competition loop worker on KernelBench.&quot;]
+
+# A slash command: `/kb &lt;task&gt;` sends one turn with skills/kb-triage.
+[[commands]]
+name = &quot;kb&quot;
+usage = &quot;&lt;kernel&gt; [what to try]&quot;
+skills = [&quot;kb-triage&quot;]
+
+# A deferred tool: bin/kb-best reads the call's JSON on stdin and prints the
+# result. `params` is the arguments' JSON schema.
+[[tools]]
+name = &quot;kb_best&quot;
+description = &quot;The best local score for a kernel so far&quot;
+run = &quot;bin/kb-best&quot;
+params = { type = &quot;object&quot;, required = [&quot;kernel&quot;], properties = { kernel = { type = &quot;string&quot; } } }</code></pre>
+<p><code>fleet_command</code> prints:</p>
+<pre><code class="language-json">{&quot;benchmarks&quot;: 2, &quot;failed&quot;: 0,
+ &quot;submissions&quot;: [{&quot;benchmark&quot;: &quot;kb/softmax&quot;, &quot;id&quot;: &quot;a1b2&quot;, &quot;status&quot;: &quot;validating&quot;, &quot;score&quot;: null}]}</code></pre>
+<h2 id="a-source-cartridge">A source cartridge</h2>
+<p>Add <code>src/mod.rs</code> beside the toml and the cockpit's build compiles the folder in as a module. It exports <code>pub(crate) static HOOKS</code>, an implementation of <code>Hooks</code> (<code>cockpit/src/agent/harness/cartridges/mod.rs</code>). Every hook is optional:</p>
+<div class="table-wrap"><table><thead><tr><th>Hook</th><th>What it gives the competition</th></tr></thead><tbody><tr><td><code>tools</code></td><td>Tools added to every session (a status reader, say)</td></tr><tr><td><code>research_tools</code></td><td>Which of those long research always sees</td></tr><tr><td><code>pages</code></td><td>Book pages: new routes, or the competition's own wording of a route</td></tr><tr><td><code>configured_watch</code></td><td>A live submission watch the operator configures</td></tr><tr><td><code>fleet_sweep</code></td><td>The fleet line, in Rust</td></tr><tr><td><code>seat_entry_focus</code></td><td>Evidence carried inline when a competition turn engages</td></tr><tr><td><code>record_dispatch</code>, <code>record_terminal</code>, <code>terminal_results</code></td><td>A durable experiment ledger the loop reconciles against</td></tr><tr><td><code>status_cli</code></td><td><code>angel --comp-status ARGS…</code></td></tr></tbody></table></div>
+<p>A source cartridge can use anything in the cockpit crate. Rebuild after changing it; Rust tracks the source modules and included files it compiles. Only cartridge manifests and entry modules rerun the cockpit build script; unrelated docs, launchers and uncompiled tests do not. A source cartridge plugged in after the last build is compiled in by the next one that has a reason to run the build script; <code>touch cockpit/build.rs</code> gives it one. A source cartridge that a binary was not built with is ignored at startup rather than run without its hooks.</p>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

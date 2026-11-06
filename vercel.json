@@ -1,4 +1,4 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "ignoreCommand": "echo 'angelX public tree has no website/; skip this deploy' && exit 0"
+  "ignoreCommand": "echo 'Skip: project angelx uses the repo root. website/ is the omni-space.tech static site and is deployed separately. See docs/site-rollout.md.' && exit 0"
 }

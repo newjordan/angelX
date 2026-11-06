@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Install angelX</title>
+  <meta name="description" content="Install angelX with one command, or build it from the GitHub source. Platforms, checksums, glass, and update.">
+  <link rel="canonical" href="https://omni-space.tech/install.html">
+  <meta property="og:title" content="Install angelX">
+  <meta property="og:description" content="Install angelX with one command, or build it from the GitHub source. Platforms, checksums, glass, and update.">
+  <meta property="og:url" content="https://omni-space.tech/install.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html" aria-current="page">Install</a><a href="/docs/">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="hero">
+  <div class="wrap prose">
+    <p class="eyebrow">Install</p>
+    <h1>Install angelX</h1>
+    <p class="lede">One command for the prebuilt. The same installer is <a href="https://github.com/newjordan/angelX/blob/main/install.sh" rel="noopener">install.sh</a> in the repository. It downloads a release archive from GitHub, checks SHA-256, and only then puts <code>angelX</code> on your PATH.</p>
+    <div class="install">
+      <code>curl -fsSL https://raw.githubusercontent.com/<wbr>newjordan/angelX/<wbr>main/install.sh | sh</code>
+      <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/newjordan/angelX/main/install.sh | sh">Copy</button>
+    </div>
+    <p>Open a new terminal window, then:</p>
+    <pre><code>cd your-project &amp;&amp; angelX</code></pre>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap prose">
+    <h2>Where it runs</h2>
+    <ul>
+      <li>Linux x86_64 and arm64, glibc 2.31 or newer (Ubuntu 22.04, Debian 11, RHEL 9 and later). musl systems such as Alpine are not covered by the prebuilt.</li>
+      <li>macOS on Apple silicon. An Intel Mac, including one that is not running the shell under Rosetta's translated arm64, has no prebuilt yet.</li>
+      <li>The prebuilt needs bash and tar, and either curl or wget.</li>
+    </ul>
+    <p>This repository's current release is <a href="/docs/release-0.2.7.html">v0.2.7</a>. With no version set, the installer takes the latest GitHub release. <code>ANGELX_VERSION=v0.2.7</code> selects that tag. Release archives: <a href="https://github.com/newjordan/angelX/releases" rel="noopener">github.com/newjordan/angelX/releases</a>.</p>
+    <h2>What the installer does</h2>
+    <ul>
+      <li>Downloads <code>angelX-&lt;platform&gt;.tar.gz</code> and <code>SHA256SUMS</code> from <code>https://github.com/newjordan/angelX/releases/latest/download</code> (or from the tag you set). The platforms are <code>linux-x86_64</code>, <code>linux-arm64</code> and <code>macos-arm64</code>.</li>
+      <li>Refuses to install if the checksum does not match, the archive is not an angelX prebuilt, or the binary does not run on this machine.</li>
+      <li>Unpacks into <code>~/.angelX/releases/&lt;version&gt;-&lt;platform&gt;</code> and points <code>~/.angelX/current</code> at it. Running it again upgrades in place. Keys in <code>~/.angelX/angel.env</code>, sessions and cartridges stay put.</li>
+      <li>Links <code>~/.local/bin/angelX</code> and <code>angelx</code>. <code>ANGELX_HOME</code> and <code>ANGELX_BIN_DIR</code> change those paths. <code>ANGELX_ARCHIVE</code> installs a package file you already downloaded.</li>
+      <li>Links <code>glass</code> beside <code>angelX</code> when the package includes it, and never replaces a <code>glass</code> you already have.</li>
+      <li>If <code>~/.local/bin</code> is not on <code>PATH</code>, adds it to the shell startup file. <code>ANGELX_NO_MODIFY_PATH=1</code> prints the line instead. Fish gets <code>fish_add_path</code> instructions.</li>
+    </ul>
+    <p><code>angelX update</code> installs the latest release later. The first launch opens a setup menu. Type <code>/setup</code>, or run <code>angelX setup</code>, to change the model. The menu is documented in <a href="/docs/models.html">Model setup</a>.</p>
+    <h2>Build from source</h2>
+    <p>You need Rust and Cargo, C/C++ tools, Bash, Node.js and Python 3. On macOS: <code>xcode-select --install</code>, then Rust from <a href="https://rustup.rs" rel="noopener">rustup.rs</a>.</p>
+    <pre><code>git clone https://github.com/newjordan/angelX.git
+cd angelX
+./bin/angelX</code></pre>
+    <p>Source launches use the incremental <code>fast</code> profile. <code>ANGEL_FAST=0 ./bin/angelX</code> is a release build. <code>ANGEL_NO_BUILD=1 ./bin/angelX</code> reopens the existing fast binary without compiling. The development workflow is in <a href="https://github.com/newjordan/angelX/blob/main/CONTRIBUTING.md#setup" rel="noopener">CONTRIBUTING</a>.</p>
+    <p>To compile with Blaze instead of Cargo, install it once with <code>python3 scripts/runtime/install-blaze.py</code>, then launch with <code>ANGEL_BUILD_BACKEND=blaze ./bin/angelX</code>.</p>
+    <h2>Next</h2>
+    <p><a href="/docs/commands.html">Commands</a> · <a href="/docs/features.html">Feature evidence</a> · <a href="/docs/backup.html">Backup and peer watch</a> · <a href="https://github.com/newjordan/angelX/blob/main/THIRD_PARTY_NOTICES.md" rel="noopener">Attributions</a> · <a href="https://github.com/newjordan/angelX/blob/main/LICENSE" rel="noopener">MIT</a> · <a href="https://github.com/newjordan/angelX/blob/main/SECURITY.md" rel="noopener">Security</a></p>
+  </div>
+</section>
+
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

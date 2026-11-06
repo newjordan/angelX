@@ -1,0 +1,99 @@
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="eyebrow">angelX · OmniSpace Technologies</p>
+      <h1>The terminal coding agent.</h1>
+      <p class="lede"><strong>angelX</strong> works inside your repository with the models you choose, asks before it runs a command or edits a file, checks its work before it reports done, and keeps what it learns about your project.</p>
+      <div class="cta">
+        <a class="btn" href="/install.html">Install angelX</a>
+        <a class="btn btn-ghost" href="/docs/">Read the docs</a>
+        <a class="btn btn-ghost" href="https://github.com/newjordan/angelX" rel="noopener">Source on GitHub</a>
+      </div>
+    </div>
+    {{GLASS_REEL}}
+    <div class="hero-install">
+      <div class="install">
+        <code id="install-cmd">curl -fsSL https://raw.githubusercontent.com/<wbr>newjordan/angelX/<wbr>main/install.sh | sh</code>
+        <button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/newjordan/angelX/main/install.sh | sh">Copy</button>
+      </div>
+      <p class="fine">Then open a new terminal and run <code>cd your-project &amp;&amp; angelX</code>. Linux x86_64 and arm64 (glibc 2.31 or newer) and macOS on Apple silicon. <a href="/install.html">Full install</a>.</p>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="use">
+  <div class="wrap">
+    <p class="eyebrow">In the cockpit</p>
+    <h2>Five things it does on every task</h2>
+    <p class="sub">This is the working product, documented in the repository and installed from this site.</p>
+    <ol class="steps">
+      <li class="step"><span class="n">01</span><h3>Choose a model</h3><p><code>/model</code> lists every connected route. <code>/setup</code> finds Ollama, LM Studio, llama.cpp, vLLM, an API key, or a ChatGPT or Grok plan login.</p></li>
+      <li class="step"><span class="n">02</span><h3>Approve actions</h3><p>Commands and edits arrive as capsules: approve one, approve the rest of the turn, or deny.</p></li>
+      <li class="step"><span class="n">03</span><h3>Check the edit</h3><p>Each edit is anchored to the file's current content and shows its byte change before it lands.</p></li>
+      <li class="step"><span class="n">04</span><h3>Check the result</h3><p>The agent runs the checks and reports with receipts: every tool call, its time and the model route.</p></li>
+      <li class="step"><span class="n">05</span><h3>Keep going</h3><p><code>/goal</code> sets a durable objective. <code>/loop</code> runs it within time, iteration and token limits.</p></li>
+    </ol>
+  </div>
+</section>
+
+<section class="section alt" id="glass">
+  <div class="wrap">
+    <p class="eyebrow">Glass</p>
+    <h2>Its own terminal, in every install</h2>
+    <p class="sub">The prebuilt installer also links <code>glass</code> beside <code>angelX</code>, and it never replaces a <code>glass</code> you already have. The film above is the approved 12.8 second Glass reel, served from this site. <a href="/glass.html">Glass page</a> · <a href="/docs/glass-term.html">Glass terminal guide</a>.</p>
+    <div class="gallery">
+      <figure>
+        <img src="/assets/frames/fig01-console.png" alt="A turn in flight: GLM-5.3 studies lib.rs while the knight rides to the Scriptorium on the overworld map" width="1280" height="720">
+        <figcaption>A turn in the cockpit, with the overworld beside the work.</figcaption>
+      </figure>
+      <div class="stack">
+        <figure>
+          <img src="/assets/frames/fig03-loop.png" alt="Engaging a loop: the workshop dialog showing time, iterations and token cap for the active goal" width="800" height="450">
+          <figcaption>The loop workshop: time, iterations and a token cap.</figcaption>
+        </figure>
+        <figure>
+          <img src="/assets/frames/fig04-world-diff.png" alt="The one-line fix in /diff beside the overworld map" width="800" height="450">
+          <figcaption>A one-line fix in <code>/diff</code>.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="evidence">
+  <div class="wrap">
+    <p class="eyebrow">Published measurements · angelX 0.2.7</p>
+    <h2>Same tasks, the numbers in the repository</h2>
+    <p class="sub">polyglot-v1, 2026-11-01. These cells are copied from the repository README. The method, the fuller token cells and the earlier cohorts are on the <a href="/evidence.html">evidence page</a>.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>polyglot-v1, 2026-11-01</th><th>solved</th><th>agent time</th><th>median task</th><th>input tokens</th></tr>
+        </thead>
+        <tbody>
+          <tr><td><strong>angelX 0.2.7</strong> · Muse Spark 1.3</td><td><strong>136 / 136</strong></td><td><strong>37.2 min</strong></td><td><strong>14.3 s</strong></td><td><strong>6.58 M</strong></td></tr>
+          <tr><td>Muse Code 1.4.14 · Muse Spark 1.3</td><td>136 / 136</td><td>119.8 min</td><td>41.9 s</td><td>26.33 M</td></tr>
+          <tr><td><strong>angelX 0.2.7</strong> · Grok 4.7 low</td><td><strong>136 / 136</strong></td><td><strong>45.6 min</strong></td><td><strong>16.9 s</strong></td><td><strong>5.38 M</strong></td></tr>
+          <tr><td>Grok CLI 1.0.70 · Grok 4.7</td><td>135 / 136</td><td>74.9 min</td><td>28.3 s</td><td>13.68 M</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="fine">Prime Intellect Verifiers v0.3.1 · one attempt per task, 600 s, fresh environment · each tool as it ships. Source: <a href="https://github.com/newjordan/angelX/blob/main/README.md#new-in-027-the-muse-hackathon-update" rel="noopener">README</a> and the <a href="/docs/release-0.2.7.html">0.2.7 release notes</a>.</p>
+  </div>
+</section>
+
+<section class="section alt" id="docs">
+  <div class="wrap">
+    <p class="eyebrow">Documentation</p>
+    <h2>Use it from here</h2>
+    <p class="sub">The guides below are the current repository documents, rendered on this site. Source files stay on GitHub.</p>
+    <div class="docs-grid">
+      <a class="card" href="/install.html"><span class="n">Install</span><h3>Prebuilt and source</h3><p>The installer, platforms, checksums, and building from the repository.</p></a>
+      <a class="card" href="/docs/models.html"><span class="n">Models</span><h3>Connect a route</h3><p><code>/setup</code>, plan logins, API keys and a local server.</p></a>
+      <a class="card" href="/docs/commands.html"><span class="n">Commands</span><h3>The cockpit commands</h3><p>Every slash command, from <code>/help</code> to goals and loops.</p></a>
+      <a class="card" href="/docs/features.html"><span class="n">Features</span><h3>What is implemented</h3><p>Twelve behaviors, each with the source file that implements it.</p></a>
+      <a class="card" href="/docs/hands.html"><span class="n">Hands</span><h3>Desktop and browser</h3><p>On Omarchy, seeing and working the desktop asks before each action.</p></a>
+      <a class="card" href="/docs/"><span class="n">Index</span><h3>All guides</h3><p>Glass, showcase, backup, cartridges, labyrinth and the 0.2.7 notes.</p></a>
+    </div>
+  </div>
+</section>
