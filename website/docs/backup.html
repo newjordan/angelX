@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Backup and peer watch — angelX docs</title>
+  <meta name="description" content="Backup and peer watch. Rendered from docs/BACKUP.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/backup.html">
+  <meta property="og:title" content="Backup and peer watch — angelX docs">
+  <meta property="og:description" content="Backup and peer watch. Rendered from docs/BACKUP.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/backup.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/BACKUP.md" rel="noopener">docs/BACKUP.md</a></p>
+<h1 id="backup-and-peer-watch">Backup and peer watch</h1>
+<p>angelX keeps everything it learns under <code>~/.angelX</code>. Two facilities make that state durable across machines without naming any operator's hosts in the public build: both are <strong>generic slots</strong> the operator fills in.</p>
+<h2 id="backup-tiered-snapshots">Backup: tiered snapshots</h2>
+<pre><code class="language-sh">angelX --backup run [--tier core|bulk|all] [--to TARGET]
+angelX --backup restore [--from TARGET] [--snapshot NAME] [--force]
+angelX --backup status [--from TARGET]
+angelX --backup prune --keep N [--from TARGET]   # local targets only</code></pre>
+<p>The state tree mixes the irreplaceable (sessions, memories, atlas, knowledge — megabytes) with the bulky and regenerable (loop-experiments, trajectories — gigabytes), so snapshots are tiered:</p>
+<div class="table-wrap"><table><thead><tr><th>Tier</th><th>Contents</th></tr></thead><tbody><tr><td><code>core</code> (default)</td><td>sessions, memories, atlas, knowledge, caddy, loops, goals, continual-harness, top-level <code>*.json</code>/<code>*.toml</code></td></tr><tr><td><code>bulk</code></td><td>core + trajectories, experience, cut, rl, world-rewards, yukon-strategy, wish-paint</td></tr><tr><td><code>all</code></td><td>everything except <code>proc/</code>, caches, and <code>*.err</code>/<code>*.log</code> droppings</td></tr></tbody></table></div>
+<p>Each snapshot is a directory under <code>&lt;target&gt;/snapshots/</code> whose unchanged files are hardlinks into the previous snapshot — keeping history costs only changed bytes. A <code>manifest.json</code> records a SHA-256 per file; the snapshot is assembled in an <code>.incomplete-</code> directory and renamed into place only when whole, and <code>&lt;target&gt;/latest</code> is a symlink repointed atomically. Restore verifies every hash before publishing, publishes atomically, and refuses to overwrite a differing live file without <code>--force</code>.</p>
+<h3 id="the-target-slot">The target slot</h3>
+<p>A target is a local path (including a mounted share) or <code>[user@]host:/abs/path</code> (rsync over ssh — a bare host uses your ssh_config alias — with <code>--link-dest</code> so unchanged files hardlink on the far side too). Resolution order: <code>--to</code>/<code>--from</code>, then <code>ANGEL_BACKUP_TARGET</code> / <code>ANGEL_BACKUP_TIER</code>, then <code>~/.angelX/backup.json</code>:</p>
+<pre><code class="language-json">{&quot;schema&quot;: &quot;angelX.backup/v1&quot;, &quot;target&quot;: &quot;you@yourhost:/srv/angel-backups&quot;, &quot;tier&quot;: &quot;core&quot;}</code></pre>
+<p>Unconfigured, backup is dormant: commands say so and change nothing. Remote restore is two steps: rsync a snapshot directory down, then restore with <code>--from &lt;local target&gt;</code>.</p>
+<h2 id="peer-watch-see-your-other-instances">Peer watch: see your other instances</h2>
+<p>Every cockpit publishes a small heartbeat (host, pid, workspace, session, activity, CPU/MEM/GPU load) to a shared <strong>peer directory</strong> and reads the others'. Peer updates feed the miniworld quietly; arrivals, activity changes, and silences stay out of the transcript. <code>/peers</code> lists the details on demand, and transitions remain available in debug logs. When no external <code>overwatch</code> fleet probe exists, the status bar's fleet numbers fall back to the live peers' own reported load.</p>
+<p>The directory is another generic slot: <code>ANGEL_PEER_DIR</code>, else <code>~/.angelX/peers.json</code>:</p>
+<pre><code class="language-json">{&quot;schema&quot;: &quot;angelX.peers/v1&quot;, &quot;dir&quot;: &quot;/path/shared/by/every/machine&quot;}</code></pre>
+<p>Default: <code>~/.angelX/peers/</code> — instances on one machine see each other with zero setup. Point the slot at any directory every machine can reach (a tailnet share, NFS, a synced folder on a fleet host) and the same code watches across machines. A peer silent for 90 s counts as gone, so a crashed instance never needs cleanup from its peers.</p>
+<h2 id="guardian-resurrect-a-dead-peers-session">Guardian: resurrect a dead peer's session</h2>
+<p>Peer watch notices a silence. The guardian answers it:</p>
+<pre><code class="language-sh">angel --guardian [--watch-only] [--once] [--stale-secs N] [--driver ROUTE]
+angel --resurrect &lt;session-id&gt; --workspace DIR [--driver ROUTE]</code></pre>
+<p>A guardian is a headless <code>angel</code> on a rig with a checkout of the dead peer's workspace. It publishes its own heartbeat (<code>guardian-sleeping</code> / <code>guardian-watching</code> / <code>guardian-resurrecting</code> — zero model tokens while it sleeps) and scans the same peer directory. A peer silent past the stale horizon (default 180 s), holding a session, whose workspace is a git checkout on the guardian's rig, becomes a candidate. Running <code>--guardian</code> at all is the consent; <code>--watch-only</code> detects and logs without acting, and <code>--once</code> scans a single time (cron-friendly) instead of looping. <code>--driver ROUTE</code> (or <code>ANGEL_GUARDIAN_DRIVER</code>) picks the model route.</p>
+<p>Because resurrection is automatic, it is fenced:</p>
+<ul><li><p>no candidate while a <strong>live</strong> peer holds the same session;</p></li><li><p>exactly one guardian wins an atomic <code>create_new</code> claim (<code>&lt;instance&gt;.claim.json</code> in the peer directory); a claim older than 30 minutes with no outcome may be stolen by the next guardian;</p></li><li><p>a finished attempt writes <code>&lt;instance&gt;.resurrection.json</code>, so the same death is never answered twice — <code>/peers</code> shows the recent ones;</p></li><li><p>guardians never resurrect guardians.</p></li></ul>
+<p>The winner spawns <code>angel --resurrect</code> as a child against the dead peer's session with an assess-repair-continue brief. <code>/peers</code> and the world's sleeping giant by the keep mirror the state. Run one guardian per rig, for example as a systemd user unit:</p>
+<pre><code class="language-ini"># ~/.config/systemd/user/angel-guardian.service
+[Unit]
+Description=angelX guardian — resurrect dead peers' sessions
+After=network-online.target
+
+[Service]
+ExecStart=/path/to/angel --guardian
+WorkingDirectory=/path/to/checkout
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=default.target</code></pre>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

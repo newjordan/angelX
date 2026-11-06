@@ -1,0 +1,23 @@
+<section class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Glass</p>
+    <h1>The Glass reel.</h1>
+    <p class="lede">Twelve point eight seconds of angelX's GPU terminal. The wide film plays on a wide window; the portrait film is the same reel for a narrow window. Both files are on this origin. Press play to start. Nothing plays by itself.</p>
+    {{GLASS_REEL}}
+    <p class="fine">The opening line in the film is “angelX glass — the cockpit's text is one layer of a GPU compositor.” The reel then shows text styles, a color ramp, braille, and a small 3D scene. Each file is H.264 with an AAC audio track, 30 fps, 384 frames. The still behind the player is one frame of that same file, so the player has a picture before the video bytes arrive.</p>
+  </div>
+</section>
+<section class="section">
+  <div class="wrap prose">
+    <h2>What ships with angelX</h2>
+    <p>Every prebuilt install also installs glass, linked as <code>glass</code> next to <code>angelX</code>. The installer never replaces a <code>glass</code> you already have. Run angelX inside glass and pictures, video and charts show in the terminal too.</p>
+    <p>The 0.2.7 release notes record the measurements taken against kitty 0.49.2 on one machine. They are not a new run for this page:</p>
+    <ul>
+      <li>First output on screen in 46.1 ms (kitty 185).</li>
+      <li>A key press reaching the program while it floods output in 3.0 ms (kitty 38.6).</li>
+      <li>The window on screen in 31 ms (kitty 73) and the program running in 39.5 ms (kitty 193), medians of 16 runs through Hyprland on a headless output.</li>
+    </ul>
+    <p>The repository README rounds the first of those to 46 ms. Host CPU, GPU and memory for the terminal comparison are the machine named in <a href="/docs/glass-term.html">the Glass terminal guide</a> and the <a href="/docs/release-0.2.7.html">0.2.7 release notes</a>. Only kitty has been measured there.</p>
+    <p><a href="/docs/showcase.html">Showcase</a> · <a href="/docs/glass-term.html">Glass terminal guide</a> · <a href="/install.html">Install</a></p>
+  </div>
+</section>

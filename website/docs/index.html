@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>angelX docs</title>
+  <meta name="description" content="Install, models, commands, Glass, hands, backup and the 0.2.7 notes, rendered from the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/">
+  <meta property="og:title" content="angelX docs">
+  <meta property="og:description" content="Install, models, commands, Glass, hands, backup and the 0.2.7 notes, rendered from the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="hero"><div class="wrap">
+    <p class="eyebrow">Documentation</p>
+    <h1>angelX docs</h1>
+    <p class="lede">These pages are the current guides from the angelX repository, so install and everyday use do not depend on another website. Each page links to its source file.</p>
+  </div></section>
+  <section class="section"><div class="wrap">
+    <div class="docs-grid"><a class="card" href="/docs/models.html"><span class="n">Connect a model</span><h3>Model setup</h3><p>Type /setup in the cockpit (or run angelX setup) to connect a model. The menu lists what this machine already has (a model server on localhost such as Ollama, LM Studio, llama.c…</p></a>
+<a class="card" href="/docs/commands.html"><span class="n">Cockpit commands</span><h3>/commands</h3><p>Enter commands in the cockpit composer. /help all shows built-in help; Tab completes a command. Brackets below mean optional arguments. Commands that launch model work use the c…</p></a>
+<a class="card" href="/docs/features.html"><span class="n">Implemented behavior, with source paths</span><h3>12 distinguishing features</h3><p>Source-backed implementation shortlist. Comparative performance against peer harnesses is documented in Benchmarks.</p></a>
+<a class="card" href="/docs/glass-term.html"><span class="n">The Glass terminal</span><h3>Glass term: open intake, glass expansion</h3><p>glass (crates/term) is a terminal in angelX's own window. A program runs in a pseudo-terminal; what it writes comes in, and glass expands it into everything the window can show:…</p></a>
+<a class="card" href="/docs/showcase.html"><span class="n">Pictures, video, pages and models over the cockpit</span><h3>The showcase</h3><p>angelX opens in its own window on a desktop (--term keeps it in the terminal). There, whatever the agent presents opens full size in a floating panel above the terminal. The min…</p></a>
+<a class="card" href="/docs/hands.html"><span class="n">Desktop and browser on Omarchy</span><h3>Hands — computer use and web control on Omarchy</h3><p>angelX can see and operate the operator's real desktop and a real browser. Two native tools, registered beside websearch/webfetch in cockpit/src/agent/tools/hands.rs.</p></a>
+<a class="card" href="/docs/backup.html"><span class="n">Backup and peer watch</span><h3>Backup and peer watch</h3><p>angelX keeps everything it learns under ~/.angelX. Two facilities make that state durable across machines without naming any operator's hosts in the public build: both are gener…</p></a>
+<a class="card" href="/docs/graph-garden.html"><span class="n">Charts grown from real graph calls</span><h3>Graph garden in the world</h3><p>Available in angelX 0.1.9.</p></a>
+<a class="card" href="/docs/cartridges.html"><span class="n">Plug a tool or command in as a folder</span><h3>Cartridges</h3><p>angelX ships the competition engine: the loop, the submission watcher, the fleet line on the loop HUD, truthful --model/--harness attribution on board submissions, and the book…</p></a>
+<a class="card" href="/docs/memory.html"><span class="n">What the cockpit keeps</span><h3>Repository memory</h3><p>The cockpit records command outcomes in the experience ledger. Dossier compiles recurring commands, failures and the last-session thread into workspace-specific facts. /dossier…</p></a>
+<a class="card" href="/docs/labyrinth.html"><span class="n">Questions, evidence and refutations on one map</span><h3>Research labyrinth and lower tunnels</h3><p>Angel uses the map contract from Labyrinth Exploration by Bartosz Naskręcki. The verified fork is newjordan/labyrinth-exploration. The bundled engine and schema are pinned in UP…</p></a>
+<a class="card" href="/docs/release-0.2.7.html"><span class="n">angelX 0.2.7 release notes</span><h3>angelX 0.2.7: the Muse Hackathon update</h3><p>Much of this release was built in the Muse hackathon. angelX 0.2.7 gives the agent hands: on Omarchy it can see and work the desktop and a real browser. It does the same work as…</p></a></div>
+    <h2>Also in the repository</h2>
+    <ul><li><a href="https://github.com/newjordan/angelX/blob/main/README.md" rel="noopener">Repository README</a></li>
+<li><a href="https://github.com/newjordan/angelX/blob/main/docs/DELVE.md" rel="noopener">The Delve</a></li>
+<li><a href="https://github.com/newjordan/angelX/blob/main/CONTRIBUTING.md" rel="noopener">Contributing</a></li>
+<li><a href="https://github.com/newjordan/angelX/blob/main/SECURITY.md" rel="noopener">Security</a></li>
+<li><a href="https://github.com/newjordan/angelX/blob/main/THIRD_PARTY_NOTICES.md" rel="noopener">Attributions</a></li>
+<li><a href="https://github.com/newjordan/angelX/blob/main/LICENSE" rel="noopener">MIT license</a></li>
+<li><a href="https://github.com/newjordan/angelX/releases" rel="noopener">Releases</a></li></ul>
+  </div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

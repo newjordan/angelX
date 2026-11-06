@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Repository memory — angelX docs</title>
+  <meta name="description" content="What the cockpit keeps. Rendered from docs/MEMORY.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/memory.html">
+  <meta property="og:title" content="Repository memory — angelX docs">
+  <meta property="og:description" content="What the cockpit keeps. Rendered from docs/MEMORY.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/memory.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/MEMORY.md" rel="noopener">docs/MEMORY.md</a></p>
+<h1 id="repository-memory">Repository memory</h1>
+<p>The cockpit records command outcomes in the experience ledger. Dossier compiles recurring commands, failures and the last-session thread into workspace-specific facts. <code>/dossier</code> shows the artifact and which facts meet the configured belief threshold for model context.</p>
+<p>From the source checkout, with Node.js and Python 3 installed:</p>
+<pre><code class="language-sh">node scripts/runtime/repo-dossier.mjs --refresh</code></pre>
+<p>The default stores are <code>~/.angelX/experience/ledger.jsonl</code>, <code>~/.angelX/cut/</code> and <code>~/.angelX/dossier/</code>. <code>ANGEL_EXPERIENCE_LOG</code>, <code>ANGEL_CUT_DIR</code> and <code>ANGEL_DOSSIER_DIR</code> override them. The graph is stored inside the Dossier output directory. CLI overrides are <code>--ledger</code>, <code>--cut</code>, <code>--out</code> and <code>--graph</code>.</p>
+<p>Facts require recurrence across sessions. The compiler retains evidence and provenance; the native reader withholds low-confidence or stale facts. A command recommended by Dossier cannot reinforce its own success. <code>--refresh</code> reads records and publishes artifacts; it does not execute recorded commands.</p>
+<p>Caddy separately captures verified command recipes and failure hazards during tool execution, then selects relevant entries for later turns.</p>
+<p>Implementation: <a href="https://github.com/newjordan/angelX/blob/main/scripts/runtime/repo-dossier.mjs" rel="noopener">Dossier compiler</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/knowledge/dossier.rs" rel="noopener">native reader</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/knowledge/caddy.rs" rel="noopener">Caddy</a>.</p>
+<p><a href="https://github.com/newjordan/angelX/blob/main/docs/WORKERS.md" rel="noopener">Local workers</a> documents probing, skill proposals, scheduling and feedback.</p>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

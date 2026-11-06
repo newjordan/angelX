@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Graph garden in the world — angelX docs</title>
+  <meta name="description" content="Charts grown from real graph calls. Rendered from docs/GRAPH_GARDEN.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/graph-garden.html">
+  <meta property="og:title" content="Graph garden in the world — angelX docs">
+  <meta property="og:description" content="Charts grown from real graph calls. Rendered from docs/GRAPH_GARDEN.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/graph-garden.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/GRAPH_GARDEN.md" rel="noopener">docs/GRAPH_GARDEN.md</a></p>
+<h1 id="graph-garden-in-the-world">Graph garden in the world</h1>
+<p>Available in angelX 0.1.9.</p>
+<p>The graph garden turns actual chart work into a place in the mini-viz realm. The harness prepares soil, asks for specific data points, and finishes a chart. A farmer coordinates each request and a winged sprite delivers its result. Bar charts grow crop beds, line charts grow connecting vines, and scatter plots grow flowers at the supplied coordinates.</p>
+<p><img src="/assets/docs-images/graph-garden-live.png" alt="GLM-5.3 plants a bar chart one graph call at a time while a sprite carries the next point to the field"></p>
+<p><img src="/assets/docs-images/graph-garden-planted.png" alt="The finished chart in the garden beside its planted values from /world crops"></p>
+<p>Both are unedited captures of angelX 0.1.9 on GLM-5.3 (thinking low), from one live turn with the prompt shown below. The fixture preview further down comes from the production overworld renderer using test data.</p>
+<p><img src="/assets/docs-images/graph-garden-growing.png" alt="A fixture chart growing on the field with its farmer and point-call sprites"></p>
+<p>The <code>graph</code> tool implements those operations. Sprites are tied to real tool-call IDs, including nested code-mode IDs. Crops grow only from the full structured receipt of a successful call. Activity-summary text has no authority to supply chart values. Fetching or measuring an observation still uses the appropriate existing tool; planting it is a distinct <code>graph</code> point call. The animation does not invent a separate retrieval call for each value.</p>
+<h2 id="visit-and-regrow-a-chart">Visit and regrow a chart</h2>
+<p>Ask angelX to chart supplied or measured data using the <code>graph</code> tool. It is registered in ordinary workspace tool registries and discoverable through <code>tool_search</code> when the harness uses a reduced tool catalog. For example:</p>
+<blockquote><p>Use graph to make a bar chart of these measured bushels: day 1 had 7, day 2 had 4, and day 3 had 9. Label the axes Day and Bushels and use a zero-based y scale. Fill one point per call, then finish the chart.</p></blockquote>
+<p>The working knight heads to the fields and remains there until another ordinary tool sends him elsewhere. The graph remains planted after the animation ends. <code>/world visit garden</code> points the camera at the farm without changing ongoing work. <code>/world crops</code> visits the garden and reports its exact values, scales, generation, and completion status. <code>/world crops &lt;plot-id&gt;</code> selects another retained plot; <code>/world follow</code> resumes following the knight.</p>
+<p>Begin again using the same plot ID to replace the old graph with dirt and grow a new generation. <code>clear</code> leaves bare dirt. Both spells require a successful tool mutation. A failed request leaves the existing chart intact. Old-generation point calls are rejected, and late receipts cannot restore a superseded crop. Farmers ask <code>X=...?</code>; sprites answer with the returned <code>Y</code> or <code>NO DATA</code>. These speech cues replay the actual request and outcome.</p>
+<h2 id="tool-contract">Tool contract</h2>
+<p><code>begin</code> specifies a chart, its axes, and its expected point count. Its receipt returns the generation needed for later operations:</p>
+<pre><code class="language-json">{
+  &quot;op&quot;: &quot;begin&quot;,
+  &quot;plot&quot;: &quot;harvest&quot;,
+  &quot;spec&quot;: {
+    &quot;title&quot;: &quot;Measured harvest&quot;,
+    &quot;kind&quot;: &quot;bar&quot;,
+    &quot;x_label&quot;: &quot;Day&quot;,
+    &quot;y_label&quot;: &quot;Bushels&quot;,
+    &quot;x_min&quot;: 0,
+    &quot;x_max&quot;: 4,
+    &quot;y_min&quot;: 0,
+    &quot;y_max&quot;: 10,
+    &quot;expected_points&quot;: 3
+  }
+}</code></pre>
+<p>Each point call fills one indexed observation. Use the generation returned by your own <code>begin</code>, rather than assuming it is always 1:</p>
+<pre><code class="language-json">{
+  &quot;op&quot;: &quot;point&quot;,
+  &quot;plot&quot;: &quot;harvest&quot;,
+  &quot;generation&quot;: 1,
+  &quot;index&quot;: 0,
+  &quot;point&quot;: { &quot;label&quot;: &quot;Day 1&quot;, &quot;x&quot;: 1, &quot;y&quot;: 7 }
+}</code></pre>
+<p>After supplying indices 0, 1, and 2, call <code>{&quot;op&quot;:&quot;finish&quot;,&quot;plot&quot;:&quot;harvest&quot;,&quot;generation&quot;:1}</code>. Finishing rejects missing points. Replacing an existing index is allowed while growing; modifying a finished chart requires a new <code>begin</code>.</p>
+<p>There are at most four retained plot IDs and 32 points per plot. The camera shows one selected plot on the existing field terrain. Coordinates must be finite, within ±1e12, and inside the declared domains. Domains must increase; bar chart y scales must contain zero. Out-of-domain data is rejected instead of silently clamped. Labels are bounded and reject controls and direction overrides. Plot IDs contain lowercase letters, digits, and hyphens.</p>
+<p>The garden uses the existing realm palette, farmer art, terrain renderer, and terminal image or half-block presentation. Negative bars grow below the visible zero line. Points and vines use the declared coordinate scales. Missing observations remain empty. The tiny world font abbreviates long labels; the report preserves their exact text and values.</p>
+<h2 id="native-events-and-animation">Native events and animation</h2>
+<p>Serial, parallel, and nested code-mode dispatch paths emit dedicated <code>GraphCrop</code> events around the actual tool call. Ordinary <code>ToolResult</code> events close failed, denied, cancelled, and unreceipted requests. Receipts carry the authoritative plot snapshot and revision; the latest revision wins. Repeated receipts cannot restart growth. In code mode, a mutation that succeeded before an outer output-budget failure still supplies its native receipt.</p>
+<p>The UI retains graph data even while Stage is hidden, without ticking the hidden world. Sprite delivery and crop growth use bounded world-tick windows. Reduced or disabled motion shows settled crop geometry. Empty and settled gardens keep a stable garden frame, allowing the world to park. Animation history is bounded independently of chart storage, so a long hidden-stage session keeps accepting updated data.</p>
+<p>Chart data is held in memory for the workspace tool-registry session; this change does not add save files, chart export, point picking, remote friends, or automatic extraction from arbitrary PNG/SVG charts. The graph tool has no filesystem, network, or arbitrary-code execution capability.</p>
+<h2 id="code-and-verification">Code and verification</h2>
+<ul><li><p><code>cockpit/src/knowledge/graph_crop.rs</code>: chart contract and bounded mutations.</p></li><li><p><code>cockpit/src/agent/tools/graph.rs</code>: native tool and full event emission.</p></li><li><p><code>crates/realm-host/src/world_viz/overworld/garden.rs</code>: correlated calls, crop geometry, growth, dirt reset, farmers, and sprite dialogue.</p></li><li><p><code>cockpit/src/app/control/turn_io.rs</code>: event retention and failure settlement.</p></li></ul>
+<p>The tests cover actual harness and nested code-mode dispatch, hidden-stage event draining, incomplete charts, negative values, generation changes, failed and duplicate receipts, bounded retention, deterministic world rendering, knight arrival, and idle settling. Set <code>ANGEL_GRAPH_GARDEN_REVIEW=/tmp/angelX-graph-art-review</code> for the <code>graph_crop_preview_exports_real_world_frames_for_art_review</code> test to export bar, line, and scatter world frames for visual inspection.</p>
+<p>The focused <code>graph_crop</code> filter passes 19 tests. The existing world suite passes 296 tests with 15 existing review tests ignored; the stage suite passes 9 with one ignored, the code-mode suite passes 14, and the command suite passes 26. Some suites overlap with the focused filter. The offline binary build and its <code>--help</code> smoke check pass. Repository formatting, source connections, and the active-product boundary checks pass. Strict Clippy still reports 45 pre-existing error locations, including untouched lines in the farmer kit; none is in added or modified code. The full quality gate therefore remains blocked by baseline lint failures.</p>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

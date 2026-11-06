@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>12 distinguishing features — angelX docs</title>
+  <meta name="description" content="Implemented behavior, with source paths. Rendered from docs/FEATURES.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/features.html">
+  <meta property="og:title" content="12 distinguishing features — angelX docs">
+  <meta property="og:description" content="Implemented behavior, with source paths. Rendered from docs/FEATURES.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/features.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/FEATURES.md" rel="noopener">docs/FEATURES.md</a></p>
+<h1 id="12-distinguishing-features">12 distinguishing features</h1>
+<p>Source-backed implementation shortlist. Comparative performance against peer harnesses is documented in <a href="https://github.com/newjordan/angelX/blob/main/README.md#benchmarks" rel="noopener">Benchmarks</a>.</p>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>Feature</th><th>Implemented behavior</th><th>Source</th></tr></thead><tbody><tr><td>1</td><td>A visual terminal workspace</td><td>Coding, portraits, image inspection, research views and a navigable Dotmax world share the ordinary terminal.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/ui/draw.rs" rel="noopener">Compositor</a>, <a href="https://github.com/newjordan/angelX/blob/main/crates/realm-host/src/world_viz.rs" rel="noopener">world</a></td></tr><tr><td>2</td><td>Model selection inside agent formations</td><td>Choose a model and supported thinking level; configure individual MoA seats and run declared agent graphs.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/formations.rs" rel="noopener">Formations</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/app/control/commands.rs" rel="noopener">graph controls</a></td></tr><tr><td>3</td><td>Tool programs in embedded V8</td><td><code>code_mode</code> runs loops and filters locally; batch execution respects tool effects and conflicts.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/code_mode.rs" rel="noopener">V8 runtime</a></td></tr><tr><td>4</td><td>Repository intelligence before model calls</td><td>Scoped reconnaissance, filename search, outlines and batched definitions; optional LSP queries.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/harness" rel="noopener">Harness</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/tools" rel="noopener">tools</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/app/control/commands.rs" rel="noopener">LSP commands</a></td></tr><tr><td>5</td><td>Content-anchored edits</td><td>Hashline edits bind line operations to file content; stale anchors require recovery or rejection. Staged proposals and merge-conflict handles belong to the workspace that created them.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/hashline.rs" rel="noopener">Hashline</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/staged_edit.rs" rel="noopener">staged edits</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/conflict.rs" rel="noopener">conflicts</a></td></tr><tr><td>6</td><td>Managed context across long sessions</td><td>Stable prompt prefixes, result aging and deduplication, and rolling compaction control retained context. Used signal legends survive compaction and are taught again when a model takes over.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/harness" rel="noopener">Harness</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/harness/book/continuity.rs" rel="noopener">legend continuity</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/compaction.rs" rel="noopener">compaction</a></td></tr><tr><td>7</td><td>Reviewed knowledge connected to source</td><td>Atlas records observations, relationships and review decisions; accepted project knowledge can enter later task context.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/knowledge/atlas" rel="noopener">Atlas</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/app/control/commands.rs" rel="noopener">commands</a></td></tr><tr><td>8</td><td>Persistent autonomous work</td><td>Goals, sessions and loop evidence survive resume; bounded turns and repeated-poll detection can stop unproductive execution. Bounds are configurable.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/knowledge/session.rs" rel="noopener">Sessions</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/drive/loop_ctl" rel="noopener">loop controller</a></td></tr><tr><td>9</td><td>Structured, attributable headless runs</td><td>Task JSON records runtime settings, source identity, tool activity and optional rollout/acceptance bindings.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/docs/COMPETITION_RUNNER.md" rel="noopener">Runner contract</a>, <a href="https://github.com/newjordan/angelX/blob/main/scripts/release/verify-runner-smoke.mjs" rel="noopener">runner smoke</a></td></tr><tr><td>10</td><td>Measured reinforcement campaigns</td><td>Isolated attempts produce verifier results; policy installation requires the campaign's independent audit path.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/tools/rl_campaign.rs" rel="noopener">Campaign tool</a>, <a href="https://github.com/newjordan/angelX/blob/main/tests/cockpit/app/rl_ctl__campaign_tests.rs" rel="noopener">campaign tests</a></td></tr><tr><td>11</td><td>Research connected to everyday checks</td><td>Sloptomizer retains typed check relationships across models, supplies compact advisory cards, and connects measured loops and paired experiments to the same memory. Deli supplies bounded fresh-context deliberation. The research labyrinth keeps their questions, evidence and refutations on one shared map.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/research/sloptomizer/README.md" rel="noopener">Research options</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/drive/rl_ctl/research_live.rs" rel="noopener">live worker</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/drive/deli.rs" rel="noopener">Deli</a>, <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/drive/labyrinth/mod.rs" rel="noopener">labyrinth</a></td></tr><tr><td>12</td><td>Measured paired-sample arithmetic</td><td><code>benchmark_compare</code> calculates changes from supplied paired samples.</td><td><a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/tools/benchmark.rs" rel="noopener">comparison</a></td></tr></tbody></table></div>
+<p>Research execution and feedback are implemented; general task-quality gains and provider-weight training are not established. Upstream work is credited in <a href="https://github.com/newjordan/angelX/blob/main/THIRD_PARTY_NOTICES.md" rel="noopener">attributions</a>.</p>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

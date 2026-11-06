@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hands — computer use and web control on Omarchy — angelX docs</title>
+  <meta name="description" content="Desktop and browser on Omarchy. Rendered from docs/HANDS.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/hands.html">
+  <meta property="og:title" content="Hands — computer use and web control on Omarchy — angelX docs">
+  <meta property="og:description" content="Desktop and browser on Omarchy. Rendered from docs/HANDS.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/hands.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/HANDS.md" rel="noopener">docs/HANDS.md</a></p>
+<h1 id="hands-computer-use-and-web-control-on-omarchy">Hands — computer use and web control on Omarchy</h1>
+<p>angelX can see and operate the operator's real desktop and a real browser. Two native tools, registered beside <code>web_search</code>/<code>web_fetch</code> in <a href="https://github.com/newjordan/angelX/blob/main/cockpit/src/agent/tools/hands.rs" rel="noopener">cockpit/src/agent/tools/hands.rs</a>.</p>
+<h2 id="the-loop">The loop</h2>
+<ol><li><p><strong>Observe</strong> (no approval): <code>desktop {action: status|windows|cursor|screenshot}</code>, <code>browser {action: status|snapshot|screenshot}</code>. Screenshots land in <code>.angel/hands/</code> and open on the Stage / Scryglass preview above the cockpit via the same envelope as <code>present</code> (first shot reveals, later ones file into Assets until dismissed; <code>&quot;present&quot;: false</code> skips the preview). Read them back with <code>vision_look</code> or <code>/see</code>.</p></li><li><p><strong>Act</strong> (one action-capsule approval per batch, like shell/edits; the preview shows targets and byte counts, never typed text): <code>desktop {action: focus|key|type|click|launch}</code>, <code>browser {action: open|click|type|press|eval|close}</code>.</p></li><li><p><strong>Verify</strong>: snapshot/screenshot after every act. A result is a receipt, not a hope.</p></li></ol>
+<p>Under <code>/yolo</code> or <code>/yolos</code> the capsule modal is skipped, exactly as for shell and edits. Guarded is the default. <code>ANGEL_HANDS=0</code> hides both tools; they also stay unadvertised without a Wayland session, so headless task runners never see hands they cannot use.</p>
+<h2 id="the-agent-display">The agent display</h2>
+<p><code>desktop {action: agent_start}</code> creates a headless monitor (HEADLESS-<em>) with workspace 90 — angel's own screen beside the operator's, never shown on their real monitors. <code>launch {agent: true}</code> parks new windows there, <code>screenshot {agent: true}</code> captures only it, and a headed <code>browser open</code> parks its Chrome window there by default (<code>agent: false</code> to keep it in front of the operator). <code>agent_stop</code> removes the output. Dispatch uses Hyprland 0.56's Lua form (<code>hl.dsp.…</code>); binding workspace 90 to the headless output means focusing the monitor </em>by id* first (verified live).</p>
+<p>Honest limits: this is visual isolation, not a separate seat. Browser input rides CDP and never touches the operator's devices; desktop <code>key</code>/<code>type</code> still move keyboard focus, and <code>click</code> still drives the one real cursor — now with relative moves plus cursor re-reads, because ydotool's absolute mode drifts under pointer acceleration. A nested compositor (headless Sway + virtual pointer) would isolate input fully; it is not installed here.</p>
+<h2 id="choosing-the-browser">Choosing the browser</h2>
+<p><code>/browser</code> opens a chooser popup: detected browsers in preference order (Google Chrome first, Chromium fallback), <code>●</code> on the one that launches today, Auto last. ↑↓/digits/Enter/click commit; the pick is saved to <code>.angel/browser-bin</code> and read by the <code>browser</code> tool next open (<code>ANGEL_BROWSER_BIN</code> still wins over the saved pick).</p>
+<h2 id="desktop-hyprlandwayland">Desktop (Hyprland/Wayland)</h2>
+<p>Backends are Omarchy's own CLIs — no new daemons:</p>
+<div class="table-wrap"><table><thead><tr><th>Capability</th><th>Backend</th></tr></thead><tbody><tr><td>monitors / windows / focus / workspaces</td><td><code>hyprctl -j</code>, <code>hyprctl dispatch</code></td></tr><tr><td>screenshots (full, <code>-o monitor</code>, <code>-g &quot;x,y WxH&quot;</code>)</td><td><code>grim</code></td></tr><tr><td>key chords / typing</td><td><code>wtype</code> (<code>-M/-k/-m</code>, <code>-- text</code>)</td></tr><tr><td>mouse click</td><td><code>ydotool</code> (needs <code>ydotoold</code>) or <code>wlrctl</code> — absent → honest install hint</td></tr><tr><td>launch</td><td>direct argv spawn, no shell</td></tr></tbody></table></div>
+<p>Validation fails closed: keysyms are <code>[A-Za-z0-9_-]</code> chords only, typed text is capped at 4,000 chars, click coordinates must be on a plausible display, screenshot names are slugified inside <code>.angel/hands/</code>.</p>
+<h2 id="browser-chromium-over-cdp">Browser (Chromium over CDP)</h2>
+<p><code>browser open {url}</code> starts the operator's Chrome once (<code>google-chrome-stable</code>/<code>google-chrome</code> preferred, Chromium fallback, <code>ANGEL_BROWSER_BIN</code> overrides) (profile <code>.angel/browser-profile</code>, headed in a Wayland session; <code>ANGEL_BROWSER_HEADLESS=1</code> or <code>{&quot;headed&quot;: false}</code> for headless) and keeps the session across calls. A zero-dependency Node driver (<code>browser_driver.mjs</code>, global <code>WebSocket</code> + <code>fetch</code>, Node ≥ 22) speaks CDP: navigate, snapshot (title, url, up to 60 interactive elements with selectors, page text), click by selector or visible text, type with real input/change events, key press, page screenshot, and <code>eval</code> as the capsule-gated escape hatch. Only <code>http(s)</code> URLs and <code>about:blank</code> open — <code>file:</code> and <code>javascript:</code> fail closed.</p>
+<h2 id="evidence-2026-10-30-this-machine">Evidence (2026-10-30, this machine)</h2>
+<ul><li><p>Unit: <code>check-cockpit-fast.sh hands</code> — classification, URL/key/text/coords validation, client formatting, screenshot-name confinement.</p></li><li><p>Live desktop: <code>hands_live_desktop_observe</code> (<code>--ignored</code> on a Hyprland session) — status/windows/screenshot against the running compositor.</p></li><li><p>Live browser: driver probe — goto → type → click → assert page text → screenshot, against headless Chromium serving a local page.</p></li></ul>
+<p>Not done yet: mouse move/drag/scroll, multi-tab, AT-SPI/accessibility-tree grounding (coordinate clicks from <code>vision_look</code> are the current path), browser downloads/uploads, and any macOS/Windows backend.</p>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

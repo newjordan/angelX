@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>The showcase — angelX docs</title>
+  <meta name="description" content="Pictures, video, pages and models over the cockpit. Rendered from docs/SHOWCASE.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/showcase.html">
+  <meta property="og:title" content="The showcase — angelX docs">
+  <meta property="og:description" content="Pictures, video, pages and models over the cockpit. Rendered from docs/SHOWCASE.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/showcase.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/SHOWCASE.md" rel="noopener">docs/SHOWCASE.md</a></p>
+<h1 id="the-showcase">The showcase</h1>
+<p>angelX opens in its own window on a desktop (<code>--term</code> keeps it in the terminal). There, whatever the agent presents opens full size in a floating panel above the terminal. The mini-viz keeps its preview as before; the showcase is the same media let out of the pane. In a plain terminal nothing changes.</p>
+<p><img src="/assets/docs-images/showcase/wizard-chart.png" alt="The wizard points his staff at a point of a chart: its tip reads step 4, loss 1.31"></p>
+<h2 id="what-opens-it">What opens it</h2>
+<ul><li><p>The agent's <code>present</code> tool (images, video, reports, data).</p></li><li><p><code>/show &lt;path&gt;</code>, and Scryglass's <strong>Open</strong> (<code>o</code>) on the selected media.</p></li><li><p>A chart the <code>graph</code> tool finishes.</p></li><li><p><code>/hide</code> closes it.</p></li></ul>
+<div class="table-wrap"><table><thead><tr><th>What</th><th>How it shows</th></tr></thead><tbody><tr><td>Picture</td><td>decoded at up to twice the window's size; the wheel zooms toward the pointer, a drag pans, a double-click shows it whole</td></tr><tr><td>Video</td><td>decoded by ffmpeg at the window's size (ffmpeg and ffprobe on the PATH; ffplay plays its sound); a click pauses, a progress line along the bottom seeks</td></tr><tr><td>Page (Markdown, source, text)</td><td>laid out in the window's font; the wheel scrolls</td></tr><tr><td>Data (CSV, TSV, JSON of numbers)</td><td>charted instead: labels against values are bars, numbers against numbers are lines (up to four series)</td></tr><tr><td><code>graph</code> chart</td><td>drawn from its planted points</td></tr><tr><td>Model (<code>.obj</code>, <code>.glb</code>)</td><td>on a turntable, lit: a GLB with its embedded textures, an OBJ in its vertex colours and materials; a drag turns it and it stays where it is left</td></tr></tbody></table></div>
+<h2 id="who-brings-it-in">Who brings it in</h2>
+<p>A <strong>squire</strong> of the serving house kicks the folded panel open, then sits on its roof by the close button, legs over the edge, and rides along when it is dragged. He wears his house's colours (the field on plume and tabard, the charge on his emblem); with no house serving he is the Keep's own. While a formation is seated, up to three squires of its other houses follow him in and take seats beside him. Under the pointer a squire raises a hand and names himself: his house's first knight, his castle and his epithet. Seated, they face the pointer, stand when it goes to the close button, wave when new media arrives and swing their legs now and then. On close they walk the panel off.</p>
+<p><img src="/assets/docs-images/showcase/squire-name.png" alt="A squire of Lumenfast names himself"></p>
+<p>Charts are brought by the <strong>wizard</strong>, the pixel cousin of the intro's dotted wizard: he raises his staff, a spark crosses to the panel, it unfolds from its middle and the chart is swept in under a drift of motes. Over a bar or point he points his staff at it and its tip shows the value. Idle, he lifts his staff now and then; on close the panel folds into a flash.</p>
+<p><img src="/assets/docs-images/showcase/forge-model.png" alt="A Hunyuan forge on the turntable"></p>
+<h2 id="the-panel">The panel</h2>
+<p>It is glass: a hairline frame with rounded corners over a faint dim, the terminal just showing through, and no shadow. Charts, models and pages carry no backing of their own; they stand on the glass.</p>
+<ul><li><p>Drag the title bar to move it; a double-click fills the window.</p></li><li><p>The corner grip sizes it.</p></li><li><p>The arrows at the left of the bar step back and forth through the last thirty-two showings.</p></li><li><p>The copy button copies what is showing: a picture as an image (as its path where the system has no image clipboard), a page or data file as its text, a <code>graph</code> chart as its data (CSV), a video or model as its path.</p></li><li><p>The close button, or Escape while the pointer is over the panel. Anywhere else Escape stays the cockpit's (it interrupts a running turn).</p></li></ul>
+<p>Only the newest showing reaches the panel: a slow one (a big model) asked for before a quick one gives way to it.</p>
+<h2 id="code">Code</h2>
+<ul><li><p><code>crates/glass/src/showcase.rs</code>: the panel. The window owns it: its frame, controls and pointer handling, in window pixels on the window's thread.</p></li><li><p><code>crates/glass/src/squire.rs</code>, <code>crates/glass/src/wizard.rs</code>: the heralds, drawn as text and timed as functions of time since open or close.</p></li><li><p><code>cockpit/src/ui/showcase.rs</code>: what is shown, made off the draw thread (pictures, video, pages, models), its history, the houses' colours and names.</p></li><li><p><code>cockpit/src/ui/showcase_chart.rs</code>, <code>cockpit/src/ui/showcase_model.rs</code>: charts and smart graphs; OBJ and GLB.</p></li><li><p>Tests sit beside each in their own modules.</p></li></ul>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>
