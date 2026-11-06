@@ -32,6 +32,8 @@ pub struct Kettle {
     pub mending: Option<Vec<String>>,
     /// A separate model turn has reviewed the first draft.
     pub reviewed: bool,
+    /// Its delivery's saves, running off the frame.
+    pub saving: Option<super::Saving<(bool, Result<(), String>)>>,
 }
 
 impl Session<'_> {
@@ -52,6 +54,18 @@ impl Session<'_> {
             .retain(|k| sim.owns_brew(&k.claim));
         if before != self.dungeon.forge.kettles.len() {
             self.dungeon.forge.stirring = false;
+        }
+        // New brews admitted by a save off the frame are persisted now.
+        match super::dungeon_settle::admitted(&mut self.dungeon.forge.brew_admitting) {
+            Some(Ok(covered)) => {
+                for kettle in &mut self.dungeon.forge.kettles {
+                    if covered.iter().any(|(session, request)| *session == kettle.claim.session && *request == kettle.claim.request) {
+                        kettle.persisted = true;
+                    }
+                }
+            }
+            Some(Err(error)) => self.dungeon.notice = format!("Brew retained: {error}"),
+            None => {}
         }
         let capture = (|| -> Result<(), String> {
             if self
@@ -91,11 +105,22 @@ impl Session<'_> {
                     seen: resume_file,
                     mending: None,
                     reviewed: false,
+                    saving: None,
                 });
             }
             if self.dungeon.forge.kettles.iter().any(|k| !k.persisted) {
                 if self.dungeon.save_path.is_none() {
                     return Err("brew source checkpoint path is unavailable".into());
+                }
+                let covered = self
+                    .dungeon
+                    .forge
+                    .kettles
+                    .iter()
+                    .map(|k| (k.claim.session.clone(), k.claim.request))
+                    .collect();
+                if super::dungeon_settle::admit_off_frame(self.dungeon, |v| &mut v.forge.brew_admitting, covered)? {
+                    return Ok(());
                 }
                 self.dungeon.checkpoint(Instant::now(), true)?;
                 for kettle in &mut self.dungeon.forge.kettles {
@@ -247,7 +272,43 @@ impl Session<'_> {
             }
         }
         let done = kettle.completed.as_ref().expect("terminal brew above");
-        let persist = (|| -> Result<(), String> {
+        let persist = if let Some(link) = self.dungeon.shooter.link() {
+            // Off the frame: the saves and the card's publication run on a
+            // thread of their own; the brew lands on the frame that finds
+            // them done.
+            match kettle.saving.as_ref().map(super::Saving::done) {
+                Some(None) => {
+                    self.dungeon.forge.kettles.push(kettle);
+                    return;
+                }
+                Some(Some((acknowledged, saved))) => {
+                    kettle.saving = None;
+                    kettle.acknowledged |= acknowledged;
+                    saved
+                }
+                None => match self.dungeon.save_path.clone() {
+                    None => Err("brew checkpoint path is unavailable".to_string()),
+                    Some(save) => {
+                        let publish = done
+                            .result
+                            .is_ok()
+                            .then(|| done.accepted.as_ref().map(|card| (path.clone(), card.definition_file().as_bytes().to_vec())))
+                            .flatten();
+                        let (claim, done) = (kettle.claim.clone(), done.clone());
+                        kettle.saving = Some(super::dungeon_settle::deliver_off_frame(
+                            link,
+                            save,
+                            self.dungeon.raid_serial,
+                            kettle.acknowledged,
+                            publish,
+                            move |link| link.acknowledge_brew(&claim, &done),
+                        ));
+                        self.dungeon.forge.kettles.push(kettle);
+                        return;
+                    }
+                },
+            }
+        } else { (|| -> Result<(), String> {
             self.dungeon.checkpoint(Instant::now(), true)?;
             if !kettle.acknowledged {
                 // Later paintings reload this source. Keep the accepted policy
@@ -264,7 +325,7 @@ impl Session<'_> {
                 kettle.acknowledged = true;
             }
             self.dungeon.checkpoint(Instant::now(), true)
-        })();
+        })() };
         if let Err(error) = persist {
             kettle.started = None;
             self.dungeon.notice = format!("Brew delivery retained: {error}");

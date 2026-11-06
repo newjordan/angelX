@@ -19,6 +19,8 @@ mod dungeon_gear;
 mod dungeon_intro;
 mod dungeon_join;
 mod dungeon_realm;
+mod dungeon_settle;
+pub use dungeon_settle::{Admitting, Saving};
 pub mod dungeon_reforge;
 mod dungeon_salvage;
 mod dungeon_session;

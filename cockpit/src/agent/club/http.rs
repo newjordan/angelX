@@ -238,6 +238,9 @@ pub struct HttpClub {
     /// `None` means dynamic: resolve it before the first request instead of
     /// hardcoding a checkpoint in source.
     model: Mutex<Option<String>>,
+    /// Serializes cold `/models` fetches so `model` itself is never held
+    /// across the network (see `model_id`).
+    model_probe: Mutex<()>,
     cli_model: bool,
     api_key: Option<String>,
     /// First-class OAuth (or other rotating) credential. Wins over `api_key`
@@ -1469,7 +1472,7 @@ impl HttpClub {
         if base.contains("openrouter.ai") {
             return ReasoningDialect::OpenAiEffort;
         }
-        let model = self.model_id().unwrap_or_default().to_ascii_lowercase();
+        let model = self.model_id_cached().unwrap_or_default().to_ascii_lowercase();
         if base.contains("z.ai") || base.contains("bigmodel.cn") || model.starts_with("glm") {
             return ReasoningDialect::GlmThinking;
         }
@@ -1649,6 +1652,7 @@ impl HttpClub {
             name,
             base_url,
             model: Mutex::new(model),
+            model_probe: Mutex::new(()),
             cli_model: false,
             api_key,
             token_provider: None,
@@ -1991,18 +1995,32 @@ impl HttpClub {
         Some(id)
     }
 
+    /// Cached model id only; never fetches. UI, picker, and draw paths use
+    /// this: the cold `/models` fetch belongs to request and probe threads,
+    /// which publish through here for later readers.
+    fn model_id_cached(&self) -> Option<String> {
+        self.model
+            .lock()
+            .ok()
+            .and_then(|model| model.as_ref().filter(|s| !s.trim().is_empty()).cloned())
+    }
+
     /// Model id for a request. Env/config wins; otherwise ask the backend's
     /// `/models` endpoint and cache the first reported id.
     fn model_id(&self) -> Result<String, String> {
-        // Hold the model lock through the one cold `/models` request. This is a
-        // deliberate one-time critical section: otherwise an N-way first wave
-        // sees the empty cache N times and stampedes the control endpoint.
-        let mut model = self
-            .model
+        if let Some(current) = self.model_id_cached() {
+            return Ok(current);
+        }
+        // Serialize the one cold fetch on a side gate, never on `model`
+        // itself: an N-way first wave still issues a single `/models`
+        // request, but cache peeks (the picker, the draw path) can no
+        // longer queue behind a dead backend's timeout.
+        let _probe = self
+            .model_probe
             .lock()
             .map_err(|_| "model id cache lock poisoned".to_string())?;
-        if let Some(current) = model.as_ref().filter(|s| !s.trim().is_empty()) {
-            return Ok(current.clone());
+        if let Some(current) = self.model_id_cached() {
+            return Ok(current);
         }
         let url = format!("{}/models", self.base_url.trim_end_matches('/'));
         let v = self.get_json(&url).ok_or_else(|| {
@@ -2018,7 +2036,11 @@ impl HttpClub {
                 self.base_url
             )
         })?;
-        *model = Some(learned.clone());
+        if let Ok(mut model) = self.model.lock()
+            && model.as_ref().is_none_or(|s| s.trim().is_empty())
+        {
+            *model = Some(learned.clone());
+        }
         Ok(learned)
     }
 
@@ -3492,7 +3514,7 @@ impl Club for HttpClub {
             return LOCAL_DEEPSEEK_LEVELS
                 .get_or_init(|| levels.iter().map(|level| (*level).to_string()).collect());
         }
-        let model_l = self.model_id().unwrap_or_default().to_ascii_lowercase();
+        let model_l = self.model_id_cached().unwrap_or_default().to_ascii_lowercase();
         match dialect {
             ReasoningDialect::OpenAiEffort if is_grok_xhigh_model(&model_l) => GROK_46_LEVELS
                 .get_or_init(|| vec!["low".into(), "medium".into(), "high".into(), "xhigh".into()]),
@@ -3533,7 +3555,7 @@ impl Club for HttpClub {
         if gated {
             return None;
         }
-        let model_l = self.model_id().unwrap_or_default().to_ascii_lowercase();
+        let model_l = self.model_id_cached().unwrap_or_default().to_ascii_lowercase();
         let canonical = self
             .local_reasoning_profile
             .levels()

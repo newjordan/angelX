@@ -60,3 +60,35 @@ fn every_provider_socket_probes_whether_its_peer_still_exists() {
         "probe after ~30 s of silence, got {left} cs"
     );
 }
+
+/// The route deck's accessors run on the UI thread. With a cold model cache
+/// (a follow-backend seat whose rig is powered off), none of them may fetch
+/// `/models`: one 2 s readiness timeout per dead rig froze model picking for
+/// six seconds. The blackhole peer accepts and never answers; it only counts.
+#[cfg(target_os = "linux")]
+#[test]
+fn picker_accessors_never_fetch_model_id_from_a_dead_peer() {
+    use crate::agent::club::Club as _;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let addr = listener.local_addr().unwrap();
+    let hits = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counted = std::sync::Arc::clone(&hits);
+    std::thread::spawn(move || {
+        while let Ok((_socket, _peer)) = listener.accept() {
+            counted.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            std::thread::sleep(Duration::from_secs(5));
+        }
+    });
+    let club = HttpClub::new("deadpeer", format!("http://{addr}/v1"), "", None);
+    let _ = club.reasoning_effort();
+    let _ = club.reasoning_levels();
+    let _ = club.set_reasoning_effort("high");
+    let _ = club.route_identity();
+    let _ = club.route_metadata();
+    assert_eq!(
+        hits.load(std::sync::atomic::Ordering::Relaxed),
+        0,
+        "picker accessors must answer from cache, never fetch a cold model id"
+    );
+}

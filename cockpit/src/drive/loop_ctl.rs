@@ -3560,7 +3560,7 @@ fn is_loop_local_label(label: &str) -> bool {
 fn select_loop_local_club(bag: &crate::agent::club::Bag) -> Option<Arc<dyn Club>> {
     let roster = bag.roster();
     let labels: Vec<String> = roster.iter().map(|c| c.label().to_string()).collect();
-    let available: Vec<bool> = roster.iter().map(|c| c.is_available()).collect();
+    let available: Vec<bool> = roster.iter().map(|c| bag.available_cached(c)).collect();
     let in_hand = bag.in_hand_with_fallback().label().to_string();
     let pin = std::env::var("ANGEL_LOOP_LOCAL_CLUB")
         .ok()
@@ -3621,7 +3621,7 @@ fn select_loop_sota_club(bag: &crate::agent::club::Bag) -> Option<Arc<dyn Club>>
     let allow_openai = loop_sota_allow_openai();
     let roster = bag.roster();
     let labels: Vec<String> = roster.iter().map(|c| c.label().to_string()).collect();
-    let available: Vec<bool> = roster.iter().map(|c| c.is_available()).collect();
+    let available: Vec<bool> = roster.iter().map(|c| bag.available_cached(c)).collect();
     let in_hand = bag.in_hand_with_fallback().label().to_string();
     let pin = std::env::var("ANGEL_LOOP_SOTA_CLUB")
         .ok()

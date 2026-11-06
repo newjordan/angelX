@@ -1824,6 +1824,21 @@ impl Bag {
             .collect()
     }
 
+    /// One club's prober-maintained reachability bit, for UI-thread callers
+    /// that would otherwise live-probe `Club::is_available` per club: an HTTP
+    /// club's live probe is a `/models` round trip, and a dead rig costs its
+    /// whole timeout, sequentially, per corpse (loop start froze ~6 s that
+    /// way). Clubs with no slot in this bag report available, matching the
+    /// fallback chain's treatment of the club in hand.
+    pub(crate) fn available_cached(&self, club: &Arc<dyn Club>) -> bool {
+        self.agents
+            .iter()
+            .flat_map(|a| &a.slots)
+            .find(|s| Arc::ptr_eq(&s.club, club))
+            .map(|s| s.available.load(Ordering::Relaxed))
+            .unwrap_or(true)
+    }
+
     /// The live tab strip — one entry per **box**, offline boxes omitted, so `Tab`
     /// only ever offers a machine that's actually up. The in-hand box is always
     /// included (even while down) so the strip never hides what you're pointed at,
