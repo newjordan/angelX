@@ -252,7 +252,7 @@ export function renderSite() {
       '/evidence.html',
       'evidence',
       'angelX evidence',
-      'Published angelX measurements from the repository README and the 0.2.7 release notes, with their settings and limits.',
+      'Published angelX measurements from the repository README, the 0.2.7 release notes and the 0.1.9 harness comparison, with their settings and limits.',
       'evidence.html',
     ],
     [
