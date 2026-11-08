@@ -87,7 +87,7 @@ pub(crate) fn strip_ledger_reads(messages: &[ChatMsg], outbound: &mut [serde_jso
         if text.split('\n').any(left_out) {
             let kept = text
                 .split('\n')
-                .filter(|line| !left_out(*line))
+                .filter(|line| !left_out(line))
                 .collect::<Vec<_>>()
                 .join("\n");
             wire["content"] = serde_json::Value::String(kept);

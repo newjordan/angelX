@@ -2367,7 +2367,7 @@ impl Drop for BgCompactPermit {
 
 fn acquire_bg_compact_permit() -> Option<BgCompactPermit> {
     BG_COMPACT_WORKERS
-        .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
+        .try_update(Ordering::AcqRel, Ordering::Acquire, |current| {
             (current < BG_COMPACT_WORKER_LIMIT).then_some(current + 1)
         })
         .ok()

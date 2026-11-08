@@ -388,7 +388,7 @@ fn entry(address: &ledger::Address, known: &mut Known) -> Option<String> {
             .map(|page| page.chars().count())
             .sum::<usize>()
             <= SHORT_PAGES_CHARS
-        && !sub.pages.iter().any(|page| ledger::is_warpath_line(page))
+        && !sub.pages.iter().any(ledger::is_warpath_line)
     {
         let pages = claude_seat::kept(&sub).map(unslotted).collect::<Vec<_>>();
         line.push_str(&format!(": {}", pages.join(" ")));

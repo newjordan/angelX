@@ -35,7 +35,7 @@ pub fn run_commands<T>(commands: Vec<Command>, mut extra_slot: impl FnMut() -> O
         first_error.map_or(Ok(()), Err)
     };
     let result = std::thread::scope(|scope| {
-        let threads: Vec<_> = permits.iter().map(|_| scope.spawn(&worker)).collect();
+        let threads: Vec<_> = permits.iter().map(|_| scope.spawn(worker)).collect();
         let mut result = worker();
         for thread in threads {
             let completed = thread.join().expect("native compiler worker panicked");

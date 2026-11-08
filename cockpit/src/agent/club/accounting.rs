@@ -308,7 +308,7 @@ impl Default for AccountingCell {
     fn default() -> Self {
         static NEXT_ID: AtomicU64 = AtomicU64::new(1);
         let id = NEXT_ID
-            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
+            .try_update(Ordering::Relaxed, Ordering::Relaxed, |id| id.checked_add(1))
             .unwrap_or(0);
         Self {
             id,

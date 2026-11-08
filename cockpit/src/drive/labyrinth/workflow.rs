@@ -2942,7 +2942,7 @@ fn canonical_changes(
             .map_err(|e| error("knowledge_schema", None, e.to_string()))?;
     Map::parse(knowledge.clone()).map_err(|e| error("knowledge_validation", None, e))?;
     let mut changes = Vec::new();
-    merge_nodes(workspace, &mut knowledge, bundle, &reviewed)?;
+    merge_nodes(workspace, &mut knowledge, bundle, reviewed)?;
     project_failed_routes(&mut knowledge, bundle, reviewed)?;
     let old_frontier: Option<Value> = sources["labyrinth/frontier.json"]
         .as_ref()
@@ -2961,7 +2961,7 @@ fn canonical_changes(
         .map(|b| serde_json::from_slice(b).map_err(|e| error("sota_schema", None, e.to_string())))
         .transpose()?
         .unwrap_or_else(|| json!({"about":"","groups":[],"entries":[]}));
-    merge_sota(&mut sota, bundle, &reviewed, &knowledge)?;
+    merge_sota(&mut sota, bundle, reviewed, &knowledge)?;
     let numerical = frontier
         .as_ref()
         .map(|f| frontier_status(f, Some(&sota)))

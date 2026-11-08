@@ -442,11 +442,10 @@ impl App {
             Ok(bytes) if bytes.is_empty() => format!("the worktree for #{id} has no changes to submit"),
             Ok(bytes) => {
                 let kb = bytes.len() / 1024;
-                let said = self.table_cast(
+                self.table_cast(
                     Op::Submit { id, summary, evidence, bundle: bytes },
                     &format!("submitted ({} KiB patch)", kb.max(1)),
-                );
-                said
+                )
             }
             Err(e) => format!("could not bundle the work: {e}"),
         }

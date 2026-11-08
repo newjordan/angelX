@@ -10,13 +10,3 @@
 
 #[cfg(test)]
 pub(crate) use angel_live::host::sha256_hex;
-
-pub(crate) mod workspace_store {
-    /// Test-only fault injection for the atomic writers (the cockpit's storage
-    /// regression tests own the arming helper).
-    #[cfg(test)]
-    pub(crate) use crate::platform::workspace_store::storage_atomic_tests;
-    pub(crate) use angel_live::host::workspace_store::{
-        try_private_lock, write_atomic, write_private_atomic_exact,
-    };
-}

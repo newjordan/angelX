@@ -19,12 +19,11 @@ use crate::knowledge::session;
 use crate::platform::guardian as guard;
 use crate::platform::peer_watch::{PeerBeat, peer_dir, read_peers};
 use crate::platform::workspace_store::angel_dir;
-use std::io::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 fn now_ms() -> u128 {
     std::time::SystemTime::now()
