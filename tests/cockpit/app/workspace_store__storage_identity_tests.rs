@@ -83,6 +83,40 @@ fn ordinary_repo_subdirs_share_the_main_identity() {
 }
 
 #[test]
+fn concurrent_first_askers_share_one_identity_and_one_origin() {
+    let _lock = crate::tests::env_lock();
+    let fixture = Fixture::new();
+    let _env = identity_env(&fixture);
+    let repo = fixture.0.join("main");
+    init_repo(&repo);
+    let mut remote = Command::new("git");
+    remote
+        .args(["remote", "add", "origin", "https://github.com/acme/widget.git"])
+        .current_dir(&repo);
+    owned_git(remote);
+    let subdirs = [repo.join("cockpit"), repo.join("cockpit/skills")];
+    for dir in &subdirs {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+    let asked = [&repo, &subdirs[0], &subdirs[1], &repo, &subdirs[1]];
+    let answers: Vec<RepoIdentity> = std::thread::scope(|scope| {
+        let workers: Vec<_> = asked
+            .iter()
+            .map(|dir| scope.spawn(move || repo_identity(dir)))
+            .collect();
+        workers
+            .into_iter()
+            .map(|worker| worker.join().unwrap())
+            .collect()
+    });
+    for answer in &answers {
+        assert_eq!(answer.root, repo);
+        assert_eq!(answer.key, workspace_key(&repo));
+        assert_eq!(answer.slug.as_deref(), Some("acme/widget"));
+    }
+}
+
+#[test]
 fn identity_cache_keeps_legacy_and_repository_modes_separate() {
     let _lock = crate::tests::env_lock();
     let fixture = Fixture::new();

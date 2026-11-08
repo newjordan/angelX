@@ -12,6 +12,9 @@ mod failure_detail_tests;
 #[path = "../../../../tests/cockpit/tools/build__fallback_tests.rs"]
 mod fallback_tests;
 #[cfg(test)]
+#[path = "../../../../tests/cockpit/tools/build__prefetch_tests.rs"]
+mod prefetch_tests;
+#[cfg(test)]
 #[path = "../../../../tests/cockpit/tools/build__run_tests_args_tests.rs"]
 mod run_tests_args_tests;
 mod targets;
@@ -50,6 +53,57 @@ pub(crate) struct PinnedCargo {
 /// captures finish. Every executable remains eagerly pinned before model code
 /// can run; avoiding serial image reads keeps registry startup responsive.
 pub(crate) fn capture_verifier_runtimes(workspace: &Path) -> (PinnedCargo, PinnedNativeRuntimes) {
+    // A capture the launch began for this very workspace is the one this registry
+    // owns. It is taken exactly once, and only by a registry for that workspace;
+    // a capture that panicked, or none at all, falls through to capturing here.
+    let begun = {
+        let mut slot = PREFETCHED_RUNTIMES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        if slot
+            .as_ref()
+            .is_some_and(|(begun_for, _)| begun_for == workspace)
+        {
+            slot.take()
+        } else {
+            None
+        }
+    };
+    if let Some((_, worker)) = begun
+        && let Ok(pair) = worker.join()
+    {
+        return pair;
+    }
+    capture_verifier_runtimes_now(workspace)
+}
+
+/// The capture started by [`prefetch_verifier_runtimes`] and the workspace it is for.
+type PrefetchedRuntimes = (
+    PathBuf,
+    std::thread::JoinHandle<(PinnedCargo, PinnedNativeRuntimes)>,
+);
+static PREFETCHED_RUNTIMES: Mutex<Option<PrefetchedRuntimes>> = Mutex::new(None);
+
+/// Begin the startup toolchain capture for `workspace` on its own thread, so the
+/// registry that is built a little later finds the pins resolved (rustup's answer
+/// and both toolchains' identities) instead of waiting on a child process. The
+/// capture is the same one [`capture_verifier_runtimes`] runs, taken before the
+/// registry returns and so before any model-owned dispatch; only when it starts
+/// moves. A thread that cannot start leaves the registry to capture as before.
+pub(crate) fn prefetch_verifier_runtimes(workspace: &Path) {
+    let workspace = workspace.to_path_buf();
+    let for_workspace = workspace.clone();
+    if let Ok(worker) = std::thread::Builder::new()
+        .name("angel-pin-warm".into())
+        .spawn(move || capture_verifier_runtimes_now(&workspace))
+    {
+        *PREFETCHED_RUNTIMES
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some((for_workspace, worker));
+    }
+}
+
+fn capture_verifier_runtimes_now(workspace: &Path) -> (PinnedCargo, PinnedNativeRuntimes) {
     std::thread::scope(|scope| {
         let native = std::thread::Builder::new()
             .name("pin-native-verifiers".into())

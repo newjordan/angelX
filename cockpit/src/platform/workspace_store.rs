@@ -83,6 +83,7 @@ pub(crate) fn write_private_atomic_exact(path: &Path, bytes: &[u8]) -> Result<()
     install_test_hooks();
     angel_live::host::workspace_store::write_private_atomic_exact(path, bytes)
 }
+#[cfg(test)]
 pub(crate) use angel_live::host::workspace_store::try_private_lock;
 
 pub fn workspace_json_path_in(dir: &Path, workspace: &Path) -> PathBuf {
@@ -671,6 +672,16 @@ pub fn repo_identity(workspace: &Path) -> RepoIdentity {
     {
         return hit.clone();
     }
+    // One probe per workspace at a time: startup asks for the same identity from
+    // its main thread and from the threads that warm it, and the later asker
+    // should take the first one's answer rather than spawn the same git again.
+    let gate = identity_gate(format!("identity:{enabled}:{}", cache_key.0.display()));
+    let _probing = gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Ok(cache) = identity_cache().lock()
+        && let Some(hit) = cache.get(&cache_key)
+    {
+        return hit.clone();
+    }
     let root = if enabled {
         canonical_repo_root_enabled(workspace)
     } else {
@@ -678,15 +689,63 @@ pub fn repo_identity(workspace: &Path) -> RepoIdentity {
     };
     let cacheable = root.is_some();
     let root = root.unwrap_or_else(|| workspace.to_path_buf());
+    let slug = if cacheable {
+        // A subdirectory, the skills directory and the checkout root itself all
+        // resolve to one repository: ask git for its origin once per root.
+        slug_for_root_memoized(&root)
+    } else {
+        slug_for_root(&root)
+    };
     let id = RepoIdentity {
         key: workspace_key(&root),
-        slug: slug_for_root(&root),
+        slug,
         root,
     };
     if cacheable && let Ok(mut cache) = identity_cache().lock() {
         cache.insert(cache_key, id.clone());
     }
     id
+}
+
+/// Per-key mutexes that serialize one probe at a time without serializing
+/// unrelated probes. Entries are a few bytes and live for the process.
+fn identity_gate(key: String) -> std::sync::Arc<Mutex<()>> {
+    static GATES: OnceLock<Mutex<HashMap<String, std::sync::Arc<Mutex<()>>>>> = OnceLock::new();
+    let gates = GATES.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut gates = gates.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    std::sync::Arc::clone(gates.entry(key).or_default())
+}
+
+/// [`slug_for_root`] remembered per repository root, for the same lifetime and
+/// under the same conditions as the identity cache that calls it (the caller
+/// only gets here for a root that git resolved). The confirmed work context is
+/// still read on every call, so a slug the operator sets mid-session wins.
+fn slug_for_root_memoized(root: &Path) -> Option<String> {
+    type SlugCache = Mutex<HashMap<PathBuf, Option<String>>>;
+    static SLUGS: OnceLock<SlugCache> = OnceLock::new();
+    let cache = SLUGS.get_or_init(|| Mutex::new(HashMap::new()));
+    if let Some(slug) = crate::agent::tools::work_landing::load_context(root).and_then(|c| c.repo) {
+        return Some(slug);
+    }
+    let remembered = |cache: &SlugCache| {
+        cache
+            .lock()
+            .ok()
+            .and_then(|slugs| slugs.get(root).cloned())
+    };
+    if let Some(hit) = remembered(cache) {
+        return hit;
+    }
+    let gate = identity_gate(format!("slug:{}", root.display()));
+    let _probing = gate.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(hit) = remembered(cache) {
+        return hit;
+    }
+    let slug = slug_for_root(root);
+    if let Ok(mut slugs) = cache.lock() {
+        slugs.insert(root.to_path_buf(), slug.clone());
+    }
+    slug
 }
 
 /// True only when both serialized identity fields match the canonical

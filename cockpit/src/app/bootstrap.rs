@@ -133,6 +133,14 @@ fn build_history_with_skills(
     skills: &[harness::Skill],
 ) -> Vec<ChatMsg> {
     let mut history = vec![ChatMsg::system(build_system_prompt(bag, workspace))];
+    history.extend(build_workspace_context(workspace, skills));
+    history
+}
+
+/// The tagged workspace-context message: repository guidance, the skill catalog
+/// and the learned evidence. It reads the workspace and the stores under the
+/// angelX directory, never the bag, so the registry build can run beside it.
+fn build_workspace_context(workspace: &Path, skills: &[harness::Skill]) -> Option<ChatMsg> {
     let mut evidence = crate::agent::tools::work_landing::work_context_block(workspace);
     if !crate::agent::backplane::active() {
         let dossier = crate::knowledge::dossier::context_block(workspace);
@@ -166,16 +174,13 @@ fn build_history_with_skills(
     let live_dir = crate::agent::hotload::enabled()
         .then(crate::agent::hotload::root)
         .filter(|root| root.is_dir());
-    if let Some(context) = workspace_context_message_with_live(
+    workspace_context_message_with_live(
         workspace,
         harness::project_context(workspace),
         harness::skills_catalog(skills),
         evidence,
         live_dir.as_deref(),
-    ) {
-        history.push(context);
-    }
-    history
+    )
 }
 
 /// The same explicit role split used by the real headless CLI. Keeping the
@@ -298,9 +303,64 @@ pub(crate) fn build_history_and_registry(
     workspace: PathBuf,
 ) -> (Vec<ChatMsg>, ToolRegistry) {
     let skills = harness::load_skills_for(&workspace);
-    let history = build_history_with_skills(bag, &workspace, &skills);
-    let registry = build_registry_with_skills(bag, session_id, workspace, skills);
+    let mut history = vec![ChatMsg::system(build_system_prompt(bag, &workspace))];
+    // The workspace evidence (self-map, dossier, caddy, repository identity) and
+    // the tool registry (toolchain pins, MCP, LSP) each read the filesystem and
+    // wait on child processes, and neither needs the other's result. Build them
+    // side by side; the message order is unchanged.
+    let (context, registry) = std::thread::scope(|scope| {
+        let context = std::thread::Builder::new()
+            .name("angel-workspace-context".into())
+            .spawn_scoped(scope, || build_workspace_context(&workspace, &skills));
+        let registry =
+            build_registry_with_skills(bag, session_id, workspace.clone(), skills.clone());
+        let context = match context {
+            Ok(worker) => worker
+                .join()
+                .unwrap_or_else(|panic| std::panic::resume_unwind(panic)),
+            // Thread pressure must not drop the evidence: build it here.
+            Err(_) => build_workspace_context(&workspace, &skills),
+        };
+        (context, registry)
+    });
+    history.extend(context);
     (history, registry)
+}
+
+/// Start the independent file- and process-bound startup reads on their own
+/// threads, so they overlap compatibility probing, terminal setup and route
+/// selection rather than queueing on the main thread when the cockpit is built.
+/// Every one of these is memoized by its owner: the later call on the main
+/// thread waits for (or finds) the same answer. Nothing here is required, and a
+/// thread that cannot start leaves the main thread to do the work as before.
+pub(crate) fn warm_startup(workspace: &Path) {
+    // The self-map render of an angelX checkout (a worker over the source tree).
+    crate::agent::tools::self_model::prefetch_context(workspace);
+    // The toolchain pins (rustup's answer and both toolchains' identities) the
+    // tool registry resolves before any model-owned tool can run.
+    crate::agent::tools::build::prefetch_verifier_runtimes(workspace);
+    // Repository identity: the git probes behind the workspace, its stores,
+    // the skills directory and the live-module root.
+    let roots = [
+        Some(workspace.to_path_buf()),
+        crate::agent::tools::self_model::source_root(),
+        Some(crate::platform::runtime_paths::cockpit_dir().join("skills")),
+    ];
+    for root in roots.into_iter().flatten().filter(|root| root.is_dir()) {
+        let _ = std::thread::Builder::new()
+            .name("angel-identity-warm".into())
+            .spawn(move || {
+                let _ = crate::platform::workspace_store::repo_identity(&root);
+            });
+    }
+    // The TLS trust roots every HTTP route's agent is built on.
+    let _ = std::thread::Builder::new()
+        .name("angel-tls-warm".into())
+        .spawn(|| {
+            // Building the first agent loads the platform trust roots once, for
+            // every agent after it.
+            drop(ureq::AgentBuilder::new());
+        });
 }
 
 fn build_registry_with_skills(
