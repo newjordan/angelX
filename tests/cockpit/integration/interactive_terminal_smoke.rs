@@ -1104,49 +1104,49 @@ fn run_approval_paths_scenario() -> Result<(), String> {
 
     cockpit.send(b"/approvals probe\r")?;
     cockpit.wait_for("approval probe modal", |screen| {
-        screen.contains("approval required")
+        screen.contains("Approval needed")
             && screen.contains("approval input probe")
-            && screen.contains("[y] approve")
-            && screen.contains("[n] deny")
+            && screen.contains("y  Approve")
+            && screen.contains("n  Deny")
     })?;
 
     cockpit.send(b"z\x1b")?;
     cockpit.wait_for("approval probe denied", |screen| {
-        !screen.contains("approval required") && screen.contains("Write a message")
+        !screen.contains("Approval needed") && screen.contains("Write a message")
     })?;
 
     cockpit.send(b"/approvals probe\r")?;
     cockpit.wait_for("approval probe reopened", |screen| {
-        screen.contains("approval required") && screen.contains("approval input probe")
+        screen.contains("Approval needed") && screen.contains("approval input probe")
     })?;
     cockpit.send(b"y")?;
     cockpit.wait_for("approval probe approved", |screen| {
-        !screen.contains("approval required") && screen.contains("Write a message")
+        !screen.contains("Approval needed") && screen.contains("Write a message")
     })?;
 
     cockpit.send(b"/approvals selftest\r")?;
     cockpit.wait_for("broker self-test modal", |screen| {
-        screen.contains("approval required")
+        screen.contains("Approval needed")
             && screen.contains("Approval broker self-test")
             && screen.contains("no action will run")
-            && screen.contains("scope: action batch")
+            && screen.contains("SCOPE  action batch")
     })?;
     cockpit.send(b"\x1b")?;
     cockpit.wait_for("broker self-test denied and worker resumed", |screen| {
-        !screen.contains("approval required")
+        !screen.contains("Approval needed")
             && screen.contains("denied")
             && screen.contains("worker resumed")
     })?;
 
     cockpit.send(b"/approvals selftest\r")?;
     cockpit.wait_for("broker self-test reopened", |screen| {
-        screen.contains("approval required")
+        screen.contains("Approval needed")
             && screen.contains("Approval broker self-test")
-            && screen.contains("scope: action batch")
+            && screen.contains("SCOPE  action batch")
     })?;
     cockpit.send(b"y")?;
     cockpit.wait_for("broker self-test approved and worker resumed", |screen| {
-        !screen.contains("approval required")
+        !screen.contains("Approval needed")
             && screen.contains("approved")
             && screen.contains("worker resumed")
     })?;

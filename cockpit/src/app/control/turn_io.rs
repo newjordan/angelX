@@ -3059,13 +3059,12 @@ impl App {
         }
         // An approval modal captures keys until answered: y/Enter approve,
         // a approve-all (this kind, rest of turn), n/Esc deny. Other keys ignored.
-        if let Some(pa) = self.pending_approval.take() {
-            match crate::ui::views::approval_view::decision_for_key(key.code) {
-                Some(d) => {
-                    self.pending_approval = Some(pa);
-                    self.answer_approval(d);
-                }
-                None => self.pending_approval = Some(pa), // keep waiting for a valid key
+        if self.pending_approval.is_some() {
+            use crate::ui::views::approval_view::{KeyOutcome, key_outcome};
+            match key_outcome(key.code, self.approval_choice()) {
+                KeyOutcome::Answer(d) => self.answer_approval(d),
+                KeyOutcome::Focus(i) => self.set_approval_choice(i),
+                KeyOutcome::Ignore => {} // keep waiting for a key the ask takes
             }
             return;
         }
@@ -3628,6 +3627,22 @@ impl App {
     ///   4. Left button down/drag/up drives a transcript-confined freeform
     ///      selection. Other panes remain focusable and scrollable, but can
     ///      never become clipboard sources.
+    /// The answer the waiting ask has chosen: Approve until moved.
+    pub(crate) fn approval_choice(&self) -> usize {
+        let Some(pa) = &self.pending_approval else {
+            return 0;
+        };
+        let serial = crate::ui::views::approval_view::serial(&pa.prompt, pa.scope_label.as_deref());
+        if self.approval_focus.0 == serial { self.approval_focus.1 } else { 0 }
+    }
+
+    pub(crate) fn set_approval_choice(&mut self, choice: usize) {
+        if let Some(pa) = &self.pending_approval {
+            let serial = crate::ui::views::approval_view::serial(&pa.prompt, pa.scope_label.as_deref());
+            self.approval_focus = (serial, choice.min(crate::ui::views::approval_view::ANSWERS.len() - 1));
+        }
+    }
+
     /// Answer the waiting approval, by key or by a click on the card.
     pub(crate) fn answer_approval(&mut self, d: crate::approval::Decision) {
         let Some(pa) = self.pending_approval.take() else {
@@ -3712,13 +3727,20 @@ impl App {
         }
         if self.pending_approval.is_some() {
             self.viewer.inspector.drag = None;
-            if matches!(ev.kind, MouseEventKind::Down(MouseButton::Left))
-                && let Some(&(_, d)) = self
-                    .approval_hits
-                    .iter()
-                    .find(|(rect, _)| mouse::point_in(*rect, ev.column, ev.row))
-            {
-                self.answer_approval(d);
+            let under = self
+                .approval_hits
+                .iter()
+                .find(|(rect, _)| mouse::point_in(*rect, ev.column, ev.row))
+                .map(|&(_, d)| d);
+            match (ev.kind, under) {
+                (MouseEventKind::Down(MouseButton::Left), Some(d)) => self.answer_approval(d),
+                // The pill follows the pointer, so a click lands where it shows.
+                (MouseEventKind::Moved, Some(d)) => {
+                    if let Some(i) = crate::ui::views::approval_view::ANSWERS.iter().position(|a| *a == d) {
+                        self.set_approval_choice(i);
+                    }
+                }
+                _ => {}
             }
             return;
         }
