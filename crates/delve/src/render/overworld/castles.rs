@@ -24,6 +24,7 @@ use super::kit::{self, Roof, Top, Wall};
 use super::light::{Light, darker, dusk_ink};
 use super::map::TILE;
 use super::scene::Prop;
+use super::View;
 use crate::world::castles::{self, Castle, CastleKind};
 use crate::world::houses::{self, House, HouseId, RoofKind, Tops, Walls};
 
@@ -356,15 +357,22 @@ fn carving_row((sx, sy): (i32, i32)) -> i32 {
 }
 
 /// Stage the March in realm coordinates: castles, banners, carvings,
-/// lamplight, and knights of other houses out on the roads.
-pub fn stage(march: &March, props: &mut Vec<Prop>, lights: &mut Vec<Light>, tick: u32) {
+/// lamplight, and knights of other houses out on the roads. With a `view`, a castle's picture that
+/// would not touch it is left out (the painter would skip it, and copying it was most of what this
+/// cost): the others and the lights are staged as they always were.
+pub fn stage(march: &March, props: &mut Vec<Prop>, lights: &mut Vec<Light>, tick: u32, view: Option<View>) {
     let breath = |k: u32| 0.92 + 0.08 * (tick as f32 * 0.5 + k as f32 * 2.3).sin();
+    // Whether a picture whose base sits at `(x, base)` shows in the view: as the painter asks it.
+    let shows = |x: i32, base: i32, img: &Img| view.is_none_or(|v| v.touches(x, base - img.h, img.w, img.h));
     for (c, pieces) in castles::castles().iter().zip(built()) {
         let raised = match c.kind {
             CastleKind::House(id) => march.raised.contains(&id),
             _ => false,
         };
         for (x, base, img) in &pieces[usize::from(raised)] {
+            if !shows(*x, *base, img) {
+                continue;
+            }
             props.push(Prop {
                 x: *x,
                 base: *base,
@@ -376,14 +384,20 @@ pub fn stage(march: &March, props: &mut Vec<Prop>, lights: &mut Vec<Light>, tick
         let h = houses::get(id);
         let raised = march.raised.contains(&id);
         let (tx, ty, tw, th) = footprint(id);
-        let img = if raised {
-            sprite(h, true, tick + u32::from(id.0) * 5)
-        } else {
-            idle(id).clone()
-        };
         // Its own keep stands in the middle of the ward.
-        let (x, base) = (tx * TILE + (tw * TILE - img.w) / 2, (ty + th / 2 + 2) * TILE);
-        props.push(Prop { x, base, img });
+        let base = (ty + th / 2 + 2) * TILE;
+        let place = |img: &Img| (tx * TILE + (tw * TILE - img.w) / 2, base);
+        if raised {
+            let img = sprite(h, true, tick + u32::from(id.0) * 5);
+            let (x, base) = place(&img);
+            props.push(Prop { x, base, img });
+        } else {
+            let img = idle(id);
+            let (x, base) = place(img);
+            if shows(x, base, img) {
+                props.push(Prop { x, base, img: img.clone() });
+            }
+        }
         let label = carving(h);
         let (sx, sy) = stand(id);
         props.push(Prop {

@@ -13,6 +13,13 @@ fn road_like(t: u8) -> bool {
     matches!(t, b'=' | b':' | b'H')
 }
 
+/// Whether a map tile's ground moves with the ambient step: water, streams, falls and lava. Every
+/// other tile's marks are the same at every step (a test holds the rest of the realm to it), which
+/// is what lets a view's still ground be kept between steps.
+pub fn moves(tile: u8) -> bool {
+    matches!(tile, b'~' | b'w' | b'f' | b'L' | b'F')
+}
+
 /// The ink at a world pixel at ambient step `tick`, or `None` for black paper.
 pub fn mark(realm: &Realm, wx: i32, wy: i32, tick: u32) -> Option<char> {
     let (tx, ty) = (wx.div_euclid(TILE), wy.div_euclid(TILE));

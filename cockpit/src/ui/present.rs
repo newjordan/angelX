@@ -116,7 +116,7 @@ pub(crate) fn video(
         let _ = sequence;
         true
     };
-    let shown = present_picture(key, size, anchor, buffer, fresh, pixels);
+    let shown = present_picture(key, size, anchor, buffer, None, fresh, pixels);
     #[cfg(feature = "glass")]
     if !shown {
         VIDEO_SEQUENCES.lock().unwrap().remove(&key);
@@ -194,7 +194,24 @@ pub(crate) fn picture(
     buffer: &mut Buffer,
     pixels: impl FnOnce() -> Vec<u8>,
 ) -> bool {
-    present_picture(key, size, anchor, buffer, false, pixels)
+    present_picture(key, size, anchor, buffer, None, false, pixels)
+}
+
+/// [`picture`] for one picture that changes in place, the world map: its content `key` changes
+/// every few steps and the old one is never shown again, so the picture keeps one window id (one
+/// texture, written over) for `slot` instead of a new id and a new texture for every key, which the
+/// window kept until the budget evicted them (some 700 MiB of the GPU's memory, and a texture
+/// allocated for every step). The pixels upload when `key`, `size` or the cells it spans change, as
+/// for [`picture`]; what is drawn is the same pixels.
+pub(crate) fn picture_in_place(
+    slot: u64,
+    key: u64,
+    size: (u32, u32),
+    anchor: Rect,
+    buffer: &mut Buffer,
+    pixels: impl FnOnce() -> Vec<u8>,
+) -> bool {
+    present_picture(key, size, anchor, buffer, Some(slot), false, pixels)
 }
 
 /// [`picture`] for a stream whose frames change: the pixels upload
@@ -207,7 +224,7 @@ pub(crate) fn stream_picture(
     buffer: &mut Buffer,
     pixels: impl FnOnce() -> Vec<u8>,
 ) -> bool {
-    present_picture(key, size, anchor, buffer, true, pixels)
+    present_picture(key, size, anchor, buffer, None, true, pixels)
 }
 
 fn present_picture(
@@ -215,6 +232,7 @@ fn present_picture(
     size: (u32, u32),
     anchor: Rect,
     buffer: &mut Buffer,
+    slot: Option<u64>,
     stream: bool,
     pixels: impl FnOnce() -> Vec<u8>,
 ) -> bool {
@@ -236,10 +254,17 @@ fn present_picture(
         let placed = fit_span(anchor, cell_px, size);
         let (id, upload) = {
             let mut cache = CACHE.lock().unwrap();
-            cache.claim(key, size, (placed.width, placed.height), stream)
+            match slot {
+                Some(slot) => cache.claim_in_slot(slot, key, size, (placed.width, placed.height)),
+                None => cache.claim(key, size, (placed.width, placed.height), stream),
+            }
         };
         if upload && !send(host, id, size, (placed.width, placed.height), pixels()) {
-            CACHE.lock().unwrap().forget(key);
+            let mut cache = CACHE.lock().unwrap();
+            match slot {
+                Some(slot) => cache.forget_slot(slot),
+                None => cache.forget(key),
+            }
             return false;
         }
         blank(buffer, anchor);
@@ -249,11 +274,11 @@ fn present_picture(
             placed,
             buffer,
         );
-        return true;
+        true
     }
     #[cfg(not(feature = "glass"))]
     {
-        let _ = (key, size, anchor, buffer, stream, pixels);
+        let _ = (key, size, anchor, buffer, slot, stream, pixels);
         false
     }
 }
@@ -298,7 +323,7 @@ fn store(key: u64, size: (u32, u32), span: (u16, u16), rgba: Vec<u8>, stream: bo
             CACHE.lock().unwrap().forget(key);
             return None;
         }
-        return Some(id);
+        Some(id)
     }
     #[cfg(not(feature = "glass"))]
     {
@@ -512,6 +537,31 @@ struct Cache {
     by_key: std::collections::HashMap<u64, (u32, (u32, u32), (u16, u16))>,
     order: std::collections::VecDeque<u64>,
     next: u32,
+    /// The pictures that change in place (`picture_in_place`), each on an id of its own.
+    slots: [Option<Slot>; SLOT_KEEP],
+    clock: u64,
+}
+
+/// Window pictures of the pictures that change in place: one id each, in a band of their own
+/// (past the content band and short of the Delve's stage id), so no content key's id is ever one of
+/// theirs however many contents have been claimed since.
+#[cfg(feature = "glass")]
+const SLOT_BASE: u32 = 0x00F5_0000;
+/// How many such pictures at once: the world map is one; a resized pane is another until it is
+/// the least recently shown, and its id goes to the next.
+#[cfg(feature = "glass")]
+const SLOT_KEEP: usize = 8;
+
+/// What a slot holds: its name, the content now in its window picture, and the size and cell span
+/// that content was sent for.
+#[cfg(feature = "glass")]
+#[derive(Clone, Copy)]
+struct Slot {
+    name: u64,
+    key: u64,
+    size: (u32, u32),
+    span: (u16, u16),
+    used: u64,
 }
 
 #[cfg(feature = "glass")]
@@ -544,6 +594,37 @@ impl Cache {
     fn forget(&mut self, key: u64) {
         self.by_key.remove(&key);
         self.order.retain(|held| *held != key);
+    }
+
+    /// The window picture of the slot `name`, and whether the caller must upload: the slot keeps
+    /// its id while its content changes, and uploads when the content, its size or its cell span
+    /// differ from what the picture holds. A name not held takes a free slot, else the least
+    /// recently shown one (whose id it takes over; the picture sent under it replaces that one).
+    fn claim_in_slot(&mut self, name: u64, key: u64, size: (u32, u32), span: (u16, u16)) -> (u32, bool) {
+        self.clock += 1;
+        let at = self
+            .slots
+            .iter()
+            .position(|s| s.is_some_and(|s| s.name == name))
+            .or_else(|| self.slots.iter().position(Option::is_none))
+            .unwrap_or_else(|| {
+                (0..SLOT_KEEP)
+                    .min_by_key(|&i| self.slots[i].map_or(0, |s| s.used))
+                    .unwrap_or(0)
+            });
+        let held = self.slots[at].filter(|s| s.name == name);
+        let upload = held.is_none_or(|s| s.key != key || s.size != size || s.span != span);
+        self.slots[at] = Some(Slot { name, key, size, span, used: self.clock });
+        (SLOT_BASE + 4 * at as u32, upload)
+    }
+
+    /// Drop a slot claim whose upload never landed.
+    fn forget_slot(&mut self, name: u64) {
+        for slot in &mut self.slots {
+            if slot.is_some_and(|s| s.name == name) {
+                *slot = None;
+            }
+        }
     }
 }
 
@@ -688,6 +769,54 @@ mod tests {
         );
         let (other, _) = cache.claim(8, (320, 180), (40, 12), true);
         assert_ne!(other, id, "another stream, another picture");
+    }
+
+    #[cfg(feature = "glass")]
+    #[test]
+    fn a_picture_that_changes_in_place_keeps_its_window_picture() {
+        let mut cache = Cache::default();
+        let (id, up) = cache.claim_in_slot(9, 100, (320, 180), (40, 12));
+        assert!(up, "first sight uploads");
+        assert_eq!(cache.claim_in_slot(9, 100, (320, 180), (40, 12)), (id, false), "same content held");
+        for key in 101..140 {
+            assert_eq!(
+                cache.claim_in_slot(9, key, (320, 180), (40, 12)),
+                (id, true),
+                "new content goes into the same picture, again and again"
+            );
+        }
+        assert_eq!(cache.claim_in_slot(9, 139, (320, 180), (40, 12)), (id, false), "and settles");
+        assert_eq!(cache.claim_in_slot(9, 139, (640, 360), (40, 12)), (id, true), "a new size uploads");
+        assert_eq!(cache.claim_in_slot(9, 139, (640, 360), (60, 12)), (id, true), "a new span uploads");
+        // Another slot is another picture, and neither is a content key's.
+        let (other, up) = cache.claim_in_slot(10, 100, (320, 180), (40, 12));
+        assert!(up && other != id);
+        let (content, _) = cache.claim(100, (320, 180), (40, 12), false);
+        assert!(content != id && content != other, "content ids never meet slot ids");
+        assert!((SLOT_BASE..SLOT_BASE + 4 * SLOT_KEEP as u32).contains(&id));
+        assert!(id < 0x0100_0000 && id % 4 == 0 && id < 0x00FA_57A4, "ids survive the placeholder colour");
+        // A failed upload is retried, not remembered.
+        cache.forget_slot(10);
+        let (_, up) = cache.claim_in_slot(10, 100, (320, 180), (40, 12));
+        assert!(up);
+    }
+
+    #[cfg(feature = "glass")]
+    #[test]
+    fn slots_wrap_over_the_least_recently_shown() {
+        let mut cache = Cache::default();
+        let ids: Vec<u32> = (0..SLOT_KEEP as u64).map(|n| cache.claim_in_slot(n, n, (4, 4), (1, 1)).0).collect();
+        let mut distinct = ids.clone();
+        distinct.sort_unstable();
+        distinct.dedup();
+        assert_eq!(distinct.len(), SLOT_KEEP, "each slot has its own id");
+        // Slot 0 is shown again: slot 1 is now the least recently shown, and a new name takes its id.
+        cache.claim_in_slot(0, 0, (4, 4), (1, 1));
+        let (taken, up) = cache.claim_in_slot(99, 1, (4, 4), (1, 1));
+        assert_eq!(taken, ids[1]);
+        assert!(up);
+        // The one it displaced uploads again when it comes back.
+        assert!(cache.claim_in_slot(1, 1, (4, 4), (1, 1)).1);
     }
 
     #[cfg(feature = "glass")]

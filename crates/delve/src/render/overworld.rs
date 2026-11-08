@@ -164,67 +164,148 @@ pub fn render_view(scene: &Scene, view: View) -> Img {
     kingdom::landscape(scene, view)
 }
 
-fn render_landscape(scene: &Scene, view: View, extra_lots: &[bool], roads: &[bool]) -> Img {
+/// A view's ground as the ground pass leaves it, kept between ambient steps: all of it but the pixels
+/// of the tiles that move (`ground::moves`), which each step paints again. A resting window draws the
+/// same view every step, and the ground pass (a mark worked out for every pixel of it) was a fifth of
+/// what that cost.
+struct GroundLayer {
+    /// Held, so the address it is known by is never given to a different geography.
+    geo: std::sync::Arc<kingdom::Geography>,
+    view: View,
+    base: Img,
+    moving: Vec<(i32, i32)>,
+    /// What the light makes of the view that no step changes (`light::DuskField`).
+    dusk: light::DuskField,
+}
+
+/// Views whose ground is kept, newest last, and how many pixels a view may have to be kept.
+const GROUND_KEEP: usize = 3;
+const GROUND_PIXELS: i64 = 1_000_000;
+
+fn render_landscape(scene: &Scene, view: View, geo: &std::sync::Arc<kingdom::Geography>) -> Img {
+    use std::sync::{Arc, Mutex};
+    static KEPT: Mutex<Vec<Arc<GroundLayer>>> = Mutex::new(Vec::new());
+    let (extra_lots, roads) = (&geo.cleared_mask, &geo.roads);
     let realm = Realm::get();
     let tiles = Tiles::get();
-    let mut cv = Img::black(view.w, view.h);
     let (realm_w, realm_h) = (MAP_W * TILE, MAP_H * TILE);
     let dress = crate::world::dressing::get();
     // Lots cleared for wishes the party paid for show bare ground.
     let lots = wishes::lots(&scene.wishes);
-    for y in 0..view.h {
-        for x in 0..view.w {
-            let (wx, wy) = (view.x + x, view.y + y);
-            if wx < 0 || wy < 0 || wx >= realm_w || wy >= realm_h {
-                continue;
-            }
-            let (tx, ty) = (wx / TILE, wy / TILE);
-            let road = roads
-                .get((ty * MAP_W + tx) as usize)
-                .copied()
-                .unwrap_or(false);
-            let cleared = extra_lots
-                .get((ty * MAP_W + tx) as usize)
-                .copied()
-                .unwrap_or(false);
-            let mark = if road {
-                if matches!(realm.at(tx, ty), b'~' | b'w' | b'f' | b'H') {
-                    Some(ground::planks(wx, wy))
-                } else {
-                    ground::lane(wx, wy, |dx, dy| {
-                        let (x, y) = (tx + dx, ty + dy);
-                        matches!(realm.at(x, y), b'=' | b':' | b'H')
-                            || roads.get((y * MAP_W + x) as usize).copied().unwrap_or(false)
-                    })
-                }
-            } else if cleared {
-                ground::meadow(wx, wy)
+    // One pixel of the ground pass: a mark for the terrain (or the road, the cleared lot, the trail
+    // or the camp that lies over it), and the college's approach over that.
+    let paint = |cv: &mut Img, x: i32, y: i32| {
+        let (wx, wy) = (view.x + x, view.y + y);
+        if wx < 0 || wy < 0 || wx >= realm_w || wy >= realm_h {
+            return;
+        }
+        let (tx, ty) = (wx / TILE, wy / TILE);
+        let road = roads
+            .get((ty * MAP_W + tx) as usize)
+            .copied()
+            .unwrap_or(false);
+        let cleared = extra_lots
+            .get((ty * MAP_W + tx) as usize)
+            .copied()
+            .unwrap_or(false);
+        let mark = if road {
+            if matches!(realm.at(tx, ty), b'~' | b'w' | b'f' | b'H') {
+                Some(ground::planks(wx, wy))
             } else {
-                let base = ground::mark(realm, wx, wy, scene.tick);
-                let wished = || wishes::cleared(&lots, tx, ty);
-                // The country's footpaths and the clearings they lead to.
-                if dress.trail(tx, ty) && !wished() {
-                    let joined = |dx: i32, dy: i32| {
-                        let (x, y) = (tx + dx, ty + dy);
-                        dress.trail(x, y)
-                            || roads.get((y.clamp(0, MAP_H - 1) * MAP_W + x.clamp(0, MAP_W - 1)) as usize).copied().unwrap_or(false)
-                            || matches!(realm.at(x, y), b'=' | b':' | b'H')
-                    };
-                    ground::trail(wx, wy, realm.at(tx, ty), joined).unwrap_or(base)
-                } else if let Some(camp) = dress.bay_at(tx, ty).filter(|_| !wished()) {
-                    dressing::bay(wx, wy, (camp.at.0 * TILE + TILE / 2, camp.at.1 * TILE + TILE / 2)).or(base)
-                } else {
-                    base
-                }
-            };
-            if let Some(ch) = mark {
-                cv.put(x, y, ch);
+                ground::lane(wx, wy, |dx, dy| {
+                    let (x, y) = (tx + dx, ty + dy);
+                    matches!(realm.at(x, y), b'=' | b':' | b'H')
+                        || roads.get((y * MAP_W + x) as usize).copied().unwrap_or(false)
+                })
             }
-            if let Some(ch) = college::approach_mark(wx, wy) {
-                cv.put(x, y, ch);
+        } else if cleared {
+            ground::meadow(wx, wy)
+        } else {
+            let base = ground::mark(realm, wx, wy, scene.tick);
+            let wished = || wishes::cleared(&lots, tx, ty);
+            // The country's footpaths and the clearings they lead to.
+            if dress.trail(tx, ty) && !wished() {
+                let joined = |dx: i32, dy: i32| {
+                    let (x, y) = (tx + dx, ty + dy);
+                    dress.trail(x, y)
+                        || roads.get((y.clamp(0, MAP_H - 1) * MAP_W + x.clamp(0, MAP_W - 1)) as usize).copied().unwrap_or(false)
+                        || matches!(realm.at(x, y), b'=' | b':' | b'H')
+                };
+                ground::trail(wx, wy, realm.at(tx, ty), joined).unwrap_or(base)
+            } else if let Some(camp) = dress.bay_at(tx, ty).filter(|_| !wished()) {
+                dressing::bay(wx, wy, (camp.at.0 * TILE + TILE / 2, camp.at.1 * TILE + TILE / 2)).or(base)
+            } else {
+                base
+            }
+        };
+        if let Some(ch) = mark {
+            cv.put(x, y, ch);
+        }
+        if let Some(ch) = college::approach_mark(wx, wy) {
+            cv.put(x, y, ch);
+        }
+    };
+    // Whether a pixel's ground depends on the ambient step: terrain that moves, with no road or
+    // cleared lot laid over it (those marks are the step-free ones).
+    let moving = |x: i32, y: i32| {
+        let (wx, wy) = (view.x + x, view.y + y);
+        if wx < 0 || wy < 0 || wx >= realm_w || wy >= realm_h {
+            return false;
+        }
+        let (tx, ty) = (wx / TILE, wy / TILE);
+        let at = (ty * MAP_W + tx) as usize;
+        ground::moves(realm.at(tx, ty))
+            && !roads.get(at).copied().unwrap_or(false)
+            && !extra_lots.get(at).copied().unwrap_or(false)
+    };
+    let kept = i64::from(view.w) * i64::from(view.h) <= GROUND_PIXELS;
+    let layer = if kept {
+        KEPT.lock().ok().and_then(|held| {
+            held.iter()
+                .find(|l| l.view == view && Arc::ptr_eq(&l.geo, geo))
+                .cloned()
+        })
+    } else {
+        None
+    };
+    let mut layer = layer;
+    let mut cv = if let Some(layer) = &layer {
+        // Still ground as it was kept; the moving tiles as this step has them.
+        let mut cv = layer.base.clone();
+        for &(x, y) in &layer.moving {
+            cv.set(x, y, ink::BLACK);
+            paint(&mut cv, x, y);
+        }
+        cv
+    } else {
+        let mut cv = Img::black(view.w, view.h);
+        let mut moves = Vec::new();
+        for y in 0..view.h {
+            for x in 0..view.w {
+                paint(&mut cv, x, y);
+                if kept && moving(x, y) {
+                    moves.push((x, y));
+                }
             }
         }
-    }
+        if kept {
+            let made = Arc::new(GroundLayer {
+                geo: Arc::clone(geo),
+                view,
+                base: cv.clone(),
+                moving: moves,
+                dusk: light::DuskField::new(view.x, view.y, view.w, view.h),
+            });
+            if let Ok(mut held) = KEPT.lock() {
+                if held.len() >= GROUND_KEEP {
+                    held.remove(0);
+                }
+                held.push(Arc::clone(&made));
+            }
+            layer = Some(made);
+        }
+        cv
+    };
     if let Some(overlay) = &scene.overlay {
         overlay.paint_ground(&mut cv, view);
     }
@@ -280,7 +361,7 @@ fn render_landscape(scene: &Scene, view: View, extra_lots: &[bool], roads: &[boo
     }
     // The country's small stories, back to front, under the places' props.
     dressing::paint(&mut cv, view, &|x, y| wishes::cleared(&lots, x, y));
-    let mut staged = scene::stage(scene);
+    let mut staged = scene::stage_in(scene, Some(view));
     lava_glow(&mut staged.lights, view, scene.tick);
     staged.props.sort_by_key(|p| p.base);
     for p in &staged.props {
@@ -289,12 +370,13 @@ fn render_landscape(scene: &Scene, view: View, extra_lots: &[bool], roads: &[boo
             cv.stamp(&p.img, p.x - view.x, top - view.y);
         }
     }
-    light::dusk(
+    light::dusk_over(
         &mut cv,
         realm,
         &staged.lights,
         (view.x, view.y),
         scene.ambient,
+        layer.as_ref().map(|l| &l.dusk),
     );
     sky::weather(&mut cv, scene.weather, scene.tick, (view.x, view.y));
     if scene.fireworks {
@@ -491,3 +573,7 @@ impl AsRef<[u8]> for LazyFrame {
         })
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/render/overworld__ambient_frames_tests.rs"]
+mod ambient_frames_tests;
