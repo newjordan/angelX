@@ -407,6 +407,12 @@ fn at_place(place: Place, img: Img) -> Prop {
 }
 
 pub fn stage(scene: &Scene) -> Stage {
+    stage_in(scene, None)
+}
+
+/// [`stage`] for a painter that will only show `view`: the March's castle pictures that would not
+/// touch it are not copied into the props. Whatever the view shows is staged exactly as `stage` has it.
+pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     let mut props = Vec::new();
     let mut lights = Vec::new();
     let mut beacons: Vec<(i32, i32, i32, i32)> = Vec::new();
@@ -1062,7 +1068,7 @@ pub fn stage(scene: &Scene) -> Stage {
     super::wishes::stage(&scene.wishes, &mut props, &mut lights, tick);
 
     // ── the March: the model houses' castles and their knights abroad ──
-    super::castles::stage(&scene.march, &mut props, &mut lights, tick);
+    super::castles::stage(&scene.march, &mut props, &mut lights, tick, view);
 
     // ── fingerposts at the biome crossings and the road junctions ──
     super::signs::stage(&mut props);

@@ -32,7 +32,7 @@ pub fn letter_regions(cv: &mut Img, origin: (i32, i32)) -> Vec<(i32, i32, i32, i
 
 pub fn landscape(scene: &Scene, view: View) -> Img {
     let geo = geography(&scene.wishes);
-    let mut cv = super::render_landscape(scene, view, &geo.cleared_mask, &geo.roads);
+    let mut cv = super::render_landscape(scene, view, &geo);
     paint_sites(&mut cv, &geo, view);
     cv
 }

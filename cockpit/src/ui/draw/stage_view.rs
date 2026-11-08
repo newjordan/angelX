@@ -601,8 +601,16 @@ fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
         let key = scene.key() ^ (u64::from(frame_w) << 32 | u64::from(frame_h)).rotate_left(11);
         // In the window the mini-viz presents these pixels itself;
         // the viewer's encode/decode round trip below is for
-        // terminal graphics protocols.
-        if crate::ui::present::picture(key, (frame_w, frame_h), area, frame.buffer_mut(), || {
+        // terminal graphics protocols. The map moves on every few steps in
+        // the same place: it changes in its window picture rather than
+        // taking a new one.
+        let slot = {
+            use std::hash::{Hash, Hasher};
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            ("world map picture", area.x, area.y, area.width, area.height).hash(&mut hasher);
+            hasher.finish()
+        };
+        if crate::ui::present::picture_in_place(slot, key, (frame_w, frame_h), area, frame.buffer_mut(), || {
             lazy.as_ref().to_vec()
         }) {
             if walkable {

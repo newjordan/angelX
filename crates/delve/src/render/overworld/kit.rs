@@ -6,14 +6,43 @@
 //! composed from a wall/roof kit; figures are authored ink rows. Every sprite
 //! is a pure function of its arguments.
 
+use std::collections::HashMap;
 use std::f32::consts::PI;
-use std::sync::OnceLock;
+use std::hash::Hash;
+use std::sync::{Mutex, OnceLock};
 
 use super::chrome;
 use super::ink::{Img, bayer, hash, norm3, shade, vnoise};
 use super::scene::{Soldier, SoldierState};
 
 pub mod hero;
+
+/// Distinct pictures a sprite's memory keeps before it starts over: the kit's own call sites ask for
+/// a few dozen, so only a stray caller with ever-new arguments reaches it.
+const DRAWN_KEEP: usize = 256;
+
+/// A sprite drawn once per distinct arguments and handed out as copies. A sprite is a pure function
+/// of its arguments, and the ambient map asks for the same buildings again at every step it takes,
+/// so drawing them again was most of what a resting window spent: the copy of a finished picture
+/// is a pass over its words, the drawing a pass over every pixel with a dusk applied after.
+fn drawn_once<K: Eq + Hash>(
+    memory: &'static OnceLock<Mutex<HashMap<K, Img>>>,
+    key: K,
+    draw: impl FnOnce() -> Img,
+) -> Img {
+    let memory = memory.get_or_init(Default::default);
+    if let Some(hit) = memory.lock().ok().and_then(|held| held.get(&key).cloned()) {
+        return hit;
+    }
+    let img = draw();
+    if let Ok(mut held) = memory.lock() {
+        if held.len() >= DRAWN_KEEP {
+            held.clear();
+        }
+        held.insert(key, img.clone());
+    }
+    img
+}
 
 // ─── organic shapes ──────────────────────────────────────────────────────────
 
@@ -239,7 +268,7 @@ impl Tiles {
 
 // ─── building kit ────────────────────────────────────────────────────────────
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Wall {
     Stone,
     Timber,
@@ -247,7 +276,7 @@ pub enum Wall {
     Dark,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Roof {
     Slate,
     Tile,
@@ -314,7 +343,7 @@ fn wall_px(kind: Wall, x: i32, y: i32, ww: i32) -> char {
 }
 
 /// A house from the kit: front wall with door and windows under a roof.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct House {
     pub w: i32,
     pub h: i32,
@@ -330,6 +359,11 @@ pub struct House {
 }
 
 pub fn house(hs: &House) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<House, Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, *hs, || house_drawn(hs))
+}
+
+fn house_drawn(hs: &House) -> Img {
     let top = if hs.chimney { 6 } else { 0 };
     let (w, h, rh) = (hs.w, hs.h + top, hs.roof_h);
     let mut im = Img::new(w, h);
@@ -608,6 +642,11 @@ pub fn flag(field: char, charge: char) -> Img {
 
 /// The keep; banners fly from tier 4.
 pub fn keep(tier: u32) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<u32, Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, tier, || keep_drawn(tier))
+}
+
+fn keep_drawn(tier: u32) -> Img {
     let mut im = Img::new(48, 64);
     im.stamp(&tower(20, 30, 10, Top::Crenel, Wall::Stone), 14, 2);
     im.stamp(&tower(40, 44, 14, Top::Crenel, Wall::Stone), 4, 20);
@@ -627,10 +666,20 @@ pub fn keep(tier: u32) -> Img {
 }
 
 pub fn keep_turret() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(keep_turret_drawn).clone()
+}
+
+fn keep_turret_drawn() -> Img {
     tower(14, 44, 12, Top::Cone(Roof::Slate), Wall::Stone)
 }
 
 pub fn rookery() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(rookery_drawn).clone()
+}
+
+fn rookery_drawn() -> Img {
     let mut im = tower(14, 40, 14, Top::Cone(Roof::Slate), Wall::Stone);
     im.rect(6, 20, 2, 4, 'K');
     im.rect(6, 29, 2, 3, 'K');
@@ -638,6 +687,11 @@ pub fn rookery() -> Img {
 }
 
 pub fn chapel(lit: bool) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<bool, Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, lit, || chapel_drawn(lit))
+}
+
+fn chapel_drawn(lit: bool) -> Img {
     let mut im = Img::new(32, 44);
     let body = house(&House {
         w: 32,
@@ -743,6 +797,11 @@ pub fn round_table(seated: &[(usize, char)]) -> Img {
 /// Inhabited village architecture: deeper roofs, a front stoop and a planted
 /// sill. Window light still reflects real fleet activity.
 pub fn cottage(variant: u32, lit: bool) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<(u32, bool), Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, (variant, lit), || cottage_drawn(variant, lit))
+}
+
+fn cottage_drawn(variant: u32, lit: bool) -> Img {
     let mut im = Img::new(36, 43);
     im.rect(2, 37, 32, 5, 'S');
     im.line(3, 37, 32, 37, 'U');
@@ -804,7 +863,7 @@ pub fn cottage(variant: u32, lit: bool) -> Img {
     im
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Trade {
     Smith,
     Weaver,
@@ -814,6 +873,11 @@ pub enum Trade {
 
 /// A shop is recognizable by its open working bay and goods, even when idle.
 pub fn workshop(trade: Trade, active: bool) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<(Trade, bool), Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, (trade, active), || workshop_drawn(trade, active))
+}
+
+fn workshop_drawn(trade: Trade, active: bool) -> Img {
     let wide = matches!(trade, Trade::Smith | Trade::Granary);
     let width = if wide { 46 } else { 32 };
     let mut im = Img::new(width, 45);
@@ -883,6 +947,11 @@ pub fn workshop(trade: Trade, active: bool) -> Img {
 }
 
 pub fn barrels() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(barrels_drawn).clone()
+}
+
+fn barrels_drawn() -> Img {
     let mut im = Img::new(17, 15);
     for (x, y) in [(0, 4), (8, 1)] {
         im.ellipse((x + 4) as f32, (y + 6) as f32, 4.0, 5.0, 'r');
@@ -895,6 +964,11 @@ pub fn barrels() -> Img {
 }
 
 pub fn handcart() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(handcart_drawn).clone()
+}
+
+fn handcart_drawn() -> Img {
     let mut im = Img::new(24, 16);
     im.rect(3, 3, 13, 8, 'r');
     for y in [3, 6, 9] {
@@ -912,6 +986,11 @@ pub fn handcart() -> Img {
 }
 
 pub fn garden_fence(w: i32) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<i32, Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, w, || garden_fence_drawn(w))
+}
+
+fn garden_fence_drawn(w: i32) -> Img {
     let mut im = Img::new(w, 11);
     im.line(0, 5, w - 1, 5, 'o');
     im.line(0, 9, w - 1, 9, 'r');
@@ -925,6 +1004,11 @@ pub fn garden_fence(w: i32) -> Img {
 /// A sunken sand arena within three tiers of stone seating. The south arch
 /// stays visually open; this landmark is reached from its exterior gate.
 pub fn colosseum() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(colosseum_drawn).clone()
+}
+
+fn colosseum_drawn() -> Img {
     let mut im = Img::new(160, 102);
     im.ellipse(80.0, 54.0, 78.0, 45.0, 'S');
     im.ellipse(80.0, 47.0, 78.0, 43.0, 'V');
@@ -968,6 +1052,11 @@ pub fn colosseum() -> Img {
 }
 
 pub fn observatory(active: bool) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<bool, Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, active, || observatory_drawn(active))
+}
+
+fn observatory_drawn(active: bool) -> Img {
     let mut im = tower(28, 38, 15, Top::Dome(active), Wall::Stone);
     arch(&mut im, 10, 30, 8, 8, false);
     im.rect(4, 22, 2, 4, 'K');
@@ -976,6 +1065,11 @@ pub fn observatory(active: bool) -> Img {
 }
 
 pub fn gatehouse() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(gatehouse_drawn).clone()
+}
+
+fn gatehouse_drawn() -> Img {
     let mut im = Img::new(32, 42);
     im.stamp(&tower(22, 30, 9, Top::Crenel, Wall::Stone), 5, 12);
     let t = tower(10, 40, 9, Top::Crenel, Wall::Stone);
@@ -986,6 +1080,11 @@ pub fn gatehouse() -> Img {
 }
 
 pub fn well() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(well_drawn).clone()
+}
+
+fn well_drawn() -> Img {
     let mut im = Img::new(16, 18);
     im.line(2, 3, 2, 12, 'B');
     im.line(13, 3, 13, 12, 'B');
@@ -1001,6 +1100,11 @@ pub fn well() -> Img {
 }
 
 pub fn garden() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(garden_drawn).clone()
+}
+
+fn garden_drawn() -> Img {
     let mut im = Img::new(32, 16);
     for y in 1..15 {
         for x in 1..31 {
@@ -1028,6 +1132,11 @@ pub fn garden() -> Img {
 }
 
 pub fn lantern(lit: bool) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<bool, Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, lit, || lantern_drawn(lit))
+}
+
+fn lantern_drawn(lit: bool) -> Img {
     let mut im = Img::new(7, 16);
     im.line(3, 6, 3, 15, 'B');
     im.rect(1, 1, 5, 5, 'k');
@@ -1042,6 +1151,11 @@ pub fn lantern(lit: bool) -> Img {
 }
 
 pub fn market_stall(v: u32) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<u32, Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, v, || market_stall_drawn(v))
+}
+
+fn market_stall_drawn(v: u32) -> Img {
     let mut im = Img::new(16, 16);
     let stripes = if v.is_multiple_of(2) {
         ('T', 'R')
@@ -1072,6 +1186,11 @@ pub fn market_stall(v: u32) -> Img {
 }
 
 pub fn docks() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(docks_drawn).clone()
+}
+
+fn docks_drawn() -> Img {
     let mut im = Img::new(48, 16);
     for y in 3..13 {
         for x in 0..48 {
@@ -1128,6 +1247,11 @@ pub fn windmill(tick: u32) -> Img {
 }
 
 pub fn mine_mouth() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(mine_mouth_drawn).clone()
+}
+
+fn mine_mouth_drawn() -> Img {
     let mut im = blob(
         32,
         32,
@@ -1156,6 +1280,11 @@ pub fn mine_mouth() -> Img {
 }
 
 pub fn ruins() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(ruins_drawn).clone()
+}
+
+fn ruins_drawn() -> Img {
     let mut im = Img::new(48, 46);
     im.stamp(&tower(30, 32, 10, Top::Crenel, Wall::Dark), 9, 0);
     im.stamp(&tower(48, 30, 10, Top::Crenel, Wall::Dark), 0, 16);
@@ -1179,6 +1308,11 @@ pub fn ruins() -> Img {
 
 /// The tilting yard: stands, raked sand, fence and the tilt barrier.
 pub fn lists_ground() -> Img {
+    static DRAWN: OnceLock<Img> = OnceLock::new();
+    DRAWN.get_or_init(lists_ground_drawn).clone()
+}
+
+fn lists_ground_drawn() -> Img {
     let (w, h) = (192, 80);
     let mut im = Img::new(w, h);
     for x in 16..176 {
@@ -1232,6 +1366,11 @@ pub fn lists_ground() -> Img {
 
 /// A pavilion for a house of the tournament.
 pub fn tent(house: Heraldry) -> Img {
+    static DRAWN: OnceLock<Mutex<HashMap<Heraldry, Img>>> = OnceLock::new();
+    drawn_once(&DRAWN, house, || tent_drawn(house))
+}
+
+fn tent_drawn(house: Heraldry) -> Img {
     let (c1, c2) = house.inks();
     let mut im = Img::new(24, 30);
     for y in 0..24 {
@@ -1339,7 +1478,7 @@ pub fn torch(tick: u32, seed: u32) -> Img {
 // ─── figures ─────────────────────────────────────────────────────────────────
 
 /// The two houses of the lists.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Heraldry {
     Red,
     Blue,
