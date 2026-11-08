@@ -195,6 +195,103 @@ struct SelfContextCache {
 
 static SELF_CONTEXT_CACHE: OnceLock<Mutex<Option<SelfContextCache>>> = OnceLock::new();
 
+/// One computation at a time. The startup prefetch ([`prefetch_context`]), the
+/// bootstrap call and a resume or `/cd` refresh all want the same render; the
+/// later callers wait for the first and then read its result instead of each
+/// spawning a worker over the whole source tree.
+static SELF_CONTEXT_COMPUTE: Mutex<()> = Mutex::new(());
+
+const SELF_MAP_CACHE_SCHEMA: &str = "angel-self-map-cache/1";
+const SELF_MAP_CACHE_LIMIT: u64 = 2 * 1024 * 1024;
+
+/// Where worker reports persist between launches. `ANGEL_SELF_MAP_CACHE` names
+/// a directory, or `0` turns the persistent cache off; unit tests use none
+/// unless they name one, so they never write into the real home.
+fn self_map_cache_dir() -> Option<PathBuf> {
+    match std::env::var_os("ANGEL_SELF_MAP_CACHE") {
+        Some(value) if value == "0" => None,
+        Some(value) if !value.is_empty() => Some(PathBuf::from(value)),
+        _ if cfg!(test) => None,
+        _ => Some(crate::platform::workspace_store::angel_subdir("self-map")),
+    }
+}
+
+/// The worker's last report for `root` when it was rendered from exactly these
+/// sources and rules (`stamp` covers both, and is what the in-process cache is
+/// keyed on). Only the report is kept on disk: the guidance pages are compiled
+/// into this binary and are assembled around it on every launch.
+fn load_cached_report(root: &Path, stamp: u64) -> Option<Value> {
+    let path = crate::platform::workspace_store::workspace_json_path_in(
+        &self_map_cache_dir()?,
+        root,
+    );
+    let file = std::fs::File::open(path).ok()?;
+    if file.metadata().ok()?.len() > SELF_MAP_CACHE_LIMIT {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    std::io::Read::read_to_end(&mut std::io::Read::take(file, SELF_MAP_CACHE_LIMIT), &mut bytes)
+        .ok()?;
+    let entry: Value = serde_json::from_slice(&bytes).ok()?;
+    if entry.get("schema").and_then(Value::as_str) != Some(SELF_MAP_CACHE_SCHEMA)
+        || entry.get("root").and_then(Value::as_str) != root.to_str()
+        || entry.get("stamp").and_then(Value::as_str) != Some(format!("{stamp:016x}").as_str())
+    {
+        return None;
+    }
+    let report = entry.get("report")?.clone();
+    // The same shape checks a fresh worker response passes in `render_modules`.
+    let valid = report.get("version").and_then(Value::as_u64) == Some(1)
+        && ["full", "compact", "tools", "toolNames"]
+            .iter()
+            .all(|key| report.get(*key).and_then(Value::as_str).is_some())
+        && ["hasTop", "hasTools"]
+            .iter()
+            .all(|key| report.get(*key).and_then(Value::as_bool).is_some());
+    valid.then_some(report)
+}
+
+/// Best effort: a cache that cannot be written only costs the next launch a render.
+fn store_cached_report(root: &Path, stamp: u64, report: &Value) {
+    let Some(dir) = self_map_cache_dir() else {
+        return;
+    };
+    let Some(root_text) = root.to_str() else {
+        return;
+    };
+    let entry = serde_json::json!({
+        "schema": SELF_MAP_CACHE_SCHEMA,
+        "root": root_text,
+        "stamp": format!("{stamp:016x}"),
+        "report": report,
+    });
+    let Ok(bytes) = serde_json::to_vec(&entry) else {
+        return;
+    };
+    if bytes.len() as u64 > SELF_MAP_CACHE_LIMIT {
+        return;
+    }
+    let path = crate::platform::workspace_store::workspace_json_path_in(&dir, root);
+    let _ = crate::platform::workspace_store::write_atomic(&path, &bytes);
+}
+
+/// Start rendering the self-map for `workspace` on its own thread so a launch in
+/// an angelX checkout overlaps the render with terminal and route setup. The
+/// bootstrap call waits on [`SELF_CONTEXT_COMPUTE`] and reads the result; the
+/// output is exactly what it would have computed itself.
+pub fn prefetch_context(workspace: &Path) {
+    if !env_flag("ANGEL_SELF_MODEL", true) {
+        return;
+    }
+    let workspace = workspace.to_path_buf();
+    // A launch without the thread just renders in the bootstrap call.
+    let _ = std::thread::Builder::new()
+        .name("angel-self-map-warm".into())
+        .spawn(move || {
+            let _ = self_context(&workspace);
+        });
+}
+
 /// The seven dependency layers `src/` is grouped into. They are directories,
 /// not modules in their own right, so every scan reaches *through* them: the
 /// stems one level down are the modules this map has always described, which
@@ -554,6 +651,9 @@ pub fn self_context(workspace: &Path) -> String {
     let Some(root) = workspace_source_root(workspace) else {
         return String::new();
     };
+    let _compute = SELF_CONTEXT_COMPUTE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     let module = match self_map_module() {
         Ok(module) => module,
         Err(error) => return self_context_unavailable(&error),
@@ -570,9 +670,19 @@ pub fn self_context(workspace: &Path) -> String {
     {
         return cached.rendered.clone();
     }
-    let report = match render_modules(&root, &module) {
-        Ok(report) => report,
-        Err(error) => return self_context_unavailable(&error),
+    let report = match load_cached_report(&root, source_stamp) {
+        Some(report) => report,
+        None => {
+            let report = match render_modules(&root, &module) {
+                Ok(report) => report,
+                Err(error) => return self_context_unavailable(&error),
+            };
+            // Only a report the checks below accept is worth keeping.
+            if report["hasTop"].as_bool() == Some(true) {
+                store_cached_report(&root, source_stamp, &report);
+            }
+            report
+        }
     };
     if report["hasTop"].as_bool() != Some(true) {
         return self_context_unavailable("no source modules found");

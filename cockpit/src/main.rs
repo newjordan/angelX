@@ -1031,6 +1031,17 @@ fn main() -> std::io::Result<()> {
     if comp_mode::enabled() {
         eprintln!("[angel] {}", comp_mode::status_text());
     }
+    // An interactive launch's independent file- and process-bound startup reads
+    // (the self-map render, repository identity, toolchain pins, TLS roots) start
+    // here, once the first line is out, beside terminal and route setup, instead
+    // of queueing when the cockpit is built. The setup launch edits its own
+    // environment on the main thread afterwards, so it keeps the single-threaded
+    // start.
+    if let Some(root) = &workspace
+        && std::env::var_os("ANGEL_OPEN_SETUP").is_none_or(|value| value != "1")
+    {
+        crate::app::bootstrap::warm_startup(root);
+    }
     let mut args = raw_args.into_iter();
     if let Some(arg) = args.next() {
         if arg == "--build-info" {

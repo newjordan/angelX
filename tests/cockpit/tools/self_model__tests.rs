@@ -275,6 +275,134 @@ fn self_context_reload_preserves_guidance_and_does_not_cache_failure() {
     assert!(recovered.contains("Entry & TUI / display"), "{recovered}");
 }
 
+/// Drop the in-process copy so the next `self_context` has to ask the disk.
+fn forget_in_process_context() {
+    if let Some(cache) = SELF_CONTEXT_CACHE.get() {
+        *cache.lock().unwrap() = None;
+    }
+}
+
+#[test]
+fn self_context_persists_the_worker_report_between_launches() {
+    let _guard = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("self-map-persist");
+    let cockpit = root.path().join("cockpit");
+    std::fs::create_dir_all(cockpit.join("src")).unwrap();
+    std::fs::write(
+        cockpit.join("Cargo.toml"),
+        "[package]\nname = \"angelX-cockpit\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        cockpit.join("src/main.rs"),
+        "//! Main source.\npub struct Main;\n",
+    )
+    .unwrap();
+    let cache_dir = root.path().join("self-map-cache");
+    let _cache = crate::tests::TestEnvGuard::set("ANGEL_SELF_MAP_CACHE", cache_dir.to_str().unwrap());
+    let _on = crate::tests::TestEnvGuard::unset("ANGEL_SELF_MODEL");
+    let _pin = crate::tests::TestEnvGuard::set("ANGEL_SELF_SRC", cockpit.to_str().unwrap());
+    let source_root = workspace_source_root(root.path()).unwrap();
+    let entry_path = crate::platform::workspace_store::workspace_json_path_in(&cache_dir, &source_root);
+
+    // The first launch renders and leaves its report behind.
+    forget_in_process_context();
+    let fresh = self_context(root.path());
+    assert!(fresh.contains("Entry & TUI / display"), "{fresh}");
+    let entry: Value = serde_json::from_slice(&std::fs::read(&entry_path).unwrap()).unwrap();
+    assert_eq!(entry["root"], source_root.to_str().unwrap());
+    assert_eq!(entry["report"]["compact"].as_str().is_some(), true);
+
+    // A later launch over the same sources takes the report from disk instead of
+    // asking the worker: a marker planted in the stored report reaches the prompt.
+    let mut planted = entry.clone();
+    planted["report"]["compact"] = Value::from("persisted-report-marker\n");
+    std::fs::write(&entry_path, serde_json::to_vec(&planted).unwrap()).unwrap();
+    forget_in_process_context();
+    let reused = self_context(root.path());
+    assert!(reused.contains("persisted-report-marker"), "{reused}");
+    assert!(
+        reused.contains(&crate::agent::harness::book::n_environment::SELF_MODEL.cells()),
+        "the guidance pages are assembled around the stored report, never stored with it"
+    );
+
+    // An edit to a scanned source changes the stamp: the stored report is stale.
+    std::fs::write(
+        cockpit.join("src/main.rs"),
+        "//! Main source, edited.\npub struct Main;\npub struct Added;\n",
+    )
+    .unwrap();
+    forget_in_process_context();
+    let edited = self_context(root.path());
+    assert!(!edited.contains("persisted-report-marker"), "{edited}");
+    assert!(edited.contains("Entry & TUI / display"), "{edited}");
+    let rewritten: Value = serde_json::from_slice(&std::fs::read(&entry_path).unwrap()).unwrap();
+    assert_ne!(rewritten["stamp"], entry["stamp"]);
+
+    // A damaged or foreign entry is ignored, and the render replaces it.
+    for damaged in [
+        b"not json".to_vec(),
+        serde_json::to_vec(&serde_json::json!({"schema":"other/1"})).unwrap(),
+        serde_json::to_vec(&serde_json::json!({
+            "schema": SELF_MAP_CACHE_SCHEMA,
+            "root": "/somewhere/else",
+            "stamp": rewritten["stamp"],
+            "report": rewritten["report"],
+        }))
+        .unwrap(),
+        serde_json::to_vec(&serde_json::json!({
+            "schema": SELF_MAP_CACHE_SCHEMA,
+            "root": source_root.to_str().unwrap(),
+            "stamp": rewritten["stamp"],
+            "report": {"version": 1, "compact": "missing the other fields"},
+        }))
+        .unwrap(),
+    ] {
+        std::fs::write(&entry_path, &damaged).unwrap();
+        forget_in_process_context();
+        let recovered = self_context(root.path());
+        assert!(recovered.contains("Entry & TUI / display"), "{recovered}");
+        assert!(!recovered.contains("missing the other fields"), "{recovered}");
+    }
+
+    // `ANGEL_SELF_MAP_CACHE=0` neither reads nor writes.
+    std::fs::remove_file(&entry_path).unwrap();
+    let _off = crate::tests::TestEnvGuard::set("ANGEL_SELF_MAP_CACHE", "0");
+    forget_in_process_context();
+    assert!(self_context(root.path()).contains("Entry & TUI / display"));
+    assert!(!entry_path.exists());
+}
+
+#[test]
+fn concurrent_self_context_callers_share_one_render() {
+    let _guard = crate::tests::env_lock();
+    let root = crate::tests::TestGitWorkspace::new("self-map-concurrent");
+    let cockpit = root.path().join("cockpit");
+    std::fs::create_dir_all(cockpit.join("src")).unwrap();
+    std::fs::write(
+        cockpit.join("Cargo.toml"),
+        "[package]\nname = \"angelX-cockpit\"\n",
+    )
+    .unwrap();
+    std::fs::write(
+        cockpit.join("src/main.rs"),
+        "//! Main source.\npub struct Main;\n",
+    )
+    .unwrap();
+    let _on = crate::tests::TestEnvGuard::unset("ANGEL_SELF_MODEL");
+    let _off = crate::tests::TestEnvGuard::set("ANGEL_SELF_MAP_CACHE", "0");
+    let _pin = crate::tests::TestEnvGuard::set("ANGEL_SELF_SRC", cockpit.to_str().unwrap());
+    forget_in_process_context();
+    let answers: Vec<String> = std::thread::scope(|scope| {
+        let workers: Vec<_> = (0..4)
+            .map(|_| scope.spawn(|| self_context(root.path())))
+            .collect();
+        workers.into_iter().map(|worker| worker.join().unwrap()).collect()
+    });
+    assert!(answers[0].contains("Entry & TUI / display"), "{}", answers[0]);
+    assert!(answers.iter().all(|answer| answer == &answers[0]));
+}
+
 #[test]
 fn self_map_keeps_other_modules_when_one_source_is_not_utf8() {
     let _guard = crate::tests::env_lock();
