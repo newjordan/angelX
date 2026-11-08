@@ -1346,3 +1346,37 @@ fn herald_names_the_place_the_deed_and_its_object() {
     assert_eq!(long.object.chars().count(), 40);
     assert!(long.object.ends_with('…'));
 }
+
+#[test]
+fn a_late_rewards_save_never_lands_over_a_newer_one() {
+    let path = std::env::temp_dir().join(format!("angel-world-rewards-order-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let written = std::sync::Mutex::new(0);
+    assert!(World::land_rewards(&written, 2, &path, r#"{"renown":2}"#));
+    assert!(!World::land_rewards(&written, 1, &path, r#"{"renown":1}"#), "an older save is dropped");
+    assert_eq!(std::fs::read_to_string(&path).unwrap(), r#"{"renown":2}"#);
+    assert!(World::land_rewards(&written, 3, &path, r#"{"renown":3}"#));
+    assert_eq!(*written.lock().unwrap(), 3);
+    let _ = std::fs::remove_file(&path);
+}
+
+#[test]
+fn the_hearth_save_lands_off_the_frame_thread() {
+    let path = std::env::temp_dir().join(format!("angel-world-rewards-soon-{}.json", std::process::id()));
+    let _ = std::fs::remove_file(&path);
+    let mut w = World::new(7);
+    w.rewards_path = Some(path.clone());
+    w.renown = 41;
+    w.save_rewards_soon();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while World::load_rewards(&path).renown != 41 {
+        assert!(std::time::Instant::now() < deadline, "the background save never landed");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+    }
+    // A credit's save after it is newer and wins, whatever order the disk sees.
+    w.renown = 42;
+    w.save_rewards();
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    assert_eq!(World::load_rewards(&path).renown, 42);
+    let _ = std::fs::remove_file(&path);
+}
