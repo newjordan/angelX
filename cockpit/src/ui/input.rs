@@ -6,6 +6,12 @@ use std::sync::{
 };
 use std::time::Duration;
 
+/// How long the reader waits for a key before looking at its stop flag, and
+/// after how many empty waits it settles into the longer one.
+const ACTIVE_WAIT: Duration = Duration::from_millis(25);
+const QUIET_WAIT: Duration = Duration::from_millis(100);
+const QUIET_AFTER_POLLS: u32 = 40;
+
 /// The terminal has one reader, independent of rendering. An unbounded FIFO
 /// preserves every decoded event when drawing is back-pressured.
 pub(crate) struct TerminalInput {
@@ -46,10 +52,26 @@ impl TerminalInput {
         let worker = std::thread::Builder::new()
             .name("terminal-input".into())
             .spawn(move || {
+                let mut quiet = 0u32;
                 while !stopped.load(Ordering::Relaxed) {
-                    let event = match read(Duration::from_millis(25)) {
-                        Ok(None) => continue,
-                        Ok(Some(event)) => Ok(event),
+                    // The wait only bounds how long a stop (or a hung-up
+                    // terminal) goes unnoticed; a key never waits on it. A
+                    // reader that has heard nothing for a second looks up less
+                    // often, and a key puts it back on the short wait.
+                    let wait = if quiet >= QUIET_AFTER_POLLS {
+                        QUIET_WAIT
+                    } else {
+                        ACTIVE_WAIT
+                    };
+                    let event = match read(wait) {
+                        Ok(None) => {
+                            quiet = quiet.saturating_add(1);
+                            continue;
+                        }
+                        Ok(Some(event)) => {
+                            quiet = 0;
+                            Ok(event)
+                        }
                         Err(error) => Err(error),
                     };
                     let failed = event.is_err();

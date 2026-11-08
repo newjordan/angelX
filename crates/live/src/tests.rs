@@ -980,6 +980,41 @@ fn idle_polls_read_no_source_or_asset_bytes_and_explicit_reload_recaptures() {
     );
 }
 
+#[cfg(target_os = "linux")]
+#[test]
+fn a_watched_module_skips_the_comparison_when_idle_and_still_sees_every_edit() {
+    let fixture = Fixture::new();
+    let mut registry = fixture.registry();
+    registry.watch = crate::watch::Watch::new();
+    assert!(registry.watch.is_some(), "inotify is unavailable here");
+    for _ in 0..3 {
+        registry.refresh(false);
+    }
+    assert!(
+        registry.watch.as_ref().unwrap().trusted("report"),
+        "a module that matched the disk is trusted while nothing changes"
+    );
+    let generation = registry.modules["report"].generation;
+    fixture.source("module.exports={apiVersion:1,render: input => 'edited '+input.name}");
+    let started = Instant::now();
+    while registry.modules["report"].generation == generation {
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "an edit under a trusted module was never picked up"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+        registry.refresh(false);
+    }
+    assert_eq!(
+        registry.render("report", &json!({"name":"x"})).unwrap(),
+        json!("edited x")
+    );
+    for _ in 0..3 {
+        registry.refresh(false);
+    }
+    assert!(registry.watch.as_ref().unwrap().trusted("report"));
+}
+
 fn asset_poll_fixture() -> Fixture {
     let fixture = Fixture::new();
     let names = (0..8).map(|i| format!("sound-{i}.bin")).collect::<Vec<_>>();

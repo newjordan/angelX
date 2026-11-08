@@ -88,15 +88,62 @@ impl Drop for GraphSignalGuard {
     }
 }
 
+/// An eventfd the exit reaper sleeps on, so a signal wakes it at once instead
+/// of it polling the flag every few milliseconds. `-1` until the cockpit's
+/// reaper is installed; the sandbox helper never sets it.
+#[cfg(target_os = "linux")]
+static REAPER_WAKE: AtomicI32 = AtomicI32::new(-1);
+
 #[cfg(target_os = "linux")]
 extern "C" fn on_signal(signal: i32) {
     SIGNAL.store(signal, Ordering::Release);
+    let wake = REAPER_WAKE.load(Ordering::Relaxed);
+    if wake >= 0 {
+        // SAFETY: write(2) is async-signal-safe; errno is put back for the code
+        // this handler interrupted.
+        unsafe {
+            let errno = *libc::__errno_location();
+            let one = 1u64;
+            libc::write(wake, (&raw const one).cast(), std::mem::size_of::<u64>());
+            *libc::__errno_location() = errno;
+        }
+    }
+}
+
+/// Sleep up to `wait`, or until a signal has been delivered.
+#[cfg(target_os = "linux")]
+fn reaper_sleep(wait: Duration) {
+    reaper_sleep_on(REAPER_WAKE.load(Ordering::Relaxed), wait);
+}
+
+/// [`reaper_sleep`] on a given wake descriptor (`-1`: a plain short sleep).
+#[cfg(target_os = "linux")]
+fn reaper_sleep_on(wake: i32, wait: Duration) {
+    if wake < 0 {
+        std::thread::sleep(wait.min(Duration::from_millis(10)));
+        return;
+    }
+    let mut probe = libc::pollfd {
+        fd: wake,
+        events: libc::POLLIN,
+        revents: 0,
+    };
+    let millis = wait.as_millis().saturating_add(1).min(1_000) as libc::c_int;
+    // SAFETY: one valid pollfd; the eventfd is non-blocking, so draining it
+    // cannot wait.
+    unsafe {
+        if libc::poll(&mut probe, 1, millis) > 0 {
+            let mut count = 0u64;
+            libc::read(wake, (&raw mut count).cast(), std::mem::size_of::<u64>());
+        }
+    }
 }
 
 #[cfg(target_os = "linux")]
 fn install() -> std::io::Result<()> {
     // SAFETY: prctl changes only this process. The handler performs one atomic
-    // store; allocation, locks, waiting and IO happen outside signal context.
+    // store and one write(2) to an eventfd; allocation, locks, waiting and
+    // other IO happen outside signal context.
     unsafe {
         // Fail before launching work if this host cannot support identity-pinned
         // cleanup; otherwise a denied pidfd syscall could strand the reaper.
@@ -367,6 +414,9 @@ pub(crate) fn initialize() -> std::io::Result<()> {
         unsafe {
             libc::atexit(at_exit);
         }
+        // SAFETY: plain syscall; the descriptor lives for the process.
+        let wake = unsafe { libc::eventfd(0, libc::EFD_NONBLOCK | libc::EFD_CLOEXEC) };
+        REAPER_WAKE.store(wake, Ordering::Relaxed);
         std::thread::Builder::new()
             .name("angel-exit-reaper".into())
             .spawn(|| {
@@ -391,7 +441,14 @@ pub(crate) fn initialize() -> std::io::Result<()> {
                         children::reap_unclaimed();
                         next_reap = Instant::now() + Duration::from_millis(250);
                     }
-                    std::thread::sleep(Duration::from_millis(10));
+                    // A signal wakes the reaper. A signal held back by a
+                    // running graph is looked at again every 10 ms, as before;
+                    // otherwise nothing is due until the next reap.
+                    reaper_sleep(if SIGNAL.load(Ordering::Acquire) != 0 {
+                        Duration::from_millis(10)
+                    } else {
+                        next_reap.saturating_duration_since(Instant::now())
+                    });
                 }
             })?;
     }
@@ -552,3 +609,7 @@ fn cleanup_signal(now: Instant, grace: Instant) -> i32 {
 #[cfg(all(test, target_os = "linux"))]
 #[path = "../../../../tests/cockpit/app/sandbox__process_owner__mutation_tests.rs"]
 mod mutation_tests;
+
+#[cfg(all(test, target_os = "linux"))]
+#[path = "../../../../tests/cockpit/app/sandbox__process_owner__reaper_wake_tests.rs"]
+mod reaper_wake_tests;

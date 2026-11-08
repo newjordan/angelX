@@ -14,6 +14,7 @@ pub mod shipped;
 pub mod telemetry;
 #[cfg(feature = "v8")]
 pub mod v8;
+mod watch;
 pub use contracts::{GamePolicy, UiBand, UiPolicy};
 use outcome::Scan;
 pub use outcome::{Board, Outcome, WINDOW};
@@ -266,6 +267,10 @@ pub struct Registry {
     completions: std::collections::VecDeque<(kernel::Job, Value)>,
     failed_system_transaction: Option<Vec<(String, String, u64)>>,
     scans: u64,
+    /// Lets a module whose capture matched the disk skip the metadata
+    /// comparison until something under it changes. Only the loader's worker
+    /// holds one; a registry driven by hand compares every scan.
+    watch: Option<watch::Watch>,
 }
 
 impl Registry {
@@ -296,16 +301,29 @@ impl Registry {
             completions: Default::default(),
             failed_system_transaction: None,
             scans: 0,
+            watch: None,
         }
     }
 
     pub fn refresh(&mut self, force: bool) {
+        self.refresh_snapshot(force);
+    }
+
+    /// [`Registry::refresh`], returning the snapshot of the registry as it
+    /// stands after it: the worker publishes that instead of taking another.
+    fn refresh_snapshot(&mut self, force: bool) -> Snapshot {
+        if let Some(watch) = &mut self.watch {
+            watch.drain();
+        }
         let before = self.snapshot();
         self.refresh_inner(force);
         self.scans += 1;
-        if before != self.snapshot() {
+        let mut after = self.snapshot();
+        if before != after {
             self.revision += 1;
+            after.revision = self.revision;
         }
+        after
     }
 
     /// Whether the last scan left no captured candidate unjudged.
@@ -360,11 +378,22 @@ impl Registry {
             let module = self.modules.entry(id.clone()).or_default();
             module.settled = true;
             let root = self.root.join(&id);
-            let candidate = match module
-                .captured
-                .as_ref()
-                .filter(|bundle| !force && bundle.fresh(&root))
-            {
+            // A capture that matched the disk at its last full comparison, with
+            // nothing changed under the module since, is still current.
+            let trusted = !force && self.watch.as_ref().is_some_and(|watch| watch.trusted(&id));
+            let candidate = match module.captured.as_ref().filter(|bundle| {
+                !force
+                    && (trusted || {
+                        if let Some(watch) = self.watch.as_mut() {
+                            watch.arm(&id, &root);
+                        }
+                        let fresh = bundle.fresh(&root);
+                        if let Some(watch) = self.watch.as_mut() {
+                            watch.confirm(&id, fresh);
+                        }
+                        fresh
+                    })
+            }) {
                 Some(cached) => Arc::clone(cached),
                 None => match Bundle::read(&root, &id) {
                     Ok(mut candidate) => {
@@ -1015,6 +1044,7 @@ impl Client {
             .spawn(move || {
                 let mut registry =
                     Registry::with_resources(worker_root, evaluator, validator, binder);
+                registry.watch = watch::Watch::new();
                 registry.refresh(true);
                 // Even an empty directory has completed discovery. Revision
                 // zero is reserved for the UI's initial, unpublished catalogue.
@@ -1049,12 +1079,21 @@ impl Client {
                         Err(mpsc::RecvTimeoutError::Timeout) => None,
                         Err(mpsc::RecvTimeoutError::Disconnected) => break,
                     };
+                    let mut scanned = None;
                     if last_scan.elapsed() >= POLL {
-                        registry.refresh(false);
+                        scanned = Some(registry.refresh_snapshot(false));
                         last_scan = Instant::now();
                     }
+                    // With nothing queued, `advance` changes nothing, and a
+                    // scan just ended is already the registry as it stands.
+                    let idle = response.is_none()
+                        && registry.work.is_empty()
+                        && registry.completions.is_empty();
                     registry.advance();
-                    let snapshot = registry.snapshot();
+                    let snapshot = match scanned {
+                        Some(snapshot) if idle => snapshot,
+                        _ => registry.snapshot(),
+                    };
                     let scan = Scan::of(&registry, &snapshot);
                     *published.write().unwrap_or_else(|p| p.into_inner()) = snapshot;
                     outcomes.publish(scan);

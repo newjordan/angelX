@@ -42,6 +42,9 @@ pub(super) struct Bundle {
     files: BTreeMap<String, String>,
     pub assets: BTreeMap<String, std::sync::Arc<crate::Asset>>,
     stamp: SourceStamp,
+    /// The Bend receipt, parsed once: a generation's files never change, and
+    /// every snapshot asks for it.
+    receipt: std::sync::OnceLock<Option<crate::BuildReceipt>>,
 }
 
 impl Bundle {
@@ -116,13 +119,20 @@ impl Bundle {
             files: first,
             assets,
             stamp,
+            receipt: Default::default(),
         })
     }
 
     /// Source and output digests of a Bend generation that built cleanly.
     pub fn build_receipt(&self) -> Option<crate::BuildReceipt> {
-        self.manifest.bend.as_ref()?;
-        self.build_error.is_none().then(|| bend::receipt(&self.files))?
+        self.receipt
+            .get_or_init(|| {
+                self.manifest.bend.as_ref()?;
+                self.build_error
+                    .is_none()
+                    .then(|| bend::receipt(&self.files))?
+            })
+            .clone()
     }
 
     /// A policy generation compiled into the host: the same manifest, Bend
@@ -167,6 +177,7 @@ impl Bundle {
             files,
             assets: BTreeMap::new(),
             stamp: SourceStamp(BTreeMap::new()),
+            receipt: Default::default(),
         })
     }
 
