@@ -931,7 +931,7 @@ impl Viewer {
                         }
                         let protocol = new_pic(&picker, 
                                 image::DynamicImage::ImageRgba8(image),
-                                Rect::new(0, 0, worker_key.width, worker_key.height).into(),
+                                Rect::new(0, 0, worker_key.width, worker_key.height),
                                 Resize::Fit(None),
                             )
                             .map_err(|e| format!("prepare requested image: {e}"))?;
@@ -1061,7 +1061,7 @@ impl Viewer {
                 } else {
                     new_pic(&picker, 
                             image::DynamicImage::ImageRgba8(pixels.rgba.clone()),
-                            target.into(),
+                            target,
                             Resize::Scale(Some(image::imageops::FilterType::Triangle)),
                         )
                         .map_err(|error| format!("prepare video frame: {error}"))
@@ -1103,7 +1103,7 @@ impl Viewer {
                     let preview_size = (preview.width(), preview.height());
                     let protocol = new_pic(&picker, 
                             preview,
-                            target.into(),
+                            target,
                             Resize::Fit(Some(image::imageops::FilterType::Lanczos3)),
                         )
                         .map_err(|e| format!("prepare {}: {e}", shown.path.display()))?;
@@ -1199,7 +1199,7 @@ impl Viewer {
             };
             new_pic(&picker, 
                     image,
-                    size.into(),
+                    size,
                     // `anchor_portrait_canvas` already produced the exact
                     // rounded pixel canvas; Crop prevents a second Fit pass
                     // from reintroducing origin padding.
@@ -1266,7 +1266,7 @@ impl Viewer {
                     let table = crate::ui::viz::council_table::fit(&compose(), target);
                     let result = new_pic(&picker, 
                             image::DynamicImage::ImageRgba8(table),
-                            size.into(),
+                            size,
                             Resize::Fit(Some(image::imageops::FilterType::Nearest)),
                         )
                         .map_err(|error| format!("prepare Kitty council table: {error}"));
@@ -2075,7 +2075,7 @@ impl Viewer {
                     let pixel = crate::ui::helm::is_pixel_sheet(&path);
                     let image = anchor_portrait_canvas(image, &picker, size, pixel);
                     let image = if mono { mono_portrait(&image) } else { image };
-                    new_pic(&picker, image, size.into(), Resize::Crop(None))
+                    new_pic(&picker, image, size, Resize::Crop(None))
                         .map_err(|error| error.to_string())
                 });
                 let _ = tx.send(result);

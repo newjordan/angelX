@@ -170,7 +170,7 @@ pub fn sniff_media(bytes: &[u8]) -> Option<MediaKind> {
         Some(MediaKind::Jpeg)
     } else if bytes.len() >= 6 && (&bytes[..6] == b"GIF87a" || &bytes[..6] == b"GIF89a") {
         Some(MediaKind::Gif)
-    } else if bytes.len() >= 2 && bytes[..2] == [b'B', b'M'] {
+    } else if bytes.len() >= 2 && bytes[..2] == *b"BM" {
         Some(MediaKind::Bmp)
     } else if bytes.len() >= 12
         && &bytes[..4] == b"RIFF"
@@ -1062,7 +1062,7 @@ fn svg_attr_length(window: &[u8], name: &[u8]) -> Option<u32> {
                     }
                     if j < window.len() {
                         let raw = &window[start..j];
-                        if raw.iter().any(|&b| b == b'%') {
+                        if raw.contains(&b'%') {
                             return None;
                         }
                         if let Some(v) = svg_length_value(raw) {
@@ -1145,7 +1145,7 @@ fn svg_viewbox_dimensions(window: &[u8]) -> Option<(u32, u32)> {
 fn svg_viewbox_value(raw: &[u8]) -> Option<(u32, u32)> {
     let s = std::str::from_utf8(raw).ok()?;
     let parts: Vec<&str> = s
-        .split(|c| c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == ',')
+        .split([' ', '\t', '\n', '\r', ','])
         .filter(|p| !p.is_empty())
         .collect();
     if parts.len() != 4 {

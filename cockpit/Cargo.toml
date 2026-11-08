@@ -40,7 +40,7 @@ required-features = ["glass"]
 # The loop card's offline shots, from its production composer.
 [[example]]
 name = "loop_card_preview"
-required-features = ["glass"]
+required-features = ["glass", "delve"]
 
 # Ship-speed profile: thin LTO + one codegen unit buys cross-crate inlining
 # (serde_json/ureq/ratatui hot paths) for a modest compile-time cost; fat LTO

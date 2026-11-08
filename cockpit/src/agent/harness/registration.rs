@@ -207,7 +207,7 @@ impl ProviderScope {
     fn release_one(&self) -> bool {
         let left = self
             .remaining
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1))
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |n| n.checked_sub(1))
             .map(|previous| previous - 1)
             .unwrap_or(0);
         if left > 0 {

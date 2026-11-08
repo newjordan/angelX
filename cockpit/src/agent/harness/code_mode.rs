@@ -393,7 +393,7 @@ pub(crate) fn run_code_mode_tool(
                 "code_mode effectful tool `{name}` requires allow_effects=true ({policy})"
             ));
         }
-        let child_sequence = match nested_calls.fetch_update(
+        let child_sequence = match nested_calls.try_update(
             std::sync::atomic::Ordering::Relaxed,
             std::sync::atomic::Ordering::Relaxed,
             |n| (n < max_calls).then_some(n + 1),

@@ -19,6 +19,15 @@ mod loop_dialog_source;
 mod drive {
     pub(crate) use crate::loop_dialog_source as loop_dialog;
 }
+// The composer reaches the game through `app::control::realm::GameHost`: here
+// the Delve's own cartridge, as in a default build.
+mod app {
+    pub(crate) mod control {
+        pub(crate) mod realm {
+            pub(crate) use angel_delve_cart::cart::Delve as GameHost;
+        }
+    }
+}
 mod ui {
     pub(crate) use crate::loop_card_source as loop_card;
 }
@@ -267,7 +276,7 @@ fn main() {
                 for picture in loop_card::ticker_pictures(cell) {
                     host.upload_picture(picture);
                 }
-                art = Some(made);
+                art = made;
                 if !stilled {
                     stills(&out, art.as_ref());
                     stilled = true;

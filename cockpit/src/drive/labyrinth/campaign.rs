@@ -1388,7 +1388,7 @@ impl Tool for RetainedRead {
         }
         let index = self
             .requests
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |current| {
                 (current < 32).then_some(current + 1)
             })
             .map_err(|_| "literature retrieval count budget exhausted")?;
@@ -1866,7 +1866,7 @@ fn campaign_seats(root: &Path, id: &str) -> Result<Arc<AtomicUsize>, String> {
 impl CampaignSeat {
     fn reserve(counter: &Arc<AtomicUsize>, limit: usize) -> Result<Self, String> {
         counter
-            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |current| {
+            .try_update(Ordering::AcqRel, Ordering::Acquire, |current| {
                 (current < limit).then_some(current + 1)
             })
             .map_err(|_| {

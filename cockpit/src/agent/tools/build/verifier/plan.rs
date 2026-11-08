@@ -424,7 +424,7 @@ pub(super) fn select(kind: Kind, args: &Value, root: &Path) -> Result<Selection,
     }
     let (step, _source) = crate::agent::harness::live_policy::decide_shipped(
         VERIFY_PLAN,
-        &serde_json::to_value(&facts).unwrap_or(Value::Null),
+        &serde_json::to_value(facts).unwrap_or(Value::Null),
         |step: &Step| step_contract(&facts, step),
     );
     if step.route == ROUTE_RUST {

@@ -217,7 +217,7 @@ fn render_running(frame: &mut Frame, app: &mut App, root: Rect) {
         .get(crate::ui::panels::PanelKind::LoopTicker);
     #[cfg(feature = "glass")]
     if let Some(host) = crate::ui::glass::host() {
-        render_window(frame, app, root, now, &host, race, area, phase);
+        render_window(frame, app, root, now, host, race, area, phase);
         return;
     }
     if let Some(area) = area

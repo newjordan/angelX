@@ -145,7 +145,7 @@ fn parse_responses_value(v: &serde_json::Value) -> ResponseEvent {
             parse_tool_done(v.get("item")).unwrap_or_else(|| parse_tool_start(v.get("item")))
         }
         "response.function_call_arguments.delta" => {
-            let key = response_item_key(&v);
+            let key = response_item_key(v);
             let delta = v
                 .get("delta")
                 .and_then(|d| d.as_str())
@@ -158,7 +158,7 @@ fn parse_responses_value(v: &serde_json::Value) -> ResponseEvent {
             }
         }
         "response.function_call_arguments.done" => {
-            let key = response_item_key(&v);
+            let key = response_item_key(v);
             let arguments = v
                 .get("arguments")
                 .and_then(|d| d.as_str())
@@ -170,12 +170,12 @@ fn parse_responses_value(v: &serde_json::Value) -> ResponseEvent {
                 ResponseEvent::ToolArgumentsDone { key, arguments }
             }
         }
-        "response.completed" => match incomplete_response_message(&v) {
+        "response.completed" => match incomplete_response_message(v) {
             Some(msg) => ResponseEvent::Incomplete(msg, parse_usage(v.pointer("/response/usage"))),
             None => ResponseEvent::Done(parse_usage(v.pointer("/response/usage"))),
         },
         "response.incomplete" => ResponseEvent::Incomplete(
-            incomplete_response_message(&v).unwrap_or_else(|| {
+            incomplete_response_message(v).unwrap_or_else(|| {
                 crate::agent::club::OutputBudgetPolicy::EndpointManaged.incomplete_message()
             }),
             parse_usage(v.pointer("/response/usage")),
