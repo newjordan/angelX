@@ -455,6 +455,7 @@ pub(crate) fn render_selection_and_approval_overlays(frame: &mut Frame, app: &mu
     }
 
     app.approval_hits.clear();
+    let choice = app.approval_choice();
     #[cfg(feature = "glass")]
     if let Some(pa) = &app.pending_approval
         && crate::ui::glass::active()
@@ -462,6 +463,7 @@ pub(crate) fn render_selection_and_approval_overlays(frame: &mut Frame, app: &mu
             frame.area(),
             &pa.prompt,
             pa.scope_label.as_deref(),
+            choice,
         )
     {
         app.approval_hits = hits;
@@ -469,20 +471,13 @@ pub(crate) fn render_selection_and_approval_overlays(frame: &mut Frame, app: &mu
         return;
     }
     if let Some(pa) = &app.pending_approval {
-        let area = crate::ui::views::approval_view::modal_area(
-            frame.area(),
+        let root = frame.area();
+        app.approval_hits = crate::ui::views::approval_view::paint_terminal(
+            frame.buffer_mut(),
+            root,
             &pa.prompt,
             pa.scope_label.as_deref(),
-        );
-        frame.render_widget(Clear, area);
-        frame.render_widget(
-            Paragraph::new(crate::ui::views::approval_view::body(
-                &pa.prompt,
-                pa.scope_label.as_deref(),
-            ))
-            .wrap(Wrap { trim: false })
-            .block(crate::ui::views::approval_view::block()),
-            area,
+            choice,
         );
     }
 }
@@ -582,7 +577,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         && !crate::ui::glass::active()
     {
         app.image_occluders
-            .push(crate::ui::views::approval_view::modal_area(
+            .push(crate::ui::views::approval_view::terminal_area(
                 root,
                 &pa.prompt,
                 pa.scope_label.as_deref(),

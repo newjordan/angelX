@@ -663,8 +663,11 @@ pub(crate) struct App {
     /// The loop card's start after the flag drops, and the corner widget.
     pub(crate) loop_card: crate::ui::views::loop_view::LoopCardState,
     pub(crate) loop_rail: crate::ui::loop_rail_live::Live,
-    /// The window's approval card: its answers, where they answer a click.
+    /// The approval card's answers, where they answer a click.
     pub(crate) approval_hits: Vec<(ratatui::layout::Rect, crate::approval::Decision)>,
+    /// Which answer the waiting ask has chosen, keyed by the ask's serial so
+    /// a new ask always starts on Approve.
+    pub(crate) approval_focus: (u64, usize),
     /// Optional display name for the thread (`/rename`); shown in `/status`.
     pub(crate) session_title: Option<String>,
     /// Plan-mode (`/plan`): prepend a "plan before acting" steer to each message.
@@ -1333,6 +1336,7 @@ impl App {
             loop_card: Default::default(),
             loop_rail: Default::default(),
             approval_hits: Vec::new(),
+            approval_focus: (0, 0),
             session_title: None,
             plan_mode: false,
             personality: None,
