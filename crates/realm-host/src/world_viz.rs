@@ -289,6 +289,11 @@ pub struct World {
     /// Where progression persists (best-effort JSON). `None` outside a real
     /// workspace session, so unit-test worlds never touch the disk.
     rewards_path: Option<std::path::PathBuf>,
+    /// The newest rewards save asked for, and (shared with the hearth's
+    /// background writer) the newest that reached the disk: a late write
+    /// never lands over a newer one.
+    rewards_asked: std::sync::atomic::AtomicU64,
+    rewards_written: std::sync::Arc<std::sync::Mutex<u64>>,
     /// The hearth — the slow living state (light/warmth/grain + day clock).
     /// Session moods stay on the World; the hearth persists beside renown.
     hearth: crate::hearth::HearthState,
@@ -501,6 +506,8 @@ impl World {
             gain_note: String::new(),
             gain_until: 0,
             rewards_path: None,
+            rewards_asked: std::sync::atomic::AtomicU64::new(0),
+            rewards_written: Default::default(),
             delve_called: false,
             delve_lit: false,
             delve_boons: 0,
@@ -1437,13 +1444,10 @@ impl World {
         }
     }
 
-    fn write_rewards_v2(&self, path: &std::path::Path) -> std::io::Result<()> {
-        if let Some(dir) = path.parent() {
-            std::fs::create_dir_all(dir)?;
-        }
+    fn rewards_v2_body(&self) -> String {
         let mut hearth = self.hearth.clone();
         hearth.prosperity = self.renown.min(999) as u32;
-        let body = serde_json::json!({
+        serde_json::json!({
             "schema_version": 2,
             "renown": self.renown,
             "verified_wins": self.verified_wins,
@@ -1451,18 +1455,58 @@ impl World {
             "xp": self.xp,
             "coins": self.coins,
         })
-        .to_string();
-        angel_live::host::workspace_store::write_private_atomic(path, body.as_bytes())
-            .map_err(std::io::Error::other)
+        .to_string()
     }
 
-    /// Persist v2 atomically. Streak and weather are session moods and die
-    /// with the session; legacy XP/coin fields are retained for rollback.
+    /// Write save `generation` durably unless a newer one is already on the
+    /// disk. True when these bytes landed.
+    fn land_rewards(written: &std::sync::Mutex<u64>, generation: u64, path: &std::path::Path, body: &str) -> bool {
+        let mut on_disk = written.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if generation <= *on_disk {
+            return false;
+        }
+        if let Some(dir) = path.parent()
+            && std::fs::create_dir_all(dir).is_err()
+        {
+            return false;
+        }
+        let landed = angel_live::host::workspace_store::write_private_atomic(path, body.as_bytes()).is_ok();
+        if landed {
+            *on_disk = generation;
+        }
+        landed
+    }
+
+    /// Persist v2 atomically and durably, now. Streak and weather are session
+    /// moods and die with the session; legacy XP/coin fields are retained for
+    /// rollback.
     fn save_rewards(&self) {
         let Some(path) = &self.rewards_path else {
             return;
         };
-        let _ = self.write_rewards_v2(path);
+        let generation = self.rewards_asked.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        Self::land_rewards(&self.rewards_written, generation, path, &self.rewards_v2_body());
+    }
+
+    /// The hearth's periodic save: the same durable write, made off the
+    /// frame's thread. Its fsync can stall for tens of milliseconds while the
+    /// disk is busy, and the beat comes every few seconds. A credit's save
+    /// stays immediate ([`Self::save_rewards`]).
+    fn save_rewards_soon(&self) {
+        let Some(path) = self.rewards_path.clone() else {
+            return;
+        };
+        let generation = self.rewards_asked.fetch_add(1, std::sync::atomic::Ordering::Relaxed) + 1;
+        let body = self.rewards_v2_body();
+        let written = std::sync::Arc::clone(&self.rewards_written);
+        let spawned = std::thread::Builder::new()
+            .name("rewards-save".into())
+            .spawn(move || {
+                Self::land_rewards(&written, generation, &path, &body);
+            });
+        if spawned.is_err() {
+            self.save_rewards();
+        }
     }
 
     // ─── the village: the fleet mirrored into the town (village.rs) ─────────
@@ -2008,7 +2052,7 @@ impl World {
         self.note_growth_announcements();
         if self.hearth.due_to_save() {
             self.hearth.note_saved();
-            self.save_rewards();
+            self.save_rewards_soon();
         }
     }
 
