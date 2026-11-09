@@ -1,5 +1,9 @@
 # angelX
 
+[![The getting-started film, 2:47](https://github.com/newjordan/angelX/releases/download/v0.2.7/angelX-how-to-use.jpg)](https://github.com/newjordan/angelX/releases/download/v0.2.7/angelX-how-to-use.mp4)
+
+**[Download the getting-started film](https://github.com/newjordan/angelX/releases/download/v0.2.7/angelX-how-to-use.mp4)** (2:47, MP4): install, connect a model, set a goal and run a loop.
+
 The product website is [omni-space.tech](https://omni-space.tech): install,
 documentation, the Glass reel and the measurements published in this
 repository. Source and release downloads stay on GitHub.
