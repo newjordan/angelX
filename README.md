@@ -1,8 +1,8 @@
 # angelX
 
-[![The getting-started film, 2:47](https://github.com/newjordan/angelX/releases/download/v0.2.7/angelX-how-to-use.jpg)](https://github.com/newjordan/angelX/releases/download/v0.2.7/angelX-how-to-use.mp4)
+https://github.com/user-attachments/assets/53be0360-3b4d-4176-ac7b-c924c101c927
 
-**[Download the getting-started film](https://github.com/newjordan/angelX/releases/download/v0.2.7/angelX-how-to-use.mp4)** (2:47, MP4): install, connect a model, set a goal and run a loop.
+**[Download the full-quality film](https://github.com/newjordan/angelX/releases/download/v0.2.7/angelX-how-to-use.mp4)** (2:47, MP4): install, connect a model, set a goal and run a loop.
 
 The product website is [omni-space.tech](https://omni-space.tech): install,
 documentation, the Glass reel and the measurements published in this
