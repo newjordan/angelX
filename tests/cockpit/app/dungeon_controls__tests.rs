@@ -5194,3 +5194,45 @@ fn realm_claim_waits_for_its_source_checkpoint_and_close_drains_more_than_one_bo
         65
     );
 }
+
+#[test]
+fn a_threaded_host_settles_off_its_frame_and_takes_the_same_realm_back() {
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
+    app.realm.dungeon.shooter.prefer_thread(true);
+    app.input = "/dungeon start".into();
+    app.submit();
+    assert!(
+        app.realm.dungeon.shooter.threaded(),
+        "{}",
+        app.realm.dungeon.notice
+    );
+    // Only this process's copy knows the asked wish: a realm read from disk
+    // while the settler held it would not.
+    let asked = app.economy().ask("Tester", "a lantern that hums").unwrap();
+    assert!(
+        app.settle_off_frame(),
+        "a threaded host settles off its frame"
+    );
+    assert!(app.realm.dungeon.settling_off_frame());
+    assert!(
+        app.realm.dungeon.realm.is_none(),
+        "the settler holds the realm"
+    );
+    assert!(
+        app.realm
+            .dungeon
+            .realm_shown()
+            .is_some_and(|realm| realm.wishes.iter().any(|w| w.id == asked)),
+        "the screen shows the realm's copy meanwhile"
+    );
+    // A second cycle while one runs starts nothing new.
+    assert!(app.settle_off_frame());
+    // Asked for, the realm comes back from the settler, the same one.
+    assert!(app.economy().wishes.iter().any(|w| w.id == asked));
+    assert!(!app.realm.dungeon.settling_off_frame());
+    assert!(app.realm.dungeon.realm_shown().is_some());
+    // And the frame's own collection finds nothing left to take.
+    app.realm.dungeon.collect_settled(false);
+    assert!(app.economy().wishes.iter().any(|w| w.id == asked));
+}

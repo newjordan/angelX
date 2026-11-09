@@ -662,7 +662,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         app.image_occluders.push(root);
         app.viewer.clear_still();
         app.realm.dungeon.controls_visible = if let Some(intro) = &app.realm.dungeon.intro {
-            crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.realm.dungeon.realm.as_ref());
+            crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.realm.dungeon.realm_shown());
             true
         } else if let Some(seat) = app.realm.dungeon.activity_menu {
             frame.render_widget(ratatui::widgets::Clear, root);
@@ -761,7 +761,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
                 app.realm.dungeon
                     .cards_open
                     .then_some((app.realm.dungeon.cards_page, app.realm.dungeon.cards_sel)),
-                app.realm.dungeon.realm.as_ref(),
+                app.realm.dungeon.realm_shown(),
                 app.realm.dungeon.chorus.subtitle(std::time::Instant::now()),
                 app.realm.dungeon
                     .forge

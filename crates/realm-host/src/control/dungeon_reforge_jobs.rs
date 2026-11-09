@@ -4,6 +4,18 @@ use super::*;
 
 impl Session<'_> {
     pub(super) fn discover_reforges(&mut self) {
+        // New reforges admitted by a save off the frame are persisted now.
+        match super::dungeon_settle::admitted(&mut self.dungeon.forge.reforge_admitting) {
+            Some(Ok(covered)) => {
+                for forging in &mut self.dungeon.forge.reforges {
+                    if forging.claim.as_ref().is_some_and(|c| covered.iter().any(|(session, request)| *session == c.session && *request == c.request)) {
+                        forging.persisted = true;
+                    }
+                }
+            }
+            Some(Err(error)) => self.dungeon.notice = format!("Reforge retained: {error}"),
+            None => {}
+        }
         let sim = &self.dungeon.shooter;
         self.dungeon
             .forge
@@ -61,11 +73,22 @@ impl Session<'_> {
                     started: Instant::now(),
                     seen: launched,
                     launched,
+                    saving: None,
                 });
             }
             if self.dungeon.forge.reforges.iter().any(|f| !f.persisted) {
                 if self.dungeon.save_path.is_none() {
                     return Err("reforge checkpoint path is unavailable".into());
+                }
+                let covered = self
+                    .dungeon
+                    .forge
+                    .reforges
+                    .iter()
+                    .filter_map(|f| f.claim.as_ref().map(|c| (c.session.clone(), c.request)))
+                    .collect();
+                if super::dungeon_settle::admit_off_frame(self.dungeon, |v| &mut v.forge.reforge_admitting, covered)? {
+                    return Ok(());
                 }
                 self.dungeon.checkpoint(Instant::now(), true)?;
                 for f in &mut self.dungeon.forge.reforges {
@@ -187,7 +210,43 @@ impl Session<'_> {
         }
         let done = forging.completed.as_ref().expect("terminal reforge");
         let source = self.reforged_dir().join(format!("{}.card", forging.id));
-        let persist = (|| -> Result<(), String> {
+        let persist = if let Some(link) = self.dungeon.shooter.link() {
+            // Off the frame: the saves and the card's publication run on a
+            // thread of their own; the reforge lands on the frame that finds
+            // them done.
+            match forging.saving.as_ref().map(super::Saving::done) {
+                Some(None) => {
+                    self.dungeon.forge.forging = Some(forging);
+                    return;
+                }
+                Some(Some((acknowledged, saved))) => {
+                    forging.saving = None;
+                    forging.acknowledged |= acknowledged;
+                    saved
+                }
+                None => match self.dungeon.save_path.clone() {
+                    None => Err("reforge checkpoint path is unavailable".to_string()),
+                    Some(save) => {
+                        let publish = done
+                            .result
+                            .is_ok()
+                            .then(|| done.accepted.as_ref().map(|card| (source.clone(), card.definition_file().as_bytes().to_vec())))
+                            .flatten();
+                        let (claim, done) = (claim.clone(), done.clone());
+                        forging.saving = Some(super::dungeon_settle::deliver_off_frame(
+                            link,
+                            save,
+                            self.dungeon.raid_serial,
+                            forging.acknowledged,
+                            publish,
+                            move |link| link.acknowledge_reforge(&claim, &done),
+                        ));
+                        self.dungeon.forge.forging = Some(forging);
+                        return;
+                    }
+                },
+            }
+        } else { (|| -> Result<(), String> {
             self.dungeon.checkpoint(Instant::now(), true)?;
             if !forging.acknowledged {
                 // Painters reload this file later. Publish the accepted behavior,
@@ -204,7 +263,7 @@ impl Session<'_> {
                 forging.acknowledged = true;
             }
             self.dungeon.checkpoint(Instant::now(), true)
-        })();
+        })() };
         if let Err(error) = persist {
             self.dungeon.notice = format!("Reforge delivery retained: {error}");
             self.dungeon.forge.forging = Some(forging);

@@ -141,7 +141,48 @@ impl Session<'_> {
             }
         }
         let done = lesson.completed.as_ref().expect("terminal wish");
-        let persisted = (|| -> Result<(), String> {
+        let persisted = if let Some(link) = self.dungeon.shooter.link() {
+            // The server runs on its own threads: the saves and the wish's
+            // publication run off the frame, and the lesson is delivered on
+            // the frame that finds them done.
+            match lesson.saving.as_ref().map(super::Saving::done) {
+                Some(None) => return false,
+                Some(Some((acknowledged, saved))) => {
+                    lesson.saving = None;
+                    lesson.acknowledged |= acknowledged;
+                    saved
+                }
+                None => {
+                    let Some(path) = self.dungeon.save_path.clone() else {
+                        self.dungeon.notice = "Wish delivery retained: wish checkpoint path is unavailable".into();
+                        return false;
+                    };
+                    let serial = self.dungeon.raid_serial;
+                    let acknowledged = lesson.acknowledged;
+                    let publish = (done.authored && !matches!(done.outcome, Outcome::Conflict(_)))
+                        .then(|| done.accepted.clone())
+                        .flatten();
+                    let workspace = self.cx.workspace().to_path_buf();
+                    let (claim, done) = (claim.clone(), done.clone());
+                    lesson.saving = Some(super::Saving::start(move || {
+                        let mut acked = false;
+                        let saved = (|| {
+                            link.checkpoint(&path, serial)?;
+                            if !acknowledged {
+                                if let Some(wish) = &publish {
+                                    Session::publish_wish_at(&workspace, wish, true)?;
+                                }
+                                link.acknowledge_wish(&claim, &done)?;
+                                acked = true;
+                            }
+                            link.checkpoint(&path, serial)
+                        })();
+                        (acked, saved)
+                    }));
+                    return false;
+                }
+            }
+        } else { (|| -> Result<(), String> {
             if self.dungeon.save_path.is_none() {
                 return Err("wish checkpoint path is unavailable".into());
             }
@@ -157,7 +198,7 @@ impl Session<'_> {
                 lesson.acknowledged = true;
             }
             self.dungeon.checkpoint(Instant::now(), true)
-        })();
+        })() };
         if let Err(error) = persisted {
             self.dungeon.notice = format!("Wish delivery retained: {error}");
             return false;

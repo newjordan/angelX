@@ -239,7 +239,12 @@ impl DungeonView {
 
 impl Session<'_> {
     pub(super) fn prepare_votes(&mut self) {
-        if self.dungeon.shooter.as_ref().is_none() || self.dungeon.shooter.playtest_votes_ready() {
+        // The realm is away settling: its votes are read next frame.
+        if self.dungeon.settling.is_some() {
+            return;
+        }
+        // Without waiting on the game's lock: a busy game is read next frame.
+        if self.dungeon.shooter.as_ref().is_none() || self.dungeon.shooter.try_playtest_votes_ready() != Some(false) {
             return;
         }
         let (records, seen) = {
@@ -1052,6 +1057,7 @@ impl Session<'_> {
     /// (`together_sim`); stepped by hand (the tests) the same clock is run
     /// here, to `now`. Pauses discard controls and elapsed time.
     pub fn advance_shooter_at(&mut self, now: Instant) {
+        self.dungeon.collect_settled(false);
         self.dungeon.audio.pump_live(now);
         self.prepare_votes();
         let keyboard = self.dungeon_keyboard_active();
@@ -1260,8 +1266,10 @@ impl Session<'_> {
                 .is_none_or(|at| now.saturating_duration_since(at) >= SETTLE);
         if settle {
             self.dungeon.settled = Some(now);
-            self.settle_votes();
-            if self.settle_realm() {
+            if self.dungeon.settling.is_none() {
+                self.settle_votes();
+            }
+            if !self.settle_off_frame() && self.settle_realm() {
                 self.settle_home();
             }
         }
@@ -1303,10 +1311,12 @@ impl Session<'_> {
                 }
             }
         }
-        for sound in sounds {
-            let voice=self.dungeon.shooter.live_voice(&sound);
-            let origin=self.dungeon.shooter.media_origin();
-            self.dungeon.audio.sfx_from(&sound, now,voice,origin);
+        if !sounds.is_empty() {
+            let voices = self.dungeon.shooter.live_voices(&sounds);
+            let origin = self.dungeon.shooter.media_origin();
+            for (sound, voice) in sounds.iter().zip(voices) {
+                self.dungeon.audio.sfx_from(sound, now, voice, origin.clone());
+            }
         }
         if ask && self.dungeon.forge.draft.is_none() {
             self.open_lamp_wish();

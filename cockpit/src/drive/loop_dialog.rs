@@ -246,9 +246,15 @@ impl LoopLaunchDialog {
                 .map(|c| c.secs)
                 .or(self.custom_duration)
                 .expect("selected duration exists"),
-            max_iters: ITERATIONS
-                .get(self.iterations_idx)
-                .map(|c| c.iters)
+            // A typed-but-uncommitted length is what the row shows, so it is
+            // what a start launches with; an empty or zero draft is not a
+            // length and the standing choice underneath applies.
+            max_iters: self
+                .custom_entry
+                .as_deref()
+                .and_then(|typed| typed.trim().parse::<usize>().ok())
+                .filter(|&n| n > 0)
+                .or_else(|| ITERATIONS.get(self.iterations_idx).map(|c| c.iters))
                 .or(self.custom_iterations)
                 .expect("selected iteration cap exists"),
             token_budget: BUDGETS
@@ -450,15 +456,12 @@ impl LoopLaunchDialog {
     }
 
     fn select_iterations(&mut self, index: usize) {
-        // The custom slot lives one past the presets. With a committed length it
-        // is an ordinary choice; without one it opens the entry instead of
-        // claiming a cap nobody set.
+        // The custom slot lives one past the presets, and selecting it always
+        // opens the entry — seeded with the committed length when there is
+        // one — so a set length can be revised instead of being one-shot.
+        // Enter commits; Esc hands the row back to the choice it left.
         if index >= ITERATIONS.len() {
-            if self.custom_iterations.is_some() {
-                self.iterations_idx = ITERATIONS.len();
-            } else {
-                self.begin_custom_length();
-            }
+            self.begin_custom_length();
             return;
         }
         self.iterations_idx = index;

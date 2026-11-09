@@ -16,6 +16,10 @@ pub type Symbol = &'static str;
 thread_local! {
     static CAPTURING: Cell<bool> = const { Cell::new(false) };
     static RULES_ONLY: Cell<bool> = const { Cell::new(false) };
+    /// A step's capture: the book's cards go without their pictures.
+    static STEP_ONLY: Cell<bool> = const { Cell::new(false) };
+    /// The book's cards are being written for a step.
+    static BARE_CARDS: Cell<bool> = const { Cell::new(false) };
 }
 struct Scope(bool);
 impl Scope {
@@ -90,6 +94,72 @@ pub fn serialize_avatar<S: serde::Serializer>(
         avatar.serialize(serializer)
     }
 }
+/// The rules' view of a run for one step: `capture_for_rules`, and the
+/// book's cards without their pictures. No rule reads a card's art and no
+/// step changes it; at 30 steps a second it was most of what crossed to the
+/// rules worker, captured, diffed, restored and cloned every time. The host
+/// lays it back on the step's result (`lay_book_art`).
+pub fn capture_for_step(run: &Run) -> Result<Checkpoint, String> {
+    struct StepScope(bool);
+    impl Drop for StepScope {
+        fn drop(&mut self) {
+            STEP_ONLY.set(self.0);
+        }
+    }
+    let _scope = StepScope(STEP_ONLY.replace(true));
+    capture_for_rules(run)
+}
+
+/// The book's cards, bare of their art in a step's capture.
+pub fn serialize_book_cards<S: serde::Serializer>(
+    cards: &Vec<super::cards::Card>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if !STEP_ONLY.get() {
+        return cards.serialize(serializer);
+    }
+    struct Bare(bool);
+    impl Drop for Bare {
+        fn drop(&mut self) {
+            BARE_CARDS.set(self.0);
+        }
+    }
+    let _bare = Bare(BARE_CARDS.replace(true));
+    cards.serialize(serializer)
+}
+
+/// A card's art: none while the book is written for a step.
+pub fn serialize_card_art<S: serde::Serializer>(
+    art: &Vec<String>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    if BARE_CARDS.get() {
+        <[String]>::serialize(&[], serializer)
+    } else {
+        art.serialize(serializer)
+    }
+}
+
+/// The host's card art back on a step's result: each bare card in `next`'s
+/// book takes the picture its card in `host`'s book has. A card the step
+/// added keeps its own.
+pub fn lay_book_art(next: &mut Run, host: &Run) {
+    let art: std::collections::HashMap<&str, &Vec<String>> = host
+        .book
+        .cards
+        .iter()
+        .filter(|card| !card.art.is_empty())
+        .map(|card| (card.id.as_str(), &card.art))
+        .collect();
+    for card in &mut next.book.cards {
+        if card.art.is_empty()
+            && let Some(picture) = art.get(card.id.as_str())
+        {
+            card.art.clone_from(picture);
+        }
+    }
+}
+
 pub fn retain_appearance(next: &mut Run, host: &Run) {
     next.module_visuals = host.module_visuals.clone();
     for (id, hero) in &mut next.players {
@@ -770,4 +840,28 @@ pub fn timed_symbols<'de, D: Deserializer<'de>>(
         .into_iter()
         .map(|(id, s)| symbol(s).map(|s| (id, s)).map_err(serde::de::Error::custom))
         .collect()
+}
+
+#[cfg(test)]
+mod step_art_tests {
+    use super::*;
+
+    #[test]
+    fn a_steps_capture_leaves_the_books_art_with_the_host() {
+        let run = Run::new(3, 9, None);
+        let drawn = run.book.cards.iter().filter(|c| !c.art.is_empty()).count();
+        assert!(drawn > 0, "the built-in book has pictures");
+        let step = capture_for_step(&run).unwrap().into_value();
+        let mut restored = restore_value(&step).unwrap();
+        assert!(restored.book.cards.iter().all(|c| c.art.is_empty()), "a step's book is bare");
+        assert_eq!(restored.book.cards.len(), run.book.cards.len());
+        // The rules' full capture (a session handed to another owner) keeps it.
+        let full = restore_value(&capture_for_rules(&run).unwrap().into_value()).unwrap();
+        assert_eq!(full.book.cards, run.book.cards);
+        lay_book_art(&mut restored, &run);
+        assert_eq!(restored.book.cards, run.book.cards, "the host's art is laid back");
+        // Outside a step's capture nothing is bare.
+        let again = restore_value(&capture_for_rules(&run).unwrap().into_value()).unwrap();
+        assert_eq!(again.book.cards, run.book.cards);
+    }
 }
