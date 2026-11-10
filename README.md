@@ -8,9 +8,10 @@ The product website is [omni-space.tech](https://omni-space.tech): install,
 documentation, the Glass reel and the measurements published in this
 repository. Source and release downloads stay on GitHub.
 
-angelX is a terminal coding agent. It works inside your repository with the
-models you choose, asks before it runs a command or edits a file, checks its
-work before it reports done, and keeps what it learns about your project.
+angelX is a terminal coding agent in Rust, for local models and API plans. On
+the 136-task polyglot set with Muse Spark 1.3 it solves every task in 37.2
+minutes of agent time on 6.58 M input tokens; Muse Code on the same model takes
+119.8 minutes and 26.33 M. The table is [below](#new-in-027-the-muse-hackathon-update).
 
 ![angelX starting on GLM-5.3: Excalibur raised, the knight on the summit](docs/images/intro.png)
 
@@ -301,6 +302,12 @@ Field proven: 100+ records on Yukon public research leaderboards, with first-pla
 results in kernel optimization, LLM inference and cryptography research, and
 2nd place on the [GPU MODE Cholesky](https://www.gpumode.com/leaderboard/776?tab=rankings)
 leaderboard.  https://www.yukon.org/
+
+Upstream: seven pull requests merged into
+[llama.cpp](https://github.com/ggml-org/llama.cpp/pulls?q=is%3Apr+author%3Anewjordan+is%3Amerged)
+(six in the SYCL backend and a chat-parser fix) and five into
+[audio.cpp](https://github.com/0xShug0/audio.cpp/pulls?q=is%3Apr+author%3Anewjordan+is%3Amerged)
+(its SYCL backend, audio-model kernels and YuE2 support).
 
 ## Contributing
 
