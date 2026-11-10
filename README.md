@@ -298,10 +298,12 @@ retained licenses; research inspiration and incorporated code are identified sep
 
 ## Field results
 
-Field proven: 100+ records on Yukon public research leaderboards, with first-place
-results in kernel optimization, LLM inference and cryptography research, and
-2nd place on the [GPU MODE Cholesky](https://www.gpumode.com/leaderboard/776?tab=rankings)
-leaderboard.  https://www.yukon.org/
+Field proven: 394 contributions across 32 Yukon public research boards
+([solver profile](https://www.yukon.org/solver/newjordan), counted 2026-11-10),
+with first-place results in kernel optimization, LLM inference and cryptography
+research, and 2nd place on the
+[GPU MODE Cholesky](https://www.gpumode.com/leaderboard/776?tab=rankings)
+leaderboard.
 
 Upstream: seven pull requests merged into
 [llama.cpp](https://github.com/ggml-org/llama.cpp/pulls?q=is%3Apr+author%3Anewjordan+is%3Amerged)
