@@ -132,6 +132,7 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
     scene.add(Layer::Ground, move |cv| rewards::under(cv, run));
     scene.add(Layer::Ground, move |cv| factory::paint(cv, false));
     scene.add(Layer::Figures, move |cv| figures_with(cv, run, view, focus));
+    scene.add(Layer::Over, move |cv| industry::plates(cv, run, focus));
     scene.add(Layer::Ground, move |cv| { module_effects::draw(cv, run, crate::realm::effects::Layer::Ground); });
     scene.add(Layer::Over, move |cv| { module_effects::draw(cv, run, crate::realm::effects::Layer::Over); });
     scene.add(Layer::Over, move |cv| aerie::poop(cv, run));
@@ -198,6 +199,7 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
             }
             if run.room().kind.in_world() || run.room().kind == RoomKind::Home {
                 world::boards(cv, run);
+                super::super::cave_seat::mouth_line(cv, run);
             }
             match run.room().kind {
                 RoomKind::Stables => joust::stables_boards(cv, run),

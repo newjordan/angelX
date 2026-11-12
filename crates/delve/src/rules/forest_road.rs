@@ -837,9 +837,7 @@ impl Run {
                 if k.cooldown > cooldown {
                     if let Some(hero) = self.players.get_mut(&id) {
                         if hero.weapon == Weapon::Notes || classes::is_bard(hero) {
-                            // Heard after the volley flew: the next of its song.
-                            hero.groove = hero.groove.saturating_add(1);
-                            super::bard::volley_sounds(id, hero.songs, hero.groove, &mut self.seat_sounds);
+                            // No shot sound: the held trigger plays the song (below).
                         } else {
                             self.sounds.push(classes::shot_sound(hero).unwrap_or(match hero.weapon {
                                 Weapon::Bow => "shot_bow",
@@ -852,14 +850,11 @@ impl Run {
                         }
                     }
                 }
-                // The groove breaks on a ready beat with nothing loosed, as on foot.
-                if k.cooldown == 0 && !inputs.get(&id).is_some_and(|i| i.fire) {
-                    if let Some(hero) = self.players.get_mut(&id).filter(|h| h.groove != 0) {
-                        if hero.groove >= super::bard::DROP_AT {
-                            hero.songs = hero.songs.wrapping_add(1);
-                        }
-                        hero.groove = 0;
-                    }
+                // The Bard's song, as on foot: held, it plays on at its own
+                // clock; let go, it stops and keeps its place (`bard::strum`).
+                let held = k.hp > 0 && inputs.get(&id).is_some_and(|i| i.fire);
+                if let Some(hero) = self.players.get_mut(&id).filter(|h| h.weapon == Weapon::Notes || classes::is_bard(h)) {
+                    super::bard::strum(id, hero, held, &mut self.seat_sounds);
                 }
                 if k.hp < hp {
                     self.sounds.push("hit");

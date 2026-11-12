@@ -24,7 +24,7 @@ impl Kingdom {
     }
     fn energy_nodes(&self, c: &Catalog) -> Vec<PowerNode> {
         let connected = self.connected();
-        let people = self.population.report(&self.settlement_sites(c));
+        let people = self.population.report_with(&self.settlement_sites(c), &crate::population::Rules::of(c, self.world.is_hillside()));
         self.buildings
             .iter()
             .filter_map(|(&id, b)| {
@@ -42,13 +42,14 @@ impl Kingdom {
                     }
                 } else {
                     // Readiness does not call report(): population assignment and
-                    // power allocation can therefore use the same recipe facts.
-                    let ready = self.job(c, b).is_some_and(|(input, output, _)| {
+                    // power allocation can therefore use the same recipe facts. A lift up
+                    // the Great Shaft has no recipe: it is ready whenever it is manned.
+                    let ready = plan.shaft > 0 || self.job(c, b).is_some_and(|(input, output, _)| {
                         covers(&b.input, &input)
                             && !self.target_met(b, &output)
                             && output
                                 .iter()
-                                .all(|(r, n)| b.output.get(r).copied().unwrap_or(0) + n <= 24)
+                                .all(|(r, n)| c.resources[r].waste || b.output.get(r).copied().unwrap_or(0) + n <= 24)
                     });
                     PowerRole::Consumer {
                         demand: p.demand,
@@ -110,7 +111,7 @@ impl Kingdom {
     }
     pub(crate) fn energy_tick(&mut self, c: &Catalog) {
         let connected = self.connected();
-        let people = self.population.report(&self.settlement_sites(c));
+        let people = self.population.report_with(&self.settlement_sites(c), &crate::population::Rules::of(c, self.world.is_hillside()));
         for (&id, b) in &mut self.buildings {
             let Some(plan) = c.plans.get(&b.plan) else {
                 continue;

@@ -9,7 +9,7 @@ impl Kingdom {
             || self
                 .claims
                 .values()
-                .any(|q| q.secured && q.resource == resource)
+                .any(|q| q.secured && q.gives(resource))
     }
 
     /// The union admits old saves without requiring an eager migration.
@@ -21,7 +21,7 @@ impl Kingdom {
                 self.claims
                     .values()
                     .filter(|q| q.secured)
-                    .map(|q| q.resource.clone()),
+                    .flat_map(|q| q.resources().cloned()),
             )
             .collect()
     }
@@ -49,7 +49,8 @@ impl Kingdom {
             return Err("Unlink this claim's mine before releasing it".into());
         }
         if claim.secured {
-            self.secured_resources.insert(claim.resource.clone());
+            let evidence: Vec<String> = claim.resources().cloned().collect();
+            self.secured_resources.extend(evidence);
         }
         self.claims.remove(id);
         Ok("Claim released. A ledger slot is free; earned land charters are kept".into())

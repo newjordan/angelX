@@ -24,8 +24,9 @@ fn frontier_objectives_follow_real_floor_routes_and_explicitly_request_new_trips
         assert_eq!(goal.route.pack, expected_pack);
         assert_eq!(goal.route.floor, expected_floor);
         assert_eq!(goal.route.next_expedition, new_trip);
-        assert_eq!(
-            industry::ore_at(goal.route.pack, goal.route.floor).0,
+        assert!(
+            geology::seam_at(goal.route.pack, goal.route.floor).gives(goal.resource),
+            "the route leads to rock that gives {}",
             goal.resource
         );
         assert!(!goal.route.here);

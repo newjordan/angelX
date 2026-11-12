@@ -59,10 +59,30 @@ impl Run {
             .filter(|(_, h)| !h.away && !h.absent)
             .map(|(&id, _)| id)
             .collect();
+        self.pay_delve_return();
         let hold = self.verdict_hold();
         let again = self.again.get_or_insert_with(|| Again { asked: BTreeSet::new(), left: hold });
         again.left = again.left.saturating_sub(1);
         again.left == 0 || here.iter().all(|id| again.asked.contains(id))
+    }
+
+    fn pay_delve_return(&mut self) {
+        if self.home.delve_paid || !crate::kingdom::pace::evening() {
+            return;
+        }
+        let depth = self.home.deepest.max(self.dungeon.depth);
+        if depth == 0 {
+            return;
+        }
+        let boss = self.phase == Phase::Won || depth >= DEEPEST;
+        let n = self.home.industry.pay_delve(depth, boss);
+        if n == 0 && self.home.industry.keep_site().is_none() {
+            return;
+        }
+        self.home.delve_paid = true;
+        if n > 0 {
+            self.notices.push(crate::kingdom::Kingdom::delve_plate(n));
+        }
     }
 }
 

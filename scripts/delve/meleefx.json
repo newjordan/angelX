@@ -1,0 +1,50 @@
+{
+ "kinds": {
+  "slash": {
+   "fx": "melee/sword-slash",
+   "reach": 3.3,
+   "from": 0.08,
+   "to": 0.3467,
+   "radius": true
+  },
+  "overhead": {
+   "fx": "melee/heavy-cleave",
+   "reach": 3.3,
+   "from": 0.3,
+   "to": 0.5667
+  },
+  "thrust": {
+   "fx": "melee/thrust",
+   "reach": 3.3,
+   "from": 0,
+   "to": 0.2667,
+   "reachOpt": true
+  },
+  "slam": {
+   "fx": "melee/hammer-smash",
+   "reach": 3.3,
+   "from": 0.12,
+   "to": 0.3867
+  },
+  "fist": {
+   "fx": "melee/uppercut",
+   "reach": 1.25,
+   "from": 0.04,
+   "to": 0.3067
+  }
+ },
+ "hit": {
+  "fx": "impacts/hit-spark",
+  "from": 0,
+  "to": 0.2
+ },
+ "looks": {
+  "ember": "fire",
+  "ice": "ice",
+  "gold": "gold",
+  "venom": "poison",
+  "void": "shadow",
+  "rose": "blood",
+  "steel": "metal"
+ }
+}

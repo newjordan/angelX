@@ -227,7 +227,7 @@ impl Run {
             fx::ground_pace(h, webs, song, roads.as_deref(), tune)
         });
         // A carrier goes slower for every rider, as the sim has it.
-        let speed = speed * self.shoulders.pace(id);
+        let speed = speed * self.shoulders.pace(id) * self.hands.pace(id);
         // In the Wax Maze, the lanes' glide, as the sim steps it.
         let glided = self
             .folly

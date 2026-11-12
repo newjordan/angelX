@@ -382,6 +382,18 @@ pub struct Img {
 /// Nothing touched.
 const UNTOUCHED: (i32, i32, i32, i32) = (i32::MAX, i32::MAX, i32::MIN, i32::MIN);
 
+impl Img {
+    pub(crate) fn copy(&self) -> Self {
+        Self {
+            w: self.w,
+            h: self.h,
+            px: self.px.clone(),
+            span: self.span,
+            touched: self.touched,
+        }
+    }
+}
+
 impl PartialEq for Img {
     fn eq(&self, other: &Self) -> bool {
         (self.w, self.h, self.span) == (other.w, other.h, other.span) && same_words(&self.px, &other.px)
@@ -972,6 +984,67 @@ impl Img {
             };
         }
         out.touch(0, 0, out.span.2, out.span.3);
+    }
+
+    /// Figure over scenery, integer nearest-neighbour, into `out` at `(ox, oy)`,
+    /// each source pixel a `k` by `k` block. Same pixels as the per-pixel
+    /// get/set loop when every picture is whole, the two sources match, and
+    /// the block fits. Transparent stays the paper already in `out`.
+    pub fn compose_kx(
+        figures: &Img,
+        scenery: &Img,
+        out: &mut Img,
+        ox: i32,
+        oy: i32,
+        k: i32,
+    ) -> bool {
+        if k < 1
+            || !figures.whole()
+            || !scenery.whole()
+            || !out.whole()
+            || figures.w != scenery.w
+            || figures.h != scenery.h
+            || ox < 0
+            || oy < 0
+        {
+            return false;
+        }
+        let (sw, sh) = (scenery.w, scenery.h);
+        let tw = sw.saturating_mul(k);
+        let th = sh.saturating_mul(k);
+        if ox.saturating_add(tw) > out.w || oy.saturating_add(th) > out.h {
+            return false;
+        }
+        let sw = sw as usize;
+        let sh = sh as usize;
+        let k = k as usize;
+        let ow = out.w as usize;
+        let ox = ox as usize;
+        let oy = oy as usize;
+        for sy in 0..sh {
+            let row = sy * sw;
+            for sx in 0..sw {
+                let figure = figures.px[row + sx];
+                let scene = scenery.px[row + sx];
+                let word = if figure & OPAQUE != 0 {
+                    figure
+                } else if scene & OPAQUE != 0 {
+                    scene
+                } else {
+                    continue;
+                };
+                let x0 = ox + sx * k;
+                let y0 = oy + sy * k;
+                for dy in 0..k {
+                    let start = (y0 + dy) * ow + x0;
+                    out.px[start..start + k].fill(word);
+                }
+            }
+        }
+        if tw > 0 && th > 0 {
+            out.touch(ox as i32, oy as i32, tw, th);
+        }
+        true
     }
 
     /// The packed words, row-major, `0xAARRGGBB`: alpha 0 is transparent

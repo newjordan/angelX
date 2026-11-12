@@ -13,7 +13,8 @@ pub enum OreKind {
 }
 impl OreKind {
     pub const ALL: [Self; 4] = [Self::Iron, Self::Coal, Self::Crystal, Self::Ember];
-    pub fn for_resource(resource: &str) -> Option<Self> {
+    /// The four ores a land charter asks for, and the sentries each has.
+    pub fn legacy(resource: &str) -> Option<Self> {
         Some(match resource {
             "iron-ore" => Self::Iron,
             "coal" => Self::Coal,
@@ -21,6 +22,11 @@ impl OreKind {
             "ember" => Self::Ember,
             _ => return None,
         })
+    }
+    /// The sentries that hold a seam whose claim is of `resource`: an ore,
+    /// or the quarry stone of its pack (`geology`).
+    pub fn for_resource(resource: &str) -> Option<Self> {
+        super::geology::guard_for(resource)
     }
     pub fn resource(self) -> &'static str {
         match self {
@@ -144,25 +150,29 @@ impl Run {
                         .industry
                         .claims
                         .get(id)
-                        .is_some_and(|c| !c.secured && c.resource == e.kind.resource())
+                        .is_some_and(|c| {
+                            (!c.secured || self.kingdom.stir.raiding(id))
+                                && super::geology::guards_for(&c.resource).contains(&e.kind)
+                        })
             })
     }
     pub(super) fn tick_ore_sentries(&mut self, deposit: &industry::Deposit) {
         if !self.active()
             || self.dungeon.depth == 0
-            || self.kingdom.claim_bosses.contains_key(&deposit.id)
+            || (self.kingdom.claim_bosses.contains_key(&deposit.id)
+                && !self.kingdom.stir.raiding(&deposit.id))
         {
             return;
         }
-        let Some(kind) = OreKind::for_resource(deposit.resource) else {
-            return;
-        };
+        let kind = deposit.seam.guard();
+        // A claim's sentries stand until it is won, and again while a raid
+        // of the Deep is on (`stir`).
         if !self
             .home
             .industry
             .claims
             .get(&deposit.id)
-            .is_some_and(|c| !c.secured)
+            .is_some_and(|c| !c.secured || self.kingdom.stir.raiding(&deposit.id))
         {
             return;
         }

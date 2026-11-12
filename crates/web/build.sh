@@ -37,13 +37,16 @@ game=${2:-$(basename "$crate_dir")}
 package=$(sed -n 's/^name *= *"\(.*\)"/\1/p' "$crate_dir/Cargo.toml" | head -n 1)
 lib=$(printf '%s' "$package" | tr - _)
 target_dir=${CARGO_TARGET_DIR:-$crates/target}
+# The cargo profile the wasm is built in: `web` (fat LTO, what a phone downloads), or `web-fast`
+# (no LTO, a fraction of the link time) for trying a change; the bundle is the same either way.
+profile=${WEB_PROFILE:-web}
 
-(cd "$crates" && cargo build -p "$package" --profile web --target wasm32-unknown-unknown)
+(cd "$crates" && cargo build -p "$package" --profile "$profile" --target wasm32-unknown-unknown)
 
 out="$here/dist/$game"
 rm -rf "$out"
 mkdir -p "$out"
-cp "$target_dir/wasm32-unknown-unknown/web/$lib.wasm" "$out/$game.wasm"
+cp "$target_dir/wasm32-unknown-unknown/$profile/$lib.wasm" "$out/$game.wasm"
 cp "$here/shell/"*.js "$here/shell/"*.css "$here/shell/"*.ttf "$out/"
 
 # The page's rules modules (rules.js, as crates/web/rules_js.rs writes it):
@@ -86,9 +89,9 @@ elif [ "$("$bindgen" --version 2>/dev/null | awk '{ print $2 }')" != "$pinned" ]
   echo "$bindgen is not version $pinned: the bundle has no GPU renderer, the page draws as before"
 else
   for build in webgpu webgl; do
-    (cd "$crates" && cargo build -p angel-web-render --profile web --target wasm32-unknown-unknown --features "$build")
+    (cd "$crates" && cargo build -p angel-web-render --profile "$profile" --target wasm32-unknown-unknown --features "$build")
     "$bindgen" --target web --no-typescript --out-dir "$out" --out-name "render-$build" \
-      "$target_dir/wasm32-unknown-unknown/web/angel_web_render.wasm"
+      "$target_dir/wasm32-unknown-unknown/$profile/angel_web_render.wasm"
     renderers="$renderers${renderers:+,}\"$build\":{\"js\":\"{{asset:render-$build.js}}\",\"wasm\":\"{{asset:render-${build}_bg.wasm}}\"}"
     render_files="$render_files render-$build.js render-${build}_bg.wasm"
   done

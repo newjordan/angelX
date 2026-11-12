@@ -374,8 +374,34 @@ fn racer_keys(run: &Run) -> BTreeMap<u32, Input> {
     }).collect()
 }
 
+/// A knight who never drives does not hold the floor: the sprint's clock calls the race and the
+/// order stands.
 #[test]
-fn the_knight_racers_card_runs_one_lap_and_pays_the_purse_in_finishing_order() {
+fn the_sprint_clock_calls_the_race_when_nobody_reaches_the_flag() {
+    let mut run = stairs(3, 2);
+    run.descend();
+    run.crossroads.as_mut().unwrap().choices = [Game::Racers, Game::Powder, Game::Shaft];
+    vote(&mut run, 1, 1);
+    vote(&mut run, 2, 1);
+    assert!(run.crossroads_racing());
+    let flag = crate::rules::knight_racers::race::COUNTDOWN + RACERS_LIMIT;
+    let mut ticks = 0;
+    while run.crossroads.as_ref().unwrap().stage == Stage::Playing {
+        run.step(&BTreeMap::new());
+        ticks += 1;
+        if ticks == HZ * 10 {
+            let left = run.knight_racers.as_ref().unwrap().left().unwrap();
+            assert!(left > 0. && left < RACERS_LIMIT as f32 / HZ as f32, "the clock counts down ({left})");
+        }
+        assert!(ticks <= flag + 10, "the clock calls it ({ticks} ticks)");
+    }
+    assert!(ticks + 10 >= flag, "not before the clock ({ticks} ticks)");
+    assert_eq!(run.crossroads.as_ref().unwrap().stage, Stage::Results);
+    assert_eq!(run.crossroads.as_ref().unwrap().order.len(), 2, "both knights are placed where they stopped");
+}
+
+#[test]
+fn the_knight_racers_card_runs_a_quarter_lap_sprint_and_pays_the_purse_in_finishing_order() {
     let mut run = stairs(3, 2);
     run.descend();
     run.crossroads.as_mut().unwrap().choices = [Game::Racers, Game::Powder, Game::Shaft];
@@ -395,6 +421,8 @@ fn the_knight_racers_card_runs_one_lap_and_pays_the_purse_in_finishing_order() {
     assert!(run.crossroads_racing());
     let race = run.knight_racers.as_ref().expect("the card puts the party on the grid");
     assert_eq!(race.laps(), 1);
+    assert!((race.distance() - race.course().lap() * RACERS_SHARE).abs() < 0.01, "a quarter of the lap");
+    assert_eq!(race.limit, RACERS_LIMIT);
     assert!(crate::rules::knight_racers::cup().contains(&race.course));
     assert!(race.cars.contains_key(&1) && race.cars.contains_key(&2));
     assert_ne!(race.cars[&1].pod, race.cars[&2].pod, "each knight races the pod of their seat");
@@ -407,13 +435,17 @@ fn the_knight_racers_card_runs_one_lap_and_pays_the_purse_in_finishing_order() {
         run.step(&keys);
         ticks += 1;
         if ticks % 300 == 0 { shot(&run, &format!("1-race-{ticks:05}")); }
+        if let Some(r) = run.knight_racers.as_ref() {
+            for car in r.cars.values() { assert!(car.d <= r.distance() + 0.01, "nobody runs past the flag"); }
+        }
         assert!(ticks <= RACERS_TIME + 10, "the race must end on time");
     }
     let c = run.crossroads.as_ref().unwrap();
     assert_eq!(c.stage, Stage::Results);
     assert_eq!(c.order.len(), 2, "both knights are placed");
     shot(&run, "2-purse");
-    assert!(ticks < RACERS_TIME, "two knights driving the line finish one lap before the cap ({ticks} ticks)");
+    let flag = crate::rules::knight_racers::race::COUNTDOWN + RACERS_LIMIT;
+    assert!(ticks < flag, "two knights driving the line finish the sprint inside its clock ({ticks} ticks)");
     assert!(run.knight_racers.is_none());
     assert_eq!(run.bank.len() - gold_before, 2);
     assert!(run.valid_snapshot());
@@ -429,7 +461,9 @@ fn a_knight_who_never_drives_cannot_hold_the_racers_card_past_its_time() {
     run.crossroads.as_mut().unwrap().choices = [Game::Racers, Game::Powder, Game::Shaft];
     vote(&mut run, 1, 1);
     assert!(run.knight_racers.as_ref().unwrap().cars.values().filter(|c| c.cpu).count() == 5, "a lone knight races five rivals");
-    for _ in 0..RACERS_TIME + 2 { run.step(&BTreeMap::new()); }
+    // The sprint's clock calls it, well inside the card's own backstop.
+    let flag = crate::rules::knight_racers::race::COUNTDOWN + RACERS_LIMIT;
+    for _ in 0..flag + 2 { run.step(&BTreeMap::new()); }
     assert_eq!(run.crossroads.as_ref().unwrap().stage, Stage::Results);
     assert_eq!(run.crossroads.as_ref().unwrap().order, vec![1]);
 }

@@ -58,15 +58,11 @@ impl Run {
             d.id.clone(),
             Claim {
                 resource: d.resource.into(),
-                name: d.name.into(),
-                source: format!(
-                    "{} / floor {}",
-                    self.dungeon.pack.name(),
-                    self.dungeon.depth
-                ),
+                name: d.name.clone(),
+                source: d.seam.source(),
                 secured: false,
-                rate: 2,
-            },
+                rate: d.seam.rate(),
+                yields: d.seam.yields(), surface: false },
         )
     }
 }

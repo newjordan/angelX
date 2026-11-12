@@ -8,7 +8,8 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap};
 pub type Tile = (i16, i16);
 pub const MAX_ACTORS: usize = 256;
 pub const MAX_PATH: usize = 512;
-pub const MAX_NAVIGATION_CELLS: usize = 4096;
+/// The valley is 3,888 cells; the hillside, the whole 240 x 176 realm, is 42,240.
+pub const MAX_NAVIGATION_CELLS: usize = 65_536;
 
 /// Owned, passable ground in row-major order. Roads are preferred, while land
 /// remains available for builders carrying supplies to a new wall or courtyard.

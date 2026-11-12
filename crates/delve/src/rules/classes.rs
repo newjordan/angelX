@@ -67,8 +67,8 @@ pub const HOLY: &str = "holy";
 pub const SONG: &str = "song";
 
 /// What a class's own shot sounds like as it leaves. The Bard has none to
-/// name: its stream plays the next slice of its song on the beat
-/// (`bard::volley_sounds`), for its own ears alone.
+/// name: its held trigger plays the next slice of its song on the beat
+/// (`bard::strum`), for its own ears alone.
 pub fn shot_sound(hero: &Hero) -> Option<&'static str> {
     match of(hero)?.name {
         "Mage" => Some("shot_arcane"),

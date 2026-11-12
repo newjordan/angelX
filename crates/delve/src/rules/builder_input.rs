@@ -13,14 +13,23 @@ pub enum BuilderAction {
     Selection(u16),
     Confirm,
     NextPlan { back: bool },
+    /// The mouse button still held, and the pointer on a new tile (a row laid, a line drawn).
+    Hold((u8, u8)),
+    /// The button let go on a tile.
+    Let((u8, u8)),
+    /// A hotbar slot clicked (0 to 8).
+    Slot(u8),
 }
 impl BuilderAction {
     pub fn valid(self) -> bool {
         match self {
-            Self::Plot { tile, .. } => i16::from(tile.0) < WIDTH && i16::from(tile.1) < HEIGHT,
+            // (The hillside's tiles are the realm's, 240 by 176; the valley's desk is 72 by 54.)
+            Self::Plot { tile, .. } => i16::from(tile.0) < crate::kingdom::REALM_WIDTH && i16::from(tile.1) < crate::kingdom::REALM_HEIGHT,
             Self::Page(n) => n < 9,
-            Self::Plan(n) => usize::from(n) <= catalog().menu.len(),
+            Self::Plan(n) => usize::from(n) <= catalog().menu.len().max(super::hillside::tools().len()),
             Self::Selection(n) => n < 512,
+            Self::Hold(tile) | Self::Let(tile) => i16::from(tile.0) < crate::kingdom::REALM_WIDTH && i16::from(tile.1) < crate::kingdom::REALM_HEIGHT,
+            Self::Slot(n) => usize::from(n) < super::builder_rig::SLOTS,
             Self::Confirm | Self::NextPlan { .. } => true,
         }
     }
@@ -37,6 +46,9 @@ impl BuilderAction {
             }
             Self::Confirm => out.push(4),
             Self::NextPlan { back } => out.extend_from_slice(&[5, u8::from(back)]),
+            Self::Hold(tile) => out.extend_from_slice(&[6, tile.0, tile.1]),
+            Self::Let(tile) => out.extend_from_slice(&[7, tile.0, tile.1]),
+            Self::Slot(n) => out.extend_from_slice(&[8, n]),
         }
     }
     pub(super) fn read(b: &mut Bytes) -> Option<Self> {
@@ -57,6 +69,9 @@ impl BuilderAction {
             5 => Self::NextPlan {
                 back: boolean(b.byte().ok()?)?,
             },
+            6 => Self::Hold((b.byte().ok()?, b.byte().ok()?)),
+            7 => Self::Let((b.byte().ok()?, b.byte().ok()?)),
+            8 => Self::Slot(b.byte().ok()?),
             _ => return None,
         };
         action.valid().then_some(action)
@@ -92,7 +107,7 @@ pub fn layout(run: &Run, knight: u32) -> Option<Layout> {
         c.technologies.len(),
         super::kingdom_gear::ITEMS.len(),
         k.claims.len(),
-        super::industry::ORES.len(),
+        super::geology::ROWS.len(),
         0,
         k.population.citizens.len(),
         9,
@@ -340,6 +355,11 @@ mod tests {
                 tile: (71, 53),
                 build: true,
             },
+            // The hillside's tiles are the realm's: 240 by 176.
+            BuilderAction::Plot {
+                tile: (239, 175),
+                build: true,
+            },
             BuilderAction::Plot {
                 tile: (0, 0),
                 build: false,
@@ -371,8 +391,12 @@ mod tests {
         }
         for action in [
             BuilderAction::Plot {
-                tile: (72, 0),
+                tile: (240, 0),
                 build: true,
+            },
+            BuilderAction::Plot {
+                tile: (0, 176),
+                build: false,
             },
             BuilderAction::Page(9),
             BuilderAction::Plan(255),

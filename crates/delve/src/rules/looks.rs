@@ -754,11 +754,13 @@ impl Hero {
     /// more ([`super::identity::MOST_WORN`]).
     pub fn worn<'a>(&self, book: &'a Book) -> Vec<&'a Sprite> {
         let mut seen = Vec::new();
+        // A whole look set aside at the pub is not drawn (`set_aside`).
+        let aside = |id: &str, s: &Sprite| whole(s) && self.set_aside.iter().any(|k| k == id);
         let all: Vec<&Sprite> = self
             .worn_cards(book)
             .filter_map(|c| {
                 let sprite = c.looks.worn.as_ref()?;
-                if super::dead_wishes::colours_body(c) { return None; }
+                if super::dead_wishes::colours_body(c) || aside(&c.id, sprite) { return None; }
                 if seen.contains(&c.id) {
                     return None;
                 }
@@ -769,13 +771,27 @@ impl Hero {
         let most = if self.shape.is_some() { super::identity::MOST_WORN } else { 3 };
         let mut worn = all[all.len().saturating_sub(most)..].to_vec();
         // Mirror ink is not held equipment: it lives outside the deck.
-        if let Some(sprite) = book.get(&super::cosmetic_wish::key(self.mirror_owner()))
+        let mirror = super::cosmetic_wish::key(self.mirror_owner());
+        if let Some(sprite) = book.get(&mirror)
             .and_then(|c| c.looks.worn.as_ref())
+            .filter(|s| !aside(&mirror, s))
         {
             worn = worn[worn.len().saturating_sub(most.saturating_sub(1))..].to_vec();
             worn.push(sprite);
         }
         worn
+    }
+
+    /// The whole-body looks the knight wears now (by card id, the mirror's
+    /// by its key): what picking a code-drawn knight at the pub sets aside.
+    pub fn whole_looks(&self, book: &Book) -> Vec<String> {
+        let mirror = super::cosmetic_wish::key(self.mirror_owner());
+        self.worn_cards(book)
+            .filter(|c| !super::dead_wishes::colours_body(c))
+            .chain(book.get(&mirror))
+            .filter(|c| c.looks.worn.as_ref().is_some_and(whole))
+            .map(|c| c.id.clone())
+            .collect()
     }
 
     /// The newest sprite of `slot` the knight holds (orbit, aura).
@@ -784,6 +800,11 @@ impl Hero {
             .filter_map(|c| c.looks.get(slot))
             .last()
     }
+}
+
+/// A sprite worn over the whole body (no place, or `whole`), not a piece on it.
+fn whole(s: &Sprite) -> bool {
+    s.at.as_deref().is_none_or(|at| at == "whole")
 }
 
 /// The big spiked pavise the brief's example draws, a piece put on the

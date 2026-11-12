@@ -128,7 +128,7 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
         }
         Kit::MineMouth | Kit::DelveGate | Kit::Crag | Kit::Cliffs | Kit::Eyrie => {
             let h = match b.kit {
-                Kit::DelveGate => 110.0,
+                Kit::DelveGate => GATE_CROWN,
                 Kit::MineMouth => 84.0,
                 Kit::Eyrie => 120.0,
                 _ => base * 1.1,
@@ -146,6 +146,8 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
             if b.kit == Kit::Eyrie {
                 m.put("cylinder-12", Kind::Wood, [0.0, h - 3.0, -2.0], [m.w * 0.5, 7.0, m.d * 0.5], 0.0);
             }
+            // (The Great Shaft's head on the DelveGate's crown is the run's
+            // own, at the tier it has raised the shaft to: `shaft_head`.)
         }
         // The blank-slate plan's two places (`crate::world::plan`).
         Kit::KeepBegun => super::realm_camp::keep_begun(&mut m, y0, &mut s),
@@ -183,6 +185,20 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
     s.take(m);
     s
 }
+
+/// The Great Shaft's head at `tier` on the crown of the Delve gate's heap,
+/// `b` the gate as the chunks stand it (`chunks::delve_gate_on`): the run's
+/// to stand, as the shaft has been raised (`realm_shaft`).
+pub fn shaft_head(b: &Build, tier: crate::rules::stockyard::Tier) -> Stood {
+    let mut m = Mono::on(super::blockout::px(b.foot), b.face, b.seed);
+    let mut s = Stood::default();
+    super::realm_shaft::head(&mut m, GATE_CROWN, &mut s, tier);
+    s.take(m);
+    s
+}
+
+/// How high the Delve gate's heap rises, where the shaft's head stands.
+const GATE_CROWN: f32 = 110.0;
 
 /// The common mass: a stepped plinth, a body to `h`, its cornice, a string
 /// course, fins across the front, a row of slits high in it (`lit` of them

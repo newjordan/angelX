@@ -10,6 +10,8 @@ impl Run {
     /// pattern (`monsters`, `patterns`), held to its caps and its leash.
     /// What they did beyond shooting comes back as deeds (`foes`).
     pub(super) fn foes_turn(&mut self, sortie: &mut Sortie) -> foes::Deeds {
+        // The Deep's raiders on the hillside march for the works while no knight is near them.
+        let raiders = self.raid_goals();
         let grid = Grid { room: &self.dungeon.rooms[self.at], barred: sortie.barred };
         let (side, depth) = (sortie.side, sortie.depth);
         let mut deeds = foes::Deeds::default();
@@ -18,8 +20,10 @@ impl Run {
         let knights: press::Knights = self
             .players
             .iter()
-            .filter(|(_, hero)| {
-                hero.targetable() && !hero.has_rune(runes::RuneKind::Invisibility)
+            .filter(|(id, hero)| {
+                hero.targetable()
+                    && !hero.has_rune(runes::RuneKind::Invisibility)
+                    && !self.caves.inside(**id)
             })
             .map(|(&id, hero)| (id, hero.x, hero.y))
             .collect();
@@ -49,8 +53,10 @@ impl Run {
         let knight_paces: Vec<(f32, f32)> = self
             .players
             .iter()
-            .filter(|(_, hero)| {
-                hero.targetable() && !hero.has_rune(runes::RuneKind::Invisibility)
+            .filter(|(id, hero)| {
+                hero.targetable()
+                    && !hero.has_rune(runes::RuneKind::Invisibility)
+                    && !self.caves.inside(**id)
             })
             .map(|(id, hero)| {
                 let (x, y) = sortie.stood.get(id).copied().unwrap_or((hero.x, hero.y));
@@ -64,8 +70,8 @@ impl Run {
         let mut living: Vec<(f32, f32)> = Vec::with_capacity(knights.len() + decoys.len());
         let heads = self
             .players
-            .values()
-            .filter(|h| h.hp > 0 && !h.stone)
+            .iter()
+            .filter(|(id, h)| h.hp > 0 && !h.stone && !self.caves.inside(**id))
             .count();
         let mut paces = Vec::with_capacity(knights.len() + decoys.len());
         let holding = self.holding();
@@ -143,6 +149,15 @@ impl Run {
             };
             enemy.age = enemy.age.saturating_add(1);
             if enemy.age < TELEGRAPH {
+                continue;
+            }
+            if let Some(&goal) = raiders.get(&enemy.id)
+                && !knights.iter().any(|&(_, kx, ky)| (kx - enemy.x).hypot(ky - enemy.y) <= deep_raid::AGGRO)
+            {
+                // Marching for the works; with no goal yet, waiting at the shaft's mouth.
+                if let Some(goal) = goal {
+                    deep_raid::march(enemy, goal, &grid);
+                }
                 continue;
             }
             let rest = enemy.y;

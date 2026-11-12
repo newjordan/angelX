@@ -13,7 +13,9 @@
 //!   with nothing, but a camp, where the other models castles should be
 //!   built"): one open grass country, the Keep a tiny castle just begun in
 //!   the middle of it, a camp for each model house on a loose ring of
-//!   hillside round it, and the way down to the Delve beside the Keep.
+//!   hillside round it, and the way down to the Delve beside the Keep. (The
+//!   Keep is now the Works' site: the great tower, raised stone by stone,
+//!   with the Delve's gate and the spawn inside its bailey.)
 //!
 //! **To bring the full old realm back, change [`PLAN`] to [`Plan::Full`].**
 //! Nothing is deleted: every authored screen, region, road, room and castle
@@ -93,15 +95,19 @@ pub mod tabula {
     /// The one biome the whole country is: the frontier, "The March".
     pub const BIOME: crate::world::biome::Biome = crate::world::biome::Biome::March;
 
-    /// The Keep, a tiny castle just begun: a squat tower and its stump, low
-    /// wall stubs, scaffolding and a stone pile, `8 x 5` tiles, small enough
-    /// to see whole at a glance (the view is 24 x 14). Wholly inside chunk
-    /// (5, 5), at the middle of the map.
-    pub const KEEP: Rect = (124, 83, 8, 5);
+    /// The Keep's site: the great tower raised stone by stone (`world::works`,
+    /// docs: the Works), its ditch and all, `28 x 28` tiles on tile corner
+    /// `works::ORIGIN`. The static map holds the whole of it closed (nothing
+    /// is placed, no one is sent across it); what a knight may walk on inside
+    /// is the site's (`rules::site`): the bailey, the gate's causeway, the
+    /// Delve's gate and the spawn open, the ditch, the walls and the keep
+    /// shut as they are dug and laid. Over chunks (4, 4), (5, 4), (4, 5) and
+    /// (5, 5).
+    pub const KEEP: Rect = (119, 67, 28, 28);
 
-    /// Where the Keep's door would be: the tile before its middle, the
-    /// realm's spawn and the walkers' start.
-    pub const KEEP_STAND: (i32, i32) = (128, 88);
+    /// The spawn and the walkers' start: in the bailey, in the lee of the
+    /// gate. The castle is raised over the way down, which is the story.
+    pub const KEEP_STAND: (i32, i32) = (133, 89);
 
     /// The Delve's gate, a stair into the hillside beside the Keep.
     pub const DELVE_GATE: Rect = (139, 84, 3, 3);
@@ -161,13 +167,17 @@ pub mod tabula {
     }
 
     /// Whether `(x, y)` is a tile a knight may walk on in this plan: on the
-    /// map, one tile in from its rim, and not on closed ground.
+    /// map, one tile in from its rim, and not on closed ground. The Keep's
+    /// site counts as open here (its walls and ditch are the Works', laid as
+    /// the castle rises: `rules::site`, tested against every state of the
+    /// build in `world::works`).
     pub fn walkable(x: i32, y: i32) -> bool {
+        let site = |&r: &Rect| r == KEEP;
         x > 0
             && y > 0
             && x < MAP_W - 1
             && y < MAP_H - 1
-            && !closed().iter().any(|&(tx, ty, tw, th)| x >= tx && y >= ty && x < tx + tw && y < ty + th)
+            && !closed().iter().filter(|r| !site(r)).any(|&(tx, ty, tw, th)| x >= tx && y >= ty && x < tx + tw && y < ty + th)
     }
 
     /// The chunk `(cx, cy)` a rectangle lies wholly inside, if it does.

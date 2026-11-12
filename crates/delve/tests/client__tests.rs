@@ -276,6 +276,31 @@ fn the_map_key_held_lays_the_floor_over_this_seats_screen_and_nothing_else() {
     assert!(!c.map_open());
 }
 
+/// The map key held at the Keep stands the view back for the page as for the window (the page
+/// draws through `DelveClient::draw`, which must wrap its frame in `stand_back::with`).
+#[test]
+#[ignore = "needs the blank-slate plan standing: ANGEL_REALM_PLAN=tabula"]
+fn the_page_draws_the_stand_back_view_when_the_map_key_is_held_at_the_keep() {
+    use crate::render::overworld::arena::stand_back::WENT;
+    assert!(crate::world::plan::tabula(), "run with ANGEL_REALM_PLAN=tabula");
+    let mut run = Run::at_home(41, 1, None, Default::default(), Default::default());
+    run.walk_kingdom(Some(crate::world::plan::tabula::KEEP_STAND));
+    let mut host = Host::new(run);
+    let mut c = client(Some(0)).exact();
+    host.send(&mut c);
+    host.step(&[]);
+    host.send(&mut c);
+    let draw = |c: &mut DelveClient, hands: Hands| {
+        let mut frame = Frame::default();
+        c.draw(&view(c, &[], 0, hands, 0.0), &mut frame);
+    };
+    let before = WENT.with(|n| n.get());
+    draw(&mut c, Hands::default());
+    assert_eq!(WENT.with(|n| n.get()), before, "nothing held, nothing stood back");
+    draw(&mut c, held(key::MAP_KEY));
+    assert!(WENT.with(|n| n.get()) > before, "the map key is held at the Keep and the page's view did not stand back");
+}
+
 #[test]
 fn a_press_during_the_floors_plate_dismisses_it_and_does_nothing_else() {
     let mut run = fight();

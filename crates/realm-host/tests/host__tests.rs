@@ -401,3 +401,270 @@ fn joining_a_friends_delve_closes_the_delves_menu() {
     }
     assert!(guest.dungeon.shooter.is_none());
 }
+
+
+/// Host and guest enter the cave over the loopback socket. The host digs.
+/// The guest's decoded run has that hole, and a guest who joins after the dig has it too.
+#[test]
+fn a_guest_decodes_the_cave_the_host_dug() {
+    use std::time::Instant;
+    let _guard = crate::tests::env_lock();
+    let mut run = crate::together_shooter::Run::new(11, 2, Some("Briar"));
+    // descend_for_test leaves floor 2. The mouth is stamped only on floor 1,
+    // so a hold there never enters. A real session stamps the mouth on arrival.
+    run.calm_for_test();
+    if let Some(start) = run.dungeon.rooms.iter().position(|r| r.kind == crate::together_shooter::RoomKind::Start) {
+        run.at = start;
+        run.stamp_cave_mouth();
+    }
+    let mouth = crate::together_shooter::caves::FLOOR_MOUTH.at;
+    let x = mouth.0 as f32 * crate::together_shooter::TILE_UNITS;
+    let y = mouth.1 as f32 * crate::together_shooter::TILE_UNITS;
+    for hero in run.players.values_mut() {
+        hero.x = x;
+        hero.y = y;
+    }
+    let mut hosted = host();
+    hosted.dungeon.shooter.prefer_thread(false);
+    hosted.dungeon.shooter.set(Some(run));
+    hosted
+        .dungeon
+        .shooter
+        .host(crate::together_sim::Door {
+            bind: "127.0.0.1:0".parse().unwrap(),
+            seats: 4,
+            key: None,
+            bundle: None,
+        })
+        .unwrap();
+    // host() serves a new live run. Controls set before that are discarded,
+    // and the new server stays inactive, so the mouth hold never ticks.
+    let playing = crate::together_sim::Controls {
+        active: true,
+        keyboard: true,
+        hosted: true,
+        watching: false,
+        ..Default::default()
+    };
+    hosted.dungeon.shooter.set_controls(playing);
+    let (addr, key) = hosted.dungeon.shooter.invitation().unwrap();
+    let mut guest = host();
+    let mut cx = TestCx::new("cave-wire");
+    let said = guest
+        .session(&mut cx)
+        .dungeon_command(Some(&format!("join http://{addr}/#{key}")));
+    assert!(said.starts_with("Joined the delve"), "the guest did not join");
+
+    let hold = {
+        let mut input = crate::together_shooter::Input::default();
+        input.interact = true;
+        crate::together_seat::bits(&input)
+    };
+    let mut snapshot = 0u64;
+    let deadline = Instant::now() + Duration::from_secs(12);
+    let mut stepped = 0u32;
+    while Instant::now() < deadline {
+        if let Some(seat) = hosted.dungeon.shooter.seat(1) {
+            seat.set_held(hold);
+            seat.tick(Instant::now());
+        }
+        hosted.dungeon.shooter.pump(Instant::now());
+        stepped += 1;
+        // as_ref caches the first snapshot. The cockpit latches each frame.
+        hosted.dungeon.shooter.latch();
+        if let Some(joined) = guest.dungeon.joined.as_mut() {
+            joined.seat.set_held(hold);
+            joined.seat.tick(Instant::now());
+            joined.refresh(std::time::Instant::now());
+            if snapshot == 0 && joined.run().is_some() {
+                snapshot = joined.seat.socket_bytes().0;
+            }
+        }
+        std::thread::sleep(Duration::from_millis(30));
+        let host_in = hosted.dungeon.shooter.as_ref().is_some_and(|r| r.caves.inside(1));
+        let guest_in = guest
+            .dungeon
+            .joined
+            .as_ref()
+            .and_then(|j| j.run())
+            .is_some_and(|r| r.caves.inside(1));
+        if host_in && guest_in {
+            break;
+        }
+    }
+    let host_run = hosted.dungeon.shooter.as_ref().expect("host run");
+    if !host_run.caves.inside(1) {
+        let hero = host_run.players.get(&1);
+        eprintln!(
+            "enter miss steps={stepped} depth={} stone={:?} pos={:?}",
+            host_run.dungeon.depth,
+            hero.map(|h| h.stone),
+            hero.map(|h| (h.x, h.y)),
+        );
+    }
+    assert!(host_run.caves.inside(1), "host knight never entered");
+    let decoded = guest.dungeon.joined.as_ref().and_then(|j| j.run()).expect("guest run");
+    assert!(decoded.caves.inside(1), "guest decoded run has no cave seat");
+    assert_eq!(decoded.caves.seed, host_run.caves.seed);
+
+    let aim = host_run.caves.soft_aim().expect("a soft face");
+    if let Some(run) = hosted.dungeon.shooter.edit() {
+        if let Some(seat) = run.caves.seats.get_mut(&1) {
+            seat.x = aim.0;
+            seat.y = aim.1;
+        }
+    }
+    let mut dig = crate::together_shooter::Input::default();
+    dig.fire = true;
+    dig.aim_x = aim.2;
+    dig.aim_y = aim.3;
+    let bits = crate::together_seat::bits(&dig);
+    let before = hosted.dungeon.shooter.seat(1).map(|s| s.socket_bytes().0).unwrap_or(0);
+    let mut guest_saw_bursts = false;
+    let dig_deadline = Instant::now() + Duration::from_secs(8);
+    while Instant::now() < dig_deadline {
+        if let Some(seat) = hosted.dungeon.shooter.seat(1) {
+            seat.set_held(bits);
+            seat.tick(Instant::now());
+        }
+        hosted.dungeon.shooter.pump(Instant::now());
+        hosted.dungeon.shooter.latch();
+        if let Some(joined) = guest.dungeon.joined.as_mut() {
+            joined.seat.tick(Instant::now());
+            joined.refresh(std::time::Instant::now());
+        }
+        std::thread::sleep(Duration::from_millis(30));
+        let host_fp = hosted.dungeon.shooter.as_ref().map(|r| r.caves.fingerprint());
+        let guest_fp = guest
+            .dungeon
+            .joined
+            .as_ref()
+            .and_then(|j| j.run())
+            .map(|r| r.caves.fingerprint());
+        let dug = hosted
+            .dungeon
+            .shooter
+            .as_ref()
+            .is_some_and(|r| !r.caves.changes.is_empty());
+        // The rock breaking a guest draws: the host's bursts, over the socket.
+        guest_saw_bursts |= guest
+            .dungeon
+            .joined
+            .as_ref()
+            .and_then(|j| j.run())
+            .is_some_and(|r| !r.caves.bursts.is_empty());
+        if dug && host_fp.is_some() && host_fp == guest_fp {
+            break;
+        }
+    }
+    let host_run = hosted.dungeon.shooter.as_ref().expect("host run");
+    assert!(!host_run.caves.changes.is_empty(), "host dig did not change a cell");
+    if let Some(joined) = guest.dungeon.joined.as_mut() {
+        joined.refresh(std::time::Instant::now());
+    }
+    let decoded = guest.dungeon.joined.as_ref().and_then(|j| j.run()).expect("guest run");
+    if decoded.caves.fingerprint() != host_run.caves.fingerprint() {
+        let bytes = guest.dungeon.joined.as_ref().map(|j| j.seat.socket_bytes());
+        eprintln!(
+            "fingerprint host {} guest {} host_changes {} guest_changes {} host_tick {} guest_tick {} bytes {:?}",
+            host_run.caves.fingerprint(),
+            decoded.caves.fingerprint(),
+            host_run.caves.changes.len(),
+            decoded.caves.changes.len(),
+            host_run.tick,
+            decoded.tick,
+            bytes,
+        );
+    }
+    assert_eq!(decoded.caves.fingerprint(), host_run.caves.fingerprint(), "guest fingerprint");
+    assert!(!decoded.caves.changes.is_empty(), "guest missed the hole");
+    assert!(guest_saw_bursts, "the guest never had the rock breaking to draw");
+
+    let mut late = host();
+    let mut late_cx = TestCx::new("cave-late");
+    let said = late
+        .session(&mut late_cx)
+        .dungeon_command(Some(&format!("join http://{addr}/#{key}")));
+    assert!(said.starts_with("Joined the delve"), "late guest did not join");
+    let want = host_run.caves.fingerprint();
+    let late_deadline = Instant::now() + Duration::from_secs(8);
+    while Instant::now() < late_deadline {
+        hosted.dungeon.shooter.pump(Instant::now());
+        hosted.dungeon.shooter.latch();
+        if let Some(joined) = late.dungeon.joined.as_mut() {
+            joined.seat.tick(Instant::now());
+            joined.refresh(std::time::Instant::now());
+            if joined.run().is_some_and(|r| r.caves.fingerprint() == want) {
+                break;
+            }
+        }
+        std::thread::sleep(Duration::from_millis(30));
+    }
+    let late_run = late.dungeon.joined.as_ref().and_then(|j| j.run()).expect("late run");
+    assert_eq!(late_run.caves.fingerprint(), want, "late joiner missed the hole");
+
+    let after = hosted.dungeon.shooter.seat(1).map(|s| s.socket_bytes().0).unwrap_or(0);
+    let guest_seat = guest.dungeon.joined.as_ref().expect("guest seat");
+    let mut last = guest_seat.seat.socket_bytes().0;
+    if snapshot == 0 {
+        snapshot = last;
+    }
+    for _ in 0..40 {
+        hosted.dungeon.shooter.pump(Instant::now());
+        hosted.dungeon.shooter.latch();
+        if let Some(joined) = guest.dungeon.joined.as_mut() {
+            joined.seat.tick(Instant::now());
+            joined.refresh(std::time::Instant::now());
+            last = joined.seat.socket_bytes().0;
+        }
+        std::thread::sleep(Duration::from_millis(16));
+    }
+    let mut still = Vec::new();
+    for _ in 0..60 {
+        hosted.dungeon.shooter.pump(Instant::now());
+        hosted.dungeon.shooter.latch();
+        if let Some(joined) = guest.dungeon.joined.as_mut() {
+            joined.seat.tick(Instant::now());
+            joined.refresh(std::time::Instant::now());
+            let inn = joined.seat.socket_bytes().0;
+            still.push(inn.saturating_sub(last));
+            last = inn;
+        }
+        std::thread::sleep(Duration::from_millis(16));
+    }
+    let mut walk_in = crate::together_shooter::Input::default();
+    walk_in.move_x = 1;
+    let walk_bits = crate::together_seat::bits(&walk_in);
+    let mut walking = Vec::new();
+    for _ in 0..60 {
+        if let Some(seat) = hosted.dungeon.shooter.seat(1) {
+            seat.set_held(walk_bits);
+            seat.tick(Instant::now());
+        }
+        hosted.dungeon.shooter.pump(Instant::now());
+        hosted.dungeon.shooter.latch();
+        if let Some(joined) = guest.dungeon.joined.as_mut() {
+            joined.seat.set_held(walk_bits);
+            joined.seat.tick(Instant::now());
+            joined.refresh(std::time::Instant::now());
+            let inn = joined.seat.socket_bytes().0;
+            walking.push(inn.saturating_sub(last));
+            last = inn;
+        }
+        std::thread::sleep(Duration::from_millis(16));
+    }
+    let mean = |xs: &[u64]| if xs.is_empty() { 0 } else { xs.iter().sum::<u64>() / xs.len() as u64 };
+    let max = |xs: &[u64]| xs.iter().copied().max().unwrap_or(0);
+    let dig_burst = after.saturating_sub(before);
+    let line = format!(
+        "join_snapshot {snapshot} still_mean {} still_max {} walk_mean {} walk_max {} dig_burst {dig_burst}",
+        mean(&still),
+        max(&still),
+        mean(&walking),
+        max(&walking)
+    );
+    eprintln!("{line}");
+    if let Ok(path) = std::env::var("FX1_GUEST_BYTES") {
+        let _ = std::fs::write(path, line);
+    }
+}

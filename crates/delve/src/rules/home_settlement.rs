@@ -128,6 +128,7 @@ impl HomePolicyRequest {
         if !self.transfer.valid()
             || !self.context.home.industry.valid(crate::kingdom::catalog())
             || !self.context.home.kingdom_gear.valid()
+            || !self.context.home.stockyard.valid()
             || self.host.len() > 1024
             || self.context.reclaimed.len() > 64
             || self.context.reclaimed.keys().any(|key| key.len() > 1024)
@@ -279,6 +280,7 @@ impl HomeObserved {
             && self.view.salvage == run.home.salvage
             && self.view.industry == run.home.industry
             && self.view.kingdom_gear == run.home.kingdom_gear
+            && self.view.stockyard == run.home.stockyard
             && self.view.wished == run.home.wished
             && self.view.sky == run.home.sky
             && self.view.deep == run.home.deep
@@ -456,6 +458,7 @@ impl HomeTransfer {
     pub fn valid(&self) -> bool {
         self.view.industry.valid(crate::kingdom::catalog())
             && self.view.kingdom_gear.valid()
+            && self.view.stockyard.valid()
             && self.orders.len() <= 64
             && self.lane_squire_orders.len() <= 64
             && self.raise_orders.len() <= 64
@@ -606,6 +609,10 @@ pub fn settle(
         realm.home.kingdom_gear = transfer.view.kingdom_gear.clone();
         changed = true;
     }
+    if transfer.view.stockyard.rev > realm.home.stockyard.rev {
+        realm.home.stockyard = transfer.view.stockyard.clone();
+        changed = true;
+    }
     if transfer.view.salvage.rev > realm.home.salvage.rev {
         realm.home.salvage = transfer.view.salvage.clone();
         changed = true;
@@ -625,6 +632,12 @@ pub fn settle(
     // villages met and lit, errands asked and done, wishes made (`deep`).
     if realm.home.deep != transfer.view.deep && transfer.view.deep.valid() {
         realm.home.deep = transfer.view.deep.clone();
+        changed = true;
+    }
+    let seed_before = realm.home.cave_seed;
+    let mines_before = realm.home.mines.clone();
+    realm.home.keep_cave(transfer.view.cave_seed, &transfer.view.mines);
+    if realm.home.cave_seed != seed_before || realm.home.mines != mines_before {
         changed = true;
     }
     // The rites the realm keeps (`rite`): only the game writes them, and only
@@ -833,6 +846,9 @@ pub fn settle(
             }
         }
     }
+    // Deeds at the Keep's work: each knight's marks join their record of
+    // trades (`trades`).
+    changed |= realm.home.trades.settle(marks);
     // The Herald's Bestiary counts every kill.
     let mut counted = false;
     for (mark, &n) in marks {
@@ -1174,6 +1190,7 @@ impl HomeResult {
         transfer.valid()
             && self.home.industry.valid(crate::kingdom::catalog())
             && self.home.kingdom_gear.valid()
+            && self.home.stockyard.valid()
             && self.reclaimed.len() <= 64
             && self.reclaimed.keys().all(|key| key.len() <= 1024)
             && self.sales.len() <= 3
@@ -1257,6 +1274,7 @@ impl HomeResult {
             home.rites.merge(&run.home.rites);
         }
         home.countryside.games.merge(&run.home.countryside.games);
+        home.keep_cave(run.home.cave_seed, &run.home.mines);
         if transfer.company_reserved {
             run.complete_squire_company(Some(home.squire_company.clone()));
             home.squire_company = run.home.squire_company.clone();

@@ -5,6 +5,7 @@ use crate::{Stock, Tile};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeSet, VecDeque};
 
+pub use crate::hillside::{Deposit, GridCache, HILLTOP};
 pub const PARCEL_WIDTH: i16 = 24;
 pub const PARCEL_HEIGHT: i16 = 18;
 pub const WORLD_WIDTH: i16 = PARCEL_WIDTH * 3;
@@ -53,6 +54,8 @@ impl Terrain {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct World {
+    /// The layout: 1 is the valley of nine earned parcels, 2 is the hillside,
+    /// the whole 240 x 176 realm slope, open from the first day.
     pub version: u8,
     pub seed: u64,
     pub parcels: BTreeSet<Parcel>,
@@ -60,6 +63,8 @@ pub struct World {
     /// Resource-site restrictions must also be skipped on these legacy plots.
     pub legacy_core: bool,
     pub cleared: BTreeSet<Tile>,
+    #[serde(skip)]
+    pub(crate) grid: GridCache,
 }
 impl Default for World {
     fn default() -> Self {
@@ -145,6 +150,7 @@ impl World {
             parcels: BTreeSet::from([(0, 0)]),
             legacy_core: false,
             cleared: BTreeSet::new(),
+            grid: GridCache::default(),
         }
     }
     pub fn legacy() -> Self {
@@ -153,19 +159,82 @@ impl World {
             ..Self::new(0)
         }
     }
+    /// The hillside: the realm's whole slope, all open, with its sites set.
+    pub fn hillside(seed: u64) -> Self {
+        Self {
+            version: 2,
+            ..Self::new(seed)
+        }
+    }
+    pub fn is_hillside(&self) -> bool {
+        self.version == 2
+    }
     pub fn bounds(&self) -> (i16, i16) {
-        (WORLD_WIDTH, WORLD_HEIGHT)
+        if self.is_hillside() {
+            (crate::hillside::REALM_WIDTH, crate::hillside::REALM_HEIGHT)
+        } else {
+            (WORLD_WIDTH, WORLD_HEIGHT)
+        }
     }
     pub fn contains(&self, (x, y): Tile) -> bool {
-        (0..WORLD_WIDTH).contains(&x) && (0..WORLD_HEIGHT).contains(&y)
+        let (w, h) = self.bounds();
+        (0..w).contains(&x) && (0..h).contains(&y)
     }
     pub fn parcel_at(&self, tile: Tile) -> Option<Parcel> {
         self.contains(tile)
             .then_some((tile.0 / PARCEL_WIDTH, tile.1 / PARCEL_HEIGHT))
     }
     pub fn owned(&self, tile: Tile) -> bool {
+        if self.is_hillside() {
+            return self.contains(tile);
+        }
         self.parcel_at(tile)
             .is_some_and(|p| self.parcels.contains(&p))
+    }
+    /// What the ground holds beneath the grass, for siting. Valleys hold none.
+    pub fn deposit(&self, tile: Tile) -> Option<Deposit> {
+        self.is_hillside()
+            .then(|| self.grid.get(self.seed).deposit(tile))
+            .flatten()
+    }
+    /// Ground height in steps (a step is about half a metre of climb). Chutes
+    /// run downhill and windmills want the high ground.
+    pub fn height(&self, tile: Tile) -> u8 {
+        if self.is_hillside() {
+            self.grid.get(self.seed).height(tile)
+        } else {
+            0
+        }
+    }
+    pub fn hilltop(&self, tile: Tile) -> bool {
+        self.is_hillside() && self.height(tile) >= HILLTOP && self.terrain(tile).walkable()
+    }
+    /// A deposit of `kind` within `radius` steps (Manhattan, as roads run).
+    pub fn near_deposit(&self, tile: Tile, kind: Deposit, radius: u8) -> bool {
+        let r = i16::from(radius.min(12));
+        (-r..=r).any(|dy| {
+            (-r..=r).any(|dx| {
+                dx.abs() + dy.abs() <= r && self.deposit((tile.0 + dx, tile.1 + dy)) == Some(kind)
+            })
+        })
+    }
+    /// Walkable ground for the whole hillside at once: no terrain is hashed
+    /// per tile per second.
+    pub(crate) fn walkable_grid(&self) -> Vec<bool> {
+        if self.is_hillside() {
+            let mut open = self.grid.get(self.seed).walkable.clone();
+            let w = crate::hillside::REALM_WIDTH as usize;
+            for &t in &self.cleared {
+                open[t.1 as usize * w + t.0 as usize] = true;
+            }
+            open
+        } else {
+            let (w, h) = self.bounds();
+            (0..h)
+                .flat_map(|y| (0..w).map(move |x| (x, y)))
+                .map(|t| self.owned(t) && self.terrain(t).walkable())
+                .collect()
+        }
     }
     pub fn legacy_plot(&self, tile: Tile) -> bool {
         self.legacy_core && self.parcel_at(tile) == Some((0, 0))
@@ -182,6 +251,9 @@ impl World {
         // harmless meadow, allowing renderer sampling at the viewport border.
         if !self.contains((x, y)) || self.legacy_plot((x, y)) {
             return Terrain::Meadow;
+        }
+        if self.is_hillside() {
+            return self.grid.get(self.seed).terrain((x, y));
         }
         let (lx, ly) = (x % PARCEL_WIDTH, y % PARCEL_HEIGHT);
         let bend = (mix(self.seed ^ (y as u64 / 6)) % 3) as i16 - 1;
@@ -257,12 +329,12 @@ impl World {
         self.cleared.insert(tile)
     }
     pub fn valid(&self) -> bool {
-        if self.version != 1
+        if !matches!(self.version, 1 | 2)
             || self.parcels.is_empty()
             || self.parcels.len() > 9
             || !self.parcels.contains(&(0, 0))
             || self.parcels.iter().any(|&p| !parcel_inside(p))
-            || self.cleared.len() > (WORLD_WIDTH * WORLD_HEIGHT) as usize
+            || self.cleared.len() > (self.bounds().0 as usize * self.bounds().1 as usize)
             || self
                 .cleared
                 .iter()
@@ -286,6 +358,9 @@ impl World {
         parcel: Parcel,
         evidence: &ExpansionEvidence<'_>,
     ) -> Result<ExpansionOffer, String> {
+        if self.is_hillside() {
+            return Err("The hillside is open: there is nothing left to survey.".into());
+        }
         if !parcel_inside(parcel) {
             return Err("This parcel is beyond the surveyed valley.".into());
         }

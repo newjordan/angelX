@@ -59,6 +59,10 @@ impl Run {
             mend_kingdom(&mut self.kingdom);
             mended.push("kingdom");
         }
+        if !self.sites.valid() {
+            self.sites.mend();
+            mended.push("sites");
+        }
         if !self.tune.valid() {
             self.tune = tune::Tune::default();
             mended.push("tune");

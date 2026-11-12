@@ -35,47 +35,53 @@ impl Kingdom {
 
     pub(crate) fn sync_citizens(&mut self, c: &Catalog, advance: bool) -> Result<(), String> {
         use crate::citizen_motion::{Destination, Navigation};
-        let mut open: Vec<_> = (0..HEIGHT)
-            .flat_map(|y| (0..WIDTH).map(move |x| (x, y)))
-            .map(|tile| {
-                self.world.owned(tile)
-                    && (self.world.terrain(tile).walkable() || self.bridges.contains(&tile))
-            })
-            .collect();
-        for b in self.buildings.values() {
-            if !c.plans[&b.plan].passable {
-                open[(b.tile.1 * WIDTH + b.tile.0) as usize] = false;
+        let (width, height) = self.world.bounds();
+        let w = width as usize;
+        let camp = self.camp();
+        let mut open: Vec<bool> = self.world.walkable_grid();
+        for &t in &self.bridges {
+            if self.world.owned(t) {
+                open[t.1 as usize * w + t.0 as usize] = true;
             }
         }
-        let spawn = crate::economy::neighbours(CAMP)
+        for b in self.buildings.values() {
+            if !c.plans[&b.plan].passable {
+                for t in self.covered(b) {
+                    open[t.1 as usize * w + t.0 as usize] = false;
+                }
+            }
+        }
+        let spawn = crate::economy::neighbours(camp)
             .into_iter()
-            .filter(|&(x, y)| crate::economy::inside((x, y)) && open[(y * WIDTH + x) as usize])
-            .min_by_key(|t| (!self.roads.contains(t), t.1.abs_diff(CAMP.1 + 1), *t))
+            .filter(|&(x, y)| self.inside((x, y)) && open[y as usize * w + x as usize])
+            .min_by_key(|t| (!self.roads.contains(t), t.1.abs_diff(camp.1 + 1), *t))
             .or_else(|| {
                 open.iter()
                     .position(|&v| v)
-                    .map(|i| ((i % WIDTH as usize) as i16, (i / WIDTH as usize) as i16))
+                    .map(|i| ((i % w) as i16, (i / w) as i16))
             })
             .ok_or("Keep at least one open village plot")?;
         let nav = Navigation {
-            width: WIDTH,
-            height: HEIGHT,
+            width,
+            height,
             walkable: open,
             roads: self.roads.clone(),
             spawn,
         };
-        let mut reached = std::collections::BTreeSet::new();
+        // Every tile a person can walk to from the spawn, on a flat grid so a
+        // whole hillside costs a few microseconds a second, not a few ms.
+        let mut reached = vec![false; nav.walkable.len()];
         let mut queue = std::collections::VecDeque::from([spawn]);
+        reached[spawn.1 as usize * w + spawn.0 as usize] = true;
         while let Some(tile) = queue.pop_front() {
-            if !reached.insert(tile) {
-                continue;
-            }
             for next in crate::economy::neighbours(tile) {
-                if nav.open(next) && !reached.contains(&next) {
+                if nav.open(next) && !reached[next.1 as usize * w + next.0 as usize] {
+                    reached[next.1 as usize * w + next.0 as usize] = true;
                     queue.push_back(next);
                 }
             }
         }
+        let reachable = |t: Tile| nav.open(t) && reached[t.1 as usize * w + t.0 as usize];
         // Employment keeps a person at a stalled machine, but its work pose
         // follows actual production readiness (including available power).
         // report() projects settlement sites; it never synchronizes motion.
@@ -87,7 +93,7 @@ impl Kingdom {
             .map(|p| {
                 let tile = crate::economy::neighbours(p.target)
                     .into_iter()
-                    .filter(|t| reached.contains(t))
+                    .filter(|t| reachable(*t))
                     .min_by_key(|t| (!self.roads.contains(t), t.1.abs_diff(p.target.1 + 1), *t))
                     .unwrap_or(spawn);
                 Destination {
@@ -125,14 +131,35 @@ impl Kingdom {
                     } else {
                         connected.contains(&id)
                     };
-                let ready = self.source_ready(c, b)
+                let ready = (!constructing && self.shaft_ready(c, b))
+                    || self.source_ready(c, b)
+                    || (b.plan == "lodge" && !constructing && self.lodge_ready(c, b))
+                    || (p.crane > 0 && !constructing && self.crane_ready(c, b))
+                    || (p.stalls > 0 && !constructing && !b.carts.is_empty())
+                    || (p.swape > 0 && !constructing)
+                    // A watchtower's archer keeps the post whether or not the quiver is full.
+                    || (p.watch > 0 && !constructing)
                     || self.job(c, b).is_some_and(|(input, output, _)| {
                         covers(&b.input, &input)
                             && !self.target_met(b, &output)
                             && output
                                 .iter()
-                                .all(|(r, n)| b.output.get(r).copied().unwrap_or(0) + n <= 24)
+                                .all(|(r, n)| p.extractor || c.resources[r].waste || b.output.get(r).copied().unwrap_or(0) + n <= 24)
+                            && self.post_blocked(c, b).is_none()
                     });
+                // A post with work to do but not the goods for it this minute: on the
+                // hillside the people who were at it stay (idle, in sight) until another
+                // post can use them. Only a post with nothing left to work, or none,
+                // lets them go.
+                let waiting = self.world.is_hillside()
+                    && !constructing
+                    && !ready
+                    && !matches!(self.post_blocked(c, b), Some(Status::Depleted))
+                    && (self.shaft_posted(c, b)
+                        || (b.plan == "lodge" && self.lodge_posted(c, b))
+                        || (p.crane > 0 && self.crane_posted(c, b))
+                        || (p.stalls > 0 && !b.carts.is_empty())
+                        || self.job(c, b).is_some());
                 Site {
                     id,
                     tile: b.tile,
@@ -148,12 +175,16 @@ impl Kingdom {
                     },
                     jobs: if constructing {
                         1
+                    } else if id == 1 {
+                        // The camp's labourers are the hand-chain's: a pair of hands to a tile.
+                        self.chain_crew(c)
                     } else if ready {
                         p.workers
                     } else {
                         0
                     },
                     beds: if constructing { 0 } else { p.housing },
+                    held: if waiting { p.workers } else { 0 },
                     online,
                     // Brief construction tasks borrow labour ahead of ordinary
                     // production; the player can also raise workshop priorities.
@@ -161,6 +192,15 @@ impl Kingdom {
                         b.priority.saturating_add(1).min(2)
                     } else {
                         b.priority
+                    },
+                    trade: if constructing || p.trade.is_empty() {
+                        None
+                    } else {
+                        let level = b
+                            .recipe
+                            .as_ref()
+                            .map_or(p.level, |r| c.recipes[r].level.max(p.level));
+                        crate::population::trade_index(&p.trade).map(|t| (t, level))
                     },
                 }
             })

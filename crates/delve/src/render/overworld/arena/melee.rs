@@ -246,7 +246,10 @@ pub(super) fn swing(cv: &mut Img, run: &Run, id: u32) {
         Stroke::Overhead => overhead(cv, s, a, origin, held, reach, arm, steel),
         Stroke::Thrust if s.arc <= 100.0 => thrust(cv, s, a, origin, held, reach, arm, steel),
         _ => {
-            let Some((head, tail, out, fade)) = timeline(a) else { return };
+            let Some((head, tail, out, fade)) = timeline(a) else {
+                super::meleestrips::over_swing(cv, run, s, a, (ox, oy - 7), reach);
+                return;
+            };
             let arc = s.arc.to_radians();
             let ring = s.arc >= 300.0;
             let inks = if finish { &GOLD } else { &STEEL };
@@ -302,6 +305,7 @@ pub(super) fn swing(cv: &mut Img, run: &Run, id: u32) {
             }
         }
     }
+    super::meleestrips::over_swing(cv, run, s, a, (ox, oy - 7), reach);
 }
 
 /// The Hammerer's ground slam: the maul up and then down on the floor.
@@ -464,7 +468,7 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     }
 }
 
-fn spark(cv: &mut Img, h: &Hit) {
+fn spark(cv: &mut Img, run: &Run, h: &Hit) {
     if h.tier == Tier::Turned {
         ting(cv, h);
         return;
@@ -557,6 +561,8 @@ fn spark(cv: &mut Img, h: &Hit) {
             cv.put(px + 1, py, 'u');
         }
     }
+    let (hx, hy) = at(h.x, h.y);
+    super::meleestrips::over_hit(cv, run, h, (hx, hy - 7));
 }
 
 /// The word a turned bullet calls.
@@ -671,6 +677,6 @@ fn turned(cv: &mut Img, run: &Run) {
 pub(super) fn over(cv: &mut Img, run: &Run) {
     turned(cv, run);
     for h in &run.feel.melee.hits {
-        spark(cv, h);
+        spark(cv, run, h);
     }
 }

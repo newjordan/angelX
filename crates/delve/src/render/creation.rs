@@ -4,9 +4,9 @@
 
 use super::genie::{self, Variant, bold, centred, paper, roll};
 use super::overworld::arena::pfx::{Pen, ease, ramps};
-use super::overworld::ink::{Img, bayer, text_width};
+use super::overworld::ink::{Img, bayer, glyph, text_width};
 use crate::rules::creation::{
-    Creation, Material, Pigment, Role, Session, Slot, Step, WeaponCreation, Who, kit, part, part_name,
+    Creation, HubRow, Material, Pigment, Role, Session, Slot, Step, WeaponCreation, Who, kit, part, part_name,
 };
 
 mod baked;
@@ -27,6 +27,9 @@ const SCROLL_W: i32 = 232;
 const SCROLL_H: i32 = 188;
 const INK: char = 'n';
 const SOFT: char = 'P';
+/// The selection band's highlight: the scroll's palest paper, one step above the
+/// sheet's own `T`, so the picked row reads at a glance in the page's own inks.
+const BAND: char = '$';
 const RED: char = 'B';
 pub const REVEAL_TICK: u64 = 18;
 pub const SEAL_TICK: u64 = 32;
@@ -169,9 +172,9 @@ pub fn paint_invite(out: &mut Img, shown: Option<(u64, bool)>, creator_open: boo
         roll(&mut im, 0, h - 9, w);
         centred(&mut im, 14, "YOUR RITE", INK, true);
         centred(&mut im, 26, "MAKE SOMETHING FOR THE REALM", INK, false);
-        centred(&mut im, 38, "C: OPEN THE CREATOR", RED, true);
+        centred(&mut im, 38, "N+C: OPEN THE CREATOR", RED, true);
     } else {
-        centred(&mut im, 4, "C: YOUR RITE", RED, true);
+        centred(&mut im, 4, "N+C: YOUR RITE", RED, true);
     }
     // The slip slides down from above the screen as it arrives, the hint just sits.
     let drop = if slip { (ease::back((age as f32 / 12.0).min(1.0)) * (h + 6) as f32) as i32 - h } else { 0 };
@@ -227,8 +230,7 @@ fn frame(session: &Session, tick: u64, h: i32, atlas: Option<&PreviewAtlas>) -> 
     out.stamp(&back, 0, 0);
     stage(&mut out, session, tick, h, atlas);
     out.stamp(&shown, 4, y0);
-    out.stamp(&front, 0, 0);
-    if sealed {
+    out.stamp(&front, 0, 0);    if sealed {
         let at = (SCROLL_W / 2 + 4, y0 + scroll_h - 67);
         if (4.0..30.0).contains(&motion_age) {
             let mut pen = Pen::new(&mut out, 500);
@@ -252,7 +254,9 @@ fn frame(session: &Session, tick: u64, h: i32, atlas: Option<&PreviewAtlas>) -> 
         }
         genie::seal_stamp(&mut out, 1, at, motion_age);
     }
-    progress(&mut out, session);
+    if !session.hub {
+        progress(&mut out, session);
+    }
     out
 }
 
@@ -300,11 +304,206 @@ fn wrap(text: &str, cols: usize) -> Vec<String> {
     lines
 }
 
+/// A shut row's badge: a small wax seal with a padlock pressed into it.
+fn lock_seal(im: &mut Img, x: i32, y: i32) {
+    genie::seal(im, x, y, 0, false);
+    for (dx, dy) in [(4, 1), (5, 1)] {
+        im.put(x + dx, y + dy, 'b');
+    }
+    for (dx, dy) in [(3, 2), (6, 2), (3, 3), (6, 3)] {
+        im.put(x + dx, y + dy, 'b');
+    }
+    im.rect(x + 2, y + 4, 7, 5, 'b');
+    im.rect(x + 3, y + 5, 5, 3, 'o');
+    im.put(x + 5, y + 6, 'b');
+}
+
+/// The hub's MADE bar, like the role page's POWER gauge: six cells, the sealed makings filled.
+/// Rows the made bar takes, rows the notice strip takes, and rows the whole foot
+/// reserves under the last wish row. The bar keeps a pixel of paper clear of the
+/// keys line below it.
+const MADE_H: i32 = 15;
+const NOTE_H: i32 = 13;
+const FOOT_ROOM: i32 = 30;
+
+/// A shut row's lettering drawn whole in the scroll's lighter ink, then eaten back
+/// to the paper by a sparse dither, so it dims against an open row and still reads.
+fn dim_text(im: &mut Img, x: i32, y: i32, s: &str, eat: char) -> i32 {
+    let end = im.text(x, y, s, SOFT);
+    for py in y..y + 7 {
+        for px in x..end {
+            if bayer(px, py) >= 0.85 {
+                im.put(px, py, eat);
+            }
+        }
+    }
+    end
+}
+
+fn made_bar(im: &mut Img, s: &Session, y: i32) {
+    bold(im, 22, y + 2, "MADE", INK);
+    let made = s.gate.made.min(6);
+    let (x, w) = (58, 92);
+    im.rect(x, y, w, 9, 'b');
+    im.rect(x + 1, y + 1, w - 2, 7, 't');
+    for cell in 0..6 {
+        let cx = x + 1 + cell * (w - 2) / 6;
+        let cw = (w - 2) / 6 - 1;
+        if cell < i32::from(made) {
+            for dx in 0..cw {
+                im.rect(cx + dx, y + 1, 1, 7, if dx % 10 == 9 { 'r' } else { 'R' });
+                im.put(cx + dx, y + 1, 'o');
+            }
+        } else {
+            im.line(cx + cw - 1, y + 1, cx + cw - 1, y + 7, SOFT);
+        }
+    }
+    im.text(197 - text_width("0/6"), y + 2, &format!("{made}/6"), INK);
+}
+
+
+fn door_panel(im: &mut Img, session: &Session) {
+    let Some(row) = session.door.row.and_then(|n| HubRow::from_index(usize::from(n))) else {
+        return;
+    };
+    centred(im, 44, &fit_scroll(row.quip(session.gate)), INK, false);
+    if session.door.waiting {
+        centred(im, 68, "THE GENIE IS THINKING", RED, false);
+        im.text(28, 88, &fit_scroll(&session.door.words), SOFT);
+    } else if session.door.answered.is_empty() {
+        centred(im, 68, "TYPE THE WISH", SOFT, false);
+        if !session.chat.draft.is_empty() {
+            im.text(28, 88, &fit_scroll(&session.chat.draft), INK);
+        }
+    } else {
+        centred(im, 68, &fit_scroll(&format!("ANSWERED BY {}", session.door.answered)), INK, false);
+        if !session.door.thing.is_empty() {
+            centred(im, 88, &fit_scroll(&session.door.thing), SOFT, false);
+        }
+        if !session.door.words.is_empty() {
+            im.text(28, 108, &fit_scroll(&session.door.words), SOFT);
+        }
+    }
+}
+
+fn cut_to(s: &str, width: i32) -> String {
+    if width < 6 {
+        return String::new();
+    }
+    let mut out = String::new();
+    for ch in s.chars() {
+        let next = format!("{out}{ch}");
+        if text_width(&next) > width {
+            break;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+fn fit_scroll(s: &str) -> String {
+    let mut out = String::new();
+    for ch in s.chars() {
+        let next = format!("{out}{ch}");
+        if text_width(&next) > SCROLL_W - 56 {
+            break;
+        }
+        out.push(ch);
+    }
+    out
+}
+
+fn stamp_wished(im: &mut Img, ink: &[String], tick: u64, centre: i32, foot: i32) {
+    let refs: Vec<&str> = ink.iter().map(String::as_str).collect();
+    let pose = super::overworld::arena::wished_pose(&refs, tick).unwrap_or_else(|| Img::from_rows(&refs));
+    im.stamp(&pose, centre - pose.w / 2, foot - pose.h);
+}
+
+fn hub_face(im: &mut Img, session: &Session, h: i32) {
+    // The header, ruled like the maker's pages: the scroll's name, then the question.
+    centred(im, 13, "THE WISH SCROLL", INK, true);
+    for (a, b) in [(25, 68), (164, 207)] {
+        im.line(a, 16, b, 16, SOFT);
+    }
+    centred(im, 26, "WHAT DO YOU WISH FOR?", SOFT, false);
+    if session.door.row.is_some() {
+        door_panel(im, session);
+        return;
+    }
+    let rows = 6i32;
+    let top = 38;
+    let foot = h - 22;
+    let room = (foot - FOOT_ROOM - top).max(rows * 12);
+    let row_h = (room / rows).clamp(12, 22);
+    let wide = row_h >= 14;
+    for i in 0..6 {
+        let Some(row) = HubRow::from_index(i) else { continue };
+        let y = top + i as i32 * row_h;
+        let open = session.gate.open(row);
+        let on = session.row == i;
+        if on {
+            // The maker's selection band, laid solid so it reads at a glance:
+            // palest parchment across the whole row and the scroll's red down its left.
+            im.rect(19, y - 2, SCROLL_W - 38, row_h + 1, BAND);
+            im.line(18, y - 2, 18, y + row_h - 1, RED);
+        }
+        if open {
+            genie::seal(im, 23, y - 1, i, on);
+        } else {
+            lock_seal(im, 23, y - 1);
+        }
+        let eat = if on { BAND } else { 't' };
+        let name_x = 40;
+        let name_w = text_width(row.title()) + i32::from(on);
+        // The need (or why it is shut): lighter ink, on the right when the row has the room,
+        // beneath when not. A word that would touch the name goes beneath instead.
+          let cost = if open { row.need() } else { row.grey(session.gate) };
+          let margin = SCROLL_W - 21;
+          let gap = name_x + name_w + 8;
+          // Notes stay on the right, cut to fit. A second line runs into the next row at 384.
+          let note = cut_to(cost, margin - gap);
+          if on {
+              bold(im, name_x, y + 1, row.title(), INK);
+          } else if open {
+              im.text(name_x, y + 1, row.title(), INK);
+          } else {
+              dim_text(im, name_x, y + 1, row.title(), eat);
+          }
+          if !note.is_empty() {
+              dim_text(im, gap, y + 1, &note, eat);
+          }
+          if row == HubRow::Power && session.gate.wishes > 0 && row_h >= 20 {
+              let held = cut_to(&format!("WISHES {} HELD", session.gate.wishes), margin - 40);
+              im.text(40, y + 9, &held, RED);
+          }
+    }
+    let mut fy = foot;
+    if !session.note.is_empty() {
+        fy -= NOTE_H;
+        let ny = fy + 4;
+        for x in (20..SCROLL_W - 20).step_by(3) {
+            im.put(x, ny - 3, SOFT);
+            im.put(x, ny + 8, SOFT);
+        }
+        im.rect(18, ny - 1, 1, 8, RED);
+        centred(im, ny, &session.note, RED, false);
+    }
+    let bar_y = (fy - MADE_H).max(top + rows * row_h + 4);
+    for x in (20..SCROLL_W - 20).step_by(3) {
+        im.put(x, bar_y - 2, SOFT);
+    }
+    made_bar(im, session, bar_y + 2);
+    centred(im, foot, "ARROWS: PICK   E: OPEN   Q: CLOSE", SOFT, false);
+}
 fn scroll(session: &Session, tick: u64, h: i32) -> Img {
     let mut im = Img::new(SCROLL_W, h);
     paper(&mut im, 10, 8, SCROLL_W - 20, h - 16, 0xc4ea);
     roll(&mut im, 8, 0, SCROLL_W - 16);
     roll(&mut im, 8, h - 9, SCROLL_W - 16);
+    if session.hub {
+        hub_face(&mut im, session, h);
+        return im;
+    }
     centred(&mut im, 13, "THE CREATOR", INK, true);
     for (a, b) in [(25, 68), (164, 207)] {
         im.line(a, 16, b, 16, SOFT);
@@ -717,7 +916,17 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
             reveal = reveal.min(ease::out(since as f32 / 14.0));
         }
     }
-    let (figure, caption) = if forge {
+    let wished = if session.door.ink.is_empty() {
+        None
+    } else {
+        let refs: Vec<&str> = session.door.ink.iter().map(String::as_str).collect();
+        let t = if calm { 0 } else { tick };
+        Some(super::overworld::arena::wished_pose(&refs, t).unwrap_or_else(|| Img::from_rows(&refs)))
+    };
+    let on_stage = wished.is_some();
+    let (figure, caption) = if let Some(pose) = wished {
+        (pose, session.door.thing.clone())
+    } else if forge {
         let mark = if session.step == Step::Parts && !session.on_wish_row() {
             session.weapon.kind.slots().get(session.row).copied()
         } else {
@@ -788,7 +997,7 @@ fn stage(im: &mut Img, session: &Session, tick: u64, h: i32, atlas: Option<&Prev
     }
     // A set whose standing frames are authored off the library's sole row says so in its record.
     // (a set with eight ways turns on the stage, and each way declares its own sole edge).
-    let lower = if forge || atlas.is_some() {
+    let lower = if on_stage || forge || atlas.is_some() {
         0
     } else {
         let set = baked::for_creation(c);

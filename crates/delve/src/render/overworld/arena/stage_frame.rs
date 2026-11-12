@@ -97,6 +97,13 @@ pub struct StageMaker {
     /// with each new room, so one its GPU let go of comes back; a page
     /// across a wire asks for everything again when it lost one.
     meshes_sent: std::collections::BTreeSet<u32>,
+    /// The Keep's stones and falsework (`world3d::works_site`) not yet sent
+    /// to a page across a wire, and those that were (so a page that drew
+    /// none for a while, its GPU having let them go, is sent them again).
+    works_pending: Vec<(u32, Arc<angel_stage::scene::MeshData>)>,
+    works_ids: std::collections::BTreeSet<u32>,
+    /// The hillside works' baked meshes (`world3d::hill_mesh`) a page across a wire has been sent.
+    hill_ids: std::collections::BTreeSet<u32>,
     /// Shots as flat sprites and a white-hot core, for a page that cannot
     /// draw the stage's 3D props (the legacy presenter). Otherwise a shot is
     /// shapes (`shot_meshes`) in the frame's props, and a sprite only if it
@@ -160,6 +167,9 @@ impl StageMaker {
         self.sides_sent.clear();
         self.over_painted = 0;
         self.meshes_sent.clear();
+        self.works_pending.clear();
+        self.works_ids.clear();
+        self.hill_ids.clear();
     }
 
     /// `scene` as a stage frame. `hd` names the picture of an HD drawing of
@@ -602,6 +612,12 @@ impl StageMaker {
             marks.stand = Stand::Screen;
             layers.push(marks);
         }
+        if super::stand_back::on() {
+            let (w, h) = (scene.view.0.max(1) as f32, scene.view.1.max(1) as f32);
+            let mut sky = Layer::new(9_001, 40, Placement::Pixels([0.0, 0.0, w, h * 0.20]), LayerKind::Solid([0.62, 0.76, 0.86, 1.0]));
+            sky.stand = Stand::Screen;
+            layers.push(sky);
+        }
         let kingdom = (!chunks.is_empty())
             .then(|| self.kingdom_world(scene, chunks, &mut pictures, std::mem::take(&mut cards), (world_at, figures_at)));
         // Through a door, the new room comes in the way the party went.
@@ -629,6 +645,10 @@ impl StageMaker {
                 meshes.push((id, mesh.clone()));
             }
         }
+        // The Keep's stones and falsework, new to a page across a wire.
+        let room_for = angel_stage::wire::MAX_FRAME_MESHES.saturating_sub(meshes.len());
+        let sent_now = self.works_pending.len().min(room_for);
+        meshes.extend(self.works_pending.drain(..sent_now).map(|(id, m)| (id, (*m).clone())));
         Frame {
             size: (scene.view.0.max(1) as u32, scene.view.1.max(1) as u32),
             layers,
@@ -640,7 +660,7 @@ impl StageMaker {
             // frame tips it twice. Its actors stand up as Upright layers, and
             // the tilt they see is what `TILT` gives the room's figures; only
             // the flat backdrop is left level.
-            tilt: if scene.board || pastime_scene { 0.0 } else { TILT },
+            tilt: if scene.board || pastime_scene { 0.0 } else if super::stand_back::on() { 0.62 } else { TILT },
             impact: scene.impact,
             props: match world {
                 _ if kingdom.is_some() => Some(Props { at: props_at, grain: SHOT_GRAIN, nodes: shapes, world: kingdom }),
@@ -824,6 +844,15 @@ impl StageMaker {
                 world.meshes.extend(lit.meshes.iter().map(|(id, mesh)| (*id, Arc::clone(mesh))));
             }
         }
+        // The Keep's site: its stones and falsework, lamps and all.
+        self.works_nodes(scene, &mut world, &mut lamps, offset, &in_sight);
+        // The hillside works: the production sim's buildings, roads and tracks, and the
+        // ghost of the builder.
+        if let Some(hill) = &scene.hill {
+            lamps.extend(hill.lamps.iter().copied());
+            self.hill_nodes(hill, &mut world, offset, &in_sight);
+            world.extra.extend(angel_stage::set::place(&hill.ghost, 1.0, offset));
+        }
         let mut refs = refs.into_iter().chain(lots_refs);
         world.set = refs.next();
         world.more = refs.collect();
@@ -834,8 +863,138 @@ impl StageMaker {
             size: [scene.view.0 as f32, scene.view.1 as f32],
             ..scene.realm.unwrap_or(crate::world3d::realm_look::View { origin: [0.0; 2], size: [0.0; 2], knight: None, others: [None; 3], time: 0.0 })
         };
-        world.look = Some(crate::world3d::realm_look::look(&view, &lamps));
+        let mut look = crate::world3d::realm_look::look(&view, &lamps);
+        // Each building near the view in what it is made of (timber, stone, brick, thatch,
+        // iron, whitewash), over the hillside's green; before the Keep's, which lies over them.
+        if let Some(hill) = &scene.hill {
+            let feet: Vec<crate::world3d::works_look::Footprint> = hill.footprints.iter().map(|f| crate::world3d::works_look::Footprint::of(&f.plan, f.rect)).collect();
+            crate::world3d::works_look::dye_buildings(&mut look, &view, &feet);
+        }
+        if let Some(works) = &scene.works {
+            if !works.kinds.iter().any(|k| *k != 0) {
+                crate::world3d::works_site::dye(&mut look, &view, works);
+            }
+        }
+        if super::stand_back::on() {
+            if let Some(reveal) = look.reveal.as_mut() {
+                reveal.radius = 140.0;
+            }
+        }
+        world.look = Some(look);
         world
+    }
+
+    /// The Keep's site (`world3d::works_site`) as nodes among the world's
+    /// blocks: each mesh of stone or timber in sight, toned by how wet its
+    /// mortar is; its meshes to a window with the world, to a page across a
+    /// wire in the frame, a few a frame (what has not gone yet is left out,
+    /// not drawn half).
+    fn works_nodes(
+        &mut self,
+        scene: &RoomScene,
+        world: &mut World,
+        lamps: &mut Vec<angel_stage::set::SetLamp>,
+        offset: [f32; 3],
+        in_sight: &impl Fn(([f32; 3], [f32; 3])) -> bool,
+    ) {
+        use angel_stage::scene::{Material, MeshRef, Node, Role};
+        /// Clear of the chunks' and the lots' ids.
+        const IDS: u64 = 0x7B00_0000_0000;
+        /// The most meshes a frame adds for a page.
+        const MOST_NEW: usize = 40;
+        let Some(works) = scene.works.as_ref() else { return };
+        lamps.extend(works.lamps.iter().copied());
+        if !in_sight(works.bounds) {
+            // Out of sight a while: the page's GPU may let the meshes go.
+            for id in std::mem::take(&mut self.works_ids) {
+                self.meshes_sent.remove(&id);
+            }
+            return;
+        }
+        let mut nodes = Vec::new();
+        let parts = works.parts.iter().enumerate().map(|(i, (p, wet))| (p, *wet, works.kinds.get(i).copied().unwrap_or(0))).chain(works.falsework.iter().map(|p| (p, 0.0, 0)));
+        for (k, (part, wet, kind)) in parts.enumerate() {
+            if !in_sight(part.bounds) {
+                continue;
+            }
+            if self.png_plates {
+                if !self.meshes_sent.contains(&part.id) {
+                    if self.works_pending.len() >= MOST_NEW {
+                        continue;
+                    }
+                    self.works_pending.push((part.id, Arc::clone(&part.mesh)));
+                    self.meshes_sent.insert(part.id);
+                }
+                self.works_ids.insert(part.id);
+            } else {
+                world.meshes.push((part.id, Arc::clone(&part.mesh)));
+            }
+            // Wet mortar darkens a block; it dries as the courses go on.
+            let t = 1.0 - 0.42 * wet;
+            let (role, tint) = if kind == 0 {
+                (Role::Plain, [t, t, t, 1.0])
+            } else {
+                let rgb = crate::rules::site::Site::stone_rgb(kind);
+                (Role::Figure, [rgb[0] * t, rgb[1] * t, rgb[2] * t, 1.0])
+            };
+            let mut node = Node::new(IDS + k as u64, MeshRef::Uploaded(part.id), Material { role, ..Material::lit(tint, 0.0) });
+            node.transform = angel_stage::scene::Transform::IDENTITY;
+            nodes.push(node);
+        }
+        nodes.extend(works.life.iter().cloned().map(|mut n| {
+            n.id += IDS;
+            n
+        }));
+        world.extra.extend(angel_stage::set::place(&nodes, 1.0, offset));
+    }
+
+    /// The hillside works' baked meshes (`world3d::hill_mesh`) in sight as nodes among the world's
+    /// blocks: one draw a building, a carrier or a chunk of road. Their meshes go to a window with
+    /// the world (once each a frame), to a page across a wire a few a frame the first time they are
+    /// drawn; a page that drew none of them for a frame forgets them, so it is sent them again.
+    fn hill_nodes(&mut self, hill: &crate::world3d::hillside::HillNodes, world: &mut World, offset: [f32; 3], in_sight: &impl Fn(([f32; 3], [f32; 3])) -> bool) {
+        use crate::world3d::hill_mesh::PartRole;
+        use angel_stage::scene::{Material, MeshRef, Node, Role};
+        /// Clear of the Keep's (`works_nodes`) and the ghost's.
+        const IDS: u64 = 0x7D10_0000_0000;
+        /// The most meshes a frame adds for a page.
+        const MOST_NEW: usize = 40;
+        let mut nodes = Vec::new();
+        let mut sent_to_window = std::collections::BTreeSet::new();
+        for part in &hill.parts {
+            if !in_sight(part.bounds()) {
+                continue;
+            }
+            let baked = &part.baked;
+            if self.png_plates {
+                if !self.meshes_sent.contains(&baked.id) {
+                    if self.works_pending.len() >= MOST_NEW {
+                        continue;
+                    }
+                    self.works_pending.push((baked.id, Arc::clone(&baked.mesh)));
+                    self.meshes_sent.insert(baked.id);
+                }
+                self.hill_ids.insert(baked.id);
+            } else if sent_to_window.insert(baked.id) {
+                world.meshes.push((baked.id, Arc::clone(&baked.mesh)));
+            }
+            let material = match baked.role {
+                PartRole::Plain => Material::lit([1.0, 1.0, 1.0, 1.0], 0.0),
+                PartRole::Water => Material { role: Role::Water, ..Material::lit([1.0, 1.0, 1.0, 1.0], 0.0) },
+                PartRole::Accent => Material { accent: true, ..Material::color([1.0, 1.0, 1.0, 1.0]) },
+            };
+            let mut node = Node::new(IDS + nodes.len() as u64, MeshRef::Uploaded(baked.id), material);
+            node.transform.translation = part.at;
+            nodes.push(node);
+        }
+        if nodes.is_empty() {
+            // None in sight a while: the page's GPU may let the meshes go.
+            for id in std::mem::take(&mut self.hill_ids) {
+                self.meshes_sent.remove(&id);
+            }
+            return;
+        }
+        world.extra.extend(angel_stage::set::place(&nodes, 1.0, offset));
     }
 
     /// A turning card's face and back pictures for `item`, each sent the

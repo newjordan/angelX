@@ -382,6 +382,13 @@ pub struct RoomScene {
     /// finds, extra blocks in the chunks they stand in (`chunks` are cut
     /// where a lot clears them already). `None` off the kingdom in 3D.
     pub lots: Option<std::sync::Arc<crate::world3d::lots::Lots>>,
+    /// The Keep's site as the run has it (`world3d::works_site`): the stones
+    /// laid so far, the falsework and the lamps. `None` off the kingdom in 3D.
+    pub works: Option<std::sync::Arc<crate::world3d::works_site::WorksView>>,
+    /// The hillside works (`world3d::hillside`): the production sim's buildings, roads
+    /// and tracks as blocks, and the ghost of the focused seat's builder. `None` off
+    /// the kingdom in 3D, and off the hillside.
+    pub hill: Option<std::sync::Arc<crate::world3d::hillside::HillNodes>>,
     /// The kingdom in 3D: the view the realm's look is made for (where the
     /// view is, the knight it follows, the clock); `None` off the kingdom.
     pub realm: Option<crate::world3d::realm_look::View>,
@@ -439,6 +446,8 @@ impl RoomScene {
             world: None,
             chunks: Vec::new(),
             lots: None,
+            works: None,
+            hill: None,
             realm: None,
             board: false,
         }
@@ -553,38 +562,65 @@ fn kingdom_3d(run: &Run, w: i32, h: i32, focus: Option<u32>) -> bool {
 /// view first, `wire::pace`): the kingdom is drawn flat, as ever, never with
 /// a hole in it.
 fn kingdom_scene(run: &Run, focus: Option<u32>) -> Option<RoomScene> {
-    let origin = camera(run, focus);
+    // The knight's own view, and where the stage lies: the same, or, stood
+    // back at the Keep (`stand_back`), a window three times the size round
+    // the castle, the world drawn at the same scale into a bigger stage.
+    let cam = camera(run, focus);
+    let k = super::stand_back::zoom();
+    let origin = if k > 1 { super::stand_back::origin() } else { cam };
+    let (vw, vh) = (NATIVE_W * k, NATIVE_H * k);
     let (ox, oy) = (origin.0 as f32, origin.1 as f32);
-    let rect = [ox, oy, ox + NATIVE_W as f32, oy + NATIVE_H as f32];
+    let rect = [ox, oy, ox + vw as f32, oy + vh as f32];
     let near = crate::world3d::kingdom::near(rect);
     // The first time, every chunk's set made and the folder looked over,
     // off the frame; the log says which have no plate.
     crate::world3d::kingdom::warm();
     let chunks = crate::world3d::kingdom::chunks().of(&near);
     let there = |index: u32| chunks.iter().any(|c| c.index == index);
-    if chunks.is_empty() || !crate::world3d::kingdom::overlaps(rect).into_iter().all(there) {
+    // (Stood back, the castle's own chunks are what must be there.)
+    let needed = if k > 1 {
+        let (x0, y0, w, h) = run.sites.keep().and_then(|s| s.castle()).map_or((0, 0, 0, 0), |c| c.tiles());
+        crate::world3d::kingdom::overlaps([x0 as f32 * 16.0, y0 as f32 * 16.0, (x0 + w) as f32 * 16.0, (y0 + h) as f32 * 16.0])
+    } else {
+        crate::world3d::kingdom::overlaps(rect)
+    };
+    if chunks.is_empty() || !needed.into_iter().all(there) {
         return None;
     }
     // What the party built on its lots and the run's finds stand up as
     // extra blocks in their chunks, each chunk cut where a lot clears it
     // (`world3d::lots`); the party's names lie on the ground before them.
     let lots = crate::world3d::lots::of(run);
-    let chunks = match &lots {
+    let chunks: Vec<_> = match &lots {
         Some(lots) => chunks.iter().map(|c| lots.chunk(c)).collect(),
         None => chunks,
     };
-    let (view, screen, figures) = kingdom::layers_3d(run, focus);
+    // The Keep's site: its ditch dug into the ground, its stones stood on it
+    // (`world3d::works_site`).
+    let knight = focus
+        .and_then(|id| run.players.get(&id))
+        .or_else(|| run.players.values().next())
+        .map(|h| [h.x * UNIT, h.y * UNIT]);
+    let works = crate::world3d::works_site::of(run, knight);
+    let hill = crate::world3d::hillside::of(run, [ox - 96.0, oy - 64.0, ox + vw as f32 + 96.0, oy + vh as f32 + 192.0], focus).map(std::sync::Arc::new);
+    let chunks: Vec<_> = chunks.iter().map(|c| crate::world3d::works_site::dig(run, c)).collect();
+    let (view, mut screen, mut figures) = kingdom::layers_3d(run, focus);
+    if k > 1 {
+        // The crew of the whole site, and the screen's marks at the stage's size.
+        kingdom::crew_in(&mut figures, run, origin, (vw, vh));
+        screen = scaled(&super::stand_back::screen(run, focus), k);
+    }
     let room = room_px(run.room());
-    let window = (origin.0, origin.1, NATIVE_W, NATIVE_H);
+    let window = (origin.0, origin.1, vw, vh);
     let mut over = Img::window(room.0, room.1, window);
-    over.stamp(&view, origin.0, origin.1);
+    over.stamp(&view, cam.0, cam.1);
     let under = lots.as_ref().filter(|l| !l.plaques.is_empty()).map(|lots| {
         let mut under = Img::window(room.0, room.1, window);
         lots.lay_plaques(&mut under, (0, 0), &|_| true);
         under
     });
     Some(RoomScene {
-        view: (NATIVE_W, NATIVE_H),
+        view: (vw, vh),
         ground: None,
         fine: None,
         // Whole pixels, as the view's marks are drawn at.
@@ -609,9 +645,11 @@ fn kingdom_scene(run: &Run, focus: Option<u32>) -> Option<RoomScene> {
         world: None,
         chunks,
         lots,
+        works,
+        hill,
         realm: Some(crate::world3d::realm_look::View {
             origin: [ox, oy],
-            size: [NATIVE_W as f32, NATIVE_H as f32],
+            size: [vw as f32, vh as f32],
             knight: focus
                 .and_then(|id| run.players.get(&id))
                 .or_else(|| run.players.values().next())
@@ -625,6 +663,21 @@ fn kingdom_scene(run: &Run, focus: Option<u32>) -> Option<RoomScene> {
         }),
         board: false,
     })
+}
+
+/// `im` at `k` times its size, a pixel to a block.
+fn scaled(im: &Img, k: i32) -> Img {
+    let mut out = Img::new(im.w * k, im.h * k);
+    for y in 0..out.h {
+        for x in 0..out.w {
+            if im.solid(x / k, y / k)
+                && let Some(c) = im.get(x / k, y / k)
+            {
+                out.set(x, y, c);
+            }
+        }
+    }
+    out
 }
 
 /// The frame `frame_for` draws at `w` × `h`, as parts.
@@ -710,6 +763,8 @@ fn pastime_scene(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Option<RoomSc
         world: None,
         chunks: Vec::new(),
         lots: None,
+        works: None,
+        hill: None,
         realm: None,
         fine: None,
         board: false,
@@ -835,6 +890,8 @@ fn scene_here(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
         world,
         chunks: Vec::new(),
         lots: None,
+        works: None,
+        hill: None,
         realm: None,
         board,
     }

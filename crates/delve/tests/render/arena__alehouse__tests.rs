@@ -90,3 +90,59 @@ fn the_code_drawn_knights_are_at_the_pub_and_draw_as_their_seats_plain_knight() 
         assert!(patron_bodies()[i].w > 0);
     }
 }
+
+/// A knight in a wished whole-body look (a held wish's and the mirror's)
+/// who picks a code-drawn knight at the pub is drawn as the design: the
+/// looks are set aside, not lost, and come back with anyone else picked.
+#[test]
+fn picking_a_code_drawn_knight_sets_a_whole_wish_look_aside_so_the_design_shows() {
+    use crate::rules::looks::Sprite;
+    let i = PATRONS.iter().position(|p| p.kit == "great-helm").unwrap();
+    let mut plain = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
+    for id in 2..=4 {
+        plain.join_seat(id, &format!("Seat {id}"));
+    }
+    let wanted = knights::figure_at(&plain.players[&1], 1, false, Default::default(), false, 0);
+    let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
+    run.join_seat(6, "Seat 6");
+    run.walk_alehouse();
+    // A held wish that is a whole body, and a mirror look over it.
+    let mut wish = run.book.get("iron-helm").unwrap().clone();
+    wish.id = "a-dragon-of-a-knight".into();
+    wish.kind = crate::rules::cards::Kind::Hold;
+    wish.looks = Default::default();
+    wish.looks.worn = Some(Sprite { frames: vec![vec!["7".into()]], ..Default::default() });
+    run.book.insert(wish);
+    run.players.get_mut(&6).unwrap().deck.push("a-dragon-of-a-knight".into());
+    run.home.wardrobe.mirror_looks.insert(
+        "Seat 6".into(),
+        crate::rules::cosmetic_wish::Look {
+            words: "a frog knight".into(),
+            worn: Sprite { frames: vec![vec!["7".into()]], ..Default::default() },
+            body: false,
+        },
+    );
+    run.restore_gear(6);
+    assert_eq!(run.players[&6].worn(&run.book).len(), 2, "both looks worn before the pick");
+    run.pick_patron(6, i);
+    let hero = &run.players[&6];
+    assert_eq!(hero.knight.as_deref(), Some("great-helm"));
+    assert!(hero.worn(&run.book).is_empty(), "the whole looks are set aside");
+    assert!(hero.deck.iter().any(|c| c == "a-dragon-of-a-knight"), "the wish itself is kept");
+    let mut drawn = hero.clone();
+    (drawn.x, drawn.y, drawn.aim_x, drawn.aim_y) = {
+        let p = &plain.players[&1];
+        (p.x, p.y, p.aim_x, p.aim_y)
+    };
+    let got = knights::figure_at(&drawn, 6, false, Default::default(), false, 0);
+    assert_eq!((got.w, got.h), (wanted.w, wanted.h));
+    for y in 0..got.h {
+        for x in 0..got.w {
+            assert_eq!(got.get(x, y), wanted.get(x, y), "the design at {x},{y}");
+        }
+    }
+    // Anyone else at the pub, and the looks are worn again.
+    let other = PATRONS.iter().position(|p| p.kit == "galahad").unwrap();
+    run.pick_patron(6, other);
+    assert_eq!(run.players[&6].worn(&run.book).len(), 2);
+}

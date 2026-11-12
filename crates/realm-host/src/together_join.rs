@@ -30,6 +30,8 @@ pub struct News {
     pub voices: Vec<serde_json::Value>,
     /// This knight rubbed the wish altar's lamp: open its wish line.
     pub ask: bool,
+    /// The hub row the next ask opens: 0 power, 1 reforge, 2 look.
+    pub wish_row: Option<u8>,
 }
 
 pub struct Joined {
@@ -279,6 +281,8 @@ impl Joined {
                 news.replies.push(text.to_string());
             } else if line == "ask" {
                 news.ask = true;
+            } else if let Some(row) = line.strip_prefix("wish-row ") {
+                news.wish_row = row.trim().parse().ok();
             }
         }
         news

@@ -177,7 +177,7 @@ The operator's direction for the world (2026-10-18): dial the colour way back an
 - **The data**, all optional on `Look`; a look with a `sun`, `lamps` or `zones` *lights* its scene (`Look::lights`):
   - `sun`: one far light that replaces the fixed key light for lit surfaces. It has a direction, a strength, an ambient, a shadow square (`Shadow`, a focus and a reach) and `rise`, which lets the sky's light grow with height, so a tall face pales toward its top.
   - `lamps`: up to 8 warm pools of light (light = activity), each moving what it lights toward the `warm` ramp.
-  - `zones`: up to 4 places with their own ramp. Each is a rounded box on the ground (`at`, `half`, `radius`) with a `feather` over which its ramp passes into the one before, entry by entry.
+  - `zones`: up to 16 places with their own ramp (`ZONE_MAX`; at most the last 4 that cover a pixel are mixed there, `ZONE_ACTIVE_MAX`). Each is a rounded box on the ground (`at`, `half`, `radius`) with a `feather` over which its ramp passes into the one before, entry by entry.
   - `water`: the ramp water is always seen through, because a winding river fits no zone.
   - `reveal`: a point (the knight) kept in sight through anything between it and the eye, by a stippled opening that fades out by the dither. Only what is drawn is opened; shadows still fall.
   - `time`: the clock that moving surfaces read.

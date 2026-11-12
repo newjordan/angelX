@@ -70,6 +70,15 @@ pub enum Command {
     DropOffer {
         player: u32,
     },
+    /// Opens the genie's typed line. Not the six-row hub.
+    OpenWishLine {
+        player: u32,
+    },
+    /// One letter on that line.
+    TypeWishLetter {
+        player: u32,
+        letter: u8,
+    },
     ChooseOffer {
         player: u32,
         index: u8,
@@ -133,6 +142,13 @@ pub enum Command {
         player: u32,
         from: usize,
         to: usize,
+    },
+    /// A rough block a knight brought up from the last delve on their back:
+    /// the next run at home begins with it on their shoulders, to carry on
+    /// to the stockyard (`quarrying`).
+    CarryBlock {
+        player: u32,
+        stone: String,
     },
     AddCard {
         player: u32,
@@ -1109,6 +1125,7 @@ fn projected_home(
     // (`salvage`): a find, a wish or a build since the realm last saw it.
     if run.home.industry.rev > home.industry.rev { home.industry = run.home.industry.clone(); }
     if run.home.kingdom_gear.rev > home.kingdom_gear.rev { home.kingdom_gear = run.home.kingdom_gear.clone(); }
+    if run.home.stockyard.rev > home.stockyard.rev { home.stockyard = run.home.stockyard.clone(); }
     if run.home.salvage.rev > home.salvage.rev {
         home.salvage = run.home.salvage.clone();
     }
@@ -1125,6 +1142,7 @@ fn projected_home(
         home.sky = run.home.sky.clone();
     }
     home.countryside.games.merge(&run.home.countryside.games);
+    home.keep_cave(run.home.cave_seed, &run.home.mines);
     home
 }
 fn observed_bytes(seen: Option<&HomeObserved>) -> Result<usize, String> {
@@ -1296,6 +1314,7 @@ impl Command {
                 from,
                 to,
             } => player(*id) && *from < 64 && *to < 64,
+            Self::CarryBlock { player: id, stone } => player(*id) && super::geology::is_rough(stone),
             Self::Contribute { player: id, made } => player(*id) && made.validate().is_ok(),
             Self::AddCard { player: id, card }
             | Self::Reforge {
@@ -1318,6 +1337,8 @@ impl Command {
             }
             Self::LeaveActivity { player: id }
             | Self::DropOffer { player: id }
+            | Self::OpenWishLine { player: id }
+            | Self::TypeWishLetter { player: id, .. }
             | Self::TurnOffer { player: id } => player(*id),
             Self::ChooseOffer { player: id, index } => player(*id) && *index < 3,
             Self::Vote {
@@ -1525,6 +1546,9 @@ impl Command {
                 }
                 hero.forged = weapon.clone();
             }
+            Self::CarryBlock { player, stone } => {
+                run.carry_block(*player, stone)?;
+            }
             Self::MoveCard { player, from, to } => {
                 run.move_card(*player, *from, *to);
             }
@@ -1545,6 +1569,10 @@ impl Command {
                 run.leave_activity(*player);
             }
             Self::DropOffer { player } => return Ok(Reply::Changed(run.drop_offer(*player))),
+            Self::OpenWishLine { player } => return Ok(Reply::Changed(run.open_wish_line(*player))),
+            Self::TypeWishLetter { player, letter } => {
+                return Ok(Reply::Changed(run.type_wish_letter(*player, char::from(*letter))));
+            }
             Self::ChooseOffer { player, index } => {
                 return run.choose(*player, usize::from(*index)).map(Reply::Chosen);
             }

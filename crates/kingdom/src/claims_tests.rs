@@ -10,7 +10,7 @@ fn discover(k: &mut Kingdom, id: &str, resource: &str) -> bool {
             source: "Mines / floor 1".into(),
             secured: false,
             rate: 2,
-        },
+            yields: Default::default(), surface: false },
     )
 }
 
@@ -137,4 +137,61 @@ fn claims_unsecured_retirement_does_not_grant_evidence_and_bad_history_is_reject
     }
     k.secured_resources.insert("unknown-ore".into());
     assert!(!k.valid(catalog()));
+}
+
+#[test]
+fn a_claim_with_yields_makes_all_of_them_and_is_evidence_for_each() {
+    let mut k = Kingdom::default();
+    let claim = Claim {
+        resource: "limestone".into(),
+        name: "Sound limestone face".into(),
+        source: "The Mines / floor 3".into(),
+        secured: false,
+        rate: 3,
+        yields: [("limestone".to_string(), 3), ("iron-ore".to_string(), 1)].into(), surface: false };
+    assert_eq!(claim.output(), claim.yields);
+    assert!(claim.gives("iron-ore") && !claim.gives("coal"));
+    assert!(k.discover(catalog(), "mines-3".into(), claim));
+    assert!(k.secure("mines-3"));
+    assert!(k.has_secured_resource("iron-ore") && k.has_secured_resource("limestone"));
+    assert!(k.secured_evidence().contains("iron-ore"));
+    // Releasing the claim keeps every resource it was evidence of.
+    k.apply(catalog(), Command::ReleaseClaim("mines-3".into())).unwrap();
+    assert!(k.secured_resources.contains("iron-ore") && k.secured_resources.contains("limestone"));
+    assert!(k.valid(catalog()));
+}
+
+#[test]
+fn a_claim_without_yields_saves_and_works_as_it_always_did() {
+    let old = Claim {
+        resource: "coal".into(),
+        name: "Black candle seam".into(),
+        source: "Crypt / floor 1".into(),
+        secured: true,
+        rate: 2,
+        yields: Default::default(), surface: false };
+    let json = serde_json::to_string(&old).unwrap();
+    assert!(!json.contains("yields"));
+    assert_eq!(serde_json::from_str::<Claim>(&json).unwrap(), old);
+    assert_eq!(old.output(), Stock::from([("coal".to_string(), 2)]));
+}
+
+#[test]
+fn the_camp_takes_what_is_handed_in_up_to_its_storage_and_pays_only_what_it_has() {
+    let mut k = Kingdom::default();
+    // An unfounded kingdom takes nothing and is not started by it.
+    assert_eq!(k.receive(catalog(), "coin", 50), 0);
+    assert!(k.is_empty());
+    k.start(catalog());
+    let room = k.report(catalog()).capacity;
+    assert_eq!(k.receive(catalog(), "coin", 50), 50.min(room));
+    assert_eq!(k.receive(catalog(), "moon-cheese", 5), 0, "unknown goods");
+    let got = k.receive(catalog(), "coin", room + 100);
+    assert_eq!(k.amount("coin"), room, "never past the storage ({got} more)");
+    let before = k.rev;
+    assert!(k.spend(catalog(), &Stock::from([("coin".to_string(), room + 1)])).is_err());
+    assert_eq!((k.amount("coin"), k.rev), (room, before), "a refused payment changes nothing");
+    k.spend(catalog(), &Stock::from([("coin".to_string(), 10)])).unwrap();
+    assert_eq!(k.amount("coin"), room - 10);
+    assert!(k.valid(catalog()));
 }

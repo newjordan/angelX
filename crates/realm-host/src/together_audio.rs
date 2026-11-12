@@ -15,6 +15,7 @@ use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
 mod live;
+mod bard_stream;
 
 /// Where the knights' voices sit: their clips are recorded quieter than the
 /// effects, so they play at the effects' own level.
@@ -375,6 +376,12 @@ impl Audio {
                 )),
                 Some(_) => {}
             }
+            // The Bard's songs joined ahead, so its first press is already one stream.
+            if !cfg!(any(test, feature = "testing"))
+                && let Some(dir) = &self.dir
+            {
+                bard_stream::warm(&dir.join("sfx"));
+            }
         }
         self.dir.as_deref()
     }
@@ -383,12 +390,21 @@ impl Audio {
     /// An effect as a seat's client names it (`sfx <file>`): its folders
     /// are dashes there (`knights-a_cheer_1` is `knights/a_cheer_1`).
     pub fn sfx_line(&mut self, file: &str, now: Instant) {
-        if let Some(name) = names().find(|n| angel_delve::wire::sound_file(n) == file) {
+        if file == angel_delve::wire::sound_file(angel_delve::rules::bard::REST) {
+            self.sfx(angel_delve::rules::bard::REST, now);
+        } else if let Some(name) = names().find(|n| angel_delve::wire::sound_file(n) == file) {
             self.sfx(name, now);
         }
     }
 
     pub fn sfx(&mut self, name: &str, now: Instant) {
+        // The Bard let go of its song: it stops now, muted or not (`rules::bard::strum`).
+        if name == angel_delve::rules::bard::REST {
+            if !cfg!(any(test, feature = "testing")) {
+                bard_stream::rest();
+            }
+            return;
+        }
         let Some(name) = names().find(|&s| s == name) else {
             return;
         };
@@ -400,6 +416,17 @@ impl Audio {
             .get(name)
             .is_some_and(|&at| now.saturating_duration_since(at) < gap(name))
         {
+            return;
+        }
+        // The Bard's song as one unbroken stream where it can be: a player a slice starts each a
+        // little early or late, and the song stutters.
+        if !cfg!(any(test, feature = "testing"))
+            && angel_delve::rules::bard::is_slice(name)
+            && let Some(dir) = self.dir().map(|d| d.join("sfx"))
+            && bard_stream::heard(&dir, name, SFX_LEVEL, now)
+        {
+            self.last.insert(name, now);
+            self.played += 1;
             return;
         }
         self.sounding.retain(|&end| end > now);
@@ -449,6 +476,9 @@ impl Audio {
         self.sounding.clear();
         self.track = None;
         self.kill();
+        if !cfg!(any(test, feature = "testing")) {
+            bard_stream::rest();
+        }
     }
 
     pub fn set_muted(&mut self, muted: bool) {
@@ -456,6 +486,9 @@ impl Audio {
             return;
         }
         self.muted = muted;
+        if muted && !cfg!(any(test, feature = "testing")) {
+            bard_stream::rest();
+        }
         self.restart();
     }
 

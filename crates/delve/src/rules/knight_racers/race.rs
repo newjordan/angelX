@@ -193,12 +193,20 @@ pub struct Session {
     /// between floors runs one.
     #[serde(default)]
     pub laps: u32,
+    /// Metres this race runs when it stops short of its laps (0: the laps). The crossroads runs
+    /// a quarter of one lap.
+    #[serde(default)]
+    pub length: f32,
+    /// Ticks the race runs after the flag before it is called (0: no limit). The screen counts
+    /// it down.
+    #[serde(default)]
+    pub limit: u32,
 }
 
 impl Session {
     /// An empty session on the first course of the cup.
     pub fn blank() -> Self {
-        Self { cars: BTreeMap::new(), ticks: 0, finished: false, course: cup()[0], round: 0, points: BTreeMap::new(), scored: false, flow: Flow::default(), laps: 0 }
+        Self { cars: BTreeMap::new(), ticks: 0, finished: false, course: cup()[0], round: 0, points: BTreeMap::new(), scored: false, flow: Flow::default(), laps: 0, length: 0., limit: 0 }
     }
     /// The same, on a chosen course.
     pub fn blank_on(course: CourseId) -> Self {
@@ -210,6 +218,17 @@ impl Session {
         let own = self.course().laps();
         if self.laps == 0 { own } else { self.laps.min(own) }
     }
+    /// Metres from the line to the flag: the laps, or the shorter length the session sets.
+    pub fn distance(&self) -> f32 {
+        let laps = self.course().lap() * self.laps() as f32;
+        if self.length > 0. { self.length.min(laps) } else { laps }
+    }
+    /// Seconds before the race is called, for a race with a limit (none on the grid's count).
+    pub fn left(&self) -> Option<f32> {
+        (self.limit > 0).then(|| (COUNTDOWN + self.limit).saturating_sub(self.ticks.max(COUNTDOWN)) as f32 / HZ)
+    }
+    /// The limit has run out.
+    pub fn time_up(&self) -> bool { self.left() == Some(0.) }
     /// Keep only knights still inside the race. Waiting outside at the
     /// kingdom gate must not remain a ghost racer in the finish condition.
     /// CPU rivals survive a solo join; a real knight taking that seat clears the flag.
@@ -374,7 +393,7 @@ impl Session {
         let dt = 1. / HZ;
         let time = (self.ticks - COUNTDOWN) as f32 * dt;
         let tick = self.ticks - COUNTDOWN;
-        let finish_at = lap * self.laps() as f32;
+        let finish_at = self.distance();
         // The wake each pod rides this tick, where every pod was, and how hard the rivals may run.
         let wakes: BTreeMap<u32, (f32, u32)> = self.cars.keys().map(|&id| (id, contact::wake_of(lap, &self.cars, id))).collect();
         let before: BTreeMap<u32, (f32, f32)> = self.cars.iter().map(|(id, c)| (*id, (c.d, c.y))).collect();

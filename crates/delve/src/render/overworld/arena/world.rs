@@ -464,6 +464,10 @@ pub(super) fn scenery(run: &Run) -> Img {
     super::pastimes::scenery(&mut cv, room.kind);
     super::countryside::scenery(&mut cv, run);
     super::countryside::lights(&mut lights, run);
+    if room.kind == RoomKind::Gate {
+        let mouth = crate::rules::caves::YARD_MOUTH;
+        super::super::cave_seat::stamp_mouth(&mut cv, mouth.at.0 * TILE + (mouth.at.2 * TILE - 32) / 2, mouth.at.1 * TILE - 9, 1);
+    }
     super::dusk_with(&mut cv, &lights, ('F', 'I'), 1.0);
     cv
 }

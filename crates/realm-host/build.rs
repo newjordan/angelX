@@ -133,6 +133,9 @@ fn delve_web() {
     }
     let lib = package.replace('-', "_");
     let wasm = target.join("wasm32-unknown-unknown").join(profile).join(format!("{lib}.wasm"));
+    if profile == "web-size" {
+        shrink_wasm(&wasm);
+    }
     let dist = out.join("delve-web");
     let _ = fs::remove_dir_all(&dist);
     fs::create_dir_all(&dist).expect("make the bundle's folder");
@@ -388,4 +391,75 @@ fn watch(dir: &Path) {
             println!("cargo:rerun-if-changed={}", path.display());
         }
     }
+}
+
+/// `wasm-opt -Oz` when it is installed. A stamp skips a second pass on an
+/// unchanged page, so a native rebuild that did not rebuild the wasm does
+/// not pay it. A missing tool leaves the page as cargo wrote it.
+fn shrink_wasm(wasm: &Path) {
+    let Some(opt) = std::env::var_os("WASM_OPT").filter(|p| !p.is_empty()).or_else(|| {
+        ["wasm-opt", "/usr/bin/wasm-opt", "/usr/local/bin/wasm-opt"]
+            .into_iter()
+            .find(|name| {
+                Path::new(name).is_file() || Command::new(name).arg("-h").output().is_ok()
+            })
+            .map(std::ffi::OsString::from)
+    }) else {
+        println!("cargo:warning=wasm-opt is not installed; the browser page is not size-optimised past rustc");
+        return;
+    };
+    let Ok(meta) = fs::metadata(wasm) else {
+        return;
+    };
+    let stamp = wasm.with_extension("wasm-opt-stamp");
+    let key = format!(
+        "{}:{}",
+        meta.len(),
+        meta.modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    );
+    if fs::read_to_string(&stamp).ok().as_deref() == Some(key.as_str()) {
+        return;
+    }
+    let tmp = wasm.with_extension("wasm-opt-tmp");
+    let status = Command::new(&opt)
+        .args(["-Oz", "--strip-debug", "--strip-producers"])
+        .arg(wasm)
+        .arg("-o")
+        .arg(&tmp)
+        .status();
+    let Ok(status) = status else {
+        println!("cargo:warning=wasm-opt did not start; the browser page is unchanged");
+        return;
+    };
+    if !status.success() {
+        let _ = fs::remove_file(&tmp);
+        println!("cargo:warning=wasm-opt failed; the browser page is unchanged");
+        return;
+    }
+    let shrunk = fs::metadata(&tmp).map(|m| m.len()).unwrap_or(u64::MAX);
+    if shrunk < meta.len() {
+        if fs::rename(&tmp, wasm).is_err() {
+            let _ = fs::remove_file(&tmp);
+            return;
+        }
+    } else {
+        let _ = fs::remove_file(&tmp);
+    }
+    let Ok(done) = fs::metadata(wasm) else {
+        return;
+    };
+    let done_key = format!(
+        "{}:{}",
+        done.len(),
+        done.modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    );
+    let _ = fs::write(&stamp, done_key);
 }

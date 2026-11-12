@@ -70,6 +70,7 @@ impl Run {
         self.feel.clear_room();
         self.gore.clear();
         self.at = index;
+        self.stamp_cave_mouth();
         self.projectiles.clear();
         self.imps.clear();
         self.enemies.clear();
@@ -498,6 +499,7 @@ impl Run {
         }
         if from_home {
             self.notice("first_delve");
+            self.stock_blocks_at_the_stair();
         } else {
             if self.mode == fortune::Mode::GlassJaw {
                 self.notice("fragile");
@@ -744,7 +746,7 @@ impl Run {
         let mut on_stairs: BTreeMap<u32, Option<&'static str>> = BTreeMap::new();
         // An away knight standing in a doorway or on a stair takes the party
         // nowhere, and does not hold the stair for those who come after.
-        for (&id, hero) in self.players.iter().filter(|(id, _)| self.counts_in_fellowship(**id)) {
+        for (&id, hero) in self.players.iter().filter(|(id, _)| self.counts_in_fellowship(**id) && !self.caves.inside(**id)) {
             counted += 1;
             let dir = if hero.y < 0.6 {
                 Some(0)
@@ -768,9 +770,12 @@ impl Run {
             let col = (hero.x / TILE_UNITS) as i32;
             let row = (hero.y / TILE_UNITS) as i32;
             if room.tile(col, row) == Tile::Stairs {
-                let gate = home
-                    .then(|| world::entrance_at(room.kind, col, row))
-                    .flatten();
+                let gate = if self.dungeon.depth == 1 {
+                    crate::rules::caves::floor_mouth(room.kind, col, row)
+                } else {
+                    None
+                }
+                .or_else(|| home.then(|| world::entrance_at(room.kind, col, row)).flatten());
                 // A door the realm has not built yet is only a wall.
                 if gate.is_some_and(|e| !world::open(e, &self.home)) {
                     continue;
@@ -807,6 +812,17 @@ impl Run {
         }
         // Out of a side-on hall, any way out is its one doorway back.
         let exit = exit.map(|dir| self.room().way_back().unwrap_or(dir));
+        let cave_gate = on_stairs.values().find_map(|g| match g {
+            Some(id) if *id == "cave-floor" || *id == "cave-yard" => Some(*id),
+            _ => None,
+        });
+        if entrance.is_some_and(|e| matches!(e.to, world::Dest::Cave)) || cave_gate.is_some() {
+            let from_yard = entrance.is_some_and(|e| e.room == RoomKind::Gate) || cave_gate == Some("cave-yard");
+            let gate = entrance.map(|e| e.id).or(cave_gate);
+            self.cave_mouth_holds(&on_stairs, gate, from_yard);
+            stairs = false;
+            entrance = None;
+        }
         // A way out is open to the party when all of it stands there. A
         // retreat to the kingdom is a seat's own decision, and waits for no
         // one (`exits`).

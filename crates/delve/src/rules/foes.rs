@@ -541,7 +541,7 @@ impl Run {
         for (x, y, reach, damage, (dx, dy)) in deeds.rams {
             let room = &self.dungeon.rooms[self.at];
             let grid = Grid { room, barred: true };
-            for hero in self.players.values_mut().filter(|h| h.targetable()) {
+            for (id, hero) in self.players.iter_mut().filter(|(id, h)| h.targetable() && !self.caves.inside(**id)) {
                 if hero.invulnerable == 0 && (hero.x - x).hypot(hero.y - y) < reach {
                     hero.hurt(damage);
                     // Run down and thrown aside.
@@ -713,7 +713,7 @@ impl Run {
                 room.tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32).ground()
             });
             // The landing itself bites, crossways, teeth already out.
-            for hero in self.players.values_mut().filter(|h| h.targetable()) {
+            for (id, hero) in self.players.iter_mut().filter(|(id, h)| h.targetable() && !self.caves.inside(**id)) {
                 if hero.invulnerable == 0 && (hero.x - x).hypot(hero.y - y) < FLING_STOMP {
                     hero.hurt(FLING_BITE);
                     self.sounds.push("hero_hurt");
@@ -817,7 +817,7 @@ impl Run {
         }
         self.kegs.retain(|k| k.fuse > 0);
         for (x, y) in blown {
-            for hero in self.players.values_mut().filter(|h| h.targetable()) {
+            for (id, hero) in self.players.iter_mut().filter(|(id, h)| h.targetable() && !self.caves.inside(**id)) {
                 if (hero.x - x).hypot(hero.y - y) < KEG_REACH {
                     hero.hurt(18);
                 }
@@ -848,7 +848,7 @@ impl Run {
         }
         self.lobs.retain(|l| l.fall > 0);
         for (x, y) in landed {
-            for hero in self.players.values_mut().filter(|h| h.targetable()) {
+            for (id, hero) in self.players.iter_mut().filter(|(id, h)| h.targetable() && !self.caves.inside(**id)) {
                 if (hero.x - x).hypot(hero.y - y) < LOB_REACH {
                     hero.hurt(14);
                 }
@@ -989,7 +989,7 @@ impl Run {
         let room = &self.dungeon.rooms[self.at];
         let grid = Grid { room, barred: true };
         let wells: Vec<(f32, f32)> = self.wells.iter().map(|w| (w.x, w.y)).collect();
-        for hero in self.players.values_mut().filter(|h| h.targetable()) {
+        for (id, hero) in self.players.iter_mut().filter(|(id, h)| h.targetable() && !self.caves.inside(**id)) {
             for &(wx, wy) in &wells {
                 let (dx, dy) = (wx - hero.x, wy - hero.y);
                 let d = dx.hypot(dy);

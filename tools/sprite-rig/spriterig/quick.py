@@ -547,6 +547,10 @@ def _anchors(rig, transforms, base, contacts):
         if name == 'tip':
             # Direction/weapon reach, deliberately not a body contact.
             result[name] = np.floor(target+.5).astype(int).tolist()
+        elif not np.any(contacts[anchor['part']]):
+            # A part can be wholly hidden in a pose (a one-pixel hand behind the
+            # body mid-roll). The socket then sits where the part would be.
+            result[name] = np.floor(target+.5).astype(int).tolist()
         else:
             result[name] = _contact(contacts[anchor['part']], target,
                                     bottom=name == 'feet')

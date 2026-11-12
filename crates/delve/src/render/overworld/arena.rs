@@ -49,6 +49,8 @@ mod bazaar;
 mod champions;
 mod three_heroes;
 mod spellfx;
+mod wishstrips;
+mod meleestrips;
 mod muster_tent;
 mod squire_rooms;
 mod bomrekedan;
@@ -94,6 +96,30 @@ mod figures;
 mod lane_squires;
 mod floor_stats;
 mod flourishes;
+mod autorig;
+
+/// A wished creature's ink, walked and struck by the autorig. None when the
+/// figure will not stand or the rig is turned off.
+pub(crate) fn wished_pose(rows: &[&str], tick: u64) -> Option<super::ink::Img> {
+    autorig::stage_pose(rows, tick)
+}
+
+/// The picture the delve room stamps for this hero, and the foot in it.
+/// The cave stands these pixels and no other body.
+pub(crate) fn room_figure(run: &crate::rules::Run, id: u32, hero: &crate::rules::Hero) -> (super::ink::Img, Option<[i32; 2]>) {
+    let (dressed, _) = figures::dressed_knight(run, id, hero);
+    let mut image = dressed.image;
+    let mut pivot = dressed.pivot;
+    // The room mirrors a knight who faces left. The foot's row does not move.
+    if hero.aim_x < -0.3 {
+        let w = image.w;
+        image = image.flip_h();
+        if let Some(p) = pivot.as_mut() {
+            p[0] = w - 1 - p[0];
+        }
+    }
+    (image, pivot)
+}
 mod folly;
 mod fx;
 mod hall_voices;
@@ -175,6 +201,19 @@ mod guardian_bar;
 mod signatures;
 mod merchant;
 pub(crate) mod party;
+
+pub(crate) fn notice_board(lines: &[(String, char)]) -> Img {
+    home::board(lines)
+}
+
+/// The colours a seat's knight wears, as ink swaps on the kit's knight: the
+/// company's own where it gave some, else the seat's.
+pub(crate) fn seat_colours(run: &Run, id: u32) -> &[(char, char)] {
+    match run.players.get(&id).map(|h| h.colours()) {
+        Some(own) if !own.is_empty() => own,
+        _ => knights::seat_colours(id),
+    }
+}
 mod pastimes;
 mod teachers;
 pub mod plates;
@@ -209,6 +248,14 @@ pub mod stage_frame;
 mod runes;
 mod scenery;
 mod seat;
+pub mod stand_back;
+/// The tile of the ground a click lands on in the flat view of the hillside works.
+pub use kingdom::hillside_art::{slot_at as hill_slot_at, tile_at as hill_tile_at};
+
+/// How tall the builder's strip at the view's foot is, in the view's pixels.
+pub fn hill_strip_height() -> i32 {
+    kingdom::hillside_art::STRIP_H
+}
 mod secrets;
 mod side;
 mod shoulders;
@@ -534,6 +581,9 @@ impl Field {
                 && figures.h == scenery.h
             {
                 Img::compose_1x(figures, scenery, out);
+                return;
+            }
+            if Img::compose_kx(figures, scenery, out, self.ox, self.oy, k) {
                 return;
             }
             for y in 0..scenery.h * k {
@@ -1122,7 +1172,7 @@ pub fn seat_frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
 
 /// `seat_frame` with what the seat's client asks of the map (`MapView`).
 pub fn seat_frame_with(run: &Run, w: i32, h: i32, focus: Option<u32>, map: &MapView) -> Img {
-    in_seat(|| party::lift_frame_with(&frame_for(run, w, view_rows(h), focus), run, focus, map))
+    stand_back::with(run, focus, map.full, || in_seat(|| party::lift_frame_with(&frame_for(run, w, view_rows(h), focus), run, focus, map)))
 }
 
 /// A seat's whole screen as parts (`seat_frame`, in parts): the bands in
@@ -1133,7 +1183,7 @@ pub fn seat_scene(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
 
 /// `seat_scene` with what the seat's client asks of the map (`MapView`).
 pub fn seat_scene_with(run: &Run, w: i32, h: i32, focus: Option<u32>, map: &MapView) -> RoomScene {
-    in_seat(|| party::lift_with(scene_for(run, w, view_rows(h), focus), run, focus, map))
+    stand_back::with(run, focus, map.full, || in_seat(|| party::lift_with(scene_for(run, w, view_rows(h), focus), run, focus, map)))
 }
 
 /// Where an arena point lands on a seat's whole screen `w` by `h`
@@ -1147,7 +1197,37 @@ pub fn seat_px(run: &Run, w: i32, h: i32, focus: Option<u32>, ux: f32, uy: f32) 
 /// One Knight Racers pod on a turntable, for the course and pod select screens.
 pub fn racer_garage(look: usize, seat: u32, turn: f32, ticks: u32) -> Img { knight_racers::garage(look, seat, turn, ticks) }
 
+/// Sheet decode, the font and the scenery cache, once per process, before a
+/// frame is shown. 384 by 216 is the wide size a page draws first.
+pub fn warm_first_shown() {
+    static ONCE: std::sync::OnceLock<()> = std::sync::OnceLock::new();
+    ONCE.get_or_init(|| {
+        let run = crate::rules::Run::new(1, 1, None);
+        let _wide = frame_for(&run, 384, 216, Some(1));
+        let _native = frame_for(&run, NATIVE_W, NATIVE_H, Some(1));
+    });
+}
+
+fn cave_shake(run: &Run, im: Img) -> Img {
+    if run.shake == 0 {
+        return im;
+    }
+    let (sx, sy) = camera::smooth_shake(run.tick, run.shake, 12, 6.0);
+    if sx == 0 && sy == 0 {
+        return im;
+    }
+    let mut shifted = Img::new(im.w, im.h);
+    shifted.stamp(&im, sx, sy);
+    shifted
+}
+
 pub fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
+    // Draw thread. While a knight stands on a cave mouth, the ground it will
+    // arrive on is drawn ahead, so the first frame inside is an ordinary one.
+    super::cave_seat::warm_mouth(run, focus);
+    if let Some(id) = focus.filter(|id| run.caves.inside(*id)) {
+        return cave_shake(run, super::cave_seat::cave_seat_frame(run, id, w, h));
+    }
     if industry::showing(run, focus) || industry::frontier(run) { return industry::frame(run,w,h,focus); }
     if crossroads::showing(run) { return crossroads::frame(run, w, h, focus); }
     if crossroads::pastime(run) || encounter::pastime(run) {
@@ -1203,13 +1283,22 @@ pub fn frame_v1(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     if let Some(plate) = run.floor_plate(focus) {
         return plates::frame(plate.title().unwrap_or(plate), w, h);
     }
-    let mut out = Img::black(w.max(0), h.max(0));
     if w < 12 || h < 8 {
-        return out;
+        return Img::black(w.max(0), h.max(0));
     }
     let legible = w >= NATIVE_W && h >= NATIVE_H;
-    let (scenery, over) = boss_art::library_cells(!legible, || layers(run, focus, legible));
+    let (mut scenery, mut over) = boss_art::library_cells(!legible, || layers(run, focus, legible));
     let field = Field::fit(w, h);
+    let snap = dungeon_art::supported(run) && laid_plate(run).is_none();
+    if snap {
+        dungeon_art::palette_layer(&mut scenery);
+        dungeon_art::palette_layer(&mut over);
+    }
+    let mut out = if snap {
+        dungeon_art::paper_frame(w.max(0), h.max(0))
+    } else {
+        Img::black(w.max(0), h.max(0))
+    };
     if run.room().kind == RoomKind::Kingdom && !industry::showing(run, focus) && !industry::frontier(run) && field.den != 1 {
         let ranks = super::kingdom::atlas_ranks(&run.kingdom.wishes);
         field.blit_ranked(
@@ -1229,6 +1318,9 @@ pub fn frame_v1(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
         } else {
             field.blit(&scenery, &over, &mut out);
         }
+    }
+    if snap {
+        return out;
     }
     // A room in 3D is true colour, its plate never snapped (`world3d`).
     if dungeon_art::supported(run) && laid_plate(run).is_none() {dungeon_art::palette_frame(out)} else {out}
@@ -1421,6 +1513,12 @@ mod hud_pass_shots;
 #[cfg(test)]
 #[path = "../../../tests/render/arena__quick_rig__tests.rs"]
 mod quick_rig_tests;
+#[path = "../../../tests/render/arena__quick_rig__auto__tests.rs"]
+mod quick_rig_auto_tests;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__autorig__tests.rs"]
+mod autorig_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/render/arena__factory__tests.rs"]

@@ -116,10 +116,12 @@ pub(super) fn summoned(cv: &mut Img, run: &Run) {
     for (n, imp) in run.imps.iter().enumerate() {
         let tick = run.tick + u64::from(imp.seat) * 3;
         let sprite = run.book.get(&imp.card).and_then(|c| c.looks.summon.as_ref());
-        let mut im = sprite.map_or_else(
-            || knights::imp_default(imp.behaviour, tick),
-            |s| knights::sprite_img(s, tick),
-        );
+        let mut im = if let Some(sprite) = sprite {
+            super::autorig::summon_img(imp, sprite, tick)
+                .unwrap_or_else(|| knights::sprite_img(sprite, tick))
+        } else {
+            knights::imp_default(imp.behaviour, tick)
+        };
         if imp.left_facing {
             im = im.flip_h();
         }

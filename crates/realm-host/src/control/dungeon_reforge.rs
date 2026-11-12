@@ -36,6 +36,8 @@ pub struct ReforgeDraft {
     /// Opened at a Sanctuary's dais (a wish there may be anything; in an
     /// Overclass window only the phrasebook's).
     pub sanctuary: bool,
+    /// Which hub row this line belongs to: 0 power, 1 reforge, 2 look.
+    pub hub_row: u8,
 }
 
 impl ReforgeDraft {
@@ -49,6 +51,7 @@ impl ReforgeDraft {
             pick: None,
             known: None,
             sanctuary,
+            hub_row: u8::from(sanctuary),
         }
     }
 }
@@ -429,7 +432,7 @@ impl Session<'_> {
     }
 
     /// T in a Sanctuary or an Overclass window: open the scroll for player 1.
-    pub(super) fn open_reforge(&mut self) {
+    pub fn open_reforge(&mut self) {
         // The scroll already has its choices up: pick one, or Esc.
         if self.dungeon.wish_offer_open(1) {
             return;
@@ -442,6 +445,17 @@ impl Session<'_> {
 
     /// The displayed knight rubbed a lamp (or chose the mirror's handoff):
     /// a wish, never a Sanctuary's equipment reforge.
+    /// A creator-scroll wish uses the same brief the genie scroll builds. No extra words.
+    pub fn queue_creator_wish(&mut self, words: &str) {
+        let words = words.to_string();
+        let name = self.host_name();
+        let brief = creator_wish_brief(&name, &words, None, Target::You);
+        let mut lesson = Lesson::new(1, words);
+        lesson.brief = brief;
+        lesson.pick = Pick::Chosen;
+        self.dungeon.forge.learning.push(lesson);
+    }
+
     pub fn open_lamp_wish(&mut self) {
         let player = self.dungeon_screen().map_or(1, |(_, id)| id);
         if self.dungeon.wish_offer_open(player) {
@@ -578,6 +592,10 @@ impl Session<'_> {
                         .is_some_and(|w| w.next_tier(&deck).is_some())
                 });
                 let said = words.chars().filter(|c| c.is_alphanumeric()).count() >= 3;
+                let row = if draft.sanctuary { 1 } else { draft.hub_row };
+                if let Some(line) = wish_refusal(row, words) {
+                    self.dungeon.notice = line;
+                } else {
                 let upgrading = upgrades.iter().any(|u| u.words().eq_ignore_ascii_case(words));
                 if known.is_some() || upgrading || (said && !draft.sanctuary) {
                     // The scroll's choices take it from here (`genie`).
@@ -589,6 +607,7 @@ impl Session<'_> {
                     draft.confirm = Some(true);
                 } else {
                     self.dungeon.notice = "Pick a wish (↑/↓) or write one in a few words.".into();
+                }
                 }
             }
             KeyCode::Char(c) if draft.words.chars().count() < 200 => {
@@ -687,6 +706,10 @@ impl Session<'_> {
     /// (A wish from the phrasebook, or words the scroll learns, opens the
     /// scroll's choices instead: `offer_from_scroll`.)
     fn seal_wish(&mut self, draft: ReforgeDraft) {
+        if let Some(line) = reforge_refusal(draft.words.trim()) {
+            self.dungeon.notice = line;
+            return;
+        }
         self.dungeon.notice = format!(
             "The wish is sealed: “{}”. The scroll glows…",
             draft.words.trim()
@@ -1451,6 +1474,10 @@ impl Session<'_> {
 
     /// Queue a reforge; the first one in line is handed to angelX.
     pub fn request_reforge(&mut self, player: u32, part: Part, words: String) {
+        if let Some(line) = reforge_refusal(&words) {
+            self.dungeon.notice = line;
+            return;
+        }
         if self.dungeon.joined.is_some() {
             if self.dungeon.forge.queue.len() >= 64 || words.trim().is_empty() || words.len() > 4096
             {
@@ -1852,6 +1879,16 @@ pub fn bench_learn_brief(name: &str, words: &str, ws: &std::path::Path) -> Strin
     learn_brief_for(name, words, &path, &sheets, None)
 }
 
+/// The creator door's request: the genie scroll's brief, byte for byte.
+pub fn creator_wish_brief(
+    name: &str,
+    words: &str,
+    making: Option<&crate::together_shooter::identity::Making>,
+    target: Target,
+) -> String {
+    grant_brief_for(name, words, making, target)
+}
+
 /// What a grant runner asks the host's model (`together_grants`): the same
 /// lesson, answered as a reply holding the entry alone, no tools; for a
 /// summoner's dead when he wished it for them (`target`).
@@ -2074,6 +2111,21 @@ fn move_line() -> String {
 }
 
 #[cfg(test)]
+mod creator_door_brief_tests {
+    use super::{creator_wish_brief, grant_brief_for, Target};
+
+    #[test]
+    fn creator_door_reaches_the_genie_brief() {
+        for words in ["a fire bolt", "a tiny golden devil", "a tall smith", "a long spear"] {
+            let door = creator_wish_brief("Ada", words, None, Target::You);
+            let genie = grant_brief_for("Ada", words, None, Target::You);
+            assert_eq!(door, genie, "{words}");
+            assert!(door.contains(words));
+        }
+    }
+}
+
+#[cfg(test)]
 mod area_words_tests {
     use super::*;
     /// The words a player says for area magic are mapped in the lesson to area casts, and every cast the
@@ -2122,5 +2174,38 @@ mod area_words_tests {
         assert!(checked >= 14, "the table names its casts: {checked}");
         // The spell lines every brief carries name them too.
         assert!(SPELL_LINES.contains("wave|burst|cone|line|field|pillar|nova"));
+    }
+}
+
+/// Words a sanctuary reforge must not be sent: a minion, a summon, or another kind it cannot make.
+pub(crate) fn reforge_refusal(words: &str) -> Option<String> {
+    angel_delve::rules::creation::blocks_reforge(words).then(|| {
+        angel_delve::rules::creation::redirect_line(
+            angel_delve::rules::creation::HubRow::Reforge,
+            words,
+        )
+        .unwrap_or_else(|| "THAT IS NOT A REFORGE".into())
+    })
+}
+
+fn wish_refusal(row: u8, words: &str) -> Option<String> {
+    let row = angel_delve::rules::creation::HubRow::from_index(row as usize)
+        .unwrap_or(angel_delve::rules::creation::HubRow::Power);
+    angel_delve::rules::creation::redirect_line(row, words)
+}
+
+#[cfg(test)]
+mod wish_hub_tests {
+    use super::reforge_refusal;
+
+    #[test]
+    fn reforge_is_not_sent_for_minion_words() {
+        let creature = reforge_refusal("crab minions").expect("a minion is not a reforge");
+        assert!(creature.contains("CREATURE"), "{creature}");
+        assert!(creature.contains('4'), "{creature}");
+        let summon = reforge_refusal("summon a storm").expect("a summon is not a reforge");
+        assert!(summon.contains("POWER"), "{summon}");
+        assert!(reforge_refusal("a heavier sword").is_none(), "a weapon may still be reforged");
+        assert!(reforge_refusal("a round shield").is_none(), "a guard may still be reforged");
     }
 }

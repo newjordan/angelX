@@ -154,10 +154,10 @@ fn hosted(label: &str, threaded: bool, oracle: std::sync::Arc<dyn crate::agent::
     Fixture { app, workspace, _home: home_guard }
 }
 
-/// Knight 1 says `words` on T's scroll and picks the genie's first way.
+/// Knight 1 says `words` on the terminal's scroll and picks the genie's first way.
 fn host_wishes(app: &mut App, words: &str) {
     let keyboard_before = app.dungeon_keyboard_active();
-    press(app, KeyCode::Char('t'));
+    app.open_reforge();
     frames(app, 2);
     let after_t = {
         let r = run(app);

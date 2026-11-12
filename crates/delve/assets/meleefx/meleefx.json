@@ -1,0 +1,422 @@
+{
+ "slash-ember": {
+  "fx": "melee/sword-slash",
+  "w": 79,
+  "h": 79,
+  "ox": 39,
+  "oy": 39,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slash-ice": {
+  "fx": "melee/sword-slash",
+  "w": 79,
+  "h": 79,
+  "ox": 39,
+  "oy": 39,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slash-gold": {
+  "fx": "melee/sword-slash",
+  "w": 79,
+  "h": 79,
+  "ox": 39,
+  "oy": 39,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slash-venom": {
+  "fx": "melee/sword-slash",
+  "w": 79,
+  "h": 79,
+  "ox": 39,
+  "oy": 39,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slash-void": {
+  "fx": "melee/sword-slash",
+  "w": 79,
+  "h": 79,
+  "ox": 39,
+  "oy": 39,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slash-rose": {
+  "fx": "melee/sword-slash",
+  "w": 79,
+  "h": 79,
+  "ox": 39,
+  "oy": 39,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slash-steel": {
+  "fx": "melee/sword-slash",
+  "w": 79,
+  "h": 79,
+  "ox": 39,
+  "oy": 39,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "overhead-ember": {
+  "fx": "melee/heavy-cleave",
+  "w": 123,
+  "h": 123,
+  "ox": 61,
+  "oy": 61,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "overhead-ice": {
+  "fx": "melee/heavy-cleave",
+  "w": 123,
+  "h": 123,
+  "ox": 61,
+  "oy": 61,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "overhead-gold": {
+  "fx": "melee/heavy-cleave",
+  "w": 123,
+  "h": 123,
+  "ox": 61,
+  "oy": 61,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "overhead-venom": {
+  "fx": "melee/heavy-cleave",
+  "w": 122,
+  "h": 122,
+  "ox": 60,
+  "oy": 60,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "overhead-void": {
+  "fx": "melee/heavy-cleave",
+  "w": 122,
+  "h": 122,
+  "ox": 60,
+  "oy": 60,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "overhead-rose": {
+  "fx": "melee/heavy-cleave",
+  "w": 122,
+  "h": 122,
+  "ox": 60,
+  "oy": 60,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "overhead-steel": {
+  "fx": "melee/heavy-cleave",
+  "w": 122,
+  "h": 122,
+  "ox": 60,
+  "oy": 60,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "thrust-ember": {
+  "fx": "melee/thrust",
+  "w": 83,
+  "h": 82,
+  "ox": 40,
+  "oy": 45,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "thrust-ice": {
+  "fx": "melee/thrust",
+  "w": 83,
+  "h": 82,
+  "ox": 40,
+  "oy": 45,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "thrust-gold": {
+  "fx": "melee/thrust",
+  "w": 83,
+  "h": 82,
+  "ox": 40,
+  "oy": 45,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "thrust-venom": {
+  "fx": "melee/thrust",
+  "w": 83,
+  "h": 82,
+  "ox": 40,
+  "oy": 45,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "thrust-void": {
+  "fx": "melee/thrust",
+  "w": 83,
+  "h": 82,
+  "ox": 40,
+  "oy": 45,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "thrust-rose": {
+  "fx": "melee/thrust",
+  "w": 83,
+  "h": 82,
+  "ox": 40,
+  "oy": 45,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "thrust-steel": {
+  "fx": "melee/thrust",
+  "w": 83,
+  "h": 82,
+  "ox": 40,
+  "oy": 45,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slam-ember": {
+  "fx": "melee/hammer-smash",
+  "w": 106,
+  "h": 106,
+  "ox": 52,
+  "oy": 53,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slam-ice": {
+  "fx": "melee/hammer-smash",
+  "w": 106,
+  "h": 106,
+  "ox": 52,
+  "oy": 53,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slam-gold": {
+  "fx": "melee/hammer-smash",
+  "w": 106,
+  "h": 106,
+  "ox": 52,
+  "oy": 53,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slam-venom": {
+  "fx": "melee/hammer-smash",
+  "w": 106,
+  "h": 106,
+  "ox": 52,
+  "oy": 53,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slam-void": {
+  "fx": "melee/hammer-smash",
+  "w": 106,
+  "h": 106,
+  "ox": 52,
+  "oy": 53,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slam-rose": {
+  "fx": "melee/hammer-smash",
+  "w": 106,
+  "h": 106,
+  "ox": 52,
+  "oy": 53,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "slam-steel": {
+  "fx": "melee/hammer-smash",
+  "w": 106,
+  "h": 106,
+  "ox": 52,
+  "oy": 53,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "fist-ember": {
+  "fx": "melee/uppercut",
+  "w": 119,
+  "h": 119,
+  "ox": 59,
+  "oy": 59,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "fist-ice": {
+  "fx": "melee/uppercut",
+  "w": 119,
+  "h": 119,
+  "ox": 59,
+  "oy": 59,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "fist-gold": {
+  "fx": "melee/uppercut",
+  "w": 119,
+  "h": 119,
+  "ox": 59,
+  "oy": 59,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "fist-venom": {
+  "fx": "melee/uppercut",
+  "w": 119,
+  "h": 119,
+  "ox": 59,
+  "oy": 59,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "fist-void": {
+  "fx": "melee/uppercut",
+  "w": 119,
+  "h": 119,
+  "ox": 59,
+  "oy": 59,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "fist-rose": {
+  "fx": "melee/uppercut",
+  "w": 119,
+  "h": 119,
+  "ox": 59,
+  "oy": 59,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "fist-steel": {
+  "fx": "melee/uppercut",
+  "w": 119,
+  "h": 119,
+  "ox": 59,
+  "oy": 59,
+  "frames": 4,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "hit-ember": {
+  "fx": "impacts/hit-spark",
+  "w": 39,
+  "h": 39,
+  "ox": 19,
+  "oy": 19,
+  "frames": 3,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "hit-ice": {
+  "fx": "impacts/hit-spark",
+  "w": 39,
+  "h": 39,
+  "ox": 19,
+  "oy": 19,
+  "frames": 3,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "hit-gold": {
+  "fx": "impacts/hit-spark",
+  "w": 39,
+  "h": 39,
+  "ox": 19,
+  "oy": 19,
+  "frames": 3,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "hit-venom": {
+  "fx": "impacts/hit-spark",
+  "w": 39,
+  "h": 39,
+  "ox": 19,
+  "oy": 19,
+  "frames": 3,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "hit-void": {
+  "fx": "impacts/hit-spark",
+  "w": 39,
+  "h": 39,
+  "ox": 19,
+  "oy": 19,
+  "frames": 3,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "hit-rose": {
+  "fx": "impacts/hit-spark",
+  "w": 39,
+  "h": 39,
+  "ox": 19,
+  "oy": 19,
+  "frames": 3,
+  "dirs": 8,
+  "ticks": 2
+ },
+ "hit-steel": {
+  "fx": "impacts/hit-spark",
+  "w": 39,
+  "h": 39,
+  "ox": 19,
+  "oy": 19,
+  "frames": 3,
+  "dirs": 8,
+  "ticks": 2
+ }
+}

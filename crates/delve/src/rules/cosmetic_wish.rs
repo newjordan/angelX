@@ -189,6 +189,11 @@ impl Run {
             .mirror_owner()
             .to_owned();
         let body = self.home.wardrobe.mirror_looks.get(&name).is_some_and(|l| l.body && l.words == words);
+        // A look wished now is worn, whatever was set aside at the pub.
+        let mirror = key(&name);
+        for h in self.players.values_mut() {
+            h.set_aside.retain(|k| k != &mirror);
+        }
         self.home.wardrobe.mirror_looks.insert(
             name,
             Look {

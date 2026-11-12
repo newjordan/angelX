@@ -268,3 +268,14 @@ fn a_summoners_wish_for_his_dead_tells_the_learner_so_and_nothing_else_changes()
     assert_eq!(dead.replace(&dead_note("Ada", Target::Dead), ""), own);
     assert!(dead.contains(&format!("“{words}”\n\nAda plays the Gravecaller")));
 }
+
+
+#[test]
+fn creator_door_reaches_the_genie_brief() {
+    for words in ["a fire bolt", "a tiny golden devil", "a tall smith", "a long spear"] {
+        let door = creator_wish_brief("Ada", words, None, Target::You);
+        let genie = grant_brief_for("Ada", words, None, Target::You);
+        assert_eq!(door, genie, "{words}");
+        assert!(door.contains(words));
+    }
+}

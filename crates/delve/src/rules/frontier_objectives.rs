@@ -108,7 +108,8 @@ impl ExpeditionObjective {
 /// that floor is the Crypt. Iron is unavailable ahead on a Crypt-first trip.
 pub fn route_for(run: &Run, resource: &str) -> Option<ObjectiveRoute> {
     let current = run.dungeon.depth;
-    if (1..=DEEPEST).contains(&current) && industry::ore_at(run.dungeon.pack, current).0 == resource
+    if (1..=DEEPEST).contains(&current)
+        && geology::seam_at(run.dungeon.pack, current).gives(resource)
     {
         return Some(ObjectiveRoute {
             first: run.first,
@@ -120,7 +121,7 @@ pub fn route_for(run: &Run, resource: &str) -> Option<ObjectiveRoute> {
     }
     for floor in current.saturating_add(1).max(1)..=DEEPEST {
         let pack = Pack::at(floor, run.first);
-        if industry::ore_at(pack, floor).0 == resource {
+        if geology::seam_at(pack, floor).gives(resource) {
             return Some(ObjectiveRoute {
                 first: run.first,
                 pack,
@@ -137,7 +138,7 @@ pub fn route_for(run: &Run, resource: &str) -> Option<ObjectiveRoute> {
         .flat_map(|first| (1..=DEEPEST).map(move |floor| (first, floor)))
         .filter_map(|(first, floor)| {
             let pack = Pack::at(floor, first);
-            (industry::ore_at(pack, floor).0 == resource).then_some(ObjectiveRoute {
+            geology::seam_at(pack, floor).gives(resource).then_some(ObjectiveRoute {
                 first,
                 pack,
                 floor,
@@ -167,7 +168,7 @@ impl Run {
         let secured = kingdom
             .claims
             .iter()
-            .find(|(_, q)| q.secured && q.resource == resource)
+            .find(|(_, q)| q.secured && q.gives(resource))
             .map(|(id, _)| id.clone());
         let remaining_cost: Stock = offer
             .cost
@@ -199,7 +200,7 @@ impl Run {
         } else if let Some(d) = self
             .industry_deposits()
             .into_iter()
-            .find(|d| d.resource == resource && kingdom.claims.contains_key(&d.id))
+            .find(|d| d.seam.gives(resource) && kingdom.claims.contains_key(&d.id))
         {
             claim = Some(d.id.clone());
             if self.claim_guardian_defeated(&d.id) {

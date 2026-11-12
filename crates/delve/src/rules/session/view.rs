@@ -718,6 +718,9 @@ mod tests {
     #[test]
     fn publication_refusal_keeps_accepted_budget_and_receiver_reuses_shared_book() {
         let mut run = game();
+        // A changed book travels; the built-in one stays off the view
+        // (`Book::wire_omits`), and this test is about a big shared field.
+        run.book.revision += 1;
         let (mut publisher, mut receiver) = pair();
         receiver.baseline(&publisher.baseline(&run, status(&run)).unwrap()).unwrap();
         let old_sender = Arc::clone(&publisher.budget.0.iter().find(|e| e.name == "book").unwrap().subtree);

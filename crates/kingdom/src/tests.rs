@@ -25,8 +25,8 @@ fn claim(k: &mut Kingdom, id: &str, resource: &str) {
             name: "Test vein".into(),
             source: "Mines / floor 1".into(),
             secured: false,
-            rate: 2
-        }
+            rate: 2,
+            yields: Default::default(), surface: false }
     ));
 }
 fn shifts(k: &mut Kingdom, n: usize) {

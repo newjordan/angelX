@@ -84,6 +84,7 @@ impl Run {
         self.tick_hall_squires();
         self.tick_minions();
         self.tick_snibbet();
+        self.tick_mason_eye(inputs);
         self.small_secrets(&sortie.booms, &sortie.draughts);
         self.spark(chains);
         self.fart_hits(farts);

@@ -225,6 +225,8 @@ pub enum Dest {
     Room(RoomKind, (f32, f32)),
     /// Straight down into the first floor of a delve.
     Delve(Pack),
+    /// The living cave. Taken by the same stair hold as any other entrance.
+    Cave,
 }
 
 /// A way down (or up): its tiles in the room it stands in, where it goes,
@@ -568,6 +570,7 @@ pub fn entrance_at(kind: RoomKind, col: i32, row: i32) -> Option<&'static Entran
     ENTRANCES
         .iter()
         .find(|e| e.room == kind && inside(e.at, col, row))
+        .or_else(|| crate::rules::caves::yard_mouth(kind, col, row))
 }
 
 /// The entrance a standing knight is on, if any.
@@ -713,6 +716,7 @@ pub fn gate_room(cell: (i32, i32)) -> Room {
     fill(&mut room, super::alehouse::INN, Tile::Block);
     fill(&mut room, POST, Tile::Block);
     fill(&mut room, super::countryside::COACH, Tile::Stairs);
+    fill(&mut room, crate::rules::caves::YARD_MOUTH.at, Tile::Stairs);
     room.open_door(0);
     room.open_door(1);
     room.open_door(3);
@@ -1201,6 +1205,7 @@ impl Run {
                 self.descend();
                 self.home.landing = landing;
             }
+            Dest::Cave => self.enter_cave(e.room == RoomKind::Gate),
         }
     }
 }

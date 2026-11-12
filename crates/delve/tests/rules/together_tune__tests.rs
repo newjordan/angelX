@@ -109,7 +109,11 @@ mod pin_fixture;
 // Plague of Frogs, Excommunicate) join the book (words and icons in the book; no
 // play); without them it plays to [10788363592441244139, 2535990183205918992] again,
 // the Fungelder's and the cards' defaults left out of the writing (`played_with`).
-const TODAY: [u64; 2] = [11130803013024068170, 10304641019489614671];
+// Re-pinned 2026-11-11 for the living cave (`caves`): its mouth is a stair on
+// the first floor's start room (`stamp_cave_mouth`) and on the kingdom yard
+// (`caves::YARD_MOUTH`), one tile in each trace and nothing else; with both
+// mouths left off it plays to [11130803013024068170, 10304641019489614671] again.
+const TODAY: [u64; 2] = [3226237403750841178, 14999891280965652695];
 // Same 2026-10-25 book, courtyard and Home shape, with legacy shot size;
 // recomputed for the same 2026-10-29 tuning (before it, [352830734382821604,
 // 16491480568805732842]).
@@ -138,7 +142,9 @@ const TODAY: [u64; 2] = [11130803013024068170, 10304641019489614671];
 // without the fort it plays to [10610929201740668214, 16771686891660709217] again.
 // Re-pinned 2026-11-07 with TODAY for the same reason; without the four cards both
 // traces play to [10610929201740668214, 6223818091034572166] again.
-const BEFORE_SHOT_SIZE: [u64; 2] = [10125106904931073403, 8745696721767406025];
+// Re-pinned 2026-11-11 with TODAY for the cave's two mouths; with both left off
+// it plays to [10125106904931073403, 8745696721767406025] again.
+const BEFORE_SHOT_SIZE: [u64; 2] = [1325769177011145675, 1924171319231336929];
 
 /// The tavern annex and idle mirror-wish flag are projected back to the
 /// audited d59b1096a fixture in `pin_fixture`, only when writing the final

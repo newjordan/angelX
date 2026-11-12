@@ -693,6 +693,11 @@ fn bake(run: &Run, s: i32) -> Scene {
     }
     for r in 0..room.rows as i32 {
         for c in 0..room.cols as i32 {
+            if crate::rules::caves::floor_mouth(run.room().kind, c, r).is_some()
+                || crate::rules::caves::yard_mouth(run.room().kind, c, r).is_some()
+            {
+                continue;
+            }
             if room.tile(c, r) == Tile::Stairs
                 && room.tile(c - 1, r) != Tile::Stairs
                 && room.tile(c, r - 1) != Tile::Stairs
@@ -778,6 +783,8 @@ pub(super) fn scenery(run: &Run) -> Img {
     // Special furniture, traps, chests and sealed walls keep their existing
     // exact geometry and state. Dungeon doors/stairs above own only their art.
     super::room_details(run, &mut im, &mut vec![]);
+    stamp_delve_mouth(run, &mut im, 1);
+    super::super::cave_seat::mouth_line(&mut im, run);
     im
 }
 /// The room's still art at `s` (3 and up) from the installed HD pack's
@@ -803,6 +810,7 @@ pub(super) fn fine_scenery(run: &Run, s: i32) -> Img {
     let mut details = Img::new(w, h);
     super::room_details(run, &mut details, &mut vec![]);
     im.stamp_times(&details, 0, 0, s);
+    stamp_delve_mouth(run, &mut im, s);
     im
 }
 pub(super) fn contact(cv:&mut Img,run:&Run,x:i32,y:i32,width:i32) {
@@ -873,6 +881,60 @@ mod tests {
         r.floor_plates.clear();
         r
     }
+
+    fn inked(im: &Img) -> usize {
+        let mut n = 0;
+        for y in 0..im.h {
+            for x in 0..im.w {
+                if im.get(x, y).is_some() {
+                    n += 1;
+                }
+            }
+        }
+        n
+    }
+
+    #[test]
+    fn floor_two_start_room_has_no_arch_and_no_label() {
+        let mut run = Run::new(7, 1, Some("Ash"));
+        run.descend();
+        assert_eq!(run.dungeon.depth, 1);
+        let start = run
+            .dungeon
+            .rooms
+            .iter()
+            .position(|room| room.kind == crate::rules::caves::FLOOR_MOUTH.room)
+            .expect("floor 1 has a start room");
+        run.at = start;
+        let (col, row, _, _) = crate::rules::caves::FLOOR_MOUTH.at;
+        let hero = run.players.values_mut().next().unwrap();
+        hero.x = (col as f32) * crate::rules::TILE_UNITS;
+        hero.y = (row as f32) * crate::rules::TILE_UNITS;
+        hero.stone = false;
+        hero.away = false;
+        hero.absent = false;
+        let mut floor1 = Img::new(320, 240);
+        stamp_delve_mouth(&run, &mut floor1, 1);
+        let mut lights = Vec::new();
+        let mut room1 = Img::new(320, 240);
+        super::super::scenery::room_fixtures(&run, &mut room1, &mut lights);
+        let mut label1 = Img::new(320, 240);
+        super::super::super::cave_seat::mouth_line(&mut label1, &run);
+        assert!(inked(&floor1) > 0, "floor 1 drew no arch");
+        assert!(inked(&label1) > 0, "floor 1 drew no label");
+        let mouth_ink = inked(&room1);
+        run.dungeon.depth = 2;
+        let mut floor2 = Img::new(320, 240);
+        stamp_delve_mouth(&run, &mut floor2, 1);
+        let mut room2 = Img::new(320, 240);
+        super::super::scenery::room_fixtures(&run, &mut room2, &mut lights);
+        let mut label2 = Img::new(320, 240);
+        super::super::super::cave_seat::mouth_line(&mut label2, &run);
+        assert_eq!(inked(&floor2), 0, "floor 2 drew the arch");
+        assert_eq!(inked(&label2), 0, "floor 2 drew the label");
+        assert!(inked(&room2) < mouth_ink, "floor 2 scenery still drew the mouth");
+    }
+
     #[test]
     fn side_door_cache_distinguishes_foes_from_an_empty_wave_lock() {
         for pack in [Pack::Crypt,Pack::Cavern,Pack::Hellforge,Pack::Fungal,Pack::Unknown] {
@@ -1215,6 +1277,15 @@ mod tests {
     }
 }
 
+/// A frame of snapped paper, the colour `palette_frame` gives every
+/// uninked word. Filling once matches snapping the letterbox pixel by pixel.
+pub(super) fn paper_frame(w: i32, h: i32) -> Img {
+    let v = snapper()([0, 0, 0]);
+    let word = 0xff00_0000 | (v[0] as u32) << 16 | (v[1] as u32) << 8 | v[2] as u32;
+    let n = (w.max(0) as usize).saturating_mul(h.max(0) as usize);
+    Img::from_words(w.max(0), h.max(0), vec![word; n])
+}
+
 /// v1 transport retains the realm's indexed-ink contract after RGB lighting.
 /// Exact RGB neighbours are memoised; native v2 keeps the continuous grade.
 pub(super) fn palette_frame(im: Img) -> Img {
@@ -1264,4 +1335,17 @@ pub(super) fn lights(run: &Run) -> Vec<super::super::light::Light> {
         .into_iter()
         .map(|(x, y)| super::super::light::Light { x: x as f32, y: y as f32, r: 52.0, s: 0.28, fire: true })
         .collect()
+}
+
+fn stamp_delve_mouth(run: &Run, im: &mut Img, s: i32) {
+    if run.dungeon.depth != 1 {
+        return;
+    }
+    let mouth = crate::rules::caves::FLOOR_MOUTH;
+    if run.room().kind != mouth.room {
+        return;
+    }
+    let (x, y, _, _) = mouth.at;
+    let t = super::TILE;
+    super::super::cave_seat::stamp_mouth(im, (x * t + (t - 32) / 2) * s, (y * t - 9) * s, s);
 }

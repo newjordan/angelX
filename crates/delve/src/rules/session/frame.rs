@@ -485,10 +485,16 @@ impl ArrivalState {
 
 /// Shared pure drains; public wire adapts these values without a second queue.
 pub fn take_sounds(run: &mut Run) -> Vec<Signal> {
+    let bard_for_all = crate::rules::bard::heard_by_all();
     let mine = std::mem::take(&mut run.seat_sounds)
         .into_iter()
-        .map(|(knight, name)| Signal::Sound {
-            hear: Hear::Knight(knight),
+        .map(move |(knight, name)| Signal::Sound {
+            // The Bard's music is its own ears' unless the host turned it up for the party.
+            hear: if bard_for_all && (crate::rules::bard::is_bard_sound(name) || name == crate::rules::bard::HIT) {
+                Hear::Party
+            } else {
+                Hear::Knight(knight)
+            },
             name: name.to_string(),
         });
     std::mem::take(&mut run.sounds)

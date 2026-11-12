@@ -31,7 +31,7 @@ fn dungeon_help() -> String {
     use shooter::hud::Keys;
     let (one, two) = (Keys::FIRST, Keys::SECOND);
     format!(
-        "{DUNGEON_COMMANDS}\nKeys: {}\n{}\n{}\nG keeps vigil, Shift+C climbs on a friend's shoulders (again hops off; a carrier's throws the top rider), Tab shows cards and realm, hold N for the whole floor's map (the minimap is always in the corner), V votes, K voices (Shift+K with a couch knight), R replays after a win or a fall, ` clears held keys.\nPlayer 2: B votes, I/K select, J/L rate, 5-9 stars, 0 clear, U untried.\nMirrors: P1 uses WASD/arrows, E to choose, Esc to close; P2 uses IJKL, \\ to choose, Delete to close. Arrows go to P2 only while P1's mirror is closed; P1's panel is shown when both are open. On the Name row, T types a short name, then Enter sends it.\nPlayer 2 on this keyboard: {}\n{}\n{}",
+        "{DUNGEON_COMMANDS}\nKeys: {}\n{}\n{}\nG keeps vigil, C climbs on a friend's shoulders (again hops off; a carrier's throws the top rider), Tab shows cards and realm, hold N for the whole floor's map (the minimap is always in the corner), V votes, K voices (Shift+K with a couch knight), R replays after a win or a fall, ` clears held keys.\nPlayer 2: B votes, I/K select, J/L rate, 5-9 stars, 0 clear, U untried.\nMirrors: P1 uses WASD/arrows, E to choose, Esc to close; P2 uses IJKL, \\ to choose, Delete to close. Arrows go to P2 only while P1's mirror is closed; P1's panel is shown when both are open. On the Name row, T types a short name, then Enter sends it.\nPlayer 2 on this keyboard: {}\n{}\n{}",
         one.fight_line(false),
         one.kit_line(),
         one.skills_line(),
@@ -124,8 +124,8 @@ impl DungeonView {
                 .map_or(0, |i| i as u8 + 1),
             // The host's own way back is R (`start_shooter`).
             again: false,
-            // Shift+C climbs on a friend's shoulders, hops off, or throws
-            // the top rider (c alone is the cards).
+            // C climbs on a friend's shoulders, hops off, or throws the top
+            // rider (Tab is the cards).
             ride: down(KeyCode::Char('C')) != 0,
             // Shift+H relays the shield, or holds a tether to a friend (the
             // browser's H; h alone is the second knight's take).
@@ -517,6 +517,21 @@ impl Session<'_> {
                     .collect()
             })
             .unwrap_or_default();
+        // Blocks cut below come up the stair on the knights' backs: the next
+        // run at home begins with them still on their shoulders, to carry on
+        // to the stockyard (`quarrying`). The fallen carry nothing.
+        let blocks: Vec<(u32, String)> = self
+            .dungeon
+            .shooter
+            .as_ref()
+            .map(|r| {
+                r.players
+                    .iter()
+                    .filter(|(_, h)| h.hp > 0 && r.phase != shooter::Phase::Wiped)
+                    .filter_map(|(&id, h)| h.block.clone().map(|stone| (id, stone)))
+                    .collect()
+            })
+            .unwrap_or_default();
         // Friends seated through the host's invitations come along into the
         // next delve as the same knights: knight 1 too, when a host who plays
         // no knight has handed it to a friend.
@@ -556,6 +571,7 @@ impl Session<'_> {
         let mut setup = vec![GameCommand::ConfigureSession {
             naked_start: true, identity: shooter::identity::on(), rite: shooter::rite::on(), host: player.clone(),
         }];
+        let seated: Vec<u32> = std::iter::once(1).chain(friends.iter().map(|(id, _, _)| *id)).collect();
         for (id, name, knight) in friends {
             setup.push(GameCommand::JoinSeat {
                 player: id, name,
@@ -567,6 +583,9 @@ impl Session<'_> {
         for (id, weapon, avatar) in gear {
             setup.push(GameCommand::EquipForged { player: id, weapon, reset_temper: true });
             avatars.push((id, avatar));
+        }
+        for (player, stone) in blocks.into_iter().filter(|(id, _)| seated.contains(id)) {
+            setup.push(GameCommand::CarryBlock { player, stone });
         }
         if let Err(error) = self.dungeon.shooter.commands_with_avatars(setup, avatars) {
             self.dungeon.notice = error;
@@ -1331,6 +1350,8 @@ impl Session<'_> {
         let shown = self.dungeon_screen().map_or(1, |(_, knight)| knight);
         let mut sounds = Vec::new();
         let mut ask = false;
+        let mut wish_row = None;
+        let mut creator_words: Option<String> = None;
         for seat in self.dungeon.shooter.seats() {
             let lines = seat.take_lines();
             if seat.knight() == Some(shown) {
@@ -1340,12 +1361,18 @@ impl Session<'_> {
                     } else if let Some(notice) = line.strip_prefix("notice ") {
                         self.dungeon.notice = notice.to_string();
                     } else if line == "ask" {
-                        // This terminal's knight rubbed the wish altar's
-                        // lamp: its wish line opens, as T opens it.
                         ask = true;
+                    } else if let Some(rest) = line.strip_prefix("creator-wish ") {
+                        let words = rest.split_once(' ').map(|(_, w)| w).unwrap_or(rest);
+                        creator_words = Some(words.to_string());
+                    } else if let Some(row) = line.strip_prefix("wish-row ") {
+                        wish_row = row.trim().parse().ok();
                     }
                 }
             }
+        }
+        if let Some(words) = creator_words {
+            self.queue_creator_wish(&words);
         }
         if !sounds.is_empty() {
             let voices = self.dungeon.shooter.live_voices(&sounds);
@@ -1355,7 +1382,46 @@ impl Session<'_> {
             }
         }
         if ask && self.dungeon.forge.draft.is_none() {
-            self.open_lamp_wish();
+            self.open_asked_row(wish_row.unwrap_or(0));
+        }
+    }
+
+    /// Opens the wish hub on this knight's picture. Not on a key tonight: T is the genie's typed line.
+    #[allow(dead_code)]
+    fn open_wish_hub(&mut self) {
+        if self.dungeon.forge.draft.is_some() || self.dungeon.wish_offer_open(1) {
+            return;
+        }
+        if let Some(seat) = self.dungeon.shooter.seat(1) {
+            let _ = seat.set_knob("wish_hub", 0.0);
+        }
+    }
+
+    fn wish_scroll_open(&self, id: u32) -> bool {
+        self.dungeon.shooter.as_ref().is_some_and(|run| {
+            run.players.get(&id).is_some_and(|h| h.wish_open || h.offer.is_some())
+        })
+    }
+
+    /// 1-6 on the hub picks that row. False when the hub is not open, so the key stays free.
+    fn wish_pick(&mut self, c: char) -> bool {
+        let Some(seat) = self.dungeon.shooter.seat(1) else { return false };
+        seat.set_knob("wish_pick", f64::from(c as u8 - b'0'))
+    }
+
+    fn open_asked_row(&mut self, row: u8) {
+        match row {
+            1 => self.open_reforge(),
+            2 => {
+                self.open_lamp_wish();
+                if let Some(draft) = self.dungeon.forge.draft.as_mut() {
+                    draft.hub_row = 2;
+                }
+            }
+            _ => {
+                self.open_lamp_wish();
+                let _ = self.dungeon.shooter.command(GameCommand::OpenWishLine { player: 1 });
+            }
         }
     }
 
@@ -1462,11 +1528,9 @@ impl Session<'_> {
             KeyCode::Char(c) => KeyCode::Char(c.to_ascii_lowercase()),
             code => code,
         };
-        // The build desk displays C for walking the village. Elsewhere the
-        // terminal keeps plain C for cards and Shift+C for shoulders.
-        let building = self.dungeon.shooter.as_ref().is_some_and(|run|
-            run.dungeon.depth == 0 && run.kingdom.industry.get(&1).is_some_and(|b|b.open));
-        let code = if code == KeyCode::Char('c') && (building || key.modifiers.contains(KeyModifiers::SHIFT)) {
+        // C, with or without Shift, is the ride key: it climbs on a friend's
+        // shoulders (and walks the village from the build desk). Tab is the cards.
+        let code = if code == KeyCode::Char('c') {
             KeyCode::Char('C')
         } else {
             code
@@ -1592,9 +1656,10 @@ impl Session<'_> {
             self.clear_dungeon_controls();
             return true;
         }
-        if code == KeyCode::Char('t') {
-            self.open_reforge();
-            return true;
+        if let KeyCode::Char(c @ '1'..='6') = code {
+            if angel_delve::rules::creation::wish_hub_enabled() && self.wish_pick(c) {
+                return true;
+            }
         }
         if code == KeyCode::Char('k')
             && (self.dungeon.hosting.is_some()
@@ -1615,7 +1680,7 @@ impl Session<'_> {
             };
             return true;
         }
-        if matches!(code, KeyCode::Tab | KeyCode::Char('c')) {
+        if code == KeyCode::Tab {
             self.dungeon.cards_open = !self.dungeon.cards_open;
             self.dungeon.held.clear();
             self.cx.redraw();
@@ -1705,6 +1770,45 @@ impl Session<'_> {
                 self.start_shooter(guest.as_deref());
             }
             return true;
+        }
+        if code == KeyCode::Char('t')
+            && self.dungeon.forge.draft.is_none()
+            && !self.wish_scroll_open(1)
+        {
+            if angel_delve::rules::creation::wish_hub_enabled() {
+                self.open_wish_hub();
+            } else if self.dungeon.shooter.as_ref().is_some_and(|run| run.wish_line_opens(1)) {
+                let _ = self.dungeon.shooter.command(GameCommand::OpenWishLine { player: 1 });
+            }
+            return true;
+        }
+        if self.wish_scroll_open(1) {
+            if let KeyCode::Char(c) = code {
+                if !('1'..='4').contains(&c) {
+                    let _ = self.dungeon.shooter.command(GameCommand::TypeWishLetter { player: 1, letter: c as u8 });
+                    return true;
+                }
+            }
+            if code == KeyCode::Backspace {
+                let _ = self.dungeon.shooter.command(GameCommand::TypeWishLetter { player: 1, letter: 8 });
+                return true;
+            }
+            if code == KeyCode::Enter && self.dungeon.shooter.as_ref().is_some_and(|run| {
+                run.players.get(&1).is_some_and(|h| h.wish_open && h.offer.is_none())
+            }) {
+                let words = self
+                    .dungeon
+                    .shooter
+                    .as_ref()
+                    .and_then(|run| run.players.get(&1).map(|h| h.wish_line.clone()))
+                    .unwrap_or_default();
+                self.offer_from_scroll(1, &words, None);
+                return true;
+            }
+            if code == KeyCode::Esc {
+                let _ = self.dungeon.shooter.command(GameCommand::DropOffer { player: 1 });
+                return true;
+            }
         }
         if matches!(
             code,

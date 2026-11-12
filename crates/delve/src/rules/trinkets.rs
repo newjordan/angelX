@@ -20,6 +20,10 @@ pub enum Thing {
     /// The town crier: E and he cries an errand that wants doing, and the
     /// goal arrow points the way.
     Crier,
+    /// The Great Shaft's winch beside the Delve's gate: E reads the shaft's
+    /// ledger, and a second E soon after pays to raise it a tier
+    /// (`stockyard`).
+    Winch,
 }
 
 impl Thing {
@@ -34,12 +38,13 @@ impl Thing {
             Thing::Goose => "HONK",
             Thing::Coach => "RIDE",
             Thing::Crier => "LISTEN",
+            Thing::Winch => "RAISE THE SHAFT",
         }
     }
 }
 
 /// Which thing stands beside which place's door.
-const PLACED: [(Thing, &str); 16] = [
+const PLACED: [(Thing, &str); 17] = [
     (Thing::Bell, "Chapel"),
     (Thing::Well, "Village"),
     (Thing::Bench, "Keep"),
@@ -57,6 +62,8 @@ const PLACED: [(Thing, &str); 16] = [
     (Thing::Coach, "Colosseum"),
     (Thing::Coach, "Labyrinth College"),
     (Thing::Coach, "Delve"),
+    // Last, so every thing before it keeps its place in the kingdom's books.
+    (Thing::Winch, "Delve"),
 ];
 
 /// The next coach post after post `i` (an index into `things`), its spot
@@ -73,6 +80,8 @@ pub fn next_coach(geo: &map::Geography, i: usize) -> Option<(usize, (i32, i32), 
 pub const GOOSE_CHASE: u64 = 3 * HZ as u64;
 pub const GOOSE_SPEED: f32 = 15.0;
 
+/// How long after a first press at the winch a second one pays, in ticks.
+pub const WINCH_ASK: u64 = 5 * HZ as u64;
 /// How near (tiles) a knight stands to use a thing.
 pub const REACH: f32 = 1.5;
 /// A bench mends one point every this many ticks.
@@ -115,11 +124,18 @@ pub fn placed(geo: &map::Geography) -> Vec<(Thing, &'static str, (i32, i32))> {
                 && geo.sites.iter().all(|s| (s.stand.0 - px).abs() + (s.stand.1 - py).abs() > 2)
                 && banners.iter().chain(placed.iter().map(|(_, _, p)| p)).all(|b| (b.0 - px).abs() + (b.1 - py).abs() > 3)
         };
-        let spot = [(-3, 1), (3, 1), (-4, 1), (4, 1), (-2, 2), (2, 2), (-5, 0), (5, 0), (0, 3), (-3, 3), (3, 3)]
-            .into_iter()
-            .chain((-8..=8).flat_map(|dx| (-2..=6).map(move |dy| (dx, dy))))
-            .map(|(dx, dy)| (x + dx, y + dy))
-            .find(|&p| open(p, &placed));
+        // On the blank-slate map the winch stands at the far end of the Great
+        // Shaft's yard pocket (`quarrying::yard_spot`), up from the teachers
+        // who stand in rows south of the gate's mouth, so a knight who is only
+        // setting a block down does not stand in its ledger.
+        let fixed = (thing == Thing::Winch && crate::world::plan::tabula()).then_some((x - 5, y - 2));
+        let spot = fixed.or_else(|| {
+            [(-3, 1), (3, 1), (-4, 1), (4, 1), (-2, 2), (2, 2), (-5, 0), (5, 0), (0, 3), (-3, 3), (3, 3)]
+                .into_iter()
+                .chain((-8..=8).flat_map(|dx| (-2..=6).map(move |dy| (dx, dy))))
+                .map(|(dx, dy)| (x + dx, y + dy))
+                .find(|&p| open(p, &placed))
+        });
         if let Some(p) = spot {
             placed.push((thing, place, p));
         }
@@ -180,6 +196,7 @@ impl Run {
         let tick = self.tick;
         let take = (tick % 2) as usize;
         if let Some((i, &(thing, _))) = things(geo).iter().enumerate().find(|(_, (_, p))| near(*p)) {
+            let prior = self.kingdom.moments.used.get(&(i as u8)).copied();
             self.kingdom.moments.used.insert(i as u8, tick);
             match thing {
                 Thing::Bell => {
@@ -235,6 +252,25 @@ impl Run {
                         self.found = Some((tick, id, format!("OYEZ! {line}")));
                     }
                     self.sounds.push("circle_toll");
+                }
+                Thing::Winch => {
+                    // The first press reads the ledger; a second within a
+                    // few seconds pays.
+                    let asked = prior.is_some_and(|at| tick.saturating_sub(at) <= WINCH_ASK);
+                    let line = match self.shaft_next() {
+                        None => format!(
+                            "THE GREAT SHAFT: {}. {} A MINUTE",
+                            self.home.stockyard.tier.name(),
+                            self.shaft_throughput()
+                        ),
+                        Some((next, cost, ready)) => match (asked, ready) {
+                            (true, Ok(())) => self.upgrade_shaft().map(|l| l.to_uppercase()).unwrap_or_else(|e| e.to_uppercase()),
+                            (false, Ok(())) => format!("{}: {}. PRESS E AGAIN TO PAY", next.name(), super::stockyard::cost_label(&cost)),
+                            (_, Err(why)) => format!("{}: {}", next.name(), why.to_uppercase()),
+                        },
+                    };
+                    self.sounds.push("clang");
+                    self.found = Some((tick, id, line));
                 }
                 Thing::Coach => {
                     if let Some((next, (cx, cy), place)) = next_coach(geo, i) {

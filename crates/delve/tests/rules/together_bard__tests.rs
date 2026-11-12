@@ -358,31 +358,35 @@ fn letting_go_stops_the_song_within_half_a_second() {
         after.extend(std::mem::take(&mut r.seat_sounds).into_iter().filter(|(_, s)| s.starts_with("bard_")).map(|(_, s)| (t, s)));
         assert!(std::mem::take(&mut r.sounds).iter().all(|s| !s.starts_with("bard_")));
     }
-    assert!(after.is_empty(), "{after:?}");
+    assert_eq!(after, [(0, REST)], "letting go names the rest once, on the tick it lets go, and nothing after");
     assert_eq!(r.players[&1].groove, 0, "a breath ends the groove");
     assert!(last + 12 > 70 - 1, "the last slice began within the last beat of fire");
-    let beat_ms = VOLLEYS_PER_BEAT * 4 * 1000 / HZ;
-    assert!(beat_ms + 16 < 500, "a slice and its tail end within half a second of letting go");
 }
 
 #[test]
-fn a_tap_plays_the_opening_beat_again_and_does_not_move_the_song_on() {
+fn a_press_picks_the_song_up_on_the_beat_after_the_last_one_played() {
     let mut r = playing();
     let mut firsts = Vec::new();
     for _ in 0..3 {
+        // 20 ticks: counts on 0, 4, 8, 12, 16, so beats on the first and the fourth.
         let heard = hold(&mut r, 20);
+        assert_eq!(heard.len(), 2, "{heard:?}");
+        assert_eq!(heard[0].0, 0, "the music starts on the tick of the press");
         firsts.push(heard[0].1);
         for _ in 0..8 {
             step(&mut r, Input::default());
         }
+        let rests: Vec<_> = std::mem::take(&mut r.seat_sounds).into_iter().filter(|(_, s)| s.starts_with("bard_")).collect();
+        assert_eq!(rests, [(1, REST)], "letting go is one rest");
         assert_eq!(r.players[&1].groove, 0);
     }
-    assert_eq!(firsts, ["bard_a_000"; 3], "each tap starts the song over; none reached the drop");
+    assert_eq!(firsts, ["bard_a_000", "bard_a_002", "bard_a_004"], "each press resumes where the last let go");
     assert_eq!(r.players[&1].songs, 0);
+    assert_eq!(r.players[&1].tune, 6);
 }
 
 #[test]
-fn each_bard_plays_its_own_song_and_a_groove_that_dropped_or_a_lullaby_moves_it_on() {
+fn each_bard_plays_its_own_song_letting_go_keeps_it_and_a_lullaby_moves_it_on() {
     // By seat: the first four knights are on the first four songs.
     let seats: Vec<usize> = (1..=4).map(|k| song_of(k, 0)).collect();
     assert_eq!(seats, [0, 1, 2, 3]);
@@ -390,24 +394,49 @@ fn each_bard_plays_its_own_song_and_a_groove_that_dropped_or_a_lullaby_moves_it_
     let mut r = playing();
     let long = hold(&mut r, 4 * DROP_AT + 8);
     assert_eq!(long[0].1, "bard_a_000");
+    let played = long.len() as u32;
     for _ in 0..8 {
         step(&mut r, Input::default());
     }
-    assert_eq!(r.players[&1].songs, 1, "a groove that reached the drop leaves its song");
+    r.seat_sounds.clear();
+    assert_eq!(r.players[&1].songs, 0, "a groove that reached the drop keeps its song");
     let next = hold(&mut r, 20);
-    assert_eq!(next[0].1, "bard_b_000", "the next song");
+    assert_eq!(next[0].1, slice(FIRST, played), "and the next press carries on in it");
     for _ in 0..8 {
         step(&mut r, Input::default());
     }
-    assert_eq!(r.players[&1].songs, 1, "a short groove does not");
-    // The Lullaby is the current song's breakdown, and then the next song is up.
+    // The Lullaby is the current song's breakdown, and then the next song is up, from its top.
     r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
     r.seat_sounds.clear();
     sing(&mut r);
     let lull: Vec<_> = std::mem::take(&mut r.seat_sounds).into_iter().filter(|(_, s)| s.starts_with("bard_")).collect();
-    assert_eq!(lull, [(1, "bard_b_lull")]);
-    assert_eq!(r.players[&1].songs, 2);
-    assert_eq!(hold(&mut r, 8)[0].1, "bard_c_000");
+    assert_eq!(lull, [(1, "bard_a_lull")]);
+    assert_eq!(r.players[&1].songs, 1);
+    assert_eq!(hold(&mut r, 8)[0].1, "bard_b_000");
+}
+
+#[test]
+fn a_held_song_keeps_its_beat_whatever_the_weapon_rate_a_dash_or_a_shield() {
+    // The operator, 2026-11-11: held, the music plays with no break or halt mid-song. The song's
+    // clock is its own: a faster weapon, a dash or a raised shield neither skips nor stalls a beat.
+    let mut r = playing();
+    let mut heard = Vec::new();
+    for t in 0..12 * 40u32 {
+        r.players.get_mut(&1).unwrap().bonus.rate = 150;
+        let dash = t % 60 == 30;
+        step(&mut r, Input { fire: true, dash, ..Default::default() });
+        if (200..260).contains(&t) {
+            let h = r.players.get_mut(&1).unwrap();
+            h.shielding = true;
+        }
+        for (knight, name) in std::mem::take(&mut r.seat_sounds) {
+            if knight == 1 && name.starts_with("bard_") {
+                heard.push((t, name));
+            }
+        }
+    }
+    let want: Vec<(u32, &str)> = (0..40).map(|n| (12 * n, slice(FIRST, n))).collect();
+    assert_eq!(heard, want, "a slice every 12 ticks, in order, never a rest while held");
 }
 
 #[test]
@@ -505,8 +534,8 @@ fn notes_land_on_a_hi_hat_and_burst_and_the_lullaby_is_its_own() {
 ///
 /// `ANGEL_BARD_DEMO=<dir> cargo test -p angel-delve --lib write_bard_demo_schedules -- --ignored`
 ///
-/// The song is pinned to the one being shown before each hold: in the game a groove that reached the
-/// drop moves its Bard on to the next song, so the 20 s hold would play the song after the 8 s hold's.
+/// The song is pinned to the one being shown before each hold, and put back to its top: in the game a
+/// press picks the song up where the last let go, so the 20 s hold would carry on from the 8 s hold.
 #[test]
 #[ignore]
 fn write_bard_demo_schedules() {
@@ -521,14 +550,14 @@ fn write_bard_demo_schedules() {
             assert!(std::mem::take(&mut r.sounds).iter().all(|s| !s.starts_with("bard_")), "the party heard the Bard");
             for (knight, name) in std::mem::take(&mut r.seat_sounds) {
                 assert_eq!(knight, 1);
-                if name.starts_with("bard_") {
+                if name.starts_with("bard_") && name != REST {
                     events.push((r.tick - 1 - start, name));
                 }
             }
         };
         for (seconds, label) in [(3, "3 s"), (8, "8 s"), (20, "20 s")] {
             // The song this demo shows, whatever the last hold did to it.
-            r.players.get_mut(&1).unwrap().songs = (song as u32).wrapping_sub(song_of(1, 0) as u32);
+            { let h = r.players.get_mut(&1).unwrap(); h.songs = (song as u32).wrapping_sub(song_of(1, 0) as u32); h.tune = 0; }
             let from = r.tick - start;
             for _ in 0..seconds * HZ {
                 step(&mut r, Input { fire: true, ..Default::default() });

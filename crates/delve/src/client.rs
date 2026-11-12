@@ -380,7 +380,9 @@ pub struct DelveClient {
     /// next command.
     picked: Option<u8>,
     /// Latest pointer action awaits exactly one command sample.
-    builder_pressed: Option<crate::rules::builder_input::BuilderAction>,
+    builder_pressed: std::collections::VecDeque<crate::rules::builder_input::BuilderAction>,
+    /// The tile a mouse button was last down or dragged over in the walking world, while it is held.
+    world_drag: Option<(u8, u8)>,
     /// The map key is held, with nothing else having the keys: the whole
     /// floor's map is laid over the view (`arena::MapView`). Kept here, in
     /// the seat's own screen, and never sent or run.
@@ -402,6 +404,10 @@ pub struct DelveClient {
     /// Our knight rubbed the wish altar's lamp (`rules::altar`): the shell
     /// opens its wish line, once a rub.
     ask: bool,
+    /// The hub row the next `ask` opens: 0 power, 1 reforge, 2 look.
+    wish_row: Option<u8>,
+    /// A wrong-row line, said once to the host.
+    pending_notice: Option<String>,
     /// A wish of ours that landed, said once by the shell.
     granted: Option<String>,
     /// The tick each sound last played on.
@@ -457,6 +463,10 @@ impl DelveClient {
         crate::world3d::room::set_mode(params.mode());
         // And whether the first floor is the Atari board (experimental).
         crate::render::overworld::arena::atari::set(params.atari);
+        // The first shown frame used to pay for sheet decode, the font and the
+        // scenery cache (~16 ms at 384 wide). Build that once here, which the
+        // page does at connect, before the first presented frame.
+        crate::render::overworld::arena::warm_first_shown();
         DelveClient {
             seat,
             knight: seat.map(wire::knight_of),
@@ -474,7 +484,7 @@ impl DelveClient {
             scene: None,
             // Shots as flat sprites until the page says it draws props; a
             // room in 3D's plate as its PNG, which the page decodes itself.
-            stage: arena::stage_frame::StageMaker::for_wire(),
+            stage: { let mut stage = arena::stage_frame::StageMaker::for_wire(); if params.mode() == crate::world3d::room::Mode::Always { stage.flat_shots = false; } stage },
             stage_sizes: BTreeMap::new(),
             paintings: Default::default(),
             hd: Default::default(),
@@ -486,7 +496,8 @@ impl DelveClient {
             creation: creation::Editor::default(),
             down: None,
             picked: None,
-            builder_pressed: None,
+            builder_pressed: Default::default(),
+            world_drag: None,
             map_held: false,
             leaving: 0,
             skipping: 0,
@@ -497,6 +508,8 @@ impl DelveClient {
             said_plates: Vec::new(),
             wish_notice: None,
             ask: false,
+            wish_row: None,
+            pending_notice: None,
             granted: None,
             sounded: BTreeMap::new(),
             exact: false,
@@ -1067,6 +1080,8 @@ pub(crate) fn sound_gap(name: &str) -> u32 {
         "spell_cast" => 250,
         "shot_bow" | "shot_crossbow" | "shot_handgonne" | "shot_bolt" | "shot_arcane" | "shot_spark" => 70,
         "hit" | "hit_blade" | "hit_axe" | "hit_arrow" | "hit_bolt" | "hit_blast" | "hit_magic" | "hit_note" => 60,
+        // Every let-go of the Bard's song is heard: a dropped rest is music that runs on.
+        n if n == crate::rules::bard::REST => 0,
         n if crate::rules::bard::is_slice(n) => 300,
         n if crate::rules::bard::is_bard_sound(n) => 800,
         "step_stone" | "step_gravel" | "step_ash" | "step_wet" | "step_moss" | "step_wood" => 210,
@@ -1098,6 +1113,59 @@ pub(crate) fn sound_gap(name: &str) -> u32 {
         // The steps up (`rules::rewards`).
         "level_up" | "rung_up" | "relic_find" | "deepest_yet" | "sky_lit" => 1000,
         _ => 200,
+    }
+}
+
+impl DelveClient {
+    /// The tile of the walking world under a frame pixel, when the builder is out in the flat view.
+    fn world_tile(&self, frame_x:u32, frame_y:u32)->Option<(u8,u8)> {
+        let (knight, run) = self.knight.zip(self.newest())?;
+        if !crate::rules::hillside::building(run, knight) || crate::world3d::enabled() {
+            return None;
+        }
+        let (w,h)=self.size();
+        let (x,y)=crate::rules::builder_input::logical_point(frame_x,frame_y,w,arena::view_rows(h as i32) as u32,arena::BAND_H as u32)?;
+        arena::hill_tile_at(run,knight,x as i32,y as i32)
+    }
+
+    /// An action of the mouse for the host. On the desk the newest click wins and never replays an
+    /// older one; in the walking world they are kept in order, one a command (a click then its
+    /// release are two), a run of moves as the last of them.
+    fn mouse_action(&mut self, action: crate::rules::builder_input::BuilderAction, world: bool) {
+        use crate::rules::builder_input::BuilderAction::Hold;
+        if !world {
+            self.builder_pressed.clear();
+        }
+        if matches!(action, Hold(_)) && matches!(self.builder_pressed.back(), Some(Hold(_))) {
+            self.builder_pressed.pop_back();
+        }
+        if self.builder_pressed.len() < 8 {
+            self.builder_pressed.push_back(action);
+        }
+    }
+
+    /// Open the wish hub for this knight. `prefer` is the lamp or the mirror; none is T's fitting row.
+    fn open_wish_hub(&mut self, prefer: Option<crate::rules::creation::HubRow>) {
+        if !crate::rules::creation::wish_hub_enabled() {
+            return;
+        }
+        let Some(id) = self.knight else { return };
+        let Some(run) = self.newest() else { return };
+        let Some(hero) = run.players.get(&id) else { return };
+        if hero.hp <= 0 || hero.offer.is_some() || run.side_on() {
+            return;
+        }
+        let gate = crate::rules::creation::WishGate {
+            power: run.can_wish(id),
+            reforge: run.can_reforge(id),
+            look: hero.mirror_wish,
+            sanctuary: run.room().kind == crate::rules::RoomKind::Sanctuary,
+            made: run.home.rites.count_of(&hero.shown_name()) as u8,
+            wishes: (hero.wishes + hero.great_wishes + hero.fairy_wishes
+                + u8::from(hero.star_wish))
+            .min(9),
+        };
+        self.creation.session.open_hub(run.tick, &hero.shown_name(), gate, prefer);
     }
 }
 
@@ -1194,6 +1262,8 @@ impl GameClient for DelveClient {
                 .rev()
                 .find(|l| l.knight == id && seen.is_none_or(|t| l.tick > t))
                 .map(|landed| format!("Your wish is granted: {}", landed.name.split(". ").next().unwrap_or(&landed.name)));
+            // A wish asked for opens the genie's own typed line and nothing else: the hub does not
+            // come up over it (it took the typed words for itself and they never reached the genie).
             self.ask |= ask;
             if granted.is_some() {
                 self.granted = granted;
@@ -1259,7 +1329,7 @@ impl GameClient for DelveClient {
     }
 
     fn command(&mut self, hands: &Hands) -> DelveCmd {
-        let pointer = self.builder_pressed.take();
+        let pointer = self.builder_pressed.pop_front();
         if let Some(action) = pointer.filter(|_|self.knight.zip(self.newest())
             .is_some_and(|(knight,run)|crate::rules::builder_input::layout(run,knight).is_some())) {
             return DelveCmd { pressed:Input{builder:Some(action),..Input::default()},..DelveCmd::default() };
@@ -1269,8 +1339,8 @@ impl GameClient for DelveClient {
             self.set_knob("creator_open", 1.0);
             if self.creation.session.open { return DelveCmd::neutral(); }
         }
-        if !self.creation.session.open && self.creation.invite.up() && hands.pressed & key::RIDE != 0 {
-            // The rite's invitation: C opens the Creator (the ride key is the rite's while it is owed).
+        if !self.creation.session.open && self.creation.invite.up() && hands.held & button::MAP != 0 && hands.pressed & key::RIDE != 0 {
+            // The rite's invitation: N held and C opens the Creator. C alone is always the shoulder ride.
             self.set_knob("creator_open", 1.0);
             if self.creation.session.open {
                 self.creation.invite.opened();
@@ -1280,6 +1350,13 @@ impl GameClient for DelveClient {
         if self.creation.session.open {
             let tick = self.newest().map_or(0, |r| r.tick);
             self.creation.hands(hands, tick);
+            if let Some(row) = self.creation.session.leave.take() {
+                self.wish_row = Some(row);
+                self.ask = true;
+            }
+            if self.creation.session.hub && !self.creation.session.note.is_empty() {
+                self.pending_notice = Some(self.creation.session.note.clone());
+            }
             self.menu = false;
             self.leaving = 0;
             self.skipping = 0;
@@ -1565,7 +1642,7 @@ impl GameClient for DelveClient {
         let creation = &self.creation.session;
         let floor = self.creation.floor.as_ref();
         // A seat's view, its HUD in the band under it (`arena::in_seat`).
-        let img = arena::with_deathmatch_prediction(deathmatch_own, || arena::with_watch(watching, || arena::in_seat(|| self.kept[after].run.drawn_with_shots(&pose, alpha, knight.zip(own.as_ref()), ahead, |run| {
+        let img = arena::with_deathmatch_prediction(deathmatch_own, || arena::with_watch(watching, || arena::in_seat(|| self.kept[after].run.drawn_with_shots(&pose, alpha, knight.zip(own.as_ref()), ahead, |run| arena::stand_back::with(run, knight, full, || {
             let seat_view = watching.or(knight).and_then(|k| run.view_for_seat(k));
             // The whole floor's map and the band's cards are the whole
             // party's, read from the run in full: a seat's own view leaves
@@ -1658,7 +1735,7 @@ impl GameClient for DelveClient {
                 crate::render::viewer::trip_rows(&mut img, run.tick, top, top + room_h as i32);
             }
             Some(img)
-        }))));
+        })))));
         self.kept[before].pose = pose;
         self.drawn_shots = shots;
         #[cfg(test)]
@@ -1701,6 +1778,15 @@ impl GameClient for DelveClient {
         if std::mem::take(&mut self.ask) {
             lines.push("ask".to_string());
         }
+        if let Some(row) = self.wish_row.take() {
+            lines.push(format!("wish-row {row}"));
+        }
+        if let Some(ask) = self.creation.session.take_ask() {
+            lines.push(ask);
+        }
+        if let Some(notice) = self.pending_notice.take() {
+            lines.push(format!("notice {notice}"));
+        }
         if self.said_music != Some(self.music) {
             self.said_music = Some(self.music);
             lines.push(match self.music {
@@ -1723,7 +1809,9 @@ impl GameClient for DelveClient {
     }
 
     fn controls(&self) -> &'static str {
-        if self.creation.session.open {
+        if self.creation.session.hub {
+            CONTROLS
+        } else if self.creation.session.open {
             CREATOR_CONTROLS
         } else if self.knight.zip(self.newest()).is_some_and(|(id, run)|
             run.players.get(&id).is_some_and(|h| h.mirror.open && h.mirror.row == 9)) {
@@ -1763,6 +1851,35 @@ impl GameClient for DelveClient {
                     self.creation.session.open(tick, &maker);
                 }
                 Some(f64::from(self.creation.session.open))
+            }
+            "wish_hub" => {
+                let prefer = match value as u8 {
+                    1 => Some(crate::rules::creation::HubRow::Power),
+                    2 => Some(crate::rules::creation::HubRow::Reforge),
+                    3 => Some(crate::rules::creation::HubRow::Look),
+                    _ => None,
+                };
+                self.open_wish_hub(prefer);
+                Some(f64::from(self.creation.session.hub))
+            }
+            "wish_pick" => {
+                if !self.creation.session.hub {
+                    return None;
+                }
+                let n = value as usize;
+                if (1..=6).contains(&n) {
+                    self.creation.session.row = n - 1;
+                    let tick = self.newest().map_or(0, |r| r.tick);
+                    self.creation.session.action(crate::rules::creation::Action::Confirm, tick);
+                    if let Some(row) = self.creation.session.leave.take() {
+                        self.wish_row = Some(row);
+                        self.ask = true;
+                    }
+                    if !self.creation.session.note.is_empty() {
+                        self.pending_notice = Some(self.creation.session.note.clone());
+                    }
+                }
+                Some(1.0)
             }
             "calm_screen" => {
                 self.viewer.calm_screen = value >= 0.5;
@@ -1819,6 +1936,13 @@ impl GameClient for DelveClient {
     /// "1 As you said: Triple Volley I", one a line; and on a summoner's,
     /// whom it is for, turned with 4 ("4 For: your dead").
     fn choices(&self) -> String {
+        if self.creation.session.hub {
+            return (0..6).filter_map(crate::rules::creation::HubRow::from_index).enumerate().map(|(i, row)| {
+                let open = self.creation.session.gate.open(row);
+                let tail = if open { row.need() } else { row.grey(self.creation.session.gate) };
+                format!("{} {}  {}", i + 1, row.title(), tail)
+            }).collect::<Vec<_>>().join("\n");
+        }
         if self.creation.session.open { return String::new(); }
         let (Some(knight), Some(run)) = (self.knight, self.newest()) else {
             return String::new();
@@ -1845,6 +1969,10 @@ impl GameClient for DelveClient {
     /// Choice `n` tapped; the line after the choices on a summoner's scroll
     /// turns whom it is for (4); any past the three rolls the scroll up.
     fn choose(&mut self, n: u32) {
+        if self.creation.session.hub {
+            self.set_knob("wish_pick", f64::from(n + 1));
+            return;
+        }
         if self.creation.session.open { return; }
         let turn = self
             .knight
@@ -1861,15 +1989,63 @@ impl GameClient for DelveClient {
         });
     }
 
+    fn pointer_move(&mut self, frame_x:u32, frame_y:u32)->bool {
+        let Some(last) = self.world_drag else { return false };
+        match self.world_tile(frame_x, frame_y) {
+            Some(tile) if tile != last => {
+                self.world_drag = Some(tile);
+                self.mouse_action(crate::rules::builder_input::BuilderAction::Hold(tile), true);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    fn pointer_up(&mut self, frame_x:u32, frame_y:u32, button:u8)->bool {
+        if button != 0 {
+            return false;
+        }
+        let Some(last) = self.world_drag.take() else { return false };
+        let tile = self.world_tile(frame_x, frame_y).unwrap_or(last);
+        self.mouse_action(crate::rules::builder_input::BuilderAction::Let(tile), true);
+        true
+    }
+
     fn pointer(&mut self, frame_x:u32, frame_y:u32, button:u8)->bool {
         if self.menu || self.ballot.open || self.down.is_some() || self.map_held {return false;}
+        // The builder out in the world (the hillside): a click is a tile of the ground, in the
+        // flat view (in 3D the floor is tipped, and the keys lay what the ghost shows). Held and
+        // dragged, it lays a row as the knight's walking with E held does. The builder's strip at
+        // the view's foot is the hotbar's.
+        if let Some((knight, run)) = self.knight.zip(self.newest())
+            && crate::rules::hillside::building(run, knight)
+        {
+            if crate::world3d::enabled() || !matches!(button, 0 | 2) {
+                return false;
+            }
+            let (w,h)=self.size();
+            let Some((x,y))=crate::rules::builder_input::logical_point(frame_x,frame_y,w,
+                arena::view_rows(h as i32) as u32,arena::BAND_H as u32) else {return false;};
+            match arena::hill_slot_at(x as i32, y as i32, &run.kingdom.industry.get(&knight).map(|b| b.rig.clone()).unwrap_or_default()) {
+                Ok(Some(slot)) => {
+                    self.mouse_action(crate::rules::builder_input::BuilderAction::Slot(slot), true);
+                    return true;
+                }
+                Err(()) => return true,
+                Ok(None) => {}
+            }
+            let Some(tile)=arena::hill_tile_at(run,knight,x as i32,y as i32) else {return false;};
+            self.world_drag = (button==0).then_some(tile);
+            self.mouse_action(crate::rules::builder_input::BuilderAction::Plot{tile,build:button==0}, true);
+            return true;
+        }
         let Some(layout)=self.knight.zip(self.newest())
             .and_then(|(knight,run)|crate::rules::builder_input::layout(run,knight)) else {return false;};
         let (w,h)=self.size();
         let Some((x,y))=crate::rules::builder_input::logical_point(frame_x,frame_y,w,
             arena::view_rows(h as i32) as u32,arena::BAND_H as u32) else {return false;};
         let Some(action)=crate::rules::builder_input::hit(&layout,x,y,button) else {return false;};
-        self.builder_pressed=Some(action);
+        self.mouse_action(action, false);
         true
     }
 
@@ -1878,6 +2054,14 @@ impl GameClient for DelveClient {
     /// circle you.\tupgrade Permanent Mirrors", one held in full as MAX with
     /// no words, and the note when none can be picked.
     fn picks(&self) -> String {
+        if self.creation.session.hub {
+            let row = crate::rules::creation::HubRow::from_index(self.creation.session.row);
+            let name = row.map(|r| r.title()).unwrap_or("A POWER");
+            return format!("Wish hub\n{name}");
+        }
+        if self.creation.session.open {
+            return "Creator wish\nThe maker's own pages.".into();
+        }
         let (Some(knight), Some(run)) = (self.knight, self.newest()) else {
             return String::new();
         };
@@ -1965,6 +2149,23 @@ impl GameClient for DelveClient {
     }
 
     fn keep_action(&mut self, kind: u32, body: &[u8]) -> bool {
+        if self.creation.session.hub && kind == 2 {
+            let tick = self.newest().map_or(0, |r| r.tick);
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(body)
+                && let Some(words) = json["words"].as_str()
+            {
+                self.creation.session.hear_wish(words);
+                if let Some(row) = self.creation.session.leave.take() {
+                    self.wish_row = Some(row);
+                    self.ask = true;
+                    return false;
+                }
+                if !self.creation.session.note.is_empty() {
+                    self.pending_notice = Some(self.creation.session.note.clone());
+                }
+            }
+            return true;
+        }
         if !self.creation.session.open || !matches!(kind, 1 | 2) {
             return false;
         }

@@ -8,27 +8,34 @@ pub const BOSS_SLEEP_TICKS: u32 = HZ / 2;
 /// Distance between centres in world units, in this room, through scenery.
 pub const SONG_REACH: f32 = 7.0;
 
-/// The stream plays Knight Shift Radio's trance. A volley leaves every 4
-/// ticks (30 Hz), so three of them are exactly 0.4 s: a beat at 150 BPM, a
-/// bar (four beats) 1.6 s. Each song is an excerpt of the station's uplifting
-/// trance, time-stretched with its pitch kept so its beats fall on that
-/// grid, then cut into one-beat slices (`sfx/bard_<song>_<beat>.mp3`, made
-/// by `assets/dungeon/bard_tracks`): the stream names the next slice on the
-/// first volley of every beat, so the song plays forward in step with the
-/// fire, and when the fire stops the last slice (0.4 s) is all that is left.
+/// The stream plays Knight Shift Radio's trance. Held, the song counts on
+/// its own clock, once every 4 ticks (30 Hz) from the press whatever the
+/// weapon's rate, a dash or a shield (`strum`), so three counts are exactly
+/// 0.4 s: a beat at 150 BPM, a bar (four beats) 1.6 s. Each song is an
+/// excerpt of the station's uplifting trance, time-stretched with its pitch
+/// kept so its beats fall on that grid, then cut into one-beat slices
+/// (`sfx/bard_<song>_<beat>.mp3`, made by `assets/dungeon/bard_tracks`): the
+/// first count of every beat names the next slice, so the song plays forward
+/// while the trigger is held. Letting go names `REST` and the music stops;
+/// the next press picks the song up on the beat after the last one played.
 pub const SONGS: usize = 8;
 pub const VOLLEYS_PER_BEAT: u32 = 3;
+/// Ticks between two counts of a held song.
+pub const TICKS_PER_COUNT: u32 = 4;
+/// Named once when a held trigger is let go: the music stops now, not when
+/// its last slice runs out. Not a file.
+pub const REST: &str = "bard_rest";
 /// Slices in a song: 24 bars.
 pub const BEATS: u32 = 96;
 /// Held past the last slice, the song goes round again from here (bar 9: the
 /// second 8-bar phrase of the drop).
 pub const LOOP_FROM: u32 = 32;
-/// Held a bar (the 13th volley, 1.6 s), the bassline comes in under the
-/// high synth: the slices are the lead and the bass mixed.
+/// A bar into the song (its 13th count, 1.6 s of play), the bassline comes in
+/// under the high synth: the slices are the lead and the bass mixed.
 pub const BASS_AT: u32 = 13;
-/// Held three bars (the 37th volley, 4.8 s), the drums drop in: the overload,
-/// the song's drop. The slices from here are the lead, the bass and the
-/// drums.
+/// Three bars into the song (its 37th count, 4.8 s of play), the drums drop
+/// in: the overload, the song's drop. The slices from here are the lead, the
+/// bass and the drums.
 pub const DROP_AT: u32 = 37;
 /// A note that lands: an open hi-hat over the groove.
 pub const HIT: &str = "hit_note";
@@ -54,9 +61,16 @@ pub fn is_bard_sound(name: &str) -> bool {
     name.starts_with("bard_")
 }
 
-/// Whether `name` is a song's slice rather than its Lullaby.
+/// Whether the whole party hears the Bard this session: the host's switch
+/// `ANGEL_BARD_HEARD=all`, read once. Off, only the Bard hears its music.
+pub fn heard_by_all() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var("ANGEL_BARD_HEARD").is_ok_and(|v| v == "all"))
+}
+
+/// Whether `name` is a song's slice rather than its Lullaby or `REST`.
 pub fn is_slice(name: &str) -> bool {
-    is_bard_sound(name) && !name.ends_with("_lull")
+    is_bard_sound(name) && name != REST && !name.ends_with("_lull")
 }
 
 /// The one-beat slice of `song` at `beat` (round past the last, back to
@@ -91,15 +105,41 @@ pub fn song_of(knight: u32, songs: u32) -> usize {
     (knight.wrapping_sub(1) as usize).wrapping_add(songs as usize) % SONGS
 }
 
-/// The sounds of `knight`'s Note Stream volley leaving, the `groove`th
-/// without a break: on the first of each beat the next slice of its song,
-/// the high synth alone, with the bass from `BASS_AT` and the drums from
-/// `DROP_AT` (the slices are mixed that way). The Bard's music is its own:
-/// only the knight playing it hears it (`Run::seat_sounds`).
-pub fn volley_sounds(knight: u32, songs: u32, groove: u32, sounds: &mut Vec<(u32, &'static str)>) {
-    if on_beat(groove) {
-        sounds.push((knight, slice(song_of(knight, songs), (groove - 1) / VOLLEYS_PER_BEAT)));
+/// One tick of `knight`'s trigger, `held` or not. Held, the song plays on at
+/// its own pace, a count every `TICKS_PER_COUNT` ticks from the press, and
+/// nothing but letting go stops it: not the weapon's rate, not a dash, a
+/// shield or a borrowed body's shots. `Hero::groove` is the count within the
+/// song (so a press resumes at `Hero::tune`'s beat), and on the first count
+/// of each beat the next slice is named: the high synth alone, with the bass
+/// from `BASS_AT` and the drums from `DROP_AT` (the slices are mixed that
+/// way). Let go, `REST` is named once and the groove ends; `Hero::tune`
+/// keeps the place. The Bard's music is its own: only the knight playing it
+/// hears it (`Run::seat_sounds`). True on the count that is the drop.
+pub fn strum(knight: u32, hero: &mut Hero, held: bool, sounds: &mut Vec<(u32, &'static str)>) -> bool {
+    if !held {
+        if hero.strum != 0 {
+            sounds.push((knight, REST));
+        }
+        hero.strum = 0;
+        hero.groove = 0;
+        return false;
     }
+    hero.strum = hero.strum.saturating_add(1);
+    if !(hero.strum - 1).is_multiple_of(TICKS_PER_COUNT) {
+        return false;
+    }
+    hero.groove = if hero.groove == 0 {
+        hero.tune.saturating_mul(VOLLEYS_PER_BEAT).saturating_add(1)
+    } else {
+        hero.groove.saturating_add(1)
+    };
+    if !on_beat(hero.groove) {
+        return false;
+    }
+    let beat = (hero.groove - 1) / VOLLEYS_PER_BEAT;
+    hero.tune = beat.saturating_add(1);
+    sounds.push((knight, slice(song_of(knight, hero.songs), beat)));
+    hero.groove == DROP_AT
 }
 
 /// How far into the groove a knight is: 0 playing (or not), 1 the bass is

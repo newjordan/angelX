@@ -4,6 +4,9 @@ use super::*;
 use crate::kingdom::{self as economy, Command, Tile, catalog};
 
 pub const SHIFT_TICKS: u64 = HZ as u64 * 10;
+/// One room (or chamber) in this many holds a seam: the second, the fifth,
+/// the eighth. Tuned so a delve reads as the realm's mine (docs/KINGDOM-WORKS.md).
+pub const SEAM_EVERY: usize = 3;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default)]
@@ -12,7 +15,7 @@ pub struct Board {
     pub tile: Tile,
     pub plan: usize,
     pub message: String,
-    pub held: u16,
+    pub held: u32,
     pub gallery: bool,
     pub moved: u64,
     pub page: u8,
@@ -21,6 +24,25 @@ pub struct Board {
     pub plan_moved: u64,
     pub camera: Option<Tile>,
     pub pending_release: Option<String>,
+    /// On the hillside, the builder out in the world (`hillside`): the way the
+    /// knight faces (0 north, 1 east, 2 south, 3 west), the footprint's corner,
+    /// a pattern's quarter turns, the line being drawn, the flow overlay, whether
+    /// the cursor was last set by the mouse, and the tile last painted.
+    pub face: u8,
+    pub anchor: Tile,
+    pub turn: u8,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub draft: Option<super::hillside::Draft>,
+    pub overlay: bool,
+    pub pointed: bool,
+    pub painted: Tile,
+    /// The hotbar, the steps to take back, the card and the numbers this seat is shown
+    /// (`builder_rig`).
+    #[serde(skip_serializing_if = "super::builder_rig::Rig::is_idle")]
+    pub rig: super::builder_rig::Rig,
+    /// A route in the making: the bay the wagons load at, waiting for the bay they unload at.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stop: Option<String>,
 }
 impl Default for Board {
     fn default() -> Self {
@@ -38,18 +60,31 @@ impl Default for Board {
             plan_moved: 0,
             camera: None,
             pending_release: None,
+            face: 2,
+            anchor: (0, 0),
+            turn: 0,
+            draft: None,
+            overlay: false,
+            pointed: false,
+            painted: (-1, -1),
+            rig: super::builder_rig::Rig::default(),
+            stop: None,
         }
     }
 }
 impl Board {
     pub fn valid(&self) -> bool {
         self.tile.0 >= 0
-            && self.tile.0 < economy::WIDTH
+            && self.tile.0 < crate::kingdom::REALM_WIDTH
             && self.tile.1 >= 0
-            && self.tile.1 < economy::HEIGHT
-            && self.plan <= catalog().menu.len()
+            && self.tile.1 < crate::kingdom::REALM_HEIGHT
+            && self.plan < 1024
+            && self.face < 4
+            && self.turn < 4
+            && self.draft.as_ref().is_none_or(|d| d.path.len() <= super::hillside::MAX_PATH)
             && self.message.len() <= 256
-            && self.held < 2048
+            && self.held < (1 << 20)
+            && self.rig.valid()
             && self.page < 9
             && self.selection < 512
             && self
@@ -57,7 +92,7 @@ impl Board {
                 .as_ref()
                 .is_none_or(|key| !key.is_empty() && key.len() <= 96)
             && self.camera.is_none_or(|(x, y)| {
-                (0..economy::WIDTH).contains(&x) && (0..economy::HEIGHT).contains(&y)
+                (0..crate::kingdom::REALM_WIDTH).contains(&x) && (0..crate::kingdom::REALM_HEIGHT).contains(&y)
             })
     }
 }
@@ -68,67 +103,42 @@ pub struct Deposit {
     pub x: f32,
     pub y: f32,
     pub clear: bool,
+    /// The seam's quarry stone: the resource its claim is of.
     pub resource: &'static str,
-    pub name: &'static str,
+    pub name: String,
+    pub seam: geology::Seam,
 }
-/// The region adapter owns where resources occur; the economy owns their use.
-/// The same mapping powers actual deposits, floor forecasts and the field guide.
-pub fn ore_at(pack: Pack, depth: u32) -> (&'static str, &'static str) {
-    match pack {
-        Pack::Crypt => ("coal", "Black candle seam"),
-        Pack::Cavern if depth.is_multiple_of(2) => ("crystal", "Moon crystal vein"),
-        Pack::Cavern => ("iron-ore", "Ironroot vein"),
-        Pack::Hellforge => ("ember", "Living ember seam"),
-        _ => ("crystal", "Deep crystal vein"),
-    }
+/// What the field guide says of each part of the Delve's rock: one row a
+/// pack, from `geology`, in the order the desk lists them.
+pub fn guide() -> &'static [geology::Row] {
+    &geology::ROWS
 }
-pub const ORES: &[(&str, &str, &str, &str)] = &[
-    (
-        "iron-ore",
-        "IRON ORE",
-        "Start in Mines: floor 1",
-        "Smelt for weapons and castle building.",
-    ),
-    (
-        "coal",
-        "BLACK COAL",
-        "Crypt regions",
-        "Fuel smelters. Charcoal also works.",
-    ),
-    (
-        "crystal",
-        "MOON CRYSTAL",
-        "Mines F2 / Archive and beyond",
-        "Bind mana for staves and arcane works.",
-    ),
-    (
-        "ember",
-        "LIVING EMBER",
-        "Dragon Keep: floor 3",
-        "Forge Ember Edge with iron and mana.",
-    ),
-];
 impl Run {
     pub(super) fn announce_ore_forecast(&mut self) {
         if self.dungeon.depth == 0 {
             return;
         }
-        let (id, name) = ore_at(self.dungeon.pack, self.dungeon.depth);
+        let seam = geology::seam_at(self.dungeon.pack, self.dungeon.depth);
         let next_depth = self.dungeon.depth.saturating_add(1);
-        let (next, _) = ore_at(Pack::at(next_depth, self.first), next_depth);
-        if let Some(kind) = ore_threats::OreKind::for_resource(id) {
-            let after = if next != id {
-                format!(" Next floor: {}.", catalog().resources[next].name)
-            } else {
-                String::new()
-            };
-            self.notices.push(format!(
-                "Prospector's warning - {name}: {} {}{}",
-                kind.warning(),
-                kind.counter(),
-                after
-            ));
-        }
+        let next = geology::seam_at(Pack::at(next_depth, self.first), next_depth);
+        let kind = seam.guard();
+        let after = if next.stone() != seam.stone() {
+            let also = next.also().trim_start_matches("Also ").trim_end_matches('.').to_string();
+            format!(
+                " Next floor: {}{}.",
+                geology::rock_name(next.stone()),
+                if also.is_empty() { String::new() } else { format!(", with {also}") }
+            )
+        } else {
+            String::new()
+        };
+        self.notices.push(format!(
+            "Prospector's warning - {}: {} {}{}",
+            seam.name(),
+            kind.warning(),
+            kind.counter(),
+            after
+        ));
     }
     /// Enter the player-built surface with the whole party, as other surface
     /// doors do. The gate remains a route back to the existing campaign.
@@ -136,7 +146,7 @@ impl Run {
         if self.dungeon.depth != 0 || self.room().kind != RoomKind::Kingdom {
             return;
         }
-        self.home.industry.found(catalog(), self.seed);
+        self.found_industry();
         self.kingdom.frontier = true;
         self.kingdom.return_to = None;
         self.refresh_frontier();
@@ -250,7 +260,8 @@ impl Run {
         if self.dungeon.depth == 0 || self.dungeon.depth > DEEPEST || self.over() {
             return Vec::new();
         }
-        let (resource, name) = ore_at(self.dungeon.pack, self.dungeon.depth);
+        let seam = geology::seam_at(self.dungeon.pack, self.dungeon.depth);
+        let (resource, name) = (seam.stone(), seam.name());
         let make = |i: usize, x: f32, y: f32, clear: bool| {
             let legacy = format!(
                 "{:x}-{}-{}-{}",
@@ -258,13 +269,10 @@ impl Run {
             );
             // A live Run may revisit the same floor index through another
             // region. Resource identity must not alias that earlier claim.
-            let id = if self
-                .home
-                .industry
-                .claims
-                .get(&legacy)
-                .is_some_and(|q| q.resource == resource)
-            {
+            // A claim from before geology is of the ore the seam still gives.
+            let id = if self.home.industry.claims.get(&legacy).is_some_and(|q| {
+                q.resource == resource || (!geology::is_stone(&q.resource) && seam.gives(&q.resource))
+            }) {
                 legacy
             } else {
                 format!("{legacy}-{resource}")
@@ -275,7 +283,8 @@ impl Run {
                 y,
                 clear,
                 resource,
-                name,
+                name: name.clone(),
+                seam,
             }
         };
         if self.open_map() {
@@ -286,7 +295,7 @@ impl Run {
                 .iter()
                 .enumerate()
                 .filter(|(i, ch)| {
-                    *i > 0 && (i % 3 == 1 || *i == usize::from(o.guardian)) && ch.stirred
+                    *i > 0 && (i % SEAM_EVERY == 1 || *i == usize::from(o.guardian)) && ch.stirred
                 })
                 .map(|(i, ch)| {
                     let (x0, y0, x1, y1) = ch.bounds();
@@ -294,7 +303,7 @@ impl Run {
                 })
                 .collect()
         } else if self.at > 0
-            && self.at % 3 == 1
+            && self.at % SEAM_EVERY == 1
             && matches!(
                 self.room().kind,
                 RoomKind::Fight | RoomKind::Stairs | RoomKind::Lair
@@ -324,6 +333,7 @@ impl Run {
             }
         }
         let surface = self.dungeon.depth == 0 && self.room().kind == RoomKind::Kingdom;
+        // On the hillside the builder is out in the world (`hillside`), not on a desk.
         let mut enter = false;
         let mut gear_actions = Vec::new();
         let mut claim_releases = Vec::new();
@@ -340,19 +350,31 @@ impl Run {
             {
                 continue;
             }
-            let bits = u16::from(input.cast == 4)
-                | (u16::from(input.interact) << 1)
-                | (u16::from(input.swing) << 2)
-                | (u16::from(input.bomb) << 3)
-                | (u16::from(input.fire) << 4)
-                | (u16::from(input.cast == 1) << 5)
-                | (u16::from(input.cast == 2) << 6)
-                | (u16::from(input.cast == 3) << 7)
-                | (u16::from(input.cycle) << 8)
-                | (u16::from(input.ride) << 9)
-                | (u16::from(input.dash) << 10);
+            // (Bits 0 to 10 are the desk's keys; the builder in the world reads the rest:
+            // Z, G, R and H, and the five skill keys M , . ; ' that the world has no use for.)
+            let bits = u32::from(input.cast == 4)
+                | (u32::from(input.interact) << 1)
+                | (u32::from(input.swing) << 2)
+                | (u32::from(input.bomb) << 3)
+                | (u32::from(input.fire) << 4)
+                | (u32::from(input.cast == 1) << 5)
+                | (u32::from(input.cast == 2) << 6)
+                | (u32::from(input.cast == 3) << 7)
+                | (u32::from(input.cycle) << 8)
+                | (u32::from(input.ride) << 9)
+                | (u32::from(input.dash) << 10)
+                | (u32::from(input.play != 0) << 11)
+                | (u32::from(input.vigil) << 12)
+                | (u32::from(input.ult) << 13)
+                | (u32::from(input.team) << 14)
+                | (u32::from(input.skill == 1) << 15)
+                | (u32::from(input.skill == 2) << 16)
+                | (u32::from(input.skill == 3) << 17)
+                | (u32::from(input.skill == 4) << 18)
+                | (u32::from(input.skill == 5) << 19);
             let board = self.kingdom.industry.entry(id).or_default();
             let mut fresh = bits & !board.held;
+            let released = board.held & !bits;
             board.held = bits;
             if !surface {
                 board.open = false;
@@ -360,9 +382,50 @@ impl Run {
             }
             if fresh & 1 != 0 {
                 board.open = !board.open;
-                self.home.industry.found(catalog(), self.seed);
+                Self::found_in(&mut self.home.industry, self.seed);
+                if board.open && !self.home.industry.is_empty() && self.home.industry.world.is_hillside() {
+                    // The builder comes out where the knight stands.
+                    board.page = 0;
+                    board.gallery = false;
+                    board.pointed = false;
+                    board.draft = None;
+                    board.message = "WALK TO A SPOT AND PRESS E TO LAY IT".into();
+                }
             }
             if !board.open && fresh & 1 == 0 {
+                continue;
+            }
+            // (Founded just now, perhaps: asked after the toggle.)
+            let hill = !self.home.industry.is_empty() && self.home.industry.world.is_hillside();
+            if hill && board.open && board.page == 0 && !board.gallery {
+                // The builder in the world: the knight keeps walking, the rest of
+                // their keys are the builder's.
+                let mut walk = super::hillside::walking_input(&input);
+                if fresh & 1 != 0 {
+                    // (The key that brought the builder out is not a tool's.)
+                    fresh = 0;
+                }
+                let hero = self.players.get(&id).map(|h| (h.x, h.y));
+                super::hillside::aim_cursor(board, hero, &input);
+                let mut released = released;
+                if let Some(action) = input.builder {
+                    let (press, release) = Run::hill_pointer(board, action);
+                    if press {
+                        fresh |= 2;
+                    }
+                    if release {
+                        released |= 2;
+                    }
+                }
+                // Walking brings the view back from where it was sent to look.
+                if input.move_x != 0 || input.move_y != 0 {
+                    board.rig.look = None;
+                }
+                // The mouse's button held is E held.
+                let bits = if board.rig.drag.is_some() { bits | 2 } else { bits };
+                super::hillside::world_keys(board, &mut self.home.industry, self.tick, &input, fresh, released, bits, id);
+                walk.dash = false;
+                out.insert(id, walk);
                 continue;
             }
             out.insert(id, Input::default());
@@ -409,13 +472,38 @@ impl Run {
                 board.zoom = !board.zoom;
             }
             if fresh & 512 != 0 {
-                enter = true;
+                if hill {
+                    // The ledger closes over the world; the builder is out again.
+                    board.page = 0;
+                    board.selection = 0;
+                } else {
+                    enter = true;
+                }
                 continue;
             }
             if fresh & 256 != 0 {
-                board.page = (board.page + 1) % 9;
+                if hill {
+                    // The ledger over the world has seven pages: the four of the desk's, the
+                    // goals, what the party makes and uses, and what chokes the works.
+                    use super::hillside::{PAGE_CHOKES, PAGE_GOALS, PAGE_PRODUCTION};
+                    board.page = match board.page {
+                        1 => 3,
+                        3 => 6,
+                        6 => 8,
+                        8 => PAGE_GOALS,
+                        PAGE_GOALS => PAGE_PRODUCTION,
+                        PAGE_PRODUCTION => PAGE_CHOKES,
+                        _ => 1,
+                    };
+                } else {
+                    board.page = (board.page + 1) % 9;
+                }
                 board.gallery = board.page == 5;
                 board.selection = 0;
+            }
+            if hill && matches!(board.page, super::hillside::PAGE_GOALS | super::hillside::PAGE_PRODUCTION | super::hillside::PAGE_CHOKES) {
+                super::hillside::ledger_screen(board, &self.home.industry, self.tick, &input, fresh);
+                continue;
             }
             if board.page != 3 {
                 board.pending_release = None;
@@ -434,10 +522,11 @@ impl Run {
             }
             if board.page != 0 || board.gallery {
                 let count = match board.page {
+                    1 if hill => catalog().hill_charters().len(),
                     1 => catalog().technologies.len(),
                     2 => kingdom_gear::ITEMS.len(),
                     3 => self.home.industry.claims.len(),
-                    4 => ORES.len(),
+                    4 => geology::ROWS.len(),
                     5 => 12,
                     6 => self.home.industry.population.citizens.len(),
                     7 => 9,
@@ -509,7 +598,8 @@ impl Run {
                 }
                 if fresh & 2 != 0 {
                     if board.page == 1 {
-                        if let Some(key) = catalog().technologies.keys().nth(board.selection) {
+                        let key = if hill { catalog().hill_charters().get(board.selection).map(|(k, _)| *k) } else { catalog().technologies.keys().nth(board.selection) };
+                        if let Some(key) = key {
                             board.message = self
                                 .home
                                 .industry
@@ -738,10 +828,14 @@ impl Run {
         // ten-second shifts. Pauses never manufacture wall-clock catch-up.
         if self.tick / u64::from(HZ) > previous_tick / u64::from(HZ) && self.active() {
             self.home.industry.advance_second(catalog());
+            self.deliver_coin();
+            self.seam_second();
         }
         if self.tick > previous_tick && self.active() {
             self.tick_ore_pressure();
+            self.tick_stir();
         }
+        self.tick_carry(inputs);
         self.reset_claim_capacity_notice();
         let deposits = self.industry_deposits();
         for d in deposits {
@@ -750,10 +844,12 @@ impl Run {
                 .values()
                 .any(|h| !h.absent && h.hp > 0 && (h.x - d.x).hypot(h.y - d.y) < 12.0)
             {
-                self.home.industry.found(catalog(), self.seed);
+                self.found_industry();
                 self.discover_frontier_claim(&d);
             }
+            self.tick_stir_claim(&d);
             self.tick_ore_sentries(&d);
+            self.tick_quarry_face(&d);
             self.tick_claim_guardian(&d, inputs);
             if d.clear
                 && self.claim_guardian_defeated(&d.id)
@@ -767,8 +863,10 @@ impl Run {
                 && self.home.industry.secure(&d.id)
             {
                 self.notices.push(format!(
-                    "Claim secured: {}. Connect a mine in the kingdom [4]",
-                    d.name
+                    "Claim secured: {}. {} {} Swing at the face to cut a block, or connect a mine in the kingdom [4]",
+                    d.name,
+                    d.seam.uses(),
+                    d.seam.also()
                 ));
                 self.sounds.push("door_open");
                 self.announce_frontier_objective();
@@ -786,6 +884,7 @@ impl Run {
         }
         self.kingdom.claim_bosses.clear();
         self.kingdom.ore_sentries.clear();
+        self.kingdom.stir.new_expedition();
     }
     pub(super) fn industry_outfit(&mut self) {
         for hero in self.players.values_mut().filter(|h| !h.absent) {
@@ -803,6 +902,68 @@ impl Run {
     }
 }
 
+/// A floor of `pack` at `depth` as a proof shows it (the first-stone reel, the
+/// quarry's shots): a seam in a cleared, open room, its sentries and guardian
+/// fallen and its charter won, a mine standing on it, and knight 1 `from`
+/// units left of it and invulnerable, since the proof is of the stone and not
+/// of the fights. Not a way for a party to arrive: the room is stood in.
+#[cfg(any(test, feature = "testing"))]
+pub fn proof_face(pack: Pack, depth: u32, from: f32) -> Run {
+    let mut run = Run::new(511, 7, None);
+    run.first = if pack == Pack::Crypt { Pack::Crypt } else { Pack::Cavern };
+    run.dungeon = layout::floor(depth, pack, &mut Rng::new(10));
+    run.boss_gates = None;
+    let room = (1..run.dungeon.rooms.len())
+        .find(|&i| i % SEAM_EVERY == 1 && run.dungeon.rooms[i].kind == RoomKind::Fight)
+        .expect("a fighting room holds a seam");
+    run.enter(room, None);
+    run.enemies.clear();
+    run.waves = Default::default();
+    run.dungeon.rooms[room].cleared = true;
+    run.phase = Phase::Exploring;
+    run.calm_for_test();
+    // A review arena with no incidental obstacles.
+    for y in 1..run.room().rows - 1 {
+        for x in 1..run.room().cols - 1 {
+            if matches!(run.room().tile(x as i32, y as i32), layout::Tile::Block | layout::Tile::Hazard | layout::Tile::Bog) {
+                run.dungeon.rooms[room].set(x, y, layout::Tile::Floor);
+            }
+        }
+    }
+    let d = run.industry_deposits().into_iter().next().expect("the room's seam");
+    run.step(&BTreeMap::new());
+    for e in &mut run.enemies {
+        e.hp = 0;
+    }
+    run.settle_kills();
+    run.enemies.clear();
+    run.discover_frontier_claim(&d);
+    run.home.industry.secure(&d.id);
+    let k = &mut run.home.industry;
+    k.stock.insert("timber".into(), 300);
+    k.stock.insert("stone".into(), 300);
+    k.apply(catalog(), Command::Build { plan: "mine".into(), tile: (15, 8) }).expect("a mine goes up");
+    for _ in 0..80 {
+        k.work(catalog());
+        if k.buildings.values().all(|b| b.construction == 0) {
+            break;
+        }
+    }
+    for b in k.buildings.values_mut() {
+        b.construction = 0;
+    }
+    if let Some(mine) = k.buildings.iter().find(|(_, b)| b.plan == "mine").map(|(i, _)| *i) {
+        k.apply(catalog(), Command::Link { building: mine, claim: d.id.clone() }).expect("the mine works the face");
+    }
+    let h = run.players.get_mut(&1).expect("knight 1");
+    (h.x, h.y) = (d.x - from, d.y + 1.0);
+    h.aim_x = 1.0;
+    h.aim_y = 0.0;
+    h.invulnerable = HZ * 600;
+    h.camera = Some((h.x, h.y - 1.0));
+    run
+}
+
 #[cfg(test)]
 #[path = "../../tests/rules/industry__tests.rs"]
 mod tests;
@@ -813,3 +974,6 @@ mod shots;
 #[cfg(all(test, feature = "renderer"))]
 #[path = "../../tests/render/village__shots.rs"]
 mod village_shots;
+#[cfg(all(test, feature = "renderer"))]
+#[path = "../../tests/render/quarry__shots.rs"]
+mod quarry_shots;

@@ -27,7 +27,7 @@
 
 use std::num::NonZeroU64;
 
-use angel_stage::look::{Look, unit_rgb};
+use angel_stage::look::{Look, ZONE_MAX, unit_rgb};
 use bytemuck::{Pod, Zeroable};
 
 /// The mask's format: the first 8-bit channel is 1 where an accent was
@@ -91,10 +91,10 @@ pub(crate) struct SceneLookUniform {
     /// Each lamp in two: xyz where, w its reach; then x its strength.
     pub lamps: [[f32; 4]; 32],
     /// Each zone in two: x and z of its middle, its radius, its feather;
-    /// then its box's half width and depth.
-    pub zones: [[f32; 4]; 8],
+    /// then its box's half width and depth. [`ZONE_MAX`] zones.
+    pub zones: [[f32; 4]; 2 * ZONE_MAX],
     /// Each zone's ramp, 16 entries a zone.
-    pub zone_ramps: [[f32; 4]; 64],
+    pub zone_ramps: [[f32; 4]; 16 * ZONE_MAX],
     /// The water's ramp, rgb 0..1.
     pub water: [[f32; 4]; 16],
     /// Each point kept in sight: xyz, w the opening's radius (0: none).
@@ -200,7 +200,7 @@ pub(crate) fn scene_look_uniform(look: &Look, eye: [f32; 3], depth: Option<[f32;
         uniform.lamps[2 * i] = [lamp.at[0], lamp.at[1], lamp.at[2], lamp.reach];
         uniform.lamps[2 * i + 1] = [lamp.strength, 0.0, 0.0, 0.0];
     }
-    for (i, zone) in look.zones.iter().enumerate().take(4) {
+    for (i, zone) in look.zones.iter().enumerate().take(ZONE_MAX) {
         uniform.zones[2 * i] = [zone.at[0], zone.at[1], zone.radius, zone.feather];
         uniform.zones[2 * i + 1] = [zone.half[0], zone.half[1], 0.0, 0.0];
         for (k, &c) in zone.ramp.iter().enumerate().take(16) {
@@ -220,7 +220,7 @@ pub(crate) fn scene_look_uniform(look: &Look, eye: [f32; 3], depth: Option<[f32;
     }
     uniform.counts = [
         look.ramp.len().min(16) as u32,
-        look.zones.len().min(4) as u32,
+        look.zones.len().min(ZONE_MAX) as u32,
         look.dither.bits(),
         look.accent.len().min(4) as u32,
     ];
@@ -594,9 +594,14 @@ mod tests {
         // look.wgsl: 16 + 4 vec4s, a vec4<u32>, two vec4<f32>s.
         assert_eq!(std::mem::size_of::<LookUniform>(), 16 * 16 + 4 * 16 + 16 + 16 + 16);
         // mesh.wgsl: five vec4s, a matrix, two vec4<u32>s, then the ramps,
-        // accents, lamps, zones, the zones' ramps, the water's and the reveal,
-        // the units, the cards (two), the depth of field and its row.
-        assert_eq!(std::mem::size_of::<SceneLookUniform>(), (5 + 4 + 2 + 16 + 16 + 4 + 32 + 8 + 64 + 16 + 4 + 1 + 4) * 16);
+        // accents, lamps, zones (two vec4s each, 16 of them), the zones'
+        // ramps (16 vec4s each), the water's and the reveal, the units, the
+        // cards (two), the depth of field and its row.
+        assert_eq!(ZONE_MAX, 16, "mesh.wgsl declares its zone arrays for sixteen");
+        assert_eq!(std::mem::size_of::<SceneLookUniform>(), (5 + 4 + 2 + 16 + 16 + 4 + 32 + 2 * 16 + 16 * 16 + 16 + 4 + 1 + 4) * 16);
+        // Well inside what a uniform buffer may be on every backend (the
+        // browser's WebGL2 floor is 16 KiB).
+        assert!(std::mem::size_of::<SceneLookUniform>() <= 8 << 10, "{}", std::mem::size_of::<SceneLookUniform>());
         assert_eq!(std::mem::size_of::<LookUniform>() % 16, 0);
     }
 
@@ -660,6 +665,39 @@ mod tests {
         assert_eq!(scene_look_uniform(&l, [0.0; 3], None).dof, [0.0; 4]);
         l.dof = Some(Dof::room(Vec::new()));
         assert_eq!(scene_look_uniform(&l, [0.0; 3], Some(row)).dof, [0.0; 4]);
+    }
+
+    #[test]
+    fn sixteen_zones_reach_the_mesh_shader_each_with_its_own_ramp() {
+        use angel_stage::look::{Sun, Zone};
+        let mut l = look();
+        l.sun = Some(Sun { toward: [0.0, 1.0, 0.0], strength: 0.8, ambient: 0.3, shadow: None, rise: 0.0 });
+        let zone = |k: usize| Zone {
+            ramp: vec![[k as u8 + 1, 0, 0], [k as u8 + 20, 0, 0], [k as u8 + 40, 0, 0]],
+            at: [k as f32, -(k as f32)],
+            half: [1.0 + k as f32, 2.0],
+            radius: 0.5,
+            feather: 3.0,
+        };
+        l.zones = (0..ZONE_MAX).map(zone).collect();
+        let u = scene_look_uniform(&l, [0.0; 3], None);
+        assert_eq!(u.counts[1], ZONE_MAX as u32);
+        // Every zone, the fifth to the sixteenth too: its place and its ramp.
+        for k in 0..ZONE_MAX {
+            let z = zone(k);
+            assert_eq!(u.zones[2 * k], [z.at[0], z.at[1], 0.5, 3.0], "zone {k}");
+            assert_eq!(u.zones[2 * k + 1][..2], z.half, "zone {k}");
+            for (e, &c) in z.ramp.iter().enumerate() {
+                assert_eq!(u.zone_ramps[k * 16 + e][..3], unit_rgb(c), "zone {k} entry {e}");
+            }
+            assert_eq!(u.zone_ramps[k * 16 + 3], [0.0; 4], "zone {k}: the entries past its ramp are empty");
+        }
+        assert_eq!(u.zone_ramps.len(), 16 * ZONE_MAX);
+        // More than the cap never writes past the arrays: the first sixteen go.
+        l.zones = (0..ZONE_MAX + 3).map(zone).collect();
+        let u = scene_look_uniform(&l, [0.0; 3], None);
+        assert_eq!(u.counts[1], ZONE_MAX as u32);
+        assert_eq!(u.zones[2 * (ZONE_MAX - 1)][0], (ZONE_MAX - 1) as f32);
     }
 
     #[test]

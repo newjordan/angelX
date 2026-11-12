@@ -4,11 +4,13 @@
   "resources": {
     "timber": {
       "name": "Timber",
-      "colour": 10319691
+      "colour": 10319691,
+      "weight": 50
     },
     "stone": {
       "name": "Rough stone",
-      "colour": 10333615
+      "colour": 10333615,
+      "weight": 100
     },
     "food": {
       "name": "Harvest",
@@ -16,11 +18,13 @@
     },
     "coal": {
       "name": "Coal",
-      "colour": 6578557
+      "colour": 6578557,
+      "weight": 50
     },
     "iron-ore": {
       "name": "Iron ore",
-      "colour": 12227449
+      "colour": 12227449,
+      "weight": 100
     },
     "copper-ore": {
       "name": "Copper ore",
@@ -28,23 +32,28 @@
     },
     "crystal": {
       "name": "Moon crystal",
-      "colour": 9559013
+      "colour": 9559013,
+      "weight": 20
     },
     "ember": {
       "name": "Living ember",
-      "colour": 16163931
+      "colour": 16163931,
+      "weight": 20
     },
     "plank": {
       "name": "Sawn planks",
-      "colour": 13875067
+      "colour": 13875067,
+      "weight": 25
     },
     "block": {
       "name": "Dressed stone",
-      "colour": 12833232
+      "colour": 12833232,
+      "weight": 100
     },
     "ingot": {
       "name": "Iron ingot",
-      "colour": 12044762
+      "colour": 12044762,
+      "weight": 50
     },
     "arms": {
       "name": "Forged arms",
@@ -52,7 +61,8 @@
     },
     "mana": {
       "name": "Bound mana",
-      "colour": 11182315
+      "colour": 11182315,
+      "weight": 1
     },
     "ward": {
       "name": "Wardstone",
@@ -88,11 +98,416 @@
     },
     "clay": {
       "name": "River clay",
-      "colour": 12155734
+      "colour": 12155734,
+      "weight": 100
     },
     "brick": {
       "name": "Fired bricks",
-      "colour": 12740677
+      "colour": 12740677,
+      "weight": 100
+    },
+    "rubble": {
+      "name": "Rubble",
+      "colour": 10130566,
+      "waste": true,
+      "weight": 50
+    },
+    "sand": {
+      "name": "Sharp sand",
+      "colour": 14270602,
+      "weight": 100
+    },
+    "water": {
+      "name": "Water",
+      "colour": 6000560,
+      "weight": 50
+    },
+    "earth": {
+      "name": "Spoil",
+      "colour": 7032627,
+      "weight": 100
+    },
+    "peat": {
+      "name": "Peat",
+      "colour": 4864554,
+      "weight": 40
+    },
+    "reeds": {
+      "name": "Reeds",
+      "colour": 10134362,
+      "weight": 20
+    },
+    "grain": {
+      "name": "Grain",
+      "colour": 14205546,
+      "weight": 50
+    },
+    "hemp": {
+      "name": "Hemp",
+      "colour": 9083482,
+      "weight": 40
+    },
+    "fodder": {
+      "name": "Fodder",
+      "colour": 12103776,
+      "weight": 25
+    },
+    "hide": {
+      "name": "Hides",
+      "colour": 10119754,
+      "weight": 25
+    },
+    "wool": {
+      "name": "Wool",
+      "colour": 15261904,
+      "weight": 25
+    },
+    "meat": {
+      "name": "Meat",
+      "colour": 11553338,
+      "weight": 25
+    },
+    "cheese": {
+      "name": "Cheese",
+      "colour": 15255648,
+      "weight": 20
+    },
+    "bark": {
+      "name": "Oak bark",
+      "colour": 6965802,
+      "weight": 25
+    },
+    "ox": {
+      "name": "Oxen",
+      "colour": 8018490,
+      "weight": 1
+    },
+    "horse": {
+      "name": "Horses",
+      "colour": 9071178,
+      "weight": 1
+    },
+    "limestone": {
+      "name": "Limestone block",
+      "colour": 14209724,
+      "weight": 100
+    },
+    "freestone": {
+      "name": "Freestone block",
+      "colour": 14734512,
+      "weight": 100
+    },
+    "flint": {
+      "name": "Flint block",
+      "colour": 5922920,
+      "weight": 100
+    },
+    "basalt": {
+      "name": "Basalt block",
+      "colour": 3816002,
+      "weight": 100
+    },
+    "tufa": {
+      "name": "Tufa block",
+      "colour": 13160624,
+      "weight": 100
+    },
+    "voidstone": {
+      "name": "Voidstone block",
+      "colour": 3811930,
+      "weight": 100
+    },
+    "slate-block": {
+      "name": "Slate seam block",
+      "colour": 4937056,
+      "weight": 100
+    },
+    "sulphur": {
+      "name": "Sulphur",
+      "colour": 14733376,
+      "weight": 40
+    },
+    "saltpetre": {
+      "name": "Saltpetre",
+      "colour": 15263968,
+      "weight": 40
+    },
+    "galena": {
+      "name": "Galena",
+      "colour": 7238272,
+      "weight": 100
+    },
+    "bone": {
+      "name": "Bone",
+      "colour": 14735552,
+      "weight": 20
+    },
+    "bog-iron": {
+      "name": "Bog iron",
+      "colour": 8018490,
+      "weight": 100
+    },
+    "coin": {
+      "name": "Coin",
+      "colour": 15253568,
+      "weight": 1
+    },
+    "ashlar": {
+      "name": "Ashlar",
+      "colour": 13222832,
+      "weight": 100
+    },
+    "voussoir": {
+      "name": "Voussoirs",
+      "colour": 13814968,
+      "weight": 80
+    },
+    "quoin": {
+      "name": "Quoins",
+      "colour": 14736070,
+      "weight": 100
+    },
+    "template": {
+      "name": "Templates",
+      "colour": 11569754,
+      "weight": 20
+    },
+    "quicklime": {
+      "name": "Quicklime",
+      "colour": 15657176,
+      "weight": 50
+    },
+    "lime-putty": {
+      "name": "Lime putty",
+      "colour": 16052454,
+      "weight": 50
+    },
+    "mortar": {
+      "name": "Mortar",
+      "colour": 12169888,
+      "shelf": 900,
+      "weight": 50
+    },
+    "charcoal": {
+      "name": "Charcoal",
+      "colour": 2829099,
+      "weight": 20
+    },
+    "ash": {
+      "name": "Hearth ash",
+      "colour": 9079432,
+      "waste": true,
+      "weight": 20
+    },
+    "potash": {
+      "name": "Potash",
+      "colour": 13158592,
+      "weight": 25
+    },
+    "glass": {
+      "name": "Glass",
+      "colour": 10541280,
+      "weight": 60
+    },
+    "beam": {
+      "name": "Beams",
+      "colour": 10517062,
+      "weight": 100
+    },
+    "pole": {
+      "name": "Scaffold poles",
+      "colour": 9071164,
+      "weight": 25
+    },
+    "joist": {
+      "name": "Joists",
+      "colour": 11107398,
+      "weight": 20
+    },
+    "centring": {
+      "name": "Arch centring",
+      "colour": 10187842,
+      "weight": 100
+    },
+    "shingle": {
+      "name": "Shingles",
+      "colour": 9071178,
+      "weight": 25
+    },
+    "retted-fibre": {
+      "name": "Retted fibre",
+      "colour": 10136170,
+      "weight": 40
+    },
+    "rope": {
+      "name": "Rope",
+      "colour": 13152368,
+      "weight": 20
+    },
+    "flour": {
+      "name": "Flour",
+      "colour": 15788240,
+      "weight": 50
+    },
+    "bread": {
+      "name": "Bread",
+      "colour": 13672528,
+      "weight": 20
+    },
+    "ale": {
+      "name": "Ale",
+      "colour": 13144122,
+      "weight": 40
+    },
+    "leather": {
+      "name": "Leather",
+      "colour": 9067066,
+      "weight": 25
+    },
+    "cloth": {
+      "name": "Cloth",
+      "colour": 11575440,
+      "weight": 25
+    },
+    "livery": {
+      "name": "Livery",
+      "colour": 9054762,
+      "weight": 5
+    },
+    "bloom": {
+      "name": "Iron bloom",
+      "colour": 8219229,
+      "weight": 50
+    },
+    "wrought-iron": {
+      "name": "Wrought iron",
+      "colour": 9080724,
+      "weight": 50
+    },
+    "steel": {
+      "name": "Steel",
+      "colour": 12107976,
+      "weight": 20
+    },
+    "nails": {
+      "name": "Nails",
+      "colour": 6975090,
+      "weight": 2
+    },
+    "cramp": {
+      "name": "Iron cramps",
+      "colour": 7304314,
+      "weight": 5
+    },
+    "hinge": {
+      "name": "Hinges",
+      "colour": 5922402,
+      "weight": 5
+    },
+    "tyre": {
+      "name": "Wagon tyres",
+      "colour": 6448746,
+      "weight": 30
+    },
+    "portcullis": {
+      "name": "Portcullis",
+      "colour": 5988454,
+      "weight": 500
+    },
+    "lead-sheet": {
+      "name": "Lead sheet",
+      "colour": 10133933,
+      "weight": 50
+    },
+    "slate": {
+      "name": "Roofing slate",
+      "colour": 5858158,
+      "weight": 40
+    },
+    "harness": {
+      "name": "Harness",
+      "colour": 8014378,
+      "weight": 20
+    },
+    "cart": {
+      "name": "Ox carts",
+      "colour": 10518624,
+      "weight": 200
+    },
+    "wagon": {
+      "name": "Tram wagons",
+      "colour": 9465936,
+      "weight": 150
+    },
+    "bucket": {
+      "name": "Ropeway buckets",
+      "colour": 9079434,
+      "weight": 20
+    },
+    "barge-hull": {
+      "name": "Barge hulls",
+      "colour": 8022608,
+      "weight": 500
+    },
+    "mule": {
+      "name": "Pack mules",
+      "colour": 9075306,
+      "weight": 1
+    },
+    "grapes": {
+      "name": "Grapes",
+      "colour": 6961770,
+      "weight": 25
+    },
+    "wine": {
+      "name": "Wine",
+      "colour": 9054794,
+      "weight": 40
+    },
+    "pick": {
+      "name": "Picks",
+      "colour": 10528944,
+      "weight": 10
+    },
+    "worn-pick": {
+      "name": "Worn picks",
+      "colour": 7366752,
+      "weight": 10
+    },
+    "chisel": {
+      "name": "Chisels",
+      "colour": 10528944,
+      "weight": 5
+    },
+    "worn-chisel": {
+      "name": "Worn chisels",
+      "colour": 7366752,
+      "weight": 5
+    },
+    "axe": {
+      "name": "Axes and saws",
+      "colour": 10528944,
+      "weight": 10
+    },
+    "worn-axe": {
+      "name": "Worn axes and saws",
+      "colour": 7366752,
+      "weight": 10
+    },
+    "trowel": {
+      "name": "Trowels and hammers",
+      "colour": 10528944,
+      "weight": 5
+    },
+    "worn-trowel": {
+      "name": "Worn trowels and hammers",
+      "colour": 7366752,
+      "weight": 5
+    },
+    "arrow": {
+      "name": "Arrows",
+      "colour": 13154448,
+      "weight": 1
     }
   },
   "recipes": {
@@ -292,6 +707,979 @@
         "brick": 4
       },
       "shifts": 2
+    },
+    "dress-limestone": {
+      "name": "Dress limestone",
+      "inputs": {
+        "limestone": 6
+      },
+      "outputs": {
+        "ashlar": 6,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "quoins-limestone": {
+      "name": "Cut limestone quoins",
+      "inputs": {
+        "limestone": 4
+      },
+      "outputs": {
+        "quoin": 3,
+        "rubble": 1
+      },
+      "shifts": 3
+    },
+    "voussoirs-limestone": {
+      "name": "Cut limestone voussoirs",
+      "inputs": {
+        "limestone": 4,
+        "template": 1
+      },
+      "outputs": {
+        "voussoir": 3,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "dress-freestone": {
+      "name": "Dress freestone",
+      "inputs": {
+        "freestone": 6
+      },
+      "outputs": {
+        "ashlar": 6,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "quoins-freestone": {
+      "name": "Cut freestone quoins",
+      "inputs": {
+        "freestone": 4
+      },
+      "outputs": {
+        "quoin": 3,
+        "rubble": 1
+      },
+      "shifts": 3
+    },
+    "voussoirs-freestone": {
+      "name": "Cut freestone voussoirs",
+      "inputs": {
+        "freestone": 4,
+        "template": 1
+      },
+      "outputs": {
+        "voussoir": 3,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "dress-flint": {
+      "name": "Dress flint",
+      "inputs": {
+        "flint": 6
+      },
+      "outputs": {
+        "ashlar": 6,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "quoins-flint": {
+      "name": "Cut flint quoins",
+      "inputs": {
+        "flint": 4
+      },
+      "outputs": {
+        "quoin": 3,
+        "rubble": 1
+      },
+      "shifts": 3
+    },
+    "voussoirs-flint": {
+      "name": "Cut flint voussoirs",
+      "inputs": {
+        "flint": 4,
+        "template": 1
+      },
+      "outputs": {
+        "voussoir": 3,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "dress-basalt": {
+      "name": "Dress basalt",
+      "inputs": {
+        "basalt": 6
+      },
+      "outputs": {
+        "ashlar": 6,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "quoins-basalt": {
+      "name": "Cut basalt quoins",
+      "inputs": {
+        "basalt": 4
+      },
+      "outputs": {
+        "quoin": 3,
+        "rubble": 1
+      },
+      "shifts": 3
+    },
+    "voussoirs-basalt": {
+      "name": "Cut basalt voussoirs",
+      "inputs": {
+        "basalt": 4,
+        "template": 1
+      },
+      "outputs": {
+        "voussoir": 3,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "dress-tufa": {
+      "name": "Dress tufa",
+      "inputs": {
+        "tufa": 6
+      },
+      "outputs": {
+        "ashlar": 6,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "quoins-tufa": {
+      "name": "Cut tufa quoins",
+      "inputs": {
+        "tufa": 4
+      },
+      "outputs": {
+        "quoin": 3,
+        "rubble": 1
+      },
+      "shifts": 3
+    },
+    "voussoirs-tufa": {
+      "name": "Cut tufa voussoirs",
+      "inputs": {
+        "tufa": 4,
+        "template": 1
+      },
+      "outputs": {
+        "voussoir": 3,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "dress-voidstone": {
+      "name": "Dress voidstone",
+      "inputs": {
+        "voidstone": 6
+      },
+      "outputs": {
+        "ashlar": 6,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "quoins-voidstone": {
+      "name": "Cut voidstone quoins",
+      "inputs": {
+        "voidstone": 4
+      },
+      "outputs": {
+        "quoin": 3,
+        "rubble": 1
+      },
+      "shifts": 3
+    },
+    "voussoirs-voidstone": {
+      "name": "Cut voidstone voussoirs",
+      "inputs": {
+        "voidstone": 4,
+        "template": 1
+      },
+      "outputs": {
+        "voussoir": 3,
+        "rubble": 1
+      },
+      "shifts": 6
+    },
+    "dress-field": {
+      "name": "Dress field stone",
+      "inputs": {
+        "stone": 8
+      },
+      "outputs": {
+        "ashlar": 3,
+        "rubble": 5
+      },
+      "shifts": 6
+    },
+    "win-field-stone": {
+      "name": "Win field stone",
+      "inputs": {},
+      "outputs": {
+        "stone": 3
+      },
+      "shifts": 1,
+      "patch": {
+        "kind": "field",
+        "takes": 3
+      }
+    },
+    "barrow-rubble": {
+      "name": "Barrow rubble",
+      "inputs": {},
+      "outputs": {
+        "rubble": 4
+      },
+      "shifts": 1,
+      "patch": {
+        "kind": "field",
+        "takes": 2
+      }
+    },
+    "trace-templates": {
+      "name": "Trace templates",
+      "inputs": {
+        "plank": 2
+      },
+      "outputs": {
+        "template": 4
+      },
+      "shifts": 2
+    },
+    "burn-lime": {
+      "name": "Burn quicklime with charcoal",
+      "inputs": {
+        "limestone": 4,
+        "charcoal": 2
+      },
+      "outputs": {
+        "quicklime": 3,
+        "ash": 1
+      },
+      "shifts": 5
+    },
+    "burn-lime-peat": {
+      "name": "Burn quicklime with peat",
+      "inputs": {
+        "limestone": 4,
+        "peat": 3
+      },
+      "outputs": {
+        "quicklime": 3,
+        "ash": 2
+      },
+      "shifts": 5
+    },
+    "burn-lime-coal": {
+      "name": "Burn quicklime with coal",
+      "inputs": {
+        "limestone": 4,
+        "coal": 1
+      },
+      "outputs": {
+        "quicklime": 3
+      },
+      "shifts": 4
+    },
+    "slake": {
+      "name": "Slake lime to putty",
+      "inputs": {
+        "quicklime": 3,
+        "water": 6
+      },
+      "outputs": {
+        "lime-putty": 6
+      },
+      "shifts": 6
+    },
+    "mix-mortar": {
+      "name": "Mix mortar",
+      "inputs": {
+        "lime-putty": 2,
+        "sand": 6
+      },
+      "outputs": {
+        "mortar": 8
+      },
+      "shifts": 1
+    },
+    "dig-sand": {
+      "name": "Dig sand",
+      "inputs": {},
+      "outputs": {
+        "sand": 6
+      },
+      "shifts": 1
+    },
+    "draw-water": {
+      "name": "Draw water",
+      "inputs": {},
+      "outputs": {
+        "water": 6
+      },
+      "shifts": 1
+    },
+    "draw-river-water": {
+      "name": "Draw river water",
+      "inputs": {},
+      "outputs": {
+        "water": 12
+      },
+      "shifts": 1
+    },
+    "burn-clamp": {
+      "name": "Burn a charcoal clamp",
+      "inputs": {
+        "timber": 6
+      },
+      "outputs": {
+        "charcoal": 4,
+        "ash": 1
+      },
+      "shifts": 4
+    },
+    "fell-wood": {
+      "name": "Fell timber",
+      "inputs": {},
+      "outputs": {
+        "timber": 4
+      },
+      "shifts": 1,
+      "patch": {
+        "kind": "wood",
+        "takes": 4
+      }
+    },
+    "coppice-poles": {
+      "name": "Coppice poles",
+      "inputs": {},
+      "outputs": {
+        "pole": 3
+      },
+      "shifts": 2,
+      "patch": {
+        "kind": "wood",
+        "takes": 0,
+        "min_percent": 25
+      }
+    },
+    "coppice-timber": {
+      "name": "Cut coppice",
+      "inputs": {},
+      "outputs": {
+        "timber": 3
+      },
+      "shifts": 1,
+      "patch": {
+        "kind": "wood",
+        "takes": 0,
+        "min_percent": 25
+      }
+    },
+    "strip-bark": {
+      "name": "Strip oak bark",
+      "inputs": {},
+      "outputs": {
+        "bark": 3,
+        "timber": 1
+      },
+      "shifts": 1,
+      "patch": {
+        "kind": "wood",
+        "takes": 1
+      }
+    },
+    "pit-planks": {
+      "name": "Saw planks",
+      "inputs": {
+        "timber": 2
+      },
+      "outputs": {
+        "plank": 2
+      },
+      "shifts": 1
+    },
+    "pit-beams": {
+      "name": "Saw beams",
+      "inputs": {
+        "timber": 4
+      },
+      "outputs": {
+        "beam": 2
+      },
+      "shifts": 1
+    },
+    "hew-joists": {
+      "name": "Hew joists",
+      "inputs": {
+        "beam": 1
+      },
+      "outputs": {
+        "joist": 4
+      },
+      "shifts": 1
+    },
+    "frame-centring": {
+      "name": "Frame arch centring",
+      "inputs": {
+        "beam": 2,
+        "plank": 2,
+        "nails": 6
+      },
+      "outputs": {
+        "centring": 1
+      },
+      "shifts": 2
+    },
+    "rive-shingles": {
+      "name": "Rive shingles",
+      "inputs": {
+        "timber": 2
+      },
+      "outputs": {
+        "shingle": 12
+      },
+      "shifts": 1
+    },
+    "grow-grain": {
+      "name": "Grow grain",
+      "inputs": {},
+      "outputs": {
+        "grain": 8
+      },
+      "shifts": 2
+    },
+    "grow-hemp": {
+      "name": "Grow hemp",
+      "inputs": {},
+      "outputs": {
+        "hemp": 4
+      },
+      "shifts": 2
+    },
+    "ash-fields": {
+      "name": "Ash the fields",
+      "inputs": {
+        "ash": 3
+      },
+      "outputs": {
+        "grain": 14
+      },
+      "shifts": 2
+    },
+    "grow-fodder": {
+      "name": "Make hay",
+      "inputs": {},
+      "outputs": {
+        "fodder": 10
+      },
+      "shifts": 2
+    },
+    "ret-hemp": {
+      "name": "Ret hemp",
+      "inputs": {
+        "hemp": 4,
+        "water": 6
+      },
+      "outputs": {
+        "retted-fibre": 4
+      },
+      "shifts": 6
+    },
+    "spin-rope": {
+      "name": "Lay rope",
+      "inputs": {
+        "retted-fibre": 3
+      },
+      "outputs": {
+        "rope": 2
+      },
+      "shifts": 2
+    },
+    "grind": {
+      "name": "Grind flour",
+      "inputs": {
+        "grain": 4
+      },
+      "outputs": {
+        "flour": 3
+      },
+      "shifts": 1
+    },
+    "bake": {
+      "name": "Bake bread",
+      "inputs": {
+        "flour": 3,
+        "water": 2,
+        "charcoal": 1
+      },
+      "outputs": {
+        "bread": 6
+      },
+      "shifts": 2
+    },
+    "brew": {
+      "name": "Brew ale",
+      "inputs": {
+        "grain": 3,
+        "water": 4
+      },
+      "outputs": {
+        "ale": 4
+      },
+      "shifts": 3
+    },
+    "herd-meat": {
+      "name": "Raise meat",
+      "inputs": {
+        "fodder": 4,
+        "water": 2
+      },
+      "outputs": {
+        "meat": 3,
+        "hide": 2
+      },
+      "shifts": 4
+    },
+    "herd-dairy": {
+      "name": "Make cheese",
+      "inputs": {
+        "fodder": 3,
+        "water": 2
+      },
+      "outputs": {
+        "cheese": 2
+      },
+      "shifts": 3
+    },
+    "herd-wool": {
+      "name": "Shear wool",
+      "inputs": {
+        "fodder": 3,
+        "water": 1
+      },
+      "outputs": {
+        "wool": 3
+      },
+      "shifts": 3
+    },
+    "rear-ox": {
+      "name": "Rear an ox",
+      "inputs": {
+        "fodder": 12,
+        "water": 6
+      },
+      "outputs": {
+        "ox": 1
+      },
+      "shifts": 6
+    },
+    "rear-horse": {
+      "name": "Rear a horse",
+      "inputs": {
+        "fodder": 16,
+        "water": 8
+      },
+      "outputs": {
+        "horse": 1
+      },
+      "shifts": 16
+    },
+    "rear-mule": {
+      "name": "Rear a mule",
+      "inputs": {
+        "fodder": 10,
+        "water": 5
+      },
+      "outputs": {
+        "mule": 1
+      },
+      "shifts": 8
+    },
+    "grow-grapes": {
+      "name": "Tend the vines",
+      "inputs": {},
+      "outputs": {
+        "grapes": 6
+      },
+      "shifts": 3
+    },
+    "press-wine": {
+      "name": "Press and lay down wine",
+      "inputs": {
+        "grapes": 8,
+        "water": 2
+      },
+      "outputs": {
+        "wine": 4
+      },
+      "shifts": 4
+    },
+    "tan": {
+      "name": "Tan leather",
+      "inputs": {
+        "hide": 2,
+        "bark": 2,
+        "water": 3
+      },
+      "outputs": {
+        "leather": 3
+      },
+      "shifts": 4
+    },
+    "make-harness": {
+      "name": "Stitch harness",
+      "inputs": {
+        "leather": 2,
+        "nails": 2
+      },
+      "outputs": {
+        "harness": 1
+      },
+      "shifts": 2
+    },
+    "weave": {
+      "name": "Weave cloth",
+      "inputs": {
+        "wool": 4
+      },
+      "outputs": {
+        "cloth": 3
+      },
+      "shifts": 3
+    },
+    "sew-livery": {
+      "name": "Sew livery",
+      "inputs": {
+        "cloth": 2
+      },
+      "outputs": {
+        "livery": 1
+      },
+      "shifts": 2
+    },
+    "leach-potash": {
+      "name": "Leach potash",
+      "inputs": {
+        "ash": 4,
+        "water": 3
+      },
+      "outputs": {
+        "potash": 1
+      },
+      "shifts": 3
+    },
+    "burn-bone": {
+      "name": "Calcine bone",
+      "inputs": {
+        "bone": 2,
+        "charcoal": 1
+      },
+      "outputs": {
+        "ash": 4
+      },
+      "shifts": 3
+    },
+    "melt-glass": {
+      "name": "Melt glass",
+      "inputs": {
+        "sand": 4,
+        "potash": 1,
+        "charcoal": 1
+      },
+      "outputs": {
+        "glass": 2
+      },
+      "shifts": 5
+    },
+    "smelt-bloom": {
+      "name": "Smelt a bloom",
+      "inputs": {
+        "iron-ore": 3,
+        "charcoal": 2
+      },
+      "outputs": {
+        "bloom": 2
+      },
+      "shifts": 4
+    },
+    "smelt-bog": {
+      "name": "Smelt bog iron",
+      "inputs": {
+        "bog-iron": 4,
+        "charcoal": 2
+      },
+      "outputs": {
+        "bloom": 2
+      },
+      "shifts": 4
+    },
+    "forge-wrought": {
+      "name": "Forge wrought iron",
+      "inputs": {
+        "bloom": 2,
+        "charcoal": 1
+      },
+      "outputs": {
+        "wrought-iron": 2
+      },
+      "shifts": 3
+    },
+    "forge-nails": {
+      "name": "Forge nails",
+      "inputs": {
+        "wrought-iron": 1
+      },
+      "outputs": {
+        "nails": 24
+      },
+      "shifts": 1
+    },
+    "forge-cramps": {
+      "name": "Forge cramps",
+      "inputs": {
+        "wrought-iron": 2
+      },
+      "outputs": {
+        "cramp": 3
+      },
+      "shifts": 2
+    },
+    "forge-hinges": {
+      "name": "Forge hinges",
+      "inputs": {
+        "wrought-iron": 1
+      },
+      "outputs": {
+        "hinge": 2
+      },
+      "shifts": 1
+    },
+    "forge-tyres": {
+      "name": "Forge wagon tyres",
+      "inputs": {
+        "wrought-iron": 2
+      },
+      "outputs": {
+        "tyre": 2
+      },
+      "shifts": 2
+    },
+    "forge-portcullis": {
+      "name": "Forge a portcullis",
+      "inputs": {
+        "wrought-iron": 24,
+        "beam": 6,
+        "nails": 20
+      },
+      "outputs": {
+        "portcullis": 1
+      },
+      "shifts": 8
+    },
+    "make-steel": {
+      "name": "Case-harden steel",
+      "inputs": {
+        "wrought-iron": 3,
+        "charcoal": 3
+      },
+      "outputs": {
+        "steel": 3
+      },
+      "shifts": 4,
+      "level": 3
+    },
+    "make-pick": {
+      "name": "Make picks",
+      "inputs": {
+        "wrought-iron": 1,
+        "steel": 1
+      },
+      "outputs": {
+        "pick": 1
+      },
+      "shifts": 2
+    },
+    "resteel-pick": {
+      "name": "Re-steel picks",
+      "inputs": {
+        "worn-pick": 4,
+        "charcoal": 2,
+        "steel": 2
+      },
+      "outputs": {
+        "pick": 4
+      },
+      "shifts": 2
+    },
+    "make-chisel": {
+      "name": "Make chisels",
+      "inputs": {
+        "wrought-iron": 1,
+        "steel": 1
+      },
+      "outputs": {
+        "chisel": 1
+      },
+      "shifts": 2
+    },
+    "resteel-chisel": {
+      "name": "Re-steel chisels",
+      "inputs": {
+        "worn-chisel": 4,
+        "charcoal": 2,
+        "steel": 2
+      },
+      "outputs": {
+        "chisel": 4
+      },
+      "shifts": 2
+    },
+    "make-axe": {
+      "name": "Make axes and saws",
+      "inputs": {
+        "wrought-iron": 1,
+        "steel": 1
+      },
+      "outputs": {
+        "axe": 1
+      },
+      "shifts": 2
+    },
+    "resteel-axe": {
+      "name": "Re-steel axes and saws",
+      "inputs": {
+        "worn-axe": 4,
+        "charcoal": 2,
+        "steel": 2
+      },
+      "outputs": {
+        "axe": 4
+      },
+      "shifts": 2
+    },
+    "make-trowel": {
+      "name": "Make trowels and hammers",
+      "inputs": {
+        "wrought-iron": 1,
+        "steel": 1
+      },
+      "outputs": {
+        "trowel": 1
+      },
+      "shifts": 2
+    },
+    "resteel-trowel": {
+      "name": "Re-steel trowels and hammers",
+      "inputs": {
+        "worn-trowel": 4,
+        "charcoal": 2,
+        "steel": 2
+      },
+      "outputs": {
+        "trowel": 4
+      },
+      "shifts": 2
+    },
+    "smelt-lead": {
+      "name": "Smelt and cast lead",
+      "inputs": {
+        "galena": 3,
+        "charcoal": 1,
+        "sand": 1
+      },
+      "outputs": {
+        "lead-sheet": 2
+      },
+      "shifts": 2
+    },
+    "split-slate": {
+      "name": "Dress roofing slate",
+      "inputs": {
+        "slate-block": 2
+      },
+      "outputs": {
+        "slate": 3,
+        "rubble": 1
+      },
+      "shifts": 1
+    },
+    "make-cart": {
+      "name": "Build an ox cart",
+      "inputs": {
+        "beam": 3,
+        "tyre": 2,
+        "nails": 6
+      },
+      "outputs": {
+        "cart": 1
+      },
+      "shifts": 3
+    },
+    "make-wagon": {
+      "name": "Build a tram wagon",
+      "inputs": {
+        "beam": 4,
+        "tyre": 4,
+        "nails": 8
+      },
+      "outputs": {
+        "wagon": 1
+      },
+      "shifts": 4
+    },
+    "make-bucket": {
+      "name": "Make ropeway buckets",
+      "inputs": {
+        "plank": 2,
+        "nails": 2
+      },
+      "outputs": {
+        "bucket": 2
+      },
+      "shifts": 1
+    },
+    "make-barge": {
+      "name": "Build a barge hull",
+      "inputs": {
+        "beam": 10,
+        "plank": 20,
+        "nails": 20
+      },
+      "outputs": {
+        "barge-hull": 1
+      },
+      "shifts": 12
+    },
+    "dig-earth": {
+      "name": "Dig the ditch",
+      "inputs": {},
+      "outputs": {
+        "earth": 4
+      },
+      "shifts": 1
+    },
+    "fletch-arrows": {
+      "name": "Fletch arrows",
+      "inputs": {
+        "plank": 1,
+        "nails": 2
+      },
+      "outputs": {
+        "arrow": 12
+      },
+      "shifts": 1
     }
   },
   "plans": {
@@ -307,7 +1695,8 @@
       "extractor": false,
       "build_seconds": 0,
       "carriers": 4,
-      "requires": []
+      "requires": [],
+      "berths": 10
     },
     "forester": {
       "name": "Forester",
@@ -326,7 +1715,8 @@
       "build_seconds": 8,
       "carriers": 0,
       "requires": [],
-      "siting": "woodland"
+      "siting": "woodland",
+      "hillside": false
     },
     "quarry": {
       "name": "Stone quarry",
@@ -345,7 +1735,8 @@
       "build_seconds": 8,
       "carriers": 0,
       "requires": [],
-      "siting": "stone"
+      "siting": "stone",
+      "hillside": false
     },
     "farm": {
       "name": "Farmstead",
@@ -364,7 +1755,8 @@
       "extractor": false,
       "build_seconds": 8,
       "carriers": 0,
-      "requires": []
+      "requires": [],
+      "hillside": false
     },
     "cottage": {
       "name": "Workers cottage",
@@ -381,7 +1773,8 @@
       "extractor": false,
       "build_seconds": 8,
       "carriers": 0,
-      "requires": []
+      "requires": [],
+      "span": 1
     },
     "mine": {
       "name": "Claim outpost",
@@ -398,7 +1791,8 @@
       "extractor": true,
       "build_seconds": 16,
       "carriers": 0,
-      "requires": []
+      "requires": [],
+      "hillside": false
     },
     "sawmill": {
       "name": "Sawmill",
@@ -426,7 +1820,8 @@
           "plank": 4,
           "block": 2
         }
-      }
+      },
+      "hillside": false
     },
     "kiln": {
       "name": "Charcoal kiln",
@@ -445,7 +1840,8 @@
       "extractor": false,
       "build_seconds": 16,
       "carriers": 0,
-      "requires": []
+      "requires": [],
+      "hillside": false
     },
     "mason": {
       "name": "Masons yard",
@@ -475,7 +1871,9 @@
           "plank": 4,
           "block": 2
         }
-      }
+      },
+      "span": 2,
+      "depth": 1
     },
     "smelter": {
       "name": "Iron smelter",
@@ -540,7 +1938,9 @@
           "plank": 4,
           "block": 2
         }
-      }
+      },
+      "span": 3,
+      "depth": 1
     },
     "kitchen": {
       "name": "Trail kitchen",
@@ -559,7 +1959,8 @@
       "extractor": false,
       "build_seconds": 16,
       "carriers": 0,
-      "requires": []
+      "requires": [],
+      "hillside": false
     },
     "conduit": {
       "name": "Mana conduit",
@@ -613,7 +2014,9 @@
           "ingot": 2,
           "mana": 4
         }
-      }
+      },
+      "span": 1,
+      "depth": 1
     },
     "warehouse": {
       "name": "Warehouse",
@@ -632,7 +2035,10 @@
       "carriers": 0,
       "requires": [
         "logistics"
-      ]
+      ],
+      "hillside": false,
+      "span": 3,
+      "depth": 1
     },
     "wall": {
       "name": "Castle wall",
@@ -650,7 +2056,8 @@
       "carriers": 0,
       "requires": [
         "masonry"
-      ]
+      ],
+      "hp": 120
     },
     "keep": {
       "name": "Castle keep",
@@ -689,7 +2096,9 @@
       "requires": [
         "logistics"
       ],
-      "carriers": 4
+      "carriers": 4,
+      "span": 4,
+      "depth": 2
     },
     "clay-pit": {
       "name": "Clay pit",
@@ -705,7 +2114,9 @@
         "dig-clay"
       ],
       "build_seconds": 8,
-      "siting": "clay"
+      "siting": "clay",
+      "span": 1,
+      "depth": 1
     },
     "brick-kiln": {
       "name": "Brick kiln",
@@ -730,7 +2141,9 @@
           "plank": 4,
           "block": 2
         }
-      }
+      },
+      "span": 2,
+      "depth": 1
     },
     "brick-cottage": {
       "name": "Brick cottage",
@@ -744,7 +2157,8 @@
       "housing": 6,
       "storage": 0,
       "recipes": [],
-      "build_seconds": 24
+      "build_seconds": 24,
+      "span": 1
     },
     "brick-wall": {
       "name": "Brick wall",
@@ -758,7 +2172,8 @@
       "housing": 0,
       "storage": 0,
       "recipes": [],
-      "build_seconds": 4
+      "build_seconds": 4,
+      "hp": 100
     },
     "brick-gate": {
       "name": "Brick archway",
@@ -773,7 +2188,8 @@
       "storage": 0,
       "recipes": [],
       "build_seconds": 16,
-      "passable": true
+      "passable": true,
+      "span": 1
     },
     "waterwheel": {
       "name": "River waterwheel",
@@ -796,7 +2212,9 @@
       "power": {
         "kind": "mechanical",
         "capacity": 8
-      }
+      },
+      "span": 2,
+      "depth": 1
     },
     "mana-engine": {
       "name": "Ley generator",
@@ -822,7 +2240,9 @@
           "mana": 1
         },
         "fuel_seconds": 30
-      }
+      },
+      "span": 1,
+      "depth": 1
     },
     "drive-shaft": {
       "name": "Drive shaft",
@@ -859,6 +2279,1615 @@
       ],
       "passable": true,
       "connector": "arcane"
+    },
+    "field-quarry": {
+      "name": "Field quarry",
+      "glyph": "Q",
+      "colour": 11117455,
+      "cost": {
+        "timber": 8
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "win-field-stone"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 12,
+      "carriers": 0,
+      "valley": false,
+      "siting": "stone",
+      "trade": "quarryman",
+      "level": 1,
+      "tool": "pick",
+      "tool_life": 120,
+      "noise": 2,
+      "span": 2,
+      "depth": 1
+    },
+    "rubble-pit": {
+      "name": "Rubble pit",
+      "glyph": "R",
+      "colour": 9078134,
+      "cost": {
+        "timber": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "barrow-rubble"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 6,
+      "carriers": 0,
+      "valley": false,
+      "siting": "stone",
+      "noise": 1,
+      "span": 1,
+      "depth": 1
+    },
+    "claim-quarry": {
+      "name": "Quarry charter works",
+      "glyph": "J",
+      "colour": 11578008,
+      "cost": {
+        "timber": 12,
+        "stone": 6
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": true,
+      "requires": [
+        "charter"
+      ],
+      "build_seconds": 16,
+      "carriers": 0,
+      "valley": false,
+      "trade": "quarryman",
+      "level": 1,
+      "tool": "pick",
+      "tool_life": 120,
+      "noise": 3,
+      "span": 2,
+      "depth": 2
+    },
+    "banker": {
+      "name": "Mason's banker",
+      "glyph": "B",
+      "colour": 13222832,
+      "cost": {
+        "timber": 10,
+        "stone": 8,
+        "plank": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "dress-limestone",
+        "quoins-limestone",
+        "voussoirs-limestone",
+        "dress-freestone",
+        "quoins-freestone",
+        "voussoirs-freestone",
+        "dress-flint",
+        "quoins-flint",
+        "voussoirs-flint",
+        "dress-basalt",
+        "quoins-basalt",
+        "voussoirs-basalt",
+        "dress-tufa",
+        "quoins-tufa",
+        "voussoirs-tufa",
+        "dress-voidstone",
+        "quoins-voidstone",
+        "voussoirs-voidstone",
+        "dress-field"
+      ],
+      "extractor": false,
+      "requires": [
+        "masonry"
+      ],
+      "build_seconds": 16,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "demand": 2,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      },
+      "trade": "banker-mason",
+      "level": 2,
+      "tool": "chisel",
+      "tool_life": 120,
+      "noise": 3,
+      "span": 2,
+      "depth": 1
+    },
+    "tracing-floor": {
+      "name": "Tracing floor",
+      "glyph": "T",
+      "colour": 11569754,
+      "cost": {
+        "plank": 8,
+        "stone": 12
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "trace-templates"
+      ],
+      "extractor": false,
+      "requires": [
+        "tracing"
+      ],
+      "build_seconds": 24,
+      "carriers": 0,
+      "valley": false,
+      "trade": "master-mason",
+      "level": 1,
+      "span": 3,
+      "depth": 2
+    },
+    "slater": {
+      "name": "Slater's bench",
+      "glyph": "H",
+      "colour": 5858158,
+      "cost": {
+        "timber": 8,
+        "plank": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "split-slate"
+      ],
+      "extractor": false,
+      "requires": [
+        "roofing"
+      ],
+      "build_seconds": 12,
+      "carriers": 0,
+      "valley": false,
+      "trade": "banker-mason",
+      "level": 1,
+      "tool": "chisel",
+      "tool_life": 120,
+      "noise": 2,
+      "span": 1,
+      "depth": 1
+    },
+    "lime-kiln": {
+      "name": "Lime kiln",
+      "glyph": "K",
+      "colour": 15130828,
+      "cost": {
+        "stone": 16,
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "burn-lime",
+        "burn-lime-peat",
+        "burn-lime-coal"
+      ],
+      "extractor": false,
+      "requires": [
+        "limeburning"
+      ],
+      "build_seconds": 24,
+      "carriers": 0,
+      "valley": false,
+      "trade": "lime-burner",
+      "level": 1,
+      "smoke": 4,
+      "span": 1,
+      "depth": 1
+    },
+    "slaking-pit": {
+      "name": "Slaking pit",
+      "glyph": "S",
+      "colour": 15789280,
+      "cost": {
+        "stone": 8,
+        "timber": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "slake"
+      ],
+      "extractor": false,
+      "requires": [
+        "limeburning"
+      ],
+      "build_seconds": 12,
+      "carriers": 0,
+      "valley": false,
+      "trade": "lime-burner",
+      "level": 1,
+      "span": 1,
+      "depth": 1
+    },
+    "mortar-mill": {
+      "name": "Mortar mill",
+      "glyph": "M",
+      "colour": 12169888,
+      "cost": {
+        "stone": 12,
+        "plank": 8,
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "mix-mortar"
+      ],
+      "extractor": false,
+      "requires": [
+        "limeburning"
+      ],
+      "build_seconds": 24,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "demand": 3,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      },
+      "noise": 1,
+      "buffer": 96,
+      "span": 1,
+      "depth": 1
+    },
+    "sand-pit": {
+      "name": "Sand pit",
+      "glyph": "P",
+      "colour": 14270602,
+      "cost": {
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "dig-sand"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "siting": "sand",
+      "span": 1,
+      "depth": 1
+    },
+    "well": {
+      "name": "Well",
+      "glyph": "w",
+      "colour": 6000560,
+      "cost": {
+        "stone": 6,
+        "timber": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "draw-water"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 10,
+      "carriers": 0,
+      "valley": false
+    },
+    "intake": {
+      "name": "River intake",
+      "glyph": "v",
+      "colour": 4947872,
+      "cost": {
+        "timber": 10,
+        "plank": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "draw-river-water"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 14,
+      "carriers": 0,
+      "valley": false,
+      "siting": "riverbank",
+      "span": 1,
+      "depth": 1
+    },
+    "clamp": {
+      "name": "Charcoal clamp",
+      "glyph": "C",
+      "colour": 3815994,
+      "cost": {
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "burn-clamp"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "trade": "collier",
+      "level": 1,
+      "smoke": 3,
+      "span": 1,
+      "depth": 1
+    },
+    "woodsman-camp": {
+      "name": "Woodsman's camp",
+      "glyph": "F",
+      "colour": 4876858,
+      "cost": {
+        "timber": 8
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "fell-wood",
+        "coppice-timber",
+        "coppice-poles",
+        "strip-bark"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "siting": "woodland",
+      "trade": "woodsman",
+      "level": 1,
+      "tool": "axe",
+      "tool_life": 120,
+      "noise": 1,
+      "span": 2,
+      "depth": 1
+    },
+    "sawpit": {
+      "name": "Sawpit",
+      "glyph": "Z",
+      "colour": 10517062,
+      "cost": {
+        "timber": 10
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "pit-planks",
+        "pit-beams"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 10,
+      "carriers": 0,
+      "valley": false,
+      "trade": "sawyer",
+      "level": 1,
+      "tool": "axe",
+      "tool_life": 120,
+      "noise": 1,
+      "span": 2,
+      "depth": 1
+    },
+    "carpentry": {
+      "name": "Carpenter's shop",
+      "glyph": "J",
+      "colour": 11107398,
+      "cost": {
+        "timber": 12,
+        "plank": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "hew-joists",
+        "frame-centring",
+        "rive-shingles",
+        "fletch-arrows"
+      ],
+      "extractor": false,
+      "requires": [
+        "joinery"
+      ],
+      "build_seconds": 16,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "demand": 2,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      },
+      "trade": "carpenter",
+      "level": 1,
+      "tool": "axe",
+      "tool_life": 120,
+      "noise": 2,
+      "span": 2,
+      "depth": 1
+    },
+    "wheelwright": {
+      "name": "Wheelwright's shop",
+      "glyph": "W",
+      "colour": 9465936,
+      "cost": {
+        "timber": 14,
+        "plank": 8
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "make-cart",
+        "make-wagon",
+        "make-bucket",
+        "make-barge"
+      ],
+      "extractor": false,
+      "requires": [
+        "joinery"
+      ],
+      "build_seconds": 18,
+      "carriers": 0,
+      "valley": false,
+      "trade": "wheelwright",
+      "level": 1,
+      "tool": "axe",
+      "tool_life": 120,
+      "noise": 2,
+      "span": 2,
+      "depth": 1
+    },
+    "retting-pond": {
+      "name": "Retting pond",
+      "glyph": "r",
+      "colour": 6982250,
+      "cost": {
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "ret-hemp"
+      ],
+      "extractor": false,
+      "requires": [
+        "ropemaking"
+      ],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "trade": "roper",
+      "level": 1,
+      "span": 2,
+      "depth": 1
+    },
+    "ropewalk": {
+      "name": "Ropewalk",
+      "glyph": "=",
+      "colour": 13152368,
+      "cost": {
+        "timber": 20,
+        "plank": 6
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "spin-rope"
+      ],
+      "extractor": false,
+      "requires": [
+        "ropemaking"
+      ],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "trade": "roper",
+      "level": 1,
+      "span": 5,
+      "depth": 1
+    },
+    "farmstead": {
+      "name": "Farmstead",
+      "glyph": "A",
+      "colour": 14205546,
+      "cost": {
+        "timber": 8,
+        "stone": 2
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "grow-grain",
+        "ash-fields",
+        "grow-hemp",
+        "grow-fodder"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "span": 3,
+      "depth": 2
+    },
+    "mill": {
+      "name": "Grain mill",
+      "glyph": "L",
+      "colour": 14735552,
+      "cost": {
+        "stone": 10,
+        "timber": 8
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "grind"
+      ],
+      "extractor": false,
+      "requires": [
+        "husbandry"
+      ],
+      "build_seconds": 14,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "demand": 2,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      },
+      "trade": "miller",
+      "level": 1,
+      "noise": 1,
+      "span": 1,
+      "depth": 1
+    },
+    "bakery": {
+      "name": "Bakery",
+      "glyph": "b",
+      "colour": 13672528,
+      "cost": {
+        "stone": 12,
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "bake"
+      ],
+      "extractor": false,
+      "requires": [
+        "husbandry"
+      ],
+      "build_seconds": 14,
+      "carriers": 0,
+      "valley": false,
+      "trade": "baker",
+      "level": 1,
+      "smoke": 2,
+      "span": 1,
+      "depth": 1
+    },
+    "brewery": {
+      "name": "Brewery",
+      "glyph": "y",
+      "colour": 13144122,
+      "cost": {
+        "timber": 12,
+        "stone": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "brew"
+      ],
+      "extractor": false,
+      "requires": [
+        "husbandry"
+      ],
+      "build_seconds": 14,
+      "carriers": 0,
+      "valley": false,
+      "trade": "brewer",
+      "level": 1,
+      "span": 2,
+      "depth": 1
+    },
+    "pasture": {
+      "name": "Pasture",
+      "glyph": "p",
+      "colour": 9089120,
+      "cost": {
+        "timber": 10
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "herd-meat",
+        "herd-dairy",
+        "herd-wool",
+        "rear-ox",
+        "rear-horse",
+        "rear-mule"
+      ],
+      "extractor": false,
+      "requires": [
+        "husbandry"
+      ],
+      "build_seconds": 10,
+      "carriers": 0,
+      "valley": false,
+      "trade": "herder",
+      "level": 1,
+      "span": 3,
+      "depth": 2
+    },
+    "tanyard": {
+      "name": "Tanyard",
+      "glyph": "t",
+      "colour": 9067066,
+      "cost": {
+        "timber": 8,
+        "stone": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "tan",
+        "make-harness"
+      ],
+      "extractor": false,
+      "requires": [
+        "tanning"
+      ],
+      "build_seconds": 12,
+      "carriers": 0,
+      "valley": false,
+      "trade": "tanner",
+      "level": 1,
+      "span": 2,
+      "depth": 1
+    },
+    "weaving-shed": {
+      "name": "Weaving shed",
+      "glyph": "x",
+      "colour": 11575440,
+      "cost": {
+        "timber": 12,
+        "plank": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "weave",
+        "sew-livery"
+      ],
+      "extractor": false,
+      "requires": [
+        "weaving"
+      ],
+      "build_seconds": 12,
+      "carriers": 0,
+      "valley": false,
+      "trade": "roper",
+      "level": 1,
+      "span": 2,
+      "depth": 1
+    },
+    "ashery": {
+      "name": "Ashery",
+      "glyph": "a",
+      "colour": 9079432,
+      "cost": {
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "leach-potash",
+        "burn-bone"
+      ],
+      "extractor": false,
+      "requires": [
+        "glasswork"
+      ],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "span": 1,
+      "depth": 1
+    },
+    "glassworks": {
+      "name": "Glassworks",
+      "glyph": "g",
+      "colour": 10541280,
+      "cost": {
+        "stone": 14,
+        "timber": 8
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "melt-glass"
+      ],
+      "extractor": false,
+      "requires": [
+        "glasswork"
+      ],
+      "build_seconds": 18,
+      "carriers": 0,
+      "valley": false,
+      "trade": "lime-burner",
+      "level": 1,
+      "smoke": 3,
+      "span": 2,
+      "depth": 1
+    },
+    "bloomery": {
+      "name": "Bloomery",
+      "glyph": "I",
+      "colour": 8219229,
+      "cost": {
+        "stone": 14,
+        "timber": 6
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "smelt-bloom",
+        "smelt-bog"
+      ],
+      "extractor": false,
+      "requires": [
+        "ironworking"
+      ],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "trade": "bloomer",
+      "level": 1,
+      "smoke": 4,
+      "noise": 2,
+      "span": 1,
+      "depth": 2
+    },
+    "forge-shop": {
+      "name": "Iron forge",
+      "glyph": "O",
+      "colour": 7304314,
+      "cost": {
+        "stone": 10,
+        "plank": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "forge-wrought",
+        "forge-nails",
+        "forge-cramps",
+        "forge-hinges",
+        "forge-tyres",
+        "forge-portcullis"
+      ],
+      "extractor": false,
+      "requires": [
+        "ironworking"
+      ],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "demand": 3,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      },
+      "trade": "smith",
+      "level": 1,
+      "smoke": 2,
+      "noise": 3,
+      "span": 2,
+      "depth": 1
+    },
+    "smithy": {
+      "name": "Smithy",
+      "glyph": "N",
+      "colour": 5922402,
+      "cost": {
+        "stone": 10,
+        "plank": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "make-steel",
+        "make-pick",
+        "resteel-pick",
+        "make-chisel",
+        "resteel-chisel",
+        "make-axe",
+        "resteel-axe",
+        "make-trowel",
+        "resteel-trowel"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "trade": "smith",
+      "level": 2,
+      "smoke": 2,
+      "noise": 2,
+      "span": 1,
+      "depth": 1
+    },
+    "lead-works": {
+      "name": "Lead works",
+      "glyph": "U",
+      "colour": 10133933,
+      "cost": {
+        "stone": 10,
+        "plank": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "smelt-lead"
+      ],
+      "extractor": false,
+      "requires": [
+        "roofing"
+      ],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "trade": "bloomer",
+      "level": 1,
+      "smoke": 3,
+      "span": 1,
+      "depth": 1
+    },
+    "castle-yard": {
+      "name": "Castle stockyard",
+      "glyph": "Y",
+      "colour": 12038557,
+      "cost": {
+        "timber": 30,
+        "plank": 10,
+        "stone": 20
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "masonry"
+      ],
+      "build_seconds": 24,
+      "carriers": 0,
+      "valley": false,
+      "buffer": 480,
+      "berths": 6,
+      "yard": true,
+      "span": 2,
+      "depth": 1
+    },
+    "lodge": {
+      "name": "Masons' lodge",
+      "glyph": "l",
+      "colour": 13088666,
+      "cost": {
+        "timber": 16,
+        "plank": 8,
+        "block": 6
+      },
+      "workers": 4,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "masonry"
+      ],
+      "build_seconds": 24,
+      "carriers": 0,
+      "valley": false,
+      "trade": "setter",
+      "level": 1,
+      "tool": "trowel",
+      "tool_life": 60,
+      "noise": 2,
+      "span": 3,
+      "depth": 1
+    },
+    "ditch-gang": {
+      "name": "Ditchers' gang",
+      "glyph": "G",
+      "colour": 7032627,
+      "cost": {
+        "timber": 4
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "dig-earth"
+      ],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "tool": "pick",
+      "tool_life": 120,
+      "noise": 1,
+      "span": 2,
+      "depth": 1
+    },
+    "depot": {
+      "name": "Warehouse",
+      "glyph": "X",
+      "colour": 10127978,
+      "cost": {
+        "timber": 24,
+        "plank": 10
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "buffer": 200,
+      "berths": 4,
+      "hub": true,
+      "span": 2,
+      "depth": 1
+    },
+    "carters-yard": {
+      "name": "Carter's yard",
+      "glyph": "Z",
+      "colour": 10123850,
+      "cost": {
+        "timber": 24,
+        "plank": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "trade": "carter",
+      "level": 1,
+      "stalls": 12,
+      "berths": 2,
+      "noise": 1,
+      "span": 2,
+      "depth": 1
+    },
+    "quay": {
+      "name": "Quay",
+      "glyph": "q",
+      "colour": 8030870,
+      "cost": {
+        "timber": 20,
+        "plank": 10,
+        "stone": 10
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "shipping"
+      ],
+      "build_seconds": 24,
+      "carriers": 0,
+      "valley": false,
+      "siting": "riverbank",
+      "buffer": 96,
+      "berths": 3,
+      "hub": true,
+      "quay": true,
+      "span": 2,
+      "depth": 1
+    },
+    "hut": {
+      "name": "Hut",
+      "glyph": "h",
+      "colour": 10123866,
+      "cost": {
+        "timber": 6
+      },
+      "workers": 0,
+      "housing": 2,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 6,
+      "carriers": 0,
+      "valley": false,
+      "span": 1
+    },
+    "hod-gang": {
+      "name": "Hods and ladders",
+      "glyph": "d",
+      "colour": 12098154,
+      "cost": {
+        "timber": 14,
+        "pole": 10
+      },
+      "workers": 3,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "crane": 18,
+      "noise": 1
+    },
+    "treadwheel-crane": {
+      "name": "Treadwheel crane",
+      "glyph": "c",
+      "colour": 11770474,
+      "cost": {
+        "beam": 20,
+        "rope": 10,
+        "cramp": 8,
+        "plank": 10
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "cranes"
+      ],
+      "build_seconds": 30,
+      "carriers": 0,
+      "valley": false,
+      "trade": "carpenter",
+      "level": 1,
+      "crane": 40,
+      "noise": 1,
+      "replaces": "hod-gang",
+      "span": 1,
+      "depth": 1
+    },
+    "great-crane": {
+      "name": "Great crane",
+      "glyph": "D",
+      "colour": 10717786,
+      "cost": {
+        "beam": 30,
+        "rope": 20,
+        "cramp": 12,
+        "plank": 30,
+        "block": 10
+      },
+      "workers": 4,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "greatcrane"
+      ],
+      "build_seconds": 60,
+      "carriers": 0,
+      "valley": false,
+      "trade": "carpenter",
+      "level": 2,
+      "crane": 80,
+      "noise": 2,
+      "replaces": "treadwheel-crane"
+    },
+    "aqueduct": {
+      "name": "Aqueduct",
+      "glyph": "~",
+      "colour": 10137792,
+      "cost": {
+        "block": 36,
+        "beam": 16,
+        "plank": 10
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "aqueducts"
+      ],
+      "build_seconds": 60,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "capacity": 8
+      },
+      "trade": "master-mason",
+      "level": 1,
+      "span": 6
+    },
+    "vineyard": {
+      "name": "Vineyard",
+      "glyph": "k",
+      "colour": 8014458,
+      "cost": {
+        "timber": 12,
+        "pole": 8
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "grow-grapes"
+      ],
+      "extractor": false,
+      "requires": [
+        "viticulture"
+      ],
+      "build_seconds": 14,
+      "carriers": 0,
+      "valley": false,
+      "trade": "herder",
+      "level": 1
+    },
+    "wine-press": {
+      "name": "Wine press",
+      "glyph": "z",
+      "colour": 9054794,
+      "cost": {
+        "timber": 14,
+        "plank": 6,
+        "stone": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "press-wine"
+      ],
+      "extractor": false,
+      "requires": [
+        "viticulture"
+      ],
+      "build_seconds": 16,
+      "carriers": 0,
+      "valley": false,
+      "trade": "brewer",
+      "level": 1
+    },
+    "shaft-hand": {
+      "name": "Hand lift",
+      "glyph": ">",
+      "colour": 9076840,
+      "cost": {
+        "timber": 10
+      },
+      "workers": 4,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 10,
+      "carriers": 0,
+      "valley": false,
+      "shaft": 3,
+      "noise": 1
+    },
+    "shaft-windlass": {
+      "name": "Windlass",
+      "glyph": ">",
+      "colour": 10127976,
+      "cost": {
+        "beam": 8,
+        "rope": 8,
+        "nails": 60,
+        "plank": 10
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "ropemaking"
+      ],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "shaft": 10,
+      "noise": 1,
+      "replaces": "shaft-hand"
+    },
+    "shaft-gin": {
+      "name": "Horse gin lift",
+      "glyph": ">",
+      "colour": 11180656,
+      "cost": {
+        "beam": 16,
+        "rope": 10,
+        "cramp": 12,
+        "horse": 2
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "engines"
+      ],
+      "build_seconds": 26,
+      "carriers": 0,
+      "valley": false,
+      "shaft": 24,
+      "noise": 1,
+      "replaces": "shaft-windlass",
+      "trade": "ostler",
+      "level": 1,
+      "upkeep": {
+        "fodder": 3
+      },
+      "upkeep_seconds": 60
+    },
+    "shaft-water": {
+      "name": "Water hoist",
+      "glyph": ">",
+      "colour": 8036528,
+      "cost": {
+        "beam": 20,
+        "rope": 12,
+        "cramp": 12,
+        "block": 10,
+        "plank": 20
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "engines"
+      ],
+      "build_seconds": 30,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "demand": 6,
+        "multiplier": 300,
+        "upgrade_cost": {
+          "plank": 6,
+          "block": 4
+        }
+      },
+      "shaft": 20,
+      "noise": 2,
+      "replaces": "shaft-gin",
+      "trade": "miller",
+      "level": 1
+    },
+    "shaft-ley": {
+      "name": "Ley lift",
+      "glyph": ">",
+      "colour": 10123976,
+      "cost": {
+        "block": 20,
+        "steel": 10,
+        "crystal": 10,
+        "mana": 10
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "arcana"
+      ],
+      "build_seconds": 36,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "arcane",
+        "demand": 6,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "ingot": 2,
+          "mana": 4
+        }
+      },
+      "shaft": 70,
+      "replaces": "shaft-water"
+    },
+    "treadwheel": {
+      "name": "Treadwheel",
+      "glyph": "E",
+      "colour": 11770474,
+      "cost": {
+        "timber": 20,
+        "plank": 8
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 20,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "capacity": 3
+      },
+      "noise": 1,
+      "span": 1
+    },
+    "horse-gin": {
+      "name": "Horse gin",
+      "glyph": "n",
+      "colour": 10254928,
+      "cost": {
+        "beam": 12,
+        "plank": 12,
+        "stone": 8,
+        "horse": 1
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "engines"
+      ],
+      "build_seconds": 24,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "capacity": 4
+      },
+      "trade": "ostler",
+      "level": 1,
+      "upkeep": {
+        "fodder": 2
+      },
+      "upkeep_seconds": 60,
+      "span": 2,
+      "depth": 2
+    },
+    "windmill": {
+      "name": "Windmill",
+      "glyph": "V",
+      "colour": 14077364,
+      "cost": {
+        "beam": 20,
+        "plank": 20,
+        "block": 6,
+        "rope": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [
+        "engines"
+      ],
+      "build_seconds": 40,
+      "carriers": 0,
+      "valley": false,
+      "siting": "hilltop",
+      "power": {
+        "kind": "mechanical",
+        "capacity": 6
+      },
+      "trade": "miller",
+      "level": 1,
+      "noise": 1,
+      "span": 1,
+      "depth": 1
+    },
+    "swape": {
+      "name": "Swape",
+      "glyph": "j",
+      "colour": 12165994,
+      "cost": {
+        "timber": 6,
+        "rope": 2,
+        "nails": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 8,
+      "carriers": 0,
+      "valley": false,
+      "power": {
+        "kind": "mechanical",
+        "demand": 1,
+        "multiplier": 300,
+        "upgrade_cost": {
+          "plank": 2,
+          "nails": 6
+        }
+      },
+      "swape": 2
+    },
+    "palisade": {
+      "name": "Palisade",
+      "glyph": "|",
+      "colour": 9071164,
+      "cost": {
+        "timber": 2
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 3,
+      "carriers": 0,
+      "valley": false,
+      "hp": 40
+    },
+    "wood-gate": {
+      "name": "Timber gate",
+      "glyph": "G",
+      "colour": 10123852,
+      "cost": {
+        "timber": 6,
+        "plank": 2
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 6,
+      "carriers": 0,
+      "valley": false,
+      "passable": true,
+      "span": 1
+    },
+    "watchtower": {
+      "name": "Watchtower",
+      "glyph": "T",
+      "colour": 11111256,
+      "cost": {
+        "timber": 12,
+        "plank": 4,
+        "stone": 8
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 14,
+      "carriers": 0,
+      "valley": false,
+      "hp": 150,
+      "watch": 14,
+      "quiver": 24,
+      "buffer": 24,
+      "span": 1,
+      "depth": 1
+    },
+    "brazier": {
+      "name": "Brazier",
+      "glyph": "*",
+      "colour": 14716972,
+      "cost": {
+        "timber": 2,
+        "stone": 2
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "requires": [],
+      "build_seconds": 4,
+      "carriers": 0,
+      "valley": false,
+      "hp": 12,
+      "beacon": true,
+      "smoke": 2,
+      "upkeep": {
+        "timber": 1
+      },
+      "upkeep_seconds": 120
     }
   },
   "menu": [
@@ -950,6 +3979,1774 @@
         "logistics"
       ],
       "description": "Found a permanent castle and house a royal workforce."
+    }
+  },
+  "hillside_menu": [
+    "field-quarry",
+    "rubble-pit",
+    "claim-quarry",
+    "banker",
+    "tracing-floor",
+    "slater",
+    "lime-kiln",
+    "slaking-pit",
+    "mortar-mill",
+    "sand-pit",
+    "well",
+    "intake",
+    "clamp",
+    "woodsman-camp",
+    "sawpit",
+    "carpentry",
+    "wheelwright",
+    "retting-pond",
+    "ropewalk",
+    "farmstead",
+    "mill",
+    "bakery",
+    "brewery",
+    "pasture",
+    "tanyard",
+    "weaving-shed",
+    "ashery",
+    "glassworks",
+    "bloomery",
+    "forge-shop",
+    "smithy",
+    "lead-works",
+    "lodge",
+    "ditch-gang",
+    "depot",
+    "carters-yard",
+    "swape",
+    "quay",
+    "hut",
+    "hod-gang",
+    "treadwheel-crane",
+    "great-crane",
+    "aqueduct",
+    "vineyard",
+    "wine-press",
+    "treadwheel",
+    "horse-gin",
+    "windmill",
+    "cottage",
+    "mason",
+    "caravanserai",
+    "wall",
+    "clay-pit",
+    "brick-kiln",
+    "brick-cottage",
+    "brick-wall",
+    "brick-gate",
+    "waterwheel",
+    "drive-shaft",
+    "leyline",
+    "mana-engine",
+    "conduit",
+    "enchanter",
+    "forge",
+    "palisade",
+    "wood-gate",
+    "watchtower",
+    "brazier"
+  ],
+  "hillside_technologies": {
+    "charter": {
+      "name": "First charter",
+      "description": "Open a quarry on a seam won below.",
+      "cost": {
+        "plank": 10,
+        "block": 4
+      },
+      "requires": [
+        "masonry"
+      ]
+    },
+    "husbandry": {
+      "name": "Husbandry",
+      "description": "Mills, bakeries, breweries and pasture.",
+      "cost": {
+        "plank": 8,
+        "timber": 20
+      },
+      "requires": []
+    },
+    "tanning": {
+      "name": "Tanning",
+      "description": "Leather and harness.",
+      "cost": {
+        "plank": 8,
+        "block": 4
+      },
+      "requires": [
+        "husbandry"
+      ]
+    },
+    "weaving": {
+      "name": "Weaving",
+      "description": "Cloth and livery.",
+      "cost": {
+        "plank": 8,
+        "timber": 10
+      },
+      "requires": [
+        "husbandry"
+      ]
+    },
+    "limeburning": {
+      "name": "Limeburning",
+      "description": "Burn lime, slake it, mix mortar.",
+      "cost": {
+        "plank": 10,
+        "stone": 24
+      },
+      "requires": [
+        "masonry"
+      ]
+    },
+    "tracing": {
+      "name": "Tracing floor",
+      "description": "Templates for voussoirs and chevron.",
+      "cost": {
+        "plank": 12,
+        "block": 6
+      },
+      "requires": [
+        "masonry"
+      ]
+    },
+    "joinery": {
+      "name": "Joinery",
+      "description": "Carpenters and wheelwrights.",
+      "cost": {
+        "plank": 12,
+        "timber": 20
+      },
+      "requires": [
+        "masonry"
+      ]
+    },
+    "ropemaking": {
+      "name": "Ropemaking",
+      "description": "Retting and the ropewalk.",
+      "cost": {
+        "plank": 10,
+        "timber": 20
+      },
+      "requires": [
+        "husbandry"
+      ]
+    },
+    "ironworking": {
+      "name": "Ironworking",
+      "description": "Bloomery and forge.",
+      "cost": {
+        "plank": 10,
+        "block": 8
+      },
+      "requires": [
+        "metallurgy"
+      ]
+    },
+    "roofing": {
+      "name": "Roofing",
+      "description": "Slate and lead.",
+      "cost": {
+        "plank": 16,
+        "block": 8
+      },
+      "requires": [
+        "limeburning"
+      ]
+    },
+    "glasswork": {
+      "name": "Glasswork",
+      "description": "Potash and glass.",
+      "cost": {
+        "plank": 12,
+        "block": 8
+      },
+      "requires": [
+        "limeburning"
+      ]
+    },
+    "rails": {
+      "name": "Tramways",
+      "description": "Wooden tramways with wagons.",
+      "cost": {
+        "plank": 24,
+        "block": 10
+      },
+      "requires": [
+        "logistics"
+      ]
+    },
+    "aerial": {
+      "name": "Ropeways",
+      "description": "Ropeways over rough ground.",
+      "cost": {
+        "plank": 30,
+        "cramp": 6
+      },
+      "requires": [
+        "rails",
+        "ironworking",
+        "ropemaking"
+      ]
+    },
+    "shipping": {
+      "name": "Shipwrights",
+      "description": "Quays and barges.",
+      "cost": {
+        "plank": 20,
+        "block": 10
+      },
+      "requires": [
+        "logistics"
+      ]
+    },
+    "engines": {
+      "name": "Engines",
+      "description": "Horse gins, windmills, the water hoist.",
+      "cost": {
+        "plank": 24,
+        "block": 12
+      },
+      "requires": [
+        "logistics"
+      ]
+    },
+    "cranes": {
+      "name": "Cranes",
+      "description": "Treadwheel cranes at the wall.",
+      "cost": {
+        "plank": 20,
+        "rope": 6
+      },
+      "requires": [
+        "joinery",
+        "ropemaking"
+      ]
+    },
+    "greatcrane": {
+      "name": "The great crane",
+      "description": "A great crane at the wall: a double wheel and a long jib.",
+      "cost": {
+        "plank": 30,
+        "block": 12
+      },
+      "requires": [
+        "cranes",
+        "engines"
+      ]
+    },
+    "aqueducts": {
+      "name": "Aqueducts",
+      "description": "Arcades of stone that carry water, and its power, to the works wherever they stand.",
+      "cost": {
+        "block": 30,
+        "plank": 20
+      },
+      "requires": [
+        "limeburning",
+        "tracing"
+      ]
+    },
+    "muleteers": {
+      "name": "Pack mules",
+      "description": "Mule trains over rough ground, where no cart road runs.",
+      "cost": {
+        "plank": 6,
+        "timber": 10
+      },
+      "requires": [
+        "husbandry"
+      ]
+    },
+    "viticulture": {
+      "name": "Vines and wine",
+      "description": "A vineyard, a press and a cellar: the masters' wine.",
+      "cost": {
+        "plank": 8,
+        "timber": 16
+      },
+      "requires": [
+        "husbandry"
+      ]
+    },
+    "rollerways": {
+      "name": "Rollerways",
+      "description": "Log-roller lines laid tile by tile, with splitters, gates and low trestles.",
+      "cost": {
+        "plank": 12,
+        "timber": 16
+      },
+      "requires": [
+        "joinery"
+      ]
+    }
+  },
+  "works": {
+    "mason_credit": 125,
+    "lodge_range": 14,
+    "poles_standing": 24,
+    "poles_worn": 6,
+    "centring_standing": 6,
+    "centring_worn": 2,
+    "dig_per_worker": 4,
+    "apprentice_xp": 300,
+    "journeyman_xp": 1800,
+    "master_xp": 5400,
+    "posts_per_supervisor": 4,
+    "wage_seconds": 600,
+    "wage_journeyman": 1,
+    "wage_master": 3,
+    "tuition": 6,
+    "livery_seconds": 3600,
+    "perishable_stock": 60,
+    "regrow": 2,
+    "lookahead": 4,
+    "arrival_seconds": 60,
+    "founding_people": 12,
+    "road_lanes": 1,
+    "jam_percent": 60,
+    "welcome_meals": 1
+  },
+  "lines": {
+    "cart": {
+      "name": "Ox cart",
+      "vehicle": "cart",
+      "capacity": 1000,
+      "speed": 25,
+      "dwell": 4,
+      "tile_cost": {},
+      "vehicle_cost": {
+        "cart": 1,
+        "ox": 1,
+        "harness": 1
+      },
+      "max_vehicles": 12,
+      "max_length": 90,
+      "upkeep": {
+        "fodder": 1
+      },
+      "upkeep_seconds": 600
+    },
+    "mule": {
+      "name": "Mule train",
+      "vehicle": "mule",
+      "capacity": 2,
+      "speed": 15,
+      "dwell": 2,
+      "tile_cost": {},
+      "vehicle_cost": {
+        "mule": 1,
+        "rope": 1
+      },
+      "max_vehicles": 12,
+      "max_length": 50,
+      "requires": [
+        "muleteers"
+      ],
+      "upkeep": {
+        "fodder": 1
+      },
+      "upkeep_seconds": 600
+    },
+    "tram": {
+      "name": "Wooden tramway",
+      "vehicle": "wagon",
+      "capacity": 8,
+      "speed": 12,
+      "dwell": 3,
+      "tile_cost": {
+        "beam": 1,
+        "nails": 2
+      },
+      "vehicle_cost": {
+        "wagon": 1,
+        "horse": 1
+      },
+      "max_vehicles": 8,
+      "max_length": 120,
+      "requires": [
+        "rails"
+      ],
+      "upkeep": {
+        "fodder": 1
+      },
+      "upkeep_seconds": 600
+    },
+    "rope": {
+      "name": "Ropeway",
+      "vehicle": "bucket",
+      "capacity": 2,
+      "speed": 10,
+      "dwell": 1,
+      "tile_cost": {
+        "rope": 1,
+        "pole": 1
+      },
+      "vehicle_cost": {
+        "bucket": 1
+      },
+      "max_vehicles": 24,
+      "max_length": 60,
+      "requires": [
+        "aerial"
+      ]
+    },
+    "chute": {
+      "name": "Timber chute",
+      "vehicle": "slide",
+      "capacity": 3,
+      "speed": 4,
+      "dwell": 1,
+      "instant_return": true,
+      "tile_cost": {
+        "plank": 1,
+        "nails": 1
+      },
+      "vehicle_cost": {
+        "plank": 2
+      },
+      "max_vehicles": 10,
+      "max_length": 60,
+      "requires": [
+        "joinery"
+      ]
+    },
+    "barge": {
+      "name": "River barge",
+      "vehicle": "barge",
+      "capacity": 40,
+      "speed": 20,
+      "against": 40,
+      "dwell": 8,
+      "tile_cost": {},
+      "vehicle_cost": {
+        "barge-hull": 1
+      },
+      "max_vehicles": 4,
+      "max_length": 160,
+      "requires": [
+        "shipping"
+      ]
+    }
+  },
+  "bill": {
+    "cut-stone": {
+      "resource": "ashlar",
+      "per": 1,
+      "other": "voussoir",
+      "one_in": 32
+    },
+    "quoin": {
+      "resource": "quoin",
+      "per": 1
+    },
+    "rubble": {
+      "resource": "rubble",
+      "per": 2
+    },
+    "lime": {
+      "resource": "mortar",
+      "per": 0.25
+    },
+    "timber": {
+      "resource": "joist",
+      "per": 0.5,
+      "overrides": [
+        {
+          "stage": "roof",
+          "resource": "shingle",
+          "per": 0.5
+        }
+      ]
+    },
+    "iron": {
+      "resource": "cramp",
+      "per": 10
+    },
+    "lead": {
+      "resource": "lead-sheet",
+      "per": 25
+    },
+    "slate": {
+      "resource": "slate",
+      "per": 10
+    },
+    "earth": {
+      "resource": "earth",
+      "per": 5
+    }
+  },
+  "fixtures": [
+    {
+      "stage": "fittings",
+      "needs": {
+        "portcullis": 1,
+        "hinge": 6
+      }
+    },
+    {
+      "stage": "roof",
+      "needs": {
+        "nails": 24
+      }
+    },
+    {
+      "stage": "keep-lift-7",
+      "needs": {
+        "glass": 12
+      }
+    }
+  ],
+  "castles": {
+    "motte-and-bailey": {
+      "name": "Motte and bailey",
+      "footprint": [
+        28,
+        28
+      ],
+      "stages": [
+        {
+          "id": "01-ditch",
+          "name": "Ditch",
+          "first": 0,
+          "count": 0,
+          "bill": {
+            "earth": 671.1
+          }
+        },
+        {
+          "id": "02-motte",
+          "name": "Motte",
+          "first": 0,
+          "count": 0,
+          "bill": {
+            "earth": 1168.1
+          }
+        },
+        {
+          "id": "03-bank",
+          "name": "Bank",
+          "first": 0,
+          "count": 0,
+          "bill": {
+            "earth": 341.6
+          }
+        },
+        {
+          "id": "04-palisade-lift-1",
+          "name": "Palisade: lift 1",
+          "first": 0,
+          "count": 238,
+          "bill": {
+            "timber": 67.2
+          }
+        },
+        {
+          "id": "05-palisade-lift-2",
+          "name": "Palisade: lift 2",
+          "first": 238,
+          "count": 65,
+          "bill": {
+            "timber": 11.0
+          }
+        },
+        {
+          "id": "06-tower-lift-1",
+          "name": "Timber tower: lift 1",
+          "first": 303,
+          "count": 6,
+          "bill": {
+            "timber": 2.4
+          }
+        },
+        {
+          "id": "07-tower-lift-2",
+          "name": "Timber tower: lift 2",
+          "first": 309,
+          "count": 15,
+          "bill": {
+            "timber": 8.7
+          }
+        },
+        {
+          "id": "08-tower-lift-3",
+          "name": "Timber tower: lift 3",
+          "first": 324,
+          "count": 28,
+          "bill": {
+            "timber": 20.2
+          }
+        },
+        {
+          "id": "09-tower-lift-4",
+          "name": "Timber tower: lift 4",
+          "first": 352,
+          "count": 60,
+          "bill": {
+            "timber": 32.1
+          }
+        },
+        {
+          "id": "10-tower-lift-5",
+          "name": "Timber tower: lift 5",
+          "first": 412,
+          "count": 8,
+          "bill": {
+            "timber": 3.1
+          }
+        },
+        {
+          "id": "11-tower-roof",
+          "name": "Timber tower: roofs",
+          "first": 420,
+          "count": 7,
+          "bill": {
+            "timber": 48.9
+          }
+        },
+        {
+          "id": "12-buildings-lift-1",
+          "name": "Bailey buildings: lift 1",
+          "first": 427,
+          "count": 43,
+          "bill": {
+            "timber": 30.5
+          }
+        },
+        {
+          "id": "13-buildings-roof",
+          "name": "Bailey buildings: roofs",
+          "first": 470,
+          "count": 4,
+          "bill": {
+            "timber": 8.3
+          }
+        },
+        {
+          "id": "14-gate-lift-1",
+          "name": "Gate and bridge: lift 1",
+          "first": 474,
+          "count": 49,
+          "bill": {
+            "timber": 21.5
+          }
+        },
+        {
+          "id": "15-gate-lift-2",
+          "name": "Gate and bridge: lift 2",
+          "first": 523,
+          "count": 19,
+          "bill": {
+            "timber": 13.8
+          }
+        },
+        {
+          "id": "16-gate-roof",
+          "name": "Gate and bridge: roofs",
+          "first": 542,
+          "count": 2,
+          "bill": {
+            "timber": 3.4
+          }
+        }
+      ]
+    },
+    "shell-keep": {
+      "name": "Shell keep",
+      "footprint": [
+        28,
+        28
+      ],
+      "stages": [
+        {
+          "id": "01-ditch",
+          "name": "Ditch",
+          "first": 0,
+          "count": 0,
+          "bill": {
+            "earth": 671.1
+          }
+        },
+        {
+          "id": "02-motte",
+          "name": "Motte",
+          "first": 0,
+          "count": 0,
+          "bill": {
+            "earth": 1041.2
+          }
+        },
+        {
+          "id": "03-shell-lift-1",
+          "name": "Shell keep: lift 1",
+          "first": 0,
+          "count": 11,
+          "bill": {
+            "cut-stone": 11,
+            "lime": 0.4
+          }
+        },
+        {
+          "id": "04-shell-lift-2",
+          "name": "Shell keep: lift 2",
+          "first": 11,
+          "count": 287,
+          "bill": {
+            "cut-stone": 272,
+            "rubble": 65.7,
+            "lime": 32.0,
+            "timber": 3.2
+          }
+        },
+        {
+          "id": "05-shell-lift-3",
+          "name": "Shell keep: lift 3",
+          "first": 298,
+          "count": 368,
+          "bill": {
+            "cut-stone": 368,
+            "rubble": 82.1,
+            "lime": 33.7
+          }
+        },
+        {
+          "id": "06-shell-lift-4",
+          "name": "Shell keep: lift 4",
+          "first": 666,
+          "count": 320,
+          "bill": {
+            "cut-stone": 320,
+            "rubble": 82.1,
+            "lime": 33.6
+          }
+        },
+        {
+          "id": "07-shell-lift-5",
+          "name": "Shell keep: lift 5",
+          "first": 986,
+          "count": 194,
+          "bill": {
+            "cut-stone": 194,
+            "rubble": 32.8,
+            "lime": 18.5
+          }
+        },
+        {
+          "id": "08-shell-roof",
+          "name": "Shell keep: roofs",
+          "first": 1180,
+          "count": 12,
+          "bill": {
+            "timber": 3.3
+          }
+        },
+        {
+          "id": "09-shell-parapet",
+          "name": "Shell keep: parapets and battlements",
+          "first": 1192,
+          "count": 54,
+          "bill": {
+            "cut-stone": 54,
+            "lime": 2.3
+          }
+        },
+        {
+          "id": "10-curtain-lift-1",
+          "name": "Curtain wall and gate tower: lift 1",
+          "first": 1246,
+          "count": 1102,
+          "bill": {
+            "cut-stone": 1074,
+            "quoin": 28,
+            "rubble": 570.2,
+            "lime": 209.2
+          }
+        },
+        {
+          "id": "11-curtain-lift-2",
+          "name": "Curtain wall and gate tower: lift 2",
+          "first": 2348,
+          "count": 1176,
+          "bill": {
+            "cut-stone": 1136,
+            "quoin": 40,
+            "rubble": 570.2,
+            "lime": 197.9
+          }
+        },
+        {
+          "id": "12-curtain-lift-3",
+          "name": "Curtain wall and gate tower: lift 3",
+          "first": 3524,
+          "count": 830,
+          "bill": {
+            "cut-stone": 790,
+            "quoin": 40,
+            "lime": 36.0
+          }
+        },
+        {
+          "id": "13-curtain-lift-4",
+          "name": "Curtain wall and gate tower: lift 4",
+          "first": 4354,
+          "count": 36,
+          "bill": {
+            "cut-stone": 32,
+            "quoin": 4,
+            "lime": 2.3
+          }
+        },
+        {
+          "id": "14-curtain-roof",
+          "name": "Curtain wall and gate tower: roofs",
+          "first": 4390,
+          "count": 20,
+          "bill": {
+            "timber": 6.5,
+            "lead": 2687
+          }
+        },
+        {
+          "id": "15-curtain-parapet",
+          "name": "Curtain wall and gate tower: parapets and battlements",
+          "first": 4410,
+          "count": 228,
+          "bill": {
+            "cut-stone": 228,
+            "lime": 11.0
+          }
+        },
+        {
+          "id": "16-fittings",
+          "name": "Gate fittings",
+          "first": 4638,
+          "count": 17,
+          "bill": {
+            "timber": 3.8,
+            "iron": 392
+          }
+        }
+      ]
+    },
+    "great-tower": {
+      "name": "Great tower",
+      "footprint": [
+        28,
+        28
+      ],
+      "stages": [
+        {
+          "id": "01-ditch",
+          "name": "Ditch",
+          "first": 0,
+          "count": 0,
+          "bill": {
+            "earth": 671.1
+          }
+        },
+        {
+          "id": "02-keep-lift-1",
+          "name": "Great tower: lift 1",
+          "first": 0,
+          "count": 975,
+          "bill": {
+            "cut-stone": 949,
+            "quoin": 14,
+            "rubble": 267.8,
+            "lime": 119.8,
+            "timber": 2.1
+          }
+        },
+        {
+          "id": "03-keep-lift-2",
+          "name": "Great tower: lift 2",
+          "first": 975,
+          "count": 1017,
+          "bill": {
+            "cut-stone": 905,
+            "quoin": 69,
+            "rubble": 267.8,
+            "lime": 111.0,
+            "timber": 34.6
+          }
+        },
+        {
+          "id": "04-keep-lift-3",
+          "name": "Great tower: lift 3",
+          "first": 1992,
+          "count": 991,
+          "bill": {
+            "cut-stone": 921,
+            "quoin": 70,
+            "rubble": 267.8,
+            "lime": 110.2
+          }
+        },
+        {
+          "id": "05-keep-lift-4",
+          "name": "Great tower: lift 4",
+          "first": 2983,
+          "count": 832,
+          "bill": {
+            "cut-stone": 736,
+            "quoin": 60,
+            "rubble": 267.8,
+            "lime": 105.4,
+            "timber": 34.0
+          }
+        },
+        {
+          "id": "06-keep-lift-5",
+          "name": "Great tower: lift 5",
+          "first": 3815,
+          "count": 991,
+          "bill": {
+            "cut-stone": 931,
+            "quoin": 60,
+            "rubble": 267.8,
+            "lime": 104.8
+          }
+        },
+        {
+          "id": "07-keep-lift-6",
+          "name": "Great tower: lift 6",
+          "first": 4806,
+          "count": 863,
+          "bill": {
+            "cut-stone": 767,
+            "quoin": 60,
+            "rubble": 267.8,
+            "lime": 103.9,
+            "timber": 34.0
+          }
+        },
+        {
+          "id": "08-keep-lift-7",
+          "name": "Great tower: lift 7",
+          "first": 5669,
+          "count": 1030,
+          "bill": {
+            "cut-stone": 978,
+            "quoin": 52,
+            "rubble": 160.7,
+            "lime": 77.6
+          }
+        },
+        {
+          "id": "09-keep-lift-8",
+          "name": "Great tower: lift 8",
+          "first": 6699,
+          "count": 234,
+          "bill": {
+            "cut-stone": 202,
+            "quoin": 32,
+            "lime": 7.1
+          }
+        },
+        {
+          "id": "10-keep-roof",
+          "name": "Great tower: roofs",
+          "first": 6933,
+          "count": 94,
+          "bill": {
+            "timber": 14.6,
+            "lead": 6516,
+            "slate": 940
+          }
+        },
+        {
+          "id": "11-keep-parapet",
+          "name": "Great tower: parapets and battlements",
+          "first": 7027,
+          "count": 163,
+          "bill": {
+            "cut-stone": 163,
+            "lime": 7.5
+          }
+        },
+        {
+          "id": "12-curtain-lift-1",
+          "name": "Curtain wall and gatehouse: lift 1",
+          "first": 7190,
+          "count": 1114,
+          "bill": {
+            "cut-stone": 1086,
+            "quoin": 28,
+            "rubble": 570.2,
+            "lime": 209.6
+          }
+        },
+        {
+          "id": "13-curtain-lift-2",
+          "name": "Curtain wall and gatehouse: lift 2",
+          "first": 8304,
+          "count": 1176,
+          "bill": {
+            "cut-stone": 1136,
+            "quoin": 40,
+            "rubble": 570.2,
+            "lime": 197.9
+          }
+        },
+        {
+          "id": "14-curtain-lift-3",
+          "name": "Curtain wall and gatehouse: lift 3",
+          "first": 9480,
+          "count": 1243,
+          "bill": {
+            "cut-stone": 1207,
+            "quoin": 36,
+            "rubble": 342.1,
+            "lime": 145.7
+          }
+        },
+        {
+          "id": "15-curtain-lift-4",
+          "name": "Curtain wall and gatehouse: lift 4",
+          "first": 10723,
+          "count": 278,
+          "bill": {
+            "cut-stone": 246,
+            "quoin": 32,
+            "lime": 11.0
+          }
+        },
+        {
+          "id": "16-curtain-roof",
+          "name": "Curtain wall and gatehouse: roofs",
+          "first": 11001,
+          "count": 20,
+          "bill": {
+            "timber": 6.5,
+            "lead": 2687
+          }
+        },
+        {
+          "id": "17-curtain-parapet",
+          "name": "Curtain wall and gatehouse: parapets and battlements",
+          "first": 11021,
+          "count": 226,
+          "bill": {
+            "cut-stone": 226,
+            "lime": 11.0
+          }
+        },
+        {
+          "id": "18-fittings",
+          "name": "Gate fittings",
+          "first": 11247,
+          "count": 19,
+          "bill": {
+            "timber": 3.8,
+            "iron": 721
+          }
+        }
+      ]
+    }
+  },
+  "trades": {
+    "labourer": {
+      "name": "Labourer",
+      "kin": []
+    },
+    "quarryman": {
+      "name": "Quarryman",
+      "kin": [
+        "banker-mason"
+      ]
+    },
+    "banker-mason": {
+      "name": "Banker Mason",
+      "kin": [
+        "quarryman",
+        "setter",
+        "master-mason"
+      ]
+    },
+    "setter": {
+      "name": "Setter",
+      "kin": [
+        "banker-mason",
+        "master-mason"
+      ]
+    },
+    "master-mason": {
+      "name": "Master Mason",
+      "kin": [
+        "banker-mason",
+        "setter"
+      ]
+    },
+    "lime-burner": {
+      "name": "Lime-burner",
+      "kin": [
+        "banker-mason",
+        "collier",
+        "bloomer"
+      ]
+    },
+    "collier": {
+      "name": "Collier",
+      "kin": [
+        "woodsman",
+        "lime-burner"
+      ]
+    },
+    "woodsman": {
+      "name": "Woodsman",
+      "kin": [
+        "sawyer",
+        "carpenter",
+        "collier"
+      ]
+    },
+    "sawyer": {
+      "name": "Sawyer",
+      "kin": [
+        "woodsman",
+        "carpenter"
+      ]
+    },
+    "carpenter": {
+      "name": "Carpenter",
+      "kin": [
+        "sawyer",
+        "wheelwright",
+        "woodsman"
+      ]
+    },
+    "smith": {
+      "name": "Smith",
+      "kin": [
+        "bloomer",
+        "wheelwright"
+      ]
+    },
+    "bloomer": {
+      "name": "Bloomer",
+      "kin": [
+        "smith",
+        "lime-burner"
+      ]
+    },
+    "roper": {
+      "name": "Roper",
+      "kin": [
+        "tanner",
+        "herder"
+      ]
+    },
+    "carter": {
+      "name": "Carter",
+      "kin": [
+        "herder",
+        "wheelwright"
+      ]
+    },
+    "ostler": {
+      "name": "Ostler",
+      "kin": [
+        "herder",
+        "carter"
+      ]
+    },
+    "bargeman": {
+      "name": "Bargeman",
+      "kin": [
+        "carpenter",
+        "carter"
+      ]
+    },
+    "miller": {
+      "name": "Miller",
+      "kin": [
+        "baker",
+        "carpenter"
+      ]
+    },
+    "baker": {
+      "name": "Baker",
+      "kin": [
+        "miller",
+        "brewer",
+        "herder"
+      ]
+    },
+    "brewer": {
+      "name": "Brewer",
+      "kin": [
+        "baker",
+        "herder"
+      ]
+    },
+    "herder": {
+      "name": "Herder",
+      "kin": [
+        "ostler",
+        "tanner",
+        "brewer"
+      ]
+    },
+    "tanner": {
+      "name": "Tanner",
+      "kin": [
+        "herder",
+        "roper"
+      ]
+    },
+    "wheelwright": {
+      "name": "Wheelwright",
+      "kin": [
+        "carpenter",
+        "smith"
+      ]
+    },
+    "clerk-of-works": {
+      "name": "Clerk of Works",
+      "kin": [
+        "master-mason",
+        "carpenter"
+      ]
+    }
+  },
+  "founders": [
+    [
+      "woodsman",
+      2
+    ],
+    [
+      "quarryman",
+      2
+    ],
+    [
+      "carpenter",
+      2
+    ],
+    [
+      "smith",
+      2
+    ],
+    [
+      "banker-mason",
+      2
+    ],
+    [
+      "herder",
+      2
+    ],
+    [
+      "miller",
+      2
+    ],
+    [
+      "baker",
+      2
+    ],
+    [
+      "tanner",
+      2
+    ],
+    [
+      "sawyer",
+      2
+    ],
+    [
+      "collier",
+      1
+    ],
+    [
+      "wheelwright",
+      1
+    ]
+  ],
+  "diet": {
+    "staple": "bread",
+    "labourer": [
+      "bread"
+    ],
+    "skilled": [
+      "bread",
+      "ale"
+    ],
+    "master": [
+      "bread",
+      "ale",
+      "meat|cheese",
+      "wine"
+    ]
+  },
+  "geology": {
+    "mines": {
+      "name": "Mines (Cavern)",
+      "stone": "limestone",
+      "also": [
+        "iron-ore",
+        "crystal",
+        "galena"
+      ],
+      "look": "pale ashlar"
+    },
+    "crypt": {
+      "name": "Crypt",
+      "stone": "flint",
+      "also": [
+        "coal",
+        "bone"
+      ],
+      "look": "flint banding"
+    },
+    "hellforge": {
+      "name": "Hellforge",
+      "stone": "basalt",
+      "also": [
+        "ember",
+        "sulphur"
+      ],
+      "look": "dark keep"
+    },
+    "archive": {
+      "name": "Archive",
+      "stone": "freestone",
+      "also": [
+        "slate-block",
+        "crystal"
+      ],
+      "look": "slate roofs, chevron work"
+    },
+    "fungal": {
+      "name": "Fungal Deep",
+      "stone": "tufa",
+      "also": [
+        "saltpetre"
+      ],
+      "look": "light vaulting stone"
+    },
+    "swamp": {
+      "name": "Swamp",
+      "stone": "clay",
+      "also": [
+        "peat",
+        "bog-iron",
+        "reeds"
+      ],
+      "look": "brick and thatch"
+    },
+    "unknown": {
+      "name": "The Unknown",
+      "stone": "voidstone",
+      "also": [
+        "crystal"
+      ],
+      "look": "wished-for walls"
+    }
+  },
+  "reserved": [
+    "copper-ore",
+    "sulphur",
+    "saltpetre",
+    "reeds",
+    "food",
+    "rations",
+    "arms",
+    "ward",
+    "iron-oathblade",
+    "prospectors-pick",
+    "ember-edge",
+    "runebound-aegis",
+    "mooncrystal-staff",
+    "hearth-wardstone"
+  ],
+  "patterns": {
+    "hamlet": {
+      "name": "Hamlet",
+      "description": "Four cottages along a short road: sixteen more beds.",
+      "roads": [
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ]
+      ],
+      "builds": [
+        {
+          "plan": "cottage",
+          "at": [
+            0,
+            1
+          ]
+        },
+        {
+          "plan": "cottage",
+          "at": [
+            2,
+            1
+          ]
+        },
+        {
+          "plan": "cottage",
+          "at": [
+            4,
+            1
+          ]
+        },
+        {
+          "plan": "cottage",
+          "at": [
+            6,
+            1
+          ]
+        }
+      ],
+      "lines": []
+    },
+    "banker-shed": {
+      "name": "Banker shed",
+      "description": "A warehouse ringed by four bankers: rough stone in, ashlar out.",
+      "builds": [
+        {
+          "plan": "depot",
+          "at": [
+            3,
+            3
+          ]
+        },
+        {
+          "plan": "banker",
+          "at": [
+            0,
+            0
+          ],
+          "recipe": "dress-limestone"
+        },
+        {
+          "plan": "banker",
+          "at": [
+            6,
+            0
+          ],
+          "recipe": "dress-limestone"
+        },
+        {
+          "plan": "banker",
+          "at": [
+            0,
+            6
+          ],
+          "recipe": "dress-limestone"
+        },
+        {
+          "plan": "banker",
+          "at": [
+            6,
+            6
+          ],
+          "recipe": "dress-limestone"
+        }
+      ],
+      "lines": []
+    },
+    "lime-works": {
+      "name": "Lime works",
+      "description": "Clamp, kiln, slaking pit, well and mortar mill, side by side in the order of the chain.",
+      "builds": [
+        {
+          "plan": "clamp",
+          "at": [
+            0,
+            3
+          ]
+        },
+        {
+          "plan": "lime-kiln",
+          "at": [
+            4,
+            0
+          ]
+        },
+        {
+          "plan": "well",
+          "at": [
+            4,
+            6
+          ]
+        },
+        {
+          "plan": "slaking-pit",
+          "at": [
+            8,
+            3
+          ]
+        },
+        {
+          "plan": "mortar-mill",
+          "at": [
+            12,
+            3
+          ]
+        }
+      ],
+      "lines": []
+    },
+    "joinery-yard": {
+      "name": "Joinery yard",
+      "description": "A sawpit, a carpenter and a clamp side by side, planks and beams running on.",
+      "builds": [
+        {
+          "plan": "sawpit",
+          "at": [
+            0,
+            0
+          ]
+        },
+        {
+          "plan": "carpentry",
+          "at": [
+            4,
+            0
+          ]
+        },
+        {
+          "plan": "clamp",
+          "at": [
+            0,
+            4
+          ]
+        }
+      ],
+      "lines": []
+    },
+    "ironworks": {
+      "name": "Ironworks",
+      "description": "A clamp, a bloomery, a forge and a smithy side by side, the iron passing from one to the next.",
+      "builds": [
+        {
+          "plan": "clamp",
+          "at": [
+            0,
+            2
+          ]
+        },
+        {
+          "plan": "bloomery",
+          "at": [
+            4,
+            0
+          ]
+        },
+        {
+          "plan": "forge-shop",
+          "at": [
+            8,
+            2
+          ]
+        },
+        {
+          "plan": "smithy",
+          "at": [
+            12,
+            0
+          ]
+        }
+      ],
+      "lines": []
+    },
+    "bakehouse": {
+      "name": "Bakehouse",
+      "description": "Farm, mill, well, bakery and brewery: bread and ale from grain.",
+      "builds": [
+        {
+          "plan": "farmstead",
+          "at": [
+            0,
+            0
+          ]
+        },
+        {
+          "plan": "mill",
+          "at": [
+            4,
+            0
+          ]
+        },
+        {
+          "plan": "well",
+          "at": [
+            4,
+            4
+          ]
+        },
+        {
+          "plan": "bakery",
+          "at": [
+            8,
+            0
+          ]
+        },
+        {
+          "plan": "brewery",
+          "at": [
+            8,
+            4
+          ]
+        }
+      ],
+      "lines": []
+    }
+  },
+  "hillside_starter": {
+    "timber": 160,
+    "stone": 40,
+    "bread": 144,
+    "ale": 24,
+    "fodder": 600,
+    "plank": 40,
+    "nails": 400,
+    "wrought-iron": 12,
+    "steel": 30,
+    "rope": 12,
+    "coin": 24,
+    "pick": 10,
+    "chisel": 8,
+    "axe": 16,
+    "trowel": 10,
+    "cart": 12,
+    "ox": 12,
+    "harness": 12,
+    "tyre": 36,
+    "arrow": 24
+  },
+  "camp_stock": {
+    "timber": 90,
+    "plank": 50,
+    "beam": 30,
+    "stone": 70,
+    "block": 40,
+    "nails": 60,
+    "rope": 20,
+    "cramp": 12,
+    "tyre": 10,
+    "steel": 12,
+    "wrought-iron": 8,
+    "ingot": 8,
+    "bread": 120,
+    "ale": 36,
+    "meat": 12,
+    "cheese": 12,
+    "livery": 6,
+    "fodder": 80,
+    "cart": 4,
+    "ox": 4,
+    "harness": 4,
+    "wagon": 2,
+    "bucket": 12,
+    "horse": 2,
+    "pick": 5,
+    "chisel": 5,
+    "axe": 6,
+    "trowel": 5,
+    "pole": 24,
+    "brick": 20,
+    "crystal": 8,
+    "mana": 4,
+    "coal": 12,
+    "iron-ore": 12,
+    "wine": 6
+  },
+  "rollers": {
+    "chain": {
+      "name": "Hand-chain",
+      "cost": {},
+      "beats": 1,
+      "crew": 1
+    },
+    "roller": {
+      "name": "Rollerway",
+      "cost": {
+        "timber": 1,
+        "nails": 1
+      },
+      "requires": [
+        "rollerways"
+      ],
+      "beats": 2
+    },
+    "splitter": {
+      "name": "Splitter house",
+      "cost": {
+        "timber": 8,
+        "nails": 6
+      },
+      "requires": [
+        "rollerways"
+      ],
+      "beats": 2
+    },
+    "merge": {
+      "name": "Merge",
+      "cost": {
+        "timber": 6,
+        "nails": 4
+      },
+      "requires": [
+        "rollerways"
+      ],
+      "beats": 2
+    },
+    "gate": {
+      "name": "Priority gate",
+      "cost": {
+        "plank": 4,
+        "nails": 8
+      },
+      "requires": [
+        "rollerways"
+      ],
+      "beats": 2
+    },
+    "trestle": {
+      "name": "Low trestle",
+      "cost": {
+        "beam": 2,
+        "plank": 2,
+        "nails": 4
+      },
+      "requires": [
+        "rollerways"
+      ],
+      "beats": 2
     }
   }
 }

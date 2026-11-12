@@ -406,6 +406,8 @@ pub static HOME_ROOMS: &[Activity] = &[
 /// The world's rooms (`Run::tick_world`), every one that is on, in order.
 pub static WORLD: &[Activity] = &[
     place("the kingdom", |_| true, |run, inputs| run.tick_kingdom(inputs)),
+    // The Deep's raids on the works, at night (`deep_raid`).
+    place("the Deep's raids", |run| run.room().kind == RoomKind::Kingdom, |run, _| run.tick_raids()),
     place("the stables", |run| in_room(run, RoomKind::Stables), |run, inputs| {
         run.tick_stables(inputs)
     }),

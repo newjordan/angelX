@@ -419,7 +419,7 @@ fn put_field(run: &mut Run, tree: &Value, name: &str) -> bool {
     }
     put!(
         playtest, raid_id, naked_start, identity, rite, hitstop, phase, floor_plates, exits, parked, score, dungeon,
-        boss_gates, settlement_site, settlement_exhibits, at, kingdom, tune, bank, reclaimed, home, treasury, merchant,
+        boss_gates, settlement_site, settlement_exhibits, at, kingdom, sites, site_replay, hands, tune, bank, reclaimed, home, treasury, merchant,
         mode, open_floors, spin, collapse_at, deep_beat, strikes, zones, spheres, phantoms, bard_songs, scarecrows, imps,
         cauldron, brewing, first, light, banner, deeds, unboxed, stall, descending, captive, folly, bats, encounter,
         encounter_rooms, gantry_room,
@@ -432,7 +432,7 @@ fn put_field(run: &mut Run, tree: &Value, name: &str) -> bool {
         wishing, lamp, genie, asked, held, fellowship, again, rewards,
         // The ballot between floors counts its clock down a tick at a time, and a Knight Racers
         // card puts its whole race there: left out of this list each tick read the run whole.
-        crossroads, knight_racers,
+        crossroads, knight_racers, caves,
     )
 }
 

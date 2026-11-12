@@ -14,7 +14,7 @@ fn frontier_claims_full_ledger_notice_is_once_per_seam_and_room_entry() {
                 source: "Crypt".into(),
                 secured: false,
                 rate: 2,
-            }
+                yields: Default::default(), surface: false }
         ));
         assert!(run.home.industry.secure(&format!("old-{i}")));
     }
