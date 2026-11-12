@@ -1,5 +1,9 @@
 # The Delve
 
+[Kingdom Works](https://github.com/newjordan/angelX/blob/main/docs/KINGDOM-WORKS.md) links fought resource claims to a buildable
+frontier: mines, workshops, castles and supplies for the next expedition.
+Press **4** on the walking surface for its build desk.
+
 A co-op dungeon under the angelX realm: knights against monsters, for spoils
 that build the world. The world, the cast and the Grail are in
 [DELVE-LORE.md](DELVE-LORE.md). Card files are covered in
@@ -30,8 +34,10 @@ that build the world. The world, the cast and the Grail are in
    - **voices**: the knights' grunts and their few words at big moments, on
      or off. Nobody narrates; **K** toggles them in play (**Shift+K** with a couch knight).
 
-   Enter begins the run outside the Delve's gate on the continuous kingdom map,
-   and the game expands. Press **E** at the gate to enter its courtyard.
+   Enter begins the run in the Sozzled Griffin, the tavern where each knight
+   of the company sits by calling; its front door opens on the continuous
+   kingdom map outside the Delve's gate, and the game expands. Press **E** at
+   the gate to enter its courtyard.
 
 `/dungeon start` skips the walk and the intro.
 
@@ -103,7 +109,8 @@ and mini-games. Hold progress uses filled and empty block bars.
 
 ## The world above the Delve
 
-Every delve begins outside **the Delve's gate** on one continuous kingdom:
+Every delve begins in the Sozzled Griffin, whose front door opens outside
+**the Delve's gate** on one continuous kingdom:
 roads, rivers, fields, forest, model castles, the College and built wishes
 share the geography of the mini-viz overview. Each seat has its own knight
 and smoothly following camera; up to six knights can spread across the
@@ -142,7 +149,7 @@ their direct journeys.
 | Room | Where | What is there |
 |---|---|---|
 | The Delve's gate | the courtyard | the gate's stair **down to the Undercroft**; a well; a signpost; whoever is waiting about |
-| College of the Labyrinth | College Gate, east side of the courtyard | free school rooms and a four-floor tower; Bartosz the Wizard teaches the Labyrinth and offers shared research quests ([guide](SCHOOL.md)) |
+| College of the Labyrinth | its own door on the kingdom, above the North Road | free school rooms and a four-floor tower; Bartosz the Wizard teaches the Labyrinth and offers shared research quests ([guide](SCHOOL.md)) |
 | The stables | west | the realm's three mounts, Wat the groom (see below) |
 | The lists | east | the tilt, the stands and their crowd, and the joust (see below) |
 | The mine-head | north | the Mines' adit, its shaft **straight down into the Mines**; the fallen gate-hall of Caer Dwfn |
@@ -1826,6 +1833,20 @@ Spells are never consumed: each slot recharges independently for the card's `coo
 (whole seconds, 1–120). They reuse **nova, ward, heal and bombs**. The new
 `cast bolt|ring|meteor` effect launches a straight bolt, a twelve-bolt ring, or
 a heavy bursting meteor from the knight, carrying the knight's own shot traits.
+
+The area casts are `cast <shape> <element> [size 1-3]`. Shapes: `wave` (a front
+rolling out along the aim that meets each foe once), `burst` (an eruption at the
+aim and a pool that lingers), `cone` (held in front of the knight, pulsing),
+`line` (the ground cracking out along the aim, segment by segment), `field` (a
+zone that lingers at the aim and pulses), `pillar` (a column from the sky after a
+warning) and `nova` (a ring racing out all round). Elements: `fire` burns (pools
+keep burning), `frost` chills and, from size 2, freezes (a frozen foe that dies
+shatters and its splinters strike its neighbours; a boss only slows), `storm`
+arcs between foes, `poison` poisons (a cloud lingers), `holy` strikes
+and mends the knights it covers, `arcane` drags foes in, `earth` shoves and
+stuns. A stroke lands in full on the three foes it meets first and a quarter on
+the rest (`aoe`); what the element does besides still reaches all of them.
+`rules/zones.rs` has the rules and `render/overworld/arena/zones.rs` the picture.
 
 Write a `kind spell` card into workspace `.angel/dungeon/cards/` while playing:
 it hot-loads within half a second into the host's **first empty spell slot**,

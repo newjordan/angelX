@@ -1,24 +1,4 @@
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum AgentKey {
-    Codex,
-    Luna,
-    Astra,
-    Daybreak,
-    Glm,
-    Kimi,
-    Qwen,
-    LongCat,
-    Muse,
-    Hy,
-    Nemotron,
-    Grok,
-    DeepSeek,
-    Gemma,
-    Inkling,
-    Laguna,
-    North,
-    Unknown,
-}
+pub use angel_plug::feed::AgentKey;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct AgentProfile {

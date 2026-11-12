@@ -304,6 +304,7 @@ fn private_home_outbox_restores_live_quests_newer_facts_and_pending_claim_togeth
 
 #[test]
 fn a_restored_session_opens_the_same_link_and_serves_the_page_at_its_door() {
+    let _capacity = crate::tests::browser_capacity();
     let dir = std::env::temp_dir().join(format!("angel-session-link-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut view = DungeonView::default();
@@ -466,6 +467,7 @@ fn a_session_saved_with_four_seats_restores_and_hosts_six() {
     // The checkpoint of a delve hosted when the party was four wide: the
     // merchant's seat memories are four long. It restores, opens the same
     // door for the host and five friends, and the run steps on.
+    let _capacity = crate::tests::browser_capacity();
     let dir = std::env::temp_dir().join(format!("angel-session-four-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
     let mut view = DungeonView::default();
@@ -509,7 +511,7 @@ fn a_session_saved_by_a_host_with_no_knight_restores_with_six_friend_seats() {
     // Today's dedicated machine's checkpoint: knight 1 the host's empty
     // place, stone, beside five friends. It loads on a host that plays no
     // knight and opens the same door with all six seats for friends.
-    let _guard = crate::tests::env_lock();
+    let _guard = crate::tests::browser_capacity();
     let _watch = crate::tests::TestEnvGuard::set("ANGEL_DELVE_HOST_KNIGHT", "0");
     let dir = std::env::temp_dir().join(format!("angel-session-watch-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);
@@ -652,4 +654,121 @@ fn private_reforge_reservations_and_exact_terminal_results_restore_together() {
     );
     drop(view);
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+/// What the checkpoint on disk says about the door, read as the JSON the
+/// writer produced. The join key is a secret: tests compare it and never
+/// print it.
+fn saved_door(path: &std::path::Path) -> (serde_json::Value, Option<bool>) {
+    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
+    (saved["invitation"].clone(), saved.get("watch").and_then(serde_json::Value::as_bool))
+}
+
+#[test]
+fn a_failed_rebind_on_restore_keeps_the_saved_link_for_the_next_start() {
+    let _guard = crate::tests::browser_capacity();
+    let _watch = crate::tests::TestEnvGuard::unset("ANGEL_DELVE_HOST_KNIGHT");
+    let dir = std::env::temp_dir().join(format!("angel-session-rebind-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut view = DungeonView::default();
+    view.save_path = Some(dir.join(".angel/dungeon/session.json"));
+    view.shooter.set(Some(Run::new(7, 1, None)));
+    view.shooter
+        .host(crate::together_sim::Door {
+            bind: "127.0.0.1:0".parse().unwrap(),
+            seats: 3,
+            key: None,
+            bundle: None,
+        })
+        .unwrap();
+    view.hosting = Some(Hosting { friends: 2, watch: false });
+    let (addr, key) = view.shooter.invitation().expect("a hosted session's link");
+    let path = view.save_path.clone().unwrap();
+    view.checkpoint(Instant::now(), true).unwrap();
+    drop(view);
+    let saved = saved_door(&path).0;
+    assert!(saved == serde_json::json!([addr, key]), "the hosted checkpoint records its link");
+
+    // The address is not free when the host comes back: its port is busy, or
+    // its network is not up yet.
+    let busy = std::net::TcpListener::bind(&addr).unwrap();
+    let mut back = DungeonView::default();
+    assert!(back.restore(&dir).is_err(), "the door cannot be opened again");
+    assert!(back.hosting.is_none() && back.shooter.is_some(), "the run plays on, solo");
+    // Its next checkpoints (the service's own, the one on exit) must not
+    // cost the next start its key.
+    back.checkpoint(Instant::now(), true).unwrap();
+    assert!(
+        saved_door(&path).0 == saved,
+        "a failed re-bind erased the saved link"
+    );
+    drop(back);
+    assert!(saved_door(&path).0 == saved, "the exit save erased the saved link");
+    drop(busy);
+
+    // The address answers again: the same run opens the same link.
+    let mut again = DungeonView::default();
+    again.restore(&dir).unwrap();
+    assert!(again.hosting.is_some());
+    assert!(again.shooter.invitation() == Some((addr, key)), "same door, same key");
+    drop(again);
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_host_that_watches_restores_as_a_watching_host_without_the_env_switch() {
+    let _guard = crate::tests::browser_capacity();
+    let _watch = crate::tests::TestEnvGuard::unset("ANGEL_DELVE_HOST_KNIGHT");
+    let dir = std::env::temp_dir().join(format!("angel-session-flag-watch-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let mut view = DungeonView::default();
+    view.save_path = Some(dir.join(".angel/dungeon/session.json"));
+    view.shooter.set(Some(Run::new(7, 1, None)));
+    // `/dungeon host --watch`: the flag, no env var.
+    view.shooter
+        .host_as(
+            crate::together_sim::Door {
+                bind: "127.0.0.1:0".parse().unwrap(),
+                seats: 6,
+                key: None,
+                bundle: None,
+            },
+            true,
+        )
+        .unwrap();
+    view.hosting = Some(Hosting { friends: 6, watch: true });
+    let path = view.save_path.clone().unwrap();
+    view.checkpoint(Instant::now(), true).unwrap();
+    drop(view);
+
+    let mut back = DungeonView::default();
+    back.restore(&dir).expect("a watching host's save loads");
+    assert_eq!(
+        back.hosting,
+        Some(Hosting { friends: 6, watch: true }),
+        "a host that played no knight came back playing one"
+    );
+    drop(back);
+
+    // An older save has no `watch`: the env switch is the only default, as
+    // it was, and a host that plays its own knight writes no new field.
+    let mut old: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    old.as_object_mut().unwrap().remove("watch");
+    std::fs::write(&path, serde_json::to_vec(&old).unwrap()).unwrap();
+    let mut legacy = DungeonView::default();
+    legacy.restore(&dir).expect("a save with no `watch` loads");
+    assert_eq!(legacy.hosting, Some(Hosting { friends: 5, watch: false }));
+    legacy.shooter.unhost().unwrap();
+    legacy.shooter
+        .host(crate::together_sim::Door {
+            bind: "127.0.0.1:0".parse().unwrap(),
+            seats: 6,
+            key: None,
+            bundle: None,
+        })
+        .unwrap();
+    legacy.checkpoint(Instant::now(), true).unwrap();
+    assert_eq!(saved_door(&path).1, None, "a playing host's checkpoint is byte for byte what it was");
+    drop(legacy);
+    let _ = std::fs::remove_dir_all(&dir);
 }

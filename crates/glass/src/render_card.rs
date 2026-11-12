@@ -10,7 +10,7 @@ const CARD_FRAME: u32 = crate::layer::LAYER_PICTURES + 0xC0;
 /// Two title pictures, so a page's title crosses over the last one's.
 const CARD_TITLES: [u32; 2] = [crate::layer::LAYER_PICTURES + 0xC1, crate::layer::LAYER_PICTURES + 0xC2];
 const CARD_NAME: u32 = crate::layer::LAYER_PICTURES + 0xC3;
-const CARD_SQUIRE: u32 = crate::layer::LAYER_PICTURES + 0xC4;
+pub(crate) const CARD_SQUIRE: u32 = crate::layer::LAYER_PICTURES + 0xC4;
 
 /// The glass: the showcase's dim and hairline, a touch rounder.
 const CARD_PANEL: [u8; 3] = [12, 14, 18];
@@ -71,6 +71,29 @@ pub(crate) struct CardArt {
 }
 
 impl Renderer {
+    /// Keep card art on the same prepared resource as the open showcase.
+    /// A card's pose clock remains its own; only the indexed sheet is replaced.
+    pub(crate) fn set_card_squire_clip(
+        &mut self,
+        resource: Option<&(
+            crate::ShowcaseClipIdentity,
+            std::sync::Arc<crate::ShowcaseSquireClip>,
+        )>,
+    ) {
+        let identity = resource.map(|(identity, _)| identity);
+        if self.card_squire_identity.as_ref() == identity {
+            return;
+        }
+        self.card_squire_identity = identity.cloned();
+        self.card_squire_clip = resource.map(|(_, clip)| std::sync::Arc::clone(clip));
+        self.card_art.squire = resource.map(|(_, clip)| card_squire_picture(clip));
+        if let Some(picture) = self.card_art.squire.clone() {
+            self.apply(vec![picture]);
+        } else {
+            self.core.free_picture(CARD_SQUIRE);
+        }
+    }
+
     /// Take this frame's card: start, change or end its showing. True
     /// while it moves, so the window keeps the frames coming.
     fn card_update(&mut self, incoming: Option<&Arc<Card>>, now: Instant) {
@@ -160,9 +183,6 @@ impl Renderer {
             art.name = None;
             show.titles.clear();
             show.title.clear();
-        }
-        if art.squire.is_none() {
-            art.squire = Some(squire::sheet(None, CARD_SQUIRE));
         }
         let cell_h = self.fonts.cell.height as f32;
         if show.card.title != show.title {
@@ -481,13 +501,23 @@ impl Renderer {
             (Entrance::Title, None) if t < card::UNFOLD.0 + 0.15 => {
                 Some(squire::Pose { at: squire::roof_stand(settled, seat_x, px), frame: squire::Frame::Stand, left: true })
             }
-            _ => Some(card_knight(show.knight, now, settled, seat_x, px, s)),
+            _ => Some(card_knight(
+                show.knight,
+                now,
+                settled,
+                seat_x,
+                px,
+                s,
+                self.card_squire_clip.as_deref(),
+            )),
         };
-        if let Some(pose) = pose {
-            let opacity = gone.map_or(1.0, |g| 1.0 - card::span(g, (0.0, card::CLOSE)));
-            let mut layer = squire::layer(layers.len() as u64, CARD_SQUIRE, pose, px, opacity);
-            layer.id = layers.len() as u64;
-            layers.push(layer);
+        if self.card_squire_identity.is_some() {
+            if let Some(pose) = pose {
+                let opacity = gone.map_or(1.0, |g| 1.0 - card::span(g, (0.0, card::CLOSE)));
+                let mut layer = squire::layer(layers.len() as u64, CARD_SQUIRE, pose, px, opacity);
+                layer.id = layers.len() as u64;
+                layers.push(layer);
+            }
         }
         parts.extend(self.core.layer_parts(layers.iter(), origin, cw, ch, None, time));
         parts
@@ -553,6 +583,47 @@ impl Renderer {
     }
 }
 
+fn card_squire_picture(clip: &crate::ShowcaseSquireClip) -> graphics::Picture {
+    clip.picture(None, CARD_SQUIRE)
+}
+
+#[cfg(test)]
+mod squire_clip_tests {
+    use super::*;
+
+    #[test]
+    fn card_sheet_uses_the_live_resource_pixels() {
+        let mut palette = vec![[0, 0, 0]; 12];
+        palette[1] = [71, 113, 197];
+        let clip = crate::ShowcaseSquireClip {
+            palette,
+            frames: (0..9).map(|_| vec![1; 320]).collect(),
+            idle: vec![crate::ShowcaseClipStep { frame: 5, millis: 4_500 }],
+            wave: vec![crate::ShowcaseClipStep { frame: 8, millis: 1_000 }],
+            card: None,
+        };
+        let picture = card_squire_picture(&clip);
+        assert_eq!(picture.id, CARD_SQUIRE);
+        assert_eq!((picture.width, picture.height), (144, 40));
+        assert!(picture.rgba.chunks_exact(4).any(|pixel| pixel == [71, 113, 197, 255]));
+    }
+
+    #[test]
+    fn card_idle_and_wave_frames_follow_the_module_clip() {
+        let mut clip = crate::ShowcaseSquireClip {
+            palette: vec![[0, 0, 0]; 12],
+            frames: (0..9).map(|_| vec![0; 320]).collect(),
+            idle: vec![crate::ShowcaseClipStep { frame: 2, millis: 90 }],
+            wave: vec![crate::ShowcaseClipStep { frame: 8, millis: 90 }],
+            card: None,
+        };
+        assert_eq!(clip_frame(Some(&clip), false, 0.0), squire::Frame::StepB);
+        assert_eq!(clip_frame(Some(&clip), true, 0.0), squire::Frame::SitWave);
+        clip.idle[0].frame = 7;
+        assert_eq!(clip_frame(Some(&clip), false, 0.0), squire::Frame::SitSwing);
+    }
+}
+
 /// A film's frame for this moment as a layer over its cells: `p` how far
 /// its row has come in, `k` the card's strength, `t` seconds it has run.
 /// What the card has not yet unfolded down to (`visible`) is cut off.
@@ -602,46 +673,57 @@ fn card_place(show: &CardShow, now: Instant) -> [f32; 4] {
 }
 
 /// The squire on the settled card, doing what the card asks of him.
-fn card_knight(knight: (Knight, Instant), now: Instant, rect: [f32; 4], seat_x: f32, px: f32, s: f32) -> squire::Pose {
-    use squire::Frame;
+fn card_knight(
+    knight: (Knight, Instant),
+    now: Instant,
+    rect: [f32; 4],
+    seat_x: f32,
+    px: f32,
+    s: f32,
+    clip: Option<&crate::ShowcaseSquireClip>,
+) -> squire::Pose {
     let (mood, since) = knight;
     let t = now.saturating_duration_since(since).as_secs_f32();
-    let sat = squire::seat(rect, seat_x, px);
-    let stand = squire::roof_stand(rect, seat_x, px);
-    let at = |at: [f32; 2], frame: Frame, left: bool| squire::Pose { at, frame, left };
-    match mood {
-        Knight::Sit => at(sat, squire::idle(t, None).0, false),
-        Knight::Wave => at(sat, squire::idle(t, Some(t % 2.4)).0, false),
-        Knight::Present => at(sat, Frame::SitWave, false),
-        Knight::Guard => at(stand, Frame::Stand, true),
-        Knight::Busy => {
-            // Pacing the roof: along, a turn, back.
-            let reach = 46.0 * s;
-            let u = (t / 2.2).fract();
-            let (x, left) = if u < 0.5 { (card::ease_in_out(u * 2.0) * -reach, true) } else { (-reach + card::ease_in_out(u * 2.0 - 1.0) * reach, false) };
-            let walking = (u * 2.0).fract() > 0.06 && (u * 2.0).fract() < 0.94;
-            let frame = if !walking { Frame::Stand } else if ((t / 0.09) as u32) % 2 == 0 { Frame::StepA } else { Frame::StepB };
-            at([stand[0] + x, stand[1]], frame, left)
-        }
-        Knight::Oops => {
-            if t < 0.7 {
-                let wobble = (t * 28.0).sin() * (1.0 - t / 0.7) * 2.0 * s;
-                at([stand[0] + wobble, stand[1]], Frame::Windup, true)
-            } else {
-                at(sat, Frame::Sit, false)
-            }
-        }
-        Knight::Cheer => {
-            if t < 1.3 {
-                let hop = ((t * std::f32::consts::PI * 2.6).sin()).abs();
-                let lift = hop * 7.0 * s;
-                let frame = if hop > 0.25 { Frame::Hop } else { Frame::Stand };
-                at([stand[0], stand[1] - lift], frame, false)
-            } else {
-                at(sat, squire::idle(t - 1.3, None).0, false)
-            }
-        }
+    let state = match mood {
+        Knight::Sit => "sit",
+        Knight::Wave => "wave",
+        Knight::Present => "present",
+        Knight::Guard => "guard",
+        Knight::Busy => "busy",
+        Knight::Oops => "oops",
+        Knight::Cheer => "cheer",
+    };
+    if let Some(clip) = clip
+        && let Some(motion) = &clip.card
+        && let Some(sample) = motion.sample(state, t, &clip.idle, &clip.wave)
+    {
+        let anchor = match sample.anchor {
+            crate::card_motion::Anchor::Seat => squire::seat(rect, seat_x, px),
+            crate::card_motion::Anchor::Stand => squire::roof_stand(rect, seat_x, px),
+        };
+        return squire::Pose {
+            at: [
+                anchor[0] + sample.offset[0] * s,
+                anchor[1] + sample.offset[1] * s,
+            ],
+            frame: squire::Frame::from_index(sample.frame),
+            left: sample.left,
+        };
     }
+    // Legacy clips have only idle/wave policy; use that authored content,
+    // rather than keeping a second card choreography in the renderer.
+    squire::Pose {
+        at: squire::seat(rect, seat_x, px),
+        frame: clip_frame(clip, mood == Knight::Wave, t),
+        left: false,
+    }
+}
+
+fn clip_frame(clip: Option<&crate::ShowcaseSquireClip>, waving: bool, elapsed: f32) -> squire::Frame {
+    let Some(clip) = clip else { return squire::Frame::Sit };
+    let steps = if waving { &clip.wave } else { &clip.idle };
+    let (frame, _) = crate::ShowcaseSquireClip::frame_at(steps, elapsed, true);
+    squire::Frame::from_index(frame)
 }
 
 /// The frame picture's corner tile and its whole side.
@@ -682,4 +764,10 @@ fn card_frame_picture(s: f32) -> graphics::Picture {
         }
     }
     graphics::Picture { id: CARD_FRAME, width: side, height: side, rgba, cols: 0, rows: 0 }
+}
+
+#[cfg(test)]
+mod card_motion_tests {
+    use super::*;
+    include!("card_motion_tests.rs");
 }

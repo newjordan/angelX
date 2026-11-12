@@ -1609,3 +1609,442 @@ fn runtime_missing_task_envelope_is_structured_and_recovery_clears_it() {
         }
     }
 }
+
+fn stop_wire_ctx() -> TaskJsonContext {
+    TaskJsonContext {
+        task_id: None,
+        run_id: None,
+        workspace: std::env::temp_dir().join("stop-wire-envelope"),
+        club: None,
+        model: None,
+        reasoning_effort: None,
+        output_budget: None,
+        elapsed_ms: 1,
+        tools: Vec::new(),
+        timing: None,
+        usage: None,
+        runtime: None,
+        session_id: None,
+        artifacts: Vec::new(),
+        memory_health: crate::knowledge::caddy::StoreHealthSummary::default(),
+    }
+}
+
+/// The task JSON never derives the three flags from the stop reason: it
+/// prints whatever the turn carried. Its `status` and `stop_reason` are
+/// functions of the reason and of which shape (outcome or failure) carried it.
+#[test]
+fn task_json_status_and_stop_reason_for_every_stop_reason_are_pinned() {
+    use TurnStopReason::*;
+    let _lock = crate::tests::env_lock();
+    let _caddy = crate::tests::TestEnvGuard::set("ANGEL_CADDY", "0");
+    // (reason, wire string, status via an outcome, status via a failure)
+    let table = [
+        (Answer, "answer", "completed", "error"),
+        (Interrupt, "interrupt", "stopped", "error"),
+        (IdleTimeout, "idle_timeout", "stopped", "error"),
+        (Deadline, "deadline", "stopped", "error"),
+        (MaxHops, "max_hops", "stopped", "stopped"),
+        (ExecutionBlocked, "execution_blocked", "stopped", "error"),
+        (CaptureFailure, "capture_failure", "stopped", "error"),
+        (CheckpointFailure, "checkpoint_failure", "stopped", "error"),
+        (ProviderError, "provider_error", "stopped", "error"),
+        (NeedsPro, "needs_pro", "stopped", "error"),
+    ];
+    for (reason, wire, via_outcome, via_failure) in table {
+        assert_eq!(reason.as_str(), wire);
+        for flags in [
+            [false, false, false],
+            [true, true, true],
+            [true, false, true],
+        ] {
+            let outcome = TurnOutcome {
+                reward_binding: None,
+                answer: "a".to_string(),
+                stop_notice: None,
+                stop_reason: reason,
+                hops: 1,
+                interrupted: flags[0],
+                deadline_reached: flags[1],
+                max_hops_reached: flags[2],
+                acceptance: None,
+                rollout_id: None,
+                timing: None,
+                tools: Vec::new(),
+            };
+            let value = serde_json::to_value(TaskJsonEnvelope::from_outcome(
+                stop_wire_ctx(),
+                outcome,
+                &[],
+            ))
+            .unwrap();
+            assert_eq!(value["status"], via_outcome, "{wire} outcome");
+            assert_eq!(value["stop_reason"], wire);
+            assert_eq!(
+                [
+                    value["interrupted"].as_bool().unwrap(),
+                    value["deadline_reached"].as_bool().unwrap(),
+                    value["max_hops_reached"].as_bool().unwrap()
+                ],
+                flags,
+                "{wire} outcome flags pass through untouched"
+            );
+            let failure = TurnFailure {
+                message: "m".to_string(),
+                stop_reason: reason,
+                hops: 1,
+                interrupted: flags[0],
+                deadline_reached: flags[1],
+                max_hops_reached: flags[2],
+                acceptance: None,
+                rollout_id: None,
+            };
+            let value =
+                serde_json::to_value(TaskJsonEnvelope::from_failure(stop_wire_ctx(), failure))
+                    .unwrap();
+            assert_eq!(value["status"], via_failure, "{wire} failure");
+            assert_eq!(value["stop_reason"], wire);
+            assert_eq!(
+                [
+                    value["interrupted"].as_bool().unwrap(),
+                    value["deadline_reached"].as_bool().unwrap(),
+                    value["max_hops_reached"].as_bool().unwrap()
+                ],
+                flags,
+                "{wire} failure flags pass through untouched"
+            );
+        }
+    }
+}
+
+/// The class a graph-incomplete label or reason text becomes in the task JSON.
+#[test]
+fn graph_incomplete_stop_reason_for_every_label_is_pinned() {
+    for (label, expected) in [
+        ("cancelled", "cancelled"),
+        ("cancelled by operator", "cancelled"),
+        ("planner_no_plan", "planner_no_plan"),
+        ("planner produced no schedulable plan", "planner_no_plan"),
+        ("no_schedulable_nodes", "no_schedulable_nodes"),
+        // The raw text spells it with spaces, which the class test does not
+        // read; only the `no_schedulable_nodes` label is.
+        ("no schedulable nodes", "incomplete"),
+        ("node_failed:worker", "node_failed"),
+        ("provider_stall:worker", "provider_stall"),
+        ("provider_stall", "provider_stall"),
+        (
+            "deadline 60s reached; operator cap graph.deadline_secs / ANGEL_GRAPH_DEADLINE_SECS=60",
+            "incomplete",
+        ),
+        ("spawn capacity: no seats", "incomplete"),
+        ("terminal fan-in did not finish with a result", "incomplete"),
+        ("incomplete", "incomplete"),
+    ] {
+        assert_eq!(graph_incomplete_stop_reason(label), expected, "{label}");
+    }
+}
+
+/// A node-failure label carries the node's id; an id that says "cancelled"
+/// is still a node failure, never a cancelled run.
+#[test]
+fn a_node_failed_label_is_never_read_as_a_cancelled_run() {
+    assert_eq!(
+        graph_incomplete_stop_reason("node_failed:cancelled_orders"),
+        "node_failed"
+    );
+    assert_eq!(
+        graph_incomplete_stop_reason("node_failed:worker"),
+        "node_failed"
+    );
+}
+
+#[test]
+fn a_small_workspace_takes_the_light_start_and_an_explicit_setting_wins() {
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let _recon = TestEnvGuard::unset("ANGEL_TASK_RECON");
+    let _bubble = TestEnvGuard::unset("ANGEL_TOOL_BUBBLE");
+    let _route = TestEnvGuard::unset("ANGEL_TASK_SMALL_WORKSPACE");
+    let _anchors = TestEnvGuard::unset("ANGEL_HASHLINE_ANCHORS");
+    let _stack: Vec<TestEnvGuard> = SPEED_STACK
+        .iter()
+        .chain(["ANGEL_TASK_PREREAD"].iter())
+        .map(|key| TestEnvGuard::unset(*key))
+        .collect();
+
+    let base = std::env::temp_dir().join(format!("angel-small-route-{}", std::process::id()));
+    let large = base.join("large");
+    std::fs::create_dir_all(&large).unwrap();
+    for n in 0..41 {
+        std::fs::write(large.join(format!("f{n}.rs")), "x").unwrap();
+    }
+    apply_small_workspace_route(&large);
+    assert!(std::env::var_os("ANGEL_TASK_SMALL_WORKSPACE").is_none());
+    assert!(std::env::var_os("ANGEL_TASK_RECON").is_none());
+    assert!(std::env::var_os("ANGEL_HASHLINE_ANCHORS").is_none());
+    for key in SPEED_STACK {
+        assert!(std::env::var_os(key).is_none(), "{key} set for a large workspace");
+    }
+
+    let small = base.join("small");
+    std::fs::create_dir_all(&small).unwrap();
+    std::fs::write(small.join("lib.rs"), "x").unwrap();
+    let _explicit = TestEnvGuard::set("ANGEL_TASK_RECON", "repo");
+    let _declined = TestEnvGuard::set("ANGEL_TASK_END_AT_GREEN", "0");
+    apply_small_workspace_route(&small);
+    assert_eq!(std::env::var("ANGEL_TASK_SMALL_WORKSPACE").unwrap(), "1");
+    assert_eq!(std::env::var("ANGEL_TOOL_BUBBLE").unwrap(), "0");
+    assert_eq!(std::env::var("ANGEL_HASHLINE_ANCHORS").unwrap(), "0");
+    assert_eq!(std::env::var("ANGEL_TASK_RECON").unwrap(), "repo");
+    for key in SPEED_STACK {
+        let want = if key == "ANGEL_TASK_END_AT_GREEN" { "0" } else { "1" };
+        assert_eq!(std::env::var(key).unwrap(), want, "{key}");
+    }
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+/// The speed stack a small workspace's headless task turns on by default.
+const SPEED_STACK: [&str; 7] = [
+    "ANGEL_TASK_PREREAD_AS_CONTEXT",
+    "ANGEL_TASK_PREREAD_SKIP_MANIFESTS",
+    "ANGEL_TASK_TEST_AFTER_WRITE",
+    "ANGEL_TASK_END_AT_GREEN",
+    "ANGEL_TASK_STABLE_FIRST",
+    "ANGEL_LOOP_COLLAPSE",
+    "ANGEL_CARGO_HOME_REUSE",
+];
+
+#[test]
+fn a_small_workspace_is_read_before_the_first_request_when_it_fits() {
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let _anchors = TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "0");
+    let base = std::env::temp_dir().join(format!("angel-preread-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    let fits = base.join("fits");
+    std::fs::create_dir_all(fits.join("src")).unwrap();
+    std::fs::write(fits.join("src/lib.rs"), "pub fn one() -> u8 { 1 }\n").unwrap();
+    std::fs::write(fits.join("Cargo.toml"), "[package]\nname = \"x\"\n").unwrap();
+    std::fs::write(fits.join("LICENSE"), "MIT").unwrap();
+    std::fs::write(fits.join("Cargo.lock"), "version = 4").unwrap();
+    std::fs::write(fits.join("logo.png"), [0xff, 0xd8, 0x00, 0xfe]).unwrap();
+    // Larger than the whole budget: `read_file` would cut it short.
+    std::fs::write(fits.join("vendored.hpp"), "// header\n".repeat(4000)).unwrap();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
+    crate::agent::harness::registry::register_file_tools(&mut registry, fits.clone());
+
+    // Off unless the route switched it on.
+    let _off = TestEnvGuard::unset(SMALL_WORKSPACE_PREREAD_ENV);
+    let mut history = vec![crate::agent::club::ChatMsg::user("task")];
+    preread_small_workspace(&registry, &fits, &mut history);
+    assert_eq!(history.len(), 1);
+
+    let _on = TestEnvGuard::set(SMALL_WORKSPACE_PREREAD_ENV, "1");
+    preread_small_workspace(&registry, &fits, &mut history);
+    assert_eq!(history.len(), 4, "one assistant turn and two results");
+    let calls = &history[1].tool_calls;
+    let paths: Vec<&str> = calls
+        .iter()
+        .map(|call| call.args["path"].as_str().unwrap())
+        .collect();
+    assert_eq!(paths, ["Cargo.toml", "src/lib.rs"]);
+    assert!(calls.iter().all(|call| call.name == "read_file"));
+    assert_eq!(
+        history[2].tool_call_id.as_deref(),
+        Some(calls[0].id.as_str())
+    );
+    assert!(history[3].content.contains("pub fn one()"));
+
+    // A workspace that does not fit is left for the model to read.
+    let large = base.join("large");
+    std::fs::create_dir_all(&large).unwrap();
+    for n in 0..20 {
+        std::fs::write(
+            large.join(format!("f{n}.txt")),
+            "a line of text\n".repeat(150),
+        )
+        .unwrap();
+    }
+    let mut registry = crate::agent::harness::ToolRegistry::new();
+    crate::agent::harness::registry::register_file_tools(&mut registry, large.clone());
+    let mut history = vec![crate::agent::club::ChatMsg::user("task")];
+    preread_small_workspace(&registry, &large, &mut history);
+    assert_eq!(history.len(), 1);
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
+fn the_up_front_read_can_leave_manifests_and_tests_to_the_model() {
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let _anchors = TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "0");
+    let _on = TestEnvGuard::set(SMALL_WORKSPACE_PREREAD_ENV, "1");
+    let base = std::env::temp_dir().join(format!("angel-preread-skip-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(base.join("tests")).unwrap();
+    for (path, text) in [
+        ("affine.js", "export const f = () => 1;\n"),
+        ("affine.spec.js", "test('f', () => {});\n"),
+        ("package.json", "{\"name\": \"x\"}\n"),
+        ("babel.config.js", "module.exports = {};\n"),
+        ("Cargo.toml", "[package]\nname = \"x\"\n"),
+        ("CMakeLists.txt", "add_executable(x x.cpp)\n"),
+        ("tests/lib.rs", "#[test] fn t() {}\n"),
+        ("wordy_test.py", "import unittest\n"),
+    ] {
+        std::fs::write(base.join(path), text).unwrap();
+    }
+    let mut registry = crate::agent::harness::ToolRegistry::new();
+    crate::agent::harness::registry::register_file_tools(&mut registry, base.clone());
+    let read = || {
+        let mut history = vec![crate::agent::club::ChatMsg::user("task")];
+        preread_small_workspace(&registry, &base, &mut history);
+        history[1]
+            .tool_calls
+            .iter()
+            .map(|call| call.args["path"].as_str().unwrap().to_string())
+            .collect::<Vec<_>>()
+    };
+
+    // Both off: everything that is text and not a licence or lock file.
+    let _m = TestEnvGuard::unset(PREREAD_SKIP_MANIFESTS_ENV);
+    let _t = TestEnvGuard::unset(PREREAD_SKIP_TESTS_ENV);
+    assert_eq!(read().len(), 8);
+
+    let _m = TestEnvGuard::set(PREREAD_SKIP_MANIFESTS_ENV, "1");
+    assert_eq!(
+        read(),
+        [
+            "CMakeLists.txt",
+            "affine.js",
+            "affine.spec.js",
+            "tests/lib.rs",
+            "wordy_test.py"
+        ]
+    );
+
+    let _t = TestEnvGuard::set(PREREAD_SKIP_TESTS_ENV, "1");
+    assert_eq!(read(), ["CMakeLists.txt", "affine.js"]);
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
+fn a_write_only_response_gains_one_test_run_when_switched_on() {
+    use crate::agent::club::ToolCall;
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let call = |name: &str| ToolCall {
+        id: format!("c_{name}"),
+        name: name.to_string(),
+        args: serde_json::json!({}),
+    };
+    let _off = TestEnvGuard::unset(TEST_AFTER_WRITE_ENV);
+    let mut calls = vec![call("write_file")];
+    append_test_after_write(&mut calls, 2);
+    assert_eq!(calls.len(), 1);
+
+    let _on = TestEnvGuard::set(TEST_AFTER_WRITE_ENV, "1");
+    append_test_after_write(&mut calls, 2);
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[1].name, "run_tests");
+    assert_eq!(calls[1].id, "call_autotest_2");
+
+    // The model ran its own check, or wrote nothing: left alone.
+    let mut own = vec![call("write_file"), call("shell")];
+    append_test_after_write(&mut own, 3);
+    assert_eq!(own.len(), 2);
+    let mut reads = vec![call("read_file")];
+    append_test_after_write(&mut reads, 3);
+    assert_eq!(reads.len(), 1);
+}
+
+#[test]
+fn only_a_full_pass_counts_as_green() {
+    // Every test ran and passed: the summary line is returned.
+    assert_eq!(
+        full_green_line("tests: 10 passed, 0 failed, 0 ignored — reward 1.00\npin: {}").as_deref(),
+        Some("tests: 10 passed, 0 failed, 0 ignored")
+    );
+    assert_eq!(
+        full_green_line("tests: 16 passed, 0 failed, 0 skipped — reward unlabeled (x)").as_deref(),
+        Some("tests: 16 passed, 0 failed, 0 skipped")
+    );
+    // Any failure, any skipped or ignored test, or nothing run: not green.
+    for red in [
+        "tests: 9 passed, 1 failed, 0 ignored — reward 0.90",
+        "tests: 2 passed, 0 failed, 23 skipped — reward unlabeled (x)",
+        "tests: 9 passed, 0 failed, 1 ignored — reward 1.00",
+        "tests: 0 passed, 0 failed, 0 skipped — reward unlabeled (x)",
+        "tool error: cargo test failed (exit 101)",
+        "check: 0 warnings, 0 errors — reward 1.00",
+        "tests: 10 passed",
+        "",
+    ] {
+        assert_eq!(full_green_line(red), None, "{red}");
+    }
+}
+
+#[test]
+fn the_completion_notice_says_who_reports_and_what_passed() {
+    let mut edited = std::collections::BTreeSet::new();
+    edited.insert("src/lib.rs".to_string());
+    let notice = completion_notice("tests: 10 passed, 0 failed, 0 ignored", &edited);
+    assert_eq!(
+        notice,
+        "Task complete.\nChanged: src/lib.rs\nTests: 10 passed, 0 failed, 0 ignored (run after the last edit).\nReported by angelX; the model wrote no closing message."
+    );
+    let none = completion_notice("tests: 1 passed, 0 failed, 0 skipped", &Default::default());
+    assert!(!none.contains("Changed:"));
+}
+
+#[test]
+fn the_up_front_read_can_arrive_as_context_instead_of_an_assistant_turn() {
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let _anchors = TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "0");
+    let _on = TestEnvGuard::set(SMALL_WORKSPACE_PREREAD_ENV, "1");
+    let _context = TestEnvGuard::set(PREREAD_AS_CONTEXT_ENV, "1");
+    let base = std::env::temp_dir().join(format!("angel-preread-ctx-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(base.join("src")).unwrap();
+    std::fs::write(base.join("src/lib.rs"), "pub fn one() -> u8 { 1 }\n").unwrap();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
+    crate::agent::harness::registry::register_file_tools(&mut registry, base.clone());
+    let mut history = vec![crate::agent::club::ChatMsg::user("task")];
+    preread_small_workspace(&registry, &base, &mut history);
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[1].role, crate::agent::club::ChatRole::User);
+    assert!(history[1].tool_calls.is_empty());
+    assert!(
+        history[1].content.starts_with("`src/lib.rs`\n```\n"),
+        "{}",
+        history[1].content
+    );
+    assert!(history[1].content.contains("pub fn one()"));
+    let _ = std::fs::remove_dir_all(&base);
+}
+
+#[test]
+fn a_long_file_read_up_front_as_context_arrives_whole() {
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let _anchors = TestEnvGuard::set("ANGEL_HASHLINE_ANCHORS", "0");
+    let _on = TestEnvGuard::set(SMALL_WORKSPACE_PREREAD_ENV, "1");
+    let _context = TestEnvGuard::set(PREREAD_AS_CONTEXT_ENV, "1");
+    let base = std::env::temp_dir().join(format!("angel-preread-whole-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&base);
+    std::fs::create_dir_all(&base).unwrap();
+    let body: String = (1..=650).map(|n| format!("line {n}\n")).collect();
+    std::fs::write(base.join("spec.js"), &body).unwrap();
+    let mut registry = crate::agent::harness::ToolRegistry::new();
+    crate::agent::harness::registry::register_file_tools(&mut registry, base.clone());
+    let mut history = vec![crate::agent::club::ChatMsg::user("task")];
+    preread_small_workspace(&registry, &base, &mut history);
+    let sent = &history[1].content;
+    for n in [1, 200, 201, 600, 650] {
+        assert!(sent.contains(&format!("line {n}\n")), "line {n} missing");
+    }
+    assert!(!sent.contains("next offset"), "{sent}");
+    assert_eq!(sent.matches("line ").count(), 650);
+    let _ = std::fs::remove_dir_all(&base);
+}

@@ -117,3 +117,14 @@ the labelled block. Durations are `slots.json`'s.
 | `gate` | On, 30x40 with the post at x=8 and the pennon spilling right: down until raised, the up flutters after. The raise frames are imported, not played: no rules clock for the climb. |
 | `wheel` | Imported, off. The rules' six 28 px planks (radius 40, 270 ticks a turn, clockwise) and the painted buckets visibly disagree: the six frames are about 0, 9, 13, 21, 30 and 37 degrees, so the nearest is up to about 12 degrees off a plank, the paddles are radial where a knight stands on a flat plank, and the planks peek out round them. A wheel painted at 60 degree steps with flat bucket tops would fit. |
 | `flagpole` | Imported, off. The rules grab anywhere on nine tiles (144 px) and the block pole is as tall; the painted pole is 100 px, so a knight on the stair beside it grabs in the air above its tip. `slots.json` documents a 96 px box. A pole drawn 144 px tall would need its pennon (about 65 px wide at that scale) looked at again. |
+
+## Inked sprites (the night of 2026-11-07)
+
+The knights, the snuffers, the capped snuffer, the cap, the wisp and the loaf are no longer labelled
+blocks: they are inked by hand as parts in `art/knight_art.py` and `art/foe_art.py` (the realm's own
+inks, read from `ink.rs` by `art/palette.py`), composed into every pose, and written to
+`render/overworld/arena/bannerpeak/art_data.rs` by `art/emit.py`. Run `python3 emit.py` in `art/` after
+changing the art; `knight_art.py` and `foe_art.py` write a contact sheet to look at.
+The seat's four tones are the digits 1 2 3 4 in the art and are swapped per seat at draw time
+(`art::SEAT_TONES`). The frames are anchored at the bottom centre of the rules' box, as the slots are;
+art still never sets a hitbox. King Cinder is drawn from the fight's state (`cinder.rs`), not from frames.

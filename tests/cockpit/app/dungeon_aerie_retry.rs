@@ -1,7 +1,7 @@
 // Extends the existing blocked-save/checkpoint/restart/idempotent-retry entry point.
 fn aerie_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::{
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::{
         Input, RoomKind, Run, aerie as a, countryside as c, pastimes::Game, world,
     };
     use std::collections::BTreeMap;
@@ -40,7 +40,7 @@ fn aerie_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert_eq!(a::progress(&r.home.countryside, &r.marks), (2, 7));
         let p = &c::PLOTS[10];
         r.arrive(world::room_of(&r.dungeon, p.room).unwrap(), p.at);
-        for _ in 0..crate::drive::together_shooter::home::BUY_HOLD {
+        for _ in 0..crate::delve::together_shooter::home::BUY_HOLD {
             r.step(&fire);
         }
         assert_eq!(r.marks.get("country:build:aerie"), Some(&1));

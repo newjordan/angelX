@@ -1,0 +1,474 @@
+{
+ "schema": "bomrekedan.kingdom.buildouts/v1",
+ "as_of": "year 106 (df-export/kingdom.json, 3546 buildings)",
+ "note": "The building game's production tree, from what Bomrekedan really has. status: standing (in the year-106 export), unfinished (placed in the export but not built: buildings[].unfinished), lot (not in the export; ground to build on). count is the number standing. inputs and outputs are goods; delve_source says which Spoil (crates/delve/src/realm.rs) brings each input home. staff.home_job uses personnel.json's home_job words; staff.in_fort counts citizens with that profession in the export. cost.wants is what the first level wants in spoils, in the raisings.rs PLANS shape: each next level wants that many times more. delve_effect.gift is a raisings.rs Gift (Wishes, Purse, Bombs, Mail, Ward) or, marked proposed, a gift the game does not have yet. Evidence cancellation counts come from the gamelog (lines after 230, where this fort's outpost starts), and include reloaded stretches, so they are larger than one clean timeline.",
+ "gifts": {
+  "Wishes": {"exists": true, "says": "A WISH MORE EACH DELVE"},
+  "Purse": {"exists": true, "says": "GOLD ON EVERY NEW FLOOR"},
+  "Bombs": {"exists": true, "says": "A BOMB MORE EACH DELVE"},
+  "Mail": {"exists": true, "says": "MAIL MORE EACH DELVE"},
+  "Ward": {"exists": true, "says": "WARDED ON EVERY ARRIVAL"},
+  "Mend": {"exists": false, "proposed": true, "says": "MORE HEALTH AT EACH DELVE'S START"},
+  "Feast": {"exists": false, "proposed": true, "says": "A LITTLE HEALTH AT EACH FLOOR'S FIRST STAIR"},
+  "Draught": {"exists": false, "proposed": true, "says": "QUICKER FEET THE FIRST MINUTE OF EACH FLOOR"},
+  "Edge": {"exists": false, "proposed": true, "says": "BETTER GEAR: THE FIRST WEAPON FOUND IS A TIER HIGHER"},
+  "Company": {"exists": false, "proposed": true, "says": "A HIRED COMPANION MAY JOIN THE DELVE"}
+ },
+ "bottlenecks": [
+  {"rank": 1, "need": "food (unrotten cookable item)", "cancellations": 4164, "jobs": "Prepare lavish meal 1727, fine 1335, easy 840", "span": "whole playthrough", "still_true_in_106": "yes: 1,368 of 1,893 food items are turkey eggshells", "fix": ["a-full-table quest", "butcher", "fishery", "orchard"]},
+  {"rank": 2, "need": "drink (fermentable fruit, leaf or plant)", "cancellations": 3551, "jobs": "Brew drink from fruit 2812+", "span": "gamelog 359 to 316744, the whole playthrough", "still_true_in_106": "yes: 1,846 drinks, all dwarven wine; no fruit in the stores", "fix": ["orchard", "still"]},
+  {"rank": 3, "need": "steel bars", "cancellations": 1394, "jobs": "breastplate 315, greaves 261, boots 210, gauntlets 208, helm 207", "span": "gamelog 3328 to 274762", "still_true_in_106": "partly: 30 steel bars in stock, six squads in steel", "fix": ["steel-line", "coke-smelter"]},
+  {"rank": 4, "need": "empty food storage (barrels, pots)", "cancellations": 1053, "jobs": "Brew drink from plant 865", "span": "early to mid", "still_true_in_106": "eased: 460 barrels, 433 bins", "fix": ["carpentry", "kiln"]},
+  {"rank": 5, "need": "microcline", "cancellations": 1048, "jobs": "Make four microcline blocks", "span": "gamelog 173562 to 316743, open at the end", "still_true_in_106": "yes: 22 boulders left", "fix": ["quarrying (delve: gem)", "blue-gate"]},
+  {"rank": 6, "need": "refined coal", "cancellations": 954, "jobs": "Make pig iron bars 310, Make steel bars 267, forge jobs", "span": "gamelog 3282 to 59565 (solved early)", "still_true_in_106": "no: 89 coal bars, 213 bituminous coal boulders", "fix": ["coke-smelter", "wood-furnace"]},
+  {"rank": 7, "need": "plump helmet spawn and cave wheat seed", "cancellations": 406, "jobs": "Plant seeds", "still_true_in_106": "eased: 65 plump helmet seeds", "fix": ["farms"]},
+  {"rank": 8, "need": "logistics (not a good): item inaccessible 860, dangerous terrain 540, job item misplaced 265, drop-off inaccessible 116", "cancellations": 1781, "note": "Hauling and paths. In the building game this is the Satisfactory half: placing stockpiles near workshops."},
+  {"rank": 9, "need": "platinum 56, bauxite 52, gold 38, cloth 16, pig iron 10", "cancellations": 172, "note": "Small, and solved: the stores now hold 999 platinum blocks and 1340 bauxite blocks."}
+ ],
+ "idle_trades": {
+  "note": "Citizens whose trade has no workshop standing in the year-106 export. Each is a lot waiting to be built.",
+  "list": [
+   {"profession": "Presser", "in_fort": 4, "needs": "screw-press"},
+   {"profession": "Siege Engineer", "in_fort": 4, "needs": "siege-workshop"},
+   {"profession": "Siege Operator", "in_fort": 3, "needs": "siege-workshop"},
+   {"profession": "Soap Maker", "in_fort": 3, "needs": "ashery"},
+   {"profession": "Lye Maker", "in_fort": 1, "needs": "ashery"},
+   {"profession": "Potash Maker", "in_fort": 1, "needs": "ashery"},
+   {"profession": "Weaver", "in_fort": 2, "needs": "loom"},
+   {"profession": "Tanner", "in_fort": 1, "needs": "tannery"},
+   {"profession": "Leatherworker", "in_fort": 1, "needs": "tannery"},
+   {"profession": "Miller", "in_fort": 1, "needs": "millstone"},
+   {"profession": "Potter", "in_fort": 1, "needs": "kiln"},
+   {"profession": "Glazer", "in_fort": 1, "needs": "kiln"},
+   {"profession": "Glassmaker", "in_fort": 1, "needs": "glass-furnace"},
+   {"profession": "Bowyer", "in_fort": 1, "needs": "bowyer"},
+   {"profession": "Fisherdwarf, Fish Cleaner, Fish Dissector", "in_fort": 3, "needs": "fishery"},
+   {"profession": "Furnace Operator", "in_fort": 0, "needs": "nobody runs the one smelter as a trade"}
+  ]
+ },
+ "buildouts": [
+  {
+   "id": "quarrying", "name": "The Galleries (mining)", "tier": 1, "kind": "extraction", "status": "standing", "count": 1,
+   "place_hint": "every level; seams by vein",
+   "inputs": [], "outputs": ["stone", "ore", "gem", "coal"],
+   "staff": {"home_job": ["miner"], "in_fort": 6},
+   "evidence": {"stocks": "4933 boulders, 604 rough gems in 48 kinds", "prospect": "df-export/prospect.txt"},
+   "delve_effect": {"gift": "Bombs", "exists": true, "note": "the Miners' Lodge's gift: miners make the powder"},
+   "cost": {"wants": {"gold": 120, "ore": 10}}
+  },
+  {
+   "id": "woodcutting", "name": "Woodcutters' Camp", "tier": 1, "kind": "extraction", "status": "standing", "count": 1,
+   "place_hint": "Greenwood",
+   "inputs": [], "outputs": ["wood"],
+   "staff": {"home_job": ["woodcutter"], "in_fort": 1},
+   "evidence": {"stocks": "1706 logs: hazel 394, pear 288, walnut 271, cherry 248, ginkgo 222, apple 154, cedar 124"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 50}}
+  },
+  {
+   "id": "stoneworks", "name": "Stoneworker's Workshops", "tier": 1, "kind": "workshop", "status": "standing", "count": 9,
+   "place_hint": "workshop floor, z97 (one is microcline)",
+   "inputs": ["stone"], "outputs": ["door", "bed", "table", "chair", "cabinet", "statue", "block", "coffin", "mug"],
+   "staff": {"home_job": ["mason", "stoneworker", "stonecutter", "stone carver"], "in_fort": 19},
+   "evidence": {"buildings": "766 doors, 647 statues, 443 cabinets, 383 beds, 183 tables and chairs", "masterpieces": "Kulet Unionsringed 30, Ilral Breachfigures 29", "completed": "Make rock door 17 orders, statue 12, bed 10"},
+   "delve_effect": {"gift": "Ward", "exists": true, "note": "a level of stoneworks makes the Beacon Tower cheaper; the doors are the ward"},
+   "cost": {"wants": {"gold": 150, "ore": 6}, "delve_source": {"stone": "ore (the Mines)"}}
+  },
+  {
+   "id": "carpentry", "name": "Carpenter's Workshops", "tier": 1, "kind": "workshop", "status": "standing", "count": 4,
+   "place_hint": "workshop floor, z97",
+   "inputs": ["wood"], "outputs": ["barrel", "bin", "bucket", "wheelbarrow", "bed", "pipe section", "corkscrew"],
+   "staff": {"home_job": ["carpenter"], "in_fort": 4},
+   "evidence": {"stocks": "460 barrels, 433 bins", "masterpieces": "Erib Standardhandled 37 (pipe sections), Oddom Gearedsecrets 19, Kogan Waningcobalt 19 (enormous corkscrews)", "cancellations_fixed": "empty food storage item 1053"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 100}}
+  },
+  {
+   "id": "farms", "name": "Farm Plots", "tier": 1, "kind": "farm", "status": "standing", "count": 8,
+   "place_hint": "hearth, z98",
+   "inputs": ["spawn", "seed"], "outputs": ["plump helmet", "cave wheat", "pig tail", "garden cress"],
+   "staff": {"home_job": ["planter", "farmer"], "in_fort": 14},
+   "evidence": {"cancellations": "plump helmet spawn 378, cave wheat seeds 28", "stocks": "379 plump helmet plants, 201 seeds of 19 kinds", "guildhalls": "The Ugly Frill (planters), The Harsh Boldness and The Lush Waves (farmers)"},
+   "delve_effect": {"gift": "Feast", "exists": false, "proposed": true},
+   "cost": {"wants": {"gold": 80, "bone": 4}, "delve_source": {"spawn": "bellmetal-floor finds (the Fungal deep)"}}
+  },
+  {
+   "id": "orchard", "name": "The Orchard", "tier": 1, "kind": "farm", "status": "lot", "count": 0,
+   "place_hint": "Greenwood, above the mine-head",
+   "inputs": ["fruit tree seed"], "outputs": ["apple", "cherry", "pear", "hazelnut", "raspberry"],
+   "staff": {"home_job": ["planter", "herbalist"], "in_fort": 10},
+   "evidence": {"why": "the biggest drink shortage is fruit (Brew drink from fruit cancelled 2812+ times)", "stocks": "11 apple, 9 hazel, 6 cherry, 4 pear tree seeds, 13 raspberry bush seeds sit unplanted"},
+   "delve_effect": {"gift": "Draught", "exists": false, "proposed": true},
+   "cost": {"wants": {"gold": 150, "wax": 6}}
+  },
+  {
+   "id": "still", "name": "Stills", "tier": 1, "kind": "workshop", "status": "standing", "count": 8,
+   "place_hint": "hearth, z98",
+   "inputs": ["fruit", "plant", "barrel"], "outputs": ["drink"],
+   "staff": {"home_job": ["brewer"], "in_fort": 1},
+   "evidence": {"cancellations": "fermentable fruit/leaf 3374, fermentable plant 177, empty storage 865 (the top shortage)", "completed": "Brew drink from plant 184 orders", "stocks": "1846 dwarven wine", "note": "eight stills and one brewer"},
+   "delve_effect": {"gift": "Draught", "exists": false, "proposed": true},
+   "cost": {"wants": {"gold": 120, "wax": 4}}
+  },
+  {
+   "id": "kitchen", "name": "Kitchens", "tier": 1, "kind": "workshop", "status": "standing", "count": 4,
+   "place_hint": "hearth, z98",
+   "inputs": ["meat", "fish", "plant", "egg"], "outputs": ["meal"],
+   "staff": {"home_job": ["cook"], "in_fort": 2},
+   "evidence": {"cancellations": "unrotten cookable solid item 3112, cookable item 1052", "masterpieces": "Vabôk Rampartswallowed 8 (garden cress and egg roasts)", "stocks": "food 1893, of which turkey eggshell 1368"},
+   "delve_effect": {"gift": "Feast", "exists": false, "proposed": true},
+   "cost": {"wants": {"gold": 120, "bone": 8}, "delve_source": {"meat": "bone (the Crypt)"}}
+  },
+  {
+   "id": "butcher", "name": "Butcher's Shop", "tier": 1, "kind": "workshop", "status": "standing", "count": 1,
+   "place_hint": "hearth, z98",
+   "inputs": ["carcass"], "outputs": ["meat", "fat", "hide", "bone"],
+   "staff": {"home_job": ["butcher"], "in_fort": 2},
+   "evidence": {"pets": "137 dogs, 84 cats, 79 yaks, turkeys, pigs, sheep", "cancellations": "butcherable unrotten nearby item 3"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 80, "bone": 6}}
+  },
+  {
+   "id": "farmers-workshop", "name": "Farmer's Workshop", "tier": 1, "kind": "workshop", "status": "standing", "count": 1,
+   "place_hint": "hearth, z98",
+   "inputs": ["plant", "milk", "honey"], "outputs": ["thread", "cheese", "seed"],
+   "staff": {"home_job": ["thresher", "milker", "beekeeper"], "in_fort": 4},
+   "evidence": {"stocks": "4112 thread", "jobs": "GeldAnimal queued"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 60}}
+  },
+  {
+   "id": "quarters", "name": "Bedroom Halls", "tier": 1, "kind": "housing", "status": "standing", "count": 350,
+   "place_hint": "every residential level",
+   "inputs": ["bed", "door", "cabinet"], "outputs": ["quarters"],
+   "staff": {"home_job": [], "in_fort": 0},
+   "evidence": {"buildings": "350 bedroom zones, 6 dormitories, 383 beds (30 microcline, 23 bauxite, 6 gold)"},
+   "delve_effect": {"gift": "Company", "exists": false, "proposed": true, "note": "a free bed lets a hired companion settle"},
+   "cost": {"wants": {"gold": 60}}
+  },
+  {
+   "id": "dining-halls", "name": "Dining and Meeting Halls", "tier": 1, "kind": "civic", "status": "standing", "count": 40,
+   "place_hint": "z92, z95, z99",
+   "inputs": ["table", "chair", "meal"], "outputs": ["happiness"],
+   "staff": {"home_job": [], "in_fort": 0},
+   "evidence": {"buildings": "4 dining halls, 36 meeting halls, 183 tables, 183 chairs"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 90}}
+  },
+  {
+   "id": "wood-furnace", "name": "Wood Furnaces", "tier": 2, "kind": "furnace", "status": "standing", "count": 2,
+   "place_hint": "forge level, z81",
+   "inputs": ["wood"], "outputs": ["charcoal", "ash"],
+   "staff": {"home_job": ["charcoal burner"], "in_fort": 2},
+   "evidence": {"completed": "Make charcoal 52 orders", "buildings": "claystone and shale"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 200, "ember": 2}}
+  },
+  {
+   "id": "smelter", "name": "The Smelter", "tier": 2, "kind": "furnace", "status": "standing", "count": 1,
+   "place_hint": "forge level, z81 (dolomite)",
+   "inputs": ["ore", "fuel", "flux"], "outputs": ["iron bar", "pig iron bar", "steel bar", "bronze bar", "coke"],
+   "staff": {"home_job": ["furnace operator"], "in_fort": 0},
+   "evidence": {"completed": "Make pig iron bars 69, Make steel bars 60, Smelt hematite 13, limonite 12, magnetite 11", "bottleneck": "one smelter did coking, smelting and steel; refined coal cancellations 954 (Make pig iron bars 310, Make steel bars 267)"},
+   "delve_effect": {"gift": "Mail", "exists": true, "note": "with the forge"},
+   "cost": {"wants": {"gold": 450, "ore": 30, "ember": 6}, "delve_source": {"ore": "ore (the Mines)", "fuel": "ember (Dragon Keep)"}}
+  },
+  {
+   "id": "coke-smelter", "name": "Coke Smelter (a second smelter for fuel)", "tier": 2, "kind": "furnace", "status": "lot", "count": 0,
+   "place_hint": "forge level, z81, beside the Smelter",
+   "inputs": ["bituminous coal", "lignite"], "outputs": ["refined coal"],
+   "staff": {"home_job": ["furnace operator", "charcoal burner"], "in_fort": 2},
+   "evidence": {"why": "refined coal cancellations 954; in Dwarf Fortress coke is made at a smelter, and there was only one", "stocks": "213 bituminous coal boulders, 89 coal bars"},
+   "delve_effect": {"gift": "Ward", "exists": true, "note": "halves the ember cost of Beacon Tower levels"},
+   "cost": {"wants": {"gold": 300, "ore": 20, "ember": 8}}
+  },
+  {
+   "id": "forge", "name": "Metalsmith's Forge", "tier": 2, "kind": "furnace", "status": "standing", "count": 1,
+   "place_hint": "forge level, z81 (iron)",
+   "inputs": ["bar", "fuel"], "outputs": ["weapon", "armor", "shield", "anvil", "chain", "tool"],
+   "staff": {"home_job": ["weaponsmith", "armorer", "blacksmith", "metalsmith", "metalcrafter"], "in_fort": 11},
+   "evidence": {"cancellations": "steel bars 1394 (breastplate 315, greaves 261, boots 210, gauntlets 208, helm 207)", "stocks": "61 steel weapons, 43 steel shields, 722 armour pieces, 2026 gloves", "masterpieces": "Ùshrir Lashedgate's steel greaves and gauntlets; Urdim Metalgrouped's boots, helm, gauntlet", "note": "eleven smiths share one forge"},
+   "delve_effect": {"gift": "Mail", "exists": true, "says": "MAIL MORE EACH DELVE"},
+   "cost": {"wants": {"gold": 450, "ore": 30, "forgeheart": 1}, "delve_source": {"bar": "ore (the Mines)", "fuel": "ember (Dragon Keep)"}}
+  },
+  {
+   "id": "steel-line", "name": "The Steel Line", "tier": 3, "kind": "chain", "status": "standing", "count": 1,
+   "place_hint": "Smelter and Forge, z81",
+   "inputs": ["iron ore", "flux", "refined coal", "pig iron"], "outputs": ["steel bar"],
+   "staff": {"home_job": ["furnace operator", "weaponsmith", "armorer"], "in_fort": 5},
+   "evidence": {"squads": "six steel squads: The Steel Guard, Steel Mace Squad, Steel Crossbow Squad, Steel Swords, Steel Spears (The Extrication of Barricades), The Mute Hammers", "stocks": "30 steel bars, 178 steel blocks"},
+   "delve_effect": {"gift": "Edge", "exists": false, "proposed": true, "note": "steel kit means better starting gear"},
+   "cost": {"wants": {"gold": 650, "ore": 40, "ember": 10, "forgeheart": 2}}
+  },
+  {
+   "id": "craftsdwarfs", "name": "Craftsdwarf's Workshops", "tier": 2, "kind": "workshop", "status": "standing", "count": 2,
+   "place_hint": "workshop floor, z97",
+   "inputs": ["stone", "bone", "wood", "shell"], "outputs": ["crafts", "mug", "toy", "instrument", "bolt"],
+   "staff": {"home_job": ["craftsdwarf", "stonecrafter", "woodcrafter"], "in_fort": 6},
+   "evidence": {"stocks": "724 goblets, 80 instruments (9 platinum), 3328 ammo"},
+   "delve_effect": {"gift": "Purse", "exists": true, "note": "crafts are what caravans buy"},
+   "cost": {"wants": {"gold": 200, "bone": 10}}
+  },
+  {
+   "id": "jewelers", "name": "Jeweler's Workshops", "tier": 2, "kind": "workshop", "status": "standing", "count": 2,
+   "place_hint": "workshop floor, z97",
+   "inputs": ["rough gem"], "outputs": ["cut gem", "decorated item"],
+   "staff": {"home_job": ["gem cutter", "gem setter"], "in_fort": 4},
+   "evidence": {"stocks": "604 rough gems, 86 cut small gems"},
+   "delve_effect": {"gift": "Purse", "exists": true},
+   "cost": {"wants": {"gold": 250, "gem": 6}}
+  },
+  {
+   "id": "clothier", "name": "Clothier's Shop", "tier": 2, "kind": "workshop", "status": "standing", "count": 1,
+   "place_hint": "workshop floor, z97 (bauxite)",
+   "inputs": ["cloth", "leather", "silk"], "outputs": ["clothing", "bandage"],
+   "staff": {"home_job": ["clothier", "dyer"], "in_fort": 3},
+   "evidence": {"mood": "Alåth Tradeportal claimed it in a fey mood at the end of the log (gamelog 315148)", "stocks": "172 cloth, 4112 thread, 484 trousers, 1414 shoes"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 150, "wax": 4}}
+  },
+  {
+   "id": "loom", "name": "Loom", "tier": 2, "kind": "workshop", "status": "lot", "count": 0,
+   "place_hint": "workshop floor, z97, beside the Clothier",
+   "inputs": ["thread"], "outputs": ["cloth"],
+   "staff": {"home_job": ["weaver"], "in_fort": 2},
+   "evidence": {"why": "4112 thread and only 172 cloth; two weavers and no loom", "cancellations": "Make rock bed: Needs 1 cloth 16"},
+   "delve_effect": {"gift": "Mend", "exists": false, "proposed": true, "note": "bandages for the hospital"},
+   "cost": {"wants": {"gold": 150, "bond": 2}}
+  },
+  {
+   "id": "tannery", "name": "Tanner's Shop and Leather Works", "tier": 2, "kind": "workshop", "status": "lot", "count": 0,
+   "place_hint": "hearth, beside the Butcher",
+   "inputs": ["hide"], "outputs": ["leather", "bag", "quiver", "leather armour"],
+   "staff": {"home_job": ["tanner", "leatherworker"], "in_fort": 2},
+   "evidence": {"why": "81 tanned skins in stock, no tannery standing; the tanner Thob Gravelgulfs bled to death in 105"},
+   "delve_effect": {"gift": "Mail", "exists": true, "note": "leather pieces count as mail at level 1"},
+   "cost": {"wants": {"gold": 150, "bone": 6, "scale": 1}}
+  },
+  {
+   "id": "ashery", "name": "Ashery and Soap Maker's Workshop", "tier": 2, "kind": "workshop", "status": "lot", "count": 0,
+   "place_hint": "forge level, beside the wood furnaces",
+   "inputs": ["ash", "tallow"], "outputs": ["lye", "potash", "soap"],
+   "staff": {"home_job": ["soap maker", "lye maker", "potash maker"], "in_fort": 5},
+   "evidence": {"why": "five citizens of these trades and no workshop; soap is what the hospital lacks"},
+   "delve_effect": {"gift": "Mend", "exists": false, "proposed": true},
+   "cost": {"wants": {"gold": 180, "wax": 8}}
+  },
+  {
+   "id": "kiln", "name": "Kiln", "tier": 2, "kind": "furnace", "status": "lot", "count": 0,
+   "place_hint": "forge level, z81",
+   "inputs": ["clay", "fuel"], "outputs": ["pot", "jug", "glazed ware"],
+   "staff": {"home_job": ["potter", "glazer"], "in_fort": 2},
+   "evidence": {"why": "empty food storage item 1053 cancellations; a potter and a glazer with no kiln"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 200, "ember": 3}}
+  },
+  {
+   "id": "glass-furnace", "name": "Glass Furnace", "tier": 2, "kind": "furnace", "status": "lot", "count": 0,
+   "place_hint": "forge level, z81",
+   "inputs": ["sand", "fuel"], "outputs": ["glass", "window", "vial"],
+   "staff": {"home_job": ["glassmaker"], "in_fort": 1},
+   "evidence": {"why": "a glassmaker and no furnace; 10 green and 4 clear raw glass in stock"},
+   "delve_effect": {"gift": "Mend", "exists": false, "proposed": true, "note": "vials for potions"},
+   "cost": {"wants": {"gold": 250, "ember": 4, "ledgerglass": 1}}
+  },
+  {
+   "id": "screw-press", "name": "Screw Press", "tier": 2, "kind": "workshop", "status": "lot", "count": 0,
+   "place_hint": "hearth, z98",
+   "inputs": ["plant", "honeycomb"], "outputs": ["oil", "press cake", "wax"],
+   "staff": {"home_job": ["presser"], "in_fort": 4},
+   "evidence": {"why": "four pressers and no press"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 120, "wax": 4}}
+  },
+  {
+   "id": "bowyer", "name": "Bowyer's Workshop", "tier": 2, "kind": "workshop", "status": "lot", "count": 0,
+   "place_hint": "barracks level",
+   "inputs": ["wood", "bone"], "outputs": ["crossbow", "bow"],
+   "staff": {"home_job": ["bowyer"], "in_fort": 1},
+   "evidence": {"why": "a bowyer, a crossbow squad and an archery range, no bowyer's workshop; 33 quivers, 3328 ammo"},
+   "delve_effect": {"gift": "Edge", "exists": false, "proposed": true},
+   "cost": {"wants": {"gold": 200, "bone": 6}}
+  },
+  {
+   "id": "fishery", "name": "Fishery", "tier": 2, "kind": "workshop", "status": "lot", "count": 0,
+   "place_hint": "beside the pond (z101) or the cistern",
+   "inputs": ["raw fish"], "outputs": ["fish", "fish bone"],
+   "staff": {"home_job": ["fisher", "fish cleaner", "fish dissector"], "in_fort": 3},
+   "evidence": {"why": "three fishing trades, 12 raw fish in stock, no fishery; food is the top shortage"},
+   "delve_effect": {"gift": "Feast", "exists": false, "proposed": true},
+   "cost": {"wants": {"gold": 100}}
+  },
+  {
+   "id": "mechanics", "name": "Mechanic's Workshops", "tier": 2, "kind": "workshop", "status": "standing", "count": 4,
+   "place_hint": "z96 and z97",
+   "inputs": ["stone", "bar"], "outputs": ["mechanism", "trap component", "chain"],
+   "staff": {"home_job": ["mechanic", "engineer"], "in_fort": 1},
+   "evidence": {"stocks": "52 trap components, 52 trap parts, 15 chains", "note": "four workshops and one mechanic"},
+   "delve_effect": {"gift": "Bombs", "exists": true},
+   "cost": {"wants": {"gold": 300, "ore": 12, "bellmetal": 1}}
+  },
+  {
+   "id": "trade-depot", "name": "Trade Depot", "tier": 2, "kind": "civic", "status": "standing", "count": 1,
+   "place_hint": "surface, z100",
+   "inputs": ["crafted goods"], "outputs": ["imports", "gold"],
+   "staff": {"home_job": ["manager"], "in_fort": 1},
+   "evidence": {"events": "MERCHANT 18 in six years; caravans from Nefastasmel (dwarves), Ayafasalore (elves), Testrigil (humans), Sasuohast Thijxs (naga)", "wealth": "imported 70366, exported 25450"},
+   "delve_effect": {"gift": "Purse", "exists": true, "says": "GOLD ON EVERY NEW FLOOR"},
+   "cost": {"wants": {"gold": 500, "bond": 2}}
+  },
+  {
+   "id": "taverns", "name": "The Brunch of Paddling and The Copper Peppers", "tier": 2, "kind": "civic", "status": "standing", "count": 2,
+   "place_hint": "tavern:The Brunch of Paddling; tavern:The Copper Peppers",
+   "inputs": ["drink", "goblet", "instrument"], "outputs": ["visitors", "rumours", "residents"],
+   "staff": {"home_job": ["bard", "poet", "performer"], "in_fort": 9},
+   "evidence": {"locations": "INN_TAVERN 1 and 2", "visitors": "erinys bards and dancers, human bards and poets, gnoll poets, a gnoll chief", "tales": "'has shared many tales from beyond Whipstirs' (gamelog, many)"},
+   "delve_effect": {"gift": "Purse", "exists": true, "note": "the Tavern plan in raisings.rs is this"},
+   "cost": {"wants": {"gold": 950, "bone": 10, "wax": 15, "wishmote": 2}}
+  },
+  {
+   "id": "machine-works", "name": "The Machine Works", "tier": 3, "kind": "power", "status": "standing", "count": 175,
+   "place_hint": "windmill field (surface, z100) and the pump stack (z101, z100, z94, z89)",
+   "inputs": ["wind", "pipe section", "corkscrew", "block"], "outputs": ["power", "lifted water"],
+   "staff": {"home_job": ["pump operator", "mechanic", "carpenter"], "in_fort": 6},
+   "evidence": {"buildings": "30 windmills, 45 gear assemblies, 33 horizontal and 15 vertical axles, 52 screw pumps (z89:12, z94:8, z100:24, z101:8), 4 wells (z93), 1 pond (z101, FillPond queued)", "death": "Zuglar Oartails drowned, year 106", "mods": "dry mines (no aquifers) and Flowing Water: all the water is lifted"},
+   "delve_effect": {"gift": "Bombs", "exists": true, "note": "proposed to share the Miners' Lodge's gift: power drives the powder mill"},
+   "cost": {"wants": {"gold": 650, "ore": 20, "bellmetal": 2, "wishmote": 1}, "per_level": "each level adds 10 windmills and 15 pumps to what powered workshops can draw"}
+  },
+  {
+   "id": "millstone", "name": "The Millstone (The Cremation of Rogues)", "tier": 3, "kind": "workshop", "status": "lot", "count": 0,
+   "place_hint": "beside the machine works",
+   "inputs": ["power", "cave wheat", "dye plant"], "outputs": ["flour", "dye"],
+   "staff": {"home_job": ["miller"], "in_fort": 1},
+   "evidence": {"artifact": "The Cremation of Rogues, tetrahedrite millstone made by the baroness Uvash (artifact 2064)", "why": "no millstone or quern stands; a miller with no mill"},
+   "delve_effect": {"gift": "Wishes", "exists": true, "note": "the baroness's own artifact turning: the Wayside Shrine's friend"},
+   "cost": {"wants": {"gold": 300, "ore": 10, "wishmote": 2}}
+  },
+  {
+   "id": "siege-workshop", "name": "Siege Workshop", "tier": 3, "kind": "workshop", "status": "lot", "count": 0,
+   "place_hint": "gate level, behind the drawbridge",
+   "inputs": ["wood", "bar"], "outputs": ["ballista", "catapult", "ballista arrow"],
+   "staff": {"home_job": ["siege engineer", "siege operator"], "in_fort": 7},
+   "evidence": {"why": "seven siege trades and no workshop; two sieges (104 goblin, 105 ratfolk) and a dozen ambushes"},
+   "delve_effect": {"gift": "Bombs", "exists": true},
+   "cost": {"wants": {"gold": 650, "ore": 30, "warhorn": 1}}
+  },
+  {
+   "id": "hospital", "name": "The Tired Ivy (hospital)", "tier": 3, "kind": "civic", "status": "standing", "count": 1,
+   "place_hint": "hospital:The Tired Ivy",
+   "inputs": ["cloth", "soap", "splint", "thread", "bed"], "outputs": ["healing"],
+   "staff": {"home_job": ["chief medical dwarf", "doctor", "diagnostician", "surgeon", "bone doctor"], "in_fort": 9},
+   "evidence": {"location": "HOSPITAL 26; 3 traction benches; doctors' guildhall The Elder Years", "stocks": "9 splints, 9 crutches; no soap (no ashery)"},
+   "delve_effect": {"gift": "Mend", "exists": false, "proposed": true, "says": "MORE HEALTH AT EACH DELVE'S START"},
+   "cost": {"wants": {"gold": 450, "wax": 12, "bone": 12, "hearthstone": 1}}
+  },
+  {
+   "id": "temples", "name": "The Temples (28)", "tier": 3, "kind": "civic", "status": "standing", "count": 28,
+   "place_hint": "temple:* (The Temple of Justice, The Red Wheel, The Brass Labor, The Sanctum of Beaching ...)",
+   "inputs": ["value (furniture, statues)", "offering"], "outputs": ["blessing"],
+   "staff": {"home_job": ["priest"], "in_fort": 2},
+   "evidence": {"locations": "28 TEMPLE locations: dwarf, human, erinys, elf, kobold (Gimis, three temples), roc, stingray and basking shark gods; 16 offering places (13 platinum)", "lot": "The Ripe Cult's temple was abandoned (gamelog 172781)"},
+   "delve_effect": {"gift": "Wishes", "exists": true, "note": "the Wayside Shrine's gift; one point per five temples furnished"},
+   "cost": {"wants": {"gold": 120, "bone": 12, "wax": 8, "wishmote": 3}}
+  },
+  {
+   "id": "guildhalls", "name": "The Guildhalls (9)", "tier": 3, "kind": "civic", "status": "standing", "count": 9,
+   "place_hint": "guildhall:The Bronze Cave, The Crystalline Boulders, The Elder Years ...",
+   "inputs": ["value (furniture)"], "outputs": ["master craft"],
+   "staff": {"home_job": [], "in_fort": 0},
+   "evidence": {"locations": "farmers (The Harsh Boldness, The Lush Waves), craftsdwarves (The Defective Starvation, The Oar of Labors, The Walled Rampart), stoneworkers (The Bronze Cave), metalsmiths (The Crystalline Boulders), doctors (The Elder Years), planters (The Ugly Frill)", "gamelog": "guilds founded: Beaks, Hall of Pages, Company of Towers, Golden Guild, Guild of Braving, Flaxen Guild; every hall agreement satisfied"},
+   "delve_effect": {"gift": "Edge", "exists": false, "proposed": true, "note": "a guild's master craft"},
+   "cost": {"wants": {"gold": 400, "bond": 3}}
+  },
+  {
+   "id": "library", "name": "The Library", "tier": 3, "kind": "civic", "status": "standing", "count": 57,
+   "place_hint": "bookcases (57; 39 platinum)",
+   "inputs": ["book", "paper"], "outputs": ["knowledge"],
+   "staff": {"home_job": ["papermaker", "bookbinder"], "in_fort": 1},
+   "evidence": {"artifacts": "12 codices by naga, elf, goblin, erinys and dwarf writers (Elements of the Erinys, On the Kobolds, The Struggle Understood, Never Underestimate the Dwarf ...)", "stocks": "15 books"},
+   "delve_effect": {"gift": "Wishes", "exists": true, "note": "a codex read is a wish more"},
+   "cost": {"wants": {"gold": 300, "ledgerglass": 2}}
+  },
+  {
+   "id": "barracks", "name": "Barracks and Archery Range", "tier": 3, "kind": "military", "status": "standing", "count": 7,
+   "place_hint": "z88, z93, z100",
+   "inputs": ["weapon", "armor"], "outputs": ["trained squads"],
+   "staff": {"home_job": ["swordmaster", "speardwarf", "axe lord", "mace lord", "marksdwarf"], "in_fort": 36},
+   "evidence": {"buildings": "6 barracks (one 'Steel Swords barracks'), 1 archery range, 6 archery targets, 15 weapon racks, 16 armor stands", "squads": "6 squads of 6, all in steel"},
+   "delve_effect": {"gift": "Company", "exists": false, "proposed": true, "note": "a soldier may follow a knight down"},
+   "cost": {"wants": {"gold": 450, "ore": 20, "warhorn": 1}}
+  },
+  {
+   "id": "dungeon", "name": "The Dungeon (cages and chains)", "tier": 3, "kind": "civic", "status": "standing", "count": 1,
+   "place_hint": "dungeon zone, z95",
+   "inputs": ["cage", "chain", "captured beast"], "outputs": ["trained beast", "justice"],
+   "staff": {"home_job": ["dungeon master", "animal trainer"], "in_fort": 1},
+   "evidence": {"buildings": "1 Dungeon civzone, 2 cages, 8 chains", "position": "DUNGEON_MASTER Ùshrir Oilclub"},
+   "delve_effect": {"gift": "Ward", "exists": true},
+   "cost": {"wants": {"gold": 200, "bone": 6, "bond": 1}}
+  },
+  {
+   "id": "tombs", "name": "The Tombs", "tier": 3, "kind": "civic", "status": "standing", "count": 11,
+   "place_hint": "z90 (ten) and z95 (one)",
+   "inputs": ["coffin", "slab"], "outputs": ["rest for the dead"],
+   "staff": {"home_job": [], "in_fort": 0},
+   "evidence": {"buildings": "11 tomb zones, 10 coffins (9 platinum in stock), 1 slab", "dead": "4 dwarves in the export (Cerol, Monom, Thob, Zuglar)"},
+   "delve_effect": null,
+   "cost": {"wants": {"gold": 100, "bone": 4}}
+  },
+  {
+   "id": "statue-garden", "name": "The Statue Garden", "tier": 4, "kind": "showpiece", "status": "standing", "count": 358,
+   "place_hint": "z91",
+   "inputs": ["statue"], "outputs": ["standing"],
+   "staff": {"home_job": ["engraver", "stone carver"], "in_fort": 5},
+   "evidence": {"buildings": "647 statues in all, 358 on z91; 8338 engravings; 517 masterpiece engravings", "gamelog": "Reg Onolnikuz's masterpieces defaced twice (285992, 296066)"},
+   "delve_effect": {"gift": "Ward", "exists": true},
+   "cost": {"wants": {"gold": 950, "gem": 10, "wishmote": 2}}
+  },
+  {
+   "id": "platinum-hall", "name": "The Platinum Hall", "tier": 4, "kind": "showpiece", "status": "standing", "count": 1,
+   "place_hint": "the platinum rooms (z92 to z95)",
+   "inputs": ["platinum"], "outputs": ["standing"],
+   "staff": {"home_job": ["mason", "metalsmith"], "in_fort": 4},
+   "evidence": {"buildings": "119 platinum statues, 73 platinum tables and chairs, 108 platinum cabinets, 51 platinum doors, 39 platinum bookcases, 21 platinum display cases, 96 native platinum tables, 68 native platinum statues", "stocks": "999 platinum blocks, 500 native platinum blocks, 342 boulders", "completed": "Make native platinum table 3, statue 3"},
+   "delve_effect": {"gift": "Purse", "exists": true},
+   "cost": {"wants": {"gold": 1200, "gem": 12, "wishmote": 3}}
+  },
+  {
+   "id": "platinum-doors", "name": "The Platinum Doors", "tier": 4, "kind": "showpiece", "status": "unfinished", "count": 17,
+   "place_hint": "z94 (fourteen), z95 (two), z92 (one)",
+   "inputs": ["platinum door"], "outputs": ["standing"],
+   "staff": {"home_job": ["mason", "hauler"], "in_fort": 9},
+   "evidence": {"buildings": "17 Door buildings, platinum, unfinished, each with a ConstructBuilding job queued"},
+   "delve_effect": {"gift": "Ward", "exists": true},
+   "cost": {"wants": {"gold": 300, "ore": 8}}
+  },
+  {
+   "id": "gold-statues", "name": "The Gold Statues", "tier": 4, "kind": "showpiece", "status": "unfinished", "count": 10,
+   "place_hint": "z99 (nine) and z93 (one)",
+   "inputs": ["gold statue"], "outputs": ["standing"],
+   "staff": {"home_job": ["hauler"], "in_fort": 0},
+   "evidence": {"buildings": "10 Statue buildings, gold, unfinished, ConstructBuilding queued; 48 gold statues in the stores"},
+   "delve_effect": {"gift": "Purse", "exists": true},
+   "cost": {"wants": {"gold": 400}}
+  },
+  {
+   "id": "blue-gate", "name": "The Blue Gate (microcline)", "tier": 4, "kind": "showpiece", "status": "standing", "count": 56,
+   "place_hint": "the microcline bridge and doors",
+   "inputs": ["microcline"], "outputs": ["standing"],
+   "staff": {"home_job": ["stonecutter", "mason"], "in_fort": 10},
+   "evidence": {"buildings": "54 microcline doors, 1 microcline bridge, 1 microcline Stoneworker's Workshop, 19 microcline statues", "cancellations": "Needs microcline 1048, open at the end of the log", "artifact": "Blamedrain the Everseeing Standards (microcline statue)"},
+   "delve_effect": {"gift": "Ward", "exists": true, "says": "WARDED ON EVERY ARRIVAL"},
+   "cost": {"wants": {"gold": 600, "gem": 12, "wishmote": 2}, "delve_source": {"microcline": "gem (the Mines)"}}
+  },
+  {
+   "id": "artifact-hall", "name": "The Artifact Hall", "tier": 4, "kind": "showpiece", "status": "standing", "count": 21,
+   "place_hint": "display furniture (21; two with PutItemOnDisplay queued, z92)",
+   "inputs": ["artifact"], "outputs": ["standing"],
+   "staff": {"home_job": [], "in_fort": 0},
+   "evidence": {"artifacts": "43 on record: 12 codices, 1 instrument (The Music of Diamond), 13 mood artifacts, 17 named steel arms", "wealth": "displayed 1003503 of 4976556"},
+   "delve_effect": {"gift": "Wishes", "exists": true, "note": "each artifact displayed is a wishmote toward the next level"},
+   "cost": {"wants": {"gold": 800, "wishmote": 4}}
+  }
+ ]
+}

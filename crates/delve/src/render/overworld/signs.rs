@@ -81,7 +81,10 @@ pub fn arms(cv: &mut Img, origin: (i32, i32), near: (f32, f32)) -> Vec<(i32, i32
         let (x, y) = (fx - origin.0, fy - origin.1 - 22);
         for (way, name) in &post.arms {
             let text = name.to_uppercase();
-            let w = text_width(&text);
+            // A way down wears a stair going down before its name.
+            let down = signs::arm_kind(name) == signs::ArmKind::Dungeon;
+            let lead = if down { 8 } else { 0 };
+            let w = text_width(&text) + lead;
             let (tx, ty) = match way {
                 Way::East => (x + 10, y + 3),
                 Way::West => (x - 10 - w, y + 7),
@@ -89,7 +92,13 @@ pub fn arms(cv: &mut Img, origin: (i32, i32), near: (f32, f32)) -> Vec<(i32, i32
                 Way::South => (x - w / 2, y + 26),
             };
             cv.rect(tx - 2, ty - 1, w + 4, 9, 'K');
-            cv.text(tx, ty, &text, 'h');
+            if down {
+                for k in 0..4 {
+                    cv.rect(tx + k, ty + 1 + k, 2, 1, 'R');
+                    cv.put(tx + k, ty + 2 + k, 'B');
+                }
+            }
+            cv.text(tx + lead, ty, &text, 'h');
             taken.push((tx - 2, ty - 1, w + 4, 9));
         }
     }

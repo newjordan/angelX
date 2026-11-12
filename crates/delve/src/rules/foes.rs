@@ -11,6 +11,9 @@
 //! - **Loot goblins** run with a sack of gold and slip away if not caught.
 //! - **Hobs** lob bombs at where a knight stands; a red ring marks where.
 //! - **Shamans** box a knight in with four serpent wards that spit.
+//! - **Fungelders** keep their distance and lob spore-sacs; where a sac
+//!   bursts, mushrooms stand up that stop every shot in the room —
+//!   knight's and monster's alike — until they rot or are felled.
 //!
 //! What they make — kegs, bombs in the air, new monsters, a goblin gone —
 //! comes out of each monster's step as `Deeds`, for the run to make so.
@@ -38,6 +41,8 @@ pub(super) struct Deeds {
     pub(super) flings: Vec<((f32, f32), (f32, f32))>,
     /// The Whirlgraves' wells opened: where they lean.
     pub(super) wells: Vec<(f32, f32)>,
+    /// The Fungelders' sacs lobbed: from the sack, at where a knight stands.
+    pub(super) spores: Vec<((f32, f32), (f32, f32))>,
     /// A charge that runs knights down: where, its reach, its damage and
     /// the way it pushes.
     pub(super) rams: Vec<(f32, f32, f32, u32, (f32, f32))>,
@@ -132,6 +137,28 @@ pub const BROOD_BROOD: usize = 8;
 pub const FLING_BITE: u32 = 10;
 pub const FLING_STOMP: f32 = 1.4;
 
+/// A Fungelder's spore-sac in flight: lobbed from the sack with a hob's
+/// own arc, bursting where it lands into a ring of mushrooms.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Spore {
+    pub from: (f32, f32),
+    pub x: f32,
+    pub y: f32,
+    pub fall: u32,
+}
+
+/// The Fungelder: its wind-up, how long a sac hangs in the air, how long
+/// a mushroom stands before it rots, the most stems a room will humour,
+/// a mushroom's hide, the ring the three stand in, and each stem's girth.
+pub const FUNG_WINDUP: u32 = 24;
+pub const SPORE_FALL: u32 = 30;
+pub const SPORES_MAX: usize = 4;
+pub const MUSHROOM_LIFE: u32 = 8 * HZ;
+pub const MUSHROOM_ROOM: usize = 9;
+pub const MUSHROOM_HP: u32 = 40;
+pub const MUSHROOM_RING: f32 = 1.7;
+pub const MUSHROOM_GIRTH: f32 = 1.5;
+
 /// A slime's health and size by its stage (0 big, 1 split once, 2 small).
 pub fn slime(stage: u8) -> (u32, f32) {
     match stage {
@@ -162,7 +189,7 @@ pub(super) fn act(
     if !matches!(
         enemy.kind,
         Sapper | Necromancer | Warboar | Slime | Goblin | Hob | Shaman | Ward | Risen
-            | Broodmarrow | Oathbound | Whirlgrave
+            | Broodmarrow | Oathbound | Whirlgrave | Fungelder
     ) {
         return false;
     }
@@ -375,6 +402,26 @@ pub(super) fn act(
                 }
             }
         },
+        // The Fungelder: a gardener that keeps its distance and lobs
+        // spore-sacs, and whose garden has opinions. It does not
+        // out-damage a room; it takes the room's sightlines away, so a
+        // Marksman behind its mushrooms becomes a rumour.
+        Fungelder => match enemy.stage {
+            // The stroll: never nearer than a shout, never gone.
+            0 => {
+                keep_off(enemy, 8.0, 13.0, 2.1);
+                if enemy.timer % 110 == 50 && target.is_some() {
+                    (enemy.stage, enemy.timer) = (1, 0);
+                }
+            }
+            // The lob: it hitches its sack, and something damp sails out.
+            _ => {
+                if enemy.timer >= FUNG_WINDUP {
+                    deeds.spores.push(((enemy.x, enemy.y), (tx, ty)));
+                    (enemy.stage, enemy.timer) = (0, 0);
+                }
+            }
+        },
         // The Oathbound: their stride is their oath's business. While the
         // twin lives they hold formation; alone, they grieve at a pace no
         // grave should allow, with a shove in it.
@@ -478,6 +525,16 @@ impl Run {
                     x,
                     y,
                     fall: FLING_FALL,
+                });
+            }
+        }
+        for (from, (x, y)) in deeds.spores {
+            if self.sacs.len() < SPORES_MAX {
+                self.sacs.push(Spore {
+                    from,
+                    x,
+                    y,
+                    fall: SPORE_FALL,
                 });
             }
         }
@@ -672,6 +729,73 @@ impl Run {
             }
             self.sounds.push("rock_land");
             self.fx.push(Fx::Shake(3));
+        }
+    }
+
+    /// The Fungelder's sacs come down and garden: where one bursts, three
+    /// mushrooms stand up in a ring — thick, democratic, brief. They stop
+    /// every shot in the room, knight's and monster's alike, and rot in
+    /// eight seconds; a sword, a bomb or a mine fells them early.
+    pub(super) fn tick_sacs(&mut self) {
+        let mut landed = Vec::new();
+        for sac in &mut self.sacs {
+            sac.fall = sac.fall.saturating_sub(1);
+            if sac.fall == 0 {
+                landed.push((sac.from, (sac.x, sac.y)));
+            }
+        }
+        self.sacs.retain(|s| s.fall > 0);
+        if landed.is_empty() {
+            return;
+        }
+        let stems = self
+            .works
+            .barricades
+            .iter()
+            .filter(|w| w.thick && w.standing())
+            .count();
+        for (i, (from, (x, y))) in landed.into_iter().enumerate() {
+            let room = &self.dungeon.rooms[self.at];
+            let (w, h) = (room.width(), room.height());
+            let (x, y) = (x.clamp(2.5, w - 2.5), y.clamp(2.5, h - 2.5));
+            if room
+                .tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32)
+                .ground()
+            {
+                // A triangle of stems round the burst, its flat side to
+                // the gardener: fixed angles off the sac's own flight, so
+                // a raid replays the garden exactly.
+                let base = (y - from.1).atan2(x - from.0);
+                let points: Vec<(f32, f32)> = (0..3)
+                    .map(|k| {
+                        let a = base + std::f32::consts::TAU * k as f32 / 3.0;
+                        (x + a.cos() * MUSHROOM_RING, y + a.sin() * MUSHROOM_RING)
+                    })
+                    .collect();
+                for k in 0..3 {
+                    if stems + i * 3 + k >= MUSHROOM_ROOM
+                        || self.works.barricades.len() >= 24
+                    {
+                        break;
+                    }
+                    let (ax, ay) = points[k];
+                    let (bx, by) = points[(k + 1) % 3];
+                    self.works.barricades.push(skills::Barricade {
+                        a: (ax, ay),
+                        b: (bx, by),
+                        hp: MUSHROOM_HP,
+                        age: 0,
+                        owner: 0,
+                        fall: None,
+                        thick: true,
+                    });
+                }
+                self.sounds.push("wave_gate");
+            }
+            if self.blasts.len() < 16 {
+                self.blasts.push((x, y, BLAST_TICKS));
+            }
+            self.boom(x, y, skills::BoomKind::Dust, MUSHROOM_RING + MUSHROOM_GIRTH);
         }
     }
 

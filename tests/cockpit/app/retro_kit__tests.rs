@@ -45,8 +45,10 @@ fn banded_sampling_quantizes() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn noise_is_deterministic_and_in_range() {
+    use angel_realm_host::retro_noise::value_noise;
     for i in 0..64 {
         let x = i as f32 * 0.37;
         let y = i as f32 * 0.61;

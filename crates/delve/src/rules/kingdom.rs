@@ -5,6 +5,18 @@ use super::map::{self, MAP_H, MAP_W};
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(default)]
 pub struct State {
+    /// The company is walking the replaceable player-built surface.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub frontier: bool,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub industry: BTreeMap<u32, super::industry::Board>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub claim_bosses: BTreeMap<String, super::claim_bosses::Encounter>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub ore_sentries: BTreeMap<String, super::ore_threats::Encounter>,
+    /// Capacity notices are once per seam/room entry, never save evidence.
+    #[serde(skip)]
+    pub claim_capacity_notice: super::frontier_claims::CapacityNotice,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub squire_yard: BTreeMap<u32, super::squires_town::Ledger>,
     pub wishes: std::sync::Arc<Vec<crate::realm::Wish>>,
@@ -36,6 +48,10 @@ pub struct State {
     pub field_held: std::collections::BTreeSet<u32>,
     /// The kingdom's little things: who rang, kicked or bowed, and when.
     pub moments: super::trinkets::Moments,
+    /// The waystations: who talks with a keeper, the rally standing, the
+    /// last coach to run.
+    #[serde(skip_serializing_if = "super::waystation::Stops::is_idle")]
+    pub stops: super::waystation::Stops,
     /// The biome each knight last came into on the surface, and the tick
     /// it did (`Biome::index`): the corner of that knight's view names it
     /// for a moment.
@@ -126,7 +142,13 @@ pub struct Return {
 }
 impl State {
     pub fn valid(&self) -> bool {
-        self.wishes.len() <= crate::realm::MAX_WISHES
+        self.ore_sentries.len() <= super::claim_bosses::MAX_ENCOUNTERS
+            && self.ore_sentries.iter().all(|(id, encounter)| !id.is_empty() && id.len() <= 96 && encounter.valid())
+            && self.claim_bosses.len() <= super::claim_bosses::MAX_ENCOUNTERS
+            && self.claim_bosses.iter().all(|(id, encounter)| !id.is_empty() && id.len() <= 96 && encounter.valid())
+            && self.industry.len() <= MAX_PLAYERS as usize
+            && self.industry.iter().all(|(id, board)| (1..=MAX_PLAYERS).contains(id) && board.valid())
+            && self.wishes.len() <= crate::realm::MAX_WISHES
             && self.squire_yard.len() <= MAX_PLAYERS as usize
             && self.squire_yard.iter().all(|(id, l)| {
                 (1..=MAX_PLAYERS).contains(id)
@@ -142,6 +164,7 @@ impl State {
                 (1..=MAX_PLAYERS).contains(id) && usize::from(s.pick) < super::raisings::PLANS.len()
             })
             && self.moments.valid()
+            && self.stops.valid()
             && self.found < 1 << crate::world::finds::COUNT
             && self.woke.is_none_or(|(i, _)| usize::from(i) < crate::world::finds::COUNT)
             && self.entered.len() <= MAX_PLAYERS as usize
@@ -184,11 +207,16 @@ impl Run {
                     | (RoomKind::ColosseumHall, "colosseum-out")
                     | (RoomKind::Ranch, "ranch-out")
                     | (RoomKind::Pasture, "fields-out")
+                    | (world::bomrekedan::TOP, "bomrekedan-out")
             )
         })
     }
     pub fn raise_kingdom(&mut self) {
         if self.dungeon.depth != 0 {
+            return;
+        }
+        if self.kingdom.frontier {
+            self.refresh_frontier();
             return;
         }
         let geo = map::geography(&self.kingdom.wishes);
@@ -205,13 +233,11 @@ impl Run {
                     self.rehome_on_changed_ground(&geo);
                 }
             }
-        } else if self.dungeon.rooms.len() < world::HOME_ROOM_LIMIT {
+        } else {
             self.dungeon.rooms.push(geo.room.clone());
             self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
         }
-        if world::room_of(&self.dungeon, RoomKind::RealmHall).is_none()
-            && self.dungeon.rooms.len() < world::HOME_ROOM_LIMIT
-        {
+        if world::room_of(&self.dungeon, RoomKind::RealmHall).is_none() {
             let mut hall = Room::solid_rock((21, -20));
             hall.kind = RoomKind::RealmHall;
             for y in 1..ROWS - 1 {
@@ -240,6 +266,7 @@ impl Run {
         }
         self.kingdom.moments.goose_at = None;
         self.kingdom.entered.clear();
+        self.forget_what_is_gone();
         if self.room().kind == RoomKind::Kingdom {
             let at = unit(keep);
             for hero in self.players.values_mut() {
@@ -247,6 +274,49 @@ impl Run {
                 hero.camera = Some((at.0, at.1 - 1.0));
             }
             self.safe_kingdom_arrival();
+        }
+    }
+    /// After the blank-slate plan (`crate::world::plan`) has taken places off
+    /// the map from under a saved run: what pointed at one of them points at
+    /// nothing now. The errand and the rumour that named a place no door
+    /// leads to, a coach's rally at a halt that is gone, a traveller walking
+    /// a road that is gone, and the goose on its green are let go; the
+    /// knights' standing and everything the realm owns stay.
+    fn forget_what_is_gone(&mut self) {
+        if !crate::world::plan::tabula() {
+            return;
+        }
+        if self.kingdom.moments.errand.is_some_and(|room| !self.on_the_way(room)) {
+            self.kingdom.moments.errand = None;
+        }
+        if self.wayfarers.rumoured.is_some_and(|room| !self.on_the_way(room)) {
+            self.wayfarers.rumoured = None;
+        }
+        self.kingdom.stops = Default::default();
+        self.kingdom.moments.goose = None;
+        self.kingdom.moments.goose_at = None;
+        if self.wayfarers.on.as_ref().is_some_and(|w| w.stage != super::wayfarers::Stage::Following) {
+            self.wayfarers.on = None;
+            self.wayfarers.walked = 0;
+        }
+        self.wayfarers.talks.clear();
+        self.wayfarers.keys.clear();
+        // Where a knight stood on the surface when it went into a place, if
+        // the journal has it, may be closed ground now: it comes out at the
+        // Keep's stand instead.
+        if let Some(kingdom) = world::room_of(&self.dungeon, RoomKind::Kingdom) {
+            let geo = map::geography(&self.kingdom.wishes);
+            let stand = crate::world::kingdom::keep_stand();
+            let keep = ((stand.0 as f32 + 0.5) * TILE_UNITS, (stand.1 as f32 + 0.7) * TILE_UNITS);
+            let open = |&(x, y): &(f32, f32)| {
+                x.is_finite() && y.is_finite() && geo.room.tile((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32) == Tile::Floor
+            };
+            let entries = self.exits.entry.iter_mut().chain(self.exits.outside.values_mut());
+            for entry in entries.filter(|e| e.at == kingdom) {
+                for spot in entry.party.values_mut().filter(|spot| !open(spot)) {
+                    *spot = keep;
+                }
+            }
         }
     }
     /// After the kingdom's ground changed under a saved run at the same
@@ -260,6 +330,17 @@ impl Run {
             let tile = ((back.x / TILE_UNITS) as i32, (back.y / TILE_UNITS) as i32);
             let moved = match geo.sites.iter().find(|s| s.room == back.root && s.name == back.name) {
                 Some(site) => (site.stand != tile).then_some(site.stand),
+                // On the blank-slate plan (`crate::world::plan`) most of the old
+                // places are off the map: a return door to one of them (a save
+                // taken inside the Village, say) comes out at the Keep.
+                // The Delve's gate, whose name an older save may spell otherwise,
+                // is where its own door now stands.
+                None if crate::world::plan::tabula() => Some(
+                    geo.sites
+                        .iter()
+                        .find(|s| s.room == back.root)
+                        .map_or_else(crate::world::kingdom::keep_stand, |s| s.stand),
+                ),
                 None if geo.room.tile(tile.0, tile.1) != Tile::Floor => Some(
                     geo.sites
                         .iter()
@@ -275,11 +356,13 @@ impl Run {
                 }
             }
         }
+        self.forget_what_is_gone();
         if self.room().kind == RoomKind::Kingdom {
             self.safe_kingdom_arrival();
         }
     }
     pub fn walk_kingdom(&mut self, tile: Option<(i32, i32)>) {
+        self.kingdom.frontier = false;
         self.raise_kingdom();
         let Some(i) = world::room_of(&self.dungeon, RoomKind::Kingdom) else {
             return;
@@ -295,7 +378,7 @@ impl Run {
             h.camera = Some((h.x, h.y - 1.0));
         }
     }
-    fn safe_kingdom_arrival(&mut self) {
+    pub(super) fn safe_kingdom_arrival(&mut self) {
         let room = &self.dungeon.rooms[self.at];
         let grid = Grid {
             room,
@@ -328,6 +411,8 @@ impl Run {
             RoomKind::ColosseumHall
         } else if kind == RoomKind::KingsHall {
             RoomKind::MineHead
+        } else if world::bomrekedan::is_level(kind) {
+            world::bomrekedan::TOP
         } else {
             kind
         };
@@ -361,6 +446,7 @@ impl Run {
         if self.kingdom.moments.errand == Some(site.room) {
             self.kingdom.moments.errand = None;
         }
+        self.rumour_comes_true(&geo, site);
         self.kingdom.return_to = Some(Return {
             x: (site.stand.0 as f32 + 0.5) * TILE_UNITS,
             y: (site.stand.1 as f32 + 0.7) * TILE_UNITS,
@@ -378,6 +464,7 @@ impl Run {
             RoomKind::Ranch => (3.0, 10.5),
             RoomKind::Pasture => (12.0, 10.5),
             RoomKind::ColosseumHall => colosseum::ARRIVAL,
+            world::bomrekedan::TOP => world::bomrekedan::ARRIVAL,
             _ => (12.0, 11.0),
         };
         self.arrive(i, arrival);
@@ -405,6 +492,48 @@ impl Run {
         self.safe_kingdom_arrival();
         self.sounds.push("area_leave");
     }
+    /// Whether a place can be walked to from the surface: always in the full
+    /// plan, where every place has its door on the map; on the blank-slate
+    /// plan (`crate::world::plan`) only the Delve's gate is on the map, so a
+    /// place is "on the way" only when the home floor's doors and stairs lead
+    /// to it from there. What points a knight at a place (an errand, a
+    /// gossip's line, a herald's call) asks this first, so nobody is sent
+    /// where no door goes.
+    pub fn on_the_way(&self, room: RoomKind) -> bool {
+        if !crate::world::plan::tabula() {
+            return true;
+        }
+        let geo = map::geography(&self.kingdom.wishes);
+        if geo.sites.iter().any(|s| s.room == room) {
+            return true;
+        }
+        // Out from the Delve's gate by the home floor's doors and stairs.
+        let rooms = &self.dungeon.rooms;
+        let (Some(gate), Some(goal)) = (world::room_of(&self.dungeon, RoomKind::Gate), world::room_of(&self.dungeon, room)) else {
+            return false;
+        };
+        let mut seen = vec![false; rooms.len()];
+        let mut queue = std::collections::VecDeque::from([gate]);
+        seen[gate] = true;
+        while let Some(i) = queue.pop_front() {
+            if i == goal {
+                return true;
+            }
+            let kind = rooms[i].kind;
+            let doors = (0..4).filter_map(|dir| self.dungeon.neighbour(i, dir));
+            let stairs = world::ENTRANCES.iter().filter_map(|e| match e.to {
+                world::Dest::Room(to, _) if e.room == kind => world::room_of(&self.dungeon, to),
+                _ => None,
+            });
+            for j in doors.chain(stairs).collect::<Vec<_>>() {
+                if !seen[j] {
+                    seen[j] = true;
+                    queue.push_back(j);
+                }
+            }
+        }
+        false
+    }
     /// Where knight `id` should head on the surface: the Delve until the
     /// party has been down once, then the nearest place nobody has stepped
     /// into yet this outing, and the Delve again once all are seen.
@@ -413,6 +542,10 @@ impl Run {
             return None;
         }
         let hero = self.players.get(&id)?;
+        // A rally called at a halt calls every knight not yet near it.
+        if let Some((halt, stand)) = self.rally_call(id) {
+            return Some(Goal { name: format!("RALLY: {}", halt.to_uppercase()), stand });
+        }
         let geo = map::geography(&self.kingdom.wishes);
         let delve = geo.sites.iter().find(|s| s.room == RoomKind::Gate)?;
         let far = |s: &&map::Site| {
@@ -496,6 +629,8 @@ impl Run {
         if self.tick_roundtable_entry(inputs) || self.roundtable_showing() { return; }
         self.tick_class_stones(inputs);
         if self.room().kind != RoomKind::Kingdom {
+            self.kingdom.stops.talks.clear();
+            self.kingdom.stops.held.clear();
             return;
         }
         let geo = map::geography(&self.kingdom.wishes);
@@ -525,6 +660,7 @@ impl Run {
                 Run::wake_on_first_move(hero, input);
             }
         }
+        self.tick_stops(inputs);
         // The door each knight's sign shows (`door_at`), the first knight
         // pressing a fresh E at one. A knight with the rod up is building.
         let near = self.players.iter().find_map(|(id, h)| {
@@ -575,3 +711,7 @@ pub fn follow_camera(hero: &mut Hero, w: f32, h: f32, ease: f32) {
 #[cfg(test)]
 #[path = "../../tests/rules/together_kingdom__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/tabula_sweep__tests.rs"]
+mod tabula_sweep_tests;

@@ -49,6 +49,7 @@ fn drag(app: &mut App, start: (u16, u16), end: (u16, u16)) {
             point.1,
         ));
     }
+    #[cfg(feature = "delve")]
     assert!(app.scryglass_drag.is_none());
     app.on_mouse(mouse_ev(
         MouseEventKind::Up(MouseButton::Left),
@@ -405,6 +406,7 @@ fn agent_chrome_scrolls_and_focuses_its_pane_without_becoming_copyable() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn miniviz_world_owns_chrome_zoom_drag_and_never_scrolls_transcript() {
     let _guard = env_lock();
@@ -414,11 +416,11 @@ fn miniviz_world_owns_chrome_zoom_drag_and_never_scrolls_transcript() {
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
     crate::drive::comp_mode::invalidate_cache();
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     let mut app = fixture(mouse::PaneId::Transcript);
     app.scryglass
         .navigate(crate::ui::scryglass::StageRoute::Explore(
-            crate::stage::world_viz::Building::Keep,
+            crate::delve::world_viz::Building::Keep.into(),
         ));
     paint(&mut app, 160, 52);
     let frame = app.panel_frames.get(panels::PanelKind::Artifacts).unwrap();
@@ -488,6 +490,7 @@ fn miniviz_world_owns_chrome_zoom_drag_and_never_scrolls_transcript() {
     assert!(app.selection.is_none());
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn miniviz_follow_survives_shared_composer_border_and_resets_at_its_visible_cells() {
     let _guard = env_lock();
@@ -497,12 +500,12 @@ fn miniviz_follow_survives_shared_composer_border_and_resets_at_its_visible_cell
     let _comp = TestEnvGuard::unset("ANGEL_COMP_MODE");
     crate::drive::comp_mode::invalidate_cache();
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     for (width, height) in [(114, 44), (120, 46), (160, 52)] {
         let mut app = fixture(mouse::PaneId::Transcript);
         app.scryglass
             .navigate(crate::ui::scryglass::StageRoute::Explore(
-                crate::stage::world_viz::Building::Keep,
+                crate::delve::world_viz::Building::Keep.into(),
             ));
         paint(&mut app, width, height);
         app.scryglass.adjust_look(0.5, 0.2);

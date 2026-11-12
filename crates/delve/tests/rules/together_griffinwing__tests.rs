@@ -280,3 +280,50 @@ fn a_finished_runs_mark_settles_into_the_home_once() {
             .contains("\"roundtable\"")
     );
 }
+
+/// The picture's memory of the flight (`show.rs`): a bots' run writes down
+/// its pops, volleys, lamps and the Wyrm's fall, the session stays valid
+/// every tick, the module is never shown any of it, and the room holds for
+/// the heavy blows only.
+#[test]
+fn the_picture_remembers_the_flight_and_the_module_never_hears_of_it() {
+    use show::What::*;
+    let mut r = table(4);
+    let mut seen = std::collections::BTreeSet::new();
+    let (mut held, mut heavy_held) = (0u32, 0u32);
+    for _ in 0..9_000 {
+        let inputs = r.roundtable_inputs();
+        r.step(&inputs);
+        let Some(s) = r.griffinwing.as_ref() else {
+            break;
+        };
+        assert!(s.valid(), "the session is valid with its show at tick {}", s.elapsed);
+        assert!(s.bare().show.quiet(), "the module is shown the picture's memory");
+        for f in s.show.fx.iter().filter(|f| f.born == s.elapsed) {
+            seen.insert(format!("{:?}", f.what));
+            if f.weight >= crate::rules::juice::Weight::Crushing {
+                heavy_held += 1;
+            }
+        }
+        if let Some(weight) = s.show.held(s.elapsed) {
+            held += 1;
+            // A kill and the Wyrm always hold; a crushing blow waits on the
+            // realm's cooldown, so a crowd of them never freezes the room.
+            if weight >= crate::rules::juice::Weight::Kill {
+                assert!(r.hitstop.frozen(), "a {weight:?} holds the room");
+            }
+        }
+        if s.finished() {
+            break;
+        }
+    }
+    for what in [Muzzle, Lock, Volley, Pop, LampOut, WyrmDown, Beacon, Roll] {
+        assert!(seen.contains(&format!("{what:?}")), "a run never wrote down {what:?}: {seen:?}");
+    }
+    assert!(held >= 3 && heavy_held >= held, "{held} holds, {heavy_held} heavy blows");
+    // A save and a load keep what the picture remembers, and it shows in no
+    // Home: the finish still pays once.
+    let s = r.griffinwing.as_ref().unwrap();
+    let back: Session = serde_json::from_str(&serde_json::to_string(s).unwrap()).unwrap();
+    assert_eq!(&back, s);
+}

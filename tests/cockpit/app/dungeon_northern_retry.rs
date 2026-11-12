@@ -1,7 +1,7 @@
 // Additional northern intents through the existing failed-save/checkpoint test.
 fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::{RoomKind, Run, countryside as c, world};
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::{RoomKind, Run, countryside as c, world};
     use std::collections::BTreeMap;
     app.economy().treasury.add(Spoil::Ore, 3);
     app.economy().treasury.add(Spoil::Wax, 2);
@@ -16,7 +16,7 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
             r.arrive(world::room_of(&r.dungeon, kind).unwrap(), at);
             r.step(&BTreeMap::from([(
                 1,
-                crate::drive::together_shooter::Input {
+                crate::delve::together_shooter::Input {
                     interact: true,
                     ..Default::default()
                 },
@@ -24,10 +24,10 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         }
         let p = &c::PLOTS[6];
         r.arrive(world::room_of(&r.dungeon, p.room).unwrap(), p.at);
-        for _ in 0..crate::drive::together_shooter::home::BUY_HOLD {
+        for _ in 0..crate::delve::together_shooter::home::BUY_HOLD {
             r.step(&BTreeMap::from([(
                 1,
-                crate::drive::together_shooter::Input {
+                crate::delve::together_shooter::Input {
                     interact: true,
                     ..Default::default()
                 },
@@ -85,19 +85,19 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
             journal.insert(key, 1.into());
         }
     }
-    for key in crate::drive::together_shooter::aerie::VISIT_MARKS
+    for key in crate::delve::together_shooter::aerie::VISIT_MARKS
         .into_iter()
-        .chain(crate::drive::together_shooter::aerie::QUEST_MARKS)
-        .chain(crate::drive::together_shooter::mummers::VISIT_MARKS)
-        .chain(crate::drive::together_shooter::hippodrome::VISIT_MARKS)
-        .chain(crate::drive::together_shooter::hippodrome::QUEST_MARKS)
-        .chain(crate::drive::together_shooter::hippodrome::WAGER_MARKS)
-        .chain(crate::drive::together_shooter::windcountry::VISIT_MARKS)
-        .chain(crate::drive::together_shooter::windcountry::QUEST_MARKS)
-        .chain(crate::drive::together_shooter::bowcountry::VISIT_MARKS)
-        .chain(crate::drive::together_shooter::bowcountry::QUEST_MARKS)
-        .chain(crate::drive::together_shooter::swamp::INTENT_MARKS)
-        .chain([crate::drive::together_shooter::race3d::RACE_MARK])
+        .chain(crate::delve::together_shooter::aerie::QUEST_MARKS)
+        .chain(crate::delve::together_shooter::mummers::VISIT_MARKS)
+        .chain(crate::delve::together_shooter::hippodrome::VISIT_MARKS)
+        .chain(crate::delve::together_shooter::hippodrome::QUEST_MARKS)
+        .chain(crate::delve::together_shooter::hippodrome::WAGER_MARKS)
+        .chain(crate::delve::together_shooter::windcountry::VISIT_MARKS)
+        .chain(crate::delve::together_shooter::windcountry::QUEST_MARKS)
+        .chain(crate::delve::together_shooter::bowcountry::VISIT_MARKS)
+        .chain(crate::delve::together_shooter::bowcountry::QUEST_MARKS)
+        .chain(crate::delve::together_shooter::swamp::INTENT_MARKS)
+        .chain([crate::delve::together_shooter::race3d::RACE_MARK])
     {
         assert!(c::intent_key(key));
         journal.insert(key.into(), 1.into());
@@ -108,7 +108,7 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         journal.insert(key, 1.into());
     }
     // The Round Table adventures' campaign marks, each its own module's.
-    for a in &crate::drive::together_shooter::roundtable::ADVENTURES {
+    for a in &crate::delve::together_shooter::roundtable::ADVENTURES {
         for key in a.marks {
             assert!(c::intent_key(key));
             journal.insert((*key).into(), 1.into());
@@ -116,7 +116,7 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     }
     // College requests share this bounded journal with the countryside.
     // Include every finite College action when exercising its full limit.
-    use crate::drive::together_shooter::college;
+    use crate::delve::together_shooter::college;
     let mut college_keys: Vec<String> = [
         "tome",
         "together",
@@ -154,7 +154,7 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     // company holds them, and this fixture hires none.
     assert_eq!(
         journal.len(),
-        c::INTENT_LIMIT - crate::drive::together_shooter::countryside_squires::INTENT_SLOTS
+        c::INTENT_LIMIT - crate::delve::together_shooter::countryside_squires::INTENT_SLOTS
     );
     assert!(journal.len() > 32);
     full["home_outbox"]["marks"] = full["country_intents"].clone();
@@ -165,7 +165,7 @@ fn northern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     app.realm.dungeon.restore(&fixture.workspace).unwrap();
     assert_eq!(
         app.realm.dungeon.shooter.as_ref().unwrap().marks.len(),
-        c::INTENT_LIMIT - crate::drive::together_shooter::countryside_squires::INTENT_SLOTS
+        c::INTENT_LIMIT - crate::delve::together_shooter::countryside_squires::INTENT_SLOTS
     );
     // An unknown key is rejected, never admitted by the larger finite limit.
     full["country_intents"]["country:unbounded-string"] = 1.into();

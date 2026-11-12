@@ -1,8 +1,8 @@
 fn main() {
-    let path = "../../cockpit/src/stage/world_viz/art.rs";
+    let path = "../../cockpit/delve-cart/src/world_viz/art.rs";
     println!("cargo:rerun-if-changed={path}");
     let source = std::fs::read_to_string(path).unwrap();
-    let cells_path = "../../cockpit/src/stage/world_viz/art/cells.rs";
+    let cells_path = "../../cockpit/delve-cart/src/world_viz/art/cells.rs";
     println!("cargo:rerun-if-changed={cells_path}");
     let painter = std::fs::read_to_string(cells_path).unwrap();
     let painter = painter.trim_start_matches("//! Shared half-block and braille painter for the cockpit and art exporters.\n");
@@ -41,11 +41,11 @@ fn main() {
     }
     let panels = panels
         .replace(
-            "crate::drive::together_shooter::Run",
+            "crate::delve::together_shooter::Run",
             "angel_delve::rules::Run",
         )
         .replace(
-            "crate::drive::together_shooter::HZ",
+            "crate::delve::together_shooter::HZ",
             "angel_delve::rules::HZ",
         );
     let out = format!(

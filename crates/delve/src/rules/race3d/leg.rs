@@ -49,6 +49,10 @@ pub struct Ran {
 pub fn run(race: &mut Race3d, inputs: &BTreeMap<u32, Input>, standing: &[u32]) -> Result<Ran, String> {
     #[cfg(test)]
     super::install_oracle();
+    // A plank down `REGROW` is laid again: the leg sees it untouched and
+    // starts its clock at the next ball over it.
+    let t = race.t;
+    race.planks.retain(|_, &mut began| t < began + ROT + REGROW);
     let ask = Ask {
         op: "tick",
         race,

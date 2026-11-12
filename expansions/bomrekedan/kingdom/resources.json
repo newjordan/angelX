@@ -1,0 +1,794 @@
+{
+ "map_prospect": {
+  "base_materials": {
+   "CONSTRUCTION": 634,
+   "FEATURE": 63912,
+   "LAVA_STONE": 3953,
+   "MAGMA": 208781,
+   "MINERAL": 611839,
+   "MUSHROOM": 8857,
+   "ROOT": 4530,
+   "SOIL": 132529,
+   "STONE": 893686,
+   "TREE": 15029
+  },
+  "gems": {
+   "ALEXANDRITE": 85,
+   "ALMANDINE": 153,
+   "AMETHYST": 423,
+   "AQUAMARINE": 45,
+   "AVENTURINE": 403,
+   "BANDED AGATE": 93,
+   "BLACK PYROPE": 159,
+   "BLACK ZIRCON": 182,
+   "BLOODSTONE": 346,
+   "BLUE GARNET": 37,
+   "BLUE JADE": 372,
+   "BROWN JASPER": 469,
+   "BROWN ZIRCON": 151,
+   "CARNELIAN": 437,
+   "CAT'S EYE": 40,
+   "CHRYSOBERYL": 44,
+   "CHRYSOCOLLA": 348,
+   "CHRYSOPRASE": 446,
+   "CINNAMON GROSSULAR": 5,
+   "CITRINE": 1378,
+   "CLEAR GARNET": 73,
+   "CLEAR TOURMALINE": 628,
+   "CLEAR ZIRCON": 68,
+   "CRYSTAL_ROCK": 1289,
+   "DEMANTOID": 42,
+   "DIAMOND_BLACK": 333,
+   "DIAMOND_BLUE": 359,
+   "DIAMOND_CLEAR": 311,
+   "DIAMOND_FY": 288,
+   "DIAMOND_GREEN": 315,
+   "DIAMOND_LY": 10,
+   "DIAMOND_RED": 327,
+   "DIAMOND_YELLOW": 345,
+   "EMERALD": 355,
+   "FIRE OPAL": 174,
+   "FORTIFICATION AGATE": 54,
+   "GOLD OPAL": 110,
+   "GOLDEN BERYL": 55,
+   "GOSHENITE": 85,
+   "GRAY CHALCEDONY": 295,
+   "GREEN JADE": 228,
+   "GREEN TOURMALINE": 307,
+   "GREEN ZIRCON": 180,
+   "HELIODOR": 78,
+   "HONEY YELLOW BERYL": 24,
+   "INDIGO TOURMALINE": 163,
+   "KUNZITE": 5,
+   "LACE AGATE": 221,
+   "LAPIS LAZULI": 719,
+   "LAVENDER JADE": 408,
+   "MELANITE": 17,
+   "MILK OPAL": 70,
+   "MILK QUARTZ": 1485,
+   "MOONSTONE": 331,
+   "MORGANITE": 62,
+   "MORION": 1394,
+   "ONYX": 445,
+   "OPAL_BANDFIRE": 8,
+   "OPAL_CLARO": 82,
+   "OPAL_CRYSTAL": 183,
+   "OPAL_HARLEQUIN": 64,
+   "OPAL_PFIRE": 21,
+   "OPAL_PINFIRE": 145,
+   "OPAL_WHITE": 82,
+   "PERIDOT": 87,
+   "PICTURE JASPER": 441,
+   "PINEAPPLE OPAL": 9,
+   "PINK GARNET": 52,
+   "PINK JADE": 292,
+   "PINK TOURMALINE": 305,
+   "PIPE OPAL": 237,
+   "PLUME AGATE": 55,
+   "PRASE": 1194,
+   "PRASE OPAL": 11,
+   "PYRITE": 1223,
+   "QUARTZ_ROSE": 1240,
+   "RED BERYL": 19,
+   "RED GROSSULAR": 7,
+   "RED PYROPE": 169,
+   "RED TOURMALINE": 433,
+   "RED ZIRCON": 174,
+   "RESIN OPAL": 93,
+   "RHODOLITE": 163,
+   "RUBICELLE": 153,
+   "RUBY": 701,
+   "RUBY_STAR": 302,
+   "SAPPHIRE": 733,
+   "SAPPHIRE_STAR": 305,
+   "SARD": 396,
+   "SARDONYX": 437,
+   "SCHORL": 795,
+   "SMOKY QUARTZ": 1343,
+   "SPINEL_PURPLE": 107,
+   "SPINEL_RED": 179,
+   "TANZANITE": 111,
+   "TIGER IRON": 348,
+   "TIGEREYE": 393,
+   "TOPAZOLITE": 20,
+   "TSAVORITE": 11,
+   "TUBE AGATE": 71,
+   "TURQUOISE": 539,
+   "VIOLET SPESSARTINE": 47,
+   "WAX OPAL": 202,
+   "WHITE CHALCEDONY": 384,
+   "WHITE JADE": 405,
+   "WOOD OPAL": 295,
+   "YELLOW GROSSULAR": 21,
+   "YELLOW JASPER": 398,
+   "YELLOW SPESSARTINE": 81,
+   "YELLOW ZIRCON": 81
+  },
+  "layer_materials": {
+   "CHALK": 61062,
+   "CLAYSTONE": 54426,
+   "CLAY_LOAM": 32174,
+   "DIORITE": 125781,
+   "DOLOMITE": 103714,
+   "GABBRO": 88488,
+   "GRANITE": 36714,
+   "MARBLE": 107390,
+   "PEAT": 34179,
+   "PHYLLITE": 6436,
+   "SANDSTONE": 91845,
+   "SANDY_CLAY": 33217,
+   "SAND_YELLOW": 32959,
+   "SCHIST": 116605,
+   "SHALE": 101225,
+   "SLADE": 62812
+  },
+  "liquids": {
+   "MAGMA": 70189,
+   "WATER": 7666
+  },
+  "ores": {
+   "BISMUTHINITE": 86,
+   "CASSITERITE": 1695,
+   "GALENA": 8639,
+   "GARNIERITE": 4249,
+   "HEMATITE": 14142,
+   "HORN_SILVER": 26,
+   "LIMONITE": 11323,
+   "MAGNETITE": 24068,
+   "MALACHITE": 3774,
+   "NATIVE_COPPER": 2423,
+   "NATIVE_GOLD": 1054,
+   "NATIVE_PLATINUM": 2218,
+   "NATIVE_SILVER": 117,
+   "RAW_ADAMANTINE": 1100,
+   "SPHALERITE": 10701,
+   "TETRAHEDRITE": 41618
+  },
+  "other_vein_stone": {
+   "ALABASTER": 132,
+   "ANHYDRITE": 88,
+   "BAUXITE": 30564,
+   "BORAX": 139,
+   "BRIMSTONE": 155,
+   "CALCITE": 189,
+   "CHROMITE": 935,
+   "CINNABAR": 3877,
+   "COAL_BITUMINOUS": 16110,
+   "COBALTITE": 29408,
+   "CRYOLITE": 68,
+   "GRAPHITE": 364,
+   "GYPSUM": 28826,
+   "HORNBLENDE": 913,
+   "ILMENITE": 151,
+   "JET": 32998,
+   "KAOLINITE": 37861,
+   "KIMBERLITE": 4037,
+   "LIGNITE": 15076,
+   "MARCASITE": 491,
+   "MICA": 33741,
+   "MICROCLINE": 122203,
+   "OLIVINE": 12476,
+   "ORTHOCLASE": 74854,
+   "PERICLASE": 194,
+   "PETRIFIED_WOOD": 473,
+   "PITCHBLENDE": 65,
+   "PYROLUSITE": 607,
+   "RUTILE": 499,
+   "SALTPETER": 413,
+   "SATINSPAR": 174,
+   "SELENITE": 124,
+   "SERPENTINE": 292,
+   "TALC": 4293
+  }
+ },
+ "mineable_by_level": {
+  "the-barracks": {
+   "coal": 5,
+   "gem": 10,
+   "iron": 9,
+   "reagent": 57,
+   "stone": 11099
+  },
+  "the-dormitories": {
+   "coal": 115,
+   "copper": 80,
+   "gem": 93,
+   "iron": 61,
+   "precious_gem": 1,
+   "reagent": 494,
+   "stone": 6653,
+   "tin": 4
+  },
+  "the-farms": {
+   "soil": 8684
+  },
+  "the-forges": {
+   "coal": 12,
+   "gem": 4,
+   "iron": 28,
+   "platinum": 3,
+   "reagent": 60,
+   "stone": 9464
+  },
+  "the-gate": {
+   "soil": 1451
+  },
+  "the-great-hall": {
+   "soil": 7715
+  },
+  "the-guildhalls": {
+   "coal": 4,
+   "copper": 8,
+   "gem": 37,
+   "iron": 25,
+   "reagent": 93,
+   "stone": 9693
+  },
+  "the-noble-halls": {
+   "coal": 18,
+   "gem": 9,
+   "iron": 47,
+   "reagent": 112,
+   "stone": 9767
+  },
+  "the-temples": {
+   "coal": 21,
+   "copper": 13,
+   "gem": 6,
+   "iron": 8,
+   "platinum": 2,
+   "reagent": 143,
+   "soil": 3,
+   "stone": 8177,
+   "tin": 1
+  },
+  "the-workshops": {
+   "soil": 7826
+  }
+ },
+ "mineable_overall": {
+  "coal": 175,
+  "copper": 101,
+  "gem": 159,
+  "iron": 178,
+  "platinum": 5,
+  "precious_gem": 1,
+  "reagent": 959,
+  "soil": 25679,
+  "stone": 54853,
+  "tin": 5
+ },
+ "minerals_overall": [
+  {
+   "name": "shale",
+   "tiles": 2247
+  },
+  {
+   "name": "clay loam",
+   "tiles": 1022
+  },
+  {
+   "name": "gypsum",
+   "tiles": 495
+  },
+  {
+   "name": "yellow sand",
+   "tiles": 460
+  },
+  {
+   "name": "peat",
+   "tiles": 415
+  },
+  {
+   "name": "sandstone",
+   "tiles": 248
+  },
+  {
+   "name": "kaolinite",
+   "tiles": 209
+  },
+  {
+   "name": "lignite",
+   "tiles": 127
+  },
+  {
+   "name": "bauxite",
+   "tiles": 121
+  },
+  {
+   "name": "microcline",
+   "tiles": 104
+  },
+  {
+   "name": "tetrahedrite",
+   "tiles": 101
+  },
+  {
+   "name": "sandy clay",
+   "tiles": 99
+  },
+  {
+   "name": "jet",
+   "tiles": 91
+  },
+  {
+   "name": "hematite",
+   "tiles": 82
+  },
+  {
+   "name": "limonite",
+   "tiles": 71
+  },
+  {
+   "name": "bituminous coal",
+   "tiles": 48
+  },
+  {
+   "name": "claystone",
+   "tiles": 25
+  },
+  {
+   "name": "magnetite",
+   "tiles": 25
+  },
+  {
+   "name": "cinnabar",
+   "tiles": 10
+  },
+  {
+   "name": "satinspar",
+   "tiles": 6
+  },
+  {
+   "name": "blue jade",
+   "tiles": 5
+  },
+  {
+   "name": "brown jasper",
+   "tiles": 5
+  },
+  {
+   "name": "cassiterite",
+   "tiles": 5
+  },
+  {
+   "name": "lavender jade",
+   "tiles": 5
+  },
+  {
+   "name": "marcasite",
+   "tiles": 5
+  },
+  {
+   "name": "native platinum",
+   "tiles": 5
+  },
+  {
+   "name": "prase",
+   "tiles": 5
+  },
+  {
+   "name": "rose quartz",
+   "tiles": 5
+  },
+  {
+   "name": "selenite",
+   "tiles": 5
+  },
+  {
+   "name": "alabaster",
+   "tiles": 4
+  },
+  {
+   "name": "clear tourmaline",
+   "tiles": 4
+  },
+  {
+   "name": "green tourmaline",
+   "tiles": 4
+  },
+  {
+   "name": "morion",
+   "tiles": 4
+  },
+  {
+   "name": "sard",
+   "tiles": 4
+  },
+  {
+   "name": "chrysoprase",
+   "tiles": 3
+  },
+  {
+   "name": "citrine",
+   "tiles": 3
+  },
+  {
+   "name": "milk quartz",
+   "tiles": 3
+  },
+  {
+   "name": "pink jade",
+   "tiles": 3
+  },
+  {
+   "name": "tiger iron",
+   "tiles": 3
+  },
+  {
+   "name": "amethyst",
+   "tiles": 2
+  }
+ ],
+ "rock_classes": {
+  "J": "precious_gem",
+  "P": "platinum",
+  "a": "adamantine",
+  "c": "copper",
+  "f": "flux",
+  "g": "gold",
+  "i": "iron",
+  "j": "gem",
+  "k": "coal",
+  "n": "base_metal",
+  "o": "obsidian",
+  "r": "stone",
+  "s": "soil",
+  "t": "tin",
+  "v": "silver",
+  "x": "reagent"
+ },
+ "schema": "bomrekedan.resources/v1",
+ "spoils": {
+  "bone": {
+   "count": 1692,
+   "lines": 78,
+   "value": 31876
+  },
+  "ember": {
+   "count": 490,
+   "lines": 6,
+   "value": 2686
+  },
+  "gem": {
+   "count": 677,
+   "lines": 59,
+   "value": 25704
+  },
+  "gold": {
+   "count": 128,
+   "lines": 11,
+   "value": 102900
+  },
+  "ore": {
+   "count": 1062,
+   "lines": 13,
+   "value": 68650
+  },
+  "wax": {
+   "count": 5,
+   "lines": 1,
+   "value": 300
+  }
+ },
+ "top_stock_by_value": [
+  {
+   "count": 121,
+   "material": "platinum",
+   "spoil": null,
+   "type": "statue",
+   "value": 209580
+  },
+  {
+   "count": 999,
+   "material": "platinum",
+   "spoil": null,
+   "type": "blocks",
+   "value": 199800
+  },
+  {
+   "count": 1232,
+   "material": "giant cave spider silk",
+   "spoil": null,
+   "type": "gloves",
+   "value": 143192
+  },
+  {
+   "count": 500,
+   "material": "native platinum",
+   "spoil": null,
+   "type": "blocks",
+   "value": 100000
+  },
+  {
+   "count": 68,
+   "material": "native platinum",
+   "spoil": null,
+   "type": "statue",
+   "value": 90519
+  },
+  {
+   "count": 557,
+   "material": "giant cave spider silk",
+   "spoil": null,
+   "type": "shoes",
+   "value": 81437
+  },
+  {
+   "count": 504,
+   "material": "native gold",
+   "spoil": null,
+   "type": "blocks",
+   "value": 75600
+  },
+  {
+   "count": 116,
+   "material": "platinum",
+   "spoil": null,
+   "type": "cabinet",
+   "value": 64030
+  },
+  {
+   "count": 75,
+   "material": "platinum",
+   "spoil": null,
+   "type": "tool",
+   "value": 62250
+  },
+  {
+   "count": 335,
+   "material": "giant cave spider silk",
+   "spoil": null,
+   "type": "armor",
+   "value": 61502
+  },
+  {
+   "count": 73,
+   "material": "platinum",
+   "spoil": null,
+   "type": "chair",
+   "value": 60590
+  },
+  {
+   "count": 73,
+   "material": "platinum",
+   "spoil": null,
+   "type": "table",
+   "value": 60590
+  },
+  {
+   "count": 100,
+   "material": "native platinum",
+   "spoil": null,
+   "type": "table",
+   "value": 54240
+  },
+  {
+   "count": 48,
+   "material": "gold",
+   "spoil": "gold",
+   "type": "statue",
+   "value": 53940
+  },
+  {
+   "count": 342,
+   "material": "native platinum",
+   "spoil": "ore",
+   "type": "boulder",
+   "value": 41040
+  },
+  {
+   "count": 127,
+   "material": "steel",
+   "spoil": null,
+   "type": "bin",
+   "value": 38100
+  },
+  {
+   "count": 9,
+   "material": "platinum",
+   "spoil": null,
+   "type": "instrument",
+   "value": 36270
+  },
+  {
+   "count": 2628,
+   "material": "iron",
+   "spoil": null,
+   "type": "ammo",
+   "value": 32862
+  },
+  {
+   "count": 600,
+   "material": "jet",
+   "spoil": null,
+   "type": "goblet",
+   "value": 30000
+  },
+  {
+   "count": 1368,
+   "material": "turkey eggshell",
+   "spoil": "bone",
+   "type": "food",
+   "value": 29836
+  },
+  {
+   "count": 84,
+   "material": "steel",
+   "spoil": null,
+   "type": "armor",
+   "value": 29517
+  },
+  {
+   "count": 1,
+   "material": "apple wood",
+   "spoil": null,
+   "type": "bracelet",
+   "value": 27300
+  },
+  {
+   "count": 178,
+   "material": "steel",
+   "spoil": null,
+   "type": "blocks",
+   "value": 26700
+  },
+  {
+   "count": 140,
+   "material": "giant cave spider silk",
+   "spoil": null,
+   "type": "pants",
+   "value": 25500
+  },
+  {
+   "count": 135,
+   "material": "steel",
+   "spoil": null,
+   "type": "gloves",
+   "value": 23959
+  },
+  {
+   "count": 3968,
+   "material": "cave spider silk",
+   "spoil": null,
+   "type": "thread",
+   "value": 23808
+  },
+  {
+   "count": 61,
+   "material": "steel",
+   "spoil": null,
+   "type": "weapon",
+   "value": 22969
+  },
+  {
+   "count": 119,
+   "material": "giant cave spider silk",
+   "spoil": null,
+   "type": "helm",
+   "value": 22610
+  },
+  {
+   "count": 51,
+   "material": "platinum",
+   "spoil": null,
+   "type": "door",
+   "value": 20830
+  },
+  {
+   "count": 20,
+   "material": "steel",
+   "spoil": null,
+   "type": "trapparts",
+   "value": 20790
+  },
+  {
+   "count": 1,
+   "material": "tetrahedrite",
+   "spoil": null,
+   "type": "millstone",
+   "value": 20700
+  },
+  {
+   "count": 251,
+   "material": "steel",
+   "spoil": null,
+   "type": "ammo",
+   "value": 19710
+  },
+  {
+   "count": 53,
+   "material": "steel",
+   "spoil": null,
+   "type": "helm",
+   "value": 19508
+  },
+  {
+   "count": 20,
+   "material": "native gold",
+   "spoil": null,
+   "type": "statue",
+   "value": 19390
+  },
+  {
+   "count": 19,
+   "material": "silver",
+   "spoil": null,
+   "type": "instrument",
+   "value": 18870
+  },
+  {
+   "count": 29,
+   "material": "gold",
+   "spoil": "gold",
+   "type": "cabinet",
+   "value": 18270
+  },
+  {
+   "count": 30,
+   "material": "iron",
+   "spoil": null,
+   "type": "weapon",
+   "value": 16701
+  },
+  {
+   "count": 42,
+   "material": "steel",
+   "spoil": null,
+   "type": "pants",
+   "value": 15988
+  },
+  {
+   "count": 1,
+   "material": "hematite",
+   "spoil": null,
+   "type": "crown",
+   "value": 15800
+  },
+  {
+   "count": 43,
+   "material": "steel",
+   "spoil": null,
+   "type": "shield",
+   "value": 15649
+  }
+ ],
+ "unmapped_stock": {
+  "count": 33914,
+  "lines": 806,
+  "value": 2228932
+ },
+ "wealth": {
+  "architecture": 1305217,
+  "armor": 520587,
+  "displayed": 1003503,
+  "exported": 25450,
+  "furniture": 834235,
+  "held": 306894,
+  "imported": 70366,
+  "offered": 0,
+  "other": 924179,
+  "total": 4976556,
+  "weapons": 81941
+ }
+}

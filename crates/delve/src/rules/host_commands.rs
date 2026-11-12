@@ -44,6 +44,10 @@ pub enum Command {
     RevealVessel,
     DropMirrorLook { player: u32, words: String },
     MirrorPaint { card: cards::Card },
+    /// The body-maker has drawn the whole knight for a mirror look (`card`
+    /// the look's card id, `words` the words it was drawn from), or `on`
+    /// false: its set is gone. Spends nothing.
+    MirrorBody { card: String, words: String, on: bool },
     ClaimRealm,
     ClaimHome,
     ClaimBrew,
@@ -101,6 +105,10 @@ pub enum Command {
     ConfigureSession {
         naked_start: bool,
         identity: bool,
+        /// A new knight owes the realm a rite (`rite`); a session from
+        /// before it asks none.
+        #[serde(default)]
+        rite: bool,
         host: String,
     },
     JoinSeat {
@@ -129,6 +137,12 @@ pub enum Command {
     AddCard {
         player: u32,
         card: cards::Card,
+    },
+    /// A thing the knight made in the Creator and brought to life for the realm (`rite`):
+    /// checked again by the run, kept by the realm and taken into the world.
+    Contribute {
+        player: u32,
+        made: super::rite::Made,
     },
     Reforge {
         player: u32,
@@ -1093,6 +1107,8 @@ fn projected_home(
     }
     // The run's salvage yard is kept when it is newer than the realm's
     // (`salvage`): a find, a wish or a build since the realm last saw it.
+    if run.home.industry.rev > home.industry.rev { home.industry = run.home.industry.clone(); }
+    if run.home.kingdom_gear.rev > home.kingdom_gear.rev { home.kingdom_gear = run.home.kingdom_gear.clone(); }
     if run.home.salvage.rev > home.salvage.rev {
         home.salvage = run.home.salvage.clone();
     }
@@ -1206,7 +1222,7 @@ impl Command {
             Self::ClaimRealm | Self::ClaimHome | Self::ClaimBrew | Self::ClaimReforge { .. } | Self::ClaimWish { .. } | Self::ClaimVotes { .. }
         )
     }
-    fn validate(&self) -> Result<(), String> {
+    pub(crate) fn validate(&self) -> Result<(), String> {
         let player = |id: u32| (1..=super::MAX_PLAYERS).contains(&id);
         let valid = match self {
             Self::Scroll { player: id, intent } => player(*id) && intent.valid(),
@@ -1228,6 +1244,11 @@ impl Command {
             Self::RevealVessel => true,
             Self::MirrorPaint { card } => {
                 card.id.starts_with("mirror-look-") && super::card_paint::valid_card(card)
+            }
+            Self::MirrorBody { card, words, on } => {
+                card.starts_with("mirror-look-")
+                    && text(card, 64)
+                    && (text(words, 4096) || (!on && words.is_empty()))
             }
             Self::ClaimReforge {
                 player: id, words, ..
@@ -1275,6 +1296,7 @@ impl Command {
                 from,
                 to,
             } => player(*id) && *from < 64 && *to < 64,
+            Self::Contribute { player: id, made } => player(*id) && made.validate().is_ok(),
             Self::AddCard { player: id, card }
             | Self::Reforge {
                 player: id, card, ..
@@ -1349,6 +1371,7 @@ impl Command {
                 return Ok(Reply::Changed(at.is_some()));
             }
             Self::MirrorPaint { card } => return Ok(Reply::Changed(run.update_mirror_paint(card))),
+            Self::MirrorBody { card, words, on } => return Ok(Reply::Changed(run.set_mirror_body(card, words, *on))),
             Self::ClaimReforge { .. } => return Err("reforge claims require journal context".into()),
             Self::ClaimHome => return Ok(Reply::Home(HomeTransfer::capture_and_reserve(run)?)),
             Self::SyncHome { home, treasury } => {
@@ -1409,6 +1432,7 @@ impl Command {
             Self::ConfigureSession {
                 naked_start,
                 identity,
+                rite,
                 host,
             } => {
                 if !run.players.contains_key(&1) {
@@ -1416,6 +1440,7 @@ impl Command {
                 }
                 run.naked_start = *naked_start;
                 run.identity = *identity;
+                run.rite = *rite;
                 run.rename_host(host);
             }
             Self::JoinSeat {
@@ -1502,6 +1527,9 @@ impl Command {
             }
             Self::MoveCard { player, from, to } => {
                 run.move_card(*player, *from, *to);
+            }
+            Self::Contribute { player, made } => {
+                return run.contribute(*player, made.clone()).map(Reply::Chosen);
             }
             Self::AddCard { player, card } => {
                 if !run.players.contains_key(player) {
@@ -1645,7 +1673,7 @@ fn visit(run: &mut Run, destination: Destination, wishes: Option<&Arc<Vec<Wish>>
             return VisitState::Opened;
         }
         Destination::College => {
-            world::raise_world(&mut run.dungeon);
+            run.raise_home_world();
             (RoomKind::CollegeGrounds, (12.0, 10.5))
         }
         Destination::Stables => (RoomKind::Stables, (18.0, 6.6)),
@@ -1965,6 +1993,7 @@ mod tests {
                 Command::ConfigureSession {
                     naked_start: true,
                     identity: false,
+                    rite: false,
                     host: "Owner".into(),
                 },
                 Command::JoinSeat {

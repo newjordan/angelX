@@ -31,6 +31,7 @@
 
 use super::bazaar;
 use super::classes::CLASSES;
+use super::hall_voices;
 use super::home::{BUY_HOLD, hold_bar};
 use super::world::{Dest, Entrance};
 use super::*;
@@ -147,7 +148,12 @@ pub struct Patron {
     pub at: (f32, f32),
 }
 
-pub const PATRONS: [Patron; 64] = [
+pub const PATRONS: [Patron; 70] = [
+    // The code-drawn knights, first thing inside the front door.
+    Patron { kit: "great-helm", label: "Greathelm", pitch: "A flat steel helm and a cross on the surcoat. Any arm off the rack.", at: (22.6, 16.8) },
+    Patron { kit: "sugarloaf-crusader", label: "Crusader", pitch: "A pointed helm and a white surcoat. Any arm off the rack.", at: (24.0, 16.8) },
+    Patron { kit: "plumed-bucket", label: "Plumeknight", pitch: "A bucket helm with a swept plume. Any arm off the rack.", at: (25.4, 16.8) },
+    Patron { kit: "kettle-hat", label: "Kettlehat", pitch: "A broad-brimmed hat over mail. Any arm off the rack.", at: (26.8, 16.8) },
     Patron { kit: "waxwarden", label: "Exorcist", pitch: "Handgonne and kite shield. A gallows sun to shelter in, a rook's step out.", at: (2.75, 6.25) },
     Patron { kit: "orren", label: "Sexton", pitch: "Handgonne and kite shield. A siege bell rings; a procession takes the fire.", at: (4.25, 6.25) },
     Patron { kit: "morrow", label: "Thornkeeper", pitch: "Venom crossbow, a room of thorns, and mercy under glass.", at: (5.75, 6.25) },
@@ -171,6 +177,8 @@ pub const PATRONS: [Patron; 64] = [
     Patron { kit: "alchemist", label: "Alchemist", pitch: "Lobbed fire. 1 foul air, 2 quickfire, 3 elixir.", at: (27.2, 7.0) },
     Patron { kit: "reaver", label: "Reaver", pitch: "Twin axes. 1 hurled axe, 2 leap, 3 bloodlust.", at: (9.6, 7.2) },
     Patron { kit: "lancer", label: "Lancer", pitch: "A war lance. 1 javelin, 2 vault, 3 brace.", at: (27.6, 12.2) },
+    Patron { kit: "phantomlancer", label: "Phantom", pitch: "Doubles that thrust too. 1 spirit lance, 2 doppelganger, 3 juxtapose.", at: (26.1, 12.2) },
+    Patron { kit: "mirageduelist", label: "Mirage", pitch: "A quick foil. 1 swashbuckle, 2 mirror swap, 3 echo strike.", at: (24.6, 12.2) },
     // The barrow's hero takes the far end of the same bench, a little
     // apart, as his kind do.
     Patron { kit: "gravecaller", label: "Gravecaller", pitch: "Aura; 1-3 dead, 4 Soul Rip; Space wall; G heel/hold golem; R Tombstone.", at: (21.5, 14.25) },
@@ -414,6 +422,14 @@ pub struct Tries {
     pub sleepers: u8,
     pub cat: u8,
     pub keg: u8,
+    /// Times the notice board has been read: the folk's tidings come
+    /// first, newest first, then the board's old notes.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub board: u8,
+}
+
+fn is_zero_u8(n: &u8) -> bool {
+    *n == 0
 }
 
 /// The tavern's and the bazaar's moment-to-moment state.
@@ -439,7 +455,22 @@ pub struct House {
     /// A lamp rub belongs to its stand, never a partly held drink or arm.
     #[serde(skip_serializing_if = "std::collections::BTreeSet::is_empty")]
     pub lamp_holds: std::collections::BTreeSet<u32>,
+    /// The lines the hall's folk have up, over their heads (`hall_voices`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub calls: Vec<hall_voices::Call>,
+    /// The seats the keeper has greeted since the party came in (a bit a seat).
+    #[serde(skip_serializing_if = "is_zero_bits")]
+    pub greeted: u32,
+    /// The tick a knight last stoked the hearth; 0 when none has.
+    #[serde(skip_serializing_if = "is_zero_tick")]
+    pub stoked: u64,
+    /// The tick the party last came into a room of the world, for its name.
+    #[serde(skip_serializing_if = "is_zero_tick")]
+    pub came: u64,
 }
+
+fn is_zero_bits(bits: &u32) -> bool { *bits == 0 }
+fn is_zero_tick(tick: &u64) -> bool { *tick == 0 }
 
 fn first_company_page(page: &usize) -> bool { *page == 0 }
 
@@ -458,6 +489,8 @@ impl House {
             && self.said.len() <= MAX_PLAYERS as usize
             && self.said.values().all(|s| s.text.len() <= 208)
             && self.held.len() <= MAX_PLAYERS as usize
+            && self.calls.len() <= hall_voices::MOST_CALLS
+            && self.calls.iter().all(hall_voices::Call::valid)
     }
 
     pub fn is_default(&self) -> bool {
@@ -604,7 +637,7 @@ impl Run {
     /// tavern (a bare test floor) begins at the gate as it always did.
     pub fn walk_alehouse(&mut self) {
         self.raise_kingdom();
-        super::world::raise_world(&mut self.dungeon);
+        self.raise_home_world();
         let Some(i) = super::world::room_of(&self.dungeon, RoomKind::Alehouse) else {
             self.walk_kingdom(None);
             return;
@@ -661,6 +694,7 @@ impl Run {
     /// One tick in the tavern: the purses, then each knight's E.
     pub(super) fn tick_alehouse(&mut self, inputs: &BTreeMap<u32, Input>) {
         self.fund_purses();
+        self.tick_voices();
         let tick = self.tick;
         let kind = self.room().kind;
         let mut presses: Vec<(u32, Spot)> = Vec::new();
@@ -807,6 +841,7 @@ impl Run {
             self.say(id, format!("YOU ARE THE {}. {} {}", p.label.to_uppercase(), p.pitch.to_uppercase(), loadout), true);
             self.sounds.push("play_card");
             *self.marks.entry("alehouse_pick".into()).or_default() += 1;
+            self.toast_pick(id, i);
             self.first_recruit(id, p.kit, p.label);
         }
     }
@@ -890,6 +925,7 @@ impl Run {
             _ => hero.winds += 1,
         }
         self.say(id, format!("{}. {}", pour.name.to_uppercase(), pour.does), true);
+        self.call_pour(id, i);
         self.sounds.push("spoil_pickup");
     }
 
@@ -988,6 +1024,9 @@ impl Run {
                 }
             }
             Toy::Board => {
+                let read = usize::from(tries.board);
+                tries.board = tries.board.saturating_add(1);
+                let told = self.home.holdings.tidings.clone();
                 let rumours = self.rumours();
                 let notes = [
                     "WANTED: SOMEONE TO TAKE THE DELVE'S COMPLAINTS. PAYS IN COMPLAINTS.",
@@ -997,7 +1036,15 @@ impl Run {
                     "WILL THE KNIGHT WHO TOOK MY STOOL PLEASE RETURN MY STOOL.",
                 ];
                 let note = notes[(mix(seed) as usize + id as usize) % notes.len()];
-                (format!("{note} | {}", rumours[0]), false)
+                // The folk's own news is pinned over the old notes: the
+                // newest first, one a reading, while there is any.
+                match told.len().checked_sub(1 + read).map(|n| &told[n]) {
+                    Some(tiding) => {
+                        let both = format!("{tiding} | {}", rumours[0]);
+                        (if both.chars().count() <= 200 { both } else { tiding.clone() }, false)
+                    }
+                    None => (format!("{note} | {}", rumours[0]), false),
+                }
             }
             Toy::Hearth => (
                 pick(&[
@@ -1094,6 +1141,9 @@ impl Run {
                 }
             }
         };
+        if toy == Toy::Hearth {
+            self.stoke_hearth();
+        }
         self.say(id, text, good);
         if good {
             self.sounds.push("spoil_pickup");

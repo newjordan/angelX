@@ -6,20 +6,27 @@
 //! a painted frame can take its place without touching the sim: art never sets
 //! a hitbox, the boxes come from the rules.
 use super::super::ink::{Img, text_width};
+use super::juice;
 use super::roundtable::{self as shell, Look};
 use crate::rules::bannerpeak::{
     self as rules,
-    body::{Pose, Q},
-    boss::{self, Beat as BossBeat},
+    body::Q,
     foes::{BOULDER, CapState, FoeKind, ItemKind},
-    knight::{Knight, Size},
     layout::{self, cell_centre, info, section_of, world},
-    session::{BANNER_NAMES, BOARD, FX_LIFE, FxKind, Phase, SUMMIT_BANNERS, Session, View},
+    session::{BOARD, FX_LIFE, FxKind, Phase, SUMMIT_BANNERS, Session, View},
     world::{Grid, TILE, Tile},
 };
-use crate::rules::{HZ, Run, classes};
+use crate::rules::{HZ, Run};
 
+mod art;
+mod art_data;
 mod bank;
+mod cinder;
+mod claims;
+mod dust;
+mod hud;
+mod knights;
+mod moments;
 mod sky;
 
 const LOOK: Look = Look {
@@ -86,26 +93,51 @@ fn layers_with_words(run: &Run, focus: Option<u32>, words: bool) -> (Img, Img) {
         .unwrap_or(1);
     let me = s.seats.get(&id);
     let cam = me.map_or((0, 0), |k| k.cam);
-    let mut im = Img::black(W, H);
-    let mut fx = Img::new(W, H);
     let tick = s.elapsed;
+    // A hold freezes the sim's clock, not the picture's: the shake and the flicker keep time with
+    // the realm's own hit-stop.
+    let phase = u64::from(tick) * 16 + u64::from(12u32.saturating_sub(run.hitstop.left));
+    // The world on a layer of its own, so a blow can shake it while the bar and the cards hold still.
+    let mut world_im = Img::black(W, H);
     // The painted sky when it is there, the code's mountains until then.
-    if !sky::paint(&mut im, cam) {
-        scenery(&mut im, cam);
+    if !sky::paint(&mut world_im, cam) {
+        scenery(&mut world_im, cam);
     }
-    tiles(&mut im, s, cam, tick);
-    props(&mut im, s, cam, tick);
-    things(&mut im, s, cam, tick);
+    tiles(&mut world_im, s, cam, tick);
+    // Who has the words: the bar, cards, calls and prompts first; the world's signs hang where they are free.
+    let claimed = claims::overlay(s, id, me, words);
+    let hung = claims::hang(cam, &claimed);
+    props(&mut world_im, s, cam, tick, &hung);
+    ambient(&mut world_im, cam, tick);
+    let toward = me.map_or(1, |k| k.body.foot().0 - s.boss.x);
+    things(&mut world_im, s, cam, tick, toward);
+    let dust = dust::layers(s, id, cam, phase);
+    if let Some((back, _)) = &dust {
+        world_im.stamp(back, 0, 0);
+    }
     // Knights: the viewer's on top.
     let mut order: Vec<_> = s.seats.iter().collect();
     order.sort_by_key(|(seat, _)| **seat == id);
     for (&seat, k) in order {
-        knight(&mut im, run, s, seat, k, cam, seat == id, tick);
+        knights::draw(&mut world_im, s, seat, k, cam, seat == id, tick);
     }
-    effects(&mut fx, s, cam, tick);
-    hud(&mut im, run, s, id, tick);
-    overlays(&mut im, s, me, id, tick, words);
-    (im, fx)
+    if let Some((_, front)) = &dust {
+        world_im.stamp(front, 0, 0);
+    }
+    let (dx, dy) = juice::shake(knights::shakes(s, me, id), phase);
+    let mut im = if (dx, dy) == (0, 0) {
+        world_im
+    } else {
+        let mut shaken = Img::black(W, H);
+        shaken.stamp(&world_im, dx, dy);
+        shaken
+    };
+    moments::danger(&mut im, s, me, tick);
+    hud::draw(&mut im, s, id, tick);
+    moments::crown_bar(&mut im, s, me);
+    moments::film(&mut im, s);
+    overlays(&mut im, run, s, id, tick, words, &claimed);
+    (im, Img::new(W, H))
 }
 
 pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
@@ -167,6 +199,69 @@ fn scenery(im: &mut Img, cam: (i32, i32)) {
         let top = 196 - hill - cam.1 / 4;
         if top < H {
             im.rect(x, top.max(0), 1, H - top.max(0), mid);
+        }
+    }
+}
+
+/// Life in the air: fireflies over the courtyard and the marsh, motes in the shaft, snow on the
+/// run, embers on the summit. A pure function of the tick and the camera; nearer motes move more
+/// with the camera than far ones, so the valley has depth.
+fn ambient(im: &mut Img, cam: (i32, i32), tick: u32) {
+    let section = section_of((cam.0 + W / 2) / TILE);
+    // (how many, which kind)
+    let (n, kind) = match section {
+        0 => (9, 0),
+        1 | 2 => (15, 0),
+        3 => (10, 1),
+        4 => (36, 2),
+        _ => (24, 3),
+    };
+    for i in 0..n {
+        let u = |salt: i32| (mix(i, salt) % 4096) as f32 / 4096.0;
+        let depth = 0.25 + u(1) * 0.55;
+        let t = tick as f32;
+        let (x, y) = match kind {
+            // Fireflies wander in slow loops.
+            0 => (
+                u(2) * 460.0 + (t * (0.012 + u(3) * 0.01) + u(4) * 6.28).sin() * 22.0,
+                70.0 + u(5) * 110.0 + (t * (0.016 + u(6) * 0.01) + u(7) * 6.28).cos() * 14.0,
+            ),
+            // Motes drift lazily down.
+            1 => (u(2) * 460.0 + (t * 0.02 + u(4) * 6.28).sin() * 10.0, (u(5) * 260.0 + t * (0.08 + u(6) * 0.12)) % 224.0),
+            // Snow falls, leaning on the wind.
+            2 => (u(2) * 460.0 + t * (0.5 + u(3) * 0.6) + (t * 0.05 + u(4) * 6.28).sin() * 5.0, (u(5) * 300.0 + t * (0.55 + u(6) * 0.8)) % 224.0),
+            // Embers climb off the summit.
+            _ => (u(2) * 460.0 + (t * 0.03 + u(4) * 6.28).sin() * 8.0, 224.0 - ((u(5) * 300.0 + t * (0.35 + u(6) * 0.7)) % 224.0)),
+        };
+        let px = (x - cam.0 as f32 * depth).rem_euclid(460.0) as i32 - 38;
+        let py = y as i32;
+        if !(0..W).contains(&px) || !(20..H - 11).contains(&py) {
+            continue;
+        }
+        let blink = (tick as i32 / 6 + i * 5) % 7;
+        match kind {
+            0 => {
+                if blink < 5 {
+                    im.put(px, py, if blink < 2 { 'y' } else { 'M' });
+                    if blink == 0 {
+                        im.put(px + 1, py, 'L');
+                        im.put(px, py + 1, 'L');
+                    }
+                }
+            }
+            1 => im.put(px, py, if blink % 2 == 0 { 'h' } else { 'J' }),
+            2 => {
+                im.put(px, py, if depth > 0.55 { 'W' } else { 'V' });
+                if depth > 0.7 {
+                    im.put(px + 1, py, 'V');
+                }
+            }
+            _ => {
+                im.put(px, py, if blink < 3 { '6' } else { 'O' });
+                if blink == 0 {
+                    im.put(px, py - 1, 'R');
+                }
+            }
         }
     }
 }
@@ -354,21 +449,19 @@ fn on_screen(x: i32, y: i32, cam: (i32, i32), pad: i32) -> bool {
     x - cam.0 > -pad && x - cam.0 < W + pad && y - cam.1 > -pad && y - cam.1 < H + pad
 }
 
-fn props(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
+fn props(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32, hung: &[claims::Hung]) {
     let i = info();
-    // Signboards.
-    for &(cx, cy, g) in &i.signs {
-        let (x, foot) = (cx * TILE + 8, (cy + 1) * TILE);
-        if !on_screen(x, foot, cam, 80) {
-            continue;
+    // Signboards and labels, where `claims::hang` found them room.
+    for h in hung {
+        let (x, y, w, hh) = h.rect;
+        if h.board {
+            im.rect(h.post.0 - 1, h.post.1 - 12, 2, 12, 'P');
+            im.rect(x, y, w, hh, 'B');
+            im.frame(x, y, w, hh, 'o');
+            im.text(x + 3, y + 4, h.words, 'T');
+        } else {
+            text(im, x + 1, y + 1, h.words, 'h');
         }
-        let (sx, sy) = (x - cam.0, foot - cam.1);
-        im.rect(sx - 1, sy - 12, 2, 12, 'P');
-        let words = layout::sign_text(g);
-        let w = text_width(words) + 6;
-        im.rect(sx - w / 2, sy - 28, w, 14, 'B');
-        im.frame(sx - w / 2, sy - 28, w, 14, 'o');
-        im.text(sx - w / 2 + 3, sy - 24, words, 'T');
     }
     // The goal pole and the Great Pole.
     let (px, base) = (i.pole.0 * TILE + 8, (i.pole.1 + 1) * TILE);
@@ -451,7 +544,6 @@ fn props(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
             let (sx, sy) = (cx - cam.0, m.y * TILE - cam.1);
             im.rect(sx - 6, sy - 40, 12, 56, 'X');
             im.frame(sx - 6, sy - 40, 12, 56, 'g');
-            text_centre(im, sx, sy - 54, "BELL", 'h');
         }
     }
     // The wheel, the logs.
@@ -500,7 +592,6 @@ fn props(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
                 im.line(sx, sy, ex, ey, 'o');
                 im.line(sx + 1, sy, ex + 1, ey, 'o');
             }
-            text_centre(im, sx, sy - 54, "WHEEL", 'h');
         }
     }
 }
@@ -547,6 +638,54 @@ fn pennant(im: &mut Img, x: i32, foot: i32, ink: char, tick: u32, tall: i32) {
     im.rect(x - 2, foot - tall - 2, 4, 3, '6');
 }
 
+/// A banner hung from the Great Pole: a crimson-and-colourway cloth with a swallow tail at its
+/// free end, a crescent on its face, shaded along the foot, a glint that slides across it.
+#[allow(clippy::too_many_arguments)]
+fn banner_cloth(im: &mut Img, x0: i32, y: i32, w: i32, left: bool, ink_: char, tick: u32, n: usize) {
+    let Some(c) = super::super::ink::ink(ink_) else { return };
+    let deep = super::super::ink::shade(c, 0.62);
+    let h: i32 = 19;
+    for dy in 0..h {
+        for dx in 0..w {
+            // Distance from the free end, for the swallow tail's notch.
+            let from_end = if left { dx } else { w - 1 - dx };
+            let notch = ((6 - from_end).max(0) * 4 / 6) as i32;
+            if (dy - h / 2).abs() < notch {
+                continue;
+            }
+            let shade = dy >= h - 3 || (dy >= h - 5 && (dx + dy) % 2 == 0);
+            im.set(x0 + dx, y + dy, if shade { deep } else { c });
+        }
+    }
+    // The rim: dark along the top and the foot, and the pole's end.
+    for dx in 0..w {
+        im.put(x0 + dx, y - 1, 'k');
+        im.put(x0 + dx, y + h, 'k');
+    }
+    let pole_x = if left { x0 + w } else { x0 - 1 };
+    im.rect(pole_x, y - 1, 1, h + 2, 'k');
+    // A crescent in cream: a disc with a smaller one bitten out of it.
+    let (cx, cy) = (x0 + w / 2 + if left { -1 } else { 1 }, y + h / 2);
+    for dy in -5..=5i32 {
+        for dx in -5..=5i32 {
+            let a = dx * dx + dy * dy <= 22;
+            let b = (dx - 2) * (dx - 2) + dy * dy <= 14;
+            if a && !b {
+                im.put(cx + dx, cy + dy, 'T');
+            }
+        }
+    }
+    let g = (tick as i32 * 2 + n as i32 * 9) % 70;
+    if g < w {
+        let gx = x0 + g;
+        for dy in 1..h - 2 {
+            if im.get(gx, y + dy).is_some_and(|p| p != [0, 0, 0]) && (dy + g) % 2 == 0 {
+                im.put(gx, y + dy, 'c');
+            }
+        }
+    }
+}
+
 fn great_pole(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
     let i = info();
     let (cx, _) = cell_centre(i.great_pole);
@@ -573,13 +712,16 @@ fn great_pole(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
         let earned = s.banners & (1 << n) != 0;
         if earned {
             let flutter = ((tick / 7) as i32 + n as i32) % 3;
-            im.rect(x0, y, w - flutter, 19, banner_ink(n));
-            im.frame(x0, y, w - flutter, 19, 'k');
-            let g = (tick as i32 * 2 + n as i32 * 9) % 60;
-            if g < w {
-                im.rect(x0 + g, y + 1, 1, 17, 'w');
-            }
-            im.text(x0 + w / 2 - 2, y + 6, &format!("{}", n + 1), 'k');
+            // The banner just raised climbs the mast from its foot to its peg.
+            let climb = s
+                .announce
+                .filter(|a| usize::from(a.banner) == n)
+                .map_or(0, |a| {
+                    let age = crate::rules::bannerpeak::session::ANNOUNCE_TICKS.saturating_sub(a.t);
+                    ((1.0 - super::pfx::ease::out((age as f32 / 40.0).min(1.0))) * (sy - y - 19) as f32) as i32
+                });
+            let y = y + climb;
+            banner_cloth(im, x0, y, w - flutter, left, banner_ink(n), tick, n);
         } else {
             im.frame(x0, y, w, 19, 'g');
             im.text(x0 + w / 2 - 2, y + 6, &format!("{}", n + 1), 'g');
@@ -589,7 +731,7 @@ fn great_pole(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
 
 // ------------------------------------------------------- foes and things
 
-fn things(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
+fn things(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32, toward: i32) {
     let i = info();
     // Gold sparks and the ring of eight.
     for (n, &c) in i.coins.iter().enumerate() {
@@ -624,50 +766,34 @@ fn things(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
         let g = (tick as i32 / 3 + n as i32) % 12;
         im.put(x - 6 + g, y - 6, 'w');
     }
-    // Foes.
+    // Foes: hooded wisps, a smoke tail and a wick that glows at its end.
     for f in &s.foes {
         let (l, t, r, b) = f.rect();
         if !on_screen(l, t, cam, 40) {
             continue;
         }
-        let (x, y) = (l - cam.0, t - cam.1);
-        let w = r - l;
-        let h = b - t;
+        let (cx, foot) = ((l + r) / 2 - cam.0, b - cam.1);
+        let flip = f.dir < 0;
         if !f.alive() {
-            pop(im, x + w / 2, y + h / 2, f.dead);
-            continue;
-        }
-        match f.kind {
-            FoeKind::Snuffer | FoeKind::Capped => {
-                // A hooded wisp with a wick-stub tail and two pale eyes.
-                im.rect(x, y + 4, w, h - 4, 'S');
-                im.rect(x + 2, y + 2, w - 4, 3, 'S');
-                im.rect(x + 4, y, w - 8, 3, 'S');
-                im.frame(x, y + 4, w, h - 4, 'x');
-                let eye = if f.dir > 0 { 1 } else { 0 };
-                im.rect(x + 3 + eye * 3, y + 6, 2, 3, 'w');
-                im.rect(x + 8 + eye * 2 - 1, y + 6, 2, 3, 'w');
-                let tail_x = if f.dir > 0 { x - 2 } else { x + w };
-                im.rect(tail_x, y + h - 5, 2, 4, 'O');
-                // Feet that shuffle.
-                let step = (f.t / 6 % 2) as i32;
-                im.rect(x + 1 + step, b - cam.1 - 2, 4, 2, 'x');
-                im.rect(x + w - 5 - step, b - cam.1 - 2, 4, 2, 'x');
-                if f.kind == FoeKind::Capped {
-                    im.rect(x - 1, y - 2, w + 2, 6, 'B');
-                    im.rect(x + 1, y - 4, w - 2, 3, 'B');
-                    im.rect(x - 1, y + 2, w + 2, 2, 'b');
-                    im.rect(x + 3, y - 3, 3, 1, 'o');
+            // Stomped flat for a moment; the cold smoke and the returned light are the marks'.
+            if f.dead + 8 > crate::rules::bannerpeak::foes::POP {
+                let name = if f.kind == FoeKind::Wisp { "wisp" } else { "snuffer_flat" };
+                if let Some(sp) = art::foe(name, 0, flip) {
+                    art::stamp(im, &sp, cx, foot);
                 }
             }
-            FoeKind::Wisp => {
-                im.ellipse((x + w / 2) as f32, (y + h / 2) as f32, 6.0, 6.0, 'V');
-                im.ellipse((x + w / 2) as f32, (y + h / 2 + 1) as f32, 4.0, 4.0, 'W');
-                im.rect(x + 3, y + 4, 2, 3, 'k');
-                im.rect(x + 7, y + 4, 2, 3, 'k');
-                let flick = (f.t / 4 % 3) as i32;
-                im.rect(x + 4 + flick, y + h, 2, 4, 'O');
-            }
+            continue;
+        }
+        let step = (f.t / 7 % 2) as usize;
+        let name = match f.kind {
+            FoeKind::Snuffer => "snuffer",
+            FoeKind::Capped => "capped",
+            FoeKind::Wisp => "wisp",
+        };
+        // A walker bobs a pixel on each step; a wisp floats on its own.
+        let bob = if f.kind == FoeKind::Wisp { 0 } else { step as i32 - 1 + 1 };
+        if let Some(sp) = art::foe(name, step, flip) {
+            art::stamp(im, &sp, cx, foot - if bob > 0 { 0 } else { 0 });
         }
     }
     // Items.
@@ -680,12 +806,13 @@ fn things(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
         let (w, h) = (r - l, b - t);
         match it.kind {
             ItemKind::Loaf => {
-                im.ellipse((x + w / 2) as f32, (y + h / 2 + 1) as f32, 6.0, 5.0, 'o');
-                im.rect(x + 1, y + h / 2, w - 2, h / 2, 'o');
-                im.rect(x + 3, y + 2, w - 6, 1, 't');
-                im.line(x + 3, y + 3, x + 5, y + 6, 'r');
-                im.line(x + 7, y + 3, x + 9, y + 6, 'r');
-                im.frame(x, y + 2, w, h - 2, 'b');
+                if let Some(sp) = art::foe("loaf", 0, false) {
+                    // It rises out of its block, then rests, and a glint passes over it.
+                    art::stamp(im, &sp, x + w / 2, y + h);
+                    if tick / 3 % 11 == 0 {
+                        im.put(x + w / 2 - 3, y + 2, 'w');
+                    }
+                }
             }
             ItemKind::Flame => {
                 // Painted: the flame kindles over the sixteen ticks it rises
@@ -703,12 +830,12 @@ fn things(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
             }
             ItemKind::Cap => {
                 let on = it.cap;
-                im.rect(x, y + 3, w, h - 3, 'B');
-                im.rect(x + 2, y, w - 4, 4, 'B');
-                im.rect(x, y + h - 3, w, 3, 'b');
-                im.rect(x + 3, y + 1, 4, 1, 'o');
+                if let Some(sp) = art::foe("cap", 0, false) {
+                    art::stamp(im, &sp, x + w / 2, y + h);
+                }
                 if on == CapState::Slide {
                     im.rect(x - it.dir as i32 * 3, y + 4, 2, 1, 'h');
+                    im.rect(x - it.dir as i32 * 6, y + 6, 2, 1, 'J');
                 }
             }
         }
@@ -721,7 +848,7 @@ fn things(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
         im.rect(l - cam.0, t - cam.1, r - l, bt - t, 'O');
         im.rect(l - cam.0 + 1, t - cam.1 + 1, 4, 4, 'T');
     }
-    cinder(im, s, cam, tick);
+    cinder::draw(im, s, cam, tick, toward);
     for b in &s.boulders {
         let (bw, bh) = BOULDER;
         let x = b.x.div_euclid(Q) - cam.0;
@@ -748,260 +875,12 @@ fn things(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
     }
 }
 
-/// King Cinder: a hulking block with a crown of embers; what is marked to hurt
-/// is framed (amber while it tells, red while it strikes).
-fn cinder(im: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
-    let b = &s.boss;
-    let f = boss::floor();
-    if !on_screen(b.x, f - 60, cam, 140) {
-        return;
-    }
-    // Marked ground first, under him.
-    for h in &b.hazards {
-        let (l, t, r, bt) = h.rect();
-        let (x, y) = (l - cam.0, t - cam.1);
-        let (w, hh) = (r - l, bt - t);
-        if h.tell > 0 {
-            // A warning that closes in as the blow nears.
-            if tick / 3 % 2 == 0 {
-                im.frame(x, y, w, hh, 'O');
-            }
-            im.rect(x, y + hh - 2, w, 2, 'O');
-        } else if h.vx != 0 {
-            // A wave along the floor.
-            im.rect(x, y, w, hh, '7');
-            im.rect(x + 2, y + 2, (w - 4).max(1), (hh - 4).max(1), 'O');
-        } else {
-            im.rect(x, y, w, hh, '7');
-            im.rect(x + w / 4, y, (w / 2).max(1), hh, 'O');
-            im.rect(x + w / 2 - 1, y, 2, hh, 'T');
-        }
-    }
-    let (bl, bt, br, bb) = b.body();
-    let (x, y) = (bl - 4 - cam.0, bt - cam.1);
-    let w = br - bl + 8;
-    let h = bb - bt;
-    let hit = b.flinch > 0;
-    let skin = match b.beat {
-        BossBeat::Rage => if tick / 2 % 2 == 0 { 'O' } else { '7' },
-        BossBeat::Down => 'X',
-        _ => if hit { 'H' } else { 'p' },
-    };
-    // The body, hunched, with arms; he kneels when the crown is low.
-    im.rect(x, y + 6, w, h - 6, skin);
-    im.frame(x, y + 6, w, h - 6, 'k');
-    im.rect(x + 2, y, w - 4, 10, skin);
-    im.frame(x + 2, y, w - 4, 10, 'k');
-    // Eyes: banked coals.
-    let glow = if b.beat == BossBeat::Dormant { 'x' } else if b.beat == BossBeat::Down { 'g' } else { '6' };
-    im.rect(x + 8, y + 4, 4, 3, glow);
-    im.rect(x + w - 12, y + 4, 4, 3, glow);
-    // Arms: raised on a tell, down on a strike.
-    let up = b.beat == BossBeat::Tell;
-    let ay = if up { y - 10 } else { y + h / 2 };
-    im.rect(x - 8, ay, 8, 18, skin);
-    im.rect(x + w, ay, 8, 18, skin);
-    im.frame(x - 8, ay, 8, 18, 'k');
-    im.frame(x + w, ay, 8, 18, 'k');
-    // The crown, plated: one plate to a seat.
-    if !b.defeated() {
-        let top = y - 2;
-        let n = i32::from(b.plates.max(1));
-        let cw = 36;
-        let step = (cw / n).clamp(4, 12);
-        for k in 0..i32::from(b.plates) {
-            let cx = x + w / 2 - (n * step) / 2 + k * step;
-            im.rect(cx, top - 10, step - 1, 10, '6');
-            im.rect(cx, top - 10, step - 1, 2, 'w');
-            im.frame(cx, top - 10, step - 1, 10, 'k');
-        }
-        if b.beat == BossBeat::Wince && tick / 6 % 2 == 0 {
-            // The window: the crown is low, now.
-            text_centre(im, x + w / 2, top - 24, "SLAM", 'T');
-        }
-    }
-    text_centre(im, x + w / 2, y + h + 3, "KING CINDER", 'h');
-}
-
 fn coin(im: &mut Img, x: i32, y: i32, t: i32) {
     let w = [6, 5, 2, 5][(t / 4 % 4) as usize];
     im.rect(x - w / 2, y - 4, w.max(2), 8, '5');
     im.rect(x - w / 2, y - 4, w.max(2), 1, '6');
     if w > 3 {
         im.rect(x - 1, y - 2, 2, 4, '4');
-    }
-}
-
-fn pop(im: &mut Img, x: i32, y: i32, dead: u32) {
-    // Cold smoke, and a spark of returned light.
-    let age = (crate::rules::bannerpeak::foes::POP - dead) as i32;
-    let r = 3 + age / 2;
-    for k in 0..6 {
-        let dx = [-1, 1, -2, 2, 0, 0][k] * r;
-        let dy = [-1, -1, 1, 1, -2, 2][k] * r / 2;
-        im.rect(x + dx - 2, y + dy - 2, 4, 4, if age < 6 { 'h' } else { 'j' });
-    }
-    if age < 8 {
-        im.rect(x - 1, y - 6 - age, 3, 3, '6');
-    }
-}
-
-// ------------------------------------------------------------- knights
-
-fn knight(
-    im: &mut Img,
-    run: &Run,
-    s: &Session,
-    seat: u32,
-    k: &Knight,
-    cam: (i32, i32),
-    mine: bool,
-    tick: u32,
-) {
-    let ink = seat_ink(seat);
-    if let Some(b) = k.bubble {
-        let (x, y) = (b.x.div_euclid(Q) - cam.0, b.y.div_euclid(Q) - cam.1);
-        let wob = tri(tick as i32 + seat as i32 * 7, 24) / 6 - 2;
-        im.ellipse(x as f32, (y + wob) as f32, 13.0, 13.0, 'W');
-        im.ellipse(x as f32, (y + wob) as f32, 11.0, 11.0, 'z');
-        im.ellipse(x as f32, (y + wob) as f32, 9.0, 9.0, 'k');
-        im.rect(x - 4, y + wob - 5, 8, 10, ink);
-        im.frame(x - 4, y + wob - 5, 8, 10, 'k');
-        text_centre(im, x, y + wob - 24, &format!("{seat}"), ink);
-        // A fading bubble blinks.
-        if b.t > 270 && tick / 4 % 2 == 0 {
-            im.ellipse(x as f32, (y + wob) as f32, 13.0, 13.0, 'k');
-        }
-        return;
-    }
-    if k.pit > 0 {
-        return;
-    }
-    // A hit knight blinks.
-    if k.hurt > 0 && tick / 3 % 2 == 0 && k.pose == 0 {
-        return;
-    }
-    let (fx_px, fy_px) = k.body.foot();
-    let (sx, sy) = (fx_px - cam.0, fy_px - cam.1);
-    if sx < -40 || sx > W + 40 || sy < -60 || sy > H + 60 {
-        return;
-    }
-    let (w, h) = k.body.dims();
-    let face = i32::from(k.body.face);
-    let pose = if k.pole > 0 { Pose::Pole } else if k.pose > 0 { Pose::Item } else { k.body.pose };
-    // The block: its box, a visor on the facing side, a helm on top.
-    let (bw, bh, lean) = match pose {
-        Pose::Dive | Pose::Belly => (w + 8, h.min(12), 0),
-        Pose::Wall => (w, h, -face * 2),
-        Pose::Slide => (w + 4, h, face * 2),
-        Pose::Land => (w + 3, h - 2, 0),
-        _ => (w, h, 0),
-    };
-    let x0 = sx - bw / 2 + lean;
-    let y0 = sy - bh;
-    // The shadow of a knight in the air.
-    if !k.body.ground {
-        if let Some(ground) = ground_below(s, fx_px, fy_px) {
-            let gy = ground - cam.1;
-            if gy > sy && gy - sy < 120 {
-                im.rect(sx - 4, gy - 1, 8, 1, 'k');
-            }
-        }
-    }
-    let body_ink = if mine { ink } else { dim(ink) };
-    im.rect(x0, y0, bw, bh, body_ink);
-    im.frame(x0, y0, bw, bh, 'k');
-    // Helm: lighter, and the visor slot toward the way faced.
-    let helm = if k.big() { 8 } else { 6 };
-    im.rect(x0 + 1, y0 + 1, bw - 2, helm.min(bh - 2), 'H');
-    let vx = if face > 0 { x0 + bw - 5 } else { x0 + 2 };
-    im.rect(vx, y0 + 3, 3, 2, 'k');
-    // A flame knight carries a lantern.
-    if k.size == Size::Flame {
-        let lx = if face > 0 { x0 + bw } else { x0 - 4 };
-        im.rect(lx, y0 + bh / 2, 4, 5, 'O');
-        im.rect(lx + 1, y0 + bh / 2 - 2, 2, 3, 'T');
-    }
-    // Pose marks: the picture of what the knight is doing.
-    match pose {
-        Pose::Spin => {
-            let a = (tick / 2 % 4) as i32;
-            im.line(x0 - 3, y0 + a * 3, x0 + bw + 2, y0 + bh - a * 3, 'w');
-            // The third jump leaves a trail.
-            for n in 1..=3 {
-                let ox = -face * n * 6;
-                im.frame(x0 + ox, y0 + n * 2, bw, bh, 'h');
-            }
-        }
-        Pose::Second => {
-            for n in 1..=2 {
-                im.frame(x0 - face * n * 4, y0 + n, bw, bh, 'j');
-            }
-        }
-        Pose::Long => im.rect(x0 - face * 10, y0 + bh / 2, 8, 1, 'h'),
-        Pose::Back => im.line(x0, y0 + bh, x0 + bw, y0, 'w'),
-        Pose::Slam | Pose::Wind => {
-            im.rect(x0 - 2, y0 - 5, bw + 4, 2, 'w');
-            im.rect(x0 + bw / 2 - 1, y0 - 9, 2, 5, 'w');
-        }
-        Pose::Dive => im.rect(x0 - face * 8, y0 + 4, 7, 1, 'h'),
-        Pose::Skid => {
-            im.rect(x0 - face * 3, sy - 2, 6, 2, 'h');
-        }
-        Pose::Brace => {
-            // The shield, raised.
-            let sxp = if face > 0 { x0 + bw } else { x0 - 5 };
-            im.rect(sxp, y0 - 1, 5, bh + 2, 'u');
-            im.frame(sxp, y0 - 1, 5, bh + 2, 'k');
-            im.rect(x0 - 2, y0 - 3, bw + 4, 3, 'U');
-            im.frame(x0 - 2, y0 - 3, bw + 4, 3, 'k');
-        }
-        Pose::Item => {
-            im.rect(x0 + bw / 2 - 1, y0 - 22, 2, 18, 'P');
-            im.rect(x0 + bw / 2 + 1, y0 - 22, 10, 8, '6');
-            im.rect(x0 - 3, y0 + 3, 3, 2, body_ink);
-            im.rect(x0 + bw, y0 + 3, 3, 2, body_ink);
-        }
-        Pose::Pole => {
-            let px = x0 + bw / 2 + face * 4;
-            im.rect(px, y0 - 6, 2, bh + 8, 'v');
-        }
-        Pose::Run | Pose::RunB => {
-            let step = if pose == Pose::Run { 0 } else { 3 };
-            im.rect(x0 + 1 + step, sy - 3, 4, 3, 'k');
-            im.rect(x0 + bw - 5 - step, sy - 3, 4, 3, 'k');
-        }
-        Pose::Wall => {
-            let wx = if k.body.wall > 0 { x0 + bw } else { x0 - 2 };
-            im.rect(wx, y0 + 2, 2, bh - 2, 'w');
-        }
-        _ => {}
-    }
-    // Who it is: the seat's number over their head.
-    let who = format!("{seat}");
-    text_centre(im, sx, y0 - 12 - if pose == Pose::Item { 12 } else { 0 }, &who, ink);
-    if mine {
-        // An arrow over your own knight for the first moments.
-        if s.elapsed < 150 && tick / 8 % 2 == 0 {
-            im.rect(sx - 2, y0 - 22, 5, 2, 'W');
-            im.rect(sx - 1, y0 - 20, 3, 2, 'W');
-            im.put(sx, y0 - 18, 'W');
-        }
-    } else if let Some(hero) = run.players.get(&seat) {
-        // Friends carry their class on the ground.
-        let _ = classes::of(hero);
-    }
-}
-
-fn dim(c: char) -> char {
-    match c {
-        'z' => 'Q',
-        'O' => 'o',
-        'y' => 'A',
-        'T' => 'O',
-        'V' => 'U',
-        'C' => 'e',
-        _ => c,
     }
 }
 
@@ -1016,119 +895,7 @@ fn ground_below(s: &Session, x: i32, y: i32) -> Option<i32> {
     None
 }
 
-// -------------------------------------------------------------- effects
-
-fn effects(fx: &mut Img, s: &Session, cam: (i32, i32), tick: u32) {
-    let _ = tick;
-    for f in &s.fx {
-        let age = (FX_LIFE - f.t) as i32;
-        let (x, y) = (f.x - cam.0, f.y - cam.1);
-        if !(-20..W + 20).contains(&x) || !(-20..H + 20).contains(&y) {
-            continue;
-        }
-        match f.k {
-            FxKind::Coin => {
-                // A coin pinged up out of the block, spinning.
-                let up = [4, 9, 13, 16, 18, 18, 16, 12, 6][age.min(8) as usize];
-                fx.rect(x - 2, y - up, 4, 6, '5');
-                fx.rect(x - 2, y - up, 4, 1, '6');
-            }
-            FxKind::Dust => {
-                for d in [-1i32, 1] {
-                    let r = 2 + age / 2;
-                    fx.rect(x + d * (3 + age) - r / 2, y - r, r, r, 'h');
-                }
-            }
-            FxKind::Ring => {
-                // A dust ring racing out along the ground.
-                let r = 4 + age * 5;
-                ring(fx, x, y - 1, r, r / 4 + 2, if age < 8 { 'W' } else { 'h' });
-                if age > 2 {
-                    ring(fx, x, y - 1, r - 5, (r - 5) / 4 + 1, 'h');
-                }
-            }
-            FxKind::Debris => {
-                for (d, up) in [(-1, 3), (1, 4), (0, 5)] {
-                    let t = age;
-                    fx.rect(x + d * t * 2, y - up * t + t * t / 2, 3, 3, 'R');
-                }
-            }
-            FxKind::Gleam => {
-                let r = 2 + age;
-                fx.rect(x - r, y, r * 2 + 1, 1, 'w');
-                fx.rect(x, y - r, 1, r * 2 + 1, 'w');
-                fx.rect(x - 1, y - 1, 3, 3, '6');
-            }
-            FxKind::Smoke => {
-                let r = 3 + age;
-                fx.rect(x - r, y - age, r * 2, r, 'j');
-            }
-            FxKind::Pop | FxKind::Bump => {}
-        }
-    }
-}
-
-/// The outline of an ellipse, a dot every few degrees.
-fn ring(im: &mut Img, cx: i32, cy: i32, rx: i32, ry: i32, ink: char) {
-    for deg in (0..360).step_by(5) {
-        im.put(
-            cx + rx * layout::cosine(deg) / 1024,
-            cy + ry * layout::sine(deg) / 1024,
-            ink,
-        );
-    }
-}
-
 // ----------------------------------------------------------------- HUD
-
-fn hud(im: &mut Img, run: &Run, s: &Session, id: u32, tick: u32) {
-    let _ = (run, tick);
-    let me = s.seats.get(&id);
-    im.rect(0, 0, W, 19, 'k');
-    im.rect(0, 19, W, 1, 'g');
-    let Some(k) = me else { return };
-    // Gold sparks.
-    coin(im, 9, 9, 0);
-    im.text(18, 5, &format!("×{}", k.coins), '6');
-    // The pie: eight wedges, the first of them at the top right.
-    pie(im, 56, 9, k.pips);
-    if k.size != Size::Small {
-        im.text(68, 5, if k.size == Size::Flame { "FLAME" } else { "BIG" }, 'O');
-    }
-    // The eight banners.
-    let bx = 112;
-    for n in 0..8usize {
-        let x = bx + n as i32 * 12;
-        if s.banners & (1 << n) != 0 {
-            im.rect(x, 3, 9, 12, banner_ink(n));
-            im.frame(x, 3, 9, 12, 'k');
-            im.rect(x + 2, 4, 1, 10, 'w');
-        } else {
-            im.frame(x, 3, 9, 12, 'g');
-        }
-    }
-    im.text(bx + 100, 5, &format!("{}/8", s.count()), 'H');
-    // The ring of sparks.
-    im.text(242, 5, &format!("SPARKS {}/8", s.sparks.count_ones()), '6');
-    // The seats: a number and a pie each.
-    if s.seats.len() > 1 {
-        for (n, (&seat, k)) in s.seats.iter().enumerate() {
-            let x = 316 + (n as i32 % 3) * 22;
-            let y = 3 + (n as i32 / 3) * 8;
-            let ink = seat_ink(seat);
-            let label = if k.bubble.is_some() { "O".to_string() } else { format!("{}", k.pips) };
-            im.text(x, y, &format!("{seat}:{label}"), ink);
-        }
-    }
-    // Keys, at the bottom.
-    im.rect(0, 213, W, 11, 'k');
-    im.text(
-        4,
-        215,
-        "SPACE JUMP  S DUCK OR SLAM  F DIVE OR CARRY  E SHIELD",
-        'h',
-    );
-}
 
 /// A pie of eight wedges, `pips` of them full, drawn on the eighths of a circle.
 fn pie(im: &mut Img, cx: i32, cy: i32, pips: u8) {
@@ -1171,51 +938,30 @@ fn pie(im: &mut Img, cx: i32, cy: i32, pips: u8) {
     }
 }
 
-fn overlays(im: &mut Img, s: &Session, me: Option<&Knight>, id: u32, tick: u32, words: bool) {
-    let _ = id;
-    // The title card, for the first few seconds.
-    if words && s.elapsed < 150 && s.phase == Phase::Play {
-        large(im, W / 2, 40, "RAISE EIGHT BANNERS", 'T', 2);
-    }
-    // A banner just raised.
-    if let Some(a) = s.announce {
-        let name = BANNER_NAMES[usize::from(a.banner)];
-        im.rect(48, 26, W - 96, 36, 'k');
-        im.frame(48, 26, W - 96, 36, banner_ink(usize::from(a.banner)));
-        if words {
-            text_centre(im, W / 2, 31, &format!("BANNER {} OF 8", s.count()), banner_ink(usize::from(a.banner)));
-            large(im, W / 2, 43, name, 'W', 1);
-        }
-    }
-    if let Some(k) = me {
-        if words && k.bubble.is_some() {
-            text_centre(im, W / 2, 26, "IN A BUBBLE: A D W S STEER TO A FRIEND", 'z');
-        }
-    }
-    // Doors: what they wait for.
-    if words && s.phase == Phase::Play && s.elapsed > 150 && s.announce.is_none() {
-        if let Some(k) = me {
-            let (fx, fy) = k.body.foot();
-            let i = info();
-            let (ax, ay) = cell_centre(i.arch);
-            if s.doors & 1 == 0 && (fx - ax).abs() < 80 && (fy - ay).abs() < 40 {
-                text_centre(im, W / 2, 26, "TWO BANNERS OPEN THIS DOOR", 'T');
+fn overlays(im: &mut Img, run: &Run, s: &Session, id: u32, tick: u32, words: bool, claimed: &[claims::Claim]) {
+    if words {
+        // The title slams in; a banner raised takes the top of every screen; calls after it.
+        moments::title(im, s);
+        moments::raised(im, s, tick);
+        moments::shouts(im, s, id);
+        // Prompts, where the claims put them.
+        for c in claimed.iter().filter(|c| matches!(c.what, "prompt" | "home")) {
+            let ink = match c.text {
+                "FLOAT TO A FRIEND" => 'z',
+                "NEEDS TWO BANNERS" => 'T',
+                _ => 'O',
+            };
+            if c.what == "home" && s.phase == Phase::Finale && tick / 12 % 2 != 0 {
+                continue;
             }
+            text(im, c.rect.0 + 1, c.rect.1 + 1, c.text, ink);
         }
     }
     if s.phase == Phase::Select {
         select_panel(im, s, tick, words);
     }
     if words && s.phase == Phase::Finale {
-        let t = s.phase_t;
-        let lines = ["EIGHT BANNERS FLY", "THE COURT IS LIT"];
-        large(im, W / 2, 40, lines[usize::from(t > 120)], 'T', 2);
-        if s.completed.is_some() && tick / 12 % 2 == 0 {
-            text_centre(im, W / 2, 190, "E  RETURN TO THE KINGDOM", 'O');
-        }
-    }
-    if words && s.phase == Phase::Play && s.completed.is_some() {
-        text_centre(im, W / 2, 190, "E  RETURN TO THE KINGDOM", 'O');
+        moments::finale(im, run, s, id, tick);
     }
 }
 
@@ -1293,3 +1039,11 @@ pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
 #[cfg(test)]
 #[path = "../../../../tests/render/arena__bannerpeak__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__bannerpeak_show__tests.rs"]
+mod show_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__bannerpeak_words__tests.rs"]
+mod words_tests;

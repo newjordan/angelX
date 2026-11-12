@@ -5,6 +5,7 @@ pub mod art;
 pub use crate::motion;
 pub mod escape;
 pub mod genie;
+pub mod creation;
 pub mod braille;
 pub mod overworld;
 pub mod racers;

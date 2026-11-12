@@ -1,5 +1,5 @@
 use super::{planning::*, tests::Temp, *};
-use crate::stage::world_viz::crawl::{dungeon::Dungeon, party};
+use crate::delve::world_viz::crawl::{dungeon::Dungeon, party};
 use std::collections::{BTreeSet, VecDeque};
 
 fn cue(door: &str, passage: ResearchPassage, outcome: Outcome) -> Input {

@@ -1,0 +1,33 @@
+name Runebound Aegis
+kind guard
+rarity relic
+by Kingdom forge
+text Hold guard for a four-wide barrier. Blocks enemy shots; allied shots gain 15% damage. Costs 25 mana per second.
+drop 0
+chest 0
+guard wall width=4 drain=25 empower=15
+art
+....HHHHHH....
+..HH555555HH..
+.H5EElEEll55H.
+.H5EElEEllE5H.
+.H5EE5555EE5H.
+.H55553w3555H.
+.H5EE5335EE5H.
+.H5EE5555EE5H.
+..H5EElEEE5H..
+..H5EElEEE5H..
+...H5ElEE5H...
+....H5555H....
+.....HHHH.....
+
+draw worn at=left
+.HHHHHH.
+H5EE5E5H
+H5EE5E5H
+H555355H
+H5EE5E5H
+.H5E5EH.
+..H55H..
+...HH...
+

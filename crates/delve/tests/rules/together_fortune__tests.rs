@@ -92,6 +92,84 @@ fn the_wheel_spins_once_a_delve_and_lands_on_an_open_wedge() {
 }
 
 #[test]
+fn the_spin_winds_back_runs_slows_hangs_on_the_neighbour_and_drops_into_its_wedge() {
+    use fortune::{Beat, DROP, HANG, RUN, WIND};
+    let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
+    for seed in 0..24 {
+        let mut run = at_the_lever(seed, 4);
+        pull(&mut run);
+        let spin = run.spin.unwrap();
+        let rest = spin.angle_at(SPIN_TICKS);
+        // The pointer sits on wedge `at` where the wheel has turned `a`.
+        let under = |a: f32| (((std::f32::consts::TAU - a.rem_euclid(std::f32::consts::TAU)) / w) as usize) % Mode::WHEEL.len();
+        assert_eq!(under(rest), usize::from(spin.wedge));
+        assert_eq!(spin.beat(0), Beat::Wind);
+        assert_eq!(spin.beat(WIND), Beat::Run);
+        assert_eq!(spin.beat(WIND + RUN), Beat::Hang);
+        assert_eq!(spin.beat(WIND + RUN + HANG), Beat::Drop);
+        assert_eq!(spin.beat(WIND + RUN + HANG + DROP), Beat::Landed);
+        // It winds back first.
+        assert!(spin.angle_at(WIND - 1) < spin.from, "{seed}: the wheel winds back");
+        // Then it only goes forward, slowing, to a hang a hair short of the peg.
+        let mut last = spin.angle_at(WIND);
+        for n in WIND + 1..WIND + RUN + HANG {
+            let a = spin.angle_at(n);
+            assert!(a >= last - 1e-4, "{seed}: turns back at tick {n}");
+            last = a;
+        }
+        let hang = spin.angle_at(WIND + RUN);
+        assert_eq!(under(hang), usize::from(spin.neighbour()), "{seed}: the near miss sits on the neighbour");
+        assert!(rest - hang > 0.5 * w && rest - hang < 0.7 * w, "{seed}: it hangs short of the peg");
+        assert!(spin.speed(WIND + RUN).abs() < 0.01 && spin.speed(WIND + RUN + 10).abs() < 0.01, "{seed}: it stands while it hangs");
+        // The pegs click slower and slower as it runs down.
+        let clicks: Vec<u32> = (WIND..WIND + RUN).filter(|&n| spin.clicked(n)).collect();
+        let gaps: Vec<u32> = clicks.windows(2).map(|p| p[1] - p[0]).collect();
+        let tail = &gaps[gaps.len() - 5..];
+        assert!(tail[3] + tail[4] > tail[0] + tail[1] + 4, "{seed}: {tail:?}");
+        // Every tick is the same every time (a friend's mirror draws what the host does).
+        assert_eq!(spin.angle(spin.started + 77), spin.angle_at(77));
+        // And a left-behind wheel is at rest.
+        let mut left = spin;
+        left.settled = true;
+        assert_eq!(left.angle(spin.started + 3), rest);
+    }
+}
+
+#[test]
+fn the_landing_holds_the_room_still_and_shakes_it() {
+    let mut run = at_the_lever(3, 0);
+    pull(&mut run);
+    for _ in 0..SPIN_TICKS {
+        if run.spin.is_some_and(|s| !s.done(run.tick)) {
+            assert_eq!(run.hitstop.left, 0, "no freeze before the wheel lands");
+        }
+        run.step(&BTreeMap::new());
+    }
+    assert!(run.hitstop.left > 0, "the landing holds the frame");
+    assert!(run.shake >= 12, "and shakes the room: {}", run.shake);
+}
+
+#[test]
+fn every_wedge_is_called_in_two_or_three_plain_words() {
+    use fortune::Luck;
+    for mode in Mode::WHEEL {
+        for line in [mode.headline(), mode.gist()].into_iter().chain(mode.pay()) {
+            let words = line.split(' ').count();
+            assert!((1..=3).contains(&words), "{mode:?}: {line:?} is {words} words");
+            assert_eq!(line, line.to_uppercase());
+            assert!(!line.contains('/') && line.len() <= 18, "{mode:?}: {line:?}");
+        }
+        // A wedge that pays more is a grand or a fair one, never the plain road.
+        if mode.pay().is_some() {
+            assert_ne!(mode.luck(), Luck::Plain, "{mode:?}");
+        }
+        assert_eq!(mode.pay().is_some(), mode.spoils().0 > mode.spoils().1, "{mode:?}");
+    }
+    let luck = |l| Mode::WHEEL.iter().filter(|m| m.luck() == l).count();
+    assert!(luck(Luck::Plain) >= 2 && luck(Luck::Fair) >= 4 && luck(Luck::Grand) >= 4);
+}
+
+#[test]
 fn fortunes_ladder_opens_the_wild_wedges() {
     // Open Floors is on the wheel from the first rung.
     assert_eq!(fortune::open_wedges(0).len(), 5);

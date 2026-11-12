@@ -1,0 +1,65 @@
+{
+  "spec": "frog-knight.json",
+  "source": "kwpixel/night-20261107/wish2char/runs/B3/pixels/game",
+  "script": "scripts/creator/export-baked-set.py",
+  "clips": {
+    "idle": [
+      128,
+      "01707bc6c9a893dc786b9a03f4d1ec34801b4581d9bbe1f104c6892bc2338049"
+    ],
+    "walk-east": [
+      96,
+      "e5a5464c89ea0a1d23faf6d47ad7692dfd7749fbd4010fb673e078184f763c6f"
+    ],
+    "walk-south": [
+      96,
+      "e5a5464c89ea0a1d23faf6d47ad7692dfd7749fbd4010fb673e078184f763c6f"
+    ],
+    "attack": [
+      96,
+      "320849e9fa881c12e81dc19d9b2e5bbbd09065008a27b605e5f88d60bb3b0332"
+    ]
+  },
+  "picks": {
+    "rest": "idle[0]",
+    "windup": "attack[6]",
+    "strike": "attack[8]"
+  },
+  "written": {
+    "library-v1-attack-strip.png": "9a02ade4d9dc82f72dc2b9b6faffd90895188d502f5a3bee2b2d3688c0d9f905",
+    "library-v1-idle-strip.png": "5adb2dbefd84e3df0c4561906eaee756af71a1ff6d44f73daca8d6d21879545f",
+    "library-v1-rest.png": "2dbd9d86410df81aa0481bc8fd5193e1499f09e7946f7f6612aa9f7699b8f3fa",
+    "library-v1-strike.png": "15033bfb361a8d56b0bd08e75a00d029cf54def4416b08ab7adac37eb2fc0de6",
+    "library-v1-walk-east-strip.png": "2ddcac9b3b10a2a8f3f0ce469e9161584114c99a6605cf9ae3fc2e9bf3b534c2",
+    "library-v1-walk-south-strip.png": "d01b19c505612d92364b72ad329a3281f6099958ad94e0613926de4b081ebc44",
+    "library-v1-ways.png": "ab957dc9302406e07f5105a8eed66f868ea21118cc7f1bb359517c3bdb608bff",
+    "library-v1-windup.png": "6c2768550cc1d79947101a1e41926a3415c6aded3c8ffa36a9f317f28c44e6ad"
+  },
+  "unregistered": true,
+  "ways": {
+    "idle": [
+      128,
+      "01707bc6c9a893dc786b9a03f4d1ec34801b4581d9bbe1f104c6892bc2338049"
+    ],
+    "walk": [
+      96,
+      "e5a5464c89ea0a1d23faf6d47ad7692dfd7749fbd4010fb673e078184f763c6f"
+    ],
+    "attack": [
+      96,
+      "320849e9fa881c12e81dc19d9b2e5bbbd09065008a27b605e5f88d60bb3b0332"
+    ],
+    "hit": [
+      32,
+      "726987890004704472fec3a858a259e536bac9c432428e08647ccb5222eb44d8"
+    ],
+    "death": [
+      72,
+      "2faef7d51688f1f15696ba688865d73c7ba1271916c375b4cf6ba87596f9da73"
+    ]
+  },
+  "ways_source": {
+    "manifest": "kwpixel/night-20261107/wish2char/runs/B3/pixels/game/manifest.json",
+    "sha256": "4cc2fcd7633970348051f062b96efd72894aaeb2bc1e18f472d6d4909015f9a4"
+  }
+}

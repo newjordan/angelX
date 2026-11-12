@@ -22,11 +22,11 @@ impl Drop for Temp {
 }
 
 use crate::{
-    drive::{
-        loop_ctl::LoopState,
+    delve::{
         together_shooter::{Run, home::Home},
+        world_viz::crawl::{dungeon::Dungeon, party},
     },
-    stage::world_viz::crawl::{dungeon::Dungeon, party},
+    drive::loop_ctl::LoopState,
 };
 
 pub(super) fn state(id: &str, iterations: &[usize]) -> LoopState {
@@ -287,7 +287,7 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
     assert_eq!(run.settlement_site.as_deref(), Some(saved.site.id.as_str()));
     assert_eq!(run.players[&1].name, "Miner");
     assert_eq!(
-        serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
+        serde_json::to_value(crate::delve::together_shooter::world::below_the_world(
             &run.dungeon
         ))
         .unwrap(),
@@ -296,7 +296,7 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
     assert_eq!(run.at, 0);
     assert!(run.valid_snapshot());
     let passive = Dungeon::of(&saved.site.floor);
-    let playable = Dungeon::of(&crate::drive::together_shooter::world::below_the_world(
+    let playable = Dungeon::of(&crate::delve::together_shooter::world::below_the_world(
         &run.dungeon,
     ));
     assert_eq!(
@@ -312,7 +312,7 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
         .sync(&facts("A", &(1..=20).collect::<Vec<_>>()), true)
         .unwrap();
     assert_eq!(
-        crate::drive::together_shooter::world::below_the_world(&run.dungeon)
+        crate::delve::together_shooter::world::below_the_world(&run.dungeon)
             .rooms
             .len(),
         saved.site.floor.rooms.len(),
@@ -326,7 +326,7 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
     let resumed: Run = serde_json::from_slice(&checkpoint).unwrap();
     assert_eq!(resumed.settlement_site, run.settlement_site);
     assert_eq!(
-        serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
+        serde_json::to_value(crate::delve::together_shooter::world::below_the_world(
             &resumed.dungeon
         ))
         .unwrap(),
@@ -347,7 +347,7 @@ fn settlement_passive_and_playable_share_saved_floor_not_just_generator() {
 #[test]
 fn settlement_rendering_time_never_awards_work_and_motion_off_is_stable() {
     use crate::{
-        stage::world_viz::{World, crawl::settlement::Scene},
+        delve::world_viz::{World, crawl::settlement::Scene},
         telemetry::MotionMode,
     };
     let mut world = World::new(77);
@@ -395,7 +395,7 @@ fn settlement_entry_route_uses_host_identity_and_does_not_replace_a_live_run() {
     let run = app.realm.dungeon.shooter.as_ref().unwrap();
     assert_eq!(run.settlement_site.as_deref(), Some(site.id.as_str()));
     assert_eq!(
-        serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
+        serde_json::to_value(crate::delve::together_shooter::world::below_the_world(
             &run.dungeon
         ))
         .unwrap(),
@@ -420,7 +420,7 @@ fn settlement_entry_route_uses_host_identity_and_does_not_replace_a_live_run() {
 
 #[test]
 fn settlement_different_rooms_have_visible_shared_furniture() {
-    use crate::stage::world_viz::crawl::{dungeon::Prop, settlement::Scene};
+    use crate::delve::world_viz::crawl::{dungeon::Prop, settlement::Scene};
     let mut site = Site::new(77, "Miner");
     let mut shots = Vec::new();
     for n in 1..=19 {
@@ -500,14 +500,14 @@ fn settlement_entry_requires_a_real_loop_association_even_before_work() {
 #[test]
 fn settlement_measurement_and_stall_ceremonies_cannot_mint_resources() {
     use crate::{
-        stage::world_viz::{AdventureEvent, World},
+        delve::world_viz::{AdventureEvent, World},
         telemetry::MotionMode,
     };
     let mut world = World::new(77);
     world.sync_settlement(&facts("A", &[1]), "Miner", false);
     let before = value(world.settlement_site().unwrap().unwrap());
     world.note_adventure(AdventureEvent::LoopStarted {
-        kind: crate::stage::world_viz::LoopKind::Coding,
+        kind: crate::delve::world_viz::LoopKind::Coding,
         task: "build".into(),
     });
     world.note_adventure(AdventureEvent::MeasurementObserved);
@@ -527,7 +527,7 @@ fn settlement_measurement_and_stall_ceremonies_cannot_mint_resources() {
 
 #[test]
 fn settlement_playable_knight_can_walk_out_of_the_hall_into_the_first_cut() {
-    use crate::drive::together_shooter::{Input, TILE_UNITS};
+    use crate::delve::together_shooter::{Input, TILE_UNITS};
     let mut site = Site::new(77, "Miner");
     site.apply("A", 1, true).unwrap();
     let mut run = Run::at_home(77, 1, None, Home::default(), Default::default());
@@ -591,7 +591,7 @@ fn settlement_saved_site_can_be_admitted_with_no_active_loop() {
     let run = app.realm.dungeon.shooter.as_ref().unwrap();
     assert_eq!(run.settlement_site.as_deref(), Some(store.site.id.as_str()));
     assert_eq!(
-        serde_json::to_value(crate::drive::together_shooter::world::below_the_world(
+        serde_json::to_value(crate::delve::together_shooter::world::below_the_world(
             &run.dungeon
         ))
         .unwrap(),
@@ -602,7 +602,7 @@ fn settlement_saved_site_can_be_admitted_with_no_active_loop() {
 
 #[test]
 fn settlement_paid_realm_wing_is_not_lost_on_admission_between_loops() {
-    use crate::drive::together_shooter::home::Station;
+    use crate::delve::together_shooter::home::Station;
     let dir = Temp::new();
     let rewards = dir.path().join("island.json");
     let mut app = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());

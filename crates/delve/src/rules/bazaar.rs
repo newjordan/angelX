@@ -222,6 +222,7 @@ impl Run {
         if good {
             self.sounds.push("play_card");
             *self.marks.entry("curio_bought".into()).or_default() += 1;
+            self.call_sale(id, slot, curio.name);
         }
         self.say(id, text, good);
     }

@@ -1,7 +1,7 @@
 // The existing failed-realm-save entry point also exercises the new private journal.
 fn windcountry_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
-    use crate::drive::together_realm::{Spoil, Realm};
-    use crate::drive::together_shooter::{Input, Run, RoomKind, HZ, world, countryside as c, windcountry as w, pastimes::{Game, Trencher}};
+    use crate::delve::together_realm::{Spoil, Realm};
+    use crate::delve::together_shooter::{Input, Run, RoomKind, HZ, world, countryside as c, windcountry as w, pastimes::{Game, Trencher}};
     use std::collections::BTreeMap;
     let empty = BTreeMap::new();
     let keys = |x, fire| BTreeMap::from([(1, Input { aim_x: x, fire, ..Default::default() })]);
@@ -21,7 +21,7 @@ fn windcountry_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         go(r, RoomKind::Kitewright, w::MAKER); press(r);
         assert_eq!(w::stage(&r.home.countryside, &r.marks), 6);
         let p = &c::PLOTS[w::PLOT]; go(r, p.room, p.at);
-        for _ in 0..crate::drive::together_shooter::home::BUY_HOLD { r.step(&meet()); }
+        for _ in 0..crate::delve::together_shooter::home::BUY_HOLD { r.step(&meet()); }
         assert_eq!(r.marks.get("country:build:kitepost"), Some(&1));
         go(r, RoomKind::GooseGreen, Game::Trencher.start()); r.step(&empty);
         r.step(&keys(-1, true)); for _ in 0..7 { r.step(&keys(-1, false)); }
@@ -80,7 +80,7 @@ fn windcountry_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         let r = restarted.realm.dungeon.shooter.edit().unwrap();
         let e = world::ENTRANCES.iter().find(|e|e.id==id).unwrap(); go(r, e.room, (12.0, 7.0)); r.step(&empty);
         let (x, y) = world::entrance_centre(e); let h = r.players.get_mut(&1).unwrap(); (h.x, h.y) = (x, y);
-        for _ in 0..crate::drive::together_shooter::home::DESCEND_HOLD + 1 { r.step(&empty); }
+        for _ in 0..crate::delve::together_shooter::home::DESCEND_HOLD + 1 { r.step(&empty); }
         assert_eq!(r.room().kind, kind);
     }
 }

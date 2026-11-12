@@ -546,6 +546,7 @@ fn rejected_operator_route_arrival_never_arms_a_timer() {
     assert_eq!(stage.controller.route(), StageRoute::Realm);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn journey_survives_the_in_transit_none_before_arrival() {
     // The 3D ride path; the overworld map hosts Realm travel by default.
@@ -554,7 +555,7 @@ fn journey_survives_the_in_transit_none_before_arrival() {
     let mut stage = Scryglass::default();
     stage.sync_arrival(Some(Building::Keep));
     stage.begin_journey(ToolEventId("call-transit".into()), Building::Smithy, false);
-    stage.sync_arrival(None);
+    stage.sync_arrival(None::<Building>);
     assert!(matches!(
         stage.controller.overlay(),
         Some(StageOverlay::Journey {
@@ -676,6 +677,7 @@ fn arrival_expires_at_exact_visible_boundary_without_redraw_reset() {
     assert_eq!(stage.arrival(), None);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn arrival_expiry_holds_the_destination_in_first_person_without_an_operator_pin() {
     let _env = crate::tests::env_lock();
@@ -1183,8 +1185,9 @@ fn native_video_old_generation_cannot_publish_state_or_fault_after_seek() {
 }
 
 /// A mid-journey world whose ride frames feed the stage paint during turns.
-fn riding_world() -> crate::stage::world_viz::World {
-    let mut world = crate::stage::world_viz::World::new(2024);
+#[cfg(feature = "delve")]
+fn riding_world() -> crate::delve::world_viz::World {
+    let mut world = crate::delve::world_viz::World::new(2024);
     world.note_tool_call("write_file", "forging a plate");
     for _ in 0..8 {
         world.tick();
@@ -1197,6 +1200,7 @@ fn riding_world() -> crate::stage::world_viz::World {
 /// crossterm backend emits it: one ~19-byte truecolor SGR per fg change
 /// along the row-major cell walk (fg state survives MoveTo), 3 UTF-8
 /// bytes per braille glyph, ~8 bytes of MoveTo per row.
+#[cfg(feature = "delve")]
 fn ink_stats(
     image: &ColoredBrailleImage,
     quant: impl Fn([u8; 3]) -> [u8; 3],
@@ -1220,6 +1224,7 @@ fn ink_stats(
 /// between two consecutive painted frames — the steady-state cost while
 /// the ride animates. MoveTo (~8B) per gap in the changed-cell sequence,
 /// one truecolor header (~19B) per fg change along it.
+#[cfg(feature = "delve")]
 fn diff_stats(
     a: &ColoredBrailleImage,
     b: &ColoredBrailleImage,
@@ -1288,11 +1293,12 @@ fn world_ink_quantizer_is_gentle_and_idempotent() {
 /// [`dotmax_frame_ink_runs_are_measured_beside_the_ride`], which holds
 /// the monotonicity claims and reports the run structure without
 /// restating a floor the tile dither does not meet.
+#[cfg(feature = "delve")]
 #[test]
 fn ride_frame_ink_runs_bound_the_sgr_flood() {
     let _guard = crate::tests::env_lock();
     let _mode = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_INK");
-    let _pin = crate::stage::world_viz::world3d::pin_world3d();
+    let _pin = crate::delve::world_viz::world3d::pin_world3d();
     let mut world = riding_world();
     let first = world
         .scryglass_frame_paced(100, 38, false, 0.0, 0.0, 1.05)
@@ -1385,12 +1391,13 @@ fn ride_frame_ink_runs_bound_the_sgr_flood() {
 /// ride's law: the monotonicity claims (quantizing never *adds* colours,
 /// runs or flush bytes) still hold and are asserted, and the tallies print
 /// under --nocapture so a later pass can attack the run structure.
+#[cfg(feature = "delve")]
 #[test]
 fn dotmax_frame_ink_runs_are_measured_beside_the_ride() {
     let _guard = crate::tests::env_lock();
     let _mode = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_INK");
     let _pin =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     let mut world = riding_world();
     let first = world
         .scryglass_frame_paced(100, 38, false, 0.0, 0.0, 1.05)
@@ -1461,6 +1468,7 @@ fn arrival_expiry_on_the_overworld_map_keeps_the_realm() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn a_session_opens_on_the_overworld_map() {
     let _env = crate::tests::env_lock();

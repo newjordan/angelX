@@ -77,7 +77,7 @@ impl std::hash::Hash for March {
 /// The houses chose signal inks; on the map they fly at dusk, as dyed
 /// cloth in the plain inks (`light::dusk_ink`), the shadow one step down
 /// the field's own bank. Only the banner being up is the fact.
-fn colours(h: &House) -> (Rgb, Rgb, Rgb) {
+pub(super) fn colours(h: &House) -> (Rgb, Rgb, Rgb) {
     let field = ink(dusk_ink(h.field)).unwrap_or_default();
     let charge = ink(dusk_ink(h.charge)).unwrap_or_default();
     (field, darker(field), charge)
@@ -233,7 +233,7 @@ fn idle(id: HouseId) -> &'static Img {
 }
 
 /// A castle's name carved by the road: quiet stone ink on black paper.
-fn carving(h: &House) -> Img {
+pub(super) fn carving(h: &House) -> Img {
     let word = h.label();
     let mut im = Img::new(super::ink::text_width(&word) + 1, 8);
     im.text(0, 0, &word, 'u');
@@ -361,6 +361,11 @@ fn carving_row((sx, sy): (i32, i32)) -> i32 {
 /// would not touch it is left out (the painter would skip it, and copying it was most of what this
 /// cost): the others and the lights are staged as they always were.
 pub fn stage(march: &March, props: &mut Vec<Prop>, lights: &mut Vec<Light>, tick: u32, view: Option<View>) {
+    // The blank-slate plan stands a tiny castle and sixteen camps, not the
+    // great castles' walls (`super::camps`).
+    if crate::world::plan::tabula() {
+        return super::camps::stage(march, props, lights, tick, view);
+    }
     let breath = |k: u32| 0.92 + 0.08 * (tick as f32 * 0.5 + k as f32 * 2.3).sin();
     // Whether a picture whose base sits at `(x, base)` shows in the view: as the painter asks it.
     let shows = |x: i32, base: i32, img: &Img| view.is_none_or(|v| v.touches(x, base - img.h, img.w, img.h));

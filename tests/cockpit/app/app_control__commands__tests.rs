@@ -1,5 +1,6 @@
 use super::*;
 
+#[cfg(feature = "delve")]
 #[test]
 fn together_commands_are_local_and_the_mode_joins_replaceable_turn_context() {
     let _guard = crate::tests::env_lock();

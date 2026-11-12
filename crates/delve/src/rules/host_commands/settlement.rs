@@ -43,7 +43,7 @@ impl Site {
         if floor.depth != 0
             || floor.rooms.is_empty()
             || floor.rooms[0].kind != RoomKind::Home
-            || floor.rooms.len() > world::HOME_ROOM_LIMIT
+            || floor.rooms.len() > world::SETTLEMENT_ROOM_LIMIT
             || !floor.rooms.iter().all(super::super::Room::valid_snapshot)
             || !floor.valid_secret()
             || floor.open.is_some()
@@ -168,6 +168,7 @@ mod tests {
                         Command::ConfigureSession {
                             naked_start: true,
                             identity: false,
+                            rite: false,
                             host: "Must roll back".into()
                         },
                         Command::AdmitSettlement { site: source },
@@ -198,6 +199,7 @@ mod tests {
                 Command::ConfigureSession {
                     naked_start: true,
                     identity: false,
+                    rite: false,
                     host: "Must roll back".into(),
                 },
                 Command::AdmitSettlement {

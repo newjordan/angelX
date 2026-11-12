@@ -8,6 +8,10 @@ impl Run {
     /// Walk the party into room `index` through its door `from` (the side
     /// they enter on), or onto a new floor's entrance with `None`.
     pub fn enter(&mut self, index: usize, from: Option<usize>) {
+        if self.kingdom.frontier && self.dungeon.rooms[index].kind != RoomKind::Kingdom {
+            self.kingdom.frontier = false;
+            self.raise_kingdom();
+        }
         let came_from = self.at;
         // Out of the safe room through a door: its featherbed's ward goes
         // along (`freedom`).
@@ -41,6 +45,9 @@ impl Run {
         self.mossbell = None;
         self.forest.leave();
         self.forest_road = None;
+        // A random room's game ends with the room: its stake is lost, its
+        // hall put back and the knights' health and gear as they came in.
+        self.abandon_encounter();
         roundtable::clear(self);
         self.college = Default::default();
         self.pastimes.leave();
@@ -67,6 +74,7 @@ impl Run {
         self.imps.clear();
         self.enemies.clear();
         self.strikes.clear();
+        self.zones.clear();
         self.spheres.clear();
         self.phantoms.clear();
         self.bard_songs.clear();
@@ -82,6 +90,7 @@ impl Run {
         self.lobs.clear();
         self.flings.clear();
         self.wells.clear();
+        self.sacs.clear();
         self.hooks.clear();
         self.webs.clear();
         self.slams.clear();
@@ -148,29 +157,30 @@ impl Run {
         }
         self.tallow_follows();
         self.hireling_follows();
+        if self.dungeon.rooms[index].kind == RoomKind::Holding {
+            self.folk_arrive();
+        }
         let sealed = self.guardian_locked();
         let first_visit = !self.dungeon.rooms[index].visited;
         if self.open_map() {
             self.enter_open(index, first_visit);
             return;
         }
-        let folly_here = self.folly_room == Some(index)
+        // A hall the floor dealt a game to (`encounter`): the seed's pick
+        // from the pool, or for an old save's folly hall the rotation it had.
+        let dealt = self.encounter_at(index);
+        // (A folly played out in another hall of the floor leaves its podium
+        // standing, which is no bar to this one.)
+        let folly_here = dealt.is_some()
             && !self.dungeon.rooms[index].cleared
             && !sealed
-            && self.folly.is_none()
-            && self.bats.is_none()
-            && self.powder.is_none()
-            && self.hop.is_none();
-        if folly_here {
+            && self.folly.as_ref().is_none_or(|f| f.done)
+            && self.bats.as_ref().is_none_or(|b| b.done)
+            && self.powder.as_ref().is_none_or(|p| p.done)
+            && self.hop.as_ref().is_none_or(|h| h.done);
+        if let (true, Some(kind)) = (folly_here, dealt) {
             self.dungeon.rooms[index].visited = true;
-            // The halls' follies take turns down the delve: the Wax Maze,
-            // the Belfry Shoot, then the Powder Room and Book Hop by turns.
-            match self.dungeon.depth % 3 {
-                1 => self.start_wax_maze(index, from),
-                2 => self.start_bat_shoot(index),
-                _ if self.dungeon.depth % 6 == 0 => self.start_book_hop(index),
-                _ => self.start_powder(index),
-            }
+            self.start_encounter(index, from, kind);
         }
         let gantry_here = self.gantry_room == Some(index)
             && !self.dungeon.rooms[index].cleared
@@ -333,6 +343,7 @@ impl Run {
         }
         self.swarm_up();
         self.maybe_frog(index, first_visit);
+        self.meet_made(index, first_visit);
         if !self.enemies.is_empty() && (self.boss_gates.is_none() || first_visit) {
             self.deepen();
             self.maybe_goblin();
@@ -437,7 +448,7 @@ impl Run {
             // Down the Winding Stair: to the landing chosen, in the delve
             // chosen for the top. A landing below the Unknown is the
             // Deep's (`deep`).
-            let landing = self.home.landing();
+            let landing = std::env::var("ANGEL_DELVE_STRESS_LANDING").ok().and_then(|v| v.trim().parse().ok()).unwrap_or_else(|| self.home.landing());
             if landing > DEEPEST && self.home.deep_road() {
                 self.enter_the_deep(landing);
                 return;
@@ -480,6 +491,8 @@ impl Run {
     }
 
     pub(super) fn finish_descent(&mut self, depth: u32, pack: Pack, from_home: bool) {
+        // The floor's game ends before its hall goes with it.
+        self.abandon_encounter();
         if !from_home && depth == 1 {
             self.spectacle.card = Some((self.tick, self.spectacle.circle));
         }
@@ -530,6 +543,9 @@ impl Run {
         // A delve the King holds has its forge-hall off its first hall.
         if !(self.identity && depth == 1) && !village {
             barony::add_forge_hall(&mut self.dungeon, &self.home.barony);
+            // A lost hall the King asked of the party, or the party won him.
+            self.reclaim.hall = None;
+            reclaim::add_lost_hall(&mut self.dungeon, &self.home.barony);
             // A floor the realm holds has its steward's hall, as built.
             holdings::add_holding_hall(&mut self.dungeon, &self.home.holdings);
         }
@@ -549,15 +565,18 @@ impl Run {
             self.boss_gates = None;
         }
         self.cage_someone();
+        self.roll_encounters();
         self.pick_folly();
         self.pick_gantry();
         self.pick_race3d();
+        self.pick_encounters();
         if self.dungeon.open.is_some() || creation || village {
             // The rooms' games wait for open floors (docs/OPEN-FLOORS.md),
             // and keep out of the identity start's three rooms.
             self.folly_room = None;
             self.gantry_room = None;
             self.race3d_room = None;
+            self.encounter_rooms.clear();
         }
         self.pots_broken.clear();
         self.pips_map();
@@ -599,7 +618,25 @@ impl Run {
             if !self.identity || depth != 1 {
                 self.give_wishes(overclass::START_WISHES, 0);
             }
+            if let Ok(list) = std::env::var("ANGEL_DELVE_STRESS_WISHES") {
+                let ids: Vec<String> = list.split(',').map(|w| w.trim().to_string()).filter(|w| !w.is_empty()).collect();
+                let per: usize = std::env::var("ANGEL_DELVE_STRESS_PER").ok().and_then(|v| v.parse().ok()).unwrap_or(ids.len());
+                let book = phrasebook::book();
+                let knights: Vec<u32> = self.players.keys().copied().collect();
+                for (n, knight) in knights.iter().enumerate() {
+                    for k in 0..per.min(ids.len()) {
+                        let id = &ids[(n * 3 + k) % ids.len()];
+                        let Some(wish) = book.iter().find(|w| &w.id == id).cloned() else { eprintln!("stress: no wish {id}"); continue };
+                        let mut got = Vec::new();
+                        while let Ok(name) = self.grant(*knight, &wish) { got.push(name); if got.len() > 8 { break; } }
+                        eprintln!("stress: knight {knight} {id} -> {got:?}");
+                    }
+                }
+            }
             self.raised_gifts(true);
+            self.prepare_industry_expedition();
+            self.industry_outfit();
+            self.outfit_kingdom_gear();
         } else {
             self.refill_winds();
             // A new floor: two more wishes each (three once the genie is free).
@@ -626,6 +663,8 @@ impl Run {
         self.provision_bombs(true);
         self.half_charge();
         self.enter(0, None);
+        self.announce_ore_forecast();
+        if from_home { self.announce_frontier_objective(); }
         self.deploy_squires();
         self.deploy_company_squires();
         if village {

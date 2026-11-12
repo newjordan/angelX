@@ -207,6 +207,31 @@ the start of the phase it was in) and every solved thing still solved: keys,
 the Lantern, lit braziers, open gates. No menu between tries. Leaving through
 the door and coming back is a fresh run.
 
+## How it looks and feels (the picture's side)
+None of this is state: the picture reads the rules' own counters (a foe's
+flinch and tell, a knight's freeze, shield and lock ticks, the effects' ages,
+the Warden's lamp stamps) and draws from them, so every screen sees the same
+pixels. The Bend rules were not touched.
+- **Light.** Lit braziers, the resting bowl, the ember, the Beacon, light
+  bolts, an open lamp-heart and a flaring knight lay warm dithered pools on a
+  lit floor, flickering with the flames; in the Gloam the edge of every light
+  shimmers and thins to a warm fringe. Light never covers a figure.
+- **Lock.** Four brackets close on the take; a friend's lock is two small
+  brackets in their colour; a dotted rope of light runs knight to target.
+- **Blows.** A tapering crescent, white struck bodies, squash, sparks and shake
+  scaled to the blow (the third cut, a spin, a lunge, a jump attack and a
+  parried foe's double blow are the heavy ones), a smoke-and-spark death.
+- **Parry.** The shield's first `lanternward_parry` ticks show a bright rim; a
+  parry rings (flash, two rings, rays, sparks, PARRY), and the foe staggers
+  with stars for its second.
+- **The Warden.** It rears awake, raises its palm and shudders through the end
+  of a tell, slams rubble and a ring, staggers on a parry, opens its heart,
+  flinches under the blade and falls. One card at a time owns the middle of
+  the screen (the retry, an item, the Beacon, the Warden's calls, the title,
+  a room's name); words never meet (`no_two_boxes_of_words_meet_*`).
+- **The Beacon.** Fireworks and paper, BEACON LIT, then each knight crowned
+  with their purse, the time, and NEW BEST or the best so far.
+
 ## Version 1 is only
 Five rooms, one boss, one beacon; the Gloam's small foes and the Warden; no
 shop (gems are the purse), no second map, no spells, no climbing, no swimming,
@@ -249,8 +274,12 @@ The door is the integrator's to move.
   once in 14 ticks. The knight's and the foe's own freeze is local.
 - No climbing, no horse, no boat; the context button stops at open, read,
   talk, lift, throw, take, light, unlock, pull, revive, relight.
-- The art is blocks: the Delve's own knight stands in for the hero, and every
-  foe and prop is a labelled placeholder.
+- The Delve's own knight stands in for the hero (the `hero` slot is still a
+  block, never drawn). Every foe and prop is painted in the realm's inks:
+  hand-inked frames in `art/*.py`, written by `art/emit.py` into
+  `src/render/overworld/arena/lanternward/art_data.rs`; a reviewed slot PNG
+  (`assets/art-slots`) still wins over them, and a slot missing a frame is its
+  labelled block whole.
 
 ## Reskin map (original to ours)
 Lock-on arrow to a gold wick-spark and four brackets; sword to a broad sword

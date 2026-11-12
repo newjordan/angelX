@@ -307,15 +307,26 @@ fn walkers(home: &Home) -> Vec<(Folk, Vec<Step>, u32)> {
             3,
         ));
     }
-    // Miners down the shaft, porters up it with the ore.
+    // Miners down the shaft, porters up it with the ore; with the stockpile
+    // full they rest by the heap (`goods`).
     let miners = b.miners();
     for i in 0..miners {
-        let route = vec![
-            Step::Walk(RoomKind::MineHead, DOWN_TO_SHAFT, false),
-            Step::Away(HZ * 14),
-            Step::Walk(RoomKind::MineHead, UP_FROM_SHAFT, true),
-            Step::Stay(RoomKind::MineHead, (9.6, 11.2), HZ * 2, Pose::Work, true),
-        ];
+        let route = if home.goods.mine_full() {
+            vec![Step::Stay(
+                RoomKind::MineHead,
+                (6.4 + (i % 5) as f32 * 0.8, 11.9 + (i / 5) as f32 * 0.45),
+                HZ * 60,
+                Pose::Idle,
+                false,
+            )]
+        } else {
+            vec![
+                Step::Walk(RoomKind::MineHead, DOWN_TO_SHAFT, false),
+                Step::Away(HZ * 14),
+                Step::Walk(RoomKind::MineHead, UP_FROM_SHAFT, true),
+                Step::Stay(RoomKind::MineHead, (9.6, 11.2), HZ * 2, Pose::Work, true),
+            ]
+        };
         let period: u32 = route.iter().map(ticks).sum();
         out.push((Folk::Miner, route, i * period / miners.max(1)));
     }
@@ -371,13 +382,19 @@ pub fn figures(home: &Home, room: RoomKind, pack: Pack, tick: u64) -> Vec<Figure
         };
         let work = f.work.and_then(barony::work);
         if b.is_lit(f.id) {
+            // The smiths hammer only while the forge works; else they wait.
+            let pose = if matches!(home.goods.burn(b, f.id), super::goods::Burn::Working) {
+                Pose::Work
+            } else {
+                Pose::Idle
+            };
             for (i, &(x, y)) in SMITH_SPOTS.iter().enumerate() {
                 out.push(Figure {
                     folk: Folk::Smith,
                     x: x * TILE_UNITS,
                     y: y * TILE_UNITS,
                     east: i == 0,
-                    pose: Pose::Work,
+                    pose,
                     loaded: false,
                     t: (tick as u32).wrapping_add(i as u32 * 7),
                 });

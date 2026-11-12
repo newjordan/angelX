@@ -5,12 +5,14 @@
 
 use crate::agent::harness::cartridges::fleet::{FleetState, SubmissionPhase};
 use crate::agent::harness::{SubmissionSlotPhase, SubmissionSlotTelemetry};
-use crate::drive::loop_ctl::{EscalationTier, LoopState, LoopStatus, cycle_elapsed_secs};
+use crate::drive::loop_ctl::{EscalationTier, cycle_elapsed_secs};
+use crate::drive::loop_ctl::{LoopState, LoopStatus};
 use dotmax::{
     BrailleGrid, Color as DotColor,
     primitives::{draw_circle_colored, draw_line_colored},
-    progress::{BarContext, ProgressStyle},
+    progress::BarContext,
 };
+use dotmax::progress::ProgressStyle;
 use ratatui::{
     style::{Color as TuiColor, Style},
     text::{Line, Span, Text},
@@ -245,14 +247,14 @@ pub(crate) fn render_with_flight(
     let dot_h = grid.dot_height();
     draw_trench_run(&mut grid, dot_w, dot_h, time, st.iteration, slot);
     let mut text = grid_to_text(&grid);
-    text.lines.extend(hud_lines(
+    text.lines.extend(hud_with_flight(
         st,
         slot,
-        slot_flight_secs,
         fleet,
         time,
-        w,
-        hud_rows,
+        slot_flight_secs,
+        width,
+        height,
     ));
     text
 }

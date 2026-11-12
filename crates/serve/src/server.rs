@@ -2,7 +2,7 @@
 //! handle on it.
 
 use crate::conn::{self, Conn, Out};
-use crate::http::{self, Assets, ClientBundle};
+use crate::http::{self, ClientBundle};
 use crate::limits::{EVENT_RING, MAX_PENDING};
 use crate::link::{lan_ip, link, random_key};
 use crate::local::{self, Dial, LocalConn, Pipe};
@@ -29,6 +29,8 @@ pub struct ServeConfig {
     pub bind: SocketAddr,
     /// The browser client; a placeholder page without one.
     pub bundle: Option<ClientBundle>,
+    /// A retained asynchronous browser generation. Takes precedence over `bundle`.
+    pub prepared_assets: Option<http::PreparedAssets>,
     pub live_assets: http::LiveAssets,
     /// A fixed join key (scripts and tests); a random one without.
     pub key: Option<String>,
@@ -54,7 +56,7 @@ pub struct ServeConfig {
 
 impl ServeConfig {
     pub fn new(bind: SocketAddr) -> ServeConfig {
-        ServeConfig { bind, bundle: None, live_assets:Default::default(), key: None, log_every: None, dev: false, tune_file: None, names: Vec::new(), paint_dir: None, hd_dir: None }
+        ServeConfig { bind, bundle: None, prepared_assets: None, live_assets:Default::default(), key: None, log_every: None, dev: false, tune_file: None, names: Vec::new(), paint_dir: None, hd_dir: None }
     }
 }
 
@@ -89,7 +91,7 @@ pub(crate) struct Hub<G: GameServer> {
     pub seats: u32,
     pub params: Vec<u8>,
     pub rep: G::Rep,
-    pub assets: Assets,
+    pub assets: std::sync::RwLock<http::PreparedAssets>,
     pub live_assets: http::LiveAssets,
     pub sessions: Mutex<Sessions>,
     pub conns: Mutex<HashMap<u64, Arc<Conn>>>,
@@ -213,6 +215,8 @@ impl<G: GameServer> Hub<G> {
 /// The host's handle, the same whatever game runs. It opens in-process
 /// connections too (`Dial`), so a `LocalConn` can dial again on its own.
 trait Control: Dial + Send + Sync {
+    fn browser_failure(&self, take: bool) -> Option<String>;
+    fn retry_browser(&self, generation: http::PreparedAssets) -> io::Result<()>;
     fn addr(&self) -> SocketAddr;
     fn key(&self) -> String;
     fn new_key(&self) -> String;
@@ -229,6 +233,16 @@ trait Control: Dial + Send + Sync {
 }
 
 impl<G: GameServer> Control for Hub<G> {
+    fn browser_failure(&self, take: bool) -> Option<String> {
+        let generation = self.assets.try_read().ok()?;
+        if take { generation.take_failure() } else { generation.failure() }
+    }
+    fn retry_browser(&self, generation: http::PreparedAssets) -> io::Result<()> {
+        let mut current = self.assets.try_write().map_err(|_| io::Error::new(io::ErrorKind::WouldBlock, "browser generation busy"))?;
+        if current.failure().is_none() { return Err(io::Error::other("only an unpublished failed browser can be retried")); }
+        *current = generation;
+        Ok(())
+    }
     fn addr(&self) -> SocketAddr {
         self.addr
     }
@@ -370,8 +384,13 @@ impl Server {
         if rates.tick_hz == 0 || rates.snapshot_hz == 0 || !rates.tick_hz.is_multiple_of(rates.snapshot_hz) {
             return Err(io::Error::new(io::ErrorKind::InvalidInput, "tick_hz must be a whole multiple of snapshot_hz"));
         }
-        let bundle = config.bundle.clone().unwrap_or_else(ClientBundle::placeholder);
-        let assets = http::Assets::prepare(&bundle)?;
+        let assets = match &config.prepared_assets {
+            Some(assets) => assets.clone(),
+            None => {
+                let bundle = config.bundle.as_ref().cloned().unwrap_or_else(ClientBundle::placeholder);
+                http::PreparedAssets::ready(http::Assets::prepare(&bundle)?)
+            }
+        };
         let listener = TcpListener::bind(config.bind)?;
         let addr = listener.local_addr()?;
         let seats = game.seats().min(MAX_PLAYERS);
@@ -383,7 +402,7 @@ impl Server {
             seats,
             params: game.params(),
             rep: game.replicator(),
-            assets,
+            assets: std::sync::RwLock::new(assets),
             live_assets:config.live_assets.clone(),
             sessions: Mutex::new({
                 let mut sessions = Sessions::new(&key, seats);
@@ -422,6 +441,11 @@ impl Server {
         }
         Ok((Server { hub, threads, accept }, stepper))
     }
+
+    pub fn browser_failure(&self) -> Option<String> { self.hub.browser_failure(false) }
+    pub fn take_browser_failure(&self) -> Option<String> { self.hub.browser_failure(true) }
+    /// Retry only a failed, unpublished browser; the listener and sessions stay.
+    pub fn retry_browser(&self, generation: http::PreparedAssets) -> io::Result<()> { self.hub.retry_browser(generation) }
 
     pub fn addr(&self) -> SocketAddr {
         self.hub.addr()

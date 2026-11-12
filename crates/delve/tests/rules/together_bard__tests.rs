@@ -238,56 +238,247 @@ fn write_bard_review() {
     }
 }
 
-#[test]
-fn a_held_stream_plays_the_riff_on_a_kick_and_builds_to_the_overload() {
+/// What the Bard's seat hears of a held stream, tick by tick: `(tick, name)` of every Bard sound
+/// on `ticks` ticks of fire from the run's current tick, while the party hears none of it.
+fn hold(r: &mut Run, ticks: u32) -> Vec<(u32, &'static str)> {
+    let fire = Input { fire: true, ..Default::default() };
+    let mut heard = Vec::new();
+    for t in 0..ticks {
+        step(r, fire);
+        let party = std::mem::take(&mut r.sounds);
+        assert!(!party.iter().any(|s| s.starts_with("bard_")), "the party heard the Bard: {party:?}");
+        for (knight, name) in std::mem::take(&mut r.seat_sounds) {
+            assert_eq!(knight, 1, "{name} went to another knight");
+            if name.starts_with("bard_") {
+                heard.push((t, name));
+            }
+        }
+    }
+    heard
+}
+
+/// A Bard on a dummy far off, left asleep, with the sounds cleared.
+fn playing() -> Run {
     let mut r = arena(EnemyKind::Demon, 35.0, 20.0);
     r.enemies[0].sleep_until = r.tick + 100_000;
     r.sounds.clear();
-    let fire = Input { fire: true, ..Default::default() };
-    let mut heard: Vec<(u32, &str)> = Vec::new();
-    let mut volley = 0;
-    for _ in 0..4 * (GLITCH_AT + 8) {
-        step(&mut r, fire);
-        let tick: Vec<&str> = std::mem::take(&mut r.sounds).into_iter().filter(|s| s.starts_with("sax_") || s.starts_with("bard_")).collect();
-        if tick.iter().any(|s| s.starts_with("sax_")) {
-            volley += 1;
-        }
-        heard.extend(tick.into_iter().map(|s| (volley, s)));
-    }
-    let at = |v: u32| heard.iter().filter(|(n, _)| *n == v).map(|(_, s)| *s).collect::<Vec<_>>();
-    // The riff in order, a kick on every fourth.
-    for v in 1..=8u32 {
-        let i = (v - 1) as usize;
-        let mut expect = vec![RIFF[i]];
-        if i % 4 == 0 {
-            expect.push(KICK);
-        }
-        assert_eq!(at(v), expect, "volley {v}");
-    }
-    assert!(!heard.iter().any(|(v, s)| *v < WUB_AT && *s == WUB), "no wub before the groove is in");
-    assert!(at(WUB_AT + 1).contains(&WUB), "the wub under the kick once it is");
-    assert_eq!(heard.iter().filter(|(_, s)| *s == OVERLOAD).count(), 1, "one overload");
-    assert!(at(GLITCH_AT).contains(&OVERLOAD));
-    assert!(heard.iter().any(|(v, s)| *v > GLITCH_AT && GLITCHES.contains(s)), "glitches after it");
-    assert!(!heard.iter().any(|(v, s)| *v <= GLITCH_AT && GLITCHES.contains(s)));
-    assert_eq!(r.players[&1].groove, GLITCH_AT + 8);
-    // A breath ends the groove.
-    for _ in 0..6 {
-        step(&mut r, Input::default());
-    }
-    assert_eq!(r.players[&1].groove, 0);
+    r.seat_sounds.clear();
+    r
 }
 
+/// The song the first knight plays in a fresh run.
+const FIRST: usize = 0;
+
+#[test]
+fn a_held_stream_looses_a_volley_every_four_ticks_so_three_are_a_beat_of_150() {
+    // The measure the whole design rests on: the stream's cadence in the sim.
+    let mut r = playing();
+    let fire = Input { fire: true, ..Default::default() };
+    let mut at = Vec::new();
+    let mut seen = r.players[&1].loosed;
+    for t in 0..240u32 {
+        step(&mut r, fire);
+        let now = r.players[&1].loosed;
+        if now != seen {
+            at.push(t);
+            seen = now;
+        }
+    }
+    assert_eq!(at.first(), Some(&0), "the first volley leaves on the first tick of fire");
+    assert!(at.windows(2).all(|w| w[1] - w[0] == 4), "{at:?}");
+    assert_eq!(VOLLEYS_PER_BEAT * 4, 12, "a beat is twelve ticks");
+    assert_eq!(VOLLEYS_PER_BEAT * 4 * 1000 / HZ, 400, "0.4 s, which is 150 BPM");
+}
+
+#[test]
+fn a_held_stream_plays_its_song_forward_one_slice_a_beat_in_step_with_the_volleys() {
+    let mut r = playing();
+    let heard = hold(&mut r, 12 * BEATS + 60);
+    // One slice on the first volley of each beat: tick 0, 12, 24, ..., in the song's order, then the
+    // last phrases go round again.
+    let song = song_of(1, 0);
+    assert_eq!(song, FIRST);
+    let want: Vec<(u32, &str)> = (0..BEATS + 5).map(|n| (12 * n, slice(song, n))).collect();
+    assert_eq!(heard, want);
+    assert_eq!(heard[0].1, "bard_a_000");
+    assert_eq!(heard[BEATS as usize - 1].1, "bard_a_095");
+    assert_eq!(heard[BEATS as usize].1, slice(song, LOOP_FROM), "past the last slice it goes round from bar 9");
+    assert_eq!(heard[BEATS as usize].1, "bard_a_032");
+    // Each slice lasts a beat and the stream names the next on the beat after: they butt, 12 ticks apart.
+    assert!(heard.windows(2).all(|w| w[1].0 - w[0].0 == 12));
+}
+
+#[test]
+fn the_groove_adds_the_bass_then_the_drums_on_bar_lines_and_the_drop_is_the_overload() {
+    // The files are pre-mixed per tier (`bard_tracks/tracks.json`): lead alone on bar 1, the bass from bar 2,
+    // the drums from bar 4. The sim's stages must change on exactly those beats.
+    let tracks: serde_json::Value = serde_json::from_slice(
+        &std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../cockpit/assets/dungeon/bard_tracks/tracks.json")).unwrap(),
+    )
+    .unwrap();
+    let tier: Vec<u32> = tracks["tier_at_beat"].as_array().unwrap().iter().map(|b| b.as_u64().unwrap() as u32).collect();
+    assert_eq!(tier, [0, (BASS_AT - 1) / VOLLEYS_PER_BEAT, (DROP_AT - 1) / VOLLEYS_PER_BEAT]);
+    assert_eq!((BASS_AT - 1) % 12, 0, "the bass comes in on a bar line");
+    assert_eq!((DROP_AT - 1) % 12, 0, "the drums drop on a bar line");
+    assert_eq!(tracks["beats"], BEATS);
+    assert_eq!(tracks["loop_from_beat"], LOOP_FROM);
+    assert_eq!(tracks["volleys_per_beat"], VOLLEYS_PER_BEAT);
+    assert_eq!(tracks["beat_s"].as_f64().unwrap(), f64::from(VOLLEYS_PER_BEAT * 4) / f64::from(HZ));
+    assert_eq!(tracks["songs"].as_array().unwrap().len(), SONGS);
+    assert_eq!((stage(0), stage(BASS_AT - 1), stage(BASS_AT), stage(DROP_AT - 1), stage(DROP_AT), stage(500)), (0, 0, 1, 1, 2, 2));
+    // In the sim: the overload (banner, shake) lands on the volley that opens the first full-band beat.
+    let mut r = playing();
+    let fire = Input { fire: true, ..Default::default() };
+    let mut dropped_at = None;
+    let mut banners = 0;
+    for t in 0..4 * (DROP_AT + 8) {
+        step(&mut r, fire);
+        if r.found.as_ref().is_some_and(|(_, id, text)| *id == 1 && text == "Wub wub!") && dropped_at.is_none() {
+            dropped_at = Some((t, r.players[&1].groove));
+            banners += 1;
+        }
+        r.found = None;
+        r.seat_sounds.clear();
+    }
+    assert_eq!(banners, 1);
+    assert_eq!(dropped_at, Some((4 * (DROP_AT - 1), DROP_AT)), "on volley {DROP_AT}, which is tick {}", 4 * (DROP_AT - 1));
+    assert_eq!(4 * (DROP_AT - 1), 12 * tier[2], "and that is the first beat of the full band");
+}
+
+#[test]
+fn letting_go_stops_the_song_within_half_a_second() {
+    let mut r = playing();
+    let heard = hold(&mut r, 70);
+    let last = heard.last().unwrap().0;
+    // Nothing is named after the release but what is already sounding: the last slice is one beat
+    // (0.4 s) long plus 16 ms of tail, and no further slice is asked for.
+    let mut after = Vec::new();
+    for t in 0..60 {
+        step(&mut r, Input::default());
+        after.extend(std::mem::take(&mut r.seat_sounds).into_iter().filter(|(_, s)| s.starts_with("bard_")).map(|(_, s)| (t, s)));
+        assert!(std::mem::take(&mut r.sounds).iter().all(|s| !s.starts_with("bard_")));
+    }
+    assert!(after.is_empty(), "{after:?}");
+    assert_eq!(r.players[&1].groove, 0, "a breath ends the groove");
+    assert!(last + 12 > 70 - 1, "the last slice began within the last beat of fire");
+    let beat_ms = VOLLEYS_PER_BEAT * 4 * 1000 / HZ;
+    assert!(beat_ms + 16 < 500, "a slice and its tail end within half a second of letting go");
+}
+
+#[test]
+fn a_tap_plays_the_opening_beat_again_and_does_not_move_the_song_on() {
+    let mut r = playing();
+    let mut firsts = Vec::new();
+    for _ in 0..3 {
+        let heard = hold(&mut r, 20);
+        firsts.push(heard[0].1);
+        for _ in 0..8 {
+            step(&mut r, Input::default());
+        }
+        assert_eq!(r.players[&1].groove, 0);
+    }
+    assert_eq!(firsts, ["bard_a_000"; 3], "each tap starts the song over; none reached the drop");
+    assert_eq!(r.players[&1].songs, 0);
+}
+
+#[test]
+fn each_bard_plays_its_own_song_and_a_groove_that_dropped_or_a_lullaby_moves_it_on() {
+    // By seat: the first four knights are on the first four songs.
+    let seats: Vec<usize> = (1..=4).map(|k| song_of(k, 0)).collect();
+    assert_eq!(seats, [0, 1, 2, 3]);
+    assert_eq!(song_of(1, SONGS as u32), 0, "round the set");
+    let mut r = playing();
+    let long = hold(&mut r, 4 * DROP_AT + 8);
+    assert_eq!(long[0].1, "bard_a_000");
+    for _ in 0..8 {
+        step(&mut r, Input::default());
+    }
+    assert_eq!(r.players[&1].songs, 1, "a groove that reached the drop leaves its song");
+    let next = hold(&mut r, 20);
+    assert_eq!(next[0].1, "bard_b_000", "the next song");
+    for _ in 0..8 {
+        step(&mut r, Input::default());
+    }
+    assert_eq!(r.players[&1].songs, 1, "a short groove does not");
+    // The Lullaby is the current song's breakdown, and then the next song is up.
+    r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
+    r.seat_sounds.clear();
+    sing(&mut r);
+    let lull: Vec<_> = std::mem::take(&mut r.seat_sounds).into_iter().filter(|(_, s)| s.starts_with("bard_")).collect();
+    assert_eq!(lull, [(1, "bard_b_lull")]);
+    assert_eq!(r.players[&1].songs, 2);
+    assert_eq!(hold(&mut r, 8)[0].1, "bard_c_000");
+}
+
+#[test]
+fn four_bards_hear_four_songs_each_their_own_and_the_party_none() {
+    let mut r = playing();
+    for id in 2..=4 {
+        r.join_seat(id, &format!("Bard {id}"));
+        r.outfit(id, knights::knight("bard").unwrap());
+        let h = r.players.get_mut(&id).unwrap();
+        (h.x, h.y, h.aim_x, h.aim_y) = (12.0, 14.0 + id as f32, 1.0, 0.0);
+        h.invulnerable = 1000;
+    }
+    let inputs: BTreeMap<u32, Input> = (1..=4).map(|id| (id, Input { fire: true, ..Default::default() })).collect();
+    let mut heard: BTreeMap<u32, Vec<&str>> = BTreeMap::new();
+    let mut events = Vec::new();
+    for _ in 0..70 {
+        r.step(&inputs);
+        events.extend(crate::wire::take_sounds(&mut r));
+    }
+    for event in &events {
+        let crate::wire::Event::Sound { hear, name } = event else { continue };
+        if !name.starts_with("bard_") {
+            continue;
+        }
+        let crate::wire::Hear::Knight(k) = hear else { panic!("{name} reached the wire for {hear:?}: the party hears the Bard") };
+        heard.entry(*k).or_default().push(name);
+    }
+    assert_eq!(heard.len(), 4);
+    for (k, names) in &heard {
+        let letter = ['a', 'b', 'c', 'd'][*k as usize - 1];
+        assert!(names.iter().all(|n| n.starts_with(&format!("bard_{letter}_"))), "knight {k} heard {names:?}");
+        assert_eq!(names[0], format!("bard_{letter}_000"));
+        assert_eq!(names.len(), 6, "a slice a beat for 70 ticks");
+    }
+}
+
+#[test]
+fn every_slice_and_lullaby_the_bard_names_is_a_shipped_file_of_about_the_right_length() {
+    let sfx = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../cockpit/assets/dungeon/sfx");
+    assert_eq!(names().len(), SONGS * (BEATS as usize + 1));
+    let mut bytes = 0;
+    for name in names() {
+        let size = std::fs::metadata(sfx.join(format!("{name}.mp3"))).unwrap_or_else(|_| panic!("{name}.mp3 is missing")).len();
+        bytes += size;
+        // 96 kbit/s: a beat and its 16 ms tail is about 5.6 kB; a Lullaby is a little over 2.5 s.
+        let seconds = size as f32 / 12_000.0;
+        let (lo, hi) = if is_slice(name) { (0.3, 0.6) } else { (1.5, 3.2) };
+        assert!((lo..hi).contains(&seconds), "{name}: {seconds} s");
+    }
+    assert!(bytes < 25_000_000, "the Bard's audio is {bytes} bytes");
+}
+
+#[test]
+fn the_bard_names_no_shot_sound_so_a_deathmatch_shot_is_a_plain_spark_not_its_music() {
+    // The deathmatch pushes a fighter's shot sound to the whole party.
+    let r = arena(EnemyKind::Dummy, 14.5, 14.0);
+    assert_eq!(classes::shot_sound(&r.players[&1]), None, "the Bard names no shot sound; its song is its own");
+    assert!(classes::is_bard(&r.players[&1]));
+}
 #[test]
 fn notes_land_on_a_hi_hat_and_burst_and_the_lullaby_is_its_own() {
     let mut r = arena(EnemyKind::Dummy, 14.5, 14.0);
     r.sounds.clear();
+    r.seat_sounds.clear();
     for _ in 0..20 {
         step(&mut r, Input { fire: true, ..Default::default() });
     }
-    let heard = std::mem::take(&mut r.sounds);
+    let party = std::mem::take(&mut r.sounds);
+    let heard: Vec<&str> = std::mem::take(&mut r.seat_sounds).into_iter().filter(|&(k, _)| k == 1).map(|(_, s)| s).collect();
     assert!(heard.contains(&HIT), "a note that lands is heard on the hi-hat: {heard:?}");
-    assert!(!heard.contains(&"hit_magic"));
+    assert!(!party.contains(&HIT) && !party.contains(&"hit_magic"), "the party heard the Bard's notes: {party:?}");
     for _ in 0..12 {
         step(&mut r, Input::default());
     }
@@ -298,8 +489,71 @@ fn notes_land_on_a_hi_hat_and_burst_and_the_lullaby_is_its_own() {
     }
     assert!(r.feel.impacts.iter().any(|i| i.note), "a note's hit is marked to burst into notes");
     r.sounds.clear();
+    r.seat_sounds.clear();
     r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
     sing(&mut r);
-    let heard = std::mem::take(&mut r.sounds);
-    assert!(heard.contains(&LULLABY) && !heard.contains(&"boss_rise"), "{heard:?}");
+    let party = std::mem::take(&mut r.sounds);
+    let heard: Vec<&str> = std::mem::take(&mut r.seat_sounds).into_iter().filter(|&(k, _)| k == 1).map(|(_, s)| s).collect();
+    assert!(heard.contains(&lullaby(FIRST)), "the Bard hears its own Lullaby: {heard:?}");
+    assert!(party.iter().all(|s| !s.starts_with("bard_")) && !party.contains(&"boss_rise"), "the party heard the Lullaby: {party:?}");
+}
+
+
+/// The demo schedules: what the sim's `seat_sounds` hold for a Bard at its seat, tick by tick, for a
+/// Note Stream held 3 s, 8 s and 20 s with a release between (and the Lullaby after), one file per song.
+/// `bard_tracks/demo.py` lays the slices on a timeline at those ticks.
+///
+/// `ANGEL_BARD_DEMO=<dir> cargo test -p angel-delve --lib write_bard_demo_schedules -- --ignored`
+///
+/// The song is pinned to the one being shown before each hold: in the game a groove that reached the
+/// drop moves its Bard on to the next song, so the 20 s hold would play the song after the 8 s hold's.
+#[test]
+#[ignore]
+fn write_bard_demo_schedules() {
+    let dir = std::path::PathBuf::from(std::env::var_os("ANGEL_BARD_DEMO").expect("the demo directory"));
+    std::fs::create_dir_all(&dir).unwrap();
+    for song in 0..SONGS {
+        let mut r = playing();
+        let mut events: Vec<(u64, &str)> = Vec::new();
+        let mut holds: Vec<(u64, u64, String)> = Vec::new();
+        let start = r.tick;
+        let take = |r: &mut Run, events: &mut Vec<(u64, &'static str)>| {
+            assert!(std::mem::take(&mut r.sounds).iter().all(|s| !s.starts_with("bard_")), "the party heard the Bard");
+            for (knight, name) in std::mem::take(&mut r.seat_sounds) {
+                assert_eq!(knight, 1);
+                if name.starts_with("bard_") {
+                    events.push((r.tick - 1 - start, name));
+                }
+            }
+        };
+        for (seconds, label) in [(3, "3 s"), (8, "8 s"), (20, "20 s")] {
+            // The song this demo shows, whatever the last hold did to it.
+            r.players.get_mut(&1).unwrap().songs = (song as u32).wrapping_sub(song_of(1, 0) as u32);
+            let from = r.tick - start;
+            for _ in 0..seconds * HZ {
+                step(&mut r, Input { fire: true, ..Default::default() });
+                take(&mut r, &mut events);
+            }
+            let to = r.tick - start;
+            holds.push((from, to, format!("hold {label}")));
+            // The release: the groove breaks, and the last slice rings out.
+            for _ in 0..2 * HZ {
+                step(&mut r, Input::default());
+                take(&mut r, &mut events);
+            }
+        }
+        // The Lullaby (R) of that song.
+        r.players.get_mut(&1).unwrap().songs = (song as u32).wrapping_sub(song_of(1, 0) as u32);
+        r.players.get_mut(&1).unwrap().ult_charge = ults::ULT_FULL;
+        let from = r.tick - start;
+        sing(&mut r);
+        take(&mut r, &mut events);
+        for _ in 0..3 * HZ {
+            step(&mut r, Input::default());
+            take(&mut r, &mut events);
+        }
+        holds.push((from, from + u64::from(SONG_TICKS), "Lullaby (R)".into()));
+        let json = serde_json::json!({ "hz": HZ, "song": song, "events": events, "holds": holds });
+        std::fs::write(dir.join(format!("schedule-{}.json", ('a' as u8 + song as u8) as char)), serde_json::to_vec_pretty(&json).unwrap()).unwrap();
+    }
 }

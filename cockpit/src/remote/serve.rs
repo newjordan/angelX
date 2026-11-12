@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use angel_glass::GridSize;
-use angel_glass::remote::{Presence, wire};
+use angel_glass::remote::{Knight, KnightStatus, Presence, wire};
 
 /// The environment variable that makes a launch a session's process, naming
 /// the session.
@@ -212,7 +212,6 @@ fn presence(hub: angel_glass::remote::Hub, workspace: PathBuf) {
 /// After each drawn frame, at most once a second: the serving houses'
 /// knights as the session's presence. Nothing outside a session.
 pub(crate) fn presence_tick(app: &crate::app::App) {
-    use angel_glass::remote::{Knight, KnightStatus};
     use std::sync::Mutex;
     static LAST: Mutex<Option<Instant>> = Mutex::new(None);
     let Some((hub, workspace)) = HUB.get() else { return };
@@ -223,26 +222,58 @@ pub(crate) fn presence_tick(app: &crate::app::App) {
         }
         *last = Some(Instant::now());
     }
-    let serving = app.serving_houses();
-    let knights = serving
-        .houses()
-        .enumerate()
-        .map(|(i, id)| {
-            let house = crate::stage::houses::get(id);
-            Knight {
-                family: house.key.to_string(),
-                persona: house.knight(0).map(|k| k.name.clone()).unwrap_or_else(|| house.label()),
-                doing: if serving.turn && i == 0 { "working".into() } else { String::new() },
-                status: match (serving.turn, i) {
-                    (true, 0) => KnightStatus::Working,
-                    (true, _) => KnightStatus::Waiting,
-                    _ => KnightStatus::Idle,
-                },
-                task: String::new(),
-            }
-        })
-        .collect();
+    let knights = serving_knights(app);
     hub.set_presence(Presence { workspace: workspace.clone(), knights, ..Presence::default() });
+}
+
+fn serving_knights(app: &crate::app::App) -> Vec<Knight> {
+    use angel_plug::drive::DriveWorld;
+    let turn = app.thinking.is_some();
+    let (label, driver, model) = match app.thinking.as_ref() {
+        Some(thinking) => {
+            let resolved = thinking
+                .club
+                .as_ref()
+                .and_then(|club| club.resolved_route_if_known());
+            let route = resolved.as_ref().unwrap_or(&thinking.requested_route);
+            (thinking.club_label.clone(), route.driver.clone(), route.model.clone())
+        }
+        None => {
+            let chrome = app.bag.in_hand_chrome();
+            (
+                app.bag.in_hand_label().to_string(),
+                chrome.route.driver.clone(),
+                chrome.route.model.clone(),
+            )
+        }
+    };
+    let seats: Vec<(String, String, String)> = app
+        .moa_armed()
+        .into_iter()
+        .flat_map(|engagement| engagement.roster.assignments().iter().flatten())
+        .map(|seat| (seat.agent.clone(), seat.driver.clone(), seat.model.clone()))
+        .collect();
+    let key_of = crate::ui::agent_panel::profile::profile_for_route;
+    let seats: Vec<_> = seats
+        .iter()
+        .map(|(agent, driver, model)| key_of(agent, driver, Some(model)).key)
+        .collect();
+    app.realm
+        .serving_knights(key_of(&label, &driver, model.as_deref()).key, &seats)
+        .into_iter()
+        .enumerate()
+        .map(|(i, (family, persona))| Knight {
+            family,
+            persona,
+            doing: if turn && i == 0 { "working".into() } else { String::new() },
+            status: match (turn, i) {
+                (true, 0) => KnightStatus::Working,
+                (true, _) => KnightStatus::Waiting,
+                _ => KnightStatus::Idle,
+            },
+            task: String::new(),
+        })
+        .collect()
 }
 
 fn chrono_now() -> String {

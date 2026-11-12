@@ -1,0 +1,45 @@
+{
+  "scenario": "rules::industry::village_shots::write_powered_village_review",
+  "seed": 41,
+  "simulated_seconds": 519,
+  "residents": 9,
+  "injected_resources": false,
+  "injected_claims": false,
+  "render_size": [
+    1152,
+    672
+  ],
+  "final_wide_view_and_clear_power_corridors": true,
+  "images": [
+    {
+      "file": "village.png",
+      "source": "04-brick-village.png",
+      "sha256": "ba8d06593ec9bee9208111b48899fac108391fa3cb877a82913a61c511361f54"
+    },
+    {
+      "file": "people.png",
+      "source": "06-ledger.png",
+      "sha256": "4256c4c2210798543bcbe3f96a3cbec35eaf38d6edbcd818500bde1da8015110"
+    },
+    {
+      "file": "walking.png",
+      "source": "09-walk.png",
+      "sha256": "7803dc880a285549d24632ca16aa25f0016804b6a26ee8fc2d9a8746adb2fbf0"
+    },
+    {
+      "file": "waterwheel.png",
+      "source": "11-waterwheel-village.png",
+      "sha256": "2fe40b9168bbf354f7c959b53323da272d6ec21c87cc267935a235265055aa01"
+    },
+    {
+      "file": "cut-shaft.png",
+      "source": "12-cut-shaft-ledger.png",
+      "sha256": "f7655cdcdd37a4174eda9bc2f48b66488bb35c9f96b49cdf0849632e645b7763"
+    },
+    {
+      "file": "restored.png",
+      "source": "13-restored-ledger.png",
+      "sha256": "7f77960ca0c03255849ff7e815f28eb25a3b79e88b63d3e28c772cf5dd36d2d0"
+    }
+  ]
+}

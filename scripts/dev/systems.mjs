@@ -43,7 +43,7 @@ function fingerprint() {
       }
     }
   }
-  for (const dir of ['crates/delve', 'crates/delve-system', 'crates/live', 'cockpit/assets/dungeon']) walk(join(root, dir))
+  for (const dir of ['crates/delve', 'crates/kingdom', 'delve/kingdom', 'crates/delve-system', 'crates/live', 'cockpit/assets/dungeon', 'cockpit/assets/kingdom']) walk(join(root, dir))
   for (const file of ['crates/Cargo.toml', 'crates/Cargo.lock', 'rust-toolchain.toml']) hash.update(readFileSync(join(root,file)))
   return hash.digest('hex')
 }

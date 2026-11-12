@@ -1,0 +1,89 @@
+{
+ "anchor_canvas_wh": [
+  28,
+  30
+ ],
+ "anchor_xy": [
+  14,
+  30
+ ],
+ "embed_kits": [
+  "v1"
+ ],
+ "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain.",
+ "pieces": [
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "idle-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-0",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "idle-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-1",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "alert-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "alert-0",
+   "runtime": true,
+   "state": "alert"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "alert-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "alert-1",
+   "runtime": true,
+   "state": "alert"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "hurt-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "hurt-0",
+   "runtime": true,
+   "state": "hurt"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "pop-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "pop-0",
+   "runtime": true,
+   "state": "pop"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "pop-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "pop-1",
+   "runtime": true,
+   "state": "pop"
+  },
+  {
+   "approved": true,
+   "frame": 2,
+   "label": "pop-2: reduced to the native canvas and snapped to the realm inks.",
+   "name": "pop-2",
+   "runtime": true,
+   "state": "pop"
+  },
+  {
+   "approved": true,
+   "frame": 3,
+   "label": "pop-3: reduced to the native canvas and snapped to the realm inks.",
+   "name": "pop-3",
+   "runtime": true,
+   "state": "pop"
+  }
+ ],
+ "runtime": true
+}

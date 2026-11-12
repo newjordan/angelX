@@ -1,7 +1,7 @@
 //! The Delve's screens as the cockpit draws them.
 
-use crate::drive::together_shooter::*;
-use crate::drive::together_shooter::polish_testing::*;
+use crate::together_shooter::*;
+use crate::together_shooter::polish_testing::*;
 use std::collections::BTreeMap;
 
 /// A game's whole screen, as the host sees it, written as JSON lines of
@@ -15,7 +15,7 @@ pub(crate) fn write_screen(run: &Run, dir: &std::path::Path, name: &str, width: 
     let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
     terminal
         .draw(|frame| {
-            crate::ui::viz::shooter_viz::render(
+            crate::shooter_viz::render(
                 frame,
                 run,
                 Rect::new(0, 0, width, height),

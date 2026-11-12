@@ -1,5 +1,5 @@
     use super::*;
-    fn restore_point(app: &App, root: &std::path::Path) -> (crate::drive::together_shooter::Run, angel_delve::rules::host_commands::Journal) {
+    fn restore_point(app: &App, root: &std::path::Path) -> (crate::delve::together_shooter::Run, angel_delve::rules::host_commands::Journal) {
         let path = root.join("session.json");
         app.dungeon.shooter.save_checkpoint(&path, 9).unwrap();
         let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap();
@@ -16,9 +16,9 @@
         std::fs::create_dir_all(&root).unwrap();
         let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
         std::sync::Arc::get_mut(&mut app.tools).unwrap().set_workspace(root.clone());
-        let run = crate::drive::together_shooter::Run::new(0, 9, Some("Guest"));
+        let run = crate::delve::together_shooter::Run::new(0, 9, Some("Guest"));
         app.dungeon.shooter.set(Some(run.clone()));
-        let club = crate::drive::together_grants::Scripted::new(&["wish retry-grace | Retry Grace\nsay retry grace\ntier damage 10 :: Original\n"], Duration::from_millis(100));
+        let club = crate::delve::together_grants::Scripted::new(&["wish retry-grace | Retry Grace\nsay retry grace\ntier damage 10 :: Original\n"], Duration::from_millis(100));
         app.dungeon.forge.grants.oracle = Some(club.clone());
         app.teach_spoken(vec![(1, "retry grace".into(), 1, Default::default())]);
         let job = app.dungeon.forge.learning[0].job;
@@ -68,8 +68,8 @@
         std::fs::create_dir_all(&replacement).unwrap();
         let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
         std::sync::Arc::get_mut(&mut app.tools).unwrap().set_workspace(original.clone());
-        app.dungeon.shooter.set(Some(crate::drive::together_shooter::Run::new(0, 9, Some("Guest"))));
-        let club = crate::drive::together_grants::Scripted::new(&["wish detached-grace | Detached Grace\nsay detached grace\ntier damage 10 :: Original answer\n"], Duration::from_millis(200));
+        app.dungeon.shooter.set(Some(crate::delve::together_shooter::Run::new(0, 9, Some("Guest"))));
+        let club = crate::delve::together_grants::Scripted::new(&["wish detached-grace | Detached Grace\nsay detached grace\ntier damage 10 :: Original answer\n"], Duration::from_millis(200));
         app.dungeon.forge.grants.oracle = Some(club.clone());
         app.teach_spoken(vec![(1, "detached grace".into(), 1, Default::default())]);
         let job = app.dungeon.forge.learning[0].job;
@@ -78,7 +78,7 @@
         assert!(!app.dungeon.forge.learning[0].returned);
         let session = app.dungeon.shooter.wish_session();
         std::sync::Arc::get_mut(&mut app.tools).unwrap().set_workspace(replacement.clone());
-        let mut fresh = crate::drive::together_shooter::Run::new(0, 9, Some("Guest"));
+        let mut fresh = crate::delve::together_shooter::Run::new(0, 9, Some("Guest"));
         fresh.players.get_mut(&1).unwrap().spell_cooldowns[0] = 71;
         fresh.cues.push("already issued".into());
         app.dungeon.shooter.set(Some(fresh));
@@ -102,7 +102,7 @@
         drop(owner);
         app.watch_learning();
         assert!(app.dungeon.forge.learning.is_empty());
-        let published = crate::drive::together_shooter::phrasebook::read(&std::fs::read_to_string(&source).unwrap());
+        let published = crate::delve::together_shooter::phrasebook::read(&std::fs::read_to_string(&source).unwrap());
         assert_eq!(published, vec![answer]);
         assert!(!replacement.join(".angel/dungeon/phrasebook.txt").exists());
         let run = app.dungeon.shooter.as_ref().unwrap();
@@ -133,8 +133,8 @@
         let _workspace = crate::tests::TestEnvGuard::unset("ANGEL_WORKSPACE");
         let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
         std::sync::Arc::get_mut(&mut app.tools).unwrap().set_workspace(original.clone());
-        app.dungeon.shooter.set(Some(crate::drive::together_shooter::Run::new(0, 9, Some("Guest"))));
-        let club = crate::drive::together_grants::Scripted::new(&["wish reset-grace | Reset Grace\nsay reset grace\ntier damage 10 :: Original workspace answer\n"], Duration::from_secs(1));
+        app.dungeon.shooter.set(Some(crate::delve::together_shooter::Run::new(0, 9, Some("Guest"))));
+        let club = crate::delve::together_grants::Scripted::new(&["wish reset-grace | Reset Grace\nsay reset grace\ntier damage 10 :: Original workspace answer\n"], Duration::from_secs(1));
         app.dungeon.forge.grants.oracle = Some(club.clone());
         app.teach_spoken(vec![(1, "reset grace".into(), 1, Default::default())]);
         let job = app.dungeon.forge.learning[0].job;
@@ -166,7 +166,7 @@
             std::thread::sleep(Duration::from_millis(5));
         }
         let text = std::fs::read_to_string(original.join(".angel/dungeon/phrasebook.txt")).unwrap();
-        let source = crate::drive::together_shooter::phrasebook::read(&text);
+        let source = crate::delve::together_shooter::phrasebook::read(&text);
         assert_eq!(source.len(), 1);
         assert_eq!(source[0].id, "reset-grace");
         assert_eq!(source[0].tiers[0].1, "Original workspace answer");
@@ -186,7 +186,7 @@
         let source = root.join(".angel/dungeon/phrasebook.txt");
         std::fs::create_dir_all(source.parent().unwrap()).unwrap();
         let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-        let answer = crate::drive::together_shooter::phrasebook::read("wish detached-kept | Detached Kept\nsay detached kept\ntier damage 10 :: Captured\n").pop().unwrap();
+        let answer = crate::delve::together_shooter::phrasebook::read("wish detached-kept | Detached Kept\nsay detached kept\ntier damage 10 :: Captured\n").pop().unwrap();
         let mut lesson = Lesson::new(1, "detached kept".into());
         lesson.detached = true;
         lesson.returned = true;
@@ -206,7 +206,7 @@
         std::fs::remove_file(&source).unwrap();
         app.drain_detached_lessons();
         assert!(app.dungeon.forge.learning.is_empty());
-        assert_eq!(crate::drive::together_shooter::phrasebook::read(&std::fs::read_to_string(&source).unwrap()), vec![answer]);
+        assert_eq!(crate::delve::together_shooter::phrasebook::read(&std::fs::read_to_string(&source).unwrap()), vec![answer]);
         drop(app);
         std::fs::remove_dir_all(root).unwrap();
     }
@@ -215,12 +215,12 @@
     fn replacement_journal_with_same_raid_and_seats_retires_all_old_metadata() {
         let _guard = crate::tests::env_lock();
         let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-        let mut run = crate::drive::together_shooter::Run::new(0, 9, Some("Guest"));
+        let mut run = crate::delve::together_shooter::Run::new(0, 9, Some("Guest"));
         run.players.get_mut(&1).unwrap().deck.push("wish-captured-1".into());
         app.dungeon.shooter.set(Some(run.clone()));
         assert!(app.sync_wish_session());
         let original_session = app.dungeon.shooter.wish_session();
-        let mut book = crate::drive::together_shooter::phrasebook::read("wish captured | Captured\nsay captured\ntier damage 10 :: Original\n");
+        let mut book = crate::delve::together_shooter::phrasebook::read("wish captured | Captured\nsay captured\ntier damage 10 :: Original\n");
         book[0].learned = true;
         let mut event = angel_delve::rules::speculative::Event::ladders(&run, &book);
         event.lamp(&run, 1, run.seat_epoch(1), "old words", true);

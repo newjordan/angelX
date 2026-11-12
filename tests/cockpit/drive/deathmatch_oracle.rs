@@ -97,6 +97,7 @@ impl NativeSession for Session {
         }
         self.melee.tick();
         self.ticks = self.ticks.saturating_add(1);
+        self.show.tick(self.ticks);
         if self.ticks <= TITLE {
             return;
         }
@@ -210,6 +211,8 @@ impl NativeSession for Session {
         if owner == target || self.winner.is_some() || !self.fighters.contains_key(&owner) {
             return false;
         }
+        let from = self.fighters.get(&owner).map_or((0., 0.), |k| (k.hero.x, k.hero.y));
+        let owner_kills = self.fighters[&owner].kills;
         let Some(f) = self
             .fighters
             .get_mut(&target)
@@ -224,10 +227,27 @@ impl NativeSession for Session {
             self.melee.parry((f.hero.x, f.hero.y), unit(way.0, way.1));
             return false;
         }
-        let before = f.hero.hp;
+        let (before, armor) = (f.hero.hp, f.hero.armor);
         f.hero.hit_ward = 0;
         f.hero.hurt(damage);
         f.hero.dress();
+        // What the picture makes a fuss of (`juice`): the same books the leg-driven strike keeps.
+        let died = f.hero.hp != before && f.hero.hp == 0;
+        let lost = (before + armor).saturating_sub(f.hero.hp + f.hero.armor);
+        let won = died && owner_kills + 1 == GOAL;
+        let weight = angel_delve::rules::juice::Weight::of(lost, f.hero.max_hp, died, won);
+        if lost > 0 || died {
+            self.show.blow(angel_delve::rules::juice::Blow {
+                owner,
+                target,
+                x: f.hero.x,
+                y: f.hero.y,
+                from,
+                lost: lost.min(u32::from(u16::MAX)) as u16,
+                weight,
+                born: self.ticks,
+            });
+        }
         if f.hero.hp == before {
             return false;
         }
@@ -250,6 +270,8 @@ impl NativeSession for Session {
                 self.winner = Some(owner);
                 self.ended = 0;
             }
+            let scores: Vec<(u32, u16)> = self.fighters.iter().map(|(&id, f)| (id, f.kills)).collect();
+            self.show.kill(self.ticks, owner, target, &scores, GOAL);
         }
         true
     }

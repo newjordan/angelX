@@ -139,6 +139,19 @@ pub fn rung(run: &Run, id: u32) -> Rung {
     rung_by(run, id, rule())
 }
 
+/// The rung a window draws knight `id`'s figure at: the rung they are on, but
+/// never under the one a drawn-whole look is drawn at (`BODY_RUNG`) for a
+/// knight whose mirror wish was drawn whole (`Run::has_mirror_body`): a wished
+/// look is not a floor's reward, and its drawings are that rung's.
+pub fn drawn_rung(run: &Run, id: u32) -> Rung {
+    let rung = rung(run, id);
+    if run.has_mirror_body(id) { rung.max(BODY_RUNG) } else { rung }
+}
+
+/// The rung a body-maker draws a wished look at: 4 drawing pixels to the
+/// game's, a knight 64 rows tall.
+pub const BODY_RUNG: Rung = Rung(64);
+
 /// What lies ahead on the ladder for knight `id`: the next rung, and the
 /// floor (`Rule::Floor`) or level (`Rule::Level`) it begins at. `None` at
 /// the top, or when one rung is fixed for everyone. For a run's end and a

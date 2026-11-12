@@ -16,6 +16,32 @@ impl RunState {
     pub(super) fn terminal(self) -> bool {
         matches!(self, Self::Rejected | Self::Verified)
     }
+
+    /// How a reader should take this state. The file says what the last
+    /// executor wrote; whether anyone is still executing is a separate fact,
+    /// known only from the run's lease. An executor killed mid-stage never
+    /// reaches the code that parks the run as `paused`, so `planning` and
+    /// `running` with no lease holder mean the run was left behind and resume
+    /// is the move, exactly as for `paused`.
+    pub(super) fn reading(self, lease_held: bool) -> RunReading {
+        match self {
+            Self::Verified => RunReading::Verified,
+            Self::Rejected => RunReading::Rejected,
+            Self::Paused => RunReading::Resumable,
+            Self::Planning | Self::Running if lease_held => RunReading::Executing,
+            Self::Planning | Self::Running => RunReading::Resumable,
+        }
+    }
+}
+
+/// What a run is doing right now, for the step `status` hands the model.
+/// Derived on read; never stored.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum RunReading {
+    Executing,
+    Resumable,
+    Rejected,
+    Verified,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -24,7 +50,12 @@ pub(super) enum NodeState {
     Pending,
     Running,
     Completed,
+    /// The stage ruled against the run: the run is rejected, for good.
     Failed,
+    /// An error cut the stage off while it ran. The run is paused and resume
+    /// runs the stage again. Run files written before this existed say
+    /// `failed` for these too.
+    Interrupted,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]

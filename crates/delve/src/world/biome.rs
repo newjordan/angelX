@@ -98,8 +98,13 @@ impl Biome {
     }
 }
 
-/// The biome of chunk `(cx, cy)`; off the chart reads the nearest edge.
+/// The biome of chunk `(cx, cy)`; off the chart reads the nearest edge. In
+/// the blank-slate plan the whole country is one biome
+/// (`super::plan::tabula::BIOME`).
 pub fn chunk(cx: i32, cy: i32) -> Biome {
+    if super::plan::tabula() {
+        return super::plan::tabula::BIOME;
+    }
     let (cx, cy) = (cx.clamp(0, CHUNKS_X - 1), cy.clamp(0, CHUNKS_Y - 1));
     Biome::of_letter(CHART[cy as usize][cx as usize])
 }

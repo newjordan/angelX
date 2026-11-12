@@ -30,6 +30,7 @@ fn delegate_status_reports_real_activity_and_heartbeat_only_silence() {
 }
 
 #[cfg(test)]
+#[cfg(feature = "delve")]
 #[test]
 fn worker_status_distinguishes_cpu_silence_and_small_panes() {
     let mut child = crate::agent::harness::ChildSnapshot {
@@ -42,7 +43,11 @@ fn worker_status_distinguishes_cpu_silence_and_small_panes() {
     };
     let row = worker_status_row(&child, None, 100);
     assert!(row.left.contains("compiling (rustc) · CPU active"));
-    let herald = crate::stage::world_viz::herald("shell", "cd /repo && cargo test -p cockpit");
+    let herald = <crate::app::control::realm::GameHost as angel_plug::commands::CommandsWorld>::herald(
+        "shell",
+        "cd /repo && cargo test -p cockpit",
+    )
+    .expect("the Delve tells every call");
     let led = worker_status_row(&child, Some(&herald), 100);
     assert!(
         led.left

@@ -1,7 +1,6 @@
 # Moonfall: what the art wave paints
 
-Blocks first: every actor, prop, building and the Gloam Moon ships as a
-labelled block (drawn in `render/overworld/arena/moonfall/ground.rs` and `sky.rs`),
+The cast is done (see `art/`): `python3 art/emit.py` inks every villager, the knights, Aster, the wisp and the carried things in the realm's inks and writes `src/render/overworld/arena/moonfall/art_data.rs`. The rest ships as a labelled block (drawn in `render/overworld/arena/moonfall/ground.rs` and `sky.rs`),
 so the loop plays before any pixel art exists. This file is the request list:
 **identity before pixels**, then the slots.
 

@@ -241,6 +241,41 @@ impl Club for BlockingFixtureClub {
     }
 }
 
+/// A club that, once cancelled, keeps its attempt in flight until the test
+/// releases it, so a campaign can be held in the stop-requested, not-yet-settled
+/// window.
+struct LingeringFixtureClub {
+    entered: Mutex<Option<mpsc::Sender<()>>>,
+    release: Arc<AtomicBool>,
+}
+
+impl Club for LingeringFixtureClub {
+    fn label(&self) -> &str {
+        "objective-lingering-fixture"
+    }
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Ok("lingering fixture proposal".to_string())
+    }
+    fn chat_streaming(
+        &self,
+        _messages: &[ChatMsg],
+        _tools: &[ToolDef],
+        cancel: &AtomicBool,
+        _on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        if let Some(sender) = self.entered.lock().ok().and_then(|mut slot| slot.take()) {
+            let _ = sender.send(());
+        }
+        let deadline = Instant::now() + Duration::from_secs(120);
+        while !(cancel.load(Ordering::Acquire) && self.release.load(Ordering::Acquire))
+            && Instant::now() < deadline
+        {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        Err("cancelled lingering fixture".to_string())
+    }
+}
+
 /// The real connected reflector asks for a book page, then records exactly
 /// what the ledger supplied before returning a policy proposal.
 struct CatalogReflectionClub {
@@ -676,6 +711,75 @@ fn stopping_a_campaign_cancels_work_and_installs_nothing() {
     }
     assert!(current_policy_note(workspace.path()).is_none());
     assert!(!state.stop(), "a settled campaign has nothing left to stop");
+    let _ = std::fs::remove_dir_all(&env.root);
+}
+
+#[test]
+fn running_again_while_a_stop_is_still_settling_says_it_is_stopping() {
+    let env = FixtureEnv::new("rerun-while-stopping");
+    let workspace = env.workspace();
+    let (entered_tx, entered_rx) = mpsc::channel();
+    let release = Arc::new(AtomicBool::new(false));
+    let club: Arc<dyn Club> = Arc::new(LingeringFixtureClub {
+        entered: Mutex::new(Some(entered_tx)),
+        release: Arc::clone(&release),
+    });
+    let mut state = RlState::default();
+    assert_eq!(state.phase(), CampaignPhase::Idle);
+
+    state
+        .start_campaign(workspace.path(), Arc::clone(&club), &args(&[]))
+        .expect("campaign launches");
+    entered_rx
+        .recv_timeout(Duration::from_secs(180))
+        .expect("the campaign reached a real in-flight attempt");
+    assert_eq!(state.phase(), CampaignPhase::Running);
+    assert!(state.stop(), "stop reaches the running campaign");
+    assert!(!state.stop(), "a second stop has nothing new to request");
+    assert_eq!(state.phase(), CampaignPhase::Stopping);
+    assert!(
+        state.running(),
+        "the worker has not settled: the campaign still holds its slot"
+    );
+
+    // `/rl run` now: the operator already asked for the stop, so the reply
+    // must not tell them to stop first.
+    let refused = state
+        .start_campaign(workspace.path(), Arc::clone(&club), &args(&[]))
+        .expect_err("one campaign at a time");
+    assert!(
+        !refused.contains("/rl stop first"),
+        "told to stop a campaign that is already stopping: {refused}"
+    );
+    assert!(refused.contains("stopping"), "{refused}");
+
+    // The model-visible status keeps its two fields and its three words.
+    let status: serde_json::Value = serde_json::from_str(
+        &state
+            .tool_call(workspace.path(), &json!({"action": "status"}))
+            .expect("status answers"),
+    )
+    .expect("status is JSON");
+    assert_eq!(status["campaign"]["status"], "running", "{status}");
+    assert_eq!(status["campaign"]["stop_requested"], true, "{status}");
+
+    release.store(true, Ordering::Release);
+    assert!(
+        wait_until(
+            || matches!(state.progress_snapshot().outcome, Some(Err(_))),
+            Duration::from_secs(180)
+        ),
+        "the stopped campaign settles"
+    );
+    assert!(!state.running());
+    assert_eq!(state.phase(), CampaignPhase::Settled);
+    let status: serde_json::Value = serde_json::from_str(
+        &state
+            .tool_call(workspace.path(), &json!({"action": "status"}))
+            .expect("status answers"),
+    )
+    .expect("status is JSON");
+    assert_eq!(status["campaign"]["status"], "settled", "{status}");
     let _ = std::fs::remove_dir_all(&env.root);
 }
 

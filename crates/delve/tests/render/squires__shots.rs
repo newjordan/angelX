@@ -87,6 +87,7 @@ fn write_squire_shots() {
             power: 0,
             taunt: 0,
             rising: 0,
+            made: None,
         };
         run.countryside_squires.push(Companion {
             owner: id,

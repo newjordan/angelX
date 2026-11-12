@@ -201,7 +201,7 @@ fn hazards_drawn(cv: &mut Img, run: &Run) {
 
 /// Kegs on the floor and bombs in the air, with the ring where each will go.
 pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
-    use crate::rules::foes::{FLING_FALL, KEG_ARMED, LOB_FALL, WELL_REACH};
+    use crate::rules::foes::{FLING_FALL, KEG_ARMED, LOB_FALL, SPORE_FALL, WELL_REACH};
     use crate::rules::hunters::{HOOK_RANGE, WEB_REACH};
     let tick = run.tick as u32;
     // Webs: spokes and rings of silk, thinning as they fade.
@@ -366,6 +366,48 @@ pub(super) fn foes_hazards(cv: &mut Img, run: &Run) {
         if !lifted_outside() {
             let im = sprites::flung_impling(tick);
             cv.stamp(&im, bx - im.w / 2, by - im.h / 2);
+        }
+    }
+    for sac in &run.sacs {
+        let (tx, ty) = at(sac.x, sac.y);
+        // Where the garden will be: a ring of pale spores, not a threat
+        // ring — the sac itself is the only thing to dodge.
+        let r = 11.0;
+        let n = 36;
+        for i in (0..n).step_by(3) {
+            let a = i as f32 / n as f32 * std::f32::consts::TAU;
+            cv.put(tx + (a.cos() * r) as i32, ty + (a.sin() * r * 0.6) as i32, '9');
+        }
+        let (fx, fy) = at(sac.from.0, sac.from.1);
+        let k = 1.0 - sac.fall as f32 / SPORE_FALL as f32;
+        let arc = (k * std::f32::consts::PI).sin() * 18.0;
+        let (bx, by) = (
+            fx + ((tx - fx) as f32 * k) as i32,
+            fy + ((ty - fy) as f32 * k) as i32 - arc as i32,
+        );
+        if !lifted_outside() {
+            // A lumpy sack, swelling as it falls: the last beats draw it
+            // rounder, so the landing reads before it happens.
+            let swell = 1 + (k * 2.0).round() as i32;
+            for (ox, oy, w, h, c) in [
+                (0, 0, 3, 2, 'R'),
+                (-2, 1, 2, 2, 'r'),
+                (2, 1, 2, 2, 'r'),
+                (0, 2, 3, 1, 'B'),
+            ] {
+                for dy in 0..h {
+                    for dx in 0..w {
+                        cv.put(bx + ox + dx, by + oy + dy, c);
+                    }
+                }
+            }
+            for dy in -swell..=swell {
+                for dx in -swell..=swell {
+                    if dx * dx + dy * dy <= swell * swell && (dx + dy).rem_euclid(2) == 0 {
+                        cv.put(bx + dx, by + dy - 2, 'o');
+                    }
+                }
+            }
         }
     }
 }

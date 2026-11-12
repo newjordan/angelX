@@ -351,11 +351,16 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
     let mut drawing = false;
     let mut sprite: Option<(usize, String, String, bool)> = None;
     let mut bad_lines: Vec<(usize, String)> = Vec::new();
+    // `vfx` lines said for the whole wish, not inside a tier: each tier that
+    // says none of its own takes them (the brief offers `vfx` lines, and the
+    // learner writes them on their own; 2026-11-05, six of ten first answers
+    // were turned away for it).
+    let mut wish_vfx: Vec<(usize, String)> = Vec::new();
     let keyword = |line: &str| {
         line.split_whitespace().next().is_some_and(|w| {
             matches!(
                 w,
-                "wish" | "kind" | "say" | "tier" | "art" | "draw" | "look" | "sheet" | "paint"
+                "wish" | "kind" | "say" | "tier" | "art" | "draw" | "look" | "sheet" | "paint" | "vfx"
             )
         })
     };
@@ -468,6 +473,11 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
                         .push((0, "look".into(), format!("look {rest}\n"), false));
                 }
             }
+            "vfx" => {
+                if !book.is_empty() {
+                    wish_vfx.push((book.len() - 1, format!("vfx {rest}")));
+                }
+            }
             _ => {
                 if !book.is_empty() {
                     bad_lines.push((book.len() - 1, format!("unknown line `{word}`")));
@@ -479,6 +489,18 @@ pub fn read_checked(text: &str) -> (Vec<Wish>, Vec<String>) {
         && let Some(wish) = book.last_mut()
     {
         wish.looks.push((from, slot, block, own));
+    }
+    let is_vfx = |line: &String| line.split_whitespace().next() == Some("vfx");
+    for (index, wish) in book.iter_mut().enumerate() {
+        let said: Vec<&String> = wish_vfx.iter().filter(|(i, _)| *i == index).map(|(_, l)| l).collect();
+        if said.is_empty() {
+            continue;
+        }
+        for (lines, _) in &mut wish.tiers {
+            if !lines.iter().any(is_vfx) {
+                lines.extend(said.iter().map(|l| (*l).clone()));
+            }
+        }
     }
     // Publish only complete checked ladders. A broken workspace override
     // must not hide a valid earlier wish or partially grant its first tier.
@@ -720,6 +742,10 @@ const WISH_ART: &[(&str, &str)] = &[
     (
         "yew-bow",
         include_str!("../../../../cockpit/assets/dungeon/wish-art/yew-bow.art"),
+    ),
+    (
+        "plain-hound",
+        include_str!("../../../../cockpit/assets/dungeon/wish-art/plain-hound.art"),
     ),
     (
         "war-crossbow",
@@ -1070,6 +1096,8 @@ fn worth(card: &Card) -> Vec<(String, u32)> {
         .iter()
         .map(|e| match *e {
             Effect::Cast(shape) => (format!("cast {}", shape.word()), 1),
+            // A bigger area is worth more: a tier may climb by size.
+            Effect::Area(area) => (format!("cast {} {}", area.form.word(), area.element.word()), u32::from(area.size)),
             Effect::Summon(n, behaviour) => (format!("summon {}", behaviour.word()), n),
             // Every Nth shot: the fewer, the better.
             Effect::Volley(n) => ("volley".into(), 100u32.saturating_sub(n)),

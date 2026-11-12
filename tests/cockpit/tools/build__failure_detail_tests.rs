@@ -124,3 +124,33 @@ fn failure_detail_unknown_format_uses_bounded_tail_and_short_output_stays_intact
         "short failure λ"
     );
 }
+
+/// Hand-off is armed for the shell tool's own call only. A build capture made
+/// while that window is open still waits for its own process and reports that
+/// process's real exit: the placeholder status a hand-off carries can never
+/// reach it.
+#[test]
+fn a_build_capture_inside_an_open_handoff_window_reports_its_real_exit() {
+    let _env = crate::tests::env_lock();
+    let dir = std::env::temp_dir();
+    let spec = crate::agent::harness::exec::Handoff {
+        after: std::time::Duration::from_millis(200),
+        workspace: dir.clone(),
+        command: "cargo test".into(),
+    };
+    let captured = crate::agent::harness::exec::with_handoff(Some(spec), || {
+        super::sandboxed_program_output(
+            "sh",
+            &["-c".to_string(), "echo built; sleep 1; exit 3".to_string()],
+            &dir,
+            &crate::agent::sandbox::SandboxPolicy::permissive(),
+            None,
+            (None, &serde_json::json!({})),
+        )
+    })
+    .expect("capture");
+    assert_eq!(captured.exit, Some(3), "a hand-off must not read as exit 0");
+    assert!(!captured.success);
+    assert!(!captured.timed_out && !captured.cancelled);
+    assert!(captured.stdout.contains("built"), "{}", captured.stdout);
+}

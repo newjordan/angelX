@@ -141,7 +141,7 @@ fn steady_key(run: &Run) -> SteadyKey {
         run.raid_id,
         run.dungeon.depth,
         run.at,
-        run.room().fingerprint() ^ run.dungeon.pack as u64 ^ (u64::from(atari::here(run)) << 63) ^ deep_village::print(run),
+        run.room().fingerprint() ^ run.dungeon.pack as u64 ^ (u64::from(atari::here(run)) << 63) ^ deep_village::print(run) ^ super::reclaim::print(run),
         run.barred(),
         run.phase == Phase::Fighting,
         run.room().chest.map(|c| c.open),
@@ -412,7 +412,13 @@ pub(super) fn torch_step(run: &Run) -> u64 {
     // already draws it — so the pixel stream stays still between rooms.
     if still_wire(run)
         || matches!(run.room().kind, RoomKind::Depths | RoomKind::Alehouse | RoomKind::MusterTent)
+        || crate::rules::world::bomrekedan::is_level(run.room().kind)
         || atari::here(run)
+        // The Wax Maze's stone is drawn once and kept: no torches burn in it.
+        || wax_maze::walled(run)
+        || belfry_shoot::walled(run)
+        || powder_room::walled(run)
+        || book_hop::walled(run)
         || run.room().cols > crate::rules::layout::MAX_COLS
         || run.room().rows > crate::rules::layout::MAX_ROWS
     {
@@ -446,6 +452,9 @@ pub(super) fn home_print(run: &Run) -> u64 {
     (run.home.goblins > 0).hash(&mut h);
     // The barony: the King's court, the works as built, the forges lit.
     crate::rules::barony::print(&run.home.barony).hash(&mut h);
+    run.home.goods.print().hash(&mut h);
+    // Wren's board carries the notices type has printed.
+    run.home.bounties.len().saturating_sub(crate::rules::bounties::PINNED).hash(&mut h);
     run.home.trophies.hash(&mut h);
     run.home.countryside.built.hash(&mut h);
     run.home.countryside.lamps.hash(&mut h);
@@ -628,6 +637,7 @@ fn scenery_elsewhere(run: &Run) -> Option<Img> {
             kind if crate::rules::squire_rooms::is_room(kind) => squire_rooms::scenery(run),
             RoomKind::Bazaar => bazaar::scenery(run),
             kind if crate::rules::ranch::is_room(kind) => ranch::scenery(run),
+            kind if crate::rules::world::bomrekedan::is_level(kind) => bomrekedan::scenery(run),
             kind if kind.in_world() => world::scenery(run),
             _ => home::scenery(run),
         };
@@ -767,6 +777,12 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
     let tick = run.tick as u32;
     let fighting = run.phase == Phase::Fighting;
     let tiles = Tiles::get();
+    // The Wax Maze lays its own stone and lanes (`wax_maze::walls`).
+    let maze = wax_maze::walled(run);
+    // The Belfry Shoot lays its own stone and boards (`belfry_shoot::walls`).
+    let belfry = belfry_shoot::walled(run);
+    // The Powder Room lays its own stone, crates and piers (`powder_room::walls`).
+    let store = powder_room::walled(run);
     for row in rows {
         for col in 0..room.cols as i32 {
             let (x, y) = (col * TILE, row * TILE);
@@ -781,6 +797,9 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
                     let r = if fighting { 84.0 } else { 52.0 };
                     lights.push(fire(x + TILE / 2, y + 4, r, s));
                 }
+                Tile::Wall | Tile::Block | Tile::Floor if maze => wax_maze::walls::lay(cv, room, col, row),
+                Tile::Wall | Tile::Block | Tile::Floor | Tile::Door | Tile::Stairs if belfry => belfry_shoot::walls::lay(cv, room, col, row),
+                Tile::Wall | Tile::Block | Tile::Floor | Tile::Door | Tile::Stairs if store => powder_room::walls::lay(cv, room, col, row),
                 Tile::Wall => {
                     let floor = |c: i32, r: i32| matches!(room.tile(c, r), Tile::Floor | Tile::Door | Tile::Stairs | Tile::Hazard);
                     let open = [floor(col, row - 1), floor(col + 1, row), floor(col, row + 1), floor(col - 1, row)];
@@ -798,6 +817,8 @@ fn wall_tiles(run: &Run, cv: &mut Img, lights: &mut Vec<Light>, rows: std::ops::
                 Tile::Block if room.kind == RoomKind::Forge => {}
                 // A nook's furniture is drawn whole below.
                 Tile::Block if room.kind.nook() => {}
+                // A lost hall's pillars, thrones and benches are drawn whole below.
+                Tile::Block if room.kind == RoomKind::DwarfHall => {}
                 Tile::Block if pack == Pack::Crypt => cv.stamp(&sprites::tomb(v), x, y),
                 Tile::Block if pack == Pack::Archive => cv.stamp(&sprites::shelf(v), x, y),
                 Tile::Block if pack == Pack::Fungal => cv.stamp(&sprites::mushroom(v), x, y),
@@ -908,6 +929,9 @@ pub(super) fn room_details(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
     }
     if room.kind.nook() {
         nooks::scenery(cv, run, lights);
+    }
+    if room.kind == RoomKind::DwarfHall {
+        super::reclaim::scenery(cv, run, lights);
     }
     if let Some(c) = room.chest {
         let im = chest(!c.open);

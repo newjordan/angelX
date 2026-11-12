@@ -1,0 +1,25 @@
+Mage Hand — Mage-VL-Cowork-hands-v2
+Copyright 2026 Jordan Newman (angelX) for the fine-tune weights,
+training data, merge and evaluation in this repository.
+
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+This product includes a fine-tune of microsoft/Mage-VL-Cowork
+by Microsoft, licensed under the Apache License, Version 2.0,
+including its remote-code files
+(configuration_llava_onevision2.py, modeling_llava_onevision2.py),
+redistributed unmodified.
+  https://huggingface.co/microsoft/Mage-VL-Cowork
+
+Mage-VL-Cowork was trained by Microsoft from microsoft/Mage-VL
+on a Qwen/Qwen3-4B-Instruct-2507 (Qwen team, Alibaba) text
+backbone, per the checkpoint's own configuration.
+  https://huggingface.co/microsoft/Mage-VL
+  https://huggingface.co/Qwen/Qwen3-4B-Instruct-2507
+
+"Mage Hand" is the angelX moniker for this fine-tune; it does not
+imply endorsement by Microsoft, the Mage-VL authors, or Qwen.
+
+No training datasets, screenshots, or other source data are
+distributed in this repository — weights, configuration,
+tokenizer, model card, provenance, license and this notice only.

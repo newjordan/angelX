@@ -1,6 +1,10 @@
 //! Prepare independent character catalogues and resolve player selections.
 //! A resolved resource owns its complete dependency closure; execution still
 //! uses the selected provider's factory, never the resolver implementation.
+use super::{
+    together_abilities as abilities, together_appearance as appearance, together_media as media,
+    together_visuals as visuals,
+};
 use angel_live::{
     Asset,
     kernel::{Binding, Candidate, Resource, Resources},
@@ -8,12 +12,11 @@ use angel_live::{
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{collections::BTreeMap, sync::Arc};
-use super::{
-    together_abilities as abilities, together_appearance as appearance, together_media as media,
-    together_visuals as visuals,
-};
 
 pub const CONTRACT: &str = "character-loadout/1";
+pub const ANIMATED: &str = "character-animated-loadout/1";
+pub const GRAPH_LOADOUT: &str = "character-graph-loadout/1";
+pub const ANIMATION: &str = "character-animation-pack/1";
 pub const CODE: &str = "ability-pack/1";
 pub const ART: &str = "character-art-pack/1";
 pub const SOUND: &str = "sound-pack/1";
@@ -21,6 +24,13 @@ pub const EFFECT: &str = "effect-pack/1";
 
 struct Code(BTreeMap<String, abilities::Definition>);
 struct Art(BTreeMap<String, appearance::Appearance>);
+struct Graphs(BTreeMap<String, super::together_motion::Specification>);
+struct Animations(BTreeMap<String, Vec<angel_delve::realm::appearance::Step>>);
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AnimationSpec {
+    options: BTreeMap<String, Vec<angel_delve::realm::appearance::Step>>,
+}
 struct Sounds(BTreeMap<String, Arc<BTreeMap<String, media::Voice>>>);
 struct Effects(BTreeMap<String, Arc<visuals::Bank>>);
 
@@ -63,7 +73,40 @@ pub fn bind(
     _factory: &Candidate,
     imports: &Resources,
 ) -> Result<Option<Binding>, String> {
+    if matches!(contract, CONTRACT | ANIMATED)
+        && (value.get("graph").is_some() || value.get("graph_intent").is_some())
+    {
+        return Err("graph requires character-graph-loadout/1".into());
+    }
     let binding: Binding = match contract {
+        super::together_motion::CONTRACT => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Spec {
+                options: BTreeMap<String, super::together_motion::Specification>,
+            }
+            let spec: Spec = serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+            catalogue(&spec.options, 8)?;
+            if spec.options.contains_key("off") {
+                return Err("graph option off is reserved".into());
+            }
+            for graph in spec.options.values() {
+                graph.validate()?;
+            }
+            Arc::new(Graphs(spec.options))
+        }
+        ANIMATION => {
+            let spec: AnimationSpec =
+                serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
+            catalogue(&spec.options, 16)?;
+            if spec.options.contains_key("off") {
+                return Err("animation option off is reserved for art defaults".into());
+            }
+            for steps in spec.options.values() {
+                angel_delve::realm::appearance::validate_steps(steps, 8)?;
+            }
+            Arc::new(Animations(spec.options))
+        }
         CODE => {
             let spec: CodeSpec =
                 serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
@@ -127,7 +170,13 @@ pub fn bind(
             }
             Arc::new(Effects(banks))
         }
-        CONTRACT => resolve(name, value, imports)?,
+        CONTRACT => {
+            if value.get("animation").is_some() {
+                return Err("animation requires character-animated-loadout/1".into());
+            }
+            resolve(contract, name, value, imports)?
+        }
+        ANIMATED | GRAPH_LOADOUT => resolve(contract, name, value, imports)?,
         _ => return Ok(None),
     };
     Ok(Some(binding))
@@ -147,6 +196,12 @@ struct Selection {
     slots: [Option<Choice>; 4],
     #[serde(default)]
     appearance: Option<Choice>,
+    #[serde(default)]
+    animation: Option<Choice>,
+    #[serde(default)]
+    graph: Option<Choice>,
+    #[serde(default)]
+    graph_intent: u64,
     sounds: Choice,
     effects: Choice,
     #[serde(default)]
@@ -163,16 +218,30 @@ fn imported<'a, T: std::any::Any>(
         .ok_or("pack native binding does not match its contract")?;
     Ok((resource, prepared))
 }
-fn resolve(name: &str, value: &Value, imports: &Resources) -> Result<Binding, String> {
+fn resolve(
+    contract: &str,
+    name: &str,
+    value: &Value,
+    imports: &Resources,
+) -> Result<Binding, String> {
     let selection: Selection = serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
-    if !(1..=4).contains(&selection.player)
+    if !(1..=angel_delve::rules::MAX_PLAYERS).contains(&selection.player)
         || name != format!("character-seat-{}", selection.player)
     {
-        return Err("resolved character resource must match player 1..4".into());
+        return Err(format!(
+            "resolved character resource must match player 1..{}",
+            angel_delve::rules::MAX_PLAYERS
+        ));
     }
     let mut loadout: abilities::Loadout = serde_json::from_value(json!({
         "player":selection.player,"slots":[null,null,null,null],"abilities":{},"cancel":selection.cancel
     })).map_err(|e| e.to_string())?;
+    if selection.graph_intent > super::together_motion::MAX_INTENT {
+        return Err("graph intent exceeds exact safe-integer bound".into());
+    }
+    if contract == GRAPH_LOADOUT {
+        loadout.graph_intent = Some(selection.graph_intent);
+    }
     let (_, sound) = imported::<Sounds>(imports, &selection.sounds, SOUND)?;
     loadout.media = Arc::clone(
         sound
@@ -194,8 +263,32 @@ fn resolve(name: &str, value: &Value, imports: &Resources) -> Result<Binding, St
             .get(&choice.option)
             .ok_or("selected appearance is missing")?
             .clone();
+        if let Some(choice) = &selection.animation {
+            let (_, pack) = imported::<Animations>(imports, choice, ANIMATION)?;
+            let steps = pack
+                .0
+                .get(&choice.option)
+                .ok_or("selected animation is missing")?;
+            appearance = appearance.with_clip(steps)?;
+        }
         appearance.player = selection.player;
+        if let Some(choice) = &selection.graph {
+            if selection.animation.is_some() {
+                return Err("choose a graph or a clip, not both".into());
+            }
+            let (_, pack) = imported::<Graphs>(imports, choice, super::together_motion::CONTRACT)?;
+            loadout.motion = Some(
+                pack.0
+                    .get(&choice.option)
+                    .ok_or("selected graph is missing")?
+                    .prepare(&appearance)?,
+            );
+        }
         loadout.appearance = Some(appearance);
+    }
+    if (selection.animation.is_some() || selection.graph.is_some()) && loadout.appearance.is_none()
+    {
+        return Err("animation selection requires an appearance".into());
     }
     for (slot, choice) in selection.slots.into_iter().enumerate() {
         if let Some(choice) = choice {

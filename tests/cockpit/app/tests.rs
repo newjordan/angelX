@@ -3,6 +3,8 @@
 //! main.rs-native units (terminal lifecycle, layout math). Split out of
 //! main.rs; `super::*` resolves to the crate root exactly as before.
 use super::*;
+#[cfg(feature = "delve")]
+use crate::delve::world_viz;
 use crate::ui::agent_panel::profile::AgentKey;
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -10,6 +12,8 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 #[path = "tests__agent_identity.rs"]
 mod agent_identity;
+#[path = "tests__approval_ask.rs"]
+mod approval_ask;
 #[path = "tests__backdrop.rs"]
 mod backdrop;
 #[path = "tests__brain_route_decks.rs"]
@@ -34,6 +38,8 @@ mod memory_save_errors;
 mod motion_stress;
 #[path = "tests__pane_selection.rs"]
 mod pane_selection;
+#[path = "tests__overlay_flight.rs"]
+mod overlay_flight;
 #[path = "tests__paste.rs"]
 mod paste;
 #[path = "tests__ratings.rs"]
@@ -46,6 +52,8 @@ mod route_decks;
 mod session_boundaries;
 #[path = "tests__session_exit.rs"]
 mod session_exit;
+#[path = "tests__shell_pane.rs"]
+mod shell_pane;
 #[path = "tests__stage.rs"]
 mod stage;
 #[path = "tests__tab_completion.rs"]
@@ -329,6 +337,7 @@ fn hidden_raytrace_route_does_not_request_a_fast_tick() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn world_motion_uses_the_scenery_lane_and_yields_to_agent_work() {
     let mut app = App::preview(Viewer::static_preview());
@@ -483,6 +492,7 @@ fn observatory_backplane_summary_is_quiet_and_responsive() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn world_command_resets_history_so_idle_back_returns_to_core() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -508,6 +518,7 @@ fn world_command_resets_history_so_idle_back_returns_to_core() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn world_visit_and_follow_only_move_the_camera() {
     let _guard = env_lock();
@@ -551,17 +562,18 @@ fn world_visit_and_follow_only_move_the_camera() {
 
 /// Z4: `/world quest` is the debugging window on the adventure model, and
 /// `/world help` (or any unknown verb) is the map of the command itself.
+#[cfg(feature = "delve")]
 #[test]
 fn world_quest_and_help_answer_in_one_system_message() {
     let _guard = env_lock();
     let mut app = seed_preview_app();
     app.realm.world
-        .note_adventure(crate::stage::world_viz::AdventureEvent::LoopStarted {
-            kind: crate::stage::world_viz::LoopKind::Research,
+        .note_adventure(crate::delve::world_viz::AdventureEvent::LoopStarted {
+            kind: crate::delve::world_viz::LoopKind::Research,
             task: "survey the fleet".to_string(),
         });
     app.realm.world
-        .note_adventure(crate::stage::world_viz::AdventureEvent::Iteration { n: 3 });
+        .note_adventure(crate::delve::world_viz::AdventureEvent::Iteration { n: 3 });
 
     let route_before = app.scryglass.controller.route();
     app.input = "/world quest".to_string();
@@ -1532,9 +1544,10 @@ fn selected_term_runs_a_deterministic_world_lesson_without_history_leakage() {
     app.pending_quick_lookup = Some("Poisson".to_string());
     app.flush_clipboard();
 
+    #[cfg(feature = "delve")]
     assert_eq!(
         app.realm.world.destination(),
-        crate::stage::world_viz::Building::Scriptorium
+        crate::delve::world_viz::Building::Scriptorium
     );
     let pending = app.scryglass.lesson().expect("world owns loading lesson");
     assert!(pending.is_loading());
@@ -1604,9 +1617,10 @@ fn learn_multiword_is_offline_first_and_tutor_actions_remain_operator_owned() {
     let lesson = app.scryglass.lesson().expect("typed lesson opens locally");
     assert_eq!(lesson.term(), "linear algebra");
     assert!(!lesson.is_loading());
+    #[cfg(feature = "delve")]
     assert_eq!(
         app.realm.world.destination(),
-        crate::stage::world_viz::Building::Scriptorium
+        crate::delve::world_viz::Building::Scriptorium
     );
     let rendered = render_app_text(&mut app, 144, 48);
     assert!(rendered.contains("Objective"), "{rendered}");
@@ -1928,17 +1942,18 @@ fn stream_payload_budget_defers_the_next_large_event() {
     assert_eq!(app.reasoning.len(), budget + 4);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn village_pulse_burst_is_bounded_per_frame_and_drains_fifo_later() {
-    let budget = crate::app::control::VILLAGE_PULSES_PER_FRAME;
+    let budget = crate::delve::cart::feed::VILLAGE_PULSES_PER_FRAME;
     let (tx, rx) = std::sync::mpsc::channel();
     for _ in 0..budget + 7 {
-        tx.send(crate::stage::village::VillagePulse::default())
+        tx.send(crate::delve::village::VillagePulse::default())
             .unwrap();
     }
     drop(tx);
     let mut app = seed_preview_app();
-    app.village_rx = Some(rx);
+    app.realm.feed.village_rx = Some(rx);
 
     app.advance();
     assert_eq!(
@@ -3566,10 +3581,11 @@ fn requested_subjects_render_their_tutor_method_and_curriculum_in_world() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
 
     let _guard = env_lock();
@@ -3586,11 +3602,11 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     ));
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::ui::scryglass::StageRoute::Explore(crate::stage::world_viz::Building::Scriptorium)
+        crate::ui::scryglass::StageRoute::Explore(crate::delve::world_viz::Building::Scriptorium.into())
     );
     assert_eq!(
         app.realm.world.destination(),
-        crate::stage::world_viz::Building::Scriptorium
+        crate::delve::world_viz::Building::Scriptorium
     );
     assert_eq!(app.realm.world.renown(), starting_renown);
     assert!(
@@ -3620,19 +3636,19 @@ fn library_and_lesson_buttons_drive_the_world_route_end_to_end() {
     assert!(app.scryglass.controller.overlay().is_none());
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::ui::scryglass::StageRoute::Explore(crate::stage::world_viz::Building::Scriptorium),
+        crate::ui::scryglass::StageRoute::Explore(crate::delve::world_viz::Building::Scriptorium.into()),
         "closing the lesson reveals the physical library route beneath it"
     );
 
     for _ in 0..400 {
         app.realm.world.tick();
-        if app.realm.world.arrived_building() == Some(crate::stage::world_viz::Building::Scriptorium) {
+        if app.realm.world.arrived_building() == Some(crate::delve::world_viz::Building::Scriptorium) {
             break;
         }
     }
     assert_eq!(
         app.realm.world.arrived_building(),
-        Some(crate::stage::world_viz::Building::Scriptorium),
+        Some(crate::delve::world_viz::Building::Scriptorium),
         "Library must complete a real world journey"
     );
     let arrival = render_app_text(&mut app, 144, 48);
@@ -3916,6 +3932,7 @@ fn cd_command_reroots_workspace_and_validates() {
     std::fs::remove_dir_all(&dir).ok();
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn session_meta_workspace_switch_swaps_districts_deterministically() {
     let _guard = env_lock();
@@ -9641,6 +9658,7 @@ fn approval_selftest_roundtrips_through_the_real_broker_without_an_action() {
     let mut app = seed_preview_app();
     app.approval_rx = approval::install_ui();
     let history_len = app.history.len();
+    #[cfg(feature = "delve")]
     let renown = app.realm.world.renown();
 
     app.input = "/approvals selftest".to_string();
@@ -9694,6 +9712,7 @@ fn approval_selftest_roundtrips_through_the_real_broker_without_an_action() {
         history_len,
         "self-test is not a model turn"
     );
+    #[cfg(feature = "delve")]
     assert_eq!(
         app.realm.world.renown(),
         renown,
@@ -10386,6 +10405,7 @@ fn vim_modal_composer_edits_at_the_cursor() {
     assert!(!app.vim_mode);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn cockpit_reference_layout_renders_expected_zones() {
     let _guard = env_lock();
@@ -10434,6 +10454,7 @@ fn cockpit_reference_layout_renders_expected_zones() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
     let _guard = env_lock();
@@ -10471,7 +10492,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
         );
     }
     app.scryglass
-        .navigate(scryglass::StageRoute::Explore(world_viz::Building::Keep));
+        .navigate(scryglass::StageRoute::Explore(world_viz::Building::Keep.into()));
     app.focus_module("artifacts");
     let _ = render_app_text(&mut app, 120, 40);
     for _ in 0..8 {
@@ -10487,6 +10508,7 @@ fn world_commands_and_repeated_explore_v_keep_dotmax_outdoors() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn startup_world_renderer_opens_the_matching_visible_pane() {
     let _guard = env_lock();
@@ -10717,6 +10739,7 @@ fn atlas_review_keys_yield_to_a_nonempty_composer() {
     let _ = std::fs::remove_dir_all(root);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_controls() {
     let _guard = env_lock();
@@ -10724,7 +10747,7 @@ fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_co
     let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     let mut app = seed_preview_app();
     app.input = "keep this operator draft λ".into();
     app.focus_module("artifacts");
@@ -10752,6 +10775,7 @@ fn ordinary_cockpit_miniviz_renders_current_native_world_pixels_and_preserves_co
     assert_eq!(app.input, "keep this operator draft λ");
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn arrival_ride_scene_renders_noir_caption_and_verbs() {
     let _guard = env_lock();
@@ -10759,7 +10783,7 @@ fn arrival_ride_scene_renders_noir_caption_and_verbs() {
     let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
     let _protocol = TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     let mut app = seed_preview_app();
     app.focus_module("artifacts");
 
@@ -10772,10 +10796,10 @@ fn arrival_ride_scene_renders_noir_caption_and_verbs() {
     app.realm.world
         .note_tool_call_event(call_id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
-        .begin_journey(call_id, crate::stage::world_viz::Building::Smithy, false);
+        .begin_journey(call_id, crate::delve::world_viz::Building::Smithy, false);
     for _ in 0..200 {
         app.realm.world.tick();
-        if app.realm.world.arrived_building() == Some(crate::stage::world_viz::Building::Smithy) {
+        if app.realm.world.arrived_building() == Some(crate::delve::world_viz::Building::Smithy) {
             break;
         }
     }
@@ -10831,6 +10855,7 @@ fn arrival_ride_scene_renders_noir_caption_and_verbs() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn wide_unicode_causal_caption_preserves_ellipsis_and_back_control() {
     let _guard = env_lock();
@@ -10943,6 +10968,7 @@ fn narrow_game_surface_keeps_back_button_when_other_verbs_overflow() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn obsolete_cinematic_env_does_not_replace_the_braille_scryglass() {
     let _guard = env_lock();
@@ -10963,7 +10989,7 @@ fn obsolete_cinematic_env_does_not_replace_the_braille_scryglass() {
         app.realm.world
             .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
         app.scryglass
-            .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
+            .begin_journey(id, crate::delve::world_viz::Building::Smithy, false);
         app.realm.world.tick();
         let travelling = render_app_text(&mut app, 144, 48);
         assert!(crate::tests::contains_dotmax(&travelling), "{travelling}");
@@ -10974,10 +11000,11 @@ fn obsolete_cinematic_env_does_not_replace_the_braille_scryglass() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn travelling_miniviz_saddles_up_the_braille_ride() {
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     let _guard = env_lock();
     // The 3D ride path; the overworld map hosts the Realm route by default.
     let _ride = TestEnvGuard::set("ANGEL_WORLD_MAP", "3d");
@@ -10991,7 +11018,7 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
     app.realm.world
         .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
-        .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
+        .begin_journey(id, crate::delve::world_viz::Building::Smithy, false);
     let riding = render_app_text(&mut app, 96, 36);
     assert!(
         crate::tests::contains_dotmax(&riding),
@@ -11009,7 +11036,7 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
 
     // ⟦Map⟧ returns to the Realm route without mutating agent navigation.
     app.scryglass
-        .toggle_world_route(crate::stage::world_viz::Building::Smithy);
+        .toggle_world_route(crate::delve::world_viz::Building::Smithy);
     let town = render_app_text(&mut app, 96, 36);
     assert!(
         crate::tests::contains_dotmax(&town),
@@ -11018,6 +11045,7 @@ fn travelling_miniviz_saddles_up_the_braille_ride() {
     assert!(town.chars().any(|c| ('\u{2800}'..='\u{28FF}').contains(&c)));
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn obsolete_world_fp_env_does_not_override_scryglass_view_mode() {
     let _guard = env_lock();
@@ -11031,7 +11059,7 @@ fn obsolete_world_fp_env_does_not_override_scryglass_view_mode() {
     app.realm.world
         .note_tool_call_event(id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
-        .begin_journey(id, crate::stage::world_viz::Building::Smithy, false);
+        .begin_journey(id, crate::delve::world_viz::Building::Smithy, false);
     let outcome = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let travelling = render_app_text(&mut app, 96, 36);
         assert!(crate::tests::contains_dotmax(&travelling), "{travelling}");
@@ -12667,6 +12695,7 @@ fn progress_sentence_remains_visible_when_the_following_tool_call_arrives() {
 /// strip to its bottom rows: a status row (tool · args · #count) over a
 /// braille lateral loading bar. The turn's end collapses it all into a single
 /// tally line; `/trace` restores the old per-call rows instead.
+#[cfg(feature = "delve")]
 #[test]
 fn tool_strip_renders_under_transcript_and_collapses_to_tally() {
     let _guard = env_lock();
@@ -13715,6 +13744,7 @@ fn heavy_transcript_renders_across_widths() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     let _guard = env_lock();
@@ -13727,7 +13757,7 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     app.realm.world
         .note_tool_call_event(call_id.clone(), "apply_patch", "cockpit miniviz");
     app.scryglass
-        .begin_journey(call_id, crate::stage::world_viz::Building::Smithy, false);
+        .begin_journey(call_id, crate::delve::world_viz::Building::Smithy, false);
     app.realm.world.tick();
     assert_eq!(
         app.realm.world.arrived_building(),
@@ -13741,13 +13771,13 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
 
     for _ in 0..200 {
         app.realm.world.tick();
-        if app.realm.world.arrived_building() == Some(crate::stage::world_viz::Building::Smithy) {
+        if app.realm.world.arrived_building() == Some(crate::delve::world_viz::Building::Smithy) {
             break;
         }
     }
     assert_eq!(
         app.realm.world.arrived_building(),
-        Some(crate::stage::world_viz::Building::Smithy)
+        Some(crate::delve::world_viz::Building::Smithy)
     );
     let _arrival = render_app_text(&mut app, 144, 48);
     let expiry = std::time::Instant::now();
@@ -13760,7 +13790,7 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
 
     assert_eq!(
         app.scryglass.controller.route(),
-        crate::ui::scryglass::StageRoute::Explore(crate::stage::world_viz::Building::Smithy)
+        crate::ui::scryglass::StageRoute::Explore(crate::delve::world_viz::Building::Smithy.into())
     );
     assert_eq!(
         app.scryglass.controller.resolved_scene(false, false, false),
@@ -13776,10 +13806,11 @@ fn settled_first_person_frame_after_arrival_expiry_differs_from_mid_travel() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     let _guard = env_lock();
     let mut app = seed_preview_app();
     app.realm.world.settle_at_for_test(world_viz::Building::Smithy);
@@ -13805,6 +13836,7 @@ fn interior_verbs_show_enter_leave_and_all_landmarks_supported() {
     assert!(unsupported.contains("Enter"), "{unsupported}");
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn back_leaves_an_interior_before_it_unwinds_the_world_route() {
     let _guard = env_lock();
@@ -13815,7 +13847,7 @@ fn back_leaves_an_interior_before_it_unwinds_the_world_route() {
     app.realm.world
         .settle_at_for_test(world_viz::Building::Scriptorium);
     app.scryglass.navigate(scryglass::StageRoute::Explore(
-        world_viz::Building::Scriptorium,
+        world_viz::Building::Scriptorium.into(),
     ));
     app.focus_module("artifacts");
     let _ = render_app_text(&mut app, 120, 40);
@@ -13827,11 +13859,12 @@ fn back_leaves_an_interior_before_it_unwinds_the_world_route() {
     assert!(!app.realm.world.inside_interior());
     assert_eq!(
         app.scryglass.controller.route(),
-        scryglass::StageRoute::Explore(world_viz::Building::Scriptorium),
+        scryglass::StageRoute::Explore(world_viz::Building::Scriptorium.into()),
         "physical state must unwind before the route"
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn first_person_camera_keys_change_free_look_but_map_keys_do_not() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -13849,12 +13882,12 @@ fn first_person_camera_keys_change_free_look_but_map_keys_do_not() {
     app.realm.world.settle_at_for_test(world_viz::Building::Keep);
     app.focus_module("artifacts");
     app.scryglass
-        .navigate(scryglass::StageRoute::Explore(world_viz::Building::Keep));
+        .navigate(scryglass::StageRoute::Explore(world_viz::Building::Keep.into()));
     app.scryglass.surface = scryglass::StageSurface::WorldFirstPerson;
     {
         // Pin Dotmax for the rendered yaw claim. The key handling below is
         // view-independent and stays on the default.
-        let _pin = crate::stage::world_viz::world3d::pin_world3d();
+        let _pin = crate::delve::world_viz::world3d::pin_world3d();
         let straight = app
             .world
             .scryglass_frame_paced(80, 20, false, 0.0, 0.0, 1.05)
@@ -13895,6 +13928,7 @@ fn first_person_camera_keys_change_free_look_but_map_keys_do_not() {
     assert_eq!(traveling.world_yaw_offset, 0.0);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn dotmax_mouse_gestures_control_realm_and_explore_but_not_hidden_camera() {
     use ratatui::crossterm::event::{MouseButton, MouseEventKind};
@@ -13932,7 +13966,7 @@ fn dotmax_mouse_gestures_control_realm_and_explore_but_not_hidden_camera() {
     // longer an unrelated top-down surface with a hidden first-person camera.
     for route in [
         scryglass::StageRoute::Realm,
-        scryglass::StageRoute::Explore(app.realm.world.destination()),
+        scryglass::StageRoute::Explore(app.realm.world.destination().into()),
     ] {
         app.scryglass.return_to_world();
         app.scryglass.navigate(route);
@@ -13999,6 +14033,7 @@ fn dotmax_mouse_gestures_control_realm_and_explore_but_not_hidden_camera() {
     assert!(app.scryglass_drag.is_none());
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn commands_world_ride_enter_leave_and_weather_use_live_world_state() {
     let mut app = seed_preview_app();
@@ -14633,6 +14668,7 @@ fn adversarial_approval_streamed_assistant_text_cannot_answer_modal() {
             prompt: "approve exact action?".into(),
             scope: approval::ApprovalScope::ActionBatch("scripted-action".into()),
             reply: reply_tx,
+            deadline: Instant::now() + Duration::from_secs(600),
         })
         .unwrap();
     app.advance();
@@ -14665,6 +14701,7 @@ fn authority_profile_sandbox_surface_uses_shared_renderer() {
 #[path = "tests__r04c_cont2.rs"]
 mod r04c_cont2;
 
+#[cfg(feature = "delve")]
 fn render_dotmax_world_cells(app: &mut App) -> (String, Vec<u8>) {
     let mut terminal = Terminal::new(TestBackend::new(144, 48)).unwrap();
     terminal.draw(|frame| ui(frame, app)).unwrap();

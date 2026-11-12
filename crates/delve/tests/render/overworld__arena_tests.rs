@@ -4371,7 +4371,7 @@ fn the_wax_maze_keeps_to_the_palette() {
         wax_maze::wraiths(&mut room, &run);
         assert!(on_palette(&room), "the maze's floor and kings at tick {tick}");
         let mut screen = Img::new(NATIVE_W, NATIVE_H);
-        wax_maze::screen(&mut screen, &run);
+        wax_maze::screen(&mut screen, &run, Some(1), (0, 0));
         assert!(on_palette(&screen), "the strip");
     }
     // Something was drawn: the kings are there.
@@ -4379,6 +4379,55 @@ fn the_wax_maze_keeps_to_the_palette() {
     let mut room = Img::new(pw, ph);
     wax_maze::wraiths(&mut room, &run);
     assert!(room.pixels().count() > 0 && (0..ph).any(|y| (0..pw).any(|x| room.get(x, y).is_some())));
+}
+
+/// A whole Wax Maze, played by bots from the title to the hall, for one knight
+/// and for four: every layer the maze draws stays on the palette at every
+/// moment it makes a fuss (the title, bites, the holy water, a catch, a
+/// touch, the finish and the hall), and nothing panics.
+#[test]
+fn the_wax_maze_stays_on_the_palette_through_a_whole_match() {
+    use super::super::ink::{BLACK, palette_index};
+    use crate::rules::wax_maze_bot::{fresh_for, keys};
+    let on_palette = |img: &Img| img.pixels().all(|c| c == BLACK || palette_index(c).is_some());
+    for seats in [1u32, 4] {
+        let mut run = fresh_for(seats);
+        let mut shown = std::collections::BTreeSet::new();
+        for t in 0..1900u32 {
+            let k = keys(&run);
+            run.step(&k);
+            let Some(maze) = run.folly.as_ref() else { break };
+            let show = &maze.show;
+            let now = run.tick as u32;
+            // The first of each kind of moment, and every thirtieth tick.
+            let moment = [
+                ("splash", !show.splashes.is_empty()),
+                ("catch", !show.catches.is_empty()),
+                ("touch", !show.touches.is_empty()),
+                ("shout", !show.shouts.is_empty()),
+                ("pop", !show.pops.is_empty()),
+                ("done", show.since_end(now).is_some_and(|e| e % 7 == 0)),
+            ]
+            .into_iter()
+            .any(|(name, on)| on && (shown.insert((name, seats, show.since_end(now).map_or(0, |e| e / 40))) || t % 30 == 0));
+            if !(moment || t % 30 == 0) {
+                continue;
+            }
+            for seat in run.players.keys().copied().collect::<Vec<_>>() {
+                let (pw, ph) = room_px(run.room());
+                let mut room = Img::new(pw, ph);
+                wax_maze::floor(&mut room, &run);
+                wax_maze::wraiths(&mut room, &run);
+                assert!(on_palette(&room), "{seats} seats, seat {seat}, tick {t}: the floor and the kings");
+                let mut screen = Img::new(NATIVE_W, NATIVE_H);
+                wax_maze::screen(&mut screen, &run, Some(seat), (0, 0));
+                assert!(on_palette(&screen), "{seats} seats, seat {seat}, tick {t}: the marks over the view");
+            }
+        }
+        let maze = run.folly.as_ref().expect("the maze");
+        assert!(maze.done && maze.show.ended.is_some(), "{seats} seats: the maze was played to its end");
+        assert!(maze.show.valid() && maze.valid());
+    }
 }
 
 /// Four knights in a cleared room of the first floor with a doorway north,

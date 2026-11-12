@@ -14,7 +14,7 @@ pub(super) fn render_agent_control_menu(frame: &mut Frame, app: &mut App) {
     let Some(menu) = app.agent_menu else {
         return;
     };
-    if app.thinking.is_some() || app.bg_job.is_some() {
+    if app.flight_owner().is_agent_busy() {
         app.agent_menu = None;
         app.agent_menu_search = None;
         return;

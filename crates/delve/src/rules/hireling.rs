@@ -299,6 +299,9 @@ pub struct Hireling {
     /// yet in the fight.
     #[serde(default, skip_serializing_if = "super::zero")]
     pub rising: u32,
+    /// A friend a knight made in the Creator, met on a delve floor (`made`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub made: Option<super::made::Tag>,
 }
 
 impl Hireling {
@@ -324,6 +327,7 @@ impl Hireling {
             power: 0,
             taunt: 0,
             rising: 0,
+            made: None,
         }
     }
 

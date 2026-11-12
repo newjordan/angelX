@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "role_contract": {
+    "planner": "AngelX primary model driver",
+    "hands": "Mage screenshot plus one concrete visible target, click coordinates only",
+    "forbidden": [
+      "Kimi fallback",
+      "Muse calls",
+      "external image analysis service",
+      "DOM selectors as agent actions",
+      "oracle state as brain or Mage input",
+      "real purchases",
+      "Steam account mutation"
+    ]
+  },
+  "execution": {
+    "repetitions": 3,
+    "reset_between_tasks": true,
+    "no_live_agent_step_or_wall_clock_cap": true,
+    "record": [
+      "primary driver model identity",
+      "Mage checkpoint SHA-256",
+      "screenshots",
+      "target requests",
+      "coordinates",
+      "actions",
+      "independent final state",
+      "infra failures separately"
+    ]
+  },
+  "shopping": [
+    {
+      "id": "shop-two-shirts",
+      "instruction": "Order two blue medium shirts with standard shipping, using Fake Buyer, 1 Fake Street, 00000. Complete the fake order exactly once.",
+      "expected": {
+        "shipping": "standard",
+        "total_cents": 3600,
+        "order_count": 1,
+        "ordered_cart": {
+          "blue-m-shirt": 2
+        },
+        "final_cart": {},
+        "address": {
+          "name": "Fake Buyer",
+          "street": "1 Fake Street",
+          "postal": "00000"
+        }
+      }
+    },
+    {
+      "id": "shop-remove-and-express",
+      "instruction": "Add a Cedar backpack and two blue medium shirts. Remove the backpack, choose express shipping, and complete one fake order for the shirts. Use Fake Buyer, 1 Fake Street, 00000.",
+      "expected": {
+        "shipping": "express",
+        "total_cents": 4400,
+        "order_count": 1,
+        "ordered_cart": {
+          "blue-m-shirt": 2
+        },
+        "final_cart": {},
+        "address": {
+          "name": "Fake Buyer",
+          "street": "1 Fake Street",
+          "postal": "00000"
+        }
+      }
+    },
+    {
+      "id": "shop-variant",
+      "instruction": "Order one blue large shirt and one Silver mug with standard shipping. Do not buy a medium shirt. Use Fake Buyer, 1 Fake Street, 00000 and complete one fake order.",
+      "expected": {
+        "shipping": "standard",
+        "total_cents": 2700,
+        "order_count": 1,
+        "ordered_cart": {
+          "blue-l-shirt": 1,
+          "silver-mug": 1
+        },
+        "final_cart": {},
+        "address": {
+          "name": "Fake Buyer",
+          "street": "1 Fake Street",
+          "postal": "00000"
+        }
+      }
+    },
+    {
+      "id": "shop-unavailable",
+      "instruction": "Find the red medium shirt. If it is unavailable, stop and report that; do not substitute or place any order.",
+      "expected": {
+        "cart": {},
+        "order_count": 0
+      }
+    },
+    {
+      "id": "shop-stop-review",
+      "instruction": "Add one Cedar backpack and enter fake shipping details. Reach the final review with standard shipping and stop before placing the order.",
+      "expected": {
+        "cart": {
+          "cedar-bag": 1
+        },
+        "shipping": "standard",
+        "order_count": 0,
+        "view": "review"
+      }
+    }
+  ],
+  "steam_store_logged_out": [
+    {
+      "id": "store-search-portal",
+      "instruction": "Use the Steam Store search field to find Portal. Open the Portal game page, not Portal 2. Do not install, sign in, buy or change an account.",
+      "expected": {
+        "final_url_path": "/app/400/",
+        "no_account_mutation": true
+      }
+    },
+    {
+      "id": "store-community",
+      "instruction": "From the Portal Store page, open its Community Hub. Do not sign in or post anything.",
+      "expected": {
+        "final_url_contains": "steamcommunity.com/app/400",
+        "no_account_mutation": true
+      }
+    },
+    {
+      "id": "store-search-terraria",
+      "instruction": "Search for Terraria and open the base game's Store page, not a soundtrack or bundle. Do not buy or install anything.",
+      "expected": {
+        "final_url_path": "/app/105600/",
+        "no_account_mutation": true
+      }
+    }
+  ],
+  "steam_native_client": {
+    "status": "not run; native-client screenshots not in current pilot",
+    "requires": "operator-approved isolated Steam test profile with owned test titles, without reading or copying the operator's account credentials",
+    "tasks": [
+      "Switch Store to Library and find a named title",
+      "Change installed-only filter then restore it",
+      "Open a game's Properties and close without changes",
+      "Navigate to Downloads and inspect a named queue row without starting or cancelling downloads",
+      "Open Settings Downloads, inspect region/bandwidth and close without changes"
+    ],
+    "score": "native window/tab/selection state; report independently from Steam Store and synthetic library"
+  },
+  "live_results": "not yet measured; fixture tests and offline pointing scores do not satisfy these tasks"
+}

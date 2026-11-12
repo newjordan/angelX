@@ -1,0 +1,344 @@
+{
+  "version": 1,
+  "style": "Knight's Wish fantasy pixel-painted building set",
+  "generated_with": "OpenAI built-in imagegen",
+  "runtime_sizes": [
+    48,
+    64
+  ],
+  "anchor": "bottom-center",
+  "assets": [
+    {
+      "id": "camp",
+      "atlas": "foundations-atlas.png",
+      "rect": [
+        0,
+        0,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "cottage",
+      "atlas": "foundations-atlas.png",
+      "rect": [
+        631,
+        0,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "warehouse",
+      "atlas": "foundations-atlas.png",
+      "rect": [
+        0,
+        623,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "farm",
+      "atlas": "foundations-atlas.png",
+      "rect": [
+        631,
+        623,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "forester",
+      "atlas": "extraction-atlas.png",
+      "rect": [
+        0,
+        0,
+        600,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "quarry",
+      "atlas": "extraction-atlas.png",
+      "rect": [
+        600,
+        0,
+        662,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "mine",
+      "atlas": "extraction-atlas.png",
+      "rect": [
+        0,
+        623,
+        590,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "sawmill",
+      "atlas": "extraction-atlas.png",
+      "rect": [
+        590,
+        623,
+        672,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "kiln",
+      "atlas": "industry-atlas.png",
+      "rect": [
+        0,
+        0,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "smelter",
+      "atlas": "industry-atlas.png",
+      "rect": [
+        631,
+        0,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "forge",
+      "atlas": "industry-atlas.png",
+      "rect": [
+        0,
+        623,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "mason",
+      "atlas": "industry-atlas.png",
+      "rect": [
+        631,
+        623,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "conduit",
+      "atlas": "arcane-atlas.png",
+      "rect": [
+        0,
+        0,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "enchanter",
+      "atlas": "arcane-atlas.png",
+      "rect": [
+        631,
+        0,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "keep",
+      "atlas": "arcane-atlas.png",
+      "rect": [
+        0,
+        623,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "gate",
+      "atlas": "arcane-atlas.png",
+      "rect": [
+        631,
+        623,
+        631,
+        623
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "wall",
+      "atlas": "civic-atlas.png",
+      "rect": [
+        0,
+        0,
+        633,
+        621
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "kitchen",
+      "atlas": "civic-atlas.png",
+      "rect": [
+        633,
+        0,
+        633,
+        621
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "waterwheel",
+      "atlas": "civic-atlas.png",
+      "rect": [
+        0,
+        621,
+        633,
+        621
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    },
+    {
+      "id": "depot",
+      "atlas": "civic-atlas.png",
+      "rect": [
+        633,
+        621,
+        633,
+        621
+      ],
+      "kind": "sprite",
+      "footprint": [
+        1,
+        1
+      ]
+    }
+  ],
+  "provenance": [
+    {
+      "atlas": "foundations-atlas.png",
+      "prompt": "Create a production-ready transparent PNG sprite atlas for KNIGHT'S WISH, a detailed fantasy colony and factory game. This is ONE COHERENT 2 by 2 building sprite sheet, exactly four separate building illustrations, no text, no UI, no grid lines, no labels. Strict layout: equal square quadrants; each building entirely inside its own quadrant with at least 9% empty transparent padding to every quadrant edge; same orthographic 3/4 top-down camera looking at front and right side, no perspective vanishing, facing southeast; each has a narrow irregular stone/earth footprint, completely isolated by genuine alpha transparency, no background scenery. Top-left: FOUNDING CAMP, burgundy canvas pavilion with gold finial, stacked travel crates, rolled maps, small banner and a warm lantern, humble expedition headquarters. Top-right: COTTAGE, cozy cream plaster and dark oak house with steep slate blue roof, chimney, glowing window, firewood pile and tiny herb planter. Bottom-left: WAREHOUSE, stout long timber storehouse, teal-blue roof, large open loading doorway, several orderly barrels and cargo crates and handcart; recognizable loading yard. Bottom-right: FARM, small timber shed with amber thatch roof beside four neat richly colored crop rows, tiny stone well, pumpkin and wheat patch; entire farm on one compact patch. Art direction: premium highly legible hand-painted pixel art, deliberate small square clusters and crisp stepped silhouettes, sophisticated dark medieval storybook aesthetic, warm amber firelight, weathered oak, cool gray limestone, moss-green accents, desaturated slate blue roofs, burgundy banners. Strong readable silhouettes and large material planes; this will be shown at 48 to 64px so avoid micro-detail noise. Main light upper left, shaded right walls, subtle contact shadow only. Consistent scale across all four buildings. Objects occupy about 78 percent of each quadrant; no overlapping cells; no humans or text; no white outline, no UI frame, no checkerboard painted in.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-1644f957-35e0-49dc-bfac-a0f6db19cff5.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "c80c2529048774233707add238d8ff36d7128989f9cd2a7e71fececd9e5f13b5"
+    },
+    {
+      "atlas": "extraction-atlas.png",
+      "prompt": "Create a NEW matching production-ready transparent PNG sprite atlas for KNIGHT'S WISH. Use the attached existing building atlas ONLY as art-direction reference: identical premium pixel-painted materials, sharp clustered edges, weathered wood, limestone, blue slate roofs, upper-left warm light and orthographic 3/4 camera showing front and right wall. Replace all four subjects with FOUR NEW INDUSTRIAL EXTRACTION BUILDINGS in an exact 2 by 2 grid, transparent gutters, no text, no UI, no checkerboard. Each illustration entirely inside its own equal quadrant with 10% empty transparent padding to ALL edges, centered; consistent relative scale and southeast-facing view, distinct readable silhouettes for 48px runtime sprites. Top-left FORESTER'S LODGE: compact dark oak lean-to with moss green roof, two tall evergreen trees immediately behind it, neat stacks of fresh-cut logs, chopping stump and upright axe; forest extractor. Top-right STONE QUARRY: low pale limestone stepped rock excavation with a short sturdy timber lifting derrick, dangling block on rope, orderly pile of quarried cubes, tiny teal canvas shelter; deliberately low broad silhouette, not a house. Bottom-left ORE MINE: dark mine entrance in a compact rough gray rock mound, heavy timber portal braces, warm lamp, burgundy claim pennant, short rail track and iron-loaded mining cart; copper and iron mineral gleams, tall mechanical winch to one side. Bottom-right SAWMILL: open-sided stout wooden workshop with steep slate blue roof, large visible circular saw on a waist-high log cutting bed in front, log conveyor and neatly stacked cut planks, small external waterwheel; unmistakably a manufacturing machine. Every sprite has only a small grounded stone/earth base and contact shadow, no distant scenery, no characters, no long floating shadows, no cropped parts. Preserve transparency. Painterly pixel art with deliberate blocky stepping and high-quality material definition, readable industrial silhouettes, not childish flat icons.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-af2e00a6-739e-43d6-859f-177c396a2f88.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "28f7946acb43ee49f5e18cb1873c2caa5463175a4e5145d05d983e67c07863c0"
+    },
+    {
+      "atlas": "industry-atlas.png",
+      "prompt": "Generate a NEW production building sprite atlas for KNIGHT'S WISH, using attached reference solely for its matching exquisite medieval pixel-painted art style, lighting, orthographic 3/4 overhead camera, slate/timber/stone palette. Transparent PNG with EXACTLY FOUR fully separate buildings in an equal 2 by 2 grid, each centered inside one quadrant with 10% transparent gutters on all sides. No text or interface, no background, no characters. Large clean silhouette, materials readable at 48 to 64px, precise pixel-cluster edges, warm upper-left light, front and right sides visible, same scale/perspective. TOP LEFT CHARCOAL KILN: round domed soot-black brick kiln with an orange burning low doorway, short square smoke chimney, neat log pile on left and black charcoal baskets on right, squat broad outline, very little prepainted smoke because game animates it. TOP RIGHT SMELTER: taller industrial stone blast furnace with copper bands and large chimney, blazing orange central opening, broad trough with liquid golden metal in front, bellows and buckets of iron ore, sturdy iron chimney distinct from kiln. BOTTOM LEFT FORGE: blue-slate roof open-sided blacksmith workshop with glowing forge fire, oversized visible steel anvil and upright hammer in front, a rack of swords and finished iron bars, dark oak beams and masonry chimney, burgundy guild pennant. BOTTOM RIGHT MASON: open low limestone stonecutter's workshop under teal canvas canopy, large unfinished carved block and stone cutting workbench, stacked dressed stone cubes, wooden hoist and heavy chisels, distinctly cream gray stone and teal canopy silhouette. Each on narrow compact irregular cobblestone base, no huge island, no floating UI or selection outline. Premium mature storybook fantasy strategy game art, deliberate sharp stepped pixel outlines, warm lights and cool shadow planes, no smooth 3D render, no flat emoji icons, no touching adjacent sprites, no cropping.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-c276f084-a0a8-4567-9576-226db9ced874.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "757ff0fc35a30632e67dfc08cf73353078aa6118cced669d2e2a0cba69e2398d"
+    },
+    {
+      "atlas": "arcane-atlas.png",
+      "prompt": "Generate a new matching sprite atlas for KNIGHT'S WISH, a premium medieval fantasy factory kingdom game. Use attached reference only for style consistency: beautiful richly shaded hand-painted pixel-art with crisp stepped edges, gray stone, dark oak, slate roofs, gold brass details, burgundy royal banners; main light from upper left, orthographic 3/4 elevated camera looking at front and right sides. Make EXACTLY FOUR isolated new building sprites in a strict equal 2 by 2 grid with generous transparent gutters, 10% margin within each cell, no labels or UI, genuine alpha transparent background. Top-left MANA CONDUIT: low circular carved limestone dais with one large luminous teal crystal suspended between three brass rune-inscribed prongs, a few small arcane cables and a single smaller teal crystal, compact wide shape; no roof, no tower. Top-right ENCHANTER'S MAGE TOWER: slender round pale stone wizard tower with pointed deep violet blue conical roof and small golden crescent finial, glowing turquoise windows and large crystal near open doorway, small annex, tiny bookshelf and brass astrolabe; tall graceful silhouette. Bottom-left CASTLE KEEP: proud compact square fortified limestone keep, two crenellated corner turrets, central steep slate blue roof, gold-tipped burgundy standards, tall wooden door, warm windows and short stone entrance steps; substantial rich stone stronghold. Bottom-right CASTLE GATEHOUSE: broad crenellated fortified arch flanked by two square stone towers, raised wooden portcullis and dark passage, royal burgundy banners, two warm fire braziers. All objects complete in their cells, same camera/pixel density and material style; preserve compact ground base, no giant floating islands, no characters. Art should remain instantly identifiable at 48 to64px display. No tiny decoration noise, no smooth plastic render, no baked-in smoke clouds, no connecting objects between sprites.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-d89ee9c3-2387-4e84-9f72-27a9e57a2d1d.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "b68814149d5e6facaead5032d7b40ca2d71ff5ec9c4b78d61595ac9f12961c9a"
+    },
+    {
+      "atlas": "civic-atlas.png",
+      "prompt": "Create a matching NEW transparent sprite sheet for KNIGHT'S WISH using the reference atlas only for its hand-painted pixel art materials, warm upper-left light, ornate but legible fantasy style, orthographic 3/4 overhead camera seeing front and right sides. Four isolated medieval assets in a precise equal 2 by 2 atlas, no text, no labels, no character, no background, no UI frames. Every object FULLY VISIBLE with generous transparent air above and around it, no clipping. IMPORTANT: every asset occupies ONLY the inner 70 percent of its equal quadrant, leave generous 15% transparent margin on EVERY side; the four corners of each cell remain empty. Same pixel size and scale. TOP LEFT CASTLE WALL: a single modular straight thick limestone wall segment with crenellated battlements along its top, dark slate edge stones, burgundy narrow banner, moss near ground, slim vertical arrow slit, no tower, joins at both ends. TOP RIGHT KITCHEN AND BAKERY: compact cream plaster and oak cookhouse with warm amber thatched roof, rounded masonry bread oven projecting on right, small brick chimney, hanging copper pans and a basket of bread, a tiny warm hearth doorway and barrel. BOTTOM LEFT WATERWHEEL POWERHOUSE: small stout oak and blue-slate pump shed with very large visible wooden waterwheel on its right, brass axle and gears, narrow water trough directly beneath wheel, a short copper pipe; no surrounding river or scenery. BOTTOM RIGHT LOGISTICS DEPOT: a small stone-and-oak covered wagon loading station with burgundy canvas roof, brass bell on front beam, neatly stacked sacks and three differently sized cargo boxes, a clear loaded two-wheeled handcart in foreground and small waypost with blank arrow; logistics is its unmistakable function. All four have modest compact irregular stone/earth ground contact bases, no huge floating islands. Crisp stepped pixel silhouettes and controlled material planes, rich mature PC strategy game art, designed to be distinct at48px. Match slate gray and desaturated greens, dark oak and golden highlights from reference. No broad painted smoke clouds; smoke will be animated separately. Transparent RGBA background with nothing spanning cells.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-8aa754db-acd2-49a2-9fe6-d655f9f58164.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "9be4b0c26d329f429c37957ff21c9a0d934c2bb7fe881a3c4c72b554d674f37c"
+    }
+  ]
+}

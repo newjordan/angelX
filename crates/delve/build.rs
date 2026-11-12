@@ -7,6 +7,8 @@
 use std::path::{Path, PathBuf};
 mod build_watch;
 mod arcade_gate;
+mod frontier_art_build;
+mod village_art_build;
 
 /// The residents, by name, and their paintings.
 const RESIDENTS: [(&str, &str); 2] = [
@@ -34,6 +36,16 @@ fn write_if_changed(path: &Path, bytes: &[u8]) {
 }
 
 fn main() {
+    // A house's private table (`rules/private_table.rs`, left out of the
+    // public tree by release/public-exclude.txt): where the file is, rude
+    // wishes are granted as asked. Before the rules-only return below, so
+    // the rules worker is built the same way.
+    println!("cargo:rustc-check-cfg=cfg(private_table)");
+    println!("cargo:rerun-if-changed=src/rules/private_table.rs");
+    let manifest = std::env::var("CARGO_MANIFEST_DIR").expect("cargo sets CARGO_MANIFEST_DIR");
+    if std::path::Path::new(&manifest).join("src/rules/private_table.rs").exists() {
+        println!("cargo:rustc-cfg=private_table");
+    }
     // A rules-only worker embeds no renderer or image assets.
     if std::env::var_os("CARGO_FEATURE_RENDERER").is_none() {
         println!("cargo:rerun-if-changed=build.rs");
@@ -57,6 +69,9 @@ fn main() {
         arcade_gate::validate_cells(Path::new("assets/arcade")).unwrap_or_else(|e| panic!("arcade cell gate: {e}; regenerate with the arcade-review feature (docs/ART-ARCADE.md)"));
     }
     let out = std::env::var("OUT_DIR").expect("cargo sets OUT_DIR");
+    kingdom_art(&out, &mut watched);
+    frontier_art_build::build(&out, &mut watched);
+    village_art_build::build(&out, &mut watched);
     slot_art(&out, &mut watched);
     boss_assets(&out, &mut watched);
     let mut assets = String::from("const FILES: &[(&str,&[u8])] = &[\n");
@@ -268,4 +283,83 @@ fn factory_sounds() {
         format!("const SOUNDS: &[&str] = &{picks:?};"),
     )
     .unwrap();
+}
+
+// Runtime-sized portraits keep the original ImageGen paintings in the source
+// library without making every joined browser download twelve full masters.
+fn kingdom_art(out: &str, watched: &mut Vec<PathBuf>) {
+    let ore_root=PathBuf::from("../../cockpit/assets/kingdom/monsters");
+    for (manifest_name,suffix) in [("ore-enemies-manifest.json",""),("ore-enemies-windup-manifest.json","-wind")] {
+        let ore_manifest=ore_root.join(manifest_name);
+        watched.push(ore_manifest.clone());
+        let manifest:serde_json::Value=serde_json::from_slice(&std::fs::read(&ore_manifest).expect("ore manifest")).expect("valid ore manifest");
+        let atlas_path=ore_root.join(manifest["atlas"].as_str().unwrap());
+        watched.push(atlas_path.clone());
+        let atlas=image::open(&atlas_path).expect("ore atlas").into_rgba8();
+        for entry in manifest["assets"].as_array().unwrap() {
+            let id=entry["id"].as_str().unwrap();
+            let r=entry["rect"].as_array().unwrap();
+            let rect:[u32;4]=std::array::from_fn(|i|r[i].as_u64().unwrap() as u32);
+            let crop=image::imageops::crop_imm(&atlas,rect[0],rect[1],rect[2],rect[3]).to_image();
+            // Raised hammer and opened prism arms extend the silhouette;
+            // preserve torso size instead of shrinking the whole body.
+            let size=match (suffix,id) {("-wind","iron-ore-sentinel")=>44,("-wind","crystal-prism-stalker")=>40,_=>36};
+            let pixels=frontier_art_build::prepare(&crop,size,false);
+            write_if_changed(&Path::new(out).join(format!("ore-{id}{suffix}.rgba")),pixels.as_raw());
+        }
+    }
+    for (folder, names) in [
+        ("items", &[
+            "iron-oathblade", "ember-edge", "mooncrystal-staff", "hearth-wardstone", "prospectors-pick", "runebound-aegis",
+        ][..]),
+        ("monsters", &[
+            "ironroot-colossus", "cindermaw", "verdigris-mantis", "amethyst-crowned-wyrm", "mossback-briarhorn", "chalkwing-gargoyle",
+        ][..]),
+    ] {
+        for name in names {
+            let path = PathBuf::from(format!("../../cockpit/assets/kingdom/{folder}/{name}.png"));
+            watched.push(path.clone());
+            let source = image::open(&path).unwrap_or_else(|e| panic!("{}: {e}", path.display()));
+            if folder == "monsters" && matches!(*name, "ironroot-colossus" | "cindermaw" | "amethyst-crowned-wyrm") {
+                // Combat uses the visible body, not the portrait's generous
+                // transparent canvas. Keep this a build asset conversion so
+                // source paintings and the browser download stay small.
+                let wind_path = PathBuf::from(format!("../../cockpit/assets/kingdom/monsters/combat/{name}-wind.png"));
+                watched.push(wind_path.clone());
+                let poses = [source.to_rgba8(), image::open(&wind_path).expect("claim wind-up image").to_rgba8()];
+                let crops = poses.map(|rgba| {
+                    let (mut x0,mut y0,mut x1,mut y1) = (rgba.width(),rgba.height(),0,0);
+                    for (x,y,_) in rgba.enumerate_pixels().filter(|(_,_,p)| p[3] >= 128) {
+                        x0=x0.min(x); y0=y0.min(y); x1=x1.max(x+1); y1=y1.max(y+1);
+                    }
+                    image::imageops::crop_imm(&rgba,x0,y0,x1-x0,y1-y0).to_image()
+                });
+                let extent = crops.iter().map(|p|p.width().max(p.height())).max().unwrap();
+                // Rest and raised-arm poses share one scale and floor anchor.
+                for (pose,crop) in crops.into_iter().enumerate() {
+                    let (w,h) = ((crop.width()*60/extent).max(1),(crop.height()*60/extent).max(1));
+                    let body = image::imageops::resize(&crop,w,h,image::imageops::FilterType::Lanczos3);
+                    let mut combat = image::RgbaImage::new(64,64);
+                    image::imageops::overlay(&mut combat,&body,i64::from((64-body.width())/2),i64::from(64-body.height()));
+                    let suffix = if pose == 0 { "" } else { "-wind" };
+                    write_if_changed(&Path::new(out).join(format!("claim-{name}{suffix}.rgba")),combat.as_raw());
+                }
+            }
+            let rgba=source.to_rgba8();
+            let (mut x0,mut y0,mut x1,mut y1)=(rgba.width(),rgba.height(),0,0);
+            for (x,y,p) in rgba.enumerate_pixels() { if p[3]>=32 {x0=x0.min(x);y0=y0.min(y);x1=x1.max(x+1);y1=y1.max(y+1);} }
+            if x1>x0 && y1>y0 {
+                let crop=image::imageops::crop_imm(&rgba,x0,y0,x1-x0,y1-y0).to_image();
+                let extent=crop.width().max(crop.height());
+                let gallery=image::imageops::resize(&crop,(crop.width()*120/extent).max(1),(crop.height()*120/extent).max(1),image::imageops::FilterType::Lanczos3);
+                let mut canvas=image::RgbaImage::new(128,128);
+                image::imageops::overlay(&mut canvas,&gallery,i64::from((128-gallery.width())/2),i64::from(124-gallery.height()));
+                write_if_changed(&Path::new(out).join(format!("kingdom-gallery-{name}.rgba")),canvas.as_raw());
+            }
+            let image = source.resize(48, 48, image::imageops::FilterType::Lanczos3).into_rgba8();
+            let mut canvas = image::RgbaImage::new(48,48);
+            image::imageops::overlay(&mut canvas, &image, i64::from((48-image.width())/2), i64::from(48-image.height()));
+            write_if_changed(&Path::new(out).join(format!("kingdom-{name}.rgba")), canvas.as_raw());
+        }
+    }
 }

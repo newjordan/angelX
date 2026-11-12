@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>angelX 0.2.85: the speed update — angelX docs</title>
+  <meta name="description" content="angelX 0.2.85 release notes. Rendered from docs/RELEASE_0.2.85.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/release-0.2.85.html">
+  <meta property="og:title" content="angelX 0.2.85: the speed update — angelX docs">
+  <meta property="og:description" content="angelX 0.2.85 release notes. Rendered from docs/RELEASE_0.2.85.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/release-0.2.85.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/RELEASE_0.2.85.md" rel="noopener">docs/RELEASE_0.2.85.md</a></p>
+<h1 id="angelx-0285-the-speed-update">angelX 0.2.85: the speed update</h1>
+<p>A headless task in a small workspace now starts with its files already read, gets its tests run with every write, and ends the moment the full suite passes. On DeepSeek V4.1 Flash, angelX solved all 136 polyglot tasks on each of three seeds in 19 to 23 minutes. pi 1.5.0, on the same model the same day, solved 127 in 103 minutes.</p>
+<h2 id="upgrade">Upgrade</h2>
+<pre><code class="language-sh">angelX update</code></pre>
+<p>Or install fresh with the one line in the <a href="https://github.com/newjordan/angelX/blob/main/README.md" rel="noopener">README</a>. From a source checkout, <code>git pull</code> and run <code>./bin/angelX</code> again.</p>
+<h2 id="results">Results</h2>
+<p><strong>All 136 polyglot-v1 tasks</strong>, side by side with pi on the same model and seed.</p>
+<div class="table-wrap"><table><thead><tr><th>DeepSeek V4.1 Flash</th><th style="text-align:right">angelX 0.2.85</th><th style="text-align:right">pi 1.5.0</th></tr></thead><tbody><tr><td>solved</td><td style="text-align:right"><strong>136 / 136</strong></td><td style="text-align:right">127 / 136</td></tr><tr><td>agent time</td><td style="text-align:right"><strong>18.7 min</strong></td><td style="text-align:right">102.9 min</td></tr><tr><td>median task</td><td style="text-align:right"><strong>5.6 s</strong></td><td style="text-align:right">8.3 s</td></tr><tr><td>model calls / task</td><td style="text-align:right"><strong>2.3</strong></td><td style="text-align:right">17.9</td></tr><tr><td>input tokens</td><td style="text-align:right"><strong>2.42 M</strong></td><td style="text-align:right">106.16 M</td></tr><tr><td>cost</td><td style="text-align:right"><strong>$0.19</strong></td><td style="text-align:right">$0.91</td></tr></tbody></table></div>
+<p>Two more seeds: 136 / 136 in 20.1 min and 136 / 136 in 23.4 min.</p>
+<p><strong>Tests the agent never saw.</strong> The same tasks with every other test held back from the workspace and graded on all of them (133 tasks; three whose tests cannot be split are left out).</p>
+<div class="table-wrap"><table><thead><tr><th>DeepSeek V4.1 Flash</th><th style="text-align:right">angelX 0.2.85</th><th style="text-align:right">pi 1.5.0</th></tr></thead><tbody><tr><td>solved</td><td style="text-align:right"><strong>113 / 133</strong></td><td style="text-align:right">101 / 133</td></tr><tr><td>agent time</td><td style="text-align:right"><strong>21.4 min</strong></td><td style="text-align:right">137.6 min</td></tr><tr><td>cost</td><td style="text-align:right"><strong>$0.17</strong></td><td style="text-align:right">$1.45</td></tr></tbody></table></div>
+<p><strong>A language we never tuned on.</strong> Go, 36 polyglot exercises.</p>
+<div class="table-wrap"><table><thead><tr><th>DeepSeek V4.1 Flash</th><th style="text-align:right">angelX 0.2.85</th><th style="text-align:right">pi 1.5.0</th></tr></thead><tbody><tr><td>solved</td><td style="text-align:right"><strong>36 / 36</strong></td><td style="text-align:right">32 / 36</td></tr><tr><td>agent time</td><td style="text-align:right"><strong>9.1 min</strong></td><td style="text-align:right">44.3 min</td></tr><tr><td>median task</td><td style="text-align:right"><strong>3.6 s</strong></td><td style="text-align:right">7.3 s</td></tr><tr><td>cost</td><td style="text-align:right"><strong>$0.06</strong></td><td style="text-align:right">$0.35</td></tr></tbody></table></div>
+<p>&lt;sub&gt;Prime Intellect Verifiers v0.3.1 · DeepSeek V4.1 Flash, thinking off · temperature 0 · 8,192-token output cap · one attempt per task, 600 s, fresh environment · 2026-11-11&lt;/sub&gt;</p>
+<h2 id="what-makes-it-fast">What makes it fast</h2>
+<p>These are on for a headless task (<code>angel --task</code>) in a workspace of 40 files or fewer. Set the variable to <code>0</code> to turn one off.</p>
+<ul><li><p><strong>The files arrive with the task.</strong> A small workspace is read before the first request and sent as context, each file whole (<code>ANGEL_TASK_PREREAD_AS_CONTEXT</code>). Package manifests and tool configuration stay out of it; the map still names them (<code>ANGEL_TASK_PREREAD_SKIP_MANIFESTS</code>).</p></li><li><p><strong>Tests run with the write.</strong> A response that only writes files gets the test run added to it, so the model sees the write and its tests in one turn (<code>ANGEL_TASK_TEST_AFTER_WRITE</code>).</p></li><li><p><strong>It stops at green.</strong> When that test run passes in full, the task ends there with a short notice from angelX instead of one more model call (<code>ANGEL_TASK_END_AT_GREEN</code>).</p></li><li><p><strong>More of the first request is cached.</strong> The brevity block now comes ahead of the workspace map (<code>ANGEL_TASK_STABLE_FIRST</code>).</p></li><li><p><strong>A locked loop is sent once.</strong> When the model repeats the same failing batch, the request carries one copy of it and the closing turns rotate (<code>ANGEL_LOOP_COLLAPSE</code>).</p></li><li><p><strong>Rust builds once per run.</strong> The Rust verifier keeps one private Cargo home for the whole run, so later test runs compile only what changed (<code>ANGEL_CARGO_HOME_REUSE</code>).</p></li></ul>
+<h2 id="also-in-this-release">Also in this release</h2>
+<p><strong>Knight Racers.</strong> A pod race through Emberfall's foundry canyon, the Glassway's crystal dark and Moatwalk's night, with its own title, modes, classes, pods, garage, records, podium and ghost.</p>
+<p><strong>Knights Wish.</strong> A new upper world, the Creator as the rite you meet on loading in, the mini-games back as rooms the party stumbles on, and the Deep's villages and the Mines drawn in full.</p>
+<p><strong>Plugins.</strong> Anyone can publish an angelX plugin and anyone can install it (<code>/plugins</code>).</p>
+<p><strong>glass.</strong> The world map reuses its ground and sprites and updates one texture in place: idle CPU halves and GPU memory stays flat.</p>
+</content>
+</invoke>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

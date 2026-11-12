@@ -55,6 +55,7 @@ fn retired_worker_approval_is_denied_even_with_blanket_approval_enabled() {
                         "owned.invalid".into(),
                     ),
                     reply,
+                    deadline: std::time::Instant::now() + std::time::Duration::from_secs(600),
                 })
                 .unwrap();
             app.advance();
@@ -96,6 +97,7 @@ fn approval_for_live_foreground_or_background_owner_still_surfaces() {
                     prompt: "owned live action".into(),
                     scope: crate::agent::approval::ApprovalScope::SelfTest,
                     reply,
+                    deadline: std::time::Instant::now() + std::time::Duration::from_secs(600),
                 })
                 .unwrap();
             app.advance();

@@ -40,6 +40,9 @@ pub const GRANT: u32 = 8;
 /// A card in the seat's hand dragged onto another slot, 0 the next to
 /// drink (`Run::move_card`): `{from, to}`.
 pub const HAND: u32 = 9;
+/// A thing the seat made in the Creator and brought to life for the realm, a sealed recipe
+/// (`rite::Made`) as JSON: the run checks its budget and ranges again.
+pub const CREATION: u32 = super::together_shooter::rite::ACTION;
 /// One piece of a larger action: its kind, how many pieces, which this is,
 /// then its bytes.
 pub const PIECE: u32 = 100;
@@ -67,27 +70,15 @@ pub enum Gear {
     Grant(String),
     /// From slot, to slot: checked against the hand by the run.
     Hand(usize, usize),
+    /// A Creator piece for the realm: well formed here, its budget checked again by the run.
+    Creation(super::together_shooter::rite::Made),
 }
 
 /// The messages that carry one action: itself when it fits in one,
 /// else its pieces, in order.
 pub fn pieces(kind: u32, body: &[u8]) -> Vec<(u32, Vec<u8>)> {
-    if body.len() <= PIECE_BYTES {
-        return vec![(kind, body.to_vec())];
-    }
-    let chunks: Vec<&[u8]> = body.chunks(PIECE_BYTES).collect();
-    chunks
-        .iter()
-        .enumerate()
-        .map(|(i, chunk)| {
-            let mut out = Vec::with_capacity(chunk.len() + 12);
-            put_varint(&mut out, u64::from(kind));
-            put_varint(&mut out, chunks.len() as u64);
-            put_varint(&mut out, i as u64);
-            out.extend_from_slice(chunk);
-            (PIECE, out)
-        })
-        .collect()
+    // The one framing, shared with the seats that send in pieces themselves (`angel_net::client`).
+    angel_net::client::pieces(kind, body)
 }
 
 /// One seat's action coming in pieces.
@@ -254,6 +245,12 @@ pub fn read(knight: u32, kind: u32, body: &[u8]) -> Result<Gear, String> {
                     .ok_or(format!("send {{{name}}}: a slot in the hand"))
             };
             Ok(Gear::Hand(slot("from")?, slot("to")?))
+        }
+        CREATION => {
+            let made: super::together_shooter::rite::Made =
+                serde_json::from_slice(body).map_err(|e| format!("a Creator piece: {e}"))?;
+            made.validate()?;
+            Ok(Gear::Creation(made))
         }
         _ => Err("no such action".into()),
     }

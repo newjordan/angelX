@@ -33,6 +33,7 @@ use super::*;
 pub mod boss;
 pub mod bot;
 pub mod rail;
+pub mod show;
 pub mod things;
 pub mod trig;
 pub mod types;
@@ -306,6 +307,10 @@ pub struct Session {
         deserialize_with = "crate::rules::runtime_state::transient"
     )]
     pub leave: Vec<u32>,
+    /// What the picture remembers of the moments just flown (`show.rs`). The
+    /// module never sees it: `bare` leaves it out of the request.
+    #[serde(default, skip_serializing_if = "show::Show::quiet")]
+    pub show: show::Show,
 }
 
 /// A seat's bit.
@@ -343,6 +348,7 @@ impl Session {
             first: true,
             snd: Vec::new(),
             leave: Vec::new(),
+            show: show::Show::default(),
         };
         for (&id, _) in players.iter().filter(|(_, h)| !h.away && !h.stone) {
             s.sit(id, 0);
@@ -450,6 +456,7 @@ impl Session {
             && self.fx.len() <= MAX_FX
             && self.bank.valid()
             && self.beat.valid()
+            && self.show.valid(self.elapsed)
             && self.paid < 64
             && self.done.is_none_or(|d| d <= self.elapsed)
             && self.home >= 0
@@ -586,7 +593,8 @@ impl Session {
         heroes: &BTreeMap<u32, Hero>,
         nums: &Nums,
     ) -> Out {
-        let mut ask = Ask::of("tick", self, nums);
+        let bare = self.bare();
+        let mut ask = Ask::of("tick", &*bare, nums);
         ask.keys = inputs
             .iter()
             .filter(|(_, i)| i.valid())
@@ -601,9 +609,19 @@ impl Session {
             true => Ok(a),
             false => Err("an answer that is not a session a run may hold".to_string()),
         });
+        drop(ask);
+        drop(bare);
         match answer {
             Ok(a) => {
-                *self = a.session;
+                // What the picture remembers is the session's, not the module's.
+                let mut show = std::mem::take(&mut self.show);
+                let old = std::mem::replace(self, a.session);
+                show.observe(&old, self);
+                self.show = if show.valid(self.elapsed) {
+                    show
+                } else {
+                    show::Show::default()
+                };
                 let sounds = a.sounds.iter().filter_map(|&i| SOUNDS.split(' ').nth(i));
                 Out {
                     sounds: sounds.collect(),
@@ -622,9 +640,20 @@ impl Session {
         }
     }
 
+    /// The session as the module is to see it: without the picture's memory.
+    fn bare(&self) -> std::borrow::Cow<'_, Session> {
+        if self.show.quiet() {
+            return std::borrow::Cow::Borrowed(self);
+        }
+        let mut bare = self.clone();
+        bare.show = show::Show::default();
+        std::borrow::Cow::Owned(bare)
+    }
+
     /// What knight `id` presses this tick, for the numbers `n` stand at.
     pub fn bot_with(&self, id: u32, n: &Nums, skill: bot::Skill) -> Input {
-        let mut ask = Ask::of("bot", self, n);
+        let bare = self.bare();
+        let mut ask = Ask::of("bot", &*bare, n);
         (ask.id, ask.novice) = (id, skill == bot::Skill::Novice);
         ask_module(&ask).unwrap_or_default()
     }
@@ -762,10 +791,10 @@ impl Session {
 
 impl Run {
     pub fn griffinwing_showing(&self) -> bool {
-        self.room().kind == RoomKind::Forest && self.griffinwing.is_some()
+        self.on_stage() && self.griffinwing.is_some()
     }
     pub fn start_griffinwing(&mut self) {
-        if self.room().kind != RoomKind::Forest {
+        if !self.on_stage() {
             return;
         }
         self.forest.leave();
@@ -794,7 +823,14 @@ impl Run {
         if s.finished() {
             self.settle_griffinwing(&mut s);
         }
+        // The heaviest blow of the tick stops the room a moment: a turret's
+        // fall, a lamp, the Wyrm. The cooldown keeps a crowd of pops moving.
+        let held = s.show.held(s.elapsed);
         self.griffinwing = Some(s);
+        if let Some(weight) = held {
+            self.hold_for(weight);
+            self.finish_hit_hold();
+        }
         for id in out.leave {
             self.leave_activity(id);
         }
@@ -832,6 +868,8 @@ impl Run {
                 self.home.roundtable[SLOT] |= GOLD;
             }
             let record = &mut self.home.countryside.games.roundtable[SLOT];
+            // The tally says whether this run beat the best the party had.
+            s.show.know(record.best);
             record.wins = record.wins.saturating_add(1).min(record.plays);
             record.best = record.best.max(s.permille() as u16);
             self.found = Some((

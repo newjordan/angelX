@@ -185,7 +185,7 @@ lines with a little portrait (met); the notebook as a tool (met).
 - Gold resets because there is none; the favours are the economy.
 - A loop is 5 minutes (the brief's number); a first-time party is two loops, about
   ten minutes, not three to six. The charter's range is for one loop.
-- Blocks, not art: every picture is a labelled placeholder (`ART.md`, `slots.json`).
+- The cast is inked by hand (`art/*.py`, emitted to `render/overworld/arena/moonfall/art_data.rs`): the five villagers, Aster and his horse, the knights in six house colours and three masks, the wisp and the five things a knight carries. The buildings and props are still the slots in `ART.md`/`slots.json`.
 
 ## Version 1 is only
 One fen town, six folk with schedules, the Ledger, the Bell, five favours, two masks,

@@ -1,0 +1,85 @@
+{
+  "boss": "frog-knight",
+  "camera": "overhead",
+  "definition_sha256": null,
+  "display_policy": {
+    "activation_note": "Creator art, not a boss: never registered in the boss library. It is read by the Creator's preview and Test drive only (render/creation/baked.rs).",
+    "active": false,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "frog knight in plate armour",
+      "long spear"
+    ],
+    "class": "hero",
+    "grade": {
+      "v1": [
+        320,
+        320
+      ]
+    },
+    "props": [
+      "frog knight in plate armour",
+      "long spear"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      64,
+      54
+    ],
+    "v2": null
+  },
+  "identity_props": [
+    "frog knight in plate armour",
+    "long spear"
+  ],
+  "integration_status": "art-only: v1 only (no v2 art, no study sizes); no gameplay definition or registration is fabricated",
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 884,
+      "sha256": "2dbd9d86410df81aa0481bc8fd5193e1499f09e7946f7f6612aa9f7699b8f3fa",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v1-strike.png": {
+      "colours": 38,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 775,
+      "sha256": "15033bfb361a8d56b0bd08e75a00d029cf54def4416b08ab7adac37eb2fc0de6",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 895,
+      "sha256": "6c2768550cc1d79947101a1e41926a3415c6aded3c8ffa36a9f317f28c44e6ad",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    }
+  },
+  "reference_policy": "Frames are the source's native renders, written 1:1 (no resampling): the fidelity fields are 1.0 by construction, not a quality score.",
+  "resample": "nearest",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

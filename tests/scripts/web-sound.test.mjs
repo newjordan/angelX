@@ -17,7 +17,7 @@ function deferred() {
   })
   return { promise, resolve, reject }
 }
-function rig({ unlocked = true } = {}) {
+function rig({ unlocked = true, songs = false } = {}) {
   let now = 0
   const requests = []
   const sources = []
@@ -58,8 +58,14 @@ function rig({ unlocked = true } = {}) {
       return src
     },
   }
+  const slice = (song, beat) => `bard_${song}_${String(beat).padStart(3, '0')}`
   const manifest = Object.fromEntries(
-    ['hit', ...Array.from({ length: 75 }, (_, i) => `music-${i}`)].map((n) => [n, n]),
+    [
+      'hit',
+      ...Array.from({ length: 75 }, (_, i) => `music-${i}`),
+      // The Bard's songs, when asked for: a few beats of two of them and their Lullabies.
+      ...(songs ? ['a', 'b'].flatMap((song) => [...Array.from({ length: 24 }, (_, i) => slice(song, i)), `bard_${song}_lull`]) : []),
+    ].map((n) => [n, n]),
   )
   const sound = vm.runInNewContext(`${source}\nmakeSound(manifest)`, {
     manifest,
@@ -422,4 +428,64 @@ test('a music switch waits through decode, not just fetch', async () => {
   await flush()
   assert.equal(old.stopped, true)
   assert.equal(r.music()[0].buffer.name, 'music-1')
+})
+
+test("the Bard's slices fetch ahead, never count among the six voices and never cut an effect", async () => {
+  const r = rig({ songs: true })
+  r.sound.sfx('hit')
+  await r.deliver()
+  for (let i = 0; i < 5; i++) {
+    r.sound.sfx('hit')
+    await flush()
+  }
+  assert.equal(r.sources.filter((s) => s.started && !s.stopped).length, 6)
+  const before = r.requests.length
+  r.sound.sfx('bard_a_003')
+  const asked = r.requests.slice(before).map((q) => q.url)
+  assert.ok(['bard_a_003', 'bard_a_004', 'bard_a_009'].every((n) => asked.includes(n)), 'the beat and the six after it are fetched')
+  await r.deliver(r.requests.findIndex((q, i) => i >= before && q.url === 'bard_a_003'))
+  const playing = r.sources.filter((s) => s.started && !s.stopped)
+  assert.equal(playing.length, 7, 'six effects and the slice')
+  assert.equal(playing.filter((s) => s.buffer?.name === 'bard_a_003').length, 1)
+})
+
+test("the Bard's slices overlap their neighbour, three at most, and a late one is skipped", async () => {
+  const r = rig({ songs: true })
+  for (let beat = 0; beat < 4; beat++) {
+    r.sound.sfx(`bard_a_${String(beat).padStart(3, '0')}`)
+    await flush()
+    for (let i = 0; i < r.requests.length; i++) {
+      if (r.requests[i].url === `bard_a_${String(beat).padStart(3, '0')}`) {
+        r.requests[i].resolve({ ok: true, arrayBuffer: async () => r.requests[i].url })
+      }
+    }
+    await flush()
+  }
+  assert.equal(r.sources.filter((s) => s.started && !s.stopped).length, 3, 'the oldest is let go at three')
+  // One more that comes in after a quarter of a second is skipped: late is worse than silent.
+  const started = r.sources.length
+  r.sound.sfx('bard_b_000')
+  r.advance(300)
+  for (const q of r.requests.filter((q) => q.url === 'bard_b_000')) q.resolve({ ok: true, arrayBuffer: async () => q.url })
+  await flush()
+  assert.equal(r.sources.length, started, 'a slice 300 ms late is not played')
+})
+
+test("the page warms every song's opening beats and Lullaby once it can sound, and a suspension silences the song", async () => {
+  const r = rig({ songs: true })
+  assert.ok(r.requests.every((q) => !q.url.startsWith('bard_')), 'nothing fetched before the idle moment')
+  await r.retry()
+  const urls = new Set(r.requests.map((q) => q.url))
+  for (const song of ['a', 'b']) {
+    for (let beat = 0; beat < 6; beat++) assert.ok(urls.has(`bard_${song}_00${beat}`), `${song} beat ${beat}`)
+    assert.ok(urls.has(`bard_${song}_lull`), `${song} lullaby`)
+  }
+  assert.ok(!urls.has('bard_a_006'), 'only the opening')
+  r.sound.sfx('bard_a_000')
+  for (const q of r.requests.filter((q) => q.url === 'bard_a_000')) q.resolve({ ok: true, arrayBuffer: async () => q.url })
+  await flush()
+  const song = r.sources.filter((s) => s.started && !s.stopped)
+  assert.equal(song.length, 1)
+  r.sound.suspend()
+  assert.equal(song[0].stopped, true)
 })

@@ -533,6 +533,14 @@ impl Run {
         for h in self.players.values_mut().filter(|h| h.hp == 0 || h.stone) {
             h.hero_kit = Default::default();
         }
+        // The Monk's Patience: a mend every half second, endless, boring,
+        // and over when it is over.
+        for h in self.players.values_mut().filter(|h| h.patience > 0) {
+            h.patience -= 1;
+            if h.patience % (HZ / 2) == 0 && h.hp > 0 {
+                h.hp = (h.hp + 1).min(h.max_hp);
+            }
+        }
         let alive: Vec<_> = self
             .players
             .iter()

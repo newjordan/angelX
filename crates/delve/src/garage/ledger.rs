@@ -9,6 +9,7 @@
 
 use super::parts::{Part, Slot};
 use super::racer::{Build, Stats};
+use crate::rules::knight_racers::Career;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -21,6 +22,8 @@ pub const MAX_NAME: usize = 28;
 /// The garage remembers this many knights; past it the one who swapped
 /// longest ago is forgotten (and gets a starting racer if they return).
 pub const MAX_KNIGHTS: usize = 512;
+/// A knight keeps this many time-trial ghosts; past it the oldest is let go.
+pub const MAX_GHOSTS: usize = 12;
 
 /// The key a name is kept under.
 pub fn key(name: &str) -> String {
@@ -38,6 +41,20 @@ pub struct Entry {
     pub swaps: u32,
     /// The ledger's `seq` at the last swap: a clock that needs no clock.
     pub seq: u64,
+    /// What the knight has won at the races: money, pods, records (the parts they wear are `build`).
+    pub career: Career,
+    /// The time-trial ghosts, by course and pod: the best lap on each.
+    pub ghosts: BTreeMap<String, Ghost>,
+}
+
+/// A saved time-trial lap: its time in milliseconds, the ledger's `seq` when it was kept, and the
+/// lap's path as `ghost` writes it.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Ghost {
+    pub ms: u32,
+    pub seq: u64,
+    pub path: String,
 }
 
 /// What a swap did.
@@ -147,12 +164,18 @@ impl Ledger {
     }
 
     fn keep(&mut self, name: &str, build: Build) {
+        self.stamp(name, true, |e| e.build = build.sound());
+    }
+
+    /// Change a knight's entry, note it in the ledger's order and mark the ledger for saving;
+    /// a swap counts as one.
+    fn stamp(&mut self, name: &str, swap: bool, change: impl FnOnce(&mut Entry)) {
         self.seq += 1;
         let seq = self.seq;
         let e = self.knights.entry(key(name)).or_default();
         e.name = name.trim().chars().take(MAX_NAME).collect();
-        e.build = build.sound();
-        e.swaps = e.swaps.saturating_add(1);
+        change(e);
+        if swap { e.swaps = e.swaps.saturating_add(1); }
         e.seq = seq;
         self.dirty = true;
         while self.knights.len() > MAX_KNIGHTS {
@@ -162,6 +185,59 @@ impl Ledger {
                 None => break,
             };
         }
+    }
+
+    /// The knight's career at the races: what they have won and earned, with the racer they built
+    /// as the parts they wear. A knight the ledger has never seen starts in their starting racer.
+    pub fn career(&self, name: &str) -> Career {
+        let ids = self.build(name).ids();
+        match self.knights.get(&key(name)) {
+            Some(e) => {
+                let mut c = e.career.clone();
+                c.build = ids;
+                c.own_what_is_worn();
+                c
+            }
+            None => Career::with_build(ids),
+        }
+    }
+
+    /// Write a knight's career down: the racer they wear goes to their build, the rest beside it.
+    pub fn set_career(&mut self, name: &str, career: &Career) {
+        let build = Build::from_ids(&career.build);
+        // The racer is kept as the entry's build; the career beside it keeps the placeholder a
+        // read one has, so a ledger read back is the ledger written.
+        let career = Career { build: Career::default().build, ..career.clone() };
+        self.stamp(name, false, |e| {
+            e.build = build;
+            e.career = career;
+        });
+    }
+
+    /// The knight's saved ghost on a course and pod (`career::lap_key`).
+    pub fn ghost(&self, name: &str, key_: &str) -> Option<&Ghost> {
+        self.knights.get(&key(name))?.ghosts.get(key_)
+    }
+
+    /// Keep a ghost for a knight, if it is faster than the one they have; the oldest goes when a
+    /// knight has too many.
+    pub fn set_ghost(&mut self, name: &str, key_: &str, ghost: Ghost) -> bool {
+        if self.ghost(name, key_).is_some_and(|g| g.ms > 0 && g.ms <= ghost.ms) {
+            return false;
+        }
+        let key_ = key_.to_string();
+        let seq = self.seq + 1;
+        self.stamp(name, false, |e| {
+            e.ghosts.insert(key_, Ghost { seq, ..ghost });
+            while e.ghosts.len() > MAX_GHOSTS {
+                let oldest = e.ghosts.iter().min_by_key(|(_, g)| g.seq).map(|(k, _)| k.clone());
+                match oldest {
+                    Some(k) => e.ghosts.remove(&k),
+                    None => break,
+                };
+            }
+        });
+        true
     }
 
     /// Whether something changed since the last `Store::save`.

@@ -1,0 +1,38 @@
+{
+  "mode": "built-in image_gen edit",
+  "assets": [
+    {
+      "id": "ironroot-colossus-wind",
+      "file": "ironroot-colossus-wind.png",
+      "reference": "../ironroot-colossus.png",
+      "prompt": "Use case: identity-preserve. Asset type: alternate attack wind-up animation frame for a pixel-art game monster. Edit the supplied monster into ONE new pose. Preserve the exact character identity, face, materials, palette, chunky pixel-art treatment, top-left lighting, and three-quarter front camera of the reference. Full body and all extremities entirely visible, consistent scale relative to the reference, centered on square transparent canvas. Keep genuinely transparent background. No scenery, ground, cast shadow, smoky halo, labels, frame, text, other monsters or sprite sheet. The golem's two enormous hammer fists are BOTH raised high above its head, elbows bent outward, ready to smash the earth. Knees bent and chest compressed, head peers below the lifted fists. The left-right arrangement and ore armor design stay consistent. Clear anticipatory overhead slam pose.",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "sha256": "22955ade3e8e56bb04d888b9ce43508ddba3d6f6255cc99666f3032023c3f66b",
+      "review": "Complete transparent silhouette; identity and intended wind-up pose visually inspected"
+    },
+    {
+      "id": "cindermaw-wind",
+      "file": "cindermaw-wind.png",
+      "reference": "../cindermaw.png",
+      "prompt": "Use case: identity-preserve. Asset type: alternate attack wind-up animation frame for a pixel-art game monster. Edit the supplied monster into ONE new pose. Preserve the exact character identity, face, materials, palette, chunky pixel-art treatment, top-left lighting, and three-quarter front camera of the reference. Full body and all extremities entirely visible, consistent scale relative to the reference, centered on square transparent canvas. Keep genuinely transparent background. No scenery, ground, cast shadow, smoky halo, labels, frame, text, other monsters or sprite sheet. The coal salamander crouches deeply with hind legs coiled ready to spring, front shoulders lowered and head tilted UP with mouth open wide to reveal the ember furnace within. Tail arches tightly behind. Its orange crystal spines glow more brightly. Clear anticipatory pounce / inhale pose.",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "sha256": "59edcb20bd9a75edbac3592fd5e2e6bdded77de287965f4f56fde3a308cc2d8d",
+      "review": "Complete transparent silhouette; identity and intended wind-up pose visually inspected"
+    },
+    {
+      "id": "amethyst-crowned-wyrm-wind",
+      "file": "amethyst-crowned-wyrm-wind.png",
+      "reference": "../amethyst-crowned-wyrm.png",
+      "prompt": "Use case: identity-preserve. Asset type: alternate attack wind-up animation frame for a pixel-art game monster. Edit the supplied monster into ONE new pose. Preserve the exact character identity, face, materials, palette, chunky pixel-art treatment, top-left lighting, and three-quarter front camera of the reference. Full body and all extremities entirely visible, consistent scale relative to the reference, centered on square transparent canvas. Keep genuinely transparent background. No scenery, ground, cast shadow, smoky halo, labels, frame, text, other monsters or sprite sheet. The crystal wyrm bows its neck forward toward the viewer-left, jaws open and a small condensed CYAN light inside the mouth as it charges a beam. Front claws spread and brace, coil compressed, amethyst crown angled forward. No emitted beam yet. Clear anticipatory beam-charge pose.",
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "sha256": "c0970b3f954ca1b895eb37ebcb7511615bdfe81e2ef13218f4287f5dca89b0ba",
+      "review": "Complete transparent silhouette; identity and intended wind-up pose visually inspected"
+    }
+  ]
+}

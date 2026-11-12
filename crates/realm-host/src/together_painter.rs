@@ -121,6 +121,7 @@ pub fn slots(card: &Card) -> Vec<(Slot, usize)> {
             matches!(
                 e,
                 Effect::Cast(_)
+                    | Effect::Area(_)
                     | Effect::Damage(_)
                     | Effect::Rate(_)
                     | Effect::Pierce(_)

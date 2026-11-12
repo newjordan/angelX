@@ -9,6 +9,7 @@ pub(super) use activity_native::recursive_listing;
 
 use super::*;
 use crate::agent::club::ToolCall;
+use crate::telemetry::SlotOutcome;
 use std::io::{self, Write};
 use std::path::{Path, PathBuf};
 
@@ -58,6 +59,12 @@ pub(crate) struct SubmissionReceipt {
 }
 
 impl SlotSnapshot {
+    /// How the watcher reads this status word. The one place that decides;
+    /// `is_terminal` and the HUD telemetry both ask it.
+    pub(crate) fn outcome(&self) -> SlotOutcome {
+        SlotOutcome::from_status(&self.status)
+    }
+
     #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) fn is_in_flight(&self) -> bool {
         !self.is_terminal()
@@ -66,20 +73,7 @@ impl SlotSnapshot {
     pub(crate) fn is_terminal(&self) -> bool {
         // A new provider status is not evidence of acceptance. Keep observing
         // until the provider reports an explicitly recognized terminal result.
-        matches!(
-            self.status.trim().to_ascii_lowercase().as_str(),
-            "accepted"
-                | "promoted"
-                | "superseded"
-                | "rejected"
-                | "failed"
-                | "error"
-                | "cancelled"
-                | "canceled"
-                | "timeout"
-                | "timed_out"
-                | "timed-out"
-        )
+        self.outcome().is_settled()
     }
 }
 
@@ -431,20 +425,17 @@ impl SubmissionWatcher {
         let phase = match self.phase() {
             SlotPhase::Empty => SubmissionSlotPhase::Empty,
             SlotPhase::InFlight => SubmissionSlotPhase::InFlight,
-            SlotPhase::Terminal => {
-                let status = self
-                    .last
-                    .as_ref()
-                    .map(|snapshot| snapshot.status.trim().to_ascii_lowercase())
-                    .unwrap_or_default();
-                match status.as_str() {
-                    "timeout" | "timed_out" | "timed-out" => SubmissionSlotPhase::TimedOut,
-                    "rejected" | "failed" | "error" | "cancelled" | "canceled" | "superseded" => {
-                        SubmissionSlotPhase::Rejected
-                    }
-                    _ => SubmissionSlotPhase::Accepted,
+            SlotPhase::Terminal => match self.last.as_ref().map(SlotSnapshot::outcome) {
+                Some(SlotOutcome::TimedOut) => SubmissionSlotPhase::TimedOut,
+                Some(SlotOutcome::Rejected) => SubmissionSlotPhase::Rejected,
+                // A terminal phase follows a settled snapshot and `poll` takes
+                // no more after that, so `last` reads as accepted here. Only
+                // the test-only `observe_snapshot` can leave an in-flight one
+                // behind; that has always read as accepted and is kept.
+                Some(SlotOutcome::Accepted | SlotOutcome::InFlight) | None => {
+                    SubmissionSlotPhase::Accepted
                 }
-            }
+            },
         };
         SubmissionSlotTelemetry {
             phase,

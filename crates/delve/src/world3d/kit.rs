@@ -204,6 +204,13 @@ pub enum Kit {
     LeanTo,
     /// Broken wall stubs among rubble.
     Stubs,
+    /// The Keep as the blank-slate plan has it: a tiny castle just begun
+    /// (`world::plan`): a half-raised tower, wall stubs, scaffolding, a heap
+    /// of stone.
+    KeepBegun,
+    /// A house's camp where its castle will be built: two tents, a fire, a
+    /// banner on its pole.
+    Camp,
 }
 
 impl Kit {
@@ -284,6 +291,8 @@ impl Kit {
             Kit::Pack => "a lost pack against a staff",
             Kit::LeanTo => "a hermit's lean-to",
             Kit::Stubs => "broken wall stubs",
+            Kit::KeepBegun => "a tiny castle just begun: a half-raised tower, wall stubs and scaffolding",
+            Kit::Camp => "a camp of two tents round a fire, a banner on its pole",
         }
     }
 
@@ -332,6 +341,8 @@ impl Kit {
                 | Kit::Pack
                 | Kit::LeanTo
                 | Kit::Stubs
+                | Kit::KeepBegun
+                | Kit::Camp
         )
     }
 }
@@ -1375,6 +1386,36 @@ fn piece(kit: Kit, b: &mut B) {
             b.cut();
             rock_heap(b, [2.0, (d - 4.0).max(1.0), w - 2.0, d - 0.5], 3.0, 3, 90);
         }
+        Kit::KeepBegun => {
+            // A foundation course, a half-raised tower at the back with a
+            // stump beside it, stubs of wall across the front with the
+            // gate's gap between them, a heap of stone.
+            b.add(bx(Kind::Stone, 1.0, 1.0, w - 1.0, d - 1.0, 0.0, 2.5));
+            let t = (w * 0.27).min(34.0);
+            b.add(bx(Kind::Stone, 8.0, 6.0, 8.0 + t, 6.0 + t, 2.5, 46.0));
+            b.add(bx(Kind::Stone, w - 38.0, 6.0, w - 12.0, 32.0, 2.5, 24.0));
+            b.cut();
+            let z = d - 9.0;
+            b.add(bx(Kind::Stone, 1.0, z, w / 2.0 - 13.0, d - 1.0, 2.5, 13.0));
+            b.add(bx(Kind::Stone, w / 2.0 + 13.0, z, w - 1.0, d - 1.0, 2.5, 9.0));
+            for x in [w / 2.0 - 11.0, w / 2.0 + 11.0] {
+                b.add(sh(Shape::Box, Kind::Wood, x, 2.5, d - 4.0, 3.0, 26.0, 3.0));
+            }
+            b.cut();
+            rock_heap(b, [w - 30.0, d - 24.0, w - 8.0, d - 8.0], 9.0, 3, 60);
+        }
+        Kit::Camp => {
+            let (x, z) = (w * 0.3, d * 0.36);
+            b.add(sh(Shape::Pyramid, Kind::Cloth, x, 0.0, z, 40.0, 30.0, 34.0));
+            b.add(sh(Shape::Pyramid, Kind::Cloth, w * 0.6, 0.0, d * 0.32, 32.0, 24.0, 28.0));
+            b.cut();
+            let (fx, fz) = (w * 0.42, d - 14.0);
+            for turn in [25.0, -25.0] {
+                b.add(sh(Shape::Box, Kind::Trunk, fx, 0.0, fz, 11.0, 2.4, 2.4).turned(turn));
+            }
+            b.add(sh(Shape::Cone, Kind::Fire, fx, 1.0, fz, 5.0, 8.0, 5.0));
+            b.add(sh(Shape::Cylinder, Kind::Wood, w - 8.0, 0.0, d * 0.25, 1.8, 44.0, 1.8));
+        }
         Kit::Kites => {
             cottage_in(b, [2.0, d - 26.0, w * 0.6, d - 2.0], 13.0, 10.0, 2, true);
             b.cut();
@@ -1522,6 +1563,8 @@ pub(crate) mod tests {
                 Kit::Pack => &[(16.0, 8.0)],
                 Kit::LeanTo => &[(20.0, 12.0)],
                 Kit::Stubs => &[(28.0, 10.0)],
+                Kit::KeepBegun => &[(128.0, 80.0)],
+                Kit::Camp => &[(112.0, 64.0)],
                 Kit::School | Kit::College => &[(80.0, 64.0), (128.0, 64.0)],
                 Kit::Cottage | Kit::Barn | Kit::Hall | Kit::Forge | Kit::Workshop | Kit::Ward | Kit::Chapel | Kit::RoundTable
                 | Kit::Observatory | Kit::MineMouth | Kit::Pavilion | Kit::Windmill | Kit::Tower | Kit::Castle(_) => {
@@ -1559,7 +1602,7 @@ pub(crate) mod tests {
             Kit::Quay, Kit::Causeway, Kit::TollBridge, Kit::Sluice, Kit::Flowerbeds, Kit::Downs, Kit::Flags,
             Kit::Caravan, Kit::Wheelwright, Kit::Butts, Kit::Scarecrow, Kit::Fletchery, Kit::GoosePen, Kit::Fair,
             Kit::Stage, Kit::Laundry, Kit::Kites, Kit::Ward, Kit::Shrine, Kit::Stones, Kit::Cave, Kit::Campfire,
-            Kit::Pack, Kit::LeanTo, Kit::Stubs,
+            Kit::Pack, Kit::LeanTo, Kit::Stubs, Kit::KeepBegun, Kit::Camp,
         ];
         for top in [Top::Crenel, Top::Dome(Kind::Slate), Top::Cone(Kind::Roof)] {
             for towers in [2, 4] {

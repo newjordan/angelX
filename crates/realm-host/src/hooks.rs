@@ -13,16 +13,10 @@
 //! workspace is its own identity, and the village's lights stay dark.
 
 use angel_live::telemetry::StageSnapshot;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::OnceLock;
 
-/// A workspace's identity: the root its island is seeded from and the key its
-/// saved progress files under.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Identity {
-    pub root: PathBuf,
-    pub key: String,
-}
+pub use angel_plug::screen::Identity;
 
 /// The cockpit's answers, lent once.
 #[derive(Clone, Copy)]

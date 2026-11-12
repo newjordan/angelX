@@ -69,7 +69,9 @@ pub(super) fn boss(art: &Img, radius: f32, floor: i32) -> Img {
 /// in.
 pub(super) fn boss_figure(run: &Run, index: u8) -> Option<Img> {
     let boss = run.bosses.get(usize::from(index))?;
-    let art = if boss.id == crate::rules::signatures::RIPPER {
+    let art = if let Some(im) = super::claim_bosses::body(&boss.id) {
+        im
+    } else if boss.id == crate::rules::signatures::RIPPER {
         sprites::ripper()
     } else if boss.id == crate::rules::swamp::KING {
         super::swamp_art::mire_king(false, run.tick as u32)

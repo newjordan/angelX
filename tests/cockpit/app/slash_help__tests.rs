@@ -20,13 +20,13 @@ fn embedded_help_matches_pre_migration_bytes() {
             Some("all"),
             "·",
             false,
-            "b950853c1a9d53101526cdccbb347f3775263d06003fa60ce73b12b38c555a08",
+            "551dae6727cc4ea83b89c5e23f90989f5b2479a7acc7be320f45222fe385b0da",
         ),
         (
             Some("all"),
             "·",
             true,
-            "b950853c1a9d53101526cdccbb347f3775263d06003fa60ce73b12b38c555a08",
+            "551dae6727cc4ea83b89c5e23f90989f5b2479a7acc7be320f45222fe385b0da",
         ),
     ] {
         assert_eq!(

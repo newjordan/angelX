@@ -1,0 +1,265 @@
+{
+ "anchor_canvas_wh": [
+  48,
+  40
+ ],
+ "anchor_xy": [
+  24,
+  40
+ ],
+ "embed_kits": [
+  "v1"
+ ],
+ "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain.",
+ "pieces": [
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "gallop-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "gallop-0",
+   "runtime": true,
+   "state": "gallop"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "gallop-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "gallop-1",
+   "runtime": true,
+   "state": "gallop"
+  },
+  {
+   "approved": true,
+   "frame": 2,
+   "label": "gallop-2: reduced to the native canvas and snapped to the realm inks.",
+   "name": "gallop-2",
+   "runtime": true,
+   "state": "gallop"
+  },
+  {
+   "approved": true,
+   "frame": 3,
+   "label": "gallop-3: reduced to the native canvas and snapped to the realm inks.",
+   "name": "gallop-3",
+   "runtime": true,
+   "state": "gallop"
+  },
+  {
+   "approved": true,
+   "frame": 4,
+   "label": "gallop-4: reduced to the native canvas and snapped to the realm inks.",
+   "name": "gallop-4",
+   "runtime": true,
+   "state": "gallop"
+  },
+  {
+   "approved": true,
+   "frame": 5,
+   "label": "gallop-5: reduced to the native canvas and snapped to the realm inks.",
+   "name": "gallop-5",
+   "runtime": true,
+   "state": "gallop"
+  },
+  {
+   "approved": true,
+   "frame": 6,
+   "label": "gallop-6: reduced to the native canvas and snapped to the realm inks.",
+   "name": "gallop-6",
+   "runtime": true,
+   "state": "gallop"
+  },
+  {
+   "approved": true,
+   "frame": 7,
+   "label": "gallop-7: reduced to the native canvas and snapped to the realm inks.",
+   "name": "gallop-7",
+   "runtime": true,
+   "state": "gallop"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "idle-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-0",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "idle-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-1",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "jump-rise-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "jump-rise-0",
+   "runtime": true,
+   "state": "jump-rise"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "jump-fall-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "jump-fall-0",
+   "runtime": true,
+   "state": "jump-fall"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "roll-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "roll-0",
+   "runtime": true,
+   "state": "roll"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "roll-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "roll-1",
+   "runtime": true,
+   "state": "roll"
+  },
+  {
+   "approved": true,
+   "frame": 2,
+   "label": "roll-2: reduced to the native canvas and snapped to the realm inks.",
+   "name": "roll-2",
+   "runtime": true,
+   "state": "roll"
+  },
+  {
+   "approved": true,
+   "frame": 3,
+   "label": "roll-3: reduced to the native canvas and snapped to the realm inks.",
+   "name": "roll-3",
+   "runtime": true,
+   "state": "roll"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "crouch-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "crouch-0",
+   "runtime": true,
+   "state": "crouch"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "charge-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "charge-0",
+   "runtime": true,
+   "state": "charge"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "charge-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "charge-1",
+   "runtime": true,
+   "state": "charge"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "spur-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "spur-0",
+   "runtime": true,
+   "state": "spur"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "spur-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "spur-1",
+   "runtime": true,
+   "state": "spur"
+  },
+  {
+   "approved": true,
+   "frame": 2,
+   "label": "spur-2: reduced to the native canvas and snapped to the realm inks.",
+   "name": "spur-2",
+   "runtime": true,
+   "state": "spur"
+  },
+  {
+   "approved": true,
+   "frame": 3,
+   "label": "spur-3: reduced to the native canvas and snapped to the realm inks.",
+   "name": "spur-3",
+   "runtime": true,
+   "state": "spur"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "lunge-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "lunge-0",
+   "runtime": true,
+   "state": "lunge"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "lunge-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "lunge-1",
+   "runtime": true,
+   "state": "lunge"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "skid-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "skid-0",
+   "runtime": true,
+   "state": "skid"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "hurt-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "hurt-0",
+   "runtime": true,
+   "state": "hurt"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "hurt-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "hurt-1",
+   "runtime": true,
+   "state": "hurt"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "victory-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "victory-0",
+   "runtime": true,
+   "state": "victory"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "victory-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "victory-1",
+   "runtime": true,
+   "state": "victory"
+  },
+  {
+   "approved": true,
+   "frame": 2,
+   "label": "victory-2: reduced to the native canvas and snapped to the realm inks.",
+   "name": "victory-2",
+   "runtime": true,
+   "state": "victory"
+  }
+ ],
+ "runtime": true
+}

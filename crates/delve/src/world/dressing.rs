@@ -239,7 +239,15 @@ impl Dressing {
 /// The realm's dressing, worked out once.
 pub fn get() -> &'static Dressing {
     static DRESSING: OnceLock<Dressing> = OnceLock::new();
-    DRESSING.get_or_init(|| build(&kingdom::geography(&[])))
+    DRESSING.get_or_init(|| {
+        // The blank-slate plan (`super::plan`) has no camps, clusters or
+        // footpaths: the hillside is bare.
+        if super::plan::tabula() {
+            let n = (MAP_W * MAP_H) as usize;
+            return Dressing { pieces: Vec::new(), camps: Vec::new(), trails: vec![false; n], bays: vec![0; n] };
+        }
+        build(&kingdom::geography(&[]))
+    })
 }
 
 struct Story {
@@ -452,6 +460,9 @@ fn keep_out(geo: &Geography) -> Vec<bool> {
     for post in super::signs::posts() {
         mark(post.at.0 - 2, post.at.1 - 2, post.at.0 + 3, post.at.1 + 3);
     }
+    for h in super::waystations::placed() {
+        mark(h.rect.tx - 2, h.rect.ty - 2, h.rect.tx + h.rect.tw + 2, h.rect.ty + h.rect.th + 3);
+    }
     for (_, (x, y)) in kingdom::regions() {
         mark(x - 9, y - 2, x + 10, y + 4);
     }
@@ -656,6 +667,7 @@ fn build(geo: &Geography) -> Dressing {
     fixed.extend(set_pieces().map(|(_, (ox, oy))| (ox + SCREEN_W / 2, oy + SCREEN_H / 2)));
     fixed.extend(super::castles::footprints().map(|(x, y, w, h)| (x + w / 2, y + h / 2)));
     fixed.extend(super::signs::posts().iter().map(|p| p.at));
+    fixed.extend(super::waystations::placed().iter().map(|p| (p.rect.tx + 3, p.rect.ty + 2)));
     for wy in (8..MAP_H - 8).step_by(4) {
         for wx in (8..MAP_W - 8).step_by(4) {
             if geo.room.tile(wx, wy) != Tile::Floor {
@@ -719,6 +731,9 @@ fn trails(p: &Planner<'_>, camps: &[Camp]) -> Vec<bool> {
     }
     for post in super::signs::posts() {
         close(post.at.0 - 1, post.at.1 - 1, post.at.0 + 2, post.at.1 + 2);
+    }
+    for h in super::waystations::placed() {
+        close(h.rect.tx - 1, h.rect.ty - 1, h.rect.tx + h.rect.tw + 1, h.rect.ty + h.rect.th + 1);
     }
     for (_, (x, y)) in kingdom::regions() {
         close(x - 9, y - 1, x + 10, y + 3);

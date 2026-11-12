@@ -6,12 +6,14 @@
 //! the window draws the Delve's stage. Once with the world in 3D and once
 //! flat.
 //!
-//! cargo run --release -p angel-glass --example delve_kingdom -- <outdir> [--scale N] [--only NAME]... [--lots] [--contact]
+//! cargo run --release -p angel-glass --example delve_kingdom -- <outdir> [--scale N] [--only NAME]... [--lots | --tabula] [--contact]
 //! cargo run --release -p angel-glass --example delve_kingdom -- --walk
 //!
 //! Writes `<place>.png` and `<place>-flat.png` (the stage at `N` window
 //! pixels to a stage pixel, 3 unless said). `--walk` walks a knight east
 //! across three chunk borders and prints the frame's cost, flat and in 3D.
+//! `--tabula` shoots the blank-slate realm's loop instead (the spawn, the
+//! Keep, each camp, the Delve's gate; `angel_delve::world::plan`).
 //! `--lots` shoots what a run stands that no chunk's set has
 //! (`world3d::lots`) instead: the realm's catalog wishes built beside the
 //! Village, a knight before them and one behind, and a few of the run's
@@ -108,6 +110,31 @@ fn places() -> Vec<Place> {
     out
 }
 
+/// The blank-slate realm's loop (`angel_delve::world::plan`): the spawn before
+/// the tiny Keep, the Keep from its west flank, each camp with a knight at
+/// its fire, and the Delve's gate. A knight a tile from each stand, as the
+/// flat shots do.
+fn tabula_places() -> Vec<Place> {
+    use angel_delve::world::plan::tabula as t;
+    let at = |name: String, tile: (f32, f32)| Place {
+        name,
+        feet: vec![[tile.0 * 16.0 + 8.0, tile.1 * 16.0 + 13.0]],
+        wishes: Vec::new(),
+    };
+    let (kx, ky) = (t::KEEP_STAND.0 as f32, t::KEEP_STAND.1 as f32);
+    let mut out = vec![
+        at("t00-spawn".into(), (kx, ky + 1.0)),
+        at("t01-keep-west".into(), (kx - 7.0, ky - 2.0)),
+    ];
+    for (i, camp) in t::CAMPS.iter().enumerate() {
+        let stand = t::camp_stand(*camp);
+        out.push(at(format!("t{:02}-camp-{i}", i + 2), (stand.0 as f32 + 5.0, stand.1 as f32 + 2.0)));
+    }
+    let (dx, dy) = t::delve_stand();
+    out.push(at("t18-delve-gate".into(), (dx as f32, dy as f32 + 1.0)));
+    out
+}
+
 /// The catalog's wishes the lots' shots build, all beside the Village.
 const BUILT: [&str; 4] = ["tavern", "wayside-shrine", "fellowship-stone", "beacon-tower"];
 
@@ -174,10 +201,10 @@ fn contact(path: &Path, shots: &[(Vec<u8>, Vec<u8>)], size: (u32, u32)) -> Resul
 }
 
 fn run() -> Result<(), String> {
-    let usage = "usage: delve_kingdom <outdir> [--scale N] [--only NAME]... [--lots] [--contact] | --walk";
+    let usage = "usage: delve_kingdom <outdir> [--scale N] [--only NAME]... [--lots | --tabula] [--contact] | --walk";
     let mut words = std::env::args().skip(1);
     let (mut out, mut scale, mut only, mut walk) = (None, 3u32, Vec::new(), false);
-    let (mut lots, mut sheet) = (false, false);
+    let (mut lots, mut sheet, mut tabula) = (false, false, false);
     while let Some(word) = words.next() {
         match word.as_str() {
             "--scale" => {
@@ -186,6 +213,7 @@ fn run() -> Result<(), String> {
             "--only" => only.push(words.next().ok_or(usage)?),
             "--walk" => walk = true,
             "--lots" => lots = true,
+            "--tabula" => tabula = true,
             "--contact" => sheet = true,
             _ if out.is_none() => out = Some(PathBuf::from(word)),
             other => return Err(format!("`{other}`: {usage}")),
@@ -204,7 +232,13 @@ fn run() -> Result<(), String> {
     let (w, h) = arena::seat_size();
     let mut shots = Vec::new();
     let mut shot_size = (0, 0);
-    let all = if lots { lot_places() } else { places() };
+    let all = if lots {
+        lot_places()
+    } else if tabula {
+        tabula_places()
+    } else {
+        places()
+    };
     for place in all.into_iter().filter(|p| only.is_empty() || only.contains(&p.name)) {
         let run = kingdom::proof_run_built(&place.feet, place.wishes.clone());
         let mut pair = (Vec::new(), Vec::new());

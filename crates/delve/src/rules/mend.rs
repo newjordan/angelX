@@ -82,6 +82,18 @@ impl Run {
             )*};
         }
         end_unless_here!(folly, bats, gantry, powder, hop, race3d);
+        // A game a hall dealt that cannot be read ends, its hall as it was.
+        if self.encounter.as_ref().is_some_and(|e| !e.valid(rooms)) {
+            self.encounter = None;
+            mended.push("encounter");
+        }
+        let dealt = self.encounter_rooms.len();
+        self.encounter_rooms.retain(|&(i, _)| i < rooms);
+        self.encounter_rooms.truncate(2);
+        if self.encounter_rooms.len() != dealt {
+            mended.push("encounter_rooms");
+        }
+        self.encounter_prev.truncate(2);
         for (room, name) in [
             (&mut self.gantry_room, "gantry_room"),
             (&mut self.race3d_room, "race3d_room"),
@@ -155,6 +167,10 @@ fn mend_kingdom(k: &mut KingdomState) {
     k.seen.truncate(128);
     k.class_held.retain(|id| (1..=MAX_PLAYERS).contains(id));
     k.field_held.retain(|id| (1..=MAX_PLAYERS).contains(id));
+    // The waystations' talks and rally are the moment's: a damaged one goes.
+    if !k.stops.valid() {
+        k.stops = Default::default();
+    }
     if k.wishes.len() > crate::realm::MAX_WISHES {
         std::sync::Arc::make_mut(&mut k.wishes).truncate(crate::realm::MAX_WISHES);
     }

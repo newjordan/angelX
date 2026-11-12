@@ -1,0 +1,414 @@
+{
+  "boss": "marsh-bailiff",
+  "camera": "overhead",
+  "definition_sha256": null,
+  "display_policy": {
+    "activation_note": "Art review package. Registry/Art entry and gameplay definition are not installed. Full motion requires frame-bank integration.",
+    "active": false,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "ridged goblin skull",
+      "paired ivory lower tusks"
+    ],
+    "class": "guardian",
+    "grade": {
+      "v1": [
+        320,
+        320
+      ],
+      "v2": [
+        320,
+        320
+      ]
+    },
+    "props": [
+      "ridged goblin skull",
+      "paired ivory lower tusks",
+      "rootlike green sinews",
+      "long knuckled arms"
+    ],
+    "study": {
+      "v1": [
+        [
+          36,
+          30
+        ],
+        [
+          51,
+          42
+        ],
+        [
+          65,
+          54
+        ],
+        [
+          72,
+          60
+        ]
+      ],
+      "v2": [
+        [
+          87,
+          72
+        ],
+        [
+          116,
+          96
+        ],
+        [
+          155,
+          128
+        ]
+      ]
+    },
+    "v1": [
+      64,
+      54
+    ],
+    "v2": [
+      116,
+      96
+    ]
+  },
+  "identity_props": [
+    "ridged goblin skull",
+    "paired ivory lower tusks",
+    "rootlike green sinews",
+    "long knuckled arms"
+  ],
+  "integration_status": "art-only: definition_sha256 must be populated from the eventual marsh-bailiff.boss; no gameplay definition or registration is fabricated",
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 24,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1729,
+      "sha256": "4674f9ea51c3a3600b24ae16a2e43e974187266a71c3f29f4b0612e41672b812",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v1-strike.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1227,
+      "sha256": "117d1c2dbbf1904c843c4689b93c7295d821972f43c613c4d907283e150a7be5",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v1-study-1-rest.png": {
+      "colours": 23,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 541,
+      "sha256": "d6606a08c084ab1512d4ed80378acd2f12a8b977dd938133351e4f0253d89bd9",
+      "silhouette_iou": 1.0,
+      "size": [
+        36,
+        30
+      ]
+    },
+    "library-v1-study-1-strike.png": {
+      "colours": 19,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 378,
+      "sha256": "33cdbd6051a110a1eb238a5c65589631c6fc7acf82072c6fec90951699714f93",
+      "silhouette_iou": 1.0,
+      "size": [
+        36,
+        30
+      ]
+    },
+    "library-v1-study-1-windup.png": {
+      "colours": 21,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 437,
+      "sha256": "42c4161f2a9ad33503499a31aaa0f70a56ee738782be65bd2a5b602fed104bc9",
+      "silhouette_iou": 1.0,
+      "size": [
+        36,
+        30
+      ]
+    },
+    "library-v1-study-2-rest.png": {
+      "colours": 20,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1058,
+      "sha256": "544c3efed9347257f439d81c142200f4c3c307ad948f3524d3ccf115356b61ed",
+      "silhouette_iou": 1.0,
+      "size": [
+        51,
+        42
+      ]
+    },
+    "library-v1-study-2-strike.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 736,
+      "sha256": "30e62ae3c7d6df8a8a38bef767cd708db5eb0b0b583337b26451c6026bfe4712",
+      "silhouette_iou": 1.0,
+      "size": [
+        51,
+        42
+      ]
+    },
+    "library-v1-study-2-windup.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 871,
+      "sha256": "1ed9d7a43a70e1c740e48a67088bf78c9e409c6fbfe4602f7e30c2e0612f758a",
+      "silhouette_iou": 1.0,
+      "size": [
+        51,
+        42
+      ]
+    },
+    "library-v1-study-3-rest.png": {
+      "colours": 24,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1729,
+      "sha256": "c5686dc040518be272118586b4291cc812802b3bf0f581171bf2bb921096d3d2",
+      "silhouette_iou": 1.0,
+      "size": [
+        65,
+        54
+      ]
+    },
+    "library-v1-study-3-strike.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1227,
+      "sha256": "8dd4456fe3aa0adc295d931e7507a8790bb7383ecda9cbf8a88616cb713673a7",
+      "silhouette_iou": 1.0,
+      "size": [
+        65,
+        54
+      ]
+    },
+    "library-v1-study-3-windup.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1421,
+      "sha256": "29b7d91c40fd09d5de72661f5ee2390e8497d3f88d9a0fa9f330f2a74b148246",
+      "silhouette_iou": 1.0,
+      "size": [
+        65,
+        54
+      ]
+    },
+    "library-v1-study-4-rest.png": {
+      "colours": 24,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 2133,
+      "sha256": "c0acbd25070859f1b41557f35f1e53ac3359388d6356d86783157917f13c65f6",
+      "silhouette_iou": 1.0,
+      "size": [
+        72,
+        60
+      ]
+    },
+    "library-v1-study-4-strike.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1514,
+      "sha256": "2a1b086f00973258fa7c187be6f2e3311ec2b54c5db7c518e080e92811cb906b",
+      "silhouette_iou": 1.0,
+      "size": [
+        72,
+        60
+      ]
+    },
+    "library-v1-study-4-windup.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1765,
+      "sha256": "d605898d491de4b441eda7bed3e433baf7fb3b7226054d714cf918113de07b56",
+      "silhouette_iou": 1.0,
+      "size": [
+        72,
+        60
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1421,
+      "sha256": "e7b16edc9dbee2ea360f534e93bbd12820a0c97fa38055257899b5261418006b",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v2-rest.png": {
+      "colours": 24,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 5484,
+      "sha256": "e435165e713b4d121080da65a4c1fe981f36f5c60563fadcf1e333b00aecca00",
+      "silhouette_iou": 1.0,
+      "size": [
+        116,
+        96
+      ]
+    },
+    "library-v2-strike.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 3865,
+      "sha256": "a274cfa3a87be272ee05050b421b2a3819cab5fc41fe0a7f76bae4650d099240",
+      "silhouette_iou": 1.0,
+      "size": [
+        116,
+        96
+      ]
+    },
+    "library-v2-study-1-rest.png": {
+      "colours": 24,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 3052,
+      "sha256": "1619136816081ea3d3fe0f97dcaf498ec0a2cb5f41e4fa08a15d305b902d4e24",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        72
+      ]
+    },
+    "library-v2-study-1-strike.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 2170,
+      "sha256": "c94d57b8cf06ab5c9e499d17d5ab892afed8a7ea78d27a5826142af69b2389f4",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        72
+      ]
+    },
+    "library-v2-study-1-windup.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 2526,
+      "sha256": "fe9f39116a5313550c4b0bce927b8f077e81fc5c6e840fc1200315c12cacb1ac",
+      "silhouette_iou": 1.0,
+      "size": [
+        87,
+        72
+      ]
+    },
+    "library-v2-study-2-rest.png": {
+      "colours": 24,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 5484,
+      "sha256": "e435165e713b4d121080da65a4c1fe981f36f5c60563fadcf1e333b00aecca00",
+      "silhouette_iou": 1.0,
+      "size": [
+        116,
+        96
+      ]
+    },
+    "library-v2-study-2-strike.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 3865,
+      "sha256": "a274cfa3a87be272ee05050b421b2a3819cab5fc41fe0a7f76bae4650d099240",
+      "silhouette_iou": 1.0,
+      "size": [
+        116,
+        96
+      ]
+    },
+    "library-v2-study-2-windup.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 4516,
+      "sha256": "49c40aa711f3f9063f562bcc3b68f22d48154a68941b75936710874368d292b2",
+      "silhouette_iou": 1.0,
+      "size": [
+        116,
+        96
+      ]
+    },
+    "library-v2-study-3-rest.png": {
+      "colours": 24,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 9760,
+      "sha256": "eae1e7873202fa3efaf34ca48777dece656a76a584b1a7f34cf7c6116158ab95",
+      "silhouette_iou": 1.0,
+      "size": [
+        155,
+        128
+      ]
+    },
+    "library-v2-study-3-strike.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 6901,
+      "sha256": "a81cbc297a7157feac720dcf9ce53e646557ae5df112b36a51b8cf763515ec5d",
+      "silhouette_iou": 1.0,
+      "size": [
+        155,
+        128
+      ]
+    },
+    "library-v2-study-3-windup.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 8008,
+      "sha256": "58df35e5666cd497a0cfada10f9e015ea18a17bb92d0dff6dd512949d03820d8",
+      "silhouette_iou": 1.0,
+      "size": [
+        155,
+        128
+      ]
+    },
+    "library-v2-windup.png": {
+      "colours": 25,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 4516,
+      "sha256": "49c40aa711f3f9063f562bcc3b68f22d48154a68941b75936710874368d292b2",
+      "silhouette_iou": 1.0,
+      "size": [
+        116,
+        96
+      ]
+    }
+  },
+  "reference_policy": "Fidelity fields compare to the accepted native key sampled to each target size; they are conversion checks, not camera-similarity or animation-quality scores.",
+  "resample": "nearest",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

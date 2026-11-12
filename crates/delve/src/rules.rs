@@ -28,6 +28,7 @@ pub mod heroes;
 pub mod drills;
 pub mod weave;
 pub mod recruit_ults;
+pub mod reclaim;
 pub mod muster_tent;
 pub mod squire_rooms;
 pub mod bestiary;
@@ -36,9 +37,17 @@ mod boss_gates;
 mod boss_population;
 mod pacing;
 pub mod bosses;
+pub mod claim_bosses;
+pub mod frontier_claims;
+pub mod frontier_objectives;
+pub mod ore_threats;
 pub mod bounties;
 pub mod bowcountry;
 pub mod cards;
+/// The house's private table: rude wishes granted as asked. Dev's alone,
+/// never in the public tree (`build.rs`).
+#[cfg(private_table)]
+pub mod private_table;
 pub mod card_paint;
 pub mod speculative;
 pub mod scrolls;
@@ -57,6 +66,7 @@ pub mod crown;
 pub mod college;
 pub mod colosseum;
 pub mod alehouse;
+pub mod hall_voices;
 pub mod bazaar;
 pub mod curios;
 pub mod countryside;
@@ -64,6 +74,7 @@ pub mod court;
 pub mod critters;
 pub mod dares;
 pub mod depths;
+pub mod chronicle;
 pub mod bombs;
 pub mod desperate;
 mod encounter_catalog;
@@ -81,12 +92,15 @@ pub mod floor_map;
 mod floors;
 pub mod foes;
 pub mod folly;
+pub mod fey;
 pub mod folk;
+pub mod folk_talk;
 pub mod foreman;
 pub mod fortune;
 pub mod furnace;
 pub mod frogs;
 pub mod gantry;
+pub mod goods;
 pub mod gear;
 pub mod guide;
 pub mod hazards;
@@ -95,6 +109,8 @@ mod hero;
 mod spell_upgrades;
 pub mod hexer;
 pub mod identity;
+pub mod rite;
+pub mod made;
 pub mod hippodrome;
 pub mod hireling;
 pub mod squires;
@@ -110,6 +126,7 @@ pub mod squires_town;
 pub mod minions;
 pub mod dead_wishes;
 pub mod holdings;
+pub mod strolls;
 pub mod villagers;
 pub mod hollow;
 pub mod home;
@@ -120,10 +137,16 @@ pub mod items;
 pub mod joust;
 pub mod keyring;
 pub mod kingdom;
+pub mod industry;
+pub mod builder_input;
+pub mod kingdom_gear;
 pub mod tune;
 pub mod runtime_state;
 pub mod session;
 pub mod hitstop;
+pub mod juice;
+pub mod wax_show;
+pub mod belfry_show;
 pub mod gore;
 pub mod knights;
 pub mod layout;
@@ -132,6 +155,7 @@ pub mod lich;
 pub mod looks;
 pub mod vfx;
 pub mod creator;
+pub mod creation;
 mod loot;
 pub mod merchant;
 pub mod merlin;
@@ -140,6 +164,7 @@ pub mod missions;
 pub mod music;
 mod monsters;
 pub mod mummers;
+pub mod occasions;
 pub mod outlaw;
 pub mod overclass;
 pub mod genie;
@@ -149,12 +174,16 @@ pub mod starfall;
 pub mod rewards;
 pub mod pastimes;
 pub mod crossroads;
+pub mod encounter;
 pub mod cinder;
+pub mod cinder_show;
 pub mod latch;
+pub mod latch_show;
 pub mod brasswake;
 pub mod rafterwake;
 pub mod pennon;
 pub mod mossbell;
+pub mod mossbell_show;
 pub mod patterns;
 pub mod perils;
 pub mod gauntlets;
@@ -171,13 +200,16 @@ pub mod pit;
 pub mod pitstop;
 pub mod pots;
 pub mod hop;
+pub mod hop_show;
 mod hunt;
 pub mod activity;
 pub mod fx;
 pub mod map;
+pub mod wayfarers;
 pub use fx::Fx;
 pub mod race3d;
 pub mod powder;
+pub mod powder_show;
 pub mod presence;
 pub mod again;
 pub use presence::Hold;
@@ -202,6 +234,7 @@ pub mod skills;
 pub mod skulls;
 pub mod spectacle;
 mod spells;
+pub mod zones;
 pub mod abilities;
 pub mod host_commands;
 pub mod home_settlement;
@@ -245,6 +278,7 @@ pub mod deep;
 pub mod town;
 pub mod tray;
 pub mod trinkets;
+pub mod waystation;
 pub mod trophies;
 pub mod ults;
 pub mod votes;
@@ -259,7 +293,7 @@ pub use cards::{Book, Card};
 pub use hazards::{Rock, Trap, Waves};
 pub use hero::Hero;
 use hero::Loosed;
-pub use layout::{COLS, DIRS, Floor, Pack, ROWS, Room, RoomKind, TILE_UNITS, Tile};
+pub use layout::{COLS, DIRS, Floor, FortAdmit, Pack, ROWS, Room, RoomKind, TILE_UNITS, Tile};
 pub use loot::{Item, Rng, Weapon};
 pub use monsters::{Enemy, EnemyKind, compact_save};
 
@@ -455,6 +489,8 @@ pub const TELEGRAPH: u32 = HZ;
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Input {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub builder: Option<builder_input::BuilderAction>,
     #[serde(default, skip_serializing_if = "mirror_idle")]
     pub mirror: u8,
     /// The picture tick for a duel counter or table stroke. Repeats clear it.
@@ -539,6 +575,7 @@ impl Input {
             && usize::from(self.cast) <= cards::SPELL_SLOTS
             && usize::from(self.skill) <= skills::SKILLS
             && self.mirror <= 6
+            && self.builder.is_none_or(builder_input::BuilderAction::valid)
             && self.vote.is_none_or(votes::Command::valid)
     }
 }
@@ -883,6 +920,13 @@ define_run! {
     /// kit start.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub identity: bool,
+    /// A knight the realm has no rite for owes one before they go down
+    /// (`rite`). The game sets it (`rite::on`); bare runs ask nobody.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rite: bool,
+    /// What the world has noted of the realm's makings (`made`).
+    #[serde(default, skip_serializing_if = "made::State::quiet")]
+    pub made: made::State,
     pub tick: u64,
     /// The magics this run invented mid-play: a wish granted while the party
     /// fought, kept by the name the wish gave it (`spellbook`). A knight's
@@ -1002,6 +1046,10 @@ define_run! {
     /// cracks and grips (`champions`).
     #[serde(default, skip_serializing_if = "champions::Field::is_empty")]
     pub champions: champions::Field,
+    /// The area spells in play: waves, bursts, cones, lines, fields,
+    /// pillars and novas, and the foes they froze (`zones`).
+    #[serde(default, skip_serializing_if = "zones::Field::is_empty")]
+    pub zones: zones::Field,
     #[serde(default, skip_serializing_if = "heroes::Field::is_empty")]
     pub heroes: heroes::Field,
     /// Creatures cards summoned (`imps`).
@@ -1082,6 +1130,18 @@ define_run! {
     pub folly_room: Option<usize>,
     #[serde(default)]
     pub folly: Option<folly::WaxMaze>,
+    /// The halls this floor deals a game to and the game each deals
+    /// (`encounter`): the folly hall's pick, and from the second floor
+    /// sometimes a second hall's. A save from before the pool has none, and
+    /// its folly hall plays the rotation it was dealt.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub encounter_rooms: Vec<encounter::Door>,
+    /// What the floor before dealt, which this one never repeats.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub encounter_prev: Vec<encounter::Kind>,
+    /// The hosted game being played in an encounter hall, with its stakes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encounter: Option<encounter::Live>,
     #[serde(default)]
     pub bats: Option<folly::BatShoot>,
     /// This floor's Keg Gantry hall, and the climb when one is on.
@@ -1132,6 +1192,10 @@ define_run! {
     /// The floor's nook below ground and what is under way in it (`nooks`).
     #[serde(default)]
     pub nook: Option<nooks::Nook>,
+    /// King Brannoc's reclaiming (`reclaim`): who is in talk with him or a
+    /// lost hall's keeper, and the floor's lost hall at play.
+    #[serde(default, skip_serializing_if = "reclaim::Play::is_empty")]
+    pub reclaim: reclaim::Play,
     /// The Deep, while a delve has gone down below the Unknown (`deep`):
     /// its own floor count, a village's state, the errands' signs.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1196,6 +1260,9 @@ define_run! {
     /// The Whirlgraves' open wells.
     #[serde(default)]
     pub wells: Vec<foes::Well>,
+    /// The Fungelders' spore-sacs in flight.
+    #[serde(default)]
+    pub sacs: Vec<foes::Spore>,
     /// The Flesher's hooks in the air, and the Silkmother's webs.
     #[serde(default)]
     pub hooks: Vec<hunters::Hook>,
@@ -1312,6 +1379,9 @@ define_run! {
     pub rafterwake: Option<rafterwake::Session>,
     #[serde(default)]
     pub pennon: Option<pennon::Session>,
+    /// The traveller on the kingdom's roads and the talk with them (`wayfarers`).
+    #[serde(default, skip_serializing_if = "wayfarers::State::quiet")]
+    pub wayfarers: wayfarers::State,
     /// Host-only input age allowance from the existing network measurement.
     #[serde(
         default,
@@ -1869,6 +1939,12 @@ impl Grid<'_> {
     }
 }
 
+/// The host stress kit's party size (`ANGEL_DELVE_STRESS_PARTY`), read once.
+fn stress_party() -> Option<usize> {
+    static PARTY: std::sync::OnceLock<Option<usize>> = std::sync::OnceLock::new();
+    *PARTY.get_or_init(|| std::env::var("ANGEL_DELVE_STRESS_PARTY").ok().and_then(|v| v.trim().parse().ok()))
+}
+
 impl Run {
     #[cfg(any(test, feature = "testing"))]
     pub fn settlement_walkable_for_test(&self, x: f32, y: f32) -> bool {
@@ -1923,6 +1999,9 @@ impl Run {
             && self.brasswake.as_ref().is_none_or(|s| s.valid())
             && self.rafterwake.as_ref().is_none_or(|s| s.valid())
             && self.pennon.as_ref().is_none_or(|s| s.valid())
+            && self.wayfarers.valid()
+            && self.players.values().all(|h| h.blessed <= wayfarers::BLESS_ALONE_TICKS)
+            && self.home.wayfarers.valid()
             && self.mossbell.as_ref().is_none_or(|s| s.valid())
             && self.home.countryside.valid()
             && self.home.privy_wall.len() <= pitstop::WALL
@@ -1933,6 +2012,8 @@ impl Run {
             && self.rewards.valid()
             && self.ledger.valid()
             && self.home.sky.valid()
+            && self.home.industry.valid(crate::kingdom::catalog())
+            && self.home.kingdom_gear.valid()
             && self.players.values().all(|h| h.freedom_wishes <= freedom::MOST_HELD)
             && self.home.ranch.valid()
             && self.folly.as_ref().is_none_or(|f| f.valid() && f.room < self.dungeon.rooms.len())
@@ -1964,8 +2045,13 @@ impl Run {
             && self.nook.as_ref().is_none_or(|n| n.valid(self.dungeon.rooms.len()))
             && self.deep.as_ref().is_none_or(|d| d.valid(self.dungeon.rooms.len()))
             && self.home.deep.valid()
+            && self.home.rites.valid()
             && self.players.values().all(|h| h.soak <= town::SOAK)
             && self.folly_room.is_none_or(|i| i < self.dungeon.rooms.len())
+            && self.encounter_rooms.len() <= 2
+            && self.encounter_rooms.iter().all(|&(i, _)| i < self.dungeon.rooms.len())
+            && self.encounter_prev.len() <= 2
+            && self.encounter.as_ref().is_none_or(|e| e.valid(self.dungeon.rooms.len()))
             && !self.dungeon.rooms.is_empty()
             && self.dungeon.rooms.len()
                 <= if self.at_home_now() {
@@ -1974,6 +2060,12 @@ impl Run {
                     64
                 }
             && self.at < self.dungeon.rooms.len()
+            && (!self.kingdom.frontier || (self.at_home_now()
+                && self.room().kind == RoomKind::Kingdom
+                && ((self.room().cols == crate::kingdom::WIDTH as usize
+                && self.room().rows == crate::kingdom::HEIGHT as usize)
+                || (self.room().cols == 24 && self.room().rows == 18))
+                && !self.home.industry.is_empty()))
             && self.settlement_exhibits.len() <= 32
             && (self.settlement_exhibits.is_empty() || self.settlement_site.is_some())
             && self.dungeon.rooms.iter().all(Room::valid_snapshot)
@@ -2003,6 +2095,7 @@ impl Run {
                 .all(|(id, h)| (1..=MAX_PLAYERS).contains(id) && h.x.is_finite() && h.y.is_finite())
             && self.enemies.len() <= 128
             && self.projectiles.len() <= MAX_PROJECTILES
+            && self.zones.valid()
             && self
                 .projectiles
                 .iter()
@@ -2053,6 +2146,8 @@ impl Run {
             seat_epochs: BTreeMap::new(),
             naked_start: false,
             identity: false,
+            rite: false,
+            made: made::State::default(),
             questline: questline::Board::default(),
             campaign: campaign::Campaign::default(),
             kingdom: kingdom::State::default(),
@@ -2092,6 +2187,7 @@ impl Run {
             bard_songs: Vec::new(),
             scarecrows: Vec::new(),
             champions: champions::Field::default(),
+            zones: zones::Field::default(),
             heroes: heroes::Field::default(),
             imps: Vec::new(),
             cauldron: None,
@@ -2100,6 +2196,7 @@ impl Run {
             lobs: Vec::new(),
             flings: Vec::new(),
             wells: Vec::new(),
+            sacs: Vec::new(),
             hooks: Vec::new(),
             webs: Vec::new(),
             slams: Vec::new(),
@@ -2146,6 +2243,7 @@ impl Run {
             brasswake: None,
             rafterwake: None,
             pennon: None,
+            wayfarers: wayfarers::State::default(),
             latch_input_age: BTreeMap::new(),
             mossbell: None,
             exits: exits::State::default(),
@@ -2175,6 +2273,9 @@ impl Run {
             cat: None,
             folly_room: None,
             folly: None,
+            encounter_rooms: Vec::new(),
+            encounter_prev: Vec::new(),
+            encounter: None,
             bats: None,
             gantry_room: None,
             gantry: None,
@@ -2192,6 +2293,7 @@ impl Run {
             heist: None,
             town: town::Town::default(),
             nook: None,
+            reclaim: Default::default(),
             deep: None,
             pot_shards: Vec::new(),
             gore: Vec::new(),
@@ -2293,6 +2395,7 @@ impl Run {
             || self.powder.as_ref().is_some_and(|p| p.room == self.at && !p.done)
             || self.hop.as_ref().is_some_and(|h| h.room == self.at && !h.done)
             || self.race3d.as_ref().is_some_and(|r| r.room == self.at && !r.done)
+            || self.encounter_hosts()
     }
 
     /// Where a friendly shot's body first meets stone on the way from
@@ -2427,6 +2530,7 @@ impl Run {
             hero.name = name;
             if changed { self.retire_wish_seat(id); }
             if changed { self.restore_gear(id); self.stock_gear_cache(); }
+            if changed { self.owe_rite(id); }
             self.sync_squires();
             return;
         }
@@ -2457,6 +2561,7 @@ impl Run {
             self.harden();
         }
         self.wishes_for_newcomer(id);
+        self.owe_rite(id);
         self.sync_squires();
         if self.party_len() >= 4 {
             self.notice("party_of_four");
@@ -2830,6 +2935,9 @@ impl Run {
             chilled: 0,
             pattern_volleys: 0,
             frozen: 0,
+            grounded: 0,
+            frog: 0,
+            shunned: false,
             sleep_until: 0,
             stage: 0,
             timer: 0,
@@ -2839,6 +2947,7 @@ impl Run {
             signature: signatures::State::default(),
             home: None,
             dormant: false,
+            made: None,
         });
         Some(self.next_id)
     }
@@ -2926,6 +3035,9 @@ impl Run {
             chilled: 0,
             pattern_volleys: 0,
             frozen: 0,
+            grounded: 0,
+            frog: 0,
+            shunned: false,
             sleep_until: 0,
             stage: 0,
             timer: 0,
@@ -2935,6 +3047,7 @@ impl Run {
             signature: signatures::State::default(),
             home: None,
             dormant: false,
+            made: None,
         });
     }
 
@@ -2948,7 +3061,22 @@ impl Run {
     /// Deterministic simulation: no clock, ambient randomness, network or
     /// model calls.
     pub fn step(&mut self, inputs: &BTreeMap<u32, Input>) {
+        // The host stress kit (`scripts/stress/host-kit`, docs/WISH-HUD.md): with
+        // ANGEL_DELVE_STRESS_PARTY=n set, a party of n at home descends by itself.
+        // Read once; unset it is a single load a step.
+        if let Some(n) = stress_party()
+            && self.at_home_now() && self.players.len() >= n && self.tick % 90 == 0
+        {
+            eprintln!("stress: party of {} descends", self.players.len());
+            self.descend();
+        }
         self.clear_finished_powder_board();
+        let industry_inputs = self.industry_inputs(inputs);
+        let inputs = &industry_inputs;
+        if self.kingdom.frontier && self.dungeon.depth == 0 && self.room().kind == RoomKind::Kingdom {
+            self.step_frontier(inputs);
+            return;
+        }
         let creator_inputs = self.creator_inputs(inputs);
         let inputs = &creator_inputs;
         if self.crossroads.is_some() {
@@ -2981,6 +3109,8 @@ impl Run {
         };
         // A knight's wishes are held to the budget of the floor they stand on.
         self.keep_wish_floor();
+        self.keep_rite();
+        self.talk_to_made(inputs);
         // Who is here may have changed since the last tick: the monsters
         // stand scaled for the knights who are.
         let before = self.scaled();
@@ -3034,13 +3164,47 @@ impl Run {
             }
             None => inputs,
         };
+        // A knight in talk with a waystation's keeper answers with 1, 2 and 3
+        // (`waystation::Run::stops_inputs`).
+        let stopped;
+        let inputs = match self.stops_inputs(inputs) {
+            Some(map) => {
+                stopped = map;
+                &stopped
+            }
+            None => inputs,
+        };
+        // A knight talking with a traveller on the road answers with 1, 2
+        // and 3 (`wayfarers`).
+        let met;
+        let inputs = match self.wayfarer_inputs(inputs) {
+            Some(map) => {
+                met = map;
+                &met
+            }
+            None => inputs,
+        };
+        // A knight in talk with the King or a lost hall's keeper answers
+        // with 1, 2 and 3 rather than casting (`reclaim`).
+        let talked;
+        let inputs = match self.reclaim_inputs(inputs) {
+            Some(map) => {
+                talked = map;
+                &talked
+            }
+            None => inputs,
+        };
         let (live, heard, sounded) = (self.active(), self.cues.len(), self.sounds.len());
         let seen = live.then(|| self.seen());
         let was_over = self.over();
+        let industry_tick = self.tick;
         self.advance(inputs);
         if self.turbo() && self.hitstop.left == 0 {
             self.advance(inputs);
         }
+        // A random room's game: its clock, its end and its purse.
+        self.tick_encounter(inputs);
+        self.tick_industry(inputs, industry_tick);
         // Those the fellowship waits for are called to it (`fellowship`).
         self.call_fellowship();
         self.flush_questlines();
@@ -3083,6 +3247,14 @@ impl Run {
         if self.sounded_at.get(name).is_none_or(|&at| self.tick < at || self.tick - at >= every) {
             self.sounded_at.insert(name, self.tick);
             self.sounds.push(name);
+        }
+    }
+
+    /// `sound_every`, for one knight's ears alone (`seat_sounds`).
+    pub(crate) fn seat_sound_every(&mut self, knight: u32, name: &'static str, every: u64) {
+        if self.sounded_at.get(name).is_none_or(|&at| self.tick < at || self.tick - at >= every) {
+            self.sounded_at.insert(name, self.tick);
+            self.seat_sounds.push((knight, name));
         }
     }
 
@@ -3172,13 +3344,19 @@ impl Run {
         self.hold_hero_roots();
         self.skeletons_block();
         let struck = self.shots_fly(&mut sortie);
+        // Nobody falls to zero in a random room's game.
+        self.keep_hearts();
         self.aftermath(inputs, &mut sortie, struck, deeds);
         self.hold_hero_roots();
         self.tally_wounds(before, boss_beats);
         self.tick_feel(&sortie.credits, &sortie.grazes);
+        self.shatter_frozen();
         self.settle_kills();
         self.gather();
         self.tick_waves();
+        // And again before the room's end counts the fallen: nobody falls to zero
+        // in a random room's game, so the party cannot be wiped in one.
+        self.keep_hearts();
         self.room_end();
         self.shoulders_end(tower);
     }
@@ -3392,6 +3570,19 @@ impl Run {
         self.rocks.clear();
     }
 
+    /// No sentries at this room's ore seam. Rooms 1, 4, 7... of a delve hold
+    /// one (`industry_deposits`), and its two sentries stand up the first tick
+    /// a knight is near an unsecured claim (`ore_threats`). A fixture that
+    /// wants an empty room takes the claim first, as a party that had won the
+    /// seam would have. Kept apart from `calm_for_test` so a test that does
+    /// not ask keeps the kingdom's claims it was written against.
+    pub fn settle_seams_for_test(&mut self) {
+        for d in self.industry_deposits() {
+            self.discover_frontier_claim(&d);
+            self.home.industry.secure(&d.id);
+        }
+    }
+
     /// Advance one simulation tick, allowing an existing impact hold to end.
     /// Timing tests call `step` directly to count transport ticks instead.
     pub fn step_sim_for_test(&mut self, inputs: &BTreeMap<u32, Input>) {
@@ -3498,8 +3689,16 @@ mod party_rooms_tests;
 mod cinder_tests;
 
 #[cfg(test)]
+#[path = "../tests/rules/cinder_show__tests.rs"]
+mod cinder_show_tests;
+
+#[cfg(test)]
 #[path = "../tests/rules/together_latch__tests.rs"]
 mod latch_tests;
+
+#[cfg(test)]
+#[path = "../tests/rules/latch_show__tests.rs"]
+mod latch_show_tests;
 
 #[cfg(test)]
 #[path = "../tests/rules/together_mossbell__tests.rs"]
@@ -3583,3 +3782,35 @@ mod lane_squires_tests;
 #[cfg(test)]
 #[path = "../tests/rules/squire_save_migration__tests.rs"]
 mod squire_save_migration_tests;
+
+#[cfg(test)]
+#[path = "../tests/rules/audit__shots.rs"]
+mod audit_shots;
+
+#[cfg(test)]
+#[path = "../tests/rules/brasswake__juice.rs"]
+mod brasswake_juice;
+
+#[cfg(test)]
+#[path = "../tests/rules/wax_maze_bot__tests.rs"]
+pub(crate) mod wax_maze_bot;
+
+#[cfg(test)]
+#[path = "../tests/rules/wax_maze_bench__tests.rs"]
+mod wax_maze_bench;
+
+#[cfg(test)]
+#[path = "../tests/rules/wax_maze_reel__tests.rs"]
+mod wax_maze_reel;
+
+#[cfg(test)]
+#[path = "../tests/rules/belfry_reel__tests.rs"]
+mod belfry_reel;
+
+#[cfg(test)]
+#[path = "../tests/rules/powder_reel__tests.rs"]
+mod powder_reel;
+
+#[cfg(test)]
+#[path = "../tests/rules/hop_reel__tests.rs"]
+mod hop_reel;

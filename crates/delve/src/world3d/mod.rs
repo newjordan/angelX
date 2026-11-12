@@ -55,6 +55,7 @@ pub mod lots;
 pub mod pilot;
 pub mod places;
 pub mod realm;
+pub mod realm_camp;
 pub mod realm_castle;
 pub mod realm_ground;
 pub mod realm_look;

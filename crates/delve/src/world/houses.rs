@@ -345,14 +345,27 @@ const SITES: [(i32, i32, i32, i32); 16] = [
     (192, 161, 17, 9),
 ];
 
-/// A castle's footprint in realm tiles `(tx, ty, tw, th)`: its curtain
-/// wall and all it holds, closed ground for the walker.
+/// A house's site in realm tiles `(tx, ty, tw, th)`: in the full plan its
+/// castle's curtain wall and all it holds, closed ground for the walker; in
+/// the blank-slate plan its camp (`super::plan::tabula::CAMPS`), where its
+/// castle will be built.
 pub fn footprint(id: HouseId) -> (i32, i32, i32, i32) {
-    SITES[usize::from(id.0) % SITES.len()]
+    match super::plan::active() {
+        super::plan::Plan::Full => SITES[usize::from(id.0) % SITES.len()],
+        super::plan::Plan::Tabula => {
+            super::plan::tabula::CAMPS[usize::from(id.0) % super::plan::tabula::CAMPS.len()]
+        }
+    }
 }
 
-/// The road tile before a castle's gate, where its knight stands at home:
-/// the middle of its south face, a tile out.
+/// Whether a house's site is a camp (the blank-slate plan) and not yet a
+/// castle.
+pub fn is_camp() -> bool {
+    super::plan::tabula()
+}
+
+/// The road tile before a castle's gate (a camp's fire), where its knight
+/// stands at home: the middle of its south face, a tile out.
 pub fn stand(id: HouseId) -> (i32, i32) {
     let (tx, ty, tw, th) = footprint(id);
     (tx + tw / 2, ty + th)

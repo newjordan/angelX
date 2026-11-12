@@ -284,6 +284,7 @@ fn verified_receipts_require_a_real_measurement_or_submission() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn status_row_fits_width_and_shows_state() {
     let mut s = ToolStrip::default();
@@ -403,6 +404,7 @@ fn warp_drive_eases_with_event_rate_and_respects_reduced() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn agent_wait_uses_semantic_two_stage_motion_without_false_stall() {
     let mut strip = ToolStrip::default();
@@ -446,6 +448,7 @@ fn agent_wait_uses_semantic_two_stage_motion_without_false_stall() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn status_row_fits_terminal_cells_for_wide_unicode() {
     let mut strip = ToolStrip::default();
@@ -462,6 +465,7 @@ fn status_row_fits_terminal_cells_for_wide_unicode() {
     assert!(row.ends_with(" 0s"), "{row}");
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn verifier_status_is_truthful_and_keeps_structured_result_detail() {
     let mut s = ToolStrip::default();
@@ -501,6 +505,7 @@ fn structured_zero_and_nonzero_diagnostics_drive_pass_fail() {
     assert_eq!(broken.snapshot().errors, 1);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn cargo_subcommands_receive_specific_verifier_labels() {
     for (args, label, trial) in [

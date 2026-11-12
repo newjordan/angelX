@@ -1,6 +1,6 @@
 //! Offline review using native simulation frames and the actual cockpit cell painter.
 #[cfg(test)]
-#[path = "../../cockpit/src/stage/world_viz/art/cells.rs"]
+#[path = "../../cockpit/delve-cart/src/world_viz/art/cells.rs"]
 mod cells;
 
 #[cfg(test)]

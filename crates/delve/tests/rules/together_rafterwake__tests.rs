@@ -16,6 +16,8 @@ fn game(seats: u32) -> Run {
         },
     )]));
     assert!(r.rafterwake.is_some());
+    // These tests are about the climb: the title and the 3-2-1 have their own tests below.
+    r.rafterwake.as_mut().unwrap().go = 0;
     r
 }
 fn step(d: &mut Lane, i: Input, tick: u64) {
@@ -556,5 +558,168 @@ fn rafterwake_podium_columns_end_at_their_headers() {
     for text in ["40G POT + CROWN", "MOST HEIGHT, FEWER FALLS, EARLIER FINISH"] {
         let (x, _, value) = labels.iter().find(|(_, _, v)| v == text).unwrap();
         assert!((2*x + text_width(value) - 384).abs() <= 1);
+    }
+}
+
+/// Every knight waits out the title and the 3-2-1 together and starts on one tick.
+#[test]
+fn rafterwake_everyone_starts_together_after_the_count() {
+    let mut r = game(4);
+    r.rafterwake.as_mut().unwrap().go = INTRO;
+    let run_right = Input { move_x: 1, fire: true, ..Default::default() };
+    let keys: BTreeMap<u32, Input> = (1..=4).map(|id| (id, run_right)).collect();
+    for n in 0..INTRO {
+        let s = r.rafterwake.as_ref().unwrap();
+        assert_eq!(s.go, INTRO - n);
+        assert_eq!(s.left, LENGTH, "the clock waits for the count");
+        assert!(s.lanes.values().all(|d| d.x == 42 * Q), "nobody moves before GO");
+        r.step(&keys);
+    }
+    let s = r.rafterwake.as_ref().unwrap();
+    assert_eq!(s.go, 0);
+    assert_eq!(s.left, LENGTH);
+    r.step(&keys);
+    let s = r.rafterwake.as_ref().unwrap();
+    assert_eq!(s.left, LENGTH - 1, "the first tick of the round");
+    // Every seat started the same tick, so every seat moved the same way.
+    assert!(s.lanes.values().all(|d| d.x == s.lanes[&1].x && d.x > 42 * Q));
+    assert!(r.valid_snapshot());
+}
+
+/// A button held through the count is not a press the moment the round starts.
+#[test]
+fn rafterwake_a_press_held_through_the_count_is_not_a_hop() {
+    let mut r = game(2);
+    r.rafterwake.as_mut().unwrap().go = 6;
+    let held = Input { fire: true, ..Default::default() };
+    for _ in 0..8 {
+        r.step(&BTreeMap::from([(1, held)]));
+    }
+    let d = &r.rafterwake.as_ref().unwrap().lanes[&1];
+    assert_eq!(d.vy, 0);
+    assert!(d.ground.is_some(), "still on the plank: the held button did not hop");
+}
+
+/// The crew bell rings as the crew's average deck passes 3, 6 and 9: once each, with high hops,
+/// gold for the pot and a call the whole table hears.
+#[test]
+fn rafterwake_crew_bell_rings_at_three_six_nine_and_pays_the_pot() {
+    let mut r = game(4);
+    let base = 10 * 4;
+    assert_eq!(r.rafterwake.as_ref().unwrap().pot(), base);
+    for (n, deck) in [3usize, 6, 9].into_iter().enumerate() {
+        for d in r.rafterwake.as_mut().unwrap().lanes.values_mut() {
+            d.checkpoint = deck;
+        }
+        r.step(&BTreeMap::new());
+        let s = r.rafterwake.as_ref().unwrap();
+        assert_eq!(s.bells as usize, n + 1, "deck {deck}");
+        assert_eq!(s.bell, BELL_LIFE - 0, "the bell's hops last their time");
+        assert_eq!(s.pot(), base + BELL_GOLD * (n as u32 + 1));
+        assert!(s.show.list.iter().any(|c| c.cry == show::Cry::Bell(n as u8 + 1)));
+        // Another tick at the same decks rings nothing new.
+        r.step(&BTreeMap::new());
+        assert_eq!(r.rafterwake.as_ref().unwrap().bells as usize, n + 1);
+    }
+    assert!(r.valid_snapshot());
+}
+
+/// A knight who is not the whole crew's average does not ring the bell alone.
+#[test]
+fn rafterwake_one_fast_knight_does_not_ring_the_crew_bell() {
+    let mut r = game(4);
+    r.rafterwake.as_mut().unwrap().lanes.get_mut(&1).unwrap().checkpoint = 8;
+    r.step(&BTreeMap::new());
+    assert_eq!(r.rafterwake.as_ref().unwrap().bells, 0);
+}
+
+/// High hops: the same press clears a little more air while the bell rings.
+#[test]
+fn rafterwake_bell_hops_a_little_higher() {
+    let jump = |boost: bool| {
+        let mut d = Lane::new(41);
+        let hop = Input { fire: true, ..Default::default() };
+        d.step_boosted(hop, &Tune::default(), 0, 11, 0, boost);
+        let mut top = 0;
+        for t in 1..40 {
+            d.step_boosted(hop, &Tune::default(), t, 11, t as u32, boost);
+            top = top.max(FLOOR - d.y / Q);
+        }
+        top
+    };
+    assert!(jump(true) > jump(false), "{} vs {}", jump(true), jump(false));
+}
+
+/// The show's marks: a hop, a landing, a deck won and a keeper struck are written on the tick
+/// they happen, and a heavy one holds the room's time.
+#[test]
+fn rafterwake_marks_name_what_happened_and_a_strike_holds_the_room() {
+    use show::Kind;
+    let mut d = Lane::new(41);
+    let hop = Input { fire: true, ..Default::default() };
+    let mut seen = Vec::new();
+    for t in 0..60 {
+        d.step_at(if t < 14 { hop } else { Input::default() }, &Tune::default(), t, 11, t as u32);
+        seen.extend(d.show.marks.iter().filter(|m| m.born == t as u32).map(|m| m.kind));
+    }
+    assert!(seen.contains(&Kind::Hop), "{seen:?}");
+    assert!(seen.iter().any(|k| matches!(k, Kind::Land { .. })), "{seen:?}");
+    // The keeper struck from above: a mark, heavy, and the run's hit-stop is asked for.
+    let mut r = game(2);
+    let s = r.rafterwake.as_mut().unwrap();
+    let d = s.lanes.get_mut(&1).unwrap();
+    d.height = 400;
+    d.checkpoint = 12;
+    d.ground = None;
+    d.x = d.keeper.x * Q;
+    d.y = (TOP - 30) * Q;
+    d.vy = -300;
+    d.keeper.beat = Beat::Rest;
+    d.keeper.ticks = 30;
+    r.step(&BTreeMap::new());
+    let s = r.rafterwake.as_ref().unwrap();
+    let d = &s.lanes[&1];
+    assert!(d.show.marks.iter().any(|m| matches!(m.kind, Kind::Strike { left: 5 })), "{:?}", d.show.marks);
+    assert!(r.hitstop.left > 0 || r.hitstop.held, "a crushing hit holds the room");
+}
+
+/// The lead changes hands only with a margin, once, and is called to the table.
+#[test]
+fn rafterwake_lead_is_called_once_with_a_margin() {
+    let mut c = show::Calls::default();
+    c.standings(10, &[(1, 100), (2, 60)]);
+    assert!(c.list.is_empty(), "the first leader is not a change");
+    c.standings(20, &[(1, 100), (2, 110)]);
+    assert!(c.list.is_empty(), "a margin under a deck is no lead");
+    c.standings(30, &[(1, 100), (2, 140)]);
+    assert_eq!(c.list.len(), 1);
+    assert_eq!((c.list[0].cry, c.list[0].who), (show::Cry::Lead, 2));
+    c.standings(31, &[(1, 100), (2, 150)]);
+    assert_eq!(c.list.len(), 1, "no second call for the same leader");
+    // A fall is called, then not again at once.
+    c.fell(3, 40);
+    c.fell(3, 50);
+    assert_eq!(c.list.iter().filter(|c| c.cry == show::Cry::Fell).count(), 1);
+    assert!(c.valid());
+}
+
+/// Snapshots written before the show have none of its fields and still load.
+#[test]
+fn rafterwake_old_snapshots_load_and_a_quiet_round_writes_nothing_new() {
+    let r = game(2);
+    let s = r.rafterwake.as_ref().unwrap().clone();
+    let mut value = serde_json::to_value(&s).unwrap();
+    for key in ["go", "bell", "bells", "ended", "was", "show"] {
+        value.as_object_mut().unwrap().remove(key);
+    }
+    for lane in value["lanes"].as_object_mut().unwrap().values_mut() {
+        lane.as_object_mut().unwrap().remove("show");
+    }
+    let old: Session = serde_json::from_value(value).unwrap();
+    assert!(old.valid());
+    assert_eq!(old.go, 0);
+    let text = serde_json::to_string(&old).unwrap();
+    for key in ["\"go\"", "\"bell\"", "\"bells\"", "\"ended\"", "\"was\""] {
+        assert!(!text.contains(key), "{key} is written for a quiet round");
     }
 }

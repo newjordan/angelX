@@ -93,6 +93,7 @@ fn ghoul(card: &cards::Card, tick: u64, body: &Img) -> (Img, Vec<Painting>) {
         power: 1,
         taunt: 0,
         rising: 0,
+        made: None,
     };
     if baseline() && !crate::rules::dead_wishes::colours_body(card) {
         old_dressed(body, card.looks.worn.as_ref().unwrap(), tick, true)

@@ -363,12 +363,12 @@ fn wrap(s: &str, most: usize) -> Vec<String> {
 }
 
 /// Bold ink: the glyphs twice, a pixel apart.
-fn bold(im: &mut Img, x: i32, y: i32, s: &str, ch: char) {
+pub(super) fn bold(im: &mut Img, x: i32, y: i32, s: &str, ch: char) {
     im.text(x, y, s, ch);
     im.text(x + 1, y, s, ch);
 }
 
-fn centred(im: &mut Img, y: i32, s: &str, ch: char, heavy: bool) {
+pub(super) fn centred(im: &mut Img, y: i32, s: &str, ch: char, heavy: bool) {
     let w = text_width(s) + i32::from(heavy);
     let x = (im.w - w) / 2;
     if heavy {
@@ -380,7 +380,7 @@ fn centred(im: &mut Img, y: i32, s: &str, ch: char, heavy: bool) {
 
 /// Plain parchment `w` by `h`: a warm sheet, darker toward its torn sides,
 /// flecked.
-fn paper(im: &mut Img, x: i32, y: i32, w: i32, h: i32, seed: u32) {
+pub(super) fn paper(im: &mut Img, x: i32, y: i32, w: i32, h: i32, seed: u32) {
     for py in y..y + h {
         // The side edges are torn a little.
         let bite = |side: u32| (hash(py / 3, side as i32, seed) % 3) as i32;
@@ -402,7 +402,7 @@ fn paper(im: &mut Img, x: i32, y: i32, w: i32, h: i32, seed: u32) {
 
 /// A roll across the scroll's top or foot, `w` wide at `(x, y)`: a paper
 /// cylinder, lit from above, with a wooden knob at each end.
-fn roll(im: &mut Img, x: i32, y: i32, w: i32) {
+pub(super) fn roll(im: &mut Img, x: i32, y: i32, w: i32) {
     for dy in 0..9 {
         let ch = match dy {
             0 | 8 => ROLL_LINE,
@@ -429,7 +429,7 @@ fn roll(im: &mut Img, x: i32, y: i32, w: i32) {
 }
 
 /// A choice's number in a wax seal.
-fn seal(im: &mut Img, x: i32, y: i32, n: usize, genies: bool) {
+pub(super) fn seal(im: &mut Img, x: i32, y: i32, n: usize, genies: bool) {
     im.ellipse(x as f32 + 5.5, y as f32 + 5.5, 6.0, 6.0, if genies { '8' } else { SEAL });
     im.ellipse(x as f32 + 5.0, y as f32 + 5.0, 4.5, 4.5, if genies { 'B' } else { 'R' });
     im.text(x + 3, y + 2, &format!("{}", n + 1), 'T');
@@ -466,6 +466,12 @@ fn scroll(run: &Run, hero: &crate::rules::Hero, body: &Body, view_h: i32) -> Img
                 "YOU WISH:"
             };
             let room = most - label.chars().count() - 1;
+            // The question the scroll asks a knight still making themselves
+            // or owing their rite, over their words (`identity`, `rite`).
+            if let Some(ask) = &offer.ask {
+                rows.push((Row::Said("", fit(&ask.to_uppercase(), most.saturating_sub(2))), 0));
+                rows.push((Row::Gap(1), 0));
+            }
             rows.push((Row::Said(label, fit(&offer.said.to_uppercase(), room)), 0));
             rows.push((Row::Gap(3), 5));
             for (i, choice) in offer.choices.iter().enumerate() {
@@ -691,7 +697,7 @@ fn gauge(im: &mut Img, x: i32, y: i32, w: i32, run: &Run) {
 
 /// The genie's words on a slip of paper, `w` wide at most, its tail
 /// pointing down at him.
-fn bubble(line: &str, w: i32) -> Img {
+pub(super) fn bubble(line: &str, w: i32) -> Img {
     let most = ((w - 10) / GLYPH_ADVANCE).max(6) as usize;
     let lines = wrap(&line.to_uppercase(), most);
     let tw = lines.iter().map(|l| text_width(l)).max().unwrap_or(0);
@@ -718,7 +724,7 @@ const SHUT_TICKS: f32 = 14.0;
 /// Which scroll it is, for its magic: a wish's, a super wish's, a fairy
 /// wish's, a freedom wish's or a shooting star's.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Variant {
+pub(super) enum Variant {
     Plain,
     Super,
     Fairy,
@@ -786,7 +792,7 @@ fn inky(c: [u8; 3]) -> bool {
 /// shown down to the bottom roll, which travels down it, the ink just
 /// above it wet with light and haloed; once open, a glint of that light
 /// going over the title every four seconds.
-fn unrolled(im: &Img, open: f32, sealed: bool, age: f32, tick: u64, kind: Variant) -> Img {
+pub(super) fn unrolled(im: &Img, open: f32, sealed: bool, age: f32, tick: u64, kind: Variant) -> Img {
     const ROLL_H: i32 = 9;
     let paper = im.h - 2 * ROLL_H + 2;
     let shown = ((paper as f32 * open.clamp(0.0, 1.0)).round() as i32).clamp(1, paper);
@@ -856,7 +862,7 @@ fn gild(im: &mut Img, tick: u64) {
 /// `at` (the game's pixels, drawn `k` times over `out`): big as it comes
 /// down and landing with an overshoot, red with the genie's star pressed
 /// in, two tails of ribbon under it.
-fn seal_stamp(out: &mut Img, k: i32, at: (i32, i32), age: f32) {
+pub(super) fn seal_stamp(out: &mut Img, k: i32, at: (i32, i32), age: f32) {
     let land = ease::back((age / 6.0).min(1.0));
     let r = (8.0 * (1.0 + 0.5 * (1.0 - land.min(1.0)))).max(6.0);
     let size = (2.0 * r) as i32 + 6;
@@ -898,7 +904,7 @@ fn seal_stamp(out: &mut Img, k: i32, at: (i32, i32), age: f32) {
 /// the seal and stars thrown; a puff of smoke as it rolls up. `rect` is
 /// the scroll.
 #[allow(clippy::too_many_arguments)]
-fn magic(back: &mut Img, front: &mut Img, rect: (i32, i32, i32, i32), lamp: (i32, i32), kind: Variant, age: f32, open: f32, sealed: bool, tick: u64) {
+pub(super) fn magic(back: &mut Img, front: &mut Img, rect: (i32, i32, i32, i32), lamp: (i32, i32), kind: Variant, age: f32, open: f32, sealed: bool, tick: u64) {
     let (sx, sy, sw, sh) = (rect.0 as f32, rect.1 as f32, rect.2 as f32, rect.3 as f32);
     let t = tick as f32;
     let bottom = sy + 8.0 + (sh - 16.0) * open.clamp(0.0, 1.0);

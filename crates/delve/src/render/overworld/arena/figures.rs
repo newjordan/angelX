@@ -24,11 +24,41 @@ pub(super) fn foe_figure_with(run: &Run, enemy: &crate::rules::Enemy, tick: u32)
     if atari::here(run) { atari::sprite(&im, atari::FOE) } else { im }
 }
 
+/// A monster or boss a knight made in the Creator and the world took in: its own baked figure,
+/// over it a health bar and its name beside its maker's (`made`).
+fn made_foe(run: &Run, enemy: &crate::rules::Enemy, tick: u32) -> Option<Img> {
+    let tag = enemy.made.as_ref()?;
+    let c = run.home.rites.kept.get(tag.rite as usize)?.creature()?;
+    let high = if c.role == crate::rules::creation::Role::Boss { 46 } else { 30 };
+    let body = crate::render::creation::world_creature(c, true, true, u64::from(tick), high);
+    let label = format!("{} / {}", tag.name.to_uppercase(), super::rite_wall::tag_name(&tag.by));
+    let label: String = label.chars().take(22).collect();
+    let tw = super::super::ink::text_width(&label);
+    let w = body.w.max(tw + 2).max(26);
+    let mut im = Img::new(w, body.h + 17);
+    // The bar: its health as the bar shows it, its name over it.
+    let full = (w - 2).max(1);
+    let have = (i64::from(full) * i64::from(enemy.hp) / i64::from(enemy.max_hp.max(1))) as i32;
+    im.rect(0, 9, w, 5, 'K');
+    im.rect(1, 10, full, 3, 'n');
+    im.rect(1, 10, have.clamp(0, full), 3, 'O');
+    im.text((w - tw) / 2, 0, &label, 'h');
+    im.stamp(&body, (w - body.w) / 2, 16);
+    Some(im)
+}
+
 fn foe_art(run: &Run, enemy: &crate::rules::Enemy, tick: u32) -> Img {
+    if let Some(im) = made_foe(run, enemy, tick) {
+        return im;
+    }
+    if let Some(im) = ore_threats::figure(run, enemy, tick) { return im; }
     if let Some(image) = factory::enemy_image(enemy, tick) {
         return image;
     }
     if let Some(boss) = enemy.boss.and_then(|i| run.bosses.get(usize::from(i))) {
+        if let Some(im) = claim_bosses::figure(run, enemy, boss, tick) {
+            return im;
+        }
         // A dread of the Deep is drawn as its people fear it (`deep_village`).
         if let Some(im) = deep_village::dread_figure(run, enemy, boss, tick) {
             return im;
@@ -57,6 +87,10 @@ fn foe_art(run: &Run, enemy: &crate::rules::Enemy, tick: u32) -> Img {
     if let Some(im) = enemy.boss.and_then(|i| stature::boss_figure(run, i)) {
         return im;
     }
+    // The Plague of Frogs: a frogged monster is a frog, whatever it was.
+    if enemy.frogged() {
+        return sprites::frog(tick);
+    }
     let (im, k) = match enemy.kind {
         // A loot goblin bolts for the door with its sack over its back.
         EnemyKind::Goblin => {
@@ -65,6 +99,8 @@ fn foe_art(run: &Run, enemy: &crate::rules::Enemy, tick: u32) -> Img {
         }
         // The Broodmarrow: its seams tell when it means to throw.
         EnemyKind::Broodmarrow => (sprites::broodmarrow(enemy.stage == 1, tick), 1.0),
+        // The Fungelder: its sack tells when the lob is coming.
+        EnemyKind::Fungelder => (sprites::fungelder(enemy.stage == 1, tick), 1.0),
         // The Oathbound: the visor burns red only when the oath is broken.
         EnemyKind::Oathbound => (sprites::oathbound(enemy.stage != 0, tick), 1.0),
         // Humphrey: his stage is his pose, his heading is his face.
@@ -219,6 +255,76 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     figures_with(cv, run, (0,0), None);
 }
 
+/// A knight as the room draws them this tick: the rig's own sample and what
+/// it wears (`knights::dressed_frame`), or the body their save gives them,
+/// and whether a body is wished over their shape.
+fn dressed_knight(run: &Run, id: u32, hero: &crate::rules::Hero) -> (knights::DressedFrame, bool) {
+    let tick = run.tick as u32;
+    // A raised shield just struck is knocked back and flashes.
+    let struck = vfx::struck(run, id);
+    let bodied = hero.shape.is_some() && hero.making(&run.book).is_some_and(|m| m.parts.iter().any(|p| p == "body"));
+    let cast_age = run.minions.casts.get(&id).filter(|_| minions::casting(run, id))
+        .map(|c| run.tick.saturating_sub(c.tick));
+    let dressed = knights::dressed_frame(|| {
+        if let Some(avatar) = hero.avatar.as_ref().filter(|_| hero.shape.is_none() && !hero.look.custom) {
+            knights::avatar_struck(hero, avatar.pixels_at(run.tick), run.shield_out(id), struck)
+        } else if hero.pit.stop.is_some() {
+            knights::pit_figure(hero, id, tick)
+        } else if let Some(shape) = hero.shape {
+            // A knight being made: their shape, or the body wished.
+            knights::identity_figure(hero, shape, bodied, run.shield_out(id), struck)
+        } else {
+            // Only legacy bodies reach this lazy fallback. Rigged
+            // bodies and gear have already used their one timed sample.
+            knights::figure_at(hero, id, run.shield_out(id), struck,
+                minions::casting(run, id), run.tick)
+        }
+    }, hero, &run.book, run.tick, paintings::phase_of(&[u64::from(id)]),
+        cast_age, run.shield_out(id), struck, Some(id));
+    (dressed, bodied)
+}
+
+/// A fallen knight a pack draws falling (`dying`): the picture of the rig's
+/// Die sample the knight is in, its name, and its feet.
+struct Dying {
+    img: Img,
+    named: figure_keys::Named,
+    floor_offset: i32,
+}
+
+/// A fallen knight the installed pack has a drawing of falling, if one is
+/// (`Pack::draws`): the rig's own knight, in a window that takes the frame
+/// apart, its Die sample named like any other frame of the rig's. The clip
+/// plays its length (`knights::die_ticks`, the last frame holding), and then
+/// the bones are as they are for any fallen knight; a pack with no drawing of
+/// it, a terminal, a knight the rig does not draw by name, a wiped party and
+/// a knight whose skull has gone have the bones at once, as they always did.
+fn dying(run: &Run, id: u32, hero: &crate::rules::Hero) -> Option<Dying> {
+    if !capturing() || hero.hp != 0 || hero.fell == 0 || run.phase == Phase::Wiped {
+        return None;
+    }
+    // A skull a friend carries or has dropped elsewhere: the knight has come apart.
+    if run.skull_carrier(id).is_some() || hero.skull_at.is_some() {
+        return None;
+    }
+    if run.tick.saturating_sub(hero.fell) >= knights::die_ticks(id)? {
+        return None;
+    }
+    let pack = hd_pack::installed().filter(|pack| pack.has_clip("die"))?;
+    let (dressed, _) = dressed_knight(run, id, hero);
+    let knights::DressedFrame { mut image, pivot, named, .. } = dressed;
+    let mut named = named.map(|n| figure_keys::Named { rung: crate::rules::resolution::drawn_rung(run, id), ..n })?;
+    if hero.aim_x < -0.3 {
+        image = image.flip_h();
+        named = named.mirrored(image.w);
+    }
+    pack.draws(&named, named.rung.scale()).then_some(Dying {
+        floor_offset: pivot.map_or(0, |p| image.h - 1 - p[1]),
+        img: image,
+        named,
+    })
+}
+
 /// The room's figures as seat `focus` sees them: what lies on the floor is
 /// only what that knight could take (`Run::lies_for`).
 pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Option<u32>) {
@@ -307,7 +413,15 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Opti
         secrets::snibbet(cv, run);
     });
     let crossroads = super::crossroads::pastime(run);
-    for (&id, hero) in run.players.iter().filter(|(_, h)| h.hp == 0 && !crossroads) {
+    // The fallen a pack draws falling (`dying`), through the rig's Die clip;
+    // their bones wait for it to end. Without such a pack there are none.
+    let dyings: std::collections::BTreeMap<u32, Dying> = run
+        .players
+        .iter()
+        .filter(|(_, h)| h.hp == 0 && !crossroads)
+        .filter_map(|(&id, h)| Some((id, dying(run, id, h)?)))
+        .collect();
+    for (&id, hero) in run.players.iter().filter(|(id, h)| h.hp == 0 && !crossroads && !dyings.contains_key(id)) {
         // A fallen knight is a skeleton that has come apart where they stood,
         // its skull among the bones until a friend picks it up.
         let (x, y) = at(hero.x, hero.y + feet);
@@ -437,7 +551,7 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Opti
             let (rx, ry) = if enemy.is_boss() { (0.0, 0.0) } else { melee::recoil(run, enemy.id) };
             let (x, y) = if !run.side_on() {
                 at(enemy.x + rx, enemy.y + ry + foot_lift)
-            } else if enemy.kind.flies() {
+            } else if enemy.wings() {
                 // A flier hangs on its middle; a walker stands on its feet.
                 let (x, y) = at(enemy.x + rx, enemy.y + ry);
                 (x, y + im.h / 2)
@@ -483,7 +597,7 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Opti
                     dungeon_art::contact(cv, run, x, y, im.w);
                 }
                 if enemy.boss.is_none() {im=dungeon_art::foe_rim(&im,run.dungeon.pack);}
-            } else if !library && !board {foe_material::shadow(cv, x, y, im.w, enemy.kind.flies());}
+            } else if !library && !board {foe_material::shadow(cv, x, y, im.w, enemy.wings());}
             // Up on the Butcher's hook, held clear of him (`champions`).
             let (hx, hy) = champions::hoist(run, enemy);
             if live_frame() && !run.side_on() && !library {
@@ -562,6 +676,25 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Opti
     let riding: Vec<u32> = run.joust.as_ref().map_or_else(Vec::new, |j| {
         std::iter::once(j.knight).chain(j.foe.as_ref().map(|f| f.id)).collect()
     });
+    // A fallen knight a pack draws falling, among the crowd by their feet.
+    for (id, dying) in dyings {
+        let Some(hero) = run.players.get(&id) else { continue };
+        let perch = shoulders::perch(run, id, hero, tick);
+        let shade = kit.clone();
+        crowd.push((perch.depth(hero.y), 2, pixel_fraction(hero.x, hero.y + feet), Box::new(move |cv: &mut Img| {
+            let (x, y) = at(hero.x, hero.y + feet);
+            // Their shadow on the floor, under whoever they are about.
+            if let Some(shade) = shade.as_ref() {
+                dungeon_art::contact_on(cv, shade, x, y, 20);
+            } else if delivered {
+                dungeon_art::contact(cv, run, x, y, 20);
+            } else {
+                knights::shadow(cv, x, y);
+            }
+            capture::name_next(&dying.img, Some(dying.named));
+            stand_at(cv, &dying.img, hero.x, hero.y + feet, dying.floor_offset);
+        })));
+    }
     for (&id, hero) in run
         .players
         .iter()
@@ -580,34 +713,14 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Opti
                 let phase = (paintings::phase_of(&[u64::from(id), 1]), (0.0, 0.0));
                 paintings::stamp(cv, &glow, aura, run.tick, false, (x - glow.w / 2, y - glow.h / 2), phase, true);
             }
-            // A raised shield just struck is knocked back and flashes.
-            let struck = vfx::struck(run, id);
-            let bodied = hero.shape.is_some() && hero.making(&run.book).is_some_and(|m| m.parts.iter().any(|p| p == "body"));
-            let cast_age = run.minions.casts.get(&id).filter(|_| minions::casting(run, id))
-                .map(|c| run.tick.saturating_sub(c.tick));
-            let dressed = knights::dressed_frame(|| {
-                if let Some(avatar) = hero.avatar.as_ref().filter(|_| hero.shape.is_none() && !hero.look.custom) {
-                    knights::avatar_struck(hero, avatar.pixels_at(run.tick), run.shield_out(id), struck)
-                } else if hero.pit.stop.is_some() {
-                    knights::pit_figure(hero, id, tick)
-                } else if let Some(shape) = hero.shape {
-                    // A knight being made: their shape, or the body wished.
-                    knights::identity_figure(hero, shape, bodied, run.shield_out(id), struck)
-                } else {
-                    // Only legacy bodies reach this lazy fallback. Rigged
-                    // bodies and gear have already used their one timed sample.
-                    knights::figure_at(hero, id, run.shield_out(id), struck,
-                        minions::casting(run, id), run.tick)
-                }
-            }, hero, &run.book, run.tick, paintings::phase_of(&[u64::from(id)]),
-                cast_age, run.shield_out(id), struck, Some(id));
+            let (dressed, bodied) = dressed_knight(run, id, hero);
             let knights::DressedFrame {
                 image: mut im, paints: mut worn, pivot, authored_roll, named,
             } = dressed;
             // What it is, for an HD pack (`figure_keys`), on the knight's
             // rung of the resolution ladder; anything below that bends the
             // frame from the rig's own lets it go.
-            let mut named = named.map(|n| figure_keys::Named { rung: crate::rules::resolution::rung(run, id), ..n });
+            let mut named = named.map(|n| figure_keys::Named { rung: crate::rules::resolution::drawn_rung(run, id), ..n });
             // A shape with a body wished over it wears its shape as a mark.
             if let Some(shape) = hero.shape.filter(|_| bodied) {
                 knights::emblem(&mut im, shape);
@@ -722,6 +835,10 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Opti
             if hero.struck > 0 {
                 // Just hit: white, then thrown back and bent over.
                 let (posed, dx, dy) = strike::pose(&im, hero);
+                // The rig's own hurt frame is named: a pack with a drawing of
+                // it draws that where the flinch is, on the knight's feet as
+                // the blow throws them; a pack with none leaves the flinch.
+                capture::name_next(&posed, named.take().map(|n| n.bent(im.w, posed.w)));
                 stand(cv, &posed, x + dx, y + dy + floor_offset);
                 frogs::shoulder(cv, hero, x + dx, y + dy, tick);
             } else if !blink {

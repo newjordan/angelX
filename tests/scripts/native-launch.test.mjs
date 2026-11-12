@@ -719,16 +719,23 @@ for (const [name, env, profile, flags] of [
     const result = fixture.launch(env)
     assert.equal(result.status, 0, result.stderr)
     assert.deepEqual(JSON.parse(result.stdout), { profile })
-    assert.deepEqual(fixture.builds(), [{ args: ['build', '--locked', ...flags, '--no-default-features', '--features', 'glass'], profile }])
+    assert.deepEqual(fixture.builds(), [{ args: ['build', '--locked', ...flags, '--no-default-features', '--features', 'glass,delve'], profile }])
   })
 }
+
+test('ANGEL_DELVE=0 builds the console without the Delve', (t) => {
+  const fixture = buildFixture(t)
+  const result = fixture.launch({ ANGEL_DELVE: '0' })
+  assert.equal(result.status, 0, result.stderr)
+  assert.deepEqual(fixture.builds(), [{ args: ['build', '--locked', '--profile', 'fast', '--no-default-features', '--features', 'glass'], profile: 'fast' }])
+})
 
 test('machine source launches also use fast and build the same features as the window', (t) => {
   const fixture = buildFixture(t)
   const result = fixture.launch({}, ['--build-info', '--json'])
   assert.equal(result.status, 0, result.stderr)
   assert.deepEqual(JSON.parse(result.stdout), { profile: 'fast' })
-  assert.deepEqual(fixture.builds(), [{ args: ['build', '--locked', '--profile', 'fast', '--no-default-features', '--features', 'glass'], profile: 'fast' }])
+  assert.deepEqual(fixture.builds(), [{ args: ['build', '--locked', '--profile', 'fast', '--no-default-features', '--features', 'glass,delve'], profile: 'fast' }])
 })
 
 for (const [name, prebuilt, env, profile] of [

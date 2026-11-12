@@ -22,6 +22,9 @@ impl Session<'_> {
                 let host = joined.host.clone();
                 self.dungeon.joined_ballot_open = false;
                 self.dungeon.joined = Some(joined);
+                // The Delve's menu can only begin a game of one's own, and
+                // takes the keys before the friend's delve does.
+                self.dungeon.intro = None;
                 self.expand_dungeon();
                 format!(
                     "Joined the delve at {host} as {name}. {}. G keeps vigil when you step away, T makes your wish in a Sanctuary, Esc goes back to your composer, /dungeon leave goes home.",

@@ -195,3 +195,46 @@ fn write_realm_sets() {
         std::fs::write(dir.join(format!("{}.set", chunk_id(cx, cz))), &*set_text(index)).unwrap();
     }
 }
+
+#[test]
+fn a_cloth_ramp_is_as_bright_as_the_hillside_entry_for_entry_and_keeps_the_cloths_hue() {
+    use angel_stage::brand::{audit_ramp, chroma, hue, ladder_of, luma};
+    for cloth in [[0x26, 0x3b, 0x40], [0x8a, 0x3a, 0x20], [0x5a, 0x5a, 0x5a], [0xa8, 0x34, 0x1f], [0x12, 0x41, 0x4f], [0, 0, 0], [255, 255, 255]] {
+        let ramp = realm_look::cloth_ramp(cloth, &realm_look::HILLSIDE);
+        for (entry, base) in ramp.iter().zip(realm_look::HILLSIDE) {
+            assert!((luma(*entry) - luma(base)).abs() < 0.012, "{cloth:?}: {entry:?} against {base:?}");
+        }
+        // As much of the guide as the hillside's own ramp keeps: its colour
+        // and one hue (its brightness steps are the hillside's, entry for entry).
+        let breaches: Vec<_> = audit_ramp("cloth", &ramp, &ladder_of(&ramp)).into_iter().filter(|b| b.rule != "ramp-value").collect();
+        assert_eq!(breaches, vec![], "{cloth:?}");
+        // The cloth's own hue, where it has one worth speaking of.
+        if chroma(cloth) > 0.1 {
+            let (want, got) = (hue(cloth).unwrap(), hue(ramp[6]).unwrap());
+            assert!(((want - got + 540.0).rem_euclid(360.0) - 180.0).abs() < 25.0, "{cloth:?}: hue {want} then {got}");
+        }
+    }
+}
+
+#[test]
+fn the_blank_slates_camps_dye_their_cloth_in_zones_a_look_takes() {
+    use crate::world::plan::tabula as t;
+    let size = [384.0, 224.0];
+    // Every camp's cloth and the Keep's banner, each as the one the view is on.
+    let mut spots: Vec<(f32, f32)> = t::CAMPS.iter().map(|c| ((c.0 as f32 + c.2 as f32 / 2.0) * TILE, (c.1 as f32 + 1.0) * TILE)).collect();
+    spots.push(((t::KEEP.0 as f32 + t::KEEP.2 as f32 / 2.0) * TILE, (t::KEEP.1 as f32 + 1.0) * TILE));
+    for (x, z) in spots {
+        let view = View { origin: [x - size[0] / 2.0, z - size[1] / 2.0], size, knight: Some([x, z + 40.0]), others: [None; 3], time: 0.0 };
+        let look = realm_look::look(&view, &[]);
+        assert_eq!(look.validate(), Ok(()), "view at {x},{z}");
+        assert!(look.zones.len() <= angel_stage::look::ZONE_MAX);
+        if crate::world::plan::tabula() {
+            assert!(!look.zones.is_empty(), "a camp is in view at {x},{z}");
+            // The nearest, last, lies over the others and is the one in view.
+            let nearest = look.zones.last().unwrap();
+            assert!((nearest.at[0] - size[0] / 2.0).abs() < 90.0 && (nearest.at[1] - size[1] / 2.0).abs() < 60.0, "{:?}", nearest.at);
+        } else {
+            assert!(look.zones.iter().all(|z| z.ramp.len() == 8));
+        }
+    }
+}

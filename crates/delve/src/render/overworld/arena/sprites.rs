@@ -140,6 +140,7 @@ pub(super) fn enemy(kind: EnemyKind, tick: u32) -> Img {
         EnemyKind::Risen | EnemyKind::Broodmarrow => 28,
         EnemyKind::Oathbound => 24,
         EnemyKind::Whirlgrave => 18,
+        EnemyKind::Fungelder => 24,
         kind if kind.critter() || kind.horror() => 48,
         EnemyKind::Dummy => return super::foe_material::dress(&enemy_raw(kind, tick), kind),
         _ => 8,
@@ -558,6 +559,8 @@ pub(super) fn enemy_raw(kind: EnemyKind, tick: u32) -> Img {
         EnemyKind::Oathbound => oathbound_raw(false, tick),
         // The Whirlgrave, mid-lean.
         EnemyKind::Whirlgrave => whirlgrave_raw(tick),
+        // The Fungelder at rest: seams dark, the sack shut.
+        EnemyKind::Fungelder => fungelder_raw(false, tick),
         // The swamp's horrors, at their most themselves: a hand risen.
         EnemyKind::BogHand => super::swamp::raw(kind, 2, 0, tick),
         EnemyKind::Drowned | EnemyKind::Wisp => super::swamp::raw(kind, 0, 0, tick),
@@ -2541,6 +2544,55 @@ fn whirlgrave_raw(tick: u32) -> Img {
             ".sSSSSSSSSs."
         },
     ])
+}
+
+/// The Fungelder: a small hooded gardener hugging a great spore-sack,
+/// seams stitched shut. `winding` is its lob's wind-up: the seams come
+/// alight and its eyes glow — state, so, and only so, signal ink. At
+/// rest no part of it is signal: a gardener is only a gardener.
+pub(super) fn fungelder(winding: bool, tick: u32) -> Img {
+    super::foe_material::pose(
+        64 + EnemyKind::Fungelder as u8,
+        [(tick / 12) % 2, u32::from(winding), 0, 0],
+        || super::foe_material::dress(&fungelder_raw(winding, tick), EnemyKind::Fungelder),
+    )
+}
+
+fn fungelder_raw(winding: bool, tick: u32) -> Img {
+    let step = (tick / 12).is_multiple_of(2);
+    let mut im = rows(&[
+        // The hood, and a pale face under it that has seen every harvest.
+        "....EEEEE......",
+        "...EEFFEEE.....",
+        "...EFckkcFE....",
+        "...EFFccFFE....",
+        "....EFFFFE.....",
+        // The sack: a hill of hide with its seams stitched shut, held
+        // in two small hands that have done this for years.
+        "..bBBBBBBBb....",
+        ".bIIIIIIIIIb...",
+        ".bIirrrrrrIb...",
+        "bIIrrRRRRrrIIb.",
+        "cIirRRRRRRriIc.",
+        "cIIrRRRRRRrIIc.",
+        ".bIIrrRRrrIIb..",
+        ".bBIIrrrrIIBb..",
+        "..bbIIIIIIbb...",
+        ".ccbBBBBBBbcc..",
+        "..c.nnnnnn.c...",
+        // Feet too small for the rest of the afternoon.
+        if step {
+            "....pp..pp....."
+        } else {
+            "...pp....pp...."
+        },
+        "....PP..PP.....",
+    ]);
+    // The wind-up is the warning: seams and eyes to signal spore-glow.
+    if winding {
+        im = im.recolor(&[('r', '3'), ('k', '3')]);
+    }
+    im
 }
 
 /// The Big Ripper's round cheeks and small brass crown, in the same 32-pixel

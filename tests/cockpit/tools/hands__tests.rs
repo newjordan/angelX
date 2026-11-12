@@ -229,6 +229,56 @@ fn ground_turn_names_the_target_once() {
 }
 
 #[test]
+fn ground_frame_fit_keeps_the_answer_on_the_same_pixel() {
+    use image::{Rgb, RgbImage};
+    let shot = RgbImage::from_pixel(3840, 2160, Rgb([10, 20, 30]));
+    let (frame, back) = fit_frame(&shot, GROUND_FRAME);
+    assert_eq!(frame.dimensions(), (1920, 1080));
+    assert_eq!(back, (2.0, 2.0));
+    // A capped-frame point comes back in the original screenshot's pixels.
+    assert_eq!(uncap_point((960.0, 540.0), back), (1920.0, 1080.0));
+    // At the reference size the frame is borrowed unchanged and maps 1:1.
+    let small = RgbImage::from_pixel(1920, 1080, Rgb([1, 2, 3]));
+    let (frame, back) = fit_frame(&small, GROUND_FRAME);
+    assert_eq!(back, (1.0, 1.0));
+    assert!(matches!(frame, std::borrow::Cow::Borrowed(_)));
+    // Ultrawide is squashed onto the frame: each axis gets its own factor, so
+    // a 3440x1440 screen is 0.558x wide and 0.75x tall in the model's frame.
+    let wide = RgbImage::from_pixel(3440, 1440, Rgb([0, 0, 0]));
+    let (frame, back) = fit_frame(&wide, GROUND_FRAME);
+    assert_eq!(frame.dimensions(), (1920, 1080));
+    assert!((back.0 - 3440.0 / 1920.0).abs() < 1e-9 && (back.1 - 1440.0 / 1080.0).abs() < 1e-9);
+    // A smaller shot is upscaled onto the same frame, not left alone: a
+    // 1280x720 frame grounds 7/32 closed-loop, the same frame fitted 27/32.
+    let laptop = RgbImage::from_pixel(1280, 720, Rgb([9, 9, 9]));
+    let (frame, back) = fit_frame(&laptop, GROUND_FRAME);
+    assert_eq!(frame.dimensions(), (1920, 1080));
+    assert_eq!(back, (1280.0 / 1920.0, 720.0 / 1080.0));
+    assert_eq!(uncap_point((960.0, 540.0), back), (640.0, 360.0));
+    // 4:3 is stretched, not letterboxed: inside the box it actuated 6/32,
+    // stretched onto it 24/32.
+    let four_three = RgbImage::from_pixel(1024, 768, Rgb([4, 4, 4]));
+    let (frame, back) = fit_frame(&four_three, GROUND_FRAME);
+    assert_eq!(frame.dimensions(), (1920, 1080));
+    assert!((back.0 - 1024.0 / 1920.0).abs() < 1e-9 && (back.1 - 768.0 / 1080.0).abs() < 1e-9);
+    // Portrait is the squeezed case: a 1080x1920 screen is 1.78x wide and
+    // 1.78x *compressed* in y once fitted. Native it actuated 13/30 with an
+    // x drift of -6.13% of the frame; fitted 24/30, drift +0.02%.
+    let portrait = RgbImage::from_pixel(1080, 1920, Rgb([7, 7, 7]));
+    let (frame, back) = fit_frame(&portrait, GROUND_FRAME);
+    assert_eq!(frame.dimensions(), (1920, 1080));
+    assert!((back.0 - 1080.0 / 1920.0).abs() < 1e-9 && (back.1 - 1920.0 / 1080.0).abs() < 1e-9);
+    assert_eq!(uncap_point((960.0, 540.0), back), (540.0, 960.0));
+    // Roughly the right place after the round trip (< 2 px on a 4K shot).
+    let on_target = uncap_point((float(500) / 999.0 * 1919.0, float(500) / 999.0 * 1079.0), (2.0, 2.0));
+    assert!((on_target.0 - 1921.0).abs() < 3.0 && (on_target.1 - 1080.0).abs() < 3.0);
+}
+
+fn float(v: u32) -> f64 {
+    f64::from(v)
+}
+
+#[test]
 fn ground_zoom_windows_stay_inside_the_frame() {
     // Centred on the point when there is room.
     assert_eq!(zoom_window((960.0, 540.0), (1920, 1080), 2), (480, 270, 960, 540));
@@ -278,4 +328,68 @@ fn ground_prompt_is_the_models_own_template() {
     );
     assert_eq!(p.matches("<|image_pad|>").count(), 1);
     assert!(p.ends_with("<think>\n\n</think>\n\n"), "thinking stays off");
+}
+
+#[test]
+fn frame_diff_sees_one_pixel_and_ignores_jitter() {
+    use image::{Rgb, RgbImage};
+    let blank = || RgbImage::from_pixel(20, 10, Rgb([200u8, 200, 200]));
+    let a = blank();
+    assert_eq!(frame_changed_px(&a, &blank(), CLICK_PIXEL_LEVEL), 0);
+    let mut b = blank();
+    b.put_pixel(3, 4, Rgb([10, 200, 200])); // one channel, far past the level
+    assert_eq!(frame_changed_px(&a, &b, CLICK_PIXEL_LEVEL), 1);
+    let mut c = blank();
+    c.put_pixel(3, 4, Rgb([205, 200, 200])); // re-encode jitter, under the level
+    assert_eq!(frame_changed_px(&a, &c, CLICK_PIXEL_LEVEL), 0);
+    // a different output size is a different frame, not a diff
+    assert_eq!(frame_changed_px(&a, &RgbImage::from_pixel(10, 10, Rgb([0, 0, 0])), 10), 200);
+}
+
+#[test]
+fn click_verdict_reports_the_frame_never_a_success() {
+    let idle = click_verdict(0);
+    assert!(idle.contains("did NOT change"), "{idle}");
+    assert!(idle.contains("instead of repeating the point"), "{idle}");
+    assert!(idle.contains("(0 px)"), "reports the count it saw: {idle}");
+    let busy = click_verdict(CLICK_CHANGED_PX * 4);
+    assert!(busy.contains("did something"), "{busy}");
+    assert!(busy.contains(&format!("({} px)", CLICK_CHANGED_PX * 4)), "{busy}");
+    // measured: a changed frame followed clicks that missed the target, so the
+    // wording must never read as "the target was reached"
+    for verdict in [idle, busy] {
+        let low = verdict.to_lowercase();
+        for claim in ["succeeded", "success", "worked", "clicked the"] {
+            assert!(!low.contains(claim), "{claim} claimed in {verdict}");
+        }
+    }
+    assert!(click_verdict(CLICK_CHANGED_PX).contains("did NOT change"));
+    assert!(click_verdict(CLICK_CHANGED_PX + 1).contains("did something"));
+}
+
+#[test]
+fn type_verdict_uses_its_own_floor_and_never_claims_the_field() {
+    // measured 2026-11-02: one character moves 62-103 px, a lost type moves 0
+    let lost = type_verdict(0, 7);
+    assert!(lost.contains("did NOT change"), "{lost}");
+    assert!(lost.contains("(0 px)") && lost.contains("7 characters"), "{lost}");
+    // the measured failure mode is silent, so the verdict names its cause
+    assert!(lost.contains("read-only") && lost.contains("no editable field"), "{lost}");
+    let one = type_verdict(62, 1);
+    assert!(one.contains("did change") || one.contains("changed"), "{one}");
+    assert!(one.contains("(62 px)"), "{one}");
+    // the click floor would have called a one-character type a failure, so the
+    // type floor sits under the smallest measured real change (62 px)
+    assert!(TYPE_CHANGED_PX < 62, "type floor sits under the smallest real change");
+    assert!(TYPE_CHANGED_PX < CLICK_CHANGED_PX);
+    // a change is still not proof of the field
+    for verdict in [one, type_verdict(TYPE_CHANGED_PX * 20, 9)] {
+        let low = verdict.to_lowercase();
+        for claim in ["succeeded", "success", "worked", "typed into the"] {
+            assert!(!low.contains(claim), "{claim} claimed in {verdict}");
+        }
+        assert!(low.contains("not proof"), "{verdict}");
+    }
+    assert!(type_verdict(TYPE_CHANGED_PX, 3).contains("did NOT change"));
+    assert!(type_verdict(TYPE_CHANGED_PX + 1, 3).contains("changed ("));
 }

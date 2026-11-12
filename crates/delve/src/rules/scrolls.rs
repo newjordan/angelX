@@ -253,6 +253,11 @@ impl Binding {
 pub fn validate_run(run: &Run) -> Result<(), String> {
     for (&player, hero) in &run.players {
         if let Some(offer) = &hero.offer {
+            if offer.binding.is_none()
+                && (hero.place_wish.is_some() || hero.mirror_wish || run.city_wishing(player))
+            {
+                continue;
+            }
             let binding = offer
                 .binding
                 .as_ref()

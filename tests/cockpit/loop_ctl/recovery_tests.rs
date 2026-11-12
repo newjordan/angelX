@@ -55,7 +55,7 @@ fn held(root: &Path) -> (crate::App, Reply, Arc<AtomicBool>) {
         iteration: 3,
         settled_iteration: None,
         artifact_dir: root.join("artifacts"),
-        status: "running".into(),
+        status: recovery::ExperimentStatus::Running,
         reserved_tokens: 4096,
         summary: None,
         context_ref: None,
@@ -113,7 +113,10 @@ fn cancelled_reply_and_legacy_summary_never_enter_parent_context() {
         app.loop_drain_experiment();
         assert!(app.loop_experiment.is_none());
         assert!(app.loop_ctl.pending_proc_completions.is_empty());
-        assert_eq!(app.loop_ctl.experiments[0].status, "cancelled");
+        assert_eq!(
+            app.loop_ctl.experiments[0].status,
+            recovery::ExperimentStatus::Cancelled
+        );
         let mut context = String::new();
         app.loop_experiment_context(&mut context);
         assert!(!context.contains("CANCELLED_ANSWER_SENTINEL"));
@@ -247,7 +250,11 @@ fn returned_prose_and_disconnection_never_credit_measurement_or_acceptance() {
             assert_eq!(app.loop_ctl.experiments[0].settled_iteration, Some(8));
             assert_eq!(
                 app.loop_ctl.experiments[0].status,
-                if disconnected { "failed" } else { "returned" }
+                if disconnected {
+                    recovery::ExperimentStatus::Failed
+                } else {
+                    recovery::ExperimentStatus::Returned
+                }
             );
         }
     });
@@ -379,7 +386,7 @@ fn recovery_context_queued_prior_result_and_latest_running_owner_are_independent
         let previous = app.loop_ctl.experiments[0].context_ref.clone().unwrap();
         let mut latest = app.loop_ctl.experiments[0].clone();
         latest.key = "new-running-worker".into();
-        latest.status = "running".into();
+        latest.status = recovery::ExperimentStatus::Running;
         latest.summary = None;
         latest.context_ref = None;
         app.loop_ctl.experiments.push(latest);
@@ -397,7 +404,7 @@ fn recovery_context_queued_prior_result_and_latest_running_owner_are_independent
         assert!(crate::agent::club::recovery_context_refs(&app.loop_iteration_convo()).is_empty());
         // A legacy/mutated returned summary remains useful unknown context.
         let last = app.loop_ctl.experiments.last_mut().unwrap();
-        last.status = "returned".into();
+        last.status = recovery::ExperimentStatus::Returned;
         last.summary = Some("LEGACY_DIAGNOSTIC".into());
         let refs = crate::agent::club::recovery_context_refs(&app.loop_iteration_convo());
         assert_eq!(refs.len(), 1);
@@ -459,7 +466,10 @@ fn recovery_context_orphaned_owner_guidance_is_not_a_child_import() {
         drop(app.loop_experiment.take());
         drop(tx);
         app.loop_drain_experiment();
-        assert_eq!(app.loop_ctl.experiments[0].status, "interrupted");
+        assert_eq!(
+            app.loop_ctl.experiments[0].status,
+            recovery::ExperimentStatus::Interrupted
+        );
         assert!(app.loop_ctl.experiments[0].context_is_supervisor_only);
         assert!(crate::agent::club::recovery_context_refs(&app.loop_iteration_convo()).is_empty());
     });
@@ -510,6 +520,123 @@ fn recovery_context_manual_compaction_preserves_origins_through_checkpoint() {
         assert_eq!(
             crate::agent::club::recovery_context_refs(&restored),
             expected
+        );
+    });
+}
+
+#[test]
+fn experiment_status_words_are_the_saved_and_printed_words() {
+    fixture("status-words", |root| {
+        let (mut app, _tx, _) = held(root);
+        for word in [
+            "running",
+            "interrupted",
+            "cancelled",
+            "failed",
+            "returned",
+            "from-a-newer-build",
+        ] {
+            let mut saved = serde_json::to_value(&app.loop_ctl.experiments[0]).unwrap();
+            saved["status"] = serde_json::json!(word);
+            let record: recovery::ExperimentRecord = serde_json::from_value(saved.clone()).unwrap();
+            assert_eq!(serde_json::to_value(&record).unwrap(), saved, "{word}");
+            app.loop_ctl.experiments[0] = record;
+            let mut prompt = String::new();
+            app.loop_experiment_context(&mut prompt);
+            assert!(
+                prompt.contains(&format!("status={word}\n")),
+                "{word}: {prompt}"
+            );
+            assert!(
+                app.loop_status_text()
+                    .contains(&format!("deep     {word} · ")),
+                "{word}"
+            );
+        }
+    });
+}
+
+#[test]
+fn a_reply_that_arrives_too_late_leaves_no_older_record_running_behind_a_newer_experiment() {
+    fixture("orphan-behind-newer", |root| {
+        let (mut app, tx, _) = held(root);
+        // The run was replaced before the reply landed: the reply is dropped and
+        // the record is left without an owner.
+        app.loop_ctl.id = "replacement-run".into();
+        tx.send(Ok(reply(&app, "TOO_LATE"))).unwrap();
+        app.loop_drain_experiment();
+        assert!(app.loop_experiment.is_none());
+        // A newer experiment launches before the old record is looked at again.
+        let newer: recovery::ExperimentRecord = serde_json::from_value(serde_json::json!({
+            "key": "newer-experiment",
+            "hypothesis": "a second mechanism",
+            "iteration": 9,
+            "artifact_dir": root.join("newer"),
+            "status": "running",
+            "reserved_tokens": 4096,
+            "summary": null,
+        }))
+        .unwrap();
+        app.loop_ctl.experiments.push(newer);
+        let (newer_tx, rx) = channel();
+        app.loop_experiment = Some(ExperimentPending {
+            run_id: app.loop_ctl.id.clone(),
+            workspace: root.to_path_buf(),
+            key: "newer-experiment".into(),
+            cancel: Arc::new(AtomicBool::new(false)),
+            rx,
+        });
+        app.loop_drain_experiment();
+        assert_eq!(
+            app.loop_ctl.experiments[0].status,
+            recovery::ExperimentStatus::Interrupted
+        );
+        assert!(app.loop_ctl.experiments[0].context_is_supervisor_only);
+        assert_eq!(
+            app.loop_ctl.experiments[1].status,
+            recovery::ExperimentStatus::Running
+        );
+        newer_tx.send(Ok(reply(&app, "NEWER_RESULT"))).unwrap();
+        app.loop_drain_experiment();
+        assert_eq!(
+            app.loop_ctl.experiments[0].status,
+            recovery::ExperimentStatus::Interrupted
+        );
+        assert_eq!(
+            app.loop_ctl.experiments[1].status,
+            recovery::ExperimentStatus::Returned
+        );
+    });
+}
+
+#[test]
+fn a_running_experiment_settles_once_and_a_settled_one_never_moves() {
+    use recovery::ExperimentStatus::*;
+    let mut status = Running;
+    status.step(Running).unwrap();
+    status.step(Returned).unwrap();
+    for next in [Running, Interrupted, Cancelled, Failed] {
+        assert!(status.step(next).is_err());
+    }
+    assert_eq!(status, Returned);
+}
+
+#[test]
+fn a_reply_for_a_record_that_already_settled_leaves_its_verdict_alone() {
+    fixture("settled-record", |root| {
+        let (mut app, tx, _) = held(root);
+        app.loop_ctl.experiments[0].status = recovery::ExperimentStatus::Interrupted;
+        app.loop_ctl.experiments[0].summary = Some("OWNER_LOST".into());
+        tx.send(Ok(reply(&app, "LATE_ANSWER"))).unwrap();
+        app.loop_drain_experiment();
+        assert!(app.loop_experiment.is_none());
+        assert_eq!(
+            app.loop_ctl.experiments[0].status,
+            recovery::ExperimentStatus::Interrupted
+        );
+        assert_eq!(
+            app.loop_ctl.experiments[0].summary.as_deref(),
+            Some("OWNER_LOST")
         );
     });
 }

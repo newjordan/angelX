@@ -73,6 +73,45 @@ fn semantic_state_exposes_trusted_approval_scope() {
 }
 
 #[test]
+fn semantic_state_names_the_armed_answer_the_front_modal_and_the_flight_owner() {
+    use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    let mut app = App::preview(Viewer::static_preview());
+    let idle = semantic_state(&app);
+    assert_eq!(idle["focus"]["overlay"], "none");
+    assert_eq!(idle["focus"]["approval_armed"], Value::Null);
+    assert_eq!(idle["agent"]["flight"], "idle");
+
+    let (reply, _decision) = std::sync::mpsc::channel();
+    app.pending_approval = Some(PendingApproval {
+        prompt: "run the batch?".to_string(),
+        scope_label: None,
+        reply,
+    });
+    let asked = semantic_state(&app);
+    assert_eq!(asked["focus"]["overlay"], "approval");
+    assert_eq!(asked["focus"]["approval_armed"], "approve", "a fresh ask is armed on Approve");
+    app.on_key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+    assert_eq!(semantic_state(&app)["focus"]["approval_armed"], "approve_all");
+    app.on_key(KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
+    assert_eq!(semantic_state(&app)["focus"]["approval_armed"], "deny");
+
+    app.pending_approval = None;
+    app.browser_picker = Some(crate::app::BrowserPicker { rows: Vec::new(), selected: 0 });
+    assert_eq!(
+        semantic_state(&app)["focus"]["overlay"],
+        "browser_picker",
+        "the picker no longer reads as no modal"
+    );
+    app.browser_picker = None;
+
+    let (_tx, job) = crate::app::control::BackgroundJob::channel("job", "Retry the job");
+    app.bg_job = Some(job);
+    let state = semantic_state(&app);
+    assert_eq!(state["agent"]["flight"], "bg_job");
+    assert_eq!(state["agent"]["busy"], true);
+}
+
+#[test]
 fn semantic_state_exposes_atlas_lane_trust_and_review_health() {
     let root = std::env::temp_dir().join(format!("angel-atlas-inspect-{}", std::process::id()));
     let workspace = root.join("workspace");
@@ -132,12 +171,13 @@ fn observatory_open_semantics_follow_stage_route_after_raytrace_returns() {
     assert_eq!(semantic_state(&app)["observatory"]["open"], true);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn world_mode_semantics_follow_unwound_explore_route() {
     let mut app = App::preview(Viewer::static_preview());
     app.scryglass
         .navigate(crate::ui::scryglass::StageRoute::Explore(
-            crate::stage::world_viz::Building::Smithy,
+            crate::delve::world_viz::Building::Smithy.into(),
         ));
     app.scryglass
         .navigate(crate::ui::scryglass::StageRoute::Observatory);
@@ -152,6 +192,7 @@ fn world_mode_semantics_follow_unwound_explore_route() {
     assert_eq!(state["scryglass"]["world_mode"], "FirstPerson");
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn teaching_and_interior_semantics_name_the_exact_local_state() {
     let mut app = App::preview(Viewer::static_preview());
@@ -181,7 +222,7 @@ fn teaching_and_interior_semantics_name_the_exact_local_state() {
     );
 
     app.realm.world
-        .settle_at_for_test(crate::stage::world_viz::Building::Scriptorium);
+        .settle_at_for_test(crate::delve::world_viz::Building::Scriptorium);
     assert!(app.realm.world.enter_interior());
     let interior = semantic_state(&app);
     assert_eq!(interior["world"]["inside_interior"], true);
@@ -609,4 +650,69 @@ fn typed_late_campaign_is_windowed_into_the_same_exact_frame() {
             assert_eq!(*actual, cell_value(expected), "cell mismatch at ({x}, {y})");
         }
     }
+}
+
+fn formation_app() -> (App, crate::agent::formations::MoaEngagement) {
+    use crate::agent::formations::{FormationId, FormationRoster, MoaEngagement};
+    let mut app = App::preview(crate::ui::viewer::Viewer::new());
+    app.bag = crate::agent::club::Bag::for_render_test(&[
+        ("alpha", &[("model-a", true)]),
+        ("beta", &[("model-b", true)]),
+    ]);
+    let roster = FormationRoster::new(FormationId::Duel, &app.bag.moa_model_choices());
+    let engagement = MoaEngagement::new(FormationId::Duel, roster).expect("roster matches");
+    (app, engagement)
+}
+
+/// The inspector's formation phase words stay as they are.
+#[test]
+fn formation_phase_words_for_each_armed_state_are_pinned() {
+    let _guard = crate::tests::env_lock();
+    let (mut app, engagement) = formation_app();
+    assert_eq!(formation_semantics(&app)["phase"], "idle");
+    app.open_moa_deck(None);
+    assert_eq!(formation_semantics(&app)["phase"], "staging");
+    app.close_moa_deck();
+    app.moa_session = Some(engagement.clone());
+    assert_eq!(formation_semantics(&app)["phase"], "session");
+    app.moa_one_shot = Some(engagement);
+    assert_eq!(formation_semantics(&app)["phase"], "next-turn");
+}
+
+/// A one-shot formation is consumed when its turn starts, but the formation
+/// is what the turn runs on until the worker settles. The inspector must say
+/// so rather than "idle".
+#[test]
+fn formation_phase_says_engaged_while_a_one_shot_formation_runs() {
+    let _guard = crate::tests::env_lock();
+    let (mut app, engagement) = formation_app();
+    app.moa_one_shot = Some(engagement);
+    assert!(app.apply_armed_moa_to_turn());
+    assert_eq!(
+        formation_semantics(&app)["phase"],
+        "engaged",
+        "the inspector reads {} while the formation runs",
+        formation_semantics(&app)["phase"]
+    );
+    app.restore_moa_after_turn();
+    assert_eq!(formation_semantics(&app)["phase"], "idle");
+}
+
+/// A session staged behind the running one-shot is the only roster still
+/// held; the inspector names it and does not report it as the engaged one.
+#[test]
+fn formation_inspector_names_the_session_staged_behind_a_running_one_shot() {
+    let _guard = crate::tests::env_lock();
+    let (mut app, engagement) = formation_app();
+    app.moa_session = Some(engagement.clone());
+    app.moa_one_shot = Some(engagement);
+    assert!(app.apply_armed_moa_to_turn());
+    let formation = formation_semantics(&app);
+    let name =
+        crate::agent::formations::formation(crate::agent::formations::FormationId::Duel).name;
+    assert_eq!(formation["phase"], "engaged");
+    assert_eq!(formation["engagement_id"], Value::Null);
+    assert_eq!(formation["seats"], json!([]));
+    assert_eq!(formation["session_formation"], name);
+    assert_eq!(semantic_state(&app)["formation"]["phase"], "engaged");
 }

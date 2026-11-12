@@ -121,6 +121,47 @@ fn rim(im: &Img, scale: i32) -> Img {
     out
 }
 
+/// The bounded material grade every library figure gets, keeping source contours and hue
+/// ratios. Terminal reduction (`cells`) needs value without acid-green moss.
+fn grade(im: &mut Img, exposure: u32, cells: bool, mix: u32) {
+    for y in 0..im.h {
+        for x in 0..im.w {
+            if let Some(c) = im.get(x, y) {
+                let peak = u32::from(*c.iter().max().unwrap()).max(1);
+                let exposure = if cells && peak <= 32 { 256 } else { exposure };
+                let gain = exposure.min(228 * 256 / peak);
+                let mut graded = c.map(|v| (u32::from(v) * gain / 256) as u8);
+                if cells && exposure > 256 && c[1] > c[0] && c[1] > c[2] {
+                    graded = std::array::from_fn(|i| {
+                        ((u32::from(graded[i]) * (256 - mix) + [228, 210, 172][i] * mix) / 256) as u8
+                    });
+                }
+                im.set(x, y, graded);
+            }
+        }
+    }
+}
+
+/// A baked frame dressed as the library dresses its own bosses (grade, then rim light): the
+/// Creator's preview feed draws a made creature through this, never a copy of it.
+pub(crate) fn dress(mut im: Img, exposure: u32) -> Img {
+    grade(&mut im, exposure, false, 0);
+    rim(&im, 1)
+}
+
+/// The breathing frame: the rest pose a pixel shorter, standing on the same feet.
+pub(crate) fn breathe(rest: &Img) -> Img {
+    let (w, h) = (rest.w, rest.h);
+    let mut out = Img::new(w, h);
+    out.stamp(&resize(rest, w, h - 1), 0, 1);
+    out
+}
+
+/// The library's own idle rule: which of the rest and breath frames shows at `tick`.
+pub(crate) fn breathing(tick: u64, id: u64) -> bool {
+    (tick / 18 + id) % 4 == 1
+}
+
 fn variants(rest: Img) -> [Arc<Img>; 4] {
     let mut frames = [
         rest.clone(),
@@ -164,25 +205,7 @@ fn bank(art: Art, cells: bool) -> Option<Arc<Bank>> {
                         art.id()
                     )));
                     // Cache a bounded material grade, keeping source contours and hue ratios.
-                    for y in 0..im.h {
-                        for x in 0..im.w {
-                            if let Some(c) = im.get(x, y) {
-                                let peak = u32::from(*c.iter().max().unwrap()).max(1);
-                                let exposure = if cells && peak <= 32 { 256 } else { exposure };
-                                let gain = exposure.min(228 * 256 / peak);
-                                let mut graded = c.map(|v| (u32::from(v) * gain / 256) as u8);
-                                // Terminal reduction needs value without acid-green moss.
-                                if cells && exposure > 256 && c[1] > c[0] && c[1] > c[2] {
-                                    let mix = policies()[art.id()].cell_moss_mix;
-                                    graded = std::array::from_fn(|i| {
-                                        ((u32::from(graded[i]) * (256 - mix)
-                                            + [228, 210, 172][i] * mix) / 256) as u8
-                                    });
-                                }
-                                im.set(x, y, graded);
-                            }
-                        }
-                    }
+                    grade(&mut im, exposure, cells, policies()[art.id()].cell_moss_mix);
                     rim(&im, 1)
                 };
                 let rest = load("rest");
@@ -257,7 +280,7 @@ fn pose(enemy: &Enemy, tick: u64, art: Art) -> usize {
     if staged || enemy.ring_warning().is_some() || enemy.arms_warning().is_some() {
         2
     } else {
-        ((tick / 18 + u64::from(enemy.id)) % 4 == 1) as usize
+        breathing(tick, u64::from(enemy.id)) as usize
     }
 }
 

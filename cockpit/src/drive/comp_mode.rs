@@ -9,14 +9,32 @@
 //!   fully registered and discoverable by the model on demand.
 //! - Turn wall-clock deadlines are unbounded (0 = off) by default.
 //! - Toggled via `/comp on|off`, `/lean on|off`, `ANGEL_COMP_MODE=1`, or `angel --comp`.
+//!
+//! The race cadence is a second, separate switch: `ANGEL_COMPETITION_MODE`, read
+//! each turn by the turn classifier, the schema picker and the caddy board.
+//! `/turbo podrace` and `/turbo handoff` raise both switches ([`engage_competition`]);
+//! `/turbo on|loop|flash` raise only lean mode. [`set`]`(false)` lowers both: lean
+//! mode goes off and the race flag goes back to what the process launched with,
+//! so a flag the operator exported at launch stays up and one `/turbo` raised
+//! does not outlive `/turbo off`.
 
+use std::ffi::OsString;
 use std::sync::atomic::{AtomicU8, Ordering};
+use std::sync::{Mutex, PoisonError};
 
 const COMP_UNCACHED: u8 = 0;
 const COMP_OFF: u8 = 1;
 const COMP_ON: u8 = 2;
 
 static CACHED_COMP_MODE: AtomicU8 = AtomicU8::new(COMP_UNCACHED);
+
+/// The flag the turn classifier, schema picker and caddy board read each turn.
+const COMPETITION_ENV: &str = "ANGEL_COMPETITION_MODE";
+
+/// `Some(launch)` while `/turbo` holds the race flag up, where `launch` is what
+/// the process had in it before the first raise (`None` = unset). Kept from the
+/// first raise only, so podrace then handoff still restores the launch value.
+static RAISED_FROM: Mutex<Option<Option<OsString>>> = Mutex::new(None);
 
 // The environment reading is shared with the realm host, which falls back on it
 // when no live posture was lent (`angel_live::host::posture`).
@@ -66,7 +84,8 @@ pub(crate) fn invalidate_cache() {
     CACHED_COMP_MODE.store(COMP_UNCACHED, Ordering::Release);
 }
 
-/// Set the live Comp / Lean / Turbo mode posture.
+/// Set the live Comp / Lean / Turbo mode posture. Off also lowers a race flag
+/// that `/turbo` raised.
 pub(crate) fn set(active: bool) {
     if active {
         // TODO: Audit that the environment access only happens in single-threaded code.
@@ -86,8 +105,37 @@ pub(crate) fn set(active: bool) {
         // TODO: Audit that the environment access only happens in single-threaded code.
         unsafe { std::env::remove_var("ANGEL_LEAN") };
         store_mode(false);
+        lower_competition();
     }
     crate::ui::surfaces::invalidate_backdrop_cache();
+}
+
+/// `/turbo podrace` and `/turbo handoff`: lean mode plus the race cadence.
+pub(crate) fn engage_competition() {
+    set(true);
+    let mut raised_from = RAISED_FROM.lock().unwrap_or_else(PoisonError::into_inner);
+    if raised_from.is_none() {
+        *raised_from = Some(std::env::var_os(COMPETITION_ENV));
+    }
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var(COMPETITION_ENV, "1") };
+}
+
+/// Put the race flag back to what launch had, if `/turbo` raised it.
+fn lower_competition() {
+    let Some(launch) = RAISED_FROM
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take()
+    else {
+        return;
+    };
+    match launch {
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        Some(value) => unsafe { std::env::set_var(COMPETITION_ENV, value) },
+        // TODO: Audit that the environment access only happens in single-threaded code.
+        None => unsafe { std::env::remove_var(COMPETITION_ENV) },
+    }
 }
 
 /// Human-facing status text describing the active mode.

@@ -433,7 +433,7 @@ impl Run {
             || self.dungeon.pack == Pack::Swamp
             // A hall a game is played in (the folly, the Keg Gantry, a race)
             // keeps to its game.
-            || [self.folly_room, self.gantry_room, self.race3d_room].contains(&Some(self.at))
+            || self.hosts_game(self.at)
             || !matches!(kind, RoomKind::Hall | RoomKind::Fight)
         {
             return;

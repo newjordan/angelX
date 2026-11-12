@@ -86,6 +86,8 @@ impl Profile {
 }
 
 /// Population owns ecology; gates own access and encounter death evidence.
+/// The tests populate a floor with no guardian named.
+#[cfg(test)]
 pub(super) fn populate(
     floor: &Floor,
     bosses: &mut Vec<Boss>,

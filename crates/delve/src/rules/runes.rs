@@ -271,6 +271,7 @@ impl Run {
                             dx: px * side * 2.6,
                             dy: py * side * 2.6,
                             left: ults::PHANTOM_TICKS,
+                            ..Phantom::default()
                         });
                     }
                 }

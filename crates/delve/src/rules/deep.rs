@@ -19,6 +19,11 @@
 //! village's chapter: its errands are laid on them (`missions`), and the
 //! next village waits at the bottom.
 //!
+//! The road between villages is an adventure: every other floor of it
+//! holds a meeting, a patrol, a caravan, a hermit, captives, a shrine or an
+//! envoy, whose answers feed each people's favour, the errands, the dread
+//! at the next stair and what the next village gives (`road`).
+//!
 //! A floor of the Deep plays as the deep floor above it does (its `ECHO`,
 //! the Fungal Deep's depth), so every rule written for the six floors
 //! holds on it unchanged: its layout, its guardian, its nook, its stair.
@@ -26,7 +31,7 @@
 //! floor by floor, and raises the stakes on top as it goes (`health`,
 //! `hit`). The realm keeps what the Deep remembers (`Chronicle`, on
 //! `Home::deep`): the villages met and lit, the errands they asked, the
-//! wishes visitors made for them.
+//! wishes visitors made for them, how each people stands after the road.
 
 use super::*;
 use std::collections::BTreeSet;
@@ -35,6 +40,7 @@ pub mod city;
 pub mod cultures;
 pub mod dread;
 pub mod missions;
+pub mod road;
 pub mod village;
 
 pub use cultures::Culture;
@@ -116,6 +122,15 @@ pub struct Descent {
     /// Knights holding E last tick, a bit each: a press, never a hold.
     #[serde(skip_serializing_if = "is_zero")]
     pub held: u8,
+    /// The meeting on this floor of the road (`road`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meeting: Option<road::Meeting>,
+    /// What the party carries down the road to the next village.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub cargo: Vec<road::Cargo>,
+    /// How much the road has stirred the dread at the next village's stair.
+    #[serde(skip_serializing_if = "is_zero")]
+    pub stir: u8,
 }
 
 fn is_zero(n: &u8) -> bool {
@@ -129,6 +144,9 @@ impl Descent {
             && self.signs.len() <= missions::MOST_SIGNS
             && self.signs.iter().all(|s| s.room < rooms)
             && self.village.as_ref().is_none_or(|v| v.valid() && is_village(self.floor))
+            && self.meeting.as_ref().is_none_or(|m| m.valid(rooms) && self.village.is_none())
+            && self.cargo.len() <= road::MOST_CARGO
+            && self.stir <= road::MOST_STIR
     }
 }
 
@@ -180,6 +198,9 @@ pub struct Chronicle {
     /// The errands the villages asked, done or not.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub missions: Vec<Mission>,
+    /// How each people stands with the realm after the road (`road`).
+    #[serde(skip_serializing_if = "road::Ledger::is_empty")]
+    pub road: road::Ledger,
 }
 
 fn is_zero32(n: &u32) -> bool {
@@ -193,6 +214,7 @@ impl Chronicle {
 
     pub fn valid(&self) -> bool {
         self.towns.len() <= MOST_TOWNS
+            && self.road.valid()
             && self.missions.len() <= MOST_MISSIONS
             && self.towns.iter().all(|t| is_village(t.floor) && t.wishes.len() <= city::SLOTS && t.deeds.len() <= 16)
             && self.towns.iter().map(|t| t.floor).collect::<BTreeSet<_>>().len() == self.towns.len()
@@ -325,6 +347,7 @@ impl Run {
             d.floor = next;
             d.village = None;
             d.signs.clear();
+            d.meeting = None;
         }
         let pack = self.deep_pack(next);
         self.finish_descent(ECHO, pack, false);
@@ -360,6 +383,7 @@ impl Run {
             self.arrive_at_village(floor);
         } else {
             self.lay_signs(floor);
+            self.lay_meeting(floor);
         }
     }
 
@@ -383,6 +407,7 @@ impl Run {
             deep.village = Some(v);
         } else {
             self.tick_signs(&mut deep, pressed);
+            self.tick_road(&mut deep, pressed);
         }
         self.deep = Some(deep);
     }
@@ -391,16 +416,17 @@ impl Run {
     /// while the star is still falling nobody moves, and a knight in
     /// conversation answers with 1, 2 and 3 rather than casting.
     pub(super) fn deep_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
-        if !self.in_deep_village() {
-            return None;
-        }
-        let falling = self.deep.as_ref().and_then(|d| d.village.as_ref()).is_some_and(|v| v.falling(self.tick));
-        let talking: Vec<u32> = self
-            .deep
-            .as_ref()
-            .and_then(|d| d.village.as_ref())
-            .map(|v| v.talks.keys().copied().collect())
-            .unwrap_or_default();
+        let village = self.in_deep_village();
+        let falling = village && self.deep.as_ref().and_then(|d| d.village.as_ref()).is_some_and(|v| v.falling(self.tick));
+        let talking: Vec<u32> = if village {
+            self.deep
+                .as_ref()
+                .and_then(|d| d.village.as_ref())
+                .map(|v| v.talks.keys().copied().collect())
+                .unwrap_or_default()
+        } else {
+            self.road_talking()
+        };
         if !falling && talking.is_empty() {
             return None;
         }
@@ -416,7 +442,11 @@ impl Run {
             if talking.contains(&id) && input.cast != 0 {
                 let pick = input.cast;
                 input.cast = 0;
-                self.answer(id, pick);
+                if village {
+                    self.answer(id, pick);
+                } else {
+                    self.answer_road(id, pick);
+                }
             }
         }
         Some(out)

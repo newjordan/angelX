@@ -143,7 +143,7 @@ pub(super) fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img)
     // A chariot race runs on its own big course under a following camera;
     // it carries its own board and minimap instead of the cartridge HUD.
     if run.chariot.is_some() {
-        super::hippodrome::race_stage(&mut scene, &mut over, run, w, h);
+        super::hippodrome::race_stage(&mut scene, &mut over, run, w, h, focus);
         return (scene, over);
     }
     match run.pastimes.round.as_ref().map(|r| r.game) {

@@ -10,6 +10,8 @@
 mod backend;
 pub mod card;
 mod blast;
+mod card_motion;
+pub use card_motion::CardMotion;
 mod clipboard;
 mod config;
 mod cube;
@@ -28,6 +30,7 @@ mod render;
 mod shore;
 mod showcase;
 mod squire;
+pub use squire::ShowcaseClipIdentity;
 pub mod startup;
 mod wizard;
 mod sprites;
@@ -51,7 +54,7 @@ pub use backend::GlassBackend;
 pub use config::{BrailleStyle, Options, Palette};
 pub use font::render_page;
 pub use layer::{LAYER_PICTURES, Layer, LayerKind, MAX_STROKE_PX, Particles, Placement, Stand, Stroke, StrokeShape, Tilt};
-pub use angel_gpu::Stage;
+pub use angel_gpu::{Stage, PictureProducer};
 /// The renderer core and its wgpu, for a test elsewhere that draws a scene
 /// offscreen on a device of its own (the cockpit's Heartglass test).
 pub use angel_gpu as gpu;
@@ -59,6 +62,7 @@ pub use wgpu;
 /// The 3D scene description (`angel-stage`'s), for `Host::set_scene`.
 pub use angel_stage::scene;
 pub use showcase::{Fit, Herald, Livery, MODEL_ROOT, Mark, SHOWCASE_PICTURE, Showing};
+pub use squire::{ClipStep as ShowcaseClipStep, ShowcaseSquireClip};
 pub use window::run;
 pub use zones::{PointerEvent, Zone, ZoneKind};
 
@@ -170,6 +174,7 @@ pub(crate) struct Shared {
     /// into) or taken down (`None`) since the render thread last looked, by
     /// picture id. Only the latest for an id is kept.
     pub scenes: Mutex<Vec<(u32, Option<(scene::Scene, (u32, u32))>)>>,
+    pub gpu_pictures: Mutex<Vec<(u32, Option<(Box<dyn PictureProducer>, (u32,u32))>)>>,
     /// The showcase's latest request, waiting for the window.
     pub showcase: Mutex<Option<showcase::Request>>,
     /// The serial of the showing up now; 0 when none is.
@@ -191,6 +196,9 @@ pub(crate) struct Shared {
     pub showcase_dismissals: std::sync::atomic::AtomicU32,
     /// The next showing's model (`Host::showcase_model`).
     pub showcase_model: Mutex<Option<Vec<scene::Node>>>,
+    /// Latest prepared authored squire clip; an open popup leases the
+    /// resource revision it is currently drawing.
+    pub showcase_squire_clip: Mutex<Option<(ShowcaseClipIdentity, Arc<ShowcaseSquireClip>)>>,
     /// Meshes handed over (`Host::upload_mesh`), waiting for the window.
     pub meshes: Mutex<Vec<(u32, scene::MeshData)>>,
     /// The next showing's marks (`Host::showcase_marks`).
@@ -320,6 +328,56 @@ impl Host {
         self.shared.game_surface.store(active, Ordering::Relaxed);
     }
 
+    /// Identity of the currently installed prepared actor resource. Producers
+    /// can avoid re-preparing a composite whose dependencies are unchanged.
+    pub fn showcase_squire_resource(&self) -> Option<(ShowcaseClipIdentity, Arc<ShowcaseSquireClip>)> {
+        self.shared.showcase_squire_clip.lock_recover().clone()
+    }
+
+    /// Install the latest validated authored squire clip. Replacing a clip
+    /// updates an open showcase in place; its pose clock and position survive.
+    pub fn showcase_squire_clip(&self, identity: Option<ShowcaseClipIdentity>, clip: Option<Arc<ShowcaseSquireClip>>) {
+        let mut current = self.shared.showcase_squire_clip.lock_recover();
+        let same = match (&*current, &clip) {
+            (Some((old, _)), Some(_)) => Some(old) == identity.as_ref(),
+            (None, None) => true,
+            _ => false,
+        };
+        if same { return; }
+        *current = clip.zip(identity).map(|(clip, identity)| (identity, clip));
+        drop(current);
+        self.send(UserEvent::Showcase);
+    }
+
+    /// Prepare a caller-owned squire pack and install it as this host's
+    /// startup lease. The caller chooses and packages the bytes; Glass only
+    /// validates the shared format and owns the prepared resource lifetime.
+    pub fn install_showcase_squire_pack(
+        &self,
+        module: &str,
+        name: &str,
+        bytes: &[u8],
+    ) -> Result<(), String> {
+        if module.is_empty() || name.is_empty() {
+            return Err("squire pack identity must have a module and name".into());
+        }
+        let clip = Arc::new(ShowcaseSquireClip::from_json_bytes(bytes)?);
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        use std::hash::{Hash, Hasher};
+        bytes.hash(&mut hash);
+        self.showcase_squire_clip(
+            Some(ShowcaseClipIdentity {
+                module: module.into(),
+                name: name.into(),
+                generation: 0,
+                revision: 0,
+                digest: format!("startup-{:016x}", hash.finish()),
+            }),
+            Some(clip),
+        );
+        Ok(())
+    }
+
     /// Put text on the system clipboard. False when no clipboard tool ran.
     /// A headless host hands it to the window looking at it, whose
     /// clipboard it lands on.
@@ -443,6 +501,16 @@ impl Host {
         scenes.push((id, Some((scene, size))));
         drop(scenes);
         self.shared.pictures_waiting.store(true, Ordering::Release);
+    }
+
+    /// Install/remove a GPU-resident picture. Its target is placed by ordinary
+    /// picture layers; replacing it drops the previous producer on the GPU thread.
+    pub fn set_gpu_picture(&self, id:u32, producer: Option<(Box<dyn PictureProducer>, (u32,u32))>) {
+        let mut pictures=self.shared.gpu_pictures.lock_recover();
+        pictures.retain(|(other,_)|*other!=id);
+        pictures.push((id,producer));
+        drop(pictures);
+        self.shared.pictures_waiting.store(true,Ordering::Release);
     }
 
     /// Take a scene down.

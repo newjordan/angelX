@@ -101,7 +101,7 @@ trap 'rm -rf "$empty_cartridges"' EXIT
 export ANGEL_CARTRIDGES="$empty_cartridges"
 
 # The window comes with every prebuilt: on a desktop the launcher opens it.
-cargo_args=(--locked --release --no-default-features --features glass --bin angel --bin angel-sandbox)
+cargo_args=(--locked --release --no-default-features --features glass,delve --bin angel --bin angel-sandbox)
 cd "$root/cockpit"
 case "$target" in
   linux-*)

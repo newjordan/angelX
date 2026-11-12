@@ -402,7 +402,8 @@ impl Run {
         let capture =
             super::scrolls::Capture::resolved(self, id, said, wish, None, phrasebook::book())?;
         let result = capture.request.evaluate()?;
-        capture.prepare(self, result)?.deliver(self).map(|_| ())
+        capture.prepare(self, result)?.deliver(self)?;
+        Ok(())
     }
 
     /// Knight `id` rolls the scroll up: nothing is spent.

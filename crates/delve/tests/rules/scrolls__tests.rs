@@ -310,3 +310,14 @@ fn the_journal_replays_scroll_receipts_without_rerunning_policy_and_rolls_back_a
         rejected
     );
 }
+
+#[test]
+fn a_genie_scroll_without_its_retained_sources_is_still_refused() {
+    let mut run = game(None);
+    let source = wish("Unbound Choice", 10);
+    run.offer_wish(1, &source.name, Some(&source)).unwrap();
+    run.players.get_mut(&1).unwrap().offer.as_mut().unwrap().binding = None;
+    assert!(validate_run(&run).is_err());
+    let sent = runtime_state::capture_for_step(&run).unwrap().into_value();
+    assert!(runtime_state::restore_value(&sent).is_err());
+}

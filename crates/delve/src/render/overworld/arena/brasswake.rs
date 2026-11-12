@@ -4,14 +4,22 @@ use super::super::{
     ink::{Img, ink, text_width},
 };
 use super::{NATIVE_H, NATIVE_W};
+use super::{juice, pfx};
 use crate::rules::{
-    HZ, Run,
-    brasswake::{Beat, GOLD_PER_SEAT, Lane, WORK_PER_RECORD},
+    Run,
+    brasswake::{Beat, Foe, Lane, show::Kind},
+    juice::Weight,
 };
 use std::{
     collections::BTreeMap,
     sync::{Mutex, OnceLock},
 };
+
+mod finish;
+mod fx;
+mod hud;
+mod life;
+mod moments;
 fn decode(bytes: &[u8]) -> Img {
     let png = image::load_from_memory(bytes)
         .expect("Brasswake sprite")
@@ -25,29 +33,6 @@ fn decode(bytes: &[u8]) -> Img {
     out
 }
 
-fn hud() -> &'static serde_json::Value {
-    static HUD: OnceLock<serde_json::Value> = OnceLock::new();
-    HUD.get_or_init(|| {
-        serde_json::from_str(include_str!(
-            "../../../../assets/art-slots/brasswake.chrome/hud.json"
-        ))
-        .unwrap()
-    })
-}
-fn compact_hud() -> bool {
-    static COMPACT: OnceLock<bool> = OnceLock::new();
-    *COMPACT.get_or_init(|| {
-        std::env::var("ANGEL_MINIGAME_HUD").is_ok_and(|v| v == "compact")
-            && hud()["compact"]["compact"] == true
-    })
-}
-fn strip_x(n: usize) -> i32 {
-    hud()["strip_x"].as_i64().unwrap() as i32
-        + n as i32 * hud()["seat_step"].as_i64().unwrap() as i32
-}
-fn strip_y() -> i32 {
-    hud()["strip_y"].as_i64().unwrap() as i32
-}
 // These conversions run only while populating the native art caches.
 fn slot(slot: &str, name: &str) -> Option<Img> {
     if !super::slot_art::enabled() {
@@ -94,49 +79,6 @@ fn dim(mut im: Img) -> Img {
     }
     im
 }
-fn skin(source: Option<Img>, w: i32, h: i32) -> Option<Img> {
-    let source = source?;
-    let mut x0 = source.w;
-    let mut y0 = source.h;
-    let mut x1 = 0;
-    let mut y1 = 0;
-    for y in 0..source.h {
-        for x in 0..source.w {
-            if source.get(x, y).is_some() {
-                x0 = x0.min(x);
-                y0 = y0.min(y);
-                x1 = x1.max(x + 1);
-                y1 = y1.max(y + 1);
-            }
-        }
-    }
-    if x1 <= x0 || y1 <= y0 {
-        return None;
-    }
-    let source_edge = ((x1 - x0).min(y1 - y0) / 4).max(1);
-    let axis = |at: i32, size: i32, len: i32| {
-        let edge = 2.min(size / 3);
-        if at < edge {
-            at * source_edge / edge
-        } else if at >= size - edge {
-            len - source_edge + (at - size + edge) * source_edge / edge
-        } else {
-            source_edge + (at - edge) * (len - 2 * source_edge) / (size - 2 * edge)
-        }
-    };
-    let mut out = Img::new(w, h);
-    for y in 0..h {
-        for x in 0..w {
-            if let Some(c) = source.get(x0 + axis(x, w, x1 - x0), y0 + axis(y, h, y1 - y0)) {
-                out.set(x, y, c);
-            }
-        }
-    }
-    // Empty fields stay flat so source wear never competes with live labels.
-    out.rect(2, 2, w - 4, h - 4, 's');
-    Some(out)
-}
-// Cell banks are baked once; the live path only stamps integer pixels.
 fn cell_sprite(source: &Img, palette: &[[u8; 3]], rim: [u8; 3]) -> Img {
     super::slot_art::cell_sprite(source, palette, rim)
 }
@@ -209,6 +151,7 @@ struct Art {
     porter_cells: [[Img; 12]; 3],
     porter_cells_right: [[Img; 12]; 3],
     knight: [Img; 12],
+    #[allow(dead_code)]
     contact: [Img; 4],
     slam: [Img; 4],
     steam: [Img; 4],
@@ -787,9 +730,10 @@ fn knight(run: &Run, id: u32, pose: usize, dir: i32, outlined: bool, cells: bool
     };
     poses[usize::from(dir < 0)][pose].clone()
 }
-const STAGE_TOP: i32 = 34;
-const STAGE_BOTTOM: i32 = 180;
-const STAGE_LIFT: i32 = 18;
+const STAGE_TOP: i32 = hud::TOP;
+const STAGE_BOTTOM: i32 = hud::BOTTOM;
+/// A lane's own y is the screen's y: the aisle lies on the painted floor as it was painted.
+const STAGE_LIFT: i32 = 0;
 fn world() -> &'static Img {
     static WORLD: OnceLock<Img> = OnceLock::new();
     static ORIGINAL: OnceLock<Img> = OnceLock::new();
@@ -800,18 +744,12 @@ fn world() -> &'static Img {
     };
     cache.get_or_init(|| {
         if let Some(room) = slot("brasswake.room", "room") {
+            // The painted brewery, row for row: vats and arches on the wall, the floor below.
             let room = dim(room);
             let mut im = Img::black(1200, STAGE_BOTTOM - STAGE_TOP);
             for y in 0..im.h {
                 for x in 0..im.w {
-                    if let Some(c) = room.get(
-                        x % 240,
-                        if y < 12 {
-                            y * 96 / 12
-                        } else {
-                            96 + (y - 12) * (room.h - 96) / (STAGE_BOTTOM - STAGE_TOP - 12)
-                        },
-                    ) {
+                    if let Some(c) = room.get(x % 240, y * room.h / im.h) {
                         im.set(x, y, c);
                     }
                 }
@@ -853,264 +791,312 @@ fn world() -> &'static Img {
         im
     })
 }
+/// The aisle's left edge on the screen: the knight stands a third of the way across and the
+/// brewery's far end never scrolls past the painted room.
+fn view_x(d: &Lane) -> i32 {
+    (d.x - 140).clamp(0, 1200 - NATIVE_W)
+}
+/// The aisle's backdrop at this seat's camera, the width of the screen.
 fn room(d: &Lane, cells: bool) -> Img {
-    let mut im = Img::black(NATIVE_W, NATIVE_H);
+    // A window onto the stage's rows: nothing a blow throws up can leak into the bars.
+    let mut im = Img::window(NATIVE_W, NATIVE_H, (0, STAGE_TOP, NATIVE_W, STAGE_BOTTOM - STAGE_TOP));
     static CELL_WORLD: OnceLock<Img> = OnceLock::new();
     let w = if cells {
         CELL_WORLD.get_or_init(|| cell_backdrop(world()))
     } else {
         world()
     };
-    for y in 0..STAGE_BOTTOM - STAGE_TOP {
-        for x in 0..254 {
-            if let Some(c) = w.get(d.camera + x, y) {
-                im.set(x + 12, y + STAGE_TOP, c);
-            }
-        }
-    }
-    im.line(10, STAGE_BOTTOM, 267, STAGE_BOTTOM, 'S');
-    im.rect(276, STAGE_TOP, 1, 159, 'S');
+    im.stamp(w, -view_x(d), STAGE_TOP);
     im
-}
-fn plates() -> &'static [Option<Img>; 3] {
-    static PLATES: OnceLock<[Option<Img>; 3]> = OnceLock::new();
-    PLATES.get_or_init(|| {
-        std::array::from_fn(|i| {
-            let (name, w, h) = [("title", 140, 18), ("panel", 99, 158), ("panel", 352, 202)][i];
-            skin(slot("brasswake.chrome", name), w, h)
-        })
-    })
-}
-fn name(run: &Run, id: u32, n: usize) -> String {
-    run.players
-        .get(&id)
-        .map_or("KNIGHT", |h| h.name.as_str())
-        .to_uppercase()
-        .chars()
-        .take(n)
-        .collect()
 }
 fn center(im: &mut Img, x: i32, y: i32, text: &str, c: char) {
     im.text(x - text_width(text) / 2, y, text, c);
 }
-fn big(im: &mut Img, x: i32, y: i32, text: &str) {
-    static GLYPHS: OnceLock<Vec<(char, Img)>> = OnceLock::new();
-    let gs = GLYPHS.get_or_init(|| {
-        "COMBOX0123456789"
-            .chars()
-            .map(|c| {
-                let mut s = Img::new(5, 7);
-                s.text(0, 0, &c.to_string(), 't');
-                let mut b = Img::new(10, 14);
-                for yy in 0..14 {
-                    for xx in 0..10 {
-                        if let Some(col) = s.get(xx / 2, yy / 2) {
-                            b.set(xx, yy, col);
-                        }
-                    }
-                }
-                (c, b)
-            })
-            .collect()
-    });
-    for (n, c) in text.chars().enumerate() {
-        if let Some((_, g)) = gs.iter().find(|(k, _)| *k == c) {
-            im.stamp(g, x + n as i32 * 12, y);
-        }
-    }
-}
-fn cell_pop(im: &mut Img, chain: u32) {
-    static GLYPHS: OnceLock<Vec<(char, Img)>> = OnceLock::new();
-    let glyphs = GLYPHS.get_or_init(|| {
-        "X0123456789"
-            .chars()
-            .map(|c| {
-                let mut source = Img::new(5, 7);
-                source.text(0, 0, &c.to_string(), 't');
-                let mut out = Img::new(10, 14);
-                for y in 0..14 {
-                    for x in 0..10 {
-                        if let Some(colour) = source.get(x / 2, y / 2) {
-                            out.set(x, y, colour);
-                        }
-                    }
-                }
-                (c, out)
-            })
-            .collect()
-    });
-    for (n, c) in format!("X{chain}").chars().enumerate() {
-        if let Some((_, glyph)) = glyphs.iter().find(|(key, _)| *key == c) {
-            im.stamp(glyph, 148 + n as i32 * 12, 18);
-        }
-    }
-}
-fn standings(run: &Run, id: u32) -> Vec<(u32, i32)> {
-    let s = run.brasswake.as_ref().unwrap();
-    let mut order = s
-        .lanes
-        .keys()
-        .copied()
-        .filter(|who| *who != id)
-        .collect::<Vec<_>>();
-    order.sort_by_key(|who| (s.score(*who), *who));
-    let mut rows = order
-        .into_iter()
-        .enumerate()
-        .map(|(n, who)| (who, 72 + n as i32 * 24))
-        .collect::<Vec<_>>();
-    rows.push((id, 72 + rows.len() as i32 * 24 + 4));
-    rows
-}
-fn text_labels(run: &Run, id: u32) -> Vec<(i32, i32, String)> {
-    let s = run.brasswake.as_ref().unwrap();
-    let d = &s.lanes[&id];
-    if s.left == 0 {
-        let mut words = vec![
-            (
-                122,
-                24,
-                if s.won {
-                    "BREWERY CLEARED"
+/// The pose a foe stands in now, and its sprite.
+fn foe_sprite(a: &'static Art, e: &Foe, tick: u64, with_text: bool) -> &'static Img {
+    let pose = if e.hp == 0 {
+        10
+    } else if e.flinch > 0 {
+        7
+    } else {
+        match e.beat {
+            Beat::Tell => {
+                if e.rush {
+                    5
                 } else {
-                    "SHIFT FINISHED"
+                    3
                 }
-                .into(),
-            ),
-            (151, 43, "WORK".into()),
-            (214, 43, "FALLS".into()),
-            (273, 43, "FINISH".into()),
-        ];
-        for (n, &who) in s.order.iter().enumerate() {
-            let y = 62 + n as i32 * 24;
-            let lane = &s.lanes[&who];
-            words.push((29, y, s.place(who).to_string()));
-            words.push((46, y, name(run, who, 13)));
-            let score = lane.score.to_string();
-            words.push((188 - text_width(&score), y, score));
-            words.push((228, y, lane.falls.to_string()));
-            words.push((
-                273,
-                y,
-                lane.finish.map_or("--".into(), |t| {
-                    format!("{}.{:02} S", t / HZ, (t % HZ) * 100 / HZ)
-                }),
-            ));
-        }
-        let leader = s.order[0];
-        let tied = s
-            .order
-            .iter()
-            .filter(|&&who| s.score(who) == s.score(leader))
-            .count() as u32;
-        let pot = GOLD_PER_SEAT * s.lanes.len() as u32;
-        words.push((
-            52,
-            166,
-            if tied == 1 {
-                format!("{}  {}G + CROWN", name(run, leader, 13), pot)
-            } else {
-                format!("{}G EACH + CROWN", pot / tied)
-            },
-        ));
-        if pot % tied != 0 {
-            words.push((52, 177, format!("SPARE GOLD  {} +1G", name(run, leader, 9))));
-        }
-        words.push((44, 185, "FEWER FALLS, THEN EARLIER FINISH".into()));
-        words.push((
-            (NATIVE_W - text_width("E AGAIN")) / 2,
-            195,
-            "E AGAIN".into(),
-        ));
-        return words;
-    }
-    let mut words = vec![
-        (192 - text_width("BRASSWAKE") / 2, 7, "BRASSWAKE".into()),
-        (285, 30, "BRAWL THEN THROW".into()),
-        (14, 8, format!("{} S", s.left.div_ceil(HZ))),
-        (
-            285,
-            8,
-            format!("{}G POT", GOLD_PER_SEAT * s.lanes.len() as u32),
-        ),
-        (285, 53, "BREWERY RACE".into()),
-        (15, 194, "ARROWS WALK".into()),
-        (110, 194, "F  PUNCH".into()),
-        (
-            208,
-            194,
-            if d.holding { "E  THROW" } else { "E  GRAB" }.into(),
-        ),
-        (14, 208, format!("AISLE {} / 4", d.wave + 1)),
-        (
-            136,
-            208,
-            if d.holding {
-                "CASK READY"
-            } else {
-                "HOLD E GUARD"
             }
-            .into(),
-        ),
-        (286, 176, format!("FALLS {}", d.falls)),
-        (
-            286,
-            188,
-            format!(
-                "BEST {}",
-                u32::from(run.home.countryside.games.brasswake.best) * WORK_PER_RECORD
-            ),
-        ),
-    ];
-    if compact_hud() {
-        let elapsed = crate::rules::brasswake::LENGTH - s.left;
-        words.retain(|&(x, y, _)| {
-            !(x >= 280 && y >= 47 && y < 170)
-                && !(elapsed >= hud()["compact"]["hide_hints_after"].as_u64().unwrap() as u32
-                    && y == 194)
-        });
-        for (n, &who) in s.lanes.keys().enumerate() {
-            words.push((
-                strip_x(n) + 10,
-                strip_y() + 1,
-                format!("{} {}", s.place(who), s.lanes[&who].score),
-            ));
+            Beat::Attack => {
+                if e.rush {
+                    6
+                } else {
+                    4
+                }
+            }
+            Beat::Walk => 1 + (tick / 7 % 2) as usize,
+            Beat::Rest => {
+                if e.stage() > 0 {
+                    7 + e.stage()
+                } else {
+                    0
+                }
+            }
+            Beat::Defeat => 10,
+        }
+    };
+    let sprite = if !with_text {
+        match (e.boss, e.dir > 0) {
+            (true, false) => &a.keeper_cells[e.stage()][pose],
+            (true, true) => &a.keeper_cells_right[e.stage()][pose],
+            (false, false) => &a.porter_cells[e.stage()][pose],
+            (false, true) => &a.porter_cells_right[e.stage()][pose],
         }
     } else {
-        for (who, y) in standings(run, id) {
-            let r = &s.lanes[&who];
-            words.push((
-                285,
-                y,
-                format!(
-                    "{} {}",
-                    s.place(who),
-                    if who == id {
-                        "YOU".into()
-                    } else {
-                        name(run, who, 7)
-                    }
-                ),
-            ));
-            let score = r.score.to_string();
-            words.push((370 - text_width(&score), y, score));
+        match (e.boss, e.dir > 0) {
+            (true, false) => &a.keeper[e.stage()][pose],
+            (true, true) => &a.keeper_right[e.stage()][pose],
+            (false, false) => &a.porter[e.stage()][pose],
+            (false, true) => &a.porter_right[e.stage()][pose],
+        }
+    };
+    let extra_pose = if e.hp == 0 && e.flinch > 4 {
+        13
+    } else if e.flinch == 0 && e.beat == Beat::Rest && e.ticks < 12 {
+        if e.rush { 12 } else { 11 }
+    } else {
+        pose
+    };
+    if e.boss {
+        a.damage_actions
+            .get(&(e.stage(), extra_pose))
+            .or_else(|| a.damage_actions.get(&(e.stage(), pose)))
+            .map(|bank| &bank[usize::from(e.dir > 0) + 2 * usize::from(!with_text)])
+            .unwrap_or(sprite)
+    } else {
+        sprite
+    }
+}
+/// Where a foe's head is on the screen: the number a blow throws up starts there.
+fn head(d: &Lane, a: &Art, n: usize) -> Option<(i32, i32)> {
+    let e = d.foes.get(n)?;
+    let h = if e.boss { a.keeper[0][0].h } else { a.porter[0][0].h };
+    Some((e.x - view_x(d), e.y - STAGE_LIFT - h - 4))
+}
+/// The rule's danger rectangles, drawn exactly where they are and never covered.
+fn danger_borders(im: &mut Img, d: &Lane, px: &dyn Fn(i32) -> i32) {
+    for e in d.foes.iter().filter(|e| matches!(e.beat, Beat::Tell | Beat::Attack)) {
+        let z = e.danger;
+        let (x, y, c) = (px(z.x), z.y - STAGE_LIFT, if e.rush { 'U' } else { 'o' });
+        for (rx, ry, rw, rh) in [(x, y, z.w, 2), (x, y + z.h - 2, z.w, 2), (x, y, 2, z.h), (x + z.w - 2, y, 2, z.h)] {
+            im.rect(rx, ry, rw, rh, c);
         }
     }
-    if d.down > 0 {
-        words.push((105, 20, "BACK UP".into()));
-    } else if d.chain == 0 {
-        words.push((
-            105,
-            20,
-            if d.wave == 3 {
-                "VAT KEEPER"
-            } else {
-                "CLEAR THE AISLE"
-            }
-            .into(),
-        ));
+    for k in &d.incoming {
+        let z = k.danger;
+        let (x, y) = (px(z.x), z.y - STAGE_LIFT);
+        for (rx, ry, rw, rh) in [(x, y, z.w, 2), (x, y + z.h - 2, z.w, 2), (x, y, 2, z.h), (x + z.w - 2, y, 2, z.h)] {
+            im.rect(rx, ry, rw, rh, 't');
+        }
     }
-    words
+}
+/// The aisle at this tick: the room, its life, the floor's marks, the bodies in order of their
+/// feet, every effect over them. Not yet shaken, and without the frame.
+fn aisle(run: &Run, d: &Lane, id: u32, with_text: bool) -> Img {
+    let a = art();
+    let now = run.tick as u32;
+    let c = fx::Ctx { d, now, cam: view_x(d) };
+    let px = |x: i32| x - view_x(d);
+    let py = |y: i32| y - STAGE_LIFT;
+    let mut im = room(d, !with_text);
+    life::paint(&mut im, c, run.tick);
+    fx::floor(&mut im, c);
+    fx::telegraph(&mut im, c, run.tune.brass_tell);
+    fx::incoming_floor(&mut im, c, run.tune.brass_tell);
+    danger_borders(&mut im, d, &px);
+    // The pickups bob and twinkle.
+    let bob = ((run.tick / 6) % 2) as i32;
+    if let Some(x) = d.cask {
+        fx::shadow(&mut im, px(x), d.y.clamp(126, 174) - 2, 9, 3, 0.55);
+        im.stamp(&a.cask, px(x) - 12, py(130) - bob);
+        let near = (x - d.x).abs() <= 28 && (d.y - 150).abs() <= 20 && !d.holding;
+        if near || (run.tick / 12) % 3 == 0 {
+            let mut pen = pfx::Pen::new(&mut im, 40);
+            pen.twinkle((px(x) as f32 + 5.0, 124.0 - bob as f32), if near { 3.0 } else { 2.0 }, ((run.tick % 24) as f32) / 24.0, pfx::ramps::GOLD);
+        }
+    }
+    if let Some(x) = d.bread {
+        fx::shadow(&mut im, px(x), 150, 8, 3, 0.5);
+        im.stamp(&a.bread, px(x) - 12, py(135) - bob);
+        let mut pen = pfx::Pen::new(&mut im, 80);
+        pen.wisp((px(x) as f32, 128.0), run.tick as f32, (0.0, 1.0e6), 18.0, 12.0, 2.0, fx::STEAM, 3);
+        pen.twinkle((px(x) as f32 - 6.0, 126.0), 2.0, ((run.tick % 20) as f32) / 20.0, pfx::ramps::GOLD);
+    }
+    // Incoming casks fall out of the dark above the aisle onto their marks; one that broke leaves
+    // its splash sprite for a moment.
+    for k in &d.incoming {
+        let z = k.danger;
+        let x = px(z.x) + z.w / 2;
+        if k.tell > 0 {
+            let up = fx::fall_height(k.tell, run.tune.brass_tell);
+            let spin = (k.tell / 3) % 2 == 0;
+            let img = if spin { a.cask.clone() } else { a.cask.flip_h() };
+            im.stamp(&img, x - 12, py(z.y - 22) - up);
+        } else {
+            im.stamp(&a.slam[((12 - k.burst) * 4 / 12).min(3) as usize], x - 24, py(z.y - 8));
+        }
+    }
+    // Bodies, feet first.
+    let mut bodies = d.foes.iter().enumerate().map(|(n, e)| (e.y, Some(n))).collect::<Vec<_>>();
+    bodies.push((d.y, None));
+    bodies.sort_by_key(|v| v.0);
+    let strike = |n: usize| {
+        d.show
+            .marks
+            .iter()
+            .filter(|m| m.wave == d.wave && matches!(m.kind, Kind::Blow { foe, .. } if usize::from(foe) == n))
+            .min_by_key(|m| m.age(now))
+    };
+    for (_, which) in bodies {
+        let Some(n) = which else {
+            fx::shadow(&mut im, px(d.x), d.y, 15, 4, 0.6);
+            let struck = d.show.marks.iter().filter(|m| matches!(m.kind, Kind::Hurt { guarded: false, .. })).min_by_key(|m| m.age(now));
+            let hit = struck.map(|m| m.age(now));
+            let blink = d.hurt > 0 && d.down == 0 && hit.is_none_or(|a| a >= 3) && (now / 3) % 2 == 1;
+            if !blink {
+                let mut sprite = knight(run, id, usize::from(d.pose), d.dir, false, !with_text);
+                let (mut slide, mut grow) = (0, 1.0);
+                if let Some(m) = struck.filter(|m| m.age(now) < 14) {
+                    // Knocked back: it shows where it was and slides home, squashed and stretched.
+                    let age = m.age(now);
+                    slide = i32::from(m.dir) * (run.tune.brass_shove as f32 * crate::motion::math::exp(-0.35 * age as f32)) as i32;
+                    if age < 3 {
+                        sprite = juice::impact_frame(&sprite, 'c');
+                    } else {
+                        let w = m.kind.weight();
+                        let sq = juice::squash_stretch(&sprite, age, w.squash() * 0.7);
+                        (sprite, grow) = sq;
+                    }
+                }
+                let top = py(d.y) - (48.0 * grow).round() as i32;
+                im.stamp(&sprite, px(d.x) - sprite.w / 2 + slide, top);
+                if d.holding {
+                    im.stamp(&a.cask, px(d.x) - 4 + slide, py(d.y - 52) - bob);
+                }
+                if d.combo == 2 && d.chain > 0 && d.down == 0 && !d.holding {
+                    // The kick is next: a ring winds at the boot.
+                    let mut pen = pfx::Pen::new(&mut im, 90);
+                    let k = ((run.tick % 12) as f32) / 12.0;
+                    pen.ring((px(d.x) as f32 + 6.0 * f32::from(d.dir as i8), d.y as f32 + 1.0), 8.0 + 8.0 * (1.0 - k), 1.0, 0.5, pfx::ramps::EMBER, k * 0.6);
+                }
+            }
+            continue;
+        };
+        let e = &d.foes[n];
+        let sprite = foe_sprite(a, e, run.tick, with_text);
+        let struck = strike(n);
+        let mut body = sprite.clone();
+        let mut grow = 1.0;
+        let mut slide = 0;
+        if let Some(m) = struck {
+            let age = m.age(now);
+            let w = m.kind.weight();
+            if age < w.flash() {
+                body = juice::impact_frame(&body, 'H');
+            } else if age < 14 {
+                (body, grow) = juice::squash_stretch(sprite, age, w.squash());
+            }
+            let way = i32::from(m.dir);
+            slide = -way * (run.tune.brass_shove as f32 * crate::motion::math::exp(-0.35 * age as f32)) as i32;
+        }
+        let top = py(e.y) - (sprite.h as f32 * grow).round() as i32;
+        let x = px(e.x) + slide - body.w / 2;
+        fx::shadow(&mut im, px(e.x) + slide, e.y, if e.boss { 26 } else { 15 }, if e.boss { 6 } else { 4 }, 0.6);
+        // A fallen porter dissolves away; the keeper stays where it lay.
+        let mut fade = if e.hp == 0 && !e.boss && e.ticks >= 30 { ((e.ticks - 30) as f32 / 30.0).min(1.0) } else { 0.0 };
+        if e.hp == 0 && !e.boss && e.ticks >= 60 {
+            fade = 1.0;
+        }
+        if fade < 1.0 {
+            if fade > 0.0 {
+                juice::dissolve(&mut body, fade);
+            }
+            im.stamp(&body, x, top);
+        }
+        if e.hp > 0 {
+            let max = if e.boss { 32 } else { 10 };
+            let health_y = (py(e.y - sprite.h - 5)).max(STAGE_TOP + 2);
+            im.rect(px(e.x) - 16, health_y, 32, 3, 's');
+            im.rect(px(e.x) - 15, health_y + 1, 30 * i32::from(e.hp) / max, 1, 'o');
+        }
+        if e.beat == Beat::Tell && e.ticks < 10 && (e.ticks / 2) % 2 == 0 {
+            // The warning over the head: one more heartbeat and it comes down.
+            let (hx, hy) = (px(e.x), py(e.y - sprite.h) - 10);
+            im.rect(hx - 1, hy, 3, 6, '7');
+            im.rect(hx - 1, hy + 8, 3, 2, '7');
+            im.rect(hx, hy + 1, 1, 4, 'c');
+        }
+        if e.beat == Beat::Attack {
+            let f = ((9 - e.ticks) * 4 / 9).min(3) as usize;
+            let z = e.danger;
+            im.stamp(
+                if e.rush { &a.steam[f] } else { &a.slam[f] },
+                px(z.x + z.w / 2) - if e.rush { 16 } else { 24 },
+                py(z.y + z.h - 32),
+            );
+        }
+    }
+    if d.foes.iter().any(|e| !e.boss && e.hp > 0 && (e.x - d.x).abs() < 40 && (e.y - d.y).abs() < 44) {
+        let sprite = knight(run, id, usize::from(d.pose), d.dir, true, !with_text);
+        im.stamp(&sprite, px(d.x) - 24, py(d.y - 48));
+        if d.holding {
+            im.stamp(&a.cask, px(d.x) - 4, py(d.y - 52) - bob);
+        }
+    }
+    // Every effect over them.
+    fx::swoosh(&mut im, c, run.tick);
+    for m in &d.show.marks {
+        match m.kind {
+            Kind::Blow { .. } if m.wave == d.wave => fx::blow(&mut im, c, m, run.tick),
+            Kind::Hurt { .. } => fx::hurt(&mut im, c, m, run.tick),
+            Kind::Quake { .. } => fx::quake(&mut im, c, m, run.tick),
+            Kind::Smash { .. } => fx::smash(&mut im, c, m, run.tick),
+            Kind::Bread => fx::bread(&mut im, c, m, run.tick),
+            Kind::Grab => fx::heft(&mut im, c, m, run.tick),
+            Kind::Throw => {
+                fx::heft(&mut im, c, m, run.tick);
+                fx::thrown(&mut im, c, &a.cask, m);
+            }
+            Kind::Step => fx::step(&mut im, c, m, run.tick),
+            Kind::Fall | Kind::Rise => fx::tumble(&mut im, c, m, run.tick),
+            _ => {}
+        }
+    }
+    // The rule's rectangles come last: nothing a blow throws up hides the exact danger.
+    danger_borders(&mut im, d, &px);
+    // The gate's way on, and a keeper's win.
+    if d.foes.iter().all(|e| e.hp == 0) && d.wave < 3 && d.finish.is_none() {
+        let wiggle = ((run.tick / 4) % 2) as i32 * 2;
+        for k in 0..3 {
+            let x = 340 + k * 8 + wiggle;
+            for t in 0..5 {
+                im.put(x + t, 100 + t, 't');
+                im.put(x + t, 108 - t, 't');
+            }
+        }
+    }
+    if hud::keeper_down(d) {
+        let since = d.show.latest(|m| matches!(m.kind, Kind::Blow { boss: true, slain: true, .. }).then(|| m.age(now)));
+        juice::confetti(&mut im, (0, STAGE_TOP, NATIVE_W, STAGE_BOTTOM - STAGE_TOP), run.tick as u32, 0x77, 22);
+        if let Some(age) = since {
+            for (n, x) in [96.0, 200.0, 296.0].into_iter().enumerate() {
+                if age >= n as u32 * 9 {
+                    juice::firework(&mut im, x, 120.0, 62.0 + n as f32 * 6.0, age - n as u32 * 9, 0x31 + n as u32, pfx::ramps::GOLD, run.tick);
+                }
+            }
+        }
+    }
+    im
 }
 fn draw(run: &Run, focus: Option<u32>, with_text: bool) -> (Img, Img) {
     let s = run.brasswake.as_ref().unwrap();
@@ -1118,296 +1104,56 @@ fn draw(run: &Run, focus: Option<u32>, with_text: bool) -> (Img, Img) {
         .filter(|id| s.lanes.contains_key(id))
         .unwrap_or(*s.lanes.keys().next().unwrap());
     let d = &s.lanes[&id];
-    let a = art();
-    let mut im = room(d, !with_text);
-    let fx = Img::new(NATIVE_W, NATIVE_H);
-    if super::slot_art::enabled() {
-        for (i, x, y) in [(0, 119, 2), (1, 280, 47)] {
-            if i == 1 && compact_hud() && s.left > 0 {
-                continue;
-            }
-            if let Some(plate) = &plates()[i] {
-                im.stamp(plate, x, y);
-            }
-        }
-    }
+    let now = run.tick as u32;
+    let fx_layer = Img::new(NATIVE_W, NATIVE_H);
+    let scene = aisle(run, d, id, with_text);
     if s.left == 0 {
-        chrome::panel(
-            &mut im,
-            (16, 16, 352, 202),
-            chrome::Tone {
-                fill: &[[16, 26, 34]],
-                ..chrome::Tone::BRASS
-            },
-        );
-        if super::slot_art::enabled() {
-            if let Some(plate) = &plates()[2] {
-                im.stamp(plate, 16, 16);
-            }
+        let sprite = |who: u32| knight(run, who, 0, 1, false, !with_text);
+        let mut im = finish::paint(&scene, run, s, id, &sprite, with_text);
+        if !with_text {
+            blank_labels(&mut im, run, id);
+        }
+        return (im, fx_layer);
+    }
+    let blows = d
+        .show
+        .marks
+        .iter()
+        .map(|m| (m.kind.weight(), m.age(now)))
+        .filter(|(w, _)| *w >= Weight::Solid);
+    let (dx, dy) = juice::shake(blows, run.tick);
+    let mut im = Img::black(NATIVE_W, NATIVE_H);
+    im.stamp(&scene, dx, dy);
+    if dy != 0 {
+        // A shaken stage slides over its bars' edges: put the paper back.
+        im.rect(0, STAGE_TOP - 9, NATIVE_W, 9, 'k');
+        im.rect(0, STAGE_BOTTOM + 1, NATIVE_W, 9, 'k');
+    }
+    fx::rim(&mut im, fx::Ctx { d, now, cam: view_x(d) }, run.tick);
+    hud::paint(&mut im, run, s, id);
+    let a = art();
+    let anchor = |n: usize| head(d, a, n);
+    moments::sparks(&mut im, d, now, &anchor);
+    let plan = moments::plan(run, s, id, &anchor);
+    moments::paint(&mut im, &plan);
+    if with_text {
+        for w in &plan.words {
+            im.text(w.x, w.y, &w.text, w.ink);
         }
     } else {
-        if compact_hud() {
-            im.rect(12, 33, 254, 12, 's');
-            for (n, &who) in s.lanes.keys().enumerate() {
-                let col = [[195, 47, 57], [45, 109, 192], [45, 143, 69], [193, 145, 35]]
-                    [(who.saturating_sub(1) % 4) as usize];
-                for y in strip_y() + 1..strip_y() + 8 {
-                    for x in strip_x(n) + 2..strip_x(n) + 8 {
-                        im.set(x, y, col);
-                    }
-                }
-            }
-        }
-        for n in 0..6 {
-            im.rect(17 + n * 11, 21, 8, 7, 's');
-            if n < i32::from(d.hp) {
-                im.rect(18 + n * 11, 22, 6, 4, 'r');
-                im.rect(19 + n * 11, 22, 4, 2, 't');
-            }
-        }
-        for (who, y) in standings(run, id) {
-            if compact_hud() {
-                continue;
-            }
-            let r = &s.lanes[&who];
-            im.rect(284, y + 19, 88, 2, 's');
-            im.rect(284, y + 19, 88 * r.x / 960, 2, 'o');
-        }
-        let shake = super::camera::smooth_shake(run.tick, u32::from(d.freeze), run.tune.brass_stop, 1.5).0;
-        let px = |x: i32| x - d.camera + 12 + shake;
-        let py = |y: i32| y - STAGE_LIFT;
-        // Danger rectangles are the rule rectangles, projected through this seat's camera.
-        for e in &d.foes {
-            if matches!(e.beat, Beat::Tell | Beat::Attack) {
-                let z = e.danger;
-                let x = px(z.x);
-                let colour = if e.rush { 'U' } else { 'o' };
-                im.rect(x, py(z.y), z.w, 2, colour);
-                im.rect(x, py(z.y + z.h - 2), z.w, 2, colour);
-                im.rect(x, py(z.y), 2, z.h, colour);
-                im.rect(x + z.w - 2, py(z.y), 2, z.h, colour);
-                if e.rush {
-                    for xx in (4..z.w - 4).step_by(16) {
-                        im.line(
-                            x + xx,
-                            py(z.y + z.h / 2 - 3),
-                            x + xx + 5,
-                            py(z.y + z.h / 2),
-                            colour,
-                        );
-                        im.line(
-                            x + xx + 5,
-                            py(z.y + z.h / 2),
-                            x + xx,
-                            py(z.y + z.h / 2 + 3),
-                            colour,
-                        );
-                    }
-                } else {
-                    im.line(
-                        x + z.w / 2 - 5,
-                        py(z.y + z.h / 2),
-                        x + z.w / 2 + 5,
-                        py(z.y + z.h / 2),
-                        't',
-                    );
-                    im.line(
-                        x + z.w / 2,
-                        py(z.y + z.h / 2 - 4),
-                        x + z.w / 2,
-                        py(z.y + z.h / 2 + 4),
-                        't',
-                    );
-                }
-            }
-        }
-        for c in &d.incoming {
-            let z = c.danger;
-            let x = px(z.x);
-            im.rect(x, py(z.y), z.w, 2, 't');
-            im.rect(x, py(z.y + z.h - 2), z.w, 2, 't');
-            im.rect(x, py(z.y), 2, z.h, 't');
-            im.rect(x + z.w - 2, py(z.y), 2, z.h, 't');
-            if c.tell > 0 {
-                let lift = c.tell as i32 * 20 / run.tune.brass_tell as i32;
-                im.stamp(&a.cask, x + z.w / 2 - 12, py(z.y - 22 - lift));
-            } else {
-                im.stamp(
-                    &a.slam[((12 - c.burst) * 4 / 12).min(3) as usize],
-                    x + z.w / 2 - 24,
-                    py(z.y - 8),
-                );
-            }
-        }
-        if let Some(x) = d.cask {
-            im.stamp(&a.cask, px(x) - 12, py(130));
-        }
-        if let Some(x) = d.bread {
-            im.stamp(&a.bread, px(x) - 12, py(135));
-        }
-        // Foot-sorted cached bodies keep their original world feet and danger geometry.
-        let mut bodies = d
-            .foes
-            .iter()
-            .enumerate()
-            .map(|(n, e)| (e.y, Some(n)))
-            .collect::<Vec<_>>();
-        bodies.push((d.y, None));
-        bodies.sort_by_key(|v| v.0);
-        for (_, which) in bodies {
-            if let Some(n) = which {
-                let e = &d.foes[n];
-                let pose = if e.hp == 0 {
-                    10
-                } else if e.flinch > 0 {
-                    7
-                } else {
-                    match e.beat {
-                        Beat::Tell => {
-                            if e.rush {
-                                5
-                            } else {
-                                3
-                            }
-                        }
-                        Beat::Attack => {
-                            if e.rush {
-                                6
-                            } else {
-                                4
-                            }
-                        }
-                        Beat::Walk => 1 + (run.tick / 7 % 2) as usize,
-                        Beat::Rest => {
-                            if e.stage() > 0 {
-                                7 + e.stage()
-                            } else {
-                                0
-                            }
-                        }
-                        Beat::Defeat => 10,
-                    }
-                };
-                let sprite = if !with_text {
-                    match (e.boss, e.dir > 0) {
-                        (true, false) => &a.keeper_cells[e.stage()][pose],
-                        (true, true) => &a.keeper_cells_right[e.stage()][pose],
-                        (false, false) => &a.porter_cells[e.stage()][pose],
-                        (false, true) => &a.porter_cells_right[e.stage()][pose],
-                    }
-                } else {
-                    match (e.boss, e.dir > 0) {
-                        (true, false) => &a.keeper[e.stage()][pose],
-                        (true, true) => &a.keeper_right[e.stage()][pose],
-                        (false, false) => &a.porter[e.stage()][pose],
-                        (false, true) => &a.porter_right[e.stage()][pose],
-                    }
-                };
-                let extra_pose = if e.hp == 0 && e.flinch > 4 {
-                    13
-                } else if e.flinch == 0 && e.beat == Beat::Rest && e.ticks < 12 {
-                    if e.rush { 12 } else { 11 }
-                } else {
-                    pose
-                };
-                let sprite = if e.boss {
-                    a.damage_actions
-                        .get(&(e.stage(), extra_pose))
-                        .or_else(|| a.damage_actions.get(&(e.stage(), pose)))
-                        .map(|bank| &bank[usize::from(e.dir > 0) + 2 * usize::from(!with_text)])
-                        .unwrap_or(sprite)
-                } else {
-                    sprite
-                };
-                im.stamp(sprite, px(e.x) - sprite.w / 2, py(e.y - sprite.h));
-                if e.hp > 0 {
-                    let max = if e.boss { 32 } else { 10 };
-                    let health_y = py(e.y - sprite.h - 5).max(STAGE_TOP + 2);
-                    im.rect(px(e.x) - 16, health_y, 32, 3, 's');
-                    im.rect(
-                        px(e.x) - 15,
-                        health_y + 1,
-                        30 * i32::from(e.hp) / max,
-                        1,
-                        'o',
-                    );
-                }
-                if e.beat == Beat::Attack {
-                    let f = ((9 - e.ticks) * 4 / 9).min(3) as usize;
-                    let z = e.danger;
-                    im.stamp(
-                        if e.rush { &a.steam[f] } else { &a.slam[f] },
-                        px(z.x + z.w / 2) - if e.rush { 16 } else { 24 },
-                        py(z.y + z.h - 32),
-                    );
-                }
-            } else {
-                let sprite = knight(run, id, usize::from(d.pose), d.dir, false, !with_text);
-                im.stamp(&sprite, px(d.x) - 24, py(d.y - 48));
-                if d.holding {
-                    im.stamp(&a.cask, px(d.x) - 4, py(d.y - 52));
-                }
-            }
-        }
-        if d.foes
-            .iter()
-            .any(|e| !e.boss && e.hp > 0 && (e.x - d.x).abs() < 40 && (e.y - d.y).abs() < 44)
-        {
-            let sprite = knight(run, id, usize::from(d.pose), d.dir, true, !with_text);
-            im.stamp(&sprite, px(d.x) - 24, py(d.y - 48));
-            if d.holding {
-                im.stamp(&a.cask, px(d.x) - 4, py(d.y - 52));
-            }
-        }
-        if d.effect > 0 {
-            im.stamp(
-                &a.contact[((12 - d.effect) * 4 / 12).min(3) as usize],
-                px(d.effect_x) - 16,
-                py(d.effect_y - 16),
-            );
-        }
-        if d.chain > 0 && d.down == 0 {
-            if with_text {
-                big(&mut im, 105, 18, &format!("COMBO X{}", d.chain));
-            } else {
-                cell_pop(&mut im, d.chain);
-            }
-        }
-        if super::slot_art::enabled() {
-            for (z, colour) in d
-                .foes
-                .iter()
-                .filter(|e| matches!(e.beat, Beat::Tell | Beat::Attack))
-                .map(|e| (e.danger, if e.rush { 'U' } else { 'o' }))
-                .chain(d.incoming.iter().map(|c| (c.danger, 't')))
-            {
-                let x = px(z.x);
-                let y = py(z.y);
-                im.rect(x, y, z.w, 2, colour);
-                im.rect(x, y + z.h - 2, z.w, 2, colour);
-                im.rect(x, y, 2, z.h, colour);
-                im.rect(x + z.w - 2, y, 2, z.h, colour);
-            }
-        }
-        // Keep the aisle and its sidebar inside distinct gutters, even after shake.
-        im.rect(0, STAGE_TOP, 12, STAGE_BOTTOM - STAGE_TOP, 'k');
-        im.rect(266, STAGE_TOP, 10, STAGE_BOTTOM - STAGE_TOP, 'k');
+        blank_labels(&mut im, run, id);
     }
-    if !with_text {
-        for (x, y, t) in labels(run, Some(id)) {
-            for yy in y / 8 * 8..y / 8 * 8 + 8 {
-                for xx in x / 4 * 4..x / 4 * 4 + t.chars().count() as i32 * 4 {
-                    im.set(xx, yy, [12, 18, 24]);
-                }
+    (im, fx_layer)
+}
+/// The terminal paints its own words: keep their cells clear of the pictures.
+fn blank_labels(im: &mut Img, run: &Run, id: u32) {
+    for (x, y, t) in labels(run, Some(id)) {
+        for yy in y / 8 * 8..y / 8 * 8 + 8 {
+            for xx in x / 4 * 4..x / 4 * 4 + t.chars().count() as i32 * 4 {
+                im.set(xx, yy, [12, 18, 24]);
             }
         }
     }
-    if with_text {
-        for (x, y, t) in text_labels(run, id) {
-            im.text(x, y, &t, 't');
-        }
-    }
-    (im, fx)
 }
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     draw(run, focus, true)
@@ -1420,12 +1166,27 @@ pub(super) fn labels(run: &Run, focus: Option<u32>) -> Vec<(i32, i32, String)> {
     let id = focus
         .filter(|id| s.lanes.contains_key(id))
         .unwrap_or(*s.lanes.keys().next().unwrap());
-    let mut words = text_labels(run, id);
+    let words = if s.left == 0 { finish::words(run, s, id) } else { hud::words(run, s, id) };
+    words.into_iter().map(|w| (w.x, w.y, w.text)).collect()
+}
+/// Every box of words on seat `id`'s screen at this tick, named: what the words test walks.
+#[cfg(test)]
+pub(super) fn boxes(run: &Run, id: u32) -> Vec<(&'static str, hud::Rect)> {
+    let s = run.brasswake.as_ref().unwrap();
     let d = &s.lanes[&id];
-    if s.left > 0 && d.chain > 0 && d.down == 0 {
-        words.push((105, 22, "COMBO".into()));
+    if s.left == 0 {
+        return finish::boxes(run, s, id);
     }
-    words
+    let a = art();
+    let anchor = |n: usize| head(d, a, n);
+    let plan = moments::plan(run, s, id, &anchor);
+    let mut out: Vec<(&'static str, hud::Rect)> = plan.words.iter().map(|w| ("word", w.rect())).collect();
+    out.push(("score", hud::SCORE_BOX));
+    if hud::combo_shown(d) {
+        out.push(("combo", hud::COMBO_BOX));
+    }
+    out.extend(moments::boxes(&plan));
+    out
 }
 pub(super) fn sign(im: &mut Img, run: &Run) {
     // Under the rumours, when a knight reads them, its E PLAY would stand
@@ -1438,7 +1199,6 @@ pub(super) fn sign(im: &mut Img, run: &Run) {
     center(im, 326, 106, "E PLAY", 'U');
     im.stamp(&art().cask, 348, 58);
 }
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1485,7 +1245,7 @@ mod tests {
                 .map(|e| (e.danger, if e.rush { 'U' } else { 'o' }))
                 .chain(d.incoming.iter().map(|c| (c.danger, 't')))
             {
-                let x = z.x - d.camera + 12;
+                let x = z.x - view_x(d);
                 let y = z.y - STAGE_LIFT;
                 for yy in y..y + z.h {
                     for xx in x..x + z.w {
@@ -1518,13 +1278,197 @@ mod tests {
     }
 
     #[test]
-    fn live_standings_use_podium_ties_and_keep_a_local_gutter() {
+    fn live_standings_rank_by_work_then_falls_and_keep_the_local_seat_named_you() {
         let run = Run::brasswake_review_for_test("standings");
-        let rows = standings(&run, 1);
-        assert_eq!(rows.iter().map(|r| r.0).collect::<Vec<_>>(), [3, 2, 4, 1]);
-        assert_eq!(rows[3].1 - rows[2].1, 28);
-        let labels = text_labels(&run, 1);
-        assert!(labels.iter().any(|(_, _, t)| t == "1 BRAN"));
-        assert!(labels.iter().any(|(_, _, t)| t == "4 YOU"));
+        let s = run.brasswake.as_ref().unwrap();
+        // All four tie on work; seat 3 finished, seat 1 fell twice.
+        assert_eq!(hud::ranked(s), [3, 2, 4, 1]);
+        let words = hud::words(&run, s, 1);
+        assert!(words.iter().any(|w| w.text == "YOU"));
+        assert!(words.iter().any(|w| w.text == "BRAN"));
+        assert_eq!(hud::short("Knight 2"), "K2");
+        assert_eq!(hud::short("Gawain"), "GAWA");
+    }
+
+    fn table(seats: u32) -> Run {
+        super::super::slot_art::use_original(false);
+        let mut r = Run::brasswake_for_test();
+        for id in 2..=seats {
+            r.join_seat(id, &format!("Knight {id}"));
+        }
+        if seats == 1 {
+            r.leave(2);
+        }
+        r.step(&std::collections::BTreeMap::from([(
+            1,
+            crate::rules::Input { interact: true, ..Default::default() },
+        )]));
+        assert!(r.brasswake.is_some());
+        r
+    }
+
+    /// No two boxes of words meet and none leaves the 384 by 224 screen; every line the 5x7 pen
+    /// wrote on the screen is one of the claimed boxes.
+    fn assert_words_clear(r: &Run, what: &str) {
+        let s = r.brasswake.as_ref().unwrap();
+        for &id in s.lanes.keys() {
+            let boxes = boxes(r, id);
+            for (i, (a, ra)) in boxes.iter().enumerate() {
+                assert!(hud::inside(*ra), "{what} seat {id}: {a} {ra:?} leaves the screen");
+                for (b, rb) in &boxes[i + 1..] {
+                    assert!(!hud::meets(*ra, *rb), "{what} seat {id}: {a} {ra:?} meets {b} {rb:?}");
+                }
+            }
+        }
+    }
+
+    fn assert_pen_inside_claims(r: &Run, what: &str) {
+        use super::super::super::ink::said;
+        let s = r.brasswake.as_ref().unwrap();
+        for &id in s.lanes.keys() {
+            let claimed: Vec<_> = boxes(r, id).into_iter().filter(|(k, _)| matches!(*k, "word" | "podium name" | "podium line")).map(|b| b.1).collect();
+            let (_, said) = said::read(|| draw(r, Some(id), true));
+            for line in said.lines.iter().filter(|l| l.on == (384, 224)) {
+                let rect = (line.at.0, line.at.1, text_width(&line.text), 7);
+                assert!(hud::inside(rect), "{what} seat {id}: {:?} leaves the screen", line.text);
+                assert!(claimed.contains(&rect), "{what} seat {id}: {:?} at {rect:?} is not a claimed box", line.text);
+            }
+        }
+    }
+
+    /// Where a frame's time goes, over a bot's round: microseconds a phase, mean.
+    #[test]
+    #[ignore = "measures the picture's cost"]
+    fn brasswake_phase_times() {
+        use std::time::Instant;
+        let mut r = table(4);
+        let mut t = [0u128; 6];
+        let mut n = 0u128;
+        for tick in 0..1500u32 {
+            let s = r.brasswake.as_ref().unwrap();
+            let keys = s.lanes.iter().map(|(&id, l)| (id, l.bot_input(crate::rules::brasswake::LENGTH - s.left))).collect();
+            r.step(&keys);
+            if tick % 3 != 0 || tick < 20 {
+                continue;
+            }
+            let s = r.brasswake.as_ref().unwrap();
+            let d = &s.lanes[&1];
+            let c = fx::Ctx { d, now: r.tick as u32, cam: view_x(d) };
+            let at = Instant::now();
+            let _ = room(d, false);
+            t[0] += at.elapsed().as_micros();
+            let at = Instant::now();
+            let mut sink = Img::window(384, 224, (0, 34, 384, 146));
+            life::paint(&mut sink, c, r.tick);
+            t[1] += at.elapsed().as_micros();
+            let at = Instant::now();
+            let _ = aisle(&r, d, 1, true);
+            t[2] += at.elapsed().as_micros();
+            let at = Instant::now();
+            let mut im = Img::black(384, 224);
+            hud::paint(&mut im, &r, s, 1);
+            t[3] += at.elapsed().as_micros();
+            let at = Instant::now();
+            let _ = draw(&r, Some(1), true);
+            t[4] += at.elapsed().as_micros();
+            let at = Instant::now();
+            let a = art();
+            let anchor = |n: usize| head(d, a, n);
+            let _ = moments::plan(&r, s, 1, &anchor);
+            t[5] += at.elapsed().as_micros();
+            n += 1;
+        }
+        println!("per frame (us): room {} life {} aisle {} hud {} draw {} plan {}", t[0] / n, t[1] / n, t[2] / n, t[3] / n, t[4] / n, t[5] / n);
+    }
+
+    #[test]
+    fn the_terminal_path_draws_every_moment_with_its_words_left_to_the_cells() {
+        super::super::slot_art::use_original(false);
+        for moment in ["kick", "slam", "rush", "throw", "flinch", "defeat", "down", "guard", "standings", "podium", "wave-2"] {
+            let run = Run::brasswake_review_for_test(moment);
+            let (rgb, _) = layers(&run, Some(1));
+            let (cells, _) = terminal_layers(&run, Some(1));
+            assert_eq!((rgb.w, rgb.h), (384, 224), "{moment}");
+            assert_eq!((cells.w, cells.h), (384, 224), "{moment}");
+            let words = labels(&run, Some(1));
+            assert!(!words.is_empty(), "{moment}");
+            // Where the terminal prints a word the picture keeps its cells clear.
+            for (x, y, t) in words {
+                assert_eq!(cells.get(x / 4 * 4, y / 8 * 8), Some([12, 18, 24]), "{moment}: {t}");
+            }
+        }
+    }
+
+    #[test]
+    fn the_words_never_overlap_and_every_prompt_sits_inside_the_screen() {
+        for seats in 1..=6u32 {
+            let mut r = table(seats);
+            let mut t = 0u32;
+            loop {
+                let Some(s) = r.brasswake.as_ref() else { break };
+                if s.left == 0 && t > 0 && t % 5 == 0 && s.done + 200 < r.tick as u32 {
+                    break;
+                }
+                let elapsed = crate::rules::brasswake::LENGTH - s.left;
+                let keys = s
+                    .lanes
+                    .iter()
+                    // Seats start a little apart, so the table sees a lead change and a team kick.
+                    .map(|(&id, l)| (id, if s.left > 0 && elapsed < (id - 1) * 18 { Default::default() } else { l.bot_input(elapsed) }))
+                    .collect();
+                r.step(&keys);
+                t += 1;
+                assert_words_clear(&r, &format!("{seats} seats, tick {t}"));
+                if t % 7 == 0 {
+                    assert_pen_inside_claims(&r, &format!("{seats} seats, tick {t}"));
+                }
+                if t > 2600 {
+                    break;
+                }
+            }
+            assert!(r.brasswake.as_ref().unwrap().left == 0, "{seats} seats: the round ended");
+        }
+    }
+
+    #[test]
+    fn a_storm_of_numbers_calls_and_long_names_still_leaves_every_word_clear() {
+        use crate::rules::brasswake::show::{Cry, Kind};
+        let mut r = table(6);
+        for (id, name) in [(1, "Wolfgang Amadeus"), (2, "Bartholomew"), (3, "Ælfric"), (4, "X"), (5, "Guinevere Of Orkney"), (6, "Knight 6")] {
+            r.players.get_mut(&id).unwrap().name = name.into();
+        }
+        let now = r.tick as u32;
+        let s = r.brasswake.as_mut().unwrap();
+        s.left -= 600;
+        for (&id, d) in &mut s.lanes {
+            d.score = 99_000 + id * 1_111;
+            d.chain = 987;
+            d.wave = 0;
+            for (n, e) in d.foes.iter_mut().enumerate() {
+                e.x = d.x + 30 + n as i32 * 12;
+            }
+            for k in 0..14 {
+                d.show.mark(Kind::Blow { swing: (k % 3) as u8, boss: false, slain: k % 4 == 0, gain: if k % 4 == 0 { 110 } else { 10 }, foe: (k % 2) as u8 }, 0, (d.foes[0].x, d.foes[0].y), 1, now.saturating_sub(k * 2));
+            }
+            d.show.mark(Kind::Streak { n: 985 }, 0, (d.x, d.y), 1, now);
+            d.show.mark(Kind::Smash { hit: true, from: 6 }, 0, (d.x, d.y), 1, now);
+        }
+        for (n, cry) in [Cry::Lead, Cry::Keeper, Cry::Team, Cry::Slain, Cry::Fell].into_iter().enumerate() {
+            s.show.call(cry, 1 + n as u32 % 6, now);
+        }
+        assert_words_clear(&r, "storm");
+        assert_pen_inside_claims(&r, "storm");
+        // The end screen, six seats, the longest names.
+        let s = r.brasswake.as_mut().unwrap();
+        s.left = 0;
+        s.won = true;
+        s.done = now;
+        s.order = (1..=6).collect();
+        for tick in [0u32, 30, 90, 400] {
+            r.tick = u64::from(now + tick);
+            assert_words_clear(&r, "end");
+            assert_pen_inside_claims(&r, "end");
+        }
     }
 }
+

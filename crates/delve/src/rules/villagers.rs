@@ -23,6 +23,7 @@
 //! mirror that sees the same holdings names the same folk.
 
 use super::holdings::{room_def, Deed, Family, Holding, Holdings, RESTLESS, ROOM_LABOUR, STORES_CAP};
+use super::occasions::{self, Cause, Dying};
 use serde::{Deserialize, Serialize};
 
 /// The most folk one holding keeps (the painted crowd's own cap).
@@ -34,6 +35,8 @@ pub const MOOD_CAP: i8 = 5;
 pub const MOOD_LEAVES: i8 = -4;
 /// Rent days unfed a belly remembers.
 pub const HUNGER_CAP: u8 = 3;
+/// Raiders who have held a holding this many rent days start killing.
+pub const RAID_FALLS: u8 = 2;
 
 /// A trade, worked in a standing room of its family — or, for a
 /// labourer, on whichever room is going up.
@@ -148,21 +151,21 @@ impl Villager {
     }
 }
 
-const NAMES: [&str; 32] = [
+pub(super) const NAMES: [&str; 32] = [
     "Berta", "Col", "Dunstan", "Edith", "Fenwick", "Goda", "Harold", "Isolde",
     "Jory", "Katell", "Leofric", "Mabel", "Nyle", "Odilia", "Piers", "Ragnild",
     "Sabel", "Tostig", "Uda", "Warin", "Ysolde", "Alfric", "Blythe", "Cedric",
     "Drusa", "Emeric", "Falco", "Gisela", "Hamo", "Ivo", "Lutgard", "Osbern",
 ];
 
-fn mix(seed: u64, n: u32) -> u64 {
+pub(super) fn mix(seed: u64, n: u32) -> u64 {
     let mut z = seed ^ (u64::from(n).wrapping_mul(0x9E37_79B9_7F4A_7C15));
     z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
     z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
     z ^ (z >> 31)
 }
 
-fn seed_of(key: &str) -> u64 {
+pub(super) fn seed_of(key: &str) -> u64 {
     key.bytes().fold(0x2545_F491_4F6C_DD1Du64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01B3))
 }
 
@@ -268,11 +271,16 @@ impl Visitor {
 /// for the ledger. Called by `holdings::rent_day`, once a rent day.
 pub fn keep(h: &mut Holdings) -> Vec<String> {
     let mut said = Vec::new();
+    let mut told: Vec<String> = Vec::new();
     for i in 0..h.owned.len() {
         let unrest = h.unrest;
         let w = &mut h.owned[i];
         let name = w.deed().map_or_else(|| w.key.clone(), Deed::name);
         let beds = w.standing();
+        // The last rent day's occasion is over; this one may make its own.
+        w.occasion = None;
+        let mut short = false;
+        let mut dying: Vec<(usize, Dying)> = Vec::new();
 
         // Dinner first: a sack feeds four mouths. A short granary is
         // felt by everybody at the table.
@@ -287,6 +295,13 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
                 }
             } else {
                 h.stores = 0;
+                short = true;
+                // The frail, already at the end of their belly, starve.
+                for (n, f) in w.folk.iter().enumerate() {
+                    if f.hunger >= HUNGER_CAP && occasions::frail(f) {
+                        dying.push((n, Dying::Hunger));
+                    }
+                }
                 for f in &mut w.folk {
                     f.hunger = (f.hunger + 1).min(HUNGER_CAP);
                     f.cheer(-1);
@@ -302,6 +317,19 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
             if w.raid > 0 || unrest >= RESTLESS {
                 f.cheer(-1);
+            }
+        }
+
+        // Raiders who have held the place a while kill: a guard first,
+        // else the first grown soul.
+        if w.raid >= RAID_FALLS {
+            let victim = w
+                .folk
+                .iter()
+                .position(|f| f.trade == Trade::Guard && f.age < ELDER)
+                .or_else(|| w.folk.iter().position(|f| f.trade != Trade::Child));
+            if let Some(n) = victim.filter(|n| !dying.iter().any(|(d, _)| d == n)) {
+                dying.push((n, Dying::Raiders));
             }
         }
 
@@ -346,6 +374,12 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
 
+        // A fey mood may take a practiced craftsman's workshop.
+        for line in super::fey::tend(w, &mut h.stores, &name) {
+            said.push(line.clone());
+            told.push(line);
+        }
+
         // A year turns for everybody, twelve rent days at a time.
         // Children come of age into the trade the holding wants;
         // the old die in their season, and the village grieves.
@@ -357,18 +391,35 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             }
         }
         let mut mourned = Vec::new();
+        let mut last = None;
+        let mut at = 0;
         w.folk.retain(|f| {
-            let alive = f.age <= lifespan(&f.name);
-            if !alive {
-                mourned.push(format!("{} the {} has died at {}, mourned at {}", f.name, f.trade.word(), f.age, name));
-            }
-            alive
+            let n = at;
+            at += 1;
+            let why = dying
+                .iter()
+                .find(|(d, _)| *d == n)
+                .map(|&(_, why)| why)
+                .or_else(|| (f.age > lifespan(&f.name)).then_some(Dying::Years));
+            let Some(why) = why else { return true };
+            mourned.push(match why {
+                Dying::Years => format!("{} the {} has died at {}, mourned at {}", f.name, f.trade.word(), f.age, name),
+                Dying::Hunger => format!("{} the {} has starved at {}, mourned at {}", f.name, f.trade.word(), f.age, name),
+                Dying::Raiders => format!("{} the {} has fallen to the raiders at {}, mourned at {}", f.name, f.trade.word(), f.age, name),
+            });
+            last = Some((f.name.clone(), f.trade, why));
+            false
         });
+        let grief = last.is_some();
         if !mourned.is_empty() {
             for f in &mut w.folk {
                 f.cheer(-1);
             }
+            told.extend(mourned.iter().cloned());
             said.extend(mourned);
+        }
+        if let Some((who, trade, why)) = last {
+            occasions::mourn(w, &who, trade, why);
         }
         for i in 0..w.folk.len() {
             if w.folk[i].trade == Trade::Child && w.folk[i].age >= COMING_OF_AGE {
@@ -388,6 +439,28 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
             stay
         });
         said.extend(gone);
+
+        // A soul one step from walking away throws a tantrum; failing
+        // that, a full granary is a feast. A mourning keeps the day.
+        let afraid = w.raid > 0 || unrest >= RESTLESS;
+        let cause = |n: usize, f: &Villager| {
+            if short || f.hunger > 0 {
+                Cause::Hunger
+            } else if n >= beds {
+                Cause::NoBed
+            } else if afraid {
+                Cause::Fear
+            } else if grief {
+                Cause::Grief
+            } else {
+                Cause::Restless
+            }
+        };
+        let line = occasions::tantrum(w, &mut h.stores, &name, cause).or_else(|| occasions::feast(w, &mut h.stores, &name));
+        if let Some(line) = line {
+            said.push(line.clone());
+            told.push(line);
+        }
 
         // Word travels: one migrant a rent day where there is a
         // steward to receive them, a bed unclaimed, grain left after
@@ -536,6 +609,9 @@ pub fn keep(h: &mut Holdings) -> Vec<String> {
     }
     for line in &said {
         h.say(line.clone());
+    }
+    for line in &told {
+        h.tell(line);
     }
     said
 }

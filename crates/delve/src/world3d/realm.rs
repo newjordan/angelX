@@ -97,6 +97,11 @@ pub fn chunk_set(land: &Land, terrain: &Terrain, cx: i32, cz: i32) -> String {
 /// keep, its turrets, the Rookery and the Chapel are in its face): the
 /// castle stands for it (`realm_castle`).
 pub fn in_castle(b: &chunks::Build) -> bool {
+    // The blank-slate plan stands no great castle: the tiny Keep and the camps
+    // are places (`realm_camp`), not walled castles.
+    if crate::world::plan::tabula() {
+        return false;
+    }
     let (c, r, w, h) = b.foot;
     realm_castle::is_castle(b.kit) || crate::world::castles::at(c + w / 2, r + h / 2).is_some()
 }
@@ -292,6 +297,10 @@ fn dead_trees(land: &Land, terrain: &Terrain, rect: blockout::Rect) -> Vec<Piece
 /// Wastes, nothing on the Coast (its sea).
 fn rim(land: &Land, terrain: &Terrain, rect: blockout::Rect) -> Vec<Piece> {
     let mut out = Vec::new();
+    // The blank-slate plan's country is open hillside to its edge: no woods.
+    if crate::world::plan::tabula() {
+        return out;
+    }
     for (x, y) in tiles(rect) {
         if land.cover(x, y) != Cover::Hedge || land.walkable(x, y) {
             continue;

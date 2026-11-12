@@ -1,4 +1,5 @@
 use super::*;
+use ratatui::style::Color;
 use ratatui::widgets::Widget;
 
 fn draw_box(buf: &mut Buffer, area: Rect) {

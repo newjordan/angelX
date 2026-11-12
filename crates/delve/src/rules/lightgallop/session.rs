@@ -15,6 +15,7 @@
 use super::level::level;
 use super::math::Q;
 use super::rider::*;
+use super::show::Show;
 use super::world::*;
 use super::{SOUNDS, ask};
 use crate::rules::{BTreeMap, HZ, Hero, Input, MAX_PLAYERS};
@@ -85,6 +86,10 @@ pub struct Session {
     pub paid: bool,
     /// A knight asked to ride again at the tally.
     pub again: bool,
+    /// What the picture remembers of the moments just ridden (`show.rs`). The
+    /// module never sees it.
+    #[serde(default, skip_serializing_if = "Show::quiet")]
+    pub show: Show,
 }
 
 /// The knights who can ride: here, awake and not turned to stone.
@@ -121,7 +126,11 @@ impl Session {
         let request = json!({ "op": "tick", "session": &*self, "inputs": keys, "present": seated(heroes), "numbers": n });
         match ask::<Tick>(request) {
             Some(tick) if tick.session.valid() => {
-                *self = tick.session;
+                let mut show = std::mem::take(&mut self.show);
+                let old = std::mem::replace(self, tick.session);
+                show.observe(&old, self);
+                // The picture's own notes are never worth refusing a ride over.
+                self.show = if show.valid(self.elapsed) { show } else { Show::default() };
                 tick.sounds.iter().filter_map(|&i| SOUNDS.get(i).copied()).collect()
             }
             _ => Vec::new(),
@@ -167,5 +176,6 @@ impl Session {
                     && y.scores.values().all(|&v| v <= 1000)
             })
             && (self.tally.is_none() || self.bell_t.is_some())
+            && self.show.valid(self.elapsed)
     }
 }

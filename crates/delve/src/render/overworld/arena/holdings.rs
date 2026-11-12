@@ -1022,6 +1022,11 @@ fn key_seed(key: &str) -> u64 {
 /// grey when they go hungry or glum, a gold cap-dot when content —
 /// so a starving village *looks* starved before anyone walks away.
 fn cross_section_citizens(cv: &mut Img, x: i32, y: i32, held: &Holding, tick: u32) {
+    // Where anyone lives, the ones about are the ledger's own.
+    if !held.folk.is_empty() {
+        super::holdings_folk::cross_section(cv, x, y, held, tick);
+        return;
+    }
     let bays: Vec<Bay> = (0..SLOTS)
         .map(|i| match held.rooms.get(i) {
             None => Bay {
@@ -1441,11 +1446,14 @@ pub(super) fn hall(cv: &mut Img, run: &Run) {
             cv.line(sx + 2, sy + 6, sx + sw - 3, sy + 6, 'r');
         }
         let used = run.holding_used & (1 << i) != 0;
-        let open = built.standing() && !used;
+        let seized = crate::rules::fey::seized_bay(held, i);
+        let open = built.standing() && !used && !seized;
         let mark = Img::from_rows(&["..O..", ".OOO.", "OOOOO", ".OOO.", "..O.."]);
         plate(cv, plate_rect, on(run, plate_rect), open, &mark);
+        let seized_by = held.seized.as_ref().filter(|_| seized).map(|z| format!("{} HAS IT", z.who.to_uppercase()));
         let tag = match (def, built.standing(), used) {
             (_, false, _) => "RISING",
+            _ if seized_by.is_some() => seized_by.as_deref().unwrap_or(""),
             (_, _, true) => "USED",
             (Some(d), _, _) => d.says,
             (None, _, _) => "",
@@ -1482,6 +1490,7 @@ pub(super) fn hall(cv: &mut Img, run: &Run) {
     chrome::chip(cv, (px + (pw - w) / 2 - 1, py + ph, w + 2, 9));
     cv.text(px + (pw - w) / 2, py + ph + 1, &tag, if open { 'O' } else { 'G' });
     hall_crew(cv, run, held);
+    super::holdings_folk::hall_folk(cv, run, held);
     muster_chip(cv, run, &held.key);
 }
 
@@ -1608,6 +1617,8 @@ pub(super) fn hall_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
         let Some(def) = holdings::room_def(&built.id) else { return };
         let last = if !built.standing() {
             ("STILL RISING".to_string(), 'h')
+        } else if let Some(z) = held.seized.as_ref().filter(|_| crate::rules::fey::seized_bay(held, i)) {
+            (format!("SEIZED: {} AT THE WORK, {}D", z.who.to_uppercase(), z.days), '3')
         } else if run.holding_used & (1 << i) != 0 {
             ("USED THIS FLOOR".to_string(), 'h')
         } else {

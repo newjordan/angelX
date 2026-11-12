@@ -1,4 +1,5 @@
 use super::*;
+use crate::ui::scryglass::Building;
 use ratatui::{Terminal, backend::TestBackend};
 
 fn passed() -> ToolOutcome {
@@ -382,7 +383,7 @@ fn research_route_keeps_automatic_journeys_behind_the_working_surface() {
     controller.navigate(crate::ui::scryglass::StageRoute::Research);
     controller.show_overlay(crate::ui::scryglass::StageOverlay::Journey {
         call_id: ToolEventId("working".into()),
-        destination: Building::Smithy,
+        destination: Building::Smithy.into(),
     });
     assert_eq!(
         controller.resolved_scene(false, false, false),

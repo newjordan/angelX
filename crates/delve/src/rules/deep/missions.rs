@@ -137,7 +137,7 @@ impl Sign {
 /// guardian's hall or a side room), as the room and a tile near the
 /// middle of it to search out from; on an open floor, its map, near the
 /// middle of each chamber but the arrival's and the guardian's.
-fn hosts(floor: &Floor, salt: u64) -> Vec<(usize, (i32, i32))> {
+pub(super) fn hosts(floor: &Floor, salt: u64) -> Vec<(usize, (i32, i32))> {
     let mut places: Vec<(usize, (i32, i32))> = match &floor.open {
         Some(open) => open
             .chambers
@@ -160,7 +160,7 @@ fn hosts(floor: &Floor, salt: u64) -> Vec<(usize, (i32, i32))> {
 
 /// A clear tile in `room` for a sign near `(cx, cy)`: the first floor tile
 /// out along a spiral from a point of the salt's own beside it.
-fn spot(room: &Room, (cx, cy): (i32, i32), salt: u64) -> Option<(u8, u8)> {
+pub(super) fn spot(room: &Room, (cx, cy): (i32, i32), salt: u64) -> Option<(u8, u8)> {
     let (cols, rows) = (room.cols as i32, room.rows as i32);
     let cx = cx + (mix(salt) % 7) as i32 - 3;
     let cy = cy + (mix(salt ^ 0x51) % 5) as i32 - 2;
@@ -282,7 +282,7 @@ impl Run {
 
     /// Errand `index` gains `n`; finished, it pays the party and its
     /// village remembers.
-    fn count_errand(&mut self, index: usize, n: u16, floor: u32) {
+    pub(super) fn count_errand(&mut self, index: usize, n: u16, floor: u32) {
         let Some(m) = self.home.deep.missions.get_mut(index) else {
             return;
         };
@@ -297,7 +297,9 @@ impl Run {
         {
             town.deeds.push(errand);
         }
-        let gold = purse(floor);
+        // A village of friends pays more (`road`).
+        let friend = self.home.deep.road.tier(culture) == road::Tier::Friend;
+        let gold = purse(floor) + if friend { road::FRIEND_PURSE } else { 0 };
         for hero in self.players.values_mut().filter(|h| h.hp > 0) {
             hero.carried.add(Spoil::Gold, gold);
             hero.carried.add(Spoil::Gem, 1 + chapter(floor));
@@ -308,7 +310,12 @@ impl Run {
         self.found = Some((
             self.tick,
             0,
-            format!("ERRAND DONE FOR {} OF {}: {gold} GOLD EACH. THEY WILL HEAR OF IT.", culture.people(), culture.town(chapter(village))),
+            format!(
+                "ERRAND DONE FOR {} OF {}: {gold} GOLD EACH{}. THEY WILL HEAR OF IT.",
+                culture.people(),
+                culture.town(chapter(village)),
+                if friend { ", FRIENDS PAY MORE" } else { "" }
+            ),
         ));
     }
 }

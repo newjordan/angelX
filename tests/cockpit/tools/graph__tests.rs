@@ -51,6 +51,7 @@ fn graph_crop_tool_receipts_keep_full_data_and_failed_outcomes_emit_no_crops() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn graph_crop_harness_dispatch_emits_one_sprite_per_actual_point_call() {
     use crate::agent::club::{ChatMsg, Club, ClubReply, ToolCall};
@@ -102,7 +103,7 @@ fn graph_crop_harness_dispatch_emits_one_sprite_per_actual_point_call() {
     .unwrap();
     let events: Vec<_> = rx.try_iter().collect();
     assert_eq!(events.iter().filter(|e|matches!(e,TurnEvent::GraphCrop { event,.. } if matches!(event.as_ref(),GraphEvent::Requested(GraphRequest::Point { .. })))).count(),1);
-    let mut world = crate::stage::world_viz::World::new(7);
+    let mut world = crate::delve::world_viz::World::new(7);
     for event in events {
         match event {
             TurnEvent::GraphCrop { id, event } => world.note_graph_event(&id, &event),
@@ -117,6 +118,7 @@ fn graph_crop_harness_dispatch_emits_one_sprite_per_actual_point_call() {
     assert!(report.contains("x=1 y=7"));
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn graph_crop_code_mode_keeps_executed_data_when_outer_output_budget_fails() {
     use crate::agent::harness::{
@@ -145,7 +147,7 @@ fn graph_crop_code_mode_keeps_executed_data_when_outer_output_budget_fails() {
         result.contains("nested-output budget exhausted"),
         "{result}"
     );
-    let mut world = crate::stage::world_viz::World::new(7);
+    let mut world = crate::delve::world_viz::World::new(7);
     let mut ids = Vec::new();
     for event in rx.try_iter() {
         match event {

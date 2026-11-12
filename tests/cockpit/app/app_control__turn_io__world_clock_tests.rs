@@ -40,9 +40,10 @@ fn world_tick_budget_drops_pathological_backlog() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn the_route_in_hand_serves_from_its_model_familys_castle() {
-    use crate::stage::houses;
+    use crate::delve::houses;
     let mut app = App::new(
         crate::agent::club::Bag::for_render_test(&[
             ("local", &[("Qwen3.6-35B-A3B", true)]),

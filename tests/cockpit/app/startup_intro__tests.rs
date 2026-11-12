@@ -664,6 +664,7 @@ fn startup_intro_keeps_sword_and_mountain_in_distinct_panes_with_shared_dismissa
     assert!(intro.worker.is_none());
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() {
     let _guard = crate::tests::env_lock();
@@ -693,7 +694,7 @@ fn startup_intro_full_cockpit_wires_empty_shell_and_never_replays_after_draft() 
     // Entering an actual room must retain the world even before typing;
     // only the still-empty agent shell keeps the launch ceremony.
     app.realm.world
-        .settle_at_for_test(crate::stage::world_viz::Building::Keep);
+        .settle_at_for_test(crate::delve::world_viz::Building::Keep);
     assert!(app.realm.world.enter_interior());
     terminal
         .draw(|frame| crate::ui::draw::ui(frame, &mut app))

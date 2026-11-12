@@ -23,6 +23,8 @@
 //! lead -> live standings -> attack ticks; win -> crown/purse -> 25 gold;
 //! replay -> E -> one tick. The first three define the room.
 
+use super::cinder_show::{Calls, Cells, Cry, Kind, Show};
+use super::juice::Weight;
 use super::{BTreeMap, Deserialize, HZ, Input, MAX_PLAYERS, RoomKind, Run, Serialize, Spoil};
 
 pub const COLS: usize = 6;
@@ -87,6 +89,12 @@ pub struct Board {
     pub chain: u8,
     pub impact: u32,
     pub impact_row: u8,
+    /// This board's own tick count: what its marks are born on (`cinder_show`).
+    #[serde(default)]
+    pub clock: u32,
+    /// What just happened here, for the picture: nothing in it decides anything.
+    #[serde(default, skip_serializing_if = "Show::quiet")]
+    pub show: Show,
 }
 impl Default for Board {
     fn default() -> Self {
@@ -117,6 +125,8 @@ impl Default for Board {
             chain: 0,
             impact: 0,
             impact_row: 9,
+            clock: 0,
+            show: Show::default(),
         };
         b.seed();
         b
@@ -199,6 +209,8 @@ impl Board {
             && self.impact <= 12
             && self.impact_row < ROWS as u8
             && self.crack_tick <= LENGTH
+            && self.clock <= LENGTH
+            && self.show.valid()
             && self.cracks <= CRACKS
             && (self.retry > 0 || self.flash > 0 || self.fits(self.x, self.y, self.turn))
     }
@@ -214,6 +226,7 @@ impl Board {
         }
     }
     fn miss(&mut self) {
+        self.show.mark(Kind::Cough, self.clock);
         self.misses = self.misses.saturating_add(1);
         self.retry = RETRY;
         self.flash = 0;
@@ -279,12 +292,40 @@ impl Board {
             }
         }
         self.chain = (self.chain + 1).min(20);
+        let before = self.cracks;
         self.cracks = (self.cracks + n as u16 * u16::from(self.chain)).min(CRACKS);
         self.flash = 8;
+        let mut by = [Cells::default(); 4];
+        for y in 0..ROWS {
+            for x in 0..COLS {
+                if self.pop[y][x] {
+                    by[usize::from(self.cells[y][x].clamp(1, 4) - 1)].set(x, y);
+                }
+            }
+        }
+        let gain = (self.cracks - before) as u8;
+        self.show.mark(Kind::Pop { by, chain: self.chain, gain }, self.clock);
+        // Twelve and twenty-four crack the kiln a stage; the last of them splits it.
+        for n in 1..=3u8 {
+            let at = if n == 3 { CRACKS } else { 12 * u16::from(n) };
+            if before < at && self.cracks >= at {
+                self.show.mark(Kind::Stage { n }, self.clock);
+            }
+        }
         true
     }
     fn land(&mut self) {
+        self.land_as(false, self.y);
+    }
+    /// The pair comes to rest where it stands, `hard` if it was dropped from row `from`.
+    fn land_as(&mut self, hard: bool, from: i8) {
         let colours = self.colours();
+        let [a, b] = Self::pair_at(self.x, self.y, self.turn);
+        let from = from.clamp(0, ROWS as i8 - 1) as u8;
+        self.show.mark(
+            Kind::Land { a: (a.0 as u8, a.1 as u8), b: (b.0 as u8, b.1 as u8), hard, from },
+            self.clock,
+        );
         for (i, (x, y)) in Self::pair_at(self.x, self.y, self.turn)
             .into_iter()
             .enumerate()
@@ -309,6 +350,8 @@ impl Board {
         self.fire_key = input.fire;
         self.drop_key = input.interact;
         self.impact = self.impact.saturating_sub(1);
+        self.clock = (self.clock + 1).min(LENGTH);
+        self.show.tick(self.clock);
         if self.retry > 0 {
             self.retry -= 1;
             if self.retry == 0 {
@@ -349,7 +392,10 @@ impl Board {
                     self.impact = 12;
                     self.attacks = self.attacks.saturating_add(1);
                     // A block placed into the active pair is a visible kiln cough.
-                    if !self.fits(self.x, self.y, self.turn) {
+                    let hit = !self.fits(self.x, self.y, self.turn);
+                    let near = Self::pair_at(self.x, self.y, self.turn).iter().any(|&(px, _)| px as usize == x);
+                    self.show.mark(Kind::Slag { col: x as u8, row: y as u8, hit, near }, self.clock);
+                    if hit {
                         self.miss();
                     }
                 } else {
@@ -391,8 +437,9 @@ impl Board {
             }
         }
         if drop {
+            let from = self.y;
             self.y = self.ghost();
-            self.land();
+            self.land_as(true, from);
             return Some(if self.flash > 0 {
                 "spoil_pickup"
             } else {
@@ -486,6 +533,16 @@ pub struct Session {
     pub won: bool,
     #[serde(default)]
     pub seed: u64,
+    /// What the whole table should hear (`cinder_show`).
+    #[serde(default, skip_serializing_if = "Calls::quiet")]
+    pub calls: Calls,
+    /// The quickest crack of the kiln this sitting before this round, in ticks (0 for none): the
+    /// time to beat.
+    #[serde(default)]
+    pub to_beat: u32,
+    /// The run's tick when the round ended, for the finish's clock.
+    #[serde(default)]
+    pub done: u32,
 }
 impl Session {
     pub fn new(seats: impl Iterator<Item = u32>, seed: u64) -> Self {
@@ -496,6 +553,17 @@ impl Session {
             order: Vec::new(),
             key: true,
             won: false,
+            calls: Calls::default(),
+            to_beat: 0,
+            done: 0,
+        }
+    }
+    /// The quickest crack this sitting, counting this round if it cracked the kiln.
+    pub fn quickest(&self) -> u32 {
+        let this = self.order.first().filter(|_| self.won).map_or(0, |id| self.boards[id].crack_tick);
+        match (self.to_beat, this) {
+            (0, t) | (t, 0) => t,
+            (a, b) => a.min(b),
         }
     }
     pub fn place(&self, id: u32) -> usize {
@@ -540,6 +608,8 @@ impl Session {
                 .iter()
                 .all(|(&id, b)| (1..=MAX_PLAYERS).contains(&id) && b.valid())
             && self.left <= LENGTH
+            && self.to_beat <= LENGTH
+            && self.calls.valid()
             && self.order.len() <= self.boards.len()
             && self.order.iter().all(|id| self.boards.contains_key(id))
             && self
@@ -562,6 +632,10 @@ impl Session {
         self.left = self.left.clamp(1, LENGTH);
         self.order.clear();
         self.won = false;
+        if !self.calls.valid() {
+            self.calls = Calls::default();
+        }
+        self.to_beat = self.to_beat.min(LENGTH);
     }
 }
 impl Run {
@@ -585,7 +659,7 @@ impl Run {
         });
         if self.cinder.is_none() {
             if pressed {
-                self.start_cinder();
+                self.start_cinder(0);
             }
             return;
         }
@@ -601,7 +675,7 @@ impl Run {
                 .iter()
                 .any(|(id, i)| s.boards.contains_key(id) && i.valid() && i.interact);
             if take && !s.key {
-                self.start_cinder();
+                self.start_cinder(s.quickest());
             } else {
                 s.key = take;
                 self.cinder = Some(s);
@@ -609,6 +683,9 @@ impl Run {
             return;
         }
         s.left -= 1;
+        let now = LENGTH - s.left;
+        s.calls.tick(now);
+        let mut held = None;
         for (&id, b) in &mut s.boards {
             if self.players.get(&id).is_none_or(|h| h.away || h.stone)
                 || self.exits.outside.contains_key(&id)
@@ -623,6 +700,14 @@ impl Run {
             if b.cracks != cracks {
                 b.crack_tick = LENGTH - s.left;
             }
+            s.calls.report(id, b.show.fresh(b.clock), now);
+            held = held.max(b.show.heaviest(b.clock).filter(|&w| w >= Weight::Kill));
+        }
+        let scores: Vec<_> = s.boards.iter().map(|(&id, b)| (id, b.cracks)).collect();
+        s.calls.standings(now, &scores);
+        // A crack of the kiln holds the whole table still for a beat; the last one holds it longest.
+        if let Some(weight) = held {
+            self.hold_for(weight);
         }
         let cracked = s.boards.values().any(|b| b.cracks >= CRACKS);
         if cracked || s.left == 0 {
@@ -637,7 +722,11 @@ impl Run {
             s.left = 0;
             s.won = cracked;
             s.key = true;
+            s.done = self.tick as u32;
             let winner = s.order[0];
+            if cracked {
+                s.calls.call(Cry::Cracked, winner, now);
+            }
             let best = s.boards[&winner].cracks;
             let record = &mut self.home.countryside.games.cinder;
             record.best = record.best.max(best);
@@ -666,8 +755,9 @@ impl Run {
             self.sounds.push("play_card");
         }
         self.cinder = Some(s);
+        self.finish_hit_hold();
     }
-    fn start_cinder(&mut self) {
+    fn start_cinder(&mut self, to_beat: u32) {
         let seed = self.rng.next();
         let seats = self
             .players
@@ -676,10 +766,11 @@ impl Run {
                 h.hp > 0 && !h.stone && !h.away && !self.exits.outside.contains_key(id)
             })
             .map(|(&id, _)| id);
-        let session = Session::new(seats, seed);
+        let mut session = Session::new(seats, seed);
         if session.boards.is_empty() {
             return;
         }
+        session.to_beat = to_beat;
         self.cinder = Some(session);
         let record = &mut self.home.countryside.games.cinder;
         record.plays = record.plays.saturating_add(1);

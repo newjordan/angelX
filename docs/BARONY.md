@@ -217,6 +217,45 @@ realm's share carted to market, dwarf-forged mail, more workers). The
 in totals and its last lines. When his hall stands he kneels in it and
 swears Caer Dwfn to the crown (A Baron Sworn).
 
+## Reclaiming the lost halls
+
+Brannoc does not only ask for forges. Once he has been met he sends the
+party after the halls of Caer Dwfn the goblin clans took, one at a time, in
+order, and the party plays each one out. A hall won is his: he thanks the
+party once, its rent joins his tribute for every floor cleared, and the
+dwarves who come home with it join his crew.
+
+E beside the King (at his camp, or on his seat once his hall stands) opens
+his talk: a greeting that changes with how many halls are his, then the
+next ask, answered with 1 (take it), 2 (tell me of the hall) or 3
+(farewell). Taking it marks `reclaim:ask:<n>`, the cockpit's settle pins it
+(`Halls::asked`), and from the next floor of that delve the hall hangs off
+the floor as one more room (`reclaim::add_lost_hall`, chosen without dice,
+like the forge-hall). Its door is marked on the floor map for the knight
+who holds the mission, and the King's plate says which hall he asked for.
+
+| Hall | Delve | Keeper | The set-piece | Thanks | Rent a floor | Crew |
+|---|---|---|---|---|---|---|
+| The Delvers' Gallery | the Mines | Chief Nubbin Tallowtooth | pay his toll (300 gold, the clan stays as tenants) or fight him and his boar | 250 gold (a fight only) | 25 gold; and 2 ore if the toll was paid | 1 |
+| The Hall of Lamps | the Crypt | Thane Madoc Greyhelm | kindle four lamps, eldest son first (the stones show names and winters, in an order the run's seed picks); a wrong lamp puts them all out and raises two wraiths | 3 gems | 30 gold, 2 bone | 1 |
+| The Anvil Gallery | Dragon Keep | Olwen Anvilhand | stand on each of three heaps and hold E; every heap dug wakes two imps | 150 gold, 10 ore | 20 gold, 4 ore | 2 |
+
+The wraiths and imps a set-piece raises are capped at six all told. The
+foes of a hall keep their own company (not the floor's provision, like the
+Wanted hall's), so they drop and count as any monster does.
+
+What a hall's set-piece decides is a mark: `reclaim:toll:<n>` (the realm
+takes the toll from the treasury, or says it cannot), or
+`reclaim:won:<n>:<how>`; the cockpit's settle (`reclaim::settle`, through
+`activity::PLACES`) validates the way, pays his thanks, writes the ledger
+and counts the hall (`Barony::halls`, never written while empty, so an older
+save loads as one that has won none). `Barony::tribute` adds the rent and
+`barony::crew` the dwarves. The King's Hall hangs a lamp for each hall won
+on its north wall, and a plate before them reads what each pays.
+
+Renders are written by `write_reclaim_shots`
+(`tests/render/arena__reclaim__shots.rs`, `ANGEL_ARENA_SHOTS=<dir>`).
+
 ## The economy, with its evidence
 
 Every number is one fixed number, picked from evidence, not a formula. The

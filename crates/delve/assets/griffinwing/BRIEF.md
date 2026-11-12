@@ -6,7 +6,7 @@ seated knight flies their own griffin in one formation, behind their own
 chase camera, over one shared rail, one set of foes and one Wyrm. The code is
 `rules/griffinwing.rs` and `rules/griffinwing/`, the stage
 `render/overworld/arena/griffinwing.rs` and `.../griffinwing/`, the terminal
-text `cockpit/src/stage/world_viz/art/roundtable/griffinwing.rs`. `ART.md` and `slots.json` are
+text `cockpit/delve-cart/src/world_viz/art/roundtable/griffinwing.rs`. `ART.md` and `slots.json` are
 the art wave's; the tests are `together_griffinwing__tests.rs` (the shell's
 checks), `together_griffinwing_play__tests.rs` (the game) and
 `arena__griffinwing__tests.rs` (the pictures).

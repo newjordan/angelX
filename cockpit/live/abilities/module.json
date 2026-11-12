@@ -34,22 +34,32 @@
     {
       "kind": "resource",
       "name": "character-seat-1",
-      "contract": "character-loadout/1"
+      "contract": "character-graph-loadout/1"
     },
     {
       "kind": "resource",
       "name": "character-seat-2",
-      "contract": "character-loadout/1"
+      "contract": "character-graph-loadout/1"
     },
     {
       "kind": "resource",
       "name": "character-seat-3",
-      "contract": "character-loadout/1"
+      "contract": "character-graph-loadout/1"
     },
     {
       "kind": "resource",
       "name": "character-seat-4",
-      "contract": "character-loadout/1"
+      "contract": "character-graph-loadout/1"
+    },
+    {
+      "kind": "resource",
+      "name": "character-seat-5",
+      "contract": "character-graph-loadout/1"
+    },
+    {
+      "kind": "resource",
+      "name": "character-seat-6",
+      "contract": "character-graph-loadout/1"
     }
   ],
   "imports": [
@@ -68,6 +78,16 @@
     {
       "module": "ability-effects",
       "contract": "effect-pack/1"
+    },
+    {
+      "module": "character-motion",
+      "contract": "character-animation-pack/1",
+      "optional": true
+    },
+    {
+      "module": "character-graphs",
+      "contract": "character-animation-graph-pack/1",
+      "optional": true
     }
   ]
 }

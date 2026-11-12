@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 /// Where the host keeps the ledger inside a workspace.
 pub const FILE: &str = ".angel/dungeon/garage.json";
 /// A ledger file larger than this is not one.
-pub const MAX_BYTES: u64 = 2 * 1024 * 1024;
+pub const MAX_BYTES: u64 = 16 * 1024 * 1024;
 
 #[derive(Clone, Debug)]
 pub struct Store {
@@ -30,6 +30,11 @@ impl Store {
     /// The store of a workspace.
     pub fn in_workspace(workspace: &Path) -> Store {
         Store::new(workspace.join(FILE))
+    }
+
+    /// The store in a dungeon folder (`.angel/dungeon`): the ledger beside the cards and sheets.
+    pub fn in_dungeon(dungeon: &Path) -> Store {
+        Store::new(dungeon.join("garage.json"))
     }
 
     pub fn path(&self) -> &Path {

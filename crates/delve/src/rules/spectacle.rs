@@ -341,6 +341,7 @@ impl Run {
         let circle = self.spectacle.circle;
         let mut sounds: Vec<&'static str> = Vec::new();
         let mut shake = 0;
+        let mut downed: Vec<u32> = Vec::new();
         let strikers: Vec<(u32, Option<(f32, f32)>)> = seen
             .heroes
             .iter()
@@ -393,6 +394,7 @@ impl Run {
                 if hero.hp == 0 {
                     hero.fell = tick.max(1);
                     hero.struck = 0;
+                    downed.push(before.id);
                     sounds.push("knight_fall");
                     shake = shake.max(10);
                     if self.phase == Phase::Wiped {
@@ -403,6 +405,7 @@ impl Run {
             } else if before.hp > 0 && hero.hp == 0 {
                 // Fell some other way: stairs and winds aside, still bones.
                 hero.fell = tick.max(1);
+                downed.push(before.id);
                 sounds.push("knight_fall");
             }
             if hero.hp == 0 && hero.fell != 0 && tick == hero.fell + 9 {
@@ -467,6 +470,9 @@ impl Run {
             }
         }
         self.fx.push(Fx::Shake(shake));
+        for id in downed {
+            self.leave_cairn(id);
+        }
         self.sounds.extend(sounds);
     }
 
@@ -475,7 +481,7 @@ impl Run {
         let struck = seen.foes.iter().any(|&(id, hp, _)| {
             self.enemies.iter().find(|e| e.id == id).is_none_or(|e| e.hp < hp)
         });
-        if struck && let Some(sound) = self.landed_sound(seen) {
+        if struck && let Some((by, sound)) = self.landed_sound(seen) {
             let fresh = &mut self.sounds[seen.sounded..];
             // The plain thud gives way to the weapon's own.
             let plain = fresh.iter().filter(|&&s| s == "hit").count();
@@ -490,7 +496,10 @@ impl Run {
             let rung = self.sounds[seen.sounded..]
                 .iter()
                 .any(|s| *s == sound || melee::CONTACT_SOUNDS.contains(s) || vfx::IMPACT_SOUNDS.contains(s));
-            if !rung {
+            if !rung && sound == super::bard::HIT {
+                // The Bard's hi-hat is part of its groove: its own ears only.
+                self.seat_sound_every(by, sound, LANDED_EVERY);
+            } else if !rung {
                 self.sound_every(sound, LANDED_EVERY);
             }
         }
@@ -504,8 +513,9 @@ impl Run {
         }
     }
 
-    /// What a landed hit sounded like, by the weapon nearest the foe.
-    fn landed_sound(&self, seen: &Seen) -> Option<&'static str> {
+    /// What a landed hit sounded like, by the weapon nearest the foe, and
+    /// whose weapon that was.
+    fn landed_sound(&self, seen: &Seen) -> Option<(u32, &'static str)> {
         let hurt: Vec<(f32, f32)> = seen
             .foes
             .iter()
@@ -515,16 +525,16 @@ impl Run {
             })
             .collect();
         let &(fx, fy) = hurt.first()?;
-        let hero = self
+        let (&by, hero) = self
             .players
-            .values()
-            .filter(|h| h.hp > 0 && !h.stone)
-            .min_by(|a, b| {
+            .iter()
+            .filter(|(_, h)| h.hp > 0 && !h.stone)
+            .min_by(|(_, a), (_, b)| {
                 let d = |h: &Hero| (h.x - fx).hypot(h.y - fy);
                 d(a).total_cmp(&d(b))
             })?;
         let close = (hero.x - fx).hypot(hero.y - fy) < 4.2;
-        Some(if hero.spin > 0 && close {
+        Some((by, if hero.spin > 0 && close {
             "hit_axe"
         } else if hero.swing > 0 && close {
             if !hero.sword && matches!(hero.arm.as_deref(), Some("twin-axes" | "grave-axes" | "reaver-axes")) { "hit_axe" } else { "hit_blade" }
@@ -548,7 +558,7 @@ impl Run {
                 Weapon::Crossbow => "hit_bolt",
                 Weapon::Handgonne => "hit_blast",
             }
-        })
+        }))
     }
 
     /// What was picked up off the floor this tick: gold has a sound of its

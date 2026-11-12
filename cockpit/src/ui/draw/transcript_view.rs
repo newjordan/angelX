@@ -61,6 +61,7 @@ fn transcript_block(app: &App) -> Block<'static> {
 }
 
 pub(crate) fn render_transcript(frame: &mut Frame, app: &mut App, area: Rect) {
+    crate::ui::angelface::note_region(crate::ui::angelface::Region::Transcript, area);
     app.transcript_links.clear();
     if area.width == 0 || area.height == 0 {
         return;

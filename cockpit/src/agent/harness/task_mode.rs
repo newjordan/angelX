@@ -417,21 +417,19 @@ pub(crate) struct TaskPaceResolution {
 /// The headless task's system prompt: its personality type (the full Driver,
 /// or the compact core with `ANGEL_TASK_COMPACT_PROMPT`), the resolved pace
 /// (`⠍⠁` / `⠍⠃`) and, with `ANGEL_TASK_CODING_DISCIPLINE`, the repair
-/// discipline (`⠽⠑`); then the workspace map as data.
+/// discipline (`⠽⠑`). The workspace map follows in a message of its own.
 pub(crate) fn task_system_prompt(workspace: &Path, specialists: &[String]) -> String {
     let pace = resolved_task_pace().map(|pace| match pace {
         TaskPace::Rapid => super::book::m_method::RAPID,
         TaskPace::Deep => super::book::m_method::DEEP,
     });
-    let mut system = super::book::y_types::entry(
+    super::book::y_types::entry(
         workspace,
         &super::delegate_roles(specialists),
         task_compact_prompt_enabled(),
         pace,
         super::env_flag("ANGEL_TASK_CODING_DISCIPLINE", false),
-    );
-    system.push_str(&task_system_contract(workspace));
-    system
+    )
 }
 
 /// The pace headless startup resolved, if this process is a task.
@@ -626,6 +624,338 @@ pub(crate) fn apply_task_runtime_defaults(prompt: &str) -> TaskPaceResolution {
     unsafe { std::env::set_var("ANGEL_TASK_PACE_SOURCE", &pace.source) };
     maybe_apply_task_treebeard_lane();
     pace
+}
+
+/// A workspace of at most this many files is small enough that the map shows
+/// the whole of it.
+const SMALL_WORKSPACE_FILES: usize = 40;
+
+/// Route a headless task in a small workspace onto the light start: no recon
+/// packet, no tool bubble, and only the tools that read, write and run. The
+/// map already names every file, so a search tool has nothing left to find.
+/// Size is the signal because it is known before the first request and task
+/// text is not: across the 136-task board, task length had a 0.01 correlation
+/// with how many calls a task took. `read_file` returns plain text here: the
+/// files are short enough to edit by their own words, and the line anchors
+/// cost about 6% of a task's input. The same route turns on the measured
+/// speed stack: the up-front read as context, a test run after a write-only
+/// response, the stop at a full green run, the brevity block ahead of the
+/// map, collapsed copies of a locked loop and one Cargo home per process
+/// (DeepSeek Flash, 2026-11-11: 136/136 on three seeds; held-out tests 113 of
+/// 133; Go 36/36). Must run before [`apply_task_runtime_defaults`]; a value
+/// already in the environment wins, so `0` turns any of them off.
+pub(crate) fn apply_small_workspace_route(workspace: &Path) {
+    if !workspace_is_small(workspace) {
+        return;
+    }
+    for (key, value) in [
+        ("ANGEL_TASK_RECON", "off"),
+        ("ANGEL_TOOL_BUBBLE", "0"),
+        ("ANGEL_HASHLINE_ANCHORS", "0"),
+        (SMALL_WORKSPACE_PREREAD_ENV, "1"),
+        (super::registry::SMALL_WORKSPACE_ROUTE_ENV, "1"),
+        (PREREAD_AS_CONTEXT_ENV, "1"),
+        (PREREAD_SKIP_MANIFESTS_ENV, "1"),
+        (TEST_AFTER_WRITE_ENV, "1"),
+        (END_AT_GREEN_ENV, "1"),
+        ("ANGEL_TASK_STABLE_FIRST", "1"),
+        (super::book::l_loops::LOOP_COLLAPSE_ENV, "1"),
+        (crate::agent::tools::build::CARGO_HOME_REUSE_ENV, "1"),
+    ] {
+        if std::env::var_os(key).is_none() {
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            unsafe { std::env::set_var(key, value) };
+        }
+    }
+}
+
+/// On in a small workspace's headless task ([`apply_small_workspace_route`]);
+/// `0` turns it off. After a response that only writes files, the
+/// harness adds one `run_tests` call to that response, so the result of the
+/// write and the result of the tests reach the model together. Measured on
+/// small workspaces, where the model's next response is otherwise always the
+/// test run (about 1.9 s and one full request on DeepSeek Flash, 2026-11-10).
+pub(crate) const TEST_AFTER_WRITE_ENV: &str = "ANGEL_TASK_TEST_AFTER_WRITE";
+
+/// See [`TEST_AFTER_WRITE_ENV`]. A response that also runs something is left
+/// alone: the model has already chosen its own check.
+pub(crate) fn append_test_after_write(calls: &mut Vec<crate::agent::club::ToolCall>, hop: usize) {
+    if !super::env_flag(TEST_AFTER_WRITE_ENV, false) {
+        return;
+    }
+    let is_write = |name: &str| {
+        matches!(
+            name,
+            "write_file" | "str_replace" | "multi_edit" | "apply_patch"
+        )
+    };
+    if calls.iter().any(|call| is_write(&call.name))
+        && calls
+            .iter()
+            .all(|call| is_write(&call.name) || call.name == "read_file")
+    {
+        calls.push(crate::agent::club::ToolCall {
+            id: format!("call_autotest_{hop}"),
+            name: "run_tests".to_string(),
+            args: serde_json::json!({}),
+        });
+    }
+}
+
+/// On in a small workspace's headless task, and only with
+/// [`TEST_AFTER_WRITE_ENV`]; `0` turns it off. When the
+/// harness-added test run passes in full, the turn stops there with the test
+/// summary as its answer instead of asking the model for a closing message
+/// (about 2.5 s and 240 output tokens of a 7 s easy task on DeepSeek Flash,
+/// 2026-11-10). The stop goes through the same checks as a model's stop.
+pub(crate) const END_AT_GREEN_ENV: &str = "ANGEL_TASK_END_AT_GREEN";
+
+pub(crate) fn end_at_green() -> bool {
+    super::env_flag(END_AT_GREEN_ENV, false) && super::env_flag(TEST_AFTER_WRITE_ENV, false)
+}
+
+/// The summary line of a test result in which at least one test passed and
+/// none failed, was skipped or was ignored: `tests: 7 passed, 0 failed, 0 …`.
+pub(crate) fn full_green_line(result: &str) -> Option<String> {
+    let line = result.lines().next()?;
+    let summary = line.split(" — ").next()?.trim();
+    let counts = summary.strip_prefix("tests: ")?;
+    let mut parts = counts.split(", ");
+    let passed = parts.next()?.strip_suffix(" passed")?.parse::<u64>().ok()?;
+    let rest: Vec<&str> = parts.collect();
+    (passed > 0 && rest.len() == 2 && rest.iter().all(|part| part.starts_with("0 ")))
+        .then(|| summary.to_string())
+}
+
+/// The answer of a turn that stopped at green: a completion notice written by
+/// the harness, since no model message closes the turn. It says so, names the
+/// files changed and carries the test summary (`tests: 7 passed, 0 failed, …`).
+pub(crate) fn completion_notice(
+    summary: &str,
+    edited: &std::collections::BTreeSet<String>,
+) -> String {
+    const SHOWN: usize = 8;
+    let mut notice = String::from("Task complete.");
+    if !edited.is_empty() {
+        let shown: Vec<&str> = edited.iter().take(SHOWN).map(String::as_str).collect();
+        notice.push_str("\nChanged: ");
+        notice.push_str(&shown.join(", "));
+        if edited.len() > SHOWN {
+            notice.push_str(&format!(" and {} more", edited.len() - SHOWN));
+        }
+    }
+    let counts = summary.strip_prefix("tests: ").unwrap_or(summary);
+    notice.push_str(&format!("\nTests: {counts} (run after the last edit)."));
+    notice.push_str("\nReported by angelX; the model wrote no closing message.");
+    notice
+}
+
+/// Set by [`apply_small_workspace_route`]; `0` leaves the reading to the model.
+pub(crate) const SMALL_WORKSPACE_PREREAD_ENV: &str = "ANGEL_TASK_PREREAD";
+
+/// A small workspace is read up front only when all of its files, as
+/// `read_file` returns them, fit in this many bytes.
+const SMALL_WORKSPACE_PREREAD_BYTES: usize = 32 * 1024;
+
+/// Read a small workspace before the first request. The map names every file
+/// and the model's first move is to read them, which costs a whole model round
+/// trip (1.2 s of a 9.4 s easy task on DeepSeek Flash, 2026-11-09). The reads
+/// go through the real `read_file` tool and enter the history as the calls the
+/// model would have made, so the model sees nothing it could not have fetched
+/// and no new prompt text. Licence and lock files are skipped, as are files
+/// that are not text. A workspace that does not fit is left alone: half a
+/// workspace would look like all of it.
+pub(crate) fn preread_small_workspace(
+    registry: &super::ToolRegistry,
+    workspace: &Path,
+    history: &mut Vec<crate::agent::club::ChatMsg>,
+) {
+    use crate::agent::club::{ChatMsg, ToolCall};
+    if !super::env_flag(SMALL_WORKSPACE_PREREAD_ENV, false) {
+        return;
+    }
+    let root = workspace
+        .canonicalize()
+        .unwrap_or_else(|_| workspace.to_path_buf());
+    let mut calls = Vec::new();
+    let mut results = Vec::new();
+    let mut total = 0usize;
+    for path in collect_workspace_rel_paths(&root, SMALL_WORKSPACE_FILES + 1) {
+        if !preread_candidate(&root, &path) {
+            continue;
+        }
+        let args = serde_json::json!({ "path": path });
+        let Ok(mut text) = registry.dispatch("read_file", &args) else {
+            continue;
+        };
+        if super::env_flag(PREREAD_AS_CONTEXT_ENV, false) {
+            text = read_remaining_pages(registry, &path, text);
+        }
+        total += text.len();
+        if total > SMALL_WORKSPACE_PREREAD_BYTES {
+            return;
+        }
+        let id = format!("call_preread_{}", calls.len());
+        calls.push(ToolCall {
+            id: id.clone(),
+            name: "read_file".to_string(),
+            args,
+        });
+        results.push(ChatMsg::tool(id, text));
+    }
+    if calls.is_empty() {
+        return;
+    }
+    if super::env_flag(PREREAD_AS_CONTEXT_ENV, false) {
+        // The same `read_file` text, as data in the task's context: no
+        // assistant turn the model did not write.
+        let mut text = String::new();
+        for (call, result) in calls.iter().zip(&results) {
+            let path = call.args["path"].as_str().unwrap_or_default();
+            text.push_str(&format!(
+                "`{path}`\n```\n{}\n```\n\n",
+                result.content.trim_end()
+            ));
+        }
+        history.push(ChatMsg::user(text.trim_end().to_string()));
+        return;
+    }
+    history.push(ChatMsg::assistant_calls_with_reasoning(calls, None));
+    history.extend(results);
+}
+
+/// A file read up front arrives whole: `read_file` serves 200 lines a page, and
+/// a longer file left at its first page costs the model a round trip to fetch
+/// the rest (6 to 9 of 136 first calls on DeepSeek Flash, 2026-11-11, about
+/// 1.5 s each). Follows the page's own `next offset` note, at most 20 pages.
+fn read_remaining_pages(registry: &super::ToolRegistry, path: &str, first: String) -> String {
+    let mut whole = String::new();
+    let mut page = first;
+    for _ in 0..20 {
+        let Some((body, next)) = split_next_offset(&page) else {
+            whole.push_str(&page);
+            return whole;
+        };
+        whole.push_str(body);
+        let args = serde_json::json!({ "path": path, "offset": next, "limit": 400 });
+        match registry.dispatch("read_file", &args) {
+            Ok(text) => page = text,
+            Err(_) => return whole,
+        }
+    }
+    whole.push_str(&page);
+    whole
+}
+
+/// A page's text without its trailing continuation note, and the offset the
+/// note names: `…[more content; next offset N]` (with its stamp line after it)
+/// or `[truncated: … next offset N]`.
+fn split_next_offset(page: &str) -> Option<(&str, u64)> {
+    let at = page
+        .rfind("[more content; next offset ")
+        .map(|i| (i, "[more content; next offset "))
+        .or_else(|| page.rfind("[truncated: ").map(|i| (i, "[truncated: ")))?;
+    let (start, _) = at;
+    let tail = &page[start..];
+    let number = tail.split("next offset ").nth(1)?;
+    let next: u64 = number
+        .trim_start()
+        .split(|c: char| !c.is_ascii_digit())
+        .next()?
+        .parse()
+        .ok()?;
+    let body = page[..start].trim_end_matches('…');
+    Some((body, next))
+}
+
+/// On in a small workspace's headless task; `0` turns it off. The up-front
+/// read reaches the model as data in the
+/// task's context (each file's path and its `read_file` text) instead of an
+/// assistant turn of tool calls the model never wrote. Measured 2026-11-11 on
+/// the ten hardest DeepSeek Flash tasks: missed runs had reasoning text on 6%
+/// of their turns, solved runs on 61-81%; with the read sent as a silent
+/// assistant turn, 13 of 59 runs missed, without it 1 of 102.
+pub(crate) const PREREAD_AS_CONTEXT_ENV: &str = "ANGEL_TASK_PREREAD_AS_CONTEXT";
+
+/// On in a small workspace's headless task; `0` turns it off. The up-front
+/// read leaves out package manifests and
+/// tool configuration (`package.json`, `Cargo.toml`, `babel.config.js`, …);
+/// the map still names them. Measured 2026-11-11: with nothing read up front,
+/// DeepSeek Flash opened `package.json` on 0 of 26 tasks, `babel.config.js` on
+/// 0 of 26 and `Cargo.toml` on 0 of 4, while every one of them was read up
+/// front and sent uncached in the first request. Build scripts that name the
+/// targets (`CMakeLists.txt`, 9 of 10 opened) are still read.
+pub(crate) const PREREAD_SKIP_MANIFESTS_ENV: &str = "ANGEL_TASK_PREREAD_SKIP_MANIFESTS";
+
+/// Off unless set to `1`. The up-front read leaves out test files (a name
+/// with `test` or `spec` in it, or a file under `test/` or `tests/`); the map
+/// still names them and the harness test run still reports on them.
+pub(crate) const PREREAD_SKIP_TESTS_ENV: &str = "ANGEL_TASK_PREREAD_SKIP_TESTS";
+
+fn is_manifest_or_tool_config(name: &str) -> bool {
+    let lower = name.to_ascii_lowercase();
+    let stem = lower.split('.').next().unwrap_or(&lower);
+    matches!(
+        lower.as_str(),
+        "package.json"
+            | "cargo.toml"
+            | "pyproject.toml"
+            | "setup.cfg"
+            | "go.mod"
+            | "go.sum"
+            | "tsconfig.json"
+            | "jsconfig.json"
+            | "deno.json"
+            | "composer.json"
+            | "gemfile"
+    ) || matches!(
+        stem,
+        "babel" | "jest" | "vite" | "vitest" | "webpack" | "rollup" | "eslint" | "prettier"
+    ) && (lower.contains(".config.") || lower.ends_with("rc.json") || lower.ends_with("rc.js"))
+}
+
+fn is_test_file(rel: &str) -> bool {
+    let lower = rel.to_ascii_lowercase();
+    let mut dirs: Vec<&str> = lower.split('/').collect();
+    let name = dirs.pop().unwrap_or_default();
+    dirs.iter()
+        .any(|dir| matches!(*dir, "test" | "tests" | "spec" | "__tests__"))
+        || name
+            .split(|c: char| !c.is_ascii_alphanumeric())
+            .any(|word| matches!(word, "test" | "tests" | "spec" | "specs"))
+}
+
+/// A file worth reading up front: text that `read_file` returns whole, and
+/// not a licence or a lock file.
+fn preread_candidate(root: &Path, rel: &str) -> bool {
+    let name = rel.rsplit('/').next().unwrap_or(rel);
+    let upper = name.to_ascii_uppercase();
+    if ["LICENSE", "LICENCE", "COPYING", "NOTICE"]
+        .iter()
+        .any(|prefix| upper.starts_with(prefix))
+        || upper.ends_with(".LOCK")
+        || upper.ends_with("-LOCK.JSON")
+        || upper.ends_with("-LOCK.YAML")
+    {
+        return false;
+    }
+    if super::env_flag(PREREAD_SKIP_MANIFESTS_ENV, false) && is_manifest_or_tool_config(name) {
+        return false;
+    }
+    if super::env_flag(PREREAD_SKIP_TESTS_ENV, false) && is_test_file(rel) {
+        return false;
+    }
+    // A file larger than the whole budget would arrive cut short.
+    std::fs::read(root.join(rel)).is_ok_and(|bytes| {
+        bytes.len() <= SMALL_WORKSPACE_PREREAD_BYTES && std::str::from_utf8(&bytes).is_ok()
+    })
+}
+
+fn workspace_is_small(workspace: &Path) -> bool {
+    let root = workspace
+        .canonicalize()
+        .unwrap_or_else(|_| workspace.to_path_buf());
+    collect_workspace_rel_paths(&root, SMALL_WORKSPACE_FILES + 1).len() <= SMALL_WORKSPACE_FILES
 }
 
 /// Names the private cache root a headless task installed in place of the
@@ -1250,7 +1580,10 @@ pub(crate) struct TaskJsonContext {
 }
 
 fn graph_incomplete_stop_reason(reason: &str) -> &'static str {
-    if reason == "cancelled" || reason.contains("cancelled") {
+    // A node-failure label names the node by id; an id that says "cancelled"
+    // is still a node failure.
+    if reason == "cancelled" || (!reason.starts_with("node_failed") && reason.contains("cancelled"))
+    {
         "cancelled"
     } else if reason.starts_with("planner") || reason.contains("planner_no_plan") {
         "planner_no_plan"

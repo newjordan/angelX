@@ -106,6 +106,9 @@ impl Run {
                 enemy.age = enemy.age.saturating_add(1);
                 continue;
             }
+            // The Vesper Bell's hold on the wings wears off a tick at a
+            // time, stun or no stun.
+            enemy.grounded = enemy.grounded.saturating_sub(1);
             if enemy.asleep(self.tick) || press::held(enemy) {
                 // Stunned, or held in a Stillhour: nothing moves.
                 continue;
@@ -201,7 +204,7 @@ impl Run {
             wishcraft::slow(enemy, from, &grid);
             // A barricade stops whatever walks into it.
             skills::shove(enemy, &self.works.barricades);
-            if side && !enemy.kind.flies() && !outlaw::own_gravity(enemy, &grid) {
+            if side && !enemy.wings() && !outlaw::own_gravity(enemy, &grid) {
                 // Side-on, walkers walk; the ground decides their height.
                 enemy.y = rest;
                 ledge::fall(enemy, &grid);

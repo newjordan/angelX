@@ -7,13 +7,17 @@ fn fixture() -> App {
     app.scryglass_enabled = true;
     app.scryglass.controller.reset(scryglass::StageRoute::Quest);
     app.focus_module("artifacts");
+    #[cfg(feature = "delve")]
     let id = harness::ToolEventId("u09-failed-shell".into());
+    #[cfg(feature = "delve")]
     let command = format!(
         "cmd=echo U09_COMMAND {}; echo END",
         "long-command-界 ".repeat(40)
     );
+    #[cfg(feature = "delve")]
     app.realm.world
         .note_tool_call_event(id.clone(), "shell", &command);
+    #[cfg(feature = "delve")]
     app.realm.world.note_tool_result_event(
         &id,
         "shell",
@@ -119,6 +123,7 @@ fn u09_review_capture() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn u09_header_activity_never_shares_the_picker_row() {
     let _lock = env_lock();

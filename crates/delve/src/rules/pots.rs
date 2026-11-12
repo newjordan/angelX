@@ -34,6 +34,7 @@ impl Run {
             || self.merchant_camp().is_some_and(|c| c.room == index)
             // The Wax Maze's lanes are the wax's.
             || self.folly.as_ref().is_some_and(|m| m.room == index && !m.done)
+            || self.hop.as_ref().is_some_and(|m| m.room == index && !m.done)
         {
             return Vec::new();
         }

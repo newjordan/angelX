@@ -26,6 +26,7 @@ fn hold_the_fight(run: &mut Run) {
 fn fight(run: &mut Run) {
     let room = index_of(run, RoomKind::Fight);
     run.enter_for_test(room); // combat fixture uses legacy roster/waves; ecology tested via production enter
+    run.settle_seams_for_test();
     assert_eq!(run.phase, Phase::Fighting);
 }
 

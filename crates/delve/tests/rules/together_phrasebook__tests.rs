@@ -364,6 +364,8 @@ fn every_wish_of_the_last_game_checks_at_every_grade_it_earns() {
 fn a_wish_not_safe_for_work_is_turned_away_and_none_ships() {
     let rude = "wish rude-bullets | Rude Bullets\nsay butt bullets | shit bullets\ntier homing 1 :: They seek.\ntier homing 2 :: Harder.\n";
     let (book, errors) = read_checked(rude);
+    // A public build has no private table: every wish stays safe for work.
+    #[cfg(not(private_table))]
     assert!(
         book.is_empty()
             && errors
@@ -371,6 +373,29 @@ fn a_wish_not_safe_for_work_is_turned_away_and_none_ships() {
                 .any(|e| e.contains("`shit` is not for this game")),
         "{errors:?}"
     );
+    // Dev's private table grants a rude ask as asked (`private_table`,
+    // 028003d68); only its slurs are turned away. The slur is the one word
+    // of the table's own rot13 list, so no source file here spells it.
+    #[cfg(private_table)]
+    {
+        assert_eq!(book.len(), 1, "{errors:?}");
+        let slur: String = super::super::private_table::NOT_AT_THE_TABLE[0]
+            .chars()
+            .map(|c| match c {
+                'a'..='m' => (c as u8 + 13) as char,
+                'n'..='z' => (c as u8 - 13) as char,
+                c => c,
+            })
+            .collect();
+        let (book, errors) = read_checked(&rude.replace("shit bullets", &format!("{slur} bullets")));
+        assert!(
+            book.is_empty()
+                && errors
+                    .iter()
+                    .any(|e| e.contains(&format!("`{slur}` is not for this game"))),
+            "{errors:?}"
+        );
+    }
     // Toilet humour is the game's own.
     let (book, errors) = read_checked(&rude.replace(" | shit bullets", " | fart bullets"));
     assert_eq!(book.len(), 1, "{errors:?}");
@@ -659,4 +684,67 @@ fn a_look_painted_for_a_climbed_tier_reads_with_its_ladder() {
     assert!(errors.is_empty(), "{errors:?}");
     assert_eq!(book[0].tiers.len(), 5);
     assert_eq!(read(&book[0].definition_file()), book, "and writes back as it was read");
+}
+
+/// A learned entry as the genie's model writes it on its own: its `vfx`
+/// lines said for the whole wish, outside any tier. It reads, and every
+/// tier that names no recipe of its own carries them (2026-11-05: such
+/// answers were turned away as "unknown line `vfx`").
+#[test]
+fn a_wish_wide_vfx_line_is_every_tiers_recipe() {
+    let text = "wish rotten-fish-stench | Rotten Fish Stench\n\
+        say rotten fish stench | fish stench\n\
+        vfx aura flies poop count=4\n\
+        tier damage 5 :: A whiff.\n\
+        tier damage 10 :: A reek.\n\
+        tier damage 15; vfx hit ring storm back :: The whole harbour.\n";
+    let (book, errors) = read_checked(text);
+    assert!(errors.is_empty(), "{errors:?}");
+    let wish = &book[0];
+    assert_eq!(wish.card(0).unwrap().looks.vfx.layers.len(), 1, "the wish's recipe on tier one");
+    assert_eq!(wish.card(1).unwrap().looks.vfx.layers.len(), 1, "and on tier two");
+    let top = wish.card(2).unwrap();
+    assert_eq!(top.looks.vfx.layers.len(), 1, "a tier with its own recipe keeps only its own");
+    assert!(top.looks.vfx.layers[0].line().contains("ring"), "{:?}", top.looks.vfx.layers[0].line());
+}
+
+/// A `vfx` line right after an `art` block ends the block; it is not a row.
+#[test]
+fn a_vfx_line_ends_an_art_block() {
+    let text = "wish glow | Glow\nsay glow\nart\n..YY..\n.YYYY.\nvfx aura flies poop count=4\ntier damage 5 :: Glows.\n";
+    let (book, errors) = read_checked(text);
+    assert!(errors.is_empty(), "{errors:?}");
+    assert_eq!(book[0].art.len(), 2, "{:?}", book[0].art);
+}
+
+/// "Ice waves", "lava burst", "frost nova": a wish for an area spell is a spell of area casts, never a
+/// bolt, and its ladder climbs by size and a sooner recharge like any other spell's.
+#[test]
+fn an_area_spell_wish_climbs_by_size_and_a_sooner_recharge() {
+    use crate::rules::cards::{Area, Effect, Element, Form};
+    let (book, errors) = learned_three(
+        "wish ice-waves | Ice Waves\nkind spell\nsay ice waves | a wave of ice | frost wave\n\
+tier cast wave frost; cooldown 14 :: A cold wave.\ntier cast wave frost 2; cooldown 12 :: A freezing wave.\n\
+tier cast wave frost 3; cooldown 10 :: A great freezing wave.\n",
+    );
+    assert!(errors.is_empty(), "{errors:?}");
+    let sizes: Vec<u8> = (0..book[0].tiers.len())
+        .map(|tier| match book[0].card(tier).unwrap().effects[..] {
+            [Effect::Area(Area { form: Form::Wave, element: Element::Frost, size })] => size,
+            ref other => panic!("tier {tier} is not a frost wave: {other:?}"),
+        })
+        .collect();
+    assert_eq!(&sizes[..3], [1, 2, 3], "the written tiers climb in size");
+    assert_eq!(sizes.len(), 5, "and the ladder is climbed to five");
+    let waits: Vec<u32> = (0..5).map(|tier| book[0].card(tier).unwrap().cooldown).collect();
+    assert!(waits.windows(2).all(|w| w[1] <= w[0]) && waits[4] < waits[0], "ever sooner: {waits:?}");
+    // The same ladder that stays at one size must still climb, by recharge.
+    let (book, errors) = learned_three(
+        "wish lava-burst | Lava Burst\nkind spell\nsay lava burst | an eruption\n\
+tier cast burst fire; cooldown 14 :: A hot burst.\ntier cast burst fire; cooldown 11 :: Sooner.\ntier cast burst fire; cooldown 8 :: Sooner still.\n",
+    );
+    assert!(errors.is_empty(), "{errors:?}");
+    let waits: Vec<u32> = (0..5).map(|tier| book[0].card(tier).unwrap().cooldown).collect();
+    // (A plain picture grades the numbers, so the wait is longer than written; the climb is the same.)
+    assert!(waits.windows(2).all(|w| w[1] <= w[0]) && waits[4] < waits[2], "{waits:?}");
 }

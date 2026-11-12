@@ -180,9 +180,7 @@ impl TableHost {
         let log_path = workspace.join(".angel").join("round-table.jsonl");
         let shared = Arc::new(Shared::load(Some(log_path)));
         lock(&shared.board).join(ARBITER, host_name);
-        let bind: SocketAddr = crate::drive::together_door::bind(
-            &crate::drive::together_door::default_bind(8797),
-        )?;
+        let bind: SocketAddr = angel_games::door::bind(&angel_games::door::default_bind(8797))?;
         let server = Server::start(
             TableServer { shared: Arc::clone(&shared), uploads: Default::default() },
             ServeConfig::new(bind),

@@ -112,6 +112,7 @@ fn group_migration_and_dependency_contracts_are_atomic() {
     dependent.manifest.imports.push(Import {
         module: "counter".into(),
         contract: "counter/1".into(),
+        optional: false,
     });
     install(
         &mut kernel,
@@ -151,6 +152,7 @@ fn issued_services_pin_both_generations_finish_once_and_reject_late_results() {
     caller.manifest.imports.push(Import {
         module: "provider".into(),
         contract: "compute/1".into(),
+        optional: false,
     });
     caller.implementation = Arc::new(Counter {
         step: 1,
@@ -231,10 +233,12 @@ fn duplicate_routes_and_dependency_cycles_cannot_replace_working_code() {
     a.manifest.imports.push(Import {
         module: "b".into(),
         contract: "counter/1".into(),
+        optional: false,
     });
     b.manifest.imports.push(Import {
         module: "a".into(),
         contract: "counter/1".into(),
+        optional: false,
     });
     assert!(kernel.stage(vec![a, b]).err().unwrap().contains("cycle"));
     assert_eq!(kernel.generation("a"), Some(1));
@@ -344,10 +348,12 @@ fn pack(id: &str, version: i64, consumer: bool) -> Candidate {
                     Import {
                         module: "left".into(),
                         contract: "pack/1".into(),
+                        optional: false,
                     },
                     Import {
                         module: "right".into(),
                         contract: "pack/1".into(),
+                        optional: false,
                     },
                 ]
             } else {
@@ -465,6 +471,7 @@ fn resource_rebinding_defers_during_an_issued_job_without_losing_state_or_replay
     caller.manifest.imports.push(Import {
         module: "left".into(),
         contract: "compute/1".into(),
+        optional: false,
     });
     caller.implementation = Arc::new(Pack {
         version: 0,
@@ -537,6 +544,7 @@ fn imported_bindings_survive_replacement_until_instances_drop_even_when_the_back
     consumer.manifest.imports = vec![Import {
         module: "left".into(),
         contract: "pack/1".into(),
+        optional: false,
     }];
     consumer.implementation = Arc::new(Opaque { token: None });
     install(&mut kernel, vec![consumer, provider]);
@@ -559,7 +567,6 @@ fn imported_bindings_survive_replacement_until_instances_drop_even_when_the_back
     );
 }
 
-
 #[test]
 fn dropped_instance_commit_guard_leaves_checkpoint_and_revision_unchanged() {
     let mut instance = candidate("guard-abort", 2, 1)
@@ -580,7 +587,8 @@ fn dropped_instance_commit_guard_leaves_checkpoint_and_revision_unchanged() {
 #[test]
 fn aborted_guard_retains_the_exact_computation_for_external_ack_retry() {
     let mut instance = candidate("guard-retain", 7, 1)
-        .probe_instance(&Value::Null).unwrap();
+        .probe_instance(&Value::Null)
+        .unwrap();
     let before = instance.checkpoint().clone();
     let transition = instance.stage(&Value::Null).unwrap();
     let output = transition.output.clone();
@@ -605,7 +613,8 @@ fn recoverable_preparation_preserves_foreign_computation_and_both_owners() {
     assert_eq!(error, "stale or foreign instance transition");
     assert_eq!(source.checkpoint(), &before_source);
     assert_eq!(target.checkpoint(), &before_target);
-    let prepared = source.prepare_commit_recoverable(retained)
+    let prepared = source
+        .prepare_commit_recoverable(retained)
         .unwrap_or_else(|(error, _)| panic!("original owner lost its preparation: {error}"));
     assert_eq!(prepared.commit(), json!(0));
     assert_eq!(source.checkpoint().state, json!(8));
@@ -705,4 +714,878 @@ fn legacy_instance_commit_matches_prepared_commit_outputs_checkpoints_and_revisi
     );
     assert_eq!(legacy.checkpoint(), prepared.checkpoint());
     assert_eq!(legacy.revision, prepared.revision);
+}
+
+#[derive(Clone, Default)]
+struct OptionalConsumer {
+    dependencies: Resources,
+}
+impl Implementation for OptionalConsumer {
+    fn with_resources(
+        &self,
+        dependencies: &Resources,
+    ) -> Result<Option<Arc<dyn Implementation>>, String> {
+        Ok(Some(Arc::new(Self {
+            dependencies: dependencies.clone(),
+        })))
+    }
+    fn prepare(&self, previous: Option<&Checkpoint>) -> Result<PreparedState, String> {
+        self.rebind(&previous.cloned().unwrap_or(Checkpoint {
+            schema: 1,
+            state: json!({"selected":false}),
+        }))
+    }
+    fn rebind(&self, checkpoint: &Checkpoint) -> Result<PreparedState, String> {
+        let provider = self.dependencies.get("left", "pack", "pack/1").ok();
+        if checkpoint.state["selected"] == true
+            && provider.is_none_or(|resource| resource.value["version"] == 99)
+        {
+            return Err("selected optional clip unavailable".into());
+        }
+        Ok(PreparedState {
+            checkpoint: checkpoint.clone(),
+            surfaces: BTreeMap::new(),
+            resources: BTreeMap::from([(
+                "pack".into(),
+                json!({"provider":provider.map(|resource| resource.value.as_ref()),"selected":checkpoint.state["selected"]}),
+            )]),
+        })
+    }
+    fn reduce(&self, checkpoint: &Checkpoint, event: &Value) -> Result<Transition, String> {
+        let mut next = checkpoint.clone();
+        next.state["selected"] = event["selected"].clone();
+        let prepared = self.rebind(&next)?;
+        Ok(Transition {
+            checkpoint: prepared.checkpoint,
+            output: Value::Null,
+            surfaces: prepared.surfaces,
+            resources: prepared.resources,
+            effects: vec![],
+        })
+    }
+    fn bind_resource(&self, _: &str, _: &Value) -> Result<Binding, String> {
+        Ok(Arc::new(self.dependencies.clone()))
+    }
+}
+fn optional_consumer() -> Candidate {
+    Candidate {
+        manifest: Manifest {
+            id: "aaa-optional".into(),
+            state_schema: 1,
+            exports: vec![
+                Export {
+                    kind: Kind::Resource,
+                    name: "pack".into(),
+                    contract: "optional/1".into(),
+                },
+                Export {
+                    kind: Kind::Command,
+                    name: "select-optional".into(),
+                    contract: "command/1".into(),
+                },
+            ],
+            imports: vec![Import {
+                module: "left".into(),
+                contract: "pack/1".into(),
+                optional: true,
+            }],
+        },
+        identity: "optional-v1".into(),
+        implementation: Arc::new(OptionalConsumer::default()),
+    }
+}
+#[test]
+fn optional_absence_and_late_provider_rebind_preserve_explicit_selection_and_leases() {
+    let mut kernel = Kernel::default();
+    install(&mut kernel, vec![optional_consumer()]);
+    assert_eq!(
+        kernel.resources()["aaa-optional/pack"].value["provider"],
+        Value::Null
+    );
+    let checkpoint = kernel.checkpoint("aaa-optional").unwrap();
+    assert!(
+        kernel
+            .dispatch(Kind::Command, "select-optional", &json!({"selected":true}))
+            .is_err()
+    );
+    assert_eq!(kernel.checkpoint("aaa-optional").unwrap(), checkpoint);
+    install(&mut kernel, vec![pack("left", 1, false)]);
+    assert_eq!(
+        kernel.resources()["aaa-optional/pack"].value["provider"]["version"],
+        1
+    );
+    kernel
+        .dispatch(Kind::Command, "select-optional", &json!({"selected":true}))
+        .unwrap();
+    let checkpoint = kernel.checkpoint("aaa-optional").unwrap();
+    let old = kernel.resources()["aaa-optional/pack"].clone();
+    assert!(kernel.stage(vec![pack("left", 99, false)]).is_err());
+    assert_eq!(kernel.checkpoint("aaa-optional").unwrap(), checkpoint);
+    assert_eq!(kernel.resources()["left/pack"].value["version"], 1);
+    install(&mut kernel, vec![pack("left", 2, false)]);
+    assert_eq!(kernel.checkpoint("aaa-optional").unwrap(), checkpoint);
+    assert_eq!(
+        kernel.resources()["aaa-optional/pack"].value["provider"]["version"],
+        2
+    );
+    assert_eq!(
+        old.binding::<Resources>()
+            .unwrap()
+            .get("left", "pack", "pack/1")
+            .unwrap()
+            .value["version"],
+        1
+    );
+}
+#[test]
+fn present_optional_provider_is_ordered_contract_checked_and_cycles_are_rejected() {
+    let mut kernel = Kernel::default();
+    install(
+        &mut kernel,
+        vec![optional_consumer(), pack("left", 3, false)],
+    );
+    assert_eq!(
+        kernel.resources()["aaa-optional/pack"].value["provider"]["version"],
+        3
+    );
+    let old = kernel.resources();
+    let mut wrong = pack("left", 4, false);
+    wrong.manifest.exports[0].contract = "pack/2".into();
+    assert!(kernel.stage(vec![wrong]).is_err());
+    assert_eq!(kernel.resources(), old);
+    let mut cycle = pack("left", 4, false);
+    cycle.manifest.imports.push(Import {
+        module: "aaa-optional".into(),
+        contract: "optional/1".into(),
+        optional: true,
+    });
+    assert!(kernel.stage(vec![cycle]).err().unwrap().contains("cycle"));
+    assert_eq!(kernel.resources(), old);
+}
+#[test]
+fn required_imports_stay_required_and_staged_absence_is_fenced_by_late_provider_commit() {
+    let mut kernel = Kernel::default();
+    let mut required = optional_consumer();
+    required.manifest.imports[0].optional = false;
+    assert!(kernel.stage(vec![required]).is_err());
+    let absent = kernel.stage(vec![optional_consumer()]).unwrap();
+    install(&mut kernel, vec![pack("left", 1, false)]);
+    assert!(kernel.commit(absent).is_err());
+    assert_eq!(kernel.generation("aaa-optional"), None);
+    let legacy: Import =
+        serde_json::from_value(json!({"module":"left","contract":"pack/1"})).unwrap();
+    assert!(!legacy.optional);
+    assert_eq!(
+        serde_json::to_value(legacy).unwrap(),
+        json!({"module":"left","contract":"pack/1"})
+    );
+}
+
+#[test]
+fn optional_provider_presence_without_resources_rebinds_and_fences_state_only_changes() {
+    let mut kernel = Kernel::default();
+    install(&mut kernel, vec![optional_consumer()]);
+    assert_eq!(kernel.generation("aaa-optional"), Some(1));
+    let mut provider = pack("left", 1, false);
+    provider.implementation = Arc::new(Counter {
+        step: 1,
+        schema: 1,
+        reject: false,
+        effect: false,
+    });
+    install(&mut kernel, vec![provider]);
+    assert_eq!(
+        kernel.generation("aaa-optional"),
+        Some(2),
+        "presence change without a published resource must rebind its optional consumers"
+    );
+    let mut replacement = optional_consumer();
+    replacement.identity = "optional-v2".into();
+    let prepared = kernel.stage(vec![replacement]).unwrap();
+    kernel.dispatch(Kind::Command, "left", &json!({})).unwrap();
+    assert!(
+        kernel.commit(prepared).is_err(),
+        "present optional provider state changes must invalidate a staged consumer even without resource values"
+    );
+}
+
+#[derive(Clone, Default)]
+struct DrainConsumer {
+    dependencies: Resources,
+    select_on_completion: bool,
+}
+impl Implementation for DrainConsumer {
+    fn with_resources(
+        &self,
+        dependencies: &Resources,
+    ) -> Result<Option<Arc<dyn Implementation>>, String> {
+        Ok(Some(Arc::new(Self {
+            dependencies: dependencies.clone(),
+            select_on_completion: self.select_on_completion,
+        })))
+    }
+    fn prepare(&self, previous: Option<&Checkpoint>) -> Result<PreparedState, String> {
+        self.rebind(&previous.cloned().unwrap_or(Checkpoint {
+            schema: 1,
+            state: json!({"count":0,"selected":false}),
+        }))
+    }
+    fn rebind(&self, previous: &Checkpoint) -> Result<PreparedState, String> {
+        let provider = self.dependencies.get("left", "pack", "pack/1").ok();
+        if previous.state["selected"] == true && provider.is_none() {
+            return Err("selected optional resource still required".into());
+        }
+        Ok(PreparedState {
+            checkpoint: previous.clone(),
+            surfaces: BTreeMap::from([(
+                "drain-view".into(),
+                Surface {
+                    title: "count".into(),
+                    lines: vec![previous.state["count"].to_string()],
+                },
+            )]),
+            resources: BTreeMap::from([(
+                "pack".into(),
+                json!({"count":previous.state["count"],"provider":provider.map(|resource|resource.value.as_ref())}),
+            )]),
+        })
+    }
+    fn reduce(&self, checkpoint: &Checkpoint, event: &Value) -> Result<Transition, String> {
+        let mut next = checkpoint.clone();
+        let completion = event["type"] == "completion";
+        if completion {
+            next.state["count"] = json!(next.state["count"].as_u64().unwrap() + 1);
+            if self.select_on_completion {
+                next.state["selected"] = json!(true);
+            }
+        }
+        let prepared = self.rebind(&next)?;
+        let available = self
+            .dependencies
+            .optional_providers()
+            .any(|(id, _)| id == "provider");
+        let again = (event["wait"] == true
+            || completion && next.state["count"].as_u64().unwrap() < 2)
+            && available;
+        Ok(Transition {
+            checkpoint: prepared.checkpoint,
+            surfaces: prepared.surfaces,
+            resources: prepared.resources,
+            output: Value::Null,
+            effects: if again {
+                vec![Effect {
+                    service: "provider".into(),
+                    method: "compute".into(),
+                    arguments: Value::Null,
+                }]
+            } else {
+                vec![]
+            },
+        })
+    }
+}
+#[derive(Clone, Default)]
+struct DrainMirror(Resources);
+impl Implementation for DrainMirror {
+    fn with_resources(
+        &self,
+        resources: &Resources,
+    ) -> Result<Option<Arc<dyn Implementation>>, String> {
+        Ok(Some(Arc::new(Self(resources.clone()))))
+    }
+    fn prepare(&self, previous: Option<&Checkpoint>) -> Result<PreparedState, String> {
+        self.rebind(&previous.cloned().unwrap_or(Checkpoint {
+            schema: 1,
+            state: json!({"local":"kept"}),
+        }))
+    }
+    fn rebind(&self, previous: &Checkpoint) -> Result<PreparedState, String> {
+        Ok(PreparedState {
+            checkpoint: previous.clone(),
+            surfaces: BTreeMap::new(),
+            resources: BTreeMap::from([(
+                "pack".into(),
+                self.0
+                    .get("worker", "pack", "worker/1")?
+                    .value
+                    .as_ref()
+                    .clone(),
+            )]),
+        })
+    }
+    fn reduce(&self, _: &Checkpoint, _: &Value) -> Result<Transition, String> {
+        Err("not used".into())
+    }
+}
+fn drain_fixture(selected: bool) -> Kernel {
+    let worker = Candidate {
+        manifest: Manifest {
+            id: "worker".into(),
+            state_schema: 1,
+            exports: vec![
+                Export {
+                    kind: Kind::Command,
+                    name: "worker".into(),
+                    contract: "command/1".into(),
+                },
+                Export {
+                    kind: Kind::Resource,
+                    name: "pack".into(),
+                    contract: "worker/1".into(),
+                },
+                Export {
+                    kind: Kind::Surface,
+                    name: "drain-view".into(),
+                    contract: "surface/1".into(),
+                },
+            ],
+            imports: vec![
+                Import {
+                    module: "left".into(),
+                    contract: "pack/1".into(),
+                    optional: true,
+                },
+                Import {
+                    module: "provider".into(),
+                    contract: "compute/1".into(),
+                    optional: true,
+                },
+            ],
+        },
+        identity: "worker-v1".into(),
+        implementation: Arc::new(DrainConsumer {
+            select_on_completion: selected,
+            ..Default::default()
+        }),
+    };
+    let mirror = Candidate {
+        manifest: Manifest {
+            id: "mirror".into(),
+            state_schema: 1,
+            exports: vec![Export {
+                kind: Kind::Resource,
+                name: "pack".into(),
+                contract: "mirror/1".into(),
+            }],
+            imports: vec![Import {
+                module: "worker".into(),
+                contract: "worker/1".into(),
+                optional: false,
+            }],
+        },
+        identity: "mirror-v1".into(),
+        implementation: Arc::new(DrainMirror::default()),
+    };
+    let mut provider = candidate("provider", 10, 1);
+    provider.manifest.exports = vec![Export {
+        kind: Kind::Service,
+        name: "compute".into(),
+        contract: "compute/1".into(),
+    }];
+    let mut kernel = Kernel::default();
+    install(
+        &mut kernel,
+        vec![
+            worker,
+            mirror,
+            provider,
+            pack("left", 1, false),
+            candidate("spare", 7, 1),
+        ],
+    );
+    kernel
+}
+fn start_drain(kernel: &mut Kernel) -> (IssuedEffect, WithdrawalStatus) {
+    let first = kernel
+        .dispatch(Kind::Command, "worker", &json!({"wait":true}))
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    let status = kernel
+        .begin_withdraw(vec![("left".into(), 1), ("provider".into(), 1)])
+        .unwrap();
+    (first, status)
+}
+#[test]
+fn pending_withdrawal_drains_descendants_then_rebinds_the_final_checkpoint_atomically() {
+    let mut kernel = drain_fixture(false);
+    let (first, status) = start_drain(&mut kernel);
+    assert_eq!(status.phase, WithdrawalPhase::Draining);
+    assert_eq!(status.pending_requests, 1);
+    assert!(
+        kernel
+            .dispatch(Kind::Command, "worker", &Value::Null)
+            .is_err()
+    );
+    assert!(
+        kernel
+            .routes()
+            .iter()
+            .any(|route| ["worker", "compute"].contains(&route.export.name.as_str()))
+    );
+    assert_eq!(kernel.resources()["worker/pack"].value["count"], 0);
+    assert_eq!(kernel.resources()["mirror/pack"].value["count"], 0);
+    assert!(kernel.resources().contains_key("left/pack"));
+    assert_eq!(kernel.surfaces()["drain-view"].lines, vec!["0"]);
+    kernel
+        .dispatch(Kind::Command, "spare", &Value::Null)
+        .unwrap();
+    assert_eq!(kernel.checkpoint("spare").unwrap().state, 7);
+    assert!(kernel.stage(vec![candidate("provider", 1000, 1)]).is_err());
+    kernel.invoke(&first).unwrap();
+    let second = kernel
+        .complete(&first.job, Value::Null)
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    assert_eq!(second.target.generation, first.target.generation);
+    assert_ne!(second.job.request, first.job.request);
+    assert_eq!(
+        kernel.withdrawal_status(status.id).unwrap().phase,
+        WithdrawalPhase::Draining
+    );
+    assert_eq!(kernel.checkpoint("worker").unwrap().state["count"], 1);
+    assert_eq!(kernel.generation("worker"), Some(1));
+    assert!(kernel.invoke(&first).is_err());
+    assert!(kernel.complete(&first.job, Value::Null).is_err());
+    kernel.invoke(&second).unwrap();
+    kernel.complete(&second.job, Value::Null).unwrap();
+    assert_eq!(
+        kernel.withdrawal_status(status.id).unwrap().phase,
+        WithdrawalPhase::Published
+    );
+    assert!(kernel.pending.is_none());
+    assert!(kernel.work.is_empty());
+    assert_eq!(kernel.generation("left"), None);
+    assert_eq!(kernel.generation("provider"), None);
+    assert_eq!(kernel.checkpoint("worker").unwrap().state["count"], 2);
+    assert_eq!(kernel.resources()["worker/pack"].value["count"], 2);
+    assert_eq!(kernel.resources()["mirror/pack"].value["count"], 2);
+    assert_eq!(
+        kernel.resources()["worker/pack"].value["provider"],
+        Value::Null
+    );
+    assert_eq!(kernel.checkpoint("mirror").unwrap().state["local"], "kept");
+    assert_eq!(kernel.surfaces()["drain-view"].lines, vec!["2"]);
+    assert_eq!(kernel.generation("worker"), Some(2));
+    kernel
+        .dispatch(Kind::Command, "worker", &Value::Null)
+        .unwrap();
+}
+#[test]
+fn failed_final_optional_rebind_keeps_completion_updates_and_abort_restores_them() {
+    let mut kernel = drain_fixture(true);
+    let (first, status) = start_drain(&mut kernel);
+    kernel.invoke(&first).unwrap();
+    let second = kernel
+        .complete(&first.job, Value::Null)
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    kernel.invoke(&second).unwrap();
+    kernel.complete(&second.job, Value::Null).unwrap();
+    let failed = kernel.withdrawal_status(status.id).unwrap();
+    assert_eq!(failed.phase, WithdrawalPhase::Draining);
+    assert!(failed.error.unwrap().contains("selected optional"));
+    assert_eq!(failed.pending_requests, 0);
+    assert_eq!(kernel.checkpoint("worker").unwrap().state["count"], 2);
+    assert_eq!(kernel.generation("left"), Some(1));
+    assert!(
+        kernel
+            .dispatch(Kind::Command, "worker", &Value::Null)
+            .is_err()
+    );
+    assert!(kernel.retry_withdraw(status.id).unwrap().error.is_some());
+    let restored = kernel.abort_withdraw(status.id).unwrap();
+    assert_eq!(restored.phase, WithdrawalPhase::Aborted);
+    assert_eq!(kernel.resources()["worker/pack"].value["count"], 2);
+    assert_eq!(kernel.resources()["mirror/pack"].value["count"], 2);
+    assert!(kernel.resources()["left/pack"].value.is_object());
+    assert_eq!(kernel.checkpoint("worker").unwrap().state["selected"], true);
+    assert!(kernel.pending.is_none());
+    assert!(kernel.work.is_empty());
+}
+#[test]
+fn abort_waits_for_admitted_work_and_cancel_can_finish_a_withdrawal_without_replay() {
+    let mut kernel = drain_fixture(false);
+    let (first, status) = start_drain(&mut kernel);
+    let abort = kernel.abort_withdraw(status.id).unwrap();
+    assert_eq!(abort.phase, WithdrawalPhase::Draining);
+    assert!(abort.abort_requested);
+    kernel.invoke(&first).unwrap();
+    let second = kernel
+        .complete(&first.job, Value::Null)
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    kernel.invoke(&second).unwrap();
+    kernel.complete(&second.job, Value::Null).unwrap();
+    assert_eq!(
+        kernel.withdrawal_status(status.id).unwrap().phase,
+        WithdrawalPhase::Aborted
+    );
+    assert_eq!(kernel.checkpoint("worker").unwrap().state["count"], 2);
+    assert_eq!(kernel.generation("provider"), Some(1));
+    assert!(
+        kernel
+            .routes()
+            .iter()
+            .any(|route| route.export.name == "compute")
+    );
+    let (first, status) = start_drain(&mut kernel);
+    let mut forged = first.job.clone();
+    forged.generation += 1;
+    assert!(kernel.cancel(&forged).is_err());
+    kernel.cancel(&first.job).unwrap();
+    assert_eq!(
+        kernel.withdrawal_status(status.id).unwrap().phase,
+        WithdrawalPhase::Published
+    );
+    assert!(kernel.invoke(&first).is_err());
+    assert!(kernel.complete(&first.job, Value::Null).is_err());
+    assert!(kernel.work.is_empty());
+    assert!(kernel.pending.is_none());
+}
+#[test]
+fn pending_withdrawal_fences_stale_transactions_requests_and_same_name_readds() {
+    let mut kernel = drain_fixture(false);
+    let stale = kernel.stage(vec![candidate("unpublished", 1, 1)]).unwrap();
+    assert!(kernel.begin_withdraw(vec![("left".into(), 99)]).is_err());
+    let (first, status) = start_drain(&mut kernel);
+    assert!(kernel.commit(stale).is_err());
+    assert!(kernel.begin_withdraw(vec![("left".into(), 1)]).is_err());
+    assert!(kernel.abort_withdraw(status.id + 1).is_err());
+    install(&mut kernel, vec![candidate("unrelated", 3, 1)]);
+    kernel
+        .dispatch(Kind::Command, "unrelated", &Value::Null)
+        .unwrap();
+    kernel.cancel(&first.job).unwrap();
+    assert_eq!(
+        kernel.withdrawal_status(status.id).unwrap().phase,
+        WithdrawalPhase::Published
+    );
+    assert!(kernel.abort_withdraw(status.id).is_err());
+    assert!(kernel.retry_withdraw(status.id).is_err());
+    install(&mut kernel, vec![pack("left", 2, false)]);
+    assert_eq!(kernel.generation("left"), Some(2));
+    assert!(kernel.begin_withdraw(vec![("left".into(), 1)]).is_err());
+    let next = kernel.begin_withdraw(vec![("left".into(), 2)]).unwrap();
+    assert_eq!(next.phase, WithdrawalPhase::Published);
+    assert!(kernel.withdrawal_status(status.id).is_err());
+}
+
+#[test]
+fn pending_withdrawal_rejects_required_dependents_without_hiding_any_publication() {
+    let mut kernel = drain_fixture(false);
+    let routes = kernel.routes();
+    let resources = kernel.resources();
+    assert!(
+        kernel
+            .begin_withdraw(vec![("worker".into(), 1)])
+            .unwrap_err()
+            .contains("requires")
+    );
+    assert_eq!(kernel.routes(), routes);
+    assert_eq!(kernel.resources(), resources);
+    assert!(kernel.pending.is_none());
+    assert!(kernel.withdrawal_status.is_none());
+}
+#[test]
+fn completed_withdrawal_releases_internal_leases_but_existing_instances_still_own_theirs() {
+    let mut kernel = drain_fixture(false);
+    let resource = kernel.resources()["worker/pack"].clone();
+    let weak = Arc::downgrade(&kernel.resources()["left/pack"].binding);
+    let instance = resource.instantiate(&Value::Null).unwrap();
+    let status = kernel
+        .begin_withdraw(vec![("left".into(), 1), ("provider".into(), 1)])
+        .unwrap();
+    assert_eq!(status.phase, WithdrawalPhase::Published);
+    assert!(kernel.pending.is_none());
+    assert!(kernel.work.is_empty());
+    assert!(weak.upgrade().is_some());
+    drop(resource);
+    assert!(weak.upgrade().is_some());
+    drop(instance);
+    assert!(weak.upgrade().is_none());
+}
+#[test]
+fn pending_withdrawal_can_cancel_an_already_started_service_and_never_replay_it() {
+    let mut kernel = drain_fixture(false);
+    let first = kernel
+        .dispatch(Kind::Command, "worker", &json!({"wait":true}))
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    kernel.invoke(&first).unwrap();
+    assert_eq!(kernel.checkpoint("provider").unwrap().state, 10);
+    let status = kernel
+        .begin_withdraw(vec![("left".into(), 1), ("provider".into(), 1)])
+        .unwrap();
+    assert_eq!(status.phase, WithdrawalPhase::Draining);
+    kernel.cancel(&first.job).unwrap();
+    assert_eq!(
+        kernel.withdrawal_status(status.id).unwrap().phase,
+        WithdrawalPhase::Published
+    );
+    assert!(kernel.invoke(&first).is_err());
+    assert!(kernel.complete(&first.job, Value::Null).is_err());
+    assert_eq!(kernel.checkpoint("worker").unwrap().state["count"], 0);
+}
+#[test]
+fn withdrawal_counter_exhaustion_leaves_admissions_state_and_jobs_unchanged() {
+    for epoch in [true, false] {
+        let mut kernel = drain_fixture(false);
+        let routes = kernel.routes();
+        let resources = kernel.resources();
+        if epoch {
+            kernel.epoch = u64::MAX;
+        } else {
+            kernel.next_withdrawal = u64::MAX;
+        }
+        assert!(
+            kernel
+                .begin_withdraw(vec![("left".into(), 1)])
+                .unwrap_err()
+                .contains("exhausted")
+        );
+        assert_eq!(kernel.routes(), routes);
+        assert_eq!(kernel.resources(), resources);
+        assert!(kernel.pending.is_none());
+    }
+}
+
+#[test]
+fn withdrawal_reserves_two_epochs_before_acceptance_without_tagging_work_on_failure() {
+    for epoch in [u64::MAX - 1, u64::MAX] {
+        let mut kernel = drain_fixture(false);
+        let first = kernel
+            .dispatch(Kind::Command, "worker", &json!({"wait":true}))
+            .unwrap()
+            .effects
+            .pop()
+            .unwrap();
+        kernel.epoch = epoch;
+        let routes = kernel.routes();
+        let resources = kernel.resources();
+        let checkpoint = kernel.checkpoint("worker");
+        assert!(
+            kernel
+                .begin_withdraw(vec![("left".into(), 1), ("provider".into(), 1)])
+                .unwrap_err()
+                .contains("epoch capacity")
+        );
+        assert_eq!(kernel.epoch, epoch);
+        assert_eq!(kernel.routes(), routes);
+        assert_eq!(kernel.resources(), resources);
+        assert_eq!(kernel.checkpoint("worker"), checkpoint);
+        assert_eq!(kernel.next_withdrawal, 0);
+        assert!(kernel.withdrawal_status.is_none());
+        assert!(kernel.pending.is_none());
+        assert_eq!(kernel.work[&first.job.request].drain, None);
+        kernel.cancel(&first.job).unwrap();
+    }
+}
+#[test]
+fn pending_epoch_reservation_survives_unrelated_commits_until_final_publication() {
+    for starting_epoch in [u64::MAX - 2, u64::MAX - 3] {
+        let mut kernel = drain_fixture(false);
+        kernel.epoch = starting_epoch;
+        let (first, status) = start_drain(&mut kernel);
+        if starting_epoch == u64::MAX - 3 {
+            install(&mut kernel, vec![candidate("allowed-unrelated", 1, 1)]);
+            assert!(kernel.identity("allowed-unrelated").is_some());
+        }
+        assert_eq!(kernel.epoch, u64::MAX - 1);
+        let last = kernel
+            .stage(vec![candidate("reserved-slot", 1, 1)])
+            .unwrap();
+        assert!(kernel.commit(last).unwrap_err().contains("reserved"));
+        assert!(kernel.identity("reserved-slot").is_none());
+        assert_eq!(kernel.epoch, u64::MAX - 1);
+        // Independent state-only work remains admitted without using an epoch.
+        kernel
+            .dispatch(Kind::Command, "spare", &Value::Null)
+            .unwrap();
+        assert_eq!(kernel.checkpoint("spare").unwrap().state, 7);
+        assert_eq!(kernel.epoch, u64::MAX - 1);
+        kernel.invoke(&first).unwrap();
+        let second = kernel
+            .complete(&first.job, Value::Null)
+            .unwrap()
+            .effects
+            .pop()
+            .unwrap();
+        kernel.invoke(&second).unwrap();
+        kernel.complete(&second.job, Value::Null).unwrap();
+        assert_eq!(
+            kernel.withdrawal_status(status.id).unwrap().phase,
+            WithdrawalPhase::Published
+        );
+        assert_eq!(kernel.epoch, u64::MAX);
+        assert_eq!(kernel.resources()["mirror/pack"].value["count"], 2);
+        assert!(kernel.work.is_empty());
+        assert!(kernel.pending.is_none());
+    }
+}
+#[test]
+fn reserved_epoch_remains_available_for_state_rebinding_abort_after_final_refusal() {
+    let mut kernel = drain_fixture(true);
+    kernel.epoch = u64::MAX - 2;
+    let (first, status) = start_drain(&mut kernel);
+    kernel.invoke(&first).unwrap();
+    let second = kernel
+        .complete(&first.job, Value::Null)
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    kernel.invoke(&second).unwrap();
+    kernel.complete(&second.job, Value::Null).unwrap();
+    assert_eq!(kernel.epoch, u64::MAX - 1);
+    assert_eq!(
+        kernel.withdrawal_status(status.id).unwrap().phase,
+        WithdrawalPhase::Draining
+    );
+    assert!(kernel.withdrawal_status(status.id).unwrap().error.is_some());
+    let unrelated = kernel
+        .stage(vec![candidate("would-trap-abort", 1, 1)])
+        .unwrap();
+    assert!(kernel.commit(unrelated).unwrap_err().contains("reserved"));
+    let aborted = kernel.abort_withdraw(status.id).unwrap();
+    assert_eq!(aborted.phase, WithdrawalPhase::Aborted);
+    // Abort really needed the reserved epoch to rebind mirror from count0 to2.
+    assert_eq!(kernel.epoch, u64::MAX);
+    assert_eq!(kernel.generation("mirror"), Some(2));
+    assert_eq!(kernel.resources()["mirror/pack"].value["count"], 2);
+    assert_eq!(kernel.resources()["worker/pack"].value["count"], 2);
+    assert_eq!(kernel.generation("left"), Some(1));
+    assert!(kernel.pending.is_none());
+    assert!(kernel.work.is_empty());
+}
+
+#[test]
+fn drain_admissions_are_separate_from_retained_resource_surface_and_route_publication() {
+    let mut kernel = drain_fixture(false);
+    install(&mut kernel, vec![pack("independent", 5, false)]);
+    let first = kernel
+        .dispatch(Kind::Command, "worker", &json!({"wait":true}))
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    let published = kernel.resources();
+    let surfaces = kernel.surfaces();
+    let routes = kernel.routes();
+    let status = kernel
+        .begin_withdraw(vec![("left".into(), 1), ("provider".into(), 1)])
+        .unwrap();
+    assert_eq!(kernel.resources(), published);
+    assert_eq!(kernel.surfaces(), surfaces);
+    assert_eq!(kernel.routes(), routes);
+    assert!(
+        kernel
+            .dispatch(Kind::Command, "worker", &Value::Null)
+            .is_err()
+    );
+    kernel
+        .dispatch(Kind::Command, "independent", &json!({"delta":2}))
+        .unwrap();
+    assert_eq!(
+        kernel.resources()["independent/pack"].value["version"],
+        7,
+        "unaffected publication must stay live"
+    );
+    kernel.invoke(&first).unwrap();
+    let second = kernel
+        .complete(&first.job, Value::Null)
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    assert_eq!(kernel.checkpoint("worker").unwrap().state["count"], 1);
+    for key in ["left/pack", "worker/pack", "mirror/pack"] {
+        let resource = kernel.resources()[key].clone();
+        assert_eq!(resource, published[key]);
+        assert!(Arc::ptr_eq(&resource.value, &published[key].value));
+        assert!(Arc::ptr_eq(&resource.binding, &published[key].binding));
+    }
+    assert_eq!(kernel.surfaces(), surfaces);
+    assert_eq!(kernel.routes(), routes);
+    kernel.invoke(&second).unwrap();
+    kernel.complete(&second.job, Value::Null).unwrap();
+    assert_eq!(
+        kernel.withdrawal_status(status.id).unwrap().phase,
+        WithdrawalPhase::Published
+    );
+    assert!(!kernel.resources().contains_key("left/pack"));
+    assert!(
+        !kernel
+            .routes()
+            .iter()
+            .any(|route| route.export.name == "compute")
+    );
+    assert_eq!(kernel.resources()["worker/pack"].value["count"], 2);
+    assert_eq!(kernel.resources()["mirror/pack"].value["count"], 2);
+    assert_eq!(kernel.surfaces()["drain-view"].lines, vec!["2"]);
+    assert_eq!(published["worker/pack"].value["count"], 0);
+}
+#[test]
+fn failed_publication_retains_old_leases_and_abort_publishes_final_drained_state() {
+    let mut kernel = drain_fixture(true);
+    let first = kernel
+        .dispatch(Kind::Command, "worker", &json!({"wait":true}))
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    let published = kernel.resources();
+    let surfaces = kernel.surfaces();
+    let routes = kernel.routes();
+    let status = kernel
+        .begin_withdraw(vec![("left".into(), 1), ("provider".into(), 1)])
+        .unwrap();
+    kernel.invoke(&first).unwrap();
+    let second = kernel
+        .complete(&first.job, Value::Null)
+        .unwrap()
+        .effects
+        .pop()
+        .unwrap();
+    kernel.invoke(&second).unwrap();
+    kernel.complete(&second.job, Value::Null).unwrap();
+    assert!(kernel.withdrawal_status(status.id).unwrap().error.is_some());
+    assert_eq!(kernel.checkpoint("worker").unwrap().state["count"], 2);
+    assert_eq!(kernel.resources(), published);
+    assert_eq!(kernel.surfaces(), surfaces);
+    assert_eq!(kernel.routes(), routes);
+    assert!(Arc::ptr_eq(
+        &kernel.resources()["worker/pack"].binding,
+        &published["worker/pack"].binding
+    ));
+    assert!(kernel.retry_withdraw(status.id).unwrap().error.is_some());
+    assert_eq!(kernel.resources(), published);
+    let aborted = kernel.abort_withdraw(status.id).unwrap();
+    assert_eq!(aborted.phase, WithdrawalPhase::Aborted);
+    assert!(kernel.resources().contains_key("left/pack"));
+    assert!(
+        kernel
+            .routes()
+            .iter()
+            .any(|route| route.export.name == "compute")
+    );
+    assert_eq!(kernel.resources()["worker/pack"].value["count"], 2);
+    assert_eq!(kernel.resources()["mirror/pack"].value["count"], 2);
+    assert_eq!(kernel.surfaces()["drain-view"].lines, vec!["2"]);
+    assert!(
+        kernel
+            .dispatch(Kind::Command, "worker", &Value::Null)
+            .is_ok()
+    );
+    assert!(kernel.pending.is_none());
+    assert!(kernel.work.is_empty());
 }

@@ -63,7 +63,7 @@ writes names on a model's behalf.
 ## Where the names came from
 
 The asset is `cockpit/assets/realm/houses/houses.json`
-(schema `angel-realm-houses/v1`), loaded by `cockpit/src/stage/houses.rs`.
+(schema `angel-realm-houses/v1`), loaded by `cockpit/delve-cart/src/houses.rs`.
 
 - **One call per family, no retries,** each through the family's own angelX
   route via `angel --ask`. Every call was low effort.
@@ -188,7 +188,7 @@ houses has no `house` and is named by the Keep's household.
 
 ## Code
 
-- `cockpit/src/stage/houses.rs`: the house table (from the asset), family
+- `cockpit/delve-cart/src/houses.rs`: the house table (from the asset), family
   lookup, who is serving, and which house fills a party seat.
 - `crates/delve/src/render/overworld/castles.rs`: castle placement and
   sprites, banners, carvings, house colours, and the March's riders.

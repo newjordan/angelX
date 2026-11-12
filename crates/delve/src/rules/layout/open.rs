@@ -42,6 +42,10 @@ pub struct Open {
     /// Its companies have been raised (`Run::populate_open`).
     #[serde(default)]
     pub populated: bool,
+    /// What happened on the floor, kept where it happened
+    /// (`rules::chronicle`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub traces: Vec<crate::rules::chronicle::Trace>,
 }
 
 /// A chamber on the map: its grid cell, its stone (walls included) as
@@ -69,6 +73,20 @@ pub struct Chamber {
     /// The doorway tiles a lock-in shuts (`Tile::Door`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub gates: Vec<(u16, u16)>,
+    /// The tick a knight first stood in it, the tick it shut behind the
+    /// party, and the tick the last of a company that was fought fell (a
+    /// chamber no one woke has none): the braziers' catching, the doors'
+    /// slam and the chamber's hush are drawn from them.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub seen_at: u64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub sealed_at: u64,
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub cleared_at: u64,
+}
+
+fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 impl Chamber {
@@ -157,6 +175,7 @@ impl Open {
             && usize::from(self.guardian) < self.chambers.len()
             && self.arrival.0.is_finite()
             && self.arrival.1.is_finite()
+            && crate::rules::chronicle::valid(&self.traces)
             && self.links.iter().all(|&(a, b)| {
                 usize::from(a) < self.chambers.len() && usize::from(b) < self.chambers.len() && a != b
             })
@@ -431,6 +450,9 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
             seen: false,
             stirred: false,
             gates: Vec::new(),
+            seen_at: 0,
+            sealed_at: 0,
+            cleared_at: 0,
         });
     }
     // Rock: inside no chamber's stone.
@@ -530,6 +552,7 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         secret: None,
         open: None,
         altar_at: std::collections::BTreeMap::new(),
+        fort_admit: super::FortAdmit::default(),
     };
     let mut open = Open {
         map: 0,
@@ -539,6 +562,7 @@ pub fn open_floor(depth: u32, pack: Pack, party: usize, rng: &mut Rng) -> Floor 
         guardian: guardian as u8,
         arrival: (0.0, 0.0),
         populated: false,
+        traces: Vec::new(),
     };
     // The stair's Sanctuary below the first floor: room 0, the map after it.
     let mut taken: Vec<(i32, i32)> = cells.clone();

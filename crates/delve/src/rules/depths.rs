@@ -581,7 +581,7 @@ impl Run {
     /// Where the party stands, marked on the chart: a chamber is seen once
     /// a living knight is in it. The stone is read in place; the roster is not.
     pub(super) fn chart_open(&mut self) {
-        let at = self.at;
+        let (at, tick) = (self.at, self.tick.max(1));
         let players = &self.players;
         let Some(open) = self.dungeon.open.as_mut().filter(|o| o.map == at) else {
             return;
@@ -589,6 +589,7 @@ impl Run {
         for ch in &mut open.chambers {
             if !ch.seen && players.values().any(|h| h.hp > 0 && !h.absent && ch.holds(h.x, h.y, -TILE_UNITS)) {
                 ch.seen = true;
+                ch.seen_at = tick;
             }
         }
     }
@@ -666,7 +667,9 @@ impl Run {
         if let Some(o) = self.dungeon.open.as_mut() {
             o.chambers[g].sealed = true;
             o.chambers[g].stirred = true;
+            o.chambers[g].sealed_at = self.tick.max(1);
         }
+        self.fx.push(Fx::Shake(8));
         let holds = |x: f32, y: f32, inset: f32| {
             let (x0, y0, x1, y1) = bounds;
             x >= x0 + TILE_UNITS + inset
@@ -722,6 +725,9 @@ impl Run {
         if let Some(o) = self.dungeon.open.as_mut() {
             o.chambers[i].cleared = true;
             o.chambers[i].sealed = false;
+            // Only a company that was fought is hushed: a quiet chamber
+            // (the arrival, a crossing no one woke) was never loud.
+            o.chambers[i].cleared_at = if o.chambers[i].stirred { self.tick.max(1) } else { 0 };
         }
         let holds = |x: f32, y: f32, inset: f32| {
             let (x0, y0, x1, y1) = bounds;

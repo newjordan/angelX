@@ -54,14 +54,20 @@ fn print_delve_intro_with_houses() {
             seated: Vec::new(),
             turn: false,
         });
-        let intro = crate::ui::viz::delve_intro_viz::Intro {
+        let intro = crate::delve::delve_intro_viz::Intro {
             knight: kit,
             ..Default::default()
         };
         let mut terminal = Terminal::new(TestBackend::new(120, 34)).unwrap();
         terminal
             .draw(|frame| {
-                crate::ui::viz::delve_intro_viz::render(frame, frame.area(), &intro, None)
+                crate::delve::delve_intro_viz::render(
+                    frame,
+                    frame.area(),
+                    &intro,
+                    None,
+                    &crate::ui::glass::Lent,
+                )
             })
             .unwrap();
         let buffer = terminal.backend().buffer().clone();

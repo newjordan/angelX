@@ -13,6 +13,30 @@ fn experiment_due(st: &LoopState) -> bool {
     (st.podrace && st.iteration >= DEFAULT_LOOP_FIRST_CANDIDATE_ITERS) || stall_limit_reached(st)
 }
 
+wire_status! {
+    /// Where one deep experiment stands. Only a `Running` record has a live
+    /// owner (`App.loop_experiment`); every other word is settled.
+    pub enum ExperimentStatus {
+        Running = "running",
+        Interrupted = "interrupted",
+        Cancelled = "cancelled",
+        Failed = "failed",
+        Returned = "returned",
+    }
+}
+
+impl ExperimentStatus {
+    fn allows(&self, next: &Self) -> bool {
+        use ExperimentStatus::*;
+        // A running experiment settles once, as one of the four settled words;
+        // nothing moves out of a settled word.
+        matches!(
+            (self, next),
+            (Running, Interrupted | Cancelled | Failed | Returned)
+        )
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ExperimentRecord {
     pub key: String,
@@ -21,13 +45,35 @@ pub struct ExperimentRecord {
     #[serde(default)]
     pub settled_iteration: Option<usize>,
     pub artifact_dir: PathBuf,
-    pub status: String,
+    pub status: ExperimentStatus,
     pub reserved_tokens: usize,
     pub summary: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub(crate) context_ref: Option<crate::agent::club::RecoveryContextRef>,
     #[serde(default)]
     pub(crate) context_is_supervisor_only: bool,
+}
+
+impl ExperimentRecord {
+    /// The only way a running record settles: its verdict, the iteration it
+    /// settled in, its summary, and the recovery context it leaves behind
+    /// (none for a run that was interrupted or cancelled, which only the
+    /// supervisor may read).
+    fn settle(
+        &mut self,
+        status: ExperimentStatus,
+        iteration: usize,
+        summary: String,
+        context_ref: Option<crate::agent::club::RecoveryContextRef>,
+        supervisor_only: bool,
+    ) -> Result<(), String> {
+        self.status.step(status)?;
+        self.settled_iteration = Some(iteration);
+        self.summary = Some(summary);
+        self.context_ref = context_ref;
+        self.context_is_supervisor_only = supervisor_only;
+        Ok(())
+    }
 }
 
 pub(crate) struct ExperimentPending {
@@ -181,7 +227,7 @@ impl crate::App {
             iteration: self.loop_ctl.iteration,
             settled_iteration: None,
             artifact_dir: artifact_dir.clone(),
-            status: "running".into(),
+            status: ExperimentStatus::Running,
             reserved_tokens: tokens,
             summary: None,
             context_ref: None,
@@ -226,19 +272,32 @@ impl crate::App {
         {
             self.loop_cancel_experiment();
         }
-        let Some(pending) = self.loop_experiment.as_ref() else {
-            // A power loss can leave a durable running record without a live
-            // owner. Keep its evidence address and make recovery visible.
-            if let Some(record) = self.loop_ctl.experiments.last_mut()
-                && record.status == "running"
-            {
-                record.status = "interrupted".into();
-                record.settled_iteration = Some(self.loop_ctl.iteration);
-                record.context_is_supervisor_only = true;
-                record.context_ref = None;
-                record.summary = Some(ow_ledgers::OWNER_INTERRUPTED.into());
-                save(&self.loop_ctl);
+        // A record is running only while the owner holds its key. Any other
+        // running record lost its owner: a power loss, or a reply that arrived
+        // after the run or workspace changed. Keep its evidence address and
+        // make recovery visible.
+        let owned = self
+            .loop_experiment
+            .as_ref()
+            .map(|pending| pending.key.as_str());
+        let mut orphaned = false;
+        for record in &mut self.loop_ctl.experiments {
+            if record.status == ExperimentStatus::Running && Some(record.key.as_str()) != owned {
+                orphaned |= record
+                    .settle(
+                        ExperimentStatus::Interrupted,
+                        self.loop_ctl.iteration,
+                        ow_ledgers::OWNER_INTERRUPTED.into(),
+                        None,
+                        true,
+                    )
+                    .is_ok();
             }
+        }
+        if orphaned {
+            save(&self.loop_ctl);
+        }
+        let Some(pending) = self.loop_experiment.as_ref() else {
             return;
         };
         let result = match pending.rx.try_recv() {
@@ -257,11 +316,11 @@ impl crate::App {
         let (status, summary, producer, supervisor_only) = match result {
             Ok(result) => {
                 let status = if cancelled {
-                    "cancelled"
+                    ExperimentStatus::Cancelled
                 } else if result.error.is_some() {
-                    "failed"
+                    ExperimentStatus::Failed
                 } else {
-                    "returned"
+                    ExperimentStatus::Returned
                 };
                 let summary = if cancelled {
                     format!(
@@ -294,12 +353,17 @@ impl crate::App {
                 (status, summary, producer, !result.model_phase_entered)
             }
             Err(_) if cancelled => (
-                "cancelled",
+                ExperimentStatus::Cancelled,
                 "deep experiment cancelled; inspect retained artifacts".into(),
                 None,
                 true,
             ),
-            Err(error) => ("failed", format!("deep experiment: {error}"), None, false),
+            Err(error) => (
+                ExperimentStatus::Failed,
+                format!("deep experiment: {error}"),
+                None,
+                false,
+            ),
         };
         let context_ref = (!cancelled && !supervisor_only).then(|| {
             recovery_reference(
@@ -316,11 +380,14 @@ impl crate::App {
             .iter_mut()
             .find(|r| r.key == pending.key)
         {
-            record.status = status.into();
-            record.settled_iteration = Some(self.loop_ctl.iteration);
-            record.summary = Some(summary.clone());
-            record.context_ref = context_ref.clone();
-            record.context_is_supervisor_only = supervisor_only || cancelled;
+            // A record that is no longer running keeps the verdict it already has.
+            let _ = record.settle(
+                status,
+                self.loop_ctl.iteration,
+                summary.clone(),
+                context_ref.clone(),
+                supervisor_only || cancelled,
+            );
         }
         // Cancellation has no model-facing completion. The durable record still
         // points to unfinished work so explicit resume can inspect it.
@@ -364,7 +431,7 @@ impl crate::App {
         // without the newly introduced typed queue companion. Join only exact
         // durable recovery records, never arbitrary process text.
         for record in &self.loop_ctl.experiments {
-            if record.status == "cancelled" || record.context_is_supervisor_only {
+            if record.status == ExperimentStatus::Cancelled || record.context_is_supervisor_only {
                 continue;
             }
             if let Some(summary) = &record.summary
@@ -390,7 +457,7 @@ impl crate::App {
             }
         }
         if let Some(record) = self.loop_ctl.experiments.last()
-            && record.status != "cancelled"
+            && record.status != ExperimentStatus::Cancelled
             && !record.context_is_supervisor_only
             && let Some(summary) = &record.summary
         {
@@ -429,7 +496,7 @@ impl crate::App {
         if let Some(record) = self.loop_ctl.experiments.last() {
             // `⠳⠊`: the record is the data; a fixed summary is its own page.
             let deep = crate::agent::harness::book::ou_checkpoints::DEEP.cells();
-            let summary = if record.status == "cancelled" {
+            let summary = if record.status == ExperimentStatus::Cancelled {
                 format!("{deep}⠉")
             } else {
                 record.summary.clone().unwrap_or_else(|| format!("{deep}⠙"))

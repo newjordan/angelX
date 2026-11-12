@@ -172,6 +172,8 @@ fn ordinary_road_journey_regression() {
         assert_eq!(run.room().kind, RoomKind::Gate);
         for &(kind, _) in &ROOMS {
             if kind == RoomKind::KingsHall { continue; } // paid great door, not a free ordinary road
+            // Bomrekedan is entered by its own door on the kingdom's map, not by road.
+            if crate::rules::world::bomrekedan::is_level(kind) { continue; }
             assert!(run.dungeon.rooms[room_of(&run.dungeon, kind).unwrap()].visited, "{kind:?}: unvisited surface place");
         }
         assert_eq!(run.treasury, treasury, "ordinary walking never charges or mints gold");

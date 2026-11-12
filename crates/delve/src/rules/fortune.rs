@@ -14,8 +14,29 @@ use super::home::Station;
 use super::*;
 use crate::realm::Spoils;
 
+/// The spin's four beats, in ticks: the wheel winds back, runs and slows
+/// (a peg a little farther apart each time), hangs on the wedge before the
+/// one it will take, and the peg lets go.
+pub const WIND: u32 = 12;
+pub const RUN: u32 = 104;
+pub const HANG: u32 = 26;
+pub const DROP: u32 = 10;
 /// How long the wheel spins before it stops.
-pub const SPIN_TICKS: u32 = 4 * HZ;
+pub const SPIN_TICKS: u32 = WIND + RUN + HANG + DROP;
+/// How far back the wheel winds, in radians.
+const BACK: f32 = 0.28;
+/// How near the peg it hangs, and how far it creeps while it does, in wedges.
+const NEAR: f32 = 0.10;
+const CREEP: f32 = 0.04;
+
+/// How a wedge pays: the room cheers to match (fireworks for a grand one,
+/// paper for a fair one, a sigh for the plain road).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Luck {
+    Plain,
+    Fair,
+    Grand,
+}
 
 #[derive(
     Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize,
@@ -133,6 +154,70 @@ impl Mode {
         }
     }
 
+    /// The name in two or three plain words, for a banner.
+    pub fn headline(self) -> &'static str {
+        match self {
+            Mode::LongWayDown => "LONG WAY DOWN",
+            Mode::LightsOut => "LIGHTS OUT",
+            Mode::Collapse => "COLLAPSE",
+            Mode::GiantsFeast => "GIANT'S FEAST",
+            Mode::HoldTheStair => "HOLD THE STAIR",
+            Mode::MimicFair => "MIMIC FAIR",
+            Mode::GlassJaw => "GLASS JAW",
+            Mode::Gauntlet => "GAUNTLET",
+            Mode::Turbo => "TURBO",
+            Mode::RuneRush => "RUNE RUSH",
+            Mode::AllRandom => "ALL RANDOM",
+            Mode::Ironman => "IRONMAN",
+            Mode::HollowWalls => "HOLLOW WALLS",
+            Mode::OpenFloors => "OPEN FLOORS",
+        }
+    }
+
+    /// What it does, in at most three plain words.
+    pub fn gist(self) -> &'static str {
+        match self {
+            Mode::LongWayDown => "THE PLAIN ROAD",
+            Mode::LightsOut => "LANTERNS ONLY",
+            Mode::Collapse => "FLOORS FALL IN",
+            Mode::GiantsFeast => "GIANT FOES",
+            Mode::HoldTheStair => "HORDES COME UP",
+            Mode::MimicFair => "CHESTS THAT BITE",
+            Mode::GlassJaw => "ALL HITS DOUBLE",
+            Mode::Gauntlet => "GUARDIANS ONLY",
+            Mode::Turbo => "A THIRD FASTER",
+            Mode::RuneRush => "RUNES EVERY FIGHT",
+            Mode::AllRandom => "RANDOM ULTIMATES",
+            Mode::Ironman => "NO SECOND WINDS",
+            Mode::HollowWalls => "VAULT EVERY FLOOR",
+            Mode::OpenFloors => "ONE OPEN MAP",
+        }
+    }
+
+    /// What the spoils pay, when they pay more: two words.
+    pub fn pay(self) -> Option<&'static str> {
+        match self.spoils() {
+            (3, 2) => Some("1.5X SPOILS"),
+            (2, 1) => Some("2X SPOILS"),
+            (3, 1) => Some("3X SPOILS"),
+            _ => None,
+        }
+    }
+
+    /// How the wedge pays, for the room's cheer.
+    pub fn luck(self) -> Luck {
+        match self {
+            Mode::Collapse | Mode::GlassJaw | Mode::HoldTheStair | Mode::Turbo | Mode::Ironman => Luck::Grand,
+            Mode::LightsOut
+            | Mode::GiantsFeast
+            | Mode::MimicFair
+            | Mode::RuneRush
+            | Mode::AllRandom
+            | Mode::HollowWalls => Luck::Fair,
+            Mode::LongWayDown | Mode::Gauntlet | Mode::OpenFloors => Luck::Plain,
+        }
+    }
+
     /// The rung of Fortune's ladder that opens this wedge.
     pub fn rung(self) -> u8 {
         match self {
@@ -191,19 +276,91 @@ fn saved_wedge<'de, D: serde::Deserializer<'de>>(de: D) -> Result<u8, D::Error> 
 impl Spin {
     /// How far the wheel has turned (radians, clockwise) at `tick`.
     pub fn angle(&self, tick: u64) -> f32 {
-        let t = if self.settled {
-            1.0
-        } else {
-            (tick.saturating_sub(self.started) as f32 / SPIN_TICKS as f32).min(1.0)
-        };
-        let ease = 1.0 - (1.0 - t).powi(3);
+        let n = if self.settled { SPIN_TICKS } else { tick.saturating_sub(self.started).min(u64::from(SPIN_TICKS)) as u32 };
+        self.angle_at(n)
+    }
+
+    /// The wheel's turn `n` ticks after the pull: it winds back, runs with
+    /// a cubic slowing, hangs a hair short of the next peg (the near miss,
+    /// on the wedge beside the one it will take), and then the peg lets go
+    /// and it drops into its wedge with a small swing past.
+    pub fn angle_at(&self, n: u32) -> f32 {
+        use crate::motion::ease;
+        let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
         let target = f32::from(self.turns) * std::f32::consts::TAU + rest_angle(self.wedge);
-        self.from + (target - self.from) * ease
+        if n >= SPIN_TICKS {
+            return target;
+        }
+        let start = self.from - BACK;
+        let hang = target - (0.5 + NEAR) * w;
+        let (run_at, hang_at, drop_at) = (WIND, WIND + RUN, WIND + RUN + HANG);
+        if n < run_at {
+            return self.from - BACK * ease::out(n as f32 / WIND as f32);
+        }
+        if n < hang_at {
+            // A start that takes a few ticks to catch, then a cubic slowing
+            // to a standstill.
+            let u = (n - run_at) as f32 / RUN as f32;
+            let g = ease::out(u) * ease::both(u / 0.06);
+            return start + (hang - start) * g;
+        }
+        if n < drop_at {
+            let h = (n - hang_at) as f32 / HANG as f32;
+            return hang + CREEP * w * ease::in_quad(h);
+        }
+        let crawl = hang + CREEP * w;
+        let d = (n - drop_at) as f32 / DROP as f32;
+        crawl + (target - crawl) * ease::elastic(d)
+    }
+
+    /// The beat `n` ticks in.
+    pub fn beat(&self, n: u32) -> Beat {
+        match n {
+            n if n < WIND => Beat::Wind,
+            n if n < WIND + RUN => Beat::Run,
+            n if n < WIND + RUN + HANG => Beat::Hang,
+            n if n < SPIN_TICKS => Beat::Drop,
+            _ => Beat::Landed,
+        }
+    }
+
+    /// How many wedges the wheel turns a tick at tick `n` of the spin
+    /// (negative while it winds back).
+    pub fn speed(&self, n: u32) -> f32 {
+        let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
+        (self.angle_at(n) - self.angle_at(n.saturating_sub(1))) / w
+    }
+
+    /// The pegs the wheel has carried past the pointer by tick `n`.
+    pub fn pegs(&self, n: u32) -> i32 {
+        let w = std::f32::consts::TAU / Mode::WHEEL.len() as f32;
+        (self.angle_at(n) / w).floor() as i32
+    }
+
+    /// Whether a peg went by the pointer on tick `n`.
+    pub fn clicked(&self, n: u32) -> bool {
+        n > 0 && n < SPIN_TICKS && self.pegs(n) != self.pegs(n - 1)
+    }
+
+    /// The wedge a spin that stops on `self.wedge` hangs beside: the one the
+    /// pointer sits on at the near miss.
+    pub fn neighbour(&self) -> u8 {
+        ((usize::from(self.wedge) + 1) % Mode::WHEEL.len()) as u8
     }
 
     pub fn done(&self, tick: u64) -> bool {
         self.settled || tick.saturating_sub(self.started) >= u64::from(SPIN_TICKS)
     }
+}
+
+/// Where a spin is: the four beats and the rest.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Beat {
+    Wind,
+    Run,
+    Hang,
+    Drop,
+    Landed,
 }
 
 /// The wheel's turn that brings wedge `wedge` under the pointer at the top.
@@ -317,6 +474,13 @@ impl Run {
                 self.notice("spin");
             }
         }
+        // The pegs click past the pointer as the wheel slows.
+        if let Some(spin) = self.spin.filter(|s| !s.done(self.tick)) {
+            let n = self.tick.saturating_sub(spin.started) as u32;
+            if spin.clicked(n) && spin.speed(n).abs() < 1.0 {
+                self.sounds.push("step_wood");
+            }
+        }
         if let Some(spin) = self.spin
             && spin.done(self.tick)
             && self.mode_said != Some(spin.started)
@@ -327,7 +491,15 @@ impl Run {
             self.found = Some((self.tick, 0, format!("Fortune's Wheel: {}", mode.name())));
             self.cues.push(format!("wheel:{}", mode.word()));
             self.sounds.push("wheel_land");
-            self.fx.push(Fx::Shake(10));
+            if mode.luck() != Luck::Plain {
+                self.sounds.push("gold");
+            }
+            // The slam: the room holds still a moment, then shakes.
+            self.fx.push(Fx::Shake(match mode.luck() {
+                Luck::Grand => 18,
+                _ => 12,
+            }));
+            self.hold_for(juice::Weight::Finale);
         }
     }
 

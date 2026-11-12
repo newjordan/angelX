@@ -80,7 +80,7 @@ pub struct Ledger {
 }
 
 impl Ledger {
-    fn write(&mut self, what: String, spoils: &Spoils, paid_in: bool) {
+    pub(crate) fn write(&mut self, what: String, spoils: &Spoils, paid_in: bool) {
         if paid_in {
             self.paid_in.merge(spoils);
         } else {
@@ -118,6 +118,10 @@ pub struct Barony {
     pub lit: Vec<String>,
     #[serde(default)]
     pub ledger: Ledger,
+    /// The lost halls the King has sent the party after, and the ones it
+    /// has won him (`reclaim`).
+    #[serde(default, skip_serializing_if = "super::reclaim::Halls::is_empty")]
+    pub halls: super::reclaim::Halls,
 }
 
 /// Where a work stands.
@@ -144,14 +148,14 @@ pub struct WorkDef {
     pub site: Site,
 }
 
-use Spoil::{Bone, Ember, Gem, Gold, Ore};
+use Spoil::{Bone, Ember, Gem, Gold, Ore, Wax};
 
 /// The works. A perfect bot delve to Dragon Keep banks about 2,200 gold,
 /// 14 ore, 7 gems and 46 embers (`haul_probe`), and Tobbin's dearest rung is
 /// 1,200 gold: the King's Hall is most of two such delves, the Ore-Forge
 /// most of one. Labour: one delve to Dragon Keep is about half an hour of
 /// realm time, so three dwarves raise the hall in about one.
-pub const WORKS: [WorkDef; 2] = [
+pub const WORKS: [WorkDef; 6] = [
     WorkDef {
         id: "hall",
         name: "The King's Hall",
@@ -170,6 +174,42 @@ pub const WORKS: [WorkDef; 2] = [
         after: Some("workings"),
         site: Site::Forge(Pack::Cavern),
     },
+    WorkDef {
+        id: "bell-forge",
+        name: "The Bell-Forge",
+        says: "rebuild the Crypt's forge",
+        price: &[(Gold, 2400), (Bone, 20), (Wax, 10)],
+        labour: 3 * 20 * 60,
+        after: Some("workings"),
+        site: Site::Forge(Pack::Crypt),
+    },
+    WorkDef {
+        id: "ember-forge",
+        name: "The Ember-Forge",
+        says: "rebuild Dragon Keep's forge",
+        price: &[(Gold, 3000), (Ore, 30), (Gem, 6)],
+        labour: 3 * 25 * 60,
+        after: Some("workings"),
+        site: Site::Forge(Pack::Hellforge),
+    },
+    WorkDef {
+        id: "type-foundry",
+        name: "The Type-Foundry",
+        says: "rebuild the Archive's foundry",
+        price: &[(Gold, 2800), (Ore, 20), (Gem, 6)],
+        labour: 3 * 25 * 60,
+        after: Some("workings"),
+        site: Site::Forge(Pack::Archive),
+    },
+    WorkDef {
+        id: "spore-kiln",
+        name: "The Spore-Kiln",
+        says: "rebuild the Fungal Deep's kiln",
+        price: &[(Gold, 3200), (Bone, 20), (Gem, 8)],
+        labour: 3 * 30 * 60,
+        after: Some("workings"),
+        site: Site::Forge(Pack::Fungal),
+    },
 ];
 
 pub fn work(id: &str) -> Option<&'static WorkDef> {
@@ -182,7 +222,7 @@ pub struct Forge {
     pub id: &'static str,
     pub name: &'static str,
     pub pack: Pack,
-    /// Its rebuilding work (`None`: not rebuildable yet; Phase 2).
+    /// Its rebuilding work (`None`: not rebuildable).
     pub work: Option<&'static str>,
     /// What relights it, carried up the stair.
     pub relight: &'static [(Spoil, u32)],
@@ -193,8 +233,8 @@ pub struct Forge {
 }
 
 /// The forges of Caer Dwfn, one a hall, the King's Great Forge last: the
-/// crown of the chain, relit only with the first fire. Phase 1 rebuilds and
-/// relights the Ore-Forge; the rest stand on the war table as lost.
+/// crown of the chain, relit only with the first fire. Each forge but the
+/// last is rebuilt, relit and then works (`goods`).
 pub const FORGES: [Forge; 6] = [
     Forge {
         id: "ore-forge",
@@ -202,43 +242,43 @@ pub const FORGES: [Forge; 6] = [
         pack: Pack::Cavern,
         work: Some("ore-forge"),
         relight: &[(Ember, 8)],
-        makes: "smelts the Mines' ore; dwarf-forged mail",
+        makes: "smelts the Mines' ore into ingots; dwarf-forged mail",
         tribute: &[(Gem, 1), (Gold, 60)],
     },
     Forge {
         id: "bell-forge",
         name: "The Bell-Forge",
         pack: Pack::Crypt,
-        work: None,
-        relight: &[],
-        makes: "bells and candles for the dead",
+        work: Some("bell-forge"),
+        relight: &[(Ember, 10)],
+        makes: "casts bells that call the folk to a holding's wall",
         tribute: &[],
     },
     Forge {
         id: "ember-forge",
         name: "The Ember-Forge",
         pack: Pack::Hellforge,
-        work: None,
-        relight: &[],
-        makes: "fire-arms from the dragon's coals",
+        work: Some("ember-forge"),
+        relight: &[(Ember, 14)],
+        makes: "tempers blades that arm a holding's men",
         tribute: &[],
     },
     Forge {
         id: "type-foundry",
         name: "The Type-Foundry",
         pack: Pack::Archive,
-        work: None,
-        relight: &[],
-        makes: "type and plates for Pip's maps",
+        work: Some("type-foundry"),
+        relight: &[(Ember, 10)],
+        makes: "casts the type that prints Wren's extra notices",
         tribute: &[],
     },
     Forge {
         id: "spore-kiln",
         name: "The Spore-Kiln",
         pack: Pack::Fungal,
-        work: None,
-        relight: &[],
-        makes: "Maud's draughts, fired",
+        work: Some("spore-kiln"),
+        relight: &[(Ember, 12)],
+        makes: "fires spore-brew into the granary",
         tribute: &[],
     },
     Forge {
@@ -317,7 +357,7 @@ pub const WORKINGS_TRIBUTE: &[(Spoil, u32)] = &[(Ore, 3), (Gold, 30)];
 /// His dwarves at work on a site: three of his own, and one more for every
 /// mission done (they come home from the halls the knights free).
 pub fn crew(barony: &Barony) -> u32 {
-    3 + barony.done.len() as u32
+    3 + barony.done.len() as u32 + barony.halls.crew()
 }
 
 /// How much mail the Ore-Forge's shirts are worth: one piece, six in the
@@ -436,6 +476,7 @@ impl Barony {
         for f in FORGES.iter().filter(|f| self.is_lit(f.id)) {
             t.merge(&spoils(f.tribute));
         }
+        t.merge(&self.halls.rent());
         t
     }
 
@@ -466,6 +507,7 @@ pub fn print(b: &Barony) -> u64 {
     }
     b.lit.hash(&mut h);
     b.done.hash(&mut h);
+    b.halls.won.iter().for_each(|w| w.id.hash(&mut h));
     h.finish()
 }
 
@@ -667,6 +709,7 @@ pub fn settle(
 /// Tribute for the floors a delve just cleared (one entry each), paid into
 /// the treasury and written in the ledger. What was paid, if anything.
 pub fn pay_tribute(home: &mut Home, treasury: &mut Spoils, floors: usize) -> Option<Spoils> {
+    super::goods::rent_days(home, treasury, floors);
     let b = &mut home.barony;
     let one = b.tribute();
     if floors == 0 || one.is_empty() {
@@ -820,7 +863,7 @@ impl Run {
 
     /// Holding E on `plate` marks `what` (with the knight's id) once the
     /// hold fills, like a station's plate.
-    fn hold_plate(
+    pub(super) fn hold_plate(
         &mut self,
         inputs: &BTreeMap<u32, Input>,
         plate: (i32, i32, i32, i32),
@@ -857,6 +900,7 @@ impl Run {
     /// The cockpit's word on the barony changed: what stands now shows.
     /// Called from `rebuild_home` with the barony before.
     pub(super) fn barony_news(&mut self, before: &Barony) {
+        self.reclaim_news(&before.halls);
         let now = &self.home.barony;
         for f in &now.lit {
             if !before.lit.contains(f) {
@@ -924,6 +968,7 @@ pub fn forge_room(cell: (i32, i32), door: usize) -> Room {
     for &(c, r) in &ANVILS {
         fill(&mut room, (c, r, 1, 1), Tile::Block);
     }
+    super::goods::bins(&mut room);
     room.open_door(door);
     room
 }

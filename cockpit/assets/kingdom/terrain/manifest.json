@@ -1,0 +1,212 @@
+{
+  "version": 1,
+  "generated_with": "OpenAI built-in imagegen",
+  "assets": [
+    {
+      "id": "grass",
+      "atlas": "ground-atlas.png",
+      "rect": [
+        0,
+        0,
+        627,
+        627
+      ],
+      "kind": "texture"
+    },
+    {
+      "id": "forest-floor",
+      "atlas": "ground-atlas.png",
+      "rect": [
+        627,
+        0,
+        627,
+        627
+      ],
+      "kind": "texture"
+    },
+    {
+      "id": "stone-ground",
+      "atlas": "ground-atlas.png",
+      "rect": [
+        0,
+        627,
+        627,
+        627
+      ],
+      "kind": "texture"
+    },
+    {
+      "id": "water",
+      "atlas": "ground-atlas.png",
+      "rect": [
+        627,
+        627,
+        627,
+        627
+      ],
+      "kind": "texture"
+    },
+    {
+      "id": "fir-grove",
+      "atlas": "props-atlas.png",
+      "quadrant": 0,
+      "kind": "sprite"
+    },
+    {
+      "id": "rock-outcrop",
+      "atlas": "props-atlas.png",
+      "quadrant": 1,
+      "kind": "sprite"
+    },
+    {
+      "id": "crystal-vein",
+      "atlas": "props-atlas.png",
+      "quadrant": 2,
+      "kind": "sprite"
+    },
+    {
+      "id": "oak-grove",
+      "atlas": "props-atlas.png",
+      "quadrant": 3,
+      "kind": "sprite"
+    },
+    {
+      "id": "hauler-0",
+      "atlas": "workers-atlas.png",
+      "rect": [
+        0,
+        0,
+        627,
+        627
+      ],
+      "kind": "sprite"
+    },
+    {
+      "id": "hauler-1",
+      "atlas": "workers-atlas.png",
+      "rect": [
+        627,
+        0,
+        627,
+        627
+      ],
+      "kind": "sprite"
+    },
+    {
+      "id": "porter-0",
+      "atlas": "workers-atlas.png",
+      "rect": [
+        0,
+        627,
+        627,
+        627
+      ],
+      "kind": "sprite"
+    },
+    {
+      "id": "porter-1",
+      "atlas": "workers-atlas.png",
+      "rect": [
+        627,
+        627,
+        627,
+        627
+      ],
+      "kind": "sprite"
+    },
+    {
+      "id": "ore-iron",
+      "atlas": "ore-resources-atlas.png",
+      "rect": [
+        0,
+        0,
+        630,
+        594
+      ],
+      "kind": "sprite",
+      "visible_bbox": [
+        70,
+        80,
+        567,
+        562
+      ]
+    },
+    {
+      "id": "ore-coal",
+      "atlas": "ore-resources-atlas.png",
+      "rect": [
+        630,
+        0,
+        631,
+        594
+      ],
+      "kind": "sprite",
+      "visible_bbox": [
+        25,
+        107,
+        564,
+        558
+      ]
+    },
+    {
+      "id": "ore-crystal",
+      "atlas": "ore-resources-atlas.png",
+      "rect": [
+        0,
+        594,
+        630,
+        653
+      ],
+      "kind": "sprite",
+      "visible_bbox": [
+        102,
+        49,
+        524,
+        575
+      ]
+    },
+    {
+      "id": "ore-ember",
+      "atlas": "ore-resources-atlas.png",
+      "rect": [
+        630,
+        594,
+        631,
+        653
+      ],
+      "kind": "sprite",
+      "visible_bbox": [
+        36,
+        33,
+        554,
+        575
+      ]
+    }
+  ],
+  "provenance": [
+    {
+      "atlas": "ground-atlas.png",
+      "prompt": "Create a GAME TERRAIN TEXTURE ATLAS for KNIGHT'S WISH, premium pixel-painted medieval fantasy colony game. Exact 2 by 2 grid occupying the ENTIRE square canvas with NO margins, gutters, frames, lines, labels, icons, buildings or text. Each quadrant is one square repeating seamless flat ground material tile; orthographic directly overhead ground texture, NO isometric diamond, NO perspective, NO raised floating island. TOP LEFT: calm muted moss-green meadow grass, broad mottled green clusters and tiny sparse yellow-green blades, mostly quiet even texture, no flowers. TOP RIGHT: forest floor, deep olive-green soil and moss with small scattered pine needles and low fallen leaves, quiet and earthy, NO trees, tree trunks or canopies. BOTTOM LEFT: weathered cool slate-gray limestone ground, mostly solid broad rock slabs with fine dark cracks and a little green moss, a few broken stony chips, NOT paving or roads. BOTTOM RIGHT: deep desaturated teal-blue pond water, broad restrained darker and lighter wave bands and tiny cool blue glints, no shore or objects, NO white foam. Deliberately hand-painted PIXEL ART with crisp small clustered squares and controlled limited natural palette; no photorealism, no smooth gradients, no noisy grit. Material values medium-dark so our detailed warm-lit buildings and pale cobble roads stand out above it. All quadrants tile seamlessly within their own material and must have matching opposite edges. Soft diffuse overhead ambient light, no dramatic shadows. Entire canvas opaque texture; exact four equally sized quadrants and no content across their borders.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-dca4d56a-7416-4522-82b7-c0c65df987ad.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "c14701b21474858fae3b287c700c7fa7b8e26c223e82d9e31ee3a8eff101a54e"
+    },
+    {
+      "atlas": "props-atlas.png",
+      "prompt": "Create a NEW transparent environmental PROP SPRITE ATLAS for KNIGHT'S WISH matching the attached reference art direction: premium richly shaded pixel-painted fantasy strategy sprites, crisp deliberate stepped silhouettes, moss green foliage, limestone cool grays, warm sunlight from upper left, orthographic 3/4 view looking southeast. Exact 2 by2 atlas of FOUR separate complete environmental props. Each prop fills ONLY70 percent of its equal square cell, leaving15 percent TRANSPARENT AIR all around every object, never clipped or touching borders. Top-left: FOREST GROVE, a cluster of three varied evergreen fir trees, one taller and two shorter, rich green layered boughs, dark brown visible trunks, a tiny fallen log and shaded moss roots, narrow compact footprint. Top-right: ROCK OUTCROP, irregular low weathered gray limestone boulders with distinct large facets, moss at base, one split slate seam, a few tiny loose pebbles, no trees, no gold. Bottom-left: CRYSTAL VEIN, a small crag of slate rock with three faceted glowing teal crystals and two smaller violet amethyst shards naturally growing from it, subtle cyan internal light, no magical floating runes, no building. Bottom-right: MEADOW GROVE, one broad crooked oak tree with varied olive-green leafy canopy and clearly visible branches, two low fern bushes and small wildflowers at its roots, narrow footprint. No scenery backgrounds, no land islands, no characters, no UI, no labels, no painted checkerboard. ALL FOUR objects MUST be isolated on true alpha transparency and remain entirely in their own cells. Match reference camera and mature hand-painted pixel material style, detailed enough for64px sprites but strong silhouette and readable large material masses.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-09960146-8b7f-4b22-90b2-3058c021b591.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "a763bd7dc62e7a66cbc9bb4402096f98023610c3c6891c529ea9bfd22ffafea7"
+    },
+    {
+      "atlas": "workers-atlas.png",
+      "prompt": "Create a transparent 2 by 2 GAME SPRITE ANIMATION ATLAS for KNIGHT'S WISH medieval fantasy factory. Use the attached building sheet purely for mature premium pixel-painted style, warm lighting from upper-left, dark oak and desaturated burgundy and olive palette, elevated 3/4 orthographic camera. These are small WORKER sprites designed for24 to32px runtime, bold legible forms, very clear silhouette, strong crisp pixel clusters. Exact four cells,15% transparent margin around each, no labels or frame or text. Top row is TWO WALK FRAMES of THE SAME identical medieval delivery worker pushing THE SAME small loaded two-wheeled handcart, facing screen RIGHT: TOP LEFT left foot forward and right foot back, TOP RIGHT right foot forward and left foot back. Hauler wears dark burgundy vest over tan sleeves, dark brown trousers, a small olive cap, sturdy boots; short stocky adult. Wooden handcart has one large crate and two small sacks, clearly visible large iron-rim wheel. Both top cells same camera, body proportions, size, cart orientation, equipment and position; only the alternating walking feet and slight arm pose change. Bottom row is TWO WALK FRAMES of THE SAME adult porter CARRYING ONE SQUARE CARGO CRATE in both arms, facing screen RIGHT: BOTTOM LEFT left foot forward, BOTTOM RIGHT right foot forward. Porter wears olive tunic, tan sleeves, brown trousers and burgundy cap. Keep crate large and simple. Cart-hauler is wide, porter is narrower. All workers and feet complete and clear; no ground patch, no scenery, no detached accessories, no other people, no road, no white border. True alpha transparency everywhere between objects. Avoid excessive detail, make silhouettes friendly but grounded, not cute cartoon mascots. Atlas four isolated figures, consistent scale and lighting. Preserve source reference aesthetic while creating actual game movement animation frames.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-cd2556a8-54d3-4041-9d8c-10bbed5fb7b0.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "071d7dab5da66f80164a95a7ec2196b530bc5fc898be7d7b07678dfa98548492"
+    },
+    {
+      "atlas": "ore-resources-atlas.png",
+      "prompt": "Create a transparent RESOURCE ICON ATLAS for KNIGHT'S WISH, a premium pixel-art fantasy dungeon and factory game. Exact 2 by 2 grid, exactly four separate physical ore specimens, each centered completely within its equal quadrant with20% generous transparent margin, no borders, circles, labels, lettering, numbers, UI frames, glow backdrop, ground or scenery. Crisp hand-painted pixel art, deliberate clustered square edges, rich hard material planes, dark storybook palette, upper-left light, three-quarter front camera, consistent scale. These are ordinary resource specimens, not monsters and not gems in jewelry. TOP LEFT IRON ORE: a chunky dark brown hematite rock with broad rusty burnt-orange veins, rough slate facets and several exposed cool silver-gray metallic streaks, clearly raw iron-bearing ore, not a refined ingot. TOP RIGHT COAL: a compact irregular cluster of three large sharp black coal lumps, charcoal and graphite facets with restrained cool gray highlights, matte dusty fractures, PURELY DARK COAL with absolutely NO flame, no orange glow, no face. BOTTOM LEFT MOON CRYSTAL: a compact cluster of three tall translucent angular prisms growing from a tiny slate base, brightest main prism teal cyan with violet side crystal, crisp white turquoise edges and subtle luminous interiors; clear matching fantasy crystal resource, no particles. BOTTOM RIGHT LIVING EMBER: one fractured obsidian mineral chunk holding a white-hot golden orange molten heart, black angular shell, broad glowing orange seams and two short yellow flame tongues above it, warm concentrated incandescence, compact silhouette; obviously a magical heat resource different from ordinary coal. Balanced icon scale, bold shapes for24\u201348px HUD display, no thin tiny details or realism grain. All four isolated on TRUE alpha transparency, do not touch cell borders. Mature polished pixel game icon art, not flat vector icons, not smooth3D renders.",
+      "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-1760c47e-2569-4a50-9a8c-2ff982ff36d0.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+      "sha256": "62c42bba26afc94b77077efe10bb63c75b4f5d539f9778ada7a71943c7671eeb"
+    }
+  ]
+}

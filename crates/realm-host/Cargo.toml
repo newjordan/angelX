@@ -17,8 +17,10 @@ autotests = false
 testing = ["angel-delve/testing"]
 
 [dependencies]
+angel-plug = { path = "../plug" }
 angel-delve = { path = "../delve", features = ["bend-engine"] }
 angel-live = { path = "../live" }
+angel-games = { path = "../games" }
 angel-net = { path = "../net" }
 angel-serve = { path = "../serve" }
 # Sprite frames read as PNG; a joined seat's avatar also reads JPEG and WebP.
@@ -41,7 +43,12 @@ terrain-forge = "0.7.0"
 [dev-dependencies]
 # The avatar tests build a GIF to be turned away.
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "webp", "gif"] }
-angel-delve = { path = "../delve", features = ["testing", "bend-engine"] }
+angel-delve = { path = "../delve", features = ["testing", "full-realm-tests", "bend-engine"] }
 # The atomic writers' one-shot fault hooks, for the realm save's regression
 # tests only; a shipped build carries none.
 angel-live = { path = "../live", features = ["fault-hooks"] }
+
+[build-dependencies]
+# Reuse the exact HTTP digest/gzip implementation while capturing embedded
+# files once at build time. No new package or browser runtime layer.
+angel-serve = { path = "../serve" }

@@ -3,6 +3,8 @@
 //! Five live integers: moss_flipper=1250, moss_gravity=28, moss_bounce=85,
 //! moss_nudge=180, moss_launch=1450 (256 fixed units/pixel, 30 Hz).
 //! Version one leaves out multiball, scrolling and bullets. Full brief in assets/mossbell.
+use super::juice::Weight;
+use super::mossbell_show::Cry;
 use super::{BTreeMap, HZ, Input, MAX_PLAYERS, RoomKind, Run, Spoil};
 use serde::{Deserialize, Serialize};
 use std::{cmp::Reverse, collections::VecDeque};
@@ -17,6 +19,15 @@ pub const NUDGE: u32 = 180;
 /// Higher sends the marble further up its dedicated launch lane.
 pub const LAUNCH: u32 = 1450;
 pub const LENGTH: u32 = 60 * HZ;
+/// Ticks every table waits in its lane while the title and the 3-2-1-GO play.
+pub const INTRO: u32 = 78;
+/// The ticks of the round (its age) when the bell tolls and bumpers and the
+/// keeper pay double, for everyone at once.
+pub const BELLS: [(u32, u32); 2] = [(15 * HZ, 21 * HZ), (35 * HZ, 41 * HZ)];
+/// Whether the bell is ringing at a round's `age`.
+pub fn bell(age: u32) -> bool {
+    BELLS.iter().any(|&(from, to)| (from..to).contains(&age))
+}
 pub const GOLD_PER_SEAT: u32 = 10;
 pub const BAY: (f32, f32) = (31.0, 18.0);
 pub const Q: i32 = 256;
@@ -228,6 +239,7 @@ impl Ball {
             }
             return;
         }
+        let pay = if bell(age) { 2 } else { 1 };
         self.trail.rotate_right(1);
         self.trail[0] = (self.x / Q, self.y / Q);
         self.vx += i32::from(stroke.nudge) * tune.moss_nudge as i32;
@@ -304,7 +316,7 @@ impl Ball {
             for (i, (x, y, r)) in BUMPERS.iter().copied().enumerate() {
                 if self.circle(x * Q, y * Q, (r + 3) * Q, bounce) && self.flash[i] == 0 {
                     self.flash[i] = 12;
-                    self.score += 25;
+                    self.score += 25 * pay;
                     self.lit |= 1 << i;
                     self.chain = self.lit.count_ones() as u8;
                     self.vx += if self.x > x * Q { 90 } else { -90 };
@@ -314,7 +326,7 @@ impl Ball {
             }
             if self.hp > 0 && self.circle(80 * Q, 27 * Q, 19 * Q, bounce) && self.hit == 0 {
                 self.hp -= 1;
-                self.score += 100;
+                self.score += 100 * pay;
                 self.hit = 10;
                 self.contact(80, 33);
                 if self.hp == 0 {
@@ -490,6 +502,11 @@ pub struct Session {
     pub key: bool,
     pub jackpot: Vec<u32>,
     pub jackpot_tick: Option<u64>,
+    /// Ticks the tables still wait for the title and the countdown.
+    #[serde(default)]
+    pub intro: u32,
+    #[serde(default, skip_serializing_if = "super::mossbell_show::MossShow::quiet")]
+    pub show: super::mossbell_show::MossShow,
 }
 impl Session {
     pub fn new(seats: impl Iterator<Item = u32>, seed: u64) -> Self {
@@ -502,6 +519,8 @@ impl Session {
             key: true,
             jackpot: vec![],
             jackpot_tick: None,
+            intro: INTRO,
+            show: Default::default(),
         }
     }
     pub fn points(&self, id: u32) -> u32 {
@@ -555,6 +574,8 @@ impl Session {
         !self.tables.is_empty()
             && self.tables.len() <= MAX_PLAYERS as usize
             && self.left <= LENGTH
+            && self.intro <= INTRO
+            && self.show.valid()
             && self
                 .tables
                 .iter()
@@ -636,9 +657,21 @@ impl Run {
             }
             return;
         }
+        let now = self.tick as u32;
+        // The title and the countdown: every table waits in its lane.
+        if s.intro > 0 {
+            s.intro -= 1;
+            self.mossbell = Some(s);
+            return;
+        }
         let age = LENGTH - s.left;
         s.left -= 1;
+        s.show.tick(now);
+        s.show.clock(now, age, LENGTH);
         let old_jackpot = s.jackpot.clone();
+        let mut heaviest: Option<Weight> = None;
+        let mut cleared: Vec<u32> = Vec::new();
+        let pay = if bell(age) { 2 } else { 1 };
         for (&id, t) in &mut s.tables {
             if self.players.get(&id).is_none_or(|h| h.away || h.stone) {
                 continue;
@@ -658,11 +691,42 @@ impl Run {
             if t.ball.drains > old.drains {
                 self.sounds.push("play_card");
             }
+            let b = &t.ball;
+            for (i, (&was, &is)) in old.flash.iter().zip(&b.flash).enumerate() {
+                if was == 0 && is > 0 {
+                    s.show.pop(now, id, i as u8, 25 * pay);
+                }
+            }
+            if b.hp < old.hp {
+                s.show.pop(now, id, 3, b.score.saturating_sub(old.score));
+                let from = (old.x as f32 / Q as f32, old.y as f32 / Q as f32);
+                let w = s.show.keeper(now, id, b.hp, from);
+                heaviest = heaviest.max(Some(w));
+            }
+            if b.jackpot_at.is_some() && old.jackpot_at.is_none() {
+                cleared.push(id);
+            }
+            let lit = b.lit.count_ones();
+            if lit > old.lit.count_ones() && lit >= 2 {
+                s.show.shout(now, Cry::Lit(lit as u8), id);
+            }
         }
         s.race();
         if s.jackpot != old_jackpot {
             self.sounds.push("spoil_pickup");
+            if old_jackpot.is_empty() {
+                for id in s.jackpot.clone() {
+                    heaviest = heaviest.max(Some(s.show.jackpot(now, id)));
+                }
+            }
         }
+        for id in cleared {
+            if !s.jackpot.contains(&id) {
+                heaviest = heaviest.max(Some(s.show.cleared(now, id)));
+            }
+        }
+        let points: Vec<(u32, u32)> = s.tables.keys().map(|&id| (id, s.points(id))).collect();
+        s.show.standings(now, &points);
         if s.left == 0 {
             s.order = s.tables.keys().copied().collect();
             let mut order = std::mem::take(&mut s.order);
@@ -670,9 +734,10 @@ impl Run {
             s.order = order;
             s.key = true;
             let record = &mut self.home.countryside.games.mossbell;
-            record.best = record
-                .best
-                .max(s.tables[&s.order[0]].ball.score.min(1000) as u16);
+            let top = s.tables[&s.order[0]].ball.score.min(1000) as u16;
+            let was = record.best;
+            record.best = record.best.max(top);
+            s.show.end(now, top > was, was);
             if !s.jackpot.is_empty() {
                 record.wins = record.wins.saturating_add(1).min(record.plays);
             }
@@ -688,6 +753,11 @@ impl Run {
             self.sounds.push("spoil_pickup");
         }
         self.mossbell = Some(s);
+        // The heaviest blow of the tick holds the room's time, as the realm's hit-stop does.
+        if let Some(weight) = heaviest {
+            self.hold_for(weight);
+        }
+        self.finish_hit_hold();
     }
     fn start_mossbell(&mut self) {
         let seed = self.rng.next();

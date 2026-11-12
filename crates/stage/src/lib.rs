@@ -11,6 +11,7 @@
 //! beside it: nodes with transforms, meshes and materials under a camera
 //! (docs/GLASS_CORE.md).
 
+pub mod braille;
 pub mod brand;
 pub mod look;
 pub mod marks;

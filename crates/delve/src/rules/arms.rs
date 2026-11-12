@@ -212,6 +212,8 @@ impl Run {
             let (ax, ay) = unit(input.aim_x as f32, input.aim_y as f32);
             if guarded.rolled {
                 self.sounds.push("roll");
+                // The Mirage Duelist's roll leaves a decoy where it began.
+                champions::mirage::decoy(&mut self.phantoms, hero, *id);
             }
             if guarded.spun {
                 self.sounds.push("swing");
@@ -403,6 +405,10 @@ impl Run {
                                 shot.traits.spell = slot as u8 + 1;
                             }
                         }
+                        // An area spell: a zone on the field (`zones`).
+                        cards::Effect::Area(area) => {
+                            zones::cast(&mut self.zones, hero, &card.id, *area, *id, &grid, &self.enemies)
+                        }
                         // The second grimoire: the garden and the counterfeit.
                         cards::Effect::Cabbages(count) => {
                             spells::cabbage_storm(&mut self.strikes, hero, &card.id, *count, bounds, *id)
@@ -412,6 +418,20 @@ impl Run {
                         }
                         cards::Effect::Hedge(_) => {
                             spells::hedge_maze(&mut self.works.barricades, hero, &card.id, *id, bounds)
+                        }
+                        // The second grimoire, continued: the bell, the
+                        // monk, the plague and the reading-out.
+                        cards::Effect::Vesper(_) => {
+                            spells::vesper_bell(&mut self.enemies);
+                        }
+                        cards::Effect::Patience(_) => {
+                            spells::monks_patience(hero);
+                        }
+                        cards::Effect::Frogs(_) => {
+                            spells::plague_of_frogs(&mut self.enemies, &stood);
+                        }
+                        cards::Effect::Excommunicate(_) => {
+                            spells::excommunicate(&mut self.enemies, &stood, bounds);
                         }
                         _ => {}
                     }
@@ -572,10 +592,15 @@ impl Run {
                 }
             }
             heroes::focus_aim(hero, &self.enemies);
+            // The Monk's Patience holds the fire too: the monk needs nothing.
             let guarded = hero.flee_ticks > 0 || hero.dash_ticks > 0 || hero.shielding || hero.walling || hero.spin > 0
-                || hero.champ.busy() || hero.hero_kit.charging;
-            // The Bard's groove breaks on a ready beat with nothing loosed.
+                || hero.champ.busy() || hero.hero_kit.charging || hero.patience > 0;
+            // The Bard's groove breaks on a ready beat with nothing loosed;
+            // one that reached the drop leaves its song for the next.
             if hero.fire_cooldown == 0 && !(input.fire || ax != 0.0 || ay != 0.0) {
+                if hero.groove >= super::bard::DROP_AT {
+                    hero.songs = hero.songs.wrapping_add(1);
+                }
                 hero.groove = 0;
             }
             if !arcade
@@ -713,6 +738,19 @@ impl Run {
                             }
                         }
                         weight.weigh(&mut self.hitstop, &self.tune, &mut self.fx);
+                        // The knight's images thrust with them, and the
+                        // Phantom Lancer's Juxtapose may make another.
+                        for (i, dealt) in ults::phantom_strikes(&self.phantoms, *id, &mut self.enemies, &grid, (hero.aim_x, hero.aim_y), (reach, arc), damage) {
+                            self.enemies[i].wits.foe = *id;
+                            credits.push((*id, dealt));
+                            if self.enemies[i].hp == 0 {
+                                let dir = (angle.cos(), angle.sin());
+                                self.feel.blow(self.enemies[i].id, *id, gore::Blow::Swing { dir, forged: true, fists: false, stroke, combo });
+                            }
+                        }
+                        champions::juxtapose(&mut self.phantoms, hero, *id, self.seed ^ self.tick, &grid);
+                        // Echo Strike strikes the thrust once more, from here.
+                        champions::mirage::echo_thrust(&mut self.champions.echoes, hero, *id, (reach, arc), damage);
                         // The stroke lands as heavy as its heaviest contact
                         // (`melee::Tier::sound`); one that bit nothing rings
                         // its steel as before.
@@ -754,13 +792,13 @@ impl Run {
                     }
                 } else {
                     // A Mage's bolt and a Healer's spark sound their own; the
-                    // Bard's notes are the next stab of its riff, a kick
-                    // under each on the beat (`bard`).
-                    if hero.weapon == Weapon::Notes || classes::shot_sound(hero).is_some_and(|s| s.starts_with("sax_")) {
+                    // Bard's notes play its song, a slice on each beat
+                    // (`bard`).
+                    if hero.weapon == Weapon::Notes || classes::is_bard(hero) {
                         hero.groove = hero.groove.saturating_add(1);
-                        super::bard::volley_sounds(hero.loosed, hero.groove, &mut self.sounds);
-                        if hero.groove == super::bard::GLITCH_AT {
-                            // Held long enough, the horn overloads.
+                        super::bard::volley_sounds(*id, hero.songs, hero.groove, &mut self.seat_sounds);
+                        if hero.groove == super::bard::DROP_AT {
+                            // Held long enough, the horn overloads: the drop.
                             self.found = Some((self.tick, *id, "Wub wub!".to_string()));
                             self.fx.push(Fx::Shake(3));
                         }

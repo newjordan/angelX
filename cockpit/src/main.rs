@@ -12,6 +12,10 @@ extern crate angel_native;
 
 mod agent;
 mod app;
+#[cfg(not(feature = "delve"))]
+mod console;
+#[cfg(feature = "delve")]
+mod delve;
 mod drive;
 mod interactive_launch;
 mod knowledge;
@@ -34,7 +38,9 @@ use drive::{comp_mode, competition, conductor, goal, habits, loop_ctl, loop_dial
 use knowledge::{atlas, caddy, cut, memory, session};
 #[allow(unused_imports)]
 use platform::{overwatch, pty, runtime, runtime_paths, workspace_store, yolo};
-use stage::{raytrace, village, world_viz};
+use stage::raytrace;
+use app::control::realm::GameHost;
+use angel_plug::app::AppWorld;
 #[allow(unused_imports)]
 use ui::{
     agent_panel, draw, frame_timing, glyphs, hud, input, media, mouse, panels, scryglass, surfaces,
@@ -253,7 +259,7 @@ fn apply_terminal_input(
                 Event::FocusLost => app.set_terminal_focused(false),
                 Event::Resize(_, _) => {
                     app.viewer.invalidate_still_layout();
-                    app.realm.dungeon.controls_visible = false;
+                    app.realm.terminal_resized();
                     app.clear_dungeon_controls();
                 }
             }
@@ -307,9 +313,7 @@ where
 {
     // The Delve's server steps on its own thread; the terminal only reads
     // its snapshots (`ANGEL_DELVE_SIM_THREAD=0` steps it here, as tests do).
-    crate::drive::together_sim::set_threaded(
-        std::env::var("ANGEL_DELVE_SIM_THREAD").map_or(true, |v| v != "0"),
-    );
+    GameHost::thread_sim();
     // Bag::standard() assembles the configured clubs and falls back to the
     // practice swing if none are up. Tab switches agents.
     let mut app = App::new_selected_in_workspace(bag, viewer, workspace);
@@ -434,6 +438,8 @@ where
             let input_us = input_started.map_or(0, |start| start.elapsed().as_micros());
             let advance_started = frame_timing.as_ref().map(|_| Instant::now());
             app.advance();
+            // The goddess hears what changed (nothing while she is away).
+            crate::ui::angelface::observe(&mut app);
             sync_game_keyboard(&app, &mut game_keyboard_active)?;
             let advance_us = advance_started.map_or(0, |start| start.elapsed().as_micros());
             let settle_started = frame_timing.as_ref().map(|_| Instant::now());
@@ -612,6 +618,7 @@ USAGE
   angel --look-image IMAGE QUESTION
   angel --watch-fixture [PATH]
   angel --comp-status ARGS…        The active cartridge's status check
+  angel --plugin [COMMAND] ARGS…   Find, install, update and publish plugins (`angelX plugin help`)
   angel --jev-json                 Read jev_decide JSON from stdin
   angel --dump-rl-preview <branch|research|sankey> [PATH|-] [WxH]
   angel --dump-research-preview <story|ledger|flow> [PATH|-] [WxH]
@@ -873,15 +880,16 @@ fn main() -> std::io::Result<()> {
     runtime_paths::install();
     // And what the realm host asks of the cockpit (its model, its owned child
     // processes, the window's door for a joined host's paintings).
-    drive::realm_services::install();
-    // And the cockpit's answers the realm host asks for (posture, stage,
-    // repository identity, the village's HTTP).
-    stage::realm_hooks::install();
+    GameHost::install_services(
+        crate::drive::comp_mode::ambient_stage_sim_allowed,
+        Box::new(crate::agent::service_process::Services),
+        &crate::ui::glass::Lent,
+    );
     // Complete interactive syntax before process ownership, terminal, route,
     // adapter/auth or warming effects. Existing machine grammars stay opaque.
     let entry_args = std::env::args_os().skip(1).collect::<Vec<_>>();
     let interactive = interactive_launch::parse(&entry_args)?;
-    let _media_retirement = drive::together_media::RetirementGuard;
+    let _media_retirement = GameHost::retirement();
     let workspace = interactive
         .as_ref()
         .map(|launch| {
@@ -944,6 +952,10 @@ fn main() -> std::io::Result<()> {
             );
         }
         Some("--labyrinth") => return drive::labyrinth::cli(mode_args.iter().skip(1).cloned()),
+        // `angelX plugin …`: find, install and publish plugins.
+        Some("--plugin") => {
+            std::process::exit(app::plugins::cli::main(mode_args.iter().skip(1).cloned()))
+        }
         Some("--look-image") => return tools::vision::image_cli(mode_args.iter().skip(1).cloned()),
         Some("--tool-http-helper") => return tools::http_transport::helper_main(),
         Some("--sandbox-exec") => return sandbox::exec_helper(mode_args.iter().skip(1).cloned()),
@@ -968,7 +980,7 @@ fn main() -> std::io::Result<()> {
     let process_started = std::time::Instant::now();
     // The Delve's settings come from the environment, once, before anything
     // plays or draws it.
-    drive::delve_settings_from_env();
+    GameHost::read_settings();
     // `--yolo` is a global leading flag for both the TUI and every headless
     // entrypoint. The launcher consumes it too, but the binary supports direct
     // invocation so automation does not depend on the shell wrapper.
@@ -1469,6 +1481,7 @@ fn main() -> std::io::Result<()> {
             // precedence, and interactive TUI turns never enter this branch.
             activate_sealed_sandbox_profile(&task_args, &workspace);
             apply_task_cli_runtime_overrides(&task_args);
+            harness::apply_small_workspace_route(&workspace);
             // Ordinary headless coding uses the same bounded anti-stall policy
             // as the Prime adapter.
             let task_pace = harness::apply_task_runtime_defaults(prompt);
@@ -1589,6 +1602,10 @@ fn main() -> std::io::Result<()> {
                 project_doc_started.elapsed().as_millis(),
             );
             let registry_started = std::time::Instant::now();
+            // The toolchain digests are only needed before the first tool runs,
+            // which is after the model has answered once: let their readers
+            // start with the first request instead of racing start-up for it.
+            tools::build::hold_pin_hashing();
             let mut registry = harness::ToolRegistry::with_team_self_in_run(
                 workspace.clone(),
                 roster,
@@ -1675,6 +1692,7 @@ fn main() -> std::io::Result<()> {
             if let Some(recon) = task_recon {
                 history.push(recon);
             }
+            harness::preread_small_workspace(&registry, &workspace, &mut history);
             let cancel = std::sync::atomic::AtomicBool::new(false);
             let max_hops = harness::configured_max_hops();
             let competition = harness::competition_mode_active(&history);
@@ -1766,9 +1784,29 @@ fn main() -> std::io::Result<()> {
                 &rollout_binding,
                 runtime.requested_driver.as_deref(),
             );
-            if let Ok(answer) = &result {
-                let _ = atlas.enqueue_harvest(&atlas_query, &answer.answer, &[], &[]);
-            }
+            // The atlas harvest and the Caddy write-back (inside the envelope
+            // below) persist to separate stores, each behind its own syncs.
+            // Run them side by side instead of one after the other; the
+            // harvest is joined before anything is printed or the process ends.
+            let mut harvest = result.as_ref().ok().and_then(|answer| {
+                let job = |atlas: Arc<crate::knowledge::atlas::AtlasService>,
+                           query: String,
+                           answer: String| {
+                    let _ = atlas.enqueue_harvest(&query, &answer, &[], &[]);
+                };
+                let (spawned, query, text) =
+                    (Arc::clone(&atlas), atlas_query.clone(), answer.answer.clone());
+                match std::thread::Builder::new()
+                    .name("angel-atlas-harvest".into())
+                    .spawn(move || job(spawned, query, text))
+                {
+                    Ok(worker) => Some(worker),
+                    Err(_) => {
+                        job(Arc::clone(&atlas), atlas_query.clone(), answer.answer.clone());
+                        None
+                    }
+                }
+            });
             drop(event_tx);
             let capture_errors = drain.join().unwrap_or_else(|_| {
                 let error = "rollout capture diagnostics unavailable: task event drain panicked";
@@ -1820,12 +1858,18 @@ fn main() -> std::io::Result<()> {
                             timing.refresh_task_lifecycle();
                             envelope.elapsed_ms = timing.wall_ms;
                         }
+                        if let Some(worker) = harvest.take() {
+                            let _ = worker.join();
+                        }
                         println!(
                             "{}",
                             serde_json::to_string(&envelope)
                                 .expect("task result envelope must serialize")
                         );
                     } else {
+                        if let Some(worker) = harvest.take() {
+                            let _ = worker.join();
+                        }
                         print!("{}", outcome.answer);
                         if !outcome.answer.ends_with('\n') {
                             println!();
@@ -1950,10 +1994,7 @@ fn run_glass(
 fn glass_drawing() {
     // Thrown things in the Delve fly in the window, lifted toward the camera,
     // instead of in the game's picture.
-    crate::stage::world_viz::overworld::arena::draw_lifted_outside(true);
-    // The window draws the Delve's frames from their parts (a stage); only a
-    // terminal is handed the finished picture.
-    crate::stage::world_viz::overworld::arena::draw_parts_outside(true);
+    GameHost::draw_in_window();
 }
 
 /// The cockpit on a glass host's thread, until it quits.
@@ -1970,6 +2011,9 @@ fn cockpit_on_host(
     // So does the Heartglass, the Virtual Embryo campaign's panel
     // (`ANGEL_GLASS_HEART=1`, or `/heart` later).
     crate::ui::heartglass::launch_if_requested();
+    // And angelface, the goddess, when the launch calls her
+    // (`ANGEL_GLASS_FACE=1`, or `/face` later).
+    crate::ui::angelface::launch_if_requested();
     let mut terminal = Terminal::new(host.backend())?;
     let viewer = Viewer::glass();
     let (bag, binding) = crate::app::launch::prepare(&launch, &workspace)?;

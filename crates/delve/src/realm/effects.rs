@@ -198,7 +198,7 @@ impl Scene {
         for playing in &self.effects {
             if playing.id == 0
                 || !ids.insert(playing.id)
-                || !(1..=4).contains(&playing.player)
+                || !(1..=crate::rules::MAX_PLAYERS).contains(&playing.player)
                 || !self.graphs.contains_key(&playing.graph)
                 || !playing
                     .position

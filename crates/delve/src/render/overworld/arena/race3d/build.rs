@@ -413,6 +413,33 @@ fn gorge(t: &Track) -> Mesh {
             block(&mut m, t, b.s + b.len * 0.5, x, b.z.1 + 0.25, (b.len * 0.35, half.0 * 0.7, 0.25), mat::STONE);
         }
     }
+    // The mouth: a stone perch and a lit arch, so the start is a gate and
+    // not a dark slot of water. The flight line stays in the middle.
+    floor(&mut m, t, 0.0, 12.0, -4.2, 4.2, -1.4, 2.0, mat::STONE);
+    for side in [-1.0, 1.0] {
+        block(&mut m, t, 8.0, side * 5.6, 3.2, (0.7, 0.7, 4.6), mat::STONE);
+        block(&mut m, t, 8.0, side * 4.6, 1.4, (0.18, 0.18, 0.35), mat::FIRE);
+        block(&mut m, t, 2.0, side * 3.8, 0.4, (0.4, 0.4, 0.55), mat::FIRE);
+    }
+    block(&mut m, t, 8.0, 0.0, 7.4, (0.8, 6.4, 0.45), mat::STONE);
+    block(&mut m, t, 8.2, 0.0, 6.2, (0.12, 1.1, 0.8), mat::BANNER);
+    // Ribs and lanterns down the gorge, the same reading the shaft gets
+    // from its timbering. Spans sit under the flight line.
+    let mut rib = 22.0f32;
+    let mut k = 0;
+    while rib < len - 40.0 {
+        let half = t.at(rib).width * 0.5;
+        for side in [-1.0, 1.0] {
+            block(&mut m, t, rib, side * (half - 0.5), 2.4, (0.35, 0.35, 3.6), mat::STONE);
+            lantern(&mut m, t, rib, side * (half - 1.4), 2.8, false);
+        }
+        block(&mut m, t, rib, 0.0, 5.6, (0.28, half - 0.4, 0.26), mat::STONE);
+        if k % 2 == 0 {
+            block(&mut m, t, rib + 8.0, 0.0, -2.4, (0.35, half - 1.2, 0.22), mat::STONE);
+        }
+        rib += 18.0;
+        k += 1;
+    }
     // The Keep at the end of the gorge: a great wall, a gate, two towers.
     let gate = t.finish;
     block(&mut m, t, gate + 2.0, 0.0, 4.0, (1.0, 10.0, 13.0), mat::STONE);

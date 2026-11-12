@@ -195,6 +195,9 @@ pub struct Session {
     pub purse: u32,
     #[serde(default)]
     pub fields: Vec<Field>,
+    /// What the picture makes a fuss of: blows, calls, streaks (`juice`). No rule reads it.
+    #[serde(default, skip_serializing_if = "juice::Juice::quiet")]
+    pub show: juice::Juice,
 }
 impl Session {
     pub fn new(players: &BTreeMap<u32, Hero>, book: &Book) -> Self {
@@ -216,10 +219,11 @@ impl Session {
             purse: 0,
             fields: Vec::new(),
             melee: melee::State::default(),
+            show: juice::Juice::default(),
         }
     }
     pub fn valid(&self) -> bool {
-        self.melee.valid() && self.fighters.len() <= MAX_PLAYERS as usize
+        self.melee.valid() && self.show.valid() && self.fighters.len() <= MAX_PLAYERS as usize
             && self.shots.len() <= MAX_PROJECTILES
             && self.fields.len() <= 32
             && self.feed.len() <= 5
@@ -278,6 +282,7 @@ impl Session {
         )?;
         if leg::ask("melee_tick", json!({"winner": self.winner.is_some(), "connected": on}))? == true { self.melee.tick(); }
         put!(open => self; ended, ticks, pickups);
+        self.show.tick(self.ticks);
         if open["go"] != true {
             return Ok(());
         }
@@ -384,6 +389,7 @@ impl Session {
         self.strike(owner, target, damage, way).unwrap_or(false)
     }
     fn strike(&mut self, owner: u32, target: u32, damage: u32, way: (f32, f32)) -> Result<bool, String> {
+        let from = self.fighters.get(&owner).map_or((0., 0.), |k| (k.hero.x, k.hero.y));
         let t = self.fighters.get(&target);
         let blocked =
             t.is_some_and(|f| shield::turns(&f.hero, way) || (f.hero.walling && -(way.0 * f.hero.aim_x + way.1 * f.hero.aim_y) > 0.));
@@ -401,7 +407,7 @@ impl Session {
             }
             _ => return Ok(false),
         }
-        let before = f.hero.hp;
+        let (before, armor) = (f.hero.hp, f.hero.armor);
         f.hero.hit_ward = 0;
         f.hero.hurt(damage);
         f.hero.dress();
@@ -416,13 +422,22 @@ impl Session {
         }
         let struck = json!({ "owner": owner, "target": target, "before": before, "after": f.hero.hp, "ticks": self.ticks, "kills": kills, "deaths": f.deaths, "feed": self.feed });
         let s = leg::ask("struck", json!({ "struck": struck }))?;
-        if s["died"] == true {
+        let (died, won) = (s["died"] == true, s["died"] == true && s["winner"] == true);
+        let lost = (before + armor).saturating_sub(f.hero.hp + f.hero.armor);
+        let weight = juice::Weight::of(lost, f.hero.max_hp, died, won);
+        let blow = juice::Blow { owner, target, x: f.hero.x, y: f.hero.y, from, lost: lost.min(u32::from(u16::MAX)) as u16, weight, born: self.ticks };
+        if lost > 0 || died {
+            self.show.blow(blow);
+        }
+        if died {
             put!(s => f; respawn, deaths);
             put!(s => self; feed);
             put!(s => self.fighters.get_mut(&owner).unwrap(); kills);
-            if s["winner"] == true {
+            if won {
                 (self.winner, self.ended) = (Some(owner), 0);
             }
+            let scores: Vec<(u32, u16)> = self.fighters.iter().map(|(&id, f)| (id, f.kills)).collect();
+            self.show.kill(self.ticks, owner, target, &scores, GOAL);
         }
         Ok(s["landed"] == true)
     }
@@ -461,7 +476,7 @@ impl Run {
     }
     /// Clean entry for the town door and a future mini-game ballot.
     pub fn start_deathmatch(&mut self) {
-        if self.room().kind != RoomKind::Forest || self.deathmatch.is_some() {
+        if !self.on_stage() || self.deathmatch.is_some() {
             return;
         }
         self.forest.leave();
@@ -481,9 +496,17 @@ impl Run {
         let Some(mut s) = self.deathmatch.take() else {
             return;
         };
+        let before = s.ticks;
         let home = self.deathmatch_round(&mut s, inputs).unwrap_or(false);
+        // The heaviest blow of the tick holds the room's time, as the realm's hit-stop does.
+        let heaviest = if s.ticks > before { s.show.blows.iter().filter(|b| b.born == s.ticks).map(|b| b.weight).max() } else { None };
         self.deathmatch = Some(s);
-        if home {
+        if let Some(weight) = heaviest {
+            self.hold_for(weight);
+        }
+        self.finish_hit_hold();
+        // A random room's game ends in the room, not at the kingdom's door.
+        if home && !self.encounter_hosts() {
             for id in self.players.keys().copied().collect::<Vec<_>>() {
                 self.leave_activity(id);
             }
@@ -495,7 +518,7 @@ impl Run {
     /// heard, and a win pays the pot. True when the podium has run and the knights
     /// go home.
     fn deathmatch_round(&mut self, s: &mut Session, inputs: &BTreeMap<u32, Input>) -> Result<bool, String> {
-        let crossroads = self.crossroads.is_some();
+        let crossroads = self.host_pays();
         let gold = |id: &u32| self.players.get(id).map_or(0, |h| h.carried.get(Spoil::Gold));
         let ids: std::collections::BTreeSet<u32> = self.players.keys().chain(s.fighters.keys()).copied().collect();
         let rows: Vec<Value> = ids.iter().map(|id| {

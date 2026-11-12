@@ -1,0 +1,236 @@
+{
+ "beat_s": 0.4,
+ "volleys_per_beat": 3,
+ "beats": 96,
+ "loop_from_beat": 32,
+ "tier_at_beat": [
+  0,
+  4,
+  12
+ ],
+ "tier_lufs": [
+  -22.0,
+  -20.5,
+  -19.5
+ ],
+ "slice_tail_ms": 16.0,
+ "sample_rate": 44100,
+ "songs": [
+  {
+   "letter": "a",
+   "id": "de553e53477f",
+   "title": "Wide Open Tomorrow",
+   "source_bpm": 140.004,
+   "stretch_ratio": 0.93336,
+   "speed": 1.0714,
+   "source_bpm_after_drift": 140.004,
+   "grid_residual_ms": 7.72,
+   "grid_kicks": 61,
+   "excerpt_start_bar": 24,
+   "excerpt_start_s": 41.266,
+   "excerpt_labels": "#####b##################",
+   "tier_gain_db": [
+    -4.6,
+    -4.7,
+    -6.8
+   ],
+   "lullaby": "breakdown bars 17-24 (LB)",
+   "lullaby_grid_residual_ms": 0.0,
+   "kick_sync": {
+    "median_ms": 2.0,
+    "std_ms": 4.0,
+    "drift_ms_per_beat": 0.023,
+    "kicks": 57
+   }
+  },
+  {
+   "letter": "b",
+   "id": "e3937dd9b2a4",
+   "title": "First Light",
+   "source_bpm": 140.029,
+   "stretch_ratio": 0.93353,
+   "speed": 1.0712,
+   "source_bpm_after_drift": 140.029,
+   "grid_residual_ms": 6.88,
+   "grid_kicks": 92,
+   "excerpt_start_bar": 14,
+   "excerpt_start_s": 24.25,
+   "excerpt_labels": "###############b########",
+   "tier_gain_db": [
+    -4.2,
+    -3.9,
+    -5.5
+   ],
+   "lullaby": "breakdown bars 0-14 (L)",
+   "lullaby_grid_residual_ms": 0.0,
+   "kick_sync": {
+    "median_ms": 2.0,
+    "std_ms": 8.3,
+    "drift_ms_per_beat": -0.063,
+    "kicks": 88
+   }
+  },
+  {
+   "letter": "c",
+   "id": "5dbd61b9afea",
+   "title": "Golden Hour Coming",
+   "source_bpm": 137.925,
+   "stretch_ratio": 0.9197,
+   "speed": 1.0873,
+   "source_bpm_after_drift": 137.955,
+   "grid_residual_ms": 17.47,
+   "grid_kicks": 90,
+   "excerpt_start_bar": 84,
+   "excerpt_start_s": 146.269,
+   "excerpt_labels": "##############bb########",
+   "tier_gain_db": [
+    -3.6,
+    -3.7,
+    -5.7
+   ],
+   "lullaby": "breakdown bars 34-43 (LB)",
+   "lullaby_grid_residual_ms": 0.0,
+   "kick_sync": {
+    "median_ms": 2.0,
+    "std_ms": 20.0,
+    "drift_ms_per_beat": -0.033,
+    "kicks": 84
+   }
+  },
+  {
+   "letter": "d",
+   "id": "eb0f002d505c",
+   "title": "Brand New Morning",
+   "source_bpm": 139.998,
+   "stretch_ratio": 0.93332,
+   "speed": 1.0714,
+   "source_bpm_after_drift": 139.998,
+   "grid_residual_ms": 5.93,
+   "grid_kicks": 84,
+   "excerpt_start_bar": 49,
+   "excerpt_start_s": 84.555,
+   "excerpt_labels": "############bb##########",
+   "tier_gain_db": [
+    -3.8,
+    -4.0,
+    -5.6
+   ],
+   "lullaby": "breakdown bars 61-63 (LB)",
+   "lullaby_grid_residual_ms": 0.0,
+   "kick_sync": {
+    "median_ms": 2.0,
+    "std_ms": 4.8,
+    "drift_ms_per_beat": 0.046,
+    "kicks": 76
+   }
+  },
+  {
+   "letter": "e",
+   "id": "a5c47681bcf5",
+   "title": "Together Now",
+   "source_bpm": 140.045,
+   "stretch_ratio": 0.93363,
+   "speed": 1.0711,
+   "source_bpm_after_drift": 140.045,
+   "grid_residual_ms": 9.27,
+   "grid_kicks": 90,
+   "excerpt_start_bar": 24,
+   "excerpt_start_s": 41.417,
+   "excerpt_labels": "########################",
+   "tier_gain_db": [
+    -1.2,
+    -3.1,
+    -6.9
+   ],
+   "lullaby": "breakdown bars 8-24 (LB)",
+   "lullaby_grid_residual_ms": 0.0,
+   "kick_sync": {
+    "median_ms": 2.0,
+    "std_ms": 9.0,
+    "drift_ms_per_beat": -0.073,
+    "kicks": 85
+   }
+  },
+  {
+   "letter": "f",
+   "id": "72c3e4dcce07",
+   "title": "Common Ground",
+   "source_bpm": 138.066,
+   "stretch_ratio": 0.92001,
+   "speed": 1.0869,
+   "source_bpm_after_drift": 138.001,
+   "grid_residual_ms": 16.9,
+   "grid_kicks": 91,
+   "excerpt_start_bar": 48,
+   "excerpt_start_s": 83.985,
+   "excerpt_labels": "##############b#########",
+   "tier_gain_db": [
+    -1.4,
+    -3.5,
+    -6.3
+   ],
+   "lullaby": "breakdown bars 12-17 (L)",
+   "lullaby_grid_residual_ms": 0.0,
+   "kick_sync": {
+    "median_ms": 2.0,
+    "std_ms": 4.8,
+    "drift_ms_per_beat": 0.036,
+    "kicks": 83
+   }
+  },
+  {
+   "letter": "g",
+   "id": "08859c82903f",
+   "title": "The Long Good Dawn",
+   "source_bpm": 137.99,
+   "stretch_ratio": 0.91993,
+   "speed": 1.087,
+   "source_bpm_after_drift": 137.99,
+   "grid_residual_ms": 5.35,
+   "grid_kicks": 92,
+   "excerpt_start_bar": 31,
+   "excerpt_start_s": 54.403,
+   "excerpt_labels": "#######k#######k#######k",
+   "tier_gain_db": [
+    -2.4,
+    -1.9,
+    -5.2
+   ],
+   "lullaby": "breakdown bars 3-15 (LB)",
+   "lullaby_grid_residual_ms": 0.0,
+   "kick_sync": {
+    "median_ms": 2.0,
+    "std_ms": 5.1,
+    "drift_ms_per_beat": 0.046,
+    "kicks": 87
+   }
+  },
+  {
+   "letter": "h",
+   "id": "254e2dee8e0f",
+   "title": "Shoulder to Shoulder",
+   "source_bpm": 138.015,
+   "stretch_ratio": 0.9201,
+   "speed": 1.0868,
+   "source_bpm_after_drift": 138.015,
+   "grid_residual_ms": 3.81,
+   "grid_kicks": 98,
+   "excerpt_start_bar": 34,
+   "excerpt_start_s": 59.243,
+   "excerpt_labels": "###k###k#######k#######k",
+   "tier_gain_db": [
+    -3.5,
+    -3.3,
+    -6.3
+   ],
+   "lullaby": "breakdown bars 27-33 (LB)",
+   "lullaby_grid_residual_ms": 0.0,
+   "kick_sync": {
+    "median_ms": 2.0,
+    "std_ms": 2.5,
+    "drift_ms_per_beat": -0.019,
+    "kicks": 91
+   }
+  }
+ ]
+}

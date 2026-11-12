@@ -17,6 +17,9 @@ mod prefetch_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/tools/build__run_tests_args_tests.rs"]
 mod run_tests_args_tests;
+#[cfg(test)]
+#[path = "../../../../tests/cockpit/tools/build__pin_hold_tests.rs"]
+mod pin_hold_tests;
 mod targets;
 mod verifier;
 pub(crate) use targets::MutationTargets;
@@ -169,6 +172,8 @@ struct PendingDigest {
 
 impl PendingDigest {
     fn settle(&self) -> &Result<String, String> {
+        // A caller that needs the digest must not wait on a held reader.
+        PIN_HASHING.release();
         self.settled.get_or_init(|| {
             let worker = self
                 .worker
@@ -187,6 +192,57 @@ impl PendingDigest {
 
 /// Digests still being read, settled together before the first dispatch.
 static PENDING_PINS: Mutex<Vec<Arc<PendingDigest>>> = Mutex::new(Vec::new());
+
+/// A latch the background digest readers wait on. Open unless a headless run
+/// asks to hold them: their threads would otherwise compete with the start-up
+/// that leads to the first model request, for digests that are only needed
+/// before the first tool runs, which is after the model has answered.
+struct HashHold {
+    held: Mutex<bool>,
+    changed: std::sync::Condvar,
+}
+
+impl HashHold {
+    const fn new() -> Self {
+        Self {
+            held: Mutex::new(false),
+            changed: std::sync::Condvar::new(),
+        }
+    }
+
+    fn hold(&self) {
+        *self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = true;
+    }
+
+    fn release(&self) {
+        *self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = false;
+        self.changed.notify_all();
+    }
+
+    fn wait_released(&self) {
+        let mut held = self.held.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        while *held {
+            held = self
+                .changed
+                .wait(held)
+                .unwrap_or_else(|poisoned| poisoned.into_inner());
+        }
+    }
+}
+
+static PIN_HASHING: HashHold = HashHold::new();
+
+/// Hold the digest readers until [`release_pin_hashing`] or the first settle.
+/// Executables are still opened and identity-checked at capture; only the
+/// reading of the already-open image moves.
+pub(crate) fn hold_pin_hashing() {
+    PIN_HASHING.hold();
+}
+
+/// Let the digest readers run. Idempotent.
+pub(crate) fn release_pin_hashing() {
+    PIN_HASHING.release();
+}
 
 /// Wait for every executable digest captured so far. Called before any tool
 /// dispatch: a model-owned action can never precede a pin it is judged by.
@@ -442,15 +498,71 @@ impl PinnedCargo {
 struct EphemeralCargoHome {
     path: PathBuf,
     target: PathBuf,
+    /// Held for the life of the process (see [`CARGO_HOME_REUSE_ENV`]).
+    kept: bool,
 }
 
 impl Drop for EphemeralCargoHome {
     fn drop(&mut self) {
-        let _ = std::fs::remove_dir_all(&self.path);
+        if !self.kept {
+            let _ = std::fs::remove_dir_all(&self.path);
+        }
+    }
+}
+
+/// On when `ANGEL_CARGO_HOME_REUSE=1`, which a small workspace's headless task
+/// sets by default: keeps one private Cargo home and
+/// target for the life of this process instead of one per verifier run, so the
+/// second and later runs compile only what changed. The home is still private
+/// to this process (mode 0700, outside the workspace, never the workspace's
+/// own `target/`) and is removed at exit. Measured on a crate with one
+/// dependency: every run, the post-write check and each confirming re-run
+/// rebuilt the dependency tree, about 2 s a time.
+pub(crate) const CARGO_HOME_REUSE_ENV: &str = "ANGEL_CARGO_HOME_REUSE";
+
+static KEPT_CARGO_HOME: std::sync::Mutex<Option<(PathBuf, PathBuf)>> = std::sync::Mutex::new(None);
+
+extern "C" fn remove_kept_cargo_home() {
+    if let Ok(mut kept) = KEPT_CARGO_HOME.try_lock() {
+        if let Some((_, path)) = kept.take() {
+            let _ = std::fs::remove_dir_all(path);
+        }
     }
 }
 
 fn ephemeral_cargo_home(executable: &PinnedCargoExecutable) -> Result<EphemeralCargoHome, String> {
+    if std::env::var(CARGO_HOME_REUSE_ENV).is_ok_and(|value| value.trim() == "1") {
+        let mut kept = KEPT_CARGO_HOME
+            .lock()
+            .map_err(|_| "kept Cargo home lock poisoned".to_string())?;
+        if let Some((parent, path)) = kept.as_ref() {
+            if *parent == executable.private_home_parent && path.join("target").is_dir() {
+                return Ok(EphemeralCargoHome {
+                    path: path.clone(),
+                    target: path.join("target"),
+                    kept: true,
+                });
+            }
+        }
+        let mut home = fresh_cargo_home(executable)?;
+        home.kept = true;
+        if let Some((_, stale)) = kept.replace((
+            executable.private_home_parent.clone(),
+            home.path.clone(),
+        )) {
+            let _ = std::fs::remove_dir_all(stale);
+        } else {
+            // SAFETY: registers a plain `extern "C"` function with no captures.
+            unsafe {
+                libc::atexit(remove_kept_cargo_home);
+            }
+        }
+        return Ok(home);
+    }
+    fresh_cargo_home(executable)
+}
+
+fn fresh_cargo_home(executable: &PinnedCargoExecutable) -> Result<EphemeralCargoHome, String> {
     static SEQ: AtomicU64 = AtomicU64::new(0);
     std::fs::create_dir_all(&executable.private_home_parent).map_err(|error| {
         format!(
@@ -508,7 +620,11 @@ fn ephemeral_cargo_home(executable: &PinnedCargoExecutable) -> Result<EphemeralC
             }
         }
     }
-    Ok(EphemeralCargoHome { path, target })
+    Ok(EphemeralCargoHome {
+        path,
+        target,
+        kept: false,
+    })
 }
 
 fn revalidate_executable(executable: &PinnedExecutable, label: &str) -> Result<(), String> {
@@ -1002,6 +1118,7 @@ fn initial_executable_digest(
         return Err(format!("{described} changed while being pinned"));
     }
     let hash = move || {
+        PIN_HASHING.wait_released();
         let digest = crate::agent::harness::sha256_reader_hex(&mut file)
             .map_err(|error| format!("hash {described}: {error}"))?;
         match file.metadata() {

@@ -1,0 +1,18 @@
+{
+  "id": "knight",
+  "name": "KNIGHT",
+  "role": "hero",
+  "root": "/work/artifacts/kwpixel/proto/tpose-r2-final",
+  "fps": 12,
+  "props": ["great-helm with a gold crest", "blue plate armour", "gold trim", "cyan eye slits", "bare gauntlets"],
+  "grade": [320, 320],
+  "clips": {
+    "idle": {"frames": "frames/idle"},
+    "walk-east": {"frames": "frames/walk-side", "stride_px": [21.216, 0.0]},
+    "walk-south": {"frames": "frames/walk", "anchor_y": 51, "stride_px": [0.0, 5.376]},
+    "attack": {
+      "frames": "frames/attack-54",
+      "events": {"wind_up": 10, "swing_arc": 16, "impact": 17, "hit_pause": 18}
+    }
+  }
+}

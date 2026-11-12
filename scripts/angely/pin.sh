@@ -12,7 +12,7 @@ cd "$src"
 export TMPDIR="${ANGELY_TMPDIR:-${TMPDIR:-/tmp}}" RUSTUP_AUTO_INSTALL=0 ANGEL_BUILD_PROFILE=release
 export ANGEL_BUILD_RUSTC="$(rustc -vV)"
 export ANGEL_BUILD_SOURCE_SHA256="$(bash scripts/check/cockpit-source-digest.sh)"
-cargo build --locked --release --no-default-features --manifest-path cockpit/Cargo.toml --bin angel --bin angel-sandbox
+cargo build --locked --release --no-default-features --features delve --manifest-path cockpit/Cargo.toml --bin angel --bin angel-sandbox
 target="$(cargo metadata --format-version 1 --no-deps --manifest-path cockpit/Cargo.toml | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')"
 new="$KIT/pin.new"; rm -rf "$new"; mkdir -p "$new"
 cp "$target/release/angel" "$target/release/angel-sandbox" "$new/"

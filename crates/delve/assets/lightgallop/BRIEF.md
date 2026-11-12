@@ -9,7 +9,7 @@ Re-read this file before every change. When the code and this file disagree, fix
 this file first. The rules are `rules/lightgallop.rs` and `rules/lightgallop/`
 (`math`, `terrain`, `rider`, `world`, `level`, `session`, `bot`), the picture is
 `render/overworld/arena/lightgallop.rs`, the terminal text is
-`cockpit/src/stage/world_viz/art/roundtable/lightgallop.rs`, art notes are in `ART.md`, slots in
+`cockpit/delve-cart/src/world_viz/art/roundtable/lightgallop.rs`, art notes are in `ART.md`, slots in
 `slots.json`. It is a side-view stage game (Forest Road's family): integer fixed
 point (Q = 256 sub-pixels) on the 30 Hz sim, with its own curved terrain.
 
@@ -31,9 +31,10 @@ a fall is a lantern carrying you home inside a second, and a tally and an
 instant retry wait at the end.
 
 ## Words on the title card
-`A D RUN   E LEAP   SPACE SPUR`. The road teaches the rest on plain plank signs
-of two or three words: A D RUN, E JUMP, S ROLL, SPACE SPUR, HAY LOFT, SPEED
-HOLDS, S E CHARGE, FAST UP, E HOP, SLOW DOWN, E E E CHAIN, ROLL OR LEAP.
+The title card is the kit's banner (`MOONWELL ROAD`, `THE DIMMING COMES`), slammed in and dissolved in the
+first 78 ticks, with the keys `A D RUN   E LEAP   SPACE SPUR` along the foot of the picture. The road teaches the
+rest on plain plank signs of two or three words: A D RUN, E JUMP, S ROLL, SPACE SPUR, HAY LOFT, SPEED HOLDS,
+S E CHARGE, FAST UP, E HOP, SLOW DOWN, E E E CHAIN, ROLL OR LEAP.
 
 ## Where the words stand
 Every word is set through one call (`say`, a `Word`), so a test can read back
@@ -51,9 +52,24 @@ tally, clear of the shower of sparks.
   (`stamp_block`); a painted block has none.
 - The pixel font has no star: the best rider's score wears a drawn crown.
 - The terminal's cells are four pixels wide, so the picture's lettering is mush
-  there: `cockpit/src/stage/world_viz/art/roundtable/lightgallop.rs` says the title card, the
+  there: `cockpit/delve-cart/src/world_viz/art/roundtable/lightgallop.rs` says the title card, the
   fall, the bell, the keys and the bell's name again as text over their own
   cells, and the tally as a box over the whole panel, on the same lines.
+
+## What the picture remembers (the night of 2026-11-07)
+`rules/lightgallop/show.rs` writes a short record of every moment a knight should feel (a spark taken, a foe popped,
+a blow, a fall, a loop closed, a lantern lit, the warden down, the pace breaking, a landing, a spring, a pad, a crate)
+from what changed between two ticks. It lives on the session (`Session::show`), is saved and carried with it, is
+bounded (72 records, 90 ticks), and is never sent to the module (`ask` drops it). Only the winning blow holds the room
+(`Run::hold_for`); a hit or a fall has the rider's own freeze already.
+The picture is `arena/lightgallop/{fx,moments,finish}.rs`: wind along the way the horse goes, hoof dust left on
+the road, after-images at pace, the loop's ring of light and comet and the picture's lean into the turn, the
+lance-lock's reticle, bursts and "+1" flying to the counter, banners (LOOP, CHAIN n, LANTERN LIT, WARDEN DOWN, DOWN),
+a red rim for a blow, the pack's crown, edge arrows and tow lines, and the finish (a podium on the Bell Gate's night,
+fireworks, paper, the rank, a row of plain numbers).
+The rider, the snuffer, the wisp, the warden, the spark and the pad are drawn slots
+(`assets/art-slots/lightgallop.*`, made by `crates/delve/assets/lightgallop/sprites.py`). The rider's red cloth has a seat mask
+(`<frame>-seat-mask.png`) the stage dresses in the seat's own colour (`CLOTH`).
 
 ## Who plays
 Every seated knight, at once, on their own screen, with their own camera, spark

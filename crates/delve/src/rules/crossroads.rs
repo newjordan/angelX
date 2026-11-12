@@ -6,17 +6,29 @@ use super::votes::{Action, Command};
 pub const VOTE_TIME: u32 = 20 * HZ;
 pub const RESULTS_TIME: u32 = 5 * HZ;
 pub const DEATHMATCH_TIME: u32 = 3 * 60 * HZ;
+/// The most a Knight Racers card runs: one lap is about three and a half minutes for the
+/// leader, so a knight who stops driving cannot hold the floor for ever.
+pub const RACERS_TIME: u32 = 5 * 60 * HZ;
+/// The seconds the race keeps running after the last knight crosses the line.
+pub const RACERS_GRACE: u32 = 2 * HZ;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum Game { Powder, Gander, Shaft, Griffin, Touge, Deathmatch }
+pub enum Game {
+    Powder,
+    /// Knight Racers, one lap. It took the Gander Joust's place on the cards, so an old save's
+    /// joust card deals as the race.
+    #[serde(alias = "gander")]
+    Racers,
+    Shaft, Griffin, Touge, Deathmatch,
+}
 
 impl Game {
-    pub const ALL: [Self; 6] = [Self::Powder, Self::Gander, Self::Shaft, Self::Griffin, Self::Touge, Self::Deathmatch];
+    pub const ALL: [Self; 6] = [Self::Powder, Self::Racers, Self::Shaft, Self::Griffin, Self::Touge, Self::Deathmatch];
     pub fn name(self) -> &'static str {
         match self {
             Self::Powder => "POWDER KEG",
-            Self::Gander => "GANDER JOUST",
+            Self::Racers => "KNIGHT RACERS",
             Self::Shaft => "SHAFT RUN",
             Self::Griffin => "GRIFFIN RUN",
             Self::Touge => "TORCHLIGHT TOUGE",
@@ -26,7 +38,7 @@ impl Game {
     pub fn words(self) -> &'static str {
         match self {
             Self::Powder => "DROP DODGE OUTLAST",
-            Self::Gander => "FLAP CLIMB STOMP",
+            Self::Racers => "ONE LAP, BOOST",
             Self::Shaft => "ROLL DON'T FALL",
             Self::Griffin => "FLY AND SHOOT",
             Self::Touge => "DRIFT THEN BOOST",
@@ -79,7 +91,7 @@ impl State {
             && self.chosen.is_none_or(|v| v < 3)
             && (self.voting() == self.chosen.is_none())
             && self.order.iter().enumerate().all(|(i, id)| self.seats.contains(id) && !self.order[..i].contains(id))
-            && self.left <= DEATHMATCH_TIME.max(VOTE_TIME).max(RESULTS_TIME)
+            && self.left <= DEATHMATCH_TIME.max(RACERS_TIME).max(VOTE_TIME).max(RESULTS_TIME)
     }
 }
 
@@ -90,6 +102,12 @@ pub fn gold(place: usize) -> u32 {
 impl Run {
     pub fn crossroads_voting(&self) -> bool {
         self.crossroads.as_ref().is_some_and(State::voting)
+    }
+
+    /// Whether the party is racing the Knight Racers card now.
+    pub fn crossroads_racing(&self) -> bool {
+        self.crossroads.as_ref().is_some_and(|c| c.stage == Stage::Playing
+            && c.chosen.is_some_and(|i| c.choices[usize::from(i)] == Game::Racers))
     }
 
     pub(super) fn begin_crossroads(&mut self, depth: u32, pack: Pack) {
@@ -179,6 +197,22 @@ impl Run {
                         // A restored interlude missing its arena still ends cleanly.
                         self.finish_crossroads(Vec::new());
                     }
+                } else if game == Game::Racers {
+                    self.tick_knight_racers(inputs);
+                    let c = self.crossroads.as_mut().unwrap();
+                    c.left = c.left.saturating_sub(1);
+                    match self.knight_racers.as_ref() {
+                        Some(s) => {
+                            let home = s.finished || s.cars.values().filter(|car| !car.cpu).all(|car| car.finish.is_some());
+                            if home { c.left = c.left.min(RACERS_GRACE); }
+                            if c.left == 0 {
+                                let order = s.order();
+                                self.finish_crossroads(order);
+                            }
+                        }
+                        // A restored interlude missing its race still ends cleanly.
+                        None => self.finish_crossroads(Vec::new()),
+                    }
                 } else if game.course().is_some() {
                     self.tick_race3d(inputs);
                     if let Some(r) = self.race3d.as_ref().filter(|r| r.done) {
@@ -198,6 +232,7 @@ impl Run {
                     let c = self.crossroads.take().unwrap();
                     self.pastimes.leave();
                     self.race3d = None;
+                    self.knight_racers = None;
                     self.finish_descent(c.depth, c.pack, false);
                 }
             }
@@ -215,7 +250,7 @@ impl Run {
         c.chosen = Some(chosen as u8);
         c.stage = Stage::Playing;
         let game = c.choices[chosen];
-        c.left = if game == Game::Deathmatch { DEATHMATCH_TIME } else { 0 };
+        c.left = match game { Game::Deathmatch => DEATHMATCH_TIME, Game::Racers => RACERS_TIME, _ => 0 };
         self.pastimes.leave();
         self.race3d = None;
         self.deathmatch = None;
@@ -225,6 +260,7 @@ impl Run {
         self.hop = None;
         self.gantry = None;
         self.joust = None;
+        self.knight_racers = None;
         self.chariot = None;
         self.window = None;
         self.light = None;
@@ -239,16 +275,37 @@ impl Run {
             let players = self.players.iter().filter(|(id, _)| self.crossroads.as_ref().unwrap().seats.contains(id))
                 .map(|(&id, h)| (id, h.clone())).collect();
             self.deathmatch = Some(deathmatch::Session::new(&players, &self.book));
+        } else if game == Game::Racers {
+            self.start_crossroads_race();
         } else if let Some(course) = game.course() {
             self.start_race3d_course(self.at, course);
         } else {
-            let game = if game == Game::Powder { pastimes::Game::Powder } else { pastimes::Game::Gander };
+            let game = pastimes::Game::Powder;
             let cell = self.room().cell;
             self.dungeon.rooms[self.at] = colosseum::room(game.room(), cell);
             self.dungeon.rooms[self.at].cleared = true;
             self.start_crossroads_pastime(game);
         }
         if self.crossroads.as_ref().unwrap().seats.is_empty() { self.finish_crossroads(Vec::new()); }
+    }
+
+    /// The Knight Racers card: every seated knight on the grid of one cup course, picked by the
+    /// run's seed and the floor, for one lap. A lone knight races five rivals; two or more race
+    /// each other, as on the racers' own menus.
+    fn start_crossroads_race(&mut self) {
+        let c = self.crossroads.as_ref().unwrap();
+        let humans: Vec<(u32, String)> = c.seats.iter()
+            .filter_map(|id| self.players.get(id).map(|h| (*id, h.name.clone()))).collect();
+        let cup = knight_racers::cup();
+        let course = cup[(mix(self.seed ^ u64::from(c.depth).rotate_left(29)) % cup.len() as u64) as usize];
+        let mut s = knight_racers::Session::blank_on(course);
+        knight_racers::flow::quick(&mut s, &humans, knight_racers::Mode::Single, knight_racers::Class::Knight, Some(course), 0);
+        // Each knight in the pod of their seat, not all in one.
+        for (id, car) in s.cars.iter_mut() {
+            if !car.cpu { car.pod = knight_racers::pods::seat_pod(*id); }
+        }
+        s.laps = 1;
+        self.knight_racers = Some(s);
     }
 
     pub(super) fn finish_crossroads(&mut self, mut order: Vec<u32>) {
@@ -258,6 +315,7 @@ impl Run {
         c.left = RESULTS_TIME;
         c.order = order;
         self.deathmatch = None;
+        self.knight_racers = None;
         for (place, &id) in c.order.iter().enumerate() {
             let mut spoils = Spoils::default();
             spoils.add(Spoil::Gold, gold(place));

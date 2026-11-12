@@ -9,6 +9,10 @@ pub(super) fn bats_layer(over: &mut Img, run: &Run) {
     let Some(shoot) = run.bats.as_ref().filter(|b| b.room == run.at) else {
         return;
     };
+    // The Belfry's own strip, title and moments (`belfry_shoot`) stand in for this board.
+    if super::belfry_shoot::walled(run) {
+        return;
+    }
     let head = if shoot.done { "BELFRY  DONE".to_string() } else { format!("BELFRY  {}S", shoot.left()) };
     let rows: Vec<(u32, u32)> = shoot.scores.iter().map(|(&id, &n)| (id, n)).collect();
     folly_board(over, run, &head, &rows);
@@ -77,6 +81,10 @@ pub(super) fn hop_floor(cv: &mut Img, run: &Run) {
     let Some(h) = run.hop.as_ref().filter(|h| h.room == run.at) else {
         return;
     };
+    // The drowned archive (`book_hop`) lays its own hall, books and strip.
+    if super::book_hop::walled(run) {
+        return;
+    }
     let (cols, rows) = (run.room().cols as i32, run.room().rows as i32);
     let width = cols as f32 * TILE_UNITS;
     let t = h.t.saturating_sub(crate::rules::folly::TITLE);
@@ -192,6 +200,9 @@ pub(super) fn hop_layer(over: &mut Img, run: &Run) {
     let Some(h) = run.hop.as_ref().filter(|h| h.room == run.at) else {
         return;
     };
+    if super::book_hop::walled(run) {
+        return;
+    }
     let head = if h.done { "BOOK HOP  DONE".to_string() } else { format!("BOOK HOP  {}S", h.left()) };
     let rows: Vec<(u32, u32)> = h.crossings.iter().map(|(&id, &n)| (id, u32::from(n))).collect();
     folly_board(over, run, &head, &rows);
@@ -206,6 +217,10 @@ pub(super) fn powder_layer(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     let Some(p) = run.powder.as_ref().filter(|p| p.room == run.at) else {
         return;
     };
+    // The store's own strip, kegs and moments (`powder_room`) stand in for this board.
+    if super::powder_room::walled(run) {
+        return;
+    }
     let spot = |tx: i32, ty: i32| {
         let (x, y) = at(tx as f32 * TILE_UNITS, ty as f32 * TILE_UNITS);
         (x - ox, y - oy)

@@ -1,0 +1,39 @@
+# The Steel Line — Fath Quietinked, metalsmith, the Metalsmith's Forge of Bomrekedan.
+# A Bomrekedan questline, placed from expansions/bomrekedan/kingdom/questlines/
+# steel.txt (quests.json: the-steel-line) and adapted to the engine:
+# `power bomrekedan:<id>` teaches no power and opens to every knight
+# (quest_gate). Every step but one is cued (standing with the teacher counts
+# it, once a visit), and so is the trial (`cue` in its fifth field). The one
+# counted step waits on the works ledger (`bom_built_<work>`, noted at the
+# sign of a built work). The counters are this line's own: none is shared
+# with a power's questline, so nothing walked here moves a skill's level.
+# She stands on the Forges (`room BomForges`), on the floor east of the
+# Metalsmith's Forge (kingdom.json workshop-metalsmithsforge-1391).
+power   bomrekedan:steel
+teacher Fath Quietinked
+place   the Metalsmith's Forge on the Forges, Bomrekedan's deepest kept level
+room    BomForges
+at      51 18
+look    a soot-black apron, a plain iron scimitar at the hip, and burn scars counted up both forearms
+line    One smelter, one forge, eleven smiths. You can see the trouble from here.
+teach   Steel is four things married: pig iron, iron, flux and fire. Miss one and there is no wedding.
+hook    The tally slate over the forge reads 1,394 in chalk, one mark for every job put down for want of a bar.
+step    The ore tithe | bring Fath a load of ore from the stockpiles, one each visit | forge_ore_tithed 3 | Hematite, limonite, magnetite. Any of them, so long as it is ore. | cue forge
+step    The coke watch | stand the coke watch at the one smelter while it burns the coal | coke_watches_stood 1 | Coal first, then ore, then steel, all in the one furnace. That is why it took years. | cue stand
+step    The flux | carry the dolomite flux from the stone stockpile to the smelter at her side | flux_carried 1 | Ten stones of dolomite. The smelter itself is built of it, so it knows the taste. | cue carry
+step    The pig iron | stand with Fath while the pig iron pours | pig_iron_pours 1 | Pig iron is half the bar. The other half is patience. | cue pour
+step    The kit | lay out a full kit's worth of ore for one recruit's breastplate, greaves, helm, gauntlets and boots | kit_ore_given 1 | Three hundred breastplates were put down for want of this. Not this one. | cue forge
+step    The steel line | see the steel line raised in Bomrekedan, ovens to bar stock | bom_built_steel_line 1 | A line, not a forge. Now the slate can start going down.
+trial   The steel recruit | stand with Fath while the first recruit is fitted in steel off the line, breastplate to boots | steel_recruits_fitted 1 | It held. Write it on the slate, and rub one mark out. | cue fit
+reward  the Forge raised a level: mail more each delve (a Bomrekedan questline: no power is taught)
+title   the Steel-Married
+keepsake a stamp of the forge's mark, pressed in red wax
+ties    The ore tithe is the fort's own, not Master Wymond's or Underforeman Doorne's; Kikrost Metalcloisters burns the charcoal (Coke for the Smelter); the six steel squads wear what comes out.
+art
+..888..
+.88888.
+...8...
+.87778.
+.87778.
+..888..
+.8...8.

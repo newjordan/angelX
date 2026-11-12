@@ -43,6 +43,7 @@ check_source() {
 }
 printf 'Checking ordinary cockpit boundary...\n'
 bash "$check_root/scripts/check/check-locks.sh"
+bash "$check_root/scripts/check/check-plug-boundary.sh"
 bash "$check_root/scripts/check/check-legacy-terminal-boundary.sh"
 python3 "$check_root/scripts/check/check-active-connections.py"
 # A gate owns its temporary fixtures, including stores left by test binaries.
@@ -67,7 +68,7 @@ build_log="$gate_tmp/build.jsonl"
 test_log="$gate_tmp/tests.jsonl"
 image="$gate_tmp/image"
 if "$gate_cargo" build --locked --profile devfast --manifest-path "$check_root/cockpit/Cargo.toml" \
-    --no-default-features --bins --message-format=json > "$build_log"; then
+    --no-default-features --features delve --bins --message-format=json > "$build_log"; then
   :
 else
   build_status=$?
@@ -75,13 +76,15 @@ else
   exit "$build_status"
 fi
 if "$gate_cargo" test --locked --profile devfast --manifest-path "$check_root/cockpit/Cargo.toml" \
-    --no-default-features --bin angel --no-run --message-format=json > "$test_log"; then
+    --no-default-features --features delve --bin angel --no-run --message-format=json > "$test_log"; then
   :
 else
   build_status=$?
   python3 "$check_root/scripts/check/copy-cockpit-test-image.py" --diagnostics "$test_log" || true
   exit "$build_status"
 fi
+"$gate_cargo" check --locked --profile devfast --manifest-path "$check_root/cockpit/Cargo.toml" \
+  --no-default-features --bin angel
 image_args=(--build "$build_log" --tests "$test_log" --out "$image" --profile devfast)
 if (( ! prepare_helper )); then
   image_args+=(--helper "$ANGEL_T_SANDBOX_HELPER")
@@ -101,6 +104,9 @@ python3 "$check_root/scripts/check/copy-cockpit-test-image.py" "${image_args[@]}
 ANGEL_YOLO=0 ANGEL_YOLO_SMART=0 \
   "$gate_cargo" test --locked --profile devfast --manifest-path "$check_root/cockpit/Cargo.toml" \
     --package angel-code-mode --lib -- "$@"
+ANGEL_YOLO=0 ANGEL_YOLO_SMART=0 \
+  "$gate_cargo" test --locked --profile devfast --manifest-path "$check_root/cockpit/Cargo.toml" \
+    --package angel-delve-cart --lib -- "$@"
 if (( qualify_release )); then
   check_source
   export ANGEL_BUILD_PROFILE=release
@@ -115,14 +121,17 @@ if (( qualify_release )); then
   printf 'Development checks passed; qualifying optimized tests...\n'
   ANGEL_YOLO=0 ANGEL_YOLO_SMART=0 \
   cargo test --locked --manifest-path "$check_root/cockpit/Cargo.toml" \
-    --release --no-default-features --bin angel -- "$@"
+    --release --no-default-features --features delve --bin angel -- "$@"
   ANGEL_YOLO=0 ANGEL_YOLO_SMART=0 \
     "$gate_cargo" test --locked --manifest-path "$check_root/cockpit/Cargo.toml" \
       --release --package angel-code-mode --lib -- "$@"
+  ANGEL_YOLO=0 ANGEL_YOLO_SMART=0 \
+    "$gate_cargo" test --locked --manifest-path "$check_root/cockpit/Cargo.toml" \
+      --release --package angel-delve-cart --lib -- "$@"
   check_source
   printf 'Optimized tests passed; building the candidate...\n'
   "$gate_cargo" build --locked --manifest-path "$check_root/cockpit/Cargo.toml" \
-    --release --no-default-features --bin angel
+    --release --no-default-features --features delve --bin angel
   check_source
   candidate_target=${helper_target:-$(cargo metadata --no-deps --format-version 1 \
     --manifest-path "$check_root/cockpit/Cargo.toml" | python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])')}

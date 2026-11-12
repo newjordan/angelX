@@ -1,0 +1,8 @@
+{
+  "id": "frog-knight",
+  "name": "FROG KNIGHT",
+  "role": "hero",
+  "frameset": "/work/artifacts/kwpixel/night-20261107/wish2char/runs/B3/pixels/game/manifest.json",
+  "props": ["frog knight in plate armour", "long spear"],
+  "grade": [320, 320]
+}

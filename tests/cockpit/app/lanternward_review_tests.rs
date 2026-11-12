@@ -4,6 +4,7 @@
 //! lanternward_moments.json`); one test here fails when the rules play a
 //! moment differently from what is written. `ANGEL_ARENA_SHOTS=<dir> cargo
 //! test --bin angel write_lanternward_film -- --ignored` writes the verb films.
+#![cfg(feature = "delve")]
 use crate::lanternward_oracle::review::{duel, review};
 use angel_delve::rules::{Input, MAX_PLAYERS, Run};
 use serde_json::Value;
@@ -76,7 +77,7 @@ fn film(name: &str, mut r: Run, script: &[(u32, Input)], dir: &std::path::Path) 
         for _ in 0..ticks {
             r.step(&BTreeMap::from([(1, input)]));
             let k = &r.lanternward.as_ref().unwrap().seats[&1];
-            let full = crate::stage::world_viz::overworld::arena::frame_for(&r, 384, 224, Some(1));
+            let full = crate::delve::world_viz::overworld::arena::frame_for(&r, 384, 224, Some(1));
             let screen = image::RgbaImage::from_raw(full.w as u32, full.h as u32, full.rgba_bytes()).unwrap();
             let (cx, cy) = (k.x / Q - (k.cam.0 / Q - 192), k.y / Q - (k.cam.1 / Q - 112));
             let mut crop = image::RgbaImage::new(56, 44);

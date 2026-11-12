@@ -1,0 +1,955 @@
+{
+  "schema": 1,
+  "id": "frontier-v1",
+  "resources": {
+    "timber": {
+      "name": "Timber",
+      "colour": 10319691
+    },
+    "stone": {
+      "name": "Rough stone",
+      "colour": 10333615
+    },
+    "food": {
+      "name": "Harvest",
+      "colour": 9550434
+    },
+    "coal": {
+      "name": "Coal",
+      "colour": 6578557
+    },
+    "iron-ore": {
+      "name": "Iron ore",
+      "colour": 12227449
+    },
+    "copper-ore": {
+      "name": "Copper ore",
+      "colour": 7321508
+    },
+    "crystal": {
+      "name": "Moon crystal",
+      "colour": 9559013
+    },
+    "ember": {
+      "name": "Living ember",
+      "colour": 16163931
+    },
+    "plank": {
+      "name": "Sawn planks",
+      "colour": 13875067
+    },
+    "block": {
+      "name": "Dressed stone",
+      "colour": 12833232
+    },
+    "ingot": {
+      "name": "Iron ingot",
+      "colour": 12044762
+    },
+    "arms": {
+      "name": "Forged arms",
+      "colour": 15977603
+    },
+    "mana": {
+      "name": "Bound mana",
+      "colour": 11182315
+    },
+    "ward": {
+      "name": "Wardstone",
+      "colour": 9103309
+    },
+    "rations": {
+      "name": "Trail rations",
+      "colour": 14131307
+    },
+    "iron-oathblade": {
+      "name": "Iron Oathblade",
+      "colour": 14464377
+    },
+    "prospectors-pick": {
+      "name": "Prospectors Pick",
+      "colour": 14464377
+    },
+    "ember-edge": {
+      "name": "Ember Edge",
+      "colour": 14464377
+    },
+    "runebound-aegis": {
+      "name": "Runebound Aegis",
+      "colour": 14464377
+    },
+    "mooncrystal-staff": {
+      "name": "Mooncrystal Staff",
+      "colour": 14464377
+    },
+    "hearth-wardstone": {
+      "name": "Hearth Wardstone",
+      "colour": 14464377
+    },
+    "clay": {
+      "name": "River clay",
+      "colour": 12155734
+    },
+    "brick": {
+      "name": "Fired bricks",
+      "colour": 12740677
+    }
+  },
+  "recipes": {
+    "fell": {
+      "name": "Cut timber",
+      "inputs": {},
+      "outputs": {
+        "timber": 4
+      },
+      "shifts": 1
+    },
+    "quarry": {
+      "name": "Quarry stone",
+      "inputs": {},
+      "outputs": {
+        "stone": 3
+      },
+      "shifts": 1
+    },
+    "harvest": {
+      "name": "Grow food",
+      "inputs": {},
+      "outputs": {
+        "food": 4
+      },
+      "shifts": 2
+    },
+    "saw": {
+      "name": "Saw planks",
+      "inputs": {
+        "timber": 2
+      },
+      "outputs": {
+        "plank": 3
+      },
+      "shifts": 1
+    },
+    "charcoal": {
+      "name": "Burn charcoal",
+      "inputs": {
+        "timber": 3
+      },
+      "outputs": {
+        "coal": 2
+      },
+      "shifts": 1
+    },
+    "dress": {
+      "name": "Dress stone",
+      "inputs": {
+        "stone": 3
+      },
+      "outputs": {
+        "block": 2
+      },
+      "shifts": 1
+    },
+    "smelt": {
+      "name": "Smelt iron",
+      "inputs": {
+        "iron-ore": 3,
+        "coal": 1
+      },
+      "outputs": {
+        "ingot": 2
+      },
+      "shifts": 2
+    },
+    "forge": {
+      "name": "Forge arms",
+      "inputs": {
+        "ingot": 2,
+        "plank": 1
+      },
+      "outputs": {
+        "arms": 1
+      },
+      "shifts": 2
+    },
+    "bind": {
+      "name": "Bind mana",
+      "inputs": {
+        "crystal": 1
+      },
+      "outputs": {
+        "mana": 4
+      },
+      "shifts": 1
+    },
+    "ward": {
+      "name": "Enchant wardstone",
+      "inputs": {
+        "mana": 2,
+        "ingot": 1
+      },
+      "outputs": {
+        "ward": 1
+      },
+      "shifts": 2
+    },
+    "rations": {
+      "name": "Pack rations",
+      "inputs": {
+        "food": 3,
+        "timber": 1
+      },
+      "outputs": {
+        "rations": 2
+      },
+      "shifts": 1
+    },
+    "iron-oathblade": {
+      "name": "Iron Oathblade",
+      "inputs": {
+        "ingot": 3,
+        "plank": 1
+      },
+      "outputs": {
+        "iron-oathblade": 1
+      },
+      "shifts": 2
+    },
+    "prospectors-pick": {
+      "name": "Prospectors Pick",
+      "inputs": {
+        "ingot": 4,
+        "plank": 2
+      },
+      "outputs": {
+        "prospectors-pick": 1
+      },
+      "shifts": 3
+    },
+    "ember-edge": {
+      "name": "Ember Edge",
+      "inputs": {
+        "ingot": 5,
+        "ember": 2,
+        "mana": 1
+      },
+      "outputs": {
+        "ember-edge": 1
+      },
+      "shifts": 4
+    },
+    "runebound-aegis": {
+      "name": "Runebound Aegis",
+      "inputs": {
+        "ingot": 4,
+        "plank": 2,
+        "mana": 1
+      },
+      "outputs": {
+        "runebound-aegis": 1
+      },
+      "shifts": 3
+    },
+    "mooncrystal-staff": {
+      "name": "Mooncrystal Staff",
+      "inputs": {
+        "plank": 3,
+        "crystal": 3,
+        "mana": 2
+      },
+      "outputs": {
+        "mooncrystal-staff": 1
+      },
+      "shifts": 4
+    },
+    "hearth-wardstone": {
+      "name": "Hearth Wardstone",
+      "inputs": {
+        "block": 3,
+        "crystal": 2,
+        "mana": 2
+      },
+      "outputs": {
+        "hearth-wardstone": 1
+      },
+      "shifts": 3
+    },
+    "dig-clay": {
+      "name": "Dig river clay",
+      "inputs": {},
+      "outputs": {
+        "clay": 4
+      },
+      "shifts": 1
+    },
+    "fire-bricks": {
+      "name": "Fire clay bricks",
+      "inputs": {
+        "clay": 4,
+        "timber": 2
+      },
+      "outputs": {
+        "brick": 4
+      },
+      "shifts": 2
+    }
+  },
+  "plans": {
+    "camp": {
+      "name": "Founding camp",
+      "glyph": "K",
+      "colour": 14926718,
+      "cost": {},
+      "workers": 0,
+      "housing": 6,
+      "storage": 100,
+      "recipes": [],
+      "extractor": false,
+      "build_seconds": 0,
+      "carriers": 4,
+      "requires": []
+    },
+    "forester": {
+      "name": "Forester",
+      "glyph": "T",
+      "colour": 6657907,
+      "cost": {
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "fell"
+      ],
+      "extractor": false,
+      "build_seconds": 8,
+      "carriers": 0,
+      "requires": [],
+      "siting": "woodland"
+    },
+    "quarry": {
+      "name": "Stone quarry",
+      "glyph": "Q",
+      "colour": 10398641,
+      "cost": {
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "quarry"
+      ],
+      "extractor": false,
+      "build_seconds": 8,
+      "carriers": 0,
+      "requires": [],
+      "siting": "stone"
+    },
+    "farm": {
+      "name": "Farmstead",
+      "glyph": "F",
+      "colour": 11257715,
+      "cost": {
+        "timber": 8,
+        "stone": 2
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "harvest"
+      ],
+      "extractor": false,
+      "build_seconds": 8,
+      "carriers": 0,
+      "requires": []
+    },
+    "cottage": {
+      "name": "Workers cottage",
+      "glyph": "H",
+      "colour": 14988918,
+      "cost": {
+        "timber": 10,
+        "stone": 4
+      },
+      "workers": 0,
+      "housing": 4,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "build_seconds": 8,
+      "carriers": 0,
+      "requires": []
+    },
+    "mine": {
+      "name": "Claim outpost",
+      "glyph": "M",
+      "colour": 8501962,
+      "cost": {
+        "timber": 12,
+        "stone": 6
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": true,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": []
+    },
+    "sawmill": {
+      "name": "Sawmill",
+      "glyph": "S",
+      "colour": 13608309,
+      "cost": {
+        "timber": 10,
+        "stone": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "saw"
+      ],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": [],
+      "power": {
+        "kind": "mechanical",
+        "demand": 2,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      }
+    },
+    "kiln": {
+      "name": "Charcoal kiln",
+      "glyph": "C",
+      "colour": 14323300,
+      "cost": {
+        "stone": 10,
+        "timber": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "charcoal"
+      ],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": []
+    },
+    "mason": {
+      "name": "Masons yard",
+      "glyph": "B",
+      "colour": 10862535,
+      "cost": {
+        "timber": 8,
+        "stone": 10
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "dress"
+      ],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": [
+        "masonry"
+      ],
+      "power": {
+        "kind": "mechanical",
+        "demand": 2,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      }
+    },
+    "smelter": {
+      "name": "Iron smelter",
+      "glyph": "I",
+      "colour": 14919790,
+      "cost": {
+        "stone": 16,
+        "plank": 6
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "smelt"
+      ],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": [
+        "metallurgy"
+      ],
+      "power": {
+        "kind": "mechanical",
+        "demand": 3,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      }
+    },
+    "forge": {
+      "name": "Royal forge",
+      "glyph": "A",
+      "colour": 15056247,
+      "cost": {
+        "block": 8,
+        "plank": 6,
+        "ingot": 4
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "iron-oathblade",
+        "forge",
+        "prospectors-pick",
+        "ember-edge",
+        "runebound-aegis"
+      ],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": [
+        "metallurgy"
+      ],
+      "power": {
+        "kind": "mechanical",
+        "demand": 3,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      }
+    },
+    "kitchen": {
+      "name": "Trail kitchen",
+      "glyph": "R",
+      "colour": 12502919,
+      "cost": {
+        "stone": 8,
+        "plank": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "rations"
+      ],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": []
+    },
+    "conduit": {
+      "name": "Mana conduit",
+      "glyph": "O",
+      "colour": 10205165,
+      "cost": {
+        "block": 6,
+        "crystal": 4
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "bind"
+      ],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": [
+        "arcana"
+      ]
+    },
+    "enchanter": {
+      "name": "Enchanters tower",
+      "glyph": "W",
+      "colour": 12427998,
+      "cost": {
+        "block": 10,
+        "plank": 8,
+        "ingot": 4
+      },
+      "workers": 2,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "hearth-wardstone",
+        "ward",
+        "mooncrystal-staff"
+      ],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": [
+        "arcana"
+      ],
+      "power": {
+        "kind": "arcane",
+        "demand": 3,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "ingot": 2,
+          "mana": 4
+        }
+      }
+    },
+    "warehouse": {
+      "name": "Warehouse",
+      "glyph": "D",
+      "colour": 13416348,
+      "cost": {
+        "plank": 8,
+        "block": 4
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 100,
+      "recipes": [],
+      "extractor": false,
+      "build_seconds": 16,
+      "carriers": 0,
+      "requires": [
+        "logistics"
+      ]
+    },
+    "wall": {
+      "name": "Castle wall",
+      "glyph": "#",
+      "colour": 11844554,
+      "cost": {
+        "block": 2
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "build_seconds": 3,
+      "carriers": 0,
+      "requires": [
+        "masonry"
+      ]
+    },
+    "keep": {
+      "name": "Castle keep",
+      "glyph": "V",
+      "colour": 14730381,
+      "cost": {
+        "block": 30,
+        "plank": 20,
+        "ingot": 12
+      },
+      "workers": 0,
+      "housing": 16,
+      "storage": 200,
+      "recipes": [],
+      "extractor": false,
+      "build_seconds": 40,
+      "carriers": 0,
+      "requires": [
+        "sovereignty"
+      ]
+    },
+    "caravanserai": {
+      "name": "Caravanserai",
+      "glyph": "V",
+      "colour": 12163944,
+      "cost": {
+        "plank": 10,
+        "block": 6
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "extractor": false,
+      "build_seconds": 16,
+      "requires": [
+        "logistics"
+      ],
+      "carriers": 4
+    },
+    "clay-pit": {
+      "name": "Clay pit",
+      "glyph": "C",
+      "colour": 12155734,
+      "cost": {
+        "timber": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "dig-clay"
+      ],
+      "build_seconds": 8,
+      "siting": "clay"
+    },
+    "brick-kiln": {
+      "name": "Brick kiln",
+      "glyph": "B",
+      "colour": 12740677,
+      "cost": {
+        "stone": 10,
+        "timber": 8
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [
+        "fire-bricks"
+      ],
+      "build_seconds": 16,
+      "power": {
+        "kind": "mechanical",
+        "demand": 2,
+        "multiplier": 200,
+        "upgrade_cost": {
+          "plank": 4,
+          "block": 2
+        }
+      }
+    },
+    "brick-cottage": {
+      "name": "Brick cottage",
+      "glyph": "H",
+      "colour": 14130297,
+      "cost": {
+        "brick": 12,
+        "plank": 6
+      },
+      "workers": 0,
+      "housing": 6,
+      "storage": 0,
+      "recipes": [],
+      "build_seconds": 24
+    },
+    "brick-wall": {
+      "name": "Brick wall",
+      "glyph": "#",
+      "colour": 12740677,
+      "cost": {
+        "brick": 2,
+        "stone": 1
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "build_seconds": 4
+    },
+    "brick-gate": {
+      "name": "Brick archway",
+      "glyph": "G",
+      "colour": 12740677,
+      "cost": {
+        "brick": 8,
+        "plank": 4
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "build_seconds": 16,
+      "passable": true
+    },
+    "waterwheel": {
+      "name": "River waterwheel",
+      "glyph": "W",
+      "colour": 11966308,
+      "cost": {
+        "plank": 10,
+        "block": 4,
+        "brick": 6
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "build_seconds": 24,
+      "requires": [
+        "masonry"
+      ],
+      "siting": "riverbank",
+      "power": {
+        "kind": "mechanical",
+        "capacity": 8
+      }
+    },
+    "mana-engine": {
+      "name": "Ley generator",
+      "glyph": "L",
+      "colour": 7785168,
+      "cost": {
+        "block": 8,
+        "ingot": 4,
+        "crystal": 3
+      },
+      "workers": 1,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "build_seconds": 24,
+      "requires": [
+        "arcana"
+      ],
+      "power": {
+        "kind": "arcane",
+        "capacity": 10,
+        "fuel": {
+          "mana": 1
+        },
+        "fuel_seconds": 30
+      }
+    },
+    "drive-shaft": {
+      "name": "Drive shaft",
+      "glyph": "+",
+      "colour": 12162408,
+      "cost": {
+        "plank": 1
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "build_seconds": 0,
+      "requires": [
+        "masonry"
+      ],
+      "passable": true,
+      "connector": "mechanical"
+    },
+    "leyline": {
+      "name": "Leyline",
+      "glyph": "+",
+      "colour": 6997459,
+      "cost": {
+        "mana": 1
+      },
+      "workers": 0,
+      "housing": 0,
+      "storage": 0,
+      "recipes": [],
+      "build_seconds": 0,
+      "requires": [
+        "arcana"
+      ],
+      "passable": true,
+      "connector": "arcane"
+    }
+  },
+  "menu": [
+    "forester",
+    "quarry",
+    "farm",
+    "cottage",
+    "mine",
+    "sawmill",
+    "kiln",
+    "mason",
+    "smelter",
+    "forge",
+    "kitchen",
+    "conduit",
+    "enchanter",
+    "caravanserai",
+    "warehouse",
+    "wall",
+    "keep",
+    "clay-pit",
+    "brick-kiln",
+    "brick-cottage",
+    "brick-wall",
+    "brick-gate",
+    "waterwheel",
+    "drive-shaft",
+    "mana-engine",
+    "leyline"
+  ],
+  "starter": {
+    "timber": 60,
+    "stone": 35,
+    "food": 12
+  },
+  "technologies": {
+    "masonry": {
+      "name": "Stonecraft charter",
+      "cost": {
+        "plank": 8,
+        "stone": 20
+      },
+      "requires": [],
+      "description": "Dress stone and raise castle walls."
+    },
+    "metallurgy": {
+      "name": "Royal metallurgy",
+      "cost": {
+        "block": 10,
+        "iron-ore": 12,
+        "coal": 6
+      },
+      "requires": [
+        "masonry"
+      ],
+      "description": "Smelt claimed ore and forge knightly arms."
+    },
+    "logistics": {
+      "name": "Caravan charter",
+      "cost": {
+        "plank": 12,
+        "block": 8
+      },
+      "requires": [
+        "masonry"
+      ],
+      "description": "Expand storage and recruit road carriers."
+    },
+    "arcana": {
+      "name": "Leycraft charter",
+      "cost": {
+        "ingot": 6,
+        "crystal": 6
+      },
+      "requires": [
+        "metallurgy"
+      ],
+      "description": "Bind moon crystal into mana and enchanted gear."
+    },
+    "sovereignty": {
+      "name": "Crown of the frontier",
+      "cost": {
+        "block": 40,
+        "ingot": 16,
+        "mana": 10
+      },
+      "requires": [
+        "arcana",
+        "logistics"
+      ],
+      "description": "Found a permanent castle and house a royal workforce."
+    }
+  }
+}

@@ -110,6 +110,7 @@ dependencies = [
 name = "angel-delve"
 version = "0.1.0"
 dependencies = [
+ "angel-kingdom",
  "angel-live",
  "angel-net",
  "angel-stage",
@@ -126,6 +127,7 @@ name = "angel-delve-dev-host"
 version = "0.1.0"
 dependencies = [
  "angel-delve",
+ "angel-live",
  "angel-net",
  "angel-serve",
  "serde_json",
@@ -151,6 +153,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "angel-df-import"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "angel-face"
+version = "0.1.0"
+dependencies = [
+ "angel-gpu",
+ "angel-stage",
+ "bytemuck",
+ "png",
+ "pollster",
+ "serde_json",
+ "wgpu",
+]
+
+[[package]]
+name = "angel-games"
+version = "0.1.0"
+dependencies = [
+ "angel-live",
+ "angel-muster",
+ "angel-net",
+ "angel-serve",
+ "crossterm",
+ "url",
+]
+
+[[package]]
 name = "angel-glass"
 version = "0.1.0"
 dependencies = [
@@ -167,6 +202,7 @@ dependencies = [
  "pollster",
  "ratatui-core",
  "serde",
+ "serde_json",
  "swash",
  "unicode-width",
  "wayland-backend",
@@ -218,6 +254,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "angel-kingdom"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "angel-live"
 version = "0.1.0"
 dependencies = [
@@ -227,6 +271,7 @@ dependencies = [
  "ring",
  "serde",
  "serde_json",
+ "tracing",
  "v8",
 ]
 
@@ -246,12 +291,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "angel-plug"
+version = "0.1.0"
+dependencies = [
+ "angel-live",
+ "crossterm",
+ "ratatui-core",
+ "serde",
+ "serde_json",
+ "unicode-width",
+]
+
+[[package]]
 name = "angel-realm-host"
 version = "0.1.0"
 dependencies = [
  "angel-delve",
+ "angel-games",
  "angel-live",
  "angel-net",
+ "angel-plug",
  "angel-serve",
  "crossterm",
  "image",

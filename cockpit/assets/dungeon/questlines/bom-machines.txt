@@ -1,0 +1,37 @@
+# The Machine Works — Ral Taxcloister, pump operator, among Bomrekedan's windmills.
+# A Bomrekedan questline, placed from expansions/bomrekedan/kingdom/questlines/
+# machines.txt (quests.json: the-machine-works) and adapted to the engine the
+# way bom-steel.txt says: every step cued but the one that waits on the works
+# ledger (bom_built_machine_works), the trial cued, the counters this line's own.
+# She stands on the Gate (`room BomGate`), the surface level: below the
+# windmill field and beside the screw-pump stack (the level's DRESS `m` and
+# `P`). Eigriteil Rainsuitors and Ast Ringtwinkled also teach on the Gate,
+# well out of her reach.
+power   bomrekedan:machines
+teacher Ral Taxcloister
+place   the windmill field on Bomrekedan's surface, thirty sails turning fifty-two screw pumps below
+room    BomGate
+at      78 46
+look    grease to the elbows, a pump handle worn bright in both hands, and her eyes always on the nearest sail
+line    Thirty windmills, forty-five gears, fifty-two pumps. Every drop in the wells came up the stack.
+teach   Water does not want to go up. You make it, one screw at a time, and you never stop watching it.
+hook    A drowned pikedwarf's boots stand by the pump stack, toes to the wall, and nobody has moved them.
+step    The windmill walk | walk the windmill field with Ral and count the sails | windmills_walked 1 | Thirty. Count them every morning. One day it will be twenty-nine and you will want to know which. | cue walk
+step    The pump shifts | stand a shift at the pump stack, one each visit | pump_shifts_stood 3 | Down at the bottom you can hear the whole stack breathing. | cue stand
+step    The pipes | carry Erib's pipe sections and Kogan's corkscrews up the stack for Ral | pipe_parts_carried 1 | Erib's pipes, Kogan's screws. The best in the fort, and they still wear out. | cue carry
+step    The floodgate | set the floodgate above the lowest pumps with Ral at the lever | floodgates_set 1 | If it had been here last spring, I would not be keeping a pair of boots. | cue set
+step    Zuglar's rest | lay Zuglar Oartails in a tomb with Ral standing by | zuglar_laid_to_rest 1 | Pikedwarf, year one hundred and six, drowned. Put that on the slab, and put that it was not his fault. | cue mourn
+step    The new pump | see a new screw pump raised on Bomrekedan's stack | bom_built_machine_works 1 | Fifty-three. Count it with the others tomorrow morning.
+trial   The dry floor | walk the bottom of the stack with Ral, every pump turning and no water over the boots | dry_floors_walked 1 | Dry feet. That is what the whole works is for. | cue walk
+reward  the Machine Works raised a level: powered workshops open, a bomb more each delve (a Bomrekedan questline: no power is taught)
+title   the Pump-Minder
+keepsake a brass screw from a worn pump, on a leather cord
+ties    Goodwife Barley's windmill is the Delve's own (Stout Heart); the pipes are Erib Standardhandled's and the screws Kogan Waningcobalt's; the baroness's millstone waits on this power (A Mill for the Millstone).
+art
+8..8..8
+.8.8.8.
+..888..
+8887888
+..888..
+...8...
+...8...

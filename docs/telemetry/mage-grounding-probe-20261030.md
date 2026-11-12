@@ -1,5 +1,36 @@
 # Mage-VL-Cowork grounding probe — 2026-10-30
 
+> **2026-11-02 self-verification** (`web_loop_verify.py`, 26 fixture targets,
+> real clicks, plus one inert background click per target as the control): the
+> hand can confirm its own click, but only through its coordinate channel.
+> Asked to ground *the state the click produced* ("the control that is outlined
+> in red"), the returned point lands inside the control that was clicked for
+> **20/23 activations**, and on **0 of 28 non-activations** (3 failed clicks +
+> 25 background clicks). With the page's visible answer switched off
+> (`--mode none`) it confirms **0/23**: it reads the result, it does not
+> reconstruct the click. The same question in language is unusable — 26/26
+> replies degenerate into a `<think>` token loop in the runtime prompt format.
+> Cost: one extra `ground` call, median 9.0 s. Combined with the pixel-diff rule
+> from `web_loop_retry.py` (whose "no change" is the trustworthy half), the
+> conjunction gives 20/20 precision on this scene. Table and caveats:
+> [`reports/mage-selfverify-20261102/README.md`](../../reports/mage-selfverify-20261102/README.md).
+
+> **2026-11-01 closed loop:** a real click into a real Chrome page, verdict
+> read from the page (`web_loop_bench.py`): 1080p **28/32 target actuations**,
+> but a 4K or 1.25× frame only **6/26–6/32**. The same pixels upscaled drift the
+> model's answer by 2.5–5.5% of the frame, so `hands.rs` now caps the grounding
+> frame at 1920×1080 (`fit_frame`/`uncap_point`) — capped 4K returns to 23/26.
+> Cascade worth at 1080p: 1 look 24/32 (1.5 s), +2× 27/32, +3× 28/32 (5.4 s,
+> median error 4.1 px).
+
+> **2026-10-31 recovery:** The offline A/B was regenerated from all 618 paired
+> records: held-out desktop **119/129 (92.2%)**, web **124/132 (93.9%)**.
+> The fine-tuned **live** benchmark is still incomplete: all 24 archived attempts
+> failed to launch with exit 127, not 24 model failures. Base live remains 23/24.
+> Repaired scoring, raw-input hashes, dashboard data, and approval-gated rerun
+> instructions: [recovery report](../../reports/mage-recovery-20261031/README.md).
+
+
 Step 1 and step 2 of `docs/MAGE-PLAN.md`: can `microsoft/Mage-VL-Cowork`
 be angel's GUI eye (`ground` → capsule-approved `click`) and its local
 vision backend (`ANGEL_VISION_URL`)?
@@ -269,7 +300,7 @@ Ruled out on the way, on the same screenshots:
 
 ## Full bench (2026-10-30 night)
 
-Dashboard: https://claude.ai/artifact/944SBMshgRXiL5C3owWDT9. Kit and raw data:
+Kit and raw data:
 `<scratch>/mage/bench`:
 - `results.jsonl`: every target and arm with Mage's raw reply;
 - `angel-live/`: every live run with angel's transcript, before/after

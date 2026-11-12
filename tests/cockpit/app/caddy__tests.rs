@@ -806,3 +806,16 @@ fn caddy_card_follows_the_dossier_block_in_task_warm_start() {
     let _ = std::fs::remove_dir_all(caddy_dir.parent().unwrap());
 }
 include!("caddy_integrity_tests.rs");
+
+#[test]
+fn the_race_flag_arms_the_board_only_while_it_is_up() {
+    let _guard = crate::tests::env_lock();
+    let (_, _, workspace, _env) = fixture("board-race-flag");
+    let _down = crate::tests::TestEnvGuard::unset("ANGEL_COMPETITION_MODE");
+    assert!(!board_armed(&workspace));
+    {
+        let _up = crate::tests::TestEnvGuard::set("ANGEL_COMPETITION_MODE", "1");
+        assert!(board_armed(&workspace));
+    }
+    assert!(!board_armed(&workspace));
+}

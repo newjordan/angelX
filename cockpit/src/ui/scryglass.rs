@@ -5,12 +5,15 @@
 //! and the bounded delivery queue. Agent execution and world simulation never
 //! depend on this module.
 
-use crate::stage::world_viz::Building;
+use crate::app::control::realm::GameHost;
+use crate::harness::ToolEventId;
+pub(crate) use angel_plug::commands::Building;
+use angel_plug::commands::CommandsWorld;
 use crate::ui::media::Media;
 #[cfg(feature = "scryglass-video")]
 use crate::ui::media::MediaSource;
 use crate::ui::term::art::ColoredBrailleImage;
-use crate::{harness::ToolEventId, viz::lifecycle_viz::CeremonyKind};
+use crate::viz::lifecycle_viz::CeremonyKind;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier};
@@ -26,6 +29,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 #[cfg(feature = "scryglass-video")]
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
+
+fn world_map_enabled() -> bool {
+    <GameHost as CommandsWorld>::map_enabled()
+}
 
 mod copy;
 mod document;
@@ -173,10 +180,11 @@ impl StageController {
             self.back_stack.remove(0);
         }
         self.route = route;
-        if matches!(
+        let travelling = matches!(
             self.overlay,
             Some(StageOverlay::Journey { .. } | StageOverlay::Arrival { .. })
-        ) {
+        );
+        if travelling {
             self.overlay = None;
             self.overlay_owner = None;
         }
@@ -284,7 +292,7 @@ impl StageController {
     /// The Realm route shows the pixel overworld, where travel and arrival
     /// play out on the map instead of cutting to the 3D ride.
     fn map_hosts_travel(&self) -> bool {
-        self.route == StageRoute::Realm && crate::stage::world_viz::overworld::map_enabled()
+        self.route == StageRoute::Realm && world_map_enabled()
     }
 
     /// The only scene-resolution match. Automatic journey/arrival cues remain
@@ -1310,21 +1318,25 @@ impl Default for Scryglass {
 impl Scryglass {
     /// Open the default Dotmax exploration pane. Realm and Explore share the
     /// sole outdoor renderer while retaining their own controls and routes.
-    pub(crate) fn for_world(destination: Building) -> Self {
+    pub(crate) fn for_world(destination: impl Into<Building>) -> Self {
         let mut stage = Self::default();
-        stage.navigate(StageRoute::Explore(destination));
+        stage.navigate(StageRoute::Explore(destination.into()));
         stage
     }
 
     /// The stage a session opens on: the overworld map on the Realm route,
     /// or the Dotmax ride at the destination when the map is switched off
     /// (`ANGEL_WORLD_MAP=3d`).
-    pub(crate) fn for_session(destination: Building) -> Self {
-        if crate::stage::world_viz::overworld::map_enabled() {
+    pub(crate) fn for_session(destination: impl Into<Building>) -> Self {
+        if world_map_enabled() {
             Self::default()
         } else {
             Self::for_world(destination)
         }
+    }
+
+    pub(crate) fn opening(destination: Option<Building>) -> Self {
+        destination.map_or_else(Self::default, Self::for_session)
     }
 }
 
@@ -1422,10 +1434,8 @@ impl Scryglass {
                         .as_millis(),
                 )
             }),
-            StageOverlay::Lesson
-            | StageOverlay::Catalog
-            | StageOverlay::Lifecycle { .. }
-            | StageOverlay::Journey { .. } => None,
+            StageOverlay::Lesson | StageOverlay::Catalog | StageOverlay::Lifecycle { .. } => None,
+            StageOverlay::Journey { .. } => None,
         }
     }
 
@@ -1536,7 +1546,7 @@ impl Scryglass {
     pub(crate) fn begin_journey(
         &mut self,
         call_id: ToolEventId,
-        destination: Building,
+        destination: impl Into<Building>,
         reduced_motion: bool,
     ) {
         if reduced_motion {
@@ -1544,7 +1554,7 @@ impl Scryglass {
         }
         self.controller.show_overlay(StageOverlay::Journey {
             call_id,
-            destination,
+            destination: destination.into(),
         });
     }
 
@@ -1767,7 +1777,8 @@ impl Scryglass {
         self.queued_lesson_outcome = Some(outcome);
     }
 
-    pub(crate) fn toggle_world_route(&mut self, destination: Building) {
+    pub(crate) fn toggle_world_route(&mut self, destination: impl Into<Building>) {
+        let destination = destination.into();
         if matches!(
             self.controller.overlay(),
             Some(StageOverlay::Journey { .. })
@@ -1815,7 +1826,8 @@ impl Scryglass {
         crate::drive::comp_mode::ambient_stage_sim_allowed()
     }
 
-    pub(crate) fn sync_arrival(&mut self, arrived: Option<Building>) {
+    pub(crate) fn sync_arrival(&mut self, arrived: Option<impl Into<Building>>) {
+        let arrived = arrived.map(Into::into);
         // The world is already parked at the Keep before the first frame. Treat
         // that observation as the baseline, never as a journey outcome; only a
         // later transition may create ARRIVAL.

@@ -15,6 +15,17 @@ const LATE_S = 0.25;
 // Music sits well under the effects: 15% (the operator, 2026-10-28; the
 // Delve's host plays it at 0.15 too).
 const MUSIC_LEVEL = 0.15;
+// The Bard's songs (`rules::bard`): a track of Knight Shift Radio cut into one-beat slices,
+// `bard_<song>_<beat>`, the first volley of each beat naming the next. Each slice carries 16 ms of
+// the next beat's start, faded, so a slice that starts on time crossfades into the one before it:
+// they are never counted among the six effect voices or cut by them, and they sit in a bank of
+// their own (the first beats of every song and the Lullabies stay in it, the rest turn over).
+const BARD = /^bard_[a-h]_(\d{3}|lull)$/;
+const BARD_VOICES = 3;
+const BARD_BANK = 240;
+const BARD_AHEAD = 6;
+const BARD_OPENING = 6;
+const BARD_SONGS = 'abcdefgh';
 const MUSIC_RETRY_MS = 1000;
 const MUSIC_LOAD_MS = 15000;
 // The player's own volume (0 to 1) and mute, kept in this browser.
@@ -38,6 +49,9 @@ function makeSound(manifest) {
   let playingName = '', generation = 0, loading = null, retryTimer = null, retries = 0;
   let effectsGeneration = 0;
   const voices = []; // playing sources, oldest first
+  const songBuffers = new Map(); // the Bard's slices: name -> Promise<AudioBuffer | null>
+  const songPinned = new Set();
+  const songVoices = []; // the Bard's playing slices, oldest first
   let played = 0;
   let volume = Math.min(1, Math.max(0, Number(remembered(VOLUME_KEY, 0.8)) || 0));
   let muted = remembered(MUTE_KEY, false) === true;
@@ -57,8 +71,80 @@ function makeSound(manifest) {
       musicGain = ctx.createGain();
       musicGain.gain.value = MUSIC_LEVEL;
       musicGain.connect(master);
+      // Idle a moment, then have every song's opening beats and Lullaby decoded: the first slice
+      // of a hold must not wait on a fetch (a late slice is skipped, not played).
+      if (manifest[sliceName(BARD_SONGS[0], 0)]) setTimeout(warmSongs, 1500);
     }
     resume();
+  }
+
+  function sliceName(song, beat) {
+    return `bard_${song}_${String(beat).padStart(3, '0')}`;
+  }
+
+  function loadSlice(name) {
+    let p = songBuffers.get(name);
+    if (!p) {
+      const url = manifest[name];
+      p = !url ? Promise.resolve(null) : fetch(url)
+        .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
+        .then(bytes => ctx.decodeAudioData(bytes))
+        .catch(() => {
+          if (songBuffers.get(name) === p) songBuffers.delete(name);
+          return null;
+        });
+      songBuffers.set(name, p);
+      if (songBuffers.size > BARD_BANK) {
+        for (const key of songBuffers.keys()) {
+          if (!songPinned.has(key)) { songBuffers.delete(key); break; }
+        }
+      }
+    }
+    return p;
+  }
+
+  function warmSongs() {
+    if (!ctx) return;
+    for (const song of BARD_SONGS) {
+      for (let beat = 0; beat < BARD_OPENING; beat++) {
+        const name = sliceName(song, beat);
+        if (manifest[name]) { songPinned.add(name); loadSlice(name); }
+      }
+      const lull = `bard_${song}_lull`;
+      if (manifest[lull]) { songPinned.add(lull); loadSlice(lull); }
+    }
+  }
+
+  function song(name, beat) {
+    if (!ctx || ctx.state !== 'running') return;
+    const now = () => typeof performance === 'undefined' ? Date.now() : performance.now();
+    const asked = now(), epoch = effectsGeneration;
+    // The next beats, fetched while this one plays.
+    if (beat >= 0) {
+      for (let i = 1; i <= BARD_AHEAD; i++) {
+        const next = sliceName(name[5], beat + i);
+        if (manifest[next]) loadSlice(next);
+      }
+    }
+    loadSlice(name).then(buffer => {
+      if (!buffer || epoch !== effectsGeneration || ctx.state !== 'running'
+          || now() - asked > LATE_S * 1000) return;
+      while (songVoices.length >= BARD_VOICES) songVoices.shift().stop();
+      const src = ctx.createBufferSource();
+      src.buffer = buffer;
+      src.connect(master);
+      src.onended = () => {
+        src.disconnect();
+        const i = songVoices.indexOf(src);
+        if (i >= 0) songVoices.splice(i, 1);
+        src.buffer = null;
+      };
+      try {
+        src.start();
+        songVoices.push(src);
+        played++;
+      } catch (e) { src.onended(); }
+    });
   }
 
   function loadEffect(name) {
@@ -74,9 +160,10 @@ function makeSound(manifest) {
         });
       // Playing sources retain their own AudioBuffers when cached generations
       // retire. Bound the reusable decoded bank across arbitrarily many edits:
-      // room for every shipped effect (the Bard's riff alone is fifteen, the
-      // blades, the magic's families and the wishes thirty-four more, the
-      // knights' clips ninety-six), so only live edits ever turn it over.
+      // room for every shipped effect (the blades, the magic's families and
+      // the wishes thirty-four more, the knights' clips ninety-six; the
+      // Bard's songs have a bank of their own), so only live edits ever turn
+      // it over.
       while (buffers.size >= 256) buffers.delete(buffers.keys().next().value);
       if (/^live-[a-f0-9]{48}\.wav$/.test(name)) {
         const liveNames = [...buffers.keys()].filter(key => /^live-[a-f0-9]{48}\.wav$/.test(key));
@@ -89,6 +176,8 @@ function makeSound(manifest) {
 
   function sfx(name) {
     if (!ctx || ctx.state !== 'running') return;
+    const bard = BARD.exec(name);
+    if (bard) return song(name, bard[1] === 'lull' ? -1 : Number(bard[1]));
     let gain = 1;
     const live = /^(live-[a-f0-9]{48}\.wav)@(\d{1,3})$/.exec(name);
     if (live) {
@@ -209,11 +298,13 @@ function makeSound(manifest) {
     music,
     suspend() {
       effectsGeneration++; // A frozen audio clock must not preserve old SFX.
-      while (voices.length) {
-        const src = voices.shift();
-        src.stop();
-        src.disconnect();
-        src.buffer = null;
+      for (const bank of [voices, songVoices]) {
+        while (bank.length) {
+          const src = bank.shift();
+          src.stop();
+          src.disconnect();
+          src.buffer = null;
+        }
       }
       if (ctx) ctx.suspend().catch(() => {});
     },

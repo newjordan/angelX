@@ -13,7 +13,8 @@ pub struct Road {
     pub points: &'static [(i32, i32)],
 }
 
-const MAIN: u8 = 3;
+/// A main road's width in tiles, and a lane's.
+pub const MAIN: u8 = 3;
 const LANE: u8 = 2;
 
 /// Every road and lane. The ends sit one tile outside a set piece's gate;
@@ -102,10 +103,11 @@ fn in_castle(x: i32, y: i32) -> bool {
     super::castles::footprints().any(|(tx, ty, tw, th)| x >= tx && y >= ty && x < tx + tw && y < ty + th)
 }
 
-/// The road width at every tile (0 where no road runs), as laid.
+/// The road width at every tile (0 where no road runs), as laid. None runs in
+/// the blank-slate plan (`super::plan`).
 pub fn raster() -> Vec<u8> {
     let mut out = vec![0u8; (MAP_W * MAP_H) as usize];
-    for road in ROADS {
+    for road in ROADS.iter().filter(|_| super::plan::full()) {
         let mut prev: Option<(i32, i32)> = None;
         for (x, y) in course(road.points) {
             match prev {

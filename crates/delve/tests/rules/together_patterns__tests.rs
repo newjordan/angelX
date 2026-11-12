@@ -16,6 +16,7 @@ fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     fight(&mut run);
     run.calm_for_test();
+    run.settle_seams_for_test();
     run.enemies.clear();
     run.projectiles.clear();
     run.window = None;
@@ -1574,6 +1575,9 @@ fn a_greater_demon_on_the_third_floor_fires_thin_slow_volleys_for_a_full_party()
         (hero.x, hero.y, hero.hp, hero.max_hp) = (20.0 + id as f32 * 3.0, 20.0, 100_000, 100_000);
     }
     run.dungeon.depth = 3;
+    // The floor is a new one: its seam is another claim than the one the
+    // room's fixture took.
+    run.settle_seams_for_test();
     run.spawn_at_for_test(EnemyKind::Demon, 24.0, 8.0);
     let demon = run.enemies.last_mut().unwrap();
     (demon.age, demon.elite) = (TELEGRAPH, false);

@@ -16,6 +16,8 @@ fn game(n: u32) -> Run {
         },
     )]));
     assert!(r.mossbell.is_some());
+    // These tests play the tables, not the title and the countdown (`mossbell_waits_for_the_countdown`).
+    r.mossbell.as_mut().unwrap().intro = 0;
     r
 }
 #[test]
@@ -500,7 +502,12 @@ fn mossbell_host_replays_the_visible_tick_and_all_bot_rounds_can_pay() {
     );
     for seats in [1, 2, 4, 2, 4] {
         let mut r = game(seats);
-        for _ in 0..LENGTH {
+        // A keeper's fall and the jackpot hold the room a few ticks (hit-stop), so the
+        // clock takes a little over a minute of steps.
+        for _ in 0..LENGTH + 120 {
+            if r.mossbell.as_ref().unwrap().left == 0 {
+                break;
+            }
             let inputs = r
                 .mossbell
                 .as_ref()
@@ -562,4 +569,141 @@ fn mossbell_each_live_knob_changes_its_physical_action() {
         b.step(stroke, &moved, 0, 41, 0);
         assert_ne!(a, b, "{name}");
     }
+}
+
+#[test]
+fn mossbell_waits_for_the_countdown_then_every_table_plays_at_once() {
+    let mut r = Run::mossbell_for_test();
+    for id in 2..=3 {
+        r.join_seat(id, &format!("Seat {id}"));
+    }
+    r.step(&BTreeMap::from([(1, Input { interact: true, ..Default::default() })]));
+    let s = r.mossbell.as_ref().unwrap();
+    assert_eq!(s.intro, INTRO);
+    let before: Vec<_> = s.tables.values().map(|t| t.ball.clone()).collect();
+    // A press during the title launches nothing and costs no time on the clock.
+    for _ in 0..INTRO - 1 {
+        r.step(&BTreeMap::from([(2, Input { fire: true, ..Default::default() })]));
+    }
+    let s = r.mossbell.as_ref().unwrap();
+    assert_eq!(s.left, LENGTH);
+    assert_eq!(s.tables.values().map(|t| t.ball.clone()).collect::<Vec<_>>(), before);
+    r.step(&BTreeMap::new());
+    r.step(&BTreeMap::new());
+    let s = r.mossbell.as_ref().unwrap();
+    assert_eq!(s.intro, 0);
+    assert!(s.left < LENGTH, "the clock runs once the countdown is out");
+    assert!(s.tables.values().all(|t| t.ball.vy != 0 || t.ball.y != 122 * Q), "every ball is away together");
+    assert!(r.valid_snapshot());
+}
+
+#[test]
+fn mossbell_bell_pays_double_for_every_table_at_once() {
+    let t = Tune::default();
+    for (age, pay) in [(0, 1), (BELLS[0].0 - 1, 1), (BELLS[0].0, 2), (BELLS[0].1 - 1, 2), (BELLS[0].1, 1), (BELLS[1].0 + 3, 2)] {
+        let mut b = Ball::new();
+        b.save = 0;
+        b.x = 44 * Q;
+        b.y = 72 * Q;
+        b.vy = -800;
+        b.step(Stroke::default(), &t, age, 1, 0);
+        assert_eq!(b.score, 25 * pay, "a bumper at age {age}");
+        let mut b = Ball::new();
+        b.save = 0;
+        b.x = 80 * Q;
+        b.y = 49 * Q;
+        b.vy = -1200;
+        b.step(Stroke::default(), &t, age, 1, 0);
+        assert_eq!(b.score, 100 * pay, "the keeper at age {age}");
+    }
+    // The clock tolls the room once at the start of each window.
+    let mut s = Session::new(1..=2, 5);
+    s.intro = 0;
+    for age in 0..LENGTH {
+        s.show.clock(age, age, LENGTH);
+    }
+    let rung = s.show.shouts.iter().filter(|c| c.cry == super::mossbell_show::Cry::Bell).count();
+    assert!(rung >= 1, "the bell tolled");
+    assert!(s.show.shouts.iter().any(|c| c.cry == super::mossbell_show::Cry::Last));
+}
+
+#[test]
+fn mossbell_the_keeper_falls_and_the_jackpot_hold_the_room() {
+    let mut r = game(2);
+    let b = &mut r.mossbell.as_mut().unwrap().tables.get_mut(&1).unwrap().ball;
+    b.save = 0;
+    b.hp = 1;
+    b.lit = 7;
+    b.x = 80 * Q;
+    b.y = 49 * Q;
+    b.vy = -1200;
+    let mut held = 0;
+    for _ in 0..40 {
+        r.step(&BTreeMap::new());
+        if r.hitstop.left > 0 {
+            held = held.max(r.hitstop.left);
+        }
+        if r.mossbell.as_ref().unwrap().jackpot.contains(&1) {
+            break;
+        }
+    }
+    let s = r.mossbell.as_ref().unwrap();
+    assert!(s.jackpot.contains(&1), "the last pod and all three lamps take the jackpot");
+    assert!(held >= 3, "the fall holds the room: {held}");
+    use super::mossbell_show::Cry;
+    assert!(s.show.shouts.iter().any(|c| c.cry == Cry::KeeperDown && c.who == 1));
+    assert!(s.show.shouts.iter().any(|c| c.cry == Cry::Jackpot && c.who == 1));
+    assert!(s.show.juice.blows.iter().any(|b| b.owner == 1 && b.weight == super::juice::Weight::Kill));
+    assert!(s.show.juice.blows.iter().any(|b| b.owner == 1 && b.weight == super::juice::Weight::Finale));
+    assert!(r.valid_snapshot());
+}
+
+#[test]
+fn mossbell_show_rides_the_wire_and_an_old_snapshot_loads() {
+    let mut r = game(3);
+    for _ in 0..200 {
+        let inputs = r.mossbell.as_ref().unwrap().tables.iter().map(|(&id, t)| (id, t.bot_input())).collect();
+        r.step(&inputs);
+    }
+    let s = r.mossbell.as_ref().unwrap();
+    assert!(s.valid());
+    let back: Session = serde_json::from_slice(&serde_json::to_vec(s).unwrap()).unwrap();
+    assert_eq!(serde_json::to_vec(&back).unwrap(), serde_json::to_vec(s).unwrap());
+    // A snapshot from before the show existed still loads, with a quiet book and no countdown.
+    let mut old: serde_json::Value = serde_json::to_value(s).unwrap();
+    old.as_object_mut().unwrap().remove("show");
+    old.as_object_mut().unwrap().remove("intro");
+    let loaded: Session = serde_json::from_value(old).unwrap();
+    assert!(loaded.show.quiet());
+    assert_eq!(loaded.intro, 0);
+    assert!(loaded.valid());
+}
+
+#[test]
+fn mossbell_a_table_cleared_too_late_is_called_cleared_not_jackpot() {
+    use super::mossbell_show::Cry;
+    let mut r = game(2);
+    let aim = |r: &mut Run, id: u32| {
+        let b = &mut r.mossbell.as_mut().unwrap().tables.get_mut(&id).unwrap().ball;
+        b.save = 0;
+        b.hp = 1;
+        b.lit = 7;
+        b.x = 80 * Q;
+        b.y = 49 * Q;
+        b.vy = -1200;
+    };
+    aim(&mut r, 1);
+    for _ in 0..8 {
+        r.step(&BTreeMap::new());
+    }
+    assert_eq!(r.mossbell.as_ref().unwrap().jackpot, vec![1]);
+    aim(&mut r, 2);
+    for _ in 0..8 {
+        r.step(&BTreeMap::new());
+    }
+    let s = r.mossbell.as_ref().unwrap();
+    assert_eq!(s.jackpot, vec![1], "the first to clear keeps the jackpot");
+    assert!(s.show.shouts.iter().any(|c| c.cry == Cry::Cleared && c.who == 2), "{:?}", s.show.shouts);
+    assert!(!s.show.shouts.iter().any(|c| c.cry == Cry::Jackpot && c.who == 2));
+    assert!(r.valid_snapshot());
 }

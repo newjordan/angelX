@@ -29,6 +29,7 @@ pub mod first_session;
 #[cfg(feature = "renderer")]
 pub mod garage;
 pub mod realm;
+pub use angel_kingdom as kingdom;
 
 #[cfg(feature = "renderer")]
 pub mod render;

@@ -41,3 +41,6 @@ cockpit/systems/*/*.pending
 # manifest/; nothing here is distributable from this repo).
 /datasets/
 delve/build/
+
+# Raw Dwarf Fortress export (tools/angelx-kingdom-export.lua); regenerated from the live fort, not committed
+expansions/bomrekedan/df-export/

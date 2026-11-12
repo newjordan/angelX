@@ -123,6 +123,32 @@ impl RunStore {
         Ok(RunLease { file })
     }
 
+    /// Whether an executor holds the run's lease right now. The lease is an
+    /// exclusive flock the kernel drops when its holder dies, so a free lock on
+    /// a run that never finished means nobody is executing it. The probe asks
+    /// for a shared lock without waiting and lets go at once: it can never take
+    /// the lease from a live executor, and concurrent probes never exclude each
+    /// other. A run that was never started has no lock file and no executor.
+    pub(super) fn is_executing(&self, run_id: &str) -> Result<bool, String> {
+        use std::os::fd::AsRawFd;
+        let path = self.run_dir(run_id)?.join("run.lock");
+        let file = match OpenOptions::new().read(true).open(&path) {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(false),
+            Err(error) => return Err(format!("open {}: {error}", path.display())),
+        };
+        // SAFETY: `file` owns a live descriptor for the whole call.
+        let rc = unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_SH | libc::LOCK_NB) };
+        if rc == 0 {
+            return Ok(false);
+        }
+        let error = std::io::Error::last_os_error();
+        if error.kind() == std::io::ErrorKind::WouldBlock {
+            return Ok(true);
+        }
+        Err(format!("probe {}: {error}", path.display()))
+    }
+
     pub(super) fn event(
         &self,
         run_id: &str,

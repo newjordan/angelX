@@ -1,0 +1,611 @@
+{
+ "schema": "bomrekedan.kingdom.quests/v1",
+ "as_of": "year 106, tick 201043 (df-export/kingdom.json)",
+ "note": "Every quest is tied to something in the year-106 export or the gamelog; evidence names it. giver.id is the DF unit id from kingdom.json citizens or folk.people. place_hint is a location or workshop kind (or name) until place ids exist. Step counts are first guesses for play testing. Rewards name kingdom effects and raisings-style delve gifts; spoil words are realm.rs Spoil words. Gamelog line numbers refer to C:/Program Files (x86)/Steam/steamapps/common/Dwarf Fortress/gamelog.txt as read on 2026-11-06.",
+ "fixes_from_old_pack": [
+  "Play reached year 106, not about 70. The site was created in year 100 (events CREATED_SITE). The old 'spring of 68' date is from Stozu Buryvice's own history, not the fort's.",
+  "The three 'hidden names' are not villains. Strangerfought the Frightful Smith, Parchedwhisker the Friends of Color and The Music of Diamond are artifacts in the fort (kingdom.json artifacts 2047, 2045, 497). The informants were telling visitors where the fort's treasures are.",
+  "Uvash Nakuthnish is still the baron (position BARON, shown as baroness), but she is no longer mayor: the erinys poet Eigriteil Elmataskituged was elected mayor (gamelog 296161).",
+  "The screw pump is not half-built: 52 screw pumps, 45 gear assemblies and 30 windmills stand.",
+  "The Platinum Hall is not unfinished: the fort holds 119 platinum statues, 73 platinum tables and 96 native platinum tables, and the platinum table and statue orders completed.",
+  "The microcline door was hung: 54 microcline doors stand. Microcline blocks are still cancelled to the end of the log because the boulders ran out (22 left).",
+  "All six guilds' hall agreements were satisfied, and nine guildhalls stand.",
+  "The Bronze Colossus does not walk the forest: it lies dead on the map.",
+  "No loom, tannery, ashery, kiln, glass furnace, screw press, millstone or siege workshop stands in the year-106 export, though the old pack listed several as built."
+ ],
+ "quests": [
+  {
+   "id": "coke-for-the-smelter",
+   "title": "Coke for the Smelter",
+   "giver": {"id": 15075, "name": "Kikrost Metalcloisters", "native": "Kikrost Keloddom", "race": "dwarf", "position": "Wood Burner"},
+   "kind": "build",
+   "place_hint": "furnace:Wood Furnace (deep forge level, z81)",
+   "summary": "In the first years every forge job stopped for want of refined coal. Bomrekedan has one smelter and two wood furnaces, and the one smelter had to coke the coal, smelt the ore and make the steel. Kikrost wants a second furnace that does nothing but burn fuel.",
+   "steps": [
+    {"do": "bring coal up from the Mines", "count": 20},
+    {"do": "burn charcoal at the wood furnaces", "count": 10},
+    {"do": "raise a second smelter on the forge level, for coke only", "count": 1},
+    {"do": "bank refined coal", "count": 40}
+   ],
+   "reward": "Coke Smelter standing; the Smelter no longer waits on fuel. Delve gift: ember-cost upgrades for the Beacon Tower are halved while it stands.",
+   "evidence": {
+    "cancellations": "Needs refined coal 609 + Needs 1 refined coal 345 = 954 (gamelog lines 3282 to 59565; the shortage ends early)",
+    "completed": "Make charcoal 52 orders, Make pig iron bars 69, Make steel bars 60",
+    "buildings": "1 Smelter (dolomite, z81), 2 Wood Furnaces (z81)",
+    "stocks": "89 coal bars, 213 bituminous coal boulders"
+   }
+  },
+  {
+   "id": "the-steel-line",
+   "title": "The Steel Line",
+   "giver": {"id": 14887, "name": "Fath Quietinked", "native": "Fath Kàslikot", "race": "dwarf", "position": "Metalsmith"},
+   "kind": "both",
+   "place_hint": "workshop:Metalsmith's Forge (z81)",
+   "summary": "Six squads wear steel, and every piece of it waited on bars. Breastplates, greaves, helms, gauntlets and boots were cancelled hundreds of times for want of steel. Fath, who made an iron scimitar in a mood, wants ore from the Delve and a forge that never cools.",
+   "steps": [
+    {"do": "bring ore from the Mines to the forge", "count": 30},
+    {"do": "smelt pig iron", "count": 10},
+    {"do": "make steel bars", "count": 20},
+    {"do": "forge a full steel kit for one recruit", "count": 1}
+   ],
+   "reward": "Steel line running. Delve gift: Mail (a piece of mail at each delve's start), one point per level of the Forge.",
+   "evidence": {
+    "cancellations": "Needs 1/2/3 steel bars = 783 + 278 + 333 = 1394 (gamelog 3328 to 274762)",
+    "worst_jobs": "Forge steel breastplate 315, Forge steel greaves 261, high boots 210, gauntlets 208, helm 207",
+    "stocks": "30 steel bars, 46 iron bars, 178 steel blocks; 61 steel weapons and 43 steel shields",
+    "artifact": "The Admirer of Faith, iron scimitar (artifact 2053), made by Fath in a possession (gamelog 109501-115228)"
+   }
+  },
+  {
+   "id": "the-still-runs-dry",
+   "title": "The Still Runs Dry",
+   "giver": {"id": 14631, "name": "Zuglar Lessonshoot", "native": "Zuglar Kashezkeskal", "race": "dwarf", "position": "Brewer"},
+   "kind": "both",
+   "place_hint": "workshop:Still (z98, eight of them)",
+   "summary": "The fort's longest shortage: from the first summer to the last line of the log, brewers cancelled 'Brew drink from fruit' for want of fruit. The stores hold 1,846 barrels' worth of dwarven wine, all of it from plump helmets. Zuglar wants fruit from the Greenwood so the taverns can pour something else.",
+   "steps": [
+    {"do": "gather fruit and leaves in the Greenwood", "count": 30},
+    {"do": "brew at the stills", "count": 30},
+    {"do": "carry barrels to The Brunch of Paddling and The Copper Peppers", "count": 10}
+   ],
+   "reward": "Both taverns pour every night; visiting bards and poets stay longer. Delve gift: Purse (gold on each new floor) for The Copper Peppers once stocked.",
+   "evidence": {
+    "cancellations": "Needs unrotten fermentable leaf or fruit 3374 + fermentable plant 177 = 3551; Brew drink from fruit alone 2812 (gamelog 359 to 316744, the whole playthrough)",
+    "buildings": "8 Stills (z98)",
+    "stocks": "1,846 dwarven wine; 379 plump helmet plants; fruit seeds but no orchard"
+   }
+  },
+  {
+   "id": "a-full-table",
+   "title": "A Full Table",
+   "giver": {"id": 14623, "name": "Vabôk Rampartswallowed", "native": "Vabôk Dîshmabmozib", "race": "dwarf", "position": "Cook"},
+   "kind": "both",
+   "place_hint": "workshop:Kitchen (z98, four of them)",
+   "summary": "Vabôk has cooked masterpiece roasts of garden cress and turkey egg, but lavish, fine and easy meals all wait on something unrotten to cook. Of the 1,893 food items in the stores, 1,368 are turkey eggshells. The cooks want meat, fish and greens.",
+   "steps": [
+    {"do": "bring cookable food home from the Delve (bone and beast meat)", "count": 30},
+    {"do": "cook meals", "count": 30},
+    {"do": "cook one masterpiece meal for the dining halls", "count": 1}
+   ],
+   "reward": "Dwarves eat well and stress falls across the kingdom. Proposed delve gift: Feast (a little health back at each floor's first stair).",
+   "evidence": {
+    "cancellations": "Needs unrotten cookable solid item 3112 + cookable item 1052 = 4164; Prepare lavish meal 1727, fine 1335, easy 840",
+    "buildings": "4 Kitchens (z98), 4 dining halls, 17 nest boxes, 1 butcher's shop",
+    "stocks": "FOOD 1893, of which turkey eggshell 1368 and plump helmet 221",
+    "masterpieces": "Vabôk's garden cress and turkey egg roasts (gamelog 8841-10930)"
+   }
+  },
+  {
+   "id": "barrels-and-pots",
+   "title": "Barrels and Pots",
+   "giver": {"id": 14617, "name": "Oddom Gearedsecrets", "native": "Oddom Olonnekut", "race": "dwarf", "position": "Carpenter"},
+   "kind": "build",
+   "place_hint": "workshop:Carpenter's Workshop (z97, four of them)",
+   "summary": "Brewers stopped over a thousand times because there was no empty barrel or pot to brew into. Oddom, who made a hazel bed in a mood and nineteen masterpieces, wants the forest's wood turned into barrels and bins.",
+   "steps": [
+    {"do": "make barrels", "count": 25},
+    {"do": "make bins", "count": 15},
+    {"do": "make pots at a kiln (raise the kiln first)", "count": 10}
+   ],
+   "reward": "Food and drink stores double. Unlocks the Kiln lot.",
+   "evidence": {
+    "cancellations": "Needs empty food storage item 1053 (Brew drink from plant 865)",
+    "buildings": "4 Carpenter's Workshops; no kiln",
+    "stocks": "460 barrels, 433 bins, 1706 logs"
+   }
+  },
+  {
+   "id": "spawn-for-the-fields",
+   "title": "Spawn for the Fields",
+   "giver": {"id": 15103, "name": "Tekkud Constructjungles", "native": "Tekkud Abanegath", "race": "dwarf", "position": "Planter"},
+   "kind": "both",
+   "place_hint": "farm:Farm Plots (z98, eight plots)",
+   "summary": "Ten planters work eight plots, and for years the planters sowed nothing because the plump helmet spawn ran out. Cave wheat seed ran short too. Tekkud wants spawn from the caverns and the Flaxen Guild's planters back at work.",
+   "steps": [
+    {"do": "gather spawn and seeds in the fungal deep", "count": 12},
+    {"do": "sow the eight plots", "count": 8},
+    {"do": "bring in one harvest", "count": 1}
+   ],
+   "reward": "Farms produce again; feeds A Full Table and The Still Runs Dry. The Flaxen Guild (The Ugly Frill) and the farmers' guildhalls are pleased.",
+   "evidence": {
+    "cancellations": "Needs plump helmet spawn 378, cave wheat seeds 28",
+    "buildings": "8 FarmPlots (z98); guildhalls The Ugly Frill (planters), The Harsh Boldness and The Lush Waves (farmers)",
+    "stocks": "65 plump helmet seeds, 20 cave wheat seeds"
+   }
+  },
+  {
+   "id": "blue-stone-again",
+   "title": "Blue Stone Again",
+   "giver": {"id": 14080, "name": "Sibrek Tradedlegends", "native": "Sibrek Nishgomath", "race": "dwarf", "position": "Miner"},
+   "kind": "both",
+   "place_hint": "workshop:Stoneworker's Workshop (the microcline one, z97)",
+   "summary": "Sibrek carved Blamedrain the Everseeing Standards, a microcline statue, in the fort's second mood, and the fort fell in love with the blue stone: 54 microcline doors and a microcline bridge stand. Now only 22 microcline boulders are left, and the standing order for microcline blocks is cancelled again and again to the last line of the log.",
+   "steps": [
+    {"do": "bring microcline (gem) up from the Mines", "count": 12},
+    {"do": "cut microcline blocks", "count": 20},
+    {"do": "set a microcline floor in the statue garden", "count": 1}
+   ],
+   "reward": "The standing order clears; the stonecutters (eight of them) go back to other work. Delve gift: Ward (a moment untouchable on every arrival) for the blue gate.",
+   "evidence": {
+    "cancellations": "Needs microcline 1048, almost all 'Make four microcline blocks' (gamelog 173562 to 316743, still open at the end)",
+    "artifact": "Blamedrain the Everseeing Standards, microcline statue of Idala Flightcyclones (artifact 2044; gamelog 2469-2558)",
+    "stocks": "22 microcline boulders, 500 microcline blocks; buildings: 54 microcline doors, 1 microcline bridge, 1 microcline Stoneworker's Workshop"
+   }
+  },
+  {
+   "id": "the-machine-works",
+   "title": "The Machine Works",
+   "giver": {"id": 14478, "name": "Ral Taxcloister", "native": "Ral Stettadoddom", "race": "dwarf", "position": "Pump Operator"},
+   "kind": "build",
+   "place_hint": "machine:windmill field (surface, z100) and the pump stack down to z89",
+   "summary": "Thirty windmills on the hill turn 45 gear assemblies and 48 axles, and they drive 52 screw pumps stacked from the surface down to the fourth well level. Ral keeps it running. In year 106 the pikedwarf Zuglar Oartails drowned, and Ral wants the stack checked, a floodgate set, and the man laid in a tomb.",
+   "steps": [
+    {"do": "make pipe sections and corkscrews", "count": 6},
+    {"do": "replace worn screw pumps in the stack", "count": 4},
+    {"do": "set a floodgate above the lowest pumps", "count": 1},
+    {"do": "lay Zuglar Oartails in a tomb", "count": 1}
+   ],
+   "reward": "Water reaches the four wells and the farms without flooding the halls. Unlocks powered workshops (millstone, screw press). Delve gift proposal: Bombs (a bomb more each delve) while the works run, sharing the Miners' Lodge's place.",
+   "evidence": {
+    "buildings": "52 ScrewPump (z89:12, z94:8, z100:24, z101:8), 45 GearAssembly, 30 Windmill (all z100), 33 horizontal and 15 vertical axles, 4 Wells (z93), 11 tombs, 10 coffins",
+    "death": "Zuglar Mebzuthkesh 'Oartails', Pikedwarf, DROWN, year 106 (kingdom.json dead); gamelog 285451",
+    "masterpieces": "Erib Standardhandled's pipe sections and Kogan Waningcobalt's enormous corkscrews (gamelog 10928-11008)",
+    "mods": "clinodev's dry mines (no aquifers), Flowing Water"
+   }
+  },
+  {
+   "id": "a-mill-for-the-millstone",
+   "title": "A Mill for the Millstone",
+   "giver": {"id": 14371, "name": "Uvash Braidedtraded", "native": "Uvash Nakuthnish", "race": "dwarf", "position": "Baron (baroness)"},
+   "kind": "build",
+   "place_hint": "lot:Millstone beside the machine works",
+   "summary": "The baroness was taken by a strange mood and made The Cremation of Rogues, a tetrahedrite millstone, and offered it to The Misty Handles. No millstone or quern stands anywhere in Bomrekedan, and Lòr Spunlanced is a miller with no mill. Uvash wants her millstone turning.",
+   "steps": [
+    {"do": "run an axle from the windmill gears to the lot", "count": 1},
+    {"do": "raise the Millstone and set The Cremation of Rogues in it", "count": 1},
+    {"do": "mill flour and dye", "count": 20}
+   ],
+   "reward": "Flour for the kitchens, dye for the clothier; the baroness's mandate is met. Delve gift: Wishes (a wish more each delve), as the Wayside Shrine's friend.",
+   "evidence": {
+    "artifact": "The Cremation of Rogues, tetrahedrite millstone (artifact 2064), made by Uvash (gamelog 233860-240528)",
+    "buildings": "no Millstone or Quern among 3546 buildings",
+    "people": "Lòr Spunlanced (14661), Miller; 4 Pressers with no screw press",
+    "mandates": "Uvash mandated construction of goods four times (gamelog 103083, 144119, 297237)"
+   }
+  },
+  {
+   "id": "a-tannery-for-thob",
+   "title": "A Tannery for Thob",
+   "giver": {"id": 15338, "name": "Onol Tradesoak", "race": "dwarf", "position": "Tanner"},
+   "kind": "both",
+   "place_hint": "lot:Tanner's Shop and Leather Works",
+   "summary": "The tanner Thob Gravelgulfs bled to death in year 105 after a giant bat caught him smoothing a wall. There is no tannery or leather works standing, though 81 tanned skins sit in the stores. Onol, the new tanner, wants a proper shop and the bats driven out of the upper cavern.",
+   "steps": [
+    {"do": "clear the giant bats from the upper cavern", "count": 6},
+    {"do": "bring hides home from the Delve", "count": 10},
+    {"do": "raise the Tanner's Shop and Leather Works", "count": 2}
+   ],
+   "reward": "Leather for bags, quivers and armour. Unlocks quivers for the Steel Crossbow Squad.",
+   "evidence": {
+    "death": "Thob Asënthabum 'Gravelgulfs', Tanner, BLEED, year 105 (kingdom.json dead); 'Thob cancels Smooth wall: Interrupted by a giant bat' (gamelog); giant bat dead on the map",
+    "buildings": "no tannery or leather works",
+    "stocks": "81 tanned skins; 1 leatherworker and 1 tanner in the citizens"
+   }
+  },
+  {
+   "id": "the-tired-ivy",
+   "title": "The Tired Ivy",
+   "giver": {"id": 14722, "name": "Likot Stoppedlabors", "native": "Likot Tôsedèrith", "race": "dwarf", "position": "Chief Medical Dwarf"},
+   "kind": "both",
+   "place_hint": "hospital:The Tired Ivy",
+   "summary": "The fort's hospital is The Tired Ivy, with three traction benches, four diagnosers, two doctors, a surgeon and a bone doctor. Kekkit strangled the surgeon and the chief medical dwarf himself. Likot wants soap, thread and splints laid in before the next beast comes.",
+   "steps": [
+    {"do": "bring wax and bone home from the Crypt", "count": 12},
+    {"do": "make soap (raise the soap maker's workshop first)", "count": 5},
+    {"do": "stock splints and crutches", "count": 6},
+    {"do": "keep one infirmary hour with Likot", "count": 1}
+   ],
+   "reward": "Proposed delve gift: Mend (a knight comes back to each delve start with a little more health), one point per level of the hospital.",
+   "evidence": {
+    "location": "HOSPITAL The Tired Ivy (location 26); 3 traction benches; Okirîd 'The Elder Years' doctors' guildhall",
+    "people": "4 Diagnosers, 2 Doctors, 1 Surgeon, 1 Bone Doctor, 3 Soap Makers but no soap workshop",
+    "stocks": "9 splints, 9 crutches, 4112 thread, 172 cloth",
+    "gamelog": "'The forgotten beast strangles the chief medical dwarf's throat!' (3 times), 'strangles the surgeon's throat!'"
+   }
+  },
+  {
+   "id": "reg-s-defaced-engraving",
+   "title": "Reg's Defaced Engraving",
+   "giver": {"id": 14896, "name": "Reg Mountainpride", "native": "Reg Onolnikuz", "race": "dwarf", "position": "Engraver"},
+   "kind": "build",
+   "place_hint": "statue garden (z91, 358 statues)",
+   "summary": "Bomrekedan carries 8,338 engravings and 517 masterpiece engravings in its history. Twice in the last year Reg's masterpieces were ruined, once by a foolish builder and once by miners. She wants the wall smoothed and a new masterpiece cut where everyone can see it.",
+   "steps": [
+    {"do": "smooth the defaced wall", "count": 1},
+    {"do": "engrave a masterpiece", "count": 1},
+    {"do": "mark the wall so no one digs it again", "count": 1}
+   ],
+   "reward": "Reg forgives the kingdom; engravers work faster. The statue garden counts toward the kingdom's standing.",
+   "evidence": {
+    "gamelog": "'A foolish builder defaced a Reg Onolnikuz!' (285992); 'Your miners have defaced a Reg Onolnikuz!' (296066)",
+    "export": "engravings.count 8338; events MASTERPIECE_CREATED_ENGRAVING 517; 647 statues, 358 of them on z91"
+   }
+  },
+  {
+   "id": "the-erinys-mayor",
+   "title": "The Erinys Mayor",
+   "giver": {"id": 4771, "name": "Eigriteil Rainsuitors", "native": "Eigriteil Elmataskituged", "race": "erinys", "position": "Mayor"},
+   "kind": "people",
+   "place_hint": "tavern:The Copper Peppers",
+   "summary": "Eigriteil came to Bomrekedan as a visiting poet in its first years and stayed. She is 249 years old, and when the fort became the Kingdom of Meat Gods the dwarves elected her mayor over their own baroness. Her first act was a ban on exports; she wants the erinyes' books read aloud and their gods honoured.",
+   "steps": [
+    {"do": "read Elements of the Erinys and Uncovering the Erinys aloud in the tavern", "count": 2},
+    {"do": "furnish the erinys gods' temples (The Brass Labor, The Still Void, The Poetic Bust, The Even Plain, The Silvery Fish)", "count": 5},
+    {"do": "hear her petitions at the mayor's office", "count": 3}
+   ],
+   "reward": "The erinyes settle; the mayor lifts the export ban for knights' goods. Unlocks The Erinys at the Gate.",
+   "evidence": {
+    "gamelog": "'Eigriteil Elmataskituged, Erinys Poet is visiting.' (9350); 'has been elected mayor.' (296161); 'Uvash Nakuthnish, baroness of Kingdom Of Meat Gods's mandate has ended.' (296162); 'mayor has imposed a ban on certain exports.' (299064)",
+    "export": "citizen 4771, race VALKYRIE (the Additional Races erinys), age 249, position MAYOR",
+    "artifacts": "Elements of the Erinys (1259, by Gurjul Ridermusic); Uncovering the Erinys (1862, by Kondafio Musicalsing)",
+    "temples": "five temples to erinys gods: Gerjategra, Sugeilmagufan the Famous, Gerjald, Rurjul the Mint, The Murk of Rhyming"
+   }
+  },
+  {
+   "id": "the-erinys-at-the-gate",
+   "title": "The Erinys at the Gate",
+   "giver": {"id": 11105, "name": "Gurefio Helpedglitters", "native": "Gurefio Horakondafio", "race": "erinys", "position": "Erinys Swordsman (resident)"},
+   "kind": "both",
+   "place_hint": "gate:the drawbridge",
+   "summary": "In the fort's first year seven erinys warriors asked to live here and every petition was ignored. Now eleven erinyes live in Bomrekedan: a swordsman, an axeman, a maceman and a bowman among them, still residents and not citizens. Gurefio, 348 years old, will bring them into the delve roster if the kingdom makes them its own.",
+   "steps": [
+    {"do": "grant citizenship to an erinys resident", "count": 4},
+    {"do": "give each a bedroom (350 stand, find four empty)", "count": 4},
+    {"do": "take an erinys companion on a delve and bring them home", "count": 1}
+   ],
+   "reward": "Erinys warriors join the delve roster as companions. Delve gift: Bond (counted as clearing a room together) for each erinys hall cleared.",
+   "evidence": {
+    "gamelog": "seven 'residency petition ... has been ignored' lines (Gorafio, Sketefio, Giful, Kerafio, Efitarjeggin, Gurefio Eigguruldrgugeirdrul, Elmul); 'The Erinys Swordsman Gurefio Horakondafio has shared many tales' (144120)",
+    "export": "residents 11105 Gurefio Helpedglitters (Swordsman), 9829 Rarjul Grottomartyred (Axeman), 12083 Gogirskul Sensedhails (Maceman), 9341 Gufirud Lacylearns (Bowman); folk groups erinys resident 9, citizen 2, visitor 3"
+   }
+  },
+  {
+   "id": "the-gnoll-poets",
+   "title": "The Gnoll Poets",
+   "giver": {"id": 7590, "name": "Atututip Stretchedscorpions", "native": "Atututip Wupjitaapihyugga", "race": "gnoll", "position": "Gnoll Poet (resident)"},
+   "kind": "people",
+   "place_hint": "tavern:The Brunch of Paddling",
+   "summary": "Two gnoll poets live in Bomrekedan, Atututip and the thirteen-year-old Wuhpa Blackspurting. The gnoll chief Pituta Jutuppititip visited twice and told tales from beyond Whipstirs. Atututip wants a poetry night and a word sent to the gnoll chief that his people are welcome.",
+   "steps": [
+    {"do": "hold a poetry night in The Brunch of Paddling", "count": 1},
+    {"do": "hear Wuhpa's first poem", "count": 1},
+    {"do": "carry a letter to the gnoll chief's camp", "count": 1}
+   ],
+   "reward": "Gnoll caravans and visitors; gnoll scouts can be hired for delves. A poem about the knight is added to the tavern's songs.",
+   "evidence": {
+    "export": "residents 7590 Atututip Stretchedscorpions (27) and 7593 Wuhpa Blackspurting (13), both Gnoll Poets, race GNOLL (Additional Races. Gnolls)",
+    "gamelog": "'Pituta Jutuppititip, chief is visiting.' (81143, 102056); 'The Gnoll chief Pituta Jutuppititip has shared many tales from beyond Whipstirs.' (278443)",
+    "unresolved": "neither gnoll poet appears in the gamelog; when and why they settled is not recorded"
+   }
+  },
+  {
+   "id": "hammers-for-hire",
+   "title": "Hammers for Hire",
+   "giver": {"id": 7369, "name": "Ocgi Vesselbaby", "native": "Ocgi Emegbadu", "race": "human", "position": "Human Hammerman (resident)"},
+   "kind": "both",
+   "place_hint": "tavern:The Copper Peppers",
+   "summary": "Three human soldiers came as visitors and stayed as residents: the hammermen Ocgi, who is eighty, and Pebu Tattooedmen, and the pikeman Curo Grovetoasts. They traded rumours from abroad for drink. Ocgi will fight in the Delve for pay, and wants to see the kingdom's purse first.",
+   "steps": [
+    {"do": "pay the humans' wage into the treasury", "count": 1},
+    {"do": "spar with Ocgi in the barracks", "count": 1},
+    {"do": "delve with a human companion and come home", "count": 1}
+   ],
+   "reward": "Human hammermen and a pikeman on the delve roster as wardens.",
+   "evidence": {
+    "export": "residents 7364 Pebu Tattooedmen, 7369 Ocgi Vesselbaby (80), 7669 Curo Grovetoasts; human citizens 4348 Saquar Clashesspeak (Bard) and 4363 Ona Growledlined (Poet)",
+    "gamelog": "'Ocgi Emegbadu, Human Hammerman is visiting.'; 'The Human Pikeman Curo ... has shared a rumor from abroad.'"
+   }
+  },
+  {
+   "id": "the-lady-consort",
+   "title": "The Lady Consort",
+   "giver": {"id": 4070, "name": "Ino Daggermark", "race": "human", "position": "Guild alderperson (visitor, The Meal Empires of Showing)"},
+   "kind": "people",
+   "place_hint": "trade depot (surface, z100)",
+   "summary": "Visitors from three human nations are in the fort: Tamun Hameheals, lady consort of the Nation of Cathedrals; the prophet Das Holeraptor; and Ino Daggermark, a guild alderperson. Eighteen caravans came in six years and two agreements were made. Ino wants a trade treaty written and witnessed before the lady consort leaves.",
+   "steps": [
+    {"do": "show the lady consort the Platinum Hall", "count": 1},
+    {"do": "fill the trade depot with crafted goods", "count": 20},
+    {"do": "sign the treaty with the mayor and the baroness", "count": 1}
+   ],
+   "reward": "Human caravans bring fruit and cloth each season (feeds the Still and the Clothier). Delve gift: Purse.",
+   "evidence": {
+    "export": "visitors 10909 Tamun Hameheals (lady consort, The Nation of Cathedrals), 11247 Das Holeraptor (Human Prophet, The Sienna Empires), 4070 Ino Daggermark (alderperson, The Meal Empires of Showing, position CUSTOM_GUILD_ALDERPERSON)",
+    "events": "MERCHANT 18, TOPICAGREEMENT_MADE 2 (years 104 and 106)",
+    "gamelog": "human caravans from Testrigil; 'A human diplomat from Testrigil has arrived.' (156512)"
+   }
+  },
+  {
+   "id": "the-ripe-cult",
+   "title": "The Ripe Cult",
+   "giver": {"id": 14476, "name": "Solon Wheeledgrasped", "native": "Solon Kolgídthur", "race": "dwarf", "position": "Priest ('sacred call')"},
+   "kind": "people",
+   "place_hint": "temple:The Rustic Lunch (or a new lot)",
+   "summary": "Two cults asked for temples in the first year. The Strong Cult's priests were recognised; the agreement to build a temple for The Ripe Cult was abandoned. Bomrekedan has 28 temples to the gods of every people, even three to Gimis the kobold, but none for the Ripe Cult.",
+   "steps": [
+    {"do": "furnish a temple for The Ripe Cult", "count": 1},
+    {"do": "bring an offering of wax from the Crypt", "count": 8},
+    {"do": "recognise the Ripe Cult's high priest", "count": 1}
+   ],
+   "reward": "A shrine blessing: Wishes (a wish more each delve) at level 1, shared with the Wayside Shrine.",
+   "evidence": {
+    "gamelog": "'The temple petition by The Strong Cult has been ignored.' (3660); 'The high priest of The Ripe Cult is ready to be recognized' (54574); 'The agreement to establish a temple for The Ripe Cult has been abandoned.' (172781)",
+    "export": "28 TEMPLE locations; three to Gimis (KOBOLD): The Sanctum of Beaching, The Plain Temple, The Sanctuary of Blossoms; 16 offering places; positions HIGH_PRIEST (Oddom Beastbasements) and PRIEST (Solon Wheeledgrasped)"
+   }
+  },
+  {
+   "id": "the-clothiers-mood",
+   "title": "The Clothier's Mood",
+   "giver": {"id": 14625, "name": "Alåth Tradeportal", "native": "Alåth Nishmistêm", "race": "dwarf", "position": "Clothier"},
+   "kind": "people",
+   "place_hint": "workshop:Clothier's Shop (bauxite, z97)",
+   "summary": "The last strange mood in the log took the clothier Alåth, who claimed the Clothier's Shop and began asking for things. The log ends there; the export shows no mood and no new artifact. Thirteen moods before his became artifacts, and one dwarf went mad when the materials did not come.",
+   "steps": [
+    {"do": "find what Alåth asks for (cloth, a gem, a bone)", "count": 1},
+    {"do": "bring the materials from the Delve", "count": 3},
+    {"do": "let her finish", "count": 1}
+   ],
+   "reward": "A new artifact for the display furniture; refuse and he goes mad. Delve gift: one wishmote.",
+   "evidence": {
+    "gamelog": "'Alåth Nishmistêm, Clothier is taken by a fey mood!' and 'has claimed a Clothier's Shop.' (315148, near the end); 'Astesh Èrithstukón, Peasant has gone stark raving mad!' (147082)",
+    "export": "citizen 14625 mood None; events CHANGE_HF_MOOD 16, ARTIFACT_CREATED 30; stocks 4112 thread, 172 cloth",
+    "unresolved": "whether the mood finished, failed or was reloaded away"
+   }
+  },
+  {
+   "id": "three-names-in-the-gossip",
+   "title": "Three Names in the Gossip",
+   "giver": {"id": 14722, "name": "Likot Stoppedlabors", "native": "Likot Tôsedèrith", "race": "dwarf", "position": "Chief Medical Dwarf"},
+   "kind": "both",
+   "place_hint": "display furniture (21 stand) and the hospital",
+   "summary": "Three of the fort's own were heard telling visiting swordsmen about Strangerfought the Frightful Smith, Parchedwhisker the Friends of Color and The Music of Diamond. Those are not strangers: they are a bracelet, a flask and an instrument in the fort's own keeping. Somebody is telling thieves where the treasures are.",
+   "steps": [
+    {"do": "question the chief medical dwarf, the soap maker and the diagnostician", "count": 3},
+    {"do": "move the three artifacts to locked display furniture", "count": 3},
+    {"do": "catch the artifact thief in the Delve and bring the stolen goods back", "count": 1}
+   ],
+   "reward": "The artifacts stay home; the thief's camp becomes a delve pocket. Delve gift: a wishmote per artifact recovered.",
+   "evidence": {
+    "old_pack": "quests.json three-hidden-names, informants Likot Tôsedèrith, Fath Bungekalåth (Soap Maker, 14890) and Doren Mamotmelbil (Diagnostician, 14627)",
+    "export": "artifacts 2047 Strangerfought the Frightful Smith (apple wood bracelet, made by Zon Roadsack in a mood), 2045 Parchedwhisker the Friends of Color (morion flask, Ushat Furwires), 497 The Music of Diamond (puddingstone skufio); events HFS_FORMED_INTRIGUE_RELATIONSHIP 3",
+    "gamelog": "goblin thieves (Amxu Aslukutsmob) and ratfolk thieves seen in the fort"
+   }
+  },
+  {
+   "id": "the-ratfolk-host",
+   "title": "The Ratfolk Host",
+   "giver": {"id": 14554, "name": "Ast Ringtwinkled", "native": "Ast Athelshetbêth", "race": "dwarf", "position": "Militia Captain (Steel Swords)"},
+   "kind": "delve",
+   "place_hint": "gate:the drawbridge; delve to the ratfolk camp",
+   "summary": "The ratfolk were the fort's first and most stubborn enemy: an ambush of axemen and thieves in the first year, then lashers with human macemen, then in year 105 a siege of The Seduction of Distinguishing under the human Nisam Shelterglossed. That host shattered against Whipstirs, and 91 ratfolk lie dead on the map. Ast wants the camp they came from found before they come again.",
+   "steps": [
+    {"do": "hold the drawbridge through a siege", "count": 3},
+    {"do": "defeat ratfolk hammermen, macemen and swordsmen", "count": 12},
+    {"do": "find the ratfolk camp in the Delve", "count": 1},
+    {"do": "bring Nisam Shelterglossed's standard home", "count": 1}
+   ],
+   "reward": "Ratfolk arms for the armory; the gate is quiet. Delve gift: one warhorn.",
+   "evidence": {
+    "events": "WAR_ATTACKED_SITE attacker_civ 1101 (ratfolk, The Seduction of Distinguishing), year 105; slayer_hf 28686 (Ast) in a year-105 death",
+    "gamelog": "'An ambush! Curse them!' with 71 ratfolk axeman lines (11329); ratfolk lashers with human macemen (116857); 'A vile force of darkness has arrived! ... the human Nisam Shelterglossed ... Beware their ratfolk hammermen!' (196668); 'The forces of The Seduction of Distinguishing have shattered against Whipstirs.' (198241)",
+    "export": "folk.groups ratfolk dead 91; world_races: 10 ratfolk civilizations"
+   }
+  },
+  {
+   "id": "the-parley-of-stozu",
+   "title": "The Parley of Stozu Buryvice",
+   "giver": {"id": 1329, "name": "Catten Clenchwire", "native": "Catten Egastshorast", "race": "dwarf", "position": "Militia Commander (The Steel Guard)"},
+   "kind": "both",
+   "place_hint": "gate:the drawbridge",
+   "summary": "In year 104 an army of The Unholy Nightmare came seeking a parley under the goblin Stozu Buryvice, who had once struck down a dwarf named Kûbuk Claspmetal. The parley failed and the goblins shattered against the gate; Catten called it fantastic. Fifty-one goblins lie dead on the map, and goblin crossbowmen came again near the end.",
+   "steps": [
+    {"do": "meet Stozu's envoy at the drawbridge", "count": 1},
+    {"do": "choose: pay the tribute in gold, or hold the gate", "count": 1},
+    {"do": "if held: defeat goblin swordsmen and crossbowmen", "count": 10}
+   ],
+   "reward": "Peace opens goblin trade; war brings Stozu's banner for the statue garden. Either way the gate counts as held.",
+   "evidence": {
+    "events": "WAR_ATTACKED_SITE attacker_civ 1029 (goblin, The Unholy Nightmare), year 104",
+    "gamelog": "'A vile force of darkness has arrived, seeking a parley! ... the goblin Stozu Buryvice ...' (88051); 'Catten Egastshorast, militia commander: The forces of The Unholy Nightmare have shattered against Whipstirs. Fantastic!' (89542); goblin crossbowman ambush (294449)",
+    "export": "folk.groups goblin dead 51; squad 348 The Steel Guard led by unit 1329"
+   }
+  },
+  {
+   "id": "the-stolen-one",
+   "title": "The Stolen One",
+   "giver": {"id": 14484, "name": "Ineth Tongssyrups", "native": "Ineth Olinudib", "race": "dwarf", "position": "Militia Captain (Steel Crossbow Squad)"},
+   "kind": "delve",
+   "place_hint": "mine-head; delve to the goblin camp",
+   "summary": "'Snatcher! Protect the children!' was called twenty-two times in six years, and once the watch failed: Gufirud Skardregra was seen being stolen. Bomrekedan has four children and a baby now. Ineth wants the snatchers' trail followed out of the forest and the stolen one brought home.",
+   "steps": [
+    {"do": "follow the snatcher's trail out of the Greenwood", "count": 1},
+    {"do": "find the snatchers' camp in the Delve", "count": 1},
+    {"do": "bring Gufirud Skardregra home", "count": 1}
+   ],
+   "reward": "Gufirud returns; the crossbows get a watch post over the nursery. Delve gift: Bond.",
+   "evidence": {
+    "gamelog": "'Snatcher! Protect the children!' 22 times (first 5412); 'Stosbûb Ngebzoas, Goblin Snatcher is visiting.' (5184); 'Gufirud Skardregra was seen being stolen!' (52826)",
+    "export": "4 Dwarven Children and 1 baby (Likot Rulebodice, 15280); no Gufirud Skardregra among citizens or folk",
+    "unresolved": "the log does not name the thief or Gufirud's race; the name is erinys-styled"
+   }
+  },
+  {
+   "id": "kekkits-web",
+   "title": "Kekkit's Web",
+   "giver": {"id": 14229, "name": "Bomrek Baldnesswinds", "native": "Bomrek Roderoslan", "race": "dwarf", "position": "Axe Lord (The Steel Guard)"},
+   "kind": "delve",
+   "place_hint": "caverns: the first cavern below the forges",
+   "summary": "Kekkit was a towering feathered spider with patchy red feathers and a poisonous bite. It webbed the halls and strangled whoever it caught; in year 104 it killed Axe Lord Monom Helmsdoor, who suffocated, and the armorer Cerol Whippedcults. Bomrek trained beside Monom from the first year and wants the web burned out of the caverns.",
+   "steps": [
+    {"do": "clear the webs in the cavern lair", "count": 6},
+    {"do": "slay the spider's brood", "count": 8},
+    {"do": "bring Monom's axe home for the weapon racks", "count": 1}
+   ],
+   "reward": "Kekkit's silk for the clothier; Monom's axe on a rack. Delve gift: one scale-worth trophy (a wishmote) for the Rack of Named Arms.",
+   "evidence": {
+    "gamelog": "'The Forgotten Beast Kekkit has come! A towering feathered spider...' (81597); 'The forgotten beast strangles the Axe Lord's throat!' (7 times); 'Cerol Bomrekngotûn, Armorer has been found dead.' and 'Monom Zontun, Axe Lord has been found dead.' (90248-90249)",
+    "export": "dead: Monom Zontun 'Helmsdoor', Axe Lord, SUFFOCATE, 104; Cerol Bomrekngotûn 'Whippedcults', Armorer, STRUCK_DOWN, 104"
+   }
+  },
+  {
+   "id": "the-lairs-below",
+   "title": "The Lairs Below",
+   "giver": {"id": 1328, "name": "Rith Bowlances", "native": "Rith Egdothkûbuk", "race": "dwarf", "position": "Administrator (Steel Mace Squad)"},
+   "kind": "delve",
+   "place_hint": "caverns: the three cavern layers",
+   "summary": "Thirteen forgotten beasts came up in six years: a beast of iron, feathered spider, python, earthworm and leech, the eyeless sauropod Amas with its poison gas, a glass sauropod, Kerleb the Savage Leap, a blob of grime whose frozen dust caught engravers, farmers and the surgeon, and more. Twelve lie dead on the map. One is still down there.",
+   "steps": [
+    {"do": "scout a beast's lair", "count": 3},
+    {"do": "defeat Amas the eyeless", "count": 1},
+    {"do": "defeat Kerleb the Savage Leap", "count": 1},
+    {"do": "find the beast that still lives", "count": 1}
+   ],
+   "reward": "Beast parts for display; each lair cleared opens a deeper delve stratum. Delve gift: a wishmote per beast.",
+   "evidence": {
+    "gamelog": "arrivals: Kok'tk Kok'tkdrik (27581), Kekkit (81597), Uggik (146014), Itêg Ugoshråsh (147081), Vrit (166604), Amas (176130), Azoc (191992), Pihyakh (215545), Kerleb Rulackupek (242268), Skigeril Geggilgetil (261493), R'kri (277358), Tithleth Ostuk (300393), Sodor (306112); 'caught in a cloud of Kerleb the Savage Leap's forgotten beast frozen extract' (251045 on)",
+    "export": "folk.groups: 12 forgotten beasts dead, 1 forgotten beast role visitor (FORGOTTEN_BEAST_590)",
+    "unresolved": "the export does not name which beast lives; Sodor, the last to come, is the likeliest"
+   }
+  },
+  {
+   "id": "the-giants-bones",
+   "title": "The Giant's Bones",
+   "giver": {"id": 14081, "name": "Eral Tombsbucks", "native": "Eral Rakustëlot", "race": "dwarf", "position": "Miner (first carpenter, first mood)"},
+   "kind": "delve",
+   "place_hint": "Greenwood: the forest above the mine-head",
+   "summary": "In the fort's first year the giant Aca Vicárino Aleni Aca came, a creature like a man and almost unparalleled in size. Eral was there; she was the first carpenter and made the fort's first artifact. The giant lies dead on the map, but the log never says who killed it, and Eral wants its bones found and buried before the forest takes them.",
+   "steps": [
+    {"do": "search the Greenwood for the giant's remains", "count": 1},
+    {"do": "carry the giant's bones home", "count": 12},
+    {"do": "lay them in a tomb under a statue", "count": 1}
+   ],
+   "reward": "A giant-bone statue for the statue garden. Delve gift: bone (12) for the treasury.",
+   "evidence": {
+    "gamelog": "'The Giant Aca Vicárino Aleni Aca has come! A gigantic creature resembling a human, almost unparalleled in size.' (3944); no death line",
+    "export": "folk.groups GIANT dead 1; artifact 2043 The Confident Fortunes (ginkgo armor stand) by Eral",
+    "unresolved": "who killed the giant, and where"
+   }
+  },
+  {
+   "id": "the-naga-caravan",
+   "title": "The Naga Caravan",
+   "giver": {"id": 14077, "name": "Kulet Unionsringed", "native": "Kulet Semorathel", "race": "dwarf", "position": "Manager, Broker, Bookkeeper (expedition leader)"},
+   "kind": "both",
+   "place_hint": "trade depot (surface, z100)",
+   "summary": "Naga caravans came from Sasuohast Thijxs twice, first cautious and then 'tenuous at best'. A naga bowyer was in the fort in the first year, a naga codex, The Struggle Understood, sits in the library, and one naga lies dead on the map. Kulet, who has kept the books since the expedition, wants to know what happened and to win the caravans back.",
+   "steps": [
+    {"do": "find out how the naga died (ask in the taverns, search the map)", "count": 1},
+    {"do": "return The Struggle Understood to a naga envoy, or copy it", "count": 1},
+    {"do": "fill a naga caravan with goods", "count": 15}
+   ],
+   "reward": "Naga trade resumes; naga goods (gem and wax) at the depot each season.",
+   "evidence": {
+    "gamelog": "'A naga caravan from Sasuohast Thijxs has arrived. Overall trade sentiments are cautious.' (3251) and '... tenuous at best.' (15279); 'Xitsjykys Saysehsuhsper, Naga Bowyer cancels Drink: Interrupted by a goblin thief.' (5519)",
+    "export": "folk.groups NAGA dead 1; artifact 374 The Struggle Understood (topaz-bound codex) by Sxostess Thiefsingle (NAGA); world_races: 7 naga civilizations",
+    "unresolved": "the log has no naga death; whether the dead naga is Xitsjykys is not recorded"
+   }
+  },
+  {
+   "id": "copper-in-the-deep",
+   "title": "Copper in the Deep",
+   "giver": {"id": 14474, "name": "Oddom Beastbasements", "native": "Oddom Ferushat", "race": "dwarf", "position": "High Priest ('first coal')"},
+   "kind": "delve",
+   "place_hint": "the deep: far below the third cavern (export z37, west map edge)",
+   "summary": "Far below the halls, where nobody has dug, seven fire wraiths and a gray demon lie dead, and four copper devils and a monster of fire are still alive. They never reached the fort and the log never mentions them. Oddom, the high priest called the first coal, wants them kept where they are.",
+   "steps": [
+    {"do": "go down past the third cavern", "count": 1},
+    {"do": "hold the line against the copper devils", "count": 4},
+    {"do": "seal the shaft behind you", "count": 1}
+   ],
+   "reward": "The deep is sealed. Delve gift: ember (8) and one forgeheart.",
+   "evidence": {
+    "export": "folk.people 15322-15325 Copper Devil (DEMON_49), role hostile, all at x 8-9, y 0-1, z 37; folk.groups fire wraith (DEMON_46) dead 7, gray demon (DEMON_25) dead 1, monster of fire (DEMON_8) hostile 1",
+    "gamelog": "no mention of demons, devils or wraiths",
+    "unresolved": "who killed the wraiths and the gray demon"
+   }
+  },
+  {
+   "id": "cages-for-the-dungeon-master",
+   "title": "Cages for the Dungeon Master",
+   "giver": {"id": 14173, "name": "Ùshrir Oilclub", "native": "Ùshrir Uzolog", "race": "dwarf", "position": "Dungeon Master"},
+   "kind": "both",
+   "place_hint": "dungeon zone (z95, 2 cages and 8 chains)",
+   "summary": "Twenty-five troglodytes lie dead in the caverns, and giant bats wrestled them there. Ùshrir, a woodcutter made dungeon master, has two cages and eight chains and nothing in them. She wants a troglodyte and a giant bat brought back alive to train.",
+   "steps": [
+    {"do": "build cage traps in the cavern mouth", "count": 4},
+    {"do": "capture a troglodyte alive", "count": 1},
+    {"do": "capture a giant bat alive", "count": 1}
+   ],
+   "reward": "Trained cave beasts guard the cavern stair. Delve gift: Ward.",
+   "evidence": {
+    "export": "position DUNGEON_MASTER (14173, age 25); Dungeon civzone, 2 Cages and 8 Chains on z95; folk.groups troglodyte dead 25; 137 dogs and 79 yaks as pets",
+    "gamelog": "troglodyte combat 185393-232920, 'The giant bat throws the troglodyte...'; 'Vabôk Dîshmabmozib, Cook cancels Store item in stockpile: Interrupted by a troglodyte.'"
+   }
+  },
+  {
+   "id": "the-bronze-colossus",
+   "title": "The Bronze Colossus",
+   "giver": {"id": 14517, "name": "Stâkud Scorchingsabre", "native": "Stâkud Othlestast", "race": "dwarf", "position": "Mace Lord (Steel Mace Squad)"},
+   "kind": "delve",
+   "place_hint": "Greenwood",
+   "summary": "Ùst Kezattaran Belal, a gigantic magic statue of bronze bent on mayhem, came to Whipstirs and fell there. The old story says it still walks the forest; it does not. Stâkud wants the bronze cut up and carried to the forges before anyone else claims it.",
+   "steps": [
+    {"do": "find where the colossus fell", "count": 1},
+    {"do": "carry the bronze home (as ore)", "count": 30},
+    {"do": "smelt it into bars", "count": 10}
+   ],
+   "reward": "Bronze by the ton; bronze bolts for the crossbows. Delve gift: ore (30).",
+   "evidence": {
+    "gamelog": "'The Bronze Colossus Ùst Kezattaran Belal has come! A gigantic magic statue made of bronze and bent on mayhem.' (214194)",
+    "export": "folk.groups COLOSSUS_BRONZE dead 1; Stâkud named in 'The forces of The Seduction of Distinguishing have shattered' (198262)"
+   }
+  },
+  {
+   "id": "kea-thieves",
+   "title": "Kea Thieves",
+   "giver": {"id": 14225, "name": "Ushat Furwires", "native": "Ushat Âstshorast", "race": "dwarf", "position": "Gem Cutter"},
+   "kind": "delve",
+   "place_hint": "Greenwood: the kea roost",
+   "summary": "Keas stole rough pink jade, crystal opals, a lump of green glass and even a kenaf sandal and headscarf. Sixty-six keas lie dead on the map, but the stones never came back. Ushat cut gems and made the morion flask Parchedwhisker in a mood, and she wants her stones.",
+   "steps": [
+    {"do": "reach the kea roost", "count": 1},
+    {"do": "take back the stolen gems", "count": 3}
+   ],
+   "reward": "The stolen gems (gem, 3) and a laugh.",
+   "evidence": {
+    "gamelog": "'A kea has stolen a rough pink jades!' (356), 'a (raw green glass)!' (382), 'a rough crystal opals!' (7018), kenaf sandal and headscarf (4762-4763); 60 jobs 'Interrupted by a kea'",
+    "export": "folk.groups kea dead 66; artifact 2045 by Ushat"
+   }
+  }
+ ]
+}

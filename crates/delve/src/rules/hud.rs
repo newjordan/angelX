@@ -550,5 +550,12 @@ fn hero_perks(hero: &Hero) -> Vec<String> {
             hero.pit.damage.div_ceil(HZ)
         ));
     }
+    if hero.blessed > 0 {
+        out.push(format!(
+            "a pilgrim's blessing: +{}% damage and pace for {}s",
+            super::wayfarers::BLESS_PERCENT,
+            hero.blessed.div_ceil(HZ)
+        ));
+    }
     out
 }

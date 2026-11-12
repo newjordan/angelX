@@ -9,9 +9,15 @@ fn every_game_names_fields_the_run_has_and_a_name_of_its_own() {
     };
     // Optional activity fields may be absent while inactive.
     let live = value::to_value(&Run::forest_road_for_test()).unwrap();
-    let adventures: Vec<_> = roundtable::games()
+    let mut adventures: Vec<_> = roundtable::games()
         .map(|a| value::to_value(&Run::roundtable_for_test(a.slug).unwrap()).unwrap())
         .collect();
+    // A hall's dealt game is optional too, and absent until a hall deals one.
+    let mut dealt = Run::new(3, 9, None);
+    dealt.pick_folly();
+    let hall = dealt.deal_for_test(encounter::Kind::WaxMaze).expect("a hall");
+    dealt.enter_for_test(hall);
+    adventures.push(value::to_value(&dealt).unwrap());
     let mut names = std::collections::BTreeSet::new();
     for activity in all() {
         assert!(names.insert(activity.name), "{} twice", activity.name);

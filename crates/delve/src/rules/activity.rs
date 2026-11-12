@@ -237,6 +237,16 @@ pub static FOLLIES: &[Activity] = &[
         fields: &[],
     },
     Activity {
+        name: "the wayfarers",
+        on: |run| run.wayfarers.on.is_some(),
+        ride: None,
+        tick: |run, inputs| run.tick_wayfarers(inputs),
+        end: |run| run.wayfarers = Default::default(),
+        ends_outside: false,
+        settle: Some(super::wayfarers::settle),
+        fields: &[],
+    },
+    Activity {
         name: "the Wax Maze",
         on: |run| run.folly.is_some(),
         ride: None,
@@ -305,6 +315,19 @@ pub static FOLLIES: &[Activity] = &[
         ends_outside: false,
         settle: None,
         fields: &[],
+    },
+    // A hall's dealt game (`encounter`): its clock and purse tick in the step
+    // (`Run::tick_encounter`), after the game's own, so this only registers
+    // it for the wire and the settle.
+    Activity {
+        name: "a room's game",
+        on: |run| run.encounter.is_some(),
+        ride: None,
+        tick: idle,
+        end: |run| run.abandon_encounter(),
+        ends_outside: false,
+        settle: None,
+        fields: &["encounter"],
     },
     Activity {
         name: "Book Hop",
@@ -393,6 +416,10 @@ pub static WORLD: &[Activity] = &[
         run.tick_countryside(inputs)
     }),
     place("the pastimes", |_| true, |run, inputs| run.tick_pastimes(inputs)),
+    // The works' signs on Bomrekedan's levels (`world::bomrekedan::works`).
+    place("the works of Bomrekedan", |run| world::bomrekedan::is_level(run.room().kind), |run, inputs| {
+        run.tick_bom_works(inputs)
+    }),
 ];
 
 /// The realm's standing places, ticked every step in this order, and what
@@ -412,6 +439,15 @@ pub static PLACES: &[Activity] = &[
         }
     }),
     place("the barony", |_| true, |run, inputs| run.tick_barony(inputs)),
+    Activity {
+        settle: Some(super::reclaim::settle),
+        ..place("the reclaiming", |_| true, |run, inputs| run.tick_reclaim(inputs))
+    },
+    // The forges' fires banked and stoked, and the goods they make.
+    Activity {
+        settle: Some(super::goods::settle),
+        ..place("the forges", |_| true, |run, inputs| run.tick_goods(inputs))
+    },
     // The safe room's brazier and the weapons locker (`freedom`).
     place("the wishing spots", |run| run.freedom_spot().is_some(), |run, inputs| run.tick_freedom(inputs)),
     // A shooting star over a quiet room, and its fallen shard (`starfall`).

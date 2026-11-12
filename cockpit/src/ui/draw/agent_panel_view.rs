@@ -526,9 +526,7 @@ pub(crate) fn render_header_portrait_bar(
     // Keep the actual route controls clickable; drop workspace then identity
     // before starving MODEL/THINK/FORMATION.
     let route = app
-        .moa_one_shot
-        .as_ref()
-        .or(app.moa_session.as_ref())
+        .moa_armed()
         .map(|engagement| crate::agent::formations::formation(engagement.formation).name)
         .or(chrome.mode())
         .unwrap_or_else(|| app.bag.in_hand_label());
@@ -710,7 +708,7 @@ pub(crate) fn render_agent_controls_in(
     if area.width < 12 || area.height == 0 {
         return;
     }
-    let busy = app.thinking.is_some() || app.bg_job.is_some();
+    let busy = app.flight_owner().is_agent_busy();
     let route_just_set = brain_route_receipt_is_fresh(app);
     // The first rail rendered this frame is the menu anchor. On roomy layouts
     // that is the header toolbar, so clicking there opens the deck directly
@@ -724,9 +722,7 @@ pub(crate) fn render_agent_controls_in(
     // to the default mixture" — the exact misread that makes an engaged Tag Team
     // look broken while its seats are in fact running.
     let engaged_formation = app
-        .moa_one_shot
-        .as_ref()
-        .or(app.moa_session.as_ref())
+        .moa_armed()
         .map(|engagement| crate::agent::formations::formation(engagement.formation).name);
     let route = engaged_formation
         .or(chrome.mode())
@@ -935,19 +931,20 @@ pub(crate) fn render_agent_controls_in(
 }
 
 fn moa_chip_identity(app: &App) -> (u8, u64) {
-    if let Some(engagement) = app.moa_one_shot.as_ref() {
-        return (1, engagement.formation.cache_key());
+    use crate::app::control::MoaPhase;
+    let armed = app
+        .moa_armed()
+        .map_or(0, |engagement| engagement.formation.cache_key());
+    match app.moa_phase() {
+        MoaPhase::NextTurn => (1, armed),
+        MoaPhase::Session => (2, armed),
+        MoaPhase::Engaged => (4, 0),
+        MoaPhase::Staging => match app.moa_deck.as_ref().map(|deck| deck.selected()) {
+            Some(formation) if !formation.is_resting() => (3, formation.id.cache_key()),
+            _ => (0, 0),
+        },
+        MoaPhase::Idle => (0, 0),
     }
-    if let Some(engagement) = app.moa_session.as_ref() {
-        return (2, engagement.formation.cache_key());
-    }
-    if let Some(deck) = app.moa_deck.as_ref() {
-        let formation = deck.selected();
-        if !formation.is_resting() {
-            return (3, formation.id.cache_key());
-        }
-    }
-    (0, 0)
 }
 
 fn render_agent_feedback_controls(frame: &mut Frame, app: &mut App, area: Rect) {

@@ -38,6 +38,7 @@ pub mod hud_palette;
 pub mod identity;
 pub mod knight_cast;
 pub mod loop_summary;
+pub mod plug;
 pub mod realm_standing;
 pub mod retro_noise;
 pub mod services;
@@ -47,7 +48,7 @@ pub mod together_appearance;
 pub mod together_audio;
 pub mod together_avatar;
 pub mod together_chorus;
-pub mod together_door;
+pub use angel_games::door as together_door;
 pub mod together_dungeon;
 pub mod together_files;
 pub mod together_frames;
@@ -56,6 +57,8 @@ pub mod together_grants;
 pub mod together_join;
 pub mod together_loadouts;
 pub mod together_media;
+pub mod together_motion;
+pub mod together_looker;
 pub mod together_painter;
 pub mod together_realm;
 pub mod together_seat;
@@ -66,6 +69,14 @@ pub mod together_visuals;
 pub mod together_web;
 pub mod village;
 pub mod world_viz;
+
+/// The host stress kit's timing lines (`scripts/stress/host-kit`): with
+/// `ANGEL_STRESS_LOG=1` the checkpoint, the claim cycle and the save gate
+/// say on stderr how long each step took. Read once; off, it is a load.
+pub(crate) fn stress_log() -> bool {
+    static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *ON.get_or_init(|| std::env::var_os("ANGEL_STRESS_LOG").is_some_and(|v| v == "1"))
+}
 
 /// The shared data types the game and the cockpit both read.
 pub use angel_live::telemetry;

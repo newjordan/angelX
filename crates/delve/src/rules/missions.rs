@@ -33,6 +33,8 @@ pub enum Spot {
     Guardian,
     /// The stairs down (the lair, on the last floor).
     Stairs,
+    /// The lost hall the King sent the party after.
+    Hall,
 }
 
 /// Where a mission can be done.
@@ -110,6 +112,12 @@ impl Run {
                 place: Place::Delve(None),
             });
         }
+        if let Some((_, hall)) = self.home.barony.halls.asked_hall() {
+            held.push(Held {
+                name: format!("King Brannoc: {}", hall.name),
+                place: Place::Delve(Some(Spot::Hall)),
+            });
+        }
         // The holdings' raids, as Wren pins them: one mission a holding,
         // pulling the party back down to its hall.
         for key in &self.home.raids {
@@ -126,7 +134,9 @@ impl Run {
     /// stand), one mark a place, named for its first mission and how many
     /// more wait there. Empty off the surface.
     pub fn mission_doors(&self, id: u32) -> Vec<(String, (i32, i32))> {
-        if self.room().kind != RoomKind::Kingdom {
+        // The blank slate's only door is the Delve, and the goal's arrow
+        // already names it: no teacher's name stacks up on it.
+        if self.room().kind != RoomKind::Kingdom || crate::world::plan::tabula() {
             return Vec::new();
         }
         let geo = map::geography(&self.kingdom.wishes);

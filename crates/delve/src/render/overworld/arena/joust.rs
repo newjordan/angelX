@@ -20,6 +20,37 @@ use crate::rules::joust::{
 use crate::realm::Spoil;
 use crate::rules::world::{STANDS, TILT};
 
+mod crowd;
+mod finish;
+mod frame;
+mod fx;
+mod hud;
+mod moments;
+mod riders;
+mod stage;
+
+/// The seat's whole screen while a bout is ridden: the lists as a stage of
+/// their own (`frame`), in place of the room.
+pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
+    frame::layers(run, focus)
+}
+
+#[cfg(test)]
+thread_local! {
+    /// A test may ask for the room as it was drawn before the lists took
+    /// the screen over (the frame-time bench's "before").
+    static OLD_ROOM: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
+/// Whether the lists take the whole screen: a bout is being ridden.
+pub(super) fn takes_the_screen(run: &Run) -> bool {
+    #[cfg(test)]
+    if OLD_ROOM.with(std::cell::Cell::get) {
+        return false;
+    }
+    run.joust_showing()
+}
+
 /// A horse's hide, its shade, and its mane and tail.
 #[derive(Clone, Copy)]
 pub(super) struct Coat {
@@ -1447,3 +1478,7 @@ fn laurel(cv: &mut Img, cx: i32, y: i32) {
     let im = super::enlarge(&im, 2.0);
     cv.stamp(&im, cx - im.w / 2, y - im.h / 2);
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__joust__tests.rs"]
+mod tests;

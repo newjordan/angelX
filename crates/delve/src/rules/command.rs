@@ -15,11 +15,12 @@
 //! | bytes | what |
 //! |---|---|
 //! | 1 | the four axes, two bits each (`move_x`, `move_y`, `aim_x`, `aim_y` from the low bits), each its value + 1 |
-//! | varint | the flags (`FLAGS`, in order from bit 0), then bit 12: slots, bit 13: vote, bit 14: Latch sample, bit 15: leave held, bit 16: the ride key, bit 17: the next-card key, bit 18: team, bit 19: mirror action |
+//! | varint | the flags (`FLAGS`, in order from bit 0), then bit 12: slots, bit 13: vote, bit 14: Latch sample, bit 15: leave held, bit 16: the ride key, bit 17: the next-card key, bit 18: team, bit 19: mirror action, bit 20: builder action |
 //! | varint, if slots | `play`, `cast << 3`, `skill << 6` |
 //! | varint + 1, if a vote | the vote's serial, then its action (`action_code`) |
 //! | varint, if a Latch counter | the tick visible at its client sample |
 //! | byte, if mirror action | creator action 1..=6 |
+//! | 1–4 bytes, if builder action | bounded tag and action payload |
 //!
 //! A command is `held` then `pressed`: four bytes while walking and
 //! firing, more only when a card, a spell, a skill or a vote is pressed.
@@ -56,13 +57,15 @@ const CYCLE: u64 = 1 << (FLAGS + 5);
 const TEAM: u64 = 1 << (FLAGS + 6);
 /// Optional creator action; absent keeps all existing command bytes unchanged.
 const HAS_MIRROR: u64 = 1 << (FLAGS + 7);
+const HAS_BUILDER: u64 = 1 << (FLAGS + 8);
 /// Bits a slot value takes in the slots varint (`play`, `cast`, `skill`
 /// are each at most 5).
 const SLOT_BITS: u32 = 3;
 /// The longest a command's bytes can be: two inputs of an axes byte, a
 /// three-byte flags varint, a two-byte slots varint, a ten-byte serial, an
-/// action byte, a ten-byte optional Latch sample tick, and a mirror action byte.
-pub const MAX_BYTES: usize = 2 * (1 + 3 + 2 + 10 + 1 + 10 + 1);
+/// action byte, a ten-byte optional Latch sample tick, a mirror action byte,
+/// and at most four optional builder bytes.
+pub const MAX_BYTES: usize = 2 * (1 + 3 + 2 + 10 + 1 + 10 + 1 + 4);
 
 impl DelveCmd {
     /// What the step sees: `held` with `pressed` laid over it.
@@ -100,6 +103,7 @@ impl Command for DelveCmd {
             held: Input {
                 latch_tick: None,
                 mirror: 0,
+                builder: None,
                 vote: None,
                 leave_activity: false,
                 activity_menu: false,
@@ -122,6 +126,7 @@ pub(super) fn lay_over(under: Input, over: &Input) -> Input {
     let axis = |u: i8, o: i8| if o != 0 { o } else { u };
     let slot = |u: u8, o: u8| if o != 0 { o } else { u };
     Input {
+        builder: over.builder.or(under.builder),
         latch_tick: over.latch_tick.or(under.latch_tick),
         mirror: slot(under.mirror, over.mirror),
         leave_activity: under.leave_activity || over.leave_activity,
@@ -202,6 +207,9 @@ fn put_input(out: &mut Vec<u8>, input: &Input) {
     if input.mirror != 0 {
         bits |= HAS_MIRROR;
     }
+    if input.builder.is_some() {
+        bits |= HAS_BUILDER;
+    }
     put_varint(out, bits);
     if slots != 0 {
         put_varint(out, slots);
@@ -216,6 +224,9 @@ fn put_input(out: &mut Vec<u8>, input: &Input) {
     if input.mirror != 0 {
         out.push(input.mirror);
     }
+    if let Some(action) = input.builder {
+        action.write(out);
+    }
 }
 
 fn read_input(b: &mut Bytes) -> Option<Input> {
@@ -225,7 +236,7 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
         (code != NO_AXIS).then_some(code as i8 - 1)
     };
     let bits = b.varint().ok()?;
-    if bits >> (FLAGS + 8) != 0 {
+    if bits >> (FLAGS + 9) != 0 {
         return None;
     }
     let on = |i: usize| bits >> i & 1 == 1;
@@ -251,7 +262,11 @@ fn read_input(b: &mut Bytes) -> Option<Input> {
         if !(1..=6).contains(&action) { return None; }
         action
     } else { 0 };
+    let builder = if bits & HAS_BUILDER != 0 {
+        Some(super::builder_input::BuilderAction::read(b)?)
+    } else { None };
     Some(Input {
+        builder,
         latch_tick,
         mirror,
         move_x: axis(0)?,

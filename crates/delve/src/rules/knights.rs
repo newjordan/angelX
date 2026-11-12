@@ -31,6 +31,19 @@ pub struct Knight {
     pub colours: &'static [(char, char)],
 }
 
+/// The seat whose plain, code-drawn knight kit `id` is, if it is one of the
+/// four: picking it at the pub draws that seat's rig in that seat's colours,
+/// whichever seat picked it.
+pub fn plain_seat(id: &str) -> Option<u32> {
+    match id {
+        "great-helm" => Some(1),
+        "sugarloaf-crusader" => Some(2),
+        "plumed-bucket" => Some(3),
+        "kettle-hat" => Some(4),
+        _ => None,
+    }
+}
+
 pub const COMPANY: &[Knight] = &[
     Knight {
         id: "percival",
@@ -324,6 +337,37 @@ pub const COMPANY: &[Knight] = &[
         spells: &["ember-wave", "ember-pillar", "ember-kindle"], bombs: 1, max_hp: 95,
         colours: &[('7', 'R'), ('8', 'O'), ('5', 'B')],
     },
+    // A champion of the bar who fights beside her own doubles: the images
+    // thrust when she does (`ults::phantom_strikes`). Kept with the company
+    // that carry their own ultimate, ahead of the recruits.
+    Knight {
+        id: "phantomlancer",
+        name: "Aurel Veil",
+        title: "of a Hundred Doubles",
+        about: "A spear fighter whose doubles thrust when she does. A thrown lance, a blink and a stance make more of them, and the ultimate rings her with four.",
+        arm: "phantom-lance",
+        guard: "dodge-roll",
+        hand: &["potion"],
+        spells: &[],
+        bombs: 1,
+        max_hp: 120,
+        colours: &[],
+    },
+    // The fast fencer of the champions: few images, much movement
+    // (`champions::mirage`). Ahead of the recruits, with the rest.
+    Knight {
+        id: "mirageduelist",
+        name: "Cassiel Dusklace",
+        title: "the Mirage Duelist",
+        about: "A masked fencer in midnight blue. A dash that bounces off the walls, a swap with her own image, a thrust that strikes twice, and a hall of mirrors.",
+        arm: "mirage-foil",
+        guard: "dodge-roll",
+        hand: &["potion"],
+        spells: &[],
+        bombs: 1,
+        max_hp: 110,
+        colours: &[],
+    },
     Knight { id: "saffra", name: "Saffra Noonveil", title: "the Sandglass Duelist", about: "An amber-masked handgonne duelist. Noon Shatter bursts through a crowded room; Borrowed Minute wards and heals between volleys.", arm: "handgonne", guard: "dodge-roll", hand: &["dialkeepers-ring"], spells: &["noon-shatter", "borrowed-minute"], bombs: 1, max_hp: 95, colours: &[('7', 'Y'), ('8', 'h'), ('5', 'C')] },
     Knight { id: "rill", name: "Rill Copperkite", title: "the Storm Courier", about: "A swift crossbow skirmisher. Storm Receipt clears a crowd and wards you; Eye of the Squall shelters and heals. Keep moving in fulgurite spurs.", arm: "crossbow", guard: "dodge-roll", hand: &["fulgurite-spurs"], spells: &["storm-receipt", "eye-of-the-squall"], bombs: 1, max_hp: 90, colours: &[('7', 'C'), ('8', 'W'), ('5', 'Y')] },
     Knight { id: "brine", name: "Captain Brine", title: "the Drowned Bell", about: "A salvage gunner in a sealed diving helm. Break a crowded deck, then shelter and recover before the next volley.", arm: "handgonne", guard: "dodge-roll", hand: &["undertow-coil"], spells: &["keelbreaker", "pressure-seal"], bombs: 1, max_hp: 110, colours: &[('7', 'C'), ('8', 'Y'), ('5', 'W')] },
@@ -366,6 +410,60 @@ pub const COMPANY: &[Knight] = &[
     Knight { id: "nyra", name: "Nyra Switchglass", title: "the Stormrunner", about: "A rooftop courier with a handgonne and no safe route home. Foxstep breaks bindings and crosses firing lanes; Stormglass Vespers punishes pursuit beneath a ward. Save the Glassway Key for the escape.", arm: "handgonne", guard: "dodge-roll", hand: &["switchglass-escapement", "foxstep-spindle", "glassway-key"], spells: &["stormglass-vespers"], bombs: 1, max_hp: 85, colours: &[('7', 'C'), ('8', 'Y'), ('5', 'h')] },
     Knight { id: "tamsin", name: "Tamsin Brasswake", title: "the Wake Engineer", about: "A funeral artillery engineer who builds cover from grief. Set a Rook Mortar, call Pallbearer Lanterns against incoming fire, then reposition with the crossbow.", arm: "crossbow", guard: "dodge-roll", hand: &["wake-engine"], spells: &["rook-mortar", "pallbearer-lanterns"], bombs: 1, max_hp: 90, colours: &[('7', 'h'), ('8', 'Y'), ('5', 'C')] },
     Knight { id: "morrow", name: "Morrow Briarglass", title: "the Widowseed Keeper", about: "A brass-masked crossbow apothecary. Venom shots wear foes down; Thorn Testament wounds the whole room. Glasshouse Mercy heals beneath a ward.", arm: "crossbow", guard: "dodge-roll", hand: &["widowseed-cage"], spells: &["thorn-testament", "glasshouse-mercy"], bombs: 1, max_hp: 90, colours: &[('7', 'G'), ('8', 'Y'), ('5', 'h')] },
+    // The four code-drawn knights: each is one seat's plain knight, its rig
+    // and its colours, open to anyone at the pub (`plain_seat`).
+    Knight {
+        id: "great-helm",
+        name: "The Great Helm",
+        title: "of the Company",
+        about: "A flat steel helm and a cross on the surcoat. A bow to start, any arm off the rack.",
+        arm: "bow",
+        guard: "dodge-roll",
+        hand: &[],
+        spells: &[],
+        bombs: 2,
+        max_hp: 100,
+        colours: &[('7', '7')],
+    },
+    Knight {
+        id: "sugarloaf-crusader",
+        name: "The Crusader",
+        title: "of the Company",
+        about: "A pointed sugarloaf helm and a white surcoat. A bow to start, any arm off the rack.",
+        arm: "bow",
+        guard: "dodge-roll",
+        hand: &[],
+        spells: &[],
+        bombs: 2,
+        max_hp: 100,
+        colours: &[('7', '1'), ('8', '0'), ('5', '9')],
+    },
+    Knight {
+        id: "plumed-bucket",
+        name: "The Plumed Knight",
+        title: "of the Company",
+        about: "A bucket helm with a swept plume and a tabard. A bow to start, any arm off the rack.",
+        arm: "bow",
+        guard: "dodge-roll",
+        hand: &[],
+        spells: &[],
+        bombs: 2,
+        max_hp: 100,
+        colours: &[('7', 'A'), ('8', 'l'), ('5', '6')],
+    },
+    Knight {
+        id: "kettle-hat",
+        name: "The Kettle Hat",
+        title: "of the Company",
+        about: "A broad-brimmed kettle hat over mail. A bow to start, any arm off the rack.",
+        arm: "bow",
+        guard: "dodge-roll",
+        hand: &[],
+        spells: &[],
+        bombs: 2,
+        max_hp: 100,
+        colours: &[('4', 'a'), ('7', '4'), ('8', 'a'), ('5', 'c')],
+    },
 ];
 
 pub fn knight(id: &str) -> Option<&'static Knight> {

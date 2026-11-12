@@ -1,0 +1,253 @@
+{
+  "schema": 1,
+  "collection": "Knights Wish kingdom equipment",
+  "generation": {
+    "tool": "built-in image_gen",
+    "date": "2026-11-05",
+    "transparent_background": true
+  },
+  "usage": "Generated source paintings used by the kingdom armory and by equipped knight rendering. Checked .card files define actual combat behavior; delve/kingdom/frontier.json owns production costs, durations and research unlocks.",
+  "style": "Dark storybook fantasy pixel art; iron, brass, weathered timber and restrained mineral light. Complete isolated silhouettes with no baked background.",
+  "assets": [
+    {
+      "id": "iron-oathblade",
+      "name": "Iron Oathblade",
+      "file": "iron-oathblade.png",
+      "resource": "iron",
+      "prompt": "Use case: stylized-concept. Asset type: premium pixel-art equipment sprite for the Knights Wish kingdom and dungeon game. Style: dark storybook fantasy, chunky crisp square pixel clusters with deliberate stepped silhouettes, hand-crafted 16-bit game aesthetic, no smooth painterly gradients. Material palette: muted iron steel, weathered brown leather and brass, one small luminous mineral accent. Top-left lighting, strong dark outline, readable at small inventory size. Composition: one complete isolated object centered on a genuinely transparent square canvas with generous empty margin; no hands, characters, scenery, floor, cast shadow, text, labels, watermark or border. High-detail source master with a strong simple icon silhouette.\nSubject: A sturdy knight's medieval arming sword, broad silver-grey forged iron blade with a visible central fuller and a few tiny nicks, blocky brass crossguard, dark oxblood leather grip, round brass pommel. Sword angled diagonally from lower left to upper right, whole blade and hilt visible. Unenchanted practical equipment crafted in a kingdom forge.",
+      "visual_review": "Passed: complete recognizable silhouette, no text or scenery, style and material cues match the batch.",
+      "image": {
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "alpha_range": [
+          0,
+          255
+        ],
+        "visible_bounds": [
+          0,
+          50,
+          1226,
+          1227
+        ],
+        "opaque_bounds": [
+          84,
+          55,
+          1194,
+          1225
+        ],
+        "bytes": 559590,
+        "sha256": "06c3c5bf02b8b71674896f577719972ba2066c8fe1ca5a0beafecd880741ec5b"
+      },
+      "card_file": "iron-oathblade.card",
+      "production_resource": "iron-oathblade",
+      "production_recipe": {
+        "catalog": "delve/kingdom/frontier.json",
+        "id": "iron-oathblade"
+      },
+      "equipment_slot": "arm",
+      "original_concept_recipe": "iron_ingot + timber",
+      "original_concept_role": "Entry-level forge weapon; establishes the iron-to-equipment production chain."
+    },
+    {
+      "id": "ember-edge",
+      "name": "Ember Edge",
+      "file": "ember-edge.png",
+      "resource": "coal",
+      "prompt": "Use case: stylized-concept. Asset type: premium pixel-art equipment sprite for the Knights Wish kingdom and dungeon game. Style: dark storybook fantasy, chunky crisp square pixel clusters with deliberate stepped silhouettes, hand-crafted 16-bit game aesthetic, no smooth painterly gradients. Material palette: muted iron steel, weathered brown leather and brass, one small luminous mineral accent. Top-left lighting, strong dark outline, readable at small inventory size. Composition: one complete isolated object centered on a genuinely transparent square canvas with generous empty margin; no hands, characters, scenery, floor, cast shadow, text, labels, watermark or border. High-detail source master with a strong simple icon silhouette.\nSubject: A heavy short medieval sword forged from charcoal-black iron, broad angular blade with a single ember-orange glowing fissure along its fuller, dark brass winged crossguard, worn brown leather grip and small orange gem pommel. Sword angled diagonally from lower left to upper right, whole blade and hilt visible. Keep the orange glow contained in the blade, no floating particles.",
+      "visual_review": "Passed: complete recognizable silhouette, no text or scenery, style and material cues match the batch.",
+      "image": {
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "alpha_range": [
+          0,
+          255
+        ],
+        "visible_bounds": [
+          0,
+          21,
+          1234,
+          1224
+        ],
+        "opaque_bounds": [
+          72,
+          34,
+          1207,
+          1221
+        ],
+        "bytes": 735360,
+        "sha256": "02bf19f6c053d232b810e8bf99e5a8624ba40eae2642221584171e980b35b0b6"
+      },
+      "card_file": "ember-edge.card",
+      "production_resource": "ember-edge",
+      "production_recipe": {
+        "catalog": "delve/kingdom/frontier.json",
+        "id": "ember-edge"
+      },
+      "equipment_slot": "arm",
+      "original_concept_recipe": "iron_ingot + coal + ember_shard",
+      "original_concept_role": "Advanced weapon using fuel and a rare ember mineral from a secured delve claim."
+    },
+    {
+      "id": "mooncrystal-staff",
+      "name": "Mooncrystal Staff",
+      "file": "mooncrystal-staff.png",
+      "resource": "crystal",
+      "prompt": "Use case: stylized-concept. Asset type: premium pixel-art equipment sprite for the Knights Wish kingdom and dungeon game. Style: dark storybook fantasy, chunky crisp square pixel clusters with deliberate stepped silhouettes, hand-crafted 16-bit game aesthetic, no smooth painterly gradients. Material palette: muted iron steel, weathered brown leather and brass, one small luminous mineral accent. Top-left lighting, strong dark outline, readable at small inventory size. Composition: one complete isolated object centered on a genuinely transparent square canvas with generous empty margin; no hands, characters, scenery, floor, cast shadow, text, labels, watermark or border. High-detail source master with a strong simple icon silhouette.\nSubject: A wizard's gnarled dark wooden staff, elegant long curved shaft wrapped in aged brass near its crown, one large faceted cyan-lilac moon crystal held within a split antler-shaped wooden tip. A narrow deep violet ribbon wraps the grip. Staff angled diagonally from lower left to upper right, entire object visible. Magical light confined to the crystal, no large halo or floating particles.",
+      "visual_review": "Passed: complete recognizable silhouette, no text or scenery, style and material cues match the batch.",
+      "image": {
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "alpha_range": [
+          0,
+          255
+        ],
+        "visible_bounds": [
+          33,
+          42,
+          1234,
+          1239
+        ],
+        "opaque_bounds": [
+          145,
+          45,
+          1161,
+          1233
+        ],
+        "bytes": 471943,
+        "sha256": "8a149b607214a7be6346283f06e96136fe3020c3997b21cb3a84a4c9d2ecb34d"
+      },
+      "card_file": "mooncrystal-staff.card",
+      "production_resource": "mooncrystal-staff",
+      "production_recipe": {
+        "catalog": "delve/kingdom/frontier.json",
+        "id": "mooncrystal-staff"
+      },
+      "equipment_slot": "arm",
+      "original_concept_recipe": "timber + crystal + arcane_essence",
+      "original_concept_role": "Arcane equipment consuming timber and crystals; extends the kingdom's magic production branch."
+    },
+    {
+      "id": "hearth-wardstone",
+      "name": "Hearth Wardstone",
+      "file": "hearth-wardstone.png",
+      "resource": "stone",
+      "prompt": "Use case: stylized-concept. Asset type: premium pixel-art equipment sprite for the Knights Wish kingdom and dungeon game. Style: dark storybook fantasy, chunky crisp square pixel clusters with deliberate stepped silhouettes, hand-crafted 16-bit game aesthetic, no smooth painterly gradients. Material palette: muted iron steel, weathered brown leather and brass, one small luminous mineral accent. Top-left lighting, strong dark outline, readable at small inventory size. Composition: one complete isolated object centered on a genuinely transparent square canvas with generous empty margin; no hands, characters, scenery, floor, cast shadow, text, labels, watermark or border. High-detail source master with a strong simple icon silhouette.\nSubject: A compact magical wardstone talisman: an upright roughly hexagonal slab of weathered pale grey stone with chiseled beveled corners, held in an aged brass foot and corner clasps. One simple glowing turquoise geometric rune like a branching protective tree is incised into its face, no letters. Three-quarter front view, thick substantial object. Magic confined to the incisions, no floating particles.",
+      "visual_review": "Passed: complete recognizable silhouette, no text or scenery, style and material cues match the batch.",
+      "image": {
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "alpha_range": [
+          0,
+          255
+        ],
+        "visible_bounds": [
+          0,
+          10,
+          1240,
+          1254
+        ],
+        "opaque_bounds": [
+          214,
+          16,
+          1035,
+          1235
+        ],
+        "bytes": 1394188,
+        "sha256": "8f74710ce763901352b4655976babf4ebfc08d6ce5f1e78dd183df7bb8ae8af2"
+      },
+      "card_file": "hearth-wardstone.card",
+      "production_resource": "hearth-wardstone",
+      "production_recipe": {
+        "catalog": "delve/kingdom/frontier.json",
+        "id": "hearth-wardstone"
+      },
+      "equipment_slot": "spell",
+      "original_concept_recipe": "stone + crystal + arcane_essence",
+      "original_concept_role": "Protective relic for the keep or a claimed resource site."
+    },
+    {
+      "id": "prospectors-pick",
+      "name": "Prospector's Pick",
+      "file": "prospectors-pick.png",
+      "resource": "copper",
+      "prompt": "Use case: stylized-concept. Asset type: premium pixel-art equipment sprite for the Knights Wish kingdom and dungeon game. Style: dark storybook fantasy, chunky crisp square pixel clusters with deliberate stepped silhouettes, hand-crafted 16-bit game aesthetic, no smooth painterly gradients. Material palette: muted iron steel, weathered brown leather and brass, one small luminous mineral accent. Top-left lighting, strong dark outline, readable at small inventory size. Composition: one complete isolated object centered on a genuinely transparent square canvas with generous empty margin; no hands, characters, scenery, floor, cast shadow, text, labels, watermark or border. High-detail source master with a strong simple icon silhouette.\nSubject: A dwarven prospector's enchanted pickaxe, broad weathered steel pick head with one long curved pointed end and one short flat hammer end, a solid warm brown timber haft, aged copper bands, and a small inset turquoise survey crystal where the head joins the haft. Angled diagonally with the handle toward lower left and head toward upper right; complete whole tool visible. Practical sturdy mining tool.",
+      "visual_review": "Passed: complete recognizable silhouette, no text or scenery, style and material cues match the batch.",
+      "image": {
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "alpha_range": [
+          0,
+          255
+        ],
+        "visible_bounds": [
+          0,
+          23,
+          1253,
+          1254
+        ],
+        "opaque_bounds": [
+          139,
+          26,
+          1150,
+          1233
+        ],
+        "bytes": 768276,
+        "sha256": "f3059fdb474fc31e699159d7c8da8423ad8444ce43e64814bac8045808d0f9d8"
+      },
+      "card_file": "prospectors-pick.card",
+      "production_resource": "prospectors-pick",
+      "production_recipe": {
+        "catalog": "delve/kingdom/frontier.json",
+        "id": "prospectors-pick"
+      },
+      "equipment_slot": "arm",
+      "original_concept_recipe": "iron_ingot + timber + copper_ingot",
+      "original_concept_role": "Mining tool or claim-outfitting item for improving extraction."
+    },
+    {
+      "id": "runebound-aegis",
+      "name": "Runebound Aegis",
+      "file": "runebound-aegis.png",
+      "resource": "iron",
+      "prompt": "Use case: stylized-concept. Asset type: premium pixel-art equipment sprite for the Knights Wish kingdom and dungeon game. Style: dark storybook fantasy, chunky crisp square pixel clusters with deliberate stepped silhouettes, hand-crafted 16-bit game aesthetic, no smooth painterly gradients. Material palette: muted iron steel, weathered brown leather and brass, one small luminous mineral accent. Top-left lighting, strong dark outline, readable at small inventory size. Composition: one complete isolated object centered on a genuinely transparent square canvas with generous empty margin; no hands, characters, scenery, floor, cast shadow, text, labels, watermark or border. High-detail source master with a strong simple icon silhouette.\nSubject: A stout medieval heater shield viewed three-quarter front, dark worn iron rim, oak planks painted muted forest green, a prominent central round brass boss enclosing one small luminous cyan gem. A few simple pale geometric protective marks engraved into the rim, no letters. Heavy rivets, two visible edge dents, strong shield silhouette; no hand, bearer or ground.",
+      "visual_review": "Passed: complete recognizable silhouette, no text or scenery, style and material cues match the batch.",
+      "image": {
+        "width": 1254,
+        "height": 1254,
+        "mode": "RGBA",
+        "alpha_range": [
+          0,
+          255
+        ],
+        "visible_bounds": [
+          0,
+          25,
+          1234,
+          1254
+        ],
+        "opaque_bounds": [
+          162,
+          45,
+          1070,
+          1230
+        ],
+        "bytes": 1312255,
+        "sha256": "e9713206b26e34ac371b4f0918b33eec0b36247f4eb055ae55b3a441fcfadd57"
+      },
+      "card_file": "runebound-aegis.card",
+      "production_resource": "runebound-aegis",
+      "production_recipe": {
+        "catalog": "delve/kingdom/frontier.json",
+        "id": "runebound-aegis"
+      },
+      "equipment_slot": "guard",
+      "original_concept_recipe": "iron_ingot + timber + crystal",
+      "original_concept_role": "Defensive expedition equipment combining forged metal, wood and crystal."
+    }
+  ]
+}

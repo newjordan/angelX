@@ -1,5 +1,5 @@
 use super::*;
-use crate::drive::{chivalry::Mount, together_realm::Realm, together_shooter::RoomKind};
+use crate::delve::{chivalry::Mount, together_realm::Realm, together_shooter::RoomKind};
 
 fn app() -> App {
     App::preview(crate::ui::viewer::Viewer::static_preview())
@@ -128,7 +128,7 @@ fn a_bout_at_the_lists_paints_in_the_expanded_delve() {
         run.mount_up(1);
         let spur = std::collections::BTreeMap::from([(
             1,
-            crate::drive::together_shooter::Input {
+            crate::delve::together_shooter::Input {
                 fire: true,
                 ..Default::default()
             },
@@ -165,7 +165,7 @@ fn the_horse_market_buys_breeds_and_sells_for_the_realm() {
     let _guard = crate::tests::env_lock();
     let dir = scratch("market");
     let mut a = app_in(&dir);
-    a.economy().treasury.add(crate::drive::together_realm::Spoil::Gold, 5_000);
+    a.economy().treasury.add(crate::delve::together_realm::Spoil::Gold, 5_000);
     let said = a.dungeon_command(Some("stable market"));
     assert!(said.contains("gold"), "{said}");
     let said = a.dungeon_command(Some("stable buy 1"));
@@ -176,12 +176,12 @@ fn the_horse_market_buys_breeds_and_sells_for_the_realm() {
     let said = a.dungeon_command(Some("stable breed 1 2"));
     assert!(said.contains("A foal in the yard"), "{said}");
     assert_eq!(a.economy().home.stable.herd.len(), 3);
-    let gold_before = a.economy().treasury.get(crate::drive::together_realm::Spoil::Gold);
+    let gold_before = a.economy().treasury.get(crate::delve::together_realm::Spoil::Gold);
     let said = a.dungeon_command(Some("stable status"));
     assert!(said.contains("foaled in the") && said.contains("out of"), "{said}");
     let said = a.dungeon_command(Some("stable sell 3"));
     assert!(said.contains("Sold"), "{said}");
-    assert!(a.economy().treasury.get(crate::drive::together_realm::Spoil::Gold) > gold_before);
+    assert!(a.economy().treasury.get(crate::delve::together_realm::Spoil::Gold) > gold_before);
     // And it all survives the save.
     let saved = Realm::beside(Some(&dir.join("island.json")));
     assert_eq!(saved.home.stable.herd.len(), 2);
@@ -191,7 +191,7 @@ fn the_horse_market_buys_breeds_and_sells_for_the_realm() {
 #[test]
 fn chariot_keyboard_controls_board_with_e_and_drop_iron_with_x_only() {
     use ratatui::crossterm::event::KeyCode;
-    use crate::drive::together_shooter::{chariot, home::BUY_HOLD, world};
+    use crate::delve::together_shooter::{chariot, home::BUY_HOLD, world};
     let _guard = crate::tests::env_lock();
     let dir = scratch("chariot-keys");
     let mut a = app_in(&dir);
@@ -229,9 +229,9 @@ fn chariot_keyboard_controls_board_with_e_and_drop_iron_with_x_only() {
 
 #[test]
 fn the_herd_selection_and_helios_birth_save_and_grow_in_the_live_home() {
-    use crate::drive::chivalry::{Horse, bloodline};
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::ranch;
+    use crate::delve::chivalry::{Horse, bloodline};
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::ranch;
     let _guard = crate::tests::env_lock();
     let dir = scratch("helios-herd");
     let mut a = app_in(&dir);
@@ -270,7 +270,7 @@ fn the_herd_selection_and_helios_birth_save_and_grow_in_the_live_home() {
 
 #[test]
 fn a_last_place_chariot_finish_still_saves_the_record() {
-    use crate::drive::chivalry::{Horse, bloodline};
+    use crate::delve::chivalry::{Horse, bloodline};
     let _guard = crate::tests::env_lock();
     let dir = scratch("chariot-last");
     let mut a = app_in(&dir);
@@ -287,7 +287,7 @@ fn a_last_place_chariot_finish_still_saves_the_record() {
 
 #[test]
 fn loading_and_saving_an_old_realm_migrates_its_ranch_foal_once() {
-    use crate::drive::together_shooter::ranch;
+    use crate::delve::together_shooter::ranch;
     let _guard = crate::tests::env_lock();
     let dir = scratch("helios-migrate");
     let path = dir.join("island.json");
@@ -312,9 +312,9 @@ fn loading_and_saving_an_old_realm_migrates_its_ranch_foal_once() {
 
 #[test]
 fn a_failed_ranch_save_restores_the_herd_fee_and_attempt_for_retry() {
-    use crate::drive::chivalry::Horse;
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::ranch;
+    use crate::delve::chivalry::Horse;
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::ranch;
     let _guard = crate::tests::env_lock();
     let dir = scratch("helios-retry");
     let bad = dir.join("not-a-directory");

@@ -1004,6 +1004,107 @@ fn weather_tracks_session_health() {
     assert_eq!(w.weather_label(), "storm");
 }
 
+/// The sky word at the head of `/world weather`.
+fn reported_sky(w: &World) -> String {
+    let report = w.weather_report();
+    report
+        .strip_prefix("Sky: ")
+        .and_then(|rest| rest.split(" — ").next())
+        .unwrap_or_else(|| panic!("report has no sky: {report}"))
+        .to_string()
+}
+
+/// The stage JSON string, the `/world weather` report and the weather the map
+/// draws must name one sky. `want` is the JSON string ("" for a quiet sky).
+fn assert_one_sky(w: &World, want: &str, map: overworld::scene::Weather) {
+    assert_eq!(w.weather_label(), want, "stage JSON weather");
+    if !want.is_empty() {
+        assert_eq!(
+            reported_sky(w),
+            want,
+            "/world weather: {}",
+            w.weather_report()
+        );
+    }
+    assert_eq!(w.overworld_scene().weather, map, "map weather");
+}
+
+fn fair_clock(w: &mut World) {
+    w.hearth.beats = (0..20_000)
+        .find(|&beat| life::weather_for_beats(beat, w.seed) == life::Weather::Fair)
+        .expect("seed must have fair weather");
+}
+
+#[test]
+fn agitated_loop_storm_is_the_one_sky() {
+    use overworld::scene::Weather as Map;
+    let mut w = World::new(3);
+    fair_clock(&mut w);
+    w.note_loop(true, 1, true, false, None);
+    assert_one_sky(&w, "storm", Map::Storm);
+    assert!(
+        w.weather_report().starts_with("Sky: storm — "),
+        "{}",
+        w.weather_report()
+    );
+}
+
+#[test]
+fn gray_run_rain_and_recovery_rainbow_are_the_one_sky() {
+    use overworld::scene::Weather as Map;
+    let mut w = World::new(3);
+    fair_clock(&mut w);
+    assert_one_sky(&w, "", Map::Fair);
+    assert_eq!(reported_sky(&w), "fair");
+    w.turn_ended(false);
+    w.turn_ended(false);
+    assert_one_sky(&w, "rain", Map::Rain);
+    w.turn_ended(true);
+    assert_one_sky(&w, "rainbow", Map::Rainbow);
+}
+
+#[test]
+fn thin_budget_clouds_outrank_the_drizzle_beneath() {
+    use overworld::scene::Weather as Map;
+    let mut w = World::new(3);
+    w.weather_state_for_test(life::Weather::Fair, 3, 0);
+    assert_one_sky(&w, "drizzle", Map::Drizzle);
+    assert_eq!(reported_sky(&w), "drizzle");
+    w.note_loop(true, 1, false, false, Some(budget(80, 100)));
+    assert_one_sky(&w, "clouds", Map::Clouds);
+}
+
+#[test]
+fn quiet_session_sky_still_names_the_living_weather() {
+    use overworld::scene::Weather as Map;
+    let mut w = World::new(3);
+    // Living clouds and the clearing after green are not session weather: the
+    // stage JSON stays silent for them and the report names them.
+    w.weather_state_for_test(life::Weather::Fair, 2, 0);
+    assert_one_sky(&w, "", Map::Fair);
+    assert_eq!(reported_sky(&w), "clouds");
+    w.weather_state_for_test(life::Weather::Fair, 0, 4);
+    assert_one_sky(&w, "", Map::Fair);
+    assert_eq!(reported_sky(&w), "clearing");
+}
+
+#[test]
+fn report_keeps_the_living_weather_under_a_session_sky() {
+    let mut w = World::new(3);
+    w.weather_state_for_test(life::Weather::Fair, 0, 4);
+    w.note_loop(true, 1, true, false, None);
+    let report = w.weather_report();
+    assert!(report.starts_with("Sky: storm — clock fair; "), "{report}");
+    assert!(
+        report.contains("the session's storm sits over the clearing sky"),
+        "{report}"
+    );
+    assert!(
+        report.contains("clearing-after-green, 4 beats remaining"),
+        "{report}"
+    );
+}
+
 #[test]
 fn renown_v2_migrates_and_persists_without_losing_legacy_fields() {
     let path = std::env::temp_dir().join(format!(

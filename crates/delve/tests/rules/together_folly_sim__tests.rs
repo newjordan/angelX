@@ -334,7 +334,8 @@ pub(super) fn play(knights: u32, seed: u64, thumbs: &[Thumb], mut shot: impl FnM
             }
             let pressed = inputs.get(&id).is_some_and(|i| i.move_x != 0 || i.move_y != 0);
             let moved = before.get(&id).is_some_and(|&(x, y)| (x - h.x).abs() + (y - h.y).abs() > 0.01);
-            if pressed && !moved && !maze.titled() && !maze.done {
+            // A knight held by a hit-stop (a catch, a touch, the holy water) is not snagged.
+            if pressed && !moved && !maze.titled() && !maze.done && !run.hitstop.frozen() {
                 *report.snag_ticks.entry(id).or_default() += 1;
                 let s = still.entry(id).or_default();
                 *s += 1;

@@ -1,0 +1,284 @@
+{
+  "schema": 1,
+  "title": "Knights Wish \u2014 claim guardians",
+  "generation_mode": "built-in image_gen",
+  "purpose": "Reviewed source paintings for deposit planning and real optional resource guardian combat. Three guardians have implemented encounters and paired wind-up paintings; the other three remain expansion concepts.",
+  "style": "Detailed crisp pixel art; earthy materials, localized luminous minerals, three-quarter view, upper-left light, transparent source masters.",
+  "assets": [
+    {
+      "id": "ironroot-colossus",
+      "name": "Ironroot Colossus",
+      "file": "ironroot-colossus.png",
+      "resource_id": "iron-ore",
+      "resource_ids": [
+        "iron-ore"
+      ],
+      "role": "guardian_portrait_and_combat_rest",
+      "frames": 1,
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "bytes": 1501412,
+      "sha256": "a41ca4d97cd51aefe141914d1673480ebe447dacd3f652c0368776f1b0c93fbe",
+      "visible_alpha_bbox": [
+        26,
+        132,
+        1227,
+        1095
+      ],
+      "transparent_fraction": 0.4845,
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "claim_concept": "A sealed iron seam held by a living mining bulwark.",
+      "future_combat_concept": "A slow guardian that telegraphs heavy line-breaking slams.",
+      "prompt": "Use case: stylized-concept. Asset type: source monster sprite for Knights Wish, a dark storybook fantasy dungeon and kingdom-building game. Create ONE polished full-body creature, not a sprite sheet. Style: premium detailed pixel art, visibly crisp square pixel clusters and stepped edges, a readable dark outline, handmade 16-bit fantasy feeling, no smooth painterly strokes, no 3D render. Muted earthy materials with small luminous accents. Three-quarter front view, consistent light from upper left. Strong silhouette readable at small game-icon size. Center the complete creature in a square image with generous transparent margins on every side; no cropped extremities. Truly transparent background, no floor, no scenery, no pedestal, no cast ground shadow, no border, no labels or text. Subject: Ironroot Colossus, an ancient squat hulking golem that has grown around an iron seam. Its body is dark slate boulders crossed by rust-red and bright steel ore bands, two great uneven hammer fists, powerful short legs, jagged iron shoulder plates. A tiny warm amber furnace-eye peers from a recessed square head. A few root-like iron tendrils connect stone joints. Wide powerful stance, one fist slightly raised, readable sturdy silhouette. No weapons held, no surrounding rocks, just the golem.",
+      "review": {
+        "complete_silhouette": true,
+        "alpha_channel": true,
+        "readable_materials": true,
+        "animation_ready": false
+      },
+      "runtime": {
+        "status": "implemented",
+        "boss_id": "claim-ironroot",
+        "rules": "crates/delve/src/rules/claim_bosses.rs",
+        "renderer": "crates/delve/src/render/overworld/arena/claim_bosses.rs",
+        "wind_pose": "combat/ironroot-colossus-wind.png",
+        "native_canvas": 64,
+        "animation": "Actual attack state selects rest or wind-up art; breathing, charge compression, leap rise and recovery are procedural."
+      }
+    },
+    {
+      "id": "cindermaw",
+      "name": "Cindermaw",
+      "file": "cindermaw.png",
+      "resource_id": "coal",
+      "resource_ids": [
+        "coal",
+        "ember"
+      ],
+      "role": "guardian_portrait_and_combat_rest",
+      "frames": 1,
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "bytes": 902550,
+      "sha256": "9fb2a61153c0869527bddd795b85d56af31c80687771a9be53a84a262b56be8c",
+      "visible_alpha_bbox": [
+        61,
+        305,
+        1195,
+        949
+      ],
+      "transparent_fraction": 0.7204,
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "claim_concept": "A hot coal seam occupied by a mineral-armored salamander.",
+      "future_combat_concept": "A low guardian that alternates lunges with ember breath.",
+      "prompt": "Use case: stylized-concept. Asset type: source monster sprite for Knights Wish, a dark storybook fantasy dungeon and kingdom-building game. Create ONE polished full-body creature, not a sprite sheet. Style: premium detailed pixel art, visibly crisp square pixel clusters and stepped edges, a readable dark outline, handmade 16-bit fantasy feeling, no smooth painterly strokes, no 3D render. Muted earthy materials with small luminous accents. Three-quarter front view, consistent light from upper left. Strong silhouette readable at small game-icon size. Center the complete creature in a square image with generous transparent margins on every side; no cropped extremities. Truly transparent background, no floor, no scenery, no pedestal, no cast ground shadow, no border, no labels or text. Subject: Cindermaw, a broad low coal-armored cave salamander guarding a coal seam. Four squat clawed legs, blunt shovel-shaped head with a toothy ember-lit mouth, long curled tail completely visible, chunky plates of matte anthracite black coal along its back with sparse glowing orange cracks. A modest ridge of ember-orange crystal spines, copper-brown belly scales. Feral heavy head and curious glowing eyes, not cute. Black silhouette must remain readable with blue-grey rim highlights. No flames floating around it, no smoke cloud, just the creature.",
+      "review": {
+        "complete_silhouette": true,
+        "alpha_channel": true,
+        "readable_materials": true,
+        "animation_ready": false
+      },
+      "edit_prompt": "Edit only the background and canvas framing of this pixel-art coal salamander sprite. Remove the entire smoky brown/blue/black glow halo around the creature, make ALL space outside the creature fully transparent alpha. Preserve the creature itself, its silhouette, every claw and tail, its colors and pixel-art detail exactly. Place the complete creature centered on a SQUARE transparent canvas with a modest margin on every edge. No drop shadow, no glow outside silhouette, no floor, no text. This is a clean isolated game sprite cutout.",
+      "runtime": {
+        "status": "implemented",
+        "boss_id": "claim-cindermaw",
+        "rules": "crates/delve/src/rules/claim_bosses.rs",
+        "renderer": "crates/delve/src/render/overworld/arena/claim_bosses.rs",
+        "wind_pose": "combat/cindermaw-wind.png",
+        "native_canvas": 64,
+        "animation": "Actual attack state selects rest or wind-up art; breathing, charge compression, leap rise and recovery are procedural."
+      }
+    },
+    {
+      "id": "verdigris-mantis",
+      "name": "Verdigris Mantis",
+      "file": "verdigris-mantis.png",
+      "resource_id": "copper-ore",
+      "resource_ids": [
+        "copper-ore"
+      ],
+      "role": "guardian_portrait",
+      "frames": 1,
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "bytes": 1047029,
+      "sha256": "4519286577cec4cbe7ea917080c9d9ace00ff8965729f517148aaa621b8a44ea",
+      "visible_alpha_bbox": [
+        122,
+        93,
+        1135,
+        1173
+      ],
+      "transparent_fraction": 0.6692,
+      "corner_alpha": [
+        0,
+        0,
+        1,
+        0
+      ],
+      "claim_concept": "A copper lode protected by a territorial metal-plated insect.",
+      "future_combat_concept": "An agile guardian that punishes isolated adventurers with hooked sweeps.",
+      "prompt": "Use case: stylized-concept. Asset type: source monster sprite for Knights Wish, a dark storybook fantasy dungeon and kingdom-building game. Create ONE polished full-body creature, not a sprite sheet. Style: premium detailed pixel art, visibly crisp square pixel clusters and stepped edges, a readable dark outline, handmade 16-bit fantasy feeling, no smooth painterly strokes, no 3D render. Muted earthy materials with small luminous accents. Three-quarter front view, consistent light from upper left. Strong silhouette readable at small game-icon size. Center the complete creature in a square image with generous transparent margins on every side; no cropped extremities. Truly transparent background, no floor, no scenery, no pedestal, no cast ground shadow, no border, no labels or text. Subject: Verdigris Mantis, a tall angular copper-plated cave mantis guarding a copper vein. Six limbs: two large raised sickle forearms and four sturdy articulated walking legs, compact segmented abdomen, small triangular head, tiny amber eyes, two short antennae. Its armor resembles beaten copper mineral plates with verdigris turquoise patches; deep umber joints, warm bright copper edges. Proud challenging posture. Keep every appendage distinct and entirely in frame, no wings spread, no additional creatures.",
+      "review": {
+        "complete_silhouette": true,
+        "alpha_channel": true,
+        "readable_materials": true,
+        "animation_ready": false
+      },
+      "runtime": {
+        "status": "expansion_concept",
+        "combat_implemented": false
+      }
+    },
+    {
+      "id": "amethyst-crowned-wyrm",
+      "name": "Amethyst-Crowned Wyrm",
+      "file": "amethyst-crowned-wyrm.png",
+      "resource_id": "crystal",
+      "resource_ids": [
+        "crystal"
+      ],
+      "role": "guardian_portrait_and_combat_rest",
+      "frames": 1,
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "bytes": 1512269,
+      "sha256": "6f8e4d76af8ba80db472cb5eb8015d79477981681390d0fe3d51957114e39bc4",
+      "visible_alpha_bbox": [
+        89,
+        13,
+        1166,
+        1240
+      ],
+      "transparent_fraction": 0.498,
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "claim_concept": "A resonant crystal pocket held by a mineral-crowned wyrm.",
+      "future_combat_concept": "A magic guardian that projects slow crystal pulses and coils defensively.",
+      "prompt": "Use case: stylized-concept. Asset type: source monster sprite for Knights Wish, a dark storybook fantasy dungeon and kingdom-building game. Create ONE polished full-body creature, not a sprite sheet. Style: premium detailed pixel art, visibly crisp square pixel clusters and stepped edges, a readable dark outline, handmade 16-bit fantasy feeling, no smooth painterly strokes, no 3D render. Muted earthy materials with small luminous accents. Three-quarter front view, consistent light from upper left. Strong silhouette readable at small game-icon size. Center the complete creature in a square image with generous transparent margins on every side; no cropped extremities. Truly transparent background, no floor, no scenery, no pedestal, no cast ground shadow, no border, no labels or text. Subject: Amethyst-Crowned Wyrm, a compact coiled subterranean dragon-serpent guarding a magical crystal seam. Pale slate-blue scales, four small clawed legs braced below a stout coiled body, long tapered tail curling visibly around the front. An asymmetric crown of luminous purple amethyst crystals grows from its head and shoulder ridge; tiny cyan eyes and a closed toothy sneer. Head raised and facing viewer slightly left, elegant strong silhouette, magical but tangible mineral materials. No wings, no floating sparkles, no background crystals.",
+      "review": {
+        "complete_silhouette": true,
+        "alpha_channel": true,
+        "readable_materials": true,
+        "animation_ready": false
+      },
+      "runtime": {
+        "status": "implemented",
+        "boss_id": "claim-amethyst",
+        "rules": "crates/delve/src/rules/claim_bosses.rs",
+        "renderer": "crates/delve/src/render/overworld/arena/claim_bosses.rs",
+        "wind_pose": "combat/amethyst-crowned-wyrm-wind.png",
+        "native_canvas": 64,
+        "animation": "Actual attack state selects rest or wind-up art; breathing, charge compression, leap rise and recovery are procedural."
+      }
+    },
+    {
+      "id": "mossback-briarhorn",
+      "name": "Mossback Briarhorn",
+      "file": "mossback-briarhorn.png",
+      "resource_id": "timber",
+      "resource_ids": [
+        "timber"
+      ],
+      "role": "guardian_portrait",
+      "frames": 1,
+      "width": 1312,
+      "height": 1199,
+      "mode": "RGBA",
+      "bytes": 1238072,
+      "sha256": "d276b59ae72b8ff9cececd502711846b1d64c333a578f7ba66bca571a6bffe8d",
+      "visible_alpha_bbox": [
+        94,
+        112,
+        1219,
+        1106
+      ],
+      "transparent_fraction": 0.5644,
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "claim_concept": "An ancient subterranean root grove defended by an oak guardian.",
+      "future_combat_concept": "A charging guardian with root snares and a clear recovery window.",
+      "prompt": "Use case: stylized-concept. Asset type: source monster sprite for Knights Wish, a dark storybook fantasy dungeon and kingdom-building game. Create ONE polished full-body creature, not a sprite sheet. Style: premium detailed pixel art, visibly crisp square pixel clusters and stepped edges, a readable dark outline, handmade 16-bit fantasy feeling, no smooth painterly strokes, no 3D render. Muted earthy materials with small luminous accents. Three-quarter front view, consistent light from upper left. Strong silhouette readable at small game-icon size. Center the complete creature in a square image with generous transparent margins on every side; no cropped extremities. Truly transparent background, no floor, no scenery, no pedestal, no cast ground shadow, no border, no labels or text. Subject: Mossback Briarhorn, a massive boar-like ancient forest guardian with a body of dark ridged oak bark, short powerful root-clawed legs and a humped back carpeted with moss. Two curved ivory-brown tusks, small glowing jade eyes, a short tail made of twisted roots. Three stout branch-antlers sweep backward from its brow with just a few dark green leaves. A handful of tiny amber mushrooms on its shoulders. Earthy umber wood, olive moss and warm pale cut-wood edges. Grounded stubborn protective stance, broad readable silhouette. No terrain, no other vegetation outside its body.",
+      "review": {
+        "complete_silhouette": true,
+        "alpha_channel": true,
+        "readable_materials": true,
+        "animation_ready": false
+      },
+      "runtime": {
+        "status": "expansion_concept",
+        "combat_implemented": false
+      }
+    },
+    {
+      "id": "chalkwing-gargoyle",
+      "name": "Chalkwing Gargoyle",
+      "file": "chalkwing-gargoyle.png",
+      "resource_id": "stone",
+      "resource_ids": [
+        "stone"
+      ],
+      "role": "guardian_portrait",
+      "frames": 1,
+      "width": 1254,
+      "height": 1254,
+      "mode": "RGBA",
+      "bytes": 1847928,
+      "sha256": "f1f5b388e666de167e19b2ea9abda3e932351b57a47067d02eb3f405a633d795",
+      "visible_alpha_bbox": [
+        13,
+        29,
+        1241,
+        1234
+      ],
+      "transparent_fraction": 0.3522,
+      "corner_alpha": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "claim_concept": "A dressed-stone quarry watched by an ancient chiselled sentinel.",
+      "future_combat_concept": "A stone guardian that braces against frontal attacks before leaping.",
+      "prompt": "Use case: stylized-concept. Asset type: source monster sprite for Knights Wish, a dark storybook fantasy dungeon and kingdom-building game. Create ONE polished full-body creature, not a sprite sheet. Style: premium detailed pixel art, visibly crisp square pixel clusters and stepped edges, a readable dark outline, handmade 16-bit fantasy feeling, no smooth painterly strokes, no 3D render. Muted earthy materials with small luminous accents. Three-quarter front view, consistent light from upper left. Strong silhouette readable at small game-icon size. Center the complete creature in a square image with generous transparent margins on every side; no cropped extremities. Truly transparent background, no floor, no scenery, no pedestal, no cast ground shadow, no border, no labels or text. Subject: Chalkwing Gargoyle, a fierce compact sentinel carved from pale sandstone and limestone, guarding a quarry cavern. Squat crouching humanoid body, lion-like face with a blunt muzzle, two small horn stubs, long stone forearms ending in three chiselled claws. Two thick folded bat wings rise above its shoulders in a broad shield-shaped silhouette, scalloped and visibly chipped. Slate shadows, warm chalk-white lit planes, a few ochre veins, small amber eyes in deep sockets. One knee lifted in a poised stance. No pedestal, no rubble, no background.",
+      "review": {
+        "complete_silhouette": true,
+        "alpha_channel": true,
+        "readable_materials": true,
+        "animation_ready": false
+      },
+      "runtime": {
+        "status": "expansion_concept",
+        "combat_implemented": false
+      }
+    }
+  ],
+  "ore_sentries": {
+    "rest_manifest": "ore-enemies-manifest.json",
+    "windup_manifest": "ore-enemies-windup-manifest.json",
+    "rules": "crates/delve/src/rules/ore_threats.rs",
+    "renderer": "crates/delve/src/render/overworld/arena/ore_threats.rs"
+  }
+}

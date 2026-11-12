@@ -479,3 +479,18 @@ fn write_freedom_shots() {
     }
     save(&dir, &tavern, "h-locker-six-b");
 }
+
+#[test]
+fn a_freedom_wish_scroll_crosses_to_the_rules_worker_and_back() {
+    let mut run = sanctuary();
+    holds(&mut run, 1, 1);
+    wish_at_spot(&mut run, 1, "a feast of roast boar");
+    let sent = crate::rules::runtime_state::capture_for_step(&run).unwrap().into_value();
+    let mut worker = crate::rules::runtime_state::restore_value(&sent).unwrap();
+    worker.step(&BTreeMap::new());
+    let answered = crate::rules::runtime_state::capture(&worker).unwrap().into_value();
+    let mut host = crate::rules::runtime_state::restore_value(&answered).unwrap();
+    assert_eq!(host.players[&1].place_wish, Some(freedom::Place::Safe));
+    assert_eq!(host.choose(1, 0).unwrap(), "A Feast Table");
+    assert!(crate::rules::scrolls::validate_run(&host).is_ok());
+}

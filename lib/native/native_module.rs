@@ -54,6 +54,7 @@ fn read(path: &Path, limit: u64) -> Result<(Vec<u8>, Fingerprint), String> {
 }
 
 /// Capture a complete publication without following the final symlink.
+#[cfg(test)]
 pub(crate) fn read_stable(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
     if !path.is_absolute() {
         return Err("native module path must be absolute".into());

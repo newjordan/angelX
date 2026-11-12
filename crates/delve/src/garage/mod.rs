@@ -28,6 +28,10 @@
 //!   [`raster`] lights it per pixel under the shop's lamps, [`look`] is how
 //!   its materials look, [`canvas`] draws the labels, [`dots`] makes braille.
 //!
+//! The race reads and writes it through [`bank`]: a knight's career (money, pods, records,
+//! the parts they bought) and their time-trial [`ghost`]s are kept in the ledger by name, and
+//! the bank carries them in and out of a running `knight_racers::Session` between its ticks.
+//!
 //! No clocks, no randomness: a swap, a save and a frame are functions of
 //! their inputs. `examples/knight_garage.rs` dumps frames as PNGs.
 //!
@@ -35,8 +39,10 @@
 //! place on the wire, and a renderer for the window and the browser (see the
 //! handoff). Nothing here touches `rules::Run`.
 
+pub mod bank;
 pub mod canvas;
 pub mod dots;
+pub mod ghost;
 pub mod ledger;
 pub mod look;
 pub mod meshes;
@@ -52,6 +58,7 @@ pub mod store;
 pub use ledger::{Entrant, Ledger, Swap, SwapError};
 pub use parts::{PARTS, Part, Slot};
 pub use racer::{Build, Stats};
+pub use bank::Bank;
 pub use store::Store;
 
 #[cfg(test)]

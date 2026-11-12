@@ -5,6 +5,12 @@ call checked against the captured AT-SPI box of the control it named.
 import collections, glob, json, math, os, re, statistics, sys
 
 root = sys.argv[1]
+REQUIRE_COMPLETE = "--require-complete" in sys.argv[2:]
+TASKS = os.environ.get("LIVE_TASKS", "calc-8008 calc-58008 calc-5318008 calc-hello writer-bold writer-iu zenity-list nautilus-open").split()
+REPS = int(os.environ.get("LIVE_REPS", "3"))
+if REPS < 1 or not TASKS:
+    sys.exit("LIVE_REPS must be positive and LIVE_TASKS must not be empty")
+EXPECTED = {f"{t}-r{k}" for t in TASKS for k in range(1, REPS + 1)}
 pages = {p["name"]: p for p in json.load(open(f"{root}/desk/pages.json"))}
 REF = {"calc": "omacalc", "writer": "writer-dark", "zenity": "zenity-list", "nautilus": "nautilus-home"}
 CALL = re.compile(r"\[task-event\] call desktop: action=(\w+)(?:, (.*))?$")
@@ -16,7 +22,7 @@ OPS = [(r"multipl|×|\btimes\b|\*", "Multiply"), (r"divi|÷", "Divide"), (r"equa
 
 def wilson(k, n, z=1.96):
     if n == 0:
-        return 0.0, 0.0
+        return None, None
     p, d = k / n, 1 + z * z / n
     c, h = (p + z * z / (2 * n)) / d, z * math.sqrt(p * (1 - p) / n + z * z / (4 * n * n)) / d
     return max(0.0, c - h), min(1.0, c + h)
@@ -56,7 +62,7 @@ def truth_for(task, target):
     return best or (None, None)
 
 
-runs = []
+runs, infra_runs, invalid_runs = [], [], []
 LIVE = os.environ.get("LIVE_DIR", "angel-live")
 for d in sorted(glob.glob(f"{root}/{LIVE}/*-r*")):
     if not os.path.exists(f"{d}/verdict.json"):
@@ -74,13 +80,18 @@ for d in sorted(glob.glob(f"{root}/{LIVE}/*-r*")):
     except Exception:
         tj = {}
     calls, grounds, pending = collections.Counter(), [], None
-    for line in open(f"{d}/task.err", errors="replace"):
+    transport_error = False
+    log_path = os.path.join(d, "task.err")
+    log = open(log_path, errors="replace").read() if os.path.exists(log_path) else ""
+    for line in log.splitlines():
         m = CALL.search(line)
         if m:
             calls[m.group(1)] += 1
             if m.group(1) == "ground":
                 pending = (m.group(2) or "").split("target=", 1)[-1]
             continue
+        if pending is not None and re.search(r"HTTP.?5\d\d|500 Internal|CUDA-capable device|Connection refused|busy or unavailable", line, re.I):
+            transport_error = True
         g = GROUND_DONE.search(line)
         if g and pending is not None:
             x, y = int(g.group(2)), int(g.group(3))
@@ -89,21 +100,46 @@ for d in sorted(glob.glob(f"{root}/{LIVE}/*-r*")):
             grounds.append({"target": pending, "point": [x, y], "truth": name, "hit": hit})
             pending = None
     scored = [g for g in grounds if g["hit"] is not None]
-    infra = tj.get("stop_reason") == "provider_error"
-    runs.append({"run": os.path.basename(d), "task": task, "pass": v["pass"], "observed": v["observed"], "infra": infra,
+    reason = None
+    if v.get("angel_rc") in (126, 127):
+        reason = f"launcher_exit_{v['angel_rc']}"
+    elif tj.get("stop_reason") == "provider_error":
+        reason = "provider_error"
+    elif transport_error:
+        reason = "ground_transport_error"
+    elif not tj:
+        reason = "missing_task_record"
+    if reason:
+        infra_runs.append({"run": os.path.basename(d), "task": task, "infra": True,
+                           "reason": reason, "error": tj.get("error"), "angel_rc": v.get("angel_rc")})
+        continue
+    reason = None
+    if os.path.basename(d) not in EXPECTED:
+        reason = "unexpected_run"
+    elif not calls["ground"]:
+        reason = "no_successful_ground"
+    elif task.startswith("calc") and (calls["key"] or calls["type"]):
+        reason = "keyboard_used_on_calculator"
+    if reason:
+        invalid_runs.append({"run": os.path.basename(d), "task": task, "reason": reason})
+        continue
+    # An app-side pass alone is not a Mage pass. Zero parseable model points or
+    # a nonzero driver exit is a failure, even if the brain finished by itself.
+    passed = bool(v["pass"] and grounds and v.get("angel_rc") == 0)
+    runs.append({"run": os.path.basename(d), "task": task, "pass": passed, "observed": v["observed"], "infra": False,
                  "error": tj.get("error"),
                  "wall_s": v["wall_s"], "hops": tj.get("hops"), "status": tj.get("status"),
-                 "ground": len(grounds), "ground_scored": len(scored), "ground_hit": sum(g["hit"] for g in scored),
+                 "ground_attempts": calls["ground"], "ground": len(grounds), "ground_scored": len(scored), "ground_hit": sum(g["hit"] for g in scored),
                  "clicks": calls["click"], "keys": calls["key"] + calls["type"], "grounds": grounds})
 
-infra_runs = [r for r in runs if r["infra"]]
 for d in sorted(glob.glob(f"{root}/{LIVE}-infra/*-r*")):  # first attempts set aside as mulligans
     try:
         tj = json.load(open(f"{d}/task.json"))
     except Exception:
         tj = {}
     infra_runs.append({"run": os.path.basename(d) + " (first attempt)", "task": os.path.basename(d).rsplit("-r", 1)[0],
-                       "infra": True, "error": tj.get("error"), "hops": tj.get("hops")})
+                       "infra": True, "reason": "archived_infrastructure_attempt",
+                       "error": tj.get("error"), "hops": tj.get("hops")})
 runs = [r for r in runs if not r["infra"]]  # provider errors are mulligans: rerun, never counted
 by_task = collections.defaultdict(list)
 for r in runs:
@@ -120,12 +156,19 @@ for t, rs in sorted(by_task.items()):
 K, N = sum(r["pass"] for r in runs), len(runs)
 GH, GS = sum(r["ground_hit"] for r in runs), sum(r["ground_scored"] for r in runs)
 recovered = sum(1 for r in runs if r["pass"] and r["ground_scored"] and r["ground_hit"] < r["ground_scored"])
-overall = {"infra_errors": len(infra_runs), "tasks_pass": K, "tasks_n": N, "tasks_ci": wilson(K, N), "ground_hit": GH, "ground_scored": GS,
+missing = sorted(EXPECTED - {r["run"] for r in runs})
+overall = {"status": "incomplete" if missing else "complete", "expected_runs": len(EXPECTED),
+           "missing_runs": len(missing), "invalid_runs": len(invalid_runs), "infra_errors": len(infra_runs), "tasks_pass": K, "tasks_n": N, "tasks_ci": wilson(K, N), "ground_hit": GH, "ground_scored": GS,
            "ground_ci": wilson(GH, GS), "passed_despite_ground_miss": recovered}
-json.dump({"overall": overall, "by_task": summary, "runs": runs, "infra_runs": infra_runs}, open(f"{root}/" + ("live_analysis.json" if LIVE == "angel-live" else f"live_analysis-{LIVE}.json"), "w"), indent=1)
+json.dump({"overall": overall, "by_task": summary, "runs": runs, "infra_runs": infra_runs,
+           "invalid_runs": invalid_runs, "missing_runs": missing}, open(f"{root}/" + ("live_analysis.json" if LIVE == "angel-live" else f"live_analysis-{LIVE}.json"), "w"), indent=1)
 for t, s in summary.items():
     print(f"{t:14} pass {s['pass']}/{s['n']}  ground {s['ground_hit']}/{s['ground_scored']}  "
           f"wall {s['median_wall_s']}s  hops {s['median_hops']}" + (f"  keys {s['keyboard_on_calc']}" if s["keyboard_on_calc"] is not None else ""))
-print(f"provider errors (mulligans, not counted): {len(infra_runs)} {[r['run'] for r in infra_runs]}")
-print(f"overall tasks {K}/{N} ci {tuple(round(x, 2) for x in overall['tasks_ci'])}; ground {GH}/{GS} "
-      f"ci {tuple(round(x, 2) for x in overall['ground_ci'])}; passed despite a ground miss: {recovered}")
+print(f"infrastructure errors (not model failures): {len(infra_runs)} {[r['run'] for r in infra_runs]}")
+print(f"overall tasks {K}/{N} ci {tuple(round(x, 2) if x is not None else None for x in overall['tasks_ci'])}; ground {GH}/{GS} "
+      f"ci {tuple(round(x, 2) if x is not None else None for x in overall['ground_ci'])}; passed despite a ground miss: {recovered}")
+
+print(f"{overall['status']}: {N}/{len(EXPECTED)} valid runs; {len(missing)} still needed; {len(invalid_runs)} invalid")
+if REQUIRE_COMPLETE and missing:
+    sys.exit(2)

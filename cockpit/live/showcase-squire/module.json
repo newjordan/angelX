@@ -1,0 +1,20 @@
+{
+  "api_version": 2,
+  "id": "showcase-squire",
+  "kind": "system",
+  "entry": "index.js",
+  "state_schema": 1,
+  "exports": [
+    {
+      "kind": "resource",
+      "name": "pack",
+      "contract": "glass-squire-clip/2"
+    }
+  ],
+  "imports": [
+    {
+      "module": "showcase-card-motion",
+      "contract": "glass-card-motion/1"
+    }
+  ]
+}

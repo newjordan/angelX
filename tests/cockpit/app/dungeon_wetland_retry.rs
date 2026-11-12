@@ -1,7 +1,7 @@
 // Extend the established failed-save -> checkpoint -> restore -> retry gate.
 fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::{
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::{
         Input, RoomKind, Run, countryside as c,
         pastimes::{self, Game},
         wetland as wet, world,
@@ -27,7 +27,7 @@ fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert_eq!(wet::stage(&r.home.countryside, &r.marks), 6);
         let p = &c::PLOTS[9];
         r.arrive(world::room_of(&r.dungeon, p.room).unwrap(), p.at);
-        for _ in 0..crate::drive::together_shooter::home::BUY_HOLD {
+        for _ in 0..crate::delve::together_shooter::home::BUY_HOLD {
             r.step(&BTreeMap::from([(
                 1,
                 Input {
@@ -136,7 +136,7 @@ fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     let r = app.realm.dungeon.shooter.edit().unwrap();
     assert_eq!(r.pastimes, flight);
     assert!(r.home.countryside.has(9));
-    for _ in 0..20 * crate::drive::together_shooter::HZ {
+    for _ in 0..20 * crate::delve::together_shooter::HZ {
         let Some(round) = r.pastimes.round.as_ref() else {
             break;
         };
@@ -178,6 +178,6 @@ fn wetland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     assert_eq!(app.economy().home.countryside.games.surf.wins, 1);
     // The surf's first win pays its once-only purse, and nothing else moves.
     let mut expected = paid.clone();
-    expected.add(crate::drive::together_realm::Spoil::Gold, c::FIRST_WIN_GOLD);
+    expected.add(crate::delve::together_realm::Spoil::Gold, c::FIRST_WIN_GOLD);
     assert_eq!(app.economy().treasury, expected);
 }

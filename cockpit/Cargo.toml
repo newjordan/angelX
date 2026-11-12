@@ -1,6 +1,6 @@
 [package]
 name = "angelX-cockpit"
-version = "0.2.7"
+version = "0.2.85"
 edition = "2024"
 resolver = "3"
 rust-version = "1.95"
@@ -11,12 +11,13 @@ publish = false
 autotests = false
 
 [features]
-default = ["scryglass-video", "glass"]
+default = ["scryglass-video", "glass", "delve"]
+delve = ["dep:angel-delve", "dep:angel-realm-host", "dep:angel-delve-cart"]
 scryglass-video = ["dotmax/video-playback"]
 # angelX's own window: `ANGEL_GLASS=1` opens the cockpit in a GPU window
 # instead of the terminal (docs/RENDER_FOUNDATION.md). The launcher sets it on
 # any desktop; `--no-default-features` leaves the window out.
-glass = ["dep:angel-glass", "angel-glass/remote"]
+glass = ["dep:angel-glass", "angel-glass/remote", "angel-plug/glass", "angel-delve-cart?/glass", "dep:angel-face"]
 
 [[bin]]
 name = "angel"
@@ -95,6 +96,13 @@ opt-level = 1
 [profile.fast.package.angel-realm-host]
 opt-level = 1
 
+[profile.fast.package.angel-delve-cart]
+opt-level = 0
+codegen-units = 1024
+
+[profile.devfast.package.angel-delve-cart]
+opt-level = 1
+
 [dependencies]
 # Independent Cargo object/fingerprint: host edits do not recompile browser bytes.
 angel-web-bundle = { path = "web-bundle" }
@@ -105,13 +113,17 @@ angel-live = { path = "../crates/live", features = ["v8"] }
 # The engine: protocol, commands, clocks and replication (docs/ENGINE.md).
 angel-net = { path = "../crates/net" }
 # The Delve: its rules, renderer and world (docs/ENGINE.md).
-angel-delve = { path = "../crates/delve", features = ["bend-engine"] }
+angel-delve = { path = "../crates/delve", features = ["bend-engine"], optional = true }
 # The realm's host side, cut out of this crate: the Delve's browser page (its
 # build script builds and embeds it) and the host modules that need nothing of
 # the cockpit.
-angel-realm-host = { path = "../crates/realm-host" }
+angel-realm-host = { path = "../crates/realm-host", optional = true }
+angel-delve-cart = { path = "delve-cart", optional = true }
+angel-games = { path = "../crates/games" }
+angel-muster = { path = "../crates/muster" }
 # The marks a picture cell carries, the same table the window reads.
 angel-stage = { path = "../crates/stage" }
+angel-plug = { path = "../crates/plug" }
 # The engine's server, which hosts the Delve, and the native client a
 # friend's angelX joins with (`tls`: through Funnel or a relay).
 angel-serve = { path = "../crates/serve", features = ["tls"] }
@@ -119,6 +131,9 @@ angel-serve = { path = "../crates/serve", features = ["tls"] }
 angel-table = { path = "../crates/table" }
 # The GPU window: a ratatui backend, its compositor and its input.
 angel-glass = { path = "../crates/glass", optional = true }
+# angelface, the goddess in the window (docs/ANGELFACE.md): her model, mind
+# and drawing. With the window only.
+angel-face = { path = "../crates/face", optional = true }
 # Keep the terminal UI family on one Ratatui generation. The vendored dotmax
 # manifest carries the same compatibility pin.
 # unstable-rendered-line-info exposes Paragraph::line_count for wrap-aware scroll.
@@ -189,7 +204,7 @@ landlock = "0.4"
 
 [dev-dependencies]
 # The Delve's test helpers, for the cockpit's own tests.
-angel-delve = { path = "../crates/delve", features = ["testing", "bend-engine"] }
+angel-delve = { path = "../crates/delve", features = ["testing", "full-realm-tests", "bend-engine"] }
 # The atomic writers' one-shot fault hooks (host::workspace_store::fault), for
 # the storage regression tests only; a shipped build carries none.
 angel-live = { path = "../crates/live", features = ["fault-hooks"] }
@@ -197,6 +212,7 @@ angel-live = { path = "../crates/live", features = ["fault-hooks"] }
 # the grant runners' scripted model) and the source tree it lends the Kernel's
 # paths, for the cockpit's own tests.
 angel-realm-host = { path = "../crates/realm-host", features = ["testing"] }
+angel-delve-cart = { path = "delve-cart", features = ["testing"] }
 
 [[test]]
 name = "harness_rollout_persistence"

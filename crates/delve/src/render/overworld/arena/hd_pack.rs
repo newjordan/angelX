@@ -51,7 +51,10 @@
 //! named drawing is any size: it lands by its feet on the figure's. A
 //! figure is matched by name first, on the finest drawing its rung allows
 //! (a whole one of its own dress, then a body, then a whole one of any
-//! dress), then by its look.
+//! dress), then by its look. A knight that faces up or down the room is
+//! asked for by the key's facing `u` or `d` first (`knight/realm/idle/0/seat2/u`,
+//! one drawing for either hand) and, where the pack has none, by the `r` or
+//! `l` key it is drawn by: a pack of sides alone draws it as it always did.
 //!
 //! ```json
 //! { "key": "knight/realm/idle/0/seat2/r", "rung": 64, "pivot": [26, 63],
@@ -76,6 +79,9 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use angel_stage::{LAYER_PICTURES, Picture};
 
 use super::room_scene::Body;
+
+mod looks;
+pub use looks::LooksWatch;
 
 /// The pack's manifest, in its folder.
 pub const MANIFEST: &str = "pack.json";
@@ -387,6 +393,32 @@ impl Pack {
         finest(&|d| !d.body && d.dress.as_deref() == Some(dress))
             .or_else(|| finest(&|d| bodies && d.body))
             .or_else(|| finest(&|d| !d.body && d.dress.is_none()))
+    }
+
+    /// The key this pack draws `named` by, at a rung that allows drawings of
+    /// at most `max_scale`: the figure's own facing's when it faces up or down
+    /// and the pack has a drawing for that (`Named::faced_key`, `.../u`,
+    /// `.../d`), else its key as the rig draws it (`.../r`, `.../l`). A pack
+    /// with no `u` or `d` entries draws every figure as it always did.
+    pub fn key_for(&self, named: &super::figure_keys::Named, max_scale: u32) -> Arc<str> {
+        if let Some(faced) = named.faced_key()
+            && self.named_for(&faced, &named.dress, max_scale, named.bare.is_some()).is_some()
+        {
+            return faced.into();
+        }
+        named.key.clone()
+    }
+
+    /// Whether this pack has a drawing for `named`, as `named_picture` finds
+    /// it at a rung that allows drawings of at most `max_scale`.
+    pub fn draws(&self, named: &super::figure_keys::Named, max_scale: u32) -> bool {
+        self.named_for(&self.key_for(named, max_scale), &named.dress, max_scale, named.bare.is_some()).is_some()
+    }
+
+    /// Whether it has a named drawing of any figure of this clip (`die`,
+    /// `hurt`, ...): what is worth asking `draws` about frame by frame.
+    pub fn has_clip(&self, clip: &str) -> bool {
+        self.named.iter().any(|(key, drawings)| !drawings.is_empty() && super::figure_keys::parts(key).is_some_and(|p| p[2] == clip))
     }
 
     /// Its drawings' pixels across one of their looks', unless one says.
@@ -715,13 +747,16 @@ impl HdArt {
         if most < 2 {
             return None;
         }
-        let ask = (named.key.clone(), named.dress.clone(), most);
+        // Up or down, by the pack's own drawing of that facing if it has one;
+        // else by the key the rig draws it by, as a pack without them always did.
+        let key = pack.key_for(named, most);
+        let ask = (key.clone(), named.dress.clone(), most);
         let got = match self.named.get(&ask) {
             Some(&got) => got,
             None => {
                 // Not come yet (a page's pack): asked for, and the figure
                 // keeps its inks until it comes.
-                if let Some(pending) = pack.named_for(&named.key, &named.dress, most, named.bare.is_some()).and_then(|d| d.pending.as_ref()) {
+                if let Some(pending) = pack.named_for(&key, &named.dress, most, named.bare.is_some()).and_then(|d| d.pending.as_ref()) {
                     if self.asked.insert(pending.file.clone()) {
                         self.wanted.push_back(pending.file.clone());
                     }
@@ -729,7 +764,7 @@ impl HdArt {
                 }
                 // A body alone needs the figure's bare body to stand in for.
                 let got = pack
-                    .named_for(&named.key, &named.dress, most, named.bare.is_some())
+                    .named_for(&key, &named.dress, most, named.bare.is_some())
                     .and_then(|d| Some((self.send(&d.drawing, d.scale as f32, pictures)?, [d.drawing.width, d.drawing.height, d.scale], d.pivot, d.body)));
                 self.named.insert(ask, got);
                 got

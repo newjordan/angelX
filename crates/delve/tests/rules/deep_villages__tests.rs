@@ -1047,3 +1047,20 @@ fn leaving_shots(dir: &std::path::Path) {
     calm(&mut run, 120);
     save(dir, &run, "leaving-b-home");
 }
+
+#[test]
+fn a_city_scroll_crosses_to_the_rules_worker_and_back() {
+    let mut run = village_run(2, CHAPTER);
+    speak(&mut run, 1, cultures::WISHKEEPER);
+    key(&mut run, 1, 1);
+    run.offer_wish(1, "a statue of me, so they remember my name", None).unwrap();
+    let sent = crate::rules::runtime_state::capture_for_step(&run).unwrap().into_value();
+    let mut worker = crate::rules::runtime_state::restore_value(&sent).unwrap();
+    worker.step(&BTreeMap::new());
+    let answered = crate::rules::runtime_state::capture(&worker).unwrap().into_value();
+    let mut host = crate::rules::runtime_state::restore_value(&answered).unwrap();
+    assert!(host.city_wishing(1));
+    key(&mut host, 1, 1);
+    assert!(host.players[&1].offer.is_none());
+    assert_eq!(host.home.deep.town(CHAPTER).unwrap().wishes[0].gift, Gift::Statue);
+}

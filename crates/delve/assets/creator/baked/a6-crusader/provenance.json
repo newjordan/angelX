@@ -1,0 +1,73 @@
+{
+  "spec": "a6-crusader.json",
+  "source": "kwpixel/3d/sk-a6-fin2/game64x54",
+  "script": "scripts/creator/export-baked-set.py",
+  "clips": {
+    "idle": [
+      128,
+      "c91864deaceeabcdbd6c7ef9d2b72af875c806814b9c606fc7efe86597c48e05"
+    ],
+    "walk-east": [
+      64,
+      "33242f22d9468254f4a40511bc10088e774ba709cef68eb86ca8fe58be8a5cf1"
+    ],
+    "walk-south": [
+      64,
+      "33242f22d9468254f4a40511bc10088e774ba709cef68eb86ca8fe58be8a5cf1"
+    ],
+    "attack": [
+      48,
+      "086593571a03abebae96ce49e7b8b8c1221399a449ff113299c3ada3663718c5"
+    ]
+  },
+  "picks": {
+    "rest": "idle[0]",
+    "windup": "attack[0]",
+    "strike": "attack[1]"
+  },
+  "written": {
+    "library-v1-attack-strip.png": "c90b7e2aab4804cf98ffcb43eaca7f14e4d2c18aa35fa3d979c833fb8dd4a9d5",
+    "library-v1-idle-strip.png": "6d10ba26b062450af305d55e829c7f1662bba4fe4971b909a1ac11dbbabaa3a9",
+    "library-v1-rest.png": "d9bb70aa5b7e72669c3cfe7c19a01e9dcdfa881744dd8caf36ab4a08b4b26b92",
+    "library-v1-strike.png": "ed484704faa8feb0a9c92f2152b478154777bd6438101070afc3241539c39381",
+    "library-v1-walk-east-strip.png": "97fa4ea372f2766811d2bb2999a37c488c640b41b2b18f41693c4a4cf05d32bf",
+    "library-v1-walk-south-strip.png": "ca125737807dd1de30bf0933432149c6919fe588f2887c7481e12f0c05d79404",
+    "library-v1-ways.png": "5d4b316bace600397be515ef2e9b2982de1c1472e76c0ffb1830f62d909eb31a",
+    "library-v1-windup.png": "6ca66de8879eb011b6c18b60cb3146088961d8f842ebec0bbc26ddb451c8fa08"
+  },
+  "unregistered": true,
+  "ways": {
+    "idle": [
+      128,
+      "c91864deaceeabcdbd6c7ef9d2b72af875c806814b9c606fc7efe86597c48e05"
+    ],
+    "walk": [
+      64,
+      "33242f22d9468254f4a40511bc10088e774ba709cef68eb86ca8fe58be8a5cf1"
+    ],
+    "run": [
+      64,
+      "c200dc70e59837f3444adbe32d08943405194c415aab63bb1391f2a8c3ce6ea7"
+    ],
+    "attack": [
+      48,
+      "086593571a03abebae96ce49e7b8b8c1221399a449ff113299c3ada3663718c5"
+    ],
+    "hit": [
+      32,
+      "7f9b4f4bf33dddba0ba9287d4e201b9c6b8d11439dd8b581bdca961354a54ed2"
+    ],
+    "death": [
+      104,
+      "134d6447f3ae3c40efec43f7aeaecea1891f638d11eec5604a728191d48bfd02"
+    ],
+    "cast": [
+      56,
+      "285a7b6d584523c399aaabf755c1a9876d1e5ae1c27bda13009adbfaaf877565"
+    ]
+  },
+  "ways_source": {
+    "manifest": "kwpixel/3d/sk-a6-fin2/game64x54/manifest.json",
+    "sha256": "09eb782a85c6477d9020c31c62baff396825a64d7a1f754690c694c86a32688a"
+  }
+}

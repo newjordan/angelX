@@ -1389,7 +1389,7 @@ fn ordinary_cockpit_real_pty_live_game_rules_smoke() {
 }
 
 fn install_character_modules(scratch: &ScratchDir) -> Result<(), String> {
-    for module in ["abilities", "ability-code", "ability-sounds", "ability-effects", "characters"] {
+    for module in ["abilities", "ability-code", "ability-sounds", "ability-effects", "characters", "character-motion"] {
         let destination = scratch.path().join("live").join(module);
         fs::create_dir_all(&destination).map_err(|e| e.to_string())?;
         for entry in fs::read_dir(Path::new(env!("CARGO_MANIFEST_DIR")).join("live").join(module)).map_err(|e| e.to_string())? {

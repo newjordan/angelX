@@ -21,6 +21,9 @@ use std::collections::VecDeque;
 use std::time::{Duration, Instant};
 use unicode_width::UnicodeWidthStr;
 
+use crate::app::control::realm::GameHost;
+use angel_plug::commands::{CommandsWorld, Herald};
+
 /// How many recent result/note events the warp-drive rate window keeps.
 const WARP_EVENT_CAP: usize = 32;
 /// Sliding window for event-rate → drive mapping.
@@ -48,7 +51,7 @@ pub(crate) struct ToolEntry {
     pub(crate) name: String,
     pub(crate) args: String,
     /// The realm's telling of this call, fixed when it starts.
-    herald: crate::stage::world_viz::Herald,
+    herald: Option<Herald>,
     pub(crate) done: bool,
     pub(crate) err: bool,
     not_started: bool,
@@ -331,7 +334,7 @@ impl ToolStrip {
         let args = sanitize(args_summary);
         self.entries.push(ToolEntry {
             id,
-            herald: crate::stage::world_viz::herald(name, &args),
+            herald: <GameHost as CommandsWorld>::herald(name, &args),
             name: name.to_string(),
             verifier: verifier_label(name, &args),
             args,
@@ -521,10 +524,10 @@ impl ToolStrip {
     }
 
     /// The running call's herald, for telemetry rows that lead with it.
-    pub(crate) fn current_herald(&self) -> Option<&crate::stage::world_viz::Herald> {
+    pub(crate) fn current_herald(&self) -> Option<&Herald> {
         self.current()
             .filter(|entry| !entry.done)
-            .map(|entry| &entry.herald)
+            .and_then(|entry| entry.herald.as_ref())
     }
 
     pub(crate) fn toggle_ledger(&mut self) {
@@ -1991,7 +1994,7 @@ pub(crate) fn child_quiet_secs(child: &crate::agent::harness::ChildSnapshot) -> 
 /// Never read /proc here: the process owner samples it off the draw thread.
 pub(crate) fn worker_status_row(
     child: &crate::agent::harness::ChildSnapshot,
-    herald: Option<&crate::stage::world_viz::Herald>,
+    herald: Option<&Herald>,
     width: usize,
 ) -> StatusRow {
     let activity = if child.setting_up {
@@ -2031,7 +2034,7 @@ pub(crate) fn delegate_quiet_secs(delegate: &crate::agent::harness::DelegateSnap
 
 pub(crate) fn delegate_status_row(
     delegate: &crate::agent::harness::DelegateSnapshot,
-    herald: Option<&crate::stage::world_viz::Herald>,
+    herald: Option<&Herald>,
     width: usize,
 ) -> StatusRow {
     let quiet = delegate_quiet_secs(delegate);
@@ -2069,7 +2072,7 @@ pub(crate) fn delegate_status_row(
 
 /// Lead a live telemetry row with the call's herald, so a long build still
 /// reads `⚔ Trial by cargo test · compiling (rustc) · CPU active`.
-fn heralded(herald: Option<&crate::stage::world_viz::Herald>, detail: String) -> (usize, String) {
+fn heralded(herald: Option<&Herald>, detail: String) -> (usize, String) {
     match herald {
         Some(herald) => (
             herald.lead_len(false),
@@ -2166,8 +2169,16 @@ pub(crate) fn status_row_parts_with_silence(
             _ => String::new(),
         }
     };
-    let left = format!("{}{outcome}", cur.herald.text(settled));
-    let lead = cur.herald.lead_len(settled);
+    let literal;
+    let herald = match cur.herald.as_ref() {
+        Some(herald) => herald,
+        None => {
+            literal = Herald::literal(&cur.name, &cur.args);
+            &literal
+        }
+    };
+    let left = format!("{}{outcome}", herald.text(settled));
+    let lead = herald.lead_len(settled);
     let verdict = if verifier {
         match state {
             ToolState::Running => "RUNNING · ",

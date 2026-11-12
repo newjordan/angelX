@@ -428,6 +428,18 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         fire: true,
     };
     let live = |p: Place| scene.active == Some(p);
+    // Marks that sit above everything (stars, the glass's beam), still in
+    // the authored screens' coordinates.
+    let mut cues_authored: Vec<Prop> = Vec::new();
+
+    // Everything in this block is written in the authored screens' own
+    // coordinates, the full plan's fourteen set pieces. The blank-slate
+    // plan (`crate::world::plan`) has none of them on the map: it stages its
+    // tiny Keep and its camps in realm coordinates below (`super::castles`).
+    'authored: {
+    if crate::world::plan::tabula() {
+        break 'authored;
+    }
 
     // ── castle town ──
     let seated = &scene.council;
@@ -925,9 +937,6 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     }
 
     // ── the session's record, kept where each deed was done ──
-    // Marks that sit above everything (stars, the glass's beam), still in
-    // the authored screens' coordinates.
-    let mut cues_authored: Vec<Prop> = Vec::new();
     let record = &scene.record;
     // Pennants hang on the Lists' south fence, one to a post.
     let (lx, ly) = (32 * TILE + 48, 11 * TILE + 16);
@@ -1037,6 +1046,7 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
         &mut props,
         &mut lights,
     );
+    }
     for p in props.iter_mut().chain(cues_authored.iter_mut()) {
         let (ax, ay) = (p.x + p.img.w / 2, p.base - 1);
         let (rx, ry) = place_px(ax, ay);
@@ -1057,7 +1067,9 @@ pub fn stage_in(scene: &Scene, view: Option<super::View>) -> Stage {
     }
 
     // ── wishes the party paid for, standing in the wild (realm coordinates) ──
-    super::college::stage(tick, &mut props, &mut lights);
+    if crate::world::plan::full() {
+        super::college::stage(tick, &mut props, &mut lights);
+    }
     super::wishes::stage_gate(
         scene.delve_lit,
         scene.delve_boons,

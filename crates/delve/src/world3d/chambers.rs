@@ -166,13 +166,15 @@ const SIDE_ROOMS: [Item; 14] = [
                 id: "forge-hall",
                 title: "The Forge-Hall",
                 setting: Setting::Dungeon(Pack::Hellforge),
-                what: "The King's forge-hall below a held floor: a great furnace in the middle, two anvils either side below it, one door in the south wall, the plate before its mouth where it is paid for and relit.",
+                what: "The King's forge-hall below a held floor: a great furnace in the middle, two anvils either side below it, a timber bin for what it is fed on its west side and a rack for what it makes on its east, one door in the south wall, the plate before its mouth where it is paid for and relit.",
                 props: &[
                     ((10, 3, 4, 4), Prop::Furnace { lit: true }),
                     ((7, 8, 1, 1), Prop::Anvil),
                     ((16, 8, 1, 1), Prop::Anvil),
+                    case((3, 3, 3, 2), Kind::Wood, Kind::Metal, 14.0),
+                    case((18, 3, 3, 2), Kind::Wood, Kind::Metal, 14.0),
                 ],
-                notes: &["Painted on open floor, not blocks: the smith's tools, sparks, the plate before the furnace."],
+                notes: &["Painted on open floor, not blocks: the smith's tools, sparks, the plate before the furnace, what lies in the bins."],
                 ..Dressing::BASE
             },
         },

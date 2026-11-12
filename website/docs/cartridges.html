@@ -35,6 +35,7 @@
 <source media="(prefers-color-scheme: dark)" srcset="/assets/docs-images/cartridges/slot-dark.png">
 <img alt="The engine's plug points, and which ones the yukon and lean-kernel cartridges fill, in Rust or in cartridge.toml" src="/assets/docs-images/cartridges/slot-light.png">
 </picture>
+<p>A config-only cartridge published in the registry is a <strong>plugin</strong>: anyone can install it with <code>/plugins install &lt;id&gt;</code> and publish their own with <code>angelX plugin submit</code>. See <a href="https://github.com/newjordan/angelX/blob/main/docs/PLUGINS.md" rel="noopener">Plugins</a>.</p>
 <h2 id="plugging-one-in">Plugging one in</h2>
 <p>Put the cartridge's folder in <code>~/.angelX/cartridges/</code>, or point <code>ANGEL_CARTRIDGES</code> at it (a path list; each entry is a cartridge or a folder of them). The first cartridge found is active; <code>ANGEL_CARTRIDGE=&lt;id&gt;</code> picks another. <code>angel --build-info --json</code> lists the cartridges a binary carries.</p>
 <p>With no cartridge plugged in, the engine runs on its own: competition loops, the watcher and the HUD work, and the book names only the platform CLI.</p>
@@ -120,6 +121,58 @@ params = { type = &quot;object&quot;, required = [&quot;kernel&quot;], propertie
 <p>Add <code>src/mod.rs</code> beside the toml and the cockpit's build compiles the folder in as a module. It exports <code>pub(crate) static HOOKS</code>, an implementation of <code>Hooks</code> (<code>cockpit/src/agent/harness/cartridges/mod.rs</code>). Every hook is optional:</p>
 <div class="table-wrap"><table><thead><tr><th>Hook</th><th>What it gives the competition</th></tr></thead><tbody><tr><td><code>tools</code></td><td>Tools added to every session (a status reader, say)</td></tr><tr><td><code>research_tools</code></td><td>Which of those long research always sees</td></tr><tr><td><code>pages</code></td><td>Book pages: new routes, or the competition's own wording of a route</td></tr><tr><td><code>configured_watch</code></td><td>A live submission watch the operator configures</td></tr><tr><td><code>fleet_sweep</code></td><td>The fleet line, in Rust</td></tr><tr><td><code>seat_entry_focus</code></td><td>Evidence carried inline when a competition turn engages</td></tr><tr><td><code>record_dispatch</code>, <code>record_terminal</code>, <code>terminal_results</code></td><td>A durable experiment ledger the loop reconciles against</td></tr><tr><td><code>status_cli</code></td><td><code>angel --comp-status ARGS…</code></td></tr></tbody></table></div>
 <p>A source cartridge can use anything in the cockpit crate. Rebuild after changing it; Rust tracks the source modules and included files it compiles. Only cartridge manifests and entry modules rerun the cockpit build script; unrelated docs, launchers and uncompiled tests do not. A source cartridge plugged in after the last build is compiled in by the next one that has a reason to run the build script; <code>touch cockpit/build.rs</code> gives it one. A source cartridge that a binary was not built with is ignored at startup rather than run without its hooks.</p>
+<h2 id="a-game-cartridge">A game cartridge</h2>
+<p>The cockpit has a game slot. The Delve is the realm's own game in it, and any other game loads beside it. <code>/game</code> lists what is in the slot, <code>/game &lt;name&gt;</code> loads one and gives it the screen, and Esc gives the screen back to the composer while the game keeps running.</p>
+<pre><code>/game                     the realm's Delve and every cartridge, running or ready
+/game muster              load The Muster: a server on loopback, your seat in it
+/game muster host         serve it on your tailnet or LAN address; the link prints
+/game muster join &lt;link&gt;  sit at a friend's
+/game muster stop         close it</code></pre>
+<p>A game cartridge is <code>angel_live::game::Cartridge</code>: keys in, a ticked game, a picture out, a status line, and the harness's work as it happens (each tool call, result, loop and turn), so a game can turn the agent's work into play. The cockpit paints the picture in half-block cells under the status line.</p>
+<p>Any game built on the engine (<code>angel_serve::GameServer</code> plus <code>angel_net::client::GameClient</code>, the pair a browser seat already plays through <code>angel_web::export_client!</code>) becomes a cartridge with one entry in <code>cockpit/src/app/control/games.rs</code>:</p>
+<pre><code class="language-rust">Box::new(angel_games::Engine::&lt;MyServer, MyClient&gt;::new(angel_games::Spec {
+    id: &quot;mygame&quot;,
+    title: &quot;My Game&quot;,
+    help: &quot;arrows walk · space fires · Esc composer&quot;,
+    make: || MyServer::new(),
+    keys: angel_games::keys::standard,
+}))</code></pre>
+<p><code>angel_games::Engine</code> hosts the server in-process, seats you through a <code>NativeLink</code>, maps the terminal's keys onto the engine's buttons (leased on a terminal that does not report releases), idles your seat while the game is off screen, and binds a hosted game only to a loopback, tailnet or LAN address.</p>
+<h3 id="the-console-without-the-delve">The console without the Delve</h3>
+<p>The cockpit is a console, and the Delve is one cartridge in it: the cargo feature <code>delve</code>, in the default set. The Delve's crates (<code>angel-delve</code>, <code>angel-realm-host</code>, <code>angel-delve-cart</code>) and everything they draw are compiled in only with that feature. Build the console without it:</p>
+<pre><code>ANGEL_DELVE=0 bin/angelX
+cargo build --no-default-features --features glass,scryglass-video --bin angel</code></pre>
+<p>Without the Delve, the stage pane is the cartridge shelf (each cartridge in the slot, running or ready). While a loop runs, it shows the loop stage instead, with its HUD and trench run. <code>/game</code> lists only the cartridges, and the realm's commands (<code>/dungeon</code>, <code>/world</code>, <code>/together</code>, <code>/village</code>) say that this console holds no Delve. The agent's turn, its loop and every panel work as they do with the Delve. Builds that turn the default features off add <code>--features delve</code> to keep it.</p>
+<h3 id="the-plug">The plug</h3>
+<p>The Delve plugs into the console through one contract, <code>crates/plug</code> (<code>angel-plug</code>), and the cockpit core reaches the game only through it.</p>
+<p>The contract is a set of traits, grouped by the part of the console they serve: <code>stage</code>, <code>feed</code>, <code>app</code>, <code>commands</code>, <code>drive</code>, <code>glass</code>, <code>viewer</code> and <code>loop_art</code>. Each group has up to three traits, one per layer:</p>
+<div class="table-wrap"><table><thead><tr><th>Layer</th><th>Direction</th><th>What it carries</th></tr></thead><tbody><tr><td><code>…World</code></td><td>console → game</td><td>Facts and events: tool calls and results, turns, loop progress, research evidence. Also what the console asks of the game's world: titles, places, routes, whether the map moves.</td></tr><tr><td><code>…Art</code></td><td>game → screen</td><td>Drawing into a ratatui frame, buffer or picture the console hands it, with a plain struct of the console facts it needs. It returns whether it drew.</td></tr><tr><td><code>…Rules</code></td><td>input → game</td><td>Keys, clicks, footer buttons, commands.</td></tr></tbody></table></div>
+<p>Signatures use only <code>std</code>, ratatui's core types, crossterm, <code>serde_json</code> and <code>angel_live</code>. The crate cannot see the cockpit, so the compiler keeps the contract neutral. Every method's default body is what a console with no game does. A cartridge implements only what it has.</p>
+<p>The two cartridges the cockpit holds are:</p>
+<ul><li><p><strong><code>cockpit/delve-cart/src/cart/</code>:</strong> <code>Delve</code>, which wraps the realm host's <code>GameHost</code> and implements every trait. The Delve's own cockpit code lives beside it in the <code>angel-delve-cart</code> crate (<code>cockpit/delve-cart/</code>).</p></li><li><p><strong><code>cockpit/src/console/</code>:</strong> <code>Shelf</code>, the null cartridge, which takes the defaults.</p></li></ul>
+<p><code>App.realm</code> is one of the two, chosen in <code>app/control/realm.rs</code> by the <code>delve</code> feature. That alias and the module lines in <code>main.rs</code> are the registration.</p>
+<p>To bring in another game style or another look for the same world, write a type that implements the plug's traits and register it the same way.</p>
+<p>The golden frames hold the Delve's experience to the byte, in text and style (<code>tests/cockpit/app/golden_frames__tests.rs</code>: 14 scenes at three sizes):</p>
+<pre><code>cd cockpit &amp;&amp; ANGELX_GOLDEN_DIR=/work/tmp/golden cargo test --profile fast --bin angel golden_frames -- --test-threads=1
+python3 ../scripts/check/compare-golden-frames.py /work/tmp/golden-before /work/tmp/golden</code></pre>
+<h2 id="working-on-each-side">Working on each side</h2>
+<p>The console and the Delve are built apart on purpose. <code>scripts/check/check-plug-boundary.sh</code> guards the line from both sides, and the cockpit gate runs it.</p>
+<h3 id="working-on-angel-the-console">Working on angel (the console)</h3>
+<ul><li><p><strong>The core never names the game.</strong> The core is <code>cockpit/src/</code> outside <code>delve/</code> and <code>console/</code>. No new <code>feature = &quot;delve&quot;</code> gates there, and no <code>angel_delve::</code>, <code>angel_realm_host::</code> or <code>crate::delve::</code>. The gate count is 5, all registration lines. It only goes down.</p></li><li><p><strong>A need from the game goes into the plug.</strong> Add a method to a trait in <code>crates/plug</code>, with the no-game default as its body. The Delve answers it in <code>cockpit/delve-cart/src/cart/</code>. Plug signatures stay neutral: <code>std</code>, ratatui-core, crossterm, serde, <code>angel_live</code>. Never a Delve type.</p></li><li><p><strong>The console build stands alone.</strong> <code>--no-default-features --features glass,scryglass-video</code> must build and pass its tests without the Delve.</p></li><li><p><strong>Draw-path refactors keep the golden frames identical.</strong> The harness is <code>tests/cockpit/app/golden_frames__tests.rs</code>. It does nothing unless <code>ANGELX_GOLDEN_DIR</code> is set. Render before the change and after it, each into its own directory, then compare:</p></li></ul>
+<pre><code>cd cockpit
+ANGELX_GOLDEN_DIR=/work/tmp/golden-before cargo test --profile fast --bin angel golden_frames -- --test-threads=1
+ANGELX_GOLDEN_DIR=/work/tmp/golden-after  cargo test --profile fast --bin angel golden_frames -- --test-threads=1
+python3 ../scripts/check/compare-golden-frames.py /work/tmp/golden-before /work/tmp/golden-after</code></pre>
+<p>It prints <code>all 42 scenes identical</code>, or each scene that moved, with the rows and cells.</p>
+<h3 id="working-on-knights-wish-the-delve">Working on Knights Wish (the Delve)</h3>
+<p>Where it lives:</p>
+<ul><li><p><code>crates/delve</code>: the game and its rules.</p></li><li><p><code>crates/realm-host</code>: sessions, grants, together.</p></li><li><p><code>cockpit/delve-cart/</code> (<code>angel-delve-cart</code>): the cockpit glue and the terminal art.</p></li><li><p><code>cockpit/delve-cart/src/cart/</code>: the plug answers.</p></li><li><p><code>cockpit/src/delve/</code>: the cockpit's side. It re-exports the crate as <code>crate::delve</code> and holds the Delve's tests that drive <code>App</code>.</p></li></ul>
+<p>Some paths moved. <code>crate::drive::together_*</code> is now <code>crate::delve::together_*</code>, and the realm oracle is now <code>crate::app::control::realm::club_oracle</code>. Inside the crate, <code>crate::delve::…</code> is <code>crate::…</code>.</p>
+<p>The crate cannot see the cockpit, so the compiler holds the line. A need from the console goes into the plug. What the cockpit uses from the crate is <code>pub</code>, and the rest stays <code>pub(crate)</code>. A helper only the cockpit's tests call sits behind <code>cfg(any(test, feature = &quot;testing&quot;))</code>, and the cockpit turns <code>testing</code> on for its tests. Non-test code under <code>cockpit/src/delve/</code> is re-exports only, and the check holds it there.</p>
+<p>The crate's own tests run from <code>cockpit/</code> with <code>cargo test -p angel-delve-cart</code>, and the cockpit gate runs them. A test that needs the cockpit (its <code>App</code>, the harness, a club) stays in the cockpit under <code>cockpit/src/delve/</code>, with a parent there that brings the crate's names into scope.</p>
+<p>Game work changes frames on purpose, so it isn't held to the golden frames.</p>
+<h3 id="where-this-is-going">Where this is going</h3>
+<p>The Delve's cockpit side is its own crate now, <code>angel-delve-cart</code>, and the cockpit links it under its <code>delve</code> feature. Next a second cartridge plugs in through the same contract. Then the shared world runs over <code>angel-net</code>. Separate repos come once <code>angel-plug</code> stops changing every week.</p>
 </div></section>
 </main>
 <footer class="foot">

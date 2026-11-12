@@ -114,6 +114,15 @@ fn opens_outside(url: &str) -> bool {
     matches!(scheme.as_str(), "http" | "https" | "file" | "mailto")
 }
 
+fn startup_squire_pack() -> &'static [u8] {
+    include_bytes!("../../../cockpit/live/showcase-squire/pack.json")
+}
+
+fn install_startup_squire(host: &angel_glass::Host) {
+    host.install_showcase_squire_pack("showcase-squire", "pack", startup_squire_pack())
+        .expect("the packaged showcase squire resource is valid");
+}
+
 fn main() {
     angel_glass::startup::mark("main");
     let args = match parse_args() {
@@ -146,6 +155,9 @@ fn main() {
 /// The terminal's life, on the thread glass gives it: until the program
 /// exits or the window closes. Returns the exit code.
 fn run(host: angel_glass::Host, args: Args, palette: angel_glass::Palette) -> i32 {
+    // Keep standalone Glass cards and showings complete even when the
+    // cockpit's live-module loader is absent or disabled.
+    install_startup_squire(&host);
     let grid = host.grid_size();
     let (tx, rx) = mpsc::channel();
     let focused = Arc::new(AtomicBool::new(true));
@@ -578,6 +590,14 @@ impl Ui {
 mod tests {
     use super::*;
     use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+
+    #[test]
+    fn standalone_pack_is_bundled_and_valid_without_the_hotload_service() {
+        let clip = angel_glass::ShowcaseSquireClip::from_json_bytes(startup_squire_pack())
+            .expect("standalone binary embeds the module-owned pack");
+        assert_eq!(clip.frames.len(), 9);
+        assert!(clip.frames.iter().flatten().any(|&pixel| pixel != 0));
+    }
 
     fn key(code: KeyCode, modifiers: KeyModifiers, kind: KeyEventKind) -> KeyEvent {
         KeyEvent { code, modifiers, kind, state: KeyEventState::empty() }

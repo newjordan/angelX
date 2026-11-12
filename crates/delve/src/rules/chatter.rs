@@ -80,6 +80,10 @@ fn mood(cue: &str) -> Option<(&'static str, bool)> {
             ("uhoh", false)
         }
         "home" | "built" | "rescued" | "hired" | "brannoc_arrives" | "npc" => ("hello", false),
+        "folk_feast" => ("cheer", false),
+        "folk_masterwork" | "folk_fey" => ("ooh", false),
+        "folk_tantrum" => ("uhoh", false),
+        "folk_mourning" => ("aww", false),
         "pastime_lost" | "key_lost" | "dare_broken" | "joust_lost" | "goblin_escaped" => {
             ("aww", false)
         }

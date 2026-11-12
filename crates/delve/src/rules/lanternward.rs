@@ -548,10 +548,10 @@ impl Session {
 
 impl Run {
     pub fn lanternward_showing(&self) -> bool {
-        self.room().kind == RoomKind::Forest && self.lanternward.is_some()
+        self.on_stage() && self.lanternward.is_some()
     }
     pub fn start_lanternward(&mut self) {
-        if self.room().kind != RoomKind::Forest {
+        if !self.on_stage() {
             return;
         }
         #[cfg(test)]
@@ -650,6 +650,13 @@ impl Run {
         run.seat_lanternward(session);
         run
     }
+}
+
+/// A recorded moment of the adventure, as the cockpit's engine played it, for the
+/// encounter reel (`encounter_reel__tests.rs`).
+#[cfg(test)]
+pub(super) fn moment_session(moment: &str, seats: u32) -> Option<Session> {
+    moments().get(&format!("{moment}/{seats}")).cloned()
 }
 
 #[cfg(any(test, feature = "testing"))]

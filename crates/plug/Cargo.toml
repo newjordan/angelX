@@ -1,0 +1,19 @@
+[package]
+name = "angel-plug"
+version = "0.1.0"
+description = "The cartridge plug: what the console tells a game, asks of its world, lets it draw and lets it rule"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[features]
+glass = []
+
+[dependencies]
+angel-live = { path = "../live" }
+crossterm = { version = "0.29", default-features = false, features = ["events"] }
+ratatui-core = { version = "0.1.2", features = ["std", "underline-color"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+unicode-width = "0.2"

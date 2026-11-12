@@ -3,7 +3,12 @@ use super::super::{
     chrome,
     ink::{Img, text_width},
 };
-use super::{NATIVE_H, NATIVE_W};
+use super::{NATIVE_H, NATIVE_W, juice};
+mod claims;
+mod finish;
+mod fx;
+mod hud;
+mod moments;
 use crate::rules::{
     HZ, Run,
     mossbell::{BUMPERS, Beat, GOLD_PER_SEAT, Q},
@@ -903,16 +908,7 @@ fn center(x: i32, y: i32, s: String) -> (i32, i32, String) {
     (x - text_width(&s) / 2, y, s)
 }
 fn name(run: &Run, who: u32, focus: u32) -> String {
-    if who == focus {
-        "YOU".into()
-    } else {
-        let full = run.players.get(&who).map_or("KNIGHT", |h| h.name.as_str());
-        if full.starts_with("bot ") || full.starts_with("Seat ") {
-            format!("K{who}")
-        } else {
-            full.chars().take(13).collect::<String>().to_uppercase()
-        }
-    }
+    claims::called(run, who, focus, 13)
 }
 /// The RGB and terminal routes use these same positions and words.
 pub(super) fn labels(run: &Run, who: Option<u32>) -> Vec<(i32, i32, String)> {
@@ -925,8 +921,9 @@ pub(super) fn labels(run: &Run, who: Option<u32>) -> Vec<(i32, i32, String)> {
             (238 - text_width("SCORE"), 47, "SCORE".into()),
             (276, 47, "DRAINS".into()),
         ];
+        let step = if s.order.len() > 4 { 16 } else { 24 };
         for (n, &who) in s.order.iter().enumerate() {
-            let y = 66 + n as i32 * 24;
+            let y = 66 + n as i32 * step;
             let score = s.points(who).to_string();
             v.push((30, y, s.place(who).to_string()));
             v.push((48, y, name(run, who, id)));
@@ -1010,15 +1007,22 @@ pub(super) fn labels(run: &Run, who: Option<u32>) -> Vec<(i32, i32, String)> {
             v.push(center(158, 208, "FLIP AND NUDGE".into()));
         }
     } else {
+        // Up to four knights have two lines each; five and six, one line apiece.
+        let many = s.tables.len() > 4;
         for (n, &who) in s.tables.keys().enumerate() {
-            let y = 72 + n as i32 * 17;
-            let short = name(run, who, id).chars().take(3).collect::<String>();
-            v.push((6, y, format!("{} {short}", s.place(who))));
+            let called = name(run, who, id);
+            let short = called.strip_prefix("KNIGHT ").map_or_else(|| called.chars().take(3).collect::<String>(), |n| format!("K{n}"));
             let score = s.points(who).to_string();
-            v.push((50 - text_width(&score), y + 8, score));
+            if many {
+                v.push((6, 66 + n as i32 * 10, format!("{} {short} {score}", s.place(who))));
+            } else {
+                let y = 66 + n as i32 * 17;
+                v.push((6, y, format!("{} {short}", s.place(who))));
+                v.push((50 - text_width(&score), y + 8, score));
+            }
         }
     }
-    v.push((6, 145, format!("{} DRAINS", b.drains)));
+    v.push((6, 148, format!("{} DRAINS", b.drains)));
     if b.save > 0 {
         v.push(center(192, 157, "F LAUNCH".into()));
     }
@@ -1130,11 +1134,16 @@ pub(super) fn layers(run: &Run, who: Option<u32>) -> (Img, Img) {
 pub(super) fn terminal_layers(run: &Run, who: Option<u32>) -> (Img, Img) {
     draw(run, who, false)
 }
+/// The brass frame's inner box: the table's pieces (the keeper hangs over its top) are
+/// laid on their own layer and set into it, shaken, so the bar and the panels stay still.
+const TABLE_BOX: (i32, i32, i32, i32) = (60, 41, 264, 150);
+
 fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
     let s = run.mossbell.as_ref().unwrap();
     let id = focus(run, who);
     let b = &s.tables[&id].ball;
     let a = art();
+    let now = run.tick as u32;
     let mut im = if words {
         room().clone()
     } else {
@@ -1153,22 +1162,14 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
             fx.line(x + 3, 36 - rise, x + 1, 30 - rise, 's');
         }
     }
-    if compact_hud() && s.left > 0 {
+    if !words && compact_hud() && s.left > 0 {
         static BACK: OnceLock<Option<Img>> = OnceLock::new();
         let backdrop = BACK.get_or_init(|| slot("mossbell.room", "room").map(dim));
         if let Some(backdrop) = backdrop {
             for y in 47..158 {
                 for x in 2..56 {
                     if let Some(c) = backdrop.get(x, y) {
-                        im.set(
-                            x,
-                            y,
-                            if words {
-                                c
-                            } else {
-                                c.map(|v| (u16::from(v) * 3 / 10) as u8)
-                            },
-                        );
+                        im.set(x, y, c.map(|v| (u16::from(v) * 3 / 10) as u8));
                     }
                 }
             }
@@ -1184,7 +1185,14 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
             }
         }
     }
-    if s.left == 0 {
+    let ended = s.show.since_end(now);
+    let live = words && s.left == 0 && ended.is_some_and(|e| e < claims::LIVE);
+    if s.left == 0 && !live {
+        if words {
+            let e = ended.unwrap_or(u32::MAX / 2).saturating_sub(claims::LIVE).min(100_000);
+            let plan = claims::finish(run, id, e);
+            return (finish::scene(run, s, id, e, &plan), fx);
+        }
         chrome::panel(&mut im, (18, 20, 348, 197), chrome::Tone::BRASS);
         if super::slot_art::enabled() {
             if let Some(plate) = &plates()[4] {
@@ -1192,12 +1200,52 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
             }
         }
     } else {
+        // The table shakes with the blows this seat has struck, never its panels. A table at
+        // rest is drawn straight onto the screen; a shaken one on a layer of its own, set
+        // down shifted and kept inside the brass frame.
+        let mut shake = if words {
+            juice::shake(
+                s.show.juice.blows.iter().filter(|bl| bl.owner == id).map(|bl| (bl.weight, bl.age(now))),
+                run.tick,
+            )
+        } else {
+            (0, 0)
+        };
         let left = u32::from(b.freeze).max(u32::from(b.burst.saturating_sub(12)));
-        let shake = super::camera::smooth_shake(run.tick, left, 6, 1.5).0;
-        let x = OX + shake;
+        shake.0 += super::camera::smooth_shake(run.tick, left, 6, 1.5).0;
+        if words && b.save >= 2 && b.drains > 0 {
+            let d = super::camera::smooth_shake(run.tick, u32::from(b.save), 12, 2.5);
+            shake = (shake.0 + d.0, shake.1 + d.1);
+        }
+        let jackpot_on = words
+            && s.show.shouts.iter().any(|sh| sh.cry == crate::rules::mossbell_show::Cry::Jackpot && u32::from(sh.who) == id);
+        let layered = shake != (0, 0) || jackpot_on || !words;
+        let mut world = Img::window(NATIVE_W, NATIVE_H, if layered { TABLE_BOX } else { (0, 0, 0, 0) });
+        let im_w: &mut Img = if layered { &mut world } else { &mut im };
+        let x = OX;
+        if words {
+            fx::shafts(im_w, run.tick);
+            fx::ambient(im_w, run.tick);
+            fx::lamps(im_w, b, run.tick);
+        }
+        // The newest blow this seat landed on the keeper still on the books.
+        let blow = s
+            .show
+            .juice
+            .blows
+            .iter()
+            .filter(|bl| bl.owner == id && bl.weight >= crate::rules::juice::Weight::Solid && bl.age(now) < 14)
+            .max_by_key(|bl| bl.born);
         let target = |im: &mut Img, i: usize| {
             let (bx, by, _) = BUMPERS[i];
-            im.stamp(&a.bumpers[i], x + field_x(bx) - 14, OY + by - 14);
+            if words && b.flash[i] > 0 {
+                // The bumper takes the blow: squashed, then stretched, then home.
+                let age = 12 - u32::from(b.flash[i]);
+                let (sq, _) = juice::squash_stretch(&a.bumpers[i], age, 0.22);
+                im.stamp(&sq, x + field_x(bx) - sq.w / 2, OY + by + 14 - sq.h);
+            } else {
+                im.stamp(&a.bumpers[i], x + field_x(bx) - 14, OY + by - 14);
+            }
             if b.lit & (1 << i) > 0 {
                 im.rect(x + field_x(bx) - 3, OY + by + 14, 6, 2, 't');
             }
@@ -1206,8 +1254,8 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
                 im.stamp(&a.flashes[i][frame], x + field_x(bx) - 14, OY + by - 14);
             }
         };
-        target(&mut im, 0);
-        target(&mut im, 1);
+        target(im_w, 0);
+        target(im_w, 1);
         if matches!(b.beat, Beat::RootTell | Beat::Root) {
             let total = if b.hp > 2 { 36 } else { 30 };
             let stage = if b.beat == Beat::Root {
@@ -1215,16 +1263,16 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
             } else {
                 ((total - b.beat_left.min(total)) * 4 / total).min(3) as usize
             };
-            im.stamp(
+            im_w.stamp(
                 &a.roots[(b.attack & 1) as usize][stage],
                 x + field_x(7),
                 OY + 72,
             );
         }
         // The centre pair of drop targets sits above the travelling root.
-        target(&mut im, 2);
+        target(im_w, 2);
         if matches!(b.beat, Beat::CrownTell | Beat::Crown) {
-            im.stamp(&a.crown_floor, x + field_x(60), OY + 20);
+            im_w.stamp(&a.crown_floor, x + field_x(60), OY + 20);
         }
         let stage = if b.hp > 4 {
             0
@@ -1248,17 +1296,32 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
                 }
             }
         };
-        im.stamp(
-            if b.beat == Beat::Defeat && b.hit > 4 && a.collapse.is_some() {
-                &a.collapse.as_ref().unwrap()[usize::from(!words)]
-            } else if words {
-                &a.poses[stage][pose]
-            } else {
-                &a.cells[stage][pose]
-            },
-            x + field_x(80) - 24,
-            OY - 3,
-        );
+        let keeper = if b.beat == Beat::Defeat && b.hit > 4 && a.collapse.is_some() {
+            &a.collapse.as_ref().unwrap()[usize::from(!words)]
+        } else if words {
+            &a.poses[stage][pose]
+        } else {
+            &a.cells[stage][pose]
+        };
+        let (kx, ky) = (x + field_x(80) - 24, OY - 3);
+        match blow.filter(|_| words) {
+            Some(bl) => {
+                // Struck: one white frame, then squashed and stretched back to size.
+                let age = bl.age(now);
+                let body = if age < bl.weight.flash() { juice::impact_frame(keeper, 'H') } else { keeper.clone() };
+                let (sq, _) = juice::squash_stretch(&body, age, bl.weight.squash());
+                im_w.stamp(&sq, kx + keeper.w / 2 - sq.w / 2, ky + keeper.h - sq.h);
+            }
+            None => {
+                // A keeper at rest breathes.
+                let breathe = if words && b.beat == Beat::Idle && b.hp > 0 {
+                    (crate::motion::math::sin(run.tick as f32 * 0.11) * 1.2).round() as i32
+                } else {
+                    0
+                };
+                im_w.stamp(keeper, kx, ky + breathe);
+            }
+        }
         if matches!(b.beat, Beat::CrownTell | Beat::Crown) {
             // Authored jaws stay inside the real x=60..100, y=20..43 landing gate.
             let total = if b.hp > 2 { 36 } else { 30 };
@@ -1267,7 +1330,7 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
             } else {
                 ((total - b.beat_left.min(total)) * 4 / total).min(3) as usize
             };
-            im.stamp(
+            im_w.stamp(
                 if words {
                     &a.crown[stage]
                 } else {
@@ -1277,10 +1340,8 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
                 OY + 20,
             );
         }
-        im.rect(332, 70, 42, 4, 's');
-        im.rect(333, 71, 40 * i32::from(b.hp) / 6, 2, 'o');
         if let Some(pair) = &a.flippers[usize::from(b.left > 0) + 2 * usize::from(b.right > 0)] {
-            im.stamp(pair, x + field_x(37) - 3, OY + 111 - 3);
+            im_w.stamp(pair, x + field_x(37) - 3, OY + 111 - 3);
         } else {
             for (left, pivot, tip, up) in [
                 (
@@ -1297,7 +1358,7 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
                 ),
             ] {
                 for dy in -2..=2 {
-                    im.line(
+                    im_w.line(
                         x + field_x(pivot.0),
                         OY + pivot.1 + dy,
                         x + field_x(tip.0),
@@ -1305,7 +1366,7 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
                         'I',
                     );
                 }
-                im.line(
+                im_w.line(
                     x + field_x(pivot.0),
                     OY + pivot.1 - 1,
                     x + field_x(tip.0),
@@ -1315,30 +1376,60 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
                 let _ = left;
             }
         }
-        if b.save == 0 {
-            for &(tx, ty) in b.trail.iter().rev() {
-                im.stamp(&a.trail, x + field_x(tx) - 2, OY + ty - 2);
+        // A ball waiting in its lane (the title, the countdown, a drain) shows there.
+        if b.save == 0 || (words && s.intro > 0) {
+            if words && b.save == 0 {
+                fx::comet(im_w, b, run.tick);
+            } else if !words {
+                for &(tx, ty) in b.trail.iter().rev() {
+                    im_w.stamp(&a.trail, x + field_x(tx) - 2, OY + ty - 2);
+                }
             }
-            im.stamp(&a.ball, x + field_x(b.x / Q) - 4, OY + b.y / Q - 4);
+            im_w.stamp(&a.ball, x + field_x(b.x / Q) - 4, OY + b.y / Q - 4);
         }
-        if b.burst > 0 {
+        if words {
+            fx::bumper_hits(im_w, b, run.tick);
+            fx::swoosh(im_w, b, run.tick);
+            fx::catch(im_w, b, run.tick);
+            fx::drain(im_w, b, run.tick);
+            fx::keeper(im_w, &s.show, id, now, run.tick);
+            for sh in s.show.shouts.iter().filter(|sh| sh.cry == crate::rules::mossbell_show::Cry::Jackpot && u32::from(sh.who) == id) {
+                fx::jackpot(im_w, sh.age(now), run.tick);
+            }
+        } else if b.burst > 0 {
             let frame = ((16 - b.burst.min(16)) / 4).min(3) as usize;
             let effect = if b.jackpot_at.is_some() && b.impact == (80, 63) {
                 2
             } else {
                 1
             };
-            im.stamp(
+            im_w.stamp(
                 &a.effects[effect][frame],
                 x + field_x(b.impact.0) - 16,
                 OY + b.impact.1 - 16,
             );
         }
-        if words && b.chain > 0 && b.flash.iter().any(|&f| f > 5) {
-            let pop = &a.pops[usize::from(b.chain - 1)];
-            im.stamp(pop, 192 - pop.w / 2, 20);
+        if layered {
+            // The layer keeps only the brass frame's inside, so a shake shows no stray edge.
+            im.stamp(&world, shake.0, shake.1);
+        }
+        if !words {
+            im.rect(332, 70, 42, 4, 's');
+            im.rect(333, 71, 40 * i32::from(b.hp) / 6, 2, 'o');
         }
         knight(&mut im, id, b.left > 0, b.right > 0, !words);
+        if words {
+            let plan = claims::plan(run, id);
+            hud::cards(&mut im, run, s, id, now);
+            hud::panel(&mut im, s, id, &plan, now);
+            for w in plan.words.iter().filter(|w| w.what != "hint") {
+                im.text(w.x, w.y, &w.text, w.ink);
+            }
+            moments::draw(&mut im, run, s, id, &plan, now);
+            if live {
+                finish::close(&mut im, ended.unwrap_or(0));
+            }
+        }
     }
     if !words {
         for (x, y, t) in labels(run, who) {
@@ -1353,14 +1444,6 @@ fn draw(run: &Run, who: Option<u32>, words: bool) -> (Img, Img) {
                     im.set(xx, yy, [12, 18, 24]);
                 }
             }
-        }
-    }
-    if words {
-        for (x, y, s) in labels(run, who) {
-            if y == 25 && s.starts_with("CHAIN ") {
-                continue;
-            }
-            im.text(x, y, &s, 'i');
         }
     }
     (im, fx)
@@ -1444,3 +1527,7 @@ mod slot_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__mossbell_show__tests.rs"]
+mod show_tests;

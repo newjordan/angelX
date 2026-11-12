@@ -26,7 +26,15 @@ pub fn plate(station: usize, control: usize) -> (i32, i32) {
 pub fn building(station: usize) -> (i32, i32, i32, i32) {
     (YARD.0 + station as i32 * 5, YARD.1, 4, 3)
 }
+/// Whether the yard stands on the map: it does in the full plan (Castle
+/// Town's east green) and not in the blank-slate plan (`world::plan`).
+pub fn on_map() -> bool {
+    crate::world::plan::full()
+}
 pub fn station_at(x: f32, y: f32) -> Option<(usize, usize)> {
+    if !on_map() {
+        return None;
+    }
     for s in 0..3 {
         for c in 0..3 {
             let (px, py) = plate(s, c);
@@ -42,6 +50,9 @@ pub fn station_at(x: f32, y: f32) -> Option<(usize, usize)> {
     None
 }
 pub fn nearby(x: f32, y: f32) -> Option<usize> {
+    if !on_map() {
+        return None;
+    }
     let (x, y) = (x / TILE_UNITS, y / TILE_UNITS);
     (0..3).find(|&s| {
         let (bx, by, _, _) = building(s);
@@ -72,7 +83,7 @@ impl Run {
         }
     }
     pub(super) fn tick_squires_town(&mut self, inputs: &BTreeMap<u32, Input>) {
-        if self.room().kind != RoomKind::Kingdom {
+        if self.room().kind != RoomKind::Kingdom || !on_map() {
             return;
         }
         let mut ready = Vec::new();

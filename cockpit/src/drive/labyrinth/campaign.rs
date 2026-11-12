@@ -308,12 +308,113 @@ pub(crate) struct CampaignRuntime {
     pub integrator: Arc<dyn CampaignIntegrator>,
 }
 
+// Campaign state has three tiers, each persisted in the state file and read by
+// models in `status` results as the exact word beside the variant. Each
+// `allows` table lists every move the coordinator makes; `step` refuses the rest.
+wire_status! {
+    /// Where one role (literature, attack, referee or writer) stands.
+    enum RoleStatus {
+        Pending = "pending",
+        Running = "running",
+        Finished = "finished",
+        Failed = "failed",
+    }
+}
+impl RoleStatus {
+    fn allows(&self, next: &Self) -> bool {
+        use RoleStatus::*;
+        matches!(
+            (self, next),
+            // launched, or its launch failed
+            (Pending, Running | Failed)
+                // landed with an answer or an error; or a restart found it
+                // interrupted and replaced it with a fresh attempt
+                | (Running, Finished | Failed | Pending)
+                // its retained answer failed the coordinator's own check
+                | (Finished, Failed)
+                // `recheck` re-ran the check of a retained referee answer
+                | (Failed, Finished)
+        )
+    }
+}
+
+wire_status! {
+    /// Where one door stands in the current round.
+    enum DoorStatus {
+        Pending = "pending",
+        Refereed = "refereed",
+        Blocked = "blocked",
+        Integrated = "integrated",
+    }
+}
+impl DoorStatus {
+    fn allows(&self, next: &Self) -> bool {
+        use DoorStatus::*;
+        matches!(
+            (self, next),
+            (Pending, Refereed | Blocked)
+                | (Refereed, Integrated | Blocked)
+                // `recheck` reopens a blocked door whose retained answer failed
+                // only an operational check
+                | (Blocked, Pending | Refereed)
+        )
+    }
+}
+
+wire_status! {
+    /// Where the whole campaign stands.
+    pub(crate) enum RunStatus {
+        Ready = "ready",
+        Running = "running",
+        Completed = "completed",
+        Saturated = "saturated",
+        BudgetExhausted = "budget_exhausted",
+        ExecutionBlocked = "execution_blocked",
+        Cancelled = "cancelled",
+        Deadline = "deadline",
+    }
+}
+impl RunStatus {
+    fn allows(&self, next: &Self) -> bool {
+        use RunStatus::*;
+        matches!(
+            (self, next),
+            // `run` starts again from anything unsettled: a first run, a
+            // coordinator that crashed, was cancelled or timed out, or a
+            // capacity block; the block can also be hit once running
+            (Ready | Running | Cancelled | Deadline | ExecutionBlocked, Running | ExecutionBlocked)
+                // the live coordinator ends its run
+                | (Running, Completed | Saturated | BudgetExhausted | Cancelled | Deadline)
+                // `recheck` reopens a blocked campaign for its retained answers
+                | (BudgetExhausted, Ready)
+        )
+    }
+
+    /// `run` has nothing to do: it returns the state as saved. Only `recheck`
+    /// reopens a budget-exhausted campaign.
+    fn is_settled(&self) -> bool {
+        matches!(
+            self,
+            Self::Completed | Self::Saturated | Self::BudgetExhausted
+        )
+    }
+
+    /// A run that stopped without finishing its work; the command line exits
+    /// nonzero. A saturated campaign climbed every rung and exits cleanly.
+    pub(crate) fn left_unfinished(&self) -> bool {
+        matches!(
+            self,
+            Self::BudgetExhausted | Self::Deadline | Self::ExecutionBlocked | Self::Cancelled
+        )
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct RoleState {
     id: String,
     role: String,
     attempt: usize,
-    state: String,
+    state: RoleStatus,
     outcome: Option<RoleOutput>,
     error: Option<String>,
 }
@@ -329,7 +430,7 @@ struct DoorState {
     attack: RoleState,
     referee: RoleState,
     writer: RoleState,
-    state: String,
+    state: DoorStatus,
     corrected_claims: Vec<Value>,
     corrections: Vec<Correction>,
     checks: Vec<CheckReceipt>,
@@ -347,7 +448,7 @@ struct CampaignState {
     sequence: usize,
     spec_sha256: String,
     run_id: String,
-    status: String,
+    status: RunStatus,
     round: usize,
     literature: RoleState,
     doors: Vec<DoorState>,
@@ -359,6 +460,38 @@ struct CampaignState {
     /// Committed with the state before its separately indexed event is exposed.
     #[serde(default)]
     last_event: Value,
+}
+
+impl DoorState {
+    /// The one way a door's state changes. A door is integrated only from a
+    /// finished writer.
+    fn advance(&mut self, next: DoorStatus) -> Result<(), String> {
+        if next == DoorStatus::Integrated && self.writer.state != RoleStatus::Finished {
+            return Err("a door is integrated only from a finished writer".into());
+        }
+        self.state.step(next)
+    }
+
+    /// Reopen a blocked door so `recheck` can re-run only the trusted checks of
+    /// a retained answer: its writer's when that finished, else its referee's.
+    /// Returns the failure it forgives, for the event.
+    fn reopen_for_recheck(&mut self) -> Result<Value, String> {
+        let integration = self.writer.state == RoleStatus::Finished;
+        let failure = json!({"door_id":self.door_id,"role_id":if integration {&self.writer.id} else {&self.referee.id},
+            "previous_error":if integration {&self.error} else {&self.referee.error},
+            "kind":if integration {"integration"} else {"referee"}});
+        if integration {
+            self.integration_rechecks += 1;
+            self.advance(DoorStatus::Refereed)?;
+        } else {
+            self.referee_rechecks += 1;
+            self.referee.state.step(RoleStatus::Finished)?;
+            self.referee.error = None;
+            self.advance(DoorStatus::Pending)?;
+        }
+        self.error = None;
+        Ok(failure)
+    }
 }
 
 fn bounded_text(text: &str, max: usize) -> bool {
@@ -524,7 +657,7 @@ fn role(_id: &str, door: &str, name: &str, round: usize, attempt: usize) -> Role
         id: format!("{name}-{}-r{round}-a{attempt}", door_slug(door)),
         role: name.into(),
         attempt,
-        state: "pending".into(),
+        state: RoleStatus::Pending,
         outcome: None,
         error: None,
     }
@@ -537,7 +670,7 @@ fn new_doors(spec: &CampaignSpec, round: usize) -> Vec<DoorState> {
             attack: role(&spec.id, &d.id, "attack", round, 0),
             referee: role(&spec.id, &d.id, "referee", round, 0),
             writer: role(&spec.id, &d.id, "writer", round, 0),
-            state: "pending".into(),
+            state: DoorStatus::Pending,
             corrected_claims: Vec::new(),
             corrections: Vec::new(),
             checks: Vec::new(),
@@ -698,7 +831,7 @@ pub(crate) fn start(workspace: &Path, spec: CampaignSpec) -> Result<Value, Strin
         sequence: 0,
         spec_sha256: sha256_hex(&spec_bytes),
         run_id: format!("{}-{}", std::process::id(), now_ms()),
-        status: "ready".into(),
+        status: RunStatus::Ready,
         round: 0,
         literature: role(&spec.id, "all", "literature", 0, 0),
         doors: new_doors(&spec, 0),
@@ -2893,7 +3026,7 @@ fn integrate_writer(
         id: coordinator_id.clone(),
         role: "coordinator".into(),
         attempt: 0,
-        state: "finished".into(),
+        state: RoleStatus::Finished,
         outcome: None,
         error: None,
     };
@@ -2960,7 +3093,7 @@ fn integrate_writer(
 }
 
 fn recover_role(root: &Path, spec: &CampaignSpec, role: &mut RoleState) -> Result<(), String> {
-    if role.state != "running" {
+    if role.state != RoleStatus::Running {
         return Ok(());
     }
     let rel = role_archive(&spec.id, &role.id).join("outcome.json");
@@ -2989,7 +3122,7 @@ fn recover_role(root: &Path, spec: &CampaignSpec, role: &mut RoleState) -> Resul
             return Err("recovered role provenance mismatch".into());
         }
         if output.stop_reason == "answer" {
-            role.state = "finished".into();
+            role.state.step(RoleStatus::Finished)?;
             role.outcome = Some(output);
             return Ok(());
         }
@@ -3001,7 +3134,7 @@ fn recover_role(root: &Path, spec: &CampaignSpec, role: &mut RoleState) -> Resul
         .rsplit_once("-a")
         .map_or(role.id.as_str(), |(prefix, _)| prefix);
     role.id = format!("{prefix}-a{}", role.attempt);
-    role.state = "pending".into();
+    role.state.step(RoleStatus::Pending)?;
     role.error=Some("interrupted role has no complete archived result; replacement owns a fresh role id/workspace".into());
     Ok(())
 }
@@ -3077,9 +3210,9 @@ fn verify_retained_role(root: &Path, spec: &CampaignSpec, role: &RoleState) -> R
 pub(crate) fn recheck(workspace: &Path, id: &str) -> Result<Value, String> {
     let _lock = runner_lock(workspace, id)?;
     let (spec, mut state) = load_state(workspace, id)?;
-    if state.status != "budget_exhausted"
+    if state.status != RunStatus::BudgetExhausted
         || !state.integrations.is_empty()
-        || state.literature.state != "finished"
+        || state.literature.state != RoleStatus::Finished
         || campaign_seats(workspace, id)?.load(Ordering::Acquire) != 0
     {
         return Err("recheck requires an idle, unintegrated blocked campaign".into());
@@ -3089,16 +3222,16 @@ pub(crate) fn recheck(workspace: &Path, id: &str) -> Result<Value, String> {
         .iter()
         .enumerate()
         .filter(|(_, door)| {
-            door.state == "blocked"
-                && door.attack.state == "finished"
+            door.state == DoorStatus::Blocked
+                && door.attack.state == RoleStatus::Finished
                 && door.integration.is_none()
-                && ((door.referee.state == "failed"
+                && ((door.referee.state == RoleStatus::Failed
                     && door.referee.outcome.is_some()
-                    && door.writer.state == "pending"
+                    && door.writer.state == RoleStatus::Pending
                     && door.corrected_claims.is_empty()
                     && door.referee_rechecks < 3)
-                    || (door.referee.state == "finished"
-                        && door.writer.state == "finished"
+                    || (door.referee.state == RoleStatus::Finished
+                        && door.writer.state == RoleStatus::Finished
                         && door.writer.outcome.is_some()
                         && !door.corrected_claims.is_empty()
                         && door.integration_rechecks < 3))
@@ -3112,32 +3245,15 @@ pub(crate) fn recheck(workspace: &Path, id: &str) -> Result<Value, String> {
     for &index in &eligible {
         verify_retained_role(workspace, &spec, &state.doors[index].attack)?;
         verify_retained_role(workspace, &spec, &state.doors[index].referee)?;
-        if state.doors[index].writer.state == "finished" {
+        if state.doors[index].writer.state == RoleStatus::Finished {
             verify_retained_role(workspace, &spec, &state.doors[index].writer)?;
         }
     }
-    let failures: Vec<_> = eligible
+    let failures = eligible
         .iter()
-        .map(|&index| {
-            let door = &mut state.doors[index];
-            let integration = door.writer.state == "finished";
-            let failure = json!({"door_id":door.door_id,"role_id":if integration {&door.writer.id} else {&door.referee.id},
-                "previous_error":if integration {&door.error} else {&door.referee.error},
-                "kind":if integration {"integration"} else {"referee"}});
-            if integration {
-                door.integration_rechecks += 1;
-                door.state = "refereed".into();
-            } else {
-                door.referee_rechecks += 1;
-                door.referee.state = "finished".into();
-                door.referee.error = None;
-                door.state = "pending".into();
-            }
-            door.error = None;
-            failure
-        })
-        .collect();
-    state.status = "ready".into();
+        .map(|&index| state.doors[index].reopen_for_recheck())
+        .collect::<Result<Vec<_>, _>>()?;
+    state.status.step(RunStatus::Ready)?;
     state.last_error = None;
     checkpoint!(
         workspace,
@@ -3156,10 +3272,7 @@ pub(crate) fn run(
 ) -> Result<Value, String> {
     let _lock = runner_lock(workspace, id)?;
     let (spec, mut state) = load_state(workspace, id)?;
-    if matches!(
-        state.status.as_str(),
-        "completed" | "saturated" | "budget_exhausted"
-    ) {
+    if state.status.is_settled() {
         return serde_json::to_value(state).map_err(|e| e.to_string());
     }
     // Direct UI campaigns have no parent turn. Select a single published
@@ -3175,7 +3288,7 @@ pub(crate) fn run(
     let _book_catalog = book::catalog::enter(book_catalog);
     let seats = campaign_seats(workspace, id)?;
     if seats.load(Ordering::Acquire) > 0 {
-        state.status = "execution_blocked".into();
+        state.status.step(RunStatus::ExecutionBlocked)?;
         state.last_error=Some("unfinished workers from a previous coordinator still own this campaign's physical capacity".into());
         checkpoint!(
             workspace,
@@ -3191,7 +3304,7 @@ pub(crate) fn run(
         recover_role(workspace, &spec, &mut door.writer)?;
     }
     state.run_id = format!("{}-{}", std::process::id(), now_ms());
-    state.status = "running".into();
+    state.status.step(RunStatus::Running)?;
     checkpoint!(workspace, state, json!({"type":"coordinator-resumed"}))?;
     let _budget = DescendantBudgetScope::enter_root();
     let started = Instant::now();
@@ -3236,15 +3349,14 @@ pub(crate) fn run(
                 for role in active.values() {
                     role.cancel.store(true, Ordering::Release);
                 }
-                state.status = if externally_cancelled {
-                    "cancelled"
+                state.status.step(if externally_cancelled {
+                    RunStatus::Cancelled
                 } else {
-                    "deadline"
-                }
-                .into();
+                    RunStatus::Deadline
+                })?;
                 for role in active.values() {
                     let saved = role_mut(&mut state, role.index, &role.kind);
-                    saved.state = "running".into();
+                    saved.state.step(RoleStatus::Running)?;
                     saved.error = Some(
                         "cancelled/deadline; late results remain archived for recovery".into(),
                     );
@@ -3269,12 +3381,12 @@ pub(crate) fn run(
                 let role = role_mut(&mut state, job.index, &job.kind);
                 match landed.result {
                     Ok(output) => {
-                        role.state = "finished".into();
+                        role.state.step(RoleStatus::Finished)?;
                         role.outcome = Some(output);
                         role.error = None;
                     }
                     Err(error) => {
-                        role.state = "failed".into();
+                        role.state.step(RoleStatus::Failed)?;
                         role.error = Some(error);
                     }
                 }
@@ -3296,7 +3408,7 @@ pub(crate) fn run(
                 let job = active.remove(&id).unwrap();
                 job.cancel.store(true, Ordering::Release);
                 let role = role_mut(&mut state, job.index, &job.kind);
-                role.state = "failed".into();
+                role.state.step(RoleStatus::Failed)?;
                 role.error = Some(
                     "role deadline exhausted; physical seat permit retained until worker exits"
                         .into(),
@@ -3317,7 +3429,7 @@ pub(crate) fn run(
                     json!({"type":"literature-forwarded","count":state.leads.len()})
                 )?;
             }
-            if state.literature.state == "finished" {
+            if state.literature.state == RoleStatus::Finished {
                 if let Some(items) = state
                     .literature
                     .outcome
@@ -3341,22 +3453,25 @@ pub(crate) fn run(
                 }
             }
             for index in 0..state.doors.len() {
-                if matches!(state.doors[index].state.as_str(), "integrated" | "blocked") {
+                if matches!(
+                    state.doors[index].state,
+                    DoorStatus::Integrated | DoorStatus::Blocked
+                ) {
                     continue;
                 }
-                let failure = if state.doors[index].attack.state == "failed" {
+                let failure = if state.doors[index].attack.state == RoleStatus::Failed {
                     state.doors[index].attack.error.clone()
-                } else if state.doors[index].referee.state == "failed" {
+                } else if state.doors[index].referee.state == RoleStatus::Failed {
                     state.doors[index].referee.error.clone()
-                } else if state.doors[index].writer.state == "failed" {
+                } else if state.doors[index].writer.state == RoleStatus::Failed {
                     state.doors[index].writer.error.clone()
-                } else if state.literature.state == "failed" {
+                } else if state.literature.state == RoleStatus::Failed {
                     state.literature.error.clone()
                 } else {
                     None
                 };
                 if let Some(error) = failure {
-                    state.doors[index].state = "blocked".into();
+                    state.doors[index].advance(DoorStatus::Blocked)?;
                     state.doors[index].error = Some(error.clone());
                     state.closed_routes.push(ClosedRoute {
                         door_id: state.doors[index].door_id.clone(),
@@ -3370,12 +3485,12 @@ pub(crate) fn run(
                     )?;
                     continue;
                 }
-                if state.doors[index].attack.state == "finished"
-                    && state.doors[index].referee.state == "pending"
+                if state.doors[index].attack.state == RoleStatus::Finished
+                    && state.doors[index].referee.state == RoleStatus::Pending
                 {
                     let output = state.doors[index].attack.outcome.as_ref().unwrap();
                     if let Err(error) = validate_attack(workspace, output) {
-                        state.doors[index].attack.state = "failed".into();
+                        state.doors[index].attack.state.step(RoleStatus::Failed)?;
                         state.doors[index].attack.error = Some(error);
                         continue;
                     }
@@ -3394,7 +3509,7 @@ pub(crate) fn run(
                         }
                     }
                 }
-                if state.doors[index].referee.state == "finished"
+                if state.doors[index].referee.state == RoleStatus::Finished
                     && state.doors[index].corrected_claims.is_empty()
                 {
                     if let Err(error) = with_call_budget(
@@ -3404,10 +3519,10 @@ pub(crate) fn run(
                         ),
                         || check_referee(workspace, &spec, &mut state.doors[index], &run_cancel),
                     ) {
-                        state.doors[index].referee.state = "failed".into();
+                        state.doors[index].referee.state.step(RoleStatus::Failed)?;
                         state.doors[index].referee.error = Some(error);
                     } else {
-                        state.doors[index].state = "refereed".into();
+                        state.doors[index].advance(DoorStatus::Refereed)?;
                         for claim in state.doors[index]
                             .corrected_claims
                             .clone()
@@ -3459,7 +3574,7 @@ pub(crate) fn run(
                         json!({"type":"referee-checked","door":state.doors[index].door_id})
                     )?;
                 }
-                if state.doors[index].writer.state == "finished" {
+                if state.doors[index].writer.state == RoleStatus::Finished {
                     match with_call_budget(
                         Some(
                             Duration::from_secs(spec.campaign_timeout_secs)
@@ -3468,7 +3583,7 @@ pub(crate) fn run(
                         || integrate_writer(workspace, &spec, &state, index, &runtime, &run_cancel),
                     ) {
                         Ok(receipt) => {
-                            state.doors[index].state = "integrated".into();
+                            state.doors[index].advance(DoorStatus::Integrated)?;
                             state.doors[index].integration = Some(receipt.clone());
                             state.integrations.push(receipt);
                         }
@@ -3485,7 +3600,7 @@ pub(crate) fn run(
                                 replacement.error = Some(error);
                                 state.doors[index].writer = replacement;
                             } else {
-                                state.doors[index].state = "blocked".into();
+                                state.doors[index].advance(DoorStatus::Blocked)?;
                                 state.doors[index].error = Some(error);
                             }
                         }
@@ -3500,21 +3615,23 @@ pub(crate) fn run(
             // Referees begin as soon as an attack lands; writers never run before
             // their independent check. Literature and attacks share this same cap.
             let mut ready = Vec::<(Option<usize>, String)>::new();
-            if state.literature.state == "pending" {
+            if state.literature.state == RoleStatus::Pending {
                 ready.push((None, "literature".into()));
             }
             for (i, door) in state.doors.iter().enumerate() {
-                if matches!(door.state.as_str(), "blocked" | "integrated") {
+                if matches!(door.state, DoorStatus::Blocked | DoorStatus::Integrated) {
                     continue;
                 }
-                if door.referee.state == "pending" && door.attack.state == "finished" {
+                if door.referee.state == RoleStatus::Pending
+                    && door.attack.state == RoleStatus::Finished
+                {
                     ready.push((Some(i), "referee".into()));
-                } else if door.writer.state == "pending"
+                } else if door.writer.state == RoleStatus::Pending
                     && !door.corrected_claims.is_empty()
-                    && state.literature.state == "finished"
+                    && state.literature.state == RoleStatus::Finished
                 {
                     ready.push((Some(i), "writer".into()));
-                } else if door.attack.state == "pending" {
+                } else if door.attack.state == RoleStatus::Pending {
                     ready.push((Some(i), "attack".into()));
                 }
             }
@@ -3531,11 +3648,13 @@ pub(crate) fn run(
                     workspace, &spec, &state, &role, door, &runtime, &leads, &tx, &seats,
                 ) {
                     Ok(job) => {
-                        role_mut(&mut state, index, &kind).state = "running".into();
+                        role_mut(&mut state, index, &kind)
+                            .state
+                            .step(RoleStatus::Running)?;
                         active.insert(role.id.clone(), job);
                     }
                     Err(error) if error.contains("campaign physical role capacity") => {
-                        state.status = "execution_blocked".into();
+                        state.status.step(RunStatus::ExecutionBlocked)?;
                         state.last_error = Some(error);
                         checkpoint!(
                             workspace,
@@ -3546,7 +3665,7 @@ pub(crate) fn run(
                     }
                     Err(error) => {
                         let role = role_mut(&mut state, index, &kind);
-                        role.state = "failed".into();
+                        role.state.step(RoleStatus::Failed)?;
                         role.error = Some(error);
                     }
                 }
@@ -3560,10 +3679,14 @@ pub(crate) fn run(
                 && state
                     .doors
                     .iter()
-                    .all(|d| matches!(d.state.as_str(), "blocked" | "integrated"))
+                    .all(|d| matches!(d.state, DoorStatus::Blocked | DoorStatus::Integrated))
             {
-                if state.doors.iter().any(|d| d.state == "integrated") {
-                    state.status = "completed".into();
+                if state
+                    .doors
+                    .iter()
+                    .any(|d| d.state == DoorStatus::Integrated)
+                {
+                    state.status.step(RunStatus::Completed)?;
                     checkpoint!(
                         workspace,
                         state,
@@ -3572,12 +3695,13 @@ pub(crate) fn run(
                     break;
                 }
                 if state.round + 1 >= spec.max_rounds {
-                    state.status = if state.escalations.len() == ESCALATION_RUNGS {
-                        "saturated"
-                    } else {
-                        "budget_exhausted"
-                    }
-                    .into();
+                    state
+                        .status
+                        .step(if state.escalations.len() == ESCALATION_RUNGS {
+                            RunStatus::Saturated
+                        } else {
+                            RunStatus::BudgetExhausted
+                        })?;
                     checkpoint!(
                         workspace,
                         state,

@@ -146,7 +146,7 @@ fn a_name_that_cannot_be_laid_clear_is_left_out_not_laid_on_another() {
 }
 
 #[test]
-fn the_opening_calls_stand_clear_of_the_key_strip_and_the_card() {
+fn the_opening_banner_stands_clear_of_the_key_strip_and_every_plate() {
     let mut seen = 0;
     for seats in [1u32, 2, 4, 6] {
         watch(seats, 120, 1, |seat, c| {
@@ -160,8 +160,8 @@ fn the_opening_calls_stand_clear_of_the_key_strip_and_the_card() {
                     .map(|(_, b)| *b)
                     .collect()
             };
-            let (calls, keys, card) = (get("call"), get("keys"), get("card"));
-            assert_eq!((keys.len(), card.len()), (1, 1), "{seats} seats");
+            let (calls, keys, banner) = (get("call"), get("keys"), get("banner"));
+            assert_eq!((keys.len(), banner.len()), (1, 1), "{seats} seats");
             assert!(!calls.is_empty(), "{seats} seats: the opening is called");
             seen += 1;
             for call in &calls {
@@ -170,24 +170,59 @@ fn the_opening_calls_stand_clear_of_the_key_strip_and_the_card() {
                     "{seats} seats: the call {call:?} runs onto the keys {:?}",
                     keys[0]
                 );
-                assert!(!call.hits(&card[0]), "{seats} seats: a call on the card");
+                assert!(!call.hits(&banner[0]), "{seats} seats: a call on the banner");
             }
-            // The card's lines sit inside its plate, one under the other.
-            let card = hud::card(c).expect("the card is up at t 40");
-            let lines = card.lines();
-            assert_eq!(lines.len(), 3, "the first beat's card has three lines");
-            for (i, a) in lines.iter().enumerate() {
-                assert!(
-                    a.within(&card.plate),
-                    "{seats} seats: {a:?} out of the card"
-                );
-                for b in &lines[i + 1..] {
-                    assert!(!a.hits(b), "{seats} seats: card lines {a:?} and {b:?}");
+            assert!(banner[0].within(&layout::FRAME), "{seats} seats: {:?}", banner[0]);
+            assert!(banner[0].y + banner[0].h < keys[0].y, "{seats} seats: the banner is on the keys");
+        });
+    }
+    assert_eq!(seen, 4);
+}
+
+/// The busiest pictures of a whole run, at every seat count: every plate of
+/// words the picture has up (the HUD's, the banner, a number in flight, the
+/// floating names, the reticle's own brackets and counts) lies in the 384 by
+/// 224 frame and on no other, tick by tick. The run is a bots' run, so every
+/// kind of moment comes: volleys, chains, rescues, lamps, the Wyrm, the beacon.
+#[test]
+fn the_banner_the_numbers_and_the_words_keep_off_one_another_on_the_busiest_frames() {
+    use layout::FRAME;
+    let mut busiest = (0usize, String::new());
+    let (mut banners, mut flyers) = (0u32, 0u32);
+    for seats in 1..=6u32 {
+        watch(seats, 9_000, 2, |seat, c| {
+            let at = format!("{seats} seats, seat {seat}, beat {} t {} mode {:?}", c.s.stage, c.s.t, c.s.mode);
+            let hud = hud::boxes(c);
+            let plan = layout::plan(c);
+            let reticle = hud::reticle_text_boxes(c);
+            let mut all: Vec<(String, layout::Box2)> = hud
+                .iter()
+                .map(|(n, b)| (n.to_string(), *b))
+                .collect();
+            all.extend(plan.placed.iter().map(|p| (format!("label {}", p.text), p.plate)));
+            all.extend(reticle.iter().map(|b| ("reticle".to_string(), *b)));
+            banners += u32::from(hud.iter().any(|(n, _)| *n == "banner"));
+            flyers += hud.iter().filter(|(n, _)| *n == "fly").count() as u32;
+            if all.len() > busiest.0 {
+                busiest = (all.len(), at.clone());
+            }
+            for (i, (a, ba)) in all.iter().enumerate() {
+                assert!(ba.within(&FRAME), "{at}: {a} {ba:?} leaves the 384x224 frame");
+                for (b, bb) in &all[i + 1..] {
+                    // The reticle's own brackets, counts and READY are laid by
+                    // the reticle, round one aim; they are one thing.
+                    if a == "reticle" && b == "reticle" {
+                        continue;
+                    }
+                    assert!(!ba.hits(bb), "{at}: {a} {ba:?} lies on {b} {bb:?}");
                 }
             }
         });
     }
-    assert_eq!(seen, 4);
+    // The run does call things and fly numbers, or this proves nothing.
+    assert!(banners > 100, "{banners} pictures with a banner up");
+    assert!(flyers > 20, "{flyers} numbers in flight");
+    assert!(busiest.0 >= 9, "busiest was only {busiest:?}");
 }
 
 #[test]
@@ -812,7 +847,7 @@ fn painting_the_canyon_leaves_the_shared_material_table_alone() {
 
 #[test]
 fn only_griffinwing_hands_the_rasteriser_painted_surfaces() {
-    // Every other 3D drawer calls `render_meshes` or `render_scene*`, which
+    // Every other 3D drawer (bar Knight Racer) calls `render_meshes` or `render_scene*`, which
     // run the shared table. A scene that wants its own must say so by name.
     fn walk(dir: &std::path::Path, hits: &mut Vec<String>) {
         for e in std::fs::read_dir(dir).unwrap().flatten() {
@@ -830,9 +865,18 @@ fn only_griffinwing_hands_the_rasteriser_painted_surfaces() {
     let mut hits = Vec::new();
     walk(&std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src"), &mut hits);
     hits.sort();
-    assert_eq!(hits.len(), 2, "{hits:?}");
-    assert!(hits[0].ends_with("arena/griffinwing.rs"), "{hits:?}");
-    assert!(hits[1].ends_with("world3d/raster.rs"), "{hits:?}");
+    // Knight Racer is the other scene that names it: its track and riders are
+    // painted with their own surfaces too (`knight_racers.rs`), and since the
+    // full game (2026-11-07) its garage, its proof reel and its world shots do
+    // the same. Every hit past the raster itself is Griffinwing's or Knight Racer's.
+    let racer = |h: &String| h.contains("/arena/knight_racers");
+    assert_eq!(hits.len(), 6, "{hits:?}");
+    assert!(hits.iter().any(|h| h.ends_with("arena/griffinwing.rs")), "{hits:?}");
+    assert!(hits.iter().any(|h| h.ends_with("arena/knight_racers.rs")), "{hits:?}");
+    assert!(
+        hits.iter().all(|h| h.ends_with("arena/griffinwing.rs") || racer(h) || h.ends_with("world3d/raster.rs")),
+        "{hits:?}"
+    );
 }
 
 // ─── the set pieces, near and far ───────────────────────────────────────────
@@ -1081,4 +1125,407 @@ fn the_beacon_flame_follows_the_sheets_own_ticks_and_the_set_pieces_leave_no_blo
     let mut without = crate::render::world3d::mesh::Mesh::new();
     actors::movers(&mut without, s, 1, crate::render::world3d::math::v3(0.0, 0.0, 0.0));
     assert_eq!(with.tris.len(), without.tris.len());
+}
+
+// ─── the cost of the picture ────────────────────────────────────────────────
+
+/// How long a frame of the flight takes to draw, and a tick to run, over a
+/// bots' run of four knights: the same run before and after the juice.
+/// `ANGEL_GW_TIMES=<file> cargo test -p angel-delve --lib griffinwing_frame_times -- --ignored`
+#[test]
+#[ignore = "times the flight's frames"]
+fn griffinwing_frame_times() {
+    use std::time::Instant;
+    let Some(out) = std::env::var_os("ANGEL_GW_TIMES") else {
+        return;
+    };
+    let mut r = Run::griffinwing_for_test();
+    for id in 2..=4 {
+        r.join_seat(id, &format!("Knight {id}"));
+    }
+    r.step(&BTreeMap::new());
+    let (mut frames, mut steps) = (Vec::new(), Vec::new());
+    for tick in 0..6_500u32 {
+        let inputs = r.roundtable_inputs();
+        let t = Instant::now();
+        r.step(&inputs);
+        steps.push(t.elapsed().as_secs_f64() * 1000.0);
+        if tick % 10 == 0 {
+            let t = Instant::now();
+            let _ = super::super::frame_for(&r, 384, 224, Some(1));
+            frames.push(t.elapsed().as_secs_f64() * 1000.0);
+        }
+        if r.griffinwing.as_ref().is_none_or(Session::finished) {
+            break;
+        }
+    }
+    let stat = |v: &mut Vec<f64>| {
+        v.sort_by(|a, b| a.partial_cmp(b).unwrap());
+        let n = v.len();
+        (
+            v[n / 2],
+            v[n * 9 / 10],
+            v.iter().sum::<f64>() / n as f64,
+            n,
+        )
+    };
+    let (f, s) = (stat(&mut frames), stat(&mut steps));
+    std::fs::write(
+        out,
+        format!(
+            "frame ms: median {:.2} p90 {:.2} mean {:.2} over {}\nstep ms: median {:.2} p90 {:.2} mean {:.2} over {}\n",
+            f.0, f.1, f.2, f.3, s.0, s.1, s.2, s.3
+        ),
+    )
+    .unwrap();
+}
+
+// ─── the proof: moments of a whole run, as frames ───────────────────────────
+
+/// A bots' run of `seats` knights, a step at a time, until it ends or has run
+/// `limit` steps; `each` sees the run after every step.
+fn fly(seats: u32, limit: u32, mut each: impl FnMut(&Run)) {
+    let mut r = Run::griffinwing_for_test();
+    for id in 2..=seats {
+        r.join_seat(id, &format!("Knight {id}"));
+    }
+    r.step(&BTreeMap::new());
+    for _ in 0..limit {
+        let inputs = r.roundtable_inputs();
+        r.step(&inputs);
+        each(&r);
+        if r.griffinwing.is_none() {
+            break;
+        }
+    }
+}
+
+/// `ANGEL_GW_PROOF=<dir> cargo test -p angel-delve --lib write_griffinwing_proof -- --ignored`
+/// writes `<dir>/<moment>/f0000.png ...` (every second step, seats 1 and 2
+/// side by side) for the moments of a four-knight bots' run: the start, a
+/// volley, a kill, a blow taken, a rescue, a roll, a lamp, the Wyrm, the
+/// beacon and the tally. `scripts` turn them into GIFs.
+#[test]
+#[ignore = "writes the proof frames"]
+fn write_griffinwing_proof() {
+    use crate::rules::griffinwing::show::What;
+    let Some(dir) = std::env::var_os("ANGEL_GW_PROOF") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    // The first pass finds when each moment comes.
+    let mut at: BTreeMap<&str, u32> = BTreeMap::new();
+    fly(4, 14_000, |r| {
+        let Some(s) = r.griffinwing.as_ref() else {
+            return;
+        };
+        if !at.contains_key("kill") {
+            for f in s.show.fx.iter().filter(|f| {
+                f.born == s.elapsed && f.what == What::Pop && f.weight >= crate::rules::juice::Weight::Kill
+            }) {
+                let cam = camera(s, &s.seats[&1].craft);
+                let ctx = hud::Ctx { s, run: r, seat: 1, cam: &cam, depth: &[] };
+                eprintln!("first kill: {f:?} on seat 1's picture at {:?}", ctx.at(f.s, f.x, f.z));
+            }
+        }
+        let mut note = |name: &'static str| {
+            at.entry(name).or_insert(r.tick as u32);
+        };
+        for f in s.show.fx.iter().filter(|f| f.born == s.elapsed) {
+            match f.what {
+                What::Volley if f.seat == 1 && f.n >= 3 => note("volley"),
+                What::Hurt if f.seat == 1 => note("hit"),
+                What::Pop if f.seat == 1 && f.weight >= crate::rules::juice::Weight::Crushing => note("kill"),
+                What::Pop if f.seat == 1 => note("pop"),
+                What::Rescue => note("rescue"),
+                What::Roll if f.seat == 1 && s.boss.is_some() => note("roll"),
+                What::LampOut => note("lamp"),
+                What::WyrmDown => note("wyrm"),
+                What::Chain if f.seat == 1 && f.n >= 5 => note("chain"),
+                _ => {}
+            }
+        }
+        if s.mode == Mode::Victory && s.mode_t == 80 {
+            note("beacon");
+        }
+        if s.mode == Mode::Tally && s.mode_t == 0 {
+            note("tally");
+        }
+    });
+    eprintln!("moments: {at:?}");
+    // (name, steps before the moment, steps after)
+    let windows: [(&str, u32, u32); 12] = [
+        ("start", 0, 0),
+        ("ride", 0, 0),
+        ("pop", 10, 44),
+        ("volley", 14, 60),
+        ("kill", 10, 50),
+        ("hit", 8, 40),
+        ("rescue", 10, 60),
+        ("roll", 10, 40),
+        ("lamp", 12, 60),
+        ("wyrm", 8, 110),
+        ("beacon", 80, 120),
+        ("tally", 4, 80),
+    ];
+    let wanted: Vec<(&str, u32, u32)> = windows
+        .iter()
+        .filter_map(|&(name, before, after)| match name {
+            "start" => Some((name, 0, 90)),
+            "ride" => at.get("pop").map(|&t| (name, t.saturating_sub(60), t + 120)),
+            _ => at.get(name).map(|&t| (name, t.saturating_sub(before), t + after)),
+        })
+        .collect();
+    let mut reels: BTreeMap<&str, (u32, std::path::PathBuf)> = BTreeMap::new();
+    for (name, _, _) in &wanted {
+        let d = dir.join(name);
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        reels.insert(name, (0, d));
+    }
+    fly(4, 14_000, |r| {
+        for &(name, from, to) in &wanted {
+            let t = r.tick as u32;
+            if t < from || t > to || (t - from) % 2 != 0 {
+                continue;
+            }
+            let (n, d) = reels.get_mut(name).unwrap();
+            let mut sheet = Img::black(768, 224);
+            for (i, seat) in [1u32, 2].into_iter().enumerate() {
+                sheet.stamp(&super::super::frame_for(r, 384, 224, Some(seat)), 384 * i as i32, 0);
+            }
+            image::save_buffer(
+                d.join(format!("f{:04}.png", *n)),
+                &sheet.rgb_bytes(),
+                768,
+                224,
+                image::ColorType::Rgb8,
+            )
+            .unwrap();
+            *n += 1;
+        }
+    });
+    for (name, (n, _)) in &reels {
+        eprintln!("{name}: {n} frames");
+    }
+}
+
+/// `ANGEL_GW_PROOF=<dir> cargo test -p angel-delve --lib write_griffinwing_finale_proof -- --ignored`
+/// writes `<dir>/<reel>/f0000.png ...` (every second step, seat 1's screen) for
+/// the Wyrm fight and the beacon's finale of a four-knight bots' run: the rise,
+/// each attack's tell, a lamp going out, the fall, and the way home to the lit
+/// beacon.
+#[test]
+#[ignore = "writes the finale proof frames"]
+fn write_griffinwing_finale_proof() {
+    use crate::rules::griffinwing::show::What;
+    let Some(dir) = std::env::var_os("ANGEL_GW_PROOF") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    // The guide lines the motion is drawn along, over the shots (off for the
+    // proof that is shown).
+    guide::set(std::env::var_os("ANGEL_GW_GUIDES").is_some());
+    let mut at: BTreeMap<String, u32> = BTreeMap::new();
+    fly(4, 14_000, |r| {
+        let Some(s) = r.griffinwing.as_ref() else {
+            return;
+        };
+        let t = r.tick as u32;
+        let mut note = |name: &str| {
+            at.entry(name.to_string()).or_insert(t);
+        };
+        if s.boss.is_some() {
+            note("rise");
+        }
+        for f in s.show.fx.iter().filter(|f| f.born == s.elapsed) {
+            match f.what {
+                What::Tell => note(&format!("tell{}", f.n)),
+                What::LampOut => note(&format!("lamp{}", f.n)),
+                What::WyrmDown => note("fall"),
+                _ => {}
+            }
+        }
+        if s.mode == Mode::Victory && s.mode_t == 0 {
+            note("home");
+        }
+        if s.mode == Mode::Tally && s.mode_t == 0 {
+            note("tally");
+        }
+    });
+    eprintln!("moments: {at:?}");
+    // (reel, from, to) in run ticks.
+    let get = |k: &str| at.get(k).copied();
+    let mut wanted: Vec<(String, u32, u32)> = Vec::new();
+    let mut want = |name: &str, from: Option<u32>, before: u32, after: u32| {
+        if let Some(t) = from {
+            wanted.push((name.to_string(), t.saturating_sub(before), t + after));
+        }
+    };
+    want("wyrm-rise", get("rise"), 6, 96);
+    want("wyrm-spit", get("tell0"), 14, 70);
+    want("wyrm-coil", get("tell1"), 14, 90);
+    want("wyrm-roar", get("tell2"), 14, 90);
+    want("wyrm-lamp", get("lamp1"), 12, 56);
+    want("wyrm-fall", get("fall"), 10, 140);
+    want("beacon", get("home"), 40, 240);
+    let mut reels: BTreeMap<String, (u32, std::path::PathBuf)> = BTreeMap::new();
+    for (name, _, _) in &wanted {
+        let d = dir.join(name);
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        reels.insert(name.clone(), (0, d));
+    }
+    fly(4, 14_000, |r| {
+        for (name, from, to) in &wanted {
+            let t = r.tick as u32;
+            if t < *from || t > *to || (t - from) % 2 != 0 {
+                continue;
+            }
+            let (n, d) = reels.get_mut(name).unwrap();
+            let shot = super::super::frame_for(r, 384, 224, Some(1));
+            image::save_buffer(
+                d.join(format!("f{:04}.png", *n)),
+                &shot.rgb_bytes(),
+                384,
+                224,
+                image::ColorType::Rgb8,
+            )
+            .unwrap();
+            *n += 1;
+        }
+    });
+    for (name, (n, _)) in &reels {
+        eprintln!("{name}: {n} frames");
+    }
+}
+
+/// `ANGEL_GW_PROOF=<dir> cargo test -p angel-delve --lib write_griffinwing_wyrm_sheet -- --ignored`
+/// writes `<dir>/wyrm-<state>.png`: the Wyrm in each of its poses (rising,
+/// resting, each tell, the sweep, the roar, reeling, dying part by part and
+/// the wreck), seat 1's screen, for the eye.
+#[test]
+#[ignore = "writes the Wyrm's poses"]
+fn write_griffinwing_wyrm_sheet() {
+    use crate::rules::griffinwing::show::{Fx, What};
+    use crate::rules::juice::Weight;
+    let Some(dir) = std::env::var_os("ANGEL_GW_PROOF") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    guide::set(std::env::var_os("ANGEL_GW_GUIDES").is_some());
+    let mut r = Run::griffinwing_for_test();
+    for id in 2..=4 {
+        r.join_seat(id, &format!("Knight {id}"));
+    }
+    r.step(&BTreeMap::new());
+    let mut ticks = 0;
+    loop {
+        let inputs = r.roundtable_inputs();
+        r.step(&inputs);
+        ticks += 1;
+        let s = r.griffinwing.as_ref().unwrap();
+        if s.boss.as_ref().is_some_and(|b| b.st == Wyrm::Idle) || ticks > 9000 {
+            break;
+        }
+    }
+    assert!(r.griffinwing.as_ref().unwrap().boss.is_some(), "the bots reach the Wyrm");
+    let save = |r: &Run, name: &str| {
+        // The 3D scene alone (no plates), then the whole screen.
+        let (scene, _, _) = dots(r.griffinwing.as_ref().unwrap(), 1);
+        image::save_buffer(
+            dir.join(format!("scene-{name}.png")),
+            &scene.rgb_bytes(),
+            384,
+            224,
+            image::ColorType::Rgb8,
+        )
+        .unwrap();
+        let shot = super::super::frame_for(r, 384, 224, Some(1));
+        image::save_buffer(
+            dir.join(format!("wyrm-{name}.png")),
+            &shot.rgb_bytes(),
+            384,
+            224,
+            image::ColorType::Rgb8,
+        )
+        .unwrap();
+    };
+    // (name, state, ticks left, attack, side, lamps out, ticks since the fall (when falling))
+    let poses: [(&str, Wyrm, u32, u8, i8, usize, Option<u32>); 20] = [
+        ("01-rise", Wyrm::Rise, 45, 0, 1, 0, None),
+        ("02-idle", Wyrm::Idle, 30, 0, 1, 0, None),
+        ("03-spit-early", Wyrm::Tell, 24, 0, 1, 0, None),
+        ("04-spit-late", Wyrm::Tell, 4, 0, 1, 0, None),
+        ("05-coil-tell", Wyrm::Tell, 4, 1, 1, 1, None),
+        ("06-coil", Wyrm::Coil, 14, 1, 1, 1, None),
+        ("07-roar-early", Wyrm::Tell, 24, 2, 1, 2, None),
+        ("08-roar-tell", Wyrm::Tell, 4, 2, 1, 2, None),
+        ("09-roar", Wyrm::Roar, 14, 2, 1, 2, None),
+        ("10-hurt-hit", Wyrm::Hurt, 67, 0, 1, 1, None),
+        ("11-hurt", Wyrm::Hurt, 56, 0, 1, 1, None),
+        ("12-dying-10", Wyrm::Dying, 50, 0, 1, 3, Some(10)),
+        ("13-dying-22", Wyrm::Dying, 38, 0, 1, 3, Some(22)),
+        ("14-dying-34", Wyrm::Dying, 26, 0, 1, 3, Some(34)),
+        ("15-dying-46", Wyrm::Dying, 14, 0, 1, 3, Some(46)),
+        ("16-dying-56", Wyrm::Dying, 4, 0, 1, 3, Some(56)),
+        ("17-wreck-64", Wyrm::Dying, 0, 0, 1, 3, Some(64)),
+        ("18-wreck-76", Wyrm::Dying, 0, 0, 1, 3, Some(76)),
+        ("19-wreck-88", Wyrm::Dying, 0, 0, 1, 3, Some(88)),
+        ("20-idle-late", Wyrm::Idle, 30, 0, 1, 2, None),
+    ];
+    for (name, st, left, atk, side, out, fall) in poses {
+        let s = r.griffinwing.as_mut().unwrap();
+        s.mode = Mode::Play;
+        let now = s.elapsed;
+        {
+            let b = s.boss.as_mut().expect("a Wyrm");
+            b.st = st;
+            b.ticks = left;
+            b.atk = atk;
+            b.side = side;
+            b.gap = if side > 0 { -30 * 25 } else { 30 * 25 };
+            b.col = 0;
+        }
+        // The lamps, in the order they stand.
+        let mut k = 0;
+        for f in s.foes.iter_mut().filter(|f| f.kind == Kind::Lamp) {
+            f.st = if k < out { St::Broken } else { St::Shut };
+            k += 1;
+        }
+        s.show.fx.retain(|f| !matches!(f.what, What::LampOut | What::WyrmDown));
+        for n in 1..=out.min(2) {
+            s.show.fx.push(Fx {
+                what: What::LampOut,
+                seat: 0,
+                n: n as u16,
+                s: s.anchor(),
+                x: 0,
+                z: 0,
+                weight: Weight::Kill,
+                born: now.saturating_sub(if n == out && fall.is_none() { 12 } else { 99 }),
+            });
+        }
+        let boss_gone = fall.is_some_and(|a| a >= 60);
+        if let Some(age) = fall {
+            let b = s.boss.as_ref().unwrap();
+            let (hs, hx, hz) = (s.anchor() + crate::rules::griffinwing::boss::HEAD, b.x, b.z);
+            s.show.fx.push(Fx {
+                what: What::WyrmDown,
+                seat: 0,
+                n: 3,
+                s: hs - crate::rules::griffinwing::dm(40),
+                x: hx,
+                z: hz + crate::rules::griffinwing::dm(42),
+                weight: Weight::Finale,
+                born: now.saturating_sub(age),
+            });
+        }
+        let kept = if boss_gone { s.boss.take() } else { None };
+        save(&r, name);
+        if let Some(b) = kept {
+            r.griffinwing.as_mut().unwrap().boss = Some(b);
+        }
+    }
 }

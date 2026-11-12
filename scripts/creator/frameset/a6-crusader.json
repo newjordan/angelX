@@ -1,0 +1,24 @@
+{
+  "id": "a6-crusader",
+  "name": "CRUSADER A6",
+  "role": "hero",
+  "frameset": "/work/artifacts/kwpixel/3d/sk-a6-fin2/game64x54/manifest.json",
+  "props": [
+    "great helm with a cross slit",
+    "white feather plume",
+    "oxblood tabard with a cream star",
+    "longsword"
+  ],
+  "grade": [
+    320,
+    320
+  ],
+  "dye": {
+    "hues": [
+      240,
+      257
+    ],
+    "min_sat": 0.1,
+    "min_val": 0.16
+  }
+}

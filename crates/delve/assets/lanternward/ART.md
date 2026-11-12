@@ -1,8 +1,11 @@
 # Lanternward: art requests for the second wave
 
-Blocks first. Every actor and prop on the stage is a registered slot
-(`slots.json`: canvas, bottom-centre anchor, collision geometry, animation
-timing) drawn as a labelled block until a painted frame arrives. **Art never
+Every actor and prop on the stage is a registered slot (`slots.json`: canvas,
+bottom-centre anchor, collision geometry, animation timing). Tonight's pass
+painted all of them but the hero: hand-inked in the realm's inks by `art/*.py`
+(`engine.py` is the little workbench, `emit.py` writes `art_data.rs`; run
+`python3 emit.py` after a change). A slot with a reviewed PNG bank under
+`assets/art-slots` uses that first; a slot with neither is a labelled block. **Art never
 sets a hitbox**: the rules (`rules/lanternward/*`) say where a body is and how
 big it is; a slot's `collision` is documentation of that, not an input. The
 stage stamps a frame by `lanternward.<id>` and `<state>-<index>.png`; a native

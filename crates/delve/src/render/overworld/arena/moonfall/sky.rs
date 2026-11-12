@@ -8,6 +8,7 @@ use crate::rules::moonfall::{
     Session, clock, control,
     state::{Knight, Phase},
 };
+use crate::motion::ease;
 use std::cell::RefCell;
 use std::collections::HashMap;
 
@@ -50,6 +51,22 @@ fn at_hour(h: f32) -> ([f32; 3], [f32; 3], [f32; 3]) {
     (blend(a.top, b.top, t), blend(a.horizon, b.horizon, t), blend(a.ambient, b.ambient, t))
 }
 
+/// The sky overhead and at the horizon and the light on the ground at the
+/// shown clock; once the lights hold the night rolls into a peach dawn.
+fn look(s: &Session, shown: u32) -> ([f32; 3], [f32; 3], [f32; 3]) {
+    let now = at_hour(hour_of(shown, s.nums.day));
+    let k = match s.phase {
+        Phase::Won { t } => ease::both((t as f32 / 80.0).min(1.0)),
+        _ if s.completed.is_some() => 1.0,
+        _ => 0.0,
+    };
+    if k <= 0.0 {
+        return now;
+    }
+    let morning = at_hour(6.5);
+    (blend(now.0, morning.0, k), blend(now.1, morning.1, k), blend(now.2, morning.2, k))
+}
+
 /// How far into the Final Hours, 0 to 1.
 pub(super) fn dread(s: &Session, shown: u32) -> f32 {
     let fin = clock::final_start(s.nums.day);
@@ -63,7 +80,7 @@ pub(super) fn dread(s: &Session, shown: u32) -> f32 {
 
 /// The ambient light factors at the shown clock.
 pub(super) fn ambient(s: &Session, shown: u32) -> [f32; 3] {
-    let (_, _, mut amb) = at_hour(hour_of(shown, s.nums.day));
+    let (_, _, mut amb) = look(s, shown);
     let d = dread(s, shown);
     if d > 0.0 {
         amb = [amb[0] * (1.0 - 0.18 * d), amb[1] * (1.0 - 0.34 * d), amb[2] * (1.0 - 0.30 * d)];
@@ -73,7 +90,7 @@ pub(super) fn ambient(s: &Session, shown: u32) -> [f32; 3] {
 
 pub(super) fn sky(im: &mut Img, s: &Session, shown: u32, tick: u32) {
     let h = hour_of(shown, s.nums.day);
-    let (top, horizon, amb) = at_hour(h);
+    let (top, horizon, amb) = look(s, shown);
     for y in 0..VIEW_Y {
         let t = y as f32 / (VIEW_Y - 1) as f32;
         let c = blend(top, horizon, t);
@@ -251,9 +268,22 @@ pub(super) fn disc(s: &Session, shown: u32) -> (f32, f32, f32, f32, bool) {
         // The moon draws back as the lights hold.
         p = 1.0 - (1.0 - 0.12) * (t as f32 / 60.0).min(1.0);
     }
-    let mut r = 12.0 + 36.0 * p * p;
+    let mut r = 12.0 + 43.0 * p.powf(1.7);
     let mut cx = 312.0 - 120.0 * p;
     let mut cy = 16.0 + 34.0 * p.powf(1.3);
+    // The moon swells as each new day dawns, and shakes through the Final Hours.
+    let day = s.nums.day.max(1);
+    if s.completed.is_none() && matches!(s.phase, Phase::Play) {
+        let into = shown % day;
+        if shown >= day && into < 26 {
+            r *= 1.0 + 0.12 * ease::bump(into as f32 / 26.0);
+        }
+        let d = dread(s, shown);
+        if d > 0.0 {
+            cx += (shown as f32 * 0.9).sin() * (0.4 + 1.2 * d);
+            cy += (shown as f32 * 1.3).cos() * (0.3 + 0.9 * d);
+        }
+    }
     let mut solid = false;
     if let Phase::Rewind { t, fell: true, .. } = s.phase {
         // The wipe: the moon comes down the screen and fills it, then the
@@ -270,7 +300,7 @@ pub(super) fn disc(s: &Session, shown: u32) -> (f32, f32, f32, f32, bool) {
 }
 
 /// The Gloam Moon, face and all, on the effects layer.
-pub(super) fn moon(fx: &mut Img, s: &Session, shown: u32, tick: u32) {
+pub(super) fn moon(fx: &mut Img, s: &Session, shown: u32, tick: u32, look: (f32, f32)) {
     let (p, cx, cy, r, solid) = disc(s, shown);
     let day_ghost = hour_of(shown, s.nums.day);
     let ghost = (8.0..16.0).contains(&day_ghost);
@@ -293,7 +323,8 @@ pub(super) fn moon(fx: &mut Img, s: &Session, shown: u32, tick: u32) {
         }
         return;
     }
-    let sleepy = s.completed.is_some();
+    let sleepy = s.completed.is_some() || matches!(s.phase, Phase::Won { t } if t >= 24);
+    let blink = tick % 150 < 4;
     let (x0, x1, y0, y1) = ((cx - r) as i32 - 1, (cx + r) as i32 + 1, (cy - r) as i32 - 1, (cy + r) as i32 + 1);
     for y in y0.max(0)..y1.min(224) {
         for x in x0.max(0)..x1.min(384) {
@@ -336,12 +367,14 @@ pub(super) fn moon(fx: &mut Img, s: &Session, shown: u32, tick: u32) {
     // Eyes: dark sockets with red fire in them.
     for side in [-1.0f32, 1.0] {
         let (ex, ey) = (cx + side * rr * 0.38, cy - rr * 0.08);
-        let (w, h) = (rr * 0.22, if sleepy { rr * 0.03 } else { rr * (0.13 + 0.05 * (1.0 - rage)) });
+        let (w, h) = (rr * 0.22, if sleepy || blink { rr * 0.03 } else { rr * (0.13 + 0.05 * (1.0 - rage)) });
         fx.ellipse(ex, ey, w, h.max(0.6), 'k');
-        if !sleepy && rr >= 12.0 {
+        if !sleepy && !blink && rr >= 12.0 {
             let pulse = if (tick / 8) % 6 == 0 { 'w' } else { '7' };
-            fx.ellipse(ex + side * -w * 0.2, ey, w * 0.45, h * 0.6, pulse);
-        } else if !sleepy {
+            // The red fire in the sockets looks where the viewer's knight is.
+            let (lx, ly) = (look.0 * w * 0.55, look.1 * h * 0.45);
+            fx.ellipse(ex + side * -w * 0.2 + lx, ey + ly, w * 0.45, h * 0.6, pulse);
+        } else if !sleepy && !blink {
             fx.put(ex as i32, ey as i32, '7');
         }
     }
@@ -445,6 +478,7 @@ pub(super) fn flare_level(s: &Session) -> Option<(f32, [f32; 3])> {
                 None
             }
         }
+        Phase::Won { t } if t < 16 => Some((0.8 * (1.0 - t as f32 / 16.0), [1.4, 1.2, 0.9])),
         Phase::Play if s.memory.loops > 0 => {
             let total = s.nums.rewind.saturating_sub(control(&s.nums)) + 24;
             let age = total.saturating_sub(s.card.min(total));
@@ -488,10 +522,48 @@ pub(super) fn beams(fx: &mut Img, s: &Session, cam: Cam, tick: u32) {
     for at in [town::NORTH_DOOR, town::SOUTH_DOOR, town::WELL] {
         let (x, y) = (at.0 - cam.x, at.1 - cam.y + VIEW_Y);
         let top = (y as f32 - 160.0 * grow) as i32;
-        for yy in top.max(0)..y {
+        // Over the town, not through the sky band's card nor the clock bar's words.
+        for yy in top.max(VIEW_Y + 14)..y.min(VIEW_Y + VIEW_H) {
             for xx in x - 3..=x + 3 {
                 if ((xx + yy + (tick as i32 / 2)) & 3) < 2 {
                     fx.put(xx, yy, '9');
+                }
+            }
+        }
+    }
+}
+
+/// Shafts of the rising sun across the town: warm slanted bands that sweep
+/// slowly over the ground from about half past five to eight, thinned by an
+/// ordered dither so nothing under them is lost.
+pub(super) fn shafts(im: &mut Img, s: &Session, shown: u32, tick: u32) {
+    // Not while the bell winds the town back: the ritual has its own light.
+    if matches!(s.phase, Phase::Rewind { .. }) || (s.completed.is_some() && !matches!(s.phase, Phase::Won { .. })) {
+        return;
+    }
+    let h = hour_of(shown, s.nums.day);
+    let on = if (5.5..6.5).contains(&h) {
+        h - 5.5
+    } else if (6.5..8.5).contains(&h) {
+        1.0 - (h - 6.5) / 2.0
+    } else {
+        0.0
+    };
+    if on <= 0.02 {
+        return;
+    }
+    let strength = on.clamp(0.0, 1.0) * 0.45;
+    let slide = tick as f32 * 0.06;
+    for y in VIEW_Y..VIEW_Y + VIEW_H {
+        for x in 0..im.w {
+            let u = x as f32 * 0.62 + y as f32 * 0.44 - slide;
+            let band = ((u * 0.12).sin() + 0.45 * (u * 0.31 + 1.7).sin()) * 0.5;
+            if band < 0.28 || bayer(x, y) >= strength * (band - 0.1) * 2.6 {
+                continue;
+            }
+            if let Some(c) = im.get(x, y) {
+                if c != BLACK && !is_signal(c) {
+                    im.set(x, y, tinted(c, [22, 19, 14]));
                 }
             }
         }

@@ -11,7 +11,8 @@ use crate::agent::harness;
 use crate::app::WorldButton;
 use crate::drive::rl_ctl;
 use crate::knowledge::session;
-use crate::stage::world_viz;
+#[cfg(feature = "delve")]
+use crate::delve::world_viz;
 use crate::tests::env_lock;
 use crate::ui::draw;
 use crate::ui::draw::ui;
@@ -108,6 +109,7 @@ fn asset_copy_shortcuts_queue_the_selected_file_without_taking_a_composer_draft(
     assert!(app.clipboard_image_copy.is_none());
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn asset_shelf_preview_back_returns_to_the_same_tower_room() {
     let _lock = env_lock();
@@ -154,6 +156,7 @@ fn asset_shelf_preview_back_returns_to_the_same_tower_room() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn asset_and_tower_commands_stay_local_while_a_model_turn_is_pending() {
     let _lock = env_lock();
@@ -163,7 +166,7 @@ fn asset_and_tower_commands_stay_local_while_a_model_turn_is_pending() {
         ("/assets", scryglass::StageRoute::Assets),
         (
             "/tower",
-            scryglass::StageRoute::Explore(world_viz::Building::Observatory),
+            scryglass::StageRoute::Explore(scryglass::Building::Observatory),
         ),
         ("/show", scryglass::StageRoute::Assets),
     ] {
@@ -529,6 +532,7 @@ fn compact_session_warning_preempts_clip_prone_header_chrome() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn compact_header_keeps_project_controls_when_operator_status_is_long() {
     let _lock = env_lock();
@@ -567,6 +571,7 @@ fn compact_header_keeps_project_controls_when_operator_status_is_long() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn agent_summary_uses_structured_cell_bounded_realm_pulse() {
     let _lock = env_lock();
@@ -603,21 +608,28 @@ fn agent_summary_uses_structured_cell_bounded_realm_pulse() {
 /// Scryglass visibility without wall-clock sleeps.
 struct CockpitScenario {
     app: App,
+    #[cfg(feature = "delve")]
     width: u16,
+    #[cfg(feature = "delve")]
     height: u16,
     now: Instant,
 }
 
 impl CockpitScenario {
     fn at(width: u16, height: u16) -> Self {
+        #[cfg(not(feature = "delve"))]
+        let _ = (width, height);
         Self {
             app: App::preview(Viewer::static_preview()),
+            #[cfg(feature = "delve")]
             width,
+            #[cfg(feature = "delve")]
             height,
             now: Instant::now(),
         }
     }
 
+    #[cfg(feature = "delve")]
     fn render(&mut self) -> String {
         render_app_text(&mut self.app, self.width, self.height)
     }
@@ -628,6 +640,7 @@ impl CockpitScenario {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn live_realm_stage_surfaces_degraded_memory_at_the_chapel() {
     use crate::tests::TestEnvGuard;
@@ -658,6 +671,7 @@ fn live_realm_stage_surfaces_degraded_memory_at_the_chapel() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn live_reinforce_stage_surfaces_measured_campaign_state_graph() {
     use crate::tests::TestEnvGuard;
@@ -783,6 +797,7 @@ fn reinforce_stage_switches_between_branch_research_and_sankey_lenses() {
     assert!(sankey.contains("SANKEY · PROMOTION FLOW"), "{sankey}");
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn cockpit_scenario_baselines_cover_representative_sizes() {
     // Renders world/scenario ink, which reads ANGEL_WORLD_INK per cell: hold
@@ -829,14 +844,14 @@ fn hidden_comp_skips_arrival_overlay_without_slowing_default() {
     assert!(crate::ui::scryglass::Scryglass::arrival_overlay_allowed());
 
     let mut visible = crate::ui::scryglass::Scryglass::default();
-    visible.sync_arrival(Some(world_viz::Building::Keep));
-    visible.sync_arrival(Some(world_viz::Building::Smithy));
-    assert_eq!(visible.arrival(), Some(world_viz::Building::Smithy));
+    visible.sync_arrival(Some(scryglass::Building::Keep));
+    visible.sync_arrival(Some(scryglass::Building::Smithy));
+    assert_eq!(visible.arrival(), Some(scryglass::Building::Smithy));
     assert!(
         matches!(
             visible.controller.overlay(),
             Some(crate::ui::scryglass::StageOverlay::Arrival {
-                destination: world_viz::Building::Smithy
+                destination: scryglass::Building::Smithy
             })
         ),
         "default still arms ARRIVAL after a journey"
@@ -847,8 +862,8 @@ fn hidden_comp_skips_arrival_overlay_without_slowing_default() {
     assert!(!crate::ui::scryglass::Scryglass::arrival_overlay_allowed());
 
     let mut armed = crate::ui::scryglass::Scryglass::default();
-    armed.sync_arrival(Some(world_viz::Building::Keep));
-    armed.sync_arrival(Some(world_viz::Building::Chapel));
+    armed.sync_arrival(Some(scryglass::Building::Keep));
+    armed.sync_arrival(Some(scryglass::Building::Chapel));
     assert!(
         armed.arrival().is_none(),
         "Hidden/comp must not spawn an ARRIVAL plate"
@@ -861,13 +876,13 @@ fn hidden_comp_skips_arrival_overlay_without_slowing_default() {
     drop(_on);
     crate::drive::comp_mode::invalidate_cache();
     assert!(crate::ui::scryglass::Scryglass::arrival_overlay_allowed());
-    armed.sync_arrival(Some(world_viz::Building::Chapel));
+    armed.sync_arrival(Some(scryglass::Building::Chapel));
     assert!(
         armed.arrival().is_none(),
         "last_arrived must stay tracked so a later visible frame does not replay Chapel"
     );
-    armed.sync_arrival(Some(world_viz::Building::Smithy));
-    assert_eq!(armed.arrival(), Some(world_viz::Building::Smithy));
+    armed.sync_arrival(Some(scryglass::Building::Smithy));
+    assert_eq!(armed.arrival(), Some(scryglass::Building::Smithy));
 }
 
 #[test]
@@ -884,11 +899,11 @@ fn settled_or_hidden_realm_does_not_request_fast_tick() {
     scenario
         .app
         .scryglass
-        .sync_arrival(Some(world_viz::Building::Keep));
+        .sync_arrival(Some(scryglass::Building::Keep));
     scenario
         .app
         .scryglass
-        .sync_arrival(Some(world_viz::Building::Smithy));
+        .sync_arrival(Some(scryglass::Building::Smithy));
     // Simulate the draw contract: a renderable Scryglass surface re-earns
     // visible-stage cadence for this frame.
     scenario.app.world_pane_visible = true;
@@ -899,6 +914,7 @@ fn settled_or_hidden_realm_does_not_request_fast_tick() {
     assert!(!scenario.app.scryglass.animating());
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn compact_core_draw_resets_prior_stage_visibility_and_fast_tick() {
     use crate::tests::TestEnvGuard;
@@ -915,9 +931,9 @@ fn compact_core_draw_resets_prior_stage_visibility_and_fast_tick() {
         std::time::Instant::now(),
         crate::ui::viz::lifecycle_viz::MotionMode::Off,
     );
-    app.scryglass.sync_arrival(Some(world_viz::Building::Keep));
+    app.scryglass.sync_arrival(Some(scryglass::Building::Keep));
     app.scryglass
-        .sync_arrival(Some(world_viz::Building::Smithy));
+        .sync_arrival(Some(scryglass::Building::Smithy));
 
     let standard = render_app_text(&mut app, 120, 40);
     assert!(
@@ -1088,6 +1104,7 @@ fn comp_mode_skips_ambient_stage_fast_tick_without_slowing_default() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn comp_mode_skips_lifecycle_rl_graph_scene_without_slowing_default() {
     use crate::tests::TestEnvGuard;
@@ -1275,6 +1292,7 @@ fn comp_mode_skips_scryglass_catalog_and_lesson_body_without_slowing_default() {
 
 /// Comp / lean keeps Scryglass route identity, and no mode paints the live
 /// town into the world pane's caption.
+#[cfg(feature = "delve")]
 #[test]
 fn hidden_comp_skips_live_world_title_without_slowing_default() {
     use crate::tests::TestEnvGuard;
@@ -1338,6 +1356,7 @@ fn hidden_comp_skips_live_world_title_without_slowing_default() {
 /// Comp / lean keeps Quintain / Tiltyard / Round Table / Observatory route
 /// chrome but must not build loop_viz / rl_viz / graph / observatory titles
 /// (status / iter / step / report counts) every frame.
+#[cfg(feature = "delve")]
 #[test]
 fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
     use crate::drive::loop_ctl::LoopStatus;
@@ -1351,25 +1370,25 @@ fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
     assert!(draw::stage_live_route_title_allowed());
     assert_eq!(
         draw::stage_route_title(
-            crate::stage::identity::STAGE_TITLE_QUINTAIN_PREFIX,
+            crate::delve::identity::STAGE_TITLE_QUINTAIN_PREFIX,
             Some("loop · running · iter 3/inf · local"),
-            crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+            crate::delve::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
         ),
         " Realm / Quintain · loop · running · iter 3/inf · local "
     );
     assert_eq!(
         draw::stage_route_title(
-            crate::stage::identity::STAGE_TITLE_QUINTAIN_PREFIX,
+            crate::delve::identity::STAGE_TITLE_QUINTAIN_PREFIX,
             None,
-            crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+            crate::delve::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
         ),
         " Realm / Quintain ·  "
     );
     assert!(
         !draw::stage_route_title(
-            crate::stage::identity::STAGE_TITLE_QUINTAIN_PREFIX,
+            crate::delve::identity::STAGE_TITLE_QUINTAIN_PREFIX,
             None,
-            crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+            crate::delve::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
         )
         .contains("iter"),
         "lean title must not carry the live loop suffix"
@@ -1416,6 +1435,7 @@ fn hidden_comp_skips_live_stage_route_title_without_slowing_default() {
 
 /// Comp / lean keeps Scryglass title chrome but must not build ride captions,
 /// the Formation strip, or tick reveal/arrival timers.
+#[cfg(feature = "delve")]
 #[test]
 fn hidden_and_comp_mode_skip_scryglass_accessories_without_slowing_default() {
     use crate::tests::TestEnvGuard;
@@ -1462,11 +1482,12 @@ fn hidden_and_comp_mode_skip_scryglass_accessories_without_slowing_default() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
-    use crate::stage::world_viz::{Building, take_ride_compose_count};
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
+    use crate::delve::world_viz::{Building, take_ride_compose_count};
     use crate::tests::TestEnvGuard;
     use crate::ui::scryglass::{StageRoute, StageSurface};
     let _lock = env_lock();
@@ -1497,7 +1518,7 @@ fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
         take_ride_compose_count() >= 1,
         "default visible world paints Dotmax"
     );
-    app.scryglass.navigate(StageRoute::Explore(Building::Keep));
+    app.scryglass.navigate(StageRoute::Explore(Building::Keep.into()));
     app.world_yaw_offset = 0.15;
     let _ = take_ride_compose_count();
     let explore = render_app_text(&mut app, 144, 48);
@@ -1538,7 +1559,7 @@ fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
 
     armed
         .scryglass
-        .navigate(StageRoute::Explore(Building::Keep));
+        .navigate(StageRoute::Explore(Building::Keep.into()));
     let _ = take_ride_compose_count();
     let _ = render_app_text(&mut armed, 144, 48);
     assert_eq!(
@@ -1555,12 +1576,13 @@ fn hidden_and_comp_mode_skip_dotmax_without_slowing_default() {
     let mut hidden = seed_preview_app();
     hidden
         .scryglass
-        .navigate(StageRoute::Explore(Building::Keep));
+        .navigate(StageRoute::Explore(Building::Keep.into()));
     let off = render_app_text(&mut hidden, 144, 48);
     assert!(!off.contains("Scryglass"), "{off}");
     assert_eq!(take_ride_compose_count(), 0);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn hidden_and_comp_mode_skip_world_mirrors_without_slowing_default() {
     use crate::drive::loop_ctl::LoopStatus;
@@ -1770,6 +1792,7 @@ fn hidden_comp_does_not_steal_stage_column_for_ceremony() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn hidden_and_comp_mode_skip_world_animating_without_slowing_default() {
     use crate::tests::TestEnvGuard;
@@ -1915,6 +1938,7 @@ fn miniviz_dancers_still_select_and_paint_assets_when_visible() {
 
 /// Z4: the quest line owns the world pane's caption row while an adventure is
 /// running, and the pane's own border carries the quest's weather.
+#[cfg(feature = "delve")]
 #[test]
 fn the_quest_hud_and_its_border_reach_the_world_pane() {
     let _lock = env_lock();
@@ -1963,7 +1987,7 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
         (0..buffer.area.width).any(|x| {
             buffer
                 .cell((x, y))
-                .is_some_and(|cell| cell.fg == hud::HUD_AMBER && cell.symbol().trim() != "")
+                .is_some_and(|cell| cell.fg == angel_realm_host::hud_palette::HUD_AMBER && cell.symbol().trim() != "")
         })
     });
     assert!(ambered, "a danger-2 quest ambers the world pane border");
@@ -1976,6 +2000,7 @@ fn the_quest_hud_and_its_border_reach_the_world_pane() {
 /// ARRIVAL establishing shot took the pane, with the Mines plate underneath
 /// and the Z4 HUD gone. The ride surface has to survive the arrival, and the
 /// arrival has to come back the moment the quest is home again.
+#[cfg(feature = "delve")]
 #[test]
 fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
     use crate::drive::loop_ctl::LoopStatus;
@@ -2075,14 +2100,15 @@ fn a_tool_arrival_never_takes_the_pane_from_a_live_quest() {
         app.scryglass
             .controller
             .resolved_scene(false, false, app.realm.world.quest_owns_pane()),
-        crate::ui::scryglass::StageSurface::Arrival(world_viz::Building::Scriptorium),
+        crate::ui::scryglass::StageSurface::Arrival(world_viz::Building::Scriptorium.into()),
         "back in town, arrivals are exactly what they were"
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn the_realm_route_paints_the_overworld_map_by_default() {
-    use crate::stage::world_viz::take_ride_compose_count;
+    use crate::delve::world_viz::take_ride_compose_count;
     let _lock = env_lock();
     let _map = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_MAP");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
@@ -2137,6 +2163,7 @@ fn the_realm_route_paints_the_overworld_map_by_default() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn explicitly_opened_tower_keeps_its_asset_doorway_in_competition_mode() {
     let _lock = env_lock();
@@ -2173,6 +2200,7 @@ fn explicitly_opened_tower_keeps_its_asset_doorway_in_competition_mode() {
 
 /// The loop's crawl: the Realm pane walks the Delve while a loop runs, and
 /// two lines under the picture say what the party is doing.
+#[cfg(feature = "delve")]
 #[test]
 fn a_loops_crawl_says_what_the_party_does_under_its_picture() {
     let _lock = env_lock();
@@ -2206,6 +2234,7 @@ fn a_loops_crawl_says_what_the_party_does_under_its_picture() {
 /// A loop steps up to the quintain and the pane follows it to the Loop
 /// view: out in a region, that view is the crawl too, and the loop's numbers
 /// stay under it.
+#[cfg(feature = "delve")]
 #[test]
 fn the_quintain_shows_the_loops_crawl_with_its_numbers() {
     use crate::drive::loop_ctl::LoopStatus;

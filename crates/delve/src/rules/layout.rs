@@ -78,6 +78,7 @@ fn tile_from_glyph(glyph: char) -> Option<Tile> {
 }
 
 /// The name a tile had when a save wrote one JSON string a cell.
+#[cfg(test)]
 fn tile_name(tile: Tile) -> &'static str {
     match tile {
         Tile::Floor => "floor",
@@ -185,6 +186,7 @@ fn de_tiles<'de, D: serde::Deserializer<'de>>(deserializer: D) -> Result<Vec<Til
 /// rewritten; a list is already the old form and is left alone. Historical
 /// rule snapshots also predate the squire yard; only its known static tile
 /// delta is put back, not other edits to the map or any part of the run.
+#[cfg(test)]
 pub(crate) fn expand_saved_tiles(json: &str) -> String {
     const KEY: &str = "\"tiles\":\"";
     let mut out = String::with_capacity(json.len());
@@ -393,6 +395,23 @@ pub enum RoomKind {
     SquireBarracks,
     SquireHall,
     SquireLanes,
+    /// Bomrekedan, the Kingdom of Meat Gods: the operator's Dwarf Fortress
+    /// fortress, one room a kept level, top down (`world::bomrekedan`).
+    /// Appended, so saved names and masks keep.
+    BomGate,
+    BomGreatHall,
+    BomFarms,
+    BomWorkshops,
+    BomNobleHalls,
+    BomTemples,
+    BomGuildhalls,
+    BomDormitories,
+    BomBarracks,
+    BomForges,
+    /// A lost hall of Caer Dwfn off a floor of the Crypt, the Mines or
+    /// Dragon Keep, held against the King until the party takes it back
+    /// (`reclaim`). Appended, so saved names and masks keep.
+    DwarfHall,
 }
 
 impl RoomKind {
@@ -558,6 +577,7 @@ impl Pack {
                 (Flesher, 1),
                 (Broodmarrow, 1),
                 (Whirlgrave, 1),
+                (Fungelder, 1),
                 (Hexer, 1),
                 (Leech, 2),
                 (Spitter, 1),
@@ -825,19 +845,30 @@ impl Room {
         room
     }
 
+    /// A room of `kind` at `cell` laid from imported ground, `cols` by
+    /// `rows` (`world::bomrekedan`): no doorways, nothing in it.
+    pub fn imported(cell: (i32, i32), kind: RoomKind, cols: usize, rows: usize, tiles: Vec<Tile>) -> Self {
+        let mut room = Self::kingdom(tiles, cols, rows);
+        room.cell = cell;
+        room.kind = kind;
+        room
+    }
+
     /// What the room is built of, for a drawing kept between frames.
     pub fn fingerprint(&self) -> u64 {
         use std::hash::{Hash, Hasher};
         let mut h = std::collections::hash_map::DefaultHasher::new();
-        (
-            self.cell,
-            self.kind,
-            self.doors,
-            self.cols,
-            self.rows,
-            &self.tiles,
-        )
-            .hash(&mut h);
+        (self.cell, self.kind, self.doors, self.cols, self.rows, self.tiles.len()).hash(&mut h);
+        // The tiles as bytes, a stretch at a time: hashed one enum at a time
+        // a big room (a level of Bomrekedan, the kingdom's map) cost a third
+        // of a millisecond a frame, and the key is asked for every frame.
+        let mut buf = [0u8; 512];
+        for stretch in self.tiles.chunks(buf.len()) {
+            for (b, &t) in buf.iter_mut().zip(stretch) {
+                *b = t as u8;
+            }
+            h.write(&buf[..stretch.len()]);
+        }
         h.finish()
     }
 }
@@ -862,6 +893,11 @@ impl Room {
             let (w, h) = crate::world::map::LEGACY_MAP;
             (self.cols == super::map::MAP_W as usize && self.rows == super::map::MAP_H as usize)
                 || (self.cols == w as usize && self.rows == h as usize)
+                || (self.cols == crate::kingdom::WIDTH as usize && self.rows == crate::kingdom::HEIGHT as usize)
+                || (self.cols == 24 && self.rows == 18)
+        } else if let Some(size) = super::world::bomrekedan::size(self.kind) {
+            // A level of Bomrekedan: exactly as the import laid it.
+            (self.cols, self.rows) == size
         } else if self.kind == RoomKind::Depths {
             // An open floor's map: as big as `open` lays one.
             (COLS..=OPEN_MAX_COLS).contains(&self.cols) && (ROWS..=OPEN_MAX_ROWS).contains(&self.rows)
@@ -1023,6 +1059,57 @@ impl Room {
     }
 }
 
+/// What happened when Bomrekedan's levels were brought onto a home floor.
+/// Empty on the ordinary path. A full home names the levels it could not
+/// take, a level that already holds goods is kept, and untouched saved
+/// ground is brought up to the import. Nothing here wipes the home.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FortAdmit {
+    /// Fort levels that did not fit (`THE HOME IS FULL`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub omitted: Vec<String>,
+    /// Saved levels left as they were: they hold goods, a door, or another room.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub kept: Vec<String>,
+    /// Untouched saved levels whose ground now matches the import.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub refreshed: Vec<String>,
+    /// Surface rooms the old slot budget could not take, once the fort was reserved.
+    #[serde(default, skip_serializing_if = "u16_zero")]
+    pub held_back: u16,
+}
+
+fn u16_zero(v: &u16) -> bool {
+    *v == 0
+}
+
+impl FortAdmit {
+    pub fn quiet(&self) -> bool {
+        self.omitted.is_empty() && self.kept.is_empty() && self.refreshed.is_empty() && self.held_back == 0
+    }
+
+    /// One line a knight can read. The lists themselves stay on the floor.
+    pub fn line(&self) -> String {
+        let mut parts = Vec::new();
+        if !self.omitted.is_empty() {
+            let shown = self.omitted.iter().take(2).cloned().collect::<Vec<_>>().join(", ");
+            let more = self.omitted.len().saturating_sub(2);
+            let extra = if more > 0 { format!(" +{more}") } else { String::new() };
+            parts.push(format!("BOMREKEDAN LEFT OUT {shown}{extra}: THE HOME IS FULL"));
+        }
+        if !self.kept.is_empty() {
+            parts.push(format!("KEPT {} SAVED LEVELS", self.kept.len()));
+        }
+        if !self.refreshed.is_empty() {
+            parts.push(format!("BROUGHT {} LEVELS UP TO THE IMPORT", self.refreshed.len()));
+        }
+        if self.held_back > 0 {
+            parts.push(format!("HELD BACK {} SURFACE ROOMS", self.held_back));
+        }
+        parts.join(" / ")
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Floor {
     pub depth: u32,
@@ -1043,6 +1130,10 @@ pub struct Floor {
     /// when the save is loaded. A room whose search found nowhere is `None`.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub altar_at: BTreeMap<u16, Option<(f32, f32)>>,
+    /// Bomrekedan's last admission. Quiet floors omit it, so an old save
+    /// still reads and a new one stays small.
+    #[serde(default, skip_serializing_if = "FortAdmit::quiet")]
+    pub fort_admit: FortAdmit,
 }
 
 /// A vault hung off a fight room behind a cracked wall: the room that hides
@@ -1100,12 +1191,12 @@ impl Floor {
         }
         // The immutable vault flavor was chosen from pre-vault geography,
         // not mutable found/paid/chest state. Recompute without cloning rooms
-        // (a reclaimed floor's forge-hall and a held floor's steward's hall came after it, too).
+        // (a reclaimed floor's forge-hall, its lost hall and a held floor's steward's hall came after it, too).
         let shape = self
             .rooms
             .iter()
             .enumerate()
-            .filter(|(i, r)| *i != secret.vault && !matches!(r.kind, RoomKind::Forge | RoomKind::Holding) && !r.kind.nook())
+            .filter(|(i, r)| *i != secret.vault && !matches!(r.kind, RoomKind::Forge | RoomKind::Holding | RoomKind::DwarfHall) && !r.kind.nook())
             .fold(u64::from(self.depth) ^ 0x5ec2e7, |h, (_, r)| {
                 h.wrapping_mul(37)
                     .wrapping_add((r.cell.0 * 19 + r.cell.1) as u64)
@@ -1399,6 +1490,7 @@ fn build(depth: u32, pack: Pack, party: usize, rng: &mut Rng, cells: Vec<(i32, i
         rooms,
         secret: None,
         altar_at: BTreeMap::new(),
+        fort_admit: FortAdmit::default(),
     };
     if depth == 1 {
         if ledge_on() {
@@ -1937,7 +2029,7 @@ fn room(
 fn template_for(kind: RoomKind, pack: Pack, rng: &mut Rng) -> Template {
     match kind {
         RoomKind::Kingdom | RoomKind::RealmHall | RoomKind::LandOffice | RoomKind::Holding => EMPTY,
-        RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft | RoomKind::GnomeParty | RoomKind::DeepVillage => EMPTY,
+        RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft | RoomKind::GnomeParty | RoomKind::DeepVillage | RoomKind::DwarfHall => EMPTY,
         RoomKind::Start
         | RoomKind::Hall
         | RoomKind::Sanctuary
@@ -2024,6 +2116,16 @@ fn template_for(kind: RoomKind, pack: Pack, rng: &mut Rng) -> Template {
         | RoomKind::SquireBarracks
         | RoomKind::SquireHall
         | RoomKind::SquireLanes
+        | RoomKind::BomGate
+        | RoomKind::BomGreatHall
+        | RoomKind::BomFarms
+        | RoomKind::BomWorkshops
+        | RoomKind::BomNobleHalls
+        | RoomKind::BomTemples
+        | RoomKind::BomGuildhalls
+        | RoomKind::BomDormitories
+        | RoomKind::BomBarracks
+        | RoomKind::BomForges
         | RoomKind::Bazaar => EMPTY,
         RoomKind::Threshold | RoomKind::Depths => EMPTY,
         RoomKind::Treasure => SHRINE,
@@ -2158,7 +2260,7 @@ pub(super) fn furnish(
     let foes = (2 + depth.min(FLOORS) as usize + rng.below(2)).min(6);
     room.roster = match kind {
         RoomKind::Kingdom | RoomKind::RealmHall | RoomKind::LandOffice | RoomKind::Holding => Vec::new(),
-        RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft | RoomKind::GnomeParty | RoomKind::DeepVillage => Vec::new(),
+        RoomKind::Kitchen | RoomKind::Reading | RoomKind::Bellows | RoomKind::Ossuary | RoomKind::Still | RoomKind::Loft | RoomKind::GnomeParty | RoomKind::DeepVillage | RoomKind::DwarfHall => Vec::new(),
         RoomKind::Start if pack == Pack::Swamp => vec![EnemyKind::Leech, EnemyKind::Leech],
         RoomKind::Start => vec![EnemyKind::Skeleton, EnemyKind::Skeleton],
         RoomKind::Treasure
@@ -2246,6 +2348,16 @@ pub(super) fn furnish(
         | RoomKind::SquireBarracks
         | RoomKind::SquireHall
         | RoomKind::SquireLanes
+        | RoomKind::BomGate
+        | RoomKind::BomGreatHall
+        | RoomKind::BomFarms
+        | RoomKind::BomWorkshops
+        | RoomKind::BomNobleHalls
+        | RoomKind::BomTemples
+        | RoomKind::BomGuildhalls
+        | RoomKind::BomDormitories
+        | RoomKind::BomBarracks
+        | RoomKind::BomForges
         | RoomKind::Bazaar => Vec::new(),
         RoomKind::Pit => vec![EnemyKind::PitTyrant],
         // A passage may hold a straggler or two that fly.
@@ -2464,6 +2576,7 @@ pub fn undercroft(pack: Pack) -> Floor {
         secret: None,
         open: None,
         altar_at: BTreeMap::new(),
+        fort_admit: FortAdmit::default(),
     }
 }
 
@@ -2703,6 +2816,7 @@ pub fn undercroft(pack: Pack) -> Floor {
         rooms: vec![room, hall, yard, trophies],
         secret: None,
         altar_at: BTreeMap::new(),
+        fort_admit: FortAdmit::default(),
     }
 }
 
@@ -2895,6 +3009,7 @@ fn horde(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         rooms: vec![start, hall],
         secret: None,
         altar_at: BTreeMap::new(),
+        fort_admit: FortAdmit::default(),
     }
 }
 
@@ -2918,6 +3033,7 @@ pub fn identity_floor(pack: Pack, party: usize, rng: &mut Rng) -> Floor {
         rooms: vec![body, weapon, ultimate],
         secret: None,
         altar_at: BTreeMap::new(),
+        fort_admit: FortAdmit::default(),
     }
 }
 
@@ -2957,6 +3073,7 @@ pub fn identity_room(pack: Pack, party: usize, rng: &mut Rng) -> Floor {
         rooms: vec![only],
         secret: None,
         altar_at: BTreeMap::new(),
+        fort_admit: FortAdmit::default(),
     }
 }
 
@@ -3015,6 +3132,7 @@ fn gauntlet(depth: u32, pack: Pack, rng: &mut Rng) -> Floor {
         rooms: vec![start, hall, guardian],
         secret: None,
         altar_at: BTreeMap::new(),
+        fort_admit: FortAdmit::default(),
     }
 }
 

@@ -198,6 +198,14 @@ pub(crate) fn build_task_history(
         system.push_str(sign);
     }
     let mut history = vec![ChatMsg::system(system)];
+    // The workspace map names this task's own directory, so it rides in a
+    // system message of its own: the standing text and the tool list before it
+    // stay byte-identical from task to task, and a provider's prefix cache can
+    // serve them to the next task's first request.
+    let map = harness::task_system_contract(workspace);
+    if !map.trim().is_empty() {
+        history.push(ChatMsg::system(map.trim_start().to_string()));
+    }
     // Lean referral (rides the compact flag): the full skill catalog lists
     // every name up front; the referral keeps one line and lets the `skill`
     // tool surface names/descriptions on demand instead.
@@ -218,6 +226,33 @@ pub(crate) fn build_task_history(
 #[cfg(test)]
 mod compact_prompt_tests {
     use super::*;
+
+    /// Two tasks in different directories open with the same first system
+    /// message; only the map's own message names the directory.
+    #[test]
+    fn the_workspace_map_rides_after_the_standing_text() {
+        let dir = |name: &str| {
+            let root = std::env::temp_dir().join(format!("angel-map-order-{}-{name}", std::process::id()));
+            std::fs::create_dir_all(&root).unwrap();
+            std::fs::write(root.join("lib.rs"), "").unwrap();
+            root
+        };
+        let (one, two) = (dir("one"), dir("two"));
+        let _guard = crate::tests::env_lock();
+        let _pace = crate::tests::TestEnvGuard::set("ANGEL_TASK_PACE_RESOLVED", "rapid");
+        let _map = crate::tests::TestEnvGuard::set("ANGEL_TASK_WORKSPACE_MAP", "1");
+        let history = |root: &Path| build_task_history(&[], &[], root, None);
+        let (first, second) = (history(&one), history(&two));
+        assert_eq!(first[0].content, second[0].content);
+        assert!(!first[0].content.contains(&*one.to_string_lossy()));
+        assert_eq!(first[1].role, ChatRole::System);
+        assert!(first[1].content.contains("lib.rs"), "{}", first[1].content);
+        let canonical = one.canonicalize().unwrap();
+        assert!(first[1].content.contains(&*canonical.to_string_lossy()));
+        for root in [one, two] {
+            std::fs::remove_dir_all(root).unwrap();
+        }
+    }
 
     /// The task system prompt is the entry warpath — personality type, pace,
     /// repair discipline — and the workspace map as data; the compact flag

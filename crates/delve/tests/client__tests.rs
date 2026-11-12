@@ -14,6 +14,11 @@ mod crossroads_tests;
 
 #[path = "client_hd__tests.rs"]
 mod hd_tests;
+#[path = "client_builder__tests.rs"]
+mod builder_tests;
+
+#[path = "client_creation__tests.rs"]
+mod creation_tests;
 
 /// The host's half, for feeding a client: a run, its publisher (as a
 /// host keeps one), and what one client was last sent of it.
@@ -2405,5 +2410,37 @@ fn replay_a_saved_run_through_every_seats_page() {
             host.send(c);
             c.draw(&view(c, &[], 0, Hands::default(), 0.0), &mut frame);
         }
+    }
+}
+
+#[test]
+fn a_knight_owing_their_rite_is_invited_to_the_creator_as_they_arrive_and_no_wish_is_asked() {
+    let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
+    run.rite = true;
+    run.rename_host("Ada");
+    run.join_seat(2, "Bors");
+    run.step(&BTreeMap::new());
+    assert!(run.owes_rite(1) && run.owes_rite(2));
+    let read = |h: &mut Host, c: &mut DelveClient, run: &Run| {
+        h.run = run.clone();
+        h.send(c);
+        let mut lines = Vec::new();
+        c.lines(&mut lines);
+        lines.into_iter().filter(|l| l == "ask" || l.starts_with("notice ")).collect::<Vec<_>>()
+    };
+    for seat in 0..2 {
+        // A seat that has just come into the run is invited at once, though its first frame has no
+        // earlier one to compare with: the Creator's slip, not the wish scroll.
+        let mut seen = (Host::new(run.clone()), client(Some(seat)));
+        let said = read(&mut seen.0, &mut seen.1, &run);
+        assert!(said.iter().all(|l| l != "ask" && !l.contains("press T")), "no wish is asked: {said:?}");
+        assert!(seen.1.creation.invite.shown(run.tick).is_some_and(|(_, slip)| slip), "seat {seat}");
+        assert!(!seen.1.creation.session.open, "it is offered, never forced open");
+        // Made, it is not offered again.
+        let mut made = run.clone();
+        made.contribute(1 + seat as u32, crate::rules::rite::tests::blade("Oathmark")).unwrap();
+        made.step(&BTreeMap::new());
+        read(&mut seen.0, &mut seen.1, &made);
+        assert!(seen.1.creation.invite.shown(made.tick).is_none());
     }
 }

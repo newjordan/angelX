@@ -20,6 +20,12 @@ pub(super) struct Look {
 
 /// The layers (base, fx) of the adventure under way, at the native 384 by 224.
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
+    let (base, mut fx) = scene(run, focus)?;
+    super::encounter::panel(&mut fx, run, focus);
+    Some((base, fx))
+}
+
+fn scene(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
     Some(match run.roundtable_under_way()?.slug {
         "lanternward" => super::lanternward::layers(run, focus),
         "moonfall" => super::moonfall::layers(run, focus),
@@ -34,6 +40,12 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
 
 /// The same for the terminal's cell painter.
 pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
+    let (base, mut fx) = terminal_scene(run, focus)?;
+    super::encounter::panel(&mut fx, run, focus);
+    Some((base, fx))
+}
+
+fn terminal_scene(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
     Some(match run.roundtable_under_way()?.slug {
         "lanternward" => super::lanternward::terminal_layers(run, focus),
         "moonfall" => super::moonfall::terminal_layers(run, focus),
@@ -48,7 +60,12 @@ pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img
 
 /// The native scene fitted to a `w` by `h` frame, centred, nearest sample.
 pub(super) fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Option<Img> {
-    let (im, _) = layers(run, focus)?;
+    let (mut im, over) = scene(run, focus)?;
+    // The frame is the base alone; a random room's card goes on it.
+    let mut card = Img::new(384, 224);
+    super::encounter::panel(&mut card, run, focus);
+    im.stamp(&card, 0, 0);
+    drop(over);
     let mut out = Img::black(w.max(0), h.max(0));
     if w <= 0 || h <= 0 {
         return Some(out);
@@ -68,6 +85,10 @@ pub(super) fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Option<Img
 
 /// Every adventure's door on the kingdom map, in the kingdom's own layer.
 pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
+    // Their gates stand on the full plan's map only (`crate::world::plan`).
+    if !crate::world::plan::full() {
+        return;
+    }
     super::lanternward::kingdom(im, run, origin);
     super::moonfall::kingdom(im, run, origin);
     super::bannerpeak::kingdom(im, run, origin);

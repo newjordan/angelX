@@ -1,0 +1,36 @@
+# The Erinys at the Gate — Eigriteil Rainsuitors, the erinys mayor, at Bomrekedan's gate.
+# A Bomrekedan questline, placed from expansions/bomrekedan/kingdom/questlines/
+# erinys.txt (quests.json: the-erinys-mayor and the-erinys-at-the-gate,
+# joined) and adapted to the engine the way bom-steel.txt says: every step
+# cued but the oath, which waits on the works ledger (bom_built_dining_halls),
+# the trial cued, the counters this line's own.
+# She stands on the Gate (`room BomGate`), in the walled yard of the trade
+# depot a party comes in by, east of the depot. Ast Ringtwinkled and Ral
+# Taxcloister also teach on the Gate, well out of her reach.
+power   bomrekedan:erinys
+teacher Eigriteil Rainsuitors
+place   the depot yard of Bomrekedan's gate, where seven erinys warriors once waited and were turned away
+room    BomGate
+at      45 49
+look    grey wings folded tight, a poet's slate under one arm, and a mayor's chain worn as if it were lent
+line    Two hundred and forty-nine years, and the dwarves have made me their mayor. I am still deciding how I feel.
+teach   A petition ignored is not forgotten. The asker remembers it, and so does whoever was standing next to them.
+hook    Seven names are cut into the gate's left post, small, at the height of an erinys's hand: every warrior who asked to live here in the first year and was ignored.
+step    The seven names | read the seven names on the gatepost aloud with the mayor | petitions_read 1 | Gorafio, Sketefio, Giful, Kerafio, Efitarjeggin, Gurefio, Elmul. Say them so they are said. | cue read
+step    The two codices | read Elements of the Erinys and Uncovering the Erinys at her side, one each visit | codices_read 2 | Dwarves wrote about us. Erinyes wrote about us. Only one of them was right, and it was not always ours. | cue read
+step    The mayor's hours | sit a petition with the mayor, one each visit | mayors_hours_sat 3 | Now you have heard what a mayor hears. Mostly it is about beds. | cue sit
+step    The winged company | walk an erinys resident out past the depot and back in with the mayor watching | erinys_walked_home 1 | Home, and standing. That is the whole of the promise. | cue walk
+step    The oath | see a dining hall raised in Bomrekedan where the erinys residents are sworn as citizens of the Kingdom of Meat Gods | bom_built_dining_halls 1 | Residents for years, citizens now. Gurefio wept, and denies it.
+trial   The gate opened | stand with the mayor at the gate while the first erinys asking to live here is let in | erinys_let_in 1 | Seven were turned away. You have brought one home. Six to go. | cue open
+reward  the erinyes join the delve roster as companions (a Bomrekedan questline: no power is taught)
+title   the Gate-Opener
+keepsake a grey feather, tied with the mayor's red cord
+ties    Ast Ringtwinkled keeps this gate against the ratfolk (the ratfolk line); the codices are on the library's shelves, with The Struggle Understood the naga want back.
+art
+8..8..8
+88.8.88
+.88888.
+...7...
+..888..
+..8.8..
+.8...8.

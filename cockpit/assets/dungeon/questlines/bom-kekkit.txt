@@ -1,0 +1,34 @@
+# Kekkit's Web — Bomrek Baldnesswinds, Axe Lord of the Steel Guard, at the stair down to the Forges.
+# A Bomrekedan questline, placed from expansions/bomrekedan/kingdom/questlines/
+# kekkit.txt (quests.json: kekkits-web) and adapted to the engine the way
+# bom-steel.txt says: every step and the trial cued, so the line can be
+# walked to its end today; the counters this line's own.
+# The caverns below the Forges are not kept levels, so he stands on the
+# Barracks (`room BomBarracks`), the Steel Guard's level, in the passage by
+# the stair down to the Forges, clear of the plate.
+power   bomrekedan:kekkit
+teacher Bomrek Baldnesswinds
+place   the stair down to the Forges on Bomrekedan's barracks level, the way toward the caverns where the webs began
+room    BomBarracks
+at      45 24
+look    a steel battle axe resting head-down, a bald crown, and a strip of spider silk wound round one wrist
+line    Monom and I were recruits the same week. Wrestlers, then axedwarves, then Axe Lords. Then the spider.
+teach   It did not bite him. It held him by the throat until he stopped. Keep your neck behind your shield.
+hook    A red feather as long as an arm is nailed over the stair, and under it someone has chalked a name: Monom.
+step    Monom's tally | hear how Monom Helmsdoor and the armorer Cerol fell in year 104 | monom_remembered 1 | Suffocated, the record says. Strangled, I say. Both are true. | cue tale
+step    The webs | burn the old webs off the stair with Bomrek, never cutting them | webs_burned 1 | Burn them, do not cut them. Cut silk remembers where it was. | cue burn
+step    The brood | stand the stair-watch with Bomrek while the brood's last eight come up and are put down | brood_watches_stood 1 | Eight. Kekkit is dead; its children were not told. | cue watch
+step    Monom's axe | set Monom's axe on the weapon rack beside Bomrek's | monoms_axe_racked 1 | On the rack, beside mine. He would want it oiled. I will oil it. | cue fetch
+trial   The unstrangled drill | spar with Bomrek on the stair, neck behind the shield, and not be caught and held once | unstrangled_drills 1 | Nobody caught. Nobody held. That is how Monom should have walked out. | cue spar
+reward  Kekkit's silk for the clothier, and Monom's axe on the rack (a Bomrekedan questline: no power is taught)
+title   the Web-Burner
+keepsake a strip of red spider silk, wound twice round the wrist
+ties    The axe is a relic of the fort's own, like Ast's standard (The Ratfolk Host); Likot Stoppedlabors was strangled by the same beast and lived (The Tired Ivy).
+art
+8.8.8.8
+.8.8.8.
+..777..
+.87778.
+..777..
+.8.8.8.
+8.8.8.8

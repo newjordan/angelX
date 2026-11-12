@@ -1,4 +1,4 @@
-use super::schema::{CampaignOwnership, Contribution, NodeState, RunState, SwarmRun};
+use super::schema::{CampaignOwnership, Contribution, NodeState, RunReading, RunState, SwarmRun};
 use super::store::compact_scrubbed;
 use super::tool::{
     AuthorizedCampaignBase, CampaignBase, CampaignCompileRequest, CompileRequest, PreparedSwarmRun,
@@ -171,7 +171,11 @@ impl SwarmCompilerEngine {
     pub(super) fn resume(&self, run_id: String) -> Result<String, String> {
         let run = self.store.load(&run_id)?;
         if run.state.terminal() {
-            return render_run(&run, self.store.run_dir(&run.id)?.join("run.json"));
+            return render_run(
+                &run,
+                run.state.reading(false),
+                self.store.run_dir(&run.id)?.join("run.json"),
+            );
         }
         let current = self
             .workspace
@@ -196,7 +200,13 @@ impl SwarmCompilerEngine {
 
     pub(super) fn status(&self, run_id: String) -> Result<String, String> {
         let run = self.store.load(&run_id)?;
-        render_run(&run, self.store.run_dir(&run.id)?.join("run.json"))
+        // If the lease cannot be probed, say what the file says: active.
+        let executing = self.store.is_executing(&run.id).unwrap_or(true);
+        render_run(
+            &run,
+            run.state.reading(executing),
+            self.store.run_dir(&run.id)?.join("run.json"),
+        )
     }
 
     fn campaign_receipt(&self, run: &SwarmRun) -> Result<SwarmRunReceipt, String> {
@@ -247,7 +257,7 @@ impl SwarmCompilerEngine {
         match self.execute_inner(&mut run, cancelled) {
             Ok(()) => {
                 let path = self.store.save(&run)?;
-                render_run(&run, path)
+                render_run(&run, run.state.reading(true), path)
             }
             Err(error) => {
                 run.state = RunState::Paused;
@@ -257,7 +267,7 @@ impl SwarmCompilerEngine {
                     .iter_mut()
                     .find(|node| node.state == NodeState::Running)
                 {
-                    node.state = NodeState::Failed;
+                    node.state = NodeState::Interrupted;
                 }
                 run.updated_ms = now_ms();
                 let _ = self.store.save(&run);
@@ -458,21 +468,21 @@ fn path_text(path: &Path) -> String {
     }
 }
 
-fn render_run(run: &SwarmRun, path: PathBuf) -> Result<String, String> {
+fn render_run(run: &SwarmRun, reading: RunReading, path: PathBuf) -> Result<String, String> {
     // The run's state stays a fact; the step it calls for is a `⠰⠙` page.
-    let next_step = match run.state {
-        RunState::Verified => format!(
+    let next_step = match reading {
+        RunReading::Verified => format!(
             "Candidate is verified and parked on {}. {}",
             run.parked_branch.as_deref().unwrap_or("(missing branch)"),
             crate::agent::harness::book::d56_replies::INTEGRATE_VERIFIED.cells()
         ),
-        RunState::Paused => format!(
+        RunReading::Resumable => format!(
             "{} run_id={}",
             crate::agent::harness::book::d56_replies::RESUME_RUN.cells(),
             run.id
         ),
-        RunState::Rejected => crate::agent::harness::book::d56_replies::REJECTED_RUN.cells(),
-        _ => "Run is still active.".to_string(),
+        RunReading::Rejected => crate::agent::harness::book::d56_replies::REJECTED_RUN.cells(),
+        RunReading::Executing => "Run is still active.".to_string(),
     };
     serde_json::to_string_pretty(&serde_json::json!({
         "ok": run.state == RunState::Verified,

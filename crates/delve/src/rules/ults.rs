@@ -22,6 +22,8 @@
 //! | the Butcher | Dismember: the nearest foe held fast and carved, and the Butcher fed |
 //! | the Reaver | Red Harvest: one sweep all round; the badly wounded are reaped and give back charge |
 //! | the Lancer | Skewer Drive: a charge that carries every foe before the lance and pins them where it stops |
+//! | the Phantom Lancer | Phantom Legion: four images ring the knight for eight seconds and strike with every thrust |
+//! | the Mirage Duelist | Hall of Mirrors: three images run at the nearest foes for six seconds and strike them |
 //! | the Alchemist | Philosopher's Rain: foul air and then fire on the nearest eight, each one flashing |
 //! | the Gravecaller | Tombstone: a grave ahead that raises zombies for eight seconds |
 
@@ -60,10 +62,14 @@ pub enum Ult {
     /// The Reaver's and the Lancer's (`champions`). Appended, so saved names keep.
     RedHarvest,
     SkewerDrive,
+    /// The Phantom Lancer's (`champions`). Appended, so saved names keep.
+    PhantomLegion,
+    /// The Mirage Duelist's (`champions::mirage`). Appended, so saved names keep.
+    HallOfMirrors,
 }
 
 impl Ult {
-    pub const ALL: [Ult; 22] = [
+    pub const ALL: [Ult; 24] = [
         Ult::PilgrimsArrow,
         Ult::LadysVeil,
         Ult::Trebuchet,
@@ -86,6 +92,8 @@ impl Ult {
         Ult::FurnaceVerdict,
         Ult::RedHarvest,
         Ult::SkewerDrive,
+        Ult::PhantomLegion,
+        Ult::HallOfMirrors,
     ];
 
     /// The ultimate a knight of the company carries; a recruit's, until
@@ -116,6 +124,8 @@ impl Ult {
             "alchemist" => Ult::PhilosophersRain,
             "reaver" => Ult::RedHarvest,
             "lancer" => Ult::SkewerDrive,
+            "phantomlancer" => Ult::PhantomLegion,
+            "mirageduelist" => Ult::HallOfMirrors,
             "gravecaller" => Ult::Tombstone,
             "farwatch" => Ult::LastLight,
             "galeweaver" => Ult::NeedleSquall,
@@ -156,6 +166,8 @@ impl Ult {
             Ult::PhilosophersRain => "Philosopher's Rain",
             Ult::RedHarvest => "Red Harvest",
             Ult::SkewerDrive => "Skewer Drive",
+            Ult::PhantomLegion => "Phantom Legion",
+            Ult::HallOfMirrors => "Hall of Mirrors",
             Ult::Tombstone => "Tombstone",
             Ult::LastLight => "Last Light",
             Ult::NeedleSquall => "Needle Squall",
@@ -184,6 +196,8 @@ impl Ult {
             Ult::PhilosophersRain => "philosophers_rain",
             Ult::RedHarvest => "red_harvest",
             Ult::SkewerDrive => "skewer_drive",
+            Ult::PhantomLegion => "phantom_legion",
+            Ult::HallOfMirrors => "hall_of_mirrors",
             Ult::Tombstone => "tombstone",
             Ult::LastLight => "last_light",
             Ult::NeedleSquall => "needle_squall",
@@ -216,8 +230,9 @@ pub struct Sphere {
 }
 
 /// An image of a knight from Phantasm: it keeps its place beside them,
-/// fires with them, and draws the monsters' eyes.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+/// fires with them, and draws the monsters' eyes. The Phantom Lancer's stand
+/// where they were made (`fixed`) and strike with every thrust (`strikes`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
 pub struct Phantom {
     pub owner: u32,
     pub x: f32,
@@ -226,11 +241,68 @@ pub struct Phantom {
     pub dx: f32,
     pub dy: f32,
     pub left: u32,
+    /// Left standing where it was made, not following its knight.
+    #[serde(default, skip_serializing_if = "unfixed")]
+    pub fixed: bool,
+    /// How long it was made to last, for the figure's fade; none means the
+    /// eight seconds of Phantasm's.
+    #[serde(default, skip_serializing_if = "super::zero")]
+    pub life: u32,
+    /// One of the Hall of Mirrors': it runs at the nearest foe itself
+    /// (`champions::mirage`) and takes no part in mirroring a thrust.
+    #[serde(default, skip_serializing_if = "unfixed")]
+    pub charge: bool,
+    /// Ticks left of its own thrust, for the figure.
+    #[serde(default, skip_serializing_if = "super::is_zero")]
+    pub strike: u8,
+}
+
+fn unfixed(fixed: &bool) -> bool {
+    !*fixed
+}
+
+impl Phantom {
+    /// An image that keeps its place `(dx, dy)` beside its knight at `at`.
+    pub fn beside(owner: u32, at: (f32, f32), (dx, dy): (f32, f32), left: u32) -> Phantom {
+        Phantom { owner, x: at.0 + dx, y: at.1 + dy, dx, dy, left, life: left, ..Phantom::default() }
+    }
+
+    /// An image left standing at `at`.
+    pub fn standing(owner: u32, at: (f32, f32), left: u32) -> Phantom {
+        Phantom { owner, x: at.0, y: at.1, left, fixed: true, life: left, ..Phantom::default() }
+    }
+
+    /// Ticks since it was made.
+    pub fn age(&self) -> u32 {
+        (if self.life == 0 { PHANTOM_TICKS } else { self.life }).saturating_sub(self.left)
+    }
 }
 
 pub const PHANTOM_TICKS: u32 = 8 * HZ;
-/// What a phantom's copy of a shot carries, in percent.
-const PHANTOM_SHARE: u32 = 40;
+/// What a phantom's copy of a shot, or of its knight's thrust, carries, in
+/// percent.
+pub const PHANTOM_SHARE: u32 = 40;
+
+/// Put `image` among the room's phantoms. A room humours only
+/// [`spells::IMPOSTURE_MAX`] of them: when it is full the knight's own
+/// image with the least time left gives way, and another knight's are left
+/// alone (the new one is then not made). True if it stands.
+pub(super) fn add_image(phantoms: &mut Vec<Phantom>, image: Phantom) -> bool {
+    if phantoms.len() >= spells::IMPOSTURE_MAX {
+        let Some(k) = phantoms
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.owner == image.owner)
+            .min_by_key(|(_, p)| p.left)
+            .map(|(k, _)| k)
+        else {
+            return false;
+        };
+        phantoms.remove(k);
+    }
+    phantoms.push(image);
+    true
+}
 
 impl Run {
     /// The knights' charges fill while the party fights.
@@ -332,7 +404,9 @@ impl Run {
                 | Ult::Dismember
                 | Ult::PhilosophersRain
                 | Ult::RedHarvest
-                | Ult::SkewerDrive => {
+                | Ult::SkewerDrive
+                | Ult::PhantomLegion
+                | Ult::HallOfMirrors => {
                     champs.push((id, ult));
                 }
                 // The grave is planted once every cast is out (`minions`).
@@ -501,6 +575,7 @@ impl Run {
                             dx: px * side * 2.6,
                             dy: py * side * 2.6,
                             left: PHANTOM_TICKS,
+                            ..Phantom::default()
                         });
                     }
                 }
@@ -510,9 +585,19 @@ impl Run {
             self.cues.push(format!("ult:{}", ult.word()));
             self.notice("my_ult");
             self.found = Some((self.tick, id, format!("{}!", ult.name())));
-            // The Bard's song is its own music box; every other ultimate
-            // rises like a guardian.
-            self.sounds.push(if matches!(ult, Ult::Lullaby) { bard::LULLABY } else { "boss_rise" });
+            // The Bard's song is its own music box, heard by the Bard
+            // alone; every other ultimate rises like a guardian.
+            if matches!(ult, Ult::Lullaby) {
+                // Its song's breakdown; the next groove is the next song.
+                let songs = self.players.get_mut(&id).map_or(0, |h| {
+                    let was = h.songs;
+                    h.songs = was.wrapping_add(1);
+                    was
+                });
+                self.seat_sounds.push((id, bard::lullaby(bard::song_of(id, songs))));
+            } else {
+                self.sounds.push("boss_rise");
+            }
             self.fx.push(Fx::Shake(6));
         }
         for (id, ult) in champs {
@@ -690,6 +775,7 @@ impl Run {
         for phantom in &mut self.phantoms {
             phantom.left = phantom.left.saturating_sub(1);
             match self.players.get(&phantom.owner).filter(|h| h.hp > 0) {
+                Some(_) if phantom.fixed => {}
                 Some(hero) => (phantom.x, phantom.y) = (hero.x + phantom.dx, hero.y + phantom.dy),
                 None => phantom.left = 0,
             }
@@ -724,6 +810,38 @@ pub(super) fn phantom_shots(
         }
     }
     shots.extend(copies);
+}
+
+/// A knight's melee thrust, struck again from each of their images (the
+/// copy of a shot, for a blade): the same reach and arc along the knight's
+/// aim, from where the image stands, at a share of the blow. One stroke
+/// from each image. Every foe each struck, nearest first, and what it took.
+pub(super) fn phantom_strikes(
+    phantoms: &[Phantom],
+    owner: u32,
+    enemies: &mut [Enemy],
+    grid: &Grid,
+    aim: (f32, f32),
+    (reach, arc): (f32, f32),
+    damage: u32,
+) -> Vec<(usize, u32)> {
+    let mut struck = Vec::new();
+    if damage == 0 {
+        return struck;
+    }
+    let share = (damage * PHANTOM_SHARE / 100).max(1);
+    let angle = aim.1.atan2(aim.0);
+    for phantom in phantoms.iter().filter(|p| p.owner == owner && p.left > 0 && !p.charge) {
+        let (px, py) = (phantom.x, phantom.y);
+        struck.extend(aoe::strike(enemies, (px, py), share, |e| {
+            let (dx, dy) = (e.x - px, e.y - py);
+            let delta = (dy.atan2(dx) - angle).sin().atan2((dy.atan2(dx) - angle).cos()).abs();
+            dx.hypot(dy) <= reach + e.radius()
+                && delta <= arc.to_radians() / 2.0
+                && grid.open((px + e.x) / 2.0, (py + e.y) / 2.0, Mover::Hero)
+        }));
+    }
+    struck
 }
 
 #[cfg(test)]

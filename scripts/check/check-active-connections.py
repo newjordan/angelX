@@ -12,7 +12,7 @@ import os
 import re
 import tomllib
 
-ROOTS = ('cockpit/src', 'cockpit/code-mode/src', 'scripts', 'lib', 'tests', 'bin')
+ROOTS = ('cockpit/src', 'cockpit/code-mode/src', 'cockpit/delve-cart/src', 'scripts', 'lib', 'tests', 'bin')
 SKIP = {'off-limits', 'target', 'node_modules', '__pycache__'}
 JS_REF = re.compile(r'''(\bfrom\s+|\bimport\s*\(|\bimport\s+|\bnew\s+URL\(\s*)['"](\.[^'"\n]+)['"]''')
 RUST_REF = re.compile(r'''(?:include!\s*\(|#\[path\s*=\s*)"([^"\n]+\.rs)"''')

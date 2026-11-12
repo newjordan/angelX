@@ -80,6 +80,25 @@ input/change events, key press, page screenshot, and `eval` as the
 capsule-gated escape hatch. Only `http(s)` URLs and `about:blank` open —
 `file:` and `javascript:` fail closed.
 
+## Ground: the model points, angel clicks
+
+`desktop {action: ground, target}` screenshots an output, asks a GUI
+vision model for the click point through its own chat template,
+zooms twice on crops scaled back to the full frame, and returns
+layout coordinates for a capsule-approved click. Garbled or
+off-frame answers fail closed; the grounding frame is capped at
+1920×1080. Kit and numbers: `scripts/bench/mage-hands/`,
+[probe](https://github.com/newjordan/angelX/blob/main/docs/telemetry/mage-grounding-probe-20261030.md).
+
+The model is **Mage Hand — Mage-VL-Cowork-hands-v2**
+([Frosty40/mage-hand-Mage-VL-Cowork-hands-v2](https://huggingface.co/Frosty40/mage-hand-Mage-VL-Cowork-hands-v2)),
+angelX's fine-tune of Microsoft's
+[Mage-VL-Cowork](https://huggingface.co/microsoft/Mage-VL-Cowork)
+(Apache-2.0; itself trained from Microsoft's Mage-VL on a
+Qwen3-4B-Instruct-2507 backbone). Full attribution chain:
+[model card](https://github.com/newjordan/angelX/blob/main/scripts/bench/mage-hands/MODEL_CARD.md) and
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+
 ## Evidence (2026-10-30, this machine)
 
 - Unit: `check-cockpit-fast.sh hands` — classification, URL/key/text/coords
@@ -89,6 +108,7 @@ capsule-gated escape hatch. Only `http(s)` URLs and `about:blank` open —
 - Live browser: driver probe — goto → type → click → assert page text →
   screenshot, against headless Chromium serving a local page.
 
-Not done yet: mouse move/drag/scroll, multi-tab, AT-SPI/accessibility-tree
-grounding (coordinate clicks from `vision_look` are the current path),
-browser downloads/uploads, and any macOS/Windows backend.
+Not done yet: mouse move/drag/scroll, multi-tab,
+AT-SPI/accessibility-tree grounding (Mage Hand coordinate grounding
+above is the current path), browser downloads/uploads, and any
+macOS/Windows backend.

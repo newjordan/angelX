@@ -406,7 +406,7 @@ fn stage_copy_still_inspector_input_scope_pin_footer_and_cleanup() {
     let mut app = App::preview(crate::ui::viewer::Viewer::new());
     app.scryglass
         .navigate(crate::ui::scryglass::StageRoute::Explore(
-            crate::stage::world_viz::Building::Smithy,
+            crate::ui::scryglass::Building::Smithy,
         ));
     let route = app.scryglass.controller.route();
     app.media.push(Media::Image {
@@ -687,6 +687,7 @@ fn native_artifact_stage_keeps_identity_draft_and_motion_off_ownership() {
     assert_ne!(app.scryglass.media_request_id(), request);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn dungeon_miniviz_stays_the_realm_while_a_delve_is_on() {
     let _guard = crate::tests::env_lock();

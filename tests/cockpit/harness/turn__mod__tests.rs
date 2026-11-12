@@ -379,3 +379,200 @@ fn only_failed_or_unknown_job_completions_are_failures() {
         "failed receipts lead"
     );
 }
+
+fn wire_of(outcome: &TurnOutcome) -> (&'static str, bool, bool, bool) {
+    (
+        outcome.stop_reason.as_str(),
+        outcome.interrupted,
+        outcome.deadline_reached,
+        outcome.max_hops_reached,
+    )
+}
+
+/// The two outcome constructors, for every reason a caller builds with them.
+#[test]
+fn outcome_constructors_give_each_stop_reason_its_pinned_flags() {
+    assert_eq!(
+        wire_of(&TurnOutcome::answer("a".to_string(), 2)),
+        ("answer", false, false, false)
+    );
+    for (reason, expected) in [
+        (TurnStopReason::Interrupt, ("interrupt", true, false, false)),
+        (TurnStopReason::Deadline, ("deadline", true, true, false)),
+        (TurnStopReason::MaxHops, ("max_hops", true, false, true)),
+        (TurnStopReason::NeedsPro, ("needs_pro", true, false, false)),
+    ] {
+        assert_eq!(
+            wire_of(&TurnOutcome::stopped("s".to_string(), reason, 2)),
+            expected
+        );
+    }
+}
+
+/// `needs_pro` is only ever the fast tier's intermediate outcome (the ladder
+/// re-runs the turn on the escalation seat and discards it), so no public
+/// caller sees it; its flags are pinned here through the tier runner itself.
+#[test]
+fn needs_pro_on_the_fast_tier_stops_true_false_false() {
+    let _lock = crate::tests::env_lock();
+    let _env = [
+        crate::tests::TestEnvGuard::set("ANGEL_SKILL_HINT", "0"),
+        crate::tests::TestEnvGuard::set("ANGEL_ADVISOR", "0"),
+        crate::tests::TestEnvGuard::set("ANGEL_CADDY", "0"),
+        crate::tests::TestEnvGuard::set("ANGEL_HARNESS_ROLLOUTS", "off"),
+        crate::tests::TestEnvGuard::unset("ANGEL_TASK_ACCEPT_CMD"),
+    ];
+    struct Marker;
+    impl Club for Marker {
+        fn label(&self) -> &str {
+            "needs-pro-marker"
+        }
+        fn respond(&self, _: &str) -> Result<String, String> {
+            unreachable!()
+        }
+        fn chat(
+            &self,
+            _: &[ChatMsg],
+            _: &[crate::agent::club::ToolDef],
+        ) -> Result<crate::agent::club::ClubReply, String> {
+            Ok(crate::agent::club::ClubReply::Text(
+                "<<<NEEDS_PRO: a deeper proof>>>\n".to_string(),
+            ))
+        }
+    }
+    let dir = std::env::temp_dir().join(format!("stop-wire-needs-pro-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut registry = ToolRegistry::new();
+    registry.set_workspace(dir.clone());
+    let mut history = vec![ChatMsg::user("do the hard thing")];
+    let cancel = AtomicBool::new(false);
+    let catalog = book::catalog::bind_turn(&mut history).unwrap();
+    let catalog = crate::agent::harness::core_catalog::bind_book(catalog);
+    let _owner = book::catalog::publish_owner(&cancel as *const AtomicBool as usize, &catalog);
+    let _book = book::catalog::enter(catalog);
+    let outcome = run_turn_tiered(
+        &Marker,
+        &registry,
+        &mut history,
+        &cancel,
+        Some(4),
+        &mpsc::channel().0,
+        None,
+        NeedsProTier::Fast,
+        None,
+        None,
+    )
+    .expect("the marker is a stop, not a failure");
+    assert_eq!(wire_of(&outcome), ("needs_pro", true, false, false));
+    assert_eq!(outcome.answer, "a deeper proof");
+    let _ = std::fs::remove_dir_all(dir);
+}
+
+/// The one table, pinned. `idle_timeout` has no row: nothing constructs it.
+#[test]
+fn stop_flags_table_is_pinned() {
+    use TurnStopReason::*;
+    for (reason, expected) in [
+        (Answer, Some((false, false, false))),
+        (Interrupt, Some((true, false, false))),
+        (IdleTimeout, None),
+        (Deadline, Some((true, true, false))),
+        (MaxHops, Some((true, false, true))),
+        (ExecutionBlocked, Some((false, false, false))),
+        (CaptureFailure, Some((false, false, false))),
+        (CheckpointFailure, Some((false, false, false))),
+        (ProviderError, Some((false, false, false))),
+        (NeedsPro, Some((true, false, false))),
+    ] {
+        assert_eq!(
+            reason
+                .flags()
+                .map(|f| (f.interrupted, f.deadline_reached, f.max_hops_reached)),
+            expected,
+            "{reason:?}"
+        );
+    }
+}
+
+#[test]
+fn a_failure_built_by_new_carries_the_table_flags() {
+    use TurnStopReason::*;
+    for reason in [
+        MaxHops,
+        ExecutionBlocked,
+        CaptureFailure,
+        CheckpointFailure,
+        ProviderError,
+    ] {
+        let failure = TurnFailure::new("m".to_string(), reason, 3);
+        assert_eq!(Some(failure.flags()), reason.flags(), "{reason:?}");
+        assert_eq!(failure.hops, 3);
+        assert!(failure.acceptance.is_none() && failure.rollout_id.is_none());
+    }
+    let mut failure = TurnFailure::new("m".to_string(), MaxHops, 3);
+    failure.restamp(CaptureFailure);
+    assert_eq!(failure.stop_reason, CaptureFailure);
+    assert_eq!(Some(failure.flags()), CaptureFailure.flags());
+}
+
+/// What each late verdict keeps of the turn it lands on. These are today's
+/// values, including the combinations a table could not produce
+/// (`interrupt` with `max_hops_reached`, `idle_timeout` with either value of
+/// `interrupted`).
+#[test]
+fn the_two_late_verdicts_keep_what_they_say_they_keep() {
+    use TurnStopReason::*;
+    let outcome = |reason| TurnOutcome::stopped("s".to_string(), reason, 2);
+    let failure = |reason| TurnFailure::new("m".to_string(), reason, 2);
+    let flags = |f: StopFlags| (f.interrupted, f.deadline_reached, f.max_hops_reached);
+
+    for (ended, expected) in [
+        (outcome(MaxHops), (true, false, true)),
+        (outcome(Deadline), (true, true, false)),
+        (outcome(Interrupt), (true, false, false)),
+    ] {
+        let mut ended = ended;
+        ended.retag(Retag::OperatorKill);
+        assert_eq!(ended.stop_reason, Interrupt);
+        assert_eq!(flags(ended.flags()), expected);
+    }
+    let mut ended = TurnOutcome::answer("a".to_string(), 2);
+    ended.retag(Retag::OperatorKill);
+    assert_eq!(
+        (ended.stop_reason, flags(ended.flags())),
+        (Interrupt, (true, false, false))
+    );
+    for (reason, expected) in [
+        (ProviderError, (true, false, false)),
+        (MaxHops, (true, false, true)),
+    ] {
+        let mut ended = failure(reason);
+        ended.retag(Retag::OperatorKill);
+        assert_eq!(ended.stop_reason, Interrupt);
+        assert_eq!(flags(ended.flags()), expected);
+    }
+
+    for (ended, expected) in [
+        (outcome(Interrupt), (true, false, false)),
+        (outcome(Deadline), (true, true, false)),
+        (outcome(MaxHops), (true, false, true)),
+        (
+            TurnOutcome::answer("a".to_string(), 2),
+            (false, false, false),
+        ),
+    ] {
+        let mut ended = ended;
+        ended.retag(Retag::IdleTimeout);
+        assert_eq!(ended.stop_reason, IdleTimeout);
+        assert_eq!(flags(ended.flags()), expected);
+    }
+    for (reason, expected) in [
+        (ProviderError, (false, false, false)),
+        (MaxHops, (true, false, true)),
+    ] {
+        let mut ended = failure(reason);
+        ended.retag(Retag::IdleTimeout);
+        assert_eq!(ended.stop_reason, IdleTimeout);
+        assert_eq!(flags(ended.flags()), expected);
+    }
+}

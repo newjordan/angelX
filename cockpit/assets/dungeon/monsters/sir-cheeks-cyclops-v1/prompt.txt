@@ -1,0 +1,19 @@
+Generator: built-in image_gen; transparent_background=true.
+Final asset: Sir Cheeks, a cyclops buttcheek monster wielding the Stinkblade.
+
+INITIAL GENERATION
+Use case: stylized-concept
+Asset type: transparent pixel-art monster animation sprite sheet for the comedy fantasy game Knights Wish.
+Primary request: Cartoon buttcheeks holding a stinky sword. Make the character immediately funny, appealing and very readable as a small game enemy.
+Subject: one anthropomorphic peach-pink pair of round cartoon buttcheeks as the entire body, a clear central crease, tiny stubborn eyes high on the two lobes, a comically determined expression, short mitten hands and stubby little dark medieval boots. One hand grips an oversized battered fantasy sword with green slime on the blade and curling sickly-green stink wisps. Silly nonsexual slapstick anatomy, like a ridiculous living peach-shaped butt monster. No human torso or realistic anatomy.
+Style: authentic chunky 16-bit pixel art, crisp square pixel clusters, limited harmonious palette, dark plum outlines, cel-like 3-tone shading, no smooth vector curves, no painterly texture, no blur or antialiasing. Consistent character design and scale across all frames.
+Layout: exactly eight frames in an evenly spaced 4-column by 2-row grid, landscape 2:1 canvas. Equal square cells, each with generous transparent padding, no visible grid, no text, no labels. All frames show the same front three-quarter view facing right. Keep the body centered and the boot baseline aligned in every cell, never crop the sword, fumes or character. Every frame self-contained inside its cell.
+Animation: top row four consecutive frames of a funny looping idle: neutral, cheeks squish down, rebound up slightly, settle; sword and green smell wisps bob subtly. Bottom row four consecutive frames of one sword attack: big windup, forward slash with a clean bright green crescent trail, extended follow-through with a green stink puff, recover to idle. Show visibly distinct but closely related animation poses, consistent face and limbs.
+Background: actual transparent alpha, no ground, no scene, no opaque backdrop or baked checkerboard.
+Avoid: extra characters, extra arms, extra swords, realistic flesh, explicit anatomy, blood, gore, typography, watermark.
+
+CYCLOPS EDIT
+Use case: precise-object-edit
+Asset type: transparent pixel-art monster animation sprite sheet for Knights Wish.
+Edit the supplied sprite sheet. Change the character into a CYCLOPS in ALL EIGHT frames: replace the two separate eyes and two eyebrows with ONE unmistakable large centered eyeball high on the buttcheek body, with one white sclera, one dark pupil, and one expressive brow. Exactly ONE eye per character, no second eye, no extra eyes anywhere. Keep the expression comically angry and determined. The single eye should track the direction of the attack during the attack frames.
+Preserve the peach-pink cartoon buttcheek body, obvious central crease, mitten hands, little medieval boots, oversized green stinky sword, slime, stink wisps, chunky pixel-art style, palette, transparent background, eight-frame layout, camera, scale, and the four idle / four sword attack poses. Only change the facial eye arrangement. No text or grid lines. Actual transparent alpha.

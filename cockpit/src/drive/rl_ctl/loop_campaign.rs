@@ -233,7 +233,7 @@ impl RlState {
         let progress = self.progress_snapshot();
         let mut status = json!({
             "available": self.loop_enabled(),
-            "status": if self.running() { "running" } else if progress.outcome.is_some() { "settled" } else { "idle" },
+            "status": self.phase().status_word(),
             "stop_requested": self.cancel.as_ref().is_some_and(|c| c.load(Ordering::Acquire)),
             "loop_id": self.loop_owner,
             "run_id": self.run_dir.as_ref().and_then(|p| p.file_name()).map(|s| s.to_string_lossy()),

@@ -6,6 +6,8 @@
 use super::{BTreeMap, HZ, Input, MAX_PLAYERS, RoomKind, Run, Spoil};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+pub mod show;
+use show::{Cry, Kind};
 /// Larger makes the descent heavier, in fixed units per tick squared.
 pub const GRAVITY: u32 = 112;
 /// Larger clears a higher deck, in fixed units per tick.
@@ -20,6 +22,14 @@ pub const Q: i32 = 256;
 pub const LENGTH: u32 = 75 * HZ;
 pub const GOLD_PER_SEAT: u32 = 10;
 pub const WORK_PER_RECORD: u32 = 1;
+/// Ticks the table waits, title then 3-2-1, before every knight starts together.
+pub const INTRO: u32 = 108;
+/// Ticks the crew bell lets every knight hop an eighth higher.
+pub const BELL_LIFE: u32 = 5 * HZ;
+/// Gold the crew bell adds to the pot each time it rings.
+pub const BELL_GOLD: u32 = 5;
+/// The crew's average deck at which the bell rings.
+pub const BELL_DECKS: [usize; 3] = [3, 6, 9];
 pub const BAY: (f32, f32) = (24.0, 12.0);
 pub const FLOOR: i32 = 540;
 pub const TOP: i32 = 108;
@@ -241,6 +251,9 @@ pub struct Lane {
     pub brick_burst: u32,
     pub last_jump: Option<u64>,
     pub cooldown: u32,
+    /// What lately happened on this tower, for the picture (`show`).
+    #[serde(default, skip_serializing_if = "show::Show::quiet")]
+    pub show: show::Show,
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -287,6 +300,7 @@ impl Lane {
             brick_burst: 0,
             last_jump: None,
             cooldown: 0,
+            show: show::Show::default(),
             history: VecDeque::new(),
         }
     }
@@ -308,6 +322,7 @@ impl Lane {
             && self.hurt <= 30
             && self.effect <= 12
             && self.cooldown <= 24
+            && self.show.valid()
             && self.falls <= LENGTH
             && self.chain <= LENGTH
             && self.score <= 1000
@@ -348,10 +363,24 @@ impl Lane {
         self.effect_y = y;
         self.freeze = 2;
     }
-    fn fail(&mut self) {
+    /// Boots reach `deck`: the best one so far is the checkpoint.
+    fn reach(&mut self, deck: usize, tick: u32) {
+        if deck > self.checkpoint {
+            self.checkpoint = deck;
+            self.show.mark(Kind::Top { deck: deck as u8 }, (self.x / Q, self.y / Q), self.dir, tick);
+        }
+    }
+    /// A tick that waits out the countdown: only the held button is kept, so a press made
+    /// before the start is not read as a hop after it.
+    pub fn rest(&mut self, input: Input) {
+        self.fire_key = input.valid() && input.fire;
+    }
+    /// Went down: `cause` 0 off the scaffold, 1 the keeper, 2 a brick.
+    fn fail(&mut self, tick: u32, cause: u8) {
         if self.hurt > 0 || self.down > 0 {
             return;
         }
+        self.show.mark(Kind::Fall { cause }, (self.x / Q, self.y / Q), self.dir, tick);
         self.falls += 1;
         self.chain = 0;
         self.down = 18;
@@ -367,6 +396,21 @@ impl Lane {
         allowance: u64,
         elapsed: u32,
     ) {
+        self.step_boosted(input, t, now, allowance, elapsed, false);
+    }
+    /// `step_at`, the crew bell's high hops on or off.
+    pub fn step_boosted(
+        &mut self,
+        input: Input,
+        t: &super::tune::Tune,
+        now: u64,
+        allowance: u64,
+        elapsed: u32,
+        boost: bool,
+    ) {
+        let tick = now as u32;
+        self.show.tick(tick);
+        let jump = if boost { t.rafter_jump * 9 / 8 } else { t.rafter_jump };
         let input = if input.valid() {
             input
         } else {
@@ -428,6 +472,7 @@ impl Lane {
                 self.hurt = 30;
                 self.pose = 5;
                 self.pose_ticks = 6;
+                self.show.mark(Kind::Rise, (self.x / Q, self.y / Q), self.dir, tick);
             }
             return;
         }
@@ -438,17 +483,19 @@ impl Lane {
                 // Catch the rung the knight saw, even if transit carried the body past it.
                 self.x = 120 * Q;
                 self.y = s.y;
+                self.show.mark(Kind::Catch, (120, s.y / Q), self.dir, tick);
             }
             self.climbing = true;
             self.ground = None;
         }
         if self.buffer > 0 && (self.ground.is_some() || self.coyote > 0 || self.climbing) {
-            self.vy = -(t.rafter_jump as i32);
+            self.vy = -(jump as i32);
             self.ground = None;
             self.coyote = 0;
             self.climbing = false;
             self.buffer = 0;
             self.pose = 3;
+            self.show.mark(Kind::Hop, (self.x / Q, self.y / Q), self.dir, tick);
         }
         self.buffer = self.buffer.saturating_sub(1);
         let old_y = self.y;
@@ -468,7 +515,7 @@ impl Lane {
                 if self.y <= ps[i].y * Q {
                     self.y = ps[i].y * Q;
                     self.ground = Some(i);
-                    self.checkpoint = self.checkpoint.max(i);
+                    self.reach(i, tick);
                     self.climbing = false;
                 }
             } else {
@@ -488,6 +535,7 @@ impl Lane {
             if self.vy >= 0 {
                 if let Some((i, p)) = landing(old_y, self.y, self.x / Q, &ps) {
                     let landed = self.ground.is_none();
+                    let came = self.vy;
                     self.y = p.y * Q;
                     self.vy = 0;
                     self.ground = Some(i);
@@ -497,10 +545,12 @@ impl Lane {
                         self.pose_ticks = 4;
                         self.chain += 1;
                         self.burst(self.x / Q, p.y);
+                        self.show.mark(Kind::Land { hard: came >= 1700 }, (self.x / Q, p.y), self.dir, tick);
+                        if self.chain % 3 == 0 {
+                            self.show.mark(Kind::Chain { n: self.chain.min(999) as u16 }, (self.x / Q, p.y), self.dir, tick);
+                        }
                     }
-                    if i > self.checkpoint {
-                        self.checkpoint = i;
-                    }
+                    self.reach(i, tick);
                 }
             }
         }
@@ -511,11 +561,15 @@ impl Lane {
         self.score = self.height + (6 - u32::from(self.keeper.hp)) * 70;
         self.camera = camera(self.y / Q, 110, FLOOR - 132);
         if self.y > (FLOOR + 60) * Q || self.y / Q > ps[self.checkpoint].y + 110 {
-            self.fail();
+            self.fail(tick, 0);
         }
         if self.height >= 370 {
-            if self.keeper.step(self.x / Q) && self.keeper.danger.contains(self.x / Q, self.y / Q) {
-                self.fail();
+            if self.keeper.step(self.x / Q) {
+                let k = self.keeper.danger;
+                self.show.mark(Kind::Slam { sweep: self.keeper.sweep }, (k.x + k.w / 2, TOP), self.dir, tick);
+                if k.contains(self.x / Q, self.y / Q) {
+                    self.fail(tick, 1);
+                }
             }
             if self.cooldown == 0
                 && self.keeper.hp > 0
@@ -530,6 +584,7 @@ impl Lane {
                 self.cooldown = 24;
                 self.vy = 640;
                 self.burst(self.keeper.x, TOP - 36);
+                self.show.mark(Kind::Strike { left: self.keeper.hp }, (self.keeper.x, TOP - 36), self.dir, tick);
                 if self.keeper.hp == 0 {
                     self.keeper.beat = Beat::Defeat;
                     self.finish = Some(elapsed);
@@ -542,8 +597,9 @@ impl Lane {
             self.brick_tell -= 1;
             if self.brick_tell == 0 {
                 self.brick_burst = 12;
+                self.show.mark(Kind::Brick, (self.brick.x + self.brick.w / 2, self.brick.y + self.brick.h), self.dir, tick);
                 if self.brick.contains(self.x / Q, self.y / Q) {
-                    self.fail();
+                    self.fail(tick, 2);
                 }
             }
         } else {
@@ -616,6 +672,31 @@ pub struct Session {
     pub order: Vec<u32>,
     pub key: bool,
     pub won: bool,
+    /// Ticks of title and 3-2-1 still to run before the knights start together.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub go: u32,
+    /// Ticks the crew bell's high hops still last, and how many times it has rung.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub bell: u32,
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub bells: u8,
+    /// The run's tick the round ended on, and the hall's best before it (for the finish).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub ended: u32,
+    #[serde(default, skip_serializing_if = "is_zero_u16")]
+    pub was: u16,
+    /// What the whole table hears (`show`).
+    #[serde(default, skip_serializing_if = "show::Calls::quiet")]
+    pub show: show::Calls,
+}
+fn is_zero(v: &u32) -> bool {
+    *v == 0
+}
+fn is_zero_u8(v: &u8) -> bool {
+    *v == 0
+}
+fn is_zero_u16(v: &u16) -> bool {
+    *v == 0
 }
 impl Session {
     pub fn new(seats: impl Iterator<Item = u32>, seed: u64) -> Self {
@@ -626,7 +707,22 @@ impl Session {
             order: Vec::new(),
             key: true,
             won: false,
+            go: INTRO,
+            bell: 0,
+            bells: 0,
+            ended: 0,
+            was: 0,
+            show: show::Calls::default(),
         }
+    }
+    /// What the pot holds: a purse from each seat and what the crew bell added.
+    pub fn pot(&self) -> u32 {
+        GOLD_PER_SEAT * self.lanes.len() as u32 + BELL_GOLD * u32::from(self.bells)
+    }
+    /// The crew's average deck, in tenths, over the seats on the tower.
+    pub fn crew_deck(&self) -> u32 {
+        let n = self.lanes.len().max(1) as u32;
+        self.lanes.values().map(|d| d.checkpoint as u32).sum::<u32>() * 10 / n
     }
     pub fn score(&self, id: u32) -> (std::cmp::Reverse<u32>, u32, u32) {
         let d = &self.lanes[&id];
@@ -660,7 +756,7 @@ impl Session {
             .range(..id)
             .filter(|&(r, _)| self.score(*r) == self.score(first))
             .count() as u32;
-        let total = GOLD_PER_SEAT * self.lanes.len() as u32;
+        let total = self.pot();
         total / tied + u32::from(before < total % tied)
     }
     pub fn valid(&self) -> bool {
@@ -671,6 +767,11 @@ impl Session {
                 .iter()
                 .all(|(&id, d)| (1..=MAX_PLAYERS).contains(&id) && d.valid() && d.seed == self.seed)
             && self.left <= LENGTH
+            && self.go <= INTRO
+            && self.bell <= BELL_LIFE
+            && self.bells as usize <= BELL_DECKS.len()
+            && self.was <= 1000
+            && self.show.valid()
             && self.order.len() <= self.lanes.len()
             && self
                 .order
@@ -693,6 +794,12 @@ impl Session {
         self.order.clear();
         self.key = true;
         self.won = false;
+        self.go = 0;
+        self.bell = 0;
+        self.bells = 0;
+        self.ended = 0;
+        self.was = 0;
+        self.show = show::Calls::default();
     }
 }
 impl Run {
@@ -748,29 +855,80 @@ impl Run {
             }
             return;
         }
+        let now = self.tick as u32;
+        if s.go > 0 {
+            // Everyone waits out the title and the 3-2-1 together, then starts on one tick.
+            s.go -= 1;
+            for (&id, d) in &mut s.lanes {
+                d.rest(inputs.get(&id).copied().unwrap_or_default());
+            }
+            if s.go % 32 == 0 && s.go > 0 {
+                self.sounds.push("play_card");
+            }
+            if s.go == 0 {
+                self.sounds.push("wish_grant");
+            }
+            self.rafterwake = Some(s);
+            return;
+        }
         s.left -= 1;
         let elapsed = LENGTH - s.left;
+        s.show.tick(now);
+        let boost = s.bell > 0;
+        s.bell = s.bell.saturating_sub(1);
+        let mut heaviest: Option<crate::rules::juice::Weight> = None;
+        let mut fell = Vec::new();
         for (&id, d) in &mut s.lanes {
             if self.players.get(&id).is_some_and(|h| !h.away && !h.stone) {
                 let chain = d.chain;
                 let falls = d.falls;
-                d.step_at(
+                d.step_boosted(
                     inputs.get(&id).copied().unwrap_or_default(),
                     &self.tune,
                     self.tick,
                     self.latch_input_age.get(&id).copied().unwrap_or(0),
                     elapsed,
+                    boost,
                 );
                 if d.chain > chain {
                     self.sounds.push("clang");
                 }
                 if d.falls > falls {
                     self.sounds.push("hit");
+                    fell.push(id);
                 }
+                heaviest = heaviest.max(d.show.heaviest(now));
             }
+        }
+        for id in fell {
+            s.show.fell(id, now);
+        }
+        let points: Vec<(u32, u32)> = s.lanes.iter().map(|(&id, d)| (id, d.score)).collect();
+        s.show.standings(now, &points);
+        if s.show.first_keeper.is_none()
+            && let Some((&id, _)) = s.lanes.iter().find(|(_, d)| d.height >= 370)
+        {
+            s.show.first_keeper = Some(id);
+            s.show.call(Cry::Keeper, id, now);
+        }
+        if s.show.first_slain.is_none()
+            && let Some((&id, _)) = s.lanes.iter().find(|(_, d)| d.finish == Some(elapsed))
+        {
+            s.show.first_slain = Some(id);
+            s.show.call(Cry::Slain, id, now);
+        }
+        if let Some(&deck) = BELL_DECKS.get(usize::from(s.bells))
+            && s.crew_deck() >= deck as u32 * 10
+        {
+            s.bells += 1;
+            s.bell = BELL_LIFE;
+            s.show.call(Cry::Bell(s.bells), 0, now);
+            self.sounds.push("circle_toll");
+            heaviest = heaviest.max(Some(crate::rules::juice::Weight::Solid));
         }
         if s.left == 0 || s.lanes.values().all(|d| d.finish.is_some()) {
             s.left = 0;
+            s.ended = now.max(1);
             s.order = s.lanes.keys().copied().collect();
             let mut order = std::mem::take(&mut s.order);
             order.sort_by_key(|id| (s.score(*id), *id));
@@ -778,6 +936,7 @@ impl Run {
             s.key = true;
             s.won = s.lanes.values().any(|d| d.finish.is_some());
             let record = &mut self.home.countryside.games.rafterwake;
+            s.was = record.best;
             record.best = record.best.max(
                 s.lanes
                     .values()
@@ -800,6 +959,11 @@ impl Run {
             self.sounds.push("spoil_pickup");
         }
         self.rafterwake = Some(s);
+        // The heaviest blow of the tick holds the room's time, as the realm's hit-stop does.
+        if let Some(weight) = heaviest {
+            self.hold_for(weight);
+        }
+        self.finish_hit_hold();
     }
     fn start_rafterwake(&mut self) {
         let seed = self.rng.next();
@@ -852,6 +1016,7 @@ impl Run {
         }
         r.start_rafterwake();
         let s = r.rafterwake.as_mut().unwrap();
+        s.go = 0;
         s.left = LENGTH - 900;
         for (&id, d) in &mut s.lanes {
             d.height = id * 72;

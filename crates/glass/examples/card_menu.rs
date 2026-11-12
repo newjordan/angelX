@@ -109,6 +109,12 @@ fn main() {
     options.columns = 140;
     options.rows = 44;
     let result = angel_glass::run(options, move |host| {
+        host.install_showcase_squire_pack(
+            "showcase-squire",
+            "pack",
+            include_bytes!("../../../cockpit/live/showcase-squire/pack.json"),
+        )
+            .expect("the packaged showcase squire resource is valid");
         let mut terminal = Terminal::new(host.backend()).unwrap();
         let list = |cursor: usize, knight: Knight, serial: u64| Page {
             title: "Connect angelX to an AI model",

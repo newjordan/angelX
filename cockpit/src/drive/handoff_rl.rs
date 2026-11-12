@@ -29,6 +29,23 @@ pub(crate) struct VictoryEntry {
     pub timestamp: String,
 }
 
+/// Where the controller stands, derived from `active`, `last_stop_reason` and
+/// the caps by [`HandoffRlState::phase`]. A cap is only acted on at a turn
+/// boundary, so there is a stretch where the controller is armed and a cap is
+/// already reached.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum HandoffPhase {
+    /// Never started since the last reset.
+    Fresh,
+    /// Armed and under every cap.
+    Active,
+    /// Armed, but a cap is reached: the next turn boundary stops it. Holds the
+    /// cap in the words `budget_tripped` gives it.
+    CapReached(String),
+    /// Stopped, with the reason (the operator, a guard, or a cap).
+    Stopped(String),
+}
+
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub(crate) struct HandoffRlState {
     pub active: bool,
@@ -123,6 +140,20 @@ impl HandoffRlState {
             "handoff RL operator cap reached: {why} — raise the cap (`/handoff-rl max N`, \
              `/handoff-rl endless`) or `/handoff-rl start` again"
         )
+    }
+
+    pub(crate) fn phase(&self) -> HandoffPhase {
+        if self.active {
+            match self.budget_tripped() {
+                Some(why) => HandoffPhase::CapReached(why),
+                None => HandoffPhase::Active,
+            }
+        } else {
+            match &self.last_stop_reason {
+                Some(why) => HandoffPhase::Stopped(why.clone()),
+                None => HandoffPhase::Fresh,
+            }
+        }
     }
 
     /// Which budget (if any) is exhausted — same contract as the agent loop.
@@ -261,7 +292,12 @@ impl HandoffRlState {
 
     /// Status text for `/handoff-rl status`.
     pub fn status_text(&self) -> String {
-        let status_str = if self.active { "ACTIVE" } else { "INACTIVE" };
+        let status_str = match self.phase() {
+            HandoffPhase::Active => "ACTIVE",
+            // Still armed, but the next turn boundary stops it.
+            HandoffPhase::CapReached(_) => "STOPPING",
+            HandoffPhase::Fresh | HandoffPhase::Stopped(_) => "INACTIVE",
+        };
         let winning_base = self.winning_baseline.as_deref().unwrap_or("none");
         let winning_sc = self
             .winning_score

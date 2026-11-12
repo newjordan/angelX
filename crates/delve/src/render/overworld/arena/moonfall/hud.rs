@@ -6,7 +6,7 @@ use super::ground::{plate, plate_centred, seat_ink};
 use super::labels::{Layout, Rect};
 use super::{VIEW_H, VIEW_Y};
 use crate::rules::moonfall::{
-    Session, clock, control,
+    Session, clock,
     folk::{CAST, Folk},
     ledger::{self, Fact},
     state::{Item, Knight, Mask, Note, Panel, Phase, Ring},
@@ -212,13 +212,18 @@ pub(super) fn news_lines(s: &Session, me: &Knight) -> Vec<(String, char)> {
 
 /// The first row of the news: under the sky's edge, and under the Final Hours
 /// box when it is up.
-fn news_top(s: &Session) -> i32 {
-    VIEW_Y + 4 + if s.final_hours() && s.completed.is_none() { 36 } else { 0 }
+fn news_top(s: &Session, me: &Knight) -> i32 {
+    let top = VIEW_Y + 4 + if s.final_hours() && s.completed.is_none() { 36 } else { 0 };
+    // While a card stands on the town the lines wait under it.
+    match super::moments::card_now(s, me) {
+        Some((_, r)) => top.max(r.bottom() + 3),
+        None => top,
+    }
 }
 
 /// Where each news line's plate stands.
-fn news_rects(s: &Session, me: &Knight) -> Vec<Rect> {
-    let top = news_top(s);
+pub(super) fn news_rects(s: &Session, me: &Knight) -> Vec<Rect> {
+    let top = news_top(s, me);
     news_lines(s, me)
         .iter()
         .enumerate()
@@ -231,7 +236,7 @@ fn news_rects(s: &Session, me: &Knight) -> Vec<Rect> {
 
 /// Words the whole table reads: the Ledger writing, reminders, the bell.
 pub(super) fn news(im: &mut Img, s: &Session, me: &Knight) {
-    let mut y = news_top(s);
+    let mut y = news_top(s, me);
     for (line, ink) in news_lines(s, me) {
         plate(im, 192 - text_width(&line) / 2, y, &line, ink);
         y += 10;
@@ -271,38 +276,6 @@ pub(super) fn final_hours(im: &mut Img, s: &Session, shown: u32, tick: u32) {
     im.frame(box_at.x, box_at.y, box_at.w, box_at.h, '7');
     im.stamp_times(&words, x, y, 2);
     im.text(192 - text_width(&count) / 2, y + 17, &count, 'T');
-}
-
-/// Where the dawn card stands, while it shows.
-fn card_rect(s: &Session) -> Option<Rect> {
-    if s.card == 0 || !matches!(s.phase, Phase::Play) {
-        return None;
-    }
-    let total = s.nums.rewind.saturating_sub(control(&s.nums)) + 24;
-    let total = total.max(s.card);
-    let age = total - s.card;
-    // It fades in over the flash, holds, and goes.
-    let shown_ok = age >= 2 && s.card >= 6;
-    let w = text_width("DAWN OF THE FIRST DAY") * 2;
-    shown_ok.then(|| Rect::new(192 - w / 2 - 10, 62, w + 20, 40))
-}
-
-/// Dawn card.
-pub(super) fn card(im: &mut Img, s: &Session) {
-    if card_rect(s).is_none() {
-        return;
-    }
-    let text = "DAWN OF THE FIRST DAY";
-    let mut words = Img::new(text_width(text), 7);
-    words.text(0, 0, text, 'T');
-    let w = words.w * 2;
-    let (x, y) = (192 - w / 2, 70);
-    im.rect(x - 10, y - 8, w + 20, 40, 'k');
-    im.frame(x - 10, y - 8, w + 20, 40, 'O');
-    im.frame(x - 8, y - 6, w + 16, 36, 'B');
-    im.stamp_times(&words, x, y, 2);
-    let sub = if s.memory.loops == 0 { "THE MOON FALLS IN THREE DAYS".to_string() } else { format!("LOOP {}  THE LEDGER REMEMBERS", s.memory.loops + 1) };
-    im.text(192 - text_width(&sub) / 2, y + 20, &sub, 'v');
 }
 
 fn panel(im: &mut Img, x: i32, y: i32, w: i32, h: i32) {
@@ -568,36 +541,32 @@ pub(super) fn out_card(im: &mut Img, me: &Knight) {
 /// Where the end card stands, while it shows.
 fn end_rect(s: &Session) -> Option<Rect> {
     let free = s.completed.is_some() && matches!(s.phase, Phase::Play);
-    let winning = matches!(s.phase, Phase::Won { .. });
-    if !free && !winning {
+    if !free {
         return None;
     }
-    let w = text_width(if winning { "THE LIGHTS HOLD" } else { "THE MOON TURNS BACK" }) * 2;
-    Some(Rect::new(192 - w / 2 - 10, VIEW_Y + 18, w + 20, if free { 56 } else { 30 }))
+    let w = text_width("THE MOON TURNS BACK") * 2;
+    Some(Rect::new(192 - w / 2 - 10, VIEW_Y + 18, w + 20, 56))
 }
 
 /// The end card.
 pub(super) fn end_card(im: &mut Img, s: &Session) {
     let free = s.completed.is_some() && matches!(s.phase, Phase::Play);
-    let winning = matches!(s.phase, Phase::Won { .. });
-    if !free && !winning {
+    if !free {
         return;
     }
-    let text = if winning { "THE LIGHTS HOLD" } else { "THE MOON TURNS BACK" };
+    let text = "THE MOON TURNS BACK";
     let mut words = Img::new(text_width(text), 7);
     words.text(0, 0, text, '6');
     let w = words.w * 2;
     let (x, y) = (192 - w / 2, VIEW_Y + 26);
-    im.rect(x - 10, y - 8, w + 20, if free { 56 } else { 30 }, 'k');
-    im.frame(x - 10, y - 8, w + 20, if free { 56 } else { 30 }, 'O');
+    im.rect(x - 10, y - 8, w + 20, 56, 'k');
+    im.frame(x - 10, y - 8, w + 20, 56, 'O');
     im.stamp_times(&words, x, y, 2);
-    if free {
-        im.text(192 - text_width("MOONFALL IS STOPPED") / 2, y + 20, "MOONFALL IS STOPPED", 'T');
-        let sub = format!("{} LOOPS TOLD IN THE LEDGER", s.memory.loops + 1);
-        im.text(192 - text_width(&sub) / 2, y + 31, &sub, 'v');
-        if (s.elapsed / 15) % 2 == 0 {
-            im.text(192 - text_width("E  RETURN TO THE KINGDOM") / 2, y + 42, "E  RETURN TO THE KINGDOM", 'Y');
-        }
+    im.text(192 - text_width("MOONFALL IS STOPPED") / 2, y + 20, "MOONFALL IS STOPPED", 'T');
+    let sub = format!("{} LOOPS TOLD IN THE LEDGER", s.memory.loops + 1);
+    im.text(192 - text_width(&sub) / 2, y + 31, &sub, 'v');
+    if (s.elapsed / 15) % 2 == 0 {
+        im.text(192 - text_width("E  RETURN TO THE KINGDOM") / 2, y + 42, "E  RETURN TO THE KINGDOM", 'Y');
     }
 }
 
@@ -647,12 +616,12 @@ pub(super) fn first_hint(im: &mut Img, s: &Session) {
 pub(super) fn bell_banner(labels: &mut Layout, s: &Session) {
     let text = match s.phase {
         Phase::Rewind { fell: true, .. } => "THE MOON FALLS",
-        Phase::Rewind { .. } => "THE BELL TOLLS: THE TOWN WINDS BACK",
+        Phase::Rewind { .. } => "REWIND",
         Phase::Skip { from, to, .. } => {
             if clock::night(to, s.nums.day) && !clock::night(from, s.nums.day) {
-                "THE BELL TOLLS: TIME RUNS ON TO DUSK"
+                "TO DUSK"
             } else {
-                "THE BELL TOLLS: TIME RUNS ON TO DAWN"
+                "TO DAWN"
             }
         }
         _ => return,
@@ -678,7 +647,8 @@ pub(super) fn keep_outs(labels: &mut Layout, s: &Session, me: &Knight, shown: u3
     if let Some(r) = hint_rect(s) {
         labels.keep(r, false);
     }
-    let modals = [card_rect(s), end_rect(s), (me.down > 0).then_some(OUT_CARD), me.say.map(|_| TALK_BOX), super::sky::glass(s)];
+    let card = super::moments::card_now(s, me).map(|(_, r)| r);
+    let modals = [card, end_rect(s), (me.down > 0).then_some(OUT_CARD), me.say.map(|_| TALK_BOX), super::sky::glass(s)];
     for r in modals.into_iter().flatten() {
         labels.keep(r, true);
     }

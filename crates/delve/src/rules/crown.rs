@@ -144,7 +144,7 @@ pub fn answer(h: &mut Holdings, treasury: &mut Spoils, card: u8, pick: usize) ->
         w.walls = shift(w.walls, choice.walls, WALLS);
     }
     if choice.raid
-        && let Some(w) = h.owned.iter_mut().filter(|w| w.raid == 0).min_by_key(|w| w.walls)
+        && let Some(w) = h.owned.iter_mut().filter(|w| w.raid == 0 && w.raidable()).min_by_key(|w| w.walls)
     {
         w.raid = 1;
     }
@@ -215,7 +215,7 @@ impl Run {
         if self.room().kind != RoomKind::Kingdom {
             return;
         }
-        if self.kingdom.moments.errand.is_none() {
+        if self.kingdom.moments.errand.is_none() && self.on_the_way(RoomKind::LandOffice) {
             self.kingdom.moments.errand = Some(RoomKind::LandOffice);
         }
         let answered = (0..2).any(|pick| self.marks.contains_key(&card_mark(card, pick)));

@@ -5,9 +5,9 @@
 //! reach it by its public paths and stay here beside the types they need.
 
 use crate::drive::loop_ctl::{EscalationTier as StateTier, LoopState, LoopStatus as StateStatus};
-use crate::stage::world_viz::Building;
-use crate::stage::world_viz::adventure::*;
-use crate::stage::world_viz::overworld::map_enabled;
+use crate::delve::world_viz::Building;
+use crate::delve::world_viz::adventure::*;
+use crate::delve::world_viz::overworld::map_enabled;
 use crate::telemetry::ToolEventId;
 
 /// The mirror emits the full ladder from a fake `LoopState` walk.
@@ -426,7 +426,7 @@ fn catalog_wishes_pass_their_checker_without_price_notes() {
     for path in &files {
         let id = path.file_stem().unwrap().to_str().unwrap();
         let raw = std::fs::read_to_string(path).unwrap();
-        let (draft, notes) = crate::drive::together_realm::check(id, &raw).unwrap();
+        let (draft, notes) = crate::delve::together_realm::check(id, &raw).unwrap();
         assert!(notes.is_empty(), "{id}: {notes:?}");
         assert!(!draft.near.is_empty() && !draft.words.is_empty(), "{id}");
     }
@@ -442,8 +442,8 @@ fn catalog_wishes_pass_their_checker_without_price_notes() {
 }
 
 /// Every catalog wish, granted from a full treasury, in catalog order.
-fn catalog_built() -> std::sync::Arc<Vec<crate::drive::together_realm::Wish>> {
-    use crate::drive::together_realm::{Realm, Spoil, Spoils};
+fn catalog_built() -> std::sync::Arc<Vec<crate::delve::together_realm::Wish>> {
+    use crate::delve::together_realm::{Realm, Spoil, Spoils};
     let mut realm = Realm::default();
     realm.offer_catalog();
     let mut plenty = Spoils::default();
@@ -473,7 +473,7 @@ fn catalog_snapshot_matches_the_realm() {
         json.push('\n');
         std::fs::write(&path, json).unwrap();
     }
-    let snapshot: Vec<crate::drive::together_realm::Wish> =
+    let snapshot: Vec<crate::delve::together_realm::Wish> =
         serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
     assert_eq!(
         snapshot, *built,

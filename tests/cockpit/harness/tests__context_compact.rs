@@ -387,6 +387,32 @@ fn defs_for_run_trims_to_essentials_on_tiny_window() {
 }
 
 #[test]
+fn the_small_workspace_route_advertises_five_tools_and_keeps_the_rest_findable() {
+    let _guard = crate::tests::env_lock();
+    let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "essential");
+    let _route = EnvGuard::set("ANGEL_TASK_SMALL_WORKSPACE", "1");
+    let mut reg = ToolRegistry::with_defaults();
+    reg.enable_tool_search();
+    let mut names: Vec<_> = reg
+        .defs_for_run(Some(1_000_000), false)
+        .into_iter()
+        .map(|tool| tool.name)
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        ["read_file", "shell", "str_replace", "tool_search", "write_file"]
+    );
+    let found = reg
+        .dispatch(
+            "tool_search",
+            &serde_json::json!({"query": "search file contents with a regex"}),
+        )
+        .unwrap();
+    assert!(found.contains("grep"), "grep must stay findable: {found}");
+}
+
+#[test]
 fn essential_schema_profile_is_lean_but_keeps_discovery() {
     let _guard = crate::tests::env_lock();
     let _profile = EnvGuard::set("ANGEL_TOOL_SCHEMA_PROFILE", "essential");

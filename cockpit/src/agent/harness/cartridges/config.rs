@@ -46,6 +46,42 @@ pub(crate) struct Config {
     /// call's arguments as JSON on stdin and its stdout as the result.
     #[serde(default)]
     pub(crate) tools: Vec<ProgramTool>,
+    /// What the plugin registry needs to list, install and update this
+    /// cartridge as a plugin (docs/PLUGINS.md). Loading never reads it.
+    #[serde(default)]
+    pub(crate) plugin: Option<PluginMeta>,
+}
+
+/// A cartridge's `[plugin]` table: its version and who made it, for the
+/// registry, plus the setup an install runs.
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct PluginMeta {
+    /// `MAJOR.MINOR.PATCH`, optionally with a `-pre` suffix.
+    pub(crate) version: String,
+    /// One line: what the plugin does.
+    pub(crate) description: String,
+    #[serde(default)]
+    pub(crate) authors: Vec<String>,
+    /// An SPDX license expression, such as `MIT`.
+    #[serde(default)]
+    pub(crate) license: String,
+    /// The public https repository the registry fetches it from; when absent,
+    /// `angelX plugin submit` reads the git remote.
+    #[serde(default)]
+    pub(crate) repository: Option<String>,
+    #[serde(default)]
+    pub(crate) homepage: Option<String>,
+    #[serde(default)]
+    pub(crate) keywords: Vec<String>,
+    /// The lowest angelX version the plugin works with.
+    #[serde(default)]
+    pub(crate) angelx: Option<String>,
+    /// A program in the folder an install runs once the files are in place,
+    /// and each update after: it fetches or builds what the repository does
+    /// not carry. It runs in the folder, with the folder as its argument.
+    #[serde(default)]
+    pub(crate) setup: Option<String>,
 }
 
 /// One slash command a cartridge adds. A built-in command of the same name wins.
@@ -137,13 +173,7 @@ impl Config {
             if tool.description.trim().is_empty() {
                 return Err(format!("tool `{}` has no description", tool.name));
             }
-            let run = Path::new(&tool.run);
-            let inside = !tool.run.is_empty()
-                && run.is_relative()
-                && run
-                    .components()
-                    .all(|part| matches!(part, std::path::Component::Normal(_)));
-            if !inside {
+            if !inside_folder(&tool.run) {
                 return Err(format!(
                     "tool `{}` runs `{}`, not a path inside the cartridge",
                     tool.name, tool.run
@@ -153,8 +183,28 @@ impl Config {
                 return Err(format!("tool `{}` params are not a JSON schema object", tool.name));
             }
         }
+        if let Some(setup) = config
+            .plugin
+            .as_ref()
+            .and_then(|plugin| plugin.setup.as_deref())
+            && !inside_folder(setup)
+        {
+            return Err(format!(
+                "plugin setup `{setup}` is not a path inside the cartridge"
+            ));
+        }
         Ok(config)
     }
+}
+
+/// A relative path that stays inside the cartridge's folder.
+fn inside_folder(path: &str) -> bool {
+    let run = Path::new(path);
+    !path.is_empty()
+        && run.is_relative()
+        && run
+            .components()
+            .all(|part| matches!(part, std::path::Component::Normal(_)))
 }
 
 /// Where cartridges are found: `ANGEL_CARTRIDGES` (a path list; each entry is

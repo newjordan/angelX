@@ -1,7 +1,6 @@
 use super::*;
 use crate::agent::club::ClubReply;
 use crate::agent::harness::live_policy::{LegSource, decide_with};
-use std::sync::Mutex;
 
 struct Seat {
     levels: Vec<String>,

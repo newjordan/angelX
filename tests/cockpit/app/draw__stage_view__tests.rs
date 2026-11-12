@@ -1,5 +1,20 @@
 use super::*;
 
+#[cfg(feature = "delve")]
+use crate::delve::cart::stage::paint_halfblock_frame;
+
+#[cfg(feature = "delve")]
+fn render_dotmax_interior(frame: &mut Frame, app: &mut App, area: Rect) -> bool {
+    let facts = stage_facts(app);
+    app.realm
+        .dotmax_interior(frame, &mut app.viewer, &facts, area)
+}
+
+#[cfg(feature = "delve")]
+fn overworld_scene(app: &App) -> crate::delve::world_viz::overworld::Scene {
+    app.realm.overworld_scene(&stage_facts(app))
+}
+
 #[test]
 fn running_loop_dancer_stays_in_scene_and_yields_when_too_small() {
     let _guard = crate::tests::env_lock();
@@ -120,17 +135,18 @@ fn spend_coin_overlay_is_gold_clipped_and_expires_without_touching_turn_state() 
     assert_eq!(app.messages.len(), messages);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn dotmax_room_plate_requires_explicit_entry_and_closes_on_leave() {
     let _guard = crate::tests::env_lock();
     let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let _view =
-        crate::stage::world_viz::world3d::pin(crate::stage::world_viz::world3d::WorldView::Mesh3d);
+        crate::delve::world_viz::world3d::pin(crate::delve::world_viz::world3d::WorldView::Mesh3d);
     let mut app = App::preview(crate::ui::viewer::Viewer::new());
-    app.realm.world = crate::stage::world_viz::World::new(71);
+    app.realm.world = crate::delve::world_viz::World::new(71);
     app.realm.world
-        .select_landmark(crate::stage::world_viz::Building::Smithy);
+        .select_landmark(crate::delve::world_viz::Building::Smithy);
     for _ in 0..500 {
         app.realm.world.tick();
     }
@@ -160,6 +176,7 @@ fn dotmax_room_plate_requires_explicit_entry_and_closes_on_leave() {
     assert!(!app.realm.world.ambient_interior_visible());
 }
 
+#[cfg(feature = "delve")]
 #[test]
 #[ignore = "manual living-painting Stage review: set REALM_AMBIENT_DUMP"]
 fn dump_living_painting_stage_cells_for_review() {
@@ -171,7 +188,7 @@ fn dump_living_painting_stage_cells_for_review() {
         std::env::var("REALM_AMBIENT_DUMP").expect("set REALM_AMBIENT_DUMP"),
     );
     std::fs::create_dir_all(&out).unwrap();
-    use crate::stage::world_viz::Building;
+    use crate::delve::world_viz::Building;
     for (id, building) in [
         ("keep", Building::Keep),
         ("gatehouse", Building::Gatehouse),
@@ -185,7 +202,7 @@ fn dump_living_painting_stage_cells_for_review() {
         for (cols, rows) in [(60u16, 20u16), (40, 12)] {
             for phase in 0..16 {
                 let mut app = App::preview(crate::ui::viewer::Viewer::new());
-                app.realm.world = crate::stage::world_viz::World::new(71);
+                app.realm.world = crate::delve::world_viz::World::new(71);
                 app.realm.world.settle_at_for_test(building);
                 assert!(app.realm.world.enter_interior());
                 app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
@@ -244,13 +261,14 @@ fn dump_living_painting_stage_cells_for_review() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn room_graphics_require_entry_and_leaving_restores_outdoors() {
     let _env = crate::tests::env_lock();
     for alias in ["dotmax", "raycast", "ambient", "art"] {
         let _view = crate::tests::TestEnvGuard::set("ANGEL_WORLD_VIEW", alias);
-        let mut world = crate::stage::world_viz::World::new(42);
-        world.settle_at_for_test(crate::stage::world_viz::Building::Keep);
+        let mut world = crate::delve::world_viz::World::new(42);
+        world.settle_at_for_test(crate::delve::world_viz::Building::Keep);
         assert!(!world.ambient_interior_visible());
         assert!(world.enter_interior());
         assert!(world.ambient_interior_visible());
@@ -259,9 +277,10 @@ fn room_graphics_require_entry_and_leaving_restores_outdoors() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn overworld_half_blocks_letterbox_the_frame_on_black_paper() {
-    use crate::stage::world_viz::overworld;
+    use crate::delve::world_viz::overworld;
     let img = overworld::frame(&overworld::Scene::resting());
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(40, 12)).unwrap();
     terminal
@@ -283,9 +302,10 @@ fn overworld_half_blocks_letterbox_the_frame_on_black_paper() {
     assert!(lit > 60, "the frame itself paints ({lit} lit cells)");
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn travel_and_arrival_cues_become_a_glass_over_the_map() {
-    use crate::stage::world_viz::Building;
+    use crate::delve::world_viz::Building;
     use crate::ui::scryglass::StageOverlay;
     let _guard = crate::tests::env_lock();
     let _glass = crate::tests::TestEnvGuard::unset("ANGEL_WORLD_GLASS");
@@ -307,7 +327,7 @@ fn travel_and_arrival_cues_become_a_glass_over_the_map() {
     app.scryglass
         .controller
         .show_overlay(StageOverlay::Arrival {
-            destination: Building::Chapel,
+            destination: Building::Chapel.into(),
         });
     let arrived = overworld_scene(&app).glass.expect("the arrival glass");
     assert!(

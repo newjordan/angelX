@@ -13,7 +13,7 @@ pub(super) fn showing(run: &Run) -> bool {
 
 pub(super) fn pastime(run: &Run) -> bool {
     run.crossroads.as_ref().is_some_and(|c| c.stage == Stage::Playing
-        && c.chosen.is_some_and(|i| matches!(c.choices[usize::from(i)], Game::Powder | Game::Gander)))
+        && c.chosen.is_some_and(|i| c.choices[usize::from(i)] == Game::Powder))
 }
 
 pub(super) fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {

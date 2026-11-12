@@ -473,7 +473,7 @@ export function buildExtractedRelease(sourceRoot, manifest, { v8Archive }) {
         // What build-prebuilt.sh ships: the window, without video decoding.
         '--no-default-features',
         '--features',
-        'glass',
+        'glass,delve',
         '--release',
         '--locked',
         '--offline',

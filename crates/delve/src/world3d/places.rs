@@ -66,7 +66,7 @@ const fn tower(rect: Rect, walls: Kind, cap: Kind, height: f32) -> (Rect, Prop) 
     (rect, Prop::Tower { walls, cap, height, sails: false, lamp: false })
 }
 
-pub const PLACES: [Item; 66] = [
+pub const PLACES: [Item; 76] = [
     // ------------------------------------------------ the surface, west ----
     place!("gate", Gate, "Gate Courtyard", open(Edge::Wood(Leaf::Oak), Field::Grass),
         "The Delve's gate courtyard: a stone arch over the stair down to the Undercroft in the north-west, a well, the Sozzled Griffin's great oak inn in the north-east, the notice post by the road, the peddler's cart in the south-west hedge, doors to the mine-head, the stables and the lists.";
@@ -684,4 +684,48 @@ pub const PLACES: [Item; 66] = [
             ((2, 10, 4, 3), Prop::Outcrop { cap: None }),
         ],
         notes: &["Painted on open ground, not blocks: the perch with its nest (12,4), the take-off ring, feathers, the master's brazier."]),
+    // ------------------------------------------------- Bomrekedan's levels ----
+    // The fort as the import laid it (`world::bomrekedan`). 3D reads the same
+    // DRESS grid the 2D painter does (`blockout::fort_prop`): a workshop is a
+    // pier, a furnace a furnace, a tree a tree. No blanket boulder field.
+    place!("bom-gate", BomGate, "The Gate", Setting::Hall,
+        "Bomrekedan's surface, the Gate, as the import laid it: the hillside over the fort with its trees, the trade depot and the clear ground by it where a party comes in from the kingdom, the main stair going down.";
+        props: &[],
+        notes: &["Imported (crates/df-import); each level is drawn flat and dressed in 2D (`render::overworld::arena::bomrekedan`); in 3D the same DRESS grid names trees, workshops and the stair."]),
+    place!("bom-great-hall", BomGreatHall, "The Great Hall", Setting::Hall,
+        "Bomrekedan's Great Hall, the level below the surface, as the import laid it: its halls and rooms, the main stair up and down.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
+    place!("bom-farms", BomFarms, "The Farms and Stills", Setting::Hall,
+        "Bomrekedan's Farms and Stills, as the import laid it: its halls and rooms, the main stair up and down.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
+    place!("bom-workshops", BomWorkshops, "The Workshops", Setting::Hall,
+        "Bomrekedan's Workshops, as the import laid it: its halls and rooms, the main stair up and down.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
+    place!("bom-noble-halls", BomNobleHalls, "The Noble Halls", Setting::Hall,
+        "Bomrekedan's Noble Halls, as the import laid it: its halls and rooms, the main stair up and down.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
+    place!("bom-temples", BomTemples, "The Temples", Setting::Hall,
+        "Bomrekedan's Temples, as the import laid it: its halls and rooms, the main stair up and down.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
+    place!("bom-guildhalls", BomGuildhalls, "The Guildhalls", Setting::Hall,
+        "Bomrekedan's Guildhalls, as the import laid it: its halls and rooms, the main stair up and down.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
+    place!("bom-dormitories", BomDormitories, "The Dormitories", Setting::Hall,
+        "Bomrekedan's Dormitories, as the import laid it: its halls and rooms, the stair up and the stair down.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
+    place!("bom-barracks", BomBarracks, "The Barracks", Setting::Hall,
+        "Bomrekedan's Barracks, as the import laid it: its halls and rooms, the stair up and the stair down to the forges.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
+    place!("bom-forges", BomForges, "The Forges", Setting::Hall,
+        "Bomrekedan's Forges, the deepest level kept, as the import laid it: its halls and rooms, the stair up.";
+        props: &[],
+        notes: &["Imported; dressed in 2D, and in 3D from the same DRESS grid."]),
 ];

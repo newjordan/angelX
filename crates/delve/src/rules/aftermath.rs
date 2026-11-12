@@ -46,6 +46,7 @@ impl Run {
             self.call_minion(owner, &card);
         }
         self.tick_ults();
+        self.tick_zones();
         self.tick_bard_songs();
         self.tick_champions();
         self.tick_hero_fields(inputs);
@@ -58,6 +59,7 @@ impl Run {
         self.tick_kegs_and_lobs();
         self.tick_flings();
         self.tick_wells();
+        self.tick_sacs();
         self.tick_critters();
         self.tick_frogs();
         self.tick_hunters();

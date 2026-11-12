@@ -95,6 +95,33 @@ lamp smokes and a curl rises over its knight's head; when one lands the
 lamp flares, the knight is lit by sparks, everyone hears `wish_grant`,
 and the knight's screen says what they were given.
 
+A runner's call reasons at `medium` when the host's model has an effort to
+choose (`ANGEL_WISH_EFFORT` sets another; `inherit` keeps the cockpit's own).
+At the cockpit's xhigh, six wishes at once took 83-172 s a call and two of
+six were handed back; at medium, 9-31 s and five of six landed. A wish
+entry's `vfx` lines may stand outside its tiers: each tier that names no
+recipe of its own takes them.
+
+Stress: `cargo test --bin angel wish_stress` in cockpit/ drives the host's
+own wishes with the delve on its threads (spoken, at the lamp, three slow
+ones in flight, unfocused, beside a joined friend, holding a star's, a super
+and a freedom wish). With `--ignored`: `stress_real_model_wishes` (the
+host's model writing six at once; `WISH_STRESS_WORDS`, `WISH_STRESS_OUT`),
+`stress_seat_cadence` and `stress_seat_cadence_heavy` (how evenly a joined
+seat hears the ticks; `WISH_STRESS_SAVE`, `WISH_STRESS_BOOK`,
+`WISH_STRESS_ENEMIES`, `ANGEL_DELVE_SYSTEM` for the rules worker).
+
+Host stress kit: `scripts/stress/host-kit/run.sh <binary> <label> [secs]` hosts a
+five-knight party on a nested seat (the host plus four headless-browser
+guests playing), lands it on floor 4 with a held set of wishes, and writes
+the frame log, the saves' write times, thread samples and screenshots to
+`$RUNS_BASE/result-<label>` (`frames.py` summarises the frame log). It is
+driven by `ANGEL_DELVE_STRESS_LANDING`, `_WISHES`, `_PER` and `_PARTY` (the
+party descends by itself) and, with `ANGEL_STRESS_LOG=1`, by the timing lines
+the checkpoint, the claim cycle and the save gate then print on stderr;
+`ANGEL_STRESS_HOME_QUIET_MS` shortens the rest after a claim that changed
+nothing. Unset, none of these do anything.
+
 Timing bench: `ANGEL_WISH_TIMING=<dir> [ANGEL_WISH_TIMING_REAL=1] cargo
 test --bin angel wish_grant_timing -- --ignored --nocapture` in cockpit/;
 `wish_choose_timing` the same way times words spoken to granted with the

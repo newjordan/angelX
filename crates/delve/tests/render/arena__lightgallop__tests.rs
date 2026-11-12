@@ -193,7 +193,8 @@ fn a_pack_on_one_spot_keeps_its_tags_apart_and_clear_of_the_prompts() {
 
 #[test]
 fn the_title_and_the_prompts_stand_clear_of_every_rider() {
-    let prompts = ["MOONWELL ROAD", "THE DIMMING COMES", "THE LANTERN CARRIES YOU", "RING THE BELL"];
+    // The title and the fall are banners now (the kit's), set by size; the bell's prompt is a word.
+    let prompts = ["RING THE BELL"];
     for seats in [1, 2, 4, MAX_PLAYERS] {
         let mut r = party(seats);
         for id in 1..=seats {
@@ -212,103 +213,63 @@ fn the_title_and_the_prompts_stand_clear_of_every_rider() {
                 assert!(!meet(w.rect(), body), "{seats} seats: {:?} at {:?} sits on seat {id}'s rider {body:?}", w.text, w.rect());
             }
         }
-        assert!(words.iter().filter(|w| prompts.contains(&w.text.as_str())).count() == 4, "every prompt was up");
+        assert!(words.iter().filter(|w| prompts.contains(&w.text.as_str())).count() == 1, "every prompt was up");
     }
 }
 
 #[test]
-fn the_tallys_words_stand_on_its_panel_and_nothing_falls_on_them() {
+fn the_finish_words_read_plain_over_the_stage_and_count_up() {
     use crate::render::overworld::ink::ink;
-    let (conf_a, bg) = (ink('5').unwrap(), ink('k').unwrap());
-    // The panel's inner frame is at (58, 38) and 268 by 164: the words stay inside it.
-    let panel = (59, 39, 266, 162);
+    let plate = ink('k').unwrap();
     for seats in [1, 2, 4, MAX_PLAYERS] {
         let mut r = tallied(seats, 0);
         let at = r.lightgallop.as_ref().unwrap().tally.as_ref().unwrap().at;
-        let mut seen_confetti = false;
+        let mut last_points = None;
         for t in [0, 9, 30, 45, 70, 90, 111, 140, 200, 301, 419] {
             while r.lightgallop.as_ref().unwrap().elapsed < at + t {
                 r.step(&BTreeMap::new());
             }
             let words = said(&r, Some(1));
-            let from = words.iter().position(|w| w.text == "MOONWELL ROAD CLEAR").expect("the tally is up");
             let (base, _) = layers(&r, Some(1));
-            for w in &words[from..] {
+            // The words under the bar stand on their own plates, so paper and fireworks never touch a letter.
+            for w in words.iter().filter(|w| w.rect().1 > 30) {
                 let rect = w.rect();
-                assert!(inside(rect, panel), "{seats} seats, tally {t}: {:?} at {rect:?} leaves the panel", w.text);
                 let want = ink(w.ink).unwrap();
                 for y in rect.1..rect.1 + rect.3 {
                     for x in rect.0..rect.0 + rect.2 {
                         let p = base.get(x, y).unwrap();
-                        assert!(
-                            p == want || p == bg,
-                            "{seats} seats, tally {t}: {:?} has a stray pixel {p:?} at {x},{y}",
-                            w.text
-                        );
+                        assert!(p == want || p == plate, "{seats} seats, finish {t}: {:?} has a stray pixel {p:?} at {x},{y}", w.text);
                     }
                 }
             }
-            // The shower still falls on the panel's free ground (the rank stamp
-            // is the only other thing drawn there in this colour).
-            if t == 30 {
-                let on_panel = (39..201).flat_map(|y| (59..325).map(move |x| (x, y))).filter(|&(x, y)| base.get(x, y).unwrap() == conf_a);
-                seen_confetti = on_panel.count() > 0;
+            if t >= 140 {
+                let y = r.lightgallop.as_ref().unwrap().tally.clone().unwrap();
+                let has = |what: &str| words.iter().any(|w| w.text.starts_with(what));
+                assert!(has("TIME ") && has("SPARKS ") && has("CHAIN ") && has("LANTERNS "), "{seats} seats: the chips are up at {t}");
+                assert!(has("E RIDE AGAIN"), "{seats} seats: the way on is up");
+                let points = words.iter().find(|w| w.text.contains(" POINTS ")).unwrap_or_else(|| panic!("{seats} seats: the points line is up: {words:?}"));
+                assert!(points.text.starts_with(&y.points.to_string()), "{:?} names the party's {} points", points.text, y.points);
+                assert!(words.iter().any(|w| w.text.starts_with(&format!("LANTERNS {} OF 6", y.posts))), "every lantern counted at {t}");
+                last_points = Some(y.points);
             }
         }
-        assert!(seen_confetti, "{seats} seats: the shower of sparks still falls over the tally");
+        assert!(last_points.is_some());
     }
 }
 
 #[test]
-fn the_tally_says_where_the_lantern_hundred_comes_from() {
-    for seats in [1, 4] {
-        let r = tallied(seats, 140);
-        let y = r.lightgallop.as_ref().unwrap().tally.clone().unwrap();
-        assert_eq!(y.posts, 6, "the bots light every lantern");
-        let words = said(&r, Some(1));
-        let row = |name: &str| words.iter().find(|w| w.text == name).unwrap_or_else(|| panic!("{name}: {words:?}"));
-        let bonus = row("LANTERN BONUS");
-        let plus = words.iter().find(|w| w.text == "+100" && w.y == bonus.y).expect("the +100 on the bonus row");
-        assert!(plus.x > bonus.x + text_width(&bonus.text), "the number stands right of its name");
-        // It sits with the other rows, above the total it is part of.
-        assert!(row("LANTERNS").y < bonus.y && bonus.y < row("POINTS").y);
-        // The per-knight line is labelled, so it is not read as the party's total.
-        assert!(row("EACH KNIGHT").y > row("POINTS").y);
-    }
-    // Fewer lanterns lit, a fraction of the hundred.
-    let mut r = tallied(1, 140);
-    r.lightgallop.as_mut().unwrap().tally.as_mut().unwrap().posts = 3;
-    assert!(said(&r, Some(1)).iter().any(|w| w.text == "+50"), "three of six lanterns lit is +50");
-}
-
-#[test]
-fn the_best_riders_score_wears_a_crown_the_font_cannot_print() {
-    use crate::render::overworld::ink::ink;
+fn the_best_rider_takes_the_top_step_and_the_podium_holds_three() {
     for seats in [1, 4, MAX_PLAYERS] {
-        let r = tallied(seats, 140);
+        let r = tallied(seats, 200);
         let y = r.lightgallop.as_ref().unwrap().tally.clone().unwrap();
-        let words = said(&r, Some(1));
-        let from = words.iter().position(|w| w.text == "EACH KNIGHT").unwrap();
+        let ranked = finish::order(&y);
+        assert_eq!(ranked.len(), y.scores.len());
+        assert_eq!(ranked[0].0, y.best, "{seats} seats: the laurel and the top step are the same knight");
+        assert!(ranked.windows(2).all(|w| w[0].1 >= w[1].1), "best first");
+        // The crown of light stands over the winner: warm pixels on the top step's head.
         let (base, _) = layers(&r, Some(1));
-        let mut crowned = Vec::new();
-        for w in &words[from + 1..] {
-            let digits = w.text.trim_start_matches(['*', ' ']);
-            let Some(id) = digits.split(' ').next().and_then(|d| d.parse::<u32>().ok()) else { continue };
-            // What the font draws for these letters, and the pixels in the picture beyond it.
-            let mut font = Img::new(text_width(&w.text), 7);
-            font.text(0, 0, &w.text, 'T');
-            let want = ink(w.ink).unwrap();
-            let extra = (0..7)
-                .flat_map(|dy| (0..font.w).map(move |dx| (dx, dy)))
-                .filter(|&(dx, dy)| font.get(dx, dy).is_none() && base.get(w.x + dx, w.y + dy) == Some(want))
-                .count();
-            if extra > 0 {
-                crowned.push((id, extra));
-            }
-        }
-        assert_eq!(crowned.len(), 1, "{seats} seats: one score wears the crown: {crowned:?}");
-        assert_eq!(crowned[0].0, y.best, "{seats} seats: the best rider wears it");
-        assert!(crowned[0].1 >= 10, "a crown, not a speck: {crowned:?}");
+        let warm = (30..110).flat_map(|y| (150..234).map(move |x| (x, y))).filter(|&(x, y)| base.get(x, y).is_some_and(|p| p == crate::render::overworld::ink::ink('6').unwrap())).count();
+        assert!(warm >= 6, "{seats} seats: a crown of light over the winner ({warm})");
     }
 }
 
@@ -340,10 +301,18 @@ fn a_blocks_name_stays_plain_when_the_camera_draws_back() {
         world::{FoeKind, foe_at},
     };
     let lvl = level();
-    // (A painted bramble has no block to carry a name.)
+    // (A painted creature has no block to carry a name.)
     for (kind, name) in [(FoeKind::Snuffer, "SNUF"), (FoeKind::Floater, "WISP"), (FoeKind::Bramble, "BRAM"), (FoeKind::Warden, "WARDEN")]
         .into_iter()
-        .filter(|&(kind, _)| kind != FoeKind::Bramble || !painted("lightgallop.bramble"))
+        .filter(|&(kind, _)| {
+            let slot = match kind {
+                FoeKind::Snuffer => "lightgallop.snuffer",
+                FoeKind::Floater => "lightgallop.floater",
+                FoeKind::Bramble => "lightgallop.bramble",
+                FoeKind::Warden => "lightgallop.warden",
+            };
+            !painted(slot)
+        })
     {
         let spot = lvl.foes.iter().find(|f| f.kind == kind && f.min_seats <= 1).unwrap();
         let mut r = party(1);

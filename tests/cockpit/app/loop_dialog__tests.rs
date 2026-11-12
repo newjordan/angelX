@@ -252,15 +252,15 @@ fn custom_length_takes_an_exact_round_count_the_presets_do_not_offer() {
     assert!(d.commit_custom_length());
     assert_eq!(d.settings().max_iters, 137);
     assert!(!d.custom_entry_active());
-    assert_eq!(d.iterations_idx, LoopLaunchDialog::custom_length_slot());
+    assert_eq!(d.laps, Laps::Custom);
 
     // Re-opening keeps what was committed; dropping it never loses it, and the
-    // row hands back to the preset it left.
+    // row stays on the length it left: Esc must not turn a 137-lap cap endless.
     d.begin_custom_length();
     assert_eq!(d.custom_entry_text(), Some("137"));
     assert!(d.cancel_custom_length());
     assert_eq!(d.custom_iterations, Some(137));
-    assert_eq!(d.settings().max_iters, 0, "back on the preset it left");
+    assert_eq!(d.settings().max_iters, 137, "back on the length it left");
 
     // An empty entry, or a zero, is not a length.
     d.begin_custom_length();
@@ -268,7 +268,7 @@ fn custom_length_takes_an_exact_round_count_the_presets_do_not_offer() {
         d.custom_length_backspace();
     }
     assert!(!d.commit_custom_length(), "an empty entry is not a length");
-    assert_eq!(d.iterations_idx, ITERATIONS.len() - 1);
+    assert_eq!(d.laps, Laps::Custom, "the row stays on the length it had");
     d.begin_custom_length();
     for _ in 0..4 {
         d.custom_length_backspace();
@@ -280,4 +280,208 @@ fn custom_length_takes_an_exact_round_count_the_presets_do_not_offer() {
         Some(137),
         "the committed length survives"
     );
+}
+
+#[test]
+fn committed_custom_length_reopens_for_editing() {
+    let mut d = LoopLaunchDialog::new("long haul", 0, false);
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert!(d.custom_entry_active());
+    for ch in "42".chars() {
+        assert!(d.custom_length_digit(ch));
+    }
+    assert!(d.commit_custom_length());
+    assert_eq!(d.settings().max_iters, 42);
+
+    // Selecting the custom slot again reopens the editor, seeded — for the
+    // mouse (apply) and for the keyboard (adjust cycling onto the slot) alike.
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert!(d.custom_entry_active(), "a set length can be revised");
+    assert_eq!(d.custom_entry_text(), Some("42"));
+    d.custom_length_backspace();
+    assert!(d.custom_length_digit('7'));
+    assert!(d.commit_custom_length());
+    assert_eq!(d.settings().max_iters, 47);
+
+    d.adjust(false); // off the custom slot, back to endless
+    assert_eq!(d.settings().max_iters, 0);
+    d.adjust(true); // cycling onto the custom slot opens the entry too
+    assert!(d.custom_entry_active());
+    assert_eq!(d.custom_entry_text(), Some("47"));
+    assert!(d.cancel_custom_length());
+    assert_eq!(
+        d.settings().max_iters,
+        0,
+        "Esc hands the row back to the preset it left"
+    );
+    assert_eq!(d.custom_iterations, Some(47), "the committed length survives");
+}
+
+#[test]
+fn settings_honour_the_typed_draft() {
+    let mut d = LoopLaunchDialog::new("long haul", 0, false);
+    d.apply(LoopDialogAction::SelectIterations(1));
+    assert_eq!(d.settings().max_iters, 25);
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert_eq!(
+        d.settings().max_iters,
+        25,
+        "an empty draft claims nothing yet"
+    );
+    for ch in "99".chars() {
+        assert!(d.custom_length_digit(ch));
+    }
+    // The row shows 99, so a start from here launches with 99 — the draft is
+    // never silently dropped for the preset underneath.
+    assert_eq!(d.settings().max_iters, 99);
+    assert!(d.cancel_custom_length());
+    assert_eq!(d.settings().max_iters, 25, "dropping the draft restores 25");
+}
+
+/// Commit a typed length the way the operator does, through the card's own
+/// custom slot.
+fn commit_typed_length(d: &mut LoopLaunchDialog, digits: &str) {
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    for ch in digits.chars() {
+        assert!(d.custom_length_digit(ch));
+    }
+    assert!(d.commit_custom_length());
+}
+
+#[test]
+fn peeking_at_a_committed_length_and_pressing_esc_keeps_the_cap() {
+    let mut d = LoopLaunchDialog::new("long haul", 0, false);
+    commit_typed_length(&mut d, "42");
+    assert_eq!(d.settings().max_iters, 42);
+
+    // Click the custom slot again to look at it, then Esc.
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert!(d.custom_entry_active());
+    assert!(d.cancel_custom_length());
+
+    assert_eq!(
+        d.settings().max_iters,
+        42,
+        "Esc must not start an endless loop"
+    );
+    let [lap, _, _] = d.pickers();
+    assert_eq!(
+        lap.selected,
+        ITERATIONS.len(),
+        "the 42 is still the chosen lap"
+    );
+    assert_eq!(lap.value, "42");
+}
+
+#[test]
+fn emptying_a_committed_length_and_pressing_enter_keeps_the_cap() {
+    let mut d = LoopLaunchDialog::new("long haul", 0, false);
+    commit_typed_length(&mut d, "42");
+
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    d.custom_length_backspace();
+    d.custom_length_backspace();
+    assert!(!d.commit_custom_length(), "an empty entry is not a length");
+
+    assert_eq!(d.settings().max_iters, 42, "the standing choice was the 42");
+    assert_eq!(d.pickers()[0].selected, ITERATIONS.len());
+}
+
+#[test]
+fn a_zero_draft_over_a_committed_length_keeps_the_cap() {
+    let mut d = LoopLaunchDialog::new("long haul", 0, false);
+    commit_typed_length(&mut d, "42");
+
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    d.custom_length_backspace();
+    d.custom_length_backspace();
+    d.custom_length_digit('0');
+    assert!(!d.commit_custom_length(), "zero is not a length");
+
+    assert_eq!(d.settings().max_iters, 42);
+}
+
+#[test]
+fn a_restored_custom_cap_survives_peeking_and_esc() {
+    // A restart card opens on the saved, non-preset cap.
+    let mut d = LoopLaunchDialog::new("restart", 0, false);
+    d.restore_settings(LoopLaunchSettings {
+        deadline_secs: 0,
+        max_iters: 17,
+        token_budget: 0,
+        podrace: false,
+    });
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert_eq!(d.custom_entry_text(), Some("17"));
+    assert!(d.cancel_custom_length());
+    assert_eq!(d.settings().max_iters, 17);
+}
+
+#[test]
+fn esc_from_a_preset_still_returns_to_that_preset() {
+    for preset in 0..ITERATIONS.len() {
+        let mut d = LoopLaunchDialog::new("long haul", 0, false);
+        d.apply(LoopDialogAction::SelectIterations(preset));
+        let before = d.settings().max_iters;
+        d.apply(LoopDialogAction::SelectIterations(
+            LoopLaunchDialog::custom_length_slot(),
+        ));
+        assert!(d.cancel_custom_length());
+        assert_eq!(d.settings().max_iters, before, "preset {preset}");
+        assert_eq!(d.pickers()[0].selected, preset);
+    }
+}
+
+#[test]
+fn an_empty_or_zero_entry_from_a_preset_falls_back_to_that_preset() {
+    for preset in 0..ITERATIONS.len() {
+        for zero in [false, true] {
+            let mut d = LoopLaunchDialog::new("long haul", 0, false);
+            d.apply(LoopDialogAction::SelectIterations(preset));
+            let before = d.settings().max_iters;
+            d.begin_custom_length();
+            if zero {
+                d.custom_length_digit('0');
+            }
+            assert!(!d.commit_custom_length());
+            assert_eq!(d.laps, Laps::Preset(preset));
+            assert_eq!(d.settings().max_iters, before, "preset {preset}");
+        }
+    }
+}
+
+#[test]
+fn the_selection_is_one_value_the_picker_and_the_cap_both_read() {
+    let mut d = LoopLaunchDialog::new("long haul", 0, false);
+    assert_eq!(d.laps, ENDLESS_LAPS);
+    assert_eq!(d.pickers()[0].selected, ITERATIONS.len() - 1);
+    commit_typed_length(&mut d, "9");
+    assert_eq!(d.laps, Laps::Custom);
+    assert_eq!(d.pickers()[0].selected, ITERATIONS.len());
+    d.apply(LoopDialogAction::SelectIterations(0));
+    assert_eq!(d.laps, Laps::Preset(0));
+    assert_eq!(d.settings().max_iters, 5);
+    // The typed length is remembered behind the preset and reopens seeded.
+    d.apply(LoopDialogAction::SelectIterations(
+        LoopLaunchDialog::custom_length_slot(),
+    ));
+    assert_eq!(d.custom_entry_text(), Some("9"));
+    assert!(d.cancel_custom_length());
+    assert_eq!(d.laps, Laps::Preset(0));
 }

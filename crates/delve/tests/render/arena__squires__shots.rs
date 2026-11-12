@@ -158,6 +158,7 @@ fn dungeon_company() -> Run {
             power: squire.power(),
             taunt: 0,
             rising: 0,
+            made: None,
         };
         let key = knight_key(hero);
         run.home.squires.companies.insert(

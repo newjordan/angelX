@@ -83,6 +83,12 @@ fn main() {
     options.rows = 44;
     options.title = "Loop card preview".into();
     let result = angel_glass::run(options, move |host| {
+        host.install_showcase_squire_pack(
+            "showcase-squire",
+            "pack",
+            include_bytes!("../live/showcase-squire/pack.json"),
+        )
+            .expect("the packaged showcase squire resource is valid");
         let mut terminal = Terminal::new(host.backend()).unwrap();
         let task = "ship the parser rewrite behind a feature flag";
         let mut open = LoopLaunchDialog::new(task, 0, false);

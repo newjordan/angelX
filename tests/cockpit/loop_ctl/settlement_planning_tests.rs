@@ -1,6 +1,8 @@
+#![cfg(feature = "delve")]
 use super::*;
-use crate::drive::together_settlement::{self, planning};
-use crate::stage::world_viz::World;
+use crate::drive::together_settlement::planning;
+use angel_realm_host::together_settlement;
+use crate::delve::world_viz::World;
 use serde_json::{Value, json};
 
 struct Fixture(PathBuf);

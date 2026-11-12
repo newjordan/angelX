@@ -1,12 +1,17 @@
 //! HTTP/1.1, as little as the door needs: the shell page, the client's
 //! files by content name, and the upgrade to a WebSocket on `/ws`.
 
-use crate::hash::{hex, sha1};
+use crate::hash::{hex, sha1, sha1_until};
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use std::collections::HashMap;
 use std::io::{self, Write};
 use std::path::Path;
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub mod build;
+pub mod preparation;
+pub use preparation::PreparedAssets;
 
 pub mod live;
 pub use live::{LiveAsset, LiveAssets};
@@ -174,15 +179,69 @@ pub struct Body {
 
 impl Body {
     fn new(mime: &str, plain: Vec<u8>) -> io::Result<Body> {
+        let etag = format!("\"{}\"", &hex(&sha1(&plain))[..16]);
+        Self::with_etag(mime, plain, etag)
+    }
+
+    fn with_etag(mime: &str, plain: Vec<u8>, etag: String) -> io::Result<Body> {
+        Self::with_etag_until(mime, plain, etag, &AtomicBool::new(false))
+    }
+
+    /// `with_etag`, abandoned with the "cancelled" error once `cancel` is set.
+    /// The best gzip of a 44 MB wasm is seconds of work, so it is fed to the
+    /// encoder in chunks with a look at the flag between them; the bytes it
+    /// writes are the same as for one `write_all`.
+    fn with_etag_until(mime: &str, plain: Vec<u8>, etag: String, cancel: &AtomicBool) -> io::Result<Body> {
         let gzip = if compressible(mime) {
             let mut enc = GzEncoder::new(Vec::new(), Compression::best());
-            enc.write_all(&plain)?;
+            for chunk in plain.chunks(GZIP_CHUNK) {
+                check_cancel(cancel)?;
+                enc.write_all(chunk)?;
+            }
             Some(enc.finish()?).filter(|z| z.len() < plain.len())
         } else {
             None
         };
-        let etag = format!("\"{}\"", &hex(&sha1(&plain))[..16]);
         Ok(Body { mime: mime.to_string(), plain, gzip, etag })
+    }
+}
+
+/// Plain bytes handed to the gzip encoder between looks at a cancel flag:
+/// a few milliseconds of work at the best level.
+const GZIP_CHUNK: usize = 64 * 1024;
+
+/// The error a cancelled capture or preparation stops with.
+pub(crate) fn cancelled() -> io::Error {
+    io::Error::other("browser capture cancelled")
+}
+
+fn check_cancel(cancel: &AtomicBool) -> io::Result<()> {
+    if cancel.load(Ordering::Acquire) { Err(cancelled()) } else { Ok(()) }
+}
+
+/// Build-generated preparation for one exact immutable file. The build helper
+/// captures its input bytes before computing the digest and best gzip. Runtime
+/// reuse requires exact name, MIME and byte equality, never a mutable path.
+#[derive(Clone, Copy)]
+pub struct StaticFile {
+    name: &'static str,
+    mime: &'static str,
+    plain: &'static [u8],
+    digest: [u8; 20],
+    gzip: Option<&'static [u8]>,
+}
+impl StaticFile {
+    pub const FORMAT: u32 = 1;
+    /// Construct only from `build::capture_static` generated Rust. The digest
+    /// and gzip belong to these exact captured bytes; no disk cache is trusted.
+    pub const fn generated(
+        name: &'static str,
+        mime: &'static str,
+        plain: &'static [u8],
+        digest: [u8; 20],
+        gzip: Option<&'static [u8]>,
+    ) -> Self {
+        Self { name, mime, plain, digest, gzip }
     }
 }
 
@@ -202,13 +261,45 @@ impl Assets {
     /// Hash and compress everything once, at start. A mark naming a file
     /// the bundle does not have is an error.
     pub fn prepare(bundle: &ClientBundle) -> io::Result<Assets> {
+        Self::prepare_static(bundle, &[])
+    }
+
+    pub fn prepare_static(bundle: &ClientBundle, prepared: &[StaticFile]) -> io::Result<Assets> {
+        Self::prepare_until(bundle, prepared, &AtomicBool::new(false))
+    }
+
+    /// `prepare_static` for a generation whose owner can go away: `cancel` is
+    /// read between files, between hashing and compressing, and inside both,
+    /// so a dropped owner's worker stops within milliseconds with the
+    /// "cancelled" error instead of finishing seconds of work for nobody.
+    pub(crate) fn prepare_until(bundle: &ClientBundle, prepared: &[StaticFile], cancel: &AtomicBool) -> io::Result<Assets> {
+        let known: HashMap<_, _> = prepared.iter().map(|p| (p.name, p)).collect();
         let mut files = HashMap::new();
         let mut urls = HashMap::new();
         for (name, bytes, mime) in &bundle.files {
+            check_cancel(cancel)?;
             let ext = name.rsplit_once('.').map_or("bin", |(_, e)| e);
-            let served = format!("{}.{ext}", &hex(&sha1(bytes))[..NAME_HASH]);
+            let prebuilt = known
+                .get(name.as_str())
+                .filter(|p| p.mime == mime && p.plain == bytes.as_slice());
+            let (digest, body) = if let Some(p) = prebuilt {
+                let digest = hex(&p.digest);
+                let etag = format!("\"{}\"", &digest[..16]);
+                let body = Body {
+                    mime: mime.clone(),
+                    plain: bytes.clone(),
+                    gzip: p.gzip.map(<[u8]>::to_vec),
+                    etag,
+                };
+                (digest, body)
+            } else {
+                let digest = hex(&sha1_until(bytes, cancel).ok_or_else(cancelled)?);
+                let body = Body::with_etag_until(mime, bytes.clone(), format!("\"{}\"", &digest[..16]), cancel)?;
+                (digest, body)
+            };
+            let served = format!("{}.{ext}", &digest[..NAME_HASH]);
             urls.insert(name.as_str(), format!("/a/{served}"));
-            files.insert(served, Body::new(mime, bytes.clone())?);
+            files.insert(served, body);
         }
         let mut page = String::with_capacity(bundle.index_html.len());
         let mut rest = bundle.index_html.as_str();
@@ -226,6 +317,7 @@ impl Assets {
             rest = &after[end + 2..];
         }
         page.push_str(rest);
+        check_cancel(cancel)?;
         Ok(Assets { index: Body::new(mime_for("index.html"), page.into_bytes())?, files })
     }
 }
@@ -408,6 +500,37 @@ mod tests {
     }
 
     #[test]
+    fn chunked_gzip_is_byte_for_byte_the_one_shot_gzip() {
+        // Cancellation checks feed the encoder in chunks; the bytes that
+        // reach a browser, and the build's prebuilt gzip, must not change.
+        let plain: Vec<u8> = (0..3 * GZIP_CHUNK + 777).map(|i| ((i * i) >> 5) as u8 & 0x1f).collect();
+        let mut one_shot = GzEncoder::new(Vec::new(), Compression::best());
+        one_shot.write_all(&plain).unwrap();
+        let one_shot = one_shot.finish().unwrap();
+        assert!(one_shot.len() < plain.len());
+        let body = Body::with_etag("application/wasm", plain, "\"e\"".into()).unwrap();
+        assert_eq!(body.gzip.as_deref(), Some(one_shot.as_slice()));
+    }
+
+    #[test]
+    fn a_cancelled_preparation_stops_with_the_cancelled_error() {
+        let flag = AtomicBool::new(true);
+        let mut b = bundle();
+        // Cancelled before it starts: no file is hashed.
+        let error = Assets::prepare_until(&b, &[], &flag).err().expect("cancelled");
+        assert_eq!(error.to_string(), "browser capture cancelled");
+        // Cancelled inside one large file's compression.
+        b.files = vec![("big.wasm".into(), vec![3; 4 * GZIP_CHUNK], "application/wasm".into())];
+        b.index_html = "{{asset:big.wasm}}".into();
+        let error = Body::with_etag_until("application/wasm", b.files[0].1.clone(), "\"e\"".into(), &flag)
+            .err()
+            .expect("cancelled");
+        assert_eq!(error.to_string(), "browser capture cancelled");
+        // The same bundle, not cancelled, is prepared.
+        assert!(Assets::prepare_until(&b, &[], &AtomicBool::new(false)).is_ok());
+    }
+
+    #[test]
     fn a_mark_without_its_file_is_an_error() {
         let mut b = bundle();
         b.index_html.push_str("{{asset:missing.png}}");
@@ -439,5 +562,75 @@ mod tests {
         let text = String::from_utf8(plain("404 Not Found", "no", false, &[])).unwrap();
         assert!(text.contains("Content-Security-Policy: default-src 'none'; script-src 'self' 'wasm-unsafe-eval'"));
         assert!(text.contains("X-Content-Type-Options: nosniff"));
+    }
+}
+
+#[cfg(test)]
+mod digest_reuse_tests {
+    use super::*;
+    #[test]
+    fn reused_url_digest_preserves_all_served_body_bytes_and_validators() {
+        for (name, mime, bytes) in [
+            ("text.js", "text/javascript", b"const value=42;".repeat(1000)),
+            ("sound.mp3", "audio/mpeg", b"ID3sound".repeat(1000)),
+            ("game.wasm", "application/wasm", (0..=255).cycle().take(16384).collect()),
+        ] {
+            let old = Body::new(mime, bytes.clone()).unwrap();
+            let bundle = ClientBundle { index_html: format!("{{{{asset:{name}}}}}"), files: vec![(name.into(), bytes.clone(), mime.into())] };
+            let assets = Assets::prepare(&bundle).unwrap();
+            let path = format!("{}.{}", &hex(&sha1(&bytes))[..16], name.rsplit_once('.').unwrap().1);
+            assert_eq!(assets.index.plain, format!("/a/{path}").as_bytes());
+            let body = &assets.files[&path];
+            assert_eq!(body.mime, old.mime); assert_eq!(body.plain, old.plain);
+            assert_eq!(body.gzip, old.gzip); assert_eq!(body.etag, old.etag);
+        }
+    }
+}
+
+#[cfg(test)]
+mod prebuilt_tests {
+    use super::*;
+    fn artifact(name: &'static str, mime: &'static str, bytes: Vec<u8>) -> StaticFile {
+        let digest = sha1(&bytes);
+        let original = Body::new(mime, bytes.clone()).unwrap();
+        StaticFile::generated(
+            name,
+            mime,
+            Box::leak(bytes.into_boxed_slice()),
+            digest,
+            original.gzip.map(|z| &*Box::leak(z.into_boxed_slice())),
+        )
+    }
+    fn equal_body(a: &Body, b: &Body) {
+        assert_eq!(a.mime, b.mime);
+        assert_eq!(a.plain, b.plain);
+        assert_eq!(a.gzip, b.gzip);
+        assert_eq!(a.etag, b.etag);
+    }
+    fn equal_assets(a: &Assets, b: &Assets) {
+        equal_body(&a.index, &b.index);
+        assert_eq!(a.files.len(), b.files.len());
+        for (key, body) in &a.files {
+            equal_body(body, &b.files[key]);
+        }
+    }
+    #[test]
+    fn prebuilt_bytes_keep_exact_url_etag_gzip_and_edited_bytes_miss() {
+        let bytes = b"let value = 123;\n".repeat(1000);
+        let compiled = artifact("script.js", "text/javascript", bytes.clone());
+        let mut bundle = ClientBundle {
+            index_html: "<script src='{{asset:script.js}}'></script>".into(),
+            files: vec![("script.js".into(), bytes, "text/javascript".into())],
+        };
+        let old = Assets::prepare_static(&bundle, &[compiled]).unwrap();
+        equal_assets(&old, &Assets::prepare(&bundle).unwrap());
+        bundle.files[0].1 = b"let value = 456;\n".repeat(1000);
+        let edited = Assets::prepare_static(&bundle, &[compiled]).unwrap();
+        equal_assets(&edited, &Assets::prepare(&bundle).unwrap());
+        assert_ne!(old.index.plain, edited.index.plain);
+        assert!(old.files.values().any(|body| body.plain == compiled.plain));
+        bundle.files[0].1 = compiled.plain.to_vec();
+        bundle.files[0].2 = "application/octet-stream".into();
+        equal_assets(&Assets::prepare_static(&bundle, &[compiled]).unwrap(), &Assets::prepare(&bundle).unwrap());
     }
 }

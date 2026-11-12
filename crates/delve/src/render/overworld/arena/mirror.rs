@@ -287,7 +287,12 @@ fn live(run: &Run, id: u32, hero: &Hero) -> (Img, Vec<Painting>) {
         .as_ref()
         .filter(|_| hero.shape.is_none() && !hero.look.custom)
     {
-        knights::avatar_struck(hero, &avatar.pixels, run.shield_out(id), struck)
+        knights::avatar_struck(
+            hero,
+            avatar.pixels_at(run.tick),
+            run.shield_out(id),
+            struck,
+        )
     } else if hero.pit.stop.is_some() {
         knights::pit_figure(hero, id, run.tick as u32)
     } else if let Some(shape) = hero.shape {

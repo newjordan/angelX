@@ -1,0 +1,37 @@
+# The Steel Line — Fath Quietinked, metalsmith, the Metalsmith's Forge of Bomrekedan.
+# A Bomrekedan questline (quests.json: the-steel-line). Written in the shape
+# of cockpit/assets/dungeon/questlines/*.txt and parsed by the same rules
+# (crates/delve/src/rules/questline.rs), but not placed there yet.
+# `power bomrekedan:<id>` is a new kind: quest_gate() knows wish:, skill: and
+# kingdom: only, so until it learns `bomrekedan` (open to every knight, like
+# kingdom:) the teacher speaks only her idle line. `kingdom:` is not usable:
+# it may count only the campaign's vec_ counters.
+# Cued steps are counted by standing with the teacher (the only way the realm
+# counts a step today). Steps flagged `needs` wait on a counter nothing
+# counts yet. `at` is left for whoever places the teacher.
+power   bomrekedan:steel
+teacher Fath Quietinked
+place   the Metalsmith's Forge on Bomrekedan's deep forge level, below the mine-head
+room    MineHead
+look    a soot-black apron, a plain iron scimitar at the hip, and burn scars counted up both forearms
+line    One smelter, one forge, eleven smiths. You can see the trouble from here.
+teach   Steel is four things married: pig iron, iron, flux and fire. Miss one and there is no wedding.
+hook    The tally slate over the forge reads 1,394 in chalk, one mark for every job put down for want of a bar.
+step    The ore tithe | bring Fath three ore from the Mines | ore_given_to_forge 3 | Hematite, limonite, magnetite. Any of them, so long as it is ore. | cue forge
+step    The coke watch | stand the coke watch at the one smelter while it burns the coal | coke_watches_stood 1 | Coal first, then ore, then steel, all in the one furnace. That is why it took years. | cue stand
+step    The flux | bring dolomite flux home from the Mines | flux_carried 10 | Ten stones of dolomite. The smelter itself is built of it, so it knows the taste. | needs
+step    The pig iron | stand with Fath while the pig iron pours | pig_iron_pours 1 | Pig iron is half the bar. The other half is patience. | cue pour
+step    The kit | bring a full kit's worth of ore for one recruit's breastplate, greaves, helm, gauntlets and boots | ore_given_to_forge 8 | Three hundred breastplates were put down for want of this. Not this one. | cue forge
+trial   The steel recruit | clear one hall wearing every piece of mail the delve's start gave you, none of it broken | steel_kit_halls 1 | It held. Write it on the slate, and rub one mark out.
+reward  the Forge raised a level: mail more each delve (a Bomrekedan questline: no power is taught)
+title   the Steel-Married
+keepsake a stamp of the forge's mark, pressed in red wax
+ties    The ore tithe pools with Master Wymond's and Underforeman Doorne's (ore_given_to_forge); Kikrost Metalcloisters burns the charcoal (Coke for the Smelter); the six steel squads wear what comes out.
+art
+..888..
+.88888.
+...8...
+.87778.
+.87778.
+..888..
+.8...8.

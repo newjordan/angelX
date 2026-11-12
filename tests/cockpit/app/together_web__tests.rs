@@ -27,7 +27,7 @@ fn the_music_is_not_in_the_binary_and_every_track_reaches_the_page() {
         .into_iter()
         .flatten()
         .map(|t| t.name)
-        .chain(crate::drive::together_audio::TRACKS.iter().copied())
+        .chain(crate::together_audio::TRACKS.iter().copied())
         .collect();
     for track in tracks {
         let name = angel_delve::wire::music_file(track);

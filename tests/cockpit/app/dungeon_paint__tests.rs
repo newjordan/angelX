@@ -19,7 +19,7 @@ fn finished_paint_retries_admission_without_restarting_jobs_or_rewriting_spells(
     // The completion is retained while there is no world to admit it into.
     app.watch_painters();
     assert_eq!(app.realm.dungeon.painters.running(), 0);
-    let mut run = crate::drive::together_shooter::Run::new(0, 9, None);
+    let mut run = crate::delve::together_shooter::Run::new(0, 9, None);
     run.book.insert(current.clone());
     run.players.get_mut(&1).unwrap().spell_cooldowns[0] = 71;
     app.realm.dungeon.shooter.set(Some(run));

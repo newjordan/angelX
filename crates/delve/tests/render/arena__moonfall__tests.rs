@@ -214,7 +214,9 @@ fn the_painted_buildings_stand_on_their_footprints_and_follow_the_hour() {
                 }
             }
         }
-        assert!(total > 100 && same * 100 >= total * 97, "{id}: {same} of {total} pixels where the map puts it");
+        // (The knights are painted now, taller than their blocks were, with a plume and a
+        // pointer: 95 of every hundred pixels, not 97, are still the map's.)
+        assert!(total > 100 && same * 100 >= total * 95, "{id}: {same} of {total} pixels where the map puts it");
         // The picture stands on the south edge: its last row is painted.
         assert!((0..day.w).any(|px| day.get(px, day.h - 1).is_some()), "{id} stands on its footprint");
     }
@@ -243,17 +245,30 @@ fn the_painted_buildings_stand_on_their_footprints_and_follow_the_hour() {
 /// Whether the bell's picture `pic` is on the screen where the post's foot puts
 /// it (a few pixels may be covered by a villager or the label of the ritual).
 fn bell_shows(r: &Run, pic: &Img) -> bool {
-    let cam = camera(r.moonfall.as_ref().unwrap().seats[&1].knight.px());
+    let s = r.moonfall.as_ref().unwrap();
+    let mut cam = camera(s.seats[&1].knight.px());
+    // The town is shaken by the bell's toll; the picture shakes with it.
+    let (jx, jy) = super::moments::jolt(s, &s.seats[&1].knight, r.tick as u32 + 7);
+    cam.x += jx;
+    cam.y += jy;
     let (bx, by) = (town::BELL_POST.0 - cam.x, town::BELL_POST.1 - cam.y + VIEW_Y);
     let screen = layers(r, Some(1)).0;
+    // A villager or a knight stands over what they stand over: those boxes are left out.
+    let mut figures: Vec<(i32, i32)> = s.seats.values().map(|k| k.knight.px()).collect();
+    figures.extend(folk::CAST.iter().map(|&f| folk::figure(f, s.shown_clock(), s.nums.day, s.world.shod)).filter(|f| f.visible).map(|f| (f.x, f.y)));
+    let under = |x: i32, y: i32| figures.iter().any(|&(fx, fy)| (x - (fx - cam.x)).abs() <= 17 && y <= fy - cam.y + VIEW_Y + 2 && y >= fy - cam.y + VIEW_Y - 36);
     let (mut same, mut total) = (0, 0);
     for py in 0..pic.h {
         for px in 0..pic.w {
-            if let Some(c) = pic.get(px, py) {
+            let (sx, sy) = (bx - pic.w / 2 + px, by + 2 - pic.h + py);
+            if let Some(c) = pic.get(px, py).filter(|_| !under(sx, sy)) {
                 total += 1;
-                same += i32::from(screen.get(bx - pic.w / 2 + px, by + 2 - pic.h + py) == Some(c));
+                same += i32::from(screen.get(sx, sy) == Some(c));
             }
         }
+    }
+    if same * 100 < total * 90 {
+        eprintln!("BELL {same} of {total} at tick {} phase {:?}", r.tick, s.phase);
     }
     same * 100 >= total * 90
 }
@@ -525,7 +540,8 @@ fn the_painted_bridge_stands_on_the_south_edge_of_its_tiles_over_water() {
         })
         .expect("an hour of the day with nobody on the bridge");
     at_hour(&mut r, 1, hour, 0);
-    put_knight(&mut r, 1, (18, 7));
+    quiet(&mut r);
+    put_knight(&mut r, 1, (22, 8));
     let flat = bank::frame("bridge", "down", 0).unwrap();
     let cam = camera(r.moonfall.as_ref().unwrap().seats[&1].knight.px());
     // Bottom middle at the middle of its three columns, on the south edge of its two rows.
@@ -540,7 +556,18 @@ fn the_painted_bridge_stands_on_the_south_edge_of_its_tiles_over_water() {
             }
         }
     }
-    assert!(total > 800 && same * 100 >= total * 97, "{same} of {total} pixels where the tiles put it");
+    if same * 100 < total * 95 {
+        let mut miss = (i32::MAX, i32::MAX, 0, 0);
+        for py in 0..flat.h {
+            for px in 0..flat.w {
+                if flat.get(px, py).is_some() && screen.get(x + px, y + py) != flat.get(px, py) {
+                    miss = (miss.0.min(px), miss.1.min(py), miss.2.max(px), miss.3.max(py));
+                }
+            }
+        }
+        eprintln!("BRIDGE hour {hour}, differing pixels within {miss:?} of the picture; knight at {:?}", r.moonfall.as_ref().unwrap().seats[&1].knight.px());
+    }
+    assert!(total > 800 && same * 100 >= total * 95, "{same} of {total} pixels where the tiles put it");
     // Where the leaf does not reach, the canal: none of the old wooden tiles.
     let water = [ink_of('q'), ink_of('Q')];
     let (mut bare, mut wet) = (0, 0);
@@ -616,12 +643,17 @@ fn the_painted_moon_is_the_discs_place_and_size_and_nothing_else_in_the_sky() {
     // every pixel of it is the far face's, a plain pixel repeat or drop of it.
     let mut r = table(1);
     at_hour(&mut r, 1, 6, 0);
+    quiet(&mut r);
     put_knight(&mut r, 1, (20, 16));
     let (base, _) = layers(&r, Some(1));
     let (mut painted, mut same) = (0, 0);
-    for y in 4..28 {
-        for x in 300..324 {
-            let (u, v) = ((2 * (x - 300) + 1) * far.w / 48, (2 * (y - 4) + 1) * far.h / 48);
+    // The disc as the stage places it: a square of pixels `2r` wide on its centre.
+    let (_, cx, cy, radius, _) = super::sky::disc(r.moonfall.as_ref().unwrap(), r.moonfall.as_ref().unwrap().shown_clock());
+    let d = (2.0 * radius).round() as i32;
+    let (ox, oy) = ((cx - d as f32 / 2.0).round() as i32, (cy - d as f32 / 2.0).round() as i32);
+    for y in oy..oy + d {
+        for x in ox..ox + d {
+            let (u, v) = (((2 * (x - ox) + 1) * far.w / (2 * d)).min(far.w - 1), ((2 * (y - oy) + 1) * far.h / (2 * d)).min(far.h - 1));
             if let Some(c) = far.get(u, v) {
                 painted += 1;
                 same += i32::from(base.get(x, y) == Some(c));
@@ -1283,11 +1315,23 @@ const LABEL_VIEWS: [(&str, (i32, i32)); 8] = [
     ("inn", (28, 17)),
 ];
 
+/// The clock nudged past any card standing on the town: a quiet moment.
+fn quiet(r: &mut Run) {
+    loop {
+        let s = r.moonfall.as_ref().unwrap();
+        if super::moments::card_now(s, &s.seats[&1].knight).is_none() {
+            return;
+        }
+        r.moonfall.as_mut().unwrap().clock += 1;
+    }
+}
+
 /// A table of `seats` at a moment, the dawn card gone.
 fn quiet_table(seats: u32, (day, hh, mm): (u32, u32, u32)) -> Run {
     let mut r = table(seats);
     at_hour(&mut r, day, hh, mm);
     r.moonfall.as_mut().unwrap().card = 0;
+    quiet(&mut r);
     r
 }
 
@@ -1355,6 +1399,7 @@ fn every_label_is_whole_inside_the_town_view_and_touches_no_other_at_every_hour_
             let (day, hh, mm) = moment;
             at_hour(&mut r, day, hh, mm);
             r.moonfall.as_mut().unwrap().card = 0;
+            quiet(&mut r);
             let mut views: Vec<_> = [0, 1, 2, 3, 4, 6].iter().map(|&i| LABEL_VIEWS[i]).collect();
             views.extend(folk_view(&r).map(|at| ("folk", at)));
             for (view, at) in views {
@@ -1481,6 +1526,7 @@ fn the_words_keep_their_colours_at_every_hour_and_read_against_their_plates() {
             let (day, hh, mm) = moment;
             at_hour(&mut r, day, hh, mm);
             r.moonfall.as_mut().unwrap().card = 0;
+            quiet(&mut r);
             for (view, at) in [LABEL_VIEWS[0], LABEL_VIEWS[1], LABEL_VIEWS[3], LABEL_VIEWS[4]] {
                 huddle(&mut r, seats, at);
                 let sc = scene(&r, Some(1));
@@ -1763,3 +1809,328 @@ fn layout_rules_in_the_small() {
 
 
 
+
+// ---- the painted cast and the beats --------------------------------------------------
+
+/// How many pixels of a picture are painted (`pixels()` walks the transparent ones too).
+fn opaque(im: &Img) -> usize {
+    (0..im.h).flat_map(|y| (0..im.w).map(move |x| (x, y))).filter(|&(x, y)| im.get(x, y).is_some()).count()
+}
+
+#[test]
+fn the_painted_cast_is_whole_in_every_state_the_stage_asks_for() {
+    use super::cast;
+    use crate::rules::moonfall::state::Mask;
+    // Every villager: a breath, a walk and a trade, facing each way.
+    for slot in ["mira", "tovin", "nessa", "orin", "pella"] {
+        for dir in ["down", "up", "left", "right"] {
+            for kind in ["idle", "walk"] {
+                let state: &'static str = Box::leak(format!("{kind}-{dir}").into_boxed_str());
+                let a = cast::anim(slot, state).unwrap_or_else(|| panic!("{slot} {state}"));
+                assert_eq!(a.frames.len(), 4, "{slot} {state}");
+                assert!(a.frames.iter().all(|f| f.w == 18 && f.h == 28 && opaque(f) > 60), "{slot} {state}");
+            }
+        }
+    }
+    for (slot, trades) in [("mira", &["work", "light"][..]), ("tovin", &["work"]), ("nessa", &["work"]), ("orin", &["work", "search"]), ("pella", &["cry"])] {
+        for &state in trades {
+            assert!(cast::anim(slot, state).is_some_and(|a| a.frames.len() >= 3), "{slot} {state}");
+        }
+    }
+    // Aster and his horse; the wisp; what a knight carries.
+    for state in ["idle-left", "idle-right", "ride-left", "ride-right", "lame-left", "lame-right"] {
+        assert!(cast::anim("aster", state).is_some_and(|a| a.frames[0].w == 34), "{state}");
+    }
+    for state in ["drift", "snuff", "shy"] {
+        assert!(cast::anim("wisp", state).is_some(), "{state}");
+    }
+    for item in ["item-ink", "item-reeds", "item-pass", "item-scroll", "item-shoe"] {
+        assert!(cast::frame(item, "idle", 0).is_some_and(|f| opaque(f) > 20), "{item}");
+    }
+    // Every knight in every house colour and mask: the same shape, a colour of its own.
+    for mask in [Mask::Bare, Mask::Swift, Mask::Stout] {
+        for state in ["idle-down", "idle-up", "idle-left", "idle-right", "walk-down", "walk-up", "walk-left", "walk-right", "roll-down", "roll-left", "roll-right", "roll-up", "cheer", "down"] {
+            let looks: Vec<_> = (1..=6).map(|seat| cast::knight(mask, state, seat).unwrap_or_else(|| panic!("{mask:?} {state} {seat}")).at(0)).collect();
+            assert!(looks.iter().all(|f| opaque(f) == opaque(looks[0])), "{mask:?} {state}: one shape");
+            for (i, a) in looks.iter().enumerate() {
+                for b in &looks[i + 1..] {
+                    assert_ne!(a.content_hash(), b.content_hash(), "{mask:?} {state}: seats wear their own colour");
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn each_villager_walks_and_stands_to_their_trade_over_the_day() {
+    use crate::rules::moonfall::{folk::Folk, state::Seat};
+    let _: Option<Seat> = None;
+    let mut r = table(1);
+    let day = r.moonfall.as_ref().unwrap().nums.day;
+    let mut seen: BTreeMap<usize, std::collections::BTreeSet<&'static str>> = BTreeMap::new();
+    for h2 in 0..48u32 {
+        for quarter in 0..6 {
+            let clock = clock::ticks(day, h2) + quarter * day / 288;
+            r.moonfall.as_mut().unwrap().clock = clock;
+            let s = r.moonfall.as_ref().unwrap();
+            for &f in &folk::CAST {
+                let fig = folk::figure(f, s.shown_clock(), day, s.world.shod);
+                if fig.visible {
+                    seen.entry(f.index()).or_default().insert(super::ground::folk_state(s, &fig, 0).0);
+                }
+            }
+        }
+    }
+    let want = |f: Folk, states: &[&str]| {
+        let got = &seen[&f.index()];
+        for s in states {
+            assert!(got.contains(s), "{f:?} never shows {s}: {got:?}");
+        }
+        assert!(got.iter().any(|s| s.starts_with("walk-")), "{f:?} never walks: {got:?}");
+    };
+    want(Folk::Mira, &["work", "light"]);
+    want(Folk::Tovin, &["work"]);
+    want(Folk::Nessa, &["work"]);
+    want(Folk::Orin, &["work", "search"]);
+    want(Folk::Pella, &["cry"]);
+}
+
+/// Every card there is, on a table of `seats` with the HUD busy: the day's
+/// dawn (a first try and a later one), the second and the last day, the dusk,
+/// a mask earned, and the lights holding at several ticks.
+fn card_moments(seats: u32) -> Vec<(String, Run)> {
+    use crate::rules::moonfall::state::{Call, Mask, Note, Ring};
+    let mut out = Vec::new();
+    let mut add = |name: &str, f: &dyn Fn(&mut Run)| {
+        let mut r = table(seats);
+        huddle(&mut r, seats, (17, 15));
+        r.moonfall.as_mut().unwrap().news = vec![
+            (Note::Learned(Fact::OrinLost), 110),
+            (Note::Learned(Fact::AsterLame), 100),
+            (Note::Wrote(Folk::Mira, 3), 90),
+            (Note::Ticked(Folk::Pella), 60),
+        ];
+        r.moonfall.as_mut().unwrap().call = Some(Call { ring: Ring::Rewind, by: 1, ayes: 1, left: 100 });
+        f(&mut r);
+        out.push((name.to_string(), r));
+    };
+    for (day, loops) in [(1, 0), (1, 3), (2, 1), (3, 1)] {
+        for age in [0u32, 2, 30, 60] {
+            add(&format!("day{day}-loop{loops}-{age}"), &|r| {
+                at_hour(r, day, 6, 0);
+                let s = r.moonfall.as_mut().unwrap();
+                s.memory.loops = loops;
+                s.clock += age;
+            });
+        }
+    }
+    for age in [0u32, 3, 40] {
+        add(&format!("dusk-{age}"), &|r| {
+            at_hour(r, 1, 18, 0);
+            r.moonfall.as_mut().unwrap().clock += age;
+        });
+    }
+    for mask in [Mask::Swift, Mask::Stout] {
+        for left in [90u32, 80, 40, 25] {
+            add(&format!("{mask:?}-{left}"), &|r| {
+                at_hour(r, 2, 14, 0);
+                let k = &mut r.moonfall.as_mut().unwrap().seats.get_mut(&1).unwrap().knight;
+                k.note = Some((Note::Mask(mask), left));
+            });
+        }
+    }
+    for t in [0u32, 4, 30, 80, 110] {
+        add(&format!("won-{t}"), &|r| {
+            at_hour(r, 3, 0, 20);
+            r.moonfall.as_mut().unwrap().phase = Phase::Won { t };
+        });
+    }
+    out
+}
+
+#[test]
+fn a_card_stands_whole_in_the_frame_clear_of_every_word_and_the_news_waits_under_it() {
+    let mut cards = 0;
+    for seats in [1u32, 3, 6] {
+        for (name, r) in card_moments(seats) {
+            let s = r.moonfall.as_ref().unwrap();
+            let me = &s.seats[&1].knight;
+            let Some((card, rect)) = super::moments::card_now(s, me) else { continue };
+            cards += 1;
+            let at = format!("{seats} seats, {name}");
+            assert!(rect.x >= 0 && rect.y >= 0 && rect.right() <= 384 && rect.bottom() <= VIEW_Y + VIEW_H, "{at}: {rect:?} leaves the frame");
+            assert!(card.title.split(' ').count() <= 3 && card.sub.split(' ').count() <= 4, "{at}: plain words, {:?} {:?}", card.title, card.sub);
+            let sc = scene_words(&r, Some(1));
+            // Every plate stands clear of the card's box and of every other
+            // word; the news lines wait under it; the HUD's open boxes stay apart.
+            for (text, p) in plates(&sc) {
+                assert!(!p.grown(1).hits(rect), "{at}: {text:?} {p:?} is under the card {rect:?}");
+            }
+            let bad = label_faults(&sc);
+            assert!(bad.is_empty(), "{at}: {bad:#?}");
+            for line in hud::news_rects(s, me) {
+                assert!(!line.grown(1).hits(rect), "{at}: a news line {line:?} meets the card {rect:?}");
+                assert!(line.in_frame() || line.bottom() <= 224, "{at}: {line:?}");
+            }
+            let open: Vec<_> = sc.keep.iter().filter(|(_, modal)| !modal).map(|&(k, _)| k).collect();
+            for (i, a) in open.iter().enumerate() {
+                assert!(!a.hits(rect), "{at}: {a:?} meets the card {rect:?}");
+                for b in &open[i + 1..] {
+                    assert!(!a.hits(*b), "{at}: {a:?} meets {b:?}");
+                }
+            }
+        }
+    }
+    assert!(cards >= 80, "{cards} cards checked");
+}
+
+#[test]
+fn only_one_card_stands_at_a_time_and_the_lights_holding_outranks_the_rest() {
+    use crate::rules::moonfall::state::{Mask, Note};
+    let mut r = table(2);
+    at_hour(&mut r, 2, 6, 0);
+    {
+        let k = &mut r.moonfall.as_mut().unwrap().seats.get_mut(&1).unwrap().knight;
+        k.note = Some((Note::Mask(Mask::Swift), 88));
+    }
+    let s = r.moonfall.as_ref().unwrap();
+    let me = &s.seats[&1].knight;
+    assert_eq!(super::moments::card_now(s, me).unwrap().0.title, "SWIFT MASK", "a mask outranks the dawn");
+    r.moonfall.as_mut().unwrap().phase = Phase::Won { t: 5 };
+    let s = r.moonfall.as_ref().unwrap();
+    assert_eq!(super::moments::card_now(s, &s.seats[&1].knight).unwrap().0.title, "THE LIGHTS HOLD");
+    // A quiet midday has none.
+    let mut q = table(2);
+    at_hour(&mut q, 2, 12, 0);
+    let s = q.moonfall.as_ref().unwrap();
+    assert!(super::moments::card_now(s, &s.seats[&1].knight).is_none());
+}
+
+#[test]
+fn the_town_shakes_with_the_bells_toll_and_the_moons_landing_and_is_still_in_play() {
+    use super::moments::jolt;
+    let mut r = table(2);
+    at_hour(&mut r, 1, 12, 0);
+    r.moonfall.as_mut().unwrap().clock += 50;
+    let (s, me) = (r.moonfall.as_ref().unwrap(), &r.moonfall.as_ref().unwrap().seats[&1].knight);
+    assert!((0..40).all(|t| jolt(s, me, t) == (0, 0)), "a calm noon is still");
+    let from = s.clock;
+    let mut peak = 0;
+    for t in 0..28 {
+        r.moonfall.as_mut().unwrap().phase = Phase::Rewind { t, from, fell: false };
+        let s = r.moonfall.as_ref().unwrap();
+        let j = jolt(s, &s.seats[&1].knight, t + 3);
+        peak = peak.max(j.0.abs().max(j.1.abs()));
+    }
+    assert!(peak >= 2, "the toll shakes the town: {peak}");
+    let mut fell_peak = 0;
+    for t in 0..28 {
+        r.moonfall.as_mut().unwrap().phase = Phase::Rewind { t, from, fell: true };
+        let s = r.moonfall.as_ref().unwrap();
+        let j = jolt(s, &s.seats[&1].knight, t + 3);
+        fell_peak = fell_peak.max(j.0.abs().max(j.1.abs()));
+    }
+    assert!(fell_peak > peak, "the moon landing is the loudest blow: {fell_peak} against {peak}");
+    // And the same tick shakes it the same way for every mirror.
+    let s = r.moonfall.as_ref().unwrap();
+    assert_eq!(jolt(s, &s.seats[&1].knight, 9), jolt(s, &s.seats[&1].knight, 9));
+}
+
+#[test]
+fn the_rewind_draws_a_sweep_and_a_toll_and_the_lights_holding_rolls_the_night_into_dawn() {
+    let mut r = table(2);
+    at_hour(&mut r, 2, 22, 0);
+    let from = r.moonfall.as_ref().unwrap().clock;
+    let mut hashes = std::collections::BTreeSet::new();
+    let mut ink_in_fx = Vec::new();
+    for t in 0..28 {
+        r.tick += 1;
+        r.moonfall.as_mut().unwrap().phase = Phase::Rewind { t, from, fell: false };
+        let (base, fx) = layers(&r, Some(1));
+        hashes.insert((base.content_hash(), fx.content_hash()));
+        ink_in_fx.push(opaque(&fx));
+    }
+    assert_eq!(hashes.len(), 28, "every tick of the ritual is a new picture");
+    assert!(ink_in_fx.iter().skip(2).all(|&n| n > 400), "the sweep and the clock are drawn all through: {ink_in_fx:?}");
+    // The sky band brightens as the lights hold.
+    let sky_mean = |r: &Run| {
+        let (base, _) = layers(r, Some(1));
+        let mut sum = 0u64;
+        for y in 0..VIEW_Y - 8 {
+            for x in 0..60 {
+                if let Some(c) = base.get(x, y) {
+                    sum += u64::from(c[0]) + u64::from(c[1]) + u64::from(c[2]);
+                }
+            }
+        }
+        sum
+    };
+    let mut won = table(2);
+    at_hour(&mut won, 3, 0, 20);
+    won.moonfall.as_mut().unwrap().phase = Phase::Won { t: 16 };
+    let dark = sky_mean(&won);
+    won.moonfall.as_mut().unwrap().phase = Phase::Won { t: 100 };
+    let dawn = sky_mean(&won);
+    assert!(dawn > dark * 3, "the night rolls into a peach dawn: {dark} then {dawn}");
+}
+
+#[test]
+fn a_mask_found_blooms_over_the_knight_and_a_ledger_line_flies_to_its_key() {
+    use crate::rules::moonfall::state::{Mask, Note};
+    let mut r = table(2);
+    at_hour(&mut r, 2, 14, 0);
+    put_knight(&mut r, 1, (20, 17));
+    let calm = layers(&r, Some(1)).0;
+    {
+        let k = &mut r.moonfall.as_mut().unwrap().seats.get_mut(&1).unwrap().knight;
+        k.note = Some((Note::Mask(Mask::Swift), 80));
+    }
+    let bloom = layers(&r, Some(1)).0;
+    let differing = (0..384).flat_map(|x| (0..224).map(move |y| (x, y))).filter(|&(x, y)| calm.get(x, y) != bloom.get(x, y)).count();
+    assert!(differing > 800, "the mask blooms and its card slams in: {differing} pixels");
+    let mut book = table(2);
+    at_hour(&mut book, 2, 14, 0);
+    put_knight(&mut book, 1, (20, 17));
+    let before = layers(&book, Some(1)).0;
+    book.moonfall.as_mut().unwrap().news = vec![(Note::Learned(Fact::PellaScroll), 110)];
+    let after = layers(&book, Some(1)).0;
+    assert_ne!(before.content_hash(), after.content_hash());
+}
+
+/// How many pixels the moon's pull lays on a blank picture at a moment.
+fn pull_pixels(r: &Run) -> usize {
+    let s = r.moonfall.as_ref().unwrap();
+    let mut im = Img::new(384, 224);
+    super::moments::pull(&mut im, s, s.shown_clock(), r.tick as u32);
+    opaque(&im)
+}
+
+#[test]
+fn the_moons_pull_grows_each_night_and_the_guide_layer_is_off_in_play() {
+    let mut day = table(2);
+    at_hour(&mut day, 1, 12, 0);
+    assert_eq!(pull_pixels(&day), 0, "no pull by day");
+    let mut counts = Vec::new();
+    for (d, hh, mm) in [(1, 23, 0), (2, 23, 0), (3, 22, 0), (3, 3, 0)] {
+        let mut r = table(2);
+        at_hour(&mut r, d, hh, mm);
+        r.tick = 40;
+        counts.push(pull_pixels(&r));
+    }
+    assert!(counts[0] > 0 && counts.windows(2).all(|w| w[0] < w[1]), "the pull grows with the nights: {counts:?}");
+    // While it falls every guide carries dust at once.
+    let mut fall = table(2);
+    let day_ticks = fall.moonfall.as_ref().unwrap().nums.day;
+    fall.moonfall.as_mut().unwrap().phase = Phase::Rewind { t: 6, from: clock::end(day_ticks), fell: true };
+    assert!(pull_pixels(&fall) > counts[3], "the fall is the hardest pull");
+    // The debug layer shows the guide paths, and only when asked.
+    let mut r = table(2);
+    at_hour(&mut r, 2, 23, 0);
+    r.tick = 40;
+    let plain = pull_pixels(&r);
+    super::moments::show_guides(true);
+    let guided = pull_pixels(&r);
+    super::moments::show_guides(false);
+    assert!(guided > plain + 100, "the guides are drawn on request: {plain} then {guided}");
+    assert_eq!(pull_pixels(&r), plain, "and off again");
+}

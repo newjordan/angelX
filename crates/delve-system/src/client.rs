@@ -260,7 +260,7 @@ fn valid_command_reply(
         C::ClaimHome => matches!(reply, R::Home(transfer) if transfer.valid()),
         C::ClaimRealm => matches!(reply, R::Realm(_)),
         C::Scroll { .. } | C::Reforge { .. } | C::ChooseOffer { .. }
-        | C::WishOnPiece { .. } | C::BuildVessel { .. } => {
+        | C::WishOnPiece { .. } | C::BuildVessel { .. } | C::Contribute { .. } => {
             matches!(reply, R::Chosen(_))
         }
         C::Catalogue { .. }
@@ -274,7 +274,7 @@ fn valid_command_reply(
         | C::MirrorName { .. }
         | C::RevealVessel
         | C::DropMirrorLook { .. }
-        | C::MirrorPaint { .. } | C::RevealVessel => matches!(reply, R::Changed(_)),
+        | C::MirrorPaint { .. } | C::MirrorBody { .. } => matches!(reply, R::Changed(_)),
         C::Visit { .. } => matches!(reply, R::Visited(_)),
         C::EndHosting { .. } | C::RemoveSeat { .. } => matches!(reply, R::Names(_)),
         C::Retreat

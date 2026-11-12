@@ -89,7 +89,7 @@ pub(crate) fn connect_text(provider: Option<&str>) -> String {
             and ANGEL_OPENROUTER_KEY/OPENROUTER_API_KEY. OpenRouter requires an explicit\n\
             model and credential before its catalog is offered. /connect does not test it."
         }
-        "anthropic" => {
+        "anthropic" | "claude" => {
             "Anthropic API connection\n\
             Set ANTHROPIC_API_KEY or ANGEL_ANTHROPIC_KEY. The anthropic seat uses\n\
             ANGEL_ANTHROPIC_MODEL when set, otherwise claude-sonnet-5-5.\n\

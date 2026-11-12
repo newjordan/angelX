@@ -1,0 +1,9 @@
+/target/
+/captures/
+/*.log
+
+/.angel/
+
+# Downloaded third-party models; provenance and hashes live in assets/README.md.
+/assets/*.splat
+/assets/*.ply

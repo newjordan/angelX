@@ -1,7 +1,7 @@
 //! Real shared-stage replay, native views and the cockpit's actual cell buffer.
-#[path = "../../cockpit/src/stage/world_viz/art/cells.rs"]
+#[path = "../../cockpit/delve-cart/src/world_viz/art/cells.rs"]
 mod cells;
-#[path = "../../cockpit/src/stage/world_viz/art/forest_road.rs"]
+#[path = "../../cockpit/delve-cart/src/world_viz/art/forest_road.rs"]
 mod panels;
 use angel_delve::{
     render::overworld::arena,

@@ -294,21 +294,13 @@ pub(crate) fn upload(key: u64, size: (u32, u32), span: (u16, u16), rgba: Vec<u8>
     store(key, size, span, rgba, false)
 }
 
-/// [`upload`] for one frame of a stream (the viewer's game and video
-/// frames): every call uploads into the stream's held picture, so
-/// the window overwrites its texture in place instead of making a
-/// new one per frame — the decode sequence lives in the frames
-/// themselves, not in the key.
-pub(crate) fn upload_stream(
+pub(crate) fn store(
     key: u64,
     size: (u32, u32),
     span: (u16, u16),
     rgba: Vec<u8>,
+    stream: bool,
 ) -> Option<u32> {
-    store(key, size, span, rgba, true)
-}
-
-fn store(key: u64, size: (u32, u32), span: (u16, u16), rgba: Vec<u8>, stream: bool) -> Option<u32> {
     #[cfg(feature = "glass")]
     {
         let host = crate::ui::glass::host()?;
@@ -707,7 +699,7 @@ mod tests {
         assert!(!asked.get(), "pixels are only made for the window");
         // The stills' upload doors likewise need the window.
         assert_eq!(upload(7, (2, 2), (1, 1), vec![0; 16]), None);
-        assert_eq!(upload_stream(7, (2, 2), (1, 1), vec![0; 16]), None);
+        assert_eq!(store(7, (2, 2), (1, 1), vec![0; 16], true), None);
     }
 
     #[cfg(feature = "glass")]

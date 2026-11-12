@@ -1,0 +1,31 @@
+# The Machine Works — Ral Taxcloister, pump operator, among Bomrekedan's thirty windmills.
+# A Bomrekedan questline (quests.json: the-machine-works). Same file shape
+# and caveats as steel.txt. The Windmill room is the nearest real room to a
+# windmill field; Goodwife Barley also teaches there, so give each a
+# different `at`.
+power   bomrekedan:machines
+teacher Ral Taxcloister
+place   the windmill field on the hill above Bomrekedan, thirty sails turning fifty-two screw pumps below
+room    Windmill
+look    grease to the elbows, a pump handle worn bright in both hands, and her eyes always on the nearest sail
+line    Thirty windmills, forty-five gears, fifty-two pumps. Every drop in the wells came up the stack.
+teach   Water does not want to go up. You make it, one screw at a time, and you never stop watching it.
+hook    A drowned pikedwarf's boots stand by the pump-house door, toes to the wall, and nobody has moved them.
+step    The windmill walk | walk the windmill field with Ral and count the sails | windmills_walked 1 | Thirty. Count them every morning. One day it will be twenty-nine and you will want to know which. | cue walk
+step    The pump shifts | stand three shifts at the pump stack, one each visit | pump_shifts_stood 3 | Down at the bottom you can hear the whole stack breathing. | cue stand
+step    The pipes | bring the carpenters what they need for six pipe sections and corkscrews | pipe_parts_made 6 | Erib's pipes, Kogan's screws. The best in the fort, and they still wear out. | needs
+step    The floodgate | set a floodgate above the lowest pumps | floodgates_set 1 | If it had been here last spring, I would not be keeping a pair of boots. | needs
+step    Zuglar's rest | lay Zuglar Oartails in a tomb with Ral standing by | zuglar_laid_to_rest 1 | Pikedwarf, year one hundred and six, drowned. Put that on the slab, and put that it was not his fault. | cue mourn
+trial   The dry hall | clear one flooded hall of the Delve without a knight going under | dry_halls 1 | Dry feet. That is what the whole works is for.
+reward  the Machine Works raised a level: powered workshops open, a bomb more each delve (a Bomrekedan questline: no power is taught)
+title   the Pump-Minder
+keepsake a brass screw from a worn pump, on a leather cord
+ties    Goodwife Barley's windmill is the same hill's (Stout Heart); the pipes are Erib Standardhandled's and the screws Kogan Waningcobalt's; the baroness's millstone waits on this power (A Mill for the Millstone).
+art
+8..8..8
+.8.8.8.
+..888..
+8887888
+..888..
+...8...
+...8...

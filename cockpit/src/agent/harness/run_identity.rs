@@ -299,11 +299,19 @@ pub(crate) fn source_sha256() -> &'static str {
 
 /// Hash executable bytes in bounded memory using the platform SHA-256 already
 /// linked into the harness. Identity never depends on a PATH-selected utility.
+///
+/// The digest is a pure function of the image, so a run that finds the same
+/// image already hashed by an earlier run reuses that digest rather than
+/// reading it all again ([`super::exe_digest`]); any doubt hashes it afresh.
 fn executable_sha256(path: &std::path::Path) -> Result<String, String> {
     let mut file = std::fs::File::open(path)
         .map_err(|error| format!("run identity executable hash: {error}"))?;
-    super::workspace_state::sha256_reader_hex(&mut file)
-        .map_err(|error| format!("run identity executable hash: {error}"))
+    super::exe_digest::digest_with(
+        super::exe_digest::default_dir().as_deref(),
+        &mut file,
+        |file| super::workspace_state::sha256_reader_hex(file),
+    )
+    .map_err(|error| format!("run identity executable hash: {error}"))
 }
 
 /// Start hashing the executable off the request path so the first model

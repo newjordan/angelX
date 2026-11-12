@@ -31,6 +31,10 @@ pub fn screen(cv: &mut Img, run: &Run, focus: Option<u32>) {
     }
     if let Some(floor) = run.deep_floor() {
         tracker(cv, run, floor);
+        // A talk with what stands on the road.
+        if let Some(view) = run.road_view(focus.unwrap_or(1)) {
+            board(cv, &super::road::portrait(view.face), &view.people, &view.name, &view.words, &view.answers);
+        }
     }
 }
 
@@ -100,17 +104,22 @@ fn hope(cv: &mut Img, hope: u8, culture: Culture) {
 /// A knight's conversation: the speaker's portrait, their name and words,
 /// and the answers.
 fn talk(cv: &mut Img, culture: Culture, who: usize, name: &str, words: &str, answers: &[String]) {
+    board(cv, &folk::portrait(culture, who), culture.people(), name, words, answers);
+}
+
+/// A conversation board: a portrait, a name and the people it belongs to,
+/// their words and the answers on 1, 2 and 3.
+fn board(cv: &mut Img, face: &Img, people: &str, name: &str, words: &str, answers: &[String]) {
     let lines = wrap(words, 50);
     let h = (lines.len() as i32 * 9 + answers.len() as i32 * 10 + 30).max(62);
     let y = cv.h - h - 6;
     chrome::panel(cv, (6, y, cv.w - 12, h), Tone::FRAMED);
     chrome::ring(cv, (6, y, cv.w - 12, h), 3);
-    let face = folk::portrait(culture, who);
     chrome::inset_panel(cv, (12, y + 8, face.w + 6, face.h + 6), Tone::WELL);
-    cv.stamp(&face, 15, y + 11);
+    cv.stamp(face, 15, y + 11);
     let tx = 24 + face.w;
     cv.text(tx, y + 7, name, '9');
-    cv.text(tx + text_width(name) + 6, y + 7, culture.people(), 'J');
+    cv.text(tx + text_width(name) + 6, y + 7, people, 'J');
     for (i, line) in lines.iter().enumerate() {
         cv.text(tx, y + 19 + i as i32 * 9, line, 'i');
     }
@@ -163,6 +172,18 @@ fn tracker(cv: &mut Img, run: &Run, floor: u32) {
         let culture = run.home.deep.culture_at(next);
         lines.push((format!("{} WAITS ON FLOOR {next}", culture.town(deep::chapter(next))), 'h'));
     }
+    // What the road holds on this floor, what the party carries, how the
+    // village ahead stands with it.
+    for note in run.road_notes() {
+        let ink = if note.ends_with("IS STIRRED") || note.ends_with(": WARY") {
+            '7'
+        } else if note.ends_with(": FRIENDS") {
+            '2'
+        } else {
+            'O'
+        };
+        lines.push((note, ink));
+    }
     let w = lines.iter().map(|(s, _)| text_width(s)).max().unwrap_or(0) + 12;
     let h = lines.len() as i32 * 9 + 7;
     let (x, y) = (4, 44);
@@ -208,7 +229,7 @@ pub fn signs(cv: &mut Img, run: &Run) {
 /// A cold lamp of the village's, lit once the party has lit it: a stone
 /// foot, a tall post, the people's own lamp at its head; lit, a flame and
 /// a ring of light on the floor round it, cold, a faint blue ember.
-fn lamp(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
+pub(super) fn lamp(cv: &mut Img, sign: &Sign, (x, y): (i32, i32), tick: u32) {
     let lit = sign.done;
     let look = super::look(sign.culture);
     super::super::super::material::shadow(cv, ((x + 4) as f32, (y + 1) as f32), (11.0, 3.0), &super::all);
@@ -395,7 +416,7 @@ const LOST_GLAD: u32 = 36;
 const LOST_GOES: u64 = 70;
 
 /// A heart going up over the glad.
-fn heart(cv: &mut Img, x: i32, y: i32, fading: bool) {
+pub(super) fn heart(cv: &mut Img, x: i32, y: i32, fading: bool) {
     let ink = if fading { 'c' } else { '7' };
     cv.put(x - 1, y, ink);
     cv.put(x + 1, y, ink);

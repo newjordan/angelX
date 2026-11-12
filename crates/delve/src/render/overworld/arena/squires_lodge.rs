@@ -99,6 +99,9 @@ pub(super) fn figure(cv: &mut Img, v: &View) {
 
 /// Static silhouettes and engraved controls, rendered on the real map.
 pub(super) fn town(cv: &mut Img, run: &Run, origin: (i32, i32)) {
+    if !yard::on_map() {
+        return;
+    }
     let (ox, oy) = origin;
     let (yx, yy, yw, yh) = yard::YARD;
     if (yx + yw) * TILE < ox

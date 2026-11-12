@@ -1485,3 +1485,331 @@ fn sandbox_annotation_write_failure_is_reported() {
     assert!(warning.contains("write"), "{warning}");
     assert_eq!(std::fs::read(&path).unwrap(), original, "a failed annotation keeps the original receipt");
 }
+
+/// File `script` as a job whose process is its own group leader and hears
+/// SIGTERM directly, so it chooses its own exit: the shape of a job on a
+/// platform whose sandbox helper execs in place (on Linux the helper
+/// supervises and re-raises SIGTERM itself). Filed the way a handed-off
+/// foreground call is; returns once the script printed `ready`.
+fn file_leader_job(store: &TestProcStore, script: &str) -> u64 {
+    use std::io::BufRead;
+    use std::os::unix::process::CommandExt;
+    let mut child = std::process::Command::new("sh")
+        .args(["-c", script])
+        .current_dir(&store.root.0)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .process_group(0)
+        .spawn()
+        .expect("spawn");
+    let pid = child.id();
+    let mut stdout = std::io::BufReader::new(child.stdout.take().unwrap());
+    let mut line = String::new();
+    stdout.read_line(&mut line).unwrap();
+    assert_eq!(line.trim(), "ready");
+    let (waiter, exit) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _stdout = stdout;
+        let _ = waiter.send(child.wait());
+    });
+    hand_off(&store.root.0, "leader-job", pid, exit, 0, b"")
+        .map_err(|(error, _)| error)
+        .expect("filed")
+        .id
+}
+
+/// `proc_stop` the job, then read the stop text, the terminal receipt the
+/// independent reaper writes, and what `proc_status` says afterwards.
+fn stop_job_and_read_receipt(
+    store: &TestProcStore,
+    id: u64,
+) -> (String, Value, Result<String, String>) {
+    let workspace = store.root.0.clone();
+    let stopped = ProcStopTool::new(workspace.clone())
+        .call(&serde_json::json!({"id": id}))
+        .expect("stop");
+    let receipt = completion_receipt(&workspace, id);
+    let status = ProcStatusTool::new(workspace).call(&serde_json::json!({"id": id}));
+    (stopped, receipt, status)
+}
+
+/// The terminal receipt for job `id`, once the reaper has persisted it.
+fn completion_receipt(workspace: &Path, id: u64) -> Value {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let notice = loop {
+        if let Some(notice) = take_completions(workspace, 8)
+            .into_iter()
+            .find(|notice| notice.id == id)
+        {
+            break notice;
+        }
+        assert!(Instant::now() < deadline, "no completion notice for {id}");
+        std::thread::sleep(Duration::from_millis(20));
+    };
+    let path = notice.receipt.expect("durable receipt path");
+    serde_json::from_slice(&std::fs::read(path).unwrap()).unwrap()
+}
+
+/// The receipt's own fields must agree: a cancelled job is never an `ok` exit,
+/// even when its SIGTERM handler chose exit code 0.
+#[test]
+fn a_stopped_job_that_exits_zero_is_not_an_ok_receipt() {
+    let store = TestProcStore::new();
+    let id = file_leader_job(
+        &store,
+        "trap 'exit 0' TERM; echo ready; while :; do sleep 0.1; done",
+    );
+    let (stopped, receipt, status) = stop_job_and_read_receipt(&store, id);
+    assert!(
+        stopped.contains("stopped (exit 0 after SIGTERM)"),
+        "{stopped}"
+    );
+    assert_eq!(receipt["exit"], "stopped (exit 0 after SIGTERM)");
+    assert_eq!(receipt["exit_code"], 0);
+    assert_eq!(receipt["status"], "Cancelled");
+    assert_eq!(receipt["verification"], "Inconclusive");
+    assert_eq!(receipt["ok"], false, "{receipt}");
+    // Every stop reads as an error result in `proc_status`; this one is no
+    // different, and says so in its own words.
+    let text = status.expect_err("a stopped job is an error result");
+    assert!(text.contains("stopped (exit 0 after SIGTERM)"), "{text}");
+}
+
+/// A job that ignores SIGTERM is killed after the grace period; its labels and
+/// receipt fields are what an adopting cockpit reads back.
+#[test]
+fn a_stopped_job_that_ignores_sigterm_is_killed_after_grace() {
+    let store = TestProcStore::new();
+    let id = file_leader_job(
+        &store,
+        "trap '' TERM; echo ready; while :; do sleep 0.1; done",
+    );
+    let (stopped, receipt, status) = stop_job_and_read_receipt(&store, id);
+    assert!(
+        stopped.contains("killed (SIGKILL after grace)"),
+        "{stopped}"
+    );
+    assert_eq!(receipt["exit"], "killed (SIGKILL after grace)");
+    assert_eq!(receipt["exit_code"], Value::Null);
+    assert_eq!(receipt["status"], "Cancelled");
+    assert_eq!(receipt["verification"], "Inconclusive");
+    assert_eq!(receipt["ok"], false);
+    assert_eq!(receipt["kill"]["signal"], libc::SIGKILL);
+    assert!(status.is_err());
+}
+
+/// On Linux the sandbox helper supervises every `proc_run` command and
+/// re-raises the SIGTERM it was stopped with, so even a handler that exits 0
+/// reads as a plain SIGTERM stop.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_stopped_proc_run_job_reads_as_a_sigterm_stop_on_linux() {
+    let store = TestProcStore::new();
+    let out = store
+        .runner()
+        .call(&serde_json::json!({
+            "command": "trap 'exit 0' TERM; echo ready; while :; do sleep 0.1; done",
+            "name": "supervised"
+        }))
+        .expect("spawn");
+    let (id, _) = parse_handle(&out);
+    let log = table().lock().unwrap().get(&id).unwrap().log.clone();
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while !read_log_tail(&log, 5).contains("ready") {
+        assert!(Instant::now() < deadline, "the job never printed ready");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    let (stopped, receipt, status) = stop_job_and_read_receipt(&store, id);
+    assert!(stopped.contains("stopped (SIGTERM)"), "{stopped}");
+    assert_eq!(receipt["exit"], "stopped (SIGTERM)");
+    assert_eq!(receipt["exit_code"], Value::Null);
+    assert_eq!(receipt["status"], "Cancelled");
+    assert_eq!(receipt["ok"], false);
+    assert!(status.is_err());
+}
+
+/// A process the cockpit did not stop and that dies by a signal is a failed
+/// job with an unknown-external kill receipt.
+#[test]
+fn a_job_killed_by_a_signal_is_a_failed_receipt() {
+    let store = TestProcStore::new();
+    let out = store
+        .runner()
+        .call(&serde_json::json!({"command": "echo ready; kill -KILL $$", "name": "doomed"}))
+        .expect("spawn");
+    let (id, _) = parse_handle(&out);
+    let receipt = completion_receipt(&store.root.0, id);
+    assert_eq!(receipt["exit"], "signal-killed (signal 9)");
+    assert_eq!(receipt["exit_code"], Value::Null);
+    assert_eq!(receipt["status"], "Failed");
+    assert_eq!(receipt["verification"], "Failed");
+    assert_eq!(receipt["ok"], false);
+    assert_eq!(receipt["kill"]["reason"], "signal_death");
+    assert_eq!(receipt["kill"]["owner"], "unknown_external");
+}
+
+/// Terminal receipts written by earlier cockpits carry only the exit label.
+/// Whatever the cockpit now writes, those must load and read the same way:
+/// ok for `exited 0`, an error result for everything else.
+#[test]
+fn terminal_receipts_from_earlier_cockpits_read_by_their_exit_label() {
+    let store = TestProcStore::new();
+    let workspace = store.root.0.clone();
+    let identity = crate::platform::workspace_store::repo_identity(&workspace);
+    let cases = [
+        (901_u64, "exited 0", true),
+        (902, "exited 2", false),
+        (903, "stopped (exit 0 after SIGTERM)", false),
+        (904, "stopped (SIGTERM)", false),
+        (905, "killed (SIGKILL after grace)", false),
+        (906, "signal-killed (signal 9)", false),
+        (907, "wait error: boom; exit unknown", false),
+    ];
+    let completions = proc_dir().join("completions");
+    for (id, exit, _) in cases {
+        let body = serde_json::json!({
+            "schema": "angel-proc-completion/v1", "id": id, "pid": 1,
+            "name": "old", "command": "true", "log": "/nonexistent/old.log",
+            "project_root": identity.root, "project_key": identity.key,
+            "exit": exit, "exit_code": null, "ok": false,
+            "status": "Failed", "verification": "Failed",
+        });
+        crate::platform::workspace_store::write_private_atomic(
+            &completions.join(format!("{id}-1.json")),
+            &serde_json::to_vec_pretty(&body).unwrap(),
+        )
+        .unwrap();
+    }
+    for (id, exit, ok) in cases {
+        let result = ProcStatusTool::new(workspace.clone()).call(&serde_json::json!({"id": id}));
+        assert_eq!(result.is_ok(), ok, "{exit}: {result:?}");
+        let text = result.unwrap_or_else(|text| text);
+        assert!(
+            text.contains(&format!("[{id}] old — {exit} (retained terminal receipt)")),
+            "{text}"
+        );
+    }
+}
+
+/// The observation of a handed-off shell call is "no exit yet, handed to job N":
+/// never an exit status of its own.
+#[cfg(target_os = "linux")]
+#[test]
+fn a_handed_off_observation_carries_no_exit_status() {
+    let fixture = TestProcStore::new();
+    let dir = fixture.root.0.clone();
+    let spec = crate::agent::harness::exec::Handoff {
+        after: Duration::from_secs(1),
+        workspace: dir.clone(),
+        command: "echo started; sleep 3".into(),
+    };
+    let obs = crate::agent::harness::exec::with_handoff(Some(spec), || {
+        crate::agent::harness::run_sandboxed_observed_cancellable(
+            "sh",
+            &["-c", "echo started; sleep 3"],
+            Some(&dir),
+            &SandboxPolicy::permissive(),
+            None,
+        )
+    })
+    .expect("observation");
+    let id = obs
+        .handed_off
+        .expect("the call ran past the hand-off limit");
+    assert_eq!(obs.exit, None);
+    assert!(!obs.timed_out && !obs.cancelled && obs.kill.is_none());
+    assert!(obs.output.contains("started"), "{}", obs.output);
+    assert!(table().lock().unwrap().contains_key(&id));
+}
+
+/// The words each end renders, the exit code it carries and the receipt fields
+/// it implies. Adopting cockpits and receipt readers depend on these exactly.
+#[test]
+fn job_exit_renders_the_labels_and_receipt_fields_the_wire_depends_on() {
+    use std::os::unix::process::ExitStatusExt;
+    let exited = |code: i32| std::process::ExitStatus::from_raw(code << 8);
+    let signaled = |signal: i32| std::process::ExitStatus::from_raw(signal);
+    // (end, label, code, reads as success, (status, ok, verification),
+    //  (status, ok, verification) once a stop was requested)
+    let table = [
+        (
+            JobExit::observed(exited(0)),
+            "exited 0",
+            Some(0),
+            true,
+            ("Exited", true, "Inconclusive"),
+            ("Cancelled", false, "Inconclusive"),
+        ),
+        (
+            JobExit::observed(exited(2)),
+            "exited 2",
+            Some(2),
+            false,
+            ("Failed", false, "Failed"),
+            ("Cancelled", false, "Inconclusive"),
+        ),
+        (
+            JobExit::observed(signaled(9)),
+            "signal-killed (signal 9)",
+            None,
+            false,
+            ("Failed", false, "Failed"),
+            ("Cancelled", false, "Inconclusive"),
+        ),
+        (
+            JobExit::WaitFailed("boom".into()),
+            "wait error: boom; exit unknown",
+            None,
+            false,
+            ("Failed", false, "Failed"),
+            ("Cancelled", false, "Inconclusive"),
+        ),
+        (
+            JobExit::stopped(Some(exited(0)), false),
+            "stopped (exit 0 after SIGTERM)",
+            Some(0),
+            false,
+            ("Cancelled", false, "Inconclusive"),
+            ("Cancelled", false, "Inconclusive"),
+        ),
+        (
+            JobExit::stopped(Some(signaled(15)), false),
+            "stopped (SIGTERM)",
+            None,
+            false,
+            ("Cancelled", false, "Inconclusive"),
+            ("Cancelled", false, "Inconclusive"),
+        ),
+        (
+            JobExit::stopped(Some(signaled(9)), true),
+            "killed (SIGKILL after grace)",
+            None,
+            false,
+            ("Cancelled", false, "Inconclusive"),
+            ("Cancelled", false, "Inconclusive"),
+        ),
+        (
+            JobExit::stopped(None, true),
+            "killed (SIGKILL after grace)",
+            None,
+            false,
+            ("Cancelled", false, "Inconclusive"),
+            ("Cancelled", false, "Inconclusive"),
+        ),
+    ];
+    for (exit, label, code, clean, plain, stopped) in table {
+        assert_eq!(exit.to_string(), label);
+        assert_eq!(exit.code(), code, "{label}");
+        assert_eq!(exit.is_clean(), clean, "{label}");
+        assert_eq!(is_clean_label(label), clean, "{label}");
+        for (cancelled, (status, ok, verification)) in [(false, plain), (true, stopped)] {
+            let outcome = exit.outcome(cancelled);
+            assert_eq!(
+                (outcome.status, outcome.ok, outcome.verification),
+                (status, ok, verification),
+                "{label} cancelled={cancelled}"
+            );
+        }
+    }
+}

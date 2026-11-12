@@ -14,7 +14,8 @@ pub enum Thing {
     Bucket,
     Stocks,
     Goose,
-    /// A coach post: E rides to the next post round the realm.
+    /// A coach post: E rides, with every friend near, to the next post round
+    /// the realm.
     Coach,
     /// The town crier: E and he cries an errand that wants doing, and the
     /// goal arrow points the way.
@@ -168,6 +169,10 @@ impl Run {
             return false;
         };
         let (hx, hy) = (hero.x, hero.y);
+        // A traveller on the road in reach is spoken to before a bell is rung.
+        if self.use_wayfarer(id) {
+            return true;
+        }
         let near = |(tx, ty): (i32, i32)| {
             (hx - (tx as f32 + 0.5) * TILE_UNITS).hypot(hy - (ty as f32 + 0.5) * TILE_UNITS)
                 < REACH * TILE_UNITS
@@ -233,11 +238,33 @@ impl Run {
                 }
                 Thing::Coach => {
                     if let Some((next, (cx, cy), place)) = next_coach(geo, i) {
-                        if let Some(hero) = self.players.get_mut(&id) {
-                            (hero.x, hero.y) = ((cx as f32 + 0.5) * TILE_UNITS, (cy as f32 + 0.6) * TILE_UNITS);
-                            hero.camera = Some((hero.x, hero.y - 1.0));
-                            hero.sitting = false;
+                        // The knight, and every living friend within the
+                        // coach's reach of its post, ride together and step
+                        // down side by side (the waystations' coaches do the
+                        // same, `waystation`).
+                        let post = things(geo)[i].1;
+                        let (px, py) = ((post.0 as f32 + 0.5) * TILE_UNITS, (post.1 as f32 + 0.5) * TILE_UNITS);
+                        let riders: Vec<u32> = self
+                            .players
+                            .iter()
+                            .filter(|&(&other, h)| {
+                                h.hp > 0
+                                    && (other == id
+                                        || (h.x - px).hypot(h.y - py) < super::waystation::COACH_REACH * TILE_UNITS)
+                            })
+                            .map(|(&other, _)| other)
+                            .collect();
+                        let count = riders.len() as f32;
+                        for (slot, rider) in riders.iter().enumerate() {
+                            let offset = (slot as f32 - (count - 1.0) / 2.0) * stand_apart(count);
+                            if let Some(hero) = self.players.get_mut(rider) {
+                                (hero.x, hero.y) =
+                                    ((cx as f32 + 0.5) * TILE_UNITS + offset, (cy as f32 + 0.6) * TILE_UNITS);
+                                hero.camera = Some((hero.x, hero.y - 1.0));
+                                hero.sitting = false;
+                            }
                         }
+                        self.safe_kingdom_arrival();
                         self.kingdom.moments.used.insert(next as u8, tick);
                         self.sounds.push("roll");
                         self.sounds.push(super::chatter::clip(id, "go", take));

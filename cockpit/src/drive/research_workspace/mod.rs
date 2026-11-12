@@ -3,7 +3,8 @@
 
 use crate::agent::club::{ChatMsg, ChatRole};
 use crate::agent::harness::{ExecutionOutcome, ToolEventId, ToolOutcome, VerificationOutcome};
-use crate::stage::world_viz::Building;
+use crate::app::control::realm::GameHost;
+use angel_plug::drive::DriveWorld;
 use std::collections::VecDeque;
 use std::sync::Arc;
 
@@ -14,75 +15,9 @@ pub(crate) mod measurement;
 mod tests;
 pub(crate) mod view;
 
+pub(crate) use angel_plug::drive::Place;
+
 const RECORD_CAP: usize = 512;
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum Place {
-    #[default]
-    Keep,
-    Council,
-    Smithy,
-    Observatory,
-    Library,
-}
-
-impl Place {
-    pub(crate) const ALL: [Self; 5] = [
-        Self::Keep,
-        Self::Council,
-        Self::Smithy,
-        Self::Observatory,
-        Self::Library,
-    ];
-
-    pub(crate) fn label(self) -> &'static str {
-        match self {
-            Self::Keep => "Keep",
-            Self::Council => "Round Table",
-            Self::Smithy => "Smithy",
-            Self::Observatory => "Observatory",
-            Self::Library => "Library",
-        }
-    }
-
-    pub(crate) fn purpose(self) -> &'static str {
-        match self {
-            Self::Keep => "Campaign overview",
-            Self::Council => "Agents & handoffs",
-            Self::Smithy => "Changes & verification",
-            Self::Observatory => "Research & measurements",
-            Self::Library => "Findings & knowledge",
-        }
-    }
-
-    pub(crate) fn building(self) -> Building {
-        match self {
-            Self::Keep => Building::Keep,
-            Self::Council => Building::RoundTable,
-            Self::Smithy => Building::Smithy,
-            Self::Observatory => Building::Observatory,
-            Self::Library => Building::Scriptorium,
-        }
-    }
-
-    pub(crate) fn from_building(building: Building) -> Self {
-        match building {
-            Building::Keep | Building::Gatehouse | Building::Rookery => Self::Keep,
-            Building::RoundTable => Self::Council,
-            Building::Smithy => Self::Smithy,
-            Building::Observatory => Self::Observatory,
-            Building::Scriptorium | Building::Chapel => Self::Library,
-        }
-    }
-
-    pub(crate) fn step(self, delta: isize) -> Self {
-        let index = Self::ALL
-            .iter()
-            .position(|place| *place == self)
-            .unwrap_or(0);
-        Self::ALL[(index as isize + delta).rem_euclid(5) as usize]
-    }
-}
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum Lens {
@@ -349,9 +284,7 @@ impl Workspace {
             }
             self.omitted += 1;
         }
-        let place = Place::from_building(
-            crate::stage::world_viz::classify_tool_activity(name, args).building,
-        );
+        let place = <GameHost as DriveWorld>::tool_place(name, args);
         self.records.push_back(Arc::new(Entry::new(
             key,
             place,

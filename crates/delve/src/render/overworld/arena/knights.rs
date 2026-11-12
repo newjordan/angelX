@@ -105,7 +105,7 @@ fn realm_body(hero: &Hero, thrown: bool, floating: bool) -> Img {
         harness: stage < 2,
         shield: !thrown && (hero.owned.shield || hero.holds_shield()) && !hero.shielding,
         step: stride_step(hero),
-        held: if floating { Held::Nothing } else { held },
+        held: if floating || hero.arm.as_deref().is_some_and(|id| crate::rules::kingdom_gear::item(id).is_some()) { Held::Nothing } else { held },
         strike,
     })
 }
@@ -114,6 +114,9 @@ fn realm_body(hero: &Hero, thrown: bool, floating: bool) -> Img {
 // stages. Those paths carry their own silhouettes, helmets and save semantics.
 // A plain knight is drawn as their seat's design (`quick_rig::Design`).
 fn default_rig(hero: &Hero, seat: u32) -> Option<&'static Rig> {
+    // A code-drawn knight picked at the pub is that seat's plain knight,
+    // whichever seat picked it.
+    let picked = hero.knight.as_deref().and_then(crate::rules::knights::plain_seat);
     if hero.avatar.is_some()
         || hero.shape.is_some()
         || hero.pit.stop.is_some()
@@ -123,14 +126,14 @@ fn default_rig(hero: &Hero, seat: u32) -> Option<&'static Rig> {
         || hero.gear != 0
         || !hero.owned.helmet
         || !hero.owned.body
-        || hero.knight.is_some()
+        || (hero.knight.is_some() && picked.is_none())
         || crate::rules::champions::of(hero).is_some()
         || Look::of(hero).is_some()
         || hero.look.custom
     {
         return None;
     }
-    quick_rig::seat_knight(seat)
+    quick_rig::seat_knight(picked.unwrap_or(seat))
 }
 
 /// Gameplay's countdowns give one-shot origins without storing animation in a
@@ -148,6 +151,9 @@ pub(super) fn rig_sample<'a>(rig: &'a Rig, hero: &Hero, tick: u64, casting: bool
 // Cards/forge runes have names and melee arcs, but no typed animation class.
 // Prefer a recognized equipped-card label, then the forge label, then geometry.
 fn melee_clip(hero: &Hero, book: Option<&crate::rules::cards::Book>) -> Clip {
+    if hero.arm.as_deref() == Some("prospectors-pick") {
+        return Clip::Overhead;
+    }
     if let Some(clip) = book.and_then(|book| super::factory::equipped_attack_clip(hero, book)) {
         return clip;
     }
@@ -200,6 +206,12 @@ pub(super) fn rig_sample_event<'a>(
     cast_age: Option<u64>,
 ) -> Sample<'a> {
     rig_sample_at(rig, hero, tick, cast_age, melee_clip(hero, Some(book)))
+}
+
+/// How many ticks the Die clip of a seat's own knight plays: how long a
+/// fallen knight is drawn falling (`figures`) before it is bones.
+pub(super) fn die_ticks(seat: u32) -> Option<u64> {
+    quick_rig::seat_knight(seat).map(|rig| rig.duration(Clip::Die))
 }
 
 fn rig_sample_at<'a>(
@@ -265,6 +277,7 @@ fn rig_sample_at<'a>(
     }
     if hero.fire_cooldown > 0 {
         let clip = match hero.weapon {
+            _ if hero.arm.as_deref() == Some("mooncrystal-staff") => Clip::Cast,
             crate::rules::Weapon::Bow => Clip::Bow,
             crate::rules::Weapon::Crossbow | crate::rules::Weapon::Handgonne => Clip::Gun,
             _ => Clip::Cast,
@@ -802,6 +815,19 @@ pub const DWARF: &str = "ironbraid";
 
 /// A knight of the company as the portrait shows them: whole, at rest.
 pub fn of_kit(id: Option<&str>, colours: &[(char, char)]) -> Img {
+    // A code-drawn knight waits at the pub as it will play: its seat's rig
+    // at rest, in its colours.
+    if let Some(rig) = id
+        .and_then(crate::rules::knights::plain_seat)
+        .and_then(quick_rig::seat_knight)
+    {
+        let sample = rig.sample(Clip::Idle, 0, Playback::Loop, false);
+        let image = sample.image();
+        // Cut at the feet: a bench stands a figure by its bottom row.
+        let mut standing = Img::new(image.w, sample.pivot()[1] + 1);
+        standing.stamp(&image, 0, 0);
+        return standing.recolor(colours);
+    }
     if super::three_heroes::owns(id) { return super::three_heroes::standing(id.unwrap()).recolor(colours); }
     if super::pack_heroes::owns(id) { return super::pack_heroes::standing(id.unwrap()); }
     // A champion as their body alone, near the size of a class's figure,
@@ -1316,8 +1342,10 @@ fn dressed_rig_aimed(
             .unwrap_or_else(|| fit.whole());
         let part = super::factory::weapon_part(original, part);
         let sprite = super::wear::fitted(original, part);
-        let im = frame_img(sprite.frame(tick));
-        let mut origin = super::factory::weapon_origin(original, &sprite, part)
+        let im = super::kingdom_gear::image(original, part)
+            .unwrap_or_else(|| frame_img(sprite.frame(tick)));
+        let mut origin = super::kingdom_gear::origin(original, &im, part)
+            .or_else(|| super::factory::weapon_origin(original, &sprite, part))
             .unwrap_or_else(|| part.origin((im.w, im.h)));
         let pose = Pose::of(
             &sprite.moves,
@@ -1368,7 +1396,7 @@ fn dressed_rig_aimed(
             let orientation = quick_rig::WeaponOrientation::new(
                 [part.anchor.0 - at[0], part.anchor.1 - at[1]],
                 [part.anchor.0, part.anchor.1],
-                tip,
+                super::kingdom_gear::carry_tip(original, sample.clip, part.anchor, tip),
             );
             if let Some(p) = &mut paint {
                 // Pose::place already accounts for authored motion, including
@@ -1654,6 +1682,12 @@ pub(super) fn dressed_frame(
                 pivot,
                 rung: crate::rules::resolution::Rung::BASE,
                 bare: ((bare.w, bare.h) == (frame.image.w, frame.image.h)).then(|| std::sync::Arc::new(bare)),
+                // Facing up or down the room: a pack may draw it so.
+                vertical: match facing(hero.aim_x, hero.aim_y) {
+                    Facing::Up => Some('u'),
+                    Facing::Down => Some('d'),
+                    Facing::Side => None,
+                },
             });
         }
         return frame;
@@ -2105,6 +2139,11 @@ pub(super) fn pit_figure(hero: &Hero, id: u32, tick: u32) -> Img {
 mod hero_sheet;
 
 pub(super) fn floating_equipment(body: Img, hero: &Hero, tick: u64, id: u32) -> Img {
+    // The registered painting is attached by dressed_frame. Legacy bodies
+    // must not add their old generic bow/sword underneath that same hand.
+    if hero.arm.as_deref().is_some_and(|id| crate::rules::kingdom_gear::item(id).is_some()) {
+        return body;
+    }
     let (mut held, strike) = held_of(hero);
     if held == Held::Nothing && hero.sword { held = Held::Sword; }
     let _ = (tick, id);

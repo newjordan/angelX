@@ -18,6 +18,8 @@
 //! pixels.
 
 mod boss_art;
+/// The boss library's own dressing (material grade, rim light, breath), for the Creator's preview feed.
+pub(crate) use boss_art::{breathe as library_breathe, breathing as library_breathing, dress as library_dress};
 mod entrance_art;
 /// Review-only native/browser selector: zero is production; 1..4 are recipe trials.
 #[cfg(feature = "boss-library-review")]
@@ -38,6 +40,8 @@ pub extern "C" fn boss_effect_review(sample: u32) {
 }
 mod altar;
 mod barony;
+mod reclaim;
+mod goods;
 pub(super) mod college;
 mod colosseum;
 mod alehouse;
@@ -47,6 +51,8 @@ mod three_heroes;
 mod spellfx;
 mod muster_tent;
 mod squire_rooms;
+mod bomrekedan;
+mod bomrekedan_works;
 mod pack_heroes;
 mod pack_foes;
 mod demonic;
@@ -77,8 +83,10 @@ mod garden;
 mod freedom;
 mod starfall;
 mod rewards;
+mod rite_wall;
 mod deep_village;
 mod open;
+mod chronicle;
 mod props;
 mod eastern;
 mod feel;
@@ -88,6 +96,7 @@ mod floor_stats;
 mod flourishes;
 mod folly;
 mod fx;
+mod hall_voices;
 mod gauntlets;
 use crate::rules::Shot;
 use crate::rules::wishcraft::Tint;
@@ -114,6 +123,8 @@ mod ground_marks;
 mod lightgallop;
 mod knight_racers;
 mod deathmatch;
+/// The shared juice kit: shake, banners, countdowns, podiums (`rules::juice` keeps the state).
+pub(crate) mod juice;
 /// A browser's own arena movement, replayed ahead of the host. Damage and
 /// every other seat still come from the authoritative round.
 pub fn with_deathmatch_prediction<T>(own: Option<(u32, crate::rules::deathmatch::Fighter)>, draw: impl FnOnce() -> T) -> T {
@@ -133,9 +144,18 @@ mod academy_squires;
 mod minions;
 mod squire_company;
 pub(super) mod holdings;
+mod holdings_folk;
 mod home;
 mod joust;
 mod kingdom;
+mod industry;
+mod village_ui;
+mod frontier_scene;
+mod frontier_art;
+mod village_art;
+mod kingdom_gear;
+mod claim_bosses;
+mod ore_threats;
 pub mod knights;
 mod mirror;
 /// Validated animation assets and shared equipment sockets.
@@ -144,6 +164,7 @@ pub mod factory;
 mod wear;
 mod lessons;
 mod magic;
+pub(crate) mod zones;
 mod ailments;
 pub(crate) mod pfx;
 mod ranged_events;
@@ -175,6 +196,7 @@ mod mossbell;
 mod votes;
 mod team;
 mod crossroads;
+mod encounter;
 mod rescues;
 pub mod paintings;
 mod room_scene;
@@ -236,6 +258,61 @@ mod volleys;
 mod wanted;
 mod wax_art;
 mod wax_maze;
+mod belfry_shoot;
+mod book_hop;
+mod powder_room;
+#[cfg(test)]
+pub(crate) fn powder_set_off(off: bool) {
+    powder_room::OFF.store(off, std::sync::atomic::Ordering::Relaxed);
+}
+#[cfg(test)]
+pub(crate) fn powder_profile(run: &Run, focus: Option<u32>) -> [(&'static str, f64); 3] {
+    powder_room::profile(run, focus)
+}
+#[cfg(test)]
+pub(crate) use powder_room::words::{Claim as PowderClaim, meets as powder_meets};
+#[cfg(test)]
+pub(crate) fn powder_words() -> Vec<PowderClaim> {
+    powder_room::words::last()
+}
+#[cfg(test)]
+pub(crate) fn hop_set_off(off: bool) {
+    book_hop::OFF.store(off, std::sync::atomic::Ordering::Relaxed);
+}
+#[cfg(test)]
+pub(crate) fn hop_profile(run: &Run, focus: Option<u32>) -> [(&'static str, f64); 3] {
+    book_hop::profile(run, focus)
+}
+#[cfg(test)]
+pub(crate) use book_hop::words::{Claim as HopClaim, meets as hop_meets};
+#[cfg(test)]
+pub(crate) fn hop_words() -> Vec<HopClaim> {
+    book_hop::words::last()
+}
+#[cfg(test)]
+pub(crate) fn hop_said() -> Vec<(&'static str, String, (i32, i32, i32, i32))> {
+    book_hop::words::said()
+}
+#[cfg(test)]
+pub(crate) fn hop_tucks_tray(run: &Run) -> bool {
+    book_hop::tucks_tray(run)
+}
+#[cfg(test)]
+pub(crate) fn hop_strip_top() -> i32 {
+    book_hop::strip_top()
+}
+#[cfg(test)]
+pub(crate) fn hop_chip_xs(run: &Run) -> Vec<(u32, i32)> {
+    book_hop::chip_xs(run)
+}
+#[cfg(test)]
+pub(crate) fn belfry_set_off(off: bool) {
+    belfry_shoot::OFF.store(off, std::sync::atomic::Ordering::Relaxed);
+}
+#[cfg(test)]
+pub(crate) fn belfry_profile(run: &Run, focus: Option<u32>) -> [(&'static str, f64); 3] {
+    belfry_shoot::profile(run, focus)
+}
 mod works;
 mod world;
 mod yard;
@@ -340,7 +417,7 @@ pub use figures::boss_display_feet;
 use figures::{figures, foe_figure};
 use figures::{figures_with, foe_figure_with};
 use flourishes::{flourishes, hooks, orbits, sparks, summoned, tallow};
-use folly::{bats_layer, folly_title, gantry_layer, hop_floor, hop_layer, powder_layer};
+use folly::{bats_layer, gantry_layer, hop_floor, hop_layer, powder_layer};
 use ground_marks::{flags, floor_mark};
 use hazards::{foes_hazards, hazard_mark, hazards, vent_at};
 pub use lifted::{
@@ -779,15 +856,23 @@ fn reading(run: &Run) -> bool {
 fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
     let (scenery, mut over) = scene_layers(run, focus, legible);
     votes::panel(&mut over, run, focus);
+    // A random room's game: its card (the Round Table's own screens carry it
+    // from `roundtable`).
+    if !run.roundtable_showing() {
+        encounter::panel(&mut over, run, focus);
+    }
     (scenery, over)
 }
 
 fn scene_layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
+    if industry::showing(run, focus) { return industry::layers(run, focus); }
+    if industry::frontier(run) { return industry::landscape(run, focus); }
     if run.mossbell_showing() { return mossbell::layers(run, focus); }
     if run.brasswake_showing() { return brasswake::layers(run, focus); }
     if run.forest_road_showing() { return forest_road::layers(run, focus); }
     if let Some(scene) = roundtable::layers(run, focus) { return scene; }
     if run.pennon_showing() { return pennon::layers(run, focus); }
+    if joust::takes_the_screen(run) { return joust::layers(run, focus); }
     if run.rafterwake_showing() { return rafterwake::layers(run, focus); }
     if run.latch_showing() { return latch::layers(run, focus); }
     if run.cinder_showing() { return cinder::layers(run, focus); }
@@ -856,6 +941,7 @@ fn room_layer(run: &Run, focus: Option<u32>, legible: bool) -> Img {
 fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawList<'_> {
     let mut list = room_paint::room_list(run, focus, legible);
     list.add(Layer::Ground, move |cv| mirror::wall(cv, run));
+    bomrekedan_works::add(&mut list, run);
     list
 }
 
@@ -897,17 +983,23 @@ fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, orig
     // the room's boards, so a window tilts them out of the picture (`pastimes::boards`).
     screen.add(Layer::Screen, |cv| team::panel(cv, run, focus));
     screen.add(Layer::Screen, |cv| if reading(run) { pastimes::boards(cv, run); });
-    screen.add(Layer::Screen, |cv| wax_maze::screen(cv, run));
+    screen.add(Layer::Screen, |cv| wax_maze::screen(cv, run, focus, origin));
     screen.add(Layer::Screen, |cv| bats_layer(cv, run));
+    screen.add(Layer::Screen, |cv| belfry_shoot::screen(cv, run, focus, origin));
     screen.add(Layer::Screen, |cv| gantry_layer(cv, run, origin));
     screen.add(Layer::Screen, |cv| powder_layer(cv, run, origin));
+    screen.add(Layer::Screen, |cv| powder_room::screen(cv, run, focus, origin));
     screen.add(Layer::Screen, |cv| hop_layer(cv, run));
+    screen.add(Layer::Screen, |cv| book_hop::screen(cv, run, focus, origin));
     screen.add(Layer::Screen, |cv| field_banner(cv, run, origin, focus));
     screen.add(Layer::Screen, |cv| verdict(cv, run));
     // The party's steps up: a record, a constellation lit, the sky's gift
     // (`rewards`).
     screen.add(Layer::Screen, |cv| if legible { rewards::screen(cv, run, origin); });
     screen.add(Layer::Screen, |cv| if legible { boss_title(cv, run); });
+    // A new knight's rite: the scroll's question, the piece made, the stair
+    // that turned them back (`rite`).
+    screen.add(Layer::Screen, |cv| if legible { rite_wall::screen(cv, run, focus); });
     screen.add(Layer::Screen, |cv| gate::card(cv, run));
     screen.add(Layer::Screen, |cv| wanted::poster(cv, run, legible));
     screen.add(Layer::Screen, |cv| {
@@ -925,10 +1017,14 @@ fn screen_marks(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool, orig
     screen.add(Layer::Screen, |cv| if legible { college::dialogue(cv, run); });
     // The Deep's boards: a village's name, hope and talk, the errands' tracker.
     screen.add(Layer::Screen, |cv| if legible { deep_village::screen(cv, run, focus); });
+    // A knight's talk with the King or a lost hall's keeper.
+    screen.add(Layer::Screen, |cv| if legible { reclaim::screen(cv, run, focus); });
 
     screen.add(Layer::Screen, |cv| {
         if legible && matches!(run.room().kind, RoomKind::Alehouse | RoomKind::Bazaar | RoomKind::MusterTent) {
             alehouse::screen_boards(cv, run, focus);
+        } else if legible && focus.is_some() && run.room().kind == RoomKind::Gate {
+            hall_voices::title(cv, run, &mut Vec::new());
         }
     });
     screen.paint(cv);
@@ -1048,9 +1144,13 @@ pub fn seat_px(run: &Run, w: i32, h: i32, focus: Option<u32>, ux: f32, uy: f32) 
     (x, y + band)
 }
 
+/// One Knight Racers pod on a turntable, for the course and pod select screens.
+pub fn racer_garage(look: usize, seat: u32, turn: f32, ticks: u32) -> Img { knight_racers::garage(look, seat, turn, ticks) }
+
 pub fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
+    if industry::showing(run, focus) || industry::frontier(run) { return industry::frame(run,w,h,focus); }
     if crossroads::showing(run) { return crossroads::frame(run, w, h, focus); }
-    if crossroads::pastime(run) {
+    if crossroads::pastime(run) || encounter::pastime(run) {
         // These arenas use their surface stage while the delve waits below.
         let mut arena = run.clone();
         arena.dungeon.depth = 0;
@@ -1069,7 +1169,8 @@ pub fn frame_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
 /// own screens, the Forest Road, the Round Table adventures and the race,
 /// at twice the native grain. `None` for any other room.
 pub fn terminal_layers(run: &Run, focus: Option<u32>) -> Option<(Img, Img)> {
-    if crossroads::showing(run) || crossroads::pastime(run) {
+    if industry::showing(run, focus) || industry::frontier(run) { let im=industry::frame(run,NATIVE_W,NATIVE_H,focus); return Some((im,Img::new(NATIVE_W,NATIVE_H))); }
+    if crossroads::showing(run) || crossroads::pastime(run) || encounter::pastime(run) {
         let frame = frame_for(run, NATIVE_W, NATIVE_H, focus);
         return Some((frame, Img::new(NATIVE_W, NATIVE_H)));
     }
@@ -1109,7 +1210,7 @@ pub fn frame_v1(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     let legible = w >= NATIVE_W && h >= NATIVE_H;
     let (scenery, over) = boss_art::library_cells(!legible, || layers(run, focus, legible));
     let field = Field::fit(w, h);
-    if run.room().kind == RoomKind::Kingdom && field.den != 1 {
+    if run.room().kind == RoomKind::Kingdom && !industry::showing(run, focus) && !industry::frontier(run) && field.den != 1 {
         let ranks = super::kingdom::atlas_ranks(&run.kingdom.wishes);
         field.blit_ranked(
             &scenery,
@@ -1148,10 +1249,49 @@ mod motion_sheet;
 #[cfg(test)]
 #[path = "../../../tests/render/arena__alehouse__shots.rs"]
 mod alehouse_shots;
+#[cfg(test)]
+#[path = "../../../tests/render/arena__hall_voices__shots.rs"]
+mod hall_voices_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__roads__shots.rs"]
+mod roads_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__upper_world__shots.rs"]
+mod upper_world_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__tabula_probe__tests.rs"]
+mod tabula_probe;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__forges__shots.rs"]
+mod forges_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__holdings_folk__shots.rs"]
+mod holdings_folk_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__rite__tests.rs"]
+mod rite_tests;
 
 #[cfg(test)]
 #[path = "../../../tests/render/arena__champions__shots.rs"]
 mod champions_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__phantom_lancer__shots.rs"]
+mod phantom_lancer_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__mirage_duelist__shots.rs"]
+mod mirage_duelist_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__reclaim__shots.rs"]
+mod reclaim_shots;
 
 #[cfg(test)]
 #[path = "../../../tests/render/arena__melee__shots.rs"]
@@ -1183,6 +1323,10 @@ mod dyes_shots;
 #[cfg(test)]
 #[path = "../../../tests/render/arena__boss_polish__shots.rs"]
 mod boss_polish_shots;
+
+#[cfg(test)]
+#[path = "../../../tests/render/arena__wayfarers__shots.rs"]
+mod wayfarers_shots;
 
 /// Snapshot only on worker admission; the expensive compose is lazy.
 pub struct LazyFrame {

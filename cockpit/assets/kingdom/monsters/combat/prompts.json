@@ -1,0 +1,23 @@
+{
+  "mode": "built-in image_gen edit",
+  "assets": [
+    {
+      "id": "ironroot-colossus-wind",
+      "file": "ironroot-colossus-wind.png",
+      "reference": "../ironroot-colossus.png",
+      "prompt": "Use case: identity-preserve. Asset type: alternate attack wind-up animation frame for a pixel-art game monster. Edit the supplied monster into ONE new pose. Preserve the exact character identity, face, materials, palette, chunky pixel-art treatment, top-left lighting, and three-quarter front camera of the reference. Full body and all extremities entirely visible, consistent scale relative to the reference, centered on square transparent canvas. Keep genuinely transparent background. No scenery, ground, cast shadow, smoky halo, labels, frame, text, other monsters or sprite sheet. The golem's two enormous hammer fists are BOTH raised high above its head, elbows bent outward, ready to smash the earth. Knees bent and chest compressed, head peers below the lifted fists. The left-right arrangement and ore armor design stay consistent. Clear anticipatory overhead slam pose."
+    },
+    {
+      "id": "cindermaw-wind",
+      "file": "cindermaw-wind.png",
+      "reference": "../cindermaw.png",
+      "prompt": "Use case: identity-preserve. Asset type: alternate attack wind-up animation frame for a pixel-art game monster. Edit the supplied monster into ONE new pose. Preserve the exact character identity, face, materials, palette, chunky pixel-art treatment, top-left lighting, and three-quarter front camera of the reference. Full body and all extremities entirely visible, consistent scale relative to the reference, centered on square transparent canvas. Keep genuinely transparent background. No scenery, ground, cast shadow, smoky halo, labels, frame, text, other monsters or sprite sheet. The coal salamander crouches deeply with hind legs coiled ready to spring, front shoulders lowered and head tilted UP with mouth open wide to reveal the ember furnace within. Tail arches tightly behind. Its orange crystal spines glow more brightly. Clear anticipatory pounce / inhale pose."
+    },
+    {
+      "id": "amethyst-crowned-wyrm-wind",
+      "file": "amethyst-crowned-wyrm-wind.png",
+      "reference": "../amethyst-crowned-wyrm.png",
+      "prompt": "Use case: identity-preserve. Asset type: alternate attack wind-up animation frame for a pixel-art game monster. Edit the supplied monster into ONE new pose. Preserve the exact character identity, face, materials, palette, chunky pixel-art treatment, top-left lighting, and three-quarter front camera of the reference. Full body and all extremities entirely visible, consistent scale relative to the reference, centered on square transparent canvas. Keep genuinely transparent background. No scenery, ground, cast shadow, smoky halo, labels, frame, text, other monsters or sprite sheet. The crystal wyrm bows its neck forward toward the viewer-left, jaws open and a small condensed CYAN light inside the mouth as it charges a beam. Front claws spread and brace, coil compressed, amethyst crown angled forward. No emitted beam yet. Clear anticipatory beam-charge pose."
+    }
+  ]
+}

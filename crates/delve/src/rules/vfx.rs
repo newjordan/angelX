@@ -439,11 +439,18 @@ pub fn palette(card: &Card) -> Palette {
 
 /// What casting `card` sounds like: its family's wind-up and release.
 pub fn cast_sound(card: &Card) -> &'static str {
+    // An area spell sounds as what it is made of, whatever it is called.
+    if let Some(area) = super::zones::area_of(card) {
+        return super::zones::voice_of(area.element).cast();
+    }
     palette(card).voice().cast()
 }
 
 /// What a shot of `card` sounds like breaking on a monster.
 pub fn impact_sound(card: &Card) -> &'static str {
+    if let Some(area) = super::zones::area_of(card) {
+        return super::zones::voice_of(area.element).impact();
+    }
     palette(card).voice().impact()
 }
 
@@ -554,6 +561,18 @@ fn palette_of_effects(card: &Card) -> Option<Palette> {
         Some(match e {
             Effect::Burn(_) | Effect::Burst(_) => Palette::Fire,
             Effect::Cast(super::cards::Shape::Meteor) => Palette::Fire,
+            Effect::Area(area) => {
+                use super::cards::Element;
+                match area.element {
+                    Element::Fire => Palette::Fire,
+                    Element::Frost => Palette::Frost,
+                    Element::Storm => Palette::Storm,
+                    Element::Poison => Palette::Poison,
+                    Element::Holy => Palette::Holy,
+                    Element::Arcane => Palette::Arcane,
+                    Element::Earth => Palette::Earth,
+                }
+            }
             Effect::Chill(_) | Effect::Moth(_) => Palette::Frost,
             Effect::Poison(_) | Effect::Fart(_) => Palette::Poison,
             Effect::Vamp(_) | Effect::Mend(_) | Effect::Leech(_) | Effect::Rip(_) => Palette::Blood,

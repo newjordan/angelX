@@ -6,6 +6,15 @@ use super::*;
 // source the arcade cell gate fingerprints).
 #[path = "finds.rs"]
 mod finds;
+// The signs of the ways down (`crate::rules::world::MOUTHS`).
+#[path = "mouth.rs"]
+mod mouth;
+// The waystations beside the roads (`crate::world::waystations`).
+#[path = "waystation.rs"]
+mod waystation;
+// The travellers on the roads, and the talk with one.
+#[path = "wayfarers.rs"]
+pub(super) mod wayfarers;
 // The places of the knight's missions, beside the doors.
 #[path = "missions.rs"]
 pub(super) mod missions;
@@ -61,18 +70,29 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
         crop(&map::atlas(&run.kingdom.wishes), origin)
     };
     let mut over = Img::new(NATIVE_W, NATIVE_H);
+    // The label is the screen's: in 3D on the blank-slate map it stays put on
+    // the screen layer, with the goal's arrow, rather than tipping with the
+    // floor under the tents.
+    let screen = three.as_deref_mut().filter(|_| crate::world::plan::tabula()).map(|three| &mut three.screen);
+    screen.unwrap_or(&mut over).text(8, 8, WORKS_LABEL, 'y');
     super::forest_road::kingdom(&mut over, run, origin);
     super::roundtable::kingdom(&mut over, run, origin);
     let geo = map::geography(&run.kingdom.wishes);
     super::squires_lodge::town(&mut over, run, origin);
     // Region names are lettered on the ground, under everything that moves.
     let lettered = map::letter_regions(&mut over, origin);
+    // So are the waystations: a knight walks in front of the counter.
+    waystation::draw(&mut over, run, origin);
     let tick = run.tick as u32;
     let local = |x: f32, y: f32| {
         let (x, y) = at(x, y);
         (x - origin.0, y - origin.1)
     };
-    for (i, site) in geo.sites.iter().enumerate().step_by(4) {
+    // The blank-slate plan (`crate::world::plan`) has no chimneys, no roads for
+    // walkers and no birds over its hillside: just the camps' fires and the
+    // knights.
+    let populated = crate::world::plan::full();
+    for (i, site) in geo.sites.iter().enumerate().step_by(4).filter(|_| populated) {
         // Smoke only rises where there is a chimney.
         if site.lot.is_some() && !super::super::landmarks::chimney(site.room) {
             continue;
@@ -87,7 +107,7 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
         over.stamp(&kit::smoke(tick + i as u32 * 9), x + 22, y - 49);
     }
     // Twelve road walkers, each on a short dry approach, and eight birds.
-    for i in 0..12 {
+    for i in (0..12).filter(|_| populated) {
         let site = &geo.sites[i * 3 % geo.sites.len()];
         let mut route = vec![site.stand];
         let mut point = site.stand;
@@ -131,7 +151,7 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
             over.stamp(&kit::villager(tick / 8, false), x - 8, y - 16);
         }
     }
-    for i in 0..8 {
+    for i in (0..8).filter(|_| populated) {
         let x = ((tick as i32 * 2 + i * 233).rem_euclid(super::super::MAP_W * TILE)) - origin.0;
         let y = ((i * 251 + tick as i32 / 5).rem_euclid(super::super::MAP_H * TILE)) - origin.1;
         if x >= -16 && y >= -16 && x < NATIVE_W + 16 && y < NATIVE_H + 16 {
@@ -213,6 +233,8 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
             over.stamp(&im, x - im.w / 2, y - im.h);
         }
     }
+    // The road's travellers stand behind the knights who come up to them.
+    let road = wayfarers::bodies(&mut over, run, origin, focus, three.as_deref_mut().map(|t| &mut t.figures));
     for (&id, hero) in &run.players {
         let (x, y) = local(hero.x, hero.y);
         if x < -24 || y < -24 || x > NATIVE_W + 24 || y > NATIVE_H + 24 {
@@ -306,11 +328,19 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
     let goal = run.kingdom_goal(focus.unwrap_or(1));
     let mut taken = Vec::new();
     taken.extend(lettered);
+    taken.extend(road);
     taken.extend(trinkets(&mut over, run, &geo, origin, focus, legible));
+    taken.extend(mouth::draw(&mut over, run, &geo, origin));
+    if legible {
+        taken.extend(waystation::marks(&mut over, run, origin, focus));
+    }
     // In 3D the finds and the herald's posts stand up as blocks
     // (`world3d::lots`): only who keeps them and their keys are drawn here.
     let stood = three.is_some();
     taken.extend(finds::draw(&mut over, run, origin, focus, legible, stood));
+    if legible {
+        taken.extend(wayfarers::plates(&mut over, run, &geo, origin, focus));
+    }
     taken.extend(super::holdings::herald(&mut over, run, &geo, origin, focus, legible, stood));
     // The screen's own marks: over the view, or apart in 3D.
     let mut apart = three.as_deref_mut().map(|t| std::mem::replace(&mut t.screen, Img::new(0, 0)));
@@ -345,6 +375,8 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
         plaques(&mut over, &geo, origin, goal.as_ref(), hero, taken);
     }
     ui!().stamp(&goal_layer, 0, 0);
+    // A keeper's talk lies over the goal's arrow, as it is what the knight reads.
+    waystation::talk(ui!(), run, focus);
     // The ballot covers the view: the door's footer would only peek out
     // under it.
     let ballot = run
@@ -371,6 +403,10 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
     if !ballot && let Some(panel) = super::squires_lodge::panel(run, focus.unwrap_or(1)) {
         ui!().stamp(&panel, (NATIVE_W - panel.w).max(0) / 2, 3);
     }
+    // A talk with a traveller covers the foot of the view.
+    if legible {
+        wayfarers::panel(ui!(), run, origin, focus);
+    }
     if let (Some(three), Some(screen)) = (three, apart) {
         three.screen = screen;
     }
@@ -384,6 +420,10 @@ const TITLE_TICKS: u64 = 3 * crate::rules::HZ as u64;
 /// The name of the biome knight `id` last came into, small in the top-left
 /// corner of their own view, fading out: never a banner over play.
 fn biome_title(over: &mut Img, run: &Run, id: u32, taken: &[(i32, i32, i32, i32)]) {
+    // The blank slate is one country with no name to call out.
+    if crate::world::plan::tabula() {
+        return;
+    }
     let Some(&(biome, since)) = run.kingdom.entered.get(&id) else {
         return;
     };
@@ -926,13 +966,28 @@ fn goal_marker(over: &mut Img, goal: &Goal, origin: (i32, i32), tick: u32) -> Ve
         goal.stand.0 * TILE + TILE / 2 - origin.0,
         goal.stand.1 * TILE - origin.1,
     );
-    pointer_toward(over, (gx, gy), &goal.name, tick)
+    // The works' label owns the view's top left: on the blank-slate map the
+    // goal's arrow slides along the edge past it rather than over it.
+    let label = crate::world::plan::tabula().then(|| 8 + super::super::ink::text_width(WORKS_LABEL) + 14);
+    pointer_with(over, (gx, gy), &goal.name, tick, label)
 }
+
+/// The label the surface keeps in its top left corner.
+const WORKS_LABEL: &str = "[4] KINGDOM WORKS";
 
 /// A pointer to the view's pixel `(gx, gy)`, named `name`: bobbing over it,
 /// pointing down, while it is in view, and at the edge of the view toward
 /// it when it is not.
 pub(super) fn pointer_toward(over: &mut Img, (gx, gy): (i32, i32), name: &str, tick: u32) -> Vec<(i32, i32, i32, i32)> {
+    pointer_with(over, (gx, gy), name, tick, None)
+}
+
+/// [`pointer_toward`], on the blank-slate map's terms when `past` is a pixel
+/// column: an arrow at the view's top edge is kept right of it, a door only
+/// just off the side of the view is pointed at from over where it would be,
+/// not from the edge over its own sign, and an arrow below holds lower.
+fn pointer_with(over: &mut Img, (gx, gy): (i32, i32), name: &str, tick: u32, past: Option<i32>) -> Vec<(i32, i32, i32, i32)> {
+    let gx = if past.is_some() && (-40..NATIVE_W + 40).contains(&gx) { gx.clamp(24, NATIVE_W - 25) } else { gx };
     let inside = (24..NATIVE_W - 24).contains(&gx) && (56..NATIVE_H - 8).contains(&gy);
     let (ax, ay, ux, uy) = if inside {
         // Bobbing over the door, pointing down at it.
@@ -941,12 +996,19 @@ pub(super) fn pointer_toward(over: &mut Img, (gx, gy): (i32, i32), name: &str, t
     } else {
         let (cx, cy) = ((NATIVE_W / 2) as f32, (NATIVE_H / 2) as f32);
         let (dx, dy) = (gx as f32 - cx, gy as f32 - cy);
-        // Below, it stops above the footer and the banners' names.
-        let reach_y = if dy > 0.0 { NATIVE_H / 2 - 64 } else { NATIVE_H / 2 - 14 };
+        // Below, it stops above the footer and the banners' names (on the
+        // blank-slate map a little lower, clear of the knight at the middle,
+        // whose feet its name would stand over).
+        let below = if past.is_some() { 44 } else { 64 };
+        let reach_y = if dy > 0.0 { NATIVE_H / 2 - below } else { NATIVE_H / 2 - 14 };
         let k = ((NATIVE_W / 2 - 14) as f32 / dx.abs().max(0.01))
             .min(reach_y as f32 / dy.abs().max(0.01));
         let len = dx.hypot(dy).max(0.01);
         (cx + dx * k, cy + dy * k, dx / len, dy / len)
+    };
+    let ax = match past {
+        Some(past) if !inside && ay < 30.0 => ax.max(past as f32),
+        _ => ax,
     };
     pointer(over, (ax, ay), (ux, uy), name, !inside)
 }
@@ -1000,3 +1062,7 @@ pub(super) fn hall(run: &Run) -> Img {
 #[cfg(test)]
 #[path = "../../../../tests/render/arena__survey_sign__tests.rs"]
 mod survey_sign_tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__kingdom_pointer__tests.rs"]
+mod pointer_tests;

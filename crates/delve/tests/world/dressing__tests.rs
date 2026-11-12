@@ -47,7 +47,9 @@ fn every_chunk_has_something_to_walk_to_and_none_is_crowded() {
             let things = d.pieces.iter().filter(|p| within(p.at)).count();
             let place = set_pieces().any(|(_, o)| within(o))
                 || geo.sites.iter().any(|s| s.lot.is_some() && within(s.stand))
-                || super::super::houses::footprints().any(|(tx, ty, _, _)| within((tx, ty)));
+                || super::super::houses::footprints().any(|(tx, ty, _, _)| within((tx, ty)))
+                // A waystation is somewhere to walk to.
+                || super::super::waystations::placed().iter().any(|p| within(p.keeper));
             assert!(things <= 12, "chunk ({cx}, {cy}) holds {things} things");
             assert!(camps <= 4, "chunk ({cx}, {cy}) holds {camps} camps");
             if camps == 0 && !place {
@@ -135,6 +137,7 @@ fn nearly_every_screen_of_the_open_country_has_something_in_it() {
     pois.extend(geo.sites.iter().map(|s| s.stand));
     pois.extend(set_pieces().map(|(_, (ox, oy))| (ox + SCREEN_W / 2, oy + SCREEN_H / 2)));
     pois.extend(super::super::signs::posts().iter().map(|p| p.at));
+    pois.extend(super::super::waystations::placed().iter().map(|p| p.keeper));
     // A castle is never seen whole: any of its wall in view counts.
     let castles: Vec<(i32, i32, i32, i32)> = super::super::castles::footprints().collect();
     let (mut total, mut empty) = (0, Vec::new());

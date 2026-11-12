@@ -84,7 +84,7 @@ impl Entry {
         (next < self.tiers.len()).then_some(next)
     }
     fn fits(&self, making: Option<&identity::Making>) -> bool {
-        making.is_none_or(|m| m.asks().first().copied() == self.answers)
+        making.is_none_or(|m| m.asks().first().is_some_and(|ask| ask.accepts(self.answers)))
     }
     /// How far its ladder climbs on a floor whose top tier is `top`
     /// (`overclass::top_tier`): its length, or that floor's reach.
@@ -445,18 +445,15 @@ impl Request {
         if let Some(m) = &making {
             let ask = m.asks().first().map_or("What are you?", |a| a.question());
             if hero.wishes == 0 && !star {
-                return Err(format!("Your super wish waits until you are whole. {ask}"));
+                return Err(format!("Your super wish waits until you are {}. {ask}", "whole"));
             }
             if let Some(why) = wish.filter(|w| !w.fits(making.as_ref())).map(|w| {
-                format!(
-                    "First, wish yourself into being. {ask} {} doesn't answer it.",
-                    w.name
-                )
+                format!("{} {ask} {} doesn't answer it.", m.first(), w.name)
             }) {
                 return Err(why);
             }
             if genie::frees(said) && wish.is_none() {
-                return Err(format!("First, wish yourself into being. {ask}"));
+                return Err(format!("{} {ask}", m.first()));
             }
         }
         // Freeing the genie takes a super wish, star or no star.

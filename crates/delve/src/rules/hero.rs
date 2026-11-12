@@ -15,6 +15,10 @@ pub const BLOW_MOST: u32 = 30;
 /// leave them on their last sliver, never fell them whole (the operator,
 /// 2026-10-18: "no one shots, but a 90% shot is ok").
 pub const ONE_HIT_MOST: u32 = 90;
+fn is_unblessed(ticks: &u32) -> bool {
+    *ticks == 0
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Hero {
     /// One name-owned squire, independent of hirelings and summoned minions.
@@ -143,6 +147,10 @@ pub struct Hero {
     pub carried: Spoils,
     #[serde(default)]
     pub play_cooldown: u32,
+    /// Ticks left of the Monk's Patience: no firing, half of every blow,
+    /// a mend every half second, and no complaints.
+    #[serde(default)]
+    pub patience: u32,
     /// What the guard key does, and the card that put it there.
     #[serde(default)]
     pub guard: cards::Guard,
@@ -227,11 +235,16 @@ pub struct Hero {
     #[serde(default)]
     pub loosed: u32,
     /// The Bard's groove: volleys of its notes loosed without a break
-    /// (`bard::WUB_AT`, `bard::GLITCH_AT`); a ready beat with nothing
+    /// (`bard::BASS_AT`, `bard::DROP_AT`); a ready beat with nothing
     /// loosed ends it. Never written at rest, so a knight who never plays
     /// saves and sends as before.
     #[serde(default, skip_serializing_if = "is_zero_floor")]
     pub groove: u32,
+    /// Songs the Bard has moved on from: a groove that reached the drop, and
+    /// each Lullaby, turn it to the next song of the set (`bard::song_of`).
+    /// Never written at rest, like `groove`.
+    #[serde(default, skip_serializing_if = "is_zero_floor")]
+    pub songs: u32,
     /// The privy: a stop under way, stops done, the buffs they left.
     #[serde(default)]
     pub pit: super::pitstop::Pit,
@@ -270,6 +283,9 @@ pub struct Hero {
     /// Lady's Veil's wings, ticks left.
     #[serde(default)]
     pub angel: u32,
+    /// A pilgrim's blessing, ticks left (`wayfarers`): more damage and pace.
+    #[serde(default, skip_serializing_if = "is_unblessed")]
+    pub blessed: u32,
     /// Bladewind: cuts left, and ticks to the next.
     #[serde(default)]
     pub slashes: u8,
@@ -291,6 +307,13 @@ pub struct Hero {
     pub recruit_ult: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub recruits_asked: Vec<String>,
+    /// This knight owes the realm a rite of passage (`rite`): something made
+    /// in the Creator for the world, asked as a pop-up on loading in.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rite_owed: bool,
+    /// The tick their rite was made, for its flourish (`rite`).
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub rite_at: u64,
     /// Hexed: ticks left as a frog, then warded from the next hex.
     #[serde(default)]
     pub hexed: u32,
@@ -521,6 +544,7 @@ impl Hero {
             bonus: cards::Bonus::default(),
             carried: Spoils::default(),
             play_cooldown: 0,
+            patience: 0,
             guard: cards::Guard::Roll,
             guard_card: roll_card(),
             shielding: false,
@@ -554,6 +578,7 @@ impl Hero {
             boon: Default::default(),
             loosed: 0,
             groove: 0,
+            songs: 0,
             relieved: None,
             home_hp: 0,
             winds: 0,
@@ -564,6 +589,7 @@ impl Hero {
             ult_charge: 0,
             ult_key: false,
             angel: 0,
+            blessed: 0,
             slashes: 0,
             slash_wait: 0,
             aiming: None,
@@ -571,6 +597,8 @@ impl Hero {
             ult: None,
             recruit_ult: None,
             recruits_asked: Vec::new(),
+            rite_owed: false,
+            rite_at: 0,
             hexed: 0,
             chilled: 0,
             mired: 0,
@@ -676,6 +704,8 @@ impl Hero {
                 .is_some_and(|w| w.bolt.is_none() && w.melee.is_some());
             let damage = if close { damage * 2 / 3 } else { damage };
             let damage = if self.glass { damage * 2 } else { damage };
+            // The Monk's Patience: half of every blow, and no complaints.
+            let damage = if self.patience > 0 { damage / 2 } else { damage };
             // A bucket turns the first blow in a room aside whole; other
             // curios make every blow more or less (`curios`).
             let Some(damage) = self.curio_turns(damage) else {
@@ -942,6 +972,11 @@ impl Hero {
         matches!(card.arm, Some(cards::Arm::Plain(w)) if w == self.weapon) && self.forged.is_none()
     }
 
+    /// Percent a pilgrim's blessing adds to damage and pace while it lasts.
+    pub fn blessing(&self) -> u32 {
+        if self.blessed > 0 { super::wayfarers::BLESS_PERCENT } else { 0 }
+    }
+
     /// Ticks left in a dodge roll, while one lasts.
     pub fn rolling(&self) -> Option<u32> {
         (self.dash_ticks > 0).then_some(self.dash_ticks)
@@ -953,7 +988,7 @@ impl Hero {
     }
 
     pub fn scaled(&self, damage: u32) -> u32 {
-        let damage = damage * (100 + self.bonus.damage + self.pit.hit() + self.boon.damage) / 100;
+        let damage = damage * (100 + self.bonus.damage + self.pit.hit() + self.boon.damage + self.blessing()) / 100;
         // What curios give and take (`curios`).
         let damage = damage * self.curio_damage() / 100;
         let damage = if self.has_rune(super::runes::RuneKind::DoubleDamage) {
@@ -1037,6 +1072,10 @@ impl Hero {
             unit(input.move_x as f32, input.move_y as f32)
         };
         let (ax, ay) = unit(input.aim_x as f32, input.aim_y as f32);
+        // A Swashbuckle dash is steered by the aim held this tick.
+        if self.champ.swash.dashing() {
+            self.champ.swash.steer = (ax, ay);
+        }
         let walk = if self.stocked { (0, 0) } else { (input.move_x.signum(), input.move_y.signum()) };
         if ax != 0.0 || ay != 0.0 || walk == (0, 0) || walk != self.walk_dir {
             self.walk_ticks = 0;
@@ -1143,6 +1182,11 @@ impl Hero {
         let blinked = self.blink > 0;
         if blinked {
             items::blink(self, grid);
+        }
+        // A Swashbuckle dash moves the knight itself, wall to wall.
+        if self.champ.swash.dashing() {
+            self.swash_run(grid);
+            return ((0.0, 0.0, 0.0), blinked);
         }
         let pace = pace(self) * if self.hero_kit.windrun > 0 { 1.65 } else if self.hero_kit.charging { 0.45 } else { 1.0 };
         let pace = if self.champ.lust > 0 { pace * champions::LUST_PACE } else { pace };
@@ -1414,5 +1458,9 @@ impl Hero {
 }
 
 fn is_zero_u8(n: &u8) -> bool {
+    *n == 0
+}
+
+fn is_zero_u64(n: &u64) -> bool {
     *n == 0
 }

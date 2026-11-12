@@ -10,19 +10,31 @@ impl Run {
     pub(super) fn settle_kills(&mut self) {
         // An outlaw felled after the hall's tick is paid before it is reaped.
         self.pay_outlaw();
+        let ore_bodies: std::collections::BTreeSet<_> = self.enemies.iter().filter(|e| self.ore_sentry_kind(e.id).is_some()).map(|e| e.id).collect();
+        let ore_victories = self.settle_ore_sentries();
+        let mut ore_paid = std::collections::BTreeSet::new();
+        let claim_victories = self.settle_claim_guardians();
+        let mut claim_paid = std::collections::BTreeSet::new();
         let mut camp_deaths = Vec::new();
         let mut carrier_deaths: Vec<(u8, f32, f32, EnemyKind)> = Vec::new();
         let mut emission_deaths = Vec::new();
-        let mut fallen: Vec<(EnemyKind, f32, f32)> = Vec::new();
+        let mut fallen: Vec<(EnemyKind, f32, f32, bool, bool)> = Vec::new();
         let mut slain: Vec<gore::Slain> = Vec::new();
         let mut hoards: Vec<(Vec<EnemyKind>, f32, f32)> = Vec::new();
         let mut guardians: Vec<(usize, f32, f32)> = Vec::new();
         let mut mimics = Vec::new();
         let mut foes_fallen = Vec::new();
         let mut goblins_fallen = Vec::new();
-        // The Wanted hall keeps its own company: not the floor's provision.
-        let showdown = matches!(self.room().kind, RoomKind::Wanted | RoomKind::Holding);
+        // The Wanted hall and a lost hall keep their own company: not the floor's provision.
+        let showdown = matches!(self.room().kind, RoomKind::Wanted | RoomKind::Holding | RoomKind::DwarfHall);
         self.enemies.retain(|e| {
+            let claim_body = e.boss.and_then(|i| self.bosses.get(i as usize))
+                .is_some_and(|b| claim_bosses::Guardian::for_id(&b.id).is_some());
+            let claim_duplicate = claim_body && e.hp == 0
+                && (!claim_victories.contains(&e.id) || !claim_paid.insert(e.id));
+            let ore_body = ore_bodies.contains(&e.id);
+            let ore_duplicate = ore_body && e.hp == 0
+                && (!ore_victories.contains(&e.id) || !ore_paid.insert(e.id));
             let camp_duplicate = e.camp_slot.is_some_and(|slot| {
                 camp_deaths.contains(&slot)
                     || self
@@ -38,6 +50,8 @@ impl Run {
                 carrier_deaths.push((slot, e.x, e.y, e.kind));
             }
             let emission_duplicate = !showdown
+                && !claim_body
+                && !ore_body
                 && self.boss_gates.as_ref().is_some_and(|g| {
                     e.camp_slot.is_none()
                         && !g.encounter(self.at, e.kind, e.boss)
@@ -54,7 +68,7 @@ impl Run {
             {
                 emission_deaths.push(e.id);
             }
-            let duplicate = camp_duplicate
+            let duplicate = ore_duplicate || claim_duplicate || camp_duplicate
                 || emission_duplicate
                 || self
                     .boss_gates
@@ -64,7 +78,7 @@ impl Run {
                         .boss
                         .is_some_and(|b| guardians.iter().any(|&(i, _, _)| i == usize::from(b)))
                         || (matches!(e.kind, EnemyKind::Dragon | EnemyKind::PitTyrant)
-                            && fallen.iter().any(|&(k, _, _)| k == e.kind)));
+                                && fallen.iter().any(|&(k, ..)| k == e.kind)));
             if e.hp == 0 && !duplicate && e.kind == EnemyKind::Mimic {
                 mimics.push((e.x, e.y));
             }
@@ -103,7 +117,7 @@ impl Run {
                 } else if hitstop::elite(e) {
                     self.hitstop.request(&self.tune, hitstop::Impact::EliteKill);
                 }
-                fallen.push((e.kind, e.x, e.y));
+                fallen.push((e.kind, e.x, e.y, e.shunned, e.frogged()));
                 slain.push(gore::Slain {
                     id: e.id,
                     kind: e.kind,
@@ -149,12 +163,12 @@ impl Run {
                     carrier_fell = Some((x, y, kind));
                 }
             }
-            if fallen.iter().any(|&(kind, _, _)| kind == EnemyKind::Dragon) {
+            if fallen.iter().any(|&(kind, ..)| kind == EnemyKind::Dragon) {
                 g.record(self.at, EnemyKind::Dragon, None);
             }
             if fallen
                 .iter()
-                .any(|&(kind, _, _)| kind == EnemyKind::PitTyrant)
+                .any(|&(kind, ..)| kind == EnemyKind::PitTyrant)
             {
                 g.record(self.at, EnemyKind::PitTyrant, None);
             }
@@ -191,9 +205,13 @@ impl Run {
             }
             self.cues.push("mimic_fall".into());
         }
-        self.leave_corpses(&fallen, &guardians);
+        let plain: Vec<(EnemyKind, f32, f32)> =
+            fallen.iter().map(|&(k, x, y, ..)| (k, x, y)).collect();
+        self.leave_corpses(&plain, &guardians);
+        // What fell on an open map lies there for the rest of the floor.
+        self.leave_remains(&plain);
         // Every death holds a white frame, then bursts (`feel`).
-        for &(kind, x, y) in &fallen {
+        for &(kind, x, y, ..) in &fallen {
             self.feel.death(x, y, kind);
         }
         // How each minion's last blow looks (`gore`); the rules never read it.
@@ -318,19 +336,23 @@ impl Run {
         }
         let kinds: Vec<EnemyKind> = fallen.iter().map(|&(kind, ..)| kind).collect();
         self.mark_experience(&kinds);
-        self.pit_fallen(&fallen);
+        self.pit_fallen(&plain);
         let generous = if self.mode == fortune::Mode::GiantsFeast {
             2
         } else {
             1
         };
-        for (kind, x, y) in fallen {
+        for (kind, x, y, shunned, frogged) in fallen {
             self.drop_bombs(kind, x, y);
             if !matches!(kind, EnemyKind::Dummy | EnemyKind::Ward) { self.early_gear_drop(x, y); }
-            self.score += kind.bounty() * generous;
-            if self
-                .rng
-                .chance((loot::drop_chance(kind) * generous).min(100))
+            // A frog's death pays half: it was hardly itself.
+            self.score += if frogged { kind.bounty() / 2 } else { kind.bounty() } * generous;
+            // The King pays for slaying either way; the Church's shun keeps
+            // only its cut: a read-out monster's death drops nothing.
+            if !shunned
+                && self
+                    .rng
+                    .chance((loot::drop_chance(kind) * generous).min(100))
             {
                 let card = if kind == EnemyKind::Dragon && self.book.get("heart").is_some() {
                     Some("heart".to_string())
@@ -342,9 +364,10 @@ impl Run {
                     self.drop_item(card, x, y, None);
                 }
             }
-            if self
-                .rng
-                .chance((loot::spoil_chance(kind) * generous).min(100))
+            if !shunned
+                && self
+                    .rng
+                    .chance((loot::spoil_chance(kind) * generous).min(100))
                 && let Some(card) = self.book.roll_spoil(&mut self.rng, pack)
             {
                 self.drop_item(card, x + 0.9, y + 0.5, None);
@@ -571,7 +594,7 @@ impl Run {
                     }
                 }
                 cards::Kind::Arm => {
-                    if let Some(old) = hero.arm.take() {
+                    if let Some(old) = hero.arm.take().filter(|id| super::kingdom_gear::item(id).is_none()) {
                         dropped.push((old, item.x, item.y, id, Some(id)));
                     }
                     hero.equip(card);
@@ -580,7 +603,7 @@ impl Run {
                     hero.equip_spell(card);
                 }
                 cards::Kind::Guard => {
-                    if let Some(old) = hero.guard_card.take() {
+                    if let Some(old) = hero.guard_card.take().filter(|id| super::kingdom_gear::item(id).is_none()) {
                         dropped.push((old, item.x, item.y, id, Some(id)));
                     }
                     hero.guard = card.guard.unwrap_or_default();

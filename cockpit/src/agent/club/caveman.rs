@@ -21,11 +21,29 @@ pub(crate) fn sota_caveman_insert(
     if !sota_caveman_enabled().unwrap_or(self_hosted) || messages.iter().any(has_caveman_marker) {
         return None;
     }
-    let insert_at = messages
+    let leading = messages
         .iter()
         .take_while(|m| m.role == ChatRole::System)
         .count();
+    let insert_at = if stable_first() {
+        leading.min(1)
+    } else {
+        leading
+    };
     Some((insert_at, sota_caveman_instruction()))
+}
+
+/// On when `ANGEL_TASK_STABLE_FIRST=1`, which a small workspace's headless
+/// task sets by default. The brevity block is the same in every request, but
+/// it lands after the leading system block, which in a headless task ends
+/// with the workspace map, so it can never be served from a provider's prefix
+/// cache. On, it goes right after the first system message, ahead of the map:
+/// 128 more cached tokens per first request on DeepSeek Flash (1664 -> 1792,
+/// measured 2026-11-11).
+pub(crate) const STABLE_FIRST_ENV: &str = "ANGEL_TASK_STABLE_FIRST";
+
+fn stable_first() -> bool {
+    std::env::var(STABLE_FIRST_ENV).is_ok_and(|v| v.trim() == "1")
 }
 
 /// The operator's explicit `ANGEL_SOTA_CAVEMAN` choice, if any.

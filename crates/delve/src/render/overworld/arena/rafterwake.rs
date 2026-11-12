@@ -6,12 +6,17 @@ use super::super::{
 use super::{NATIVE_H, NATIVE_W};
 use crate::rules::{
     HZ, Run,
-    rafterwake::{Beat, GOLD_PER_SEAT, LENGTH, Q, TOP, ladder, planks},
+    rafterwake::{Beat, LENGTH, Q, TOP, ladder, planks},
 };
 use std::{
     collections::BTreeMap,
     sync::{Mutex, OnceLock},
 };
+mod finish;
+mod fx;
+mod hud;
+mod moments;
+mod stage;
 #[derive(serde::Deserialize)]
 struct Recipe {
     inks: BTreeMap<char, [u8; 3]>,
@@ -878,20 +883,13 @@ fn text_labels(run: &Run, id: u32) -> Vec<(i32, i32, String)> {
             (274, 43, "FINISH".into()),
         ];
         for (n, &who) in s.order.iter().enumerate() {
-            let y = 64 + n as i32 * 24;
+            // Six rows tighten so the pot and the rule stay clear under them.
+            let y = if s.order.len() > 4 { 62 + n as i32 * 17 } else { 64 + n as i32 * 24 };
             let d = &s.lanes[&who];
             let score = d.score.to_string();
             words.extend([
                 (28, y, s.place(who).to_string()),
-                (
-                    44,
-                    y,
-                    if who == id {
-                        "YOU".into()
-                    } else {
-                        name(run, who, 12)
-                    },
-                ),
+                (44, y, hud::called(run, who, id, 12)),
                 (148 + text_width("PROGRESS") - text_width(&score), y, score),
                 (
                     212 + text_width("FALLS") - text_width(&d.falls.to_string()),
@@ -913,7 +911,7 @@ fn text_labels(run: &Run, id: u32) -> Vec<(i32, i32, String)> {
             ]);
         }
         let leader = s.order[0];
-        let pot = format!("{}G POT + CROWN", GOLD_PER_SEAT * s.lanes.len() as u32);
+        let pot = format!("{}G POT + CROWN", s.pot());
         words.push(((NATIVE_W - text_width(&pot)) / 2, 165, pot));
         let rule = "MOST HEIGHT, FEWER FALLS, EARLIER FINISH";
         words.push(((NATIVE_W - text_width(rule)) / 2, 179, rule.into()));
@@ -940,11 +938,7 @@ fn text_labels(run: &Run, id: u32) -> Vec<(i32, i32, String)> {
         let mut words = vec![
             (130, 8, "RAFTERWAKE".into()),
             (16, 8, format!("{} S", s.left.div_ceil(HZ))),
-            (
-                282,
-                8,
-                format!("{}G POT", GOLD_PER_SEAT * s.lanes.len() as u32),
-            ),
+            (282, 8, format!("{}G POT", s.pot())),
             (
                 16,
                 20,
@@ -966,20 +960,16 @@ fn text_labels(run: &Run, id: u32) -> Vec<(i32, i32, String)> {
                 format!("BEST {}", run.home.countryside.games.rafterwake.best),
             ),
         ];
-        for (n, &who) in s.lanes.keys().enumerate() {
+        // Three standings fit the row at this grain: the leaders, or two and the viewer.
+        let mut shown: Vec<u32> = standings(run, id).into_iter().map(|(who, _)| who).take(3).collect();
+        if !shown.contains(&id) {
+            shown[2] = id;
+        }
+        for (n, who) in shown.into_iter().enumerate() {
             words.push((
                 18 + n as i32 * 94,
                 32,
-                format!(
-                    "{} {} {}",
-                    s.place(who),
-                    if who == id {
-                        "YOU".into()
-                    } else {
-                        name(run, who, 6)
-                    },
-                    s.lanes[&who].score
-                ),
+                format!("{} {} {}", s.place(who), hud::called(run, who, id, 6), s.lanes[&who].score),
             ));
         }
         if LENGTH - s.left < presentation().hint_seconds * HZ {
@@ -997,11 +987,7 @@ fn text_labels(run: &Run, id: u32) -> Vec<(i32, i32, String)> {
     let mut words = vec![
         (130, 6, "RAFTERWAKE".into()),
         (16, 6, format!("{} S", s.left.div_ceil(HZ))),
-        (
-            281,
-            6,
-            format!("{}G POT", GOLD_PER_SEAT * s.lanes.len() as u32),
-        ),
+        (281, 6, format!("{}G POT", s.pot())),
         (282, 32, "CLIMB THE LOFT".into()),
         (14, 195, "ARROWS RUN".into()),
         (110, 195, "F JUMP".into()),
@@ -1018,19 +1004,7 @@ fn text_labels(run: &Run, id: u32) -> Vec<(i32, i32, String)> {
     for (who, y) in standings(run, id) {
         let v = &s.lanes[&who];
         let score = v.score.to_string();
-        words.push((
-            282,
-            y,
-            format!(
-                "{} {}",
-                s.place(who),
-                if who == id {
-                    "YOU".into()
-                } else {
-                    name(run, who, 7)
-                }
-            ),
-        ));
+        words.push((282, y, format!("{} {}", s.place(who), hud::called(run, who, id, 7))));
         words.push((377 - text_width(&score), y, score));
     }
     if d.down > 0 {
@@ -1427,7 +1401,7 @@ fn draw(run: &Run, focus: Option<u32>, with_text: bool) -> (Img, Img) {
     (im, fx)
 }
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
-    draw(run, focus, true)
+    (stage::frame(run, focus).0, Img::new(NATIVE_W, NATIVE_H))
 }
 pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     draw(run, focus, false)
@@ -1515,3 +1489,7 @@ mod slot_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__rafterwake_show__tests.rs"]
+mod show_tests;

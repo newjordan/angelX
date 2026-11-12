@@ -132,6 +132,29 @@ pub enum ObservatoryCommand {
     OpenReport(String),
 }
 
+/// What `/face` asks of the goddess.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum FaceCommand {
+    /// Call her in, or send her away.
+    Toggle,
+    /// Speak a line: an occasion (`arrive`, `done`, ...) or a line's id.
+    Say(String),
+    /// Free her voice (true) or mute it.
+    Voice(bool),
+    /// List what she can say.
+    Lines,
+    /// How she is doing: frame time, what she is up to, her log.
+    Status,
+    /// Her spectacle now: burning eyes, lasers, a rainbow (`/face lasers`).
+    Lasers,
+    /// Her tour of the harness (`/onboard`, `/face tour`).
+    Tour,
+    /// End her tour (`/onboard stop`).
+    TourStop,
+    /// Say how `/face` is used.
+    Help,
+}
+
 #[derive(Debug)]
 pub enum ParsedInput {
     Show(String),
@@ -166,6 +189,10 @@ pub enum ParsedInput {
     /// Show the Heartglass on its synthetic demo campaign, no VE data
     /// read (`/heart demo`); `/heart float` or `/heart plate` leaves it.
     HeartDemo,
+    /// angelface, the goddess in the window (`/face`): call her in or send
+    /// her away; `/face say <occasion|line>`, `/face mute`, `/face voice`,
+    /// `/face lines`.
+    Face(FaceCommand),
     /// Open/drive the Realm/Reinforce RL pipeline stage
     /// (`/rl [run [flags]|status|stop]`); run uses the workspace objective or
     /// explicit task/verifier cases, with an optional independent audit.
@@ -360,6 +387,7 @@ const CODEX_CMDS: &[&str] = &[
     "vim",
     "pet",
     "plugins",
+    "plugin",
     "skills",
     "memories",
     "recall",
@@ -373,6 +401,7 @@ const CODEX_CMDS: &[&str] = &[
     "table",
     "dungeon",
     "dungeon_host",
+    "game",
     "research",
     "labyrinth",
     "village",
@@ -411,6 +440,8 @@ const DEDICATED_CMDS: &[&str] = &[
     "graph",
     "hear",
     "heart",
+    "face",
+    "onboard",
     "help",
     "hide",
     "init",
@@ -455,11 +486,17 @@ const DEDICATED_CMDS: &[&str] = &[
 pub(crate) fn cartridge_command(
     word: &str,
 ) -> Option<&'static crate::agent::harness::cartridges::config::Command> {
-    let builtin = |name: &&str| name.eq_ignore_ascii_case(word);
-    if DEDICATED_CMDS.iter().any(builtin) || CODEX_CMDS.iter().any(builtin) {
+    if builtin_command(word) {
         return None;
     }
     crate::agent::harness::cartridges::command(word).map(|(_, command)| command)
+}
+
+/// Whether `/<word>` is one of the cockpit's own commands, which a
+/// cartridge's command of the same name never overrides.
+pub(crate) fn builtin_command(word: &str) -> bool {
+    let builtin = |name: &&str| name.eq_ignore_ascii_case(word);
+    DEDICATED_CMDS.iter().any(builtin) || CODEX_CMDS.iter().any(builtin)
 }
 
 /// Deterministic local candidates for a slash word. Arguments are deliberately
@@ -538,10 +575,14 @@ fn slash_usage_ghost(cmd: &str) -> Option<&'static str> {
         "together" => " [demo|forge|build|ready|raid|move|fire|cast|return|help]",
         "table" => " [host|join <link>|new|claim|work|submit|apply|merge] · the Round Table work board",
         "dungeon" => " [start|host|join <link>] · invite|kick · F4 menu · Esc composer",
+        "game" => " [<name> [host|join <link>|stop]] · list and load game cartridges · Esc composer",
         "dungeon_host" => {
             " --N [--watch]  (N friends, up to 5, or 6 with --watch: one link for everyone; --watch: no knight of your own)"
         }
         "skills" => " [check|search <q>|<name>[,<name>...] [task]]",
+        "plugins" | "plugin" => {
+            " [search <words>|info <id>|install <id>|update [id]|remove <id>|setup <id>|check <dir>]"
+        }
         "memories" => " [add <t>|forget <n>|clear]",
         "refine" => " [status|add …|del|rollback|seed-light]",
         "cd" | "workspace" => " <path>",
@@ -721,6 +762,29 @@ pub fn parse(raw: &str) -> Result<ParsedInput, String> {
     }
     if matches!(trimmed, "/raytrace" | "/cube") {
         return Ok(ParsedInput::Raytrace);
+    }
+    if trimmed == "/face" {
+        return Ok(ParsedInput::Face(FaceCommand::Toggle));
+    }
+    if trimmed == "/onboard" {
+        return Ok(ParsedInput::Face(FaceCommand::Tour));
+    }
+    if trimmed == "/onboard stop" {
+        return Ok(ParsedInput::Face(FaceCommand::TourStop));
+    }
+    if let Some(rest) = trimmed.strip_prefix("/face ").map(str::trim) {
+        return Ok(ParsedInput::Face(match rest {
+            "mute" => FaceCommand::Voice(false),
+            "voice" => FaceCommand::Voice(true),
+            "lines" => FaceCommand::Lines,
+            "status" => FaceCommand::Status,
+            "lasers" => FaceCommand::Lasers,
+            "tour" => FaceCommand::Tour,
+            say => match say.strip_prefix("say").map(str::trim) {
+                Some(what) if !what.is_empty() => FaceCommand::Say(what.to_string()),
+                _ => FaceCommand::Help,
+            },
+        }));
     }
     if trimmed == "/heart" {
         return Ok(ParsedInput::Heart);

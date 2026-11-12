@@ -89,6 +89,7 @@ impl Run {
     pub fn rename_host(&mut self, name: &str) {
         self.players.get_mut(&1).unwrap().name = name.into();
         self.restore_gear(1);
+        self.owe_rite(1);
     }
     /// A friend takes knight 1: a host who plays no knight hands its place
     /// to the last friend in. The knight takes their name and their kept
@@ -106,6 +107,7 @@ impl Run {
         }
         self.restore_gear(1);
         self.stock_gear_cache();
+        self.owe_rite(1);
     }
     pub fn restore_gear(&mut self, id: u32) {
         self.restore_freedom_wishes(id);
@@ -148,6 +150,7 @@ impl Run {
             hero.guard_card = Some("dodge-roll".into());
         }
         hero.dress();
+        self.restore_kingdom_gear(id);
     }
     pub(super) fn keep_gear(&mut self, id: u32) {
         // A shape's ball is no gear to keep: what was kept stays for a
@@ -253,6 +256,7 @@ impl Hero {
     pub fn dress(&mut self) {
         self.pop = self.pop.saturating_sub(1);
         self.pit.tick();
+        self.blessed = self.blessed.saturating_sub(1);
         if self.hp == 0 {
             return;
         }

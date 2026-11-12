@@ -210,7 +210,7 @@ impl Work {
                     .and_then(Result::err)
                     .unwrap_or_else(|| reason.to_string());
                 if !definition_conflict && self.ask.making.is_some()
-                    && let Ok(name) = run.grant_neutral(player)
+                    && let Ok(name) = run.grant_neutral_for(player, &self.ask.words)
                 {
                     Outcome::Plain(name)
                 } else {

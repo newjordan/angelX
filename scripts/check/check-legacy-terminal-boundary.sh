@@ -14,6 +14,7 @@ failed=0
 active_paths=(
   lib
   cockpit/src
+  cockpit/delve-cart
   cockpit/Cargo.toml
   cockpit/README.md
   cockpit/docs
@@ -30,6 +31,7 @@ active_paths=(
 runtime_paths=(
   lib
   cockpit/src
+  cockpit/delve-cart
   cockpit/Cargo.toml
   harness
   scripts

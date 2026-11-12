@@ -414,7 +414,7 @@ pub(crate) fn cli_guardian(args: Vec<String>) -> std::io::Result<()> {
     let peers_dir = peer_dir(&state_root);
     let workspace = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let mut beat = PeerBeat::new(&state_root, &workspace, None);
-    beat.set_activity("guardian-sleeping", None);
+    beat.set_activity(GuardianPhase::Sleeping.label(), None);
     let own_id = beat.heartbeat.instance_id.clone();
     guard::log_line(
         &state_root,
@@ -423,15 +423,120 @@ pub(crate) fn cli_guardian(args: Vec<String>) -> std::io::Result<()> {
             peers_dir.display()
         ),
     );
-    let mut child: Option<(std::process::Child, guard::Candidate, u128)> = None;
+    let mut guardian = Guardian::new(state_root, peers_dir, stale_ms, watch_only, driver, beat);
     loop {
+        guardian.turn();
+        if once {
+            // Single scan; if we spawned a resurrection, stay its parent
+            // until it lands so cron sees the real outcome.
+            if let Some((mut running, _, _)) = guardian.child.take() {
+                let status = running.wait().map_err(std::io::Error::other)?;
+                guardian.beat.retire();
+                if !status.success() {
+                    return Err(std::io::Error::other(format!(
+                        "resurrect child exited {status}"
+                    )));
+                }
+            }
+            guardian.beat.retire();
+            return Ok(());
+        }
+        std::thread::sleep(Duration::from_secs(10));
+    }
+}
+
+/// A resurrection child this guardian is parenting: the process, the death it
+/// answers, and when it started.
+type Resurrection = (std::process::Child, guard::Candidate, u128);
+
+/// What the guardian is doing, as its peers read it off the heartbeat. It is
+/// derived from what the guardian holds (see [`Guardian::phase`]), never set
+/// on its own, so a label cannot outlive its cause.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum GuardianPhase {
+    Sleeping,
+    /// Watch-only found a death it will not answer.
+    Watching,
+    /// A resurrection child is running.
+    Resurrecting,
+}
+
+impl GuardianPhase {
+    /// The heartbeat activity strings peers match on; a wire contract.
+    fn label(self) -> &'static str {
+        match self {
+            GuardianPhase::Sleeping => "guardian-sleeping",
+            GuardianPhase::Watching => "guardian-watching",
+            GuardianPhase::Resurrecting => "guardian-resurrecting",
+        }
+    }
+}
+
+/// One running guardian: what it was started with, its heartbeat, and the
+/// resurrection it is parenting, if any.
+struct Guardian {
+    state_root: PathBuf,
+    peers_dir: PathBuf,
+    stale_ms: u128,
+    watch_only: bool,
+    driver: Option<String>,
+    beat: PeerBeat,
+    child: Option<Resurrection>,
+    /// The last scan found a death and this guardian is watch-only.
+    watching: bool,
+}
+
+impl Guardian {
+    fn new(
+        state_root: PathBuf,
+        peers_dir: PathBuf,
+        stale_ms: u128,
+        watch_only: bool,
+        driver: Option<String>,
+        beat: PeerBeat,
+    ) -> Self {
+        Self {
+            state_root,
+            peers_dir,
+            stale_ms,
+            watch_only,
+            driver,
+            beat,
+            child: None,
+            watching: false,
+        }
+    }
+
+    fn phase(&self) -> GuardianPhase {
+        if self.child.is_some() {
+            GuardianPhase::Resurrecting
+        } else if self.watching {
+            GuardianPhase::Watching
+        } else {
+            GuardianPhase::Sleeping
+        }
+    }
+
+    /// Put the current phase on the heartbeat. Called wherever the phase may
+    /// have moved, so no branch has to remember to set or reset a label; a
+    /// change is beaten out promptly.
+    fn sync_activity(&mut self) {
+        let label = self.phase().label();
+        if self.beat.heartbeat.activity != label {
+            self.beat.set_activity(label, None);
+        }
+    }
+
+    /// One pass of the watcher loop: supervise the running resurrection, beat,
+    /// and, when idle, look for a death to answer.
+    fn turn(&mut self) {
         // Supervise the running resurrection, if any.
-        if let Some((running, candidate, started)) = &mut child {
+        if let Some((running, candidate, started)) = &mut self.child {
             match running.try_wait() {
                 Ok(Some(status)) => {
-                    if guard::read_record(&peers_dir, &candidate.instance_id).is_none() {
+                    if guard::read_record(&self.peers_dir, &candidate.instance_id).is_none() {
                         let _ = guard::write_record(
-                            &peers_dir,
+                            &self.peers_dir,
                             &guard::ResurrectionRecord {
                                 dead_instance: candidate.instance_id.clone(),
                                 dead_host: candidate.host.clone(),
@@ -448,39 +553,40 @@ pub(crate) fn cli_guardian(args: Vec<String>) -> std::io::Result<()> {
                         );
                     }
                     guard::log_line(
-                        &state_root,
+                        &self.state_root,
                         &format!(
                             "resurrect child for {} exited {status}",
                             candidate.instance_id
                         ),
                     );
-                    child = None;
-                    beat.set_activity("guardian-sleeping", None);
+                    self.child = None;
                 }
                 Ok(None) => {}
                 Err(error) => {
-                    guard::log_line(&state_root, &format!("child wait failed: {error}"));
-                    child = None;
+                    guard::log_line(&self.state_root, &format!("child wait failed: {error}"));
+                    self.child = None;
                 }
             }
         }
-        beat.beat(0.0, 0.0, 0.0);
-        if child.is_none() {
-            let peers = read_peers(&peers_dir, Some(&own_id));
+        self.sync_activity();
+        self.beat.beat(0.0, 0.0, 0.0);
+        if self.child.is_none() {
+            self.watching = false;
+            let peers = read_peers(&self.peers_dir, Some(&self.beat.heartbeat.instance_id));
             let candidates = guard::select_candidates(
                 &peers,
                 now_ms(),
-                stale_ms,
+                self.stale_ms,
                 |path| path.is_dir() && path.join(".git").exists(),
                 |instance, session| {
-                    guard::read_record(&peers_dir, instance)
+                    guard::read_record(&self.peers_dir, instance)
                         .is_some_and(|record| record.old_session_id == session)
                 },
             );
             if let Some(candidate) = candidates.into_iter().next() {
-                if watch_only {
+                if self.watch_only {
                     guard::log_line(
-                        &state_root,
+                        &self.state_root,
                         &format!(
                             "watch-only: {} on {} is down (session {}), workspace {} present here",
                             candidate.instance_id,
@@ -489,29 +595,37 @@ pub(crate) fn cli_guardian(args: Vec<String>) -> std::io::Result<()> {
                             candidate.workspace.display()
                         ),
                     );
-                    beat.set_activity("guardian-watching", None);
+                    self.watching = true;
                 } else {
-                    match guard::try_claim(&peers_dir, &candidate, &own_id, &host_name()) {
+                    match guard::try_claim(
+                        &self.peers_dir,
+                        &candidate,
+                        &self.beat.heartbeat.instance_id,
+                        &host_name(),
+                    ) {
                         Ok(true) => {
-                            beat.set_activity("guardian-resurrecting", None);
-                            match spawn_resurrect(&state_root, &candidate, driver.as_deref()) {
+                            match spawn_resurrect(
+                                &self.state_root,
+                                &candidate,
+                                self.driver.as_deref(),
+                            ) {
                                 Ok(spawned) => {
                                     guard::log_line(
-                                        &state_root,
+                                        &self.state_root,
                                         &format!(
                                             "claimed {} (session {}), resurrecting",
                                             candidate.instance_id, candidate.session_id
                                         ),
                                     );
-                                    child = Some((spawned, candidate, now_ms()));
+                                    self.child = Some((spawned, candidate, now_ms()));
                                 }
                                 Err(error) => {
                                     guard::log_line(
-                                        &state_root,
+                                        &self.state_root,
                                         &format!("spawn resurrect failed: {error}"),
                                     );
                                     let _ = guard::write_record(
-                                        &peers_dir,
+                                        &self.peers_dir,
                                         &guard::ResurrectionRecord {
                                             dead_instance: candidate.instance_id.clone(),
                                             dead_host: candidate.host.clone(),
@@ -529,30 +643,13 @@ pub(crate) fn cli_guardian(args: Vec<String>) -> std::io::Result<()> {
                         }
                         Ok(false) => {}
                         Err(error) => {
-                            guard::log_line(&state_root, &format!("claim failed: {error}"))
+                            guard::log_line(&self.state_root, &format!("claim failed: {error}"))
                         }
                     }
                 }
-            } else if beat.heartbeat.activity == "guardian-watching" {
-                beat.set_activity("guardian-sleeping", None);
             }
         }
-        if once {
-            // Single scan; if we spawned a resurrection, stay its parent
-            // until it lands so cron sees the real outcome.
-            if let Some((mut running, _, _)) = child.take() {
-                let status = running.wait().map_err(std::io::Error::other)?;
-                beat.retire();
-                if !status.success() {
-                    return Err(std::io::Error::other(format!(
-                        "resurrect child exited {status}"
-                    )));
-                }
-            }
-            beat.retire();
-            return Ok(());
-        }
-        std::thread::sleep(Duration::from_secs(10));
+        self.sync_activity();
     }
 }
 
@@ -589,3 +686,7 @@ fn spawn_resurrect(
     }
     command.spawn().map_err(|e| format!("spawn resurrect: {e}"))
 }
+
+#[cfg(test)]
+#[path = "../../../tests/cockpit/app/drive_guardian__heartbeat_tests.rs"]
+mod tests;

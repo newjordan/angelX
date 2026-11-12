@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::drive::research_workspace::{Action, Entry, Lens, Place, State, bounded};
+use angel_plug::feed::FeedWorld;
 
 impl App {
     pub(crate) fn ensure_research_session(&mut self) {
@@ -339,17 +340,17 @@ impl App {
         self.research.project(extra);
         // A competition seat's typed journal measurements grow the garden's
         // competition plot; each receipt plots once.
-        if crate::agent::harness::competition_mode_active(&self.history) {
-            let measured: Vec<_> = self
-                .research
-                .visible
-                .iter()
-                .filter_map(|entry| Some((entry.title.clone(), entry.measurement.clone()?)))
-                .collect();
-            for (title, measurement) in measured {
-                let _ = self.realm.world.competition_test_measurement(&title, &measurement);
+        self.realm.measured(&|| {
+            if crate::agent::harness::competition_mode_active(&self.history) {
+                self.research
+                    .visible
+                    .iter()
+                    .filter_map(|entry| Some((entry.title.clone(), entry.measurement.clone()?)))
+                    .collect()
+            } else {
+                Vec::new()
             }
-        }
+        });
         let active = self
             .research
             .visible

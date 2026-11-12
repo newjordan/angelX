@@ -132,6 +132,7 @@ pub fn book_hop() -> Run {
     let mut r = Run::new(0, 1, None);
     for _ in 0..5 { r.descend_for_test(); }
     for seat in 2..=4 { r.join_seat(seat, &format!("Knight {seat}")); }
+    r.deal_legacy_for_test();
     r.enter_for_test(r.folly_room.expect("archive folly"));
     r.hop.as_mut().expect("sixth floor Book Hop").t = crate::rules::folly::TITLE + 95;
     r

@@ -17,6 +17,7 @@ fn quiet() -> Run {
     let mut run = Run::new(4, 1, None);
     fight(&mut run);
     run.calm_for_test();
+    run.settle_seams_for_test();
     run.enemies.clear();
     run.window = None;
     let hero = run.players.get_mut(&1).unwrap();

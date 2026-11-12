@@ -602,6 +602,7 @@ fn main() {
 
 fn run() -> Result<(), String> {
     let a = args()?;
+    angel_delve::scripted::install(angel_live::shipped::engine);
     // The host's settings, as the cockpit sets them from its environment
     // (open floors by default; `ANGEL_DELVE_OPEN=0` for flip-screen rooms).
     settings::set(Settings {
@@ -807,7 +808,8 @@ const BOT_REPORT: Duration = Duration::from_secs(10);
 /// One bot: joins, walks and aims a random way for a while at a time,
 /// fires in bursts, and prints the bytes a second it was sent.
 fn bot<G: GameClient<Cmd = DelveCmd>>(url: &str, key: &str, i: u32) {
-    let name = format!("bot {}", i + 1);
+    // Film build: BOT_NAMES=a,b,c names the bots as knights.
+    let name = std::env::var("BOT_NAMES").ok().and_then(|v| v.split(',').nth(i as usize).map(str::to_string)).unwrap_or_else(|| format!("bot {}", i + 1));
     let mut ws = match WsClient::connect(url, Duration::from_secs(10)) {
         Ok(ws) => ws,
         Err(e) => {

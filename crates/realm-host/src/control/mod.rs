@@ -19,6 +19,8 @@ mod dungeon_gear;
 mod dungeon_intro;
 mod dungeon_join;
 mod dungeon_realm;
+mod dungeon_settle;
+pub use dungeon_settle::{Admitting, Saving};
 pub mod dungeon_reforge;
 mod dungeon_salvage;
 mod dungeon_session;
@@ -26,7 +28,7 @@ mod dungeon_shooter;
 mod overworld_walk;
 mod queries;
 
-pub use dungeon::{DungeonView, Hosting, MAX_FRIENDS, MAX_WATCHED_FRIENDS};
+pub use dungeon::{DungeonView, Hosting, MAX_FRIENDS, MAX_WATCHED_FRIENDS, Venue};
 pub use dungeon_reforge::{Forge, Lesson, MOST_IN_FLIGHT, Pick, UPGRADES_PER_PAGE, known_wishes};
 #[cfg(any(test, feature = "testing"))]
 pub use dungeon_reforge::bench_learn_brief;

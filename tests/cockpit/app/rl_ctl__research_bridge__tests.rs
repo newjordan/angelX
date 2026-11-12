@@ -304,6 +304,10 @@ fn sloptomizer_generation_manifest_rejects_mixed_or_incomplete_dependencies() {
 
 #[test]
 fn sloptomizer_candidate_validation_does_not_execute_runtime_code() {
+    // The probe spawns `python3` by PATH: hold the env lock, or a test that
+    // swaps PATH or ANGEL_RESEARCH_PYTHON takes the interpreter away mid-spawn.
+    let _lock = crate::tests::env_lock();
+    let _python = crate::tests::TestEnvGuard::unset("ANGEL_RESEARCH_PYTHON");
     let root = std::env::temp_dir().join(format!("angel-slop-static-{}", new_run_id()));
     std::fs::create_dir_all(&root).unwrap();
     for (name, bytes) in FILES {

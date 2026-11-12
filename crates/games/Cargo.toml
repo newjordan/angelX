@@ -1,0 +1,18 @@
+[package]
+name = "angel-games"
+version = "0.1.0"
+description = "The game slot's loader: any engine game as a cartridge the cockpit hosts, seats and draws"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+angel-live = { path = "../live" }
+angel-net = { path = "../net" }
+angel-serve = { path = "../serve" }
+crossterm = { version = "0.29", default-features = false, features = ["events"] }
+url = "2"
+
+[dev-dependencies]
+angel-muster = { path = "../muster" }

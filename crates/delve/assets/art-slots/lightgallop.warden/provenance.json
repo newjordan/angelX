@@ -1,0 +1,7 @@
+{
+ "generator": "Luna, reduced by sprites.py",
+ "note": "Reduced by crates/delve/assets/lightgallop/sprites.py from the art wave concept sheets (Luna via Codex CLI, kept outside the repository, bound here by SHA-256), area-averaged, lifted out of the shadow (gamma 0.8) and snapped to the realm inks. The snuffer drawn large, its eyes red.",
+ "sheets": {
+  "foes": "54e772c95d003c7d95d60551bf9afde4becb4f50b9e8c9b81b7b0184b1037d02"
+ }
+}

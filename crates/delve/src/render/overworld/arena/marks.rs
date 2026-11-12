@@ -34,13 +34,14 @@ pub(super) fn flashed(im: &Img, enemy: &Enemy, run: &Run) -> Img {
             // A guardian drawn in its own pose for its wind-up (the Lawn
             // Flamingo, a dread of the Deep) glows at its rim instead, so
             // the pose it winds up in still shows through.
-            let posed = super::garden::is_flamingo(boss) || crate::rules::deep::dread::is(boss);
+            let posed = super::garden::is_flamingo(boss) || crate::rules::deep::dread::is(boss)
+                || crate::rules::claim_bosses::Guardian::for_id(&boss.id).is_some();
             return if posed { rim_heat(im) } else { heat(im) };
         }
         return im.clone();
     }
     if enemy.flashing(run.tick) {
-        let posed = enemy.boss.and_then(|i| run.bosses.get(usize::from(i))).is_some_and(|b| super::garden::is_flamingo(b) || crate::rules::deep::dread::is(b));
+        let posed = enemy.boss.and_then(|i| run.bosses.get(usize::from(i))).is_some_and(|b| super::garden::is_flamingo(b) || crate::rules::deep::dread::is(b) || crate::rules::claim_bosses::Guardian::for_id(&b.id).is_some());
         return if posed { rim_heat(im) } else { heat(im) };
     }
     im.clone()

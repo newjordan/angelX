@@ -65,8 +65,11 @@ pub struct Site {
 /// Dragon Keep on the crater's rim.
 pub fn sites(_land: &Land) -> Vec<Site> {
     use crate::world::castles::{CastleKind, Facing};
+    // The blank-slate plan stands no walled castle: the Keep begun and the
+    // camps are `realm_camp`'s (`world::plan`).
     crate::world::castles()
         .iter()
+        .filter(|_| crate::world::plan::full())
         .map(|c| {
             let face = match c.facing {
                 Facing::South => Face::South,

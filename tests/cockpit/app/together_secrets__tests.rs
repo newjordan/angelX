@@ -1,7 +1,7 @@
 //! The Delve's secrets, settled into the cockpit's realm.
 
-use crate::drive::together_shooter::*;
-use crate::drive::together_shooter::secrets::testing::*;
+use crate::delve::together_shooter::*;
+use crate::delve::together_shooter::secrets::testing::*;
 use std::collections::BTreeMap;
 
 #[test]
@@ -11,7 +11,7 @@ fn a_hint_is_said_once_though_the_host_takes_the_marks_every_frame() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let mut a = crate::app::App::preview(crate::ui::viewer::Viewer::static_preview());
-    a.dungeon.realm = Some(crate::drive::together_realm::Realm::beside(Some(
+    a.dungeon.realm = Some(crate::delve::together_realm::Realm::beside(Some(
         &dir.join("island.json"),
     )));
     // A persistent realm settles only beside a game checkpoint (`settle_home`).

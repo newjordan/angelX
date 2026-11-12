@@ -1,0 +1,15 @@
+# Frontier buildings
+
+Twenty transparent building sprites generated with OpenAI's built-in imagegen tool for Knight's Wish. The five full-resolution atlases are the retained source masters. `manifest.json` records the complete prompts, source output provenance, and reviewed crop rectangles. The depot is used by the current caravanserai, and the gate marks the return to delves. The waterwheel is an available visual module without a production plan yet.
+
+The style uses a consistent elevated view, dark oak, limestone, slate roofs, burgundy banners, and warm windows. Base art sizes are 48 pixels for ordinary structures, 56 for camps and mage towers, and 64 for keeps/gates. The wide map uses 32-pixel tiles; the close map uses 48-pixel tiles and scales these structures to 72–96 pixels. Roofs and eaves may overhang their occupied plot. Buildings are sorted by their bottom-centre ground anchor.
+
+`crates/delve/frontier_art_build.rs` crops and alpha-trims the masters, resamples premultiplied colour, preserves aspect ratio, and emits 48- and 64-pixel RGBA sprites. This prevents invisible background colour from bleeding into the outline. The original source images are never modified. The extraction atlas needs asymmetric reviewed crop boundaries: its four sprites were separated cleanly, but did not align exactly with the mathematical middle column.
+
+`crates/delve/src/render/overworld/arena/frontier_art.rs` provides `paint_building`, `paint_blueprint`, `paint_carrier`, `paint_prop`, `building_size`, `paint_ground_tile`, `paint_road`, and `paint_cursor`. Building and prop coordinates specify bottom-centre anchors. Ground and road coordinates specify top-left corners. Ground world coordinates are pixels, keeping the material stable while the camera scrolls. Road link bits are north=1, east=2, south=4, west=8.
+
+Working buildings animate chimney smoke, warm furnace light and rising sparks, teal arcane motes, and wheel-water glints. Generated fire and windows remain part of the building illustration; the active effects communicate production rather than replacing the art. The corner-bracket cursor distinguishes valid construction from blocked placement.
+
+Build hooks: declare `mod frontier_art_build;` in `crates/delve/build.rs` and call `frontier_art_build::build(&out, &mut watched)` in the renderer build branch. Declare `mod frontier_art;` in `arena.rs`. The helper reads both building and terrain manifests and records all sources as build dependencies.
+
+`review-contact.png` is an isolated art fixture: it shows all buildings at 64 and 32 pixels, all four environmental props, and all four ground materials using the actual game `Img` renderer. It does not run the economy or demonstrate gameplay progression. Independent build-helper and renderer compilations passed; production effects changed between ticks while paused buildings remained stable. Captures of the integrated game and their fixture limitations are listed in [the screenshot index](https://github.com/newjordan/angelX/blob/main/docs/images/kingdom-works/README.md).

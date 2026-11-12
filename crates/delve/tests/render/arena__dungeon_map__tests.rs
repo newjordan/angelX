@@ -203,6 +203,7 @@ fn the_minimap_keeps_off_a_follys_standings_and_its_lanes() {
     // right, where the minimap would be.
     let mut run = on_floor(41);
     run.join_seat(2, "Two");
+    run.deal_legacy_for_test();
     let index = run.folly_room.expect("a folly hall on floor two");
     assert!(shown(&run, Some(1)));
     for hero in run.players.values_mut() {

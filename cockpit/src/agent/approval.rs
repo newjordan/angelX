@@ -125,6 +125,9 @@ pub struct Request {
     pub scope: ApprovalScope,
     /// One-shot channel the UI sends the [`Decision`] back on.
     pub reply: Sender<Decision>,
+    /// When the worker stops waiting and denies. Past this the UI drops the
+    /// ask instead of showing a card no one can answer.
+    pub deadline: std::time::Instant,
 }
 
 /// How long the worker waits for a decision before defaulting to deny (so a
@@ -197,6 +200,7 @@ impl Broker {
             prompt: prompt.to_string(),
             scope: scope.clone(),
             reply: reply_tx,
+            deadline: std::time::Instant::now() + REPLY_TIMEOUT,
         };
         if ui.send(req).is_err() {
             return Decision::Deny; // UI gone

@@ -52,7 +52,9 @@ impl SubmissionSlotTelemetry {
 pub enum TurnEvent {
     /// Literal Sloptomizer evidence counts for the world; no model text enters
     /// the UI's research counters as a claimed reward.
-    ResearchEvidence(crate::drive::rl_ctl::research_live::EvidenceStats),
+    ResearchEvidence(
+        angel_plug::feed::Evidence,
+    ),
     /// A streamed assistant text delta (token chunk) as it arrives — so the UI
     /// can show the reply forming live instead of all at once at the end.
     Token(String),
@@ -1387,7 +1389,11 @@ impl ToolRegistry {
             .tools
             .iter()
             .zip(&self.deferred)
-            .filter(|(tool, deferred)| **deferred || !is_coding_hot_path_tool(tool.name()))
+            .filter(|(tool, deferred)| {
+                **deferred
+                    || !is_coding_hot_path_tool(tool.name())
+                    || (small_workspace_route() && !is_small_workspace_tool(tool.name()))
+            })
             .map(|(t, _)| t.def())
             .collect();
         self.tool_search_index.clone_from(&entries);
@@ -1557,7 +1563,9 @@ impl ToolRegistry {
         self.with_activated_tools(
             full.iter()
                 .filter(|definition| {
-                    (if coding_hot_path {
+                    (if coding_hot_path && small_workspace_route() {
+                        is_small_workspace_tool(&definition.name)
+                    } else if coding_hot_path {
                         is_coding_hot_path_tool(&definition.name)
                     } else {
                         is_essential_tool(&definition.name)
@@ -2192,6 +2200,29 @@ pub(crate) fn is_research_tool(name: &str) -> bool {
             | "labyrinth_campaign"
     ) || crate::agent::harness::cartridges::active()
         .is_some_and(|cartridge| cartridge.hooks().research_tools().contains(&name))
+}
+
+/// Set by the headless small-workspace route; see
+/// [`super::task_mode::apply_small_workspace_route`].
+pub(crate) const SMALL_WORKSPACE_ROUTE_ENV: &str = "ANGEL_TASK_SMALL_WORKSPACE";
+
+fn small_workspace_route() -> bool {
+    #[cfg(not(test))]
+    {
+        static ON: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        *ON.get_or_init(|| env_flag(SMALL_WORKSPACE_ROUTE_ENV, false))
+    }
+    #[cfg(test)]
+    env_flag(SMALL_WORKSPACE_ROUTE_ENV, false)
+}
+
+/// The schemas a small workspace advertises. Everything else stays reachable
+/// through `tool_search`.
+fn is_small_workspace_tool(name: &str) -> bool {
+    matches!(
+        name,
+        "shell" | "read_file" | "write_file" | "str_replace" | "tool_search"
+    )
 }
 
 pub(crate) fn is_coding_hot_path_tool(name: &str) -> bool {

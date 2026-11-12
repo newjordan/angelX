@@ -502,13 +502,23 @@ fn the_mirror_carries_kegs_and_bombs() {
         y: 14.0,
         fall: 20,
     });
+    run.sacs.push(foes::Spore {
+        from: (36.0, 10.0),
+        x: 24.0,
+        y: 14.0,
+        fall: 20,
+    });
     let live = run.wire_copy();
     let mut friend: Run = serde_json::from_str(&serde_json::to_string(&run).unwrap()).unwrap();
     friend.kegs.clear();
     friend.lobs.clear();
     friend.flings.clear();
+    friend.sacs.clear();
     friend = live;
-    assert_eq!((friend.kegs.len(), friend.lobs.len(), friend.flings.len()), (1, 1, 1));
+    assert_eq!(
+        (friend.kegs.len(), friend.lobs.len(), friend.flings.len(), friend.sacs.len()),
+        (1, 1, 1, 1)
+    );
 }
 
 #[test]
@@ -712,4 +722,221 @@ fn a_whirlgraves_wells_close_with_their_stone_and_two_is_the_limit() {
     }
     run.step(&BTreeMap::new());
     assert!(run.wells.is_empty(), "no stone, no lean");
+}
+
+// ─── The Fungelder ──────────────────────────────────────────────────────────
+
+/// The garden: every standing thick wall in the room.
+fn thick_stems(run: &Run) -> Vec<&skills::Barricade> {
+    run.works
+        .barricades
+        .iter()
+        .filter(|w| w.thick && w.standing())
+        .collect()
+}
+
+#[test]
+fn a_fungelder_lobs_a_sac_and_three_mushrooms_stand_up() {
+    let mut run = with(EnemyKind::Fungelder, 34.0, 14.0);
+    let mut lobbed = false;
+    for _ in 0..400 {
+        run.players.get_mut(&1).unwrap().hp = run.players[&1].max_hp;
+        run.step(&BTreeMap::new());
+        if !run.sacs.is_empty() {
+            lobbed = true;
+            break;
+        }
+    }
+    assert!(lobbed, "it lobs");
+    let (x, y) = (run.sacs[0].x, run.sacs[0].y);
+    assert!((x - 24.0).hypot(y - 14.0) < 1.0, "at the knight");
+    tick(&mut run, foes::SPORE_FALL);
+    assert!(run.sacs.is_empty(), "it burst");
+    let stems = thick_stems(&run);
+    assert_eq!(stems.len(), 3, "three mushrooms stand");
+    assert!(
+        stems.iter().all(|w| w.owner == 0),
+        "the room's own, like a peril"
+    );
+}
+
+#[test]
+fn a_mushroom_stops_knight_and_monster_alike() {
+    let mut run = with(EnemyKind::Fungelder, 34.0, 14.0);
+    run.sacs.push(foes::Spore {
+        from: (34.0, 14.0),
+        x: 24.0,
+        y: 14.0,
+        fall: 2,
+    });
+    tick(&mut run, 2);
+    let stems = thick_stems(&run);
+    assert_eq!(stems.len(), 3, "the garden stands");
+    // A knight's own arrow, fired into the nearest stem: it dies, and the
+    // stem feels it — the garden is democratic.
+    let (a0, b0, a1, b1) = (stems[0].a, stems[0].b, stems[1].a, stems[1].b);
+    drop(stems);
+    let (mx, my) = ((a0.0 + b0.0) / 2.0, (a0.1 + b0.1) / 2.0);
+    run.projectiles.push(Projectile {
+        x: mx,
+        y: my,
+        vx: 10.0,
+        vy: 0.0,
+        hostile: false,
+        look: None,
+        kind: Shot::Arrow,
+        damage: 20,
+        pierce: 0,
+        last_hit: None,
+        empowered: false,
+        traits: Default::default(),
+        ttl: HZ,
+    });
+    run.step(&BTreeMap::new());
+    assert!(
+        run.projectiles.iter().all(|p| p.ttl == 0),
+        "the knight's arrow died on it"
+    );
+    let chipped = thick_stems(&run)
+        .iter()
+        .any(|w| w.hp < foes::MUSHROOM_HP);
+    assert!(chipped, "the stem felt the arrow");
+    // A monster's orb, at the next stem: the same law, other side.
+    let (mx, my) = ((a1.0 + b1.0) / 2.0, (a1.1 + b1.1) / 2.0);
+    run.projectiles.push(Projectile {
+        x: mx,
+        y: my,
+        vx: 10.0,
+        vy: 0.0,
+        hostile: true,
+        look: None,
+        kind: Shot::Orb,
+        damage: 20,
+        pierce: 0,
+        last_hit: None,
+        empowered: false,
+        traits: Default::default(),
+        ttl: HZ,
+    });
+    run.step(&BTreeMap::new());
+    assert!(
+        run.projectiles.iter().all(|p| p.ttl == 0),
+        "the monster's orb died on it too"
+    );
+}
+
+#[test]
+fn a_mushroom_shoves_a_knight_round_itself() {
+    let mut run = with(EnemyKind::Fungelder, 34.0, 14.0);
+    run.sacs.push(foes::Spore {
+        from: (34.0, 14.0),
+        x: 24.0,
+        y: 14.0,
+        fall: 2,
+    });
+    tick(&mut run, 2);
+    // The knight stands dead on an edge: the garden moves them out.
+    let stems = thick_stems(&run);
+    let (mx, my) = (
+        (stems[0].a.0 + stems[0].b.0) / 2.0,
+        (stems[0].a.1 + stems[0].b.1) / 2.0,
+    );
+    let wall = (stems[0].a, stems[0].b);
+    drop(stems);
+    {
+        let hero = run.players.get_mut(&1).unwrap();
+        (hero.x, hero.y) = (mx, my);
+    }
+    run.step(&BTreeMap::new());
+    let hero = run.players.get(&1).unwrap();
+    let (px, py) = skills::nearest_on(wall.0, wall.1, hero.x, hero.y);
+    let d = (hero.x - px).hypot(hero.y - py);
+    assert!(
+        d > skills::WALL_THICK,
+        "the garden has opinions about where a knight stands ({d})"
+    );
+}
+
+#[test]
+fn a_garden_is_bounded_and_rots_in_time() {
+    let mut run = with(EnemyKind::Fungelder, 34.0, 14.0);
+    // Five sacs burst at once: the room still holds at most nine stems.
+    for i in 0..5 {
+        run.sacs.push(foes::Spore {
+            from: (34.0, 10.0),
+            x: 20.0 + i as f32,
+            y: 12.0,
+            fall: 1,
+        });
+    }
+    tick(&mut run, 2);
+    assert_eq!(
+        thick_stems(&run).len(),
+        foes::MUSHROOM_ROOM,
+        "nine stems, no more"
+    );
+    // Fell the gardener and let the clock run: the whole garden rots.
+    for e in run.enemies.iter_mut().filter(|e| e.kind == EnemyKind::Fungelder) {
+        e.hp = 0;
+    }
+    run.sacs.clear();
+    run.step(&BTreeMap::new());
+    tick(&mut run, foes::MUSHROOM_LIFE + skills::WALL_CRUMBLE as u32 + 2);
+    assert!(
+        run.works.barricades.is_empty(),
+        "no stem outlives its eight seconds"
+    );
+}
+
+/// The Fungelder's garden, frame by frame, for the deliverable GIF:
+/// `ANGEL_ARENA_SHOTS=<dir> cargo test -p angel-delve --lib write_fungelder_shots -- --ignored`
+#[test]
+#[ignore]
+fn write_fungelder_shots() {
+    let Some(dir) = std::env::var_os("ANGEL_ARENA_SHOTS") else {
+        return;
+    };
+    let dir = std::path::PathBuf::from(dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut run = with(EnemyKind::Fungelder, 32.0, 12.0);
+    // The knight holds still at the room's middle; the gardener lobs at
+    // them, the garden stands, and a pair of arrows die on it.
+    let mut n = 0;
+    let mut bloomed = false;
+    for tick in 0..340 {
+        run.players.get_mut(&1).unwrap().hp = run.players[&1].max_hp;
+        if tick == 220 {
+            // A knight's own arrow, into the garden.
+            if let Some(wall) = thick_stems(&run).first().copied() {
+                let (mx, my) = ((wall.a.0 + wall.b.0) / 2.0, (wall.a.1 + wall.b.1) / 2.0);
+                run.projectiles.push(Projectile {
+                    x: mx - 6.0,
+                    y: my,
+                    vx: 60.0,
+                    vy: 0.0,
+                    hostile: false,
+                    look: None,
+                    kind: Shot::Arrow,
+                    damage: 20,
+                    pierce: 0,
+                    last_hit: None,
+                    empowered: false,
+                    traits: Default::default(),
+                    ttl: HZ,
+                });
+            }
+        }
+        run.step(&BTreeMap::new());
+        if !run.sacs.is_empty() {
+            bloomed = true;
+        }
+        if tick % 2 == 0 {
+            let img = crate::render::overworld::arena::frame(&run, 384, 224);
+            let mut out = format!("P6\n{} {}\n255\n", img.w, img.h).into_bytes();
+            out.extend(img.rgb_bytes());
+            std::fs::write(dir.join(format!("fungelder_{n:03}.ppm")), out).unwrap();
+            n += 1;
+        }
+    }
+    assert!(bloomed, "the garden stood for the camera");
 }

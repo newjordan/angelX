@@ -15,6 +15,14 @@ status_check = "./bench.sh or the SAIR leaderboard"
 fleet_command = "\"$ANGEL_CARTRIDGE_DIR/fleet.sh\""
 fleet_interval_secs = 60
 
+[plugin]
+version = "1.0.0"
+description = "The Lean Kernel Challenge as a competition: the loop worker's brief, a kernel replay bench and the fleet line."
+authors = ["angelX contributors"]
+license = "MIT"
+repository = "https://github.com/newjordan/angelX"
+keywords = ["lean", "competition", "proofs", "kernel"]
+
 [[pages]]
 route = "⠻⠊"
 name = "lean-kernel"

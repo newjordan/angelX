@@ -169,7 +169,7 @@ impl crate::App {
         if !self.loop_ctl.self_edit {
             return "no self run to integrate — /self <goal> first".to_string();
         }
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             return "busy — finish or interrupt the turn before integrating".to_string();
         }
         if matches!(
@@ -191,7 +191,7 @@ impl crate::App {
         if !self.loop_ctl.self_edit {
             return "no self run to discard".to_string();
         }
-        if self.thinking.is_some() || self.bg_job.is_some() || self.loop_pending.is_some() {
+        if self.flight_owner().is_agent_busy() || self.loop_pending.is_some() {
             if self.loop_active() {
                 let _ = self.loop_command(Some("stop".to_string()));
             }
@@ -377,7 +377,7 @@ impl crate::App {
     /// The exec itself happens in `main` after terminal teardown (see
     /// [`drain_reborn`](Self::drain_reborn)); a red build changes nothing.
     fn self_reborn(&mut self) -> String {
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             return "busy — finish or interrupt the turn before a reborn".to_string();
         }
         if self.reborn_rx.is_some() {
@@ -422,20 +422,34 @@ impl crate::App {
     }
 
     /// Drain the reborn build (called each frame from `advance`). A green build
-    /// stages the exec and ends the run loop; a red build reports and stays put.
+    /// asks for a graceful exit that carries the exec (live work finishes first,
+    /// see [`request_restart_exit`](Self::request_restart_exit)); a red build
+    /// reports and stays put. The busy and loop guards of `self_reborn` ran when
+    /// the build started, so the loop is checked again here, at the commit point.
     pub(crate) fn drain_reborn(&mut self) {
         let Some(rx) = self.reborn_rx.take() else {
             return;
         };
         match rx.try_recv() {
             Ok(Ok(exe)) => {
-                self.system_msg(format!(
-                    "reborn · build green — restarting into {} (resuming session {})",
-                    exe.display(),
-                    self.session.id
-                ));
-                self.reborn_exec = Some(exe);
-                self.should_quit = true;
+                if self.exit_request.is_some() {
+                    self.system_msg(
+                        "reborn · build green — an exit was already requested, so closing without restarting"
+                            .to_string(),
+                    );
+                } else if self.loop_active() {
+                    self.system_msg(
+                        "reborn · build green — a loop is live, so not restarting; /loop pause (or /loop stop), then /self reborn restarts into it"
+                            .to_string(),
+                    );
+                } else {
+                    self.system_msg(format!(
+                        "reborn · build green — restarting into {} (resuming session {})",
+                        exe.display(),
+                        self.session.id
+                    ));
+                    self.request_restart_exit(exe);
+                }
             }
             Ok(Err(e)) => {
                 self.system_msg(format!("reborn · build failed — staying in this self: {e}"));

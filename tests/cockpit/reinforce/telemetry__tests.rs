@@ -115,3 +115,54 @@ fn event_timeline_stays_bounded() {
         assert!(snapshot.events.len() <= MAX_EVENTS);
     }
 }
+
+/// Same retry as `with_own_run`: the snapshot is process-global, so run until
+/// the snapshot read back carries our own source.
+fn phase_after(source: &str, run: impl Fn()) -> RlPhase {
+    for _ in 0..16 {
+        run();
+        if let Some(snapshot) = current()
+            && snapshot.source == source
+        {
+            return snapshot.phase;
+        }
+    }
+    panic!("telemetry snapshot never survived concurrent publishers");
+}
+
+#[test]
+fn run_guard_publishes_the_end_of_a_run_however_the_run_function_is_left() {
+    fn errors_out() -> Result<(), String> {
+        let _run = begin_run("telemetry-guard-error", 1);
+        phase(RlPhase::Gate);
+        Err("evaluator error".to_string())
+    }
+    assert_eq!(
+        phase_after("telemetry-guard-error", || {
+            let _ = errors_out();
+        }),
+        RlPhase::Failed,
+        "an error return is a failed run, not a run stuck in the gate"
+    );
+
+    assert_eq!(
+        phase_after("telemetry-guard-done", || {
+            let run = begin_run("telemetry-guard-done", 1);
+            phase(RlPhase::Gate);
+            run.finish();
+        }),
+        RlPhase::Done
+    );
+
+    assert_eq!(
+        phase_after("telemetry-guard-panic", || {
+            let _ = std::panic::catch_unwind(|| {
+                let _run = begin_run("telemetry-guard-panic", 1);
+                phase(RlPhase::Scoring);
+                panic!("worker crashed mid-run");
+            });
+        }),
+        RlPhase::Failed,
+        "unwinding drops the guard"
+    );
+}

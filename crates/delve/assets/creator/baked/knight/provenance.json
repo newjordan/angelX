@@ -1,0 +1,38 @@
+{
+  "spec": "knight.json",
+  "source": "kwpixel/proto/tpose-r2-final",
+  "script": "scripts/creator/export-baked-set.py",
+  "clips": {
+    "idle": [
+      48,
+      "68c4c207356f00d15cb52ed8ed54886a5413ac460a606fe3ffd28c573847be1c"
+    ],
+    "walk-east": [
+      24,
+      "e32bffed89dbb2d43fe2ff9fcbb1940783f1ea948f8bbc329fcb5ca03a25f97f"
+    ],
+    "walk-south": [
+      24,
+      "8d1b9e4616ef0676540e285b015d55d27ffc1560cf8d9b1ef132656a2bfa8bb6"
+    ],
+    "attack": [
+      40,
+      "b37a4a9e62a056daf5d288c89e5c4e5669c4476d7bf77fae738390661e8202c7"
+    ]
+  },
+  "picks": {
+    "rest": "idle[0]",
+    "windup": "attack[15]",
+    "strike": "attack[17]"
+  },
+  "written": {
+    "library-v1-attack-strip.png": "78428bc69d8bd48afe097057f367f4eb432414b2c442f5030261de83fd9d7996",
+    "library-v1-idle-strip.png": "fe13c7a7b9aa3d8ffc92d6a3b99f57f7030637f2067b71e9d01ae6f90ffa9349",
+    "library-v1-rest.png": "cd259ad2a85e14117977b46ade70ddbacec58a744e7ca53a62442414c673c291",
+    "library-v1-strike.png": "78a4773aed35a90e21b5775e4b4b279105ac9bbdafa12496a228a4427aee308e",
+    "library-v1-walk-east-strip.png": "88087e56036aa1badb569a1000154af3f23638755c45c5bc3c78e7cc216223cf",
+    "library-v1-walk-south-strip.png": "74e520d24febc994a345d7c030be8ff157fa4c308a56bb638860c9100f1d7c91",
+    "library-v1-windup.png": "d9af94ae68f5260bc0c7ec76861bdb14d7f8721f7be217c73489256310c399d8"
+  },
+  "unregistered": true
+}

@@ -312,6 +312,7 @@ impl Run {
             .filter_map(|spot| match spot {
                 missions::Spot::Guardian => guardian,
                 missions::Spot::Stairs => down,
+                missions::Spot::Hall => rooms.iter().position(|r| r.kind == RoomKind::DwarfHall),
             })
             .collect();
 

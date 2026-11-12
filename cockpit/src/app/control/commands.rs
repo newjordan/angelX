@@ -1,6 +1,7 @@
 //! Turn submission and the ported Codex slash commands.
 use super::*;
 use crate::app::WorldButton;
+use angel_plug::commands::{CommandsRules, CommandsWorld, Step};
 use std::borrow::Cow;
 
 /// Replace the last model exchange with the exact request prefix that preceded
@@ -314,7 +315,7 @@ impl App {
                 return;
             }
         };
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             self.system_msg(
                 "format: the flight slot is busy — retry after the current turn/job lands"
                     .to_string(),
@@ -376,7 +377,7 @@ impl App {
             ));
             return;
         }
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             self.system_msg(format!(
                 "{label}: the flight slot is busy — retry after the current turn/job lands"
             ));
@@ -435,7 +436,7 @@ impl App {
             ));
             return;
         }
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             self.system_msg(
                 "verify: the flight slot is busy — retry after the current turn/job lands"
                     .to_string(),
@@ -562,7 +563,7 @@ impl App {
                 serde_json::json!({ "path": path, "symbol": symbol })
             }
         };
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             self.system_msg(format!(
                 "{label}: the flight slot is busy — retry after the current turn/job lands"
             ));
@@ -624,7 +625,7 @@ impl App {
             );
             return;
         }
-        if self.thinking.is_some() || self.bg_job.is_some() || self.pending_approval.is_some() {
+        if self.flight_owner().is_agent_busy() || self.pending_approval.is_some() {
             self.system_msg(
                 "approval broker self-test: the flight slot or approval modal is busy".to_string(),
             );
@@ -757,6 +758,12 @@ impl App {
         let parsed = if matches!(&parsed, ParsedInput::Message(_)) {
             self.registered_live_input(&raw).unwrap_or(parsed)
         } else { parsed };
+        // Asking to be onboarded is hers to answer: her tour, not a turn.
+        let parsed = if matches!(&parsed, ParsedInput::Message(_)) && crate::ui::angelface::onboarding_request(&raw) {
+            ParsedInput::Face(crate::ui::input::FaceCommand::Tour)
+        } else {
+            parsed
+        };
         if let ParsedInput::AskQuestion(question) = &parsed
             && (question.trim().is_empty() || question.chars().count() > 4096)
         {
@@ -784,18 +791,19 @@ impl App {
         ) || matches!(&parsed, ParsedInput::Cmd { name, .. } if name == "raw");
         if self.exit_request.is_some() && !exit_control {
             self.exit_request = None;
-            self.system_msg("exit cancelled by new input".to_string());
+            // A restart staged by `/self reborn` is part of the exit request and
+            // dies with it.
+            let notice = if self.reborn_exec.take().is_some() {
+                "reborn restart cancelled by new input"
+            } else {
+                "exit cancelled by new input"
+            };
+            self.system_msg(notice.to_string());
         }
         // The single turn slot is taken: turn-starting (or history-rewriting)
         // input must wait — but local commands still run; `/goal`, `/loop pause`,
         // `/status` are exactly what an operator reaches for mid-run.
-        if (self.thinking.is_some()
-            || self.bg_job.is_some()
-            || self.pending_turn.is_some()
-            || self.loop_pending.is_some()
-            || self.campaign_pending.is_some())
-            && parsed.needs_idle()
-        {
+        if self.flight_owner().holds_turn_slot() && parsed.needs_idle() {
             match parsed {
                 // Zero-friction mid-run steering: a plain typed message no
                 // longer bounces off the busy gate — it queues as a steer the
@@ -971,6 +979,55 @@ impl App {
                     crate::ui::input::ObservatoryCommand::OpenReport(id) => {
                         self.open_observatory_report(&id)
                     }
+                };
+                self.system_msg(text);
+                return;
+            }
+            // angelface: call the goddess in or send her away, and her voice.
+            ParsedInput::Face(command) => {
+                use crate::ui::input::FaceCommand;
+                let text = match command {
+                    FaceCommand::Toggle => match crate::ui::angelface::toggle() {
+                        crate::ui::angelface::Toggled::Shown => "face · she comes (/face sends her away · /face say done · /face mute)".to_string(),
+                        crate::ui::angelface::Toggled::Hidden => "face · she withdraws".to_string(),
+                        crate::ui::angelface::Toggled::NoWindow => {
+                            "face · she lives in angelX's window (ANGEL_GLASS=1); a terminal has no room for her".to_string()
+                        }
+                    },
+                    FaceCommand::Say(what) => match crate::ui::angelface::say(&what) {
+                        Ok(line) => format!("face · she speaks: {line}"),
+                        Err(why) => format!("face · {why}"),
+                    },
+                    FaceCommand::Voice(on) => {
+                        crate::ui::angelface::set_voice(on);
+                        if on { "face · her voice is free".to_string() } else { "face · she falls silent".to_string() }
+                    }
+                    FaceCommand::Lines => {
+                        let lines = crate::ui::angelface::bank_lines();
+                        if lines.is_empty() {
+                            format!("face · no voice bank at {}", crate::ui::angelface::home().join("voice/bank/index.json").display())
+                        } else {
+                            let mut text = String::from("face · her lines (/face say <occasion|id>)");
+                            for (id, occasion, words) in lines {
+                                text.push_str(&format!("\n  {occasion:8} {id:22} {words}"));
+                            }
+                            text
+                        }
+                    }
+                    FaceCommand::Status => format!("face · {}", crate::ui::angelface::status()),
+                    FaceCommand::Tour => match crate::ui::angelface::tour(true) {
+                        Ok(()) => "face · she will show you around (/onboard stop ends it)".to_string(),
+                        Err(why) => format!("face · {why}"),
+                    },
+                    FaceCommand::TourStop => match crate::ui::angelface::tour(false) {
+                        Ok(()) => "face · the tour ends".to_string(),
+                        Err(why) => format!("face · {why}"),
+                    },
+                    FaceCommand::Lasers => match crate::ui::angelface::spectacle() {
+                        Ok(()) => "face · her eyes begin to burn".to_string(),
+                        Err(why) => format!("face · {why}"),
+                    },
+                    FaceCommand::Help => "face · /face calls her or sends her away · /face say <occasion|id> · /face lines · /face status · /face lasers · /face mute · /face voice".to_string(),
                 };
                 self.system_msg(text);
                 return;
@@ -1220,12 +1277,10 @@ impl App {
             }
             ParsedInput::Learn(topic) => {
                 self.scryglass.back_overlay();
-                let travel_topic = topic.as_deref().unwrap_or("open shelves");
-                self.realm.world.begin_teaching_lesson(travel_topic);
-                self.scryglass
-                    .navigate(crate::ui::scryglass::StageRoute::Explore(
-                        crate::stage::world_viz::Building::Scriptorium,
-                    ));
+                if let Some(destination) = self.realm.lesson_opened(topic.as_deref()) {
+                    self.scryglass
+                        .navigate(crate::ui::scryglass::StageRoute::Explore(destination));
+                }
                 let opened = if let Some(topic) = topic {
                     self.scryglass.begin_lesson(topic)
                 } else {
@@ -1352,7 +1407,7 @@ impl App {
                     Some(query) => self.open_agent_menu_filtered(kind, query),
                 };
                 if !opened {
-                    let message = if self.thinking.is_some() || self.bg_job.is_some() {
+                    let message = if self.flight_owner().is_agent_busy() {
                         "Brain Route is locked while a turn owns the flight slot"
                     } else {
                         "selected route exposes no configurable thinking levels"
@@ -1623,13 +1678,7 @@ impl App {
         self.exit_request = Some(crate::app::ExitRequest::WaitingForIdle);
         self.loop_cancel_experiment();
         if self.exit_has_owner() {
-            let owner = if self.thinking.as_ref().is_some_and(Thinking::is_draining) {
-                "the stopped provider/tool worker is still draining"
-            } else if self.thinking.is_some() {
-                "a provider/tool turn is still active"
-            } else {
-                "existing background, verifier or campaign work is still active"
-            };
+            let owner = self.exit_owner_text();
             self.system_msg(format!(
                 "exit requested · {owner}; {} accepted message(s) still queued. Will save and close when existing work finishes. Repeat exit to force close immediately. A new task or command cancels exit; /status, /help and /raw remain available. /raw exports current history only.",
                 self.steer_queue.len()
@@ -1639,7 +1688,41 @@ impl App {
         }
     }
 
+    fn exit_owner_text(&self) -> &'static str {
+        if self.thinking.as_ref().is_some_and(Thinking::is_draining) {
+            "the stopped provider/tool worker is still draining"
+        } else if self.thinking.is_some() {
+            "a provider/tool turn is still active"
+        } else {
+            "existing background, verifier or campaign work is still active"
+        }
+    }
+
+    /// A `/self reborn` build landed green: restart into it through the same
+    /// graceful exit `/exit` uses, so a live turn, queued input and the loop
+    /// experiment are retired the normal way instead of the run loop vanishing
+    /// under them. The staged exec lives only as long as this request: new
+    /// input cancels both and a typed exit closes without restarting.
+    pub(crate) fn request_restart_exit(&mut self, exe: std::path::PathBuf) {
+        debug_assert!(self.exit_request.is_none());
+        self.cancel_launch(false);
+        self.reborn_exec = Some(exe);
+        self.exit_request = Some(crate::app::ExitRequest::WaitingForIdle);
+        self.loop_cancel_experiment();
+        if self.exit_has_owner() {
+            let owner = self.exit_owner_text();
+            self.system_msg(format!(
+                "reborn · restart requested · {owner}; {} accepted message(s) still queued. Will save and restart into the new build when existing work finishes. A new task or command cancels the restart; exit closes without restarting.",
+                self.steer_queue.len()
+            ));
+        } else {
+            self.finish_requested_exit();
+        }
+    }
+
     pub(crate) fn force_exit(&mut self) {
+        // Forced exit is the explicit close: it never restarts into a new build.
+        self.reborn_exec = None;
         self.cancel_launch(false);
         if let Some(mut thinking) = self.thinking.take() {
             thinking
@@ -1650,14 +1733,13 @@ impl App {
         if let Some(job) = self.bg_job.take() {
             job.cancel();
         }
-        if let Some(pending) = self.pending_approval.take() {
+        if let Some(pending) = self.take_approval() {
             let _ = pending.reply.send(crate::agent::approval::Decision::Deny);
         }
         self.loop_cancel_experiment();
         self.loop_retire_pending();
         self.campaign_pending = None;
-        self.shell = None;
-        self.shell_focused = false;
+        self.close_shell(None);
         let _ = self.session.checkpoint_for_exit(&self.history);
         self.should_quit = true;
         self.exit_request = None;
@@ -1888,7 +1970,7 @@ impl App {
         if let Some(outcomes) = self.tools.take_live_outcomes() {
             body.push_str(&outcomes);
         }
-        body.push_str(&self.realm.together.context_block());
+        body.push_str(&self.realm.together_context());
 
         // The active goal rides on task turns so the model steers toward it.
         // Casual check-ins stay casual; otherwise a stale goal can hijack
@@ -2003,11 +2085,10 @@ impl App {
         self.reasoning_shown = 0; // restart the avatar roll-in for the new turn
         self.reasoning_scroll = 0;
         self.tool_strip.begin_turn();
-        self.turn_renown_started = self.realm.world.renown();
+        self.realm.turn_opened();
         self.turn_truncated = false;
         self.turn_route_receipt = None;
         self.turn_first_output_ms = None;
-        self.realm.world.turn_started();
         let club_label = self.bag.in_hand_label().to_string();
         // Both paths use an already captured identity: ordinary Enter clones
         // cached chrome; a launch turn retains its immutable binding snapshot.
@@ -2247,7 +2328,7 @@ impl App {
                 self.handoff_rl_open_dialog(task, iv, true)
             }
             "endless" | "forever" | "infinite" => {
-                if !self.handoff_rl.active && self.handoff_rl.last_stop_reason.is_none() {
+                if self.handoff_rl.phase() == crate::drive::handoff_rl::HandoffPhase::Fresh {
                     self.handoff_rl_open_dialog(rest, 0, false)
                 } else {
                     let resume = self.handoff_rl.budget_tripped().is_some();
@@ -2376,7 +2457,7 @@ handoff restart queued until the foreground worker drains"),
             crate::drive::loop_dialog::LoopLaunchDialog::handoff_rl(task, interval)
         });
         self.loop_dialog_hits.clear();
-        self.realm.world.note_workshop();
+        self.realm.workshop_opened();
         self.scryglass
             .navigate(crate::ui::scryglass::StageRoute::Workshop);
         let _ = self
@@ -3070,7 +3151,7 @@ handoff restart queued until the foreground worker drains"),
                 let query = arg.map(str::trim).filter(|q| !q.is_empty());
                 match query {
                     None => self.system_msg(crate::knowledge::repos::run(None)), // usage — offline
-                    Some(_) if self.thinking.is_some() || self.bg_job.is_some() => {
+                    Some(_) if self.flight_owner().is_agent_busy() => {
                         self.system_msg(
                             "repos: the flight slot is busy — retry when the current turn/job \
                              lands (mid-turn, the agent's repo_search tool is the way)"
@@ -3098,7 +3179,7 @@ handoff restart queued until the foreground worker drains"),
                 let query = arg.map(str::trim).filter(|q| !q.is_empty());
                 match query {
                     None => self.system_msg(crate::drive::science::run(None)), // usage — offline
-                    Some(_) if self.thinking.is_some() || self.bg_job.is_some() => {
+                    Some(_) if self.flight_owner().is_agent_busy() => {
                         self.system_msg(
                             "science bench: the flight slot is busy — retry when the current \
                              turn/job lands (mid-turn, the agent's science_search tool is the way)"
@@ -3298,6 +3379,10 @@ handoff restart queued until the foreground worker drains"),
                 let message = self.dungeon_command(arg);
                 self.system_msg(message);
             }
+            "game" | "games" => {
+                let message = self.game_command(arg);
+                self.system_msg(message);
+            }
             // `/dungeon_host --3`: three invitations, one line per friend.
             "dungeon_host" => {
                 let tail = format!("host {}", arg.unwrap_or(""));
@@ -3305,167 +3390,13 @@ handoff restart queued until the foreground worker drains"),
                 self.system_msg(message);
             }
             "together" => {
-                let raw = arg.unwrap_or("").trim();
-                if raw.split_whitespace().next() == Some("build") {
-                    if !self.realm.together.can_build() {
-                        self.system_msg("Together building requires a player at the forge; use /together on or return");
-                        return None;
-                    }
-                    match crate::drive::together::build_prompt(
-                        raw.strip_prefix("build").unwrap_or("").trim(),
-                    ) {
-                        Ok(prompt) => return Some(ChatMsg::user(prompt)),
-                        Err(error) => self.system_msg(error),
-                    }
-                } else {
-                    match self.realm.together.command(
-                        arg,
-                        self.realm.world.realm_seed(),
-                        self.realm.world.town_name(),
-                        self.tools.current_workspace(),
-                    ) {
-                        Ok(result) => {
-                            if !self.realm.together.enabled() && self.realm.dungeon.shooter.is_none() {
-                                self.realm.dungeon.reset_retaining_wish_jobs();
-                            }
-                            if self.realm.together.enabled() {
-                                self.scryglass_enabled = true;
-                                self.scryglass.return_to_world();
-                                self.focus_module("artifacts");
-                            }
-                            self.request_redraw("Together mode changed");
-                            self.system_msg(result.message);
-                        }
-                        Err(error) => self.system_msg(format!("Together: {error}")),
-                    }
-                }
+                let steps = self.with_realm(|realm, cx| realm.together_command(cx, arg));
+                return self.carry_out(steps);
             }
             "world" => match arg {
-                Some(a) if a == "crops" || a.starts_with("crops ") => {
-                    let selected = a
-                        .strip_prefix("crops ")
-                        .map(str::trim)
-                        .filter(|s| !s.is_empty());
-                    let report = self.realm.world.graph_report(selected);
-                    self.realm.world.visit_overworld("garden");
-                    self.scryglass_enabled = true;
-                    self.scryglass.return_to_world();
-                    self.focus_module("artifacts");
-                    self.request_redraw("graph garden visit");
-                    self.system_msg(report);
-                }
-
                 Some(a) if a.eq_ignore_ascii_case("walk") => {
                     let said = self.walk_from_command();
                     self.system_msg(said);
-                }
-                Some(a) if a.eq_ignore_ascii_case("follow") => {
-                    self.realm.world.follow_overworld();
-                    self.scryglass.return_to_world();
-                    self.request_redraw("world follow resumed");
-                    self.system_msg("Realm camera follows the working knight.".to_string());
-                }
-                Some(a)
-                    if a.split_whitespace()
-                        .next()
-                        .is_some_and(|word| word.eq_ignore_ascii_case("visit")) =>
-                {
-                    let name = a
-                        .split_once(char::is_whitespace)
-                        .map_or("", |(_, name)| name.trim());
-                    // The stables and the lists are rooms of the world:
-                    // walked in the Delve, not looked at from the map. (The
-                    // map's tournament screen is still a camera visit.)
-                    if let Some(place) = crate::drive::chivalry::Place::parse(name).filter(|_| {
-                        !matches!(name.to_ascii_lowercase().as_str(), "tournament" | "knights")
-                    }) {
-                        let said = self.visit_horsemanship(place);
-                        self.system_msg(said);
-                        return None;
-                    }
-                    if let Some(label) = self.realm.world.visit_overworld(name) {
-                        if self.realm.dungeon.expanded { self.collapse_dungeon(); }
-                        self.scryglass_enabled = true;
-                        self.scryglass.return_to_world();
-                        self.focus_module("artifacts");
-                        self.request_redraw("world landmark visit");
-                        self.system_msg(format!(
-                            "Viewing {label} · /world follow returns to the working knight."
-                        ));
-                    } else {
-                        self.system_msg("Visit a realm landmark: /world visit stables|lists|tournament|artisans|colosseum|village|round-table|keep, or a model house's castle (/world visit kimi). /world follow resumes the live camera.".to_string());
-                    }
-                }
-                Some(a) if a.eq_ignore_ascii_case("zoom") => {
-                    self.reset_world_yaw();
-                    self.scryglass
-                        .navigate(crate::ui::scryglass::StageRoute::Realm);
-                    let mode = self.realm.world.cycle_camera_zoom();
-                    self.system_msg(format!("world camera: {mode}"));
-                }
-                Some(a) if a.eq_ignore_ascii_case("ride") => {
-                    if self.scryglass.controller.resolved_scene(
-                        false,
-                        false,
-                        self.realm.world.quest_owns_pane(),
-                    ) == crate::ui::scryglass::StageSurface::WorldFirstPerson
-                    {
-                        self.system_msg("Already in the saddle.".to_string());
-                    } else {
-                        self.reset_world_yaw();
-                        self.scryglass.toggle_world_route(self.realm.world.destination());
-                        if !matches!(
-                            self.scryglass.controller.route(),
-                            crate::ui::scryglass::StageRoute::Explore(_)
-                        ) {
-                            self.scryglass.toggle_world_route(self.realm.world.destination());
-                        }
-                        self.focus_module("artifacts");
-                        self.system_msg("Saddle up — the road fills the glass.".to_string());
-                    }
-                }
-                Some(a) if a.eq_ignore_ascii_case("enter") => {
-                    if self.realm.world.riding() {
-                        self.system_msg("No door opens mid-journey.".to_string());
-                    } else if !self.realm.world.has_authored_interior() {
-                        self.system_msg("No door waits at this landmark.".to_string());
-                    } else if self.realm.world.enter_interior() {
-                        self.reset_world_yaw();
-                        self.system_msg(format!(
-                            "The {} door opens.",
-                            self.realm.world.destination().label()
-                        ));
-                    } else {
-                        self.system_msg("No door opens until the landmark settles.".to_string());
-                    }
-                }
-                Some(a) if a.eq_ignore_ascii_case("leave") => {
-                    if self.realm.world.leave_interior() {
-                        self.reset_world_yaw();
-                        self.system_msg("The door shuts behind you.".to_string());
-                    } else {
-                        self.system_msg("Already under the open sky.".to_string());
-                    }
-                }
-                Some(a)
-                    if a.split_whitespace()
-                        .next()
-                        .is_some_and(|w| w.eq_ignore_ascii_case("rail")) =>
-                {
-                    match a.split_whitespace().nth(1).map(str::to_ascii_lowercase).as_deref() {
-                        Some("on") => self.loop_rail.display.enabled = true,
-                        Some("off") => self.loop_rail.display.enabled = false,
-                        None => self.loop_rail.display.enabled = !self.loop_rail.display.enabled,
-                        _ => {
-                            self.system_msg("/world rail [on|off]".to_string());
-                            return None;
-                        }
-                    }
-                    self.request_redraw("loop rail display");
-                    self.system_msg(format!(
-                        "Loop border rail {} · glass only; reduced/off motion keeps it asleep",
-                        if self.loop_rail.display.enabled { "on" } else { "off" },
-                    ));
                 }
                 Some(a)
                     if matches!(a.to_ascii_lowercase().as_str(), "off" | "disable" | "table") =>
@@ -3482,69 +3413,21 @@ handoff restart queued until the foreground worker drains"),
                     self.request_redraw("world backdrop enabled");
                     self.system_msg("Realm visual backdrop enabled".to_string());
                 }
-                Some(a) if a.eq_ignore_ascii_case("weather") => {
-                    self.system_msg(self.realm.world.weather_report());
-                }
-                Some(a) if a.eq_ignore_ascii_case("3d") => {
-                    crate::stage::world_viz::world3d::toggle();
-                    self.system_msg(crate::stage::world_viz::world3d::status_line());
-                }
-                Some(a)
-                    if a.split_whitespace()
-                        .next()
-                        .is_some_and(|word| word.eq_ignore_ascii_case("view")) =>
-                {
-                    // Old selectors remain compatible but cannot replace Dotmax
-                    // outdoors or implicitly enter a room.
-                    let wanted = a.split_whitespace().nth(1);
-                    let view = match wanted {
-                        Some(word) => {
-                            match crate::stage::world_viz::world3d::WorldView::parse(word) {
-                                Some(view) => Some(view),
-                                None => {
-                                    self.system_msg(format!(
-                                    "unknown world view {word:?} — /world view 3d|dotmax (room plates require Enter)"
-                                ));
-                                    None
-                                }
-                            }
-                        }
-                        None => Some(crate::stage::world_viz::world3d::cycle()),
-                    };
-                    if let Some(view) = view {
-                        crate::stage::world_viz::world3d::set(view);
-                        self.system_msg(crate::stage::world_viz::world3d::status_line());
-                    }
-                }
-                Some(a) if a.eq_ignore_ascii_case("quest") => {
-                    // The debugging window on the adventure model: every field
-                    // the retained 3D renderer reads, as plain text.
-                    self.system_msg(self.realm.world.quest_report());
-                }
-                Some(a) if a.eq_ignore_ascii_case("help") => {
-                    let help = world_help_text();
-                    self.live_projection("world-help", serde_json::json!({"native_help": help}), help);
-                }
-                Some(a) => {
-                    // An unknown verb is a question, not a fault: answer it
-                    // with the whole map of what /world can do.
-                    self.system_msg(format!("unknown /world verb {a:?}\n{}", world_help_text()));
-                }
                 _ => {
-                    self.reset_world_yaw();
-                    self.scryglass.return_to_world();
-                    self.focus_module("artifacts");
-                    self.system_msg(format!(
-                        "Realm open — welcome to {}",
-                        self.realm.world.town_name()
-                    ));
+                    let controller = &self.scryglass.controller;
+                    let saddled = controller.resolved_scene(false, false, false)
+                        == crate::ui::scryglass::StageSurface::WorldFirstPerson;
+                    let saddled_on_quest = controller.resolved_scene(false, false, true)
+                        == crate::ui::scryglass::StageSurface::WorldFirstPerson;
+                    let steps = self.with_realm(|realm, cx| {
+                        realm.world_command(cx, arg, saddled, saddled_on_quest)
+                    });
+                    return self.carry_out(steps);
                 }
             },
             "village" => {
-                // The fleet read off the town — forge/heads/granary/apprentice,
-                // every line a wired data source (the correspondence legend).
-                let t = self.realm.world.village_report();
-                self.system_msg(t);
+                let steps = self.realm.village_command();
+                return self.carry_out(steps);
             }
             "quest" => {
                 // The quest thinking map: chart reasoning as a branching
@@ -3700,9 +3583,11 @@ handoff restart queued until the foreground worker drains"),
                     self.pet.as_deref().unwrap_or("(none)")
                 )),
             },
-            "plugins" | "app" => self.system_msg(format!(
-                "/{name}: no plugin/app marketplace. The tools the cockpit does have: /mcp."
-            )),
+            "plugins" | "plugin" => self.plugins_command(arg),
+            "app" => self.system_msg(
+                "/app: no app marketplace. /plugins finds and installs plugins; /mcp lists tools."
+                    .to_string(),
+            ),
             "memories" => {
                 let t = self.run_memories(arg);
                 self.system_msg(t);
@@ -4174,6 +4059,42 @@ handoff restart queued until the foreground worker drains"),
         }
     }
 
+    fn carry_out(&mut self, steps: Vec<Step>) -> Option<ChatMsg> {
+        for step in steps {
+            match step {
+                Step::Say(text) => self.system_msg(text),
+                Step::Help(text) => self.live_projection(
+                    "world-help",
+                    serde_json::json!({"native_help": text}),
+                    text,
+                ),
+                Step::Ask(prompt) => return Some(ChatMsg::user(prompt)),
+                Step::ResetYaw => self.reset_world_yaw(),
+                Step::ShowWorld => {
+                    self.scryglass_enabled = true;
+                    self.scryglass.return_to_world();
+                }
+                Step::ReturnToWorld => self.scryglass.return_to_world(),
+                Step::OpenRealm => self
+                    .scryglass
+                    .navigate(crate::ui::scryglass::StageRoute::Realm),
+                Step::Saddle(destination) => {
+                    self.scryglass.toggle_world_route(destination);
+                    if !matches!(
+                        self.scryglass.controller.route(),
+                        crate::ui::scryglass::StageRoute::Explore(_)
+                    ) {
+                        self.scryglass.toggle_world_route(destination);
+                    }
+                }
+                Step::FocusStage => self.focus_module("artifacts"),
+                Step::Redraw(receipt) => self.request_redraw(receipt),
+                Step::Collapse => self.collapse_dungeon(),
+            }
+        }
+        None
+    }
+
     pub(crate) fn request_redraw(&mut self, receipt: &str) {
         self.redraw_requested = true;
         self.system_msg(receipt.to_string());
@@ -4452,30 +4373,6 @@ fn nth_agent_response(messages: &[Message], ordinal: usize) -> Option<&str> {
             .nth(index)
             .map(|message| message.text.as_ref())
     })
-}
-
-/// `/world help` — every verb the Realm command answers to, in one message.
-///
-/// Deterministic text; the subcommand list is the contract the completion
-/// table and `local_command::help_text` are checked against.
-pub(crate) fn world_help_text() -> String {
-    [
-        "/world · open the Realm stage · verbs:",
-        "  view [3d|dotmax] · the overworld map on the Realm, Dotmax 3D on Explore; older names also select Dotmax (/world 3d and v report the view)",
-        "  zoom · cycle the map camera auto→wide→close",
-        "  visit <place> · view garden, artisans, colosseum, tournament, village, round-table, or another landmark",
-        "  follow · return the camera to the working knight",
-        "  walk · step onto the map yourself: arrows or WASD walk, E or Enter goes in at a door, Esc leaves (or click the map, or p on it)",
-        "  ride · saddle up; the road fills the glass",
-        "  enter · step through the landmark's door",
-        "  leave · step back under the open sky",
-        "  crops [plot-id] · visit the graph garden and inspect exact chart data",
-        "  weather · the realm's weather report",
-        "  quest · the live adventure: region, danger, loot, party, waypoint",
-        "  on|off · the visual backdrop (off = lean text mode)",
-        "  rail [on|off] · loop border toy (ANGEL_LOOP_RAIL=0 disables at launch)",
-    ]
-    .join("\n")
 }
 
 /// Preserve just the initial policy and adjacent tagged workspace context for
@@ -4879,19 +4776,3 @@ fn build_broker_selection(
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/app_control__commands__tests.rs"]
 mod tests;
-
-#[cfg(test)]
-mod loop_rail_tests {
-    use super::*;
-
-    #[test]
-    fn loop_rail_world_display_switch_never_changes_loop_authority() {
-        let mut app = App::preview(crate::ui::viewer::Viewer::static_preview());
-        let before = serde_json::to_value(&app.loop_ctl).unwrap();
-        for (argument, enabled) in [("rail off", false), ("rail on", true), ("rail", false)] {
-            app.run_codex_cmd("world", Some(argument));
-            assert_eq!(app.loop_rail.display.enabled, enabled);
-            assert_eq!(serde_json::to_value(&app.loop_ctl).unwrap(), before);
-        }
-    }
-}

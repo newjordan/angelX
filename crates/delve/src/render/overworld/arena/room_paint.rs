@@ -8,6 +8,7 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
     // The seat's view of the room, for the marks that keep inside it.
     let view = view_origin(run, focus);
     let mut scene = DrawList::default();
+    scene.add(Layer::Ground, move |cv| industry::deposits(cv, run, focus));
     scene.add(Layer::Ground, move |cv| hazards(cv, run));
     let fortune_hall = run.room().kind == RoomKind::Fortune;
     let in_yard = run.room().kind == RoomKind::Yard;
@@ -38,9 +39,17 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
                 RoomKind::Eyrie => race3d::eyrie_figures(cv, run),
                 RoomKind::LandOffice => holdings::office(cv, run),
                 RoomKind::RealmHall => holdings::castle(cv, run),
-                RoomKind::Alehouse => alehouse::figures(cv, run),
+                RoomKind::Alehouse => {
+                    alehouse::figures(cv, run);
+                    rite_wall::people(cv, run);
+                }
+                RoomKind::Gate => {
+                    hall_voices::dragon(cv, run);
+                    rite_wall::paint(cv, run);
+                }
                 RoomKind::MusterTent => muster_tent::figures(cv, run),
                 RoomKind::Bazaar => bazaar::figures(cv, run),
+                kind if crate::rules::world::bomrekedan::is_level(kind) => bomrekedan::figures(cv, run),
                 _ => {}
             }
             countryside::figures(cv, run);
@@ -62,6 +71,8 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
             RoomKind::MineHead | RoomKind::KingsHall | RoomKind::Gate | RoomKind::Forge
         ) {
             barony::plates(cv, run);
+            reclaim::hall_plate(cv, run);
+            reclaim::king_prompt(cv, run);
             barony::folk(cv, run);
         }
     });
@@ -73,9 +84,13 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
                 holdings::hall(cv, run);
             }
             nooks::figures(cv, run);
+            // A lost hall's keeper, and the plate where its rent is read.
+            reclaim::plates(cv, run);
+            reclaim::figures(cv, run);
             // The Deep: a village's folk and its star, the errands' signs.
             deep_village::figures(cv, run);
             deep_village::signs(cv, run);
+            deep_village::meeting(cv, run);
         }
     });
     scene.add(Layer::Ground, move |cv| lane_squires::figures(cv, run, focus));
@@ -95,15 +110,20 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
     scene.add(Layer::Ground, move |cv| hand::ground_layer(cv, run));
     scene.add(Layer::Ground, move |cv| garden::flamingo_fallen(cv, run));
     scene.add(Layer::Ground, move |cv| gate::draw(cv, run));
+    scene.add(Layer::Ground, move |cv| chronicle::under(cv, run));
     scene.add(Layer::Ground, move |cv| feel::under(cv, run));
     scene.add(Layer::Ground, move |cv| vfx::under_figures(cv, run));
     scene.add(Layer::Ground, move |cv| wishfx::under(cv, run));
     scene.add(Layer::Ground, move |cv| magic::under(cv, run));
+    scene.add(Layer::Ground, move |cv| zones::under(cv, run));
     scene.add(Layer::Ground, move |cv| gore::under(cv, run));
     scene.add(Layer::Ground, move |cv| clay_pots(cv, run));
     scene.add(Layer::Ground, move |cv| cauldron::under(cv, run));
     scene.add(Layer::Ground, move |cv| hop_floor(cv, run));
+    scene.add(Layer::Ground, move |cv| book_hop::floor(cv, run));
     scene.add(Layer::Ground, move |cv| wax_maze::floor(cv, run));
+    scene.add(Layer::Ground, move |cv| belfry_shoot::floor(cv, run, view));
+    scene.add(Layer::Ground, move |cv| powder_room::floor(cv, run, focus, view));
     scene.add(Layer::Ground, move |cv| signatures::under_with(cv, run));
     scene.add(Layer::Ground, move |cv| deep_village::dread_under(cv, run));
     scene.add(Layer::Ground, move |cv| altar::ground(cv, run));
@@ -133,6 +153,8 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
     scene.add(Layer::Over, move |cv| flourishes(cv, run));
     scene.add(Layer::Over, move |cv| wishfx::over(cv, run));
     scene.add(Layer::Over, move |cv| magic::over(cv, run));
+    scene.add(Layer::Over, move |cv| zones::over(cv, run));
+    scene.add(Layer::Over, move |cv| chronicle::over(cv, run, legible));
     scene.add(Layer::Over, move |cv| feel::over(cv, run));
     scene.add(Layer::Over, move |cv| gore::over(cv, run));
     scene.add(Layer::Over, move |cv| works::over(cv, run));
@@ -144,6 +166,9 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
     scene.add(Layer::Over, move |cv| ailments::over(cv, run));
     scene.add(Layer::Over, move |cv| minions::over(cv, run));
     scene.add(Layer::Over, move |cv| wax_maze::wraiths(cv, run));
+    scene.add(Layer::Over, move |cv| belfry_shoot::over(cv, run, focus, view));
+    scene.add(Layer::Over, move |cv| book_hop::over(cv, run, focus));
+    scene.add(Layer::Over, move |cv| powder_room::over(cv, run, focus, view));
     scene.add(Layer::Over, move |cv| cauldron::over(cv, run, legible, view));
     scene.add(Layer::Over, move |cv| altar::over(cv, run, legible, view, focus));
     scene.add(Layer::Over, move |cv| freedom::over(cv, run, legible, view, focus));
@@ -156,7 +181,7 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
     scene.add(Layer::Boards, move |cv| {
         if run.at_home_now() && legible {
             if fortune_hall {
-                fortune::boards(cv, run);
+                fortune::boards(cv, run, focus);
             } else if in_yard {
                 yard::boards(cv, run, focus);
                 squires::boards(cv, run, focus);
@@ -195,9 +220,11 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
             merchant::boards(cv, run, focus);
             if run.room().kind == RoomKind::Holding {
                 holdings::hall_boards(cv, run, focus);
+                holdings_folk::boards(cv, run, focus);
             }
             if !run.at_home_now() {
                 nooks::boards(cv, run);
+                reclaim::boards(cv, run);
             }
         }
     });
@@ -209,6 +236,7 @@ pub(super) fn room_list(run: &Run, focus: Option<u32>, legible: bool) -> DrawLis
             )
         {
             barony::boards(cv, run);
+            reclaim::hall_boards(cv, run);
         }
     });
     scene

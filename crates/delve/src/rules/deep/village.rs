@@ -114,11 +114,22 @@ pub struct Village {
     /// asked for them, the first time the party comes back.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub reunion: Option<u64>,
+    /// Steps of hope the road earned the village, given as the star lands.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub boon: u8,
+    /// The village keeps the star's own light back: its people are wary.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub cold: bool,
+    /// What the village says of the road as the star lands.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub news: String,
 }
 
 impl Village {
     pub fn valid(&self) -> bool {
         self.hope <= HOPE_FULL
+            && self.boon <= 3
+            && self.news.len() <= 400
             && self.talks.len() <= MAX_PLAYERS as usize
             && self.talks.iter().all(|(id, t)| (1..=MAX_PLAYERS).contains(id) && usize::from(t.who) < SPEAKERS.len() && t.page <= 1)
             && self.wishing.len() <= MAX_PLAYERS as usize
@@ -187,6 +198,7 @@ pub fn floor(culture: Culture, depth: u32) -> Floor {
         secret: None,
         open: None,
         altar_at: BTreeMap::new(),
+        fort_admit: crate::rules::layout::FortAdmit::default(),
     }
 }
 
@@ -212,6 +224,9 @@ impl Run {
         if home && let Some(town) = self.home.deep.town_mut(floor) {
             town.reunited = true;
         }
+        // What the road brought: a gift or a letter delivered, the people's
+        // regard (`road`).
+        let (boon, cold, news) = self.road_news(floor, culture, lit);
         let village = Village {
             floor,
             culture,
@@ -226,6 +241,9 @@ impl Run {
             cheer: 0,
             shone: lit.then_some(self.tick),
             reunion: home.then_some(self.tick + FALL + GATHER + HZ as u64),
+            boon,
+            cold,
+            news,
         };
         if let Some(d) = &mut self.deep {
             d.village = Some(village);
@@ -281,11 +299,19 @@ impl Run {
         if self.tick == v.arrived + FALL {
             self.sounds.push("boss_fall");
             self.shake = self.shake.max(10);
-            self.raise_hope(v, 1);
+            if !v.news.is_empty() {
+                self.found = Some((self.tick, 0, v.news.clone()));
+            }
+            if !v.cold {
+                self.raise_hope(v, 1);
+            }
             // A village whose dread the party felled on the way down saw it
             // fall: it is a step brighter already.
             if self.home.deep.town(v.floor).is_some_and(|t| t.dread) {
                 self.raise_hope(v, 1);
+            }
+            if v.boon > 0 {
+                self.raise_hope(v, v.boon);
             }
         }
         if v.reunion.is_some_and(|t| self.tick == t + RUN_HOME) {
@@ -372,7 +398,9 @@ impl Run {
         let f = &folk[who];
         let asked = self.asked_of(v, who);
         let (words, answers) = if talk.page == 0 {
-            (f.hello.to_string(), vec!["E: GO ON".to_string()])
+            // The elder has heard of the party from the road (`road`).
+            let heard = if who == cultures::ELDER { self.road_greeting(v.culture) } else { "" };
+            (format!("{heard}{}", f.hello), vec!["E: GO ON".to_string()])
         } else if who == WISHKEEPER {
             let wished = self.wished_here(v, id);
             let answers = if wished {

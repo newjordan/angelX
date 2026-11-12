@@ -26,9 +26,16 @@ use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-/// One tracked background process.
+/// One tracked background process. It runs while `exit` is `None` and has
+/// ended once `exit` is set: by [`ProcEntry::poll`] when the process ends on
+/// its own, by `proc_stop` when a stop ends it. The independent reaper then
+/// reports the end once: `completion_reported`, or `pending_completion` while
+/// the notice queue is full.
 struct ProcEntry {
     owner: usize,
+    /// A stop was requested (`proc_stop`, a turn's end, the cockpit's exit).
+    /// Set before the signal goes out, so it can be true while `exit` is still
+    /// `None` if the stop's own wait failed; the next poll records the end.
     cancelled: bool,
     kill: Option<sandbox::process_owner::KillReceipt>,
     project_root: PathBuf,
@@ -39,9 +46,9 @@ struct ProcEntry {
     log: PathBuf,
     started: Instant,
     child: JobChild,
-    /// Captured exit description once reaped ("exit 0", "signal-killed").
-    exit: Option<String>,
-    exit_code: Option<i32>,
+    /// How the process ended; `None` while it runs. The only record of a job's
+    /// end: its label, exit code and receipt fields all derive from it.
+    exit: Option<JobExit>,
     completion_reported: bool,
     // Submission attribution belongs to the launching turn, not the reaper thread.
     submit_context: Option<SubmissionContext>,
@@ -121,42 +128,139 @@ struct SubmissionContext {
     output: Arc<Mutex<crate::agent::tools::submit_identity::DispatchCapture>>,
 }
 
+/// How a background job's process ended. The first one recorded is final.
+/// Its text (`Display`) is what status calls, completion notices and terminal
+/// receipts carry, and what a later cockpit reads back from disk to adopt the
+/// job, so the words must not drift.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum JobExit {
+    /// The process ran to its own end with this status.
+    Exited(i32),
+    /// A signal nobody here sent ended it.
+    Signaled(i32),
+    /// The wait itself failed, so how it ended is unknown.
+    WaitFailed(String),
+    /// A stop ended it: SIGTERM, then SIGKILL once the grace ran out. `code`
+    /// is the status the process chose when it handled SIGTERM itself.
+    Stopped { code: Option<i32>, escalated: bool },
+}
+
+/// What a terminal receipt says about a finished job, derived in one place so
+/// its fields cannot disagree.
+struct JobOutcome {
+    status: &'static str,
+    ok: bool,
+    verification: &'static str,
+}
+
+/// An earlier cockpit's terminal receipt carries only the exit text; a clean
+/// exit is the one it adopts as a success.
+fn is_clean_label(label: &str) -> bool {
+    label == "exited 0"
+}
+
+impl JobExit {
+    fn observed(status: std::process::ExitStatus) -> Self {
+        use std::os::unix::process::ExitStatusExt;
+        match status.code() {
+            Some(code) => Self::Exited(code),
+            None => Self::Signaled(status.signal().unwrap_or(0)),
+        }
+    }
+
+    fn stopped(status: Option<std::process::ExitStatus>, escalated: bool) -> Self {
+        Self::Stopped {
+            code: status.and_then(|status| status.code()),
+            escalated,
+        }
+    }
+
+    fn code(&self) -> Option<i32> {
+        match self {
+            Self::Exited(code) => Some(*code),
+            Self::Stopped { code, .. } => *code,
+            Self::Signaled(_) | Self::WaitFailed(_) => None,
+        }
+    }
+
+    /// Only a clean exit reads as success in `proc_status`; a stop never does,
+    /// whatever status the process chose on its way out.
+    fn is_clean(&self) -> bool {
+        matches!(self, Self::Exited(0))
+    }
+
+    fn outcome(&self, cancelled: bool) -> JobOutcome {
+        let cancelled = cancelled || matches!(self, Self::Stopped { .. });
+        let exited_zero = self.code() == Some(0);
+        JobOutcome {
+            status: if cancelled {
+                "Cancelled"
+            } else if exited_zero {
+                "Exited"
+            } else {
+                "Failed"
+            },
+            ok: exited_zero && !cancelled,
+            verification: if cancelled || exited_zero {
+                "Inconclusive"
+            } else {
+                "Failed"
+            },
+        }
+    }
+}
+
+impl std::fmt::Display for JobExit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Exited(code) => write!(f, "exited {code}"),
+            Self::Signaled(signal) => write!(f, "signal-killed (signal {signal})"),
+            Self::WaitFailed(error) => write!(f, "wait error: {error}; exit unknown"),
+            Self::Stopped {
+                code: Some(code), ..
+            } => write!(f, "stopped (exit {code} after SIGTERM)"),
+            Self::Stopped {
+                escalated: true, ..
+            } => f.write_str("killed (SIGKILL after grace)"),
+            Self::Stopped { .. } => f.write_str("stopped (SIGTERM)"),
+        }
+    }
+}
+
 impl ProcEntry {
-    /// Reap if exited; returns the current state label.
-    fn state(&mut self) -> String {
-        if let Some(e) = &self.exit {
-            return e.clone();
-        }
-        match self.child.try_wait() {
-            Ok(Some(status)) => {
-                let label = match status.code() {
-                    Some(c) => format!("exited {c}"),
-                    None => {
-                        use std::os::unix::process::ExitStatusExt;
-                        format!("signal-killed (signal {})", status.signal().unwrap_or(0))
+    /// Reap if exited. The one place a process's own end is recorded: `None`
+    /// while it runs.
+    fn poll(&mut self) -> Option<&JobExit> {
+        if self.exit.is_none() {
+            match self.child.try_wait() {
+                Ok(Some(status)) => {
+                    use std::os::unix::process::ExitStatusExt;
+                    if let Some(signal) = status.signal() {
+                        self.kill.get_or_insert_with(|| {
+                            sandbox::process_owner::KillReceipt::new(
+                                Some(signal),
+                                "signal_death",
+                                "unknown_external",
+                            )
+                        });
                     }
-                };
-                use std::os::unix::process::ExitStatusExt;
-                if let Some(signal) = status.signal() {
-                    self.kill.get_or_insert_with(|| {
-                        sandbox::process_owner::KillReceipt::new(
-                            Some(signal),
-                            "signal_death",
-                            "unknown_external",
-                        )
-                    });
+                    self.exit = Some(JobExit::observed(status));
                 }
-                self.exit_code = status.code();
-                self.exit = Some(label.clone());
-                label
-            }
-            Ok(None) => "running".to_string(),
-            Err(e) => {
-                let label = format!("wait error: {e}; exit unknown");
-                self.exit = Some(label.clone());
-                label
+                Ok(None) => {}
+                Err(e) => self.exit = Some(JobExit::WaitFailed(e.to_string())),
             }
         }
+        self.exit.as_ref()
+    }
+
+    /// [`Self::poll`] as the label status calls print.
+    fn state(&mut self) -> String {
+        self.poll()
+            .map_or_else(|| "running".to_string(), ToString::to_string)
+    }
+
+    fn exit_code(&self) -> Option<i32> {
+        self.exit.as_ref().and_then(JobExit::code)
     }
 }
 
@@ -317,7 +421,7 @@ fn reap_completion_batch(cursor: &mut u64) {
         for id in ids {
             *cursor = id;
             let entry = procs.get_mut(&id).expect("selected live table entry");
-            entry.state();
+            entry.poll();
             if entry.exit.is_some()
                 && (entry.log_pumps.iter().all(|pump| pump.is_finished())
                     || entry.submit_context.as_ref().is_some_and(|context| {
@@ -331,7 +435,7 @@ fn reap_completion_batch(cursor: &mut u64) {
                 submissions.push((
                     entry.command.clone(),
                     context.workspace,
-                    entry.exit_code,
+                    entry.exit_code(),
                     entry.log.clone(),
                     context.model,
                     context.turn,
@@ -357,11 +461,15 @@ fn reap_completion_batch(cursor: &mut u64) {
                     dir.join("completions")
                         .join(format!("{id}-{}.json", entry.pid))
                 });
+            let (state, exit_code, outcome) = {
+                let exit = entry.exit.as_ref().expect("checked above");
+                (exit.to_string(), exit.code(), exit.outcome(entry.cancelled))
+            };
             let completion = ProcCompletion {
                 id,
                 name: entry.name.clone(),
-                state: entry.exit.clone().unwrap(),
-                exit_code: entry.exit_code,
+                state,
+                exit_code,
                 log: entry.log.clone(),
                 receipt: terminal_path.clone(),
                 persistence_error: None,
@@ -371,13 +479,13 @@ fn reap_completion_batch(cursor: &mut u64) {
                 "name": entry.name, "command": entry.command, "log": entry.log,
                 "project_root": entry.project_root, "project_key": entry.project_key,
                 "exit": completion.state, "exit_code": completion.exit_code,
-                "ok": completion.exit_code == Some(0),
+                "ok": outcome.ok,
                 "confinement": entry.confinement,
                 "completed_unix": now_unix(), "owner_pid": std::process::id(),
                 "acceptance": "unverified",
                 "kill": entry.kill,
-                "status": if entry.cancelled { "Cancelled" } else if completion.exit_code == Some(0) { "Exited" } else { "Failed" },
-                "verification": if entry.cancelled || completion.exit_code == Some(0) { "Inconclusive" } else { "Failed" },
+                "status": outcome.status,
+                "verification": outcome.verification,
             });
             finished.push((
                 entry.notification_workspace.clone(),
@@ -461,8 +569,7 @@ pub(crate) fn owned_work_pending(owner: usize, workspace: &Path) -> bool {
             if entry.owner != owner || entry.notification_workspace != workspace {
                 return false;
             }
-            entry.state();
-            entry.exit.is_none()
+            entry.poll().is_none()
         })
     })
 }
@@ -482,7 +589,7 @@ pub(crate) fn stop_owned_for(owner: usize, reason: &str) {
     {
         let mut procs = table().lock().unwrap();
         for entry in procs.values_mut().filter(|entry| entry.owner == owner) {
-            entry.state();
+            entry.poll();
         }
     }
     let entries: Vec<_> = table()
@@ -1565,7 +1672,6 @@ impl Tool for ProcRunTool {
                 started: Instant::now(),
                 child: JobChild::Spawned(child),
                 exit: None,
-                exit_code: None,
                 completion_reported: false,
                 submit_context: submission_output.map(|output| SubmissionContext {
                     workspace: std::fs::canonicalize(&cwd).unwrap_or(cwd),
@@ -1667,7 +1773,6 @@ pub(crate) fn hand_off(
             started: Instant::now(),
             child: JobChild::HandedOff { exit, status: None },
             exit: None,
-            exit_code: None,
             completion_reported: false,
             submit_context: None,
             log_pumps: Vec::new(),
@@ -1741,9 +1846,10 @@ impl Tool for ProcStatusTool {
                         entry.project_root == identity.root && entry.project_key == identity.key
                     })
                     .map(|entry| {
+                        let state = entry.state();
                         (
                             entry.name.clone(),
-                            entry.state(),
+                            state,
                             entry.started.elapsed(),
                             entry.pid,
                             entry.command.clone(),
@@ -1753,6 +1859,8 @@ impl Tool for ProcStatusTool {
                                 .lock()
                                 .ok()
                                 .and_then(|warning| warning.clone()),
+                            entry.exit.is_none(),
+                            entry.exit.as_ref().is_none_or(JobExit::is_clean),
                         )
                     })
             };
@@ -1777,7 +1885,8 @@ impl Tool for ProcStatusTool {
                     format!("\nlog warning: {warning}; later output was drained but not retained")
                 })
                 .unwrap_or_default();
-            let running_note = if snapshot.1 == "running" {
+            let (running, reads_ok) = (snapshot.7, snapshot.8);
+            let running_note = if running {
                 snapshot_running_trailer(requested_wait_ms)
             } else {
                 String::new()
@@ -1792,11 +1901,7 @@ impl Tool for ProcStatusTool {
                 snapshot.4,
             ) + &log_warning
                 + &running_note;
-            return if snapshot.1 == "running" || snapshot.1 == "exited 0" {
-                Ok(text)
-            } else {
-                Err(text)
-            };
+            return if reads_ok { Ok(text) } else { Err(text) };
         }
         let mut procs = table().lock().unwrap();
         let mut lines = Vec::new();
@@ -1805,7 +1910,7 @@ impl Tool for ProcStatusTool {
             entry.project_root == identity.root && entry.project_key == identity.key
         }) {
             let state = entry.state();
-            failed |= state != "running" && state != "exited 0";
+            failed |= !entry.exit.as_ref().is_none_or(JobExit::is_clean);
             let log_state = if entry
                 .log_warning
                 .lock()
@@ -1830,7 +1935,7 @@ impl Tool for ProcStatusTool {
         if receipts_enabled() {
             for receipt in orphaned_receipts(&identity, &procs) {
                 if let Some(exit) = &receipt.exit {
-                    failed |= exit != "exited 0";
+                    failed |= !is_clean_label(exit);
                     lines.push(format!(
                         "[{}] {} — {exit} (retained terminal receipt) {} id={}",
                         receipt.id,
@@ -1923,7 +2028,7 @@ fn adopted_status(
             "[{id}] {} — {exit} (retained terminal receipt)\ncmd: {}\n{captured} id={id}\n--- captured log ---\n{tail}",
             receipt.name, receipt.command,
         );
-        if exit == "exited 0" {
+        if is_clean_label(exit) {
             Ok(text)
         } else {
             Err(text)
@@ -1990,7 +2095,7 @@ impl ProcStopTool {
         if let Some(exit) = &entry.exit {
             return Ok(format!("[{id}] {} already {exit}", entry.name));
         }
-        entry.state();
+        entry.poll();
         if let Some(exit) = &entry.exit {
             return Ok(format!("[{id}] {} already {exit}", entry.name));
         }
@@ -2032,21 +2137,15 @@ impl ProcStopTool {
         if let Some(kill) = entry.kill.as_mut() {
             kill.signal = status.and_then(|status| status.signal());
         }
-        entry.exit_code = status.and_then(|status| status.code());
-        entry.exit = Some(if let Some(code) = entry.exit_code {
-            format!("stopped (exit {code} after SIGTERM)")
-        } else if escalated {
-            "killed (SIGKILL after grace)".to_string()
-        } else {
-            "stopped (SIGTERM)".to_string()
-        });
-        // The independent reaper persists and notifies this terminal state.
-        Ok(format!(
-            "[{id}] {} {} — log kept at {}",
+        let exit = JobExit::stopped(status, escalated);
+        let text = format!(
+            "[{id}] {} {exit} — log kept at {}",
             entry.name,
-            entry.exit.as_deref().unwrap_or("stopped"),
             entry.log.display()
-        ))
+        );
+        entry.exit = Some(exit);
+        // The independent reaper persists and notifies this terminal state.
+        Ok(text)
     }
 }
 
@@ -2158,7 +2257,7 @@ impl Tool for ProcWaitTool {
                     .filter(|entry| {
                         entry.project_root == identity.root && entry.project_key == identity.key
                     })
-                    .map(|entry| entry.state() == "running")
+                    .map(|entry| entry.poll().is_none())
             };
             let running = match running {
                 Some(running) => running,

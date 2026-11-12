@@ -1,0 +1,34 @@
+# The Still Runs Dry — Zuglar Lessonshoot, brewer, the stills of Bomrekedan.
+# A Bomrekedan questline, placed from expansions/bomrekedan/kingdom/questlines/
+# still.txt (quests.json: the-still-runs-dry) and adapted to the engine the
+# way bom-steel.txt says: every step cued but the one that waits on the works
+# ledger (bom_built_still), the trial cued, the counters this line's own.
+# He stands on the Farms and Stills (`room BomFarms`), in the still room
+# below its three stills (kingdom.json workshop-still-47/48/9334).
+power   bomrekedan:still
+teacher Zuglar Lessonshoot
+place   the still room on the Farms and Stills, Bomrekedan's third level, eight stills and only one wine
+room    BomFarms
+at      63 52
+look    a leather cap stained purple to the brim, a dipping ladle on a cord, and the slow smile of a dwarf tasting
+line    Plump helmet wine again. It is good wine. It is the only wine.
+teach   A still is honest. Put fruit in and it gives you drink. Put nothing in and it gives you a brewer with nothing to do.
+hook    A slate by the stills is ruled into columns of 'no fruit', and the columns run off the slate and down the wall.
+step    The tasting | taste this year's plump helmet wine from the cask Zuglar holds out | still_tastings 1 | Good, isn't it. Eighteen hundred barrels of good, and not one of anything else. | cue taste
+step    The fruit basket | go down the farm plots with Zuglar for anything that was never a mushroom | fruit_gathered 1 | Apples. Cherries. Something red. Anything that was never a mushroom. | cue gather
+step    The barrels | carry a barrel from the carpenters to the stills for Zuglar, one each visit | barrels_carried 3 | A brew needs somewhere to go. The brewers put it down a thousand times for want of a barrel. | cue deliver
+step    The tavern's tale | hear from Zuglar who drank the last round at The Copper Peppers | copper_tales_heard 1 | Bards stay longer when there is something new in the cup. So do erinyes. | cue tale
+step    The new still | see a still raised in Bomrekedan for something other than mushrooms | bom_built_still 1 | A new still, and fruit to go in it. The slate can stop at the wall.
+trial   The first fruit | taste the first cask of fruit wine off the new still with Zuglar | fruit_wine_tasted 1 | There. Now it is a story, and the story needs a drink. | cue taste
+reward  the Stills raised a level: both taverns pour every night (a Bomrekedan questline: no power is taught)
+title   the Fruit-Bringer
+keepsake a dipping ladle on a cord, still smelling of cherries
+ties    The tavern's tale is the fort's own, not Sela's quarrel at Maud's; the barrels are Oddom Gearedsecrets' (Barrels and Pots); the fruit is the Orchard lot's.
+art
+..888..
+.8...8.
+.87778.
+.87778.
+.87778.
+..888..
+...8...

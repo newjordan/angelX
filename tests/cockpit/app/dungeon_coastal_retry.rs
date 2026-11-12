@@ -1,7 +1,7 @@
 // The existing failed realm-save/checkpoint/restart test also exercises the coast.
 fn coastal_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::{
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::{
         HZ, Input, RoomKind, Run, coastal as coast, countryside as c, world,
     };
     use std::collections::BTreeMap;
@@ -31,7 +31,7 @@ fn coastal_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert_eq!(coast::stage(&r.home.countryside, &r.marks), 3);
         let p = &c::PLOTS[7];
         r.arrive(world::room_of(&r.dungeon, p.room).unwrap(), p.at);
-        for _ in 0..crate::drive::together_shooter::home::BUY_HOLD {
+        for _ in 0..crate::delve::together_shooter::home::BUY_HOLD {
             r.step(&BTreeMap::from([(
                 1,
                 Input {

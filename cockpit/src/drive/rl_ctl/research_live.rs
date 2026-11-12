@@ -5,6 +5,8 @@
 use super::{research_bridge as bridge, *};
 use crate::agent::club::{ChatMsg, ChatRole, RouteIdentity, ToolCall};
 use crate::agent::harness::{ExecutionOutcome, ToolOutcome, VerificationOutcome, book};
+use crate::app::control::realm::GameHost;
+use angel_plug::drive::DriveWorld;
 use serde_json::{Value, json};
 use std::sync::mpsc::{self, SyncSender, TrySendError};
 
@@ -50,28 +52,6 @@ impl Output {
         }
         self.advice = advice;
         self.error = None;
-    }
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct EvidenceStats {
-    pub(crate) active: bool,
-    pub(crate) observations: u32,
-    pub(crate) checks: u32,
-    pub(crate) contrasts: u32,
-    pub(crate) inconclusive: u32,
-}
-
-impl EvidenceStats {
-    fn from_advice(advice: &Value, active: bool) -> Self {
-        let count = |key: &str| advice[key].as_u64().unwrap_or(0).min(u32::MAX as u64) as u32;
-        Self {
-            active,
-            observations: count("relation_count"),
-            checks: count("check_count"),
-            contrasts: count("contrast_count"),
-            inconclusive: count("inconclusive_count"),
-        }
     }
 }
 
@@ -263,7 +243,7 @@ impl LiveResearch {
             let _ = self
                 .events
                 .send(crate::agent::harness::TurnEvent::ResearchEvidence(
-                    EvidenceStats::from_advice(&out.advice, true),
+                    <GameHost as DriveWorld>::research_evidence(&out.advice, true),
                 ));
         }
         let missing = self.capsule.as_ref().is_none_or(|text| {
@@ -313,7 +293,7 @@ impl Drop for LiveResearch {
             let _ = self
                 .events
                 .send(crate::agent::harness::TurnEvent::ResearchEvidence(
-                    EvidenceStats::from_advice(&out.advice, false),
+                    <GameHost as DriveWorld>::research_evidence(&out.advice, false),
                 ));
         }
     }

@@ -370,6 +370,29 @@ tier cast meteor; cooldown 8 :: A falling star every 8 seconds.
 tier cast meteor; cooldown 7 :: A falling star every 7 seconds.
 tier cast meteor; nova 20; cooldown 6 :: A falling star every 6 seconds, its quake striking all for 20.
 
+# The rite of passage (rules/rite.rs): a new knight wishes a weapon or a
+# minion of their own. Yew Bow is its plain weapon (above); this hound is
+# its plain minion, granted when there is no one to teach the scroll.
+
+wish plain-hound | Plain Hound
+kind spell
+say a plain hound | a hound | a loyal hound | a faithful hound | a hunting dog | a guard dog
+tier summon 1 guard; cooldown 6 :: A hound circles you and catches a shot.
+tier summon 2 guard; cooldown 10 :: Two hounds circle you, each catching a shot.
+tier summon 3 guard; cooldown 15 :: Three hounds keep you.
+tier summon 4 guard; cooldown 20 :: Four hounds keep you.
+tier summon 4 guard; heal 20; cooldown 22 :: Four hounds keep you, and a lick mends you for 20.
+draw summon
+..........o...|..........o...
+.........oOo..|.........oOo..
+.ok.ooooOOTTo.|.ok.ooooOOTTo.
+.oOooOOOOOwTT4|.oOooOOOOOwTT4
+..oOOOOOOOOTo.|..oOOOOOOOOTo.
+..oOOOOOOOOo..|..oOOOOOOOOo..
+..oO.oO.oO.o..|...oO.oO.oO.o.
+..oO.oO.oO.o..|..oO.oO.oO.o..
+..oo.oo.oo.o..|..oo.oo.oo.o..
+
 wish pilgrims-arrow | Pilgrim's Arrow
 say a great arrow | one huge arrow | a piercing shot | a beam | a lance of light
 tier ult pilgrims_arrow :: One great arrow through all in its line, stunning each foe.

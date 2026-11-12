@@ -1,4 +1,7 @@
 use super::*;
+#[cfg(feature = "delve")]
+use crate::delve::routing;
+#[cfg(feature = "delve")]
 use std::collections::VecDeque;
 
 fn workspace() -> std::path::PathBuf {
@@ -35,6 +38,7 @@ fn tier_alone_does_not_open_an_established_corridor() {
     assert_eq!(passage(&measured), Passage::Review);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn routes_do_not_cross_refutations_and_label_unknown_steps() {
     let mut a = proof("th.start", "T1", "refereed");
@@ -75,6 +79,7 @@ fn schema_rejects_duplicate_nodes_dangling_links_and_dependency_cycles() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn shared_router_matches_an_independent_breadth_first_oracle() {
     for seed in 0..64u64 {
@@ -126,6 +131,7 @@ fn shared_router_matches_an_independent_breadth_first_oracle() {
     assert!(routing::shortest_path(262_145, 0, 1, |_| vec![]).is_none());
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn every_tunnel_variant_is_connected_bounded_and_reproducible() {
     for variant in [
@@ -233,6 +239,7 @@ fn automatic_observations_do_not_count_as_candidate_source_changes() {
     std::fs::remove_dir_all(root).unwrap();
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn transitive_unproved_prerequisites_keep_a_route_unestablished() {
     let mut result = proof("th.result", "T2", "refereed");
@@ -490,6 +497,89 @@ fn terminal_submission_receipts_preserve_verification_without_inventing_promotio
     assert_eq!(load(&root).unwrap().unwrap().nodes.len(), 6);
     notify.id = "different-submission".into();
     assert!(observe_submission(&root, &notify).is_err());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+/// Which status words make a board receipt terminal evidence, and which keep
+/// waiting. The same words the slot watcher settles on.
+#[test]
+fn only_settled_status_words_are_mirrored_as_terminal_receipts() {
+    use crate::agent::harness::{SubmissionReceipt, WatchNotify};
+    let root = workspace();
+    initialize(&root).unwrap();
+    let notify_with = |status: &str| {
+        let official = crate::agent::harness::cartridges::records::SubmissionStatus {
+            id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee".into(),
+            benchmark_id: "a9214626-38ee-4912-97d7-10fc0d4b7861".into(),
+            status: status.into(),
+            promotion_status: None,
+            promoted_source_ref: None,
+            submission_commit_sha: None,
+            official_score: None,
+            rejection_reason: None,
+            official_metrics: json!({}),
+            improved: None,
+            frontier: None,
+            fetched_at_ms: 1,
+        };
+        WatchNotify {
+            id: official.id.clone(),
+            status: official.status.clone(),
+            score: None,
+            rejection_reason: None,
+            source_note: None,
+            receipt: Some(SubmissionReceipt {
+                benchmark_id: official.benchmark_id.clone(),
+                promotion_status: None,
+                promoted_source_ref: None,
+                submission_commit_id: None,
+                observed_at_ms: Some(1),
+                source_id: "official-status-api".into(),
+                official: Some(official),
+            }),
+        }
+    };
+    for word in [
+        "queued",
+        "pending",
+        "submitted",
+        "validating",
+        "running",
+        "in-flight",
+        "in_flight",
+        "complete",
+        "completed",
+        "promotion failed",
+        "scoring",
+        "",
+    ] {
+        observe_submission(&root, &notify_with(word)).unwrap();
+        assert!(
+            load(&root).unwrap().unwrap().nodes.is_empty(),
+            "{word:?} must keep waiting"
+        );
+    }
+    let mut mirrored = 0;
+    for word in [
+        "accepted",
+        "promoted",
+        "rejected",
+        "failed",
+        "error",
+        "cancelled",
+        "canceled",
+        "superseded",
+        "timeout",
+        "timed_out",
+        "timed-out",
+        " Accepted ",
+    ] {
+        observe_submission(&root, &notify_with(word)).unwrap();
+        mirrored += 1;
+        let nodes = load(&root).unwrap().unwrap().nodes.len();
+        // One task node, plus one evidence node per distinct status.
+        assert_eq!(nodes, 1 + mirrored, "{word:?} must be mirrored");
+    }
     std::fs::remove_dir_all(root).unwrap();
 }
 

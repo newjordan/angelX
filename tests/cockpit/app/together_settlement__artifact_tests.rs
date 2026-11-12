@@ -1,10 +1,8 @@
 use super::tests::{Temp, state, value};
 use super::*;
-use crate::drive::{
-    loop_ctl::{self, LoopState, LoopStatus},
-    together_shooter::{Run, TILE_UNITS, home::Home},
-};
-use crate::stage::world_viz::{
+use crate::delve::together_shooter::{Run, TILE_UNITS, home::Home};
+use crate::drive::loop_ctl::{self, LoopState, LoopStatus};
+use crate::delve::world_viz::{
     crawl::{dungeon::Dungeon, party, settlement::Scene},
     overworld::arena,
 };
@@ -732,8 +730,8 @@ fn settlement_exhibits_reachable_and_collision_identical_with_visible_props() {
         assert!(path.iter().all(|p| d.walkable(*p)));
         assert!(d.props.iter().any(|(_, _, prop)| matches!(
             prop,
-            crate::stage::world_viz::crawl::dungeon::Prop::Crate
-                | crate::stage::world_viz::crawl::dungeon::Prop::Workbench
+            crate::delve::world_viz::crawl::dungeon::Prop::Crate
+                | crate::delve::world_viz::crawl::dungeon::Prop::Workbench
         )));
         // Follow the shared path inside each room via the actual playable
         // collision (the settlement's rooms; the world above has its own).
@@ -887,7 +885,7 @@ fn settlement_exhibits_guest_geometry_and_pixels_never_contain_private_metadata(
     f.approach(&mut run);
     let state = serde_json::to_string(&run).unwrap();
     // What a friend's client is sent, as bytes on the wire.
-    let (guest_bytes, _, guest_picture) = crate::drive::together_seat::guest_view(&run, 1);
+    let (guest_bytes, _, guest_picture) = crate::delve::together_seat::guest_view(&run, 1);
     let guest_state = String::from_utf8_lossy(&guest_bytes).into_owned();
     for private in [
         "PRIVATE measured latency",
@@ -911,7 +909,7 @@ fn settlement_exhibits_guest_geometry_and_pixels_never_contain_private_metadata(
     other.at = run.at;
     other.players = run.players.clone();
     assert_eq!(host_pixels, arena::frame(&other, 384, 224).rgb_bytes());
-    let (other_bytes, _, other_picture) = crate::drive::together_seat::guest_view(&other, 1);
+    let (other_bytes, _, other_picture) = crate::delve::together_seat::guest_view(&other, 1);
     assert_eq!(guest_picture, other_picture);
     assert_eq!(guest_bytes, other_bytes);
     let local = f.store.site.inspect(&run, f.dir.path()).unwrap();
@@ -990,7 +988,7 @@ fn settlement_exhibits_deliberate_local_overlay_scrolling_and_private_guest_noti
         .players
         .get_mut(&1)
         .unwrap();
-    hero.x += 4.0 * crate::drive::together_shooter::TILE_UNITS;
+    hero.x += 4.0 * crate::delve::together_shooter::TILE_UNITS;
     assert!(!app.realm.dungeon.shooter.as_ref().unwrap().beside_exhibit(1));
     assert!(app.dungeon_key(KeyEvent::new(KeyCode::Char('e'), KeyModifiers::NONE)));
     assert!(app.realm.dungeon.exhibit_text.is_none(), "E away from an exhibit opens nothing");

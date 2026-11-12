@@ -161,13 +161,7 @@ impl App {
             self.system_msg("initial turn not queued: bound route became unavailable".to_string());
             return;
         }
-        if self.thinking.is_some()
-            || self.pending_turn.is_some()
-            || self.bg_job.is_some()
-            || self.loop_pending.is_some()
-            || self.campaign_pending.is_some()
-            || self.pending_approval.is_some()
-        {
+        if self.flight_owner().holds_turn_slot() || self.pending_approval.is_some() {
             return;
         }
         let mut binding = input.binding.clone();

@@ -197,12 +197,24 @@ impl Bundle {
             r#"const files = {files};
 const assets = {assets};
 const dependencies = {resource_json};
+const optionalImports = {optional_imports};
 function resource(module, name) {{
   if(typeof module!=='string'||typeof name!=='string') throw Error('resource requires module and name');
   const key=module+'/'+name;
   if(!Object.hasOwn(dependencies,key)) throw Error('resource is not imported: '+key);
   return Object.freeze(dependencies[key]);
 }}
+resource.optional = function(module, name, contract) {{
+  if(typeof module!=='string'||typeof name!=='string'||typeof contract!=='string') throw Error('optional resource requires module, name and contract');
+  if(!optionalImports.some(i=>i.module===module&&i.contract===contract)) throw Error('resource optional import is not declared: '+module+' '+contract);
+  const key=module+'/'+name;
+  if(!Object.hasOwn(dependencies,key)) {{
+    if((dependencies['@optional-providers']??[]).some(i=>i.module===module&&i.contract===contract)) throw Error('optional provider did not publish resource: '+key);
+    return null;
+  }}
+  if(dependencies[key].contract!==contract) throw Error('optional resource contract differs: '+key);
+  return Object.freeze(dependencies[key]);
+}};
 function asset(name) {{
   if(!Object.hasOwn(assets,name)) throw Error('asset not declared: '+name);
   return Object.freeze(assets[name]);
@@ -210,7 +222,13 @@ function asset(name) {{
 const cache = Object.create(null);
 function load(name) {{
   if (cache[name]) return cache[name].exports;
-  if (!Object.hasOwn(files, name) || !name.endsWith('.js')) throw Error('missing dependency: '+name);
+  if (!Object.hasOwn(files, name)) throw Error('missing dependency: '+name);
+  if (name.endsWith('.json')) {{
+    const module = {{exports: JSON.parse(files[name])}};
+    cache[name] = module;
+    return module.exports;
+  }}
+  if (!name.endsWith('.js')) throw Error('missing dependency: '+name);
   const module = {{exports: {{}}}};
   cache[name] = module;
   const require = (specifier) => {{
@@ -222,7 +240,7 @@ function load(name) {{
       else parts.push(part);
     }}
     const path = parts.join('/');
-    const resolved = [path, path+'.js', path+'/index.js'].find(p => Object.hasOwn(files,p));
+    const resolved = [path, path+'.js', path+'.json', path+'/index.js'].find(p => Object.hasOwn(files,p));
     if (!resolved) throw Error('missing dependency: '+specifier);
     return load(resolved);
   }};
@@ -242,6 +260,15 @@ const feature = load({entry});
                     .collect::<BTreeMap<_, _>>()
             )
             .unwrap(),
+            optional_imports = serde_json::to_string(
+                &self
+                    .manifest
+                    .imports
+                    .iter()
+                    .filter(|import| import.optional)
+                    .collect::<Vec<_>>()
+            )
+            .expect("optional import JSON"),
             files = serde_json::to_string(&self.files).expect("source JSON"),
             entry = serde_json::to_string(&self.manifest.entry).expect("entry JSON"),
         )
@@ -449,7 +476,7 @@ fn visit(
         let path = entry.path();
         if kind.is_dir() {
             visit(root, &path, depth + 1, files, entries)?;
-        } else if path.extension().is_some_and(|v| v == "js" || v == "bend")
+        } else if path.extension().is_some_and(|v| v == "js" || v == "bend" || v == "json")
             || path == root.join("module.json")
             || path == root.join("bend-build.json")
         {

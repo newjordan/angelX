@@ -1,7 +1,7 @@
 //! The hireling on the cockpit's own screen.
 
-use crate::drive::together_shooter::*;
-use crate::drive::together_shooter::hireling::testing::*;
+use crate::together_shooter::*;
+use crate::together_shooter::hireling::testing::*;
 
 #[test]
 fn the_side_panel_names_the_minion_and_not_beaumains() {
@@ -11,7 +11,7 @@ fn the_side_panel_names_the_minion_and_not_beaumains() {
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 40)).unwrap();
     terminal
         .draw(|frame| {
-            crate::ui::viz::shooter_viz::render(
+            crate::shooter_viz::render(
                 frame,
                 &run,
                 frame.area(),

@@ -4,9 +4,11 @@
 //! One 75-second rampart, three waves and one captain. See assets/pennon/BRIEF.md.
 pub use super::rafterwake::{Beat, Q};
 use super::rafterwake::{Plank, camera, landing, supports};
+use super::juice::Weight;
 use super::{BTreeMap, HZ, Input, MAX_PLAYERS, RoomKind, Run, Spoil};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
+pub mod show;
 /// Weight after the apex, fixed units per tick squared.
 pub const GRAVITY: u32 = 112;
 /// Held jump impulse, fixed units per tick.
@@ -321,7 +323,7 @@ impl Lane {
             && self.buffer <= 10
             && self.pose < 12
             && self.pose_ticks <= 12
-            && self.freeze <= 2
+            && self.freeze <= 4
             && self.down <= 18
             && self.hurt <= 30
             && self.effect <= 12
@@ -582,6 +584,7 @@ impl Lane {
             }
         }
         let mut contact = None;
+        let mut slain = false;
         let mut hurt = false;
         let active = self.foes.iter().position(|f| f.hp > 0);
         for shot in &mut self.shots {
@@ -632,6 +635,7 @@ impl Lane {
                         f.flinch = 4;
                         if f.hp == 0 {
                             f.beat = Beat::Defeat;
+                            slain = true;
                         }
                         shot.life = 0;
                         contact = Some((f.x, FLOOR - 30));
@@ -647,6 +651,10 @@ impl Lane {
         self.shots.retain(|s| s.life > 0);
         if let Some((x, y)) = contact {
             self.burst(x, y);
+            // A felled pennant holds the lane a breath longer than a scratch.
+            if slain {
+                self.freeze = 4;
+            }
         }
         if hurt {
             self.fail();
@@ -759,6 +767,12 @@ pub struct Session {
     pub order: Vec<u32>,
     pub key: bool,
     pub won: bool,
+    /// Ticks of title and 3-2-1 still to run: the lanes wait for the table.
+    #[serde(default)]
+    pub hold: u32,
+    /// What lately happened on the ramparts, for the picture.
+    #[serde(default, skip_serializing_if = "show::Show::quiet")]
+    pub show: show::Show,
 }
 impl Session {
     pub fn new(seats: impl Iterator<Item = u32>, seed: u64) -> Self {
@@ -769,6 +783,8 @@ impl Session {
             order: Vec::new(),
             key: true,
             won: false,
+            hold: show::HOLD,
+            show: show::Show::default(),
         }
     }
     pub fn score(&self, id: u32) -> (std::cmp::Reverse<u32>, u32, u32) {
@@ -814,6 +830,8 @@ impl Session {
                 .iter()
                 .all(|(&id, d)| (1..=MAX_PLAYERS).contains(&id) && d.valid() && d.seed == self.seed)
             && self.left <= LENGTH
+            && self.hold <= show::HOLD
+            && self.show.valid()
             && self.order.len() <= self.lanes.len()
             && self
                 .order
@@ -836,6 +854,8 @@ impl Session {
         self.order.clear();
         self.key = true;
         self.won = false;
+        self.hold = 0;
+        self.show = show::Show::default();
     }
 }
 impl Run {
@@ -879,6 +899,7 @@ impl Run {
         if s.lanes.is_empty() {
             return;
         }
+        s.show.tick();
         if s.left == 0 {
             let take = inputs
                 .iter()
@@ -891,12 +912,34 @@ impl Run {
             }
             return;
         }
+        // The title and the count: every lane waits on the table, and a key
+        // still held from the muster is not a jump at the horn.
+        if s.hold > 0 {
+            s.hold -= 1;
+            for (&id, d) in &mut s.lanes {
+                let held = inputs.get(&id).copied().unwrap_or_default();
+                if held.valid() {
+                    d.jump_key = held.interact;
+                    d.fire_key = held.fire;
+                }
+            }
+            if s.hold == 0 {
+                self.sounds.push("circle_toll");
+            } else if s.hold % 22 == 0 {
+                self.sounds.push("play_card");
+            }
+            self.pennon = Some(s);
+            return;
+        }
         s.left -= 1;
         let elapsed = LENGTH - s.left;
+        let mut heaviest: Option<Weight> = None;
         for (&id, d) in &mut s.lanes {
             if self.players.get(&id).is_some_and(|h| !h.away && !h.stone) {
                 let chain = d.chain;
                 let falls = d.falls;
+                let ward = d.ward;
+                let before = show::Snap::of(d);
                 d.step_at(
                     inputs.get(&id).copied().unwrap_or_default(),
                     &self.tune,
@@ -910,10 +953,35 @@ impl Run {
                 if d.falls > falls {
                     self.sounds.push("hit");
                 }
+                if d.ward > ward {
+                    self.sounds.push("shield_up");
+                }
+                heaviest = heaviest.max(s.show.observe(id, &before, d));
             }
+        }
+        // The table's tallies: who leads, and a third pennon felled rallies
+        // every knight who lacks a ward.
+        let scores: Vec<(u32, u32)> = s.lanes.iter().map(|(&id, d)| (id, d.score)).collect();
+        if s.show.standings(&scores) {
+            let mut got = Vec::new();
+            for (&id, d) in &mut s.lanes {
+                if d.finish.is_none() && d.ward == 0 {
+                    d.ward = 1;
+                    got.push((id, d.x / Q));
+                }
+            }
+            if !got.is_empty() {
+                self.sounds.push("shield_up");
+            }
+            s.show.rallied(&got);
+        }
+        if heaviest == Some(Weight::Finale) {
+            self.sounds.push("boss_fall");
+            self.hold_for(Weight::Finale);
         }
         if s.left == 0 || s.lanes.values().all(|d| d.finish.is_some()) {
             s.left = 0;
+            s.show.end = Some(s.show.t);
             s.order = s.lanes.keys().copied().collect();
             let mut order = std::mem::take(&mut s.order);
             order.sort_by_key(|id| (s.score(*id), *id));
@@ -943,6 +1011,7 @@ impl Run {
             self.sounds.push("spoil_pickup");
         }
         self.pennon = Some(s);
+        self.finish_hit_hold();
     }
     fn start_pennon(&mut self) {
         let seed = self.rng.next();
@@ -953,10 +1022,11 @@ impl Run {
                 h.hp > 0 && !h.stone && !h.away && !self.exits.outside.contains_key(id)
             })
             .map(|(&id, _)| id);
-        let s = Session::new(seats, seed);
+        let mut s = Session::new(seats, seed);
         if s.lanes.is_empty() {
             return;
         }
+        s.show.best0 = self.home.countryside.games.pennon.best;
         self.pennon = Some(s);
         self.home.countryside.games.pennon.plays =
             self.home.countryside.games.pennon.plays.saturating_add(1);
@@ -989,6 +1059,8 @@ impl Run {
         }
         r.start_pennon();
         let s = r.pennon.as_mut().unwrap();
+        s.hold = 0;
+        s.show.t = 900;
         s.left = LENGTH - 900;
         for (&id, d) in &mut s.lanes {
             d.score = id * 160;
@@ -1139,6 +1211,7 @@ impl Run {
         }
         if moment == "podium" {
             s.left = 0;
+            s.show.end = Some(s.show.t.saturating_sub(40));
             s.order = vec![1, 4, 3, 2];
             s.won = true;
         }
@@ -1162,3 +1235,7 @@ impl Run {
         r
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/rules/pennon_reel__tests.rs"]
+mod reel;

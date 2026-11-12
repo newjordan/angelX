@@ -1,0 +1,69 @@
+{
+  "schema": 1,
+  "generator": "built-in image_gen",
+  "assets": [
+    {
+      "id": "ground-clay",
+      "atlas": "ground-atlas.png",
+      "quadrant": 0,
+      "rect": [
+        0,
+        0,
+        627,
+        627
+      ],
+      "kind": "texture",
+      "use": "Seamless-looking overhead terrain surface; tile borders may be softened by renderer."
+    },
+    {
+      "id": "ground-dry-clay",
+      "atlas": "ground-atlas.png",
+      "quadrant": 1,
+      "rect": [
+        627,
+        0,
+        627,
+        627
+      ],
+      "kind": "texture",
+      "use": "Seamless-looking overhead terrain surface; tile borders may be softened by renderer."
+    },
+    {
+      "id": "ground-ford",
+      "atlas": "ground-atlas.png",
+      "quadrant": 2,
+      "rect": [
+        0,
+        627,
+        627,
+        627
+      ],
+      "kind": "texture",
+      "use": "Seamless-looking overhead terrain surface; tile borders may be softened by renderer."
+    },
+    {
+      "id": "ground-mud",
+      "atlas": "ground-atlas.png",
+      "quadrant": 3,
+      "rect": [
+        627,
+        627,
+        627,
+        627
+      ],
+      "kind": "texture",
+      "use": "Seamless-looking overhead terrain surface; tile borders may be softened by renderer."
+    }
+  ],
+  "source": {
+    "file": "ground-atlas.png",
+    "width": 1254,
+    "height": 1254,
+    "mode": "RGB",
+    "sha256": "bdd51ab2054ecd728d9868802c589904e8dcdb7da6750f6af6ce3daa234459e0",
+    "prompt_file": "ground-prompt.txt",
+    "prompt": "Use case: stylized-concept.\nAsset type: production ground texture atlas for a top-down medieval pixel-art village-building game. Make one square opaque image divided EXACTLY into a clean 2 by 2 grid of equal-size square texture cells. The four cells fill their quadrants edge to edge, with no lines, borders, padding, labels or shadows between them. Each cell is a flat overhead surface texture, no perspective, no buildings, no props taller than a stone, no characters.\nStyle: premium textured pixel art with clearly visible stepped square pixel clusters; restrained natural medieval palette; readable low-contrast ground beneath detailed game sprites; match mossy olive grass, blue-gray slate and dark teal water. Avoid smooth photographic textures or glossy 3D.\nTop left: rich red-orange clay bank earth, damp terracotta ochre, shovel-cut rough impressions and scattered tiny clay crumbs, subtle lighter drying patches. Clearly clay, no bricks.\nTop right: pale sun-dried cracked clay and fine sandy silt, warm buff terracotta, earthy rust cracks and a few gray pebbles.\nBottom left: shallow river ford seen directly from above, quiet transparent blue-teal water over rounded gray and brown pebbles, tiny white ripple streaks, more visible riverbed than deep water. No large stepping stones or single path.\nBottom right: trampled muddy cart-road surface, compact warm dark umber soil, understated parallel wheel ruts and small gray stones, no grass borders.\nConstraints: four full continuous flat textures only. Exact half-width/half-height boundaries. No text, frame, logo, watermark, scenic composition, isometric blocks or separate tile objects.\n",
+    "generated_file": "~/.codex/generated_images/01a1acef-75c5-7883-9d82-ef0b271acf39/exec-fb16a322-62d6-4737-b6a1-1af9a8d8bc16.png"
+  },
+  "review": "Four exact quadrants, opaque overhead textures, red clay and pale cracked clay distinguishable, shallow blue-green ford shows pebbles and ripples, trampled dark mud has fine ruts. No text/border. Full source preserved."
+}

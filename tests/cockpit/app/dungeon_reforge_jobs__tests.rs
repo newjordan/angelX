@@ -14,7 +14,7 @@ fn fixture(label: &str) -> (App, std::path::PathBuf) {
         .unwrap()
         .set_workspace(dir.clone());
     app.realm.dungeon.save_path = Some(dir.join(".angel/dungeon/session.json"));
-    let mut run = crate::drive::together_shooter::Run::new(0, 9, Some("Guest"));
+    let mut run = crate::delve::together_shooter::Run::new(0, 9, Some("Guest"));
     run.descend_for_test();
     app.realm.dungeon.shooter.set(Some(run));
     (app, dir)
@@ -122,7 +122,7 @@ fn a_new_session_detaches_the_old_reforge_without_granting_its_file() {
     app.request_reforge(1, Part::Defense, "shield".into());
     let id = write_answer(&app);
     end_model(&mut app);
-    let mut replacement = crate::drive::together_shooter::Run::new(0, 9, None);
+    let mut replacement = crate::delve::together_shooter::Run::new(0, 9, None);
     replacement.descend_for_test();
     app.realm.dungeon.shooter.set(Some(replacement));
     app.watch_reforge();

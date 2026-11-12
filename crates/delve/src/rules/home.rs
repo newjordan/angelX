@@ -321,6 +321,10 @@ impl Default for SavedHomeSquires {
 }
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize)]
 pub struct Home {
+    #[serde(default, skip_serializing_if = "crate::kingdom::Kingdom::is_empty")]
+    pub industry: crate::kingdom::Kingdom,
+    #[serde(default, skip_serializing_if = "super::kingdom_gear::Ledger::is_empty")]
+    pub kingdom_gear: super::kingdom_gear::Ledger,
     #[serde(default)]
     pub squires: super::squires::Yard,
     #[serde(default, skip_serializing_if = "super::lane_squires::Company::is_default")]
@@ -375,6 +379,14 @@ pub struct Home {
     /// What the knights have raised in the kingdom (`raisings`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub raised: Vec<super::raisings::Raised>,
+    /// What the realm has built of Bomrekedan's works
+    /// (`world::bomrekedan::works`); only the home claim writes it.
+    #[serde(
+        default,
+        skip_serializing_if = "super::world::bomrekedan::works::Works::is_empty",
+        deserialize_with = "crate::realm::chivalry::lenient"
+    )]
+    pub bomrekedan: super::world::bomrekedan::works::Works,
     #[serde(default)]
     pub deepest: u32,
     /// The floor the Winding Stair lets the party off at (0 and 1: the top).
@@ -444,6 +456,11 @@ pub struct Home {
     /// stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub barony: super::barony::Barony,
+    /// What the barony's forges have made, and what they wait on
+    /// (`goods`). Decoded on its own, like the stable; left out while
+    /// empty.
+    #[serde(default, skip_serializing_if = "super::goods::Goods::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub goods: super::goods::Goods,
     /// The realm's holdings: castles and cleared floors bought at the
     /// Court of Deeds, and the stores angelX's work keeps them with.
     /// Decoded on its own, like the stable.
@@ -470,10 +487,24 @@ pub struct Home {
     /// the recruit up (`recruit_ults`); left out while none is.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub recruit_ults: super::recruit_ults::RecruitUlts,
+    /// The rite of passage each new knight made, kept by the realm: a
+    /// weapon or a minion, their words, the card and the day, with their
+    /// name on it (`rite`). Decoded on its own, so a bad subtree never costs
+    /// the realm; left out while empty, so an older save loads as it was.
+    #[serde(default, skip_serializing_if = "super::rite::Rites::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub rites: super::rite::Rites,
+    /// Whom the party has met on the kingdom's roads (`wayfarers`). Decoded
+    /// on its own, like the stable; left out while nobody has been met.
+    #[serde(default, skip_serializing_if = "super::wayfarers::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub wayfarers: super::wayfarers::Ledger,
 }
 
 #[derive(Deserialize)]
 struct SavedHome {
+    #[serde(default)]
+    industry: crate::kingdom::Kingdom,
+    #[serde(default)]
+    kingdom_gear: super::kingdom_gear::Ledger,
     #[serde(default)]
     squires_lodge: super::squires_lodge::Guild,
     #[serde(default)]
@@ -525,6 +556,12 @@ struct SavedHome {
     pub levels: BTreeMap<Station, u8>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     raised: Vec<super::raisings::Raised>,
+    #[serde(
+        default,
+        skip_serializing_if = "super::world::bomrekedan::works::Works::is_empty",
+        deserialize_with = "crate::realm::chivalry::lenient"
+    )]
+    bomrekedan: super::world::bomrekedan::works::Works,
     #[serde(default)]
     pub deepest: u32,
     /// The floor the Winding Stair lets the party off at (0 and 1: the top).
@@ -594,6 +631,11 @@ struct SavedHome {
     /// stable.
     #[serde(default, deserialize_with = "crate::realm::chivalry::lenient")]
     pub barony: super::barony::Barony,
+    /// What the barony's forges have made, and what they wait on
+    /// (`goods`). Decoded on its own, like the stable; left out while
+    /// empty.
+    #[serde(default, skip_serializing_if = "super::goods::Goods::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub goods: super::goods::Goods,
     /// The realm's holdings: castles and cleared floors bought at the
     /// Court of Deeds, and the stores angelX's work keeps them with.
     /// Decoded on its own, like the stable.
@@ -620,11 +662,21 @@ struct SavedHome {
     /// the recruit up (`recruit_ults`); left out while none is.
     #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
     pub recruit_ults: super::recruit_ults::RecruitUlts,
+    /// The rite of passage each new knight made, kept by the realm: a
+    /// weapon or a minion, their words, the card and the day, with their
+    /// name on it (`rite`). Decoded on its own, so a bad subtree never costs
+    /// the realm; left out while empty, so an older save loads as it was.
+    #[serde(default, skip_serializing_if = "super::rite::Rites::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub rites: super::rite::Rites,
+    /// Whom the party has met on the kingdom's roads (`wayfarers`). Decoded
+    /// on its own, like the stable; left out while nobody has been met.
+    #[serde(default, skip_serializing_if = "super::wayfarers::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub wayfarers: super::wayfarers::Ledger,
 }
 
 impl<'de> Deserialize<'de> for Home {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let SavedHome { raised, mut squires_lodge, squires, mut squire_guild, mut squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, holdings, salvage, countryside, deep, recruit_ults } = SavedHome::deserialize(deserializer)?;
+        let SavedHome { industry, kingdom_gear, raised, bomrekedan, mut squires_lodge, squires, mut squire_guild, mut squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, goods, holdings, salvage, countryside, deep, recruit_ults, rites, wayfarers } = SavedHome::deserialize(deserializer)?;
         let squires = match squires {
             SavedHomeSquires::Guild(guild) => { squire_guild = guild; Default::default() },
             SavedHomeSquires::Yard(yard) => yard,
@@ -634,7 +686,7 @@ impl<'de> Deserialize<'de> for Home {
                 Default::default()
             }
         };
-        Ok(Self { raised, squires_lodge, squires, squire_guild, squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, holdings, salvage, countryside, deep, recruit_ults })
+        Ok(Self { industry, kingdom_gear, raised, bomrekedan, squires_lodge, squires, squire_guild, squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, goods, holdings, salvage, countryside, deep, recruit_ults, rites, wayfarers })
     }
 }
 
@@ -900,7 +952,7 @@ impl Run {
         if run.home.level(Station::Wing) >= 1 {
             layout::dig_tavern(&mut run.dungeon);
         }
-        super::world::raise_world(&mut run.dungeon);
+        run.raise_home_world();
         run.cues = vec!["home".into()];
         run.stock_stall();
         run.enter(0, None);
@@ -909,6 +961,9 @@ impl Run {
             run.restore_gear(id);
             run.deal_home(id);
         }
+        // The pieces the realm's new knights made are in the book from the
+        // start (`rite`).
+        run.stock_rites();
         run
     }
 
@@ -919,7 +974,7 @@ impl Run {
             return Err("settlement admission requires a new run in the PLAYER HALL".into());
         }
         self.dungeon = site.floor.clone();
-        super::world::raise_world(&mut self.dungeon);
+        self.raise_home_world();
         self.boss_gates = None;
         self.settlement_site = Some(site.id.to_string());
         self.settlement_exhibits = site.exhibits;
@@ -939,7 +994,15 @@ impl Run {
         let landing = self.home.landing;
         let barony = std::mem::take(&mut self.home.barony);
         let salvage = std::mem::take(&mut self.home.salvage);
+        let industry = std::mem::take(&mut self.home.industry);
+        let kingdom_gear = std::mem::take(&mut self.home.kingdom_gear);
+        let rites = std::mem::take(&mut self.home.rites);
         self.home = home;
+        // A rite made in the run and not yet settled stays: the realm's
+        // record only ever adds (`rite`).
+        self.home.rites.merge(&rites);
+        if industry.rev > self.home.industry.rev { self.home.industry = industry; }
+        if kingdom_gear.rev > self.home.kingdom_gear.rev { self.home.kingdom_gear = kingdom_gear; }
         for hero in self.players.values() {
             self.home.adopt(&super::talents::knight_key(hero), &super::talents::profile_key(hero));
         }
@@ -965,7 +1028,7 @@ impl Run {
         }
         // A checkpoint from before the world: it rises around the party.
         if self.at_home_now() {
-            super::world::raise_world(&mut self.dungeon);
+            self.raise_home_world();
         }
         if self.stall.is_empty() && self.home.goblins > 0 && self.at_home_now() {
             self.stock_stall();

@@ -108,13 +108,76 @@ impl Owner {
         }
     }
 }
+/// What a resident worker holds between calls: the canonical state the host
+/// last agreed on, and the run parsed from it.
+type Resident = (Value, angel_delve::rules::Run);
+
+/// Where the whole-state lifecycle stands, the one the host drives with
+/// `restore`, `activate`, `apply` and `dispose` (the swap in
+/// `angel_live::system` stages a candidate, activates it, then retires the old
+/// worker). The moves:
+///
+/// - `Fresh`: `restore` stages. `activate`, `apply` and `compute` are refused.
+/// - `Staged`: a candidate state was restored. `activate` makes it the running
+///   implementation; `restore` replaces it.
+/// - `Active`: the running implementation. `apply` steps it. `restore` re-seeds
+///   it in place without leaving `Active`, which is how the host recovers
+///   after an error: it re-sends the state before its next delta.
+/// - `dispose` returns every phase to `Fresh`.
+///
+/// A slot holding `None` is cold: no state to apply a delta to. It follows
+/// an `apply` that sent the whole state, an `apply` that failed, a `restore`
+/// that failed (cleared first, so a delta is never applied to a base the
+/// caller did not send) and `owned.restore`, which takes the slot over. A cold
+/// `Active` still applies whole states, and refuses a delta with "missing
+/// resident state" until the next `restore`.
+///
+/// The owned-session track (`owned_staged`, `owned_active`) lives beside this:
+/// it holds a candidate and an incumbent at once, so it is two slots, not
+/// more phases.
+enum Phase {
+    Fresh,
+    Staged(Option<Resident>),
+    Active(Option<Resident>),
+}
+impl Phase {
+    fn is_active(&self) -> bool {
+        matches!(self, Phase::Active(_))
+    }
+    /// A state was restored since the last dispose (`Staged` or `Active`).
+    fn is_restored(&self) -> bool {
+        !matches!(self, Phase::Fresh)
+    }
+    fn drop_resident(&mut self) {
+        if let Phase::Staged(slot) | Phase::Active(slot) = self {
+            *slot = None;
+        }
+    }
+    fn take_resident(&mut self) -> Option<Resident> {
+        match self {
+            Phase::Staged(slot) | Phase::Active(slot) => slot.take(),
+            Phase::Fresh => None,
+        }
+    }
+    /// A restore landed: `Fresh` is now staged, `Staged` and `Active` keep their phase.
+    fn restored(&mut self, resident: Resident) {
+        match self {
+            Phase::Fresh => *self = Phase::Staged(Some(resident)),
+            Phase::Staged(slot) | Phase::Active(slot) => *slot = Some(resident),
+        }
+    }
+    fn activate(&mut self) {
+        if let Phase::Staged(slot) = self {
+            let resident = slot.take();
+            *self = Phase::Active(resident);
+        }
+    }
+}
 struct Worker<S> {
     step: S,
     policies: Policies,
-    staged: bool,
-    active: bool,
+    phase: Phase,
     context: Option<(String, Vec<String>)>,
-    resident: Option<(Value, angel_delve::rules::Run)>,
     owned_staged: Option<Owner>,
     owned_active: Option<Owner>,
 }
@@ -123,20 +186,39 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
         Self {
             step,
             policies,
-            staged: false,
-            active: false,
+            phase: Phase::Fresh,
             context: None,
-            resident: None,
             owned_staged: None,
             owned_active: None,
         }
+    }
+    fn owned_idle(&self) -> bool {
+        self.owned_active.is_none() && self.owned_staged.is_none()
+    }
+    fn restore(&mut self, body: &Value) -> Result<Value, String> {
+        self.phase.drop_resident();
+        let run = runtime_state::restore_value(body)?;
+        let canonical = runtime_state::capture(&run)?.into_value();
+        self.phase.restored((canonical.clone(), run));
+        Ok(canonical)
+    }
+    fn activate(&mut self) -> Result<Value, String> {
+        self.phase.activate();
+        Ok(Value::Null)
+    }
+    fn dispose(&mut self) -> Result<Value, String> {
+        self.phase = Phase::Fresh;
+        self.owned_active = None;
+        self.owned_staged = None;
+        self.context = None;
+        Ok(Value::Null)
     }
     fn owned(&mut self, method: &str, body: Value) -> Result<Value, String> {
         match method {
             "owned.restore" => {
                 // Failed restore cannot accidentally activate an older candidate.
                 self.owned_staged = None;
-                self.resident = None;
+                self.phase.drop_resident();
                 let checkpoint = serde_json::from_value(body).map_err(|e| e.to_string())?;
                 let candidate = session::Session::restore(checkpoint)?;
                 let canonical =
@@ -263,24 +345,12 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
                 json!({"id":"delve", "api":angel_live::system::API, "state_schema":runtime_state::SCHEMA, "resident":true,
                 "contracts":{"kernel.owned-state":1,(session::CONTRACT):session::API,(scrolls::CONTRACT):scrolls::API,(card_paint::CONTRACT):card_paint::API,(home_settlement::POLICY_CONTRACT):home_settlement::POLICY_API, (brew_jobs::CONTRACT):brew_jobs::API, (reforge_jobs::CONTRACT):reforge_jobs::API, (wish_jobs::CONTRACT):wish_jobs::API}}),
             ),
-            "restore" if self.owned_active.is_none() && self.owned_staged.is_none() => {
-                self.resident = None;
-                let run = runtime_state::restore_value(&body)?;
-                let canonical = runtime_state::capture(&run)?.into_value();
-                self.staged = true;
-                self.resident = Some((canonical.clone(), run));
-                Ok(canonical)
-            }
-            "activate"
-                if self.staged && self.owned_active.is_none() && self.owned_staged.is_none() =>
-            {
-                self.active = true;
-                Ok(Value::Null)
-            }
-            "apply" if self.active && self.owned_active.is_none() => {
+            "restore" if self.owned_idle() => self.restore(&body),
+            "activate" if self.phase.is_restored() && self.owned_idle() => self.activate(),
+            "apply" if self.phase.is_active() && self.owned_active.is_none() => {
                 if let Some(delta) = body.get("delta") {
                     let (mut held_val, mut run) =
-                        self.resident.take().ok_or("missing resident state")?;
+                        self.phase.take_resident().ok_or("missing resident state")?;
                     let ops = delta.as_array().ok_or("invalid delta")?;
                     if !ops.is_empty() {
                         angel_live::delta::patch(&mut held_val, ops)?;
@@ -304,17 +374,17 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
                     }
                     let next_val = runtime_state::capture(&run)?.into_value();
                     let out_ops = angel_live::delta::diff(&held_val, &next_val);
-                    self.resident = Some((next_val, run));
+                    self.phase = Phase::Active(Some((next_val, run)));
                     Ok(Value::Object(serde_json::Map::from_iter([
                         ("delta".into(), Value::Array(out_ops)),
                         ("output".into(), Value::Null),
                     ])))
                 } else {
-                    self.resident = None;
+                    self.phase = Phase::Active(None);
                     apply(&body, &mut self.context, &mut self.step)
                 }
             }
-            "compute" if self.active || self.owned_active.is_some() => {
+            "compute" if self.phase.is_active() || self.owned_active.is_some() => {
                 let request: angel_live::system::Compute =
                     serde_json::from_value(body).map_err(|e| e.to_string())?;
                 if request.contract == scrolls::CONTRACT && request.version == scrolls::API {
@@ -371,15 +441,7 @@ impl<S: FnMut(&mut angel_delve::rules::Run, &BTreeMap<u32, Input>)> Worker<S> {
                 request.validate_result(&result)?;
                 serde_json::to_value(result).map_err(|e| e.to_string())
             }
-            "dispose" => {
-                self.active = false;
-                self.staged = false;
-                self.owned_active = None;
-                self.owned_staged = None;
-                self.context = None;
-                self.resident = None;
-                Ok(Value::Null)
-            }
+            "dispose" => self.dispose(),
             _ => Err(format!("invalid Delve system lifecycle request {method}")),
         }
     }

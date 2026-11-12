@@ -52,6 +52,25 @@ impl Hosting {
     }
 }
 
+/// Which game this view has open. The fields behind it come and go on their
+/// own (the sim, the host's door, a friend's link), so this is where the legal
+/// combinations are written down: a friend's delve (`joined`) is never open
+/// beside one of the host's own (`shooter`), and a hosted delve is the host's
+/// own with a door on it (`hosting`). Where they overlap anyway the friend's
+/// wins, as it does in every helper that reads both. The Delve's menu
+/// (`intro`) is not a venue: it opens over any of them, or over none.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Venue {
+    /// No game is open.
+    Idle,
+    /// The host's own delve, no door on it.
+    Solo,
+    /// The host's own delve, open to friends (`/dungeon host`).
+    Hosted,
+    /// Playing in a friend's delve (`/dungeon join`).
+    Joined,
+}
+
 #[derive(Default)]
 pub struct DungeonView {
     pub(super) vote_serial: u64,
@@ -105,6 +124,8 @@ pub struct DungeonView {
     pub forge: super::Forge,
     /// Wish painters at work for the host's learned wishes and reforges.
     pub painters: crate::together_painter::Painters,
+    /// The body-maker's jobs for the mirror's wished looks (`together_looker`).
+    pub lookers: crate::together_looker::Lookers,
     /// How many wishes the treasury could raise when the party last heard so.
     pub ready_heard: usize,
     /// The Delve's intro, open while a knight is being chosen.
@@ -115,6 +136,13 @@ pub struct DungeonView {
     pub joined: Option<crate::together_join::Joined>,
     /// Bounty progress not yet saved: it is, between fights.
     pub bounties_unsaved: bool,
+    /// A home claim just came back changing nothing: no new claim (and its
+    /// three saved checkpoints) until then.
+    pub home_quiet_until: Option<std::time::Instant>,
+    /// A settlement cycle off the frame, holding the realm.
+    pub(crate) settling: Option<super::dungeon_settle::Settling>,
+    /// The realm as it left to settle, for the screen meanwhile.
+    pub(crate) realm_copy: Option<crate::together_realm::Realm>,
 }
 
 impl Session<'_> {
@@ -482,6 +510,18 @@ impl Session<'_> {
 }
 
 impl DungeonView {
+    pub fn venue(&self) -> Venue {
+        if self.joined.is_some() {
+            Venue::Joined
+        } else if self.shooter.is_none() {
+            Venue::Idle
+        } else if self.hosting.is_some() {
+            Venue::Hosted
+        } else {
+            Venue::Solo
+        }
+    }
+
     pub fn joined_actor(&self) -> u32 {
         self.joined.as_ref().map_or(2, Joined::actor)
     }
@@ -572,10 +612,13 @@ impl DungeonView {
     }
 
     pub fn can_leave_dungeon_activity(&self, id: u32) -> bool {
-        if let Some(run) = self.shooter.as_ref() {
-            return run.can_leave_activity(id);
+        if self.venue() == Venue::Joined {
+            return self
+                .joined_knight()
+                .is_some_and(|k| k["can_leave_activity"].as_bool() == Some(true));
         }
-        self.joined_knight()
-            .is_some_and(|k| k["can_leave_activity"].as_bool() == Some(true))
+        self.shooter
+            .as_ref()
+            .is_some_and(|run| run.can_leave_activity(id))
     }
 }

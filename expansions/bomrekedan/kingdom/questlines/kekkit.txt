@@ -1,0 +1,29 @@
+# Kekkit's Web — Bomrek Baldnesswinds, Axe Lord of the Steel Guard, at the cavern stair.
+# A Bomrekedan questline (quests.json: kekkits-web). Same file shape and
+# caveats as steel.txt. MineHead already holds Doorne and Wymond; give each
+# a different `at`.
+power   bomrekedan:kekkit
+teacher Bomrek Baldnesswinds
+place   the cavern stair below Bomrekedan's forge level, where the webs began
+room    MineHead
+look    a steel battle axe resting head-down, a bald crown, and a strip of spider silk wound round one wrist
+line    Monom and I were recruits the same week. Wrestlers, then axedwarves, then Axe Lords. Then the spider.
+teach   It did not bite him. It held him by the throat until he stopped. Keep your neck behind your shield.
+hook    A red feather as long as an arm is nailed over the cavern stair, and under it someone has chalked a name: Monom.
+step    Monom's tally | hear how Monom Helmsdoor and the armorer Cerol fell in year 104 | monom_remembered 1 | Suffocated, the record says. Strangled, I say. Both are true. | cue tale
+step    The webs | clear the webs from the spider's cavern lair | webs_cleared 6 | Burn them, do not cut them. Cut silk remembers where it was. | needs
+step    The brood | put down the brood that hatched in the web | spider_brood_felled 8 | Eight. Kekkit is dead; its children were not told. | needs
+step    Monom's axe | bring Monom's axe home from the lair for the weapon racks | relics_returned 1 | On the rack, beside mine. He would want it oiled. I will oil it. | cue fetch
+trial   The unstrangled hall | clear one beast's hall with every knight unhurt, nobody caught and held | unbroken_halls 1 | Nobody caught. Nobody held. That is how Monom should have walked out.
+reward  Kekkit's silk for the clothier, and Monom's axe on the rack (a Bomrekedan questline: no power is taught)
+title   the Web-Burner
+keepsake a strip of red spider silk, wound twice round the wrist
+ties    The unhurt hall is Dame Alyce's (unbroken_halls); the axe is a relic like Ast's standard (relics_returned); Likot Stoppedlabors was strangled by the same beast and lived (The Tired Ivy).
+art
+8.8.8.8
+.8.8.8.
+..777..
+.87778.
+..777..
+.8.8.8.
+8.8.8.8

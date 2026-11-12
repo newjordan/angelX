@@ -1659,3 +1659,5 @@ fn a_running_arcade_round_blocks_surveys_lamps_and_plot_orders() {
     let plot = &countryside::PLOTS[0];
     check(plot.room, plot.at, "country:build:bakery");
 }
+include!("together_world__room_limit.rs");
+include!("together_world__mouths.rs");

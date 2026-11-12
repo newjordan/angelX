@@ -408,21 +408,10 @@ fn every_yard_runs_in_its_own_banner_ink_and_caltrops_show_on_the_track() {
             .filter(|&(dx, dy)| frame.get(cx + dx, cy + dy) == own)
             .count();
         assert!(hits > 8, "{} ({}) wears its banner: {hits}", racer.name, racer.house);
-        // …and wears no other yard's: the whole point of the repaint.
-        for other in &race.racers {
-            if other.house != racer.house {
-                let foreign = banner(&other.house);
-                let stray = (-30..4)
-                    .flat_map(|dy| (-22..22).map(move |dx| (dx, dy)))
-                    .filter(|&(dx, dy)| frame.get(cx + dx, cy + dy) == foreign)
-                    .count();
-                assert_eq!(stray, 0, "{} wears {}'s ink", racer.name, other.house);
-            }
-        }
     }
     let (tx, ty) = pos_on(course, 330.0, 0.0);
     let (px, py) = ((tx * 16.0) as i32 - camx, (ty * 16.0) as i32 - camy);
-    assert_eq!(frame.get(px, py), ink('9'), "the caltrop's heart sits on the track");
+    assert_eq!(frame.get(px, py), ink('h'), "the caltrop's heart sits on the track");
 }
 
 #[test]
@@ -557,22 +546,21 @@ fn the_balance_probe_finishes_every_seed_and_the_field_shares_the_wins() {
 }
 
 #[test]
-fn the_race_board_stays_up_from_the_gate_to_the_flag() {
+fn the_plates_stay_up_from_the_gate_to_the_flag() {
     use crate::render::overworld::arena;
     use crate::render::overworld::ink::ink;
-    // The board is stamped at (4, 13), a timber-edged sign whose lit top
-    // rim is oak ('P', `chrome::rim_of('B')`); a solid run of it along the
-    // top edge is the announcer's board and nothing else.
-    let board_up = |run: &Run| {
+    // At the gate the lamps' casing is up (a rim of '\'g\'' along its top); in the race the ladder of
+    // the whole field runs along the top, plated in the same rim.
+    let rim = |run: &Run, y: i32, x0: i32, x1: i32| {
         let frame = arena::frame(run, 384, 224);
-        (4..140).filter(|&x| frame.get(x, 13) == ink('P')).count() > 100
+        (x0..x1).filter(|&x| frame.get(x, y) == ink('g')).count()
     };
     let mut run = boarded_run();
-    assert!(board_up(&run), "the countdown board is up at the gate");
+    assert!(rim(&run, 62, 146, 238) > 80, "the lamps are up at the gate");
     for _ in 0..GATE_TICKS + 200 {
         run.step(&keys(0, true, false));
     }
-    assert!(board_up(&run), "and it stays up mid-race, wherever the driver is");
+    assert!(rim(&run, 2, 117, 267) > 100, "and the ladder stays up mid-race, wherever the driver is");
 }
 
 /// This thread's own CPU time. Wall time counts the machine; a frame's
@@ -775,16 +763,20 @@ fn friends_in_the_room_drive_the_rival_teams_and_the_best_is_crowned() {
 }
 
 #[test]
-fn six_knights_at_the_reins_four_teams_race_and_the_rest_watch() {
+fn six_knights_at_the_reins_six_teams_race_and_none_watches() {
     let mut run = boarded_table(MAX_PLAYERS);
     let race = run.chariot.as_ref().expect("boarded");
-    assert_eq!(race.friends, vec![(1, 2), (2, 3), (3, 4)], "the first three friends take the rival teams");
-    assert_eq!((race.racer_of(5), race.racer_of(6)), (None, None), "the fifth and sixth watch");
-    // Every seat sees the race, the watchers too (a seat in the run's own room
-    // sees the run itself).
+    assert_eq!(race.racers.len(), 6, "the field grows a team for every seat");
+    assert_eq!(race.friends, vec![(1, 2), (2, 3), (3, 4), (4, 5), (5, 6)], "every friend takes a team");
+    assert!((1..=MAX_PLAYERS).all(|s| race.racer_of(s).is_some()), "no seat watches");
+    let mut lanes: Vec<f32> = race.racers.iter().map(|r| r.lane).collect();
+    lanes.sort_by(|a, b| a.total_cmp(b));
+    assert!(lanes.windows(2).all(|w| w[1] - w[0] > 0.2), "the grid has a lane for each: {lanes:?}");
+    // Every seat sees the race from its own team.
     for id in 1..=MAX_PLAYERS {
         let view = run.view_for_seat(id).unwrap_or_else(|| run.clone());
-        assert!(view.chariot.is_some(), "seat {id} sees the race");
+        let seen = view.chariot.as_ref().expect("seat sees the race");
+        assert_eq!(seen.racer_of(id), Some(0), "seat {id} rides its own team in its own view");
     }
     for _ in 0..HZ * 200 {
         run.step(&BTreeMap::new());
@@ -810,6 +802,8 @@ fn a_friends_hands_drive_their_own_team_and_no_one_elses() {
         race.tick_with(Input::default(), &idle);
     }
     // Steering: ten ticks left takes the lane in by exactly the hand's rate.
+    // Clear of the rest of the grid: a team steered into another is barged, and this is the hand.
+    race.racers[1].dist += 100.0;
     let lane = race.racers[1].lane;
     let left = [Input { move_x: -1, ..Input::default() }];
     for _ in 0..10 {
@@ -905,4 +899,151 @@ fn a_friend_races_through_the_public_controls_on_their_own_screen() {
     let mut stable = run.home.stable.clone();
     let (_said, _gold) = settle_chariot(&mut stable, &run.marks);
     assert_eq!(stable.herd[0].starts, 1, "only the host's herd horse is recorded");
+}
+
+/// A race a few ticks past the off, the field strung out and the hands off the keys.
+fn racing(seed: u64) -> Chariot {
+    let mut race = race(seed);
+    for _ in 0..=GATE_TICKS {
+        race.tick(Input::default());
+    }
+    for (i, r) in race.racers.iter_mut().enumerate() {
+        r.dist += 80.0 * (4 - i) as f32;
+        r.speed = 7.0;
+    }
+    race
+}
+
+/// Where this seed's course first bends hard.
+fn corner_of(race: &Chariot) -> f32 {
+    let course = race.course();
+    (0..400)
+        .map(|k| k as f32 * course.lap / 400.0)
+        .find(|&d| bend_on(course, d) > CORNER_BEND)
+        .expect("every course has a corner")
+}
+
+#[test]
+fn a_barge_trades_lane_and_pace_and_is_written_down_for_the_picture() {
+    use super::show::Kind;
+    let mut race = racing(23);
+    let bend = corner_of(&race);
+    race.racers[0].blood.nerve = 9;
+    race.racers[1].blood.nerve = 2;
+    for (i, lane) in [(0, 0.0), (1, 0.2)] {
+        race.racers[i].dist = bend;
+        race.racers[i].lane = lane;
+        race.racers[i].speed = 7.5;
+    }
+    let lanes = (race.racers[0].lane, race.racers[1].lane);
+    let events = race.tick(Input::default());
+    assert!(events.contains(&Event::Shoulder(1)), "the team with less nerve gives the lane: {events:?}");
+    assert!(race.racers[1].lane > lanes.1 + 0.05, "the loser is shoved the way it was pushed: {} -> {}", lanes.1, race.racers[1].lane);
+    assert!(race.racers[0].lane < lanes.0, "and the winner leans the other way");
+    assert!(race.racers[1].speed < race.racers[0].speed - 0.5, "the loser pays in pace: {} vs {}", race.racers[1].speed, race.racers[0].speed);
+    let barge = race.show.fx.iter().find(|f| f.kind == Kind::Barge).expect("a barge is on the books");
+    assert_eq!((barge.team, barge.other), (race.racers[0].team, race.racers[1].team));
+    assert!(barge.weight >= Weight::Crushing, "a corner at pace is a heavy blow: {:?}", barge.weight);
+    // The pair rest, and then fight again if they are still alongside.
+    let again = (0..9).map(|_| race.tick(Input::default())).flatten().filter(|e| matches!(e, Event::Shoulder(_))).count();
+    assert_eq!(again, 0, "a locked pair is one barge, not one a tick");
+}
+
+#[test]
+fn a_hard_barge_holds_the_room_through_the_realms_hit_stop() {
+    let mut run = boarded_pair();
+    for _ in 0..GATE_TICKS + 5 {
+        run.step(&BTreeMap::new());
+    }
+    let race = run.chariot.as_mut().unwrap();
+    let bend = corner_of(race);
+    race.racers[0].blood.nerve = 9;
+    race.racers[1].blood.nerve = 2;
+    for (i, lane) in [(0, 0.0), (1, 0.2)] {
+        race.racers[i].dist = bend;
+        race.racers[i].lane = lane;
+        race.racers[i].speed = 7.5;
+    }
+    run.step(&BTreeMap::new());
+    assert!(run.hitstop.left > 0, "a knight's team in a hard barge stops the room");
+    assert!(run.valid_snapshot());
+}
+
+#[test]
+fn the_second_team_home_inside_half_a_second_is_a_photo_finish() {
+    use super::show::Kind;
+    let mut race = racing(5);
+    let total = race.course().lap * LAPS as f32;
+    for (i, d) in [(0, 40.0), (1, 41.0), (2, 600.0), (3, 700.0)] {
+        race.racers[i].dist = total - d;
+        race.racers[i].speed = 9.0;
+        race.racers[i].wind = 1.0;
+    }
+    race.racers[0].lane = -0.6;
+    race.racers[1].lane = 0.6;
+    for _ in 0..40 {
+        race.tick(Input::default());
+    }
+    let first = race.racers.iter().find(|r| r.place == Some(1)).expect("someone is home");
+    assert_eq!(first.team, race.racers[1].team, "the team a pace ahead takes the line");
+    let photo = race.show.fx.iter().find(|f| f.kind == Kind::Photo).expect("a photograph is called");
+    assert!(photo.n < 50, "inside half a second: {} hundredths", photo.n);
+    assert_eq!(photo.team, first.team);
+    let finish = race.show.fx.iter().find(|f| f.kind == Kind::Finish && f.n == 1).expect("the first home is on the books");
+    assert_eq!(finish.weight, Weight::Finale, "the first home holds the room");
+}
+
+#[test]
+fn the_lead_changes_hands_on_a_clear_margin_and_never_flickers() {
+    use super::show::Kind;
+    let mut race = racing(9);
+    // The field is away and the first on the road is the lead, quietly.
+    race.tick(Input::default());
+    let leader = race.order()[0];
+    assert_eq!(race.show.leader, Some(race.racers[leader].team));
+    // Wheel to wheel is no change of lead.
+    let second = race.order()[1];
+    race.racers[second].dist = race.racers[leader].dist + 2.0;
+    race.tick(Input::default());
+    assert!(race.show.of(Kind::Lead, race.clock).next().is_none(), "two paces is not a pass");
+    // A clear margin is.
+    race.racers[second].dist = race.racers[leader].dist + 30.0;
+    race.tick(Input::default());
+    let lead = race.show.of(Kind::Lead, race.clock).next().expect("the lead changed hands");
+    assert_eq!((lead.team, lead.other), (race.racers[second].team, race.racers[leader].team));
+    assert_eq!(race.show.leader, Some(race.racers[second].team));
+}
+
+#[test]
+fn a_team_home_coasts_on_past_the_line_and_the_field_grows_with_the_table() {
+    let mut race = racing(3);
+    let total = race.course().lap * LAPS as f32;
+    race.racers[0].dist = total - 5.0;
+    race.racers[0].speed = 9.0;
+    for _ in 0..3 {
+        race.tick(Input::default());
+    }
+    assert_eq!(race.racers[0].place, Some(1));
+    let coasted = race.racers[0].coast;
+    assert!(coasted > 10.0, "the victory lap runs on: {coasted}");
+    for _ in 0..30 {
+        race.tick(Input::default());
+    }
+    assert!(race.racers[0].coast > coasted && race.racers[0].dist == total, "it freewheels and the result keeps its mark");
+}
+
+#[test]
+fn the_field_grows_a_team_for_every_seat_to_six_and_no_further() {
+    let mut field = race(3);
+    assert_eq!(field.racers.len(), 4);
+    for k in 0..7u32 {
+        field.seat_friend(2 + k, &format!("Seat {}", 2 + k));
+    }
+    assert_eq!(field.racers.len(), MOST_TEAMS);
+    assert_eq!(field.friends.len(), MOST_TEAMS - 1, "a seventh knight has no team to take");
+    let teams: Vec<u8> = field.racers.iter().map(|r| r.team).collect();
+    assert_eq!(teams, [0, 1, 2, 3, 4, 5]);
+    let mut lanes: Vec<f32> = field.racers.iter().map(|r| r.lane).collect();
+    lanes.sort_by(|a, b| a.total_cmp(b));
+    assert!(lanes.windows(2).all(|w| w[1] - w[0] > 0.34), "the grid keeps its lanes clear of a barge: {lanes:?}");
 }

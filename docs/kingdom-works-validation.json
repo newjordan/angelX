@@ -1,0 +1,52 @@
+{
+  "verified_at_utc": "2026-11-05T20:36:34.974732+00:00",
+  "checks": {
+    "economy": 11,
+    "equipment": 19,
+    "ore_threat_filter": 7,
+    "guardian_filter": 9,
+    "industry": 13,
+    "cauldron": 22,
+    "kingdom": 21,
+    "home": 15,
+    "host_commands": 49,
+    "boss_gates": 41
+  },
+  "count_note": "Filter counts can overlap; they are not a unique-test total. Manual visual fixtures were run separately.",
+  "worker_protocol": {
+    "browser_shaped_E_and_P": "passed",
+    "buildings": 2,
+    "delivered_timber": 62,
+    "native_parity": true,
+    "second": 31,
+    "snapshot": "valid",
+    "ticks": 950,
+    "worker_protocol": "passed"
+  },
+  "builds": [
+    "native full default-feature application",
+    "embedded browser bundle",
+    "native rules worker",
+    "browser WASM check",
+    "headless cockpit integration check"
+  ],
+  "progression_minutes": 33,
+  "progression_note": "Founding stock to castle and crafted equipment; visual/economy progression fixtures supply two explicitly labelled encounter claims. Separate normal-input combat tests win sentries and guardians; Ironroot continues through claim and mine delivery.",
+  "artifacts": {
+    "worker": {
+      "path": "cockpit/systems/delve/engine",
+      "bytes": 116095024,
+      "sha256": "f3f0b16f3f1824b0a3a12bbb1d5f6785e90266e4dce4f238612237839728a1c1"
+    },
+    "native_client": {
+      "path": "~/build-cache/angelX/cockpit-target/fast/angel",
+      "bytes": 331719504,
+      "sha256": "e3d6f083cd9d03f96a1e5fd3d84a0fa1b8a632fba525bf82e4b9d65d2a4a87d3"
+    },
+    "browser_client": {
+      "path": "~/build-cache/angelX/cockpit-target/fast/build/angel-web-bundle-8c02fed2d86c394d/out/delve-web/delve.wasm",
+      "bytes": 34285937,
+      "sha256": "d7cc268cc8b562be84f03b4fc73b2c3d7fe9f0922ce6dd47ea5501fc20c5962c"
+    }
+  }
+}

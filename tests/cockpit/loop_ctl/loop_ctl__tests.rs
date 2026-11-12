@@ -1635,12 +1635,13 @@ fn linked_worktree_state_survives_recreated_link_path() {
     let _ = std::fs::remove_dir_all(&root);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn adventure_quest_walks_the_regions_end_to_end() {
     let mut app = crate::seed_preview_app();
     assert_eq!(
         app.realm.world.quest().region(),
-        crate::stage::world_viz::Region::CastleTown
+        crate::delve::world_viz::Region::CastleTown
     );
 
     // A podrace competition loop starts.
@@ -1654,7 +1655,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.realm.world.quest().region(),
-        crate::stage::world_viz::Region::TheMines
+        crate::delve::world_viz::Region::TheMines
     );
 
     // Stalled iterations sink the quest into the swamp (pivot 1 → the
@@ -1665,7 +1666,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.realm.world.quest().region(),
-        crate::stage::world_viz::Region::Swamp
+        crate::delve::world_viz::Region::Swamp
     );
 
     // A measurement receipt shows activity but does not establish
@@ -1681,7 +1682,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.realm.world.quest().region(),
-        crate::stage::world_viz::Region::TheMines
+        crate::delve::world_viz::Region::TheMines
     );
     assert_eq!(app.realm.world.quest().treasures(), 0);
 
@@ -1697,7 +1698,7 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.realm.world.quest().region(),
-        crate::stage::world_viz::Region::DragonKeep
+        crate::delve::world_viz::Region::DragonKeep
     );
 
     // The run finishes ok — loot walks home, then idles back in town.
@@ -1705,14 +1706,14 @@ fn adventure_quest_walks_the_regions_end_to_end() {
     app.adventure_mirror_drain();
     assert_eq!(
         app.realm.world.quest().region(),
-        crate::stage::world_viz::Region::Homecoming
+        crate::delve::world_viz::Region::Homecoming
     );
     for _ in 0..120 {
         app.realm.world.tick();
     }
     assert_eq!(
         app.realm.world.quest().region(),
-        crate::stage::world_viz::Region::CastleTown
+        crate::delve::world_viz::Region::CastleTown
     );
 }
 

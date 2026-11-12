@@ -74,7 +74,9 @@ fn the_board_shows_once_the_race_is_run_and_the_hall_comes_back_after() {
     run.step(&BTreeMap::new());
     assert!(run.race3d.as_ref().unwrap().done);
     assert!(takeover(&run), "the board is up");
-    for _ in 0..r3::PODIUM {
+    // The first knight home holds the room a few ticks (the photo finish's
+    // freeze), and the board's own clock stands still through them.
+    for _ in 0..r3::PODIUM + 16 {
         run.step(&BTreeMap::new());
     }
     assert!(!takeover(&run), "the hall comes back");

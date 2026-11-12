@@ -62,6 +62,17 @@ impl Build {
         Build::kit((h >> 30) as usize % KIT.len())
     }
 
+    /// A build from one id per slot, in `Slot::ALL` order (the race's career keeps it so), made
+    /// sound.
+    pub fn from_ids(ids: &[String; 8]) -> Build {
+        Build { engine: ids[0].clone(), chassis: ids[1].clone(), running: ids[2].clone(), exhaust: ids[3].clone(), crest: ids[4].clone(), armour: ids[5].clone(), paint: ids[6].clone(), trim: ids[7].clone() }.sound()
+    }
+
+    /// One id per slot, in `Slot::ALL` order.
+    pub fn ids(&self) -> [String; 8] {
+        Slot::ALL.map(|s| self.id(s).to_string())
+    }
+
     /// The id in a slot.
     pub fn id(&self, slot: Slot) -> &str {
         match slot {

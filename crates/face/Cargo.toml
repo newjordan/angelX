@@ -1,0 +1,22 @@
+[package]
+name = "angel-face"
+version = "0.1.0"
+description = "angelface: the goddess who watches over the work. A rigged, blendshaped head drawn in glass's chrome, how she behaves, and her speech tracks (docs/ANGELFACE.md)"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+angel-stage = { path = "../stage" }
+serde_json = "1"
+# The avatar's embedded pictures: her hair's strands, where her lips are.
+png = "0.18"
+
+[dev-dependencies]
+# `goddess_shot`: her frames drawn by the GPU core offscreen, as the window
+# draws them, to look at.
+angel-gpu = { path = "../gpu" }
+wgpu = { version = "30.0.0", default-features = false, features = ["std", "wgsl", "vulkan", "metal"] }
+pollster = "1.0.1"
+bytemuck = "1"

@@ -12,6 +12,12 @@
 //! [`castles`] is the one list the realm generator builds them from; the
 //! walker's closed ground, the roads, the lots, the dressing and the finds
 //! all keep off [`footprints`].
+//!
+//! That is the full plan. In the blank-slate plan (`super::plan`) there is
+//! one castle, the Keep, a tiny one just begun, and the sixteen houses'
+//! sites are camps ([`Castle::is_camp`]): two tents, a fire and a banner, no
+//! wall, where each house's castle will be built. The Dragon Keep is not on
+//! the map.
 
 use std::sync::OnceLock;
 
@@ -78,6 +84,18 @@ impl Castle {
         }
     }
 
+    /// Whether this is a house's camp (the blank-slate plan), not yet a
+    /// castle: tents and a fire on open ground, with no wall and no gate.
+    pub fn is_camp(&self) -> bool {
+        matches!(self.kind, CastleKind::House(_)) && super::plan::tabula()
+    }
+
+    /// Whether this is the Keep as the blank-slate plan has it: a tiny
+    /// castle, just begun.
+    pub fn is_tiny(&self) -> bool {
+        self.kind == CastleKind::Keep && super::plan::tabula()
+    }
+
     /// The place it is, for the Keep and the Dragon Keep.
     pub fn place(&self) -> Option<Place> {
         match self.kind {
@@ -100,8 +118,14 @@ pub const KEEP: (i32, i32, i32, i32) = (81, 49, 15, 5);
 /// chunk's top edge down to the old keep's door.
 pub const DRAGON_KEEP: (i32, i32, i32, i32) = (171, 16, 19, 7);
 
+/// The Keep's footprint: the great wall in the full plan, the tiny castle's
+/// ground in the blank-slate plan.
+pub fn keep_foot() -> (i32, i32, i32, i32) {
+    if super::plan::tabula() { super::plan::tabula::KEEP } else { KEEP }
+}
+
 /// Every great castle: the houses' in house order, then the Keep and the
-/// Dragon Keep.
+/// Dragon Keep (the blank-slate plan: the houses' camps and the Keep).
 pub fn castles() -> &'static [Castle] {
     static ALL: OnceLock<Vec<Castle>> = OnceLock::new();
     ALL.get_or_init(|| {
@@ -117,14 +141,16 @@ pub fn castles() -> &'static [Castle] {
                 )
             })
             .collect();
-        out.push(build(CastleKind::Keep, "the Keep".into(), KEEP, Place::Keep.stand_world(), None));
-        out.push(build(
-            CastleKind::DragonKeep,
-            "the Dragon Keep".into(),
-            DRAGON_KEEP,
-            Place::DragonKeep.stand_world(),
-            None,
-        ));
+        out.push(build(CastleKind::Keep, "the Keep".into(), keep_foot(), Place::Keep.stand_world(), None));
+        if super::plan::full() {
+            out.push(build(
+                CastleKind::DragonKeep,
+                "the Dragon Keep".into(),
+                DRAGON_KEEP,
+                Place::DragonKeep.stand_world(),
+                None,
+            ));
+        }
         out
     })
 }
@@ -159,7 +185,7 @@ fn build(
     };
     let doors = Place::ALL
         .into_iter()
-        .filter(|&p| Some(p) != own)
+        .filter(|&p| Some(p) != own && p.on_map())
         .filter(|p| {
             let (px, py, pw, ph) = p.footprint_world();
             px >= tx && py >= ty && px + pw <= tx + tw && py + ph <= ty + th

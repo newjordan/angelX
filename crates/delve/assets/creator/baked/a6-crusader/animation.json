@@ -1,0 +1,658 @@
+{
+  "format": "kwpixel.overhead-animation/1",
+  "id": "a6-crusader",
+  "camera": "overhead",
+  "fps": 12,
+  "native_frame": [
+    64,
+    54
+  ],
+  "anchor_convention": "bottom-centre, pixel [32,53]; soles on row 52. A state's anchor y is the edge its soles stand on in its own frames: the drive draws it `53 - anchor_y` rows lower.",
+  "palette": "master palette (40 colours), ungraded source RGBA",
+  "sampling": "nearest",
+  "alpha": "binary 0/255",
+  "atlas": null,
+  "states": {
+    "idle": {
+      "frames": [
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            768,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            832,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            896,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            960,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        53
+      ]
+    },
+    "walk-south": {
+      "frames": [
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        53
+      ],
+      "root_stride_native_px": [
+        0.0,
+        0.0
+      ]
+    },
+    "walk-east": {
+      "frames": [
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        52
+      ],
+      "root_stride_native_px": [
+        0.0,
+        0.0
+      ]
+    },
+    "attack": {
+      "frames": [
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": false,
+      "anchor": [
+        32,
+        53
+      ]
+    },
+    "walk-west": {
+      "mirror_of": "walk-east",
+      "flip_x": true,
+      "loop": true,
+      "anchor": [
+        32,
+        52
+      ],
+      "root_stride_native_px": [
+        -0.0,
+        0.0
+      ]
+    }
+  },
+  "creator": {
+    "name": "CRUSADER A6",
+    "dye": {
+      "hues": [
+        240,
+        257
+      ],
+      "min_sat": 0.1,
+      "min_val": 0.16
+    },
+    "clips": [
+      "idle",
+      "walk-east",
+      "walk-south",
+      "attack"
+    ],
+    "loop_duplicates_dropped": [],
+    "ways": true,
+    "ways_clips": [
+      "idle",
+      "walk",
+      "run",
+      "attack",
+      "hit",
+      "death",
+      "cast"
+    ],
+    "windup_frame": 0,
+    "strike_frame": 1
+  },
+  "runtime_status": "read by the Creator preview and Test drive (render/creation/baked.rs); the boss library itself still consumes only rest and windup.",
+  "gait_phase": "Phase by distance travelled, not by the clock: the Test drive sets one cycle length per run unit whatever the frame count, so its pace is the same for every creature.",
+  "ways": {
+    "directions": [
+      "s",
+      "sw",
+      "w",
+      "nw",
+      "n",
+      "ne",
+      "e",
+      "se"
+    ],
+    "atlas": "library-v1-ways.png",
+    "cell": [
+      64,
+      54
+    ],
+    "fps": 12,
+    "clips": {
+      "idle": {
+        "row": 0,
+        "frames": 16,
+        "loop": true,
+        "events": {},
+        "anchor_y": {
+          "s": 53,
+          "sw": 53,
+          "w": 53,
+          "nw": 53,
+          "n": 52,
+          "ne": 53,
+          "e": 53,
+          "se": 53
+        },
+        "source": "idle"
+      },
+      "walk": {
+        "row": 8,
+        "frames": 8,
+        "loop": true,
+        "events": {
+          "step_l": 0,
+          "step_r": 4
+        },
+        "anchor_y": {
+          "s": 53,
+          "sw": 53,
+          "w": 52,
+          "nw": 52,
+          "n": 54,
+          "ne": 52,
+          "e": 52,
+          "se": 53
+        },
+        "source": "walk"
+      },
+      "run": {
+        "row": 16,
+        "frames": 8,
+        "loop": true,
+        "events": {
+          "step_l": 0,
+          "step_r": 4
+        },
+        "anchor_y": {
+          "s": 51,
+          "sw": 52,
+          "w": 53,
+          "nw": 53,
+          "n": 53,
+          "ne": 53,
+          "e": 53,
+          "se": 52
+        },
+        "source": "run"
+      },
+      "attack": {
+        "row": 24,
+        "frames": 6,
+        "loop": false,
+        "events": {
+          "windup": 0,
+          "hit": 1
+        },
+        "anchor_y": {
+          "s": 53,
+          "sw": 53,
+          "w": 53,
+          "nw": 53,
+          "n": 52,
+          "ne": 53,
+          "e": 53,
+          "se": 53
+        },
+        "source": "attack"
+      },
+      "hit": {
+        "row": 32,
+        "frames": 4,
+        "loop": false,
+        "events": {},
+        "anchor_y": {
+          "s": 53,
+          "sw": 54,
+          "w": 53,
+          "nw": 52,
+          "n": 49,
+          "ne": 51,
+          "e": 53,
+          "se": 53
+        },
+        "source": "hit"
+      },
+      "death": {
+        "row": 40,
+        "frames": 13,
+        "loop": false,
+        "events": {},
+        "anchor_y": {
+          "s": 53,
+          "sw": 53,
+          "w": 53,
+          "nw": 53,
+          "n": 51,
+          "ne": 52,
+          "e": 51,
+          "se": 52
+        },
+        "source": "death"
+      },
+      "cast": {
+        "row": 48,
+        "frames": 7,
+        "loop": false,
+        "events": {
+          "charge": 2,
+          "cast": 3
+        },
+        "anchor_y": {
+          "s": 53,
+          "sw": 53,
+          "w": 53,
+          "nw": 53,
+          "n": 52,
+          "ne": 52,
+          "e": 53,
+          "se": 53
+        },
+        "source": "cast"
+      }
+    },
+    "source": {
+      "manifest": "kwpixel/3d/sk-a6-fin2/game64x54/manifest.json",
+      "contract": "kwpixel.frameset/1"
+    }
+  },
+  "attack_events": {
+    "anticipation_starts": 0,
+    "windup_key": 0,
+    "windup_hold_ticks": [
+      0,
+      0
+    ],
+    "swing": 0,
+    "strike": 1,
+    "impact_hold_ticks": [
+      1,
+      2
+    ],
+    "recovery_starts": 2,
+    "settled": 5,
+    "total_ticks": 6
+  }
+}
