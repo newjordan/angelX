@@ -747,6 +747,27 @@ fn notice(cv: &mut Img) {
     }
 }
 
+/// The folk's news, pinned fresh over the old notes (`occasions::tiding`):
+/// a clean paper with a gold pin for each line the board will read out, and
+/// a lamp's glow over the newest.
+fn pinned_news(cv: &mut Img, tidings: usize, tick: u32) {
+    let (x, y) = (T, 5 * T);
+    // Newest first: the one on top is the first the board reads.
+    for (k, (nx, ny, nw, nh)) in [(11, 10, 8, 10), (21, 11, 7, 9), (2, 3, 7, 9), (23, 2, 7, 8)].into_iter().enumerate().take(tidings.min(4)) {
+        cv.rect(x + nx, y + ny, nw, nh, 'O');
+        cv.frame(x + nx, y + ny, nw, nh, 't');
+        cv.put(x + nx + nw / 2, y + ny, '6');
+        for line in 0..(nh - 3) / 2 {
+            cv.line(x + nx + 1, y + ny + 3 + line * 2, x + nx + nw - 2 - (line + k as i32) % 2, y + ny + 3 + line * 2, 'r');
+        }
+    }
+    if tidings > 0 {
+        let flick = (tick / 7) % 3 == 0;
+        cv.put(x + 15, y + 9 - flick as i32, '5');
+        super::fx::glow_within(cv, x + 15, y + 12, super::fx::Hue::Warm, 18);
+    }
+}
+
 /// The rugs: a long faded one before the front door, a hide before the fire.
 fn rugs(cv: &mut Img) {
     let (x, y, w, h) = (14 * T, 15 * T + 4, 8 * T, 2 * T + 4);
@@ -956,26 +977,33 @@ const CAT_B: [&str; 7] = [
     "X.X.....X.X.",
 ];
 
-/// One flame: a wide base tapering to a tip, three tongues of colour,
-/// swaying a little.
-pub(super) fn flame(cv: &mut Img, x: i32, y: i32, tick: u32, k: i32, tall: i32) {
-    let flick = (hash(k, (tick / 3) as i32, 17) % 5) as i32;
+/// One flame: a wide base tapering to a wavering tip, swaying a little, red
+/// at its edge and low on the logs, through orange and amber to a pale gold
+/// core. `stoke` (0 to 1) feeds it.
+pub(super) fn flame(cv: &mut Img, x: i32, y: i32, tick: u32, k: i32, tall: i32, stoke: f32) {
+    let flick = (hash(k, (tick / 3) as i32, 17) % 4) as i32;
     let h = tall - 2 + flick;
     let sway = ((tick / 5 + k as u32 * 3) % 4) as i32 - 1;
+    let beat = tick as f32 * 0.45 + k as f32 * 1.7;
     for yy in 0..h {
         let t = yy as f32 / h as f32;
-        let half = ((1.0 - t) * 6.0 * (1.0 - t * 0.3)).round() as i32;
-        let lean = (t * t * sway as f32 * 2.0) as i32;
+        // The edge wavers as the flame climbs.
+        let wave = 1.0 + 0.28 * (t * 8.0 - beat).sin();
+        let half = (((1.0 - t).powf(0.75) * 5.5 * wave).round() as i32).max(if t < 0.9 { 1 } else { 0 });
+        let lean = (t * t * sway as f32 * 2.5 + (t * 5.0 - beat * 0.7).sin() * t * 1.5) as i32;
         for xx in -half..=half {
-            let inner = xx.abs() * 3 < half * 2;
-            let ink = if t < 0.25 {
-                if inner { 'O' } else { 'R' }
-            } else if t < 0.6 {
-                if xx.abs() * 2 < half { 't' } else if inner { 'O' } else { 'R' }
-            } else if inner {
-                'T'
-            } else {
-                't'
+            // The tip breaks up into licks.
+            if t > 0.78 && hash(xx + k * 7, yy, (tick / 2) as u32) % 3 == 0 {
+                continue;
+            }
+            let edge = xx.abs() as f32 / half.max(1) as f32;
+            let heat = (1.0 - t) * (1.0 - edge * 0.85) + stoke * 0.12;
+            let ink = match heat {
+                h if h > 0.7 => '6',
+                h if h > 0.48 => '5',
+                h if h > 0.3 => '@',
+                h if h > 0.15 => 'R',
+                _ => '7',
             };
             cv.put(x + xx + lean, y - yy, ink);
         }
@@ -986,8 +1014,8 @@ pub(super) fn flame(cv: &mut Img, x: i32, y: i32, tick: u32, k: i32, tall: i32) 
 /// where the hall puts them.
 /// The inn's front at room scale (pixels), its door's foot on the courtyard
 /// door's lower edge (`alehouse::COURTYARD_DOOR`).
-const INN_W: i32 = 96;
-const INN_H: i32 = 80;
+pub(super) const INN_W: i32 = 96;
+pub(super) const INN_H: i32 = 80;
 
 /// The Sozzled Griffin from the Delve's courtyard, where the green house
 /// stood by the well: a great two-storey inn of oak, its upper floor
@@ -1337,17 +1365,26 @@ fn patron_bodies() -> &'static [Img] {
 
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
+    pinned_news(cv, run.home.holdings.tidings.len(), tick);
     // The hearth's flames and the stew over them.
     let (c, r, w, h) = HEARTH;
     let (hx, hy) = (c * T + w * T / 2, (r + h) * T - 4);
     // An ember bed under the flames.
+    let stoke = run.alehouse.stoke(run.tick);
+    // A stoked fire throws its glow on the firebox and the stone round it.
+    if stoke > 0.0 {
+        super::hall_voices::ember_glow(cv, hx, hy - 14, 34, 18, stoke);
+    }
     for k in 0..30 {
         let ex = hx - 28 + (k * 2) % 57;
         let ey = hy - 1 - (hash(k, 3, 29) % 3) as i32;
-        cv.put(ex, ey, if hash(k, (tick / 9) as i32, 5) % 3 == 0 { 'T' } else { 'R' });
+        let live = hash(k, (tick / 9) as i32, 5) % 3 == 0;
+        cv.put(ex, ey, if live { if stoke > 0.0 { '5' } else { '@' } } else { '7' });
     }
-    for (k, dx) in [-19, -6, 7, 20].into_iter().enumerate() {
-        flame(cv, hx + dx, hy - 1 - (k as i32 % 2), tick, k as i32, 17 + (k as i32 % 3) * 4);
+    // Four flames on the logs, two small licks between them.
+    for (k, dx, small) in [(0, -19, 0), (1, -6, 0), (2, 7, 0), (3, 20, 0), (4, -12, 1), (5, 13, 1)] {
+        let tall = if small == 1 { 9 + (k % 2) * 2 } else { 13 + (k % 3) * 3 } + (stoke * 7.0) as i32;
+        flame(cv, hx + dx, hy - 1 - (k % 2), tick, k, tall, stoke);
     }
     let pot_x = hx;
     cv.line(pot_x, r * T + 12, pot_x, hy - 22, 'g');
@@ -1355,9 +1392,10 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     cv.line(pot_x - 8, hy - 21, pot_x + 8, hy - 21, 'j');
     cv.line(pot_x - 6, hy - 20, pot_x + 6, hy - 20, '6');
     cv.line(pot_x - 5, hy - 19, pot_x + 5, hy - 19, 'L');
-    for k in 0..3 {
+    let steam = 3 + (stoke * 4.0) as u32;
+    for k in 0..steam {
         let age = ((tick + k * 17) % 50) as i32;
-        let sx = pot_x - 3 + k as i32 * 3 + (age as f32 * 0.3).sin() as i32 * 2;
+        let sx = pot_x - 3 + k as i32 * 3 % 9 + (age as f32 * 0.3).sin() as i32 * 2;
         cv.put(sx, hy - 24 - age / 3, 'i');
     }
     // The keeper behind the bar, polishing a mug.
@@ -1402,11 +1440,13 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     let step = (run.tick / 8) % 2 == 0;
     let cat = Img::from_rows(if step { &CAT } else { &CAT_B });
     stand(cv, &if ox < cx { cat } else { cat.flip_h() }, nx, ny);
-    // The fire's sparks.
-    for k in 0..4u32 {
+    // The fire's sparks: a few at rest, a shower when it is stoked.
+    let sparks = 4 + (stoke * 12.0) as u32;
+    for k in 0..sparks {
         let age = ((tick * 2 + k * 29) % 70) as i32;
-        let sx = hx - 14 + (hash(k as i32, (tick / 70) as i32, 3) % 28) as i32;
-        cv.put(sx, hy - 16 - age / 2, if age < 30 { 'T' } else { 'o' });
+        let lift = 1 + (stoke * 1.5) as i32;
+        let sx = hx - 14 + (hash(k as i32, (tick / 70) as i32, 3) % 28) as i32 + (age as f32 * 0.12 * (k as f32 - 6.0).signum()) as i32;
+        cv.put(sx, hy - 16 - age * lift / 2, if age < 22 { '6' } else if age < 46 { '@' } else { 'R' });
     }
 }
 
@@ -1515,23 +1555,32 @@ fn dock(cv: &Img, board: &Img) -> (i32, i32) {
 
 /// Full-room overview/export path. Seat prompts are painted after cropping.
 pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
-    if focus.is_none() { paint_board(cv, run, None); }
+    if focus.is_none() {
+        paint_board(cv, run, None);
+        super::hall_voices::plates(cv, run, (0, 0), &mut Vec::new());
+    }
 }
 
 pub(super) fn screen_boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     match focus {
         None => boards(cv, run, None),
-        Some(id) => paint_board(cv, run, Some(id)),
+        Some(id) => {
+            let mut taken: Vec<_> = paint_board(cv, run, Some(id)).into_iter().collect();
+            super::hall_voices::title(cv, run, &mut taken);
+            super::hall_voices::plates(cv, run, super::view_origin(run, Some(id)), &mut taken);
+        }
     }
 }
 
-fn paint_board(cv: &mut Img, run: &Run, focus: Option<u32>) {
-    let Some(id) = reader(run, focus) else { return; };
+/// Paint the reader's board; where it stands (x, y, w, h).
+fn paint_board(cv: &mut Img, run: &Run, focus: Option<u32>) -> Option<(i32, i32, i32, i32)> {
+    let id = reader(run, focus)?;
     let lines = board_lines(run, id);
-    if lines.is_empty() { return; }
+    if lines.is_empty() { return None; }
     let board = prompt_board(&lines);
     let (x, y) = dock(cv, &board);
     cv.stamp(&board, x, y);
+    Some((x, y, board.w, board.h))
 }
 
 /// What a spot says to the knight beside it.
@@ -1578,7 +1627,7 @@ fn prompt(run: &Run, id: u32, spot: Spot) -> Vec<(String, char)> {
             vec![
                 (pour.name.to_uppercase(), '9'),
                 (pour.does.to_string(), 'h'),
-                (format!("{} GOLD", pour.price), '5'),
+                (format!("{} GOLD. YOUR PURSE: {}", pour.price, purse(run, id)), '5'),
                 hold(),
             ]
         }
@@ -1588,13 +1637,18 @@ fn prompt(run: &Run, id: u32, spot: Spot) -> Vec<(String, char)> {
             let mut lines = vec![(c.name.to_uppercase(), '9'), ("A BARGAIN. DO NOT ASK.".into(), 'h')];
             lines.push((format!("+ {}", c.boon), '5'));
             lines.push((format!("- {}", c.bane), '7'));
-            lines.push((format!("{} GOLD", offer.price), '5'));
+            lines.push((format!("{} GOLD. YOUR PURSE: {}", offer.price, purse(run, id)), '5'));
             lines.push(hold());
             lines
         }
         Spot::Ware(slot) => ware_lines(run, id, slot),
         Spot::Toy(toy) => vec![(Spot::Toy(toy).verb().to_string(), 'O')],
     }
+}
+
+/// The gold in knight `id`'s purse, for the boards of the shops.
+fn purse(run: &Run, id: u32) -> u32 {
+    run.players.get(&id).map_or(0, |h| h.carried.get(crate::realm::Spoil::Gold))
 }
 
 /// A ware's board: its name, the vendor's line, its boon and bane, price.
@@ -1622,7 +1676,7 @@ pub(super) fn ware_lines(run: &Run, id: u32, slot: u8) -> Vec<(String, char)> {
     if owned {
         lines.push(("IN YOUR POCKETS".into(), '5'));
     } else {
-        lines.push((format!("{price} GOLD"), '5'));
+        lines.push((format!("{price} GOLD. YOUR PURSE: {}", purse(run, id)), '5'));
         lines.push((format!("HOLD E {}", a::bar(buying)), 'O'));
     }
     lines

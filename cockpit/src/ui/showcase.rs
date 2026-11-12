@@ -444,44 +444,11 @@ impl Shown<'_> {
 /// serves and the squire wears the Keep's own; and the colours of the
 /// houses a formation seated beside it.
 #[cfg(feature = "glass")]
-fn liveries() -> (Option<angel_glass::Livery>, Vec<angel_glass::Livery>, Vec<Vec<String>>) {
-    let serving = crate::stage::houses::serving();
-    let lead = serving.lead.and_then(livery_of);
-    let seated: Vec<_> = serving.seated.iter().filter(|&&id| livery_of(id).is_some()).copied().collect();
-    let retinue = seated.iter().filter_map(|&id| livery_of(id)).collect();
-    // Who each squire is: the house's first knight, by name, castle and
-    // epithet; the Keep's own squire has no name to give.
-    let names = std::iter::once(serving.lead)
-        .chain(seated.iter().map(|&id| Some(id)))
-        .map(|house| {
-            house
-                .and_then(|id| {
-                    let house = crate::stage::houses::get(id);
-                    let knight = house.knight(0)?;
-                    let mut lines = vec![format!("{} of {}", knight.name, house.castle)];
-                    if !knight.epithet.is_empty() {
-                        lines.push(knight.epithet.clone());
-                    }
-                    Some(lines)
-                })
-                .unwrap_or_else(|| vec!["A squire of the Keep".to_string()])
-        })
-        .collect();
-    (lead, retinue, names)
-}
-
-/// A house's livery (`liveries`).
-#[cfg(feature = "glass")]
-fn livery_of(id: crate::stage::houses::HouseId) -> Option<angel_glass::Livery> {
-    use angel_delve::render::overworld::{ink::ink, light};
-    let house = crate::stage::houses::get(id);
-    let field = ink(light::dusk_ink(house.field))?;
-    let charge = ink(light::dusk_ink(house.charge))?;
-    Some(angel_glass::Livery {
-        field,
-        shadow: light::darker(field),
-        charge,
-    })
+pub(crate) fn liveries() -> (Option<angel_glass::Livery>, Vec<angel_glass::Livery>, Vec<Vec<String>>) {
+    let (lead, retinue, names) =
+        <crate::app::control::realm::GameHost as angel_plug::viewer::ViewerArt>::squires();
+    let dress = |[field, shadow, charge]: [[u8; 3]; 3]| angel_glass::Livery { field, shadow, charge };
+    (lead.map(dress), retinue.into_iter().map(dress).collect(), names)
 }
 
 #[cfg(feature = "glass")]
@@ -925,23 +892,6 @@ mod tests {
         let lines = page_lines("ab\tc\n\nxyzxyzxyz\u{7}", 8);
         assert_eq!(lines, vec!["ab    c", "", "xyzxyzxy", "z"]);
         assert_eq!(page_lines("", 80), vec![String::new()]);
-    }
-
-    #[cfg(feature = "glass")]
-    #[test]
-    fn every_house_dresses_its_squire() {
-        let mut seen = std::collections::HashSet::new();
-        for id in crate::stage::houses::ids() {
-            let livery = livery_of(id).expect("every house has inks");
-            if let Ok(path) = std::env::var("ANGEL_SQUIRE_LIVERIES") {
-                use std::io::Write as _;
-                let mut out = std::fs::OpenOptions::new().create(true).append(true).open(path).unwrap();
-                let key = &crate::stage::houses::get(id).key;
-                writeln!(out, "{key} {:?} {:?} {:?}", livery.field, livery.shadow, livery.charge).unwrap();
-            }
-            seen.insert((livery.field, livery.charge));
-        }
-        assert!(seen.len() > 8, "houses are told apart by their colours");
     }
 
     #[test]

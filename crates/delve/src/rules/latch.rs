@@ -4,6 +4,8 @@
 //! latch_rest=24 ticks, latch_recover=18 ticks, latch_stop=4 ticks.
 //! Version one leaves out bullets, free movement, weapons and a second room.
 //! Full feel brief: assets/latch/BRIEF.md. Every seat gets the same attack deck.
+use super::juice::Weight;
+use super::latch_show::{Show, Why};
 use super::{BTreeMap, HZ, Input, MAX_PLAYERS, RoomKind, Run, Spoil};
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +20,8 @@ pub const RECOVER: u32 = 18;
 /// A local freeze, never a pause of another knight's bout.
 pub const STOP: u32 = 4;
 pub const LENGTH: u32 = 45 * HZ;
+/// Ticks of title and 3-2-1 before the first arm winds. The bout and its clock stand still.
+pub const COUNT: u32 = 66;
 pub const GOLD_PER_SEAT: u32 = 10;
 pub const BAY: (f32, f32) = (31.0, 18.0);
 
@@ -237,6 +241,23 @@ pub struct Session {
     /// The common winning input tick, independent of subsequent live knob edits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub finish_at: Option<u64>,
+    /// Ticks of title and countdown still to run before the bell; nothing is judged until it is 0.
+    #[serde(default)]
+    pub count: u32,
+    /// What the table saw: marks at each bay and the calls it heard (`latch_show`).
+    #[serde(default, skip_serializing_if = "Show::quiet")]
+    pub show: Show,
+    /// The round's clock when the first knight landed a third counter.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub win_at: Option<u32>,
+    /// The run's tick, and the round's clock, when the round ended (so the end screen keeps time).
+    #[serde(default)]
+    pub done: u32,
+    #[serde(default)]
+    pub ended: u32,
+    /// The quickest win of this sitting before this round, in ticks (0 for none).
+    #[serde(default)]
+    pub to_beat: u32,
 }
 impl Session {
     pub fn new(seats: impl Iterator<Item = u32>, seed: u64) -> Self {
@@ -249,6 +270,29 @@ impl Session {
             won: false,
             finish: None,
             finish_at: None,
+            count: COUNT,
+            show: Show::default(),
+            win_at: None,
+            done: 0,
+            ended: 0,
+            to_beat: 0,
+        }
+    }
+    /// The round's clock at run tick `tick`: ticks since the bell, standing still at the end of the
+    /// round's own count and carrying on past its end for the end screen.
+    pub fn elapsed(&self, tick: u64) -> u32 {
+        if self.left > 0 {
+            LENGTH - self.left
+        } else {
+            self.ended + (tick as u32).saturating_sub(self.done)
+        }
+    }
+    /// The quickest win of this sitting, counting this round if a knight broke Clasp in it.
+    pub fn quickest(&self) -> u32 {
+        match (self.to_beat, self.won.then_some(self.win_at).flatten()) {
+            (0, Some(t)) => t,
+            (best, Some(t)) => best.min(t),
+            (best, None) => best,
         }
     }
     pub fn score(&self, id: u32) -> (std::cmp::Reverse<u8>, u32, u32) {
@@ -290,6 +334,11 @@ impl Session {
                 .iter()
                 .all(|(&id, d)| (1..=MAX_PLAYERS).contains(&id) && d.valid() && d.seed == self.seed)
             && self.left <= LENGTH
+            && self.count <= COUNT
+            && self.show.valid()
+            && self.win_at.is_none_or(|t| t <= LENGTH)
+            && self.ended <= LENGTH
+            && self.to_beat <= LENGTH
             && self.finish.is_none_or(|t| t <= 35)
             && self.order.len() <= self.duels.len()
             && self
@@ -315,6 +364,12 @@ impl Session {
         self.won = false;
         self.finish = None;
         self.finish_at = None;
+        self.count = 0;
+        self.show = Show::default();
+        self.win_at = None;
+        self.done = 0;
+        self.ended = 0;
+        self.to_beat = self.to_beat.min(LENGTH);
     }
 }
 impl Run {
@@ -339,7 +394,7 @@ impl Run {
         });
         if self.latch.is_none() {
             if pressed {
-                self.start_latch();
+                self.start_latch(0);
             }
             return;
         }
@@ -355,14 +410,23 @@ impl Run {
                 .iter()
                 .any(|(id, i)| s.duels.contains_key(id) && i.valid() && i.interact);
             if take && !s.key {
-                self.start_latch();
+                self.start_latch(s.quickest());
             } else {
                 s.key = take;
                 self.latch = Some(s);
             }
             return;
         }
+        // The title and the 3-2-1: the bay stands still and the clock does not run.
+        if s.count > 0 {
+            s.count -= 1;
+            self.latch = Some(s);
+            return;
+        }
         s.left -= 1;
+        let now = LENGTH - s.left;
+        s.show.tick(now);
+        let seats: Vec<u32> = s.duels.keys().copied().collect();
         let finishing = s.finish.is_some();
         for (&id, d) in &mut s.duels {
             if self.players.get(&id).is_none_or(|h| h.away || h.stone) {
@@ -379,16 +443,37 @@ impl Run {
             if finishing && !on_winning_tick {
                 input.fire = false;
             }
+            let (beat, counters, misses, error) = (d.beat, d.counters, d.misses, d.error);
             if let Some(sound) = d.step_at(input, &self.tune, Some(self.tick), self.latch_input_age.get(&id).copied().unwrap_or(0)) {
                 self.sounds.push(sound);
             }
+            // What the table should see of it (`latch_show`): nothing here changes a duel.
+            if d.counters > counters {
+                let earlier = d.error.saturating_sub(error);
+                s.show.counter(id, d.chain, d.counters, earlier, d.attack, now, &seats);
+            } else if d.misses > misses && beat == Beat::Tell {
+                let why = if !d.attempted {
+                    Why::Slow
+                } else if d.guard != d.height {
+                    Why::Wrong
+                } else {
+                    Why::Early
+                };
+                s.show.miss(id, why, d.miss_chain, now);
+            }
         }
+        let scores: Vec<_> = s.duels.iter().map(|(&id, d)| (id, d.counters)).collect();
+        s.show.standings(now, &scores);
         if let Some(t) = s.finish.as_mut() {
             *t = t.saturating_sub(1);
         }
         if s.finish.is_none() && s.duels.values().any(|d| d.counters == 3) {
             s.finish = Some(self.tune.latch_stop + self.tune.latch_recover);
             s.finish_at = Some(self.tick);
+            s.win_at = Some(now);
+            // The blow that breaks Clasp holds the whole bay still for a beat. No other counter does:
+            // a knight's freeze is theirs alone and never pauses another's bout.
+            self.hold_for(Weight::Finale);
         }
         if s.finish == Some(0) || s.left == 0 {
             s.order = s.duels.keys().copied().collect();
@@ -399,6 +484,8 @@ impl Run {
             s.left = 0;
             s.key = true;
             s.won = s.duels.values().any(|d| d.counters == 3);
+            s.done = self.tick as u32;
+            s.ended = now;
             let record = &mut self.home.countryside.games.latch;
             record.best = record.best.max(u16::from(s.duels[&s.order[0]].counters));
             if s.won {
@@ -416,8 +503,9 @@ impl Run {
             self.sounds.push("spoil_pickup");
         }
         self.latch = Some(s);
+        self.finish_hit_hold();
     }
-    fn start_latch(&mut self) {
+    fn start_latch(&mut self, to_beat: u32) {
         let seed = self.rng.next();
         let seats = self
             .players
@@ -426,10 +514,11 @@ impl Run {
                 h.hp > 0 && !h.stone && !h.away && !self.exits.outside.contains_key(id)
             })
             .map(|(&id, _)| id);
-        let session = Session::new(seats, seed);
+        let mut session = Session::new(seats, seed);
         if session.duels.is_empty() {
             return;
         }
+        session.to_beat = to_beat;
         self.latch = Some(session);
         self.home.countryside.games.latch.plays =
             self.home.countryside.games.latch.plays.saturating_add(1);

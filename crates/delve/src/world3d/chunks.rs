@@ -423,7 +423,8 @@ fn builds(geo: &Geography) -> Vec<Build> {
             x >= c && x < c + w && y >= r && y < r + h
         })
     };
-    for &(ax, ay, w, h) in STRUCTURES.iter() {
+    // The authored structures stand only in the full plan's set pieces.
+    for &(ax, ay, w, h) in STRUCTURES.iter().filter(|_| crate::world::plan::full()) {
         let (c, r) = place_tile(ax, ay);
         let foot = (c, r, w, h);
         let (kit, what) = authored((ax, ay, w, h)).unwrap_or_else(|| by_size(foot));
@@ -449,28 +450,45 @@ fn builds(geo: &Geography) -> Vec<Build> {
             seed: seed_of(foot),
         });
     }
+    // The blank-slate plan (`crate::world::plan`): the Keep, a tiny castle
+    // just begun, and a camp for each house where its castle will be built.
+    if crate::world::plan::tabula() {
+        let foot = crate::world::castles::keep_foot();
+        out.push(Build {
+            name: "the Keep, just begun".into(),
+            place: Some("the Keep".into()),
+            kit: Kit::KeepBegun,
+            foot,
+            face: Face::South,
+            seed: seed_of(foot),
+        });
+    }
     for id in houses::ids() {
         let house = houses::get(id);
         let foot = houses::footprint(id);
+        let camp = crate::world::plan::tabula();
         out.push(Build {
-            name: house.castle.clone(),
+            name: if camp { format!("{}'s camp", house.family) } else { house.castle.clone() },
             place: Some(format!("the house of {}", house.family)),
-            kit: Kit::Castle(castle_of(house)),
+            kit: if camp { Kit::Camp } else { Kit::Castle(castle_of(house)) },
             foot,
             face: face_to(foot, houses::stand(id)),
             seed: seed_of(foot),
         });
     }
-    let lot = college::lot();
-    let foot = (lot.tx, lot.ty, lot.tw, lot.th);
-    out.push(Build {
-        name: "Labyrinth College".into(),
-        place: None,
-        kit: Kit::College,
-        foot,
-        face: face_to(foot, college::stand()),
-        seed: seed_of(foot),
-    });
+    // (The College is not on the blank-slate map: its lot is empty.)
+    if crate::world::plan::full() {
+        let lot = college::lot();
+        let foot = (lot.tx, lot.ty, lot.tw, lot.th);
+        out.push(Build {
+            name: "Labyrinth College".into(),
+            place: None,
+            kit: Kit::College,
+            foot,
+            face: face_to(foot, college::stand()),
+            seed: seed_of(foot),
+        });
+    }
     let gate = wishes::delve_gate();
     let foot = (gate.tx, gate.ty, gate.tw, gate.th);
     out.push(Build {

@@ -1489,34 +1489,29 @@ fn output_timed_inner(
     // to settle with the bytes already captured and give that handoff one
     // final short convergence window.
     let drain_deadline = Instant::now() + Duration::from_secs(2);
-    let mut stdout_capture = None;
-    let mut stderr_capture = None;
-    while Instant::now() < drain_deadline && (stdout_capture.is_none() || stderr_capture.is_none())
-    {
-        if stdout_capture.is_none() {
-            stdout_capture = rx_out.try_recv().ok();
-        }
-        if stderr_capture.is_none() {
-            stderr_capture = rx_err.try_recv().ok();
-        }
-        if stdout_capture.is_none() || stderr_capture.is_none() {
-            std::thread::sleep(Duration::from_millis(10));
-        }
-    }
+    // Block on each reader's hand-off until the shared deadline rather than
+    // sleeping in 10 ms ticks: the readers finish within microseconds of the
+    // child's exit, and a tick would add its whole length to every tool call.
+    // A reader that died without sending (channel closed) settles at once.
+    let mut stdout_capture = rx_out
+        .recv_timeout(drain_deadline.saturating_duration_since(Instant::now()))
+        .ok();
+    let mut stderr_capture = rx_err
+        .recv_timeout(drain_deadline.saturating_duration_since(Instant::now()))
+        .ok();
     let grandchild_holds_stdout = stdout_capture.is_none();
     let grandchild_holds_stderr = stderr_capture.is_none();
     stop_readers.store(true, Ordering::Release);
     let stop_deadline = Instant::now() + Duration::from_millis(250);
-    while Instant::now() < stop_deadline && (stdout_capture.is_none() || stderr_capture.is_none()) {
-        if stdout_capture.is_none() {
-            stdout_capture = rx_out.try_recv().ok();
-        }
-        if stderr_capture.is_none() {
-            stderr_capture = rx_err.try_recv().ok();
-        }
-        if stdout_capture.is_none() || stderr_capture.is_none() {
-            std::thread::sleep(Duration::from_millis(10));
-        }
+    if stdout_capture.is_none() {
+        stdout_capture = rx_out
+            .recv_timeout(stop_deadline.saturating_duration_since(Instant::now()))
+            .ok();
+    }
+    if stderr_capture.is_none() {
+        stderr_capture = rx_err
+            .recv_timeout(stop_deadline.saturating_duration_since(Instant::now()))
+            .ok();
     }
     let (stdout, stdout_total_bytes) = stdout_capture.unwrap_or_default();
     let (stderr, stderr_total_bytes) = stderr_capture.unwrap_or_default();

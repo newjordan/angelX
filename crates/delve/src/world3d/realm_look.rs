@@ -163,6 +163,17 @@ pub const EMBER: [[u8; 3]; 8] = [
 /// they are (the glint is the first, as the look's water wants).
 pub const GLINT: [u8; 3] = [0xd9, 0xd6, 0xb8];
 pub const WINDOW: [u8; 3] = [0xee, 0xae, 0x55];
+/// The blank slate's open hillside: grass, dialled back like the rest.
+pub const HILLSIDE: [[u8; 3]; 8] = [
+    [0x0e, 0x13, 0x0c],
+    [0x18, 0x22, 0x14],
+    [0x24, 0x33, 0x1d],
+    [0x31, 0x46, 0x27],
+    [0x41, 0x5c, 0x33],
+    [0x55, 0x73, 0x42],
+    [0x6e, 0x8c, 0x56],
+    [0x90, 0xa4, 0x75],
+];
 pub const FIRE: [u8; 3] = [0xe2, 0x7a, 0x34];
 
 /// Biome `b`'s palette.
@@ -178,6 +189,7 @@ pub fn palette(b: Biome) -> [[u8; 3]; 8] {
         Biome::Fairground => FAIRGROUND,
         Biome::WindCountry => WIND_COUNTRY,
         Biome::Longbow => LONGBOW,
+        Biome::March if crate::world::plan::tabula() => HILLSIDE,
         Biome::March => MARCH,
     }
 }
@@ -268,6 +280,9 @@ pub fn look(view: &View, lamps: &[SetLamp]) -> Look {
             }
         })
         .collect();
+    // The blank slate's camps and Keep dye their cloth, over the hillside's.
+    look.zones.extend(camp_zones(view));
+    look.zones.truncate(angel_stage::look::ZONE_MAX);
     // The lamps nearest the view's middle, each flickering on its own.
     let mut near: Vec<&SetLamp> = lamps.iter().collect();
     let away = |l: &SetLamp| (l.at[0] - centre[0]).hypot(l.at[2] - centre[1]);
@@ -290,6 +305,98 @@ pub fn look(view: &View, lamps: &[SetLamp]) -> Look {
         look.reveals = view.others.iter().flatten().map(|&[x, z]| Reveal { at: [x - ox, REVEAL_AT, z - oz], radius: REVEAL }).collect();
     }
     look
+}
+
+/// How far past a camp's tents the dye fades out, kingdom pixels, and past
+/// a banner or the Keep's (the ground under them takes it too: the less the
+/// better).
+pub const TENT_FEATHER: f32 = 8.0;
+pub const BANNER_FEATHER: f32 = 4.0;
+/// How far past the view's edge a camp's cloth is still taken for in sight:
+/// the tipped floor shows more of the world than the view's size says (six
+/// tiles, as far as the stage's far edge reaches).
+const SEEN_BEYOND: f32 = 96.0;
+/// The colour a house's cloth gives its ramp's chroma, at least, as a part of
+/// the ramp's brightness (dusk inks are dim and nearly grey; a tent that is
+/// plainly its house's colour wants more than they carry).
+const CLOTH_CHROMA: f32 = 0.45;
+
+/// A ramp of a cloth's colour, entry for entry as bright as `base` (the
+/// place's own ramp, so the eight-step ladder holds, docs/BRAND.md): the
+/// cloth's hue throughout, its chroma a part of each entry's brightness and
+/// never over the guide's, kept inside what a colour can be at that
+/// brightness.
+pub fn cloth_ramp(cloth: [u8; 3], base: &[[u8; 3]; 8]) -> [[u8; 3]; 8] {
+    use angel_stage::brand::{ENV_CHROMA, chroma, luma};
+    let u = cloth.map(|c| f32::from(c) / 255.0);
+    let own = luma(cloth);
+    let lean = u.map(|c| c - own);
+    let spread = chroma(cloth);
+    let ratio = (spread / own.max(0.04)).max(CLOTH_CHROMA);
+    base.map(|entry| {
+        let l = luma(entry);
+        // How much of the cloth's lean this brightness takes: the chroma it
+        // wants over the cloth's own, held inside [0, 1] on every channel.
+        let mut k = if spread < 1e-3 { 0.0 } else { (ratio * l).min(ENV_CHROMA) / spread };
+        for d in lean {
+            if d > 1e-4 {
+                k = k.min((1.0 - l) / d);
+            } else if d < -1e-4 {
+                k = k.min(l / -d);
+            }
+        }
+        lean.map(|d| ((l + d * k) * 255.0).round().clamp(0.0, 255.0) as u8)
+    })
+}
+
+/// The blank-slate plan's cloth, in zones (docs/REALM-MONOLITH.md): the look
+/// is one ramp a place, so a camp's tents and banner would take the hillside's
+/// green. Each camp near the view lies two small zones over its cloth, the
+/// tents and the banner, in a ramp of its house's own colour (the flat map's,
+/// `render::overworld::camps`), and the Keep's banner one in the Keep's red,
+/// each as tight as its cloth, for what lies under them takes the dye too.
+/// The nearest the view's middle, at most as many as a look keeps; the
+/// farthest first, so the nearest lies over them. None in the full plan.
+pub fn camp_zones(view: &View) -> Vec<Zone> {
+    use crate::render::overworld::camps;
+    use crate::world::houses;
+    if !crate::world::plan::tabula() {
+        return Vec::new();
+    }
+    let [ox, oz] = view.origin;
+    let centre = [ox + view.size[0] / 2.0, oz + view.size[1] / 2.0];
+    let mut cloths: Vec<([f32; 4], [u8; 3], f32)> = Vec::new();
+    for id in houses::ids() {
+        let foot = super::blockout::px(houses::footprint(id));
+        let cloth = camps::house_cloth(houses::get(id));
+        let [tents, banner] = super::realm_camp::camp_cloth_boxes(foot);
+        cloths.push((tents, cloth, TENT_FEATHER));
+        cloths.push((banner, cloth, BANNER_FEATHER));
+    }
+    let keep = super::blockout::px(crate::world::castles::keep_foot());
+    cloths.push((super::realm_camp::keep_banner_box(keep), camps::keep_cloth(), BANNER_FEATHER));
+    let mut near: Vec<(f32, Zone)> = cloths
+        .into_iter()
+        .filter(|(b, _, f)| {
+            let m = SEEN_BEYOND + f;
+            b[2] + m > ox && b[0] - m < ox + view.size[0] && b[3] + m > oz && b[1] - m < oz + view.size[1]
+        })
+        .map(|([x0, z0, x1, z1], cloth, feather)| {
+            let away = ((x0 + x1) / 2.0 - centre[0]).hypot((z0 + z1) / 2.0 - centre[1]);
+            let zone = Zone {
+                ramp: cloth_ramp(cloth, &HILLSIDE).to_vec(),
+                at: [(x0 + x1) / 2.0 - ox, (z0 + z1) / 2.0 - oz],
+                half: [(x1 - x0) / 2.0, (z1 - z0) / 2.0],
+                radius: 0.0,
+                feather,
+            };
+            (away, zone)
+        })
+        .collect();
+    near.sort_by(|a, b| a.0.total_cmp(&b.0));
+    near.truncate(angel_stage::look::ZONE_MAX);
+    near.reverse();
+    near.into_iter().map(|(_, zone)| zone).collect()
 }
 
 /// The biome under `centre` (the look's own ramp) and the nearest others

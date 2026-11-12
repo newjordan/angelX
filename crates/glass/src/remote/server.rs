@@ -72,6 +72,7 @@ pub(crate) struct Item {
     blobs: Vec<(Arc<Blob>, bool)>,
     frame: Arc<[u8]>,
     kind: usize,
+    minimum_protocol: u32,
     /// A picture's id, size and cells: a writer may send it as a delta of
     /// what that window shows under the id.
     picture: Option<(u32, u32, u32, u16, u16)>,
@@ -141,6 +142,7 @@ impl Item {
                 blobs: Vec::new(),
                 frame,
                 kind: stats::kind(message),
+                minimum_protocol: if matches!(message, Down::ShowcaseSquire(_)) { 2 } else { 1 },
                 picture: match message {
                     Down::Picture { id, width, height, cols, rows, .. } => Some((*id, *width, *height, *cols, *rows)),
                     _ => None,
@@ -182,6 +184,8 @@ struct Mirror {
     world_meshes: HashMap<usize, (Weak<MeshData>, Arc<Blob>)>,
     showcase: Option<Item>,
     showcase_serial: u64,
+    squire_identity: Option<Option<crate::ShowcaseClipIdentity>>,
+    squire_update: Option<Item>,
     progress: (Option<f32>, bool),
     title: String,
     game_keyboard: bool,
@@ -189,6 +193,7 @@ struct Mirror {
 
 struct Client {
     id: u64,
+    protocol: u32,
     kind: Kind,
     size: GridSize,
     queue: Sender<Item>,
@@ -318,7 +323,7 @@ impl Hub {
         let Up::Hello { version, kind, size, have, who } = hello else {
             return Err(io::Error::new(io::ErrorKind::InvalidData, "the first message was not a hello"));
         };
-        if version != wire::VERSION {
+        if !(1..=wire::VERSION).contains(&version) {
             let why = format!(
                 "this session speaks remote glass {}, the window {version}: update angelX on one side",
                 wire::VERSION
@@ -326,7 +331,7 @@ impl Hub {
             wire::write(&mut writer, &Down::Ended(why.clone()))?;
             return Err(io::Error::new(io::ErrorKind::InvalidData, why));
         }
-        wire::write(&mut writer, &Down::Hello { version: wire::VERSION, session: self.name.to_string() })?;
+        wire::write(&mut writer, &Down::Hello { version, session: self.name.to_string() })?;
         if kind == Kind::Probe {
             wire::write(&mut writer, &Down::Status(self.status()))?;
             // A probe may ask once more: to end the session.
@@ -345,7 +350,7 @@ impl Hub {
             if let Some(item) = Item::plain(&Down::Presence(inner.presence.clone())) {
                 let _ = queue.send(item);
             }
-            inner.clients.push(Client { id, kind, size, queue });
+            inner.clients.push(Client { id, protocol: version, kind, size, queue });
             drop(inner);
             std::thread::Builder::new()
                 .name("remote-watch".into())
@@ -364,9 +369,11 @@ impl Hub {
             // Catching up and joining happen under one lock with the
             // publisher, so nothing is missed or sent twice.
             for item in self.catch_up(&mut inner) {
-                let _ = queue.send(item);
+                if item.minimum_protocol <= version {
+                    let _ = queue.send(item);
+                }
             }
-            inner.clients.push(Client { id, kind, size, queue });
+            inner.clients.push(Client { id, protocol: version, kind, size, queue });
             id
         };
         eprintln!("REMOTE: {who} attached ({kind:?}, {}x{})", size.cols, size.rows);
@@ -509,12 +516,30 @@ impl Hub {
             shared.showcase_seek.store(at.clamp(0.0, 1.0).to_bits(), Ordering::Relaxed);
         }
         if feedback.closed {
-            shared.showcase_live.store(0, Ordering::Release);
+            // A window's operator closed the panel. End the showing as a local
+            // close does, and queue the close for the publisher: it clears the
+            // mirror, so a window that attaches or reconnects is not handed a
+            // panel that was dismissed, and tells every other window too. The
+            // check and the queueing share the request lock, so a showing opened
+            // in between is never overwritten by this close.
+            let mut request = shared.showcase.lock_recover();
+            if shared.operator_closed(feedback.serial) {
+                *request = Some(Request::Close);
+                drop(request);
+                self.host.send(UserEvent::Showcase);
+            }
         }
     }
 
     /// Everything a window needs to draw the session as it is now.
     fn catch_up(&self, inner: &mut Inner) -> Vec<Item> {
+        // If attachment observes a lease before the queued publisher wakeup,
+        // advance the shared mirror and deliver it to existing viewers first.
+        // The new viewer gets it once in its catch-up; the next frame sees no
+        // identity change and cannot repeat the same full clip.
+        if let Some(item) = self.take_squire_update(&mut inner.mirror) {
+            self.broadcast(inner, vec![item]);
+        }
         let m = &inner.mirror;
         let mut items = Vec::new();
         let mut push = |message: Down| {
@@ -525,6 +550,7 @@ impl Hub {
         push(Down::Size(self.host.grid_size()));
         push(Down::Title(m.title.clone()));
         push(Down::GameKeyboard(m.game_keyboard));
+        items.extend(m.squire_update.iter().cloned());
         items.extend(m.pictures.values().cloned());
         items.extend(m.meshes.values().cloned());
         items.extend(m.stages.values().cloned());
@@ -563,7 +589,7 @@ impl Hub {
             return;
         }
         inner.clients.retain(|client| {
-            client.kind == Kind::Watch || items.iter().all(|item| client.queue.send(item.clone()).is_ok())
+            client.kind == Kind::Watch || items.iter().filter(|item| item.minimum_protocol <= client.protocol).all(|item| client.queue.send(item.clone()).is_ok())
         });
     }
 
@@ -621,6 +647,17 @@ impl Hub {
             }
             self.broadcast(&mut inner, items);
         }
+    }
+
+    fn take_squire_update(&self, mirror: &mut Mirror) -> Option<Item> {
+        let resource = self.host.shared.showcase_squire_clip.lock_recover().clone();
+        let identity = resource.as_ref().map(|(identity, _)| identity.clone());
+        if mirror.squire_identity.as_ref() == Some(&identity) { return None; }
+        let update = wire::SquireClipUpdate::capture(resource.as_ref()).ok()?;
+        let item = Item::plain(&Down::ShowcaseSquire(update))?;
+        mirror.squire_identity = Some(identity);
+        mirror.squire_update = Some(item.clone());
+        Some(item)
     }
 
     /// What the window's render thread takes each frame, as messages; the
@@ -687,6 +724,7 @@ impl Hub {
                 items.push(item);
             }
         }
+        items.extend(self.take_squire_update(m));
         // The showcase: its request, its marks and model, its progress.
         if let Some(request) = shared.showcase.lock_recover().take() {
             match request {
@@ -887,9 +925,13 @@ mod tests {
 
     /// A window's end of a link: a pipe pair the hub serves.
     fn attach(hub: &Hub, kind: Kind, size: GridSize, have: Vec<Hash>) -> (std::os::unix::net::UnixStream, std::os::unix::net::UnixStream) {
+        attach_version(hub, wire::VERSION, kind, size, have)
+    }
+
+    fn attach_version(hub: &Hub, version: u32, kind: Kind, size: GridSize, have: Vec<Hash>) -> (std::os::unix::net::UnixStream, std::os::unix::net::UnixStream) {
         let (ours, theirs) = std::os::unix::net::UnixStream::pair().unwrap();
         let mut w = ours.try_clone().unwrap();
-        wire::write(&mut w, &Up::Hello { version: wire::VERSION, kind, size, have, who: "test".into() }).unwrap();
+        wire::write(&mut w, &Up::Hello { version, kind, size, have, who: "test".into() }).unwrap();
         let (r, wr) = (theirs.try_clone().unwrap(), theirs);
         let hub = hub.clone();
         std::thread::spawn(move || hub.serve(r, wr).unwrap());
@@ -1119,4 +1161,234 @@ mod tests {
         let Some(Down::Ended(why)) = wire::read::<Down>(&mut r).unwrap() else { panic!() };
         assert!(why.contains("update angelX"), "{why}");
     }
+    fn clip_resource(
+        generation: u64,
+    ) -> (crate::ShowcaseClipIdentity, Arc<crate::ShowcaseSquireClip>) {
+        let value = serde_json::json!({
+            "palette": vec![[0, 1, 2]; 12],
+            "frames": (0..9).map(|_| serde_json::json!({"pixels":vec![1;320]})).collect::<Vec<_>>(),
+            "idle":[{"frame":5,"millis":1000}], "wave":[{"frame":8,"millis":1000}],
+        });
+        (
+            crate::ShowcaseClipIdentity {
+                module: "showcase-squire".into(),
+                name: "pack".into(),
+                generation,
+                revision: 1,
+                digest: format!("generation-{generation}"),
+            },
+            Arc::new(crate::ShowcaseSquireClip::from_json(&value).unwrap()),
+        )
+    }
+
+    fn clip_messages(items: Vec<Item>) -> Vec<wire::SquireClipUpdate> {
+        items
+            .into_iter()
+            .filter_map(
+                |item| match wire::read::<Down>(&mut &item.frame[..]).unwrap() {
+                    Some(Down::ShowcaseSquire(update)) => Some(update),
+                    _ => None,
+                },
+            )
+            .collect()
+    }
+
+    #[test]
+    fn clip_updates_replace_remove_and_catch_up_without_resending_each_frame() {
+        let (host, hub) = headless("clip", size(10, 4));
+        // Write directly so the background publisher cannot consume the test's
+        // wakeup; this test drives the exact production frame reducer itself.
+        *host.shared.showcase_squire_clip.lock_recover() = Some(clip_resource(1));
+        let mut mirror = Mirror::default();
+        let first = clip_messages(hub.take_frame(&mut mirror));
+        assert_eq!(first.len(), 1);
+        assert_eq!(first[0].prepare().unwrap().unwrap().0.generation, 1);
+        assert!(clip_messages(hub.take_frame(&mut mirror)).is_empty());
+        *host.shared.showcase_squire_clip.lock_recover() = Some(clip_resource(2));
+        let changed = clip_messages(hub.take_frame(&mut mirror));
+        assert_eq!(changed.len(), 1);
+        assert_eq!(changed[0].prepare().unwrap().unwrap().0.generation, 2);
+        {
+            let mut inner = hub.inner.lock_recover();
+            inner.mirror = mirror;
+            let caught = clip_messages(hub.catch_up(&mut inner));
+            assert_eq!(caught.len(), 1);
+            assert_eq!(caught[0].prepare().unwrap().unwrap().0.generation, 2);
+            mirror = std::mem::take(&mut inner.mirror);
+        }
+        *host.shared.showcase_squire_clip.lock_recover() = None;
+        let removed = clip_messages(hub.take_frame(&mut mirror));
+        assert_eq!(removed.len(), 1);
+        assert!(removed[0].prepare().unwrap().is_none());
+        assert!(clip_messages(hub.take_frame(&mut mirror)).is_empty());
+        let mut inner = hub.inner.lock_recover();
+        inner.mirror = mirror;
+        let caught = clip_messages(hub.catch_up(&mut inner));
+        assert_eq!(caught.len(), 1);
+        assert!(
+            caught[0].prepare().unwrap().is_none(),
+            "late viewers must clear their bundled clip"
+        );
+    }
+    #[test]
+    fn v1_viewer_negotiates_original_frames_without_clip_extensions() {
+        let (host, hub) = headless("old-viewer", size(10,4));
+        host.showcase_squire_clip(Some(clip_resource(1).0), Some(clip_resource(1).1));
+        let (mut link, _up) = attach_version(&hub, 1, Kind::Window, size(10,4), Vec::new());
+        link.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+        assert!(matches!(wire::read::<Down>(&mut link).unwrap(), Some(Down::Hello { version:1, .. })));
+        let mut screen = Screen::default();
+        let initial = read_until_present(&mut link, &mut screen);
+        assert!(!initial.iter().any(|message| matches!(message, Down::ShowcaseSquire(_))));
+        // Explicitly exercise broadcast filtering as well as initial catch-up.
+        let removed = Item::plain(&Down::ShowcaseSquire(wire::SquireClipUpdate::capture(None).unwrap())).unwrap();
+        let present = Item::plain(&Down::Present).unwrap();
+        hub.broadcast(&mut hub.inner.lock_recover(), vec![removed, present]);
+        let live = read_until_present(&mut link, &mut screen);
+        assert!(!live.iter().any(|message| matches!(message, Down::ShowcaseSquire(_))));
+    }
+
+    #[test]
+    fn catch_up_advances_clip_mirror_once_and_notifies_existing_viewers() {
+        let (host, hub) = headless("clip-catch-up", size(10,4));
+        let mut inner = hub.inner.lock_recover();
+        let (queue, messages) = mpsc::channel();
+        inner.clients.push(Client { id:99, protocol:2, kind:Kind::Window, size:size(10,4), queue });
+        for resource in [Some(clip_resource(1)), Some(clip_resource(2)), None] {
+            // Write without a wakeup to model attachment winning the queued
+            // publisher race while the production Inner lock remains held.
+            *host.shared.showcase_squire_clip.lock_recover() = resource.clone();
+            let expected = resource.as_ref().map(|(identity,_)| identity.clone());
+            let caught = clip_messages(hub.catch_up(&mut inner));
+            assert_eq!(caught.len(), 1);
+            assert_eq!(caught[0].identity, expected);
+            let broadcast = clip_messages(messages.try_iter().collect());
+            assert_eq!(broadcast.len(), 1, "existing viewers receive the same state transition");
+            assert_eq!(broadcast[0].identity, expected);
+            assert!(clip_messages(hub.take_frame(&mut inner.mirror)).is_empty(), "queued publisher wakeup must not duplicate catch-up");
+        }
+    }
+
+    // The showcase's lifecycle across a link: a showing is up until the
+    // producer closes it, a newer one replaces it, or an operator closes it
+    // at any window; whichever it is, no window is shown it afterwards.
+    type Link = std::os::unix::net::UnixStream;
+
+    /// Read what the session sends a window until `found` says so; false
+    /// when nothing more arrives within `ms`.
+    fn wait_for(link: &mut Link, ms: u64, found: impl Fn(&Down) -> bool) -> bool {
+        link.set_read_timeout(Some(Duration::from_millis(ms))).unwrap();
+        while let Ok(Some(down)) = wire::read::<Down>(link) {
+            if found(&down) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn wait_until(ms: u64, mut done: impl FnMut() -> bool) -> bool {
+        let end = Instant::now() + Duration::from_millis(ms);
+        while Instant::now() < end {
+            if done() {
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        done()
+    }
+
+    fn opened(down: &Down) -> bool {
+        matches!(down, Down::ShowcaseOpen { .. })
+    }
+
+    fn closed(down: &Down) -> bool {
+        matches!(down, Down::ShowcaseClose)
+    }
+
+    /// A session with `windows` windows attached and a showing up on all of them.
+    fn showing_on(windows: usize) -> (Host, Hub, u64, Vec<(Link, Link)>) {
+        let (host, hub) = headless("showing", size(10, 4));
+        let mut links: Vec<(Link, Link)> = (0..windows)
+            .map(|_| attach(&hub, Kind::Window, size(10, 4), Vec::new()))
+            .collect();
+        for (link, _) in &mut links {
+            assert!(matches!(wire::read::<Down>(link).unwrap(), Some(Down::Hello { .. })));
+            read_until_present(link, &mut Screen::default());
+        }
+        let serial = host.showcase(Showing::new("proof", (8, 8), crate::showcase::Fit::Contain));
+        host.showcase_frame(8, 8, vec![0; 8 * 8 * 4]);
+        for (link, _) in &mut links {
+            assert!(wait_for(link, 5000, opened), "the showing reaches every window");
+        }
+        (host, hub, serial, links)
+    }
+
+    fn operator_closes(up: &mut Link, serial: u64) {
+        wire::write(up, &Up::Showcase(Feedback { serial, closed: true, ..Feedback::default() })).unwrap();
+    }
+
+    /// What a window that attaches now is sent on arrival.
+    fn arrival(hub: &Hub) -> Vec<Down> {
+        let (mut link, _up) = attach(hub, Kind::Window, size(10, 4), Vec::new());
+        assert!(matches!(wire::read::<Down>(&mut link).unwrap(), Some(Down::Hello { .. })));
+        read_until_present(&mut link, &mut Screen::default())
+    }
+
+    #[test]
+    fn a_remote_operators_close_reaches_the_other_windows() {
+        let (_host, _hub, serial, mut links) = showing_on(2);
+        operator_closes(&mut links[0].1, serial);
+        assert!(
+            wait_for(&mut links[1].0, 2000, closed),
+            "the window that did not close it is still showing the panel"
+        );
+    }
+
+    #[test]
+    fn a_dismissed_showing_is_not_shown_to_a_window_that_attaches_later() {
+        let (_host, hub, serial, mut links) = showing_on(1);
+        assert!(arrival(&hub).iter().any(opened), "a live showing is caught up to");
+        operator_closes(&mut links[0].1, serial);
+        assert!(
+            wait_for(&mut links[0].0, 2000, closed),
+            "the session never took the panel down, so every attach replays it"
+        );
+        assert!(!arrival(&hub).iter().any(opened), "a dismissed panel came back on attach");
+    }
+
+    #[test]
+    fn a_remote_operators_close_is_counted_like_a_local_one() {
+        let (host, _hub, serial, mut links) = showing_on(1);
+        assert_eq!(host.showcase_dismissals(), 0);
+        operator_closes(&mut links[0].1, serial);
+        assert!(wait_until(2000, || host.showcase_dismissals() == 1), "the dismissal was never counted");
+        assert!(!host.showcase_live(serial));
+        assert!(!host.showcase_up());
+    }
+
+    #[test]
+    fn a_close_for_a_showing_that_was_replaced_changes_nothing() {
+        let (host, hub, old, mut links) = showing_on(2);
+        let new = host.showcase(Showing::new("next", (8, 8), crate::showcase::Fit::Contain));
+        assert!(wait_for(&mut links[1].0, 5000, |d| matches!(d, Down::ShowcaseOpen { serial, .. } if *serial == new)));
+        operator_closes(&mut links[0].1, old);
+        // The link is in order: once this click lands, the close before it has been handled.
+        let click = Feedback { serial: new, clicks: 1, ..Feedback::default() };
+        wire::write(&mut links[0].1, &Up::Showcase(click)).unwrap();
+        assert!(wait_until(2000, || host.showcase_clicks() == 1));
+        assert!(host.showcase_live(new), "a newer showing is not the operator's to close");
+        assert_eq!(host.showcase_dismissals(), 0);
+        assert!(arrival(&hub).iter().any(opened), "the newer showing is still caught up to");
+    }
+
+    #[test]
+    fn the_producers_own_close_clears_the_mirror_and_is_not_a_dismissal() {
+        let (host, hub, serial, mut links) = showing_on(1);
+        host.close_showcase();
+        assert!(wait_for(&mut links[0].0, 2000, closed));
+        assert!(!host.showcase_live(serial));
+        assert_eq!(host.showcase_dismissals(), 0);
+        assert!(!arrival(&hub).iter().any(opened));
+    }
+
 }

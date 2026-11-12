@@ -81,16 +81,16 @@ def nl_prompt(target):
             f"Did that click activate {t}? YES or NO.")
 
 
-def ask_nl(composite, target):
+def ask_nl(composite, target, tokens=96):
     prompt = (f"<|im_start|>system\n{NL_SYS}<|im_end|>\n<|im_start|>user\n<|vision_start|>"
               f"<|image_pad|><|vision_end|>{nl_prompt(target)}<|im_end|>\n<|im_start|>assistant\n"
               "<think>\n\n</think>\n\n")
     out = W.post("/generate", {"text": prompt, "image_data": [W.jpeg_b64(composite)],
-                               "sampling_params": {"temperature": 0.0, "max_new_tokens": 96}})
+                               "sampling_params": {"temperature": 0.0, "max_new_tokens": tokens}})
     txt = (out.get("text") or "").strip()
     head = txt.split("\n")[0].lower()
     m = re.search(r"\b(yes|no)\b", head) or re.search(r"\b(yes|no)\b", txt.lower())
-    return (m.group(1) == "yes" if m else None), txt[:160]
+    return (m.group(1) == "yes" if m else None), txt[:600], len(txt)
 
 
 # ------------------------------------------------------- channel 2: re-grounding
@@ -221,8 +221,8 @@ def row_pair(drv, name, truth, kind, url, view, mode, a):
                 comp.save(os.path.join(a.save_crops,
                                        f"{mode}-{kind}-{slug(name)}-{'real' if ok else 'decoy'}.png"))
             t0 = time.time()
-            verdict, raw = ask_nl(comp, name)
-            rec["nl"] = {"yes": verdict, "raw": raw}
+            verdict, raw, tlen = ask_nl(comp, name, a.nl_tokens)
+            rec["nl"] = {"yes": verdict, "raw": raw, "chars": tlen}
             rec["says_done"] = bool(verdict)
             rec["secs"] = round(time.time() - t0, 1)
         return rec
@@ -315,6 +315,8 @@ def main():
     ap.add_argument("--mode", default="ring", choices=("ring", "none"))
     ap.add_argument("--verifier", default="reground", choices=("reground", "nl"))
     ap.add_argument("--fixture-limit", type=int, default=0)
+    ap.add_argument("--nl-tokens", type=int, default=96,
+                    help="decoding budget for the language verifier (act 3 used 96)")
     ap.add_argument("--real", type=int, default=0, help="real pages to try after the fixture")
     ap.add_argument("--real-targets", type=int, default=4)
     ap.add_argument("--no-fixtures", action="store_true")

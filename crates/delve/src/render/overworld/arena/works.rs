@@ -175,6 +175,10 @@ fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
         .fall
         .map_or(0.0, |left| 1.0 - left as f32 / skills::WALL_CRUMBLE as f32);
     let wear = (1.0 - w.share()).clamp(0.0, 1.0);
+    if w.thick {
+        mushroom_wall(cv, a, b, wear, fell);
+        return;
+    }
     if run.side_on() {
         // A wall of planks standing on the ground, as tall as it is.
         let planks = 4;
@@ -274,6 +278,49 @@ fn barricade(cv: &mut Img, run: &Run, w: &Barricade) {
             // A splinter beside the stump.
             cv.put(x + 3, y - 1, 'O');
             cv.put(x + 4, y, 'o');
+        }
+    }
+}
+
+/// The Fungelder's garden: mushrooms standing thick along the line — pale
+/// stalks, broad spotted caps. A wounded one stands shorter; a falling
+/// one folds back into the ground it came from and leaves only litter.
+fn mushroom_wall(cv: &mut Img, a: (i32, i32), b: (i32, i32), wear: f32, fell: f32) {
+    let (dx, dy) = ((b.0 - a.0) as f32, (b.1 - a.1) as f32);
+    let length = dx.hypot(dy).max(1.0);
+    let caps = (length / 5.0).round() as i32 + 1;
+    for k in 0..caps {
+        let t = if caps == 1 {
+            0.5
+        } else {
+            k as f32 / (caps - 1) as f32
+        };
+        let (x, y) = (
+            (a.0 as f32 + dx * t).round() as i32,
+            (a.1 as f32 + dy * t).round() as i32,
+        );
+        let short = (hash(k, 9, 4) % 100) as f32 / 100.0 < wear;
+        let h = ((1.0 - fell) * if short { 2.0 } else { 3.0 }).round() as i32;
+        // The stalk: pale, and unbothered by anybody's war.
+        for s in 0..h.max(1) {
+            cv.put(x, y - s, if s == 0 { 'H' } else { 'c' });
+        }
+        if h < 1 {
+            // A rotting stump, and a lie about what stood here.
+            cv.put(x - 1, y, 'f');
+            cv.put(x + 1, y, 'f');
+            continue;
+        }
+        // The cap: broad, spotted, the whole point of the exercise.
+        let top = y - h;
+        let half = if short { 1 } else { 2 };
+        for dx2 in -half..=half {
+            let rim = dx2 == -half || dx2 == half;
+            cv.put(x + dx2, top - 1, if rim { 'l' } else { 'Y' });
+            cv.put(x + dx2, top, 'C');
+        }
+        if !short {
+            cv.put(x, top - 1, 'c');
         }
     }
 }

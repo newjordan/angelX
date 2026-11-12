@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sir Cheeks · Knights Wish</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#15121d;color:#f2e6dc}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px}
+main{width:min(820px,100%)}.eyebrow{color:#c6dc72;letter-spacing:.18em;text-transform:uppercase;font-size:12px;font-weight:700}
+h1{font-size:clamp(36px,7vw,64px);letter-spacing:-.055em;margin:8px 0 0}p{color:#beb1c6;line-height:1.6;margin:10px 0 22px}
+.stage{border:1px solid #3c3147;background:radial-gradient(ellipse at 45% 70%,#332739,#1b1623 70%);border-radius:20px;overflow:hidden}
+canvas{display:block;width:min(100%,640px);height:auto;margin:auto;image-rendering:pixelated}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:18px}
+button,select{background:#2a2234;color:inherit;border:1px solid #55435f;border-radius:9px;padding:10px 15px;font:inherit;cursor:pointer}
+button[aria-pressed=true]{background:#c6dc72;color:#1a2010;border-color:#c6dc72}
+button:focus-visible,select:focus-visible,a:focus-visible{outline:2px solid #e8f3be;outline-offset:4px}
+label{margin-left:auto;color:#beb1c6;font-size:14px}#status{font-variant-numeric:tabular-nums;color:#a99bb4;font-size:13px;min-height:24px;margin-top:14px}
+a{color:#c6dc72}footer{display:flex;gap:24px;margin-top:20px;font-size:13px}
+</style>
+<main>
+<div class="eyebrow">Knights Wish · Monster No. 01</div>
+<h1>Sir Cheeks</h1>
+<p>One eye. Two cheeks. A sword you can smell before you see.</p>
+<div class="stage"><canvas id="sprite" width="640" height="512" role="img" aria-label="Animated cyclops buttcheek monster swinging a green stinky sword"></canvas></div>
+<div class="controls">
+<button data-mode="demo" aria-pressed="true">Showboat</button>
+<button data-mode="idle" aria-pressed="false">Idle wobble</button>
+<button data-mode="attack" aria-pressed="false">Stinkblade</button>
+<button id="pause" aria-pressed="false">Pause</button>
+<label for="speed">Speed</label><select id="speed"><option value=".5">½×</option><option value="1" selected>1×</option><option value="1.5">1½×</option></select>
+</div>
+<div id="status" aria-live="off">Loading sprite sheet…</div>
+<footer><a href="sprite-sheet.png">Sprite sheet</a><a href="atlas.json">Frame data</a><a href="prompt.txt">ImageGen prompts</a></footer>
+</main>
+<script>
+const atlas={"name":"Sir Cheeks — cyclops","image":"sprite-sheet.png","imageSize":[1774,887],"canvasSize":[640,512],"origin":[256,448],"sampling":"nearest","note":"Use explicit source rectangles; the generated sheet has approximate grid spacing. Anchors align the stance and boot baseline. Source pixels are preserved.","frames":[{"name":"idle-0","rect":[21,21,399,368],"anchor":[160,360],"duration":220},{"name":"idle-1","rect":[466,30,397,359],"anchor":[159,351],"duration":160},{"name":"idle-2","rect":[908,25,400,364],"anchor":[160,356],"duration":160},{"name":"idle-3","rect":[1352,24,399,365],"anchor":[160,357],"duration":220},{"name":"windup","rect":[23,448,294,385],"anchor":[163,376],"duration":240},{"name":"slash","rect":[412,511,436,336],"anchor":[134,313],"duration":90},{"name":"follow-through","rect":[852,558,485,274],"anchor":[130,266],"duration":170},{"name":"recover","rect":[1352,465,399,367],"anchor":[160,359],"duration":260}],"animations":{"idle":[0,1,2,3],"attack":[4,5,6,7],"demo":[0,1,2,3,0,1,2,3,4,5,6,7]}};
+const canvas=document.querySelector('#sprite'),ctx=canvas.getContext('2d'),status=document.querySelector('#status');
+const sprite=new Image(); sprite.src=atlas.image;ctx.imageSmoothingEnabled=false;
+let mode='demo',step=0,elapsed=0,last=0,paused=matchMedia('(prefers-reduced-motion: reduce)').matches,speed=1;
+const pause=document.querySelector('#pause');
+function syncPause(){pause.textContent=paused?'Play':'Pause';pause.setAttribute('aria-pressed',String(paused));}
+function draw(){
+ const index=atlas.animations[mode][step],f=atlas.frames[index],[x,y,w,h]=f.rect;
+ ctx.clearRect(0,0,canvas.width,canvas.height);
+ ctx.fillStyle='#100d16';ctx.beginPath();ctx.ellipse(256,453,117,12,0,0,Math.PI*2);ctx.fill();
+ ctx.drawImage(sprite,x,y,w,h,atlas.origin[0]-f.anchor[0],atlas.origin[1]-f.anchor[1],w,h);
+ status.textContent=f.name+' · frame '+(index+1)+' / 8';
+}
+function tick(now){
+ const dt=last?Math.min(now-last,100):0;last=now;
+ if(!paused){
+  elapsed+=dt*speed;let sequence=atlas.animations[mode];
+  while(elapsed>=atlas.frames[sequence[step]].duration){
+   elapsed-=atlas.frames[sequence[step]].duration;step=(step+1)%sequence.length;
+  }
+  draw();
+ }
+ requestAnimationFrame(tick);
+}
+document.querySelectorAll('[data-mode]').forEach(button=>button.addEventListener('click',()=>{
+ mode=button.dataset.mode;step=0;elapsed=0;
+ document.querySelectorAll('[data-mode]').forEach(b=>b.setAttribute('aria-pressed',String(b===button)));
+ if(sprite.complete&&sprite.naturalWidth)draw();
+}));
+pause.addEventListener('click',()=>{paused=!paused;syncPause();});
+document.querySelector('#speed').addEventListener('change',e=>{speed=Number(e.target.value);});
+sprite.onload=()=>{draw();requestAnimationFrame(tick)};
+sprite.onerror=()=>{status.textContent='Could not load sprite-sheet.png. Keep it beside this preview file.';};
+syncPause();
+</script>
+</html>

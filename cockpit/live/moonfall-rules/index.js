@@ -145,7 +145,8 @@ const sessionIn = (frame) => {
       case 'Play': return [0, 0, 0, 0, 0]
       case 'Rewind': return [1, word(v.t), word(v.from), 0, v.fell ? 1 : 0]
       case 'Skip': return [2, word(v.t), word(v.from), word(v.to), 0]
-      default: return [3, word(v.t), 0, 0, 0]
+      case 'Won': return [3, word(v.t), 0, 0, 0]
+      default: throw Error('moonfall: unknown phase')
     }
   })()
   const [inkOn, ink] = some(w.ink_given)
@@ -185,10 +186,23 @@ const sessionIn = (frame) => {
   }
 }
 
+// The run's phase word, 0 Play, 1 Rewind, 2 Skip, 3 Won (the order of `sessionIn`'s encoding above).
+// Any other word is a corrupt frame and is refused, as an unknown note is; reading it as Won would
+// pay a win.
+const phaseOut = f => {
+  switch (f.phase) {
+    case 0: return 'Play'
+    case 1: return { Rewind: { t: f.p_t, from: f.p_from, fell: f.p_fell === 1 } }
+    case 2: return { Skip: { t: f.p_t, from: f.p_from, to: f.p_to } }
+    case 3: return { Won: { t: f.p_t } }
+    default: throw Error('moonfall: unknown phase')
+  }
+}
+
 const sessionOut = s => {
   const f = fieldsOf(SS, s.w)
   const t = f, w = f, m = f, c = f, n = f
-  const phase = t.phase === 0 ? 'Play' : t.phase === 1 ? { Rewind: { t: t.p_t, from: t.p_from, fell: t.p_fell === 1 } } : t.phase === 2 ? { Skip: { t: t.p_t, from: t.p_from, to: t.p_to } } : { Won: { t: t.p_t } }
+  const phase = phaseOut(t)
   const parked = seatsOut(s.parked)
   const out = {
     seats: seatsOut(s.seats),

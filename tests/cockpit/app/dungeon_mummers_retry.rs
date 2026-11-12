@@ -1,7 +1,7 @@
 // Uses the pre-existing blocked-realm/private-checkpoint regression entry point.
 fn mummers_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::{Input, RoomKind, Run, countryside as c, mummers as m,
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::{Input, RoomKind, Run, countryside as c, mummers as m,
         pastimes::{Game, Halfpipe, LIP_OPEN}, world};
     use std::collections::BTreeMap;
     app.economy().treasury.add(Spoil::Gold, 110);
@@ -30,7 +30,7 @@ fn mummers_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert_eq!(r.home.countryside.games.halfpipe.wins, 1);
         let p = &c::PLOTS[m::PLOT];
         r.arrive(world::room_of(&r.dungeon, p.room).unwrap(), p.at);
-        for _ in 0..crate::drive::together_shooter::home::BUY_HOLD {
+        for _ in 0..crate::delve::together_shooter::home::BUY_HOLD {
             r.step(&BTreeMap::from([(1, Input {interact:true, ..Default::default()})]));
         }
         assert_eq!(r.marks.get("country:build:caravan"), Some(&1));

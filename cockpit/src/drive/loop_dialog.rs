@@ -52,19 +52,49 @@ pub(crate) struct LoopLaunchDialog {
     pub(crate) deli: bool,
     pub(crate) purpose: LoopLaunchPurpose,
     duration_idx: usize,
-    iterations_idx: usize,
+    laps: Laps,
     budget_idx: usize,
     custom_duration: Option<u64>,
     custom_iterations: Option<usize>,
     custom_budget: Option<usize>,
     podrace: bool,
     focus: LoopDialogFocus,
-    /// The typed buffer while the operator sets a custom loop length. `Some`
-    /// means the iters row is in entry mode: digits edit it, Enter commits the
-    /// length, Esc drops it and the row returns to the choice it left.
-    custom_entry: Option<String>,
-    /// The choice the iters row falls back to when the entry is dropped.
-    pre_custom_idx: usize,
+    /// `Some` while the operator sets a custom loop length, which puts the iters
+    /// row in entry mode: digits edit it, Enter commits the length, Esc drops it
+    /// and the row returns to the choice it left.
+    entry: Option<LengthEntry>,
+}
+
+/// Which laps choice is selected: one of the presets, or the custom slot that
+/// sits after them and holds the length the operator typed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Laps {
+    Preset(usize),
+    /// The committed length in `custom_iterations`, which is always set while
+    /// this is selected.
+    Custom,
+}
+
+/// Every launch starts, and the handoff-RL card starts, on the last preset.
+const ENDLESS_LAPS: Laps = Laps::Preset(ITERATIONS.len() - 1);
+
+impl Laps {
+    /// Where the choice sits in the laps picker: the presets, then the custom slot.
+    fn slot(self) -> usize {
+        match self {
+            Laps::Preset(i) => i,
+            Laps::Custom => ITERATIONS.len(),
+        }
+    }
+}
+
+/// The custom length while it is being typed.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct LengthEntry {
+    typed: String,
+    /// What the laps row falls back to on Esc or an unusable draft: the choice
+    /// it was on when the entry opened, the committed custom length included.
+    return_to: Laps,
 }
 
 /// One of the card's three pickers as it is drawn: which focus it is, its
@@ -178,15 +208,14 @@ impl LoopLaunchDialog {
             deli,
             purpose: LoopLaunchPurpose::AgentLoop,
             duration_idx: DURATIONS.len() - 1,
-            iterations_idx: ITERATIONS.len() - 1,
+            laps: ENDLESS_LAPS,
             budget_idx: BUDGETS.len() - 1,
             custom_duration: None,
             custom_iterations: None,
             custom_budget: None,
             podrace: false,
             focus: LoopDialogFocus::Duration,
-            custom_entry: None,
-            pre_custom_idx: ITERATIONS.len() - 1,
+            entry: None,
         }
     }
 
@@ -203,15 +232,14 @@ impl LoopLaunchDialog {
                 .iter()
                 .position(|choice| choice.secs == 5 * 24 * 60 * 60)
                 .expect("5d duration is built in"),
-            iterations_idx: ITERATIONS.len() - 1,
+            laps: ENDLESS_LAPS,
             budget_idx: BUDGETS.len() - 1,
             custom_duration: None,
             custom_iterations: None,
             custom_budget: None,
             podrace: true,
             focus: LoopDialogFocus::Duration,
-            custom_entry: None,
-            pre_custom_idx: ITERATIONS.len() - 1,
+            entry: None,
         }
     }
 
@@ -224,7 +252,7 @@ impl LoopLaunchDialog {
         dialog.purpose = LoopLaunchPurpose::HandoffRl;
         dialog.duration_idx = DURATIONS.len() - 1;
         dialog.budget_idx = BUDGETS.len() - 1;
-        dialog.iterations_idx = ITERATIONS.len() - 1; // endless rolls
+        dialog.laps = ENDLESS_LAPS; // endless rolls
         dialog
     }
 
@@ -246,10 +274,18 @@ impl LoopLaunchDialog {
                 .map(|c| c.secs)
                 .or(self.custom_duration)
                 .expect("selected duration exists"),
-            max_iters: ITERATIONS
-                .get(self.iterations_idx)
-                .map(|c| c.iters)
-                .or(self.custom_iterations)
+            // A typed-but-uncommitted length is what the row shows, so it is
+            // what a start launches with; an empty or zero draft is not a
+            // length and the standing choice underneath applies.
+            max_iters: self
+                .entry
+                .as_ref()
+                .and_then(|entry| entry.typed.trim().parse::<usize>().ok())
+                .filter(|&n| n > 0)
+                .or_else(|| match self.laps {
+                    Laps::Preset(i) => ITERATIONS.get(i).map(|c| c.iters),
+                    Laps::Custom => self.custom_iterations,
+                })
                 .expect("selected iteration cap exists"),
             token_budget: BUDGETS
                 .get(self.budget_idx)
@@ -267,18 +303,17 @@ impl LoopLaunchDialog {
             .iter()
             .position(|c| c.secs == settings.deadline_secs)
             .unwrap_or(DURATIONS.len());
-        self.iterations_idx = ITERATIONS
+        self.laps = ITERATIONS
             .iter()
             .position(|c| c.iters == settings.max_iters)
-            .unwrap_or(ITERATIONS.len());
+            .map_or(Laps::Custom, Laps::Preset);
         self.budget_idx = BUDGETS
             .iter()
             .position(|c| c.tokens == settings.token_budget)
             .unwrap_or(BUDGETS.len());
         self.custom_duration =
             (self.duration_idx == DURATIONS.len()).then_some(settings.deadline_secs);
-        self.custom_iterations =
-            (self.iterations_idx == ITERATIONS.len()).then_some(settings.max_iters);
+        self.custom_iterations = (self.laps == Laps::Custom).then_some(settings.max_iters);
         self.custom_budget = (self.budget_idx == BUDGETS.len()).then_some(settings.token_budget);
         self.podrace = settings.podrace;
     }
@@ -360,13 +395,13 @@ impl LoopLaunchDialog {
                 value: if entry.is_some() {
                     laps[ITERATIONS.len()].clone()
                 } else {
-                    pick(&laps, self.iterations_idx)
+                    pick(&laps, self.laps.slot())
                 },
                 // While a length is typed the custom slot is the one in hand.
                 selected: if entry.is_some() {
                     ITERATIONS.len()
                 } else {
-                    self.iterations_idx.min(laps.len() - 1)
+                    self.laps.slot()
                 },
                 entry: entry.is_some(),
                 choices: laps,
@@ -401,11 +436,11 @@ impl LoopLaunchDialog {
                 );
             }
             LoopDialogFocus::Iterations => {
-                if self.custom_entry.is_some() {
+                if self.entry.is_some() {
                     return; // the entry owns the row until it is committed or dropped
                 }
                 self.select_iterations(cycle_index(
-                    self.iterations_idx,
+                    self.laps.slot(),
                     // presets + the always-present custom-length slot
                     ITERATIONS.len() + 1,
                     forward,
@@ -450,18 +485,15 @@ impl LoopLaunchDialog {
     }
 
     fn select_iterations(&mut self, index: usize) {
-        // The custom slot lives one past the presets. With a committed length it
-        // is an ordinary choice; without one it opens the entry instead of
-        // claiming a cap nobody set.
+        // The custom slot lives one past the presets, and selecting it always
+        // opens the entry — seeded with the committed length when there is
+        // one — so a set length can be revised instead of being one-shot.
+        // Enter commits; Esc hands the row back to the choice it left.
         if index >= ITERATIONS.len() {
-            if self.custom_iterations.is_some() {
-                self.iterations_idx = ITERATIONS.len();
-            } else {
-                self.begin_custom_length();
-            }
+            self.begin_custom_length();
             return;
         }
-        self.iterations_idx = index;
+        self.laps = Laps::Preset(index);
         if self.settings().max_iters == 0 {
             self.duration_idx = DURATIONS.len() - 1;
             self.budget_idx = BUDGETS.len() - 1;
@@ -477,32 +509,35 @@ impl LoopLaunchDialog {
 
     /// True while the iters row is taking a typed length.
     pub(crate) fn custom_entry_active(&self) -> bool {
-        self.custom_entry.is_some()
+        self.entry.is_some()
     }
 
     /// The typed buffer, as it should appear on screen.
     pub(crate) fn custom_entry_text(&self) -> Option<&str> {
-        self.custom_entry.as_deref()
+        self.entry.as_ref().map(|entry| entry.typed.as_str())
     }
 
     /// Open the custom-length entry, seeded with the committed length if there
     /// is one, so re-opening it never loses what the operator set.
     pub(crate) fn begin_custom_length(&mut self) {
-        if self.custom_entry.is_none() {
-            self.pre_custom_idx = self.iterations_idx.min(ITERATIONS.len() - 1);
-            self.custom_entry = Some(String::new());
+        if self.entry.is_none() {
+            self.entry = Some(LengthEntry {
+                typed: String::new(),
+                return_to: self.laps,
+            });
         }
         if let Some(committed) = self.custom_iterations
-            && self.custom_entry.as_deref().is_some_and(str::is_empty)
+            && let Some(entry) = self.entry.as_mut()
+            && entry.typed.is_empty()
         {
-            self.custom_entry = Some(committed.to_string());
+            entry.typed = committed.to_string();
         }
         self.focus = LoopDialogFocus::Iterations;
     }
 
     /// Type a digit into the entry. Returns whether the key was consumed.
     pub(crate) fn custom_length_digit(&mut self, ch: char) -> bool {
-        let Some(buffer) = self.custom_entry.as_mut() else {
+        let Some(LengthEntry { typed: buffer, .. }) = self.entry.as_mut() else {
             return false;
         };
         if !ch.is_ascii_digit() {
@@ -520,7 +555,7 @@ impl LoopLaunchDialog {
 
     /// Delete the last typed digit.
     pub(crate) fn custom_length_backspace(&mut self) -> bool {
-        let Some(buffer) = self.custom_entry.as_mut() else {
+        let Some(LengthEntry { typed: buffer, .. }) = self.entry.as_mut() else {
             return false;
         };
         buffer.pop();
@@ -530,17 +565,17 @@ impl LoopLaunchDialog {
     /// Commit the typed length. An empty entry, or a zero, is not a length: the
     /// row falls back to the choice it had before the entry opened.
     pub(crate) fn commit_custom_length(&mut self) -> bool {
-        let Some(buffer) = self.custom_entry.take() else {
+        let Some(entry) = self.entry.take() else {
             return false;
         };
-        match buffer.trim().parse::<usize>() {
+        match entry.typed.trim().parse::<usize>() {
             Ok(iters) if iters > 0 => {
                 self.custom_iterations = Some(iters);
-                self.iterations_idx = ITERATIONS.len();
+                self.laps = Laps::Custom;
                 true
             }
             _ => {
-                self.iterations_idx = self.pre_custom_idx.min(ITERATIONS.len() - 1);
+                self.laps = entry.return_to;
                 false
             }
         }
@@ -548,10 +583,10 @@ impl LoopLaunchDialog {
 
     /// Drop the typed length and return the row to the choice it left.
     pub(crate) fn cancel_custom_length(&mut self) -> bool {
-        if self.custom_entry.take().is_none() {
+        let Some(entry) = self.entry.take() else {
             return false;
-        }
-        self.iterations_idx = self.pre_custom_idx.min(ITERATIONS.len() - 1);
+        };
+        self.laps = entry.return_to;
         true
     }
 

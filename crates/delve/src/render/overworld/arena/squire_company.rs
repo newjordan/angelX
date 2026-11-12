@@ -792,6 +792,7 @@ mod tests {
                         power: 1,
                         taunt: 0,
                         rising: 0,
+                        made: None,
                     },
                     ability: 0,
                     effect: 0,

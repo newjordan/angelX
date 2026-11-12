@@ -40,6 +40,7 @@ pub mod level;
 pub mod math;
 pub mod rider;
 pub mod session;
+pub mod show;
 pub mod terrain;
 pub mod world;
 
@@ -66,6 +67,10 @@ fn ask<T: serde::de::DeserializeOwned>(mut ask: serde_json::Value) -> Option<T> 
     #[cfg(test)]
     install_oracle();
     if let Some(session) = ask.get_mut("session") {
+        // What the picture remembers (`show.rs`) is not the module's to see.
+        if let Some(fields) = session.as_object_mut() {
+            fields.remove("show");
+        }
         split_taken(session);
     }
     let said = crate::scripted::step::<_, serde_json::Value>(MODULE, &ask).map_err(|error| error.to_string());
@@ -215,10 +220,10 @@ fn settle(realm: &mut Realm<'_>, marks: &BTreeMap<String, u32>) -> Settled {
 
 impl Run {
     pub fn lightgallop_showing(&self) -> bool {
-        self.room().kind == RoomKind::Forest && self.lightgallop.is_some()
+        self.on_stage() && self.lightgallop.is_some()
     }
     pub fn start_lightgallop(&mut self) {
-        if self.room().kind != RoomKind::Forest {
+        if !self.on_stage() {
             return;
         }
         let Some(session) = Session::new(&self.players) else {
@@ -262,7 +267,13 @@ impl Run {
                 self.sounds.push("play_card");
             }
         }
+        let held = s.show.held(s.elapsed);
         self.lightgallop = Some(s);
+        // The winning blow stops the room a moment: the warden's fall.
+        if let Some(weight) = held {
+            self.hold_for(weight);
+            self.finish_hit_hold();
+        }
     }
     /// The ride is done: mark the campaign, pay each seated knight once, and
     /// keep the best.
@@ -334,6 +345,9 @@ mod play_tests;
 #[cfg(test)]
 #[path = "../../tests/rules/together_lightgallop_ride__tests.rs"]
 mod ride_tests;
+#[cfg(test)]
+#[path = "../../tests/rules/together_lightgallop_show__tests.rs"]
+mod show_tests;
 #[cfg(all(test, feature = "bend-cases-games-b"))]
 #[path = "../../tests/rules/lightgallop_bend_cases__tests.rs"]
 mod lightgallop_bend_cases_tests;

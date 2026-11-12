@@ -195,6 +195,7 @@ pub(super) fn call_imposture(phantoms: &mut Vec<super::ults::Phantom>, hero: &He
         dx,
         dy,
         left: hero.spell_step(spell).imposture,
+        ..super::ults::Phantom::default()
     });
 }
 
@@ -244,6 +245,117 @@ pub(super) fn hedge_maze(
             age: 0,
             owner: id,
             fall: None,
+            thick: false,
         });
     }
+}
+
+// ─── the second grimoire, continued ─────────────────────────────────────────
+
+/// Vesper Bell: how long the wings are held to the ground (a second's
+/// stumble, and every hazard a flier never feared is suddenly relevant).
+pub(crate) const VESPER_GROUNDS: u32 = 30;
+/// Monk's Patience: how long the knight may not fire, and mends a little.
+pub(crate) const PATIENCE_TICKS: u32 = 6 * HZ;
+/// Plague of Frogs: how long the small ones hop, how big is too big to
+/// frog, and how wide the ring reaches.
+pub(crate) const FROG_TICKS: u32 = 6 * HZ;
+pub(crate) const FROG_MAX_HP: u32 = 60;
+pub(crate) const FROG_RING: f32 = 9.0;
+/// Excommunicate: how near the nearest monster must stand to any knight,
+/// how long the shame holds it, and what a boss pays instead of going.
+pub(crate) const EXCOMMUNICATE_REACH: f32 = 8.0;
+pub(crate) const EXCOMMUNICATE_FREEZE: u32 = 3 * HZ;
+pub(crate) const EXCOMMUNICATE_SCOURGE: u32 = 15;
+
+/// Vesper Bell: the evening bell rings once, and everything with wings
+/// falls out of the air and MUST WALK. Ground monsters never noticed;
+/// a room of bats suddenly has no cavalry.
+pub(super) fn vesper_bell(enemies: &mut [Enemy]) {
+    for enemy in enemies.iter_mut().filter(|e| e.hp > 0 && e.kind.flies()) {
+        enemy.grounded = enemy.grounded.max(VESPER_GROUNDS);
+    }
+}
+
+/// Monk's Patience: for six seconds the knight may not fire, and needs
+/// nothing: half of every blow, a mend every half second. The monk's
+/// patience is endless, and boring, and wins.
+pub(super) fn monks_patience(hero: &mut Hero) {
+    hero.patience = PATIENCE_TICKS;
+}
+
+/// Plague of Frogs: every small monster in a wide ring of the knights
+/// becomes a frog — the hexer's own medicine, bottled from the other
+/// side. Frogs hop away from the knights and can do nothing else; the
+/// plague wears off in six seconds.
+pub(super) fn plague_of_frogs(enemies: &mut [Enemy], knights: &BTreeMap<u32, (f32, f32)>) {
+    let spots: Vec<(f32, f32)> = knights.values().copied().collect();
+    for enemy in enemies.iter_mut().filter(|e| {
+        e.hp > 0
+            && e.boss.is_none()
+            && !e.kind.elite()
+            && e.kind.hp() <= FROG_MAX_HP
+            && e.kind != EnemyKind::Ward
+            && e.kind != EnemyKind::Dummy
+    }) {
+        if spots
+            .iter()
+            .any(|&(kx, ky)| (kx - enemy.x).hypot(ky - enemy.y) <= FROG_RING)
+        {
+            enemy.frog = FROG_TICKS;
+        }
+    }
+}
+
+/// Excommunicate: the nearest monster within eight paces of any knight is
+/// READ OUT of the room — flung to the farthest corner, shunned three
+/// seconds even its own kind will not stand near, and it drops from its
+/// kind's drop rolls this death. The Church keeps its peace and its cut.
+/// Bosses and guardians take instead a scourging: fifteen percent of all
+/// they are, and the shame.
+pub(super) fn excommunicate(
+    enemies: &mut [Enemy],
+    knights: &BTreeMap<u32, (f32, f32)>,
+    room: (f32, f32),
+) {
+    let spots: Vec<(f32, f32)> = knights.values().copied().collect();
+    let Some(target) = enemies
+        .iter_mut()
+        .filter(|e| e.hp > 0 && e.kind != EnemyKind::Ward && e.kind != EnemyKind::Dummy)
+        .min_by(|a, b| {
+            let near = |e: &Enemy| {
+                spots
+                    .iter()
+                    .map(|&(kx, ky)| (kx - e.x).hypot(ky - e.y))
+                    .fold(f32::INFINITY, f32::min)
+            };
+            near(a).total_cmp(&near(b))
+        })
+        .filter(|e| {
+            spots
+                .iter()
+                .any(|&(kx, ky)| (kx - e.x).hypot(ky - e.y) <= EXCOMMUNICATE_REACH)
+        })
+    else {
+        return;
+    };
+    if target.boss.is_some() {
+        target.hp = target.hp.saturating_sub(target.max_hp * EXCOMMUNICATE_SCOURGE / 100);
+        return;
+    }
+    // The farthest corner of the room: the Church is not subtle.
+    let (w, h) = room;
+    let corners = [(2.5, 2.5), (w - 2.5, 2.5), (2.5, h - 2.5), (w - 2.5, h - 2.5)];
+    let (cx, cy) = corners
+        .into_iter()
+        .max_by(|a, b| {
+            (a.0 - target.x)
+                .hypot(a.1 - target.y)
+                .total_cmp(&((b.0 - target.x).hypot(b.1 - target.y)))
+        })
+        .unwrap_or((2.5, 2.5));
+    target.x = cx;
+    target.y = cy;
+    target.frozen = EXCOMMUNICATE_FREEZE;
+    target.shunned = true;
 }

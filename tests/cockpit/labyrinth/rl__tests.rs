@@ -68,6 +68,19 @@ fn labyrinth_rl_preserves_incomplete_campaign_outcomes() {
 }
 
 #[test]
+fn labyrinth_rl_never_calls_an_unfinished_or_unknown_campaign_status_an_outcome() {
+    let receipts = json!([{"id":"checked"}]);
+    for word in ["ready", "running", "from-a-newer-build"] {
+        assert_eq!(
+            campaign_outcome_status(&json!({"status":word,"integrations":receipts})),
+            "failed",
+            "{word}"
+        );
+    }
+    assert_eq!(campaign_outcome_status(&json!({})), "failed");
+}
+
+#[test]
 fn labyrinth_rl_worker_inherits_remaining_root_descendant_budget() {
     let root =
         std::env::temp_dir().join(format!("angel-labyrinth-rl-budget-{}", std::process::id()));

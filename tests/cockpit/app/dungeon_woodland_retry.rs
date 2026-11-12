@@ -1,7 +1,7 @@
 // Extend the established failed-save -> checkpoint -> restore -> retry gate.
 fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::{
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::{
         Input, RoomKind, Run, countryside as c,
         pastimes::{self, Game},
         woodland as wood, world,
@@ -29,7 +29,7 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
         assert_eq!(wood::stage(&r.home.countryside, &r.marks), 5);
         let p = &c::PLOTS[8];
         r.arrive(world::room_of(&r.dungeon, p.room).unwrap(), p.at);
-        for _ in 0..crate::drive::together_shooter::home::BUY_HOLD {
+        for _ in 0..crate::delve::together_shooter::home::BUY_HOLD {
             r.step(&BTreeMap::from([(
                 1,
                 Input {
@@ -113,7 +113,7 @@ fn woodland_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
     assert_eq!(r.pastimes, flight);
     assert!(r.home.countryside.has(8));
     let mut held = true;
-    for _ in 0..40 * crate::drive::together_shooter::HZ {
+    for _ in 0..40 * crate::delve::together_shooter::HZ {
         let Some(round) = r.pastimes.round.as_ref() else {
             break;
         };

@@ -82,6 +82,15 @@ pub fn decision_text(decision: Decision) -> &'static str {
     }
 }
 
+/// The answer's name for a machine reader (`ui_inspect`).
+pub(crate) fn decision_token(decision: Decision) -> &'static str {
+    match decision {
+        Decision::Approve => "approve",
+        Decision::ApproveAll => "approve_all",
+        Decision::Deny => "deny",
+    }
+}
+
 /// An ask's identity: a new one starts with Approve chosen, and in the
 /// window plays its words in.
 pub(crate) fn serial(prompt: &str, scope_label: Option<&str>) -> u64 {

@@ -15,6 +15,7 @@ friends to vote remotely.
     GET  /api/library                    the kept pieces
     GET  /files/<id>/<path>              a file in a job's folder
     GET  /library/<name>/<file>          a file of a kept piece
+    GET  /lighter                        Pixel Art Lighter (also `kiln-studio lighter`)
 """
 import json
 import mimetypes
@@ -145,6 +146,8 @@ class Handler(BaseHTTPRequestHandler):
         path = unquote(urlparse(self.path).path)
         if path in ("/", "/index.html"):
             return self.send(200, PAGE, "text/html")
+        if path in ("/lighter", "/lighter/"):
+            return self.send(200, lighter_page(), "text/html")
         if path == "/api/jobs":
             return self.send(200, [job_summary(j) for j in all_jobs()])
         if path == "/api/library":
@@ -180,8 +183,39 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def serve(host="127.0.0.1", port=8770):
-    httpd = ThreadingHTTPServer((host, port), Handler)
-    print(f"kiln review on http://{host}:{port}/  (jobs in {paths.JOBS})", flush=True)
+    _serve(host, port, Handler, f"kiln review on http://{host}:{port}/  (jobs in {paths.JOBS})")
+
+
+LIGHTER = Path(__file__).resolve().parent.parent / "lighter" / "Pixel-Art-Lighter.html"
+
+
+def lighter_page():
+    return LIGHTER.read_bytes()
+
+
+class LighterHandler(BaseHTTPRequestHandler):
+    server_version = "kiln-lighter/3.5.22"
+
+    def log_message(self, fmt, *args):
+        pass
+
+    def do_GET(self):
+        path = unquote(urlparse(self.path).path)
+        if path in ("/", "/index.html", "/lighter", "/lighter/"):
+            return Handler.send(self, 200, lighter_page(), "text/html")
+        self.send_error(404)
+
+
+def serve_lighter(host="127.0.0.1", port=8771):
+    _serve(
+        host, port, LighterHandler,
+        f"Pixel Art Lighter on http://{host}:{port}/  (export name-Normal.png; rename to <file>_n.png, green up)",
+    )
+
+
+def _serve(host, port, handler, banner):
+    httpd = ThreadingHTTPServer((host, port), handler)
+    print(banner, flush=True)
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:
@@ -220,7 +254,7 @@ ul{margin:4px 0 8px 18px;padding:0}li{margin:2px 0}
 pre{white-space:pre-wrap;background:#0b0a08;padding:8px;border-radius:4px;font-size:12px;max-height:260px;overflow:auto}
 details summary{cursor:pointer;color:var(--dim);margin:6px 0}.err{color:#de789e}
 </style></head><body>
-<header><h1><a href="#/">kiln review</a></h1><span class="meta" id="where"></span></header>
+<header><h1><a href="#/">kiln review</a></h1><a href="/lighter">lighter</a><span class="meta" id="where"></span></header>
 <main id="app">loading</main>
 <script>
 const $ = s => document.querySelector(s);

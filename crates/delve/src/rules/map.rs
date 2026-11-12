@@ -4,6 +4,7 @@
 //! renderer's module. Nothing here draws.
 
 pub use crate::world::houses;
+pub use crate::world::roads;
 pub use crate::world::houses::stand as castle_stand;
 pub use crate::world::kingdom::{Geography, Site, gate_stand, geography, is_road, outdoor};
 pub use crate::world::map::{MAP_H, MAP_W};

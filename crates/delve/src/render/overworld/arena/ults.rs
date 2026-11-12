@@ -31,7 +31,7 @@ use super::super::ink::{Img, bayer, hash};
 use super::pfx::{self, Pen, Ramp, Shape, Spray, ease, ramps, unit};
 use super::{UNIT, at, ranged_events, wishfx};
 use crate::rules::feel::UltCast;
-use crate::rules::ults::{PHANTOM_TICKS, STRIKE_FALL, ULT_FULL, Ult};
+use crate::rules::ults::{STRIKE_FALL, ULT_FULL, Ult};
 use crate::rules::{HZ, Hero, Run, Shot};
 use std::f32::consts::{FRAC_PI_2, PI, TAU};
 
@@ -63,7 +63,8 @@ fn ramp_of(u: Ult) -> Ramp {
         Ult::Stillhour | Ult::Lullaby => ramps::GENIE,
         Ult::Assassinate | Ult::Dismember | Ult::RedHarvest => ramps::BLOOD,
         Ult::SkewerDrive => ramps::STORM,
-        Ult::Phantasm => ramps::ARCANE,
+        Ult::Phantasm | Ult::PhantomLegion => ramps::ARCANE,
+        Ult::HallOfMirrors => ramps::GOLD,
         Ult::Desertion | Ult::Earthsplitter => ramps::EARTH,
         Ult::PhilosophersRain => ramps::POISON,
         Ult::Tombstone => GRAVE,
@@ -1101,10 +1102,11 @@ fn assassin(pen: &mut Pen, run: &Run) {
 fn images(pen: &mut Pen, run: &Run, id: u32, hero: &Hero) {
     let (hfeet, _) = wishfx::body(run, hero);
     for phantom in run.phantoms.iter().filter(|p| p.owner == id) {
-        let age = PHANTOM_TICKS.saturating_sub(phantom.left) as f32;
+        let age = phantom.age() as f32;
         let (x, y) = at(phantom.x, phantom.y);
         let goal = (x as f32, y as f32);
-        let k = ease::out((age / 8.0).min(1.0));
+        // One left standing is already where it was left.
+        let k = if phantom.fixed { 1.0 } else { ease::out((age / 8.0).min(1.0)) };
         let feet = (hfeet.0 + (goal.0 - hfeet.0) * k, hfeet.1 + (goal.1 - hfeet.1) * k);
         let r = ramps::ARCANE;
         if age < 10.0 {
@@ -1122,7 +1124,8 @@ fn images(pen: &mut Pen, run: &Run, id: u32, hero: &Hero) {
         let thin = if phantom.left < 36 { phantom.left as f32 / 36.0 } else { 1.0 };
         pen.glow((feet.0, feet.1 + 1.0), 9.0, 0.42, r.cooler(1), 0.45 * thin);
         let mut im = ghost(&super::knights::portrait(hero, id));
-        if hero.aim_x < -0.3 {
+        // One of the Hall's faces the way it runs, not the way its knight aims.
+        if (if phantom.charge { phantom.dx } else { hero.aim_x }) < -0.3 {
             im = im.flip_h();
         }
         let band = ((run.tick as f32 * 0.7 + phantom.dx * 9.0).rem_euclid(im.h as f32 + 10.0)) as i32 - 4;
@@ -1140,8 +1143,26 @@ fn images(pen: &mut Pen, run: &Run, id: u32, hero: &Hero) {
                 }
             }
         }
+        // The image thrusts with its knight: a lance of the same light out
+        // along the aim, as long as the knight's, growing through the stroke.
+        // The Hall's strike on their own beat (`strike`), the rest with the knight's.
+        let thrusting = if phantom.charge { phantom.strike > 0 } else { hero.swing > 0 && !hero.sword };
+        if thrusting && let Some(blade) = hero.forged.as_ref().and_then(|w| w.melee) {
+            let way = if phantom.charge { (phantom.dx, phantom.dy) } else { (hero.aim_x, hero.aim_y) };
+            let swing = if phantom.charge { u32::from(phantom.strike) } else { hero.swing };
+            let l = way.0.hypot(way.1).max(0.01);
+            let (ux, uy) = (way.0 / l, way.1 / l * 0.6);
+            let grown = ease::out((1.0 - swing as f32 / 6.0 + 0.25).min(1.0));
+            let len = (blade.reach * UNIT * 0.75 * grown).round() as i32;
+            let hand = (feet.0 + ux * 3.0, feet.1 - 8.0 + uy * 3.0);
+            for k in 0..len {
+                let q = ((hand.0 + ux * k as f32).round() as i32, (hand.1 + uy * k as f32).round() as i32);
+                let ink = if k + 3 >= len { r.step(0) } else if k % 4 == 0 { r.step(2) } else { r.step(1) };
+                pen.light(q.0, q.1, ink);
+            }
+        }
         // The thread back to the knight, a bead of light running along it.
-        if age > 8.0 && thin > 0.3 {
+        if age > 8.0 && thin > 0.3 && !phantom.fixed {
             let a = (feet.0, feet.1 - 6.0);
             let b = (hfeet.0, hfeet.1 - 6.0);
             let len = (b.0 - a.0).hypot(b.1 - a.1).max(1.0);

@@ -41,6 +41,7 @@
 //! | `angel_sheet() -> len` | the game's sheet of the player's own state, plain text, in the text buffer |
 //! | `angel_choices() -> len` | the game's choices to tap, one a line, in the text buffer |
 //! | `angel_choose(n)` | the player tapped choice `n` |
+//! | `angel_pointer(x, y, button) -> consumed` | optional game-local pointer action in final frame pixels; 0 left/touch, 2 right |
 //! | `angel_picks() -> len` | the game's picks beside its text line, a heading then one a line (`GameClient::picks`), in the text buffer |
 //! | `angel_text_ptr()` | where the text calls above wrote |
 //! | `angel_bye()`, `angel_action(kind, ptr, len)` | leaving on purpose; a one-off choice |
@@ -354,6 +355,10 @@ impl<G: GameClient> Glue<G> {
     /// The player tapped choice `n`.
     pub fn choose(&mut self, n: u32) {
         self.rt.choose(n);
+    }
+
+    pub fn pointer(&mut self, x:u32, y:u32, button:u32)->bool {
+        u8::try_from(button).ok().is_some_and(|button|self.rt.pointer(x,y,button))
     }
 
     /// The game's picks beside its text line, in the text buffer.
@@ -725,6 +730,11 @@ macro_rules! export_client {
             }
 
             #[unsafe(no_mangle)]
+            pub extern "C" fn angel_pointer(x:u32, y:u32, button:u32)->u32 {
+                with(|g| u32::from(g.pointer(x,y,button)))
+            }
+
+            #[unsafe(no_mangle)]
             pub extern "C" fn angel_picks() -> usize {
                 with(|g| g.picks().len())
             }
@@ -856,6 +866,21 @@ mod tests {
         fn controls(&self) -> &'static str {
             r#"{"stick":"left","buttons":[]}"#
         }
+        fn pointer(&mut self, x:u32, y:u32, button:u8)->bool {
+            x==1 && y==0 && button==2
+        }
+    }
+
+    #[test]
+    fn pointer_hook_is_optional_bounded_and_forwards_frame_coordinates() {
+        let mut glue=Glue::<Pixel>::new();
+        assert!(!glue.pointer(1,0,2));
+        assert!(glue.recv(&welcome(),0.));
+        assert!(glue.pointer(1,0,2));
+        assert!(!glue.pointer(0,0,2));
+        assert!(!glue.pointer(1,1,2));
+        assert!(!glue.pointer(1,0,0));
+        assert!(!glue.pointer(1,0,258));
     }
 
     fn welcome() -> Vec<u8> {

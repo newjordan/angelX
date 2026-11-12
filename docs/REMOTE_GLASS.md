@@ -79,7 +79,29 @@ then the message as bincode (varint integers)
 
 Frames over 2 KiB are deflated at the fastest level when that saves a
 quarter. The messages are `angel_glass::remote::wire::{Up, Down}`; the
-version is `wire::VERSION` (1), checked in both hellos.
+version is `wire::VERSION` (2). A version 2 host also accepts version 1
+viewers and echoes their selected version; clip updates are omitted from their
+initial catch-up and live frames. Original version 1 message tags remain stable.
+A version 2 viewer connecting to an old version 1 host still receives the old
+host's update-required response; downgrade requires reconnecting the transport.
+
+Version 2 adds `ShowcaseSquire`: a versioned authored clip replacement or explicit
+removal. The latest validated clip is retained for late viewers. Unchanged clips
+are omitted from ordinary grid/video frames. Clip frames have a 65 KiB envelope,
+selected from the first bincode tag before body allocation. Compressed frames
+are inflated incrementally until that tag is available, then use the same limit;
+clip strings also check declared lengths before allocation. Other message kinds,
+including video blobs and picture deltas, retain their 512 MiB frame allowance.
+
+For Rust callers, `wire::read<T>` now requires `T: FrameMessage` in addition to
+owned deserialization. Direct `Up` and `Down` calls keep their signatures and
+wire encoding. A generic wrapper must propagate the new bound; a custom type
+must supply an explicit first-byte limit policy. This is a source-level API
+change for wrappers/custom types, rather than an automatic fallback to the
+large video allowance. The framing reader targets tagged remote messages;
+`wire::decode<T>` remains available for generic already-bounded byte slices.
+Raw frames reserve their validated body size once; compressed frames grow only
+as their bounded output arrives.
 
 Window to session (`Up`):
 

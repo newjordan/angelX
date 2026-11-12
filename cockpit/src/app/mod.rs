@@ -15,6 +15,7 @@ pub(crate) enum ExitRequest {
 
 pub(crate) mod bootstrap;
 pub(crate) mod codex_import;
+pub(crate) mod flight;
 pub(crate) mod launch;
 // Bounded process bridge to the isolated surface-free WebGPU renderer. Visible
 // output is admitted only through the calibrated Kitty image adapter.
@@ -25,10 +26,18 @@ pub(crate) mod magic_keywords;
 pub(crate) mod mission;
 pub(crate) mod model_setup;
 pub(crate) mod observatory;
+pub(crate) mod overlay;
+pub(crate) mod plugins;
 pub(crate) mod setup_menu;
 pub(crate) mod startup_intro;
 
+pub(crate) use overlay::Overlay;
+
 use super::*;
+use angel_plug::app::AppWorld;
+use angel_plug::feed::FeedWorld;
+use angel_plug::stage::StagePlaces;
+use control::realm::GameHost;
 
 /// Temporary tutor composition; ordinary work returns on send or cancellation.
 pub(crate) struct TutorDraft {
@@ -38,42 +47,6 @@ pub(crate) struct TutorDraft {
     pub(crate) saved_cursor: usize,
     pub(crate) saved_selection: Option<usize>,
     pub(crate) saved_focus: Option<String>,
-}
-
-/// Read the repository's visible top-level directory names for the district
-/// layer. Any filesystem error disables the layer rather than delaying startup.
-pub(crate) fn scan_workspace_districts(root: &std::path::Path) -> Vec<String> {
-    let entries = match std::fs::read_dir(root) {
-        Ok(entries) => entries,
-        Err(_) => return Vec::new(),
-    };
-    let mut names = Vec::new();
-    for entry in entries {
-        let entry = match entry {
-            Ok(entry) => entry,
-            Err(_) => return Vec::new(),
-        };
-        let file_type = match entry.file_type() {
-            Ok(file_type) => file_type,
-            Err(_) => return Vec::new(),
-        };
-        if !file_type.is_dir() {
-            continue;
-        }
-        let name = entry.file_name().to_string_lossy().into_owned();
-        if name.starts_with('.')
-            || matches!(
-                name.as_str(),
-                "target" | "node_modules" | "vendor" | "dist" | "build"
-            )
-        {
-            continue;
-        }
-        names.push(name);
-    }
-    names.sort();
-    names.truncate(12);
-    names
 }
 
 fn active_profile_cache_matches(
@@ -200,7 +173,6 @@ impl LessonWrapMemo {
 /// A clickable control on the Scryglass world, Vault, or Formation deck.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum WorldButton {
-    DockSurface,
     DockToggle,
     DockNext,
     DockPrevious,
@@ -244,7 +216,7 @@ pub(crate) enum WorldButton {
     ScryglassCopySource,
     ScryglassFollow,
     #[allow(dead_code)]
-    ScryglassLandmark(crate::stage::world_viz::Building),
+    ScryglassLandmark(u8),
     ScryglassVideoToggle,
     ScryglassVideoBack,
     ScryglassVideoForward,
@@ -595,7 +567,6 @@ pub(crate) struct App {
     pub(crate) tool_strip: toolstrip::ToolStrip,
     /// `/trace`: flip the old full T:/R: tool trace back on for debugging.
     pub(crate) transcript_mode: TranscriptMode,
-    pub(crate) turn_renown_started: u64,
     pub(crate) turn_truncated: bool,
     pub(crate) turn_route_receipt: Option<String>,
     /// Milliseconds from worker spawn to the first operator-visible event in
@@ -652,22 +623,21 @@ pub(crate) struct App {
     pub(crate) loop_experiment: Option<crate::drive::loop_ctl::ExperimentPending>,
     /// The loop watchdog's watch over the in-flight iteration.
     pub(crate) loop_watch: crate::drive::loop_ctl::LoopWatch,
-    /// Last-seen loop facts diffed each frame into `AdventureEvent`s for the
-    /// world quest (`adventure.rs`). Drains whether or not the world pane is
-    /// visible — quest state must track the loop like the village pulses.
-    pub(crate) loop_mirror: world_viz::LoopMirror,
     /// In-world loop launcher: an RPG-style workshop dialog shown over the map.
     pub(crate) loop_dialog: Option<crate::drive::loop_dialog::LoopLaunchDialog>,
     /// Clickable regions from the last loop dialog draw.
     pub(crate) loop_dialog_hits: Vec<crate::drive::loop_dialog::LoopDialogHit>,
     /// The loop card's start after the flag drops, and the corner widget.
     pub(crate) loop_card: crate::ui::views::loop_view::LoopCardState,
-    pub(crate) loop_rail: crate::ui::loop_rail_live::Live,
     /// The approval card's answers, where they answer a click.
     pub(crate) approval_hits: Vec<(ratatui::layout::Rect, crate::approval::Decision)>,
-    /// Which answer the waiting ask has chosen, keyed by the ask's serial so
-    /// a new ask always starts on Approve.
+    /// Which answer the waiting ask has chosen, keyed by the ask's serial.
+    /// It lives only while an ask is on the card: `take_approval` and the
+    /// per-tick check clear it, so a new ask always starts on Approve.
     pub(crate) approval_focus: (u64, usize),
+    /// When the waiting broker ask's worker gives up and denies it, keyed by
+    /// the ask's serial. Asks the UI raises itself have no worker clock.
+    pub(crate) approval_deadline: Option<(u64, std::time::Instant)>,
     /// Optional display name for the thread (`/rename`); shown in `/status`.
     pub(crate) session_title: Option<String>,
     /// Plan-mode (`/plan`): prepend a "plan before acting" steer to each message.
@@ -761,7 +731,8 @@ pub(crate) struct App {
     /// real tool traffic, display-only), the delve, the walk on the map and
     /// where the last draw painted the pixel map. Its controls run through
     /// `angel_live::realm::RealmHost` (`control::realm`).
-    pub(crate) realm: angel_realm_host::host::GameHost,
+    pub(crate) realm: crate::app::control::realm::GameHost,
+    pub(crate) games: crate::app::control::games::Slot,
     /// Stamped by each draw pass: the miniworld actually rendered this frame.
     /// An animating world in a hidden pane (artifacts closed, narrow terminal,
     /// a fullscreen overlay) must not hold the event loop on the fast tick —
@@ -770,10 +741,6 @@ pub(crate) struct App {
     /// Edge latch for the automatic Realm→Quintain presentation. Operator
     /// routes are never displaced, and Back cannot reopen the same visit.
     pub(crate) quintain_route_presented: bool,
-    /// Pulses from the village's single background sensing thread (forge +
-    /// head health, rare chatter), drained in `advance`. `None` when the
-    /// village is off (`ANGEL_VILLAGE=0`) or under test.
-    pub(crate) village_rx: Option<mpsc::Receiver<village::VillagePulse>>,
     /// War-room button hitboxes recorded by the last draw (absolute buffer
     /// rects): formation presets + the quorum toggle on the miniworld pane.
     /// Cleared whenever the pane doesn't render them.
@@ -856,7 +823,7 @@ pub(crate) struct App {
     pub(crate) transcript_link_snapshot: (Rect, Vec<crate::ui::transcript_links::LinkHit>),
     /// Last pointer cell while the operator is dragging the Scryglass camera.
     /// This is display-only and never changes the agent-driven world position.
-    pub(crate) scryglass_drag: Option<crate::stage::world_viz::world_camera::WorldDrag>,
+    pub(crate) scryglass_drag: Option<crate::stage::WorldDrag>,
     /// Set on mouse-up: the next draw extracts the selected text from the
     /// rendered buffer into `pending_clipboard`.
     pub(crate) copy_requested: bool,
@@ -895,10 +862,12 @@ pub(crate) struct App {
     /// outgoing user message (backend-safe, unlike a second system message) and
     /// cleared once consumed.
     /// `/self reborn` — the off-thread `cargo build` of the live crate, drained
-    /// in `advance`; on success `reborn_exec` is staged and the run loop exits.
+    /// in `advance`; on success `reborn_exec` is staged with a graceful exit
+    /// request and the run loop exits at the next idle boundary.
     pub(crate) reborn_rx: Option<mpsc::Receiver<Result<std::path::PathBuf, String>>>,
     /// The freshly-built binary `main` execs into after terminal teardown (the
-    /// phoenix step), resuming the current session.
+    /// phoenix step), resuming the current session. Set only together with an
+    /// `exit_request`; cancelling or forcing the exit clears it.
     pub(crate) reborn_exec: Option<std::path::PathBuf>,
     /// Presentation/module lifecycle for the composited Rust cockpit host.
     pub(crate) module_host: runtime::ModuleHost,
@@ -962,6 +931,7 @@ impl App {
         self.composer_selection_anchor = None;
     }
 
+    #[cfg(test)]
     pub(crate) fn new(bag: Bag, viewer: Viewer) -> Self {
         let workspace = crate::agent::harness::resolve_workspace(
             None,
@@ -970,6 +940,7 @@ impl App {
         Self::new_in_workspace(bag, viewer, workspace)
     }
 
+    #[cfg(test)]
     pub(crate) fn new_in_workspace(mut bag: Bag, viewer: Viewer, workspace: PathBuf) -> Self {
         let _ = crate::platform::route_preferences::restore(&mut bag);
         Self::new_selected_in_workspace(bag, viewer, workspace)
@@ -1001,13 +972,9 @@ impl App {
             &app.tools.current_workspace().to_path_buf(),
             Some(app.session.id.clone()),
         );
-        let dungeon_workspace = app.tools.current_workspace();
-        if let Err(error) = app.realm.dungeon.restore(dungeon_workspace) {
-            app.realm.dungeon.notice = format!("Could not restore delve: {error}");
-            tracing::warn!(%error, "could not restore dungeon");
-        }
+        app.realm.restore_run(app.tools.current_workspace());
         // Open on the overworld map (or the ride, when the map is off).
-        app.scryglass = crate::ui::scryglass::Scryglass::for_session(app.realm.world.destination());
+        app.scryglass = crate::ui::scryglass::Scryglass::opening(app.realm.destination_place());
         // Recall only this project's persisted instruction-bearing state. A
         // goal or memory from another repository must never enter this prompt.
         app.memories = memory::load_for(app.tools.current_workspace())
@@ -1133,7 +1100,7 @@ impl App {
             label: label.into(),
             started: Instant::now(),
         });
-        self.realm.world.set_completion_ceremony_active(matches!(
+        self.realm.completion_ceremony(matches!(
             kind,
             crate::ui::viz::lifecycle_viz::CeremonyKind::GoalDone
                 | crate::ui::viz::lifecycle_viz::CeremonyKind::GoalCleared
@@ -1183,7 +1150,7 @@ impl App {
     pub(crate) fn clear_expired_lifecycle_ceremony(&mut self) {
         if !self.lifecycle_ceremony_active() {
             self.lifecycle_ceremony = None;
-            self.realm.world.set_completion_ceremony_active(false);
+            self.realm.completion_ceremony(false);
             if matches!(
                 self.scryglass.controller.overlay(),
                 Some(crate::ui::scryglass::StageOverlay::Lifecycle { .. })
@@ -1202,11 +1169,7 @@ impl App {
         session: session::Session,
         overwatch: Overwatch,
     ) -> Self {
-        // Decode the miniviz location/rider sources away from both startup and
-        // the first draw. The viewer deliberately leaves frame one on the
-        // braille fallback, so this worker has a full fast-tick interval to
-        // finish before illustrated world playback begins.
-        world_viz::warm_cinematic_assets();
+        let realm = GameHost::raise(session.is_disabled(), tools.current_workspace());
         let mut module_host = runtime::ModuleHost::from_default_manifests().unwrap_or_else(|e| {
             let mut fallback = runtime::ModuleHost::default();
             let _ = fallback.register(runtime::ModuleManifest {
@@ -1231,12 +1194,6 @@ impl App {
         for source in ["harness", "bag", "viewer", "session", "transcript"] {
             let _ = module_host.declare_data_source(source, true);
         }
-        let mut world = if session.is_disabled() {
-            world_viz::World::new(7)
-        } else {
-            world_viz::World::for_workspace(tools.current_workspace())
-        };
-        world.enable_districts(scan_workspace_districts(tools.current_workspace()));
         let council = crate::ui::viz::council::Council::discover(viewer.kitty());
         let (background_notice_tx, background_notice_rx) = mpsc::channel();
         let campaign = if session.is_disabled() {
@@ -1307,7 +1264,6 @@ impl App {
             divider_motion: crate::ui::pane_motion::Divider::default(),
             tool_strip: toolstrip::ToolStrip::default(),
             transcript_mode: TranscriptMode::Conversation,
-            turn_renown_started: 0,
             turn_truncated: false,
             turn_route_receipt: None,
             turn_first_output_ms: None,
@@ -1330,13 +1286,12 @@ impl App {
             loop_brief_job: None,
             loop_experiment: None,
             loop_watch: crate::drive::loop_ctl::LoopWatch::default(),
-            loop_mirror: world_viz::LoopMirror::default(),
             loop_dialog: None,
             loop_dialog_hits: Vec::new(),
             loop_card: Default::default(),
-            loop_rail: Default::default(),
             approval_hits: Vec::new(),
             approval_focus: (0, 0),
+            approval_deadline: None,
             session_title: None,
             plan_mode: false,
             personality: None,
@@ -1408,13 +1363,13 @@ impl App {
             last_resize_at: Instant::now(),
             agent_control_chips: None,
             overwatch,
-            realm: angel_realm_host::host::GameHost::new(world),
+            realm,
+            games: Default::default(),
             // Earned only when Stage paint runs this frame (draw resets to false).
             // Starting true charged headless / ANGEL_BACKDROP=off sessions for
             // invisible scenery on every advance.
             world_pane_visible: false,
             quintain_route_presented: false,
-            village_rx: None,
             world_buttons: Vec::new(),
             object_dock: Default::default(),
             table_host: None,
@@ -1458,27 +1413,10 @@ impl App {
         // Wake the village: adopt the persisted hamlet and start the single
         // sensing thread (forge + heads, staggered probes). Never under test —
         // unit-test Apps stay off the network and off the disk.
-        if !cfg!(test) && village::enabled() {
-            let path = village::state_path();
-            let state = village::load_state(path.as_deref());
-            let heads = village::discover_heads();
-            let head_ids: Vec<String> = heads.iter().map(|(id, _)| id.clone()).collect();
-            let seed = village::PollerSeed {
-                forge_url: village::forge_url(),
-                voice_url: village::voice_url(),
-                flavor: village::flavor_enabled(),
-                heads,
-                last_adapter: state.last_adapter.clone(),
-                need_name: state.apprentice_name.is_empty(),
-                need_boot_chatter: state.chatter.is_empty(),
-                town: app.realm.world.town_name().to_string(),
-            };
-            app.realm.world.enable_village(state, path, &head_ids);
-            app.village_rx = Some(village::spawn_poller(seed));
-        }
+        app.realm.wake_village();
         // The carousel starts EMPTY — it's the angel's delivery surface: cards
         // appear only when the agent calls the `present` tool (see harness.rs).
-        app.scryglass.sync_arrival(app.realm.world.arrived_building());
+        app.scryglass.sync_arrival(app.realm.arrived_place());
         app
     }
 
@@ -1566,12 +1504,12 @@ impl App {
     /// to the world's ticks, one tick a frame.
     pub(crate) fn map_in_motion(&self) -> bool {
         crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
-            && self.realm.world.in_motion()
+            && self.realm.map_moving()
     }
 
     pub(crate) fn world_animating(&self) -> bool {
         crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
-            && (self.realm.world.animating() || self.scryglass.animating())
+            && (self.realm.scenery_animating() || self.scryglass.animating())
     }
 
     pub(crate) fn show_spend_coin(&mut self, input_tokens: u64) {
@@ -1664,9 +1602,10 @@ impl App {
     }
 
     pub(crate) fn needs_fast_tick(&self) -> bool {
+        let joined = self.realm.joined_to_host() && self.dungeon_view_active();
         self.realm_wants_fast_tick()
             // In a friend's delve: keys go out and frames come in every tick.
-            || (self.realm.dungeon.joined.is_some() && self.dungeon_view_active())
+            || joined
             || self.thinking.is_some()
             // A clipboard read is sub-second in practice; polling it on the fast
             // lane keeps the staged chip from waiting on the 200 ms idle tick.
@@ -1698,7 +1637,6 @@ impl App {
                 && self.object_dock.animating(Instant::now(), self.visual_motion))
             || self.stage_display_wants_fast_tick()
             || self.loop_card.animating(Instant::now())
-            || self.loop_rail.animating(self.terminal_focused)
     }
 
     /// Medium cadence for work that should feel alive without monopolizing
@@ -1714,7 +1652,7 @@ impl App {
     /// Concrete route under the Brain Route cursor. This is a reversible visual
     /// preview only: the Bag remains the committed route until Enter/click.
     fn agent_menu_profile_choice(&self) -> Option<crate::agent::club::RouteChoice> {
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             return None;
         }
         let menu = self.agent_menu?;
@@ -1746,7 +1684,7 @@ impl App {
     /// state before Enter/click.
     #[cfg(test)]
     pub(crate) fn agent_menu_effort_preview(&self) -> Option<String> {
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             return None;
         }
         let menu = self.agent_menu?;

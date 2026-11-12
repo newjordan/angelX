@@ -1,6 +1,10 @@
 import { readFileSync, mkdirSync } from 'node:fs'
 import { resolve, dirname, join } from 'node:path'
-import { holdProcessLease, classifyProcessLeaseOwner } from '../../lib/control/process-lease.mjs'
+import {
+  holdProcessLease,
+  classifyProcessLeaseOwner,
+  makeProcessLeaseOwner,
+} from '../../lib/control/process-lease.mjs'
 import { workerPaths } from './worker-paths.mjs'
 
 // All CLI graph writers share one lease, including manual compiler refreshes.
@@ -49,6 +53,29 @@ export async function runGraphCli(cli, argv) {
     return 75
   }
   return held.value
+}
+
+// The second guard. The lease above keys on the graph path; a tick also owns the
+// files in its state dir (heartbeat, budget, verdict spool), which two ticks aimed
+// at different graphs would share. So a tick keeps one lock file there, written as
+// the lease's own owner record and judged by the lease's own rules: held while its
+// process is alive and under an hour old, free the moment its pid is dead. A tick
+// killed outright therefore frees the dir for the next one instead of holding it
+// for the hour.
+export const TICK_LOCK_TTL_MS = 60 * 60_000
+
+/** Who holds the state-dir lock, or null when it is free. `lock` is the parsed file. */
+export function tickLockHolder(lock, nowMs = Date.now()) {
+  if (!lock) return null
+  // The hour is a hard ceiling, whatever the classifier makes of the pid.
+  if (nowMs - (Number(lock.ts) || 0) >= TICK_LOCK_TTL_MS) return null
+  const status = classifyProcessLeaseOwner(lock, { nowMs, ttlMs: TICK_LOCK_TTL_MS })
+  return status.held ? { pid: lock.pid ?? null, reason: status.reason } : null
+}
+
+/** The record a tick writes to the lock file when it takes the dir. */
+export function tickLockOwner(nowMs = Date.now()) {
+  return makeProcessLeaseOwner({ nowMs, staleAfterMs: TICK_LOCK_TTL_MS })
 }
 
 export async function runStoreCli(cli, argv, defaultDir) {

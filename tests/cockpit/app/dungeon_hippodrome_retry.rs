@@ -1,7 +1,7 @@
 // Uses the established blocked-realm / private-checkpoint regression entry point.
 fn hippodrome_save_retry(app:&mut App, fixture:&RealmSaveFixture) {
-    use crate::drive::together_realm::{Spoil,Realm};
-    use crate::drive::together_shooter::{Input,Run,RoomKind,world,countryside as c,hippodrome as h,race_wagers as w,pastimes::Game};
+    use crate::delve::together_realm::{Spoil,Realm};
+    use crate::delve::together_shooter::{Input,Run,RoomKind,world,countryside as c,hippodrome as h,race_wagers as w,pastimes::Game};
     use std::collections::BTreeMap;
     let empty=BTreeMap::new();
     let keys=|x,y,fire|BTreeMap::from([(1,Input{aim_x:x,aim_y:y,fire,..Default::default()})]);
@@ -17,7 +17,7 @@ fn hippodrome_save_retry(app:&mut App, fixture:&RealmSaveFixture) {
         for i in [2,1,0] {let (k,p,_)=h::PARTS[i];go(r,k,p);r.step(&meet(0,0));}
         go(r,RoomKind::Wheelwright,h::MECHANIC);r.step(&meet(0,0));
         let plot=&c::PLOTS[h::PLOT];go(r,plot.room,plot.at);
-        for _ in 0..crate::drive::together_shooter::home::BUY_HOLD {r.step(&meet(0,0));}
+        for _ in 0..crate::delve::together_shooter::home::BUY_HOLD {r.step(&meet(0,0));}
         assert_eq!(r.marks.get("country:build:racecoach"),Some(&1));
         go(r,RoomKind::Hippodrome,Game::Chariot.start());r.step(&empty);
         for t in 0..900 {if r.pastimes.round.is_none(){break;}r.step(&keys(if t<6{-1}else{0},-1,t==1));}

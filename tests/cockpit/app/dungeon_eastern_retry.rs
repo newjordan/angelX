@@ -1,11 +1,11 @@
 // Part of the existing forced realm-save-failure verifier, not a separate host.
 fn eastern_save_retry(app: &mut App, fixture: &RealmSaveFixture) {
-    use crate::drive::together_realm::Spoil;
-    use crate::drive::together_shooter::{RoomKind, countryside, world};
+    use crate::delve::together_realm::Spoil;
+    use crate::delve::together_shooter::{RoomKind, countryside, world};
     app.economy().treasury.add(Spoil::Bone, 4);
     let before = app.economy().treasury.clone();
     let home = app.economy().home.clone();
-    app.realm.dungeon.shooter.set(Some(crate::drive::together_shooter::Run::at_home(
+    app.realm.dungeon.shooter.set(Some(crate::delve::together_shooter::Run::at_home(
         12,
         7,
         None,

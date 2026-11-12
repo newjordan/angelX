@@ -8,7 +8,9 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
+import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent.parent
@@ -98,6 +100,49 @@ class Review(unittest.TestCase):
         with self.assertRaises(ValueError):
             review.vote(job, {"variant": 1, "vote": "maybe"})
         self.assertEqual(len(review.job_detail(job)["votes"]), 1)
+
+
+class Lighter(unittest.TestCase):
+    def test_the_maker_serves_pixel_art_lighter(self):
+        from http.server import ThreadingHTTPServer
+        from studio import review
+
+        page = review.lighter_page()
+        self.assertIn(b"MIT License", page)
+        self.assertIn(b"Pixel Art Lighter v 3.5.22", page)
+        self.assertIn(b"Red Hat Sprite", page)
+        self.assertNotIn(b"cloudflareinsights", page)
+        # Up is positive Y, written in the green channel. That is the game's green-up map.
+        self.assertIn(
+            b'(direction.includes("up") ? s : direction.includes("down") ? -s : 0)',
+            page,
+        )
+        self.assertIn('href="/lighter"', review.PAGE)
+
+        httpd = ThreadingHTTPServer(("127.0.0.1", 0), review.LighterHandler)
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+        thread.start()
+        try:
+            port = httpd.server_address[1]
+            with urllib.request.urlopen(f"http://127.0.0.1:{port}/", timeout=5) as res:
+                body = res.read()
+                self.assertEqual(res.status, 200)
+                self.assertIn("text/html", res.headers.get("Content-Type", ""))
+            self.assertIn(b"Pixel Art Lighter v 3.5.22", body)
+            review_httpd = ThreadingHTTPServer(("127.0.0.1", 0), review.Handler)
+            review_thread = threading.Thread(target=review_httpd.serve_forever, daemon=True)
+            review_thread.start()
+            try:
+                rport = review_httpd.server_address[1]
+                with urllib.request.urlopen(f"http://127.0.0.1:{rport}/lighter", timeout=5) as res:
+                    self.assertEqual(res.status, 200)
+                    self.assertIn(b"Pixel Art Lighter", res.read())
+            finally:
+                review_httpd.shutdown()
+                review_httpd.server_close()
+        finally:
+            httpd.shutdown()
+            httpd.server_close()
 
 
 if __name__ == "__main__":

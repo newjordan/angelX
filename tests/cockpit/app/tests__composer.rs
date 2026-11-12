@@ -3,11 +3,14 @@
 //! row motion, draft-preserving shortcuts, danger rails, and the untruncated
 //! submit path.
 
+#[cfg(feature = "delve")]
+use super::mouse_ev;
 use super::{
-    mouse_ev, render_app_text, seed_long_input_app, seed_practice_only_app, seed_preview_app,
+    render_app_text, seed_long_input_app, seed_practice_only_app, seed_preview_app,
     test_backend_text,
 };
 use crate::agent::club::ChatRole;
+#[cfg(feature = "delve")]
 use crate::app::WorldButton;
 use crate::tests::env_lock;
 use crate::ui::draw::{composer_cursor_position, ui};
@@ -151,6 +154,7 @@ fn focused_scryglass_printable_shortcuts_never_steal_a_nonempty_draft() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn realm_keyboard_and_mouse_choose_landmarks() {
     use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton, MouseEventKind};
@@ -159,18 +163,18 @@ fn realm_keyboard_and_mouse_choose_landmarks() {
     app.focus_module("artifacts");
     app.scryglass.surface = crate::ui::scryglass::StageSurface::WorldMap;
     app.realm.world
-        .select_landmark(crate::stage::world_viz::Building::Keep);
+        .select_landmark(crate::delve::world_viz::Building::Keep);
 
     app.on_key(KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
     assert_eq!(
         app.realm.world.destination(),
-        crate::stage::world_viz::Building::Scriptorium
+        crate::delve::world_viz::Building::Scriptorium
     );
 
     let hit = Rect::new(11, 7, 5, 4);
     app.world_buttons = vec![(
         hit,
-        WorldButton::ScryglassLandmark(crate::stage::world_viz::Building::Observatory),
+        WorldButton::ScryglassLandmark(crate::delve::world_viz::Building::Observatory as u8),
     )];
     app.on_mouse(mouse_ev(
         MouseEventKind::Down(MouseButton::Left),
@@ -179,7 +183,7 @@ fn realm_keyboard_and_mouse_choose_landmarks() {
     ));
     assert_eq!(
         app.realm.world.destination(),
-        crate::stage::world_viz::Building::Observatory
+        crate::delve::world_viz::Building::Observatory
     );
     assert_eq!(
         app.scryglass.controller.route(),

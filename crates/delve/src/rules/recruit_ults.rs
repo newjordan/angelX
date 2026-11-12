@@ -28,7 +28,9 @@ pub type RecruitUlts = BTreeMap<String, RecruitUlt>;
 /// Whether the knight of `kit` is a recruit: one with no ultimate of their
 /// own.
 pub fn recruit(kit: &str) -> bool {
-    knights::knight(kit).is_some() && ults::Ult::own(kit).is_none()
+    // The four code-drawn knights are plain knights, not recruits: they sit
+    // in the pub, and each keeps a plain knight's ultimate.
+    knights::knight(kit).is_some() && knights::plain_seat(kit).is_none() && ults::Ult::own(kit).is_none()
 }
 
 /// The question the scroll asks a knight wishing a recruit's ultimate.

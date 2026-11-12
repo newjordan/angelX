@@ -7,17 +7,38 @@ use super::super::knights;
 use super::bank::slot_mid;
 use super::scene::View;
 use crate::rules::lanternward::{
-    self as lw, Act, Ctx, Fk, Hold, Item, Pk, Seat, Session, Ws,
-    world::Q,
+    self as lw, Act, Ctx, Hold, Seat, Session, Ws,
 };
 
+thread_local! {
+    /// Every box of words drawn this frame (tests only): no two may meet and
+    /// none may leave the picture.
+    #[cfg(test)]
+    pub(super) static CLAIMS: std::cell::RefCell<Vec<(&'static str, (i32, i32, i32, i32))>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// Note a box of words on this frame, for the tests that look for words meeting.
+pub(super) fn claim(what: &'static str, rect: (i32, i32, i32, i32)) {
+    #[cfg(test)]
+    CLAIMS.with(|c| c.borrow_mut().push((what, rect)));
+    #[cfg(not(test))]
+    let _ = (what, rect);
+}
+
 fn label(im: &mut Img, x: i32, y: i32, s: &str, ink: char) {
-    im.rect(x - 1, y - 1, text_width(s) + 2, 9, 'k');
+    let w = text_width(s);
+    im.rect(x - 1, y - 1, w + 2, 9, 'k');
     im.text(x, y, s, ink);
+    claim("label", (x - 1, y - 1, w + 2, 9));
 }
 
 fn centred(im: &mut Img, cx: i32, y: i32, s: &str, ink: char) {
     label(im, cx - text_width(s) / 2, y, s, ink);
+}
+
+/// Words on a dark plate, centred on `cx`.
+pub(super) fn plate_text(im: &mut Img, cx: i32, y: i32, s: &str, ink: char) {
+    centred(im, cx, y, s, ink);
 }
 
 /// A heart with `q` quarters filled.
@@ -73,7 +94,6 @@ pub(super) fn draw(im: &mut Img, v: &View) {
     top_bar(im, v, k);
     wisp(im, v, k);
     bottom(im, v, k);
-    banners(im, v, k);
     boss_bar(im, v);
     leave_bar(im, v);
 }
@@ -181,79 +201,46 @@ fn bottom(im: &mut Img, v: &View, k: &Seat) {
     }
 }
 
-fn banners(im: &mut Img, v: &View, k: &Seat) {
-    let s = v.s;
-    if let Some(b) = s.banner {
-        let name = b.item.name();
-        let how = b.item.how();
-        let w = text_width(name).max(text_width(how)) + 12;
-        let x = 192 - w / 2;
-        im.rect(x, 60, w, 30, 'k');
-        im.frame(x, 60, w, 30, '6');
-        centred(im, 192, 66, name, '6');
-        centred(im, 192, 78, how, 'T');
-        if let Some(o) = s.seats.get(&u32::from(b.seat))
-            && u32::from(b.seat) != v.id
-        {
-            let _ = o;
-            centred(im, 192, 94, &format!("SEAT {} FOUND IT", b.seat), knights::seat_cloth(u32::from(b.seat)));
-        }
-    }
-    // The room's name, the first moments in it.
-    if s.stage_t < 70 && s.exiting == 0 && s.done.is_none() {
-        let name = lw::world::plan(usize::from(s.room)).name;
-        let fade = s.stage_t < 50;
-        if fade {
-            centred(im, 192, 40, name, 'T');
-        }
-    }
-    if s.elapsed < 90 && s.room == 0 {
-        centred(im, 192, 110, "LOCK ON. STRIKE. BLOCK.", 'H');
-    }
-    if s.wipe > 0 {
-        centred(im, 192, 100, "TRY AGAIN", '7');
-    }
-    if s.exiting > 0 {
-        let cover = (s.exiting.min(lw::EXIT_TICKS) as i32 * 224 / lw::EXIT_TICKS as i32).min(224);
-        let _ = cover;
-        centred(im, 192, 100, "ONWARD", 'T');
-    }
-    if let Some(t) = s.done {
-        let since = s.elapsed.saturating_sub(t);
-        if since > 20 {
-            centred(im, 192, 70, "THE BEACON BURNS", '6');
-            let first = v.run.home.roundtable[lw::SLOT] & lw::BEGUN == 0;
-            let pay = lw::purse(first, k.gems);
-            centred(im, 192, 84, &format!("PURSE {pay}G   TIME {}S", t / crate::rules::HZ), 'T');
-            if s.finale() {
-                centred(im, 192, 98, "E LEAVE", '6');
-            }
-        }
-    }
-    let _ = (Item::Map, Fk::Snuffer, Pk::Pot, Q);
-}
-
 fn boss_bar(im: &mut Img, v: &View) {
     let Some(w) = &v.s.boss else { return };
-    if w.st == Ws::Asleep || w.hp == 0 {
+    if w.st == Ws::Asleep || w.hp == 0 || super::scene::woke(w) {
         return;
     }
     let (x, y, width) = (126, 197, 200);
-    im.rect(x - 2, y - 11, width + 4, 18, 'k');
-    im.text(x, y - 9, "THE WARDEN", 'H');
     let open = v.s.boss_open();
-    if open {
-        im.text(x + width - text_width("HEART OPEN"), y - 9, "HEART OPEN", '6');
+    let stunned = w.st == Ws::Stagger;
+    // A frame that lights when the heart is open and flashes when it is stunned.
+    let rim = if stunned && (v.tick / 3).is_multiple_of(2) { 'w' } else if open { '6' } else { 'g' };
+    im.rect(x - 2, y - 11, width + 4, 18, 'k');
+    im.frame(x - 2, y - 11, width + 4, 18, rim);
+    claim("bar", (x - 2, y - 11, width + 4, 18));
+    im.text(x, y - 8, "THE WARDEN", 'H');
+    let line = if stunned {
+        "STAGGERED"
+    } else if open {
+        "HEART OPEN"
+    } else if w.need(v.s.seats.len() as u32) >= 2 {
+        "NEEDS TWO LIGHTS"
     } else {
-        let need = w.need(v.s.seats.len() as u32);
-        let line = if need >= 2 { "NEEDS TWO LIGHTS" } else { "HEART SHUT" };
-        im.text(x + width - text_width(line), y - 9, line, 'u');
-    }
+        "HEART SHUT"
+    };
+    let ink = if stunned { 'w' } else if open { '6' } else { 'u' };
+    im.text(x + width - text_width(line), y - 8, line, ink);
     im.rect(x, y, width, 4, 'X');
-    im.rect(x, y, (u64::from(w.hp) * width as u64 / u64::from(w.full.max(1))) as i32, 4, if open { '6' } else { 'R' });
-    // The thirds.
+    let fill = (u64::from(w.hp) * width as u64 / u64::from(w.full.max(1))) as i32;
+    im.rect(x, y, fill, 4, if open { '6' } else { 'R' });
+    im.rect(x, y, fill, 1, if open { 'w' } else { '7' });
+    // A bright bead on the edge of what is left, shining while it is struck.
+    if w.flinch > 0 {
+        im.rect((x + fill - 2).max(x), y - 1, 3, 6, 'w');
+    }
+    // The thirds, and a pip for each phase it has been driven through.
     for t in [1, 2] {
         im.rect(x + width * t / 3, y - 1, 1, 6, 'k');
+    }
+    for p in 0..3 {
+        let on = i32::from(w.phase) >= p;
+        im.rect(x + 66 + p * 4, y - 8, 3, 3, if on { '7' } else { 'X' });
     }
 }
 
@@ -262,6 +249,7 @@ fn leave_bar(im: &mut Img, v: &View) {
     if p > 0 {
         let w = (p * 60 / crate::rules::exits::LEAVE_TICKS) as i32;
         im.rect(160, 170, 64, 16, 'k');
+        claim("leaving", (160, 170, 64, 16));
         im.text(164, 173, "LEAVING", 'H');
         im.rect(162, 182, 60, 2, 'X');
         im.rect(162, 182, w, 2, 'w');

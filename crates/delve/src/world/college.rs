@@ -13,7 +13,12 @@ pub const LOT: Lot = Lot {
     th: 4,
 };
 
+/// The College's lot: none in the blank-slate plan (an empty lot that holds
+/// no tile), where the College is not on the map.
 pub fn lot() -> Lot {
+    if super::plan::tabula() {
+        return Lot { tx: 0, ty: 0, tw: 0, th: 0 };
+    }
     LOT
 }
 
@@ -29,6 +34,9 @@ pub fn approach() -> &'static [(i32, i32)] {
     use std::collections::{BTreeMap, VecDeque};
     static PATH: OnceLock<Vec<(i32, i32)>> = OnceLock::new();
     PATH.get_or_init(|| {
+        if super::plan::tabula() {
+            return Vec::new();
+        }
         let realm = Realm::get();
         let lot = lot();
         let gate = wishes::delve_gate();

@@ -116,6 +116,7 @@ dependencies = [
 name = "angel-delve"
 version = "0.1.0"
 dependencies = [
+ "angel-kingdom",
  "angel-live",
  "angel-net",
  "angel-stage",
@@ -123,6 +124,50 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "angel-delve-cart"
+version = "0.1.0"
+dependencies = [
+ "angel-delve",
+ "angel-glass",
+ "angel-live",
+ "angel-plug",
+ "angel-realm-host",
+ "angel-serve",
+ "angel-stage",
+ "angel-web-bundle",
+ "base64",
+ "image",
+ "png",
+ "ratatui",
+ "serde",
+ "serde_json",
+ "tracing",
+ "unicode-segmentation",
+ "unicode-width",
+ "ureq",
+]
+
+[[package]]
+name = "angel-face"
+version = "0.1.0"
+dependencies = [
+ "angel-stage",
+ "png",
+ "serde_json",
+]
+
+[[package]]
+name = "angel-games"
+version = "0.1.0"
+dependencies = [
+ "angel-live",
+ "angel-net",
+ "angel-serve",
+ "crossterm",
+ "url",
 ]
 
 [[package]]
@@ -141,6 +186,7 @@ dependencies = [
  "pollster",
  "ratatui-core",
  "serde",
+ "serde_json",
  "swash",
  "unicode-width",
  "wayland-backend",
@@ -160,6 +206,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "angel-kingdom"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "angel-live"
 version = "0.1.0"
 dependencies = [
@@ -169,7 +223,16 @@ dependencies = [
  "ring",
  "serde",
  "serde_json",
+ "tracing",
  "v8",
+]
+
+[[package]]
+name = "angel-muster"
+version = "0.1.0"
+dependencies = [
+ "angel-net",
+ "angel-serve",
 ]
 
 [[package]]
@@ -187,12 +250,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "angel-plug"
+version = "0.1.0"
+dependencies = [
+ "angel-live",
+ "crossterm",
+ "ratatui-core",
+ "serde",
+ "serde_json",
+ "unicode-width",
+]
+
+[[package]]
 name = "angel-realm-host"
 version = "0.1.0"
 dependencies = [
  "angel-delve",
+ "angel-games",
  "angel-live",
  "angel-net",
+ "angel-plug",
  "angel-serve",
  "crossterm",
  "image",
@@ -242,14 +319,19 @@ dependencies = [
 
 [[package]]
 name = "angelX-cockpit"
-version = "0.2.7"
+version = "0.2.85"
 dependencies = [
  "angel-code-mode",
  "angel-delve",
+ "angel-delve-cart",
+ "angel-face",
+ "angel-games",
  "angel-glass",
  "angel-live",
+ "angel-muster",
  "angel-native",
  "angel-net",
+ "angel-plug",
  "angel-realm-host",
  "angel-serve",
  "angel-stage",

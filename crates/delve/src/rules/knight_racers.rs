@@ -1,106 +1,121 @@
-//! Knight Racer: one lap on the example's 864-unit oval, shared by six seats.
+//! Knight Racers: big authored courses shared by six seats, raced for a cup.
 //! Walk to the race gate at kingdom tile (128, 22), east of Lanternward, and
 //! press E. It uses the normal kingdom door: hold Esc to return to the gate.
-//! Each browser/native seat uses W/Up to accelerate, A/D to steer, S/Down
-//! to brake, Space to boost. E at the flag resets the whole field.
+//! Each seat uses W/Up to accelerate, A/D to steer, S/Down to brake, Space to
+//! boost. E at the flag starts the next course of the cup.
+//!
+//! The Bend mirror in `delve/rules/games_c` still describes the retired 864
+//! oval. The courses live in `knight_racers/course.rs` (the road, the land and
+//! the set pieces), `courses.rs` (the authored maps), `race.rs` (the sim, the
+//! rival pilots and the cup) and `pods.rs`; this file joins them to the Run.
 use super::*;
 use super::roundtable::Adventure;
 use super::activity::Activity;
-use serde::{Deserialize, Serialize};
+
+#[path = "knight_racers/course.rs"]
+pub mod course;
+#[path = "knight_racers/courses.rs"]
+mod courses;
+#[path = "knight_racers/author.rs"]
+mod author;
+#[path = "knight_racers/emberfall.rs"]
+mod emberfall;
+#[path = "knight_racers/glassway.rs"]
+mod glassway;
+#[path = "knight_racers/moatwalk.rs"]
+mod moatwalk;
+#[path = "knight_racers/pods.rs"]
+pub mod pods;
+#[path = "knight_racers/tune.rs"]
+pub mod tune;
+#[path = "knight_racers/career.rs"]
+pub mod career;
+#[path = "knight_racers/flow.rs"]
+pub mod flow;
+#[path = "knight_racers/race.rs"]
+pub mod race;
+#[cfg(test)]
+#[path = "knight_racers/course_tests.rs"]
+mod course_tests;
+#[cfg(test)]
+#[path = "knight_racers/report.rs"]
+mod report;
+#[cfg(test)]
+#[path = "knight_racers/law_tests.rs"]
+mod law_tests;
+
+pub use course::{course, courses, cup, Biome, Course, CourseId, Cp, Fork, Frame, Gap, Hazard, HazardKind, Line, Piece, PieceKind, Sample, Shape, Slag, Strip, Stretch, Zone};
+pub use pods::{pods, PodSpec};
+pub use race::{Car, Drive, Session};
+pub use career::Career;
+pub use flow::{Class, Flow, Mode, Pad, Stage};
+pub use tune::Tune;
 
 pub const NAME: &str = "Knight Racer";
 pub const ENTRY: (i32, i32) = (128, 22);
-pub const LAP: f32 = 864.0;
-pub const LAPS: u32 = 1;
+/// Laps of the retired proving circuit; each course now carries its own count.
+pub const LAPS: u32 = 2;
 const NO_NUMBERS: [super::roundtable::Number; 5] = [super::roundtable::Number::stub("racer_unused", "No tuning", "knight_racers::LAPS"); 5];
-const BEND: f32 = 50.0;
-const STRAIGHT: f32 = (LAP - 2.0 * std::f32::consts::PI * BEND) / 2.0;
-const GRID: [(f32, f32); 6] = [(-6., -3.6), (-10., 3.6), (-22., -3.6), (-26., 3.6), (-38., -3.6), (-42., 3.6)];
+const _: () = assert!(race::SEATS == MAX_PLAYERS && race::HZ == HZ as f32);
+#[cfg(test)]
+const GRID: [(f32, f32); 6] = race::GRID;
 
-/// The same bend and slide as the example's car drive, at Delve's fixed 30 Hz.
-pub fn pose(s: f32) -> (f32, f32, f32) {
-    let s = s.rem_euclid(LAP);
-    let arc = std::f32::consts::PI * BEND;
-    if s < STRAIGHT { (s, 0., 0.) }
-    else if s < STRAIGHT + arc { let f = (s - STRAIGHT) / BEND; (STRAIGHT + BEND * f.sin(), BEND * (1. - f.cos()), f) }
-    else if s < 2. * STRAIGHT + arc { (STRAIGHT - (s - STRAIGHT - arc), 2. * BEND, std::f32::consts::PI) }
-    else { let f = (s - 2. * STRAIGHT - arc) / BEND; (-BEND * f.sin(), BEND * (1. + f.cos()), std::f32::consts::PI + f) }
+// The old free functions: thin wrappers over course 0, the proving circuit, for
+// the renderer until it moves to `course(id)`.
+fn proving() -> &'static Course { course(CourseId::Proving) }
+/// Centreline length of one lap of the proving circuit.
+pub fn lap() -> f32 { proving().lap() }
+pub fn slag() -> &'static [Slag] { proving().slag() }
+pub fn strips() -> &'static [Strip] { proving().strips() }
+/// Section starts, excluding the grid line (the start gate already marks it).
+pub fn landmarks() -> Vec<f32> { proving().landmarks() }
+pub fn stretch_at(s: f32) -> (Stretch, &'static str) { let c = proving(); (c.stretch(s), c.zone(s).1) }
+/// Half-width of the racing surface. Narrows through the cavern and hairpins.
+pub fn wall_at(s: f32) -> f32 { let (l, r) = proving().width(s); l.min(r) }
+/// Road height along the centreline. Closes on itself so the lap seam is level.
+pub fn height(s: f32) -> f32 { proving().height(s) }
+pub fn grade(s: f32) -> f32 { proving().grade(s) }
+/// Inside line of the next corner, in track-left metres. Straights stay central.
+pub fn racing_line(s: f32) -> f32 { proving().racing_line(s) }
+pub fn pose(s: f32) -> (f32, f32, f32) { proving().pose(s) }
+pub fn curve(s: f32) -> f32 { proving().curve(s) }
+
+fn drive_of(input: &Input) -> Drive {
+    Drive { steer: input.move_x.clamp(-1, 1), gas: input.move_y < 0, brake: input.move_y > 0, boost: input.dash, interact: input.interact }
 }
-fn curve(s: f32) -> f32 {
-    let s = s.rem_euclid(LAP);
-    if (STRAIGHT..STRAIGHT + std::f32::consts::PI * BEND).contains(&s) || s >= 2. * STRAIGHT + std::f32::consts::PI * BEND { 1. / BEND } else { 0. }
+fn input_of(d: Drive) -> Input {
+    Input { move_x: d.steer, move_y: if d.brake { 1 } else if d.gas { -1 } else { 0 }, dash: d.boost, ..Input::default() }
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Car {
-    pub d: f32, pub y: f32, pub v: f32, pub vy: f32, pub boost: f32,
-    pub finish: Option<f32>,
+
+/// What an empty seat presses when it is a CPU rival on the proving circuit.
+/// A live human seat must not come through here: idle input stays idle. On the
+/// other courses use `Session::bot_drives`, which knows the course.
+pub fn bot_drive(id: u32, car: &Car, ticks: u32) -> Input {
+    input_of(race::bot_drive_on(proving(), id, car, ticks))
 }
-impl Car {
-    fn grid(slot: usize) -> Self { Self { d: GRID[slot].0, y: GRID[slot].1, v: 0., vy: 0., boost: 1., finish: None } }
-    fn valid(&self) -> bool { [self.d, self.y, self.v, self.vy, self.boost].iter().all(|n| n.is_finite()) && self.d >= -100. && self.d <= LAP + 100. && self.y.abs() <= 12. && (0. ..=60.).contains(&self.v) && (0. ..=1.).contains(&self.boost) && self.finish.is_none_or(|t| t.is_finite() && t >= 0.) }
+
+fn bot_input(run: &Run, id: u32) -> Input {
+    let Some(race) = &run.knight_racers else { return Input::default(); };
+    let Some(car) = race.cars.get(&id) else { return Input::default(); };
+    if !car.cpu { return Input::default(); }
+    race.bot_drives().get(&id).map_or_else(Input::default, |d| input_of(*d))
 }
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Session {
-    pub cars: BTreeMap<u32, Car>,
-    pub ticks: u32,
-    /// After the flag, E starts a fresh grid without leaving the room.
-    pub finished: bool,
-}
+
 impl Session {
     pub fn new(players: &BTreeMap<u32, Hero>) -> Self {
-        let mut s = Self { cars: BTreeMap::new(), ticks: 0, finished: false };
+        let mut s = Self::blank();
         s.join_ids(players.keys().copied());
         s
     }
-    /// Keep only knights still inside the race. Waiting outside at the
-    /// kingdom gate must not remain a ghost racer in the finish condition.
-    pub fn join_ids(&mut self, ids: impl IntoIterator<Item = u32>) {
-        let ids: std::collections::BTreeSet<_> = ids.into_iter().filter(|id| (1..=MAX_PLAYERS).contains(id)).collect();
-        self.cars.retain(|id, _| ids.contains(id));
-        for id in ids.into_iter().take(MAX_PLAYERS as usize) {
-            self.cars.entry(id).or_insert_with(|| Car::grid((id - 1) as usize));
-        }
-        self.finished = !self.cars.is_empty() && self.cars.values().all(|c| c.finish.is_some());
+    /// The same, on a chosen course (and so a chosen place in the cup).
+    pub fn new_on(players: &BTreeMap<u32, Hero>, course: CourseId) -> Self {
+        let mut s = Self::blank_on(course);
+        s.join_ids(players.keys().copied());
+        s
     }
-    pub fn valid(&self) -> bool { self.cars.len() <= MAX_PLAYERS as usize && self.cars.iter().all(|(id, car)| (1..=MAX_PLAYERS).contains(id) && car.valid()) && (!self.finished || self.cars.values().all(|c| c.finish.is_some())) }
     pub fn step(&mut self, inputs: &BTreeMap<u32, Input>) {
-        if self.finished {
-            if self.cars.keys().any(|id| inputs.get(id).is_some_and(|i| i.interact)) {
-                for (id, car) in &mut self.cars { *car = Car::grid((*id - 1) as usize); }
-                self.ticks = 0; self.finished = false;
-            }
-            return;
-        }
-        self.ticks = self.ticks.saturating_add(1);
-        // A short grid countdown, shared by all seats.
-        if self.ticks <= 90 { return; }
-        let dt = 1. / HZ as f32;
-        let time = (self.ticks - 90) as f32 * dt;
-        for (id, c) in &mut self.cars {
-            if c.finish.is_some() { continue; }
-            let input = inputs.get(id).copied().unwrap_or_default();
-            let steer = f32::from(input.move_x.clamp(-1, 1));
-            let brake = input.move_y > 0;
-            let boosting = input.dash && c.boost > 0. && !brake;
-            let gas = input.move_y < 0 || boosting;
-            if boosting { c.boost = (c.boost - 0.30 * dt).max(0.); }
-            else { c.boost = (c.boost + 0.11 * dt).min(1.); }
-            let top = if boosting { 56. } else { 40. };
-            if brake { c.v = (c.v - 46. * dt).max(0.); }
-            else if gas { if c.v < top { c.v += (if boosting { 62.4 } else { 26. }) * (1. - c.v / top) * dt; } }
-            else { c.v = (c.v - (3. + 0.004 * c.v * c.v) * dt).max(0.); }
-            if c.v > top { c.v = (c.v - 16. * dt).max(top); }
-            let lat = 13. * (0.4 + 0.6 * (c.v / 16.).min(1.)) * if boosting { 0.8 } else { 1. };
-            let cmd = steer * lat;
-            c.vy += (cmd - c.vy).clamp(-90. * dt, 90. * dt);
-            let k = curve(c.d);
-            c.y += (c.vy - 0.30 * c.v * c.v * k) * dt;
-            // Wall catches the engine, but does not trap it at a dead stop.
-            if c.y.abs() > 8. { c.y = c.y.signum() * 8.; c.v *= 0.88; c.vy = -c.y.signum() * 4.; }
-            c.d += c.v * dt / (1. - k * c.y).max(0.4);
-            if c.d >= LAP * LAPS as f32 { c.finish = Some(time - (c.d - LAP) / c.v.max(1.)); c.d = LAP; }
-        }
-        self.finished = !self.cars.is_empty() && self.cars.values().all(|c| c.finish.is_some());
+        let drives: BTreeMap<u32, Drive> = inputs.iter().map(|(id, i)| (*id, drive_of(i))).collect();
+        self.step_drive(&drives);
     }
 }
 
@@ -110,7 +125,7 @@ pub const ADVENTURE: Adventure = Adventure {
     start: Run::start_knight_racers, valid: |r| r.knight_racers.as_ref().is_none_or(Session::valid),
     clear: |r| r.knight_racers = None,
     seated: |r| r.knight_racers.as_ref().map_or_else(Vec::new, |s| s.cars.keys().copied().collect()),
-    bot: |_, _| Input::default(),
+    bot: bot_input,
 };
 pub const ACTIVITY: Activity = Activity {
     name: NAME, on: Run::knight_racers_showing,
@@ -119,37 +134,171 @@ pub const ACTIVITY: Activity = Activity {
     settle: None, fields: &["knight_racers"],
 };
 impl Run {
-    pub fn knight_racers_showing(&self) -> bool { self.room().kind == RoomKind::Forest && self.knight_racers.is_some() }
-    pub fn start_knight_racers(&mut self) {
-        if self.room().kind != RoomKind::Forest { return; }
-        self.forest.leave();
-        self.knight_racers = Some(Session::new(&self.players));
-        self.found = Some((self.tick, 0, "Knight Racer: arrows/WASD drive, Space boosts. Hold Esc to leave; E after the flag to race again.".into()));
+    pub fn knight_racers_showing(&self) -> bool {
+        self.knight_racers.is_some() && (self.on_stage() || self.crossroads_racing())
     }
-    fn tick_knight_racers(&mut self, inputs: &BTreeMap<u32, Input>) {
+    pub fn start_knight_racers(&mut self) {
+        if !self.on_stage() { return; }
+        self.forest.leave();
+        self.knight_racers = Some(Session::at_gate(&self.players));
+        self.found = Some((self.tick, 0, "Knight Racers: the cup, a single race, a time trial. W/S and A/D choose, E or Space picks, Q steps back. In a race WASD steers, Space boosts. Hold Esc to leave.".into()));
+    }
+    pub(super) fn tick_knight_racers(&mut self, inputs: &BTreeMap<u32, Input>) {
         let Some(s) = &mut self.knight_racers else { return; };
-        s.join_ids(self.players.keys().filter(|id| !self.exits.outside.contains_key(id)).copied());
-        s.step(inputs);
+        let humans: Vec<(u32, String)> = self.players.iter().filter(|(id, _)| !self.exits.outside.contains_key(id)).map(|(id, h)| (*id, h.name.clone())).collect();
+        let pads: BTreeMap<u32, Pad> = inputs.iter().map(|(id, i)| (*id, Pad::from_input(i))).collect();
+        flow::tick(s, &humans, &pads);
     }
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
+    fn boost_lockout_braking_wall_feedback_and_old_saves() {
+        let old = r#"{"d":0,"y":0,"v":0,"vy":0,"boost":1,"finish":null}"#;
+        let legacy: Car = serde_json::from_str(old).unwrap();
+        assert!(!legacy.boosting && !legacy.boost_locked && legacy.impact == 0 && !legacy.cpu);
+        let mut session = Session { cars: [(1, legacy)].into(), ticks: 90, ..Session::blank() };
+        let boost = [(1, Input { move_y: -1, dash: true, ..Input::default() })].into();
+        for _ in 0..101 { session.step(&boost); }
+        assert!(session.cars[&1].boost_locked, "depletion must latch cooling");
+        session.step(&boost); // last residual charge powered the depletion tick
+        assert!(!session.cars[&1].boosting, "held Space must not flutter on recharge");
+        for _ in 0..10 { session.step(&boost); assert!(!session.cars[&1].boosting); }
+        session.cars.get_mut(&1).unwrap().boost = 0.5;
+        session.step(&boost);
+        assert!(session.cars[&1].boosting && !session.cars[&1].boost_locked);
+        session.step(&[(1, Input { move_y: 1, dash: true, ..Input::default() })].into());
+        assert!(!session.cars[&1].boosting, "brake always cancels thrust");
+        let c = session.cars.get_mut(&1).unwrap(); c.y = 16.; c.vy = 13.;
+        session.step(&[(1, Input { move_x: 1, ..Input::default() })].into());
+        assert_eq!(session.cars[&1].impact, 12);
+        assert!(session.valid());
+        let wire = serde_json::to_string(&session).unwrap();
+        assert!(serde_json::from_str::<Session>(&wire).unwrap().valid());
+    }
+
+    #[test]
+    fn circuit_closes_and_is_larger_than_the_old_oval() {
+        let n = 96;
+        let mut max_span = 0f32;
+        for i in 0..n {
+            let (x, y, _) = pose(i as f32 / n as f32 * lap());
+            for j in (i + 1)..n {
+                let (u, v, _) = pose(j as f32 / n as f32 * lap());
+                max_span = max_span.max((x - u).hypot(y - v));
+            }
+        }
+        assert!(lap() > 1800., "lap {} is still the old oval", lap());
+        assert!(max_span > 600., "course span {max_span} did not grow");
+        assert!(wall_at(0.) > 11., "the start straight should be wide enough to pass");
+        assert!(wall_at(900.) < wall_at(0.), "the cavern must pinch");
+        let (x0, y0, _) = pose(0.);
+        let (x1, y1, _) = pose(lap() - 0.05);
+        assert!((x0 - x1).hypot(y0 - y1) < 1.5, "lap seam jumps");
+    }
+
+    #[test]
     fn one_lap_six_seats_and_reset() {
         let mut r = Run::new(7, 1, None);
         for id in 2..=6 { r.join_seat(id, "Racer"); }
-        let mut s = Session::new(&r.players);
+        // Six seats flat out with no steering only finish on the old oval, whose walls
+        // guide them round; the cup courses need a pilot (see course_tests.rs).
+        let mut s = Session::new_on(&r.players, CourseId::Proving);
         assert_eq!(s.cars.len(), 6);
         assert_eq!(s.cars.keys().copied().collect::<Vec<_>>(), (1..=6).collect::<Vec<_>>());
         let inputs = (1..=6).map(|id| (id, Input { move_y: -1, ..Input::default() })).collect();
-        for _ in 0..2500 { s.step(&inputs); if s.finished { break; } }
-        assert!(s.finished, "all six must cross the one-lap line: {:?}", s.cars);
-        assert!(s.cars.values().all(|c| c.finish.is_some() && c.d == LAP));
+        for _ in 0..12000 { s.step(&inputs); if s.finished { break; } }
+        let line = lap() * LAPS as f32;
+        assert!(s.finished, "all six must finish the race: {:?}", s.cars.iter().map(|(id, c)| (id, c.d, c.finish)).collect::<Vec<_>>());
+        assert!(s.cars.values().all(|c| c.finish.is_some() && (c.d - line).abs() < 0.05));
         s.step(&[(1, Input { interact: true, ..Input::default() })].into());
         assert!(!s.finished);
         assert_eq!(s.cars.len(), 6);
         assert!(s.cars.values().all(|c| c.finish.is_none()));
+    }
+
+    #[test]
+    fn solo_grid_fields_rivals_that_leave_the_line() {
+        let mut r = Run::roundtable_for_test("knight_racers").unwrap();
+        for _ in 0..220 { r.step(&[(1, Input { move_y: -1, ..Input::default() })].into()); }
+        let race = r.knight_racers.as_ref().unwrap();
+        assert_eq!(race.cars.len(), 6, "a solo knight should not race an empty course");
+        assert!(race.cars[&1].d > 0.);
+        assert!(race.cars.values().filter(|c| c.cpu).count() >= 4);
+        assert!(race.cars.values().filter(|c| c.cpu).all(|c| c.d > 0.), "rivals must take the start");
+    }
+
+
+    #[test]
+    fn the_live_run_races_every_course_and_the_cup_starts_on_the_first() {
+        let mut r = Run::roundtable_for_test("knight_racers").unwrap();
+        assert_eq!(r.knight_racers.as_ref().unwrap().course, cup()[0], "the gate opens on the first course of the cup");
+        for &id in courses() {
+            let mut r = Run::roundtable_for_test("knight_racers").unwrap();
+            let players = r.players.clone();
+            r.knight_racers = Some(Session::new_on(&players, id));
+            for _ in 0..700 { r.step(&[(1, Input { move_y: -1, ..Input::default() })].into()); }
+            let race = r.knight_racers.as_ref().unwrap();
+            assert_eq!(race.course, id);
+            assert!(race.valid(), "{id:?}");
+            assert!(race.cars.values().filter(|c| c.cpu).all(|c| c.d > 100.), "{id:?}: rivals must pull away on every course");
+        }
+        // Pods and the wire: a chosen pod survives the serialised race.
+        let race = r.knight_racers.as_mut().unwrap();
+        race.choose_pod(1, 5);
+        let back: Session = serde_json::from_str(&serde_json::to_string(race).unwrap()).unwrap();
+        assert_eq!(back.cars[&1].pod, 5);
+    }
+
+
+    /// `cargo test -p angel-delve --lib frame_time -- --ignored --nocapture`: the cost of one race
+    /// frame at the seat's 384x224, on the proving circuit and on each cup course, and of the land
+    /// under it. A measurement, not a gate.
+    #[test]
+    #[ignore]
+    fn frame_time() {
+        for &id in courses() {
+            let mut r = Run::roundtable_for_test("knight_racers").unwrap();
+            let players = r.players.clone();
+            r.knight_racers = Some(Session::new_on(&players, id));
+            for _ in 0..400 { r.step(&[(1, Input { move_y: -1, ..Input::default() })].into()); }
+            let n = 30;
+            let t = std::time::Instant::now();
+            for _ in 0..n { r.step(&[(1, Input { move_y: -1, ..Input::default() })].into()); let _ = crate::render::overworld::arena::frame_for(&r, 384, 224, Some(1)); }
+            let ms = t.elapsed().as_secs_f64() * 1000. / n as f64;
+            let c = course(id);
+            let t = std::time::Instant::now();
+            let mut sum = 0.;
+            for i in 0..20_000 { sum += c.ground(i as f32 * 0.37 % 900. - 100., i as f32 * 0.53 % 700. - 100.); }
+            let g = t.elapsed().as_secs_f64() * 1000.;
+            println!("{:?}: {ms:.1} ms a frame; 20000 ground() calls {g:.1} ms ({sum:.0})", id);
+        }
+    }
+
+    #[test]
+    fn the_pilots_never_turn_about_and_a_held_brake_does() {
+        for &id in courses() {
+            let mut race = Session::blank_on(id);
+            race.join_ids(1..=6);
+            for _ in 0..1800 { race.step_drive(&race.bot_drives_all()); }
+            assert!(race.cars.values().all(|c| c.yaw == 0.), "a pilot turned about on {id:?}");
+        }
+        // A knight who holds the brake and a direction at a standstill turns the pod right round.
+        let mut race = Session::blank_on(CourseId::Proving);
+        race.join_ids(1..=1);
+        race.ticks = 120;
+        { let c = race.cars.get_mut(&1).unwrap(); c.d = 300.; c.v = 0.; c.y = 0.; }
+        let turn: BTreeMap<u32, Drive> = [(1, Drive { steer: -1, brake: true, ..Drive::default() })].into();
+        for _ in 0..30 { race.step_drive(&turn); }
+        let yaw = race.cars[&1].yaw;
+        assert!(yaw.abs() > 2.0, "a second's turn gets the nose well round: {yaw}");
+        assert!(race.valid(), "a pod turned about is still a valid pod");
+        // At speed the nose is brought back along the road, whatever was held.
+        { let c = race.cars.get_mut(&1).unwrap(); c.yaw = 0.8; c.v = 30.; }
+        let go: BTreeMap<u32, Drive> = [(1, Drive { gas: true, ..Drive::default() })].into();
+        for _ in 0..60 { race.step_drive(&go); }
+        assert!(race.cars[&1].yaw.abs() < 0.01, "a pod under way straightens: {}", race.cars[&1].yaw);
     }
 
     #[test]
@@ -164,6 +313,7 @@ mod tests {
         assert!(race.ticks > 90, "the live Run advances the race");
         assert!(race.cars[&1].d > GRID[0].0 && race.cars[&6].d > GRID[5].0);
         assert!(race.cars[&2].d < 0., "an idle seat must not drive another seat's car");
+        assert!(!race.cars[&2].cpu);
         assert_ne!(race.cars[&1].y, race.cars[&6].y);
         let a = crate::render::overworld::arena::frame_for(&r, 384, 224, Some(1));
         let b = crate::render::overworld::arena::frame_for(&r, 384, 224, Some(6));

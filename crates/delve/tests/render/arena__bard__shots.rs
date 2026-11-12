@@ -84,16 +84,8 @@ fn write_bard_lab() {
 #[test]
 fn every_sound_the_bard_names_is_a_shipped_file() {
     let sfx = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../cockpit/assets/dungeon/sfx");
-    let names = sim::RIFF
-        .iter()
-        .chain(sim::SAX.iter())
-        .chain(sim::GLITCHES.iter())
-        .chain([sim::KICK, sim::HIT, sim::LULLABY, sim::WUB, sim::OVERLOAD].iter());
-    for name in names {
+    for name in sim::names().iter().chain([sim::HIT].iter()) {
         assert!(sfx.join(format!("{name}.mp3")).is_file(), "{name}.mp3 is missing");
-    }
-    for name in sim::RIFF {
-        assert!(sim::SAX.contains(&name), "{name} is not in the mixers' list");
     }
 }
 
@@ -105,10 +97,10 @@ fn a_held_stream_draws_its_horn_its_beat_and_its_glitch() {
     r.step(&BTreeMap::from([(1, fire)]));
     let first = super::super::super::frame_for(&r, 384, 216, Some(1));
     assert_ne!(first.rgba_scaled(1), quiet.rgba_scaled(1), "the first volley shows");
-    for _ in 0..(4 * sim::GLITCH_AT) {
+    for _ in 0..(4 * sim::DROP_AT) {
         r.step(&BTreeMap::from([(1, fire)]));
     }
-    assert!(sim::stage(r.players[&1].groove) == 2, "a held riff overloads");
+    assert!(sim::stage(r.players[&1].groove) == 2, "a held song drops");
     // A glitching shot is torn: red and blue either side of its gold.
     let mut mark = Img::new(25, 25);
     note_shot(&mut mark, (12, 12), (18.0, 0.0), 0);

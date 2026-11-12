@@ -1,8 +1,8 @@
 //! The pastimes' screens as the cockpit shows them in terminal cells.
 
-use crate::stage::world_viz::overworld::arena::terminal_layers;
-use crate::drive::together_shooter::*;
-use crate::stage::world_viz::overworld::Img;
+use crate::delve::world_viz::overworld::arena::terminal_layers;
+use crate::delve::together_shooter::*;
+use crate::delve::world_viz::overworld::Img;
 
 /// Serialize the real ratatui buffer, including Kitty upload and Unicode
 /// placeholders. The review runner shows this stream in Kitty and captures it.
@@ -38,6 +38,7 @@ fn write_terminal_images(
     let mut viewer = crate::ui::viewer::Viewer::kitty_for_test();
     terminal
         .draw(|f| {
+            use crate::delve::cart::viewer::Pictures;
             viewer.render_game_img(
                 f,
                 Rect::new(0, 0, 96, 28),
@@ -59,12 +60,12 @@ fn write_terminal_images(
                 if let Some(run) = run {
                     let area = Rect::new(0, 0, 96, 28);
                     if run.cinder_showing() || run.latch_showing() || run.mossbell_showing() || run.brasswake_showing() || run.rafterwake_showing() || run.pennon_showing() {
-                        crate::ui::viz::shooter_viz::paint_picture_ui(f, area, run, None, Some(1));
+                        crate::delve::shooter_viz::paint_picture_ui(f, area, run, None, Some(1));
                     } else {
-                        crate::ui::viz::shooter_viz::paint_room_ui(f, area, run, Some(1));
+                        crate::delve::shooter_viz::paint_room_ui(f, area, run, Some(1));
                     }
                 } else {
-                    crate::stage::world_viz::art::paint_cells(f, Rect::new(0, 0, 96, 28), base, fx);
+                    crate::delve::world_viz::art::paint_cells(f, Rect::new(0, 0, 96, 28), base, fx);
                 }
             })
             .unwrap();
@@ -114,7 +115,7 @@ fn cinder_live_cell_route_preserves_seams_effects_and_podium() {
             b.pop[9][0] = flash > 0;
             actual
                 .draw(|f| {
-                    crate::ui::viz::shooter_viz::paint_picture_ui(
+                    crate::delve::shooter_viz::paint_picture_ui(
                         f,
                         Rect::new(0, 0, 96, 28),
                         &run,
@@ -125,7 +126,7 @@ fn cinder_live_cell_route_preserves_seams_effects_and_podium() {
                 .unwrap();
             review
                 .draw(|f| {
-                    crate::ui::viz::shooter_viz::paint_room_ui(
+                    crate::delve::shooter_viz::paint_room_ui(
                         f,
                         Rect::new(0, 0, 96, 28),
                         &run,
@@ -153,7 +154,7 @@ fn cinder_live_cell_route_preserves_seams_effects_and_podium() {
     s.order = vec![1, 2];
     actual
         .draw(|f| {
-            crate::ui::viz::shooter_viz::paint_picture_ui(
+            crate::delve::shooter_viz::paint_picture_ui(
                 f,
                 Rect::new(0, 0, 96, 28),
                 &run,
@@ -192,7 +193,7 @@ fn write_cinder_terminal_review() {
     for id in 2..=4 {
         run.join_seat(id, &format!("Seat {id}"));
     }
-    let native = crate::stage::world_viz::overworld::arena::frame_for(&run, 768, 448, Some(1));
+    let native = crate::delve::world_viz::overworld::arena::frame_for(&run, 768, 448, Some(1));
     write_terminal_review(&dir, "entrance", &run, &native);
     run.step(&std::collections::BTreeMap::from([(
         1,
@@ -226,7 +227,7 @@ fn write_cinder_terminal_review() {
                 "cinder-podium"
             };
             let native =
-                crate::stage::world_viz::overworld::arena::frame_for(&run, 768, 448, Some(1));
+                crate::delve::world_viz::overworld::arena::frame_for(&run, 768, 448, Some(1));
             write_terminal_review(&dir, name, &run, &native);
             if run.cinder.as_ref().unwrap().left == 0 {
                 break;
@@ -289,7 +290,7 @@ fn write_cinder_terminal_review() {
                 }
             }
         }
-        let native = crate::stage::world_viz::overworld::arena::frame_for(&run, 768, 448, Some(1));
+        let native = crate::delve::world_viz::overworld::arena::frame_for(&run, 768, 448, Some(1));
         write_terminal_review(&dir, name, &run, &native);
     }
 }
@@ -333,7 +334,7 @@ fn write_latch_terminal_review() {
         d.counters = counters;
         d.chain = chain;
         d.freeze = freeze;
-        let native = crate::stage::world_viz::overworld::arena::frame_for(&r, 768, 448, Some(1));
+        let native = crate::delve::world_viz::overworld::arena::frame_for(&r, 768, 448, Some(1));
         write_terminal_review(&dir, name, &r, &native);
     }
     let s = r.latch.as_mut().unwrap();
@@ -344,7 +345,7 @@ fn write_latch_terminal_review() {
         d.error = id - 1;
         if id > 1 { d.counters = 2; }
     }
-    let native = crate::stage::world_viz::overworld::arena::frame_for(&r, 768, 448, Some(1));
+    let native = crate::delve::world_viz::overworld::arena::frame_for(&r, 768, 448, Some(1));
     write_terminal_review(&dir, "podium", &r, &native);
     for (id, name) in [(2, "Bot 1"), (3, "Bot 2"), (4, "Bot 3")] {
         r.players.get_mut(&id).unwrap().name = name.into();
@@ -356,7 +357,7 @@ fn write_latch_terminal_review() {
         d.error = if id == 4 { 2 } else { 0 };
         d.misses = u32::from(id == 1);
     }
-    let native = crate::stage::world_viz::overworld::arena::frame_for(&r, 768, 448, Some(1));
+    let native = crate::delve::world_viz::overworld::arena::frame_for(&r, 768, 448, Some(1));
     write_terminal_review(&dir, "podium-zero", &r, &native);
 }
 
@@ -371,7 +372,7 @@ fn write_mossbell_terminal_review() {
         let b=&mut r.mossbell.as_mut().unwrap().tables.get_mut(&1).unwrap().ball;*b=Ball::new();b.beat=beat;b.hp=hp;b.score=1375;b.save=0;b.beat_left=24;b.x=66*Q;b.y=95*Q;b.trail=[(64,89),(63,84),(64,78),(65,74)];
         if name=="chain"||name=="jackpot"{b.chain=3;b.lit=7;b.flash=[8;3];b.burst=if name=="jackpot"{16}else{8};b.impact=(80,98);if name=="jackpot"{b.jackpot_at=Some(r.tick);b.impact=(80,63);}}
         r.mossbell.as_mut().unwrap().race();
-        let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
+        let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
     }
     for (prefix,beat,total) in [("root-stage",Beat::RootTell,36),("crown-stage",Beat::CrownTell,36),
         ("root-rage",Beat::RootTell,30),("crown-rage",Beat::CrownTell,30)] {
@@ -380,17 +381,17 @@ fn write_mossbell_terminal_review() {
             *b=Ball::new();b.beat=beat;b.beat_left=total*(4-stage)/4;b.save=0;b.score=1375;
             b.hp=if prefix.ends_with("rage") {2} else {6};
             r.mossbell.as_mut().unwrap().race();
-            let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
+            let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
             write_terminal_review(&dir,&format!("{prefix}-{stage}"),&r,&native);
         }
     }
     for (name,attack) in [("root-right",0),("root-left",1)] {
         let b=&mut r.mossbell.as_mut().unwrap().tables.get_mut(&1).unwrap().ball;
         *b=Ball::new();b.beat=Beat::RootTell;b.beat_left=1;b.attack=attack;
-        let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
+        let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
         write_terminal_review(&dir,name,&r,&native);
     }
-    let s=r.mossbell.as_mut().unwrap();s.left=0;s.order=vec![1,2,3,4];let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,"podium",&r,&native);
+    let s=r.mossbell.as_mut().unwrap();s.left=0;s.order=vec![1,2,3,4];let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,"podium",&r,&native);
 }
 
 #[test]
@@ -399,7 +400,7 @@ fn write_brasswake_terminal_review() {
     let dir=std::path::PathBuf::from(std::env::var_os("ANGEL_ART_SHOTS").unwrap());std::fs::create_dir_all(&dir).unwrap();
     for name in ["idle","slam-tell","slam","rush-tell","rush","flinch","damage-1","damage-2","defeat","throw","down","podium","wave-1","overlap","standings"] {
         let r=Run::brasswake_review_for_test(name);
-        let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
+        let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
     }
     // Matched raw sheets through the real cell painter, at the room's native
     // pixel density. The complete room captures above include the cell tells.
@@ -428,13 +429,13 @@ fn write_rafterwake_terminal_review() {
     for name in ["bottom","middle","climb","jump","land","idle","walk-1","walk-2","drop-tell","drop","sweep-tell","sweep","flinch","damage-1","damage-2","defeat","recover","podium"] {
         let mut r=Run::rafterwake_review_for_test(name);
         if name.starts_with("walk-") {r.rafterwake.as_mut().unwrap().lanes.get_mut(&1).unwrap().keeper.beat=angel_delve::rules::rafterwake::Beat::Walk;r.tick=if name=="walk-1" {0} else {7};}
-        let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
+        let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
     }
     for attack in ["drop","sweep"] {
         for (stage,ticks) in [33,24,16,7].into_iter().enumerate() {
             let mut r=Run::rafterwake_review_for_test(&format!("{attack}-tell"));
             r.rafterwake.as_mut().unwrap().lanes.get_mut(&1).unwrap().keeper.ticks=ticks;
-            let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
+            let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
             write_terminal_review(&dir,&format!("{attack}-tell-{stage}"),&r,&native);
         }
     }
@@ -443,13 +444,13 @@ fn write_rafterwake_terminal_review() {
         let d=r.rafterwake.as_mut().unwrap().lanes.get_mut(&1).unwrap();
         if name=="drop-overlap" {d.x=(d.keeper.x-8)*angel_delve::rules::rafterwake::Q;}
         else {d.effect=5;d.effect_x=d.x/angel_delve::rules::rafterwake::Q;d.effect_y=d.y/angel_delve::rules::rafterwake::Q;}
-        let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
+        let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
         write_terminal_review(&dir,name,&r,&native);
     }
     for (name,score) in [("standings-first",432),("standings-third",180),("standings-fourth",90),("standings-tie",288)] {
         let mut r=Run::rafterwake_review_for_test("idle");
         r.rafterwake.as_mut().unwrap().lanes.get_mut(&1).unwrap().score=score;
-        let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
+        let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));
         write_terminal_review(&dir,name,&r,&native);
     }
 }
@@ -463,7 +464,7 @@ fn warm_ink_cells(run: &Run, columns: std::ops::Range<u16>) -> usize {
     let [r, g, b] = angel_delve::render::overworld::ink::ink('o').unwrap();
     let warm = Color::Rgb(r, g, b);
     let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
-    terminal.draw(|frame| crate::ui::viz::shooter_viz::paint_picture_ui(frame, Rect::new(0, 0, 96, 28), run, None, Some(1))).unwrap();
+    terminal.draw(|frame| crate::delve::shooter_viz::paint_picture_ui(frame, Rect::new(0, 0, 96, 28), run, None, Some(1))).unwrap();
     (7..20).flat_map(|y| columns.clone().map(move |x| (x, y)))
         .filter(|&(x, y)| {
             let cell = &terminal.backend().buffer()[(x, y)];
@@ -476,7 +477,7 @@ fn warm_ink_cells(run: &Run, columns: std::ops::Range<u16>) -> usize {
 fn braille_cells(run: &Run, columns: std::ops::Range<u16>) -> bool {
     use ratatui::{Terminal, backend::TestBackend, layout::Rect};
     let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
-    terminal.draw(|frame| crate::ui::viz::shooter_viz::paint_picture_ui(frame, Rect::new(0, 0, 96, 28), run, None, Some(1))).unwrap();
+    terminal.draw(|frame| crate::delve::shooter_viz::paint_picture_ui(frame, Rect::new(0, 0, 96, 28), run, None, Some(1))).unwrap();
     (7..20).any(|y| columns.clone().any(|x| {
         terminal.backend().buffer()[(x, y)].symbol().chars().any(|c| ('\u{2801}'..='\u{28ff}').contains(&c))
     }))
@@ -510,14 +511,14 @@ fn rafterwake_amber_slit_survives_every_actual_cell_tell() {
 fn write_pennon_terminal_review() {
     let dir=std::path::PathBuf::from(std::env::var_os("ANGEL_ART_SHOTS").unwrap());std::fs::create_dir_all(&dir).unwrap();
     for name in ["start","sentry","idle","jump","fall","land","hit","duck","aim-up","aim-down","shoot","drop-tell","drop","hook-tell","hook","flinch","damage-1","damage-2","defeat","recover","podium"] {
-        let r=Run::pennon_review_for_test(name);let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
+        let r=Run::pennon_review_for_test(name);let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
     }
-    for kind in ["drop","hook","flinch","land"] {for n in 0..4 {let r=Run::pennon_fx_review_for_test(kind,n);let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,&format!("fx-{kind}-{n}"),&r,&native);}}
-    for attack in ["drop","hook"]{for (stage,ticks) in [33,24,16,7].into_iter().enumerate(){let mut r=Run::pennon_review_for_test(&format!("{attack}-tell"));r.pennon.as_mut().unwrap().lanes.get_mut(&1).unwrap().foes[3].ticks=ticks;let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,&format!("{attack}-tell-{stage}"),&r,&native);}}
+    for kind in ["drop","hook","flinch","land"] {for n in 0..4 {let r=Run::pennon_fx_review_for_test(kind,n);let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,&format!("fx-{kind}-{n}"),&r,&native);}}
+    for attack in ["drop","hook"]{for (stage,ticks) in [33,24,16,7].into_iter().enumerate(){let mut r=Run::pennon_review_for_test(&format!("{attack}-tell"));r.pennon.as_mut().unwrap().lanes.get_mut(&1).unwrap().foes[3].ticks=ticks;let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,&format!("{attack}-tell-{stage}"),&r,&native);}}
     for name in ["overlap","standings-fourth","standings-tie"]{
         let mut r=Run::pennon_review_for_test("idle");let d=r.pennon.as_mut().unwrap().lanes.get_mut(&1).unwrap();
         if name=="overlap"{d.x=1122*angel_delve::rules::pennon::Q;}else{d.score=if name=="standings-fourth"{90}else{320};}
-        let native=crate::stage::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
+        let native=crate::delve::world_viz::overworld::arena::frame_for(&r,768,448,Some(1));write_terminal_review(&dir,name,&r,&native);
     }
 }
 
@@ -553,7 +554,7 @@ fn touge_cells_follow_each_seat_and_show_live_drift_state() {
     let mut terminal = Terminal::new(TestBackend::new(96,28)).unwrap();
     let mut buffers = Vec::new();
     for id in 1..=4 {
-        terminal.draw(|f|crate::ui::viz::shooter_viz::paint_picture_ui(f,Rect::new(0,0,96,28),&run,None,Some(id))).unwrap();
+        terminal.draw(|f|crate::delve::shooter_viz::paint_picture_ui(f,Rect::new(0,0,96,28),&run,None,Some(id))).unwrap();
         let buffer=terminal.backend().buffer();
         let text=buffer.content.iter().map(|c|c.symbol()).collect::<String>();
         assert!(text.contains(&format!("DRIFT {}",(id as usize).min(3))));
@@ -572,7 +573,7 @@ fn write_touge_terminal_shots() {
     for name in ["blue","orange","purple","podium"] {
         let run: Run=serde_json::from_slice(&std::fs::read(dir.join(format!("{name}.json"))).unwrap()).unwrap();
         let mut terminal=Terminal::new(TestBackend::new(96,28)).unwrap();
-        terminal.draw(|f|crate::ui::viz::shooter_viz::paint_picture_ui(f,Rect::new(0,0,96,28),&run,None,Some(1))).unwrap();
+        terminal.draw(|f|crate::delve::shooter_viz::paint_picture_ui(f,Rect::new(0,0,96,28),&run,None,Some(1))).unwrap();
         let colour=|c:Color| match c {Color::Rgb(r,g,b)=>[r,g,b],_=>[0,0,0]};
         let cells:Vec<_>=terminal.backend().buffer().content.iter().map(|c|serde_json::json!({"glyph":c.symbol(),"fg":colour(c.fg),"bg":colour(c.bg)})).collect();
         std::fs::write(dir.join(format!("{name}-cells.json")),serde_json::to_vec(&cells).unwrap()).unwrap();

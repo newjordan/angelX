@@ -13,6 +13,7 @@ fn guarded(aim: (f32, f32)) -> Run {
         .unwrap();
     run.enter_for_test(room);
     run.calm_for_test();
+    run.settle_seams_for_test();
     run.enemies.clear();
     run.projectiles.clear();
     run.window = None;

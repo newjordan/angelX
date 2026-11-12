@@ -555,11 +555,29 @@ pub struct Holding {
     /// Guests lodging here for a few rent days.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub visitors: Vec<super::villagers::Visitor>,
+    /// What the last rent day made of the village: a feast, a tantrum,
+    /// a mourning (`super::occasions`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub occasion: Option<super::occasions::Occasion>,
+    /// A craftsman at a seized workshop, and the masterworks standing
+    /// finished in them (`super::fey`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub seized: Option<super::fey::Seizure>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub works: Vec<super::fey::Masterwork>,
 }
 
 impl Holding {
     pub fn deed(&self) -> Option<Deed> {
         Deed::of_key(&self.key)
+    }
+
+    /// Whether raiders can take it. A castle's raid is fought in its hall,
+    /// and the blank-slate plan (`crate::world::plan`) has no castle hall to
+    /// walk into, so there a castle is never raided (and a raid an old save
+    /// carries ends on the next rent day).
+    pub fn raidable(&self) -> bool {
+        !(crate::world::plan::tabula() && matches!(self.deed(), Some(Deed::Castle(_))))
     }
 
     /// Its crew: the hands it was bought with, and one for each standing
@@ -692,6 +710,12 @@ pub struct Holdings {
     pub retainers: u32,
     #[serde(default)]
     pub patrols: u32,
+    /// Bells hung in the towers and blades in the armoury, from the
+    /// forges (`goods`): they answer a band the walls fall short of.
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub bells: u32,
+    #[serde(default, skip_serializing_if = "is_zero_u32")]
+    pub blades: u32,
     #[serde(default)]
     pub unrest: u32,
     /// Tokens not yet a whole sack.
@@ -706,6 +730,10 @@ pub struct Holdings {
     /// The latest lines of the Court's ledger.
     #[serde(default)]
     pub news: Vec<String>,
+    /// What the folk have been up to, for the tavern's notice board
+    /// (`super::occasions::tiding`): newest last.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tidings: Vec<String>,
     /// The King's favour, from `-FAVOUR_CAP` to `FAVOUR_CAP`.
     #[serde(default)]
     pub favour: i32,
@@ -749,6 +777,8 @@ impl Holdings {
     pub fn valid(&self) -> bool {
         self.owned.len() <= 64
             && self.owned.iter().all(|h| h.rooms.len() <= SLOTS && h.key.len() <= 64 && h.stars <= 5)
+            && self.bells <= super::goods::BELLS_HUNG
+            && self.blades <= super::goods::ARMOURY
             && self.cleared.len() <= 16
             && self.served.len() <= 32
             && self.feed.len() <= 16
@@ -759,6 +789,14 @@ impl Holdings {
             && self.owned.iter().all(|h| h.raid <= RAID_MAX)
             && self.owned.iter().all(|h| h.folk.len() <= super::villagers::MAX_VILLAGERS && h.folk.iter().all(|f| f.valid()))
             && self.owned.iter().all(|h| h.visitors.len() <= super::villagers::MAX_VISITORS && h.visitors.iter().all(|v| v.valid()))
+            && self.owned.iter().all(|h| {
+                h.occasion.as_ref().is_none_or(|o| o.valid())
+                    && h.seized.as_ref().is_none_or(|s| s.valid())
+                    && h.works.len() <= super::fey::MAX_WORKS
+                    && h.works.iter().all(|m| m.valid())
+            })
+            && self.tidings.len() <= super::occasions::TIDINGS
+            && self.tidings.iter().all(|t| t.len() <= super::occasions::TIDING_LEN * 4)
             && self.larders <= super::countryside::LARDERS.len() as u32
             && self.foreman.valid()
             && self.muster.as_ref().is_none_or(|m| m.key.len() <= 64 && m.days <= WARN_DAYS)
@@ -870,9 +908,15 @@ impl Holdings {
     }
 
     /// What `w` sets against a band: walls, garrison, and the retainers
-    /// waiting at the Court, who ride to it.
+    /// waiting at the Court, who ride to it; and the forges' bells, and
+    /// blades for the men there are to carry them.
     pub fn defence(&self, w: &Holding) -> u32 {
-        w.walls + self.garrison(w) + self.retainers
+        let men = self.retainers + self.garrison(w);
+        w.walls
+            + self.garrison(w)
+            + self.retainers
+            + self.bells * super::goods::BELL_CALL
+            + self.blades.min(men) * super::goods::BLADE_EDGE
     }
 
     /// The richest holding: the most rooms standing, then the fullest
@@ -881,6 +925,7 @@ impl Holdings {
         self.owned
             .iter()
             .enumerate()
+            .filter(|(_, w)| w.raidable())
             .max_by_key(|&(i, w)| (w.standing(), w.coffer, std::cmp::Reverse(i)))
             .map(|(_, w)| w.key.clone())
     }
@@ -928,25 +973,46 @@ impl Holdings {
     /// weaker, and it takes the holding and carries off the coffer. Raiders
     /// already there are joined.
     fn arrive(&mut self, m: &Muster) -> Vec<String> {
-        let Some(i) = self.owned.iter().position(|w| w.key == m.key) else {
+        let Some(i) = self.owned.iter().position(|w| w.key == m.key).filter(|&i| self.owned[i].raidable()) else {
             return Vec::new();
         };
         let name = self.owned[i].deed().map_or_else(|| m.key.clone(), Deed::name);
-        let held = self.owned[i].walls + self.garrison(&self.owned[i]);
+        let garrison = self.garrison(&self.owned[i]);
+        let held = self.owned[i].walls + garrison;
+        // What the walls, garrison and retainers fall short of, the forges'
+        // bells and blades may make good.
+        let aid = m
+            .strength
+            .checked_sub(held + self.retainers)
+            .filter(|&short| short > 0)
+            .and_then(|short| {
+                super::goods::cover(short, self.bells, self.blades.min(self.retainers + garrison))
+            });
         let line = if self.owned[i].raid > 0 {
             let w = &mut self.owned[i];
             w.raid = (w.raid + 1).min(RAID_MAX);
             format!("{} more raiders join those holding {name}", m.strength)
-        } else if held + self.retainers >= m.strength {
-            let spent = m.strength.saturating_sub(held).min(self.retainers);
+        } else if held + self.retainers >= m.strength || aid.is_some() {
+            let (rang, armed) = aid.unwrap_or((0, 0));
+            let help = rang * super::goods::BELL_CALL + armed * super::goods::BLADE_EDGE;
+            let spent = m.strength.saturating_sub(held + help).min(self.retainers);
             self.retainers -= spent;
+            self.bells -= rang;
+            self.blades -= armed;
             let w = &mut self.owned[i];
             w.walls = w.walls.saturating_sub(BATTER);
-            if spent > 0 {
+            let mut line = if spent > 0 {
                 format!("{name} held: {} raiders broke on its walls and {spent} retainers", m.strength)
             } else {
                 format!("{name} held: {} raiders broke on its walls", m.strength)
+            };
+            if rang > 0 {
+                line.push_str(&format!("; {rang} {} rang the folk to the wall", if rang == 1 { "bell" } else { "bells" }));
             }
+            if armed > 0 {
+                line.push_str(&format!("; {armed} forge {} armed its men", if armed == 1 { "blade" } else { "blades" }));
+            }
+            line
         } else {
             let w = &mut self.owned[i];
             let lost = std::mem::take(&mut w.coffer);
@@ -965,6 +1031,13 @@ impl Holdings {
         self.news.push(line);
         let over = self.news.len().saturating_sub(NEWS);
         self.news.drain(..over);
+    }
+
+    /// Put a line of folk news up on the tavern's board.
+    pub(crate) fn tell(&mut self, line: &str) {
+        self.tidings.push(super::occasions::tiding(line));
+        let over = self.tidings.len().saturating_sub(super::occasions::TIDINGS);
+        self.tidings.drain(..over);
     }
 
     fn count(&mut self, op: Op, n: u32) {
@@ -1182,6 +1255,9 @@ pub fn rent_day(h: &mut Holdings, floors: usize) -> Vec<String> {
             let unrest = h.unrest;
             let w = &mut h.owned[i];
             let name = w.deed().map_or_else(|| w.key.clone(), Deed::name);
+            if !w.raidable() {
+                w.raid = 0;
+            }
             // Raiders hold it: no rent, and a room sacked (back to half
             // built) for every rent day they stay.
             if w.raid > 0 {
@@ -1238,7 +1314,7 @@ pub fn rent_day(h: &mut Holdings, floors: usize) -> Vec<String> {
             }
             // Low walls bring raiders.
             let w = &mut h.owned[i];
-            if w.raid == 0 && w.walls <= RAID_WALLS {
+            if w.raid == 0 && w.walls <= RAID_WALLS && w.raidable() {
                 w.raid = 1;
                 raided.push(format!("Raiders take {name}: fight them in its hall"));
             }
@@ -1255,7 +1331,10 @@ pub fn rent_day(h: &mut Holdings, floors: usize) -> Vec<String> {
             let n = super::crown::CARDS.len() as u8;
             h.card = Some(h.card_next % n);
             h.card_next = (h.card_next + 1) % n;
-            said.push("The King's herald waits at the Land Office".into());
+            // (The blank-slate map has no Land Office to point to.)
+            if !crate::world::plan::tabula() {
+                said.push("The King's herald waits at the Land Office".into());
+            }
         }
         for name in breached {
             let line = format!("{name} is breached: its walls are down");
@@ -1273,7 +1352,7 @@ pub fn rent_day(h: &mut Holdings, floors: usize) -> Vec<String> {
     }
     // The Foreman fills his ledge with the rent day's petitions.
     super::foreman::draft(h);
-    if !h.foreman.queue.is_empty() {
+    if !h.foreman.queue.is_empty() && !crate::world::plan::tabula() {
         said.push("The Foreman has petitions at the Land Office".into());
     }
     said
@@ -1864,12 +1943,16 @@ impl Run {
         // one: the way-on arrow leads to the Court while either does.
         if (!self.home.holdings.foreman.queue.is_empty() || self.home.holdings.muster.is_some())
             && self.kingdom.moments.errand.is_none()
+            && self.on_the_way(RoomKind::LandOffice)
         {
             self.kingdom.moments.errand = Some(RoomKind::LandOffice);
         }
         match self.room().kind {
             RoomKind::LandOffice => self.court(inputs),
-            RoomKind::Holding => self.steward_hall(inputs),
+            RoomKind::Holding => {
+                self.steward_hall(inputs);
+                self.folk_talk(inputs);
+            }
             RoomKind::RealmHall => {
                 if let Some(i) = castle_here(self) {
                     let deed = Deed::Castle(i);
@@ -1946,7 +2029,7 @@ impl Run {
             }
         }
         for (i, built) in held.rooms.iter().enumerate().take(SLOTS) {
-            if !built.standing() || self.holding_used & (1 << i) != 0 {
+            if !built.standing() || self.holding_used & (1 << i) != 0 || super::fey::seized_bay(&held, i) {
                 continue;
             }
             let Some(def) = room_def(&built.id) else { continue };

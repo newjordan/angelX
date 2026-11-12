@@ -405,20 +405,7 @@ pub(crate) fn observe_submission(
     if official.id != notify.id || official.benchmark_id != receipt.benchmark_id {
         return Err("labyrinth submission receipt identity mismatch".into());
     }
-    if !matches!(
-        official.status.trim().to_ascii_lowercase().as_str(),
-        "accepted"
-            | "rejected"
-            | "failed"
-            | "error"
-            | "cancelled"
-            | "canceled"
-            | "timeout"
-            | "timed_out"
-            | "timed-out"
-            | "superseded"
-            | "promoted"
-    ) {
+    if !crate::telemetry::SlotOutcome::from_status(&official.status).is_settled() {
         return Ok(());
     }
     let task = format!("Benchmark {}", official.benchmark_id);

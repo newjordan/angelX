@@ -9,9 +9,11 @@
 //! both; the dialog's state is `drive::loop_dialog`, the glue to the
 //! cockpit `ui::views::loop_view`.
 
+use crate::app::control::realm::GameHost as Realm;
 use crate::drive::loop_dialog::{
     LoopDialogAction, LoopDialogFocus, LoopDialogHit, LoopLaunchDialog, Picker,
 };
+use angel_plug::loop_art::{CardShot, LoopArtArt};
 use ratatui::{
     buffer::Buffer,
     layout::Rect,
@@ -87,7 +89,7 @@ pub(crate) fn plan(root: Rect, title_rows: u16, pictures: bool, margin: u16) -> 
     }
     let room = root.height.saturating_sub(margin);
     let fits = |p: Plan| p.height(title_rows) <= room;
-    if pictures {
+    if pictures && <Realm as LoopArtArt>::card_pictures() {
         for film_rows in (FILM_MIN_ROWS..=FILM_ROWS).rev() {
             let p = Plan {
                 width,
@@ -667,7 +669,6 @@ pub(crate) fn render_terminal(
 /// The same scene rectangles as the glass card, fitted to terminal dots.
 /// Cache the stills so changing focus never rebuilds a 3D scene.
 fn terminal_scenes(composed: &mut Composed, plan: Plan) {
-    use angel_delve::render::racers::card;
     use std::sync::{Mutex, OnceLock};
     static SCENES: OnceLock<Mutex<Option<(Plan, Buffer)>>> = OnceLock::new();
     if composed.film.is_none() && composed.goal.is_none() {
@@ -679,15 +680,12 @@ fn terminal_scenes(composed: &mut Composed, plan: Plan) {
         .unwrap_or_else(|e| e.into_inner());
     if cache.as_ref().is_none_or(|(p, _)| *p != plan) {
         let mut buf = Buffer::empty(composed.buffer.area);
-        for (at, goal) in [(composed.film, false), (composed.goal, true)] {
+        for (at, shot) in [
+            (composed.film, CardShot::Race),
+            (composed.goal, CardShot::Goal),
+        ] {
             let Some(at) = at else { continue };
-            let (w, h) = (u32::from(at.width) * 2, u32::from(at.height) * 4);
-            let film = if goal {
-                card::goal(w, h)
-            } else {
-                card::idle(w, h)
-            };
-            paint_braille(&mut buf, at, w, h, film.frames[0].clone());
+            <Realm as LoopArtArt>::card_scene(&mut buf, at, shot);
         }
         *cache = Some((plan, buf));
     }
@@ -702,38 +700,10 @@ fn terminal_scenes(composed: &mut Composed, plan: Plan) {
     }
 }
 
-fn paint_braille(buf: &mut Buffer, at: Rect, w: u32, h: u32, mut rgba: Vec<u8>) {
-    flatten_on_black(&mut rgba);
-    let image = image::RgbaImage::from_raw(w, h, rgba).expect("scene pixels match its dimensions");
-    let dots = angel_delve::render::braille::frame_to_braille_world3d(
-        &image,
-        usize::from(at.width),
-        usize::from(at.height),
-        false,
-    );
-    for (i, dot) in dots.cells.iter().enumerate() {
-        let (x, y) = (i as u16 % at.width + at.x, i as u16 / at.width + at.y);
-        if let Some(cell) = buf.cell_mut((x, y)) {
-            cell.set_char(dot.glyph)
-                .set_fg(Color::Rgb(dot.fg[0], dot.fg[1], dot.fg[2]));
-        }
-    }
-}
-
-fn flatten_on_black(rgba: &mut [u8]) {
-    for pixel in rgba.chunks_exact_mut(4) {
-        let a = u16::from(pixel[3]);
-        for c in &mut pixel[..3] {
-            *c = ((u16::from(*c) * a + 127) / 255) as u8;
-        }
-        pixel[3] = 255;
-    }
-}
-
 /// The ticker's racer slot, in absolute cells: two rows of the strip's
 /// content, hard against its left border.
 pub(crate) fn ticker_racer_rect(area: Rect) -> Rect {
-    let width = if area.width >= 52 { 12 } else { 9 };
+    let width = <Realm as LoopArtArt>::ticker_racer_cols(area.width);
     Rect::new(
         area.x.saturating_add(1),
         area.y.saturating_add(1),
@@ -819,26 +789,7 @@ pub(crate) fn render_ticker(
     // The knight, in profile, engines lit while he runs.
     let racer = ticker_racer_rect(area);
     if paint_racer_cells && racer.width > 0 && racer.height > 0 {
-        use angel_delve::render::racers::card;
-        use std::sync::OnceLock;
-        static FILMS: OnceLock<[card::Film; 3]> = OnceLock::new();
-        let films = FILMS.get_or_init(|| {
-            [
-                card::ticker_racer(48, 16, 0.0),
-                card::ticker_racer(48, 16, 0.45),
-                card::ticker_racer(48, 16, 0.8),
-            ]
-        });
-        let film = if race.paused || race.complete {
-            &films[0]
-        } else if (phase * 3.0) as usize % 2 == 0 {
-            &films[1]
-        } else {
-            &films[2]
-        };
-        if let Some(frame) = film.frames.first() {
-            paint_braille(buf, racer, film.width, film.height, frame.clone());
-        }
+        <Realm as LoopArtArt>::ticker_racer_cells(buf, racer, race.paused || race.complete, phase);
     }
 
     // The lap he is on: finished laps plus the one under way.
@@ -1067,10 +1018,14 @@ pub(crate) use window::*;
 #[cfg(feature = "glass")]
 mod window {
     use super::*;
+    use angel_plug::loop_art::Sheet;
+    use angel_glass::Layer;
     use angel_glass::card::{Card, Entrance, Film, Knight, TITLE_ROWS};
     use angel_glass::graphics::Picture;
-    use angel_glass::{Layer, LayerKind, Placement};
+    use angel_glass::{LayerKind, Placement};
     use std::sync::{Arc, Mutex, OnceLock};
+
+    pub(crate) use angel_plug::loop_art::ArtKey;
 
     /// Picture ids: the card's films and the widget's pictures.
     const BASE: u32 = angel_glass::LAYER_PICTURES + 0x4C4F_0000;
@@ -1080,8 +1035,6 @@ mod window {
     pub(crate) const TICKER_RACER_RUN: u32 = BASE + 5;
     pub(crate) const TICKER_RACER_IDLE: u32 = BASE + 6;
     const TEXT_SHADE: u32 = BASE + 7;
-    /// The films are never drawn wider than this: a larger window scales.
-    const MOST_FILM_PX: u32 = 1400;
 
     /// What the card is doing: open for choosing, or playing the start.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -1122,15 +1075,6 @@ mod window {
         }
     }
 
-    /// The sizes the films are made at: the window's cell, and the film's
-    /// and the goal shot's boxes in cells.
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    pub(crate) struct ArtKey {
-        pub(crate) cell: (u16, u16),
-        pub(crate) film: (u16, u16),
-        pub(crate) goal: (u16, u16),
-    }
-
     #[derive(Default)]
     struct Slot {
         ready: Option<Arc<Art>>,
@@ -1143,6 +1087,9 @@ mod window {
     /// a thread of their own (a fraction of a second); until then the card
     /// shows without them.
     pub(crate) fn art(key: ArtKey) -> Option<Arc<Art>> {
+        if !<Realm as LoopArtArt>::card_pictures() {
+            return None;
+        }
         let slot = ART.get_or_init(Default::default);
         let mut held = slot.lock().unwrap_or_else(|e| e.into_inner());
         if let Some(art) = held.ready.as_ref().filter(|a| a.key == key) {
@@ -1155,13 +1102,15 @@ mod window {
             let spawned = std::thread::Builder::new()
                 .name("loop-card-art".into())
                 .spawn(move || {
-                    let art = Arc::new(make(key));
+                    let art = make(key).map(Arc::new);
                     let mut held = ART
                         .get_or_init(Default::default)
                         .lock()
                         .unwrap_or_else(|e| e.into_inner());
                     if held.making == Some(key) {
-                        held.ready = Some(art);
+                        if art.is_some() {
+                            held.ready = art;
+                        }
                         held.making = None;
                     }
                 });
@@ -1173,46 +1122,30 @@ mod window {
     }
 
     /// Make the films for `key` now, on this thread: what `art` does off it.
-    pub(crate) fn make(key: ArtKey) -> Art {
-        use angel_delve::render::racers::card;
-        let px = |(cols, rows): (u16, u16)| {
-            let (w, h) = (
-                u32::from(cols) * u32::from(key.cell.0),
-                u32::from(rows) * u32::from(key.cell.1),
-            );
-            let k = (MOST_FILM_PX as f32 / w.max(1) as f32).min(1.0);
-            (
-                ((w as f32 * k) as u32).max(16),
-                ((h as f32 * k) as u32).max(8),
-            )
-        };
-        let (fw, fh) = px(key.film);
-        let (gw, gh) = px(key.goal);
-        Art {
+    pub(crate) fn make(key: ArtKey) -> Option<Art> {
+        let sheets = <Realm as LoopArtArt>::card_sheets(key)?;
+        Some(Art {
             key,
-            idle: reel(IDLE, &card::idle(fw, fh)),
-            launch: reel(LAUNCH, &card::launch(fw, fh)),
-            goal: reel(GOAL, &card::goal(gw, gh)),
-        }
+            idle: reel(IDLE, sheets.idle),
+            launch: reel(LAUNCH, sheets.launch),
+            goal: reel(GOAL, sheets.goal),
+        })
     }
 
-    fn reel(id: u32, film: &angel_delve::render::racers::card::Film) -> Reel {
-        // As many to a row as keep the sheet inside a texture's side.
-        let cols = (8192 / film.width.max(1)).clamp(1, film.frames.len().max(1) as u32) as usize;
-        let (width, height, rgba) = film.sheet(cols);
+    fn reel(id: u32, sheet: Sheet) -> Reel {
         Reel {
             sheet: Arc::new(Picture {
                 id,
-                width,
-                height,
-                rgba,
+                width: sheet.width,
+                height: sheet.height,
+                rgba: sheet.rgba,
                 cols: 0,
                 rows: 0,
             }),
-            frame: (film.width, film.height),
-            frames: film.frames.len() as u16,
-            cols: cols as u16,
-            fps: film.fps,
+            frame: sheet.frame,
+            frames: sheet.frames,
+            cols: sheet.cols,
+            fps: sheet.fps,
         }
     }
 
@@ -1383,16 +1316,13 @@ mod window {
     /// the window's cell size for its widest slot. Handed to the window
     /// once per size.
     pub(crate) fn ticker_pictures(cell: (u16, u16)) -> [Picture; 2] {
-        use angel_delve::render::racers::card;
-        let (cw, ch) = (u32::from(cell.0.max(1)), u32::from(cell.1.max(1)));
-        let (w, h) = (12 * cw, 2 * ch);
         let picture = |id: u32, burn: f32| {
-            let film = card::ticker_racer(w, h, burn);
+            let still = <Realm as LoopArtArt>::ticker_racer_still(cell, burn);
             Picture {
                 id,
-                width: film.width,
-                height: film.height,
-                rgba: film.frames.into_iter().next().unwrap_or_default(),
+                width: still.width,
+                height: still.height,
+                rgba: still.rgba,
                 cols: 0,
                 rows: 0,
             }

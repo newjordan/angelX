@@ -1,0 +1,26 @@
+# The Church keeps its peace, and its cut.
+name   Excommunicate
+kind   spell
+rarity relic
+text   The nearest monster is read out of the room, ashamed.
+drop   2
+chest  4
+cooldown 45
+excommunicate 1
+art
+CCCCCCCCCCCCCCCC
+C99999999999999C
+C9iiiiiiiiiii99C
+C9iwwwwwwwwwwi9C
+C9iw44444444wi9C
+C9iw4iiiiii4wi9C
+C9iw4i7777i4wi9C
+C9iw4i7xx7i4wi9C
+C9iw4i7777i4wi9C
+C9iw4iiiiii4wi9C
+C9iw44444444wi9C
+C9iwwwwwwwwwwi9C
+C9iiiiiiiiiii99C
+C99999999999999C
+CCCCCCCCCCCCCCCC
+................

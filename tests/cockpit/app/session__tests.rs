@@ -102,7 +102,6 @@ fn older_write_cannot_clear_a_newer_backlog_failure() {
 
 #[test]
 fn prior_binding_check_reads_the_snapshot_in_blocks_not_bytes() {
-    use std::io::Read as _;
     struct CountingReader {
         inner: std::io::Cursor<Vec<u8>>,
         calls: usize,

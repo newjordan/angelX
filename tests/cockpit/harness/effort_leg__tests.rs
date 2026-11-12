@@ -700,3 +700,40 @@ fn a_red_test_in_a_real_turn_lifts_thinking_for_the_next_request_only() {
     assert_eq!(efforts[..4], [None, None, Some("high".into()), None], "{efforts:?}");
     assert_eq!(efforts.iter().flatten().count(), 1, "{efforts:?}");
 }
+
+#[test]
+fn policy_control_effort_withdrawal_preserves_pinned_bend_and_next_turn_uses_shipped_fallback() {
+    let mut staged = Staged::new();
+    let tools = ToolRegistry::new();
+    let first = staged.publish(&tools);
+    tools.pin_live_policies();
+    let seat = Seat::new(&["low", "high"], Some("low"));
+    let before = turn(&tools, &seat, "hello");
+    assert_eq!(before.1, Some(LegSource::Live { digest: first.clone() }));
+    let snapshot = staged.modules.snapshot();
+    let status = snapshot.statuses.iter().find(|status| status.id == "effort").unwrap();
+    assert!(status.build.is_some(), "fixture did not load the receipt-checked packaged Bend generation");
+    staged.modules.withdraw(vec![("effort".into(),status.generation)]).unwrap();
+    drop(snapshot);
+    tools.set_live_policies(staged.modules.snapshot().policies);
+    assert_eq!(turn(&tools,&seat,"hello"),before, "withdrawal rewrote a pinned turn");
+    tools.pin_live_policies();
+    let fallback = turn(&tools,&seat,"hello");
+    assert_eq!(fallback.0,before.0);
+    assert!(matches!(fallback.1,Some(LegSource::Shipped { .. })), "withdrawal must retain the packaged fallback: {fallback:?}");
+    staged.edit("index.js", "return { effort: answer.$ === 'Some' ? answer.value : null }", "return { effort: 'high' }");
+    // The process-local disable intent survives edits and normal reloads.
+    staged.modules.refresh(true);
+    assert!(!staged.modules.snapshot().policies.contains_key("effort"));
+    staged.modules.enable(vec!["effort".into()]).unwrap();
+    let enabled = staged.modules.snapshot();
+    let next = enabled.policies["effort"].digest().to_owned();
+    assert_ne!(next,first);
+    assert_eq!(enabled.policy_control.as_ref().unwrap().generations["effort"],3);
+    tools.set_live_policies(enabled.policies);
+    assert_eq!(turn(&tools,&seat,"hello"),fallback,"re-enable rewrote an already pinned fallback turn");
+    tools.pin_live_policies();
+    let returned = turn(&tools,&seat,"hello");
+    assert_eq!(returned.0,Some("high".into()));
+    assert_eq!(returned.1,Some(LegSource::Live { digest: next }));
+}

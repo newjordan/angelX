@@ -1,4 +1,5 @@
-use super::scan_workspace_districts;
+#![cfg(feature = "delve")]
+use crate::delve::cart::app::scan_workspace_districts;
 use std::path::PathBuf;
 
 fn scratch() -> PathBuf {

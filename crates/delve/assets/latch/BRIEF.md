@@ -133,3 +133,18 @@ acknowledgements must not widen it. Mossbell must enforce the same allowance
 before replaying history. No other rules, knobs, attacks or art change.
 Review matched whole fights at 1x, 3x details and the actual terminal podium
 and defeat buffers, in both kits. Measure native and wasm smoke frame cost.
+
+## Juice night (2026-11-07): weight, a table, a finish
+
+Rules of the bout are untouched (`Duel` is the Bend port's whole surface). The round gains a title and a
+66-tick 3-2-1 that stand every bout still, a show (`rules/latch_show.rs`: a mark for every counter and fold,
+the calls the table hears, all on the round's own clock), and a time to beat carried across rematches.
+The blow that breaks Clasp is the only one that asks the realm for a hit-stop: another knight's freeze is
+never a pause of your bout.
+
+Picture (`arena/latch/`): a fighting-game top band (your knight and pips, Clasp's face and thirds, the clock),
+counters with white frames, squash, knock-back, rings and a spark to the pip, a card for every knight along
+the bottom, banners for PERFECT, CHAIN, MATCH POINT, YOU LEAD, IN SYNC and FINAL COUNTER, a miss that says why,
+Clasp coming apart in its own plates, a podium with the winner's purse, NEW BEST and E AGAIN.
+Words: 5x7 words live only in the two panels, the plate and the bottom bands; kit words in their own boxes;
+`YOU` names only the viewer. `juice_tests` walks whole rounds at one to six seats against every box.

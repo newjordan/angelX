@@ -9,8 +9,12 @@
 //! it: place, clock, the field's strip, the title card, the jokes, the
 //! finish board.
 mod build;
+mod finish;
+mod fx;
+mod moments;
 
 use super::super::ink::{BLACK, Img, Rgb, bayer, nearest_plain, text_width};
+use super::juice;
 use super::class_looks::{self, Look, Pose};
 use super::knights::{self as kn, Facing};
 use super::{NATIVE_H, NATIVE_W, TILE, enlarge, fire, sprites};
@@ -48,7 +52,13 @@ pub(super) fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img)
     let seat = focus
         .filter(|id| race.riders.contains_key(id))
         .or_else(|| race.order().first().copied());
-    let view = camera(race, seat, w, h);
+    // The podium has the screen once the last frame has been held.
+    if legible && finish::on_podium(race) {
+        let age = finish::ended(race).unwrap_or(0).saturating_sub(finish::OPENS);
+        return (finish::podium(run, race, seat, age), Img::new(w, h));
+    }
+    let mut view = camera(race, seat, w, h);
+    view.fov_rad += moments::kick(race, seat);
     let (rgba, depth) = MOVERS.with(|cell| {
         let mut movers = cell.borrow_mut();
         build::movers(&mut movers, race, seat);
@@ -68,9 +78,27 @@ pub(super) fn layers(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img)
         )
     });
     let mut scene = dots(rgba.as_raw(), w, h);
+    // Wind, dust and rings go down under the knights; sparks, debris and
+    // bursts over them.
+    let lens = fx::Lens { view: &view, w, h, race, seat, track: r3::track(race.course) };
+    let (back, front) = fx::layers(&lens, moments::surge(race));
+    if let Some(back) = &back {
+        scene.stamp(back, 0, 0);
+    }
     knights(&mut scene, run, race, seat, &view, &depth, w, h);
+    if let Some(front) = &front {
+        scene.stamp(front, 0, 0);
+    }
+    world_over(&mut scene, race, seat, &view, legible);
+    // The world shakes to the blow; the heads-up display stays still.
+    let (dx, dy) = moments::shake(run, race, seat);
+    if (dx, dy) != (0, 0) {
+        let mut shaken = Img::black(w, h);
+        shaken.stamp(&scene, dx, dy);
+        scene = shaken;
+    }
     let mut over = Img::new(w, h);
-    hud(&mut over, run, race, seat, &view, legible);
+    hud(&mut over, run, race, seat, &lens, legible);
     (scene, over)
 }
 
@@ -105,9 +133,10 @@ fn camera(race: &Race3d, seat: Option<u32>, w: i32, h: i32) -> View3 {
         Course::Griffin => (5.6, 1.7, 11.0, 1.25, 0.7),
         Course::Touge => unreachable!(),
     };
-    let (s, x, z) = seat
-        .and_then(|id| race.riders.get(&id))
-        .map_or((r3::track(race.course).post(0.0) + 2.0, 0.0, 0.0), |r| build::drawn_at(t, r));
+    let me = seat.and_then(|id| race.riders.get(&id));
+    let (s, x, z) = me.map_or((r3::track(race.course).post(0.0) + 2.0, 0.0, 0.0), |r| build::drawn_at(t, r));
+    // Once home, the camera stays by the line and the ride runs on without it.
+    let s = if me.is_some_and(|r| r.finish.is_some()) { s.min(t.finish + 3.0) } else { s };
     // A ball off the edge drops away under a camera that stays at the rail.
     let (eye_z, look_z) = match race.course {
         Course::Griffin => (z + up, z + 0.4),
@@ -279,7 +308,14 @@ fn knights(scene: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &
         }
         let (s, x, z) = build::drawn_at(t, rider);
         let mut sprite = racer(run, id, race.course, rider);
-        let (feet, anchor, tall) = match race.course {
+        // The engines come up before the green: a tremble on the grid.
+        let idle = if race.titled() && race.t + 45 >= TITLE {
+            ((race.t as f32 * 2.3).sin().abs() * 0.05) * (race.t + 45 - TITLE) as f32 / 45.0
+        } else {
+            0.0
+        };
+        let z = z + idle;
+        let (feet, anchor, mut tall) = match race.course {
             Course::Shaft => {
                 let bob = if rider.racing() { (rider.spin * 2.0).sin().abs() * 0.05 } else { 0.0 };
                 (world(t, s, x, z + 0.14 + bob), world(t, s, x, z + BALL_R), 0.64)
@@ -299,6 +335,16 @@ fn knights(scene: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &
             Course::Touge => (world(t, s, x, z + 0.4), world(t, s, x, z + 0.6), 0.9),
             Course::Griffin => (world(t, s, x, z + 0.16), world(t, s, x, z + 0.3), 0.8),
         };
+        // A blow: the white impact frame, then the squash and stretch.
+        if let Some((weight, age)) = fx::struck(race, id) {
+            if age < weight.flash() {
+                sprite = juice::impact_frame(&sprite, 'H');
+            } else if age < 14 {
+                let (squashed, grow) = juice::squash_stretch(&sprite, age, weight.squash());
+                sprite = squashed;
+                tall *= grow;
+            }
+        }
         stand(scene, depth, view, &sprite, feet, anchor, tall, w, h);
     }
 }
@@ -367,27 +413,12 @@ fn haul_icon(over: &mut Img, course: Course, x: i32, y: i32) {
     }
 }
 
-/// A laurel wreath: two sprays of leaves curving up round a gap, tied
-/// at the bottom with a gold knot.
-fn laurel(over: &mut Img, x: i32, y: i32) {
-    let wreath = Img::from_rows(&[
-        "..y.......y..",
-        ".yA.......Ay.",
-        "yAM.......MAy",
-        "YA.........AY",
-        "MAy.......yAM",
-        ".yAM.....MAy.",
-        "..yAM...MAy..",
-        "....MA4AM....",
-        ".....454.....",
-    ]);
-    over.stamp(&wreath, x, y);
-}
-
-fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &View3, legible: bool) {
+/// What stands over the course in the world's own space, shaken with it:
+/// feathers about a tumbling griffin, stars about a bonked ball, the rope
+/// that hauls a fallen knight back, and a place tag over each rival.
+fn world_over(over: &mut Img, race: &Race3d, seat: Option<u32>, view: &View3, legible: bool) {
     let (w, h) = (over.w, over.h);
     let t = r3::track(race.course);
-    let me = seat.and_then(|id| race.riders.get(&id));
     // Feathers about a tumbling or ruffled griffin, stars round a bonked ball.
     for (&id, rider) in &race.riders {
         let (s, x, z) = build::drawn_at(t, rider);
@@ -430,11 +461,20 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &View3
             over.text(px - 2, py - spread - 9, &tag, seat_ink(id));
         }
     }
+}
+
+/// The heads-up display and the race's moments over everything: place and
+/// clock, the field's strip, the start, the calls, the flying numbers, the
+/// finish.
+fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, lens: &fx::Lens, legible: bool) {
+    let (w, h) = (over.w, over.h);
     if !legible {
         return;
     }
-    if race.done {
-        board(over, run, race, seat);
+    let me = seat.and_then(|id| race.riders.get(&id));
+    if let Some(age) = finish::ended(race) {
+        // The last frame is held: who won, then the iris.
+        finish::frozen(over, run, race, seat, age);
         return;
     }
     // The field down the course: a strip, a pip for each knight, a flag.
@@ -442,6 +482,8 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &View3
     over.rect(sx, sy + 2, sw, 1, 'g');
     over.rect(sx + sw, sy - 2, 1, 6, 'h');
     over.rect(sx + sw + 1, sy - 2, 3, 2, '9');
+    let order = race.order();
+    let leader = order.first().copied().filter(|_| !race.titled() && race.riders.len() > 1);
     for (&id, rider) in &race.riders {
         let k = (rider.s / race.finish_distance()).clamp(0.0, 1.0);
         let x = sx + (k * sw as f32) as i32;
@@ -450,66 +492,41 @@ fn hud(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>, view: &View3
         if Some(id) == seat {
             over.frame(x - 3, sy - 1, 7, 7, 'H');
         }
+        if Some(id) == leader {
+            moments::crown(over, x, sy - 6);
+        }
     }
-    if let Some(me) = me {
-        let place = race.place(seat.unwrap());
-        big(over, 26, 4, &place_word(place), if place == 1 { 'O' } else { 'h' }, 2.0);
+    if let (Some(me), Some(id)) = (me, seat) {
+        let place = race.place(id);
+        // The place swells when it changes.
+        let swell = 2.0 + moments::place_bump(race, id) * 1.0;
+        big(over, 26, 4, &place_word(place), if place == 1 { 'O' } else { 'h' }, swell);
         if race.course == Course::Touge {
-            over.text(8, 24, &format!("LAP {}/{}", race.lap(seat.unwrap()), r3::DRIFT_LAPS), 'h');
+            over.text(8, 24, &format!("LAP {}/{}", race.lap(id), r3::DRIFT_LAPS), 'h');
             over.text(8, 35, &format!("{} SPEED", me.vs.round() as u32), 'J');
             over.text(8, 46, &format!("CORNER {}", if me.drift.corner > 0 { me.drift.corner / HZ } else { me.drift.last_corner / HZ }), 'J');
             drift_hud(over, me);
         } else {
+            // The haul counter swells as a "+1" lands on it.
+            let pulse = moments::counter_pulse(race, id);
             haul_icon(over, race.course, 8, 24);
-            over.text(16, 23, &format!("{}", me.haul), 'h');
+            big(over, 18 + (3.0 * pulse) as i32, 23 - (pulse * 2.0) as i32, &format!("{}", me.haul), if pulse > 0.0 { 'O' } else { 'h' }, 1.0 + pulse);
         }
     }
     let secs = format!("{}", race.left());
     big(over, w - 22, 4, &secs, if race.left() <= 10 { '7' } else { 'h' }, 2.0);
-    if race.titled() {
-        title(over, race);
-        return;
-    }
     // The two keys, small and dim along the bottom.
     let [(k1, w1), (k2, w2)] = race.course.keys();
     let hint = if race.course == Course::Touge { "W GAS  S BRAKE  SPACE DRIFT  F SHIFT".into() } else { format!("{k1} {w1}   {k2} {w2}") };
     let hw = text_width(&hint);
     super::super::chrome::panel(over, ((w - hw) / 2 - 4, h - 12, hw + 8, 11), super::super::chrome::Tone::SLATE);
     over.text((w - hw) / 2, h - 10, &hint, 'J');
-    if race.t < TITLE + HZ && me.is_none_or(|r| r.crash == 0) {
-        big(over, w / 2, h / 2 - 20, "GO!", 'O', 4.0);
+    moments::start(over, race);
+    if let Some(id) = seat {
+        moments::pops(over, lens, id);
+        moments::banner(over, run, race, id);
+        moments::rims(over, race, id);
     }
-    if let Some(me) = me {
-        if me.crash > 0 && me.wreck != Wreck::None {
-            let words = crash_words(me.wreck, me.crashes);
-            big(over, w / 2, 44, words, 'i', 2.0);
-        } else if let Some(_) = me.finish {
-            let place = race.place(seat.unwrap());
-            big(over, w / 2, 44, &format!("{} HOME", place_word(place)), 'O', 2.0);
-        } else if me.drift.kick > 0 && race.course == Course::Touge {
-            big(over, w / 2, 44, "PERFECT SHIFT", 'O', 2.0);
-        } else if me.burst > 0 && race.course == Course::Griffin {
-            over.text(w / 2 - 14, 70, "BURST", 'O');
-        }
-    }
-}
-
-/// The title card: the race's name, its words, its keys, and the count.
-fn title(over: &mut Img, race: &Race3d) {
-    let (w, h) = (over.w, over.h);
-    let (pw, ph) = (236, 104);
-    let (px, py) = ((w - pw) / 2, (h - ph) / 2 - 8);
-    plate(over, px, py, pw, ph);
-    big(over, w / 2, py + 8, race.course.name(), 'O', 2.0);
-    if race.practice {
-        over.text((w - text_width("PRACTICE")) / 2, py + ph - 10, "PRACTICE", 'J');
-    }
-    big(over, w / 2, py + 30, race.course.words(), 'h', 1.0);
-    let [(k1, w1), (k2, w2)] = race.course.keys();
-    let keys = format!("{k1} {w1}    {k2} {w2}");
-    over.text((w - text_width(&keys)) / 2, py + 42, &keys, 'J');
-    let count = (TITLE - race.t).div_ceil(HZ).max(1);
-    big(over, w / 2, py + 56, &count.to_string(), 'i', 5.0);
 }
 
 /// Plain charge plates and cockpit rails are swappable placeholders.
@@ -550,50 +567,6 @@ fn tach(over: &mut Img, me: &Rider) {
     for dx in 0..w {
         let c = if dx < fill { lit } else if dx >= window { [40, 70, 40] } else { [61, 58, 54] };
         for dy in 0..5 { over.set(x + dx, y + 11 + dy, c); }
-    }
-}
-
-/// The finish board, the same for everyone: who came home where, in what
-/// time, what they picked up, and the gold they took.
-fn board(over: &mut Img, run: &Run, race: &Race3d, seat: Option<u32>) {
-    let w = over.w;
-    let order = race.order();
-    let (pw, ph) = (280, 52 + order.len() as i32 * 20);
-    let (px, py) = ((w - pw) / 2, 30);
-    plate(over, px, py, pw, ph);
-    big(over, w / 2, py + 7, if race.practice { "PRACTICE FLIGHT" } else { race.course.board() }, 'O', 1.0);
-    big(over, w / 2, py + 18, race.course.name(), 'J', 1.0);
-    for (k, &id) in order.iter().enumerate() {
-        let r = &race.riders[&id];
-        let y = py + 36 + k as i32 * 20;
-        if Some(id) == seat {
-            super::super::chrome::highlight(over, (px + 4, y - 3, pw - 8, 18));
-        }
-        let place = place_word(k + 1);
-        over.text(px + 10, y + 3, &place, if k == 0 { 'O' } else { 'h' });
-        let face = run.players.get(&id).map_or_else(|| sprites::knight(id), |h| kn::portrait(h, id));
-        over.stamp(&face, px + 44 - face.w / 2, y + 14 - face.h);
-        let name = run
-            .players
-            .get(&id)
-            .map_or_else(|| format!("KNIGHT {id}"), |h| h.name.to_uppercase());
-        let name: String = name.chars().take(12).collect();
-        over.text(px + 56, y + 3, &name, seat_ink(id));
-        let time = r.finish.map_or_else(|| "OUT".to_string(), |f| format!("{}S", (f - TITLE).div_ceil(HZ)));
-        over.text(px + 140, y + 3, &time, 'h');
-        if race.course == Course::Touge {
-            over.text(px + 174, y + 3, &format!("{}D", r.drift.score / HZ), 'J');
-        } else {
-            haul_icon(over, race.course, px + 172, y + 4);
-            over.text(px + 180, y + 3, &format!("{}", r.haul), 'h');
-        }
-        let gold = race.won.get(&id).copied().unwrap_or(0);
-        if !race.practice {
-            over.text(px + 204, y + 3, &format!("+{gold}G"), 'O');
-        }
-        if k == 0 && race.riders.len() > 1 && !race.practice {
-            laurel(over, px + pw - 28, y - 1);
-        }
     }
 }
 
@@ -692,6 +665,10 @@ pub(super) fn eyrie_figures(over: &mut Img, run: &Run) {
 #[cfg(test)]
 #[path = "../../../../tests/render/arena__race3d__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__race3d_show__tests.rs"]
+mod show_tests;
 
 #[cfg(test)]
 pub(crate) mod probe {

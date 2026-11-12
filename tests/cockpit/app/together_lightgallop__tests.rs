@@ -251,6 +251,9 @@ fn the_games_adapter_ticks_a_table_as_the_oracle_does() {
         theirs = answer["session"].clone();
         let mut mine_json = serde_json::to_value(&mine).unwrap();
         host::split_taken(&mut mine_json);
+        // What the picture remembers (`show`) is the session's own: the module
+        // is never sent it, so it is no part of the parity with the oracle.
+        mine_json.as_object_mut().unwrap().remove("show");
         if let Some(at) = first_difference(&mine_json, &theirs, "session") {
             panic!("tick {tick}: the adapter's session parts at {at}");
         }

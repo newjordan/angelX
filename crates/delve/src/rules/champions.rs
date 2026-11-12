@@ -1,4 +1,4 @@
-//! The champions at the bar: five big knights who play like nobody else
+//! The champions at the bar: seven big knights who play like nobody else
 //! in the company. Each has a great arm on F, three spells of their own on
 //! keys 1 to 3 (cards in the spell slots, so the bar shows their waits), and
 //! an ultimate on R.
@@ -10,10 +10,14 @@
 //! | Alchemist | lit flasks, lobbed | Miasma Flask: foul air | Quickfire: a field of flame | Elixir: the near friends mend | Philosopher's Rain |
 //! | Reaver | Twin Axes | Hurl Axe: out and home, cutting both ways | Leap: a bound that lands in a quake | Bloodlust: his cuts feed him | Red Harvest |
 //! | Lancer | War Lance | Javelin: through every foe on its line | Vault: over the front rank | Brace: the lance set against a rush | Skewer Drive |
+//! | Phantom Lancer | Phantom Lance | Spirit Lance: through every foe, an image where it ends | Doppelganger: a blink, three images left | Juxtapose: a thrust may make an image | Phantom Legion |
+//! | Mirage Duelist | Mirage Foil | Swashbuckle: a dash that bounces off walls, then four slashes | Mirror Swap: change places with an image | Echo Strike: the next three thrusts strike twice | Hall of Mirrors |
 //!
 //! Flame meeting foul air flashes (`skills::flash`): the Alchemist's fire
 //! thrown into his own miasma is his best stroke. Every number is one fixed
 //! number, picked by play.
+
+pub mod mirage;
 
 use super::skills::{Blaze, BoomKind, Cloud};
 use super::ults::Ult;
@@ -27,11 +31,22 @@ pub enum Champion {
     Alchemist,
     Reaver,
     Lancer,
+    /// Appended, so saved names keep.
+    PhantomLancer,
+    /// Appended, so saved names keep.
+    MirageDuelist,
 }
 
 impl Champion {
-    pub const ALL: [Champion; 5] =
-        [Champion::Hammerer, Champion::Butcher, Champion::Alchemist, Champion::Reaver, Champion::Lancer];
+    pub const ALL: [Champion; 7] = [
+        Champion::Hammerer,
+        Champion::Butcher,
+        Champion::Alchemist,
+        Champion::Reaver,
+        Champion::Lancer,
+        Champion::PhantomLancer,
+        Champion::MirageDuelist,
+    ];
 
     pub fn kit(self) -> &'static str {
         match self {
@@ -40,6 +55,8 @@ impl Champion {
             Champion::Alchemist => "alchemist",
             Champion::Reaver => "reaver",
             Champion::Lancer => "lancer",
+            Champion::PhantomLancer => "phantomlancer",
+            Champion::MirageDuelist => "mirageduelist",
         }
     }
 
@@ -55,6 +72,8 @@ impl Champion {
             Champion::Alchemist => ["miasma-flask", "quickfire", "elixir"],
             Champion::Reaver => ["hurl-axe", "leap", "bloodlust"],
             Champion::Lancer => ["javelin", "vault", "brace"],
+            Champion::PhantomLancer => ["spirit-lance", "doppelganger", "juxtapose"],
+            Champion::MirageDuelist => ["swashbuckle", "mirror-swap", "echo-strike"],
         }
     }
 }
@@ -203,6 +222,32 @@ pub const DRIVE_DAMAGE: u32 = 110;
 const DRIVE_WALL: u32 = 50;
 const DRIVE_STUN: u32 = 2 * HZ;
 
+// ─── the Phantom Lancer ──────────────────────────────────────────────────────
+
+/// Spirit Lance: how fast, how long, the blow every foe on its line takes,
+/// and how long the image where it ends stands.
+pub const SPIRIT_SPEED: f32 = 28.0;
+pub const SPIRIT_LIFE: u32 = 18;
+pub const SPIRIT_DAMAGE: u32 = 36;
+const SPIRIT_STUN: u32 = 8;
+pub const SPIRIT_IMAGE: u32 = 6 * HZ;
+/// Doppelganger: how far the blink goes, how long its images stand, and
+/// how far apart the two left at the start stand.
+pub const DOPPEL_REACH: f32 = 6.0;
+pub const DOPPEL_IMAGE: u32 = 5 * HZ;
+const DOPPEL_APART: f32 = 0.9;
+/// Juxtapose: how long it holds, the odds against a thrust making an image
+/// (one in this many), how long that image stands and how far beside the
+/// knight.
+pub const JUXTA_TICKS: u32 = 8 * HZ;
+pub const JUXTA_ODDS: u64 = 3;
+pub const JUXTA_IMAGE: u32 = 4 * HZ;
+const JUXTA_BESIDE: f32 = 1.8;
+/// Phantom Legion: how many images, how long they stand and how far round.
+pub const LEGION_IMAGES: usize = 4;
+pub const LEGION_TICKS: u32 = 8 * HZ;
+const LEGION_RING: f32 = 2.6;
+
 /// How long the figure holds a spell's strike once it has left the hand.
 pub const CAST_POSE: u32 = 10;
 
@@ -238,6 +283,17 @@ pub struct Stance {
     /// Brace: the lance set.
     #[serde(default)]
     pub brace: u32,
+    /// Juxtapose: ticks left in which a thrust may make an image.
+    #[serde(default, skip_serializing_if = "super::zero")]
+    pub juxta: u32,
+    /// Swashbuckle: the dash and the flurry after it.
+    #[serde(default, skip_serializing_if = "mirage::Swash::idle")]
+    pub swash: mirage::Swash,
+    /// Echo Strike: thrusts still to be echoed, and ticks left to make them.
+    #[serde(default, skip_serializing_if = "super::is_zero")]
+    pub echoes: u8,
+    #[serde(default, skip_serializing_if = "super::zero")]
+    pub echo_ticks: u32,
     /// A bound under way (Leap, Vault, Skewer Drive): ticks left, which,
     /// and the way it runs.
     #[serde(default)]
@@ -279,7 +335,7 @@ impl Stance {
     /// Too taken up to shoot: winding up a slam, hauled along a chain, in
     /// the middle of a bound, or with the lance set.
     pub fn busy(&self) -> bool {
-        self.windup > 0 || self.haul > 0 || self.dash > 0 || self.brace > 0
+        self.windup > 0 || self.haul > 0 || self.dash > 0 || self.brace > 0 || self.swash.dashing()
     }
 }
 
@@ -296,6 +352,8 @@ pub enum Thrown {
     Axe,
     /// The Lancer's javelin, through everything on its line.
     Javelin,
+    /// The Phantom Lancer's: the same flight, and an image where it ends.
+    SpiritLance,
 }
 
 /// What is in a flask.
@@ -386,6 +444,9 @@ pub struct Field {
     /// The foes a Skewer Drive carries before the lance (`left` unused).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub skewered: Vec<Grip>,
+    /// The thrusts Echo Strike will strike again.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub echoes: Vec<mirage::Echo>,
 }
 
 impl Field {
@@ -395,6 +456,7 @@ impl Field {
             && self.cracks.is_empty()
             && self.grips.is_empty()
             && self.skewered.is_empty()
+            && self.echoes.is_empty()
     }
 
     pub fn clear(&mut self) {
@@ -549,6 +611,28 @@ impl Run {
                 hero.champ.brace = BRACE_TICKS;
                 self.sounds.push("shield_up");
             }
+            "spirit-lance" => {
+                self.champions.throws.push(fly(Thrown::SpiritLance, SPIRIT_SPEED, SPIRIT_LIFE));
+                self.sounds.push("shot_bolt");
+            }
+            "doppelganger" => {
+                self.doppelganger(id);
+                self.sounds.push("roll");
+            }
+            "juxtapose" => {
+                hero.champ.juxta = JUXTA_TICKS;
+                self.sounds.push("shield_up");
+            }
+            "swashbuckle" => self.swashbuckle(id),
+            "mirror-swap" => {
+                self.mirror_swap(id);
+                self.sounds.push("roll");
+            }
+            "echo-strike" => {
+                hero.champ.echoes = mirage::ECHO_THRUSTS;
+                hero.champ.echo_ticks = mirage::ECHO_TICKS;
+                self.sounds.push("shield_up");
+            }
             "elixir" => {
                 let reach = hero.spell_step(feat).elixir_reach;
                 let mend = hero.spell_power(feat, ELIXIR_MEND);
@@ -681,6 +765,27 @@ impl Run {
                 }
                 self.sounds.push("boss_rise");
             }
+            Ult::PhantomLegion => {
+                if let Some(hero) = self.players.get_mut(&id) {
+                    hero.champ.cast = CAST_POSE;
+                    hero.champ.spell = 4;
+                }
+                // A ring of images, off the aim's own line, each as far out
+                // as the room lets it stand.
+                self.phantoms.retain(|p| p.owner != id);
+                let grid = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() };
+                for k in 0..LEGION_IMAGES {
+                    let a = ay.atan2(ax) + std::f32::consts::TAU * (k as f32 + 0.5) / LEGION_IMAGES as f32;
+                    for r in [LEGION_RING, LEGION_RING * 0.7, LEGION_RING * 0.4] {
+                        let (dx, dy) = (a.cos() * r, a.sin() * r);
+                        if grid.clear(hx + dx, hy + dy, HERO_RADIUS, Mover::Hero) {
+                            ults::add_image(&mut self.phantoms, ults::Phantom::beside(id, (hx, hy), (dx, dy), LEGION_TICKS));
+                            break;
+                        }
+                    }
+                }
+            }
+            Ult::HallOfMirrors => self.hall_of_mirrors(id),
             Ult::PhilosophersRain => {
                 let mut near: Vec<(f32, f32, f32)> = self
                     .enemies
@@ -737,7 +842,7 @@ impl Run {
         }
         if dealt > 0 {
             if let Some(hero) = self.players.get(&owner) {
-                if matches!(of(hero), Some(Champion::Hammerer | Champion::Butcher | Champion::Reaver | Champion::Lancer)) && stun > 0 {
+                if matches!(of(hero), Some(Champion::Hammerer | Champion::Butcher | Champion::Reaver | Champion::Lancer | Champion::PhantomLancer)) && stun > 0 {
                     self.feel.melee.contact(owner, hero, enemy, dealt, false);
                 }
             }
@@ -779,6 +884,8 @@ impl Run {
         self.champions.rings.retain(|r| r.age < r.life);
         self.champion_cracks();
         self.champion_grips();
+        self.tick_echoes();
+        self.tick_mirrors();
     }
 
     fn champion_stances(&mut self) {
@@ -797,6 +904,11 @@ impl Run {
             s.cast = s.cast.saturating_sub(1);
             s.lust = s.lust.saturating_sub(1);
             s.brace = s.brace.saturating_sub(1);
+            s.juxta = s.juxta.saturating_sub(1);
+            s.echo_ticks = s.echo_ticks.saturating_sub(1);
+            if s.echo_ticks == 0 {
+                s.echoes = 0;
+            }
             if hero.hp == 0 {
                 hero.champ = Stance::default();
                 self.champions.skewered.retain(|g| g.owner != id);
@@ -839,6 +951,7 @@ impl Run {
             }
             self.champion_bound(id, (hx, hy));
             self.champion_brace(id, (hx, hy));
+            self.swash_flurry(id);
         }
     }
 
@@ -1010,7 +1123,7 @@ impl Run {
                     hauling && t.age < t.life
                 }
                 Thrown::Axe => self.fly_axe(&mut t),
-                Thrown::Javelin => self.fly_javelin(&mut t),
+                Thrown::Javelin | Thrown::SpiritLance => self.fly_javelin(&mut t),
                 Thrown::Flask(brew) => {
                     let ((x, y), _) = lob(&t);
                     (t.x, t.y) = (x, y);
@@ -1154,19 +1267,30 @@ impl Run {
         !home && t.age < AXE_OUT * 6
     }
 
-    /// The javelin flies straight through every foe on its line.
+    /// The javelin flies straight through every foe on its line. The
+    /// Phantom Lancer's spirit lance flies the same, and an image stands
+    /// where it ends.
     fn fly_javelin(&mut self, t: &mut Throw) -> bool {
+        let spirit = t.kind == Thrown::SpiritLance;
+        let (spell, base, stun) = if spirit { ("spirit-lance", SPIRIT_DAMAGE, SPIRIT_STUN) } else { ("javelin", JAVELIN_DAMAGE, JAVELIN_STUN) };
         let (nx, ny) = (t.x + t.vx * DT, t.y + t.vy * DT);
         let grid = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() };
         if grid.stops_shot(nx, ny) || t.age >= t.life {
             self.champions.ring((t.x, t.y), 0.9, RingKind::Burst);
+            if spirit {
+                // Where it ends, never in stone: the line from the cast, halted.
+                let at = grid.halted(t.from, (t.x - t.from.0, t.y - t.from.1));
+                if self.players.get(&t.owner).is_some_and(|h| h.hp > 0) {
+                    ults::add_image(&mut self.phantoms, ults::Phantom::standing(t.owner, at, SPIRIT_IMAGE));
+                }
+            }
             return false;
         }
         (t.x, t.y) = (nx, ny);
-        let damage = self.players.get(&t.owner).map_or(JAVELIN_DAMAGE, |h| h.spell_damage("javelin", JAVELIN_DAMAGE));
+        let damage = self.players.get(&t.owner).map_or(base, |h| h.spell_damage(spell, base));
         for i in self.near((nx, ny), 0.7) {
             if self.enemies[i].wits.flinch == 0 {
-                self.smite(t.owner, i, damage, JAVELIN_STUN, true);
+                self.smite(t.owner, i, damage, stun, true);
                 self.enemies[i].wits.flinch = feel::FLINCH;
             }
         }
@@ -1288,6 +1412,121 @@ impl Run {
     }
 }
 
+impl Run {
+    /// Doppelganger: the knight blinks along the aim, as far as `DOPPEL_REACH`
+    /// allows short of stone (`Grid::halted`) and never into a foe, and leaves
+    /// an image to either side of where they stood and one beside where they
+    /// land, each standing in place.
+    fn doppelganger(&mut self, id: u32) {
+        let Some(hero) = self.players.get(&id).filter(|h| h.hp > 0) else {
+            return;
+        };
+        let (hx, hy) = (hero.x, hero.y);
+        let (ax, ay) = unit(hero.aim_x, hero.aim_y);
+        let (ax, ay) = if ax == 0.0 && ay == 0.0 { (0.0, -1.0) } else { (ax, ay) };
+        let grid = Grid { room: &self.dungeon.rooms[self.at], barred: self.barred() };
+        // Floor only, including the body's corners. A door reads as open until
+        // the room bars on this same tick, and then the image is in stone.
+        let on_floor = |x: f32, y: f32| {
+            let r = HERO_RADIUS;
+            [(-r, -r), (r, -r), (-r, r), (r, r), (0.0, 0.0)]
+                .into_iter()
+                .all(|(dx, dy)| {
+                    let (px, py) = (x + dx, y + dy);
+                    let col = ((px / TILE_UNITS).floor() as i32).clamp(0, grid.room.cols as i32 - 1);
+                    let row = ((py / TILE_UNITS).floor() as i32).clamp(0, grid.room.rows as i32 - 1);
+                    matches!(
+                        grid.room.tile(col, row),
+                        Tile::Floor | Tile::Stairs | Tile::Ledge | Tile::Bog
+                    )
+                })
+        };
+        let (cx, cy) = (
+            grid.room.cols as f32 * TILE_UNITS / 2.0,
+            grid.room.rows as f32 * TILE_UNITS / 2.0,
+        );
+        let mut to = (hx, hy);
+        let mut far = DOPPEL_REACH;
+        while far > 0.0 {
+            let at = grid.halted((hx, hy), (ax * far, ay * far));
+            if on_floor(at.0, at.1)
+                && !self.enemies.iter().any(|e| e.hp > 0 && (e.x - at.0).hypot(e.y - at.1) < e.radius() + HERO_RADIUS)
+            {
+                to = at;
+                break;
+            }
+            far -= 0.5;
+        }
+        // Beside a point, on either hand, on floor. Never the wall, and never
+        // a door that the next bar would turn to stone.
+        let beside = |c: (f32, f32), side: f32| {
+            for apart in [DOPPEL_APART, DOPPEL_APART * 0.5] {
+                for s in [side, -side] {
+                    let at = (c.0 - ay * s * apart, c.1 + ax * s * apart);
+                    if on_floor(at.0, at.1) {
+                        return at;
+                    }
+                }
+            }
+            if on_floor(c.0, c.1) {
+                return c;
+            }
+            let (dx, dy) = (cx - c.0, cy - c.1);
+            let dist = dx.hypot(dy).max(0.01);
+            let mut gone = 0.4;
+            while gone < dist {
+                let at = (c.0 + dx / dist * gone, c.1 + dy / dist * gone);
+                if on_floor(at.0, at.1) {
+                    return at;
+                }
+                gone += 0.4;
+            }
+            (cx, cy)
+        };
+        if !on_floor(to.0, to.1) {
+            to = beside(to, 1.0);
+        }
+        let made = [beside((hx, hy), 1.0), beside((hx, hy), -1.0), beside(to, 1.0)];
+        for at in made {
+            ults::add_image(&mut self.phantoms, ults::Phantom::standing(id, at, DOPPEL_IMAGE));
+        }
+        if fx::sparks_room(&self.sparks, &self.fx) {
+            self.sparks.push(Spark { from: (hx, hy), to, ttl: 7 });
+        }
+        if let Some(hero) = self.players.get_mut(&id) {
+            (hero.x, hero.y) = to;
+        }
+    }
+}
+
+/// Juxtapose: while it holds, a thrust makes an image beside the knight one
+/// time in `JUXTA_ODDS`, by a roll of the tick and the run's seed (`salt`),
+/// so a replay makes the same ones. It stands on whichever hand has floor.
+pub(super) fn juxtapose(phantoms: &mut Vec<ults::Phantom>, hero: &Hero, id: u32, salt: u64, grid: &Grid) {
+    // Nothing extra stands beside a knight whose Hall of Mirrors is up.
+    if hero.champ.juxta == 0 || hero.hp == 0 || phantoms.iter().any(|p| p.owner == id && p.charge) {
+        return;
+    }
+    let roll = mix(salt.wrapping_mul(0x9e37_79b9) ^ (u64::from(id) << 48));
+    if roll % JUXTA_ODDS != 0 {
+        return;
+    }
+    let (ax, ay) = unit(hero.aim_x, hero.aim_y);
+    let (ax, ay) = if ax == 0.0 && ay == 0.0 { (0.0, -1.0) } else { (ax, ay) };
+    let side = if (roll >> 20) & 1 == 0 { 1.0 } else { -1.0 };
+    for s in [side, -side] {
+        let (dx, dy) = (-ay * s * JUXTA_BESIDE, ax * s * JUXTA_BESIDE);
+        if grid.clear(hero.x + dx, hero.y + dy, HERO_RADIUS, Mover::Hero) {
+            ults::add_image(phantoms, ults::Phantom::beside(id, (hero.x, hero.y), (dx, dy), JUXTA_IMAGE));
+            return;
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "../../tests/rules/together_champions__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/together_phantom_lancer__tests.rs"]
+mod phantom_lancer_tests;

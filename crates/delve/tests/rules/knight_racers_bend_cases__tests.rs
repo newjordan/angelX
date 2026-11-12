@@ -9,7 +9,7 @@ fn record_knight_racer_cases() {
     let mut d = kit::Dice(0x4b52);
     for n in 0..40u64 {
         let ids: Vec<u32> = (1..=6u32).filter(|id| d.chance(70) || *id == 1 + (n % 6) as u32).collect();
-        let mut s = Session { cars: BTreeMap::new(), ticks: 0, finished: false };
+        let mut s = Session { cars: BTreeMap::new(), ticks: 0, finished: false, ..Session::blank_on(CourseId::Proving) };
         let before = kit::js(&s);
         s.join_ids(ids.clone());
         kit::rec("knight_racers.Session.join_ids", json!({"s": before, "ids": ids}), json!({"s": kit::js(&s)}));

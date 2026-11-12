@@ -1,0 +1,30 @@
+# The Still Runs Dry — Zuglar Lessonshoot, brewer, the stills behind The Copper Peppers.
+# A Bomrekedan questline (quests.json: the-still-runs-dry). Same file shape
+# and caveats as steel.txt: `power bomrekedan:` needs a line in quest_gate();
+# cued steps count by standing with the teacher; `needs` steps wait on a
+# counter nothing counts yet.
+power   bomrekedan:still
+teacher Zuglar Lessonshoot
+place   the eight stills behind The Copper Peppers, on the Hearth level of Bomrekedan
+room    Tavern
+look    a leather cap stained purple to the brim, a dipping ladle on a cord, and the slow smile of a dwarf tasting
+line    Plump helmet wine again. It is good wine. It is the only wine.
+teach   A still is honest. Put fruit in and it gives you drink. Put nothing in and it gives you a brewer with nothing to do.
+hook    A slate by the stills is ruled into columns of 'no fruit', and the columns run off the slate and down the wall.
+step    The tasting | taste this year's plump helmet wine from the cask Zuglar holds out | still_tastings 1 | Good, isn't it. Eighteen hundred barrels of good, and not one of anything else. | cue taste
+step    The fruit basket | gather fruit and leaves in the Greenwood and carry them home | fruit_gathered 6 | Apples. Cherries. Something red. Anything that was never a mushroom. | needs
+step    The barrels | carry three barrels from the carpenters to the stills for Zuglar | barrels_carried 3 | A brew needs somewhere to go. The brewers put it down a thousand times for want of a barrel. | cue deliver
+step    The tavern's tale | buy a round at The Copper Peppers and hear who drank it | tavern_tales_heard 1 | Bards stay longer when there is something new in the cup. So do erinyes. | cue tale
+trial   The toasted hall | clear one hall on a delve you began with a drink from the taverns of Bomrekedan | toasted_halls 1 | There. Now it is a story, and the story needs a drink.
+reward  the Stills raised a level: both taverns pour every night (a Bomrekedan questline: no power is taught)
+title   the Fruit-Bringer
+keepsake a dipping ladle on a cord, still smelling of cherries
+ties    The tavern's tale pools with Sela's quarrel at Maud's (tavern_tales_heard); the barrels are Oddom Gearedsecrets' (Barrels and Pots); the fruit is the Orchard lot's.
+art
+..888..
+.8...8.
+.87778.
+.87778.
+.87778.
+..888..
+...8...

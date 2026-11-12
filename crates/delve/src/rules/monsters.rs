@@ -96,6 +96,11 @@ pub enum EnemyKind {
     /// knights, monsters' shots and the knights' own arrows alike. The
     /// room stops meaning anything while it stands.
     Whirlgrave,
+    /// A gardener that lobs spore-sacs, and whose garden has opinions:
+    /// where a sac bursts, mushrooms stand up that stop every shot in
+    /// the room, knight's and monster's alike. It does not out-damage
+    /// you; it takes the room's sightlines away.
+    Fungelder,
     /// The swamp's horrors (`horrors`): a hand under the bog that rises
     /// where a knight stands, ripples first, and holds them;
     BogHand,
@@ -148,6 +153,7 @@ impl EnemyKind {
             EnemyKind::Broodmarrow => 1.35,
             EnemyKind::Oathbound => 0.8,
             EnemyKind::Whirlgrave => 0.85,
+            EnemyKind::Fungelder => 0.8,
             EnemyKind::BogHand => 0.7,
             EnemyKind::Drowned => 0.85,
             EnemyKind::Wisp => 0.5,
@@ -198,6 +204,8 @@ impl EnemyKind {
             // Half of one wound twice over.
             EnemyKind::Oathbound => 240,
             EnemyKind::Whirlgrave => 150,
+            // A gardener, not a fighter: fell it before the garden closes in.
+            EnemyKind::Fungelder => 130,
             EnemyKind::BogHand => horrors::HAND_HP,
             EnemyKind::Drowned => horrors::DROWNED_HP,
             EnemyKind::Wisp => horrors::WISP_HP,
@@ -224,6 +232,7 @@ impl EnemyKind {
                 | EnemyKind::Hound
                 | EnemyKind::Broodmarrow
                 | EnemyKind::Whirlgrave
+                | EnemyKind::Fungelder
                 | EnemyKind::Drowned
         )
     }
@@ -273,6 +282,7 @@ impl EnemyKind {
             EnemyKind::Broodmarrow => 700,
             EnemyKind::Oathbound => 180,
             EnemyKind::Whirlgrave => 300,
+            EnemyKind::Fungelder => 240,
             EnemyKind::BogHand => 140,
             EnemyKind::Drowned => 280,
             EnemyKind::Wisp => 120,
@@ -319,6 +329,17 @@ pub struct Enemy {
     /// Ticks it stands stunned or held in time.
     #[serde(default)]
     pub frozen: u32,
+    /// Ticks the Vesper Bell still holds it to the ground.
+    #[serde(default)]
+    pub grounded: u32,
+    /// Ticks left it hops about as a frog, harmless and embarrassed (the
+    /// Plague of Frogs).
+    #[serde(default)]
+    pub frog: u32,
+    /// Read out of the room: when it falls it drops nothing (the
+    /// Excommunicate's shame). One death wide.
+    #[serde(default)]
+    pub shunned: bool,
     /// The first simulation tick awake again. Damage never clears sleep.
     #[serde(default, skip_serializing_if = "bard::awake")]
     pub sleep_until: u64,
@@ -394,6 +415,10 @@ pub struct Enemy {
     /// Waiting in its chamber for a knight to come: no step, no shot.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub dormant: bool,
+    /// A thing a knight made in the Creator and the world took in, its maker
+    /// named on its health bar (`made`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub made: Option<super::made::Tag>,
 }
 
 impl Enemy {
@@ -405,6 +430,17 @@ impl Enemy {
 
     pub(super) fn base_hp(&self) -> u32 {
         self.base_hp.unwrap_or_else(|| self.kind.hp())
+    }
+
+    /// Whether it may fly this tick: the Vesper Bell holds wings to the
+    /// ground, and a frog is in no case to fly at all.
+    pub fn wings(&self) -> bool {
+        self.kind.flies() && self.grounded == 0 && self.frog == 0
+    }
+
+    /// Whether the Plague of Frogs has it: it hops, and can do nothing else.
+    pub fn frogged(&self) -> bool {
+        self.frog > 0
     }
 }
 
@@ -448,12 +484,12 @@ fn omit_enemy_defaults(value: &mut serde_json::Value) {
             map.remove(key);
         }
     }
-    for key in ["age", "frozen", "stage", "timer", "hurt", "dread", "fury", "cry", "rung", "pattern_volleys"] {
+    for key in ["age", "frozen", "grounded", "frog", "stage", "timer", "hurt", "dread", "fury", "cry", "rung", "pattern_volleys"] {
         if map.get(key).is_some_and(|v| v.as_u64() == Some(0)) {
             map.remove(key);
         }
     }
-    for key in ["raged", "elite"] {
+    for key in ["raged", "elite", "shunned"] {
         if map.get(key).is_some_and(|v| v.as_bool() == Some(false)) {
             map.remove(key);
         }
@@ -493,6 +529,27 @@ pub(super) fn act(
         }
         return;
     }
+    // The Plague of Frogs: a frogged monster hops away from the knights
+    // and can do nothing else, until the plague wears off. Ribbit.
+    if enemy.frogged() {
+        enemy.frog = enemy.frog.saturating_sub(1);
+        if enemy.timer % frogs::HOP_WINDOW == 0
+            && let Some(&(hx, hy)) = heroes.iter().min_by(|a, b| {
+                (a.0 - enemy.x)
+                    .hypot(a.1 - enemy.y)
+                    .total_cmp(&(b.0 - enemy.x).hypot(b.1 - enemy.y))
+            })
+        {
+            let (ux, uy) = unit(enemy.x - hx, enemy.y - hy);
+            (enemy.x, enemy.y) = grid.slide(
+                (enemy.x, enemy.y),
+                (ux * frogs::MONSTER_HOP, uy * frogs::MONSTER_HOP),
+                enemy.radius(),
+                Mover::Walker,
+            );
+        }
+        return;
+    }
     if foes::act(enemy, heroes, grid, seed, shots, deeds) {
         return;
     }
@@ -525,7 +582,7 @@ pub(super) fn act(
     let (tx, ty) = target.unwrap_or((enemy.x, enemy.y));
     let (cx, cy) = unit(tx - enemy.x, ty - enemy.y);
     let age = enemy.age + enemy.id * 13;
-    let mover = if enemy.kind.flies() {
+    let mover = if enemy.wings() {
         Mover::Flier
     } else {
         Mover::Walker
@@ -583,6 +640,7 @@ pub(super) fn act(
             | EnemyKind::Broodmarrow
             | EnemyKind::Oathbound
             | EnemyKind::Whirlgrave
+            | EnemyKind::Fungelder
             | EnemyKind::BogHand
             | EnemyKind::Drowned
             | EnemyKind::Wisp => (0.0, 0.0),

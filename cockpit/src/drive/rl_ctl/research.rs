@@ -226,21 +226,27 @@ fn routed(workspace: &Path, mut record: Value) -> Value {
 }
 
 fn campaign_outcome_status(value: &Value) -> &str {
-    match value["status"].as_str() {
-        Some("completed")
+    use crate::drive::labyrinth::campaign::RunStatus;
+    let Some(status) = value["status"].as_str().map(RunStatus::parse) else {
+        return "failed";
+    };
+    match status {
+        RunStatus::Completed
             if value["integrations"]
                 .as_array()
                 .is_some_and(|receipts| !receipts.is_empty()) =>
         {
             "completed"
         }
-        Some("completed") => "unintegrated",
-        Some("cancelled") => "stopped",
-        Some("saturated") => "saturated",
-        Some("budget_exhausted") => "budget_exhausted",
-        Some("deadline") => "deadline",
-        Some("execution_blocked") => "execution_blocked",
-        _ => "failed",
+        RunStatus::Completed => "unintegrated",
+        RunStatus::Cancelled => "stopped",
+        RunStatus::Saturated => "saturated",
+        RunStatus::BudgetExhausted => "budget_exhausted",
+        RunStatus::Deadline => "deadline",
+        RunStatus::ExecutionBlocked => "execution_blocked",
+        // A run never comes back ready or running, and a word this build never
+        // wrote is not a finished outcome.
+        RunStatus::Ready | RunStatus::Running | RunStatus::Unrecognised(_) => "failed",
     }
 }
 

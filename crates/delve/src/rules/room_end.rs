@@ -13,6 +13,10 @@ impl Run {
         if self.raid_rout() {
             return;
         }
+        // Beaten by a toll gang on the road: knocked down, not killed.
+        if self.wayfarer_rout() {
+            return;
+        }
         // A party falls only when every knight someone plays has fallen. A
         // knight turned to stone because its player is away is still in the
         // run, waiting for them, and keeps it up: one knight's fall never

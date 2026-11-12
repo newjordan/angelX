@@ -1717,6 +1717,29 @@ fn default_prop(setting: Setting) -> Prop {
     }
 }
 
+/// A blocked tile of Bomrekedan, from the import's DRESS key. `None` when
+/// the room is not a fort level, so the setting's own block stands.
+fn fort_block(room: &Room, c: i32, r: i32) -> Option<Prop> {
+    let level = crate::rules::world::bomrekedan::level(room.kind)?;
+    let key = level.dress_at(c, r);
+    let surface = level.surface();
+    Some(match key {
+        b'T' if surface => Prop::Tree,
+        b'T' => Prop::Column { kind: Kind::Wood, height: 12.0, lamp: false },
+        b'W' => Prop::Column { kind: Kind::Wood, height: 14.0, lamp: false },
+        b's' => Prop::Column { kind: Kind::Stone, height: 32.0, lamp: false },
+        b'F' => Prop::Furnace { lit: true },
+        b'w' | b'o' => Prop::Plinth { kind: Kind::Stone, height: 10.0 },
+        b'+' | b'h' | b'k' | b'K' | b'b' => Prop::Crate,
+        b'g' | b'P' => Prop::Column { kind: Kind::Metal, height: 18.0, lamp: false },
+        b'm' => Prop::Column { kind: Kind::Stone, height: 22.0, lamp: false },
+        b'a' | b'r' => Prop::Rack,
+        b't' => Prop::Table { top: Kind::Wood, height: 8.0 },
+        _ if surface => Prop::Boulder,
+        _ => Prop::Column { kind: Kind::Stone, height: 16.0, lamp: false },
+    })
+}
+
 fn props(room: &Room, d: &Dressing) -> Vec<Group> {
     let (cols, rows) = (room.cols, room.rows);
     let mut claimed = vec![false; cols * rows];
@@ -1740,8 +1763,23 @@ fn props(room: &Room, d: &Dressing) -> Vec<Group> {
             add(sub, prop, &mut claimed);
         }
     }
+    // Bomrekedan's trees stay one tile: a merged crown would hide the path.
+    if let Some(level) = crate::rules::world::bomrekedan::level(room.kind) {
+        if level.surface() {
+            for r in 0..rows as i32 {
+                for c in 0..cols as i32 {
+                    let i = r as usize * cols + c as usize;
+                    if claimed[i] || room.tile(c, r) != Tile::Block || level.dress_at(c, r) != b'T' {
+                        continue;
+                    }
+                    add((c, r, 1, 1), Prop::Tree, &mut claimed);
+                }
+            }
+        }
+    }
     // What no dressing names: the setting's own blocks, and a plate on
-    // every stair.
+    // every stair. A fort level names its blocked tiles from the import's
+    // DRESS grid instead of one boulder over the whole floor.
     let rest: Vec<Option<Prop>> = (0..rows as i32)
         .flat_map(|r| (0..cols as i32).map(move |c| (c, r)))
         .map(|(c, r)| {
@@ -1749,7 +1787,7 @@ fn props(room: &Room, d: &Dressing) -> Vec<Group> {
                 return None;
             }
             match room.tile(c, r) {
-                Tile::Block => Some(default_prop(d.setting)),
+                Tile::Block => Some(fort_block(room, c, r).unwrap_or_else(|| default_prop(d.setting))),
                 Tile::Stairs => Some(Prop::Plate(match d.setting {
                     Setting::Outdoor { .. } => Kind::Wood,
                     _ => Kind::Stone,

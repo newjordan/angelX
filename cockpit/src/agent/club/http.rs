@@ -238,6 +238,9 @@ pub struct HttpClub {
     /// `None` means dynamic: resolve it before the first request instead of
     /// hardcoding a checkpoint in source.
     model: Mutex<Option<String>>,
+    /// Serializes cold `/models` fetches so `model` itself is never held
+    /// across the network (see `model_id`).
+    model_probe: Mutex<()>,
     cli_model: bool,
     api_key: Option<String>,
     /// First-class OAuth (or other rotating) credential. Wins over `api_key`
@@ -916,7 +919,7 @@ fn tools_wire_json(tools: &[ToolDef]) -> serde_json::Value {
                 "function": {
                     "name": t.name,
                     "description": t.description,
-                    "parameters": t.params,
+                    "parameters": object_tool_parameters(&t.params),
                 },
             })
         })
@@ -926,6 +929,102 @@ fn tools_wire_json(tools: &[ToolDef]) -> serde_json::Value {
         *guard = Some((fp, Arc::clone(&value)));
     }
     value.as_ref().clone()
+}
+
+/// Function calls always carry an object argument. xAI rejects root argument
+/// unions even when `type: object` is also present. Advertise the union's object
+/// fields as a flat record, requiring only fields common to every branch. The
+/// original ToolDef is untouched: prompt-or-recipe/exclusive validation still
+/// belongs to the tool, not the provider's smaller JSON-schema dialect.
+fn object_tool_parameters(params: &serde_json::Value) -> serde_json::Value {
+    fn accepts_object(schema: &serde_json::Value) -> bool {
+        match schema.get("type") {
+            Some(serde_json::Value::String(t)) => t == "object",
+            Some(serde_json::Value::Array(ts)) => ts.iter().any(|t| t == "object"),
+            _ => schema.is_object(),
+        }
+    }
+    let mut params = params.clone();
+    let Some(map) = params.as_object_mut() else { return params; };
+    map.insert("type".into(), "object".into());
+    for key in ["anyOf", "oneOf"] {
+        let Some(serde_json::Value::Array(branches)) = map.remove(key) else { continue; };
+        let branches: Vec<_> = branches.iter().filter(|b| accepts_object(b))
+            .map(object_tool_parameters).collect();
+        let mut common: Option<std::collections::BTreeSet<String>> = None;
+        for branch in branches {
+            if let Some(fields) = branch.get("properties").and_then(|v| v.as_object()) {
+                let properties = map.entry("properties").or_insert_with(|| serde_json::json!({}));
+                if let Some(properties) = properties.as_object_mut() {
+                    for (name, schema) in fields {
+                        match properties.get_mut(name) {
+                            Some(existing) if existing != schema => {
+                                *existing = serde_json::json!({"anyOf": [existing.clone(), schema]});
+                            }
+                            Some(_) => {},
+                            None => { properties.insert(name.clone(), schema.clone()); }
+                        }
+                    }
+                }
+            }
+            let required: std::collections::BTreeSet<String> = branch.get("required")
+                .and_then(|v| v.as_array()).into_iter().flatten()
+                .filter_map(|v| v.as_str().map(str::to_owned)).collect();
+            common = Some(match common { None => required, Some(previous) => previous.intersection(&required).cloned().collect() });
+        }
+        if let Some(common) = common && !common.is_empty() {
+            let required = map.entry("required").or_insert_with(|| serde_json::json!([]));
+            if let Some(required) = required.as_array_mut() {
+                for name in common { let name = serde_json::Value::String(name); if !required.contains(&name) { required.push(name); } }
+            }
+        }
+    }
+    params
+}
+
+#[cfg(test)]
+mod object_tool_parameters_tests {
+    use super::object_tool_parameters;
+    use serde_json::json;
+
+    #[test]
+    fn object_tool_parameters_rejects_nullable_root_not_nullable_properties() {
+        // The actual failed-provider shape: optional vfx argument record.
+        let original = json!({"anyOf": [
+            {"type": "object", "properties": {
+                "prompt": {"anyOf": [{"type": "string"}, {"type": "null"}]},
+                "recipe": {"type": "object"}
+            }, "oneOf": [{"required": ["prompt"]}, {"required": ["recipe"]}]},
+            {"type": "null"}
+        ]});
+        let fixed = object_tool_parameters(&original);
+        assert_eq!(fixed["type"], "object");
+        assert!(fixed.get("anyOf").is_none());
+        assert!(fixed.get("oneOf").is_none());
+        assert_eq!(fixed["properties"]["prompt"], original["anyOf"][0]["properties"]["prompt"]);
+        assert_eq!(fixed["properties"]["recipe"]["type"], "object");
+        assert!(fixed.get("required").is_none());
+        assert_eq!(original["anyOf"].as_array().unwrap().len(), 2);
+        assert_eq!(object_tool_parameters(&fixed), fixed);
+    }
+
+    #[test]
+    fn object_tool_parameters_preserves_normal_object_schemas() {
+        let schema = json!({"type":"object","properties":{"x":{"type":"integer"}},"required":["x"],"additionalProperties":false});
+        assert_eq!(object_tool_parameters(&schema), schema);
+    }
+
+    #[test]
+    fn object_tool_parameters_only_requires_common_union_fields() {
+        let schema = json!({"oneOf": [
+            {"type":"object", "properties":{"action":{"type":"string"},"x":{"type":"number"}},"required":["action","x"]},
+            {"type":"object", "properties":{"action":{"type":"string"},"y":{"type":"number"}},"required":["action","y"]}
+        ]});
+        let fixed = object_tool_parameters(&schema);
+        assert_eq!(fixed["required"], json!(["action"]));
+        assert!(fixed["properties"].get("x").is_some());
+        assert!(fixed["properties"].get("y").is_some());
+    }
 }
 
 /// Serialize a JSON body into a thread-local scratch buffer, then take ownership
@@ -1469,7 +1568,7 @@ impl HttpClub {
         if base.contains("openrouter.ai") {
             return ReasoningDialect::OpenAiEffort;
         }
-        let model = self.model_id().unwrap_or_default().to_ascii_lowercase();
+        let model = self.model_id_cached().unwrap_or_default().to_ascii_lowercase();
         if base.contains("z.ai") || base.contains("bigmodel.cn") || model.starts_with("glm") {
             return ReasoningDialect::GlmThinking;
         }
@@ -1649,6 +1748,7 @@ impl HttpClub {
             name,
             base_url,
             model: Mutex::new(model),
+            model_probe: Mutex::new(()),
             cli_model: false,
             api_key,
             token_provider: None,
@@ -1991,18 +2091,32 @@ impl HttpClub {
         Some(id)
     }
 
+    /// Cached model id only; never fetches. UI, picker, and draw paths use
+    /// this: the cold `/models` fetch belongs to request and probe threads,
+    /// which publish through here for later readers.
+    fn model_id_cached(&self) -> Option<String> {
+        self.model
+            .lock()
+            .ok()
+            .and_then(|model| model.as_ref().filter(|s| !s.trim().is_empty()).cloned())
+    }
+
     /// Model id for a request. Env/config wins; otherwise ask the backend's
     /// `/models` endpoint and cache the first reported id.
     fn model_id(&self) -> Result<String, String> {
-        // Hold the model lock through the one cold `/models` request. This is a
-        // deliberate one-time critical section: otherwise an N-way first wave
-        // sees the empty cache N times and stampedes the control endpoint.
-        let mut model = self
-            .model
+        if let Some(current) = self.model_id_cached() {
+            return Ok(current);
+        }
+        // Serialize the one cold fetch on a side gate, never on `model`
+        // itself: an N-way first wave still issues a single `/models`
+        // request, but cache peeks (the picker, the draw path) can no
+        // longer queue behind a dead backend's timeout.
+        let _probe = self
+            .model_probe
             .lock()
             .map_err(|_| "model id cache lock poisoned".to_string())?;
-        if let Some(current) = model.as_ref().filter(|s| !s.trim().is_empty()) {
-            return Ok(current.clone());
+        if let Some(current) = self.model_id_cached() {
+            return Ok(current);
         }
         let url = format!("{}/models", self.base_url.trim_end_matches('/'));
         let v = self.get_json(&url).ok_or_else(|| {
@@ -2018,7 +2132,11 @@ impl HttpClub {
                 self.base_url
             )
         })?;
-        *model = Some(learned.clone());
+        if let Ok(mut model) = self.model.lock()
+            && model.as_ref().is_none_or(|s| s.trim().is_empty())
+        {
+            *model = Some(learned.clone());
+        }
         Ok(learned)
     }
 
@@ -2278,6 +2396,10 @@ impl HttpClub {
         {
             return Err(error.to_string());
         }
+        // A locked loop's repeated copies are left out of the request
+        // (`ANGEL_LOOP_COLLAPSE`, on in a small workspace's headless task); the history keeps them.
+        let collapsed = crate::agent::harness::book::l_loops::collapse_repeats(messages);
+        let messages: &[ChatMsg] = &collapsed;
         let mut outbound = messages_to_json(messages, self.images_ok());
         // Combined 1:1 amendment of the outbound copy before the caveman
         // splice, while live messages still zip onto wire objects. Private
@@ -3492,7 +3614,7 @@ impl Club for HttpClub {
             return LOCAL_DEEPSEEK_LEVELS
                 .get_or_init(|| levels.iter().map(|level| (*level).to_string()).collect());
         }
-        let model_l = self.model_id().unwrap_or_default().to_ascii_lowercase();
+        let model_l = self.model_id_cached().unwrap_or_default().to_ascii_lowercase();
         match dialect {
             ReasoningDialect::OpenAiEffort if is_grok_xhigh_model(&model_l) => GROK_46_LEVELS
                 .get_or_init(|| vec!["low".into(), "medium".into(), "high".into(), "xhigh".into()]),
@@ -3533,7 +3655,7 @@ impl Club for HttpClub {
         if gated {
             return None;
         }
-        let model_l = self.model_id().unwrap_or_default().to_ascii_lowercase();
+        let model_l = self.model_id_cached().unwrap_or_default().to_ascii_lowercase();
         let canonical = self
             .local_reasoning_profile
             .levels()

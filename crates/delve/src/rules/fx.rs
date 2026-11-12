@@ -30,7 +30,7 @@ pub fn ground_pace(
     roads: Option<&map::Geography>,
     tune: &super::tune::Tune,
 ) -> f32 {
-    let mut pace = tune.hero_speed * (100 + hero.bonus.speed) as f32 / 100.0 * hero.pit.pace();
+    let mut pace = tune.hero_speed * (100 + hero.bonus.speed) as f32 / 100.0 * hero.pit.pace() * (100 + hero.blessing()) as f32 / 100.0;
     if hero.peasant() { pace *= peasant::PACE; }
     pace *= hero.curio_pace();
     if hero.immune == 0 && Run::webbed(webs, hero.x, hero.y) {

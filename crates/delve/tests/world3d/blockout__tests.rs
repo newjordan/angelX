@@ -122,6 +122,12 @@ fn every_blocked_tile_of_a_place_is_named() {
         if matches!(item.source, Source::Chamber { .. } | Source::Great { .. }) {
             return;
         }
+        // Bomrekedan's blocked tiles are named from the import's DRESS grid
+        // (`blockout::fort_block`), not by a static prop list and not by the
+        // hall's default crate.
+        if crate::rules::world::bomrekedan::is_level(room.kind) {
+            return;
+        }
         for t in tiles(room).filter(|&(c, r)| room.tile(c, r) == Tile::Block) {
             let named = item.dressing.props.iter().any(|&(rect, prop)| {
                 inside(rect, t.0, t.1) && !prop.on_open_ground() && !matches!(prop, Prop::Reeds)
@@ -466,8 +472,10 @@ fn every_set_is_tens_to_a_few_hundred_well_formed_lines() {
         let set = item.set();
         let lines: Vec<&str> = set.lines().collect();
         let room = item.room();
-        // A bigger room has more to it, a tile at a time in places.
-        let most = if room.cols * room.rows > 24 * 14 { 2000 } else { 400 };
+        // A bigger room has more to it, a tile at a time in places: up to
+        // half a line a tile for a level of Bomrekedan, its walls and
+        // blocked tiles all as imported (`world::bomrekedan`).
+        let most = if room.cols * room.rows > 24 * 14 { 2000.max(room.cols * room.rows / 2) } else { 400 };
         assert!((20..=most).contains(&lines.len()), "{}: {} lines", item.id(), lines.len());
         assert_eq!(lines[0], format!("set {}", item.id()));
         let camera = format!("camera room {} {}", room.cols * 16, room.rows * 16);
@@ -772,4 +780,16 @@ fn lit_rooms_agree_with_the_game() {
         }
     }
     assert!(rooms > 300, "{rooms} rooms checked");
+}
+
+#[test]
+fn bomrekedan_blockouts_follow_the_dress_grid() {
+    let workshops = every().into_iter().find(|i| i.id() == "bom-workshops").expect("workshops");
+    let set = workshops.set();
+    assert!(set.contains("post") && set.contains("column"), "workshops are still a boulder field");
+    assert!(!set.contains("boulder at 0,0 117x100"));
+    let forges = every().into_iter().find(|i| i.id() == "bom-forges").expect("forges");
+    assert!(forges.set().contains("furnace"), "the forges");
+    let gate = every().into_iter().find(|i| i.id() == "bom-gate").expect("gate");
+    assert!(gate.set().contains("tree"), "the gate's trees");
 }

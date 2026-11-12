@@ -148,6 +148,9 @@ pub struct Lesson {
     pub failed: Option<String>,
     /// Where its time went on the runner (`together_grants::Timing`).
     pub timing: Option<crate::together_grants::Timing>,
+    /// Its delivery's saves, running off the frame: whether it was
+    /// acknowledged, and how the saves went.
+    pub saving: Option<super::Saving<(bool, Result<(), String>)>>,
 }
 
 impl Lesson {
@@ -174,6 +177,7 @@ impl Lesson {
             learned_id: None,
             failed: None,
             timing: None,
+            saving: None,
         }
     }
 
@@ -241,6 +245,8 @@ pub struct Forging {
     pub words: String,
     pub started: Instant,
     pub seen: bool,
+    /// Its delivery's saves, running off the frame.
+    pub saving: Option<super::Saving<(bool, Result<(), String>)>>,
 }
 
 #[derive(Clone, Default)]
@@ -266,6 +272,12 @@ impl GrantPool {
 /// Reforges waiting their turn behind the one being drafted.
 #[derive(Clone, Debug, Default)]
 pub struct Forge {
+    /// An admission save off the frame, and the claims (session, request)
+    /// it covers: those lessons are persisted once it is done.
+    pub admitting: Option<(super::Saving<Result<(), String>>, Vec<(String, u64)>)>,
+    /// The same for newly discovered brews and reforges.
+    pub brew_admitting: super::Admitting,
+    pub reforge_admitting: super::Admitting,
     /// Discovery cursor only; the game journal owns the captured brew work.
     pub brew_cursor: Option<(String, u64)>,
     pub reforge_cursor: Option<(String, u64)>,
@@ -304,7 +316,7 @@ pub struct Forge {
     pub stirring: bool,
     /// The shipwrights making a vessel of a whole set of salvage
     /// (`dungeon_salvage`).
-    pub shipwright: crate::together_salvage::Shipwright,
+    pub(crate) shipwright: crate::together_salvage::Shipwright,
 }
 
 impl Forge {
@@ -320,7 +332,82 @@ impl Forge {
     }
 }
 
+/// What the mirror's ask came to for the body-maker.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum BodyAsk {
+    /// No body-maker is set (or this is a friend's game): as it always was.
+    Off,
+    /// A job was queued.
+    Queued,
+    /// The knight is already drawn whole from these words: nothing to draw.
+    Already,
+}
+
 impl super::dungeon::DungeonView {
+    /// Start `command` (the body-maker, if one is set) for the mirror's look
+    /// `card`, asked by seat `asked.knight`, in this game's workspace: a
+    /// second job for the look beside the worn painter's, none when there is
+    /// no body-maker or the game is a friend's, and none when the knight is
+    /// already drawn whole from these very words.
+    pub(crate) fn start_body_look(
+        &mut self,
+        command: Option<std::path::PathBuf>,
+        workspace: &std::path::Path,
+        card: &cards::Card,
+        asked: &crate::together_shooter::genie::Asked,
+    ) -> BodyAsk {
+        if self.joined.is_some() {
+            return BodyAsk::Off;
+        }
+        let Some(command) = command else {
+            return BodyAsk::Off;
+        };
+        // A body is only ever kept for the words the look has: it is these.
+        if self.shooter.as_ref().is_some_and(|run| run.has_mirror_body(asked.knight)) {
+            return BodyAsk::Already;
+        }
+        let name = if asked.cosmetic_name.is_empty() {
+            self.shooter.as_ref().and_then(|run| run.players.get(&asked.knight).map(|h| h.mirror_owner().to_owned())).unwrap_or_default()
+        } else {
+            asked.cosmetic_name.clone()
+        };
+        let job = crate::together_looker::job(workspace, &card.id, &name, &asked.words, asked.knight);
+        self.lookers.start(command, job);
+        BodyAsk::Queued
+    }
+
+    /// The body-makers that ended are said and kept (the run is told the
+    /// whole knight is drawn: `MirrorBody`; a job that failed leaves the run
+    /// as it was and the worn ink on the knight), and the pack the window
+    /// lays over its own is composed from the knights drawn whole. A host
+    /// with no body-maker set has nothing to do here.
+    pub(crate) fn watch_looks(&mut self, workspace: &std::path::Path) {
+        use angel_delve::rules::host_commands::Command;
+        if self.joined.is_some() {
+            return;
+        }
+        let Some(bodies) = self.shooter.as_ref().map(|run| run.mirror_bodies()) else {
+            return;
+        };
+        let tick = self.lookers.tick(workspace, &bodies);
+        for done in tick.finished {
+            match done.outcome {
+                Ok(()) => {
+                    self.notice = "The body-maker finished your look: your whole knight is it now; no wish spent.".into();
+                    let _ = self.shooter.command(Command::MirrorBody { card: done.job.card, words: done.job.words, on: true });
+                }
+                Err(why) => {
+                    tracing::warn!(card = %done.job.card, %why, "the body-maker could not finish a look");
+                    self.notice = format!("The body-maker could not finish your look: {why}; the worn ink stays; no wish spent.");
+                }
+            }
+        }
+        for card in tick.missing {
+            // Its set was taken away: the worn ink is the knight's look again.
+            let _ = self.shooter.command(Command::MirrorBody { card, words: String::new(), on: false });
+        }
+    }
+
     /// Reset scene/coordinator state while retaining native wish model owners.
     /// Broader brew/reforge job reset ownership remains a separate boundary.
     pub fn reset_retaining_wish_jobs(&mut self) {
@@ -716,7 +803,16 @@ impl Session<'_> {
     // A missing world may recover the same private journal. A replacement
     // journal detaches its coordinator; Pool workers finish under native ownership.
     pub fn sync_wish_session(&mut self) -> bool {
-        let Some(session) = self.dungeon.shooter.wish_session() else { return false; };
+        // Without waiting on the game's lock: while the server holds it, the
+        // session last read stands (it changes only with a new game).
+        let session = match self.dungeon.shooter.try_wish_session() {
+            Some(Some(session)) => session,
+            Some(None) => return false,
+            None => match self.dungeon.forge.wish_session.clone() {
+                Some(session) => session,
+                None => return false,
+            },
+        };
         if self.dungeon.forge.wish_session.as_ref().is_some_and(|old| old != &session) {
             self.dungeon.forge.detach_wish_jobs();
             self.dungeon.forge.spoken.clear();
@@ -925,10 +1021,17 @@ impl Session<'_> {
             self.paint_mirror_look(asked);
         }
         let maker = self.host_name();
-        match self
-            .dungeon
-            .shooter
-            .new_wish_claims(&mut self.dungeon.forge.wish_cursor, &maker)
+        // On its own threads the server publishes every step (and a restored
+        // game at once): nothing asked in the frame's picture means no claim
+        // to take, and no wait on the game's lock to find that out.
+        let asked = !self.dungeon.shooter.threaded()
+            || self.dungeon.shooter.as_ref().is_some_and(|run| !run.asked.is_empty());
+        let claimed = if asked {
+            self.dungeon.shooter.new_wish_claims(&mut self.dungeon.forge.wish_cursor, &maker)
+        } else {
+            Ok(Vec::new())
+        };
+        match claimed
         {
             Ok(claims) => {
                 for claim in claims {
@@ -951,6 +1054,24 @@ impl Session<'_> {
     /// lesson waits on another, nor on the host's own turns.
     pub fn teach_next(&mut self) {
         if !self.flush_speculative() { return; }
+        // An admission save off the frame: wait for it, then the lessons it
+        // covered are persisted and may be taught.
+        if let Some((saving, _)) = &self.dungeon.forge.admitting {
+            let Some(saved) = saving.done() else { return };
+            let (_, covered) = self.dungeon.forge.admitting.take().expect("checked above");
+            if let Err(error) = saved {
+                self.dungeon.notice = format!("Wish admission retained: {error}");
+                return;
+            }
+            for lesson in &mut self.dungeon.forge.learning {
+                if let Some(claim) = &lesson.claim
+                    && !lesson.detached
+                    && covered.iter().any(|(session, request)| *session == claim.session && *request == claim.request)
+                {
+                    lesson.persisted = true;
+                }
+            }
+        }
         if self
             .dungeon
             .forge
@@ -958,6 +1079,24 @@ impl Session<'_> {
             .iter()
             .any(|l| !l.detached && l.claim.is_some() && !l.persisted)
         {
+            if let Some(link) = self.dungeon.shooter.link() {
+                let Some(path) = self.dungeon.save_path.clone() else {
+                    self.dungeon.notice = "Wish admission retained: wish checkpoint path is unavailable".into();
+                    return;
+                };
+                let covered = self
+                    .dungeon
+                    .forge
+                    .learning
+                    .iter()
+                    .filter(|l| !l.detached)
+                    .filter_map(|l| l.claim.as_ref().map(|c| (c.session.clone(), c.request)))
+                    .collect();
+                let serial = self.dungeon.raid_serial;
+                let saving = super::Saving::start(move || link.checkpoint(&path, serial));
+                self.dungeon.forge.admitting = Some((saving, covered));
+                return;
+            }
             let saved = if self.dungeon.save_path.is_some() {
                 self.dungeon.checkpoint(Instant::now(), true)
             } else {
@@ -1138,7 +1277,7 @@ impl Session<'_> {
         self.teach_asked();
         self.take_grants();
         self.drain_detached_lessons();
-        if self.dungeon.shooter.wish_session().is_none() { return; }
+        if self.dungeon.shooter.is_none() { return; }
         if self
             .dungeon
             .forge
@@ -1149,6 +1288,7 @@ impl Session<'_> {
         }
         self.dungeon.forge.looked = Some(Instant::now());
         self.watch_painters();
+        self.watch_looks();
         let workspace = self.cx.workspace();
         crate::together_files::refresh_phrasebook(&workspace);
         if self.dungeon.forge.ladders.is_none() && let Some(run) = self.dungeon.shooter.as_ref() {
@@ -1194,7 +1334,6 @@ impl Session<'_> {
             }
         }
         let mut still = Vec::new();
-        let book = crate::together_shooter::phrasebook::book();
         for mut lesson in std::mem::take(&mut self.dungeon.forge.learning) {
             if lesson.detached { still.push(lesson); continue; }
             if lesson.claim.is_some() && !lesson.persisted { still.push(lesson); continue; }
@@ -1263,8 +1402,16 @@ impl Session<'_> {
             words: asked.words.clone(),
         });
         let Some(card) = card else { return; };
+        // The whole knight, when a body-maker is set (`together_looker`): a
+        // second job for the same look, beside the worn painter's.
+        let body = self.start_body_look(&card, &asked);
         if painter::command().is_none() {
-            self.dungeon.notice = "No worn painter is available; no wish spent.".into();
+            self.dungeon.notice = match body {
+                BodyAsk::Queued => "The body-maker is drawing your look; no wish spent.",
+                BodyAsk::Already => "Your knight is already that look; no wish spent.",
+                BodyAsk::Off => "No worn painter is available; no wish spent.",
+            }
+            .into();
             return;
         }
         let dir = self.cx.workspace().join(".angel/dungeon/mirror-looks");
@@ -1279,7 +1426,27 @@ impl Session<'_> {
             painter::Target::Card(path), &card, &asked.words,
             &[(crate::together_shooter::looks::Slot::Worn, 1)],
         );
-        self.dungeon.notice = "The worn painter is drawing your look; no wish spent.".into();
+        self.dungeon.notice = match body {
+            BodyAsk::Queued => "The worn painter and the body-maker are drawing your look: your whole knight changes when it lands; no wish spent.",
+            BodyAsk::Already => "The worn painter is redrawing your look's ink; your knight is already that look; no wish spent.",
+            BodyAsk::Off => "The worn painter is drawing your look; no wish spent.",
+        }
+        .into();
+    }
+
+    /// Start the body-maker for the mirror's look `card`, asked by seat
+    /// `asked.knight`, when one is set and this is the host's own game.
+    fn start_body_look(&mut self, card: &cards::Card, asked: &crate::together_shooter::genie::Asked) -> BodyAsk {
+        let workspace = self.cx.workspace().to_path_buf();
+        self.dungeon.start_body_look(crate::together_looker::command(), &workspace, card, asked)
+    }
+
+    /// A few times a second: the body-makers that ended are said and kept,
+    /// and the pack the window lays over its own is composed (see
+    /// `DungeonView::watch_looks`).
+    pub fn watch_looks(&mut self) {
+        let workspace = self.cx.workspace().to_path_buf();
+        self.dungeon.watch_looks(&workspace);
     }
 
     /// Queue a reforge; the first one in line is handed to angelX.
@@ -1343,6 +1510,7 @@ impl Session<'_> {
             words: words.clone(),
             started: Instant::now(),
             seen: false,
+            saving: None,
         });
         self.dungeon.notice = format!(
             "angelX is reforging {name}'s {}… keep playing.",
@@ -1599,7 +1767,13 @@ pub(super) fn sheet_note(sheets: &std::path::Path, name: &str) -> String {
 }
 
 /// What a spell may do, as the lesson and the cauldron's briefs say it.
-pub const SPELL_LINES: &str = "`cooldown <seconds>` with cast bolt|ring|meteor, heal 5-100, ward 1-5, nova 10-120, summon N <swarm|guard|turret>";
+pub const SPELL_LINES: &str = "`cooldown <seconds>` with cast bolt|ring|meteor, or an area `cast <shape> <element> [size 1-3]` (shape wave|burst|cone|line|field|pillar|nova, element fire|frost|storm|poison|holy|arcane|earth), heal 5-100, ward 1-5, nova 10-120, summon N <swarm|guard|turret>";
+
+/// What each area shape and element does, as the lesson tells the wish
+/// model (`cast <shape> <element> [size]`): the words a player says for each
+/// and the card line that IS the thing, so an area word never comes out as a
+/// plain bolt.
+pub const AREA_WORDS: &str = "AREA MAGIC is a spell (`kind spell`, tiers `cooldown <seconds>; cast <shape> <element> [size 1-3]`) and is never a bolt: ice wave, frost wave, tidal wave `cast wave frost` · lava burst, fire burst, eruption, volcano `cast burst fire` · frost nova, ice nova, fire nova, holy nova, shockwave `cast nova frost|fire|holy|earth` · dragon breath, cone of flame, flamethrower, frost breath `cast cone fire|frost` · earthquake, fissure, tremor, shockwave through the ground `cast line earth` · lightning storm, thunderstorm `cast field storm` · blizzard `cast field frost` · poison cloud, miasma, stinking cloud `cast field poison` · pillar of light, holy smite, judgement, heaven's ray `cast pillar holy` · lightning strike, thunderbolt `cast pillar storm` · black hole, gravity well, vortex `cast burst arcane` · fire storm `cast field fire`. A wave rolls out along the aim and meets each foe once; a burst erupts at the aim and leaves a pool; a cone is held in front of them; a line cracks out along the aim; a field lingers at the aim and pulses; a pillar falls after a warning; a nova races out all round. Fire burns (pools keep burning), frost chills and, from size 2, freezes (frozen foes shatter when killed, and bosses only slow), storm arcs on between foes, poison poisons (a cloud lingers), holy strikes and mends the knights it covers, arcane drags foes in, earth shoves and stuns. Climb the tiers by size (1, 1, 2, 2, 3) and a shorter cooldown; the first tier is already real area magic.";
 
 /// What each kind of summoned creature does, and how many a spell may call.
 pub const SUMMONS: &str = "swarm hunts the nearest monster and bursts (up to 6) · guard circles the knight and each catches one shot (up to 4) · turret stands and looses bolts (up to 2). The game raises a cooldown that is too short for that many.";
@@ -1620,7 +1794,7 @@ fn learn_brief(
 /// (`identity`): the first floor's three rooms ask for their body, their
 /// weapon and their ultimate, and the model decides what the wish bestows,
 /// as a character is rolled up at a table, and says why on the scroll.
-fn identity_brief(name: &str, making: &crate::together_shooter::identity::Making) -> String {
+fn identity_brief(name: &str, making: &crate::together_shooter::identity::Making, painted: bool) -> String {
     use crate::together_shooter::identity::Ask;
     let ask = making.asks().first().copied().unwrap_or(Ask::Body);
     let what = match ask {
@@ -1652,7 +1826,7 @@ You decide what the wish bestows: read their words as a game master reads a play
 }
 
 /// What each ultimate does, for the brief's third question.
-const ULT_SAYS: &str = "pilgrims_arrow one great arrow through everything in its line, stunning · ladys_veil the whole party untouchable four seconds, mending a little · trebuchet two volleys of shells where they aim · bladewind blinks foe to foe cutting six times, untouchable · grand_chord pulls every foe near into a knot, hurt and stunned · sealed_writs six homing missiles · stillhour stops time ahead for four seconds · midas_touch the three nearest foes turn to gold · assassinate a second's aim, then one shot at the toughest foe · phantasm two images fight beside them eight seconds · axe_storm spins, axes out, three seconds · lullaby sings nearby foes to sleep · desertion leaves a scarecrow and bolts for two seconds · earthsplitter a crack runs out along the aim and the ground bursts up along it · dismember the nearest foe held fast and carved, feeding the knight · philosophers_rain foul air and then fire on the nearest eight · tombstone a grave ahead that raises zombies for eight seconds · last_light marks one foe and a second later strikes it for a great blow · needle_squall six seconds of rapid fire locked on one foe · furnace_verdict a beam of fire that strikes one foe very hard · red_harvest one sweep all round, the badly wounded reaped and giving back charge · skewer_drive a charge that carries every foe before the lance and pins them where it stops";
+const ULT_SAYS: &str = "pilgrims_arrow one great arrow through everything in its line, stunning · ladys_veil the whole party untouchable four seconds, mending a little · trebuchet two volleys of shells where they aim · bladewind blinks foe to foe cutting six times, untouchable · grand_chord pulls every foe near into a knot, hurt and stunned · sealed_writs six homing missiles · stillhour stops time ahead for four seconds · midas_touch the three nearest foes turn to gold · assassinate a second's aim, then one shot at the toughest foe · phantasm two images fight beside them eight seconds · axe_storm spins, axes out, three seconds · lullaby sings nearby foes to sleep · desertion leaves a scarecrow and bolts for two seconds · earthsplitter a crack runs out along the aim and the ground bursts up along it · dismember the nearest foe held fast and carved, feeding the knight · philosophers_rain foul air and then fire on the nearest eight · tombstone a grave ahead that raises zombies for eight seconds · last_light marks one foe and a second later strikes it for a great blow · needle_squall six seconds of rapid fire locked on one foe · furnace_verdict a beam of fire that strikes one foe very hard · red_harvest one sweep all round, the badly wounded reaped and giving back charge · skewer_drive a charge that carries every foe before the lance and pins them where it stops · phantom_legion four images ring them eight seconds and thrust when they do · hall_of_mirrors three images run at the nearest foes and strike them for six seconds";
 
 /// What angelX was asked when it taught the phrasebook in its own turn,
 /// writing the entry into the file at `path` (a lesson for a knight still
@@ -1713,7 +1887,7 @@ fn lesson_brief(
     making: Option<&crate::together_shooter::identity::Making>,
     target: Target,
 ) -> String {
-    let identity = making.filter(|m| !m.made()).map_or_else(String::new, |m| identity_brief(name, m));
+    let identity = making.filter(|m| !m.made()).map_or_else(String::new, |m| identity_brief(name, m, to.is_some()));
     let dead = dead_note(name, target);
     let example = lesson_examples(to.is_some());
     let (task, sheet, last) = match to {
@@ -1738,9 +1912,10 @@ It is {name}'s own wish: make it do what their words say, literally, and look li
 - push, shove, knockback, blast them back: `knock` · boomerang, come back, returning: `boomerang`\n\
 - faster bullets, speedy shots: `velocity` (shots fly faster) · shoot faster, quick fire: `rate` (shoot more often)\n\
 - lightning, electric, shock: `chain` · exploding: `burst` · splitting: `fork` · through them: `pierce` · more of them: `shots` · seeking: `homing` · bouncing: `bounce`\n\
+- a wave, burst, nova, cone, fissure, storm, cloud, pillar or any other thing that covers GROUND is not a shot at all: {area}\n\
 Never answer with a plain damage bump when one of these words is what they said: `damage` is only for a wish to hit harder, and at most a small extra on the last tier. Always draw its look (a `draw shot` for what their shots become, a `draw worn` for what they wear, or both) so everyone sees the wish in play: big arrows drawn as an arrow, a fire wish drawn in flame inks, frost in blues, venom in greens, purple in violets, pink in pinks.\n\
 Name it in their own words: the Name is what they asked for, the first `say` is their words exactly.\n\
-Keep it safe for work: the game is played in public. Nothing sexual, no private parts, slurs or swearing in its id, Name, `say` lines, scroll lines or pictures; the game turns such an entry away. A rude ask is granted as a harmless, funny stand-in (toilet humour, a fart or a poop, is fine), and then the Name and the first `say` are the stand-in's, not their words.\n\n\
+{table}\n\n\
 An entry, a line each:\n\
 wish <id: lowercase-with-dashes, up to 24 characters> | <Name, up to 18 characters: their words>\n\
 kind <hold | spell | guard>   (hold, the default: a gift that lasts the run · spell: cast on 1/2/3/4, every tier with `cooldown <seconds>` · guard: what the guard key does)\n\
@@ -1770,10 +1945,12 @@ Shots that draw no `draw shot` may take `look <colour> <shape>` ({colours}; {sha
         inks = INKS,
         summons = SUMMONS,
         spell_lines = SPELL_LINES,
+        area = AREA_WORDS,
         effects = crate::together_shooter::cards::hold_effects(),
         colours = crate::together_forge::COLOURS.join(" "),
         shapes = crate::together_forge::SHAPES.join(" "),
         move_line = move_line(),
+        table = crate::together_shooter::cards::table_rules().unwrap_or(SAFE_FOR_WORK),
     )
 }
 
@@ -1882,6 +2059,10 @@ Make it the closest thing the vocabulary allows to what they asked; if part of i
     )
 }
 
+/// What the genie is told of rude asks, unless this build keeps a private
+/// table (`cards::table_rules`).
+const SAFE_FOR_WORK: &str = "Keep it safe for work: the game is played in public. Nothing sexual, no private parts, slurs or swearing in its id, Name, `say` lines, scroll lines or pictures; the game turns such an entry away. A rude ask is granted as a harmless, funny stand-in (toilet humour, a fart or a poop, is fine), and then the Name and the first `say` are the stand-in's, not their words.";
+
 /// How a brief tells angelX it may set a look moving, and write how its
 /// magic moves (`vfx`): a wish without one is given one from its words.
 fn move_line() -> String {
@@ -1890,4 +2071,56 @@ fn move_line() -> String {
         crate::together_shooter::looks::Move::words(),
         crate::together_shooter::vfx::brief()
     )
+}
+
+#[cfg(test)]
+mod area_words_tests {
+    use super::*;
+    /// The words a player says for area magic are mapped in the lesson to area casts, and every cast the
+    /// table names is one the game's card checker takes: an area word is never answered with a plain bolt.
+    #[test]
+    fn the_lesson_maps_every_area_word_to_an_area_cast_the_card_checker_takes() {
+        let empty = std::env::temp_dir().join(format!("wish-brief-area-{}", std::process::id()));
+        std::fs::create_dir_all(&empty).unwrap();
+        let book = empty.join("phrasebook.txt");
+        std::fs::write(&book, "").unwrap();
+        let sheets = empty.join("sheets");
+        std::fs::create_dir_all(&sheets).unwrap();
+        let text = learn_brief("Jordan", "ice waves", &book, &sheets);
+        for word in [
+            "ice wave",
+            "lava burst",
+            "frost nova",
+            "cone of flame",
+            "dragon breath",
+            "earthquake",
+            "lightning storm",
+            "pillar of light",
+            "poison cloud",
+            "is not a shot at all",
+            "wave|burst|cone|line|field|pillar|nova",
+        ] {
+            assert!(text.contains(word), "the lesson offers {word}");
+        }
+        let mut checked = 0;
+        for piece in AREA_WORDS.split("`cast ").skip(1) {
+            let line = piece.split('`').next().unwrap();
+            if line.contains('<') {
+                continue;
+            }
+            let (shape, elements) = line.split_once(' ').unwrap();
+            for element in elements.split('|') {
+                let raw = format!("name A\nkind spell\ncooldown 5\ncast {shape} {element}\n");
+                let card = crate::together_shooter::cards::check("a", &raw).unwrap_or_else(|e| panic!("{raw}: {e:?}")).card;
+                assert!(
+                    matches!(card.effects[..], [crate::together_shooter::cards::Effect::Area(_)]),
+                    "{line} is an area cast"
+                );
+                checked += 1;
+            }
+        }
+        assert!(checked >= 14, "the table names its casts: {checked}");
+        // The spell lines every brief carries name them too.
+        assert!(SPELL_LINES.contains("wave|burst|cone|line|field|pillar|nova"));
+    }
 }

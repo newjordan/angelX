@@ -114,7 +114,7 @@ fn flank(cv: &mut Img, lights: &mut Vec<Light>, (c, r): (i32, i32), side: usize,
 }
 
 /// A doorway tile barred: half a two-tile portcullis.
-fn bar(cv: &mut Img, c: i32, r: i32, across: bool) {
+pub(super) fn bar(cv: &mut Img, c: i32, r: i32, across: bool) {
     let im = sprites::portcullis(across);
     let half = if across { Img::from_view(&im, 0, 0, TILE, im.h) } else { Img::from_view(&im, 0, 0, im.w, TILE) };
     cv.stamp(&half, c * TILE, r * TILE);

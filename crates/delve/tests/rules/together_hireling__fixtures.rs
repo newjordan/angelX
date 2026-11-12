@@ -42,6 +42,7 @@ pub fn fight_with(hired: bool, hand: &[&str]) -> Run {
     }
     run.enter_for_test(room);
     run.calm_for_test();
+    run.settle_seams_for_test();
     run.enemies.clear();
     run.rune = None;
     run.dungeon.rooms[room].items.clear();

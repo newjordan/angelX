@@ -1,6 +1,6 @@
 //! Exact read-only host projection. This is not a live/durable checkpoint and
 //! cannot restore a rules owner. Ordinary publications carry document deltas.
-use super::super::{Hero, RoomKind, Run, scrolls};
+use super::super::{Hero, Run, scrolls};
 use angel_net::doc::{
     delta, kept,
     value::{self, Value},
@@ -681,7 +681,7 @@ fn validate_tree(tree: &Value, accepted: &BudgetCache) -> Result<BudgetCache, St
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::rules::{Input, cards, phrasebook};
+    use crate::rules::{Input, RoomKind, cards, phrasebook};
     use std::collections::BTreeMap;
     #[test]
     fn accepted_shared_budget_skips_recursion_and_preserves_exact_root_name_units() {

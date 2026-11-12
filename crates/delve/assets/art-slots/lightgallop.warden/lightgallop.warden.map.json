@@ -1,0 +1,81 @@
+{
+ "anchor_canvas_wh": [
+  64,
+  112
+ ],
+ "anchor_xy": [
+  32,
+  112
+ ],
+ "embed_kits": [
+  "v1"
+ ],
+ "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain.",
+ "pieces": [
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "idle-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-0",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "idle-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-1",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "hit-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "hit-0",
+   "runtime": true,
+   "state": "hit"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "roar-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "roar-0",
+   "runtime": true,
+   "state": "roar"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "defeat-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "defeat-0",
+   "runtime": true,
+   "state": "defeat"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "defeat-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "defeat-1",
+   "runtime": true,
+   "state": "defeat"
+  },
+  {
+   "approved": true,
+   "frame": 2,
+   "label": "defeat-2: reduced to the native canvas and snapped to the realm inks.",
+   "name": "defeat-2",
+   "runtime": true,
+   "state": "defeat"
+  },
+  {
+   "approved": true,
+   "frame": 3,
+   "label": "defeat-3: reduced to the native canvas and snapped to the realm inks.",
+   "name": "defeat-3",
+   "runtime": true,
+   "state": "defeat"
+  }
+ ],
+ "runtime": true
+}

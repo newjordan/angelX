@@ -68,7 +68,7 @@ impl Run {
             // And somewhere to go: an open errand, which the gold arrow
             // points at up in the kingdom.
             if self.kingdom.moments.errand.is_none() {
-                if let Some(&(room, line)) = self.open_errands().first() {
+                if let Some(&(room, line)) = self.open_errands().iter().find(|&&(room, _)| self.on_the_way(room)) {
                     self.kingdom.moments.errand = Some(room);
                     self.found = Some((self.tick, 0, format!("MERLIN: {line}")));
                 }

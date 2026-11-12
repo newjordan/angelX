@@ -1,6 +1,5 @@
 //! Chariots, mechanical foolishness and a bridge with no jurisdiction.
 use super::{TILE, at, home};
-use super::super::chrome;
 use super::super::ink::{Img,hash};
 use super::super::material as m;
 use crate::rules::{RoomKind, Run, HZ, countryside, hippodrome as h, race_wagers as w, pastimes::{Game,LAP,RIVALS,BARRELS}};
@@ -134,40 +133,6 @@ pub(super) fn scenery(cv:&mut Img,run:&Run) {
 fn wagon(cv:&mut Img,x:i32,y:i32,ink:char) {
     cv.rect(x-5,y-3,10,6,ink);cv.rect(x-4,y+3,2,2,'r');cv.rect(x+2,y+3,2,2,'r');cv.text(x+6,y-3,"g",'h');
 }
-/// The SNES-floor chariot sheets (assets/dungeon/chariot): pixel sprites
-/// underneath, braille on top. Two gallop frames a heading; west is the
-/// east sheet mirrored, and round the ends the team comes at the viewer
-/// (south) or away from them (north) instead of riding sideways.
-fn chariot_sprite(frame:usize,heading:crate::rules::chariot::Heading)->Img {
-    use crate::rules::chariot::Heading;
-    let sheet=match (heading,frame) {
-        (Heading::South,0)=>include_str!("../../../../../../cockpit/assets/dungeon/chariot/chariot_s_a.ink"),
-        (Heading::South,_)=>include_str!("../../../../../../cockpit/assets/dungeon/chariot/chariot_s_b.ink"),
-        (Heading::North,0)=>include_str!("../../../../../../cockpit/assets/dungeon/chariot/chariot_n_a.ink"),
-        (Heading::North,_)=>include_str!("../../../../../../cockpit/assets/dungeon/chariot/chariot_n_b.ink"),
-        (_,0)=>include_str!("../../../../../../cockpit/assets/dungeon/chariot/chariot_e_a.ink"),
-        (_,_)=>include_str!("../../../../../../cockpit/assets/dungeon/chariot/chariot_e_b.ink"),
-    };
-    let rows:Vec<&str>=sheet.lines().collect();
-    let mut im=Img::from_rows(&rows);
-    if heading==Heading::West {im=im.flip_h();}
-    im
-}
-/// A house's banner ink: the sheet's `R` (near horse, cab and driver)
-/// repainted, and `I`, its shadow under the coat and the cab, a step down
-/// the same colour, so every yard runs in its own colours. The bay far
-/// horse and the gold harness stay put; an unlisted house keeps the realm
-/// red. The banner itself is the first pair.
-fn house_banner(house:&str)->&'static [(char,char)] {
-    match house {
-        "qwen"=>&[('R','z'),('I','Q')],
-        "grok"=>&[('R','A'),('I','l')],
-        "glm"=>&[('R','5'),('I','4')],
-        "deepseek"=>&[('R','1'),('I','0')],
-        "keep"=>&[('R','h'),('I','G')],
-        _=>&[],
-    }
-}
 pub(super) fn figures(cv:&mut Img,run:&Run) {
     if !h::PLACES.contains(&run.room().kind) {return;}
     let (stage,parts)=h::progress(&run.home.countryside,&run.marks);
@@ -267,343 +232,42 @@ pub(super) fn boards(cv:&mut Img,run:&Run) {
 
 // ─── the race stage: big courses under a following camera ──────────────────
 
-use crate::rules::chariot::{self as cr,Phase};
-
 fn place_word(n:usize)->String {
     let suffix=match n {1=>"ST",2=>"ND",3=>"RD",_=>"TH"};
     format!("{n}{suffix}")
 }
 
-/// Ten blocks of wind: filled ink, then empty. Pixels, not a hash string.
-fn wind_bar(wind:f32)->Img {
-    let n=10i32;
-    let (cw,gap)=(4,1);
-    let filled=((wind*n as f32).round() as i32).clamp(0,n);
-    let mut bar=Img::new(n*(cw+gap)-gap,6);
-    for i in 0..n {
-        bar.rect(i*(cw+gap),0,cw,6,if i<filled{'O'}else{'j'});
-    }
-    bar
+mod art;
+mod finish;
+mod fx;
+mod hud;
+mod moments;
+mod stage;
+mod view;
+mod world;
+
+/// The camera of the race for the team a race calls its own (the first): on its chariot, leaning
+/// into its run, kept inside the course's country.
+pub fn race_camera(race:&crate::rules::chariot::Chariot,w:i32,h:i32)->(i32,i32) {
+    view::camera_for(race,0,w,h,0.0,race.racers[0].dist+race.racers[0].coast)
 }
 
-const RACE_CONTROLS:&str="A D STEER   SPACE WHIP   X CALTROP";
-
-/// A short stack: one fact a line, a pixel wind bar, no dot separators.
-pub(super) fn race_board(race:&cr::Chariot)->Img {
-    use super::super::ink::text_width;
-    let course=race.course();
-    let p=race.player();
-    let order=race.order();
-    let position=1+order.iter().position(|&i|i==0).unwrap_or(0);
-    let mut text:Vec<(String,char)>=vec![(race.call().into(),'9')];
-    let mut bar=None;
-    match race.phase {
-        Phase::Gate=>{
-            text.push((course.name.to_uppercase(),'O'));
-            text.push((format!("ON YOUR MARKS {}",cr::GATE_TICKS.saturating_sub(race.t).div_ceil(HZ)),'h'));
-            text.push((RACE_CONTROLS.into(),'h'));
-        }
-        Phase::Done=>{
-            for place in 1..=4u8 {
-                if let Some(r)=race.racers.iter().find(|r|r.place==Some(place)) {
-                    text.push((format!("{} {} +{}",place_word(place as usize),r.name.to_uppercase(),cr::PURSE[(place-1) as usize]),if place==1{'5'}else{'h'}));
-                }
-            }
-        }
-        Phase::Racing=>{
-            text.push((format!("LAP {} OF {}",p.lap(course)+1,cr::LAPS),'O'));
-            text.push((format!("{} OF 4",place_word(position)),'O'));
-            text.push((format!("CALTROPS {}",p.caltrops),'O'));
-            bar=Some((text.len()-1,wind_bar(p.wind)));
-            text.push((RACE_CONTROLS.into(),'h'));
-        }
-    }
-    let w=text.iter().map(|(s,_)|text_width(s)).max().unwrap_or(0)+8;
-    let h=text.len() as i32*9+5;
-    let mut im=Img::new(w+1,h+1);
-    chrome::board(&mut im,(0,0,w,h),'B');
-    for (row,(text,ink)) in text.iter().enumerate() {
-        let tw=text_width(text);
-        im.text((w-tw)/2,3+row as i32*9,text,*ink);
-    }
-    // Wind sits on the caltrops row, in the margin the short line leaves open.
-    if let Some((row,bar))=bar {
-        im.stamp(&bar,w-4-bar.w,3+row as i32*9);
-    }
-    im
+/// The race itself, on its own screen: the course's country under a camera that rides the
+/// viewing seat's own team, the field at SNES density, and the plates and calls over it.
+pub(super) fn race_stage(scene:&mut Img,over:&mut Img,run:&Run,w:i32,h:i32,focus:Option<u32>) {
+    stage::frame(scene,over,run,w,h,focus);
 }
 
-/// The gate grid's painted fan: 1 at the gate, folding away over the
-/// first strides. Paint only — every chariot starts on the same mark.
-fn grid_fan(race:&cr::Chariot)->f32 {
-    match race.phase {Phase::Gate=>1.0,Phase::Racing=>(1.0-race.t as f32/24.0).max(0.0),Phase::Done=>0.0}
+/// Every word and box the race screen of `seat` claims at this tick, for the tests.
+#[cfg(any(test, feature = "testing"))]
+pub(crate) fn claims_for(run:&Run,seat:Option<u32>)->Option<Vec<(String,(i32,i32,i32,i32),Option<u8>)>> {
+    let v=view::View::new(run,seat,(384,224))?;
+    Some(moments::plan_of(&v).claims())
 }
 
-/// A racer's position in course pixels, as the stage draws it.
-pub(super) fn racer_px(race:&cr::Chariot,i:usize)->(f32,f32) {
-    let r=&race.racers[i];
-    let drawn=r.dist-grid_fan(race)*i as f32*55.0;
-    let (tx,ty)=cr::pos_on(race.course(),drawn,r.lane);
-    (tx*TILE as f32,ty*TILE as f32)
-}
-
-/// The camera: on the player's chariot, leaning into its run, clamped to
-/// the course's country so the view never leaves the map.
-pub fn race_camera(race:&cr::Chariot,w:i32,h:i32)->(i32,i32) {
-    let course=race.course();
-    let p=race.player();
-    let (px,py)=racer_px(race,0);
-    let (tx,ty)=cr::tangent_on(course,p.dist);
-    let look=(p.speed*2.4).min(30.0);
-    let (cx,cy)=(px+tx*look-w as f32/2.0,py+ty*look-h as f32/2.0);
-    let (mw,mh)=((course.map.0*TILE as f32) as i32,(course.map.1*TILE as f32) as i32);
-    ((cx as i32).clamp(0,(mw-w).max(0)),(cy as i32).clamp(0,(mh-h).max(0)))
-}
-
-/// The whole course in a corner box, with every team dotted on it in its
-/// banner ink — the field at a glance while the camera rides one chariot.
-pub(super) fn minimap(over:&mut Img,race:&cr::Chariot,w:i32,h:i32) {
-    let course=race.course();
-    let (bw,bh)=(104,66);
-    let (x0,y0)=(w-bw-4,h-bh-4);
-    chrome::board(over,(x0,y0,bw,bh),'B');
-    let s=((bw-8) as f32/course.map.0).min((bh-8) as f32/course.map.1);
-    let (ox,oy)=(x0 as f32+(bw as f32-course.map.0*s)/2.0,y0 as f32+(bh as f32-course.map.1*s)/2.0);
-    let dot=|over:&mut Img,tx:f32,ty:f32,ink:char,n:i32|{
-        over.rect((ox+tx*s) as i32-n/2,(oy+ty*s) as i32-n/2,n,n,ink);
-    };
-    let steps=(course.lap/14.0) as i32;
-    for k in 0..steps {
-        let (tx,ty)=cr::pos_on(course,k as f32*14.0,0.0);
-        dot(over,tx,ty,'j',1);
-    }
-    for (i,r) in race.racers.iter().enumerate() {
-        let (tx,ty)=cr::pos_on(course,r.dist,r.lane);
-        let ink=if i==0{'9'}else{house_banner(&r.house).first().map_or('R',|&(_,t)|t)};
-        dot(over,tx,ty,ink,if i==0{3}else{2});
-    }
-}
-
-/// The race itself, on its own screen: the course's country under a
-/// camera that rides the player's chariot, the field at SNES density,
-/// and the announcer's board and minimap over it.
-pub(super) fn race_stage(scene:&mut Img,over:&mut Img,run:&Run,w:i32,h:i32) {
-    let Some(race)=&run.chariot else {return;};
-    let course=race.course();
-    let (camx,camy)=race_camera(race,w,h);
-    let to_screen=|wx:f32,wy:f32|((wx*TILE as f32) as i32-camx,(wy*TILE as f32) as i32-camy);
-    let visible=|sx:i32,sy:i32,m:i32|sx>-m&&sy>-m&&sx<w+m&&sy<h+m;
-    // Country first: dark grass, tufts where the world's hash puts them.
-    scene.rect(0,0,w,h,'D');
-    for ty in (camy/TILE-1)..((camy+h)/TILE+2) {
-        for tx in (camx/TILE-1)..((camx+w)/TILE+2) {
-            let j=hash(tx,ty,41);
-            if j%7==0 {scene.rect(tx*TILE+(j%11) as i32-camx,ty*TILE+(j/13%11) as i32-camy,2,3,if j%2==0{'E'}else{'l'});}
-        }
-    }
-    // The course: a dirt band walked along its centreline, rim then
-    // tread, dashes down the middle, and the start line across it.
-    let steps=(course.lap/8.0) as i32;
-    let centres:Vec<(f32,f32)>=(0..steps).map(|k|cr::pos_on(course,k as f32*8.0,0.0)).collect();
-    for &(ink,rx,ry) in &[('r',30.0f32,24.0f32),('I',26.0,20.0)] {
-        for &(tx,ty) in &centres {
-            let (sx,sy)=to_screen(tx,ty);
-            if visible(sx,sy,44) {scene.ellipse(sx as f32,sy as f32,rx,ry,ink);}
-        }
-    }
-    for (k,&(tx,ty)) in centres.iter().enumerate() {
-        if (k*8)%104<52 {
-            let (sx,sy)=to_screen(tx,ty);
-            if visible(sx,sy,10) {scene.rect(sx-2,sy,4,1,'P');}
-        }
-    }
-    for (i,off) in [-1.0f32,-0.5,0.0,0.5,1.0].iter().enumerate() {
-        let (tx,ty)=cr::pos_on(course,0.0,*off);
-        let (sx,sy)=to_screen(tx,ty);
-        if visible(sx,sy,12) {scene.rect(sx-2,sy-1,4,3,if i%2==0{'9'}else{'K'});}
-    }
-    // Trees and rocks off the racing line, and the stands at the start.
-    for ty in (camy/TILE-1)..((camy+h)/TILE+2) {
-        for tx in (camx/TILE-1)..((camx+w)/TILE+2) {
-            let j=hash(tx*3,ty*5,97);
-            if j%29!=0 {continue;}
-            let (fx,fy)=(tx as f32+0.5,ty as f32+0.9);
-            if centres.iter().any(|&(cx,cy)|(cx-fx).hypot(cy-fy)<2.6) {continue;}
-            let (sx,sy)=to_screen(fx,fy);
-            scene.ellipse(sx as f32,(sy-6) as f32,6.0,5.0,'E');scene.ellipse(sx as f32,(sy-8) as f32,4.0,3.0,'l');scene.rect(sx-1,sy-2,2,3,'b');
-        }
-    }
-    for side in [-3.1f32,3.1] {
-        let (tx,ty)=cr::pos_on(course,10.0,side);
-        let (sx,sy)=to_screen(tx,ty);
-        if visible(sx,sy,70) {
-            scene.rect(sx-22,sy-6,44,12,'b');
-            const FLAGS:[char;5]=['5','z','A','1','9'];
-            for c in 0..6 {
-                let bob=(hash(c,side as i32,(run.tick/5) as u32)%3) as i32;
-                scene.rect(sx-19+c*7,sy-3-bob,3,3,if c%3==0{'O'}else{'t'});
-                scene.rect(sx-19+c*7,sy-10+((hash(c,0,(run.tick/12) as u32)%2) as i32),5,3,FLAGS[(c as usize)%FLAGS.len()]);
-            }
-        }
-    }
-    // Dropped caltrops wait where every driver can see them.
-    for &(at,lane) in &race.traps {
-        let (tx,ty)=cr::pos_on(course,at,lane);
-        let (sx,sy)=to_screen(tx,ty);
-        if visible(sx,sy,8) {
-            for (dx,dy) in [(0,-2),(-2,0),(2,0),(0,2)] {scene.put(sx+dx,sy+dy,'H');}
-            scene.put(sx,sy,'9');
-        }
-    }
-    // The field: dust, sheets in banner inks, places and the chevron.
-    let frame=(run.tick/4) as usize%2;
-    let order=race.order();
-    let mut drawn_at=[(0i32,0i32);4];
-    for (i,racer) in race.racers.iter().enumerate() {
-        let drawn=racer.dist-grid_fan(race)*i as f32*55.0;
-        let (wx,wy)=racer_px(race,i);
-        let (sx,sy)=((wx as i32)-camx,(wy as i32)-camy);
-        drawn_at[i]=(sx,sy);
-        if !visible(sx,sy,60) {continue;}
-        let heading=cr::heading_on(course,drawn);
-        let mut im=chariot_sprite(frame,heading).recolor(house_banner(&racer.house));
-        // A seated knight drives in their class's headgear.
-        if let Some((seat,look))=(1..=crate::rules::MAX_PLAYERS).find(|&s|race.racer_of(s)==Some(i))
-            .and_then(|s|run.players.get(&s).and_then(super::class_looks::Look::of).map(|l|(s,l))) {
-            use crate::rules::chariot::Heading;
-            let (at,facing)=match heading {
-                Heading::South=>((11,1),super::knights::Facing::Down),
-                Heading::North=>((11,12),super::knights::Facing::Up),
-                _=>((3,5),super::knights::Facing::Side),
-            };
-            super::class_looks::dress_driver(&mut im,at,facing,heading==Heading::West,look,seat);
-        }
-        if race.phase==Phase::Racing && racer.wrecked==0 && racer.speed>2.0 {
-            let (tx,ty)=cr::tangent_on(course,drawn);
-            let puffs=(racer.speed as i32/3).clamp(1,4);
-            for k in 0..puffs {
-                let j=hash(i as i32*7+k,k,(run.tick/3) as u32);
-                let back=8.0+k as f32*5.0;
-                let (dx,dy)=((-tx*back) as i32+(j%5) as i32-2,(-ty*back) as i32+(j/7%5) as i32-2);
-                scene.rect(sx+dx,sy+dy,2,2,if k%2==0{'j'}else{'G'});
-            }
-        }
-        scene.stamp(&im,sx-im.w/2,sy-im.h);
-        // Crash spin: a dust cloud swirling round a chariot that hit something.
-        if racer.crash_spin>0 {
-            let t=(10-racer.crash_spin) as i32;
-            let r=6+t;
-            for k in 0..8 {
-                let a=k as f32/8.0*std::f32::consts::TAU+t as f32*0.6;
-                let px=(sx as f32+a.cos()*r as f32).round() as i32;
-                let py=(sy as f32-6.0+a.sin()*r as f32*0.5).round() as i32;
-                scene.put(px,py,if k%3==0{'G'}else if k%3==1{'j'}else{'g'});
-            }
-            for k in 0..4 {
-                let a=k as f32/4.0*std::f32::consts::TAU-t as f32*0.4;
-                let px=(sx as f32+a.cos()*(r-2) as f32).round() as i32;
-                let py=(sy as f32-6.0+a.sin()*(r-2) as f32*0.4).round() as i32;
-                scene.put(px,py,'J');
-            }
-        }
-        // Boost flame: flame particles trailing behind the race leader.
-        if racer.boost_flame>0 && race.phase==Phase::Racing {
-            let (tx,ty)=cr::tangent_on(course,drawn);
-            let flicker=(run.tick%3) as i32;
-            for k in 0..4 {
-                let back=10.0+k as f32*4.0+flicker as f32;
-                let j=hash(i as i32*11+k,k,(run.tick/2) as u32);
-                let dx=(-tx*back) as i32+(j%3) as i32-1;
-                let dy=(-ty*back) as i32+(j/5%3) as i32-1;
-                let ink=['O','9','6'][k as usize%3];
-                scene.put(sx+dx,sy+dy,ink);
-                if k<2 {scene.put(sx+dx+1,sy+dy,if k==0{'P'}else{'o'});}
-            }
-        }
-        // Cabbage splat: green/brown particles where a caltrop hit this rival.
-        if racer.cabbage_splat>0 {
-            let (ssx,ssy)=to_screen(racer.splat_x as f32,racer.splat_y as f32);
-            let t=(4-racer.cabbage_splat) as i32;
-            for k in 0..6 {
-                let j=hash(i as i32*13+k,k+t,(run.tick/2) as u32);
-                let spread=4+t*3;
-                let dx=(j%(spread as u32*2+1)) as i32-spread;
-                let dy=(j/(spread as u32*2+1)%(spread as u32*2+1)) as i32-spread;
-                let ink=['l','E','G','o','l','E'][k as usize];
-                scene.put(ssx+dx,ssy+dy,ink);
-            }
-        }
-        let place=1+order.iter().position(|&r|r==i).unwrap_or(0);
-        let top=sy-im.h;
-        if i==0 {
-            let bob=((run.tick/8)%2) as i32;
-            scene.rect(sx-3,top-13+bob,7,1,'9');scene.rect(sx-2,top-12+bob,5,1,'9');scene.rect(sx-1,top-11+bob,3,1,'9');
-        }
-        scene.text(sx-2,top-9,&place.to_string(),if i==0{'i'}else{'h'});
-        if racer.wrecked>0 {
-            scene.text(sx-4,top-18,"x",'7');
-            for (dx,dy) in [(-7,-4),(7,-4),(-7,3),(7,3)] {scene.put(sx+dx,top+dy,'4');}
-        }
-    }
-    // Lap complete flash: bright screen overlay + "LAP" text burst.
-    for racer in race.racers.iter() {
-        if racer.lap_flash>0 {
-            let alpha=racer.lap_flash;
-            // Bright edge flash around the screen.
-            for x in 0..w {
-                for dy in &[0i32,1,2,h-3,h-2,h-1] {
-                    if (x+dy)%(7-alpha as i32)==0 {scene.put(x,*dy,'O');}
-                }
-            }
-            for y in 0..h {
-                for dx in &[0i32,1,2,w-3,w-2,w-1] {
-                    if (y+dx)%(7-alpha as i32)==0 {scene.put(*dx,y,'O');}
-                }
-            }
-            // "LAP" text burst in the centre of the screen.
-            let msg="LAP!";
-            let tw=super::super::ink::text_width(msg);
-            let cx=(w-tw)/2;
-            let cy=h/2-4;
-            let ink=if alpha>4{'5'}else if alpha>2{'O'}else{'9'};
-            over.text(cx,cy,msg,ink);
-            // Expanding ring of dots around the text.
-            let ring=(6-alpha as i32)*4;
-            for k in 0..12 {
-                let a=k as f32/12.0*std::f32::consts::TAU;
-                let px=(w/2) as f32+a.cos()*ring as f32;
-                let py=(h/2) as f32-4.0+a.sin()*ring as f32*0.5;
-                over.put(px as i32,py as i32,if k%3==0{'O'}else{'9'});
-            }
-            break; // Only one flash at a time.
-        }
-    }
-    if race.phase==Phase::Done {
-        if let Some(wi)=race.racers.iter().position(|r|r.place==Some(1)) {
-            const PAPER:[char;5]=['5','z','A','1','9'];
-            let (sx,sy)=drawn_at[wi];
-            for k in 0..16 {
-                let j=hash(k*13,7,race.seed as u32);
-                let fall=((j%40) as i32+run.tick as i32/2)%44;
-                scene.put(sx+(j/40%41) as i32-20,sy-46+fall,PAPER[(k as usize)%PAPER.len()]);
-            }
-        }
-    }
-    // Over the top: arrows to whoever the camera has left behind, the
-    // announcer's board, and the minimap.
-    for (i,racer) in race.racers.iter().enumerate() {
-        if i==0 {continue;}
-        let (sx,sy)=drawn_at[i];
-        if visible(sx,sy,0) {continue;}
-        let place=1+order.iter().position(|&r|r==i).unwrap_or(0);
-        let ink=house_banner(&racer.house).first().map_or('R',|&(_,t)|t);
-        let (ex,ey)=(sx.clamp(8,w-14),sy.clamp(10,h-16));
-        over.rect(ex-2,ey-2,5,5,ink);
-        over.text(ex-2,ey+4,&place.to_string(),'h');
-    }
-    over.stamp(&race_board(race),4,13);
-    minimap(over,race,w,h);
-}
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__hippodrome_show__tests.rs"]
+mod show_tests;
 
 /// A coach part, as it lies about: the square wheel, the goat-proof axle,
 /// the toll receipt.

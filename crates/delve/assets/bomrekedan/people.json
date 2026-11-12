@@ -1,0 +1,9809 @@
+{
+ "by_district": {
+  "the-barracks": 48,
+  "the-farms": 32,
+  "the-forges": 17,
+  "the-gate": 4,
+  "the-great-hall": 22,
+  "the-noble-halls": 17,
+  "the-temples": 5,
+  "the-workshops": 67
+ },
+ "by_home_job": {
+  "brewer": 1,
+  "butcher": 3,
+  "carpenter": 9,
+  "clerk": 3,
+  "cook": 2,
+  "crafter": 20,
+  "doctor": 9,
+  "farmer": 20,
+  "fisher": 3,
+  "guard": 47,
+  "hauler": 7,
+  "herder": 6,
+  "jeweler": 4,
+  "mason": 24,
+  "mechanic": 9,
+  "miner": 6,
+  "noble": 5,
+  "performer": 21,
+  "priest": 2,
+  "smith": 11
+ },
+ "by_race": {
+  "dwarf": 186,
+  "erinys": 14,
+  "gnoll": 2,
+  "human": 10
+ },
+ "by_role": {
+  "citizen": 188,
+  "resident": 14,
+  "visitor": 10
+ },
+ "count": 212,
+ "people": [
+  {
+   "age": 28,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 33,
+    "y": 137,
+    "z": 96
+   },
+   "district": "the-forges",
+   "home_job": "miner",
+   "id": 1323,
+   "level": null,
+   "name": "Ïngiz Aludedëm",
+   "name_english": "Ïngiz Brotherkey",
+   "notable": [
+    "high anger propensity",
+    "high privacy",
+    "low ambition",
+    "scorns cooperation"
+   ],
+   "positions": [],
+   "profession": "Miner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 7,
+     "skill": "mining"
+    },
+    {
+     "level": 5,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 4,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 2,
+     "skill": "plant"
+    },
+    {
+     "level": 1,
+     "skill": "make_music"
+    }
+   ]
+  },
+  {
+   "age": 29,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 53,
+    "y": 147,
+    "z": 96
+   },
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 1325,
+   "level": null,
+   "name": "Ilral Ùstvutok",
+   "name_english": "Ilral Breachfigures",
+   "notable": [
+    "high abstract inclined",
+    "low cruelty",
+    "high depression propensity",
+    "scorns sacrifice"
+   ],
+   "positions": [],
+   "profession": "Stone Carver",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 19,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 3,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 2,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 2,
+     "skill": "plant"
+    },
+    {
+     "level": 1,
+     "skill": "make_music"
+    }
+   ]
+  },
+  {
+   "age": 30,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 1328,
+   "level": "the-temples",
+   "name": "Rith Egdothkûbuk",
+   "name_english": "Rith Bowlances",
+   "notable": [
+    "high vengeful",
+    "values perseverance",
+    "scorns sacrifice",
+    "scorns nature"
+   ],
+   "positions": [],
+   "profession": "Administrator",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 33,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 29,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 25,
+     "skill": "discipline"
+    },
+    {
+     "level": 24,
+     "skill": "mace"
+    },
+    {
+     "level": 15,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Mace Squad",
+   "x": 78,
+   "y": 70
+  },
+  {
+   "age": 31,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 1329,
+   "level": "the-barracks",
+   "name": "Catten Egastshorast",
+   "name_english": "Catten Clenchwire",
+   "notable": [
+    "low assertiveness",
+    "low swayed by emotions",
+    "high love propensity"
+   ],
+   "positions": [
+    "MILITIA_COMMANDER"
+   ],
+   "profession": "militia commander",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 40,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 37,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 32,
+     "skill": "discipline"
+    },
+    {
+     "level": 29,
+     "skill": "axe"
+    },
+    {
+     "level": 19,
+     "skill": "shield"
+    }
+   ],
+   "squad": "The Steel Guard",
+   "x": 69,
+   "y": 47
+  },
+  {
+   "age": 35,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 78,
+    "y": 135,
+    "z": 96
+   },
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 1333,
+   "level": null,
+   "name": "Datan Gebrigòth",
+   "name_english": "Datan Dentcraft",
+   "notable": [
+    "low emotionally obsessive",
+    "high bashful",
+    "high abstract inclined",
+    "scorns truth"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 19,
+     "skill": "plant"
+    },
+    {
+     "level": 15,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 7,
+     "skill": "mining"
+    },
+    {
+     "level": 1,
+     "skill": "console"
+    },
+    {
+     "level": 1,
+     "skill": "judging_intent"
+    }
+   ]
+  },
+  {
+   "age": 31,
+   "caste": "male",
+   "civ": "The Leafy Mines",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 3078,
+   "level": "the-great-hall",
+   "name": "Dîshmab Regstul",
+   "name_english": "Dîshmab Glovemaws",
+   "notable": [],
+   "positions": [],
+   "profession": "Bard",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "bow"
+    }
+   ],
+   "x": 78,
+   "y": 65
+  },
+  {
+   "age": 45,
+   "caste": "male",
+   "civ": "The Meal Empires of Showing",
+   "district": "the-noble-halls",
+   "home_job": "noble",
+   "id": 4070,
+   "level": "the-great-hall",
+   "name": "Ino Olithkesp",
+   "name_english": "Ino Daggermark",
+   "notable": [],
+   "positions": [
+    "CUSTOM_GUILD_ALDERPERSON"
+   ],
+   "profession": "alderperson",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "flattery"
+    },
+    {
+     "level": 3,
+     "skill": "sword"
+    },
+    {
+     "level": 3,
+     "skill": "whip"
+    }
+   ],
+   "x": 68,
+   "y": 53
+  },
+  {
+   "age": 43,
+   "caste": "female",
+   "civ": "The Realm of Noses",
+   "df_pos": {
+    "x": 117,
+    "y": 51,
+    "z": 98
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 4305,
+   "level": null,
+   "name": "Daze Inanotnge",
+   "name_english": "Daze Workeryawns",
+   "notable": [],
+   "positions": [],
+   "profession": "Human Bard",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 8,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "poetry"
+    }
+   ]
+  },
+  {
+   "age": 28,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 58,
+    "y": 112,
+    "z": 73
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 4348,
+   "level": null,
+   "name": "Saquar Osushmita",
+   "name_english": "Saquar Clashesspeak",
+   "notable": [
+    "high ambition",
+    "high dutifulness",
+    "low vengeful"
+   ],
+   "positions": [],
+   "profession": "Human Bard",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 23,
+     "skill": "mining"
+    },
+    {
+     "level": 4,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "bow"
+    },
+    {
+     "level": 1,
+     "skill": "sing_music"
+    },
+    {
+     "level": 1,
+     "skill": "plant"
+    }
+   ]
+  },
+  {
+   "age": 68,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 85,
+    "y": 101,
+    "z": 74
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 4363,
+   "level": null,
+   "name": "Ona Dothankon",
+   "name_english": "Ona Growledlined",
+   "notable": [
+    "low disdain advice",
+    "high orderliness",
+    "low depression propensity"
+   ],
+   "positions": [],
+   "profession": "Human Poet",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 20,
+     "skill": "mining"
+    },
+    {
+     "level": 13,
+     "skill": "poetry"
+    },
+    {
+     "level": 12,
+     "skill": "speaking"
+    },
+    {
+     "level": 9,
+     "skill": "teaching"
+    },
+    {
+     "level": 6,
+     "skill": "wood_burning"
+    }
+   ]
+  },
+  {
+   "age": 249,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "noble",
+   "id": 4771,
+   "level": "the-barracks",
+   "name": "Eigriteil Elmataskituged",
+   "name_english": "Eigriteil Rainsuitors",
+   "notable": [
+    "high tolerant",
+    "low stress vulnerability",
+    "low activity level",
+    "values harmony"
+   ],
+   "positions": [
+    "MAYOR"
+   ],
+   "profession": "mayor",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "lying"
+    },
+    {
+     "level": 15,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 10,
+     "skill": "console"
+    },
+    {
+     "level": 10,
+     "skill": "conversation"
+    },
+    {
+     "level": 10,
+     "skill": "pacify"
+    }
+   ],
+   "x": 62,
+   "y": 33
+  },
+  {
+   "age": 29,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 5421,
+   "level": "the-guildhalls",
+   "name": "Nish Agsaldakost",
+   "name_english": "Nish Poolfloor",
+   "notable": [
+    "low perseverance",
+    "high thoughtlessness",
+    "values hard work",
+    "values tranquility",
+    "values self control"
+   ],
+   "positions": [],
+   "profession": "Stoneworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 5,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 3,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 2,
+     "skill": "lye_making"
+    },
+    {
+     "level": 1,
+     "skill": "speaking"
+    }
+   ],
+   "x": 56,
+   "y": 58
+  },
+  {
+   "age": 218,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 5778,
+   "level": "the-temples",
+   "name": "Skura Gilmulriggil",
+   "name_english": "Skura Galeseeds",
+   "notable": [
+    "high abstract inclined",
+    "high bashful",
+    "low hate propensity"
+   ],
+   "positions": [],
+   "profession": "Erinys Bard",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "geld"
+    },
+    {
+     "level": 14,
+     "skill": "console"
+    },
+    {
+     "level": 14,
+     "skill": "flattery"
+    },
+    {
+     "level": 11,
+     "skill": "make_music"
+    },
+    {
+     "level": 9,
+     "skill": "negotiation"
+    }
+   ],
+   "x": 74,
+   "y": 79
+  },
+  {
+   "age": 28,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 5828,
+   "level": "the-guildhalls",
+   "name": "Zon Tulonfath",
+   "name_english": "Zon Roadsack",
+   "notable": [
+    "low cruelty",
+    "low art inclined",
+    "low envy propensity",
+    "scorns self control",
+    "values harmony",
+    "values cunning"
+   ],
+   "positions": [],
+   "profession": "Wrestler",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 16,
+     "skill": "woodcraft"
+    },
+    {
+     "level": 4,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 4,
+     "skill": "grasp_strike"
+    },
+    {
+     "level": 3,
+     "skill": "concentration"
+    },
+    {
+     "level": 3,
+     "skill": "knowledge_acquisition"
+    }
+   ],
+   "squad": "The Mute Hammers",
+   "x": 74,
+   "y": 27
+  },
+  {
+   "age": 27,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 5841,
+   "level": "the-guildhalls",
+   "name": "Ubbul Monomthad",
+   "name_english": "Ubbul Papercrowds",
+   "notable": [
+    "high altruism",
+    "low anxiety propensity",
+    "values stoicism",
+    "values leisure time",
+    "scorns fairness"
+   ],
+   "positions": [],
+   "profession": "Stoneworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 5,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 1,
+     "skill": "plant"
+    },
+    {
+     "level": 1,
+     "skill": "make_music"
+    },
+    {
+     "level": 1,
+     "skill": "sing_music"
+    }
+   ],
+   "x": 61,
+   "y": 60
+  },
+  {
+   "age": 22,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 101,
+    "y": 150,
+    "z": 92
+   },
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 6448,
+   "level": null,
+   "name": "Oddom Eteslitast",
+   "name_english": "Oddom Blowntorches",
+   "notable": [
+    "low emotionally obsessive",
+    "low art inclined",
+    "low gregariousness",
+    "values stoicism"
+   ],
+   "positions": [],
+   "profession": "Stonecutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 1,
+     "skill": "plant"
+    },
+    {
+     "level": 0,
+     "skill": "concentration"
+    },
+    {
+     "level": 0,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 0,
+     "skill": "glazing"
+    }
+   ]
+  },
+  {
+   "age": 41,
+   "caste": "male",
+   "civ": "The Furious Chambers",
+   "df_pos": {
+    "x": 191,
+    "y": 39,
+    "z": 97
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 6715,
+   "level": null,
+   "name": "Mosus Akrulâm",
+   "name_english": "Mosus Tinspeech",
+   "notable": [],
+   "positions": [],
+   "profession": "Dancer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 11,
+     "skill": "swimming"
+    },
+    {
+     "level": 7,
+     "skill": "dance"
+    }
+   ]
+  },
+  {
+   "age": 39,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 76,
+    "y": 122,
+    "z": 92
+   },
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 7364,
+   "level": null,
+   "name": "Pebu Ñabsizabo",
+   "name_english": "Pebu Tattooedmen",
+   "notable": [
+    "low art inclined",
+    "high immodesty",
+    "low gregariousness"
+   ],
+   "positions": [],
+   "profession": "Human Hammerman",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "hammer"
+    },
+    {
+     "level": 2,
+     "skill": "animalcare"
+    },
+    {
+     "level": 2,
+     "skill": "processplants"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    }
+   ]
+  },
+  {
+   "age": 79,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 7369,
+   "level": "the-temples",
+   "name": "Ocgi Emegbadu",
+   "name_english": "Ocgi Vesselbaby",
+   "notable": [
+    "high abstract inclined",
+    "high love propensity",
+    "low anxiety propensity",
+    "scorns law",
+    "values eloquence"
+   ],
+   "positions": [],
+   "profession": "Human Hammerman",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "tracking"
+    },
+    {
+     "level": 3,
+     "skill": "concentration"
+    },
+    {
+     "level": 3,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 3,
+     "skill": "hammer"
+    },
+    {
+     "level": 3,
+     "skill": "pressing"
+    }
+   ],
+   "x": 67,
+   "y": 50
+  },
+  {
+   "age": 32,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 7405,
+   "level": "the-guildhalls",
+   "name": "Litast Dedukshoduk",
+   "name_english": "Litast Manordived",
+   "notable": [
+    "high tolerant",
+    "low pride",
+    "low bashful"
+   ],
+   "positions": [],
+   "profession": "Stonecutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "dance"
+    },
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 0,
+     "skill": "glassmaker"
+    },
+    {
+     "level": 0,
+     "skill": "concentration"
+    },
+    {
+     "level": 0,
+     "skill": "knowledge_acquisition"
+    }
+   ],
+   "x": 80,
+   "y": 80
+  },
+  {
+   "age": 27,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 7590,
+   "level": "the-guildhalls",
+   "name": "Atututip Wupjitaapihyugga",
+   "name_english": "Atututip Stretchedscorpions",
+   "notable": [
+    "low altruism",
+    "low cruelty",
+    "low immoderation",
+    "values cooperation"
+   ],
+   "positions": [],
+   "profession": "Gnoll Poet",
+   "race": "GNOLL",
+   "race_name": "gnoll",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "dress_wounds"
+    },
+    {
+     "level": 15,
+     "skill": "surgery"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "conversation"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 61,
+   "y": 49
+  },
+  {
+   "age": 12,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 7593,
+   "level": "the-guildhalls",
+   "name": "Wuhpa Hyutipwupjikh",
+   "name_english": "Wuhpa Blackspurting",
+   "notable": [
+    "high vengeful",
+    "high anger propensity",
+    "high humor"
+   ],
+   "positions": [],
+   "profession": "Gnoll Poet",
+   "race": "GNOLL",
+   "race_name": "gnoll",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "bow"
+    },
+    {
+     "level": 2,
+     "skill": "soap_making"
+    },
+    {
+     "level": 2,
+     "skill": "speaking"
+    },
+    {
+     "level": 1,
+     "skill": "poetry"
+    },
+    {
+     "level": 1,
+     "skill": "writing"
+    }
+   ],
+   "x": 60,
+   "y": 51
+  },
+  {
+   "age": 160,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 79,
+    "y": 123,
+    "z": 92
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 7594,
+   "level": null,
+   "name": "Eiggul Sugileigrir",
+   "name_english": "Eiggul Fliereagles",
+   "notable": [],
+   "positions": [],
+   "profession": "Erinys Dancer",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "flattery"
+    },
+    {
+     "level": 15,
+     "skill": "siegeoperate"
+    },
+    {
+     "level": 10,
+     "skill": "intimidation"
+    },
+    {
+     "level": 10,
+     "skill": "negotiation"
+    },
+    {
+     "level": 10,
+     "skill": "persuasion"
+    }
+   ]
+  },
+  {
+   "age": 289,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 7596,
+   "level": "the-guildhalls",
+   "name": "Eirjul Rofeiggid",
+   "name_english": "Eirjul Showeredleap",
+   "notable": [
+    "high violent",
+    "high perfectionist",
+    "low disdain advice"
+   ],
+   "positions": [],
+   "profession": "Erinys Dancer",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "flattery"
+    },
+    {
+     "level": 15,
+     "skill": "processfish"
+    },
+    {
+     "level": 10,
+     "skill": "comedy"
+    },
+    {
+     "level": 10,
+     "skill": "console"
+    },
+    {
+     "level": 10,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 62,
+   "y": 52
+  },
+  {
+   "age": 76,
+   "caste": "female",
+   "civ": "The Poem of Warmth",
+   "df_pos": {
+    "x": 190,
+    "y": 59,
+    "z": 100
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 7613,
+   "level": null,
+   "name": "Gufold Huggulgirjul",
+   "name_english": "Gufold Hailbear",
+   "notable": [],
+   "positions": [],
+   "profession": "Erinys Dancer",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "bowyer"
+    },
+    {
+     "level": 15,
+     "skill": "carpentry"
+    },
+    {
+     "level": 15,
+     "skill": "woodcutting"
+    },
+    {
+     "level": 7,
+     "skill": "console"
+    },
+    {
+     "level": 7,
+     "skill": "flattery"
+    }
+   ]
+  },
+  {
+   "age": 61,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 7669,
+   "level": "the-guildhalls",
+   "name": "Curo Ñimmamastrod",
+   "name_english": "Curo Grovetoasts",
+   "notable": [
+    "low lust propensity",
+    "low bashful",
+    "high singleminded",
+    "values harmony"
+   ],
+   "positions": [],
+   "profession": "Human Pikeman",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "tracking"
+    },
+    {
+     "level": 3,
+     "skill": "pike"
+    },
+    {
+     "level": 2,
+     "skill": "brewing"
+    },
+    {
+     "level": 1,
+     "skill": "shield"
+    },
+    {
+     "level": 1,
+     "skill": "situational_awareness"
+    }
+   ],
+   "x": 61,
+   "y": 53
+  },
+  {
+   "age": 57,
+   "caste": "male",
+   "civ": "The Nation of Cathedrals",
+   "df_pos": {
+    "x": 191,
+    "y": 40,
+    "z": 97
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 8092,
+   "level": null,
+   "name": "Lar Casastothla",
+   "name_english": "Lar Charcoallull",
+   "notable": [],
+   "positions": [],
+   "profession": "Human Bard",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 14,
+     "skill": "swimming"
+    },
+    {
+     "level": 10,
+     "skill": "make_music"
+    },
+    {
+     "level": 4,
+     "skill": "armor"
+    },
+    {
+     "level": 4,
+     "skill": "dodging"
+    },
+    {
+     "level": 3,
+     "skill": "pike"
+    }
+   ]
+  },
+  {
+   "age": 351,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 80,
+    "y": 124,
+    "z": 92
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 9213,
+   "level": null,
+   "name": "Skilmul Geggograskeirir",
+   "name_english": "Skilmul Riddledqueens",
+   "notable": [
+    "high ambition",
+    "scorns peace",
+    "values decorum"
+   ],
+   "positions": [],
+   "profession": "Erinys Poet",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "mechanics"
+    },
+    {
+     "level": 13,
+     "skill": "flattery"
+    },
+    {
+     "level": 13,
+     "skill": "negotiation"
+    },
+    {
+     "level": 12,
+     "skill": "poetry"
+    },
+    {
+     "level": 11,
+     "skill": "speaking"
+    }
+   ]
+  },
+  {
+   "age": 285,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 9341,
+   "level": "the-great-hall",
+   "name": "Gufirud Gufio",
+   "name_english": "Gufirud Lacylearns",
+   "notable": [
+    "high thoughtlessness",
+    "high bravery",
+    "high anger propensity",
+    "values cooperation"
+   ],
+   "positions": [],
+   "profession": "Erinys Bowman",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "console"
+    },
+    {
+     "level": 15,
+     "skill": "clothesmaking"
+    },
+    {
+     "level": 15,
+     "skill": "tracking"
+    },
+    {
+     "level": 7,
+     "skill": "intimidation"
+    },
+    {
+     "level": 7,
+     "skill": "pacify"
+    }
+   ],
+   "x": 88,
+   "y": 72
+  },
+  {
+   "age": 233,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 80,
+    "y": 136,
+    "z": 96
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 9510,
+   "level": null,
+   "name": "Skurdrul Skituldguggul",
+   "name_english": "Skurdrul Blushwaved",
+   "notable": [
+    "low art inclined",
+    "high trust",
+    "high bravery",
+    "scorns commerce",
+    "scorns sacrifice"
+   ],
+   "positions": [],
+   "profession": "Erinys Bard",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "cutgem"
+    },
+    {
+     "level": 13,
+     "skill": "pacify"
+    },
+    {
+     "level": 12,
+     "skill": "make_music"
+    },
+    {
+     "level": 8,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 8,
+     "skill": "negotiation"
+    }
+   ]
+  },
+  {
+   "age": 29,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 9531,
+   "level": "the-guildhalls",
+   "name": "Sibrek Regthabost",
+   "name_english": "Sibrek Gloveflares",
+   "notable": [
+    "values decorum",
+    "values skill"
+   ],
+   "positions": [],
+   "profession": "Stone Carver",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 9,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 2,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 2,
+     "skill": "plant"
+    },
+    {
+     "level": 1,
+     "skill": "dance"
+    },
+    {
+     "level": 0,
+     "skill": "make_music"
+    }
+   ],
+   "x": 60,
+   "y": 52
+  },
+  {
+   "age": 89,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 9829,
+   "level": "the-guildhalls",
+   "name": "Rarjul Gorjofulgeggiton",
+   "name_english": "Rarjul Grottomartyred",
+   "notable": [
+    "high disdain advice",
+    "low curious"
+   ],
+   "positions": [],
+   "profession": "Erinys Axeman",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "metalcraft"
+    },
+    {
+     "level": 8,
+     "skill": "conversation"
+    },
+    {
+     "level": 8,
+     "skill": "flattery"
+    },
+    {
+     "level": 8,
+     "skill": "intimidation"
+    },
+    {
+     "level": 8,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 62,
+   "y": 53
+  },
+  {
+   "age": 55,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 81,
+    "y": 121,
+    "z": 92
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 10340,
+   "level": null,
+   "name": "Hulmul Getudeirjul",
+   "name_english": "Hulmul Joinedlarks",
+   "notable": [
+    "high closeminded",
+    "low bashful",
+    "low anxiety propensity"
+   ],
+   "positions": [],
+   "profession": "Erinys Bard",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "make_music"
+    },
+    {
+     "level": 11,
+     "skill": "dress_wounds"
+    },
+    {
+     "level": 11,
+     "skill": "reading"
+    },
+    {
+     "level": 11,
+     "skill": "set_bone"
+    },
+    {
+     "level": 11,
+     "skill": "surgery"
+    }
+   ]
+  },
+  {
+   "age": 338,
+   "caste": "male",
+   "civ": "The Poem of Warmth",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 10344,
+   "level": "the-temples",
+   "name": "Randad Skosvirfjufioeirjuld",
+   "name_english": "Randad Fragrantdanced",
+   "notable": [],
+   "positions": [],
+   "profession": "Erinys Bard",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "appraisal"
+    },
+    {
+     "level": 14,
+     "skill": "make_music"
+    },
+    {
+     "level": 13,
+     "skill": "console"
+    },
+    {
+     "level": 8,
+     "skill": "comedy"
+    },
+    {
+     "level": 8,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 65,
+   "y": 59
+  },
+  {
+   "age": 201,
+   "caste": "female",
+   "civ": "The Swamps of Stilling",
+   "df_pos": {
+    "x": 191,
+    "y": 59,
+    "z": 99
+   },
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 10437,
+   "level": null,
+   "name": "Hindul Skorjulrendogor",
+   "name_english": "Hindul Beardtangles",
+   "notable": [],
+   "positions": [],
+   "profession": "Erinys Swordsman",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "smelt"
+    },
+    {
+     "level": 15,
+     "skill": "tracking"
+    },
+    {
+     "level": 7,
+     "skill": "console"
+    },
+    {
+     "level": 7,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 7,
+     "skill": "lying"
+    }
+   ]
+  },
+  {
+   "age": 38,
+   "caste": "female",
+   "civ": "The Nation of Cathedrals",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 10909,
+   "level": "the-gate",
+   "name": "Tamun Rilstudasla",
+   "name_english": "Tamun Hameheals",
+   "notable": [],
+   "positions": [],
+   "profession": "lady consort",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "cheesemaking"
+    },
+    {
+     "level": 5,
+     "skill": "comedy"
+    },
+    {
+     "level": 5,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "hammer"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 63,
+   "y": 69
+  },
+  {
+   "age": 348,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 11105,
+   "level": "the-temples",
+   "name": "Gurefio Horakondafio",
+   "name_english": "Gurefio Helpedglitters",
+   "notable": [
+    "high hate propensity",
+    "high immodesty",
+    "low envy propensity",
+    "scorns eloquence",
+    "values power"
+   ],
+   "positions": [],
+   "profession": "Erinys Swordsman",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "record_keeping"
+    },
+    {
+     "level": 14,
+     "skill": "tracking"
+    },
+    {
+     "level": 12,
+     "skill": "pacify"
+    },
+    {
+     "level": 8,
+     "skill": "console"
+    },
+    {
+     "level": 8,
+     "skill": "flattery"
+    }
+   ],
+   "x": 57,
+   "y": 83
+  },
+  {
+   "age": 28,
+   "caste": "female",
+   "civ": "The Sienna Empires",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 11247,
+   "level": "the-temples",
+   "name": "Das Kultislur",
+   "name_english": "Das Holeraptor",
+   "notable": [],
+   "positions": [],
+   "profession": "Human Prophet",
+   "race": "HUMAN",
+   "race_name": "human",
+   "role": "visitor",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "hammer"
+    }
+   ],
+   "x": 83,
+   "y": 51
+  },
+  {
+   "age": 196,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 78,
+    "y": 124,
+    "z": 92
+   },
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 12083,
+   "level": null,
+   "name": "Gogirskul Gugroldhuggul",
+   "name_english": "Gogirskul Sensedhails",
+   "notable": [
+    "high perfectionist",
+    "low lust propensity",
+    "high hate propensity"
+   ],
+   "positions": [],
+   "profession": "Erinys Maceman",
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "role": "resident",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "milk"
+    },
+    {
+     "level": 14,
+     "skill": "negotiation"
+    },
+    {
+     "level": 11,
+     "skill": "tracking"
+    },
+    {
+     "level": 9,
+     "skill": "comedy"
+    },
+    {
+     "level": 9,
+     "skill": "console"
+    }
+   ]
+  },
+  {
+   "age": 41,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "miner",
+   "id": 14076,
+   "level": "the-guildhalls",
+   "name": "Catten Eraleshtân",
+   "name_english": "Catten Vesselsmiths",
+   "notable": [
+    "high vengeful",
+    "low altruism",
+    "high thoughtlessness"
+   ],
+   "positions": [],
+   "profession": "Miner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 38,
+     "skill": "mining"
+    },
+    {
+     "level": 4,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 3,
+     "skill": "sing_music"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 2,
+     "skill": "cut_stone"
+    }
+   ],
+   "x": 85,
+   "y": 77
+  },
+  {
+   "age": 38,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "clerk",
+   "id": 14077,
+   "level": "the-guildhalls",
+   "name": "Kulet Semorathel",
+   "name_english": "Kulet Unionsringed",
+   "notable": [
+    "low humor",
+    "scorns independence",
+    "scorns perseverance"
+   ],
+   "positions": [
+    "MANAGER",
+    "BROKER",
+    "BOOKKEEPER"
+   ],
+   "profession": "manager",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 13,
+     "skill": "organization"
+    },
+    {
+     "level": 13,
+     "skill": "appraisal"
+    },
+    {
+     "level": 12,
+     "skill": "plant"
+    },
+    {
+     "level": 6,
+     "skill": "record_keeping"
+    }
+   ],
+   "x": 76,
+   "y": 62
+  },
+  {
+   "age": 47,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14078,
+   "level": "the-farms",
+   "name": "Melbil Sanrebmeng",
+   "name_english": "Melbil Ownerlashed",
+   "notable": [
+    "high privacy",
+    "low lust propensity",
+    "high politeness",
+    "scorns peace"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 27,
+     "skill": "plant"
+    },
+    {
+     "level": 3,
+     "skill": "woodcutting"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "play_stringed_instrument"
+    },
+    {
+     "level": 2,
+     "skill": "brewing"
+    }
+   ],
+   "x": 72,
+   "y": 64
+  },
+  {
+   "age": 57,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "miner",
+   "id": 14079,
+   "level": "the-farms",
+   "name": "Doren Muzishvutok",
+   "name_english": "Doren Martyrfigures",
+   "notable": [
+    "high cheer propensity",
+    "high altruism",
+    "high art inclined",
+    "values family",
+    "values sacrifice",
+    "scorns perseverance"
+   ],
+   "positions": [],
+   "profession": "Miner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 25,
+     "skill": "mining"
+    },
+    {
+     "level": 22,
+     "skill": "plant"
+    },
+    {
+     "level": 3,
+     "skill": "appraisal"
+    },
+    {
+     "level": 2,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 2,
+     "skill": "cutgem"
+    }
+   ],
+   "x": 72,
+   "y": 57
+  },
+  {
+   "age": 41,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 59,
+    "y": 110,
+    "z": 73
+   },
+   "district": "the-forges",
+   "home_job": "miner",
+   "id": 14080,
+   "level": null,
+   "name": "Sibrek Nishgomath",
+   "name_english": "Sibrek Tradedlegends",
+   "notable": [
+    "low cruelty",
+    "high gratitude",
+    "high anxiety propensity",
+    "values tranquility",
+    "values perseverance",
+    "scorns skill"
+   ],
+   "positions": [],
+   "profession": "Miner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 38,
+     "skill": "mining"
+    },
+    {
+     "level": 2,
+     "skill": "plant"
+    },
+    {
+     "level": 1,
+     "skill": "brewing"
+    },
+    {
+     "level": 1,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 1,
+     "skill": "woodcraft"
+    }
+   ]
+  },
+  {
+   "age": 31,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 79,
+    "y": 100,
+    "z": 74
+   },
+   "district": "the-forges",
+   "home_job": "miner",
+   "id": 14081,
+   "level": null,
+   "name": "Eral Rakustëlot",
+   "name_english": "Eral Tombsbucks",
+   "notable": [
+    "high abstract inclined",
+    "high friendliness",
+    "low excitement seeking"
+   ],
+   "positions": [],
+   "profession": "Miner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 25,
+     "skill": "mining"
+    },
+    {
+     "level": 9,
+     "skill": "carpentry"
+    },
+    {
+     "level": 5,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 4,
+     "skill": "plant"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    }
+   ]
+  },
+  {
+   "age": 30,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14082,
+   "level": "the-guildhalls",
+   "name": "Cerol Dasëldeduk",
+   "name_english": "Cerol Heavenmanors",
+   "notable": [
+    "low friendliness",
+    "high wastefulness",
+    "low hopeful",
+    "scorns craftsmanship",
+    "scorns friendship"
+   ],
+   "positions": [],
+   "profession": "Stonecutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 20,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 9,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 7,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 2,
+     "skill": "stonecraft"
+    }
+   ],
+   "x": 69,
+   "y": 52
+  },
+  {
+   "age": 58,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14172,
+   "level": "the-barracks",
+   "name": "Melbil Komanbesmar",
+   "name_english": "Melbil Spreadpulley",
+   "notable": [
+    "high immoderation",
+    "low bravery",
+    "high perfectionist",
+    "values peace",
+    "values tranquility",
+    "values cooperation"
+   ],
+   "positions": [],
+   "profession": "Axe Lord",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 38,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 35,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 31,
+     "skill": "discipline"
+    },
+    {
+     "level": 29,
+     "skill": "axe"
+    },
+    {
+     "level": 18,
+     "skill": "shield"
+    }
+   ],
+   "squad": "The Steel Guard",
+   "x": 69,
+   "y": 46
+  },
+  {
+   "age": 24,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 32,
+    "y": 136,
+    "z": 96
+   },
+   "district": "the-noble-halls",
+   "home_job": "noble",
+   "id": 14173,
+   "level": null,
+   "name": "Ùshrir Uzolog",
+   "name_english": "Ùshrir Oilclub",
+   "notable": [
+    "low gregariousness",
+    "high discord",
+    "low cruelty",
+    "values commerce",
+    "values artwork"
+   ],
+   "positions": [
+    "DUNGEON_MASTER"
+   ],
+   "profession": "dungeon master",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 17,
+     "skill": "woodcutting"
+    },
+    {
+     "level": 10,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 9,
+     "skill": "plant"
+    },
+    {
+     "level": 6,
+     "skill": "intrigue"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    }
+   ]
+  },
+  {
+   "age": 67,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14174,
+   "level": "the-great-hall",
+   "name": "Ineth Saziradril",
+   "name_english": "Ineth Bridgeweaver",
+   "notable": [
+    "low dutifulness",
+    "values skill",
+    "values knowledge"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 16,
+     "skill": "plant"
+    },
+    {
+     "level": 6,
+     "skill": "encrustgem"
+    },
+    {
+     "level": 5,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 3,
+     "skill": "play_stringed_instrument"
+    }
+   ],
+   "x": 66,
+   "y": 61
+  },
+  {
+   "age": 54,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "herder",
+   "id": 14215,
+   "level": "the-temples",
+   "name": "Kadol Etostcatten",
+   "name_english": "Kadol Containchanneled",
+   "notable": [
+    "high anxiety propensity",
+    "scorns nature"
+   ],
+   "positions": [],
+   "profession": "Animal Dissector",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    }
+   ],
+   "x": 67,
+   "y": 80
+  },
+  {
+   "age": 39,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 77,
+    "y": 97,
+    "z": 74
+   },
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14224,
+   "level": null,
+   "name": "Monom Tulonór",
+   "name_english": "Monom Roaddrinks",
+   "notable": [
+    "high altruism",
+    "high discord",
+    "values sacrifice"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 8,
+     "skill": "plant"
+    },
+    {
+     "level": 8,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 6,
+     "skill": "encrustgem"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    }
+   ]
+  },
+  {
+   "age": 59,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 30,
+    "y": 137,
+    "z": 96
+   },
+   "district": "the-workshops",
+   "home_job": "jeweler",
+   "id": 14225,
+   "level": null,
+   "name": "Ushat Âstshorast",
+   "name_english": "Ushat Furwires",
+   "notable": [
+    "low hopeful",
+    "low art inclined",
+    "low immodesty"
+   ],
+   "positions": [],
+   "profession": "Gem Cutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 18,
+     "skill": "cutgem"
+    },
+    {
+     "level": 8,
+     "skill": "smelt"
+    },
+    {
+     "level": 5,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 4,
+     "skill": "plant"
+    },
+    {
+     "level": 4,
+     "skill": "intimidation"
+    }
+   ]
+  },
+  {
+   "age": 39,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14226,
+   "level": "the-guildhalls",
+   "name": "Melbil Telingiden",
+   "name_english": "Melbil Coastpaddles",
+   "notable": [
+    "high violent",
+    "high perseverance",
+    "high confidence",
+    "values knowledge",
+    "scorns tradition"
+   ],
+   "positions": [],
+   "profession": "Stoneworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 7,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 6,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 6,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 3,
+     "skill": "plant"
+    },
+    {
+     "level": 2,
+     "skill": "pacify"
+    }
+   ],
+   "x": 68,
+   "y": 61
+  },
+  {
+   "age": 46,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14229,
+   "level": "the-barracks",
+   "name": "Bomrek Roderoslan",
+   "name_english": "Bomrek Baldnesswinds",
+   "notable": [
+    "low excitement seeking",
+    "low wastefulness",
+    "high vanity"
+   ],
+   "positions": [],
+   "profession": "Axe Lord",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 38,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 35,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 30,
+     "skill": "axe"
+    },
+    {
+     "level": 30,
+     "skill": "discipline"
+    },
+    {
+     "level": 15,
+     "skill": "shield"
+    }
+   ],
+   "squad": "The Steel Guard",
+   "x": 72,
+   "y": 48
+  },
+  {
+   "age": 43,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 56,
+    "y": 113,
+    "z": 73
+   },
+   "district": "the-noble-halls",
+   "home_job": "noble",
+   "id": 14371,
+   "level": null,
+   "name": "Uvash Nakuthnish",
+   "name_english": "Uvash Braidedtraded",
+   "notable": [
+    "low thoughtlessness",
+    "high assertiveness",
+    "high emotionally obsessive"
+   ],
+   "positions": [
+    "BARON"
+   ],
+   "profession": "baroness",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 24,
+     "skill": "mining"
+    },
+    {
+     "level": 5,
+     "skill": "persuasion"
+    },
+    {
+     "level": 5,
+     "skill": "console"
+    },
+    {
+     "level": 5,
+     "skill": "negotiation"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    }
+   ]
+  },
+  {
+   "age": 64,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14407,
+   "level": "the-barracks",
+   "name": "Ushat Zugobletmos",
+   "name_english": "Ushat Grandcobalt",
+   "notable": [
+    "high abstract inclined",
+    "high cheer propensity",
+    "low activity level",
+    "values peace",
+    "scorns perseverance",
+    "values friendship"
+   ],
+   "positions": [
+    "MILITIA_CAPTAIN"
+   ],
+   "profession": "militia captain",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 34,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 28,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 26,
+     "skill": "mace"
+    },
+    {
+     "level": 26,
+     "skill": "discipline"
+    },
+    {
+     "level": 15,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Mace Squad",
+   "x": 71,
+   "y": 38
+  },
+  {
+   "age": 60,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14466,
+   "level": "the-barracks",
+   "name": "Lokum Urdimoltar",
+   "name_english": "Lokum Towergild",
+   "notable": [
+    "low dutifulness",
+    "low thoughtlessness",
+    "high pride",
+    "scorns fairness",
+    "values introspection",
+    "values stoicism"
+   ],
+   "positions": [],
+   "profession": "Mace Lord",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 27,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 25,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 19,
+     "skill": "discipline"
+    },
+    {
+     "level": 19,
+     "skill": "mace"
+    },
+    {
+     "level": 13,
+     "skill": "fish"
+    }
+   ],
+   "squad": "Steel Mace Squad",
+   "x": 71,
+   "y": 39
+  },
+  {
+   "age": 54,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 77,
+    "y": 123,
+    "z": 92
+   },
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14467,
+   "level": null,
+   "name": "Domas Vabôkdum",
+   "name_english": "Domas Orbsmouth",
+   "notable": [
+    "low love propensity",
+    "low anger propensity",
+    "values eloquence",
+    "values law",
+    "values harmony"
+   ],
+   "positions": [],
+   "profession": "Administrator",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 17,
+     "skill": "discipline"
+    },
+    {
+     "level": 11,
+     "skill": "dodging"
+    },
+    {
+     "level": 9,
+     "skill": "ranged_combat"
+    },
+    {
+     "level": 9,
+     "skill": "crossbow"
+    },
+    {
+     "level": 6,
+     "skill": "teaching"
+    }
+   ],
+   "squad": "Steel Crossbow Squad"
+  },
+  {
+   "age": 53,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 14469,
+   "level": "the-workshops",
+   "name": "Mörul Edëmsanád",
+   "name_english": "Mörul Keymornings",
+   "notable": [
+    "low assertiveness",
+    "high hate propensity",
+    "high immoderation"
+   ],
+   "positions": [],
+   "profession": "Doctor",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "leatherwork"
+    },
+    {
+     "level": 5,
+     "skill": "set_bone"
+    },
+    {
+     "level": 3,
+     "skill": "plant"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "dress_wounds"
+    }
+   ],
+   "x": 63,
+   "y": 62
+  },
+  {
+   "age": 23,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14470,
+   "level": "the-barracks",
+   "name": "Besmar Tagùzsazir",
+   "name_english": "Besmar Leapbridged",
+   "notable": [
+    "low thoughtlessness",
+    "low anxiety propensity",
+    "low violent",
+    "values family"
+   ],
+   "positions": [],
+   "profession": "Marksdwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 15,
+     "skill": "discipline"
+    },
+    {
+     "level": 10,
+     "skill": "dodging"
+    },
+    {
+     "level": 8,
+     "skill": "ranged_combat"
+    },
+    {
+     "level": 8,
+     "skill": "crossbow"
+    },
+    {
+     "level": 5,
+     "skill": "judging_intent"
+    }
+   ],
+   "squad": "Steel Crossbow Squad",
+   "x": 66,
+   "y": 29
+  },
+  {
+   "age": 66,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 14472,
+   "level": "the-workshops",
+   "name": "Erib Lorbamshameb",
+   "name_english": "Erib Standardhandled",
+   "notable": [
+    "low envy propensity",
+    "low emotionally obsessive",
+    "values eloquence",
+    "values harmony"
+   ],
+   "positions": [],
+   "profession": "Carpenter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 19,
+     "skill": "carpentry"
+    },
+    {
+     "level": 7,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 6,
+     "skill": "lye_making"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    },
+    {
+     "level": 4,
+     "skill": "crutch_walk"
+    }
+   ],
+   "x": 56,
+   "y": 77
+  },
+  {
+   "age": 51,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 36,
+    "y": 137,
+    "z": 96
+   },
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14473,
+   "level": null,
+   "name": "Etur Kolokang",
+   "name_english": "Etur Wheeledyore",
+   "notable": [
+    "high anger propensity",
+    "low swayed by emotions",
+    "low thoughtlessness",
+    "scorns friendship"
+   ],
+   "positions": [],
+   "profession": "Farmer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "plant"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 2,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 2,
+     "skill": "comedy"
+    },
+    {
+     "level": 2,
+     "skill": "wood_burning"
+    }
+   ]
+  },
+  {
+   "age": 44,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 37,
+    "y": 137,
+    "z": 96
+   },
+   "district": "the-temples",
+   "home_job": "priest",
+   "id": 14474,
+   "level": null,
+   "name": "Oddom Ferushat",
+   "name_english": "Oddom Beastbasements",
+   "notable": [
+    "low anxiety propensity",
+    "low vengeful",
+    "low love propensity",
+    "values friendship"
+   ],
+   "positions": [
+    "HIGH_PRIEST"
+   ],
+   "profession": "first coal",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 9,
+     "skill": "carpentry"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    }
+   ]
+  },
+  {
+   "age": 66,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14475,
+   "level": "the-barracks",
+   "name": "Dodók Letmosging",
+   "name_english": "Dodók Cobaltyoung",
+   "notable": [
+    "low singleminded",
+    "values hard work",
+    "values skill"
+   ],
+   "positions": [],
+   "profession": "Marksdwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 18,
+     "skill": "clothesmaking"
+    },
+    {
+     "level": 5,
+     "skill": "discipline"
+    },
+    {
+     "level": 5,
+     "skill": "bonecarve"
+    },
+    {
+     "level": 4,
+     "skill": "crossbow"
+    },
+    {
+     "level": 4,
+     "skill": "make_music"
+    }
+   ],
+   "squad": "Steel Crossbow Squad",
+   "x": 62,
+   "y": 46
+  },
+  {
+   "age": 56,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-temples",
+   "home_job": "priest",
+   "id": 14476,
+   "level": "the-great-hall",
+   "name": "Solon Kolgídthur",
+   "name_english": "Solon Wheeledgrasped",
+   "notable": [
+    "values tranquility",
+    "scorns perseverance",
+    "values stoicism"
+   ],
+   "positions": [
+    "PRIEST"
+   ],
+   "profession": "sacred call",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 5,
+     "skill": "speaking"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    },
+    {
+     "level": 3,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    }
+   ],
+   "x": 68,
+   "y": 61
+  },
+  {
+   "age": 28,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 38,
+    "y": 136,
+    "z": 96
+   },
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14477,
+   "level": null,
+   "name": "Doren Stelidasob",
+   "name_english": "Doren Washedboard",
+   "notable": [
+    "high altruism",
+    "high privacy",
+    "low hate propensity",
+    "values tranquility",
+    "scorns competition"
+   ],
+   "positions": [],
+   "profession": "Craftsdwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "pottery"
+    },
+    {
+     "level": 5,
+     "skill": "bonecarve"
+    },
+    {
+     "level": 2,
+     "skill": "plant"
+    },
+    {
+     "level": 2,
+     "skill": "dance"
+    },
+    {
+     "level": 1,
+     "skill": "judging_intent"
+    }
+   ]
+  },
+  {
+   "age": 51,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 79,
+    "y": 97,
+    "z": 74
+   },
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 14478,
+   "level": null,
+   "name": "Ral Stettadoddom",
+   "name_english": "Ral Taxcloister",
+   "notable": [
+    "low privacy",
+    "high imagination",
+    "low anger propensity"
+   ],
+   "positions": [],
+   "profession": "Pump Operator",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "operate_pump"
+    },
+    {
+     "level": 7,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 6,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 5,
+     "skill": "lying"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    }
+   ]
+  },
+  {
+   "age": 55,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14482,
+   "level": "the-barracks",
+   "name": "Ùshrir Menginod",
+   "name_english": "Ùshrir Lashedgate",
+   "notable": [
+    "high envy propensity",
+    "low stress vulnerability",
+    "values harmony",
+    "scorns law"
+   ],
+   "positions": [],
+   "profession": "Marksdwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 17,
+     "skill": "discipline"
+    },
+    {
+     "level": 13,
+     "skill": "geld"
+    },
+    {
+     "level": 11,
+     "skill": "dodging"
+    },
+    {
+     "level": 9,
+     "skill": "ranged_combat"
+    },
+    {
+     "level": 9,
+     "skill": "crossbow"
+    }
+   ],
+   "squad": "Steel Crossbow Squad",
+   "x": 65,
+   "y": 31
+  },
+  {
+   "age": 33,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14483,
+   "level": "the-workshops",
+   "name": "Kivish Akrulshagog",
+   "name_english": "Kivish Tinstatic",
+   "notable": [
+    "high swayed by emotions",
+    "high friendliness"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 57,
+   "y": 60
+  },
+  {
+   "age": 64,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14484,
+   "level": "the-barracks",
+   "name": "Ineth Olinudib",
+   "name_english": "Ineth Tongssyrups",
+   "notable": [
+    "low altruism",
+    "high stress vulnerability",
+    "low tolerant",
+    "values tranquility",
+    "values independence"
+   ],
+   "positions": [
+    "MILITIA_CAPTAIN"
+   ],
+   "profession": "militia captain",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 14,
+     "skill": "discipline"
+    },
+    {
+     "level": 11,
+     "skill": "dodging"
+    },
+    {
+     "level": 10,
+     "skill": "soap_making"
+    },
+    {
+     "level": 8,
+     "skill": "ranged_combat"
+    },
+    {
+     "level": 8,
+     "skill": "animalcare"
+    }
+   ],
+   "squad": "Steel Crossbow Squad",
+   "x": 64,
+   "y": 30
+  },
+  {
+   "age": 64,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14486,
+   "level": "the-farms",
+   "name": "Aban Shemuthmik",
+   "name_english": "Aban Plankshook",
+   "notable": [
+    "high depression propensity",
+    "low humor",
+    "values commerce",
+    "scorns romance"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "plant"
+    },
+    {
+     "level": 6,
+     "skill": "weaving"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 69,
+   "y": 61
+  },
+  {
+   "age": 44,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 14487,
+   "level": "the-farms",
+   "name": "Urdim Keltomêm",
+   "name_english": "Urdim Metalgrouped",
+   "notable": [
+    "high bravery",
+    "high greed",
+    "scorns perseverance",
+    "scorns sacrifice"
+   ],
+   "positions": [],
+   "profession": "Armorer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 19,
+     "skill": "forge_armor"
+    },
+    {
+     "level": 6,
+     "skill": "plant"
+    },
+    {
+     "level": 5,
+     "skill": "brewing"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    }
+   ],
+   "x": 73,
+   "y": 65
+  },
+  {
+   "age": 50,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14488,
+   "level": "the-barracks",
+   "name": "Kosoth Dalzatkol",
+   "name_english": "Kosoth Matchedwheel",
+   "notable": [
+    "low trust",
+    "high abstract inclined",
+    "low confidence",
+    "values tradition",
+    "values skill"
+   ],
+   "positions": [],
+   "profession": "Axe Lord",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 38,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 35,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 32,
+     "skill": "axe"
+    },
+    {
+     "level": 29,
+     "skill": "discipline"
+    },
+    {
+     "level": 15,
+     "skill": "shield"
+    }
+   ],
+   "squad": "The Steel Guard",
+   "x": 72,
+   "y": 48
+  },
+  {
+   "age": 57,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14517,
+   "level": "the-barracks",
+   "name": "Stâkud Othlestast",
+   "name_english": "Stâkud Scorchingsabre",
+   "notable": [
+    "low love propensity",
+    "values perseverance"
+   ],
+   "positions": [],
+   "profession": "Mace Lord",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 36,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 31,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 28,
+     "skill": "mace"
+    },
+    {
+     "level": 27,
+     "skill": "discipline"
+    },
+    {
+     "level": 15,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Mace Squad",
+   "x": 69,
+   "y": 39
+  },
+  {
+   "age": 39,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 78,
+    "y": 123,
+    "z": 92
+   },
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 14519,
+   "level": null,
+   "name": "Oddom Akrulthibam",
+   "name_english": "Oddom Tinhushes",
+   "notable": [
+    "low swayed by emotions",
+    "values power",
+    "scorns stoicism",
+    "values romance"
+   ],
+   "positions": [],
+   "profession": "Mechanic",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 7,
+     "skill": "mechanics"
+    },
+    {
+     "level": 6,
+     "skill": "lying"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    }
+   ]
+  },
+  {
+   "age": 36,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "cook",
+   "id": 14521,
+   "level": "the-gate",
+   "name": "Mosus Lokumisak",
+   "name_english": "Mosus Spearspattered",
+   "notable": [
+    "high altruism",
+    "low pride",
+    "high swayed by emotions"
+   ],
+   "positions": [],
+   "profession": "Cook",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 5,
+     "skill": "cook"
+    },
+    {
+     "level": 5,
+     "skill": "smelt"
+    },
+    {
+     "level": 2,
+     "skill": "dance"
+    },
+    {
+     "level": 2,
+     "skill": "forge_armor"
+    },
+    {
+     "level": 1,
+     "skill": "forge_furniture"
+    }
+   ],
+   "x": 64,
+   "y": 21
+  },
+  {
+   "age": 55,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14522,
+   "level": "the-barracks",
+   "name": "Èzum Stukosathel",
+   "name_english": "Èzum Razorrings",
+   "notable": [
+    "low thoughtlessness",
+    "low trust",
+    "low disdain advice"
+   ],
+   "positions": [],
+   "profession": "Marksdwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 16,
+     "skill": "discipline"
+    },
+    {
+     "level": 12,
+     "skill": "dodging"
+    },
+    {
+     "level": 8,
+     "skill": "ranged_combat"
+    },
+    {
+     "level": 8,
+     "skill": "crossbow"
+    },
+    {
+     "level": 5,
+     "skill": "teaching"
+    }
+   ],
+   "squad": "Steel Crossbow Squad",
+   "x": 65,
+   "y": 30
+  },
+  {
+   "age": 61,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "herder",
+   "id": 14523,
+   "level": "the-temples",
+   "name": "Zutthan Oddomthol",
+   "name_english": "Zutthan Cloisterdeeps",
+   "notable": [
+    "low thoughtlessness",
+    "high vengeful",
+    "low altruism"
+   ],
+   "positions": [],
+   "profession": "Animal Caretaker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 7,
+     "skill": "intimidation"
+    },
+    {
+     "level": 6,
+     "skill": "animalcare"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    }
+   ],
+   "x": 77,
+   "y": 60
+  },
+  {
+   "age": 31,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "herder",
+   "id": 14526,
+   "level": "the-guildhalls",
+   "name": "Ustuth Sokanurist",
+   "name_english": "Ustuth Phrasedaggers",
+   "notable": [
+    "low cheer propensity",
+    "high love propensity",
+    "high anxiety propensity",
+    "values decorum"
+   ],
+   "positions": [],
+   "profession": "Shearer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "shearing"
+    },
+    {
+     "level": 10,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 6,
+     "skill": "console"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 4,
+     "skill": "butcher"
+    }
+   ],
+   "x": 83,
+   "y": 81
+  },
+  {
+   "age": 23,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 69,
+    "y": 132,
+    "z": 96
+   },
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 14527,
+   "level": null,
+   "name": "Rakust Bistöksarvesh",
+   "name_english": "Rakust Hairyfurnace",
+   "notable": [
+    "high violent",
+    "low altruism",
+    "high greed",
+    "values tranquility"
+   ],
+   "positions": [],
+   "profession": "Blacksmith",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "forge_furniture"
+    },
+    {
+     "level": 6,
+     "skill": "beekeeping"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 2,
+     "skill": "negotiation"
+    },
+    {
+     "level": 2,
+     "skill": "console"
+    }
+   ]
+  },
+  {
+   "age": 38,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "butcher",
+   "id": 14533,
+   "level": "the-great-hall",
+   "name": "Ubbul Stukónsåkzul",
+   "name_english": "Ubbul Squashedtrumpet",
+   "notable": [
+    "low hate propensity",
+    "high orderliness",
+    "values romance",
+    "scorns tradition"
+   ],
+   "positions": [],
+   "profession": "Gelder",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "console"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    }
+   ],
+   "x": 86,
+   "y": 77
+  },
+  {
+   "age": 54,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14536,
+   "level": "the-temples",
+   "name": "Litast Idenor",
+   "name_english": "Litast Paddlelarge",
+   "notable": [
+    "low anger propensity",
+    "low perseverance",
+    "high hopeful"
+   ],
+   "positions": [],
+   "profession": "Stonecutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 5,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "intimidation"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 60,
+   "y": 97
+  },
+  {
+   "age": 40,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14550,
+   "level": "the-temples",
+   "name": "Lokum Nimakoslan",
+   "name_english": "Lokum Quillwound",
+   "notable": [
+    "high hate propensity",
+    "low thoughtlessness"
+   ],
+   "positions": [],
+   "profession": "Stonecutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 6,
+     "skill": "pressing"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    }
+   ],
+   "x": 102,
+   "y": 66
+  },
+  {
+   "age": 59,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14553,
+   "level": "the-barracks",
+   "name": "Kogsak Dumatinen",
+   "name_english": "Kogsak Roughhills",
+   "notable": [
+    "low perfectionist",
+    "low bravery"
+   ],
+   "positions": [],
+   "profession": "Mace Lord",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 32,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 29,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 22,
+     "skill": "discipline"
+    },
+    {
+     "level": 22,
+     "skill": "mace"
+    },
+    {
+     "level": 12,
+     "skill": "wrestling"
+    }
+   ],
+   "squad": "Steel Mace Squad",
+   "x": 71,
+   "y": 37
+  },
+  {
+   "age": 32,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14554,
+   "level": "the-gate",
+   "name": "Ast Athelshetbêth",
+   "name_english": "Ast Ringtwinkled",
+   "notable": [
+    "high friendliness",
+    "low hate propensity",
+    "low thoughtlessness",
+    "values tranquility",
+    "scorns leisure time"
+   ],
+   "positions": [
+    "MILITIA_CAPTAIN"
+   ],
+   "profession": "militia captain",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 29,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 28,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 21,
+     "skill": "discipline"
+    },
+    {
+     "level": 21,
+     "skill": "sword"
+    },
+    {
+     "level": 16,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Swords",
+   "x": 71,
+   "y": 57
+  },
+  {
+   "age": 42,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14555,
+   "level": "the-barracks",
+   "name": "Obok Ádoldodók",
+   "name_english": "Obok Complexclasp",
+   "notable": [
+    "high art inclined",
+    "low singleminded",
+    "low stress vulnerability",
+    "values perseverance",
+    "values harmony",
+    "scorns leisure time"
+   ],
+   "positions": [],
+   "profession": "Mace Lord",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 32,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 30,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 26,
+     "skill": "mace"
+    },
+    {
+     "level": 24,
+     "skill": "discipline"
+    },
+    {
+     "level": 11,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Mace Squad",
+   "x": 71,
+   "y": 39
+  },
+  {
+   "age": 42,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14556,
+   "level": "the-barracks",
+   "name": "Tun Zedotrigòth",
+   "name_english": "Tun Lobstercrafts",
+   "notable": [
+    "high vanity",
+    "low orderliness",
+    "low violent"
+   ],
+   "positions": [],
+   "profession": "Wrestler",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 11,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 8,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 7,
+     "skill": "discipline"
+    },
+    {
+     "level": 6,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 6,
+     "skill": "spinning"
+    }
+   ],
+   "squad": "The Steel Guard",
+   "x": 71,
+   "y": 46
+  },
+  {
+   "age": 37,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 14558,
+   "level": "the-great-hall",
+   "name": "Kogan Lelumletmos",
+   "name_english": "Kogan Waningcobalt",
+   "notable": [
+    "high cruelty",
+    "high discord",
+    "high dutifulness",
+    "values artwork"
+   ],
+   "positions": [],
+   "profession": "Carpenter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 16,
+     "skill": "carpentry"
+    },
+    {
+     "level": 4,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    }
+   ],
+   "x": 83,
+   "y": 54
+  },
+  {
+   "age": 41,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14605,
+   "level": "the-barracks",
+   "name": "Goden Unibducim",
+   "name_english": "Goden Ragworked",
+   "notable": [
+    "high hate propensity",
+    "low pride",
+    "high activity level",
+    "scorns introspection",
+    "values hard work",
+    "scorns loyalty"
+   ],
+   "positions": [],
+   "profession": "Axe Lord",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 25,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 21,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 17,
+     "skill": "axe"
+    },
+    {
+     "level": 16,
+     "skill": "discipline"
+    },
+    {
+     "level": 11,
+     "skill": "shield"
+    }
+   ],
+   "squad": "The Steel Guard",
+   "x": 62,
+   "y": 59
+  },
+  {
+   "age": 41,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14606,
+   "level": "the-farms",
+   "name": "Udib Nîlesasmel",
+   "name_english": "Udib Strapsmerchant",
+   "notable": [
+    "high anger propensity",
+    "high emotionally obsessive",
+    "high tolerant",
+    "values sacrifice"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 12,
+     "skill": "plant"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 4,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    }
+   ],
+   "x": 69,
+   "y": 58
+  },
+  {
+   "age": 62,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14607,
+   "level": "the-guildhalls",
+   "name": "Sibrek Thoblikot",
+   "name_english": "Sibrek Girderink",
+   "notable": [
+    "low bravery",
+    "low anxiety propensity",
+    "high hate propensity",
+    "values tranquility",
+    "values leisure time"
+   ],
+   "positions": [],
+   "profession": "Dyer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "dyer"
+    },
+    {
+     "level": 9,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 7,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 6,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "bookbinding"
+    }
+   ],
+   "x": 56,
+   "y": 59
+  },
+  {
+   "age": 38,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14608,
+   "level": "the-guildhalls",
+   "name": "Solon Besmardodók",
+   "name_english": "Solon Pulleyclasps",
+   "notable": [
+    "low wastefulness",
+    "high abstract inclined",
+    "low perseverance",
+    "scorns sacrifice",
+    "scorns power",
+    "values eloquence"
+   ],
+   "positions": [
+    "MILITIA_CAPTAIN"
+   ],
+   "profession": "militia captain",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "milk"
+    },
+    {
+     "level": 10,
+     "skill": "discipline"
+    },
+    {
+     "level": 9,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 9,
+     "skill": "mace"
+    },
+    {
+     "level": 9,
+     "skill": "situational_awareness"
+    }
+   ],
+   "squad": "The Mute Hammers",
+   "x": 72,
+   "y": 23
+  },
+  {
+   "age": 23,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14609,
+   "level": "the-temples",
+   "name": "Inod Eriblîlar",
+   "name_english": "Inod Gorgepattern",
+   "notable": [
+    "low anxiety propensity",
+    "low pride",
+    "scorns stoicism"
+   ],
+   "positions": [],
+   "profession": "Stonecutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 2,
+     "skill": "masonry"
+    },
+    {
+     "level": 1,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 1,
+     "skill": "discipline"
+    },
+    {
+     "level": 1,
+     "skill": "armor"
+    }
+   ],
+   "x": 72,
+   "y": 86
+  },
+  {
+   "age": 56,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "jeweler",
+   "id": 14611,
+   "level": "the-guildhalls",
+   "name": "Zasit Vucaratham",
+   "name_english": "Zasit Urnfocused",
+   "notable": [
+    "values tranquility",
+    "scorns nature",
+    "scorns self control"
+   ],
+   "positions": [],
+   "profession": "Gem Cutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "cutgem"
+    },
+    {
+     "level": 6,
+     "skill": "leatherwork"
+    },
+    {
+     "level": 4,
+     "skill": "geld"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 87,
+   "y": 63
+  },
+  {
+   "age": 24,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14612,
+   "level": "the-great-hall",
+   "name": "Kulet Idenabras",
+   "name_english": "Kulet Paddleseer",
+   "notable": [
+    "low pride",
+    "low hopeful",
+    "high altruism",
+    "values peace"
+   ],
+   "positions": [],
+   "profession": "Weaver",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "conversation"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    },
+    {
+     "level": 2,
+     "skill": "weaving"
+    },
+    {
+     "level": 2,
+     "skill": "dance"
+    },
+    {
+     "level": 2,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 88,
+   "y": 71
+  },
+  {
+   "age": 59,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 79,
+    "y": 122,
+    "z": 92
+   },
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14613,
+   "level": null,
+   "name": "Erib Sokankeskal",
+   "name_english": "Erib Phraseshoots",
+   "notable": [
+    "high altruism",
+    "high gregariousness",
+    "high abstract inclined",
+    "values peace",
+    "values power",
+    "values eloquence"
+   ],
+   "positions": [],
+   "profession": "Mason",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "masonry"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 2,
+     "skill": "conversation"
+    },
+    {
+     "level": 2,
+     "skill": "sing_music"
+    }
+   ]
+  },
+  {
+   "age": 57,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14614,
+   "level": "the-gate",
+   "name": "Ingish Bomrekemal",
+   "name_english": "Ingish Whipsensed",
+   "notable": [
+    "low bashful",
+    "low swayed by emotions",
+    "high excitement seeking",
+    "values tranquility",
+    "scorns harmony"
+   ],
+   "positions": [],
+   "profession": "Swordsmaster",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 26,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 26,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 21,
+     "skill": "sword"
+    },
+    {
+     "level": 21,
+     "skill": "discipline"
+    },
+    {
+     "level": 13,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Swords",
+   "x": 62,
+   "y": 59
+  },
+  {
+   "age": 57,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 73,
+    "y": 129,
+    "z": 96
+   },
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14616,
+   "level": null,
+   "name": "Deduk Ònulzes",
+   "name_english": "Deduk Mirrorbranded",
+   "notable": [
+    "high imagination",
+    "scorns decorum"
+   ],
+   "positions": [],
+   "profession": "Stoneworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "masonry"
+    },
+    {
+     "level": 10,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 5,
+     "skill": "trapping"
+    },
+    {
+     "level": 3,
+     "skill": "processplants"
+    },
+    {
+     "level": 2,
+     "skill": "persuasion"
+    }
+   ]
+  },
+  {
+   "age": 65,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 14617,
+   "level": "the-great-hall",
+   "name": "Oddom Olonnekut",
+   "name_english": "Oddom Gearedsecrets",
+   "notable": [
+    "low discord",
+    "values peace"
+   ],
+   "positions": [],
+   "profession": "Carpenter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 17,
+     "skill": "carpentry"
+    },
+    {
+     "level": 10,
+     "skill": "dissect_vermin"
+    },
+    {
+     "level": 5,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 5,
+     "skill": "climbing"
+    },
+    {
+     "level": 5,
+     "skill": "crossbow"
+    }
+   ],
+   "x": 68,
+   "y": 63
+  },
+  {
+   "age": 65,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 14618,
+   "level": "the-great-hall",
+   "name": "Id Kadolcatten",
+   "name_english": "Id Hatchetchanneled",
+   "notable": [
+    "low gratitude",
+    "high stress vulnerability",
+    "high cruelty",
+    "values fairness",
+    "values peace",
+    "values independence"
+   ],
+   "positions": [],
+   "profession": "Siege Operator",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "siegeoperate"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 1,
+     "skill": "bonecarve"
+    },
+    {
+     "level": 1,
+     "skill": "negotiation"
+    },
+    {
+     "level": 1,
+     "skill": "concentration"
+    }
+   ],
+   "x": 70,
+   "y": 66
+  },
+  {
+   "age": 43,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 84,
+    "y": 132,
+    "z": 96
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 14619,
+   "level": null,
+   "name": "Ineth Imushedtûl",
+   "name_english": "Ineth Dikegrooves",
+   "notable": [
+    "high curious",
+    "low anxiety propensity",
+    "high excitement seeking",
+    "values perseverance",
+    "scorns knowledge"
+   ],
+   "positions": [],
+   "profession": "Performer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "sing_music"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    }
+   ]
+  },
+  {
+   "age": 55,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 14620,
+   "level": "the-temples",
+   "name": "Rîsen Zocollolor",
+   "name_english": "Rîsen Covenletters",
+   "notable": [
+    "high imagination",
+    "high immoderation",
+    "high singleminded",
+    "values merriment"
+   ],
+   "positions": [],
+   "profession": "Woodcutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "woodcutting"
+    },
+    {
+     "level": 8,
+     "skill": "bookbinding"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 1,
+     "skill": "situational_awareness"
+    }
+   ],
+   "x": 62,
+   "y": 53
+  },
+  {
+   "age": 52,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14621,
+   "level": "the-great-hall",
+   "name": "Deduk Erarfikod",
+   "name_english": "Deduk Ledglaze",
+   "notable": [
+    "high art inclined",
+    "low friendliness",
+    "high trust",
+    "scorns perseverance",
+    "scorns harmony",
+    "scorns law"
+   ],
+   "positions": [],
+   "profession": "Stonecrafter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 16,
+     "skill": "stonecraft"
+    },
+    {
+     "level": 6,
+     "skill": "bookbinding"
+    },
+    {
+     "level": 4,
+     "skill": "pottery"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    }
+   ],
+   "x": 91,
+   "y": 47
+  },
+  {
+   "age": 36,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 14622,
+   "level": "the-workshops",
+   "name": "Dastot Lesastrigòth",
+   "name_english": "Dastot Flankcraft",
+   "notable": [
+    "high cruelty",
+    "high gratitude",
+    "values commerce"
+   ],
+   "positions": [],
+   "profession": "Wood Burner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 8,
+     "skill": "wood_burning"
+    },
+    {
+     "level": 2,
+     "skill": "negotiation"
+    },
+    {
+     "level": 2,
+     "skill": "dance"
+    },
+    {
+     "level": 2,
+     "skill": "conversation"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 61,
+   "y": 62
+  },
+  {
+   "age": 49,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "cook",
+   "id": 14623,
+   "level": "the-temples",
+   "name": "Vabôk Dîshmabmozib",
+   "name_english": "Vabôk Rampartswallowed",
+   "notable": [
+    "high vanity",
+    "low greed",
+    "high immoderation",
+    "values harmony"
+   ],
+   "positions": [],
+   "profession": "Cook",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 11,
+     "skill": "cook"
+    },
+    {
+     "level": 7,
+     "skill": "bowyer"
+    },
+    {
+     "level": 2,
+     "skill": "pacify"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    },
+    {
+     "level": 2,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 64,
+   "y": 51
+  },
+  {
+   "age": 25,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14625,
+   "level": "the-great-hall",
+   "name": "Alåth Nishmistêm",
+   "name_english": "Alåth Tradeportal",
+   "notable": [
+    "low excitement seeking",
+    "high altruism",
+    "high confidence",
+    "values sacrifice",
+    "scorns fairness"
+   ],
+   "positions": [],
+   "profession": "Clothier",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "clothesmaking"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    }
+   ],
+   "x": 67,
+   "y": 67
+  },
+  {
+   "age": 50,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 75,
+    "y": 122,
+    "z": 92
+   },
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 14626,
+   "level": null,
+   "name": "Tekkud Dodókkol",
+   "name_english": "Tekkud Claspwheeled",
+   "notable": [
+    "low pride",
+    "high singleminded",
+    "high wastefulness",
+    "values sacrifice"
+   ],
+   "positions": [],
+   "profession": "Diagnoser",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "persuasion"
+    },
+    {
+     "level": 2,
+     "skill": "conversation"
+    },
+    {
+     "level": 2,
+     "skill": "negotiation"
+    }
+   ]
+  },
+  {
+   "age": 62,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 14627,
+   "level": "the-great-hall",
+   "name": "Doren Mamotmelbil",
+   "name_english": "Doren Plaittome",
+   "notable": [
+    "low cruelty",
+    "high curious",
+    "scorns fairness"
+   ],
+   "positions": [],
+   "profession": "Diagnoser",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "conversation"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 2,
+     "skill": "lying"
+    },
+    {
+     "level": 2,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 68,
+   "y": 68
+  },
+  {
+   "age": 35,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 35,
+    "y": 136,
+    "z": 96
+   },
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14630,
+   "level": null,
+   "name": "Kûbuk Rifotreg",
+   "name_english": "Kûbuk Blockgloves",
+   "notable": [
+    "low hate propensity",
+    "high cheer propensity",
+    "low dutifulness",
+    "values power",
+    "scorns harmony",
+    "values nature"
+   ],
+   "positions": [],
+   "profession": "Stonecrafter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 7,
+     "skill": "stonecraft"
+    },
+    {
+     "level": 3,
+     "skill": "carpentry"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "sing_music"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    }
+   ]
+  },
+  {
+   "age": 47,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "brewer",
+   "id": 14631,
+   "level": "the-farms",
+   "name": "Zuglar Kashezkeskal",
+   "name_english": "Zuglar Lessonshoot",
+   "notable": [
+    "high depression propensity",
+    "low cruelty",
+    "high anger propensity",
+    "values peace"
+   ],
+   "positions": [],
+   "profession": "Brewer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 11,
+     "skill": "brewing"
+    },
+    {
+     "level": 3,
+     "skill": "conversation"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "flattery"
+    }
+   ],
+   "x": 89,
+   "y": 66
+  },
+  {
+   "age": 3,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "hauler",
+   "id": 14632,
+   "level": "the-workshops",
+   "name": "Momuz Kìrardoren",
+   "name_english": "Momuz Rightdiamonds",
+   "notable": [
+    "low tolerant",
+    "high love propensity",
+    "high curious",
+    "values tranquility"
+   ],
+   "positions": [],
+   "profession": "Dwarven Child",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 0,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 0,
+     "skill": "comedy"
+    },
+    {
+     "level": 0,
+     "skill": "console"
+    },
+    {
+     "level": 0,
+     "skill": "conversation"
+    },
+    {
+     "level": 0,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 52,
+   "y": 47
+  },
+  {
+   "age": 44,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14658,
+   "level": "the-guildhalls",
+   "name": "Ast Olintath",
+   "name_english": "Ast Tongsdusk",
+   "notable": [
+    "low closeminded",
+    "high anxiety propensity",
+    "high hate propensity",
+    "values tradition"
+   ],
+   "positions": [],
+   "profession": "Lasher",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 8,
+     "skill": "discipline"
+    },
+    {
+     "level": 7,
+     "skill": "dodging"
+    },
+    {
+     "level": 7,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 7,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 6,
+     "skill": "armor"
+    }
+   ],
+   "squad": "The Mute Hammers",
+   "x": 75,
+   "y": 31
+  },
+  {
+   "age": 58,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14659,
+   "level": "the-temples",
+   "name": "Edëm Regberdan",
+   "name_english": "Edëm Glovewalk",
+   "notable": [
+    "high vengeful",
+    "low excitement seeking",
+    "low cheer propensity"
+   ],
+   "positions": [],
+   "profession": "Potter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "pottery"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    },
+    {
+     "level": 4,
+     "skill": "intimidation"
+    },
+    {
+     "level": 4,
+     "skill": "tanner"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 64,
+   "y": 50
+  },
+  {
+   "age": 51,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14660,
+   "level": "the-gate",
+   "name": "Stâkud Taremmeng",
+   "name_english": "Stâkud Fatedlashes",
+   "notable": [
+    "high love propensity",
+    "high privacy",
+    "low dutifulness",
+    "values leisure time",
+    "values harmony"
+   ],
+   "positions": [],
+   "profession": "Swordsmaster",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 27,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 26,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 22,
+     "skill": "sword"
+    },
+    {
+     "level": 22,
+     "skill": "discipline"
+    },
+    {
+     "level": 11,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Swords",
+   "x": 62,
+   "y": 58
+  },
+  {
+   "age": 58,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14661,
+   "level": "the-great-hall",
+   "name": "Lòr Eseshkûbuk",
+   "name_english": "Lòr Spunlanced",
+   "notable": [
+    "high abstract inclined",
+    "high depression propensity",
+    "low cheer propensity",
+    "values harmony",
+    "scorns nature",
+    "scorns power"
+   ],
+   "positions": [],
+   "profession": "Miller",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "milling"
+    },
+    {
+     "level": 4,
+     "skill": "leatherwork"
+    },
+    {
+     "level": 1,
+     "skill": "dance"
+    },
+    {
+     "level": 1,
+     "skill": "concentration"
+    },
+    {
+     "level": 1,
+     "skill": "knowledge_acquisition"
+    }
+   ],
+   "x": 67,
+   "y": 71
+  },
+  {
+   "age": 64,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "hauler",
+   "id": 14662,
+   "level": "the-barracks",
+   "name": "Astesh Èrithstukón",
+   "name_english": "Astesh Laboredsquashed",
+   "notable": [
+    "high friendliness",
+    "high orderliness",
+    "low stress vulnerability",
+    "scorns power",
+    "scorns cooperation",
+    "values leisure time"
+   ],
+   "positions": [],
+   "profession": "Peasant",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "dress_wounds"
+    },
+    {
+     "level": 13,
+     "skill": "suture"
+    },
+    {
+     "level": 8,
+     "skill": "metalcraft"
+    },
+    {
+     "level": 5,
+     "skill": "intimidation"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    }
+   ],
+   "x": 46,
+   "y": 25
+  },
+  {
+   "age": 55,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14665,
+   "level": "the-farms",
+   "name": "Dodók Shoduklikot",
+   "name_english": "Dodók Divedink",
+   "notable": [
+    "high hate propensity",
+    "low stress vulnerability",
+    "low tolerant",
+    "values sacrifice",
+    "scorns law",
+    "values competition"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 9,
+     "skill": "plant"
+    },
+    {
+     "level": 6,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 3,
+     "skill": "crutch_walk"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "conversation"
+    }
+   ],
+   "x": 69,
+   "y": 57
+  },
+  {
+   "age": 23,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 73,
+    "y": 96,
+    "z": 74
+   },
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14666,
+   "level": null,
+   "name": "Mistêm Dummörul",
+   "name_english": "Mistêm Mouthpaged",
+   "notable": [
+    "high stress vulnerability",
+    "high cheer propensity",
+    "high love propensity",
+    "values merriment",
+    "values power",
+    "values stoicism"
+   ],
+   "positions": [],
+   "profession": "Stoneworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 8,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 7,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 7,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 3,
+     "skill": "spinning"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    }
+   ]
+  },
+  {
+   "age": 62,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14667,
+   "level": "the-gate",
+   "name": "Libash Oltaramost",
+   "name_english": "Libash Gilttowns",
+   "notable": [
+    "high love propensity",
+    "values merriment",
+    "values peace"
+   ],
+   "positions": [],
+   "profession": "Swordsmaster",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 25,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 25,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 19,
+     "skill": "sword"
+    },
+    {
+     "level": 19,
+     "skill": "discipline"
+    },
+    {
+     "level": 11,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Swords",
+   "x": 65,
+   "y": 58
+  },
+  {
+   "age": 40,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 14714,
+   "level": "the-guildhalls",
+   "name": "Melbil Dîshmabidräth",
+   "name_english": "Melbil Ramparttreasures",
+   "notable": [
+    "high curious"
+   ],
+   "positions": [],
+   "profession": "Blacksmith",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 7,
+     "skill": "forge_furniture"
+    },
+    {
+     "level": 6,
+     "skill": "dissect_fish"
+    },
+    {
+     "level": 6,
+     "skill": "fish"
+    },
+    {
+     "level": 6,
+     "skill": "processfish"
+    },
+    {
+     "level": 4,
+     "skill": "lying"
+    }
+   ],
+   "x": 63,
+   "y": 52
+  },
+  {
+   "age": 37,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 14715,
+   "level": "the-temples",
+   "name": "Zefon Emäthinod",
+   "name_english": "Zefon Bandedgates",
+   "notable": [
+    "low anger propensity",
+    "high vengeful",
+    "low confidence",
+    "scorns independence"
+   ],
+   "positions": [],
+   "profession": "Weaponsmith",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 8,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    }
+   ],
+   "x": 82,
+   "y": 69
+  },
+  {
+   "age": 33,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "jeweler",
+   "id": 14716,
+   "level": "the-great-hall",
+   "name": "Mestthos Mörulsárek",
+   "name_english": "Mestthos Pageechoes",
+   "notable": [
+    "low envy propensity",
+    "high dutifulness",
+    "low perfectionist",
+    "values harmony",
+    "scorns hard work",
+    "scorns leisure time"
+   ],
+   "positions": [],
+   "profession": "Gem Setter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "encrustgem"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    },
+    {
+     "level": 4,
+     "skill": "lying"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    }
+   ],
+   "x": 73,
+   "y": 55
+  },
+  {
+   "age": 63,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14717,
+   "level": "the-gate",
+   "name": "Ustuth Storlutavuz",
+   "name_english": "Ustuth Dimplemines",
+   "notable": [
+    "low closeminded",
+    "low tolerant"
+   ],
+   "positions": [],
+   "profession": "Swordsmaster",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 25,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 24,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 21,
+     "skill": "sword"
+    },
+    {
+     "level": 19,
+     "skill": "discipline"
+    },
+    {
+     "level": 11,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Swords",
+   "x": 69,
+   "y": 59
+  },
+  {
+   "age": 64,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14718,
+   "level": "the-gate",
+   "name": "Vucar Nethmeng",
+   "name_english": "Vucar Balancelashes",
+   "notable": [
+    "high stress vulnerability",
+    "high perseverance",
+    "high cheer propensity",
+    "values truth"
+   ],
+   "positions": [],
+   "profession": "Swordsmaster",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 29,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 25,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 24,
+     "skill": "sword"
+    },
+    {
+     "level": 22,
+     "skill": "discipline"
+    },
+    {
+     "level": 10,
+     "skill": "shield"
+    }
+   ],
+   "squad": "Steel Swords",
+   "x": 63,
+   "y": 59
+  },
+  {
+   "age": 64,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "noble",
+   "id": 14719,
+   "level": "the-great-hall",
+   "name": "Asmel Alåthcuggán",
+   "name_english": "Asmel Boltedsand",
+   "notable": [
+    "high bashful",
+    "high dutifulness",
+    "high swayed by emotions",
+    "values power",
+    "scorns peace",
+    "scorns merriment"
+   ],
+   "positions": [
+    "MESSENGER"
+   ],
+   "profession": "messenger",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "soap_making"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    }
+   ],
+   "x": 91,
+   "y": 73
+  },
+  {
+   "age": 45,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "herder",
+   "id": 14721,
+   "level": "the-farms",
+   "name": "Olon Urdimet",
+   "name_english": "Olon Towerlate",
+   "notable": [
+    "high cruelty",
+    "low lust propensity",
+    "low perfectionist",
+    "values truth"
+   ],
+   "positions": [],
+   "profession": "Animal Dissector",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "dissect_vermin"
+    },
+    {
+     "level": 6,
+     "skill": "brewing"
+    },
+    {
+     "level": 2,
+     "skill": "console"
+    },
+    {
+     "level": 2,
+     "skill": "lying"
+    },
+    {
+     "level": 2,
+     "skill": "conversation"
+    }
+   ],
+   "x": 63,
+   "y": 77
+  },
+  {
+   "age": 27,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 14722,
+   "level": "the-great-hall",
+   "name": "Likot Tôsedèrith",
+   "name_english": "Likot Stoppedlabors",
+   "notable": [
+    "high art inclined",
+    "low disdain advice",
+    "low closeminded"
+   ],
+   "positions": [
+    "CHIEF_MEDICAL_DWARF"
+   ],
+   "profession": "chief medical dwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 5,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    }
+   ],
+   "x": 68,
+   "y": 64
+  },
+  {
+   "age": 2,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 70,
+    "y": 126,
+    "z": 96
+   },
+   "district": "the-gate",
+   "home_job": "hauler",
+   "id": 14806,
+   "level": null,
+   "name": "Olin Cattenrab",
+   "name_english": "Olin Channeledglow",
+   "notable": [
+    "high anger propensity",
+    "values romance",
+    "scorns tradition"
+   ],
+   "positions": [],
+   "profession": "Dwarven Child",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 0,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 0,
+     "skill": "comedy"
+    },
+    {
+     "level": 0,
+     "skill": "console"
+    },
+    {
+     "level": 0,
+     "skill": "conversation"
+    },
+    {
+     "level": 0,
+     "skill": "intimidation"
+    }
+   ]
+  },
+  {
+   "age": 27,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14824,
+   "level": "the-temples",
+   "name": "Zas Kälánzuntîr",
+   "name_english": "Zas Trailanvil",
+   "notable": [
+    "high gratitude",
+    "high gregariousness",
+    "low imagination"
+   ],
+   "positions": [],
+   "profession": "Farmer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "soap_making"
+    },
+    {
+     "level": 5,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 4,
+     "skill": "butcher"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "play_stringed_instrument"
+    }
+   ],
+   "x": 54,
+   "y": 55
+  },
+  {
+   "age": 50,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14825,
+   "level": "the-gate",
+   "name": "Udib Anamiden",
+   "name_english": "Udib Agepaddled",
+   "notable": [],
+   "positions": [],
+   "profession": "Speardwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 12,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 11,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 9,
+     "skill": "discipline"
+    },
+    {
+     "level": 9,
+     "skill": "spear"
+    },
+    {
+     "level": 6,
+     "skill": "concentration"
+    }
+   ],
+   "squad": "Steel Spears",
+   "x": 65,
+   "y": 54
+  },
+  {
+   "age": 56,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 102,
+    "y": 149,
+    "z": 92
+   },
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14828,
+   "level": null,
+   "name": "Äs Kolorshar",
+   "name_english": "Äs Wheeledwebs",
+   "notable": [
+    "low gregariousness",
+    "values peace",
+    "values knowledge"
+   ],
+   "positions": [],
+   "profession": "Presser",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "pressing"
+    },
+    {
+     "level": 4,
+     "skill": "suture"
+    },
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    }
+   ]
+  },
+  {
+   "age": 30,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 14829,
+   "level": "the-great-hall",
+   "name": "Lorbam Kekimdoren",
+   "name_english": "Lorbam Splatterdiamonds",
+   "notable": [
+    "high altruism",
+    "high love propensity",
+    "high abstract inclined",
+    "values knowledge"
+   ],
+   "positions": [],
+   "profession": "Diagnoser",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "diagnose"
+    },
+    {
+     "level": 6,
+     "skill": "dress_wounds"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 3,
+     "skill": "suture"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    }
+   ],
+   "x": 69,
+   "y": 63
+  },
+  {
+   "age": 41,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14830,
+   "level": "the-guildhalls",
+   "name": "Nil Shorastsazir",
+   "name_english": "Nil Wirebridge",
+   "notable": [
+    "scorns romance",
+    "values cooperation"
+   ],
+   "positions": [],
+   "profession": "Wrestler",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "milling"
+    },
+    {
+     "level": 5,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 4,
+     "skill": "discipline"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    },
+    {
+     "level": 4,
+     "skill": "dodging"
+    }
+   ],
+   "squad": "The Mute Hammers",
+   "x": 71,
+   "y": 24
+  },
+  {
+   "age": 51,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14831,
+   "level": "the-great-hall",
+   "name": "Goden Ustuthinod",
+   "name_english": "Goden Fencedgates",
+   "notable": [
+    "values nature",
+    "values loyalty"
+   ],
+   "positions": [],
+   "profession": "Weaver",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "weaving"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 2,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 2,
+     "skill": "flattery"
+    }
+   ],
+   "x": 69,
+   "y": 47
+  },
+  {
+   "age": 46,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14832,
+   "level": "the-temples",
+   "name": "Sigun Lokumzursùl",
+   "name_english": "Sigun Spearchews",
+   "notable": [
+    "low stress vulnerability",
+    "low closeminded",
+    "low hate propensity",
+    "values law"
+   ],
+   "positions": [],
+   "profession": "Wax Worker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "wax_working"
+    },
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 4,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 3,
+     "skill": "dissect_fish"
+    },
+    {
+     "level": 1,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 72,
+   "y": 87
+  },
+  {
+   "age": 40,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14833,
+   "level": "the-great-hall",
+   "name": "Tun Ïngizsezuk",
+   "name_english": "Tun Ceilingslapped",
+   "notable": [
+    "low depression propensity",
+    "high abstract inclined"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 8,
+     "skill": "plant"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "flattery"
+    },
+    {
+     "level": 3,
+     "skill": "siegecraft"
+    }
+   ],
+   "x": 68,
+   "y": 51
+  },
+  {
+   "age": 51,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14834,
+   "level": "the-temples",
+   "name": "Geshud Stinthädgan",
+   "name_english": "Geshud Theaterdish",
+   "notable": [
+    "high anxiety propensity",
+    "high cheer propensity",
+    "values sacrifice"
+   ],
+   "positions": [],
+   "profession": "Farmer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "brewing"
+    },
+    {
+     "level": 3,
+     "skill": "writing"
+    },
+    {
+     "level": 2,
+     "skill": "processplants"
+    },
+    {
+     "level": 2,
+     "skill": "butcher"
+    },
+    {
+     "level": 2,
+     "skill": "prose"
+    }
+   ],
+   "x": 83,
+   "y": 56
+  },
+  {
+   "age": 41,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14835,
+   "level": "the-temples",
+   "name": "Avuz Akrullogem",
+   "name_english": "Avuz Tinpaint",
+   "notable": [
+    "low gratitude",
+    "high dutifulness",
+    "low humor"
+   ],
+   "positions": [],
+   "profession": "Presser",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "pressing"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "smelt"
+    },
+    {
+     "level": 2,
+     "skill": "comedy"
+    }
+   ],
+   "x": 63,
+   "y": 51
+  },
+  {
+   "age": 40,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 14836,
+   "level": "the-workshops",
+   "name": "Aban Gingmistêm",
+   "name_english": "Aban Youngportals",
+   "notable": [
+    "low tolerant",
+    "high anger propensity",
+    "high hopeful",
+    "values tradition"
+   ],
+   "positions": [],
+   "profession": "Siege Engineer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "siegecraft"
+    },
+    {
+     "level": 5,
+     "skill": "intrigue"
+    },
+    {
+     "level": 5,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    }
+   ],
+   "x": 36,
+   "y": 61
+  },
+  {
+   "age": 60,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14838,
+   "level": "the-guildhalls",
+   "name": "Lolor Alåthbavast",
+   "name_english": "Lolor Boltsglides",
+   "notable": [
+    "high assertiveness",
+    "high politeness",
+    "low trust",
+    "values competition"
+   ],
+   "positions": [],
+   "profession": "Papermaker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "papermaking"
+    },
+    {
+     "level": 12,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 2,
+     "skill": "lying"
+    },
+    {
+     "level": 2,
+     "skill": "conversation"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 61,
+   "y": 61
+  },
+  {
+   "age": 25,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "clerk",
+   "id": 14839,
+   "level": "the-temples",
+   "name": "Momuz Oddomór",
+   "name_english": "Momuz Cloisterdrunken",
+   "notable": [
+    "high cruelty",
+    "low hate propensity",
+    "high dutifulness",
+    "values tranquility",
+    "scorns martial prowess",
+    "scorns stoicism"
+   ],
+   "positions": [],
+   "profession": "Administrator",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "conversation"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "flattery"
+    }
+   ],
+   "x": 77,
+   "y": 58
+  },
+  {
+   "age": 43,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14840,
+   "level": "the-gate",
+   "name": "Id Sodelstinthäd",
+   "name_english": "Id Shieldtheater",
+   "notable": [
+    "high immoderation",
+    "scorns leisure time",
+    "values craftsmanship"
+   ],
+   "positions": [],
+   "profession": "Speardwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 12,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 11,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 9,
+     "skill": "spear"
+    },
+    {
+     "level": 9,
+     "skill": "discipline"
+    },
+    {
+     "level": 6,
+     "skill": "suture"
+    }
+   ],
+   "squad": "Steel Spears",
+   "x": 58,
+   "y": 53
+  },
+  {
+   "age": 36,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14841,
+   "level": "the-gate",
+   "name": "Minkot Uvarcatten",
+   "name_english": "Minkot Lullchannel",
+   "notable": [
+    "high depression propensity",
+    "high activity level",
+    "low perseverance",
+    "scorns leisure time"
+   ],
+   "positions": [],
+   "profession": "Speardwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 12,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 10,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 7,
+     "skill": "discipline"
+    },
+    {
+     "level": 7,
+     "skill": "spear"
+    },
+    {
+     "level": 7,
+     "skill": "concentration"
+    }
+   ],
+   "squad": "Steel Spears",
+   "x": 64,
+   "y": 52
+  },
+  {
+   "age": 2,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 101,
+    "y": 127,
+    "z": 96
+   },
+   "district": "the-gate",
+   "home_job": "hauler",
+   "id": 14861,
+   "level": null,
+   "name": "Zon Storlutmistêm",
+   "name_english": "Zon Dimpleportal",
+   "notable": [
+    "high violent",
+    "scorns harmony",
+    "values peace",
+    "scorns merriment"
+   ],
+   "positions": [],
+   "profession": "Dwarven Child",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 0,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 0,
+     "skill": "comedy"
+    },
+    {
+     "level": 0,
+     "skill": "console"
+    },
+    {
+     "level": 0,
+     "skill": "intimidation"
+    },
+    {
+     "level": 0,
+     "skill": "judging_intent"
+    }
+   ]
+  },
+  {
+   "age": 23,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 14887,
+   "level": "the-great-hall",
+   "name": "Fath Kàslikot",
+   "name_english": "Fath Quietinked",
+   "notable": [
+    "low violent",
+    "high friendliness",
+    "high love propensity",
+    "values sacrifice"
+   ],
+   "positions": [],
+   "profession": "Metalsmith",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "smelt"
+    },
+    {
+     "level": 4,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 4,
+     "skill": "forge_armor"
+    },
+    {
+     "level": 4,
+     "skill": "forge_furniture"
+    },
+    {
+     "level": 4,
+     "skill": "metalcraft"
+    }
+   ],
+   "x": 90,
+   "y": 47
+  },
+  {
+   "age": 20,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14890,
+   "level": "the-great-hall",
+   "name": "Fath Bungekalåth",
+   "name_english": "Fath Lizardbolts",
+   "notable": [
+    "low love propensity",
+    "high cruelty",
+    "high orderliness"
+   ],
+   "positions": [],
+   "profession": "Soap Maker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "soap_making"
+    },
+    {
+     "level": 6,
+     "skill": "mechanics"
+    },
+    {
+     "level": 5,
+     "skill": "riding"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "conversation"
+    }
+   ],
+   "x": 74,
+   "y": 74
+  },
+  {
+   "age": 43,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14893,
+   "level": "the-guildhalls",
+   "name": "Kivish Zansongthob",
+   "name_english": "Kivish Massivegirder",
+   "notable": [
+    "low depression propensity",
+    "high cruelty",
+    "high greed",
+    "values perseverance",
+    "values commerce",
+    "scorns sacrifice"
+   ],
+   "positions": [],
+   "profession": "Engraver",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 7,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 6,
+     "skill": "siegecraft"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 67,
+   "y": 66
+  },
+  {
+   "age": 58,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 14896,
+   "level": "the-guildhalls",
+   "name": "Reg Onolnikuz",
+   "name_english": "Reg Mountainpride",
+   "notable": [
+    "low thoughtlessness",
+    "high depression propensity",
+    "low bashful",
+    "values tranquility",
+    "scorns competition"
+   ],
+   "positions": [],
+   "profession": "Engraver",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 23,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "flattery"
+    }
+   ],
+   "x": 64,
+   "y": 45
+  },
+  {
+   "age": 21,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 14897,
+   "level": "the-guildhalls",
+   "name": "Likot Mebzuthnokgol",
+   "name_english": "Likot Oarriddles",
+   "notable": [
+    "low altruism",
+    "high closeminded",
+    "low politeness",
+    "scorns nature",
+    "scorns martial prowess"
+   ],
+   "positions": [],
+   "profession": "Performer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 3,
+     "skill": "play_stringed_instrument"
+    },
+    {
+     "level": 2,
+     "skill": "make_music"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 1,
+     "skill": "situational_awareness"
+    }
+   ],
+   "x": 62,
+   "y": 50
+  },
+  {
+   "age": 32,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 14900,
+   "level": "the-great-hall",
+   "name": "Zon Sengèrith",
+   "name_english": "Zon Runglabored",
+   "notable": [
+    "high activity level",
+    "high dutifulness",
+    "scorns self control"
+   ],
+   "positions": [],
+   "profession": "Farmer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 7,
+     "skill": "processplants"
+    },
+    {
+     "level": 6,
+     "skill": "plant"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    }
+   ],
+   "x": 89,
+   "y": 77
+  },
+  {
+   "age": 58,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 14901,
+   "level": "the-temples",
+   "name": "Tholtig Ozkakral",
+   "name_english": "Tholtig Carrysilvers",
+   "notable": [
+    "low imagination",
+    "low ambition",
+    "high tolerant",
+    "values sacrifice",
+    "scorns cooperation"
+   ],
+   "positions": [],
+   "profession": "Surgeon",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 2,
+     "skill": "pacify"
+    },
+    {
+     "level": 2,
+     "skill": "lying"
+    },
+    {
+     "level": 2,
+     "skill": "persuasion"
+    },
+    {
+     "level": 2,
+     "skill": "console"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 83,
+   "y": 58
+  },
+  {
+   "age": 43,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 14902,
+   "level": "the-temples",
+   "name": "Cerol Medtobustir",
+   "name_english": "Cerol Blockadecrow",
+   "notable": [
+    "low immoderation",
+    "low trust",
+    "scorns nature",
+    "values harmony",
+    "values competition"
+   ],
+   "positions": [],
+   "profession": "Metalcrafter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "metalcraft"
+    },
+    {
+     "level": 4,
+     "skill": "lying"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    },
+    {
+     "level": 4,
+     "skill": "intimidation"
+    },
+    {
+     "level": 4,
+     "skill": "conversation"
+    }
+   ],
+   "x": 68,
+   "y": 49
+  },
+  {
+   "age": 35,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "clerk",
+   "id": 14903,
+   "level": "the-great-hall",
+   "name": "Zasit Domaskir",
+   "name_english": "Zasit Guildmerges",
+   "notable": [
+    "low thoughtlessness",
+    "high orderliness",
+    "high privacy",
+    "values nature"
+   ],
+   "positions": [],
+   "profession": "Administrator",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "concentration"
+    },
+    {
+     "level": 3,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 69,
+   "y": 66
+  },
+  {
+   "age": 2,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 68,
+    "y": 132,
+    "z": 96
+   },
+   "district": "the-gate",
+   "home_job": "hauler",
+   "id": 14906,
+   "level": null,
+   "name": "Id Rovodrabed",
+   "name_english": "Id Archfreckles",
+   "notable": [
+    "low violent",
+    "low dutifulness",
+    "high emotionally obsessive"
+   ],
+   "positions": [],
+   "profession": "Dwarven Child",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 0,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 0,
+     "skill": "comedy"
+    },
+    {
+     "level": 0,
+     "skill": "console"
+    },
+    {
+     "level": 0,
+     "skill": "conversation"
+    },
+    {
+     "level": 0,
+     "skill": "intimidation"
+    }
+   ]
+  },
+  {
+   "age": 45,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "miner",
+   "id": 14937,
+   "level": "the-great-hall",
+   "name": "Ònul Ugutedëm",
+   "name_english": "Ònul Tautkeys",
+   "notable": [
+    "low violent",
+    "values harmony"
+   ],
+   "positions": [],
+   "profession": "Miner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "mining"
+    },
+    {
+     "level": 5,
+     "skill": "bookbinding"
+    },
+    {
+     "level": 4,
+     "skill": "milk"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    },
+    {
+     "level": 2,
+     "skill": "conversation"
+    }
+   ],
+   "x": 81,
+   "y": 49
+  },
+  {
+   "age": 27,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 14938,
+   "level": "the-guildhalls",
+   "name": "Vabôk Uzolsodel",
+   "name_english": "Vabôk Oilyshields",
+   "notable": [
+    "low depression propensity",
+    "high stress vulnerability",
+    "high friendliness",
+    "scorns perseverance",
+    "values independence"
+   ],
+   "positions": [],
+   "profession": "Wrestler",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "animaltrain"
+    },
+    {
+     "level": 5,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 5,
+     "skill": "dodging"
+    },
+    {
+     "level": 5,
+     "skill": "concentration"
+    },
+    {
+     "level": 5,
+     "skill": "knowledge_acquisition"
+    }
+   ],
+   "squad": "The Mute Hammers",
+   "x": 75,
+   "y": 27
+  },
+  {
+   "age": 32,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 93,
+    "y": 127,
+    "z": 96
+   },
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 14939,
+   "level": null,
+   "name": "Cog Fikodgusgash",
+   "name_english": "Cog Glazestokers",
+   "notable": [
+    "low anxiety propensity",
+    "low confidence",
+    "high excitement seeking",
+    "values truth"
+   ],
+   "positions": [],
+   "profession": "Armorer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "forge_armor"
+    },
+    {
+     "level": 5,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 5,
+     "skill": "armor"
+    },
+    {
+     "level": 5,
+     "skill": "axe"
+    },
+    {
+     "level": 5,
+     "skill": "climbing"
+    }
+   ]
+  },
+  {
+   "age": 33,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 80,
+    "y": 123,
+    "z": 92
+   },
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 14940,
+   "level": null,
+   "name": "Ingish Erushsákrith",
+   "name_english": "Ingish Handleblazed",
+   "notable": [
+    "high hate propensity",
+    "high tolerant",
+    "values tranquility"
+   ],
+   "positions": [],
+   "profession": "Soap Maker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "soap_making"
+    },
+    {
+     "level": 3,
+     "skill": "weaving"
+    },
+    {
+     "level": 3,
+     "skill": "sing_music"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    }
+   ]
+  },
+  {
+   "age": 29,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 14941,
+   "level": "the-great-hall",
+   "name": "Reg Mesèrith",
+   "name_english": "Reg Creaturelabored",
+   "notable": [
+    "low perfectionist",
+    "low stress vulnerability",
+    "low discord",
+    "values craftsmanship"
+   ],
+   "positions": [],
+   "profession": "Siege Engineer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "intimidation"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    }
+   ],
+   "x": 71,
+   "y": 65
+  },
+  {
+   "age": 53,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 80,
+    "y": 121,
+    "z": 92
+   },
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 14944,
+   "level": null,
+   "name": "Inod Insélsazir",
+   "name_english": "Inod Gangbridge",
+   "notable": [
+    "low confidence",
+    "low perseverance",
+    "low cheer propensity",
+    "scorns stoicism",
+    "scorns nature",
+    "values peace"
+   ],
+   "positions": [],
+   "profession": "Weaponsmith",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 5,
+     "skill": "lying"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    }
+   ]
+  },
+  {
+   "age": 55,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 103,
+    "y": 147,
+    "z": 92
+   },
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 15075,
+   "level": null,
+   "name": "Kikrost Keloddom",
+   "name_english": "Kikrost Metalcloisters",
+   "notable": [
+    "high pride",
+    "high vanity",
+    "low hate propensity",
+    "values nature",
+    "values stoicism",
+    "values commerce"
+   ],
+   "positions": [],
+   "profession": "Wood Burner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "wood_burning"
+    },
+    {
+     "level": 5,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 3,
+     "skill": "pottery"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    }
+   ]
+  },
+  {
+   "age": 46,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 15076,
+   "level": "the-great-hall",
+   "name": "Astesh Íkthaglòr",
+   "name_english": "Astesh Squeezedtools",
+   "notable": [
+    "high thoughtlessness"
+   ],
+   "positions": [],
+   "profession": "Thresher",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "processplants"
+    },
+    {
+     "level": 5,
+     "skill": "persuasion"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    }
+   ],
+   "x": 69,
+   "y": 65
+  },
+  {
+   "age": 39,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 15078,
+   "level": "the-farms",
+   "name": "Amost Lolokducim",
+   "name_english": "Amost Granitework",
+   "notable": [
+    "high swayed by emotions",
+    "high pride",
+    "high cheer propensity"
+   ],
+   "positions": [],
+   "profession": "Doctor",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 5,
+     "skill": "geld"
+    },
+    {
+     "level": 5,
+     "skill": "suture"
+    },
+    {
+     "level": 5,
+     "skill": "diagnose"
+    },
+    {
+     "level": 5,
+     "skill": "set_bone"
+    },
+    {
+     "level": 5,
+     "skill": "dress_wounds"
+    }
+   ],
+   "x": 46,
+   "y": 65
+  },
+  {
+   "age": 41,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15080,
+   "level": "the-temples",
+   "name": "Amost Dumatzedot",
+   "name_english": "Amost Roughnesslobsters",
+   "notable": [
+    "high assertiveness",
+    "low lust propensity",
+    "values competition",
+    "scorns cunning"
+   ],
+   "positions": [],
+   "profession": "Leatherworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "leatherwork"
+    },
+    {
+     "level": 3,
+     "skill": "clothesmaking"
+    },
+    {
+     "level": 3,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 65,
+   "y": 37
+  },
+  {
+   "age": 56,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 87,
+    "y": 124,
+    "z": 96
+   },
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 15081,
+   "level": null,
+   "name": "Momuz Rîsenvesh",
+   "name_english": "Momuz Coaldust",
+   "notable": [
+    "high depression propensity",
+    "low cheer propensity",
+    "low love propensity"
+   ],
+   "positions": [],
+   "profession": "Diagnoser",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "diagnose"
+    },
+    {
+     "level": 10,
+     "skill": "dress_wounds"
+    },
+    {
+     "level": 6,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ]
+  },
+  {
+   "age": 20,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-temples",
+   "home_job": "fisher",
+   "id": 15084,
+   "level": "the-temples",
+   "name": "Mebzuth Kadollenod",
+   "name_english": "Mebzuth Hatchetseed",
+   "notable": [
+    "low ambition",
+    "high gregariousness",
+    "low pride",
+    "scorns perseverance",
+    "scorns commerce"
+   ],
+   "positions": [],
+   "profession": "Fisherdwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "fish"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 68,
+   "y": 37
+  },
+  {
+   "age": 61,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 15085,
+   "level": "the-gate",
+   "name": "Fikod Mebùshrir",
+   "name_english": "Fikod Inchquakes",
+   "notable": [
+    "high politeness",
+    "high violent",
+    "low anger propensity",
+    "values leisure time"
+   ],
+   "positions": [
+    "MILITIA_CAPTAIN"
+   ],
+   "profession": "militia captain",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 12,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 12,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 10,
+     "skill": "discipline"
+    },
+    {
+     "level": 10,
+     "skill": "spear"
+    },
+    {
+     "level": 6,
+     "skill": "concentration"
+    }
+   ],
+   "squad": "Steel Spears",
+   "x": 64,
+   "y": 47
+  },
+  {
+   "age": 52,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15086,
+   "level": "the-temples",
+   "name": "Rimtar Koganavéd",
+   "name_english": "Rimtar Boatclobbered",
+   "notable": [
+    "high ambition",
+    "low immoderation",
+    "high bashful"
+   ],
+   "positions": [],
+   "profession": "Craftsdwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "pottery"
+    },
+    {
+     "level": 4,
+     "skill": "wax_working"
+    },
+    {
+     "level": 2,
+     "skill": "flattery"
+    },
+    {
+     "level": 2,
+     "skill": "comedy"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 64,
+   "y": 36
+  },
+  {
+   "age": 36,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 15087,
+   "level": "the-gate",
+   "name": "Ingish Geshudäkil",
+   "name_english": "Ingish Fortresspoints",
+   "notable": [
+    "high stress vulnerability",
+    "low activity level",
+    "low assertiveness",
+    "scorns fairness",
+    "scorns decorum"
+   ],
+   "positions": [],
+   "profession": "Speardwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 13,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 11,
+     "skill": "discipline"
+    },
+    {
+     "level": 10,
+     "skill": "spear"
+    },
+    {
+     "level": 5,
+     "skill": "wrestling"
+    }
+   ],
+   "squad": "Steel Spears",
+   "x": 64,
+   "y": 54
+  },
+  {
+   "age": 30,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 15088,
+   "level": "the-temples",
+   "name": "Unib Othsinoddom",
+   "name_english": "Unib Bowedcloisters",
+   "notable": [
+    "low bravery",
+    "high trust",
+    "low ambition",
+    "values martial prowess"
+   ],
+   "positions": [],
+   "profession": "Siege Engineer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "siegecraft"
+    },
+    {
+     "level": 5,
+     "skill": "papermaking"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    }
+   ],
+   "x": 84,
+   "y": 68
+  },
+  {
+   "age": 28,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "herder",
+   "id": 15089,
+   "level": "the-great-hall",
+   "name": "Erush Sûbillimul",
+   "name_english": "Erush Robustgold",
+   "notable": [
+    "low depression propensity",
+    "values friendship"
+   ],
+   "positions": [],
+   "profession": "Milker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "milk"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    }
+   ],
+   "x": 75,
+   "y": 76
+  },
+  {
+   "age": 60,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15091,
+   "level": "the-temples",
+   "name": "Shorast Ilralmatul",
+   "name_english": "Shorast Treatydances",
+   "notable": [
+    "low activity level",
+    "scorns sacrifice",
+    "scorns tranquility"
+   ],
+   "positions": [],
+   "profession": "Wax Worker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "wax_working"
+    },
+    {
+     "level": 5,
+     "skill": "mining"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 2,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 64,
+   "y": 47
+  },
+  {
+   "age": 25,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-noble-halls",
+   "home_job": "doctor",
+   "id": 15094,
+   "level": "the-great-hall",
+   "name": "Cog Èrithdèg",
+   "name_english": "Cog Laboredeven",
+   "notable": [
+    "high wastefulness",
+    "high anger propensity",
+    "high stress vulnerability"
+   ],
+   "positions": [],
+   "profession": "Bone Doctor",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "dress_wounds"
+    },
+    {
+     "level": 6,
+     "skill": "set_bone"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    },
+    {
+     "level": 2,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 71,
+   "y": 49
+  },
+  {
+   "age": 52,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15095,
+   "level": "the-great-hall",
+   "name": "Catten Erallisat",
+   "name_english": "Catten Vesselnotch",
+   "notable": [],
+   "positions": [],
+   "profession": "Craftsdwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 5,
+     "skill": "concentration"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 3,
+     "skill": "persuasion"
+    }
+   ],
+   "x": 91,
+   "y": 45
+  },
+  {
+   "age": 62,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 15098,
+   "level": "the-temples",
+   "name": "Edzul Dumaban",
+   "name_english": "Edzul Mouthconstructs",
+   "notable": [
+    "high gratitude",
+    "scorns commerce",
+    "scorns law",
+    "values loyalty"
+   ],
+   "positions": [],
+   "profession": "Stonecutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 3,
+     "skill": "glassmaker"
+    },
+    {
+     "level": 2,
+     "skill": "comedy"
+    }
+   ],
+   "x": 65,
+   "y": 93
+  },
+  {
+   "age": 22,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 15099,
+   "level": "the-temples",
+   "name": "Dumat Lisidlokum",
+   "name_english": "Dumat Clashesspears",
+   "notable": [
+    "low greed",
+    "low stress vulnerability",
+    "values martial prowess"
+   ],
+   "positions": [],
+   "profession": "Stoneworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 6,
+     "skill": "masonry"
+    },
+    {
+     "level": 3,
+     "skill": "bookbinding"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 2,
+     "skill": "sing_music"
+    }
+   ],
+   "x": 54,
+   "y": 51
+  },
+  {
+   "age": 31,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 15100,
+   "level": "the-gate",
+   "name": "Onget Zuglarrodem",
+   "name_english": "Onget Shippelt",
+   "notable": [
+    "high assertiveness",
+    "scorns commerce"
+   ],
+   "positions": [],
+   "profession": "Speardwarf",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 12,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 12,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 11,
+     "skill": "discipline"
+    },
+    {
+     "level": 10,
+     "skill": "spear"
+    },
+    {
+     "level": 6,
+     "skill": "concentration"
+    }
+   ],
+   "squad": "Steel Spears",
+   "x": 64,
+   "y": 50
+  },
+  {
+   "age": 45,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 15101,
+   "level": "the-guildhalls",
+   "name": "Medtob Såkzulkôn",
+   "name_english": "Medtob Trumpetmastered",
+   "notable": [
+    "high friendliness",
+    "values decorum",
+    "values skill",
+    "values leisure time"
+   ],
+   "positions": [],
+   "profession": "Lasher",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "melee_combat"
+    },
+    {
+     "level": 6,
+     "skill": "geld"
+    },
+    {
+     "level": 6,
+     "skill": "discipline"
+    },
+    {
+     "level": 6,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 5,
+     "skill": "shield"
+    }
+   ],
+   "squad": "The Mute Hammers",
+   "x": 72,
+   "y": 25
+  },
+  {
+   "age": 22,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 15103,
+   "level": "the-great-hall",
+   "name": "Tekkud Abanegath",
+   "name_english": "Tekkud Constructjungles",
+   "notable": [
+    "high violent",
+    "high singleminded",
+    "low orderliness",
+    "scorns commerce",
+    "values tranquility"
+   ],
+   "positions": [],
+   "profession": "Planter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "negotiation"
+    },
+    {
+     "level": 2,
+     "skill": "dance"
+    },
+    {
+     "level": 2,
+     "skill": "plant"
+    },
+    {
+     "level": 1,
+     "skill": "bonecarve"
+    },
+    {
+     "level": 1,
+     "skill": "flattery"
+    }
+   ],
+   "x": 70,
+   "y": 67
+  },
+  {
+   "age": 25,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 80,
+    "y": 122,
+    "z": 92
+   },
+   "district": "the-gate",
+   "home_job": "fisher",
+   "id": 15133,
+   "level": null,
+   "name": "Rakust Ònulthak",
+   "name_english": "Rakust Mirrorlocks",
+   "notable": [
+    "high trust",
+    "low excitement seeking",
+    "values skill"
+   ],
+   "positions": [],
+   "profession": "Fish Cleaner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "processfish"
+    },
+    {
+     "level": 3,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 2,
+     "skill": "dance"
+    }
+   ]
+  },
+  {
+   "age": 40,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 15135,
+   "level": "the-temples",
+   "name": "Fath Sárekrimtar",
+   "name_english": "Fath Echocastles",
+   "notable": [
+    "low tolerant",
+    "low emotionally obsessive",
+    "high anxiety propensity"
+   ],
+   "positions": [],
+   "profession": "Metalcrafter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "metalcraft"
+    },
+    {
+     "level": 7,
+     "skill": "flattery"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    },
+    {
+     "level": 2,
+     "skill": "negotiation"
+    },
+    {
+     "level": 2,
+     "skill": "lying"
+    }
+   ],
+   "x": 76,
+   "y": 40
+  },
+  {
+   "age": 39,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15136,
+   "level": "the-great-hall",
+   "name": "Tobul Ildommeng",
+   "name_english": "Tobul Faintedlash",
+   "notable": [
+    "high stress vulnerability",
+    "scorns independence",
+    "scorns merriment"
+   ],
+   "positions": [],
+   "profession": "Dyer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 5,
+     "skill": "dyer"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "persuasion"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 67,
+   "y": 48
+  },
+  {
+   "age": 31,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 78,
+    "y": 122,
+    "z": 92
+   },
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 15137,
+   "level": null,
+   "name": "Zefon Ïngizkokeb",
+   "name_english": "Zefon Ceilingdwelled",
+   "notable": [
+    "high gregariousness",
+    "low emotionally obsessive"
+   ],
+   "positions": [],
+   "profession": "Gelder",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "play_stringed_instrument"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 2,
+     "skill": "geld"
+    },
+    {
+     "level": 1,
+     "skill": "make_music"
+    }
+   ]
+  },
+  {
+   "age": 44,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 15139,
+   "level": "the-temples",
+   "name": "Inod Sibrekkälán",
+   "name_english": "Inod Salvetrailed",
+   "notable": [
+    "low trust",
+    "high tolerant"
+   ],
+   "positions": [],
+   "profession": "Engraver",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "engrave_stone"
+    },
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 2,
+     "skill": "animaltrain"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    }
+   ],
+   "x": 72,
+   "y": 88
+  },
+  {
+   "age": 53,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 15140,
+   "level": "the-temples",
+   "name": "Sodel Vucarlimul",
+   "name_english": "Sodel Urngolds",
+   "notable": [
+    "high cheer propensity",
+    "low envy propensity",
+    "low confidence"
+   ],
+   "positions": [],
+   "profession": "Potash Maker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "potash_making"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "intimidation"
+    },
+    {
+     "level": 4,
+     "skill": "lying"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    }
+   ],
+   "x": 64,
+   "y": 48
+  },
+  {
+   "age": 48,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 15182,
+   "level": "the-temples",
+   "name": "Ònul Atheltenshed",
+   "name_english": "Ònul Ringedchance",
+   "notable": [
+    "scorns tradition"
+   ],
+   "positions": [],
+   "profession": "Siege Operator",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "siegeoperate"
+    },
+    {
+     "level": 4,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "bookbinding"
+    },
+    {
+     "level": 2,
+     "skill": "comedy"
+    },
+    {
+     "level": 2,
+     "skill": "conversation"
+    }
+   ],
+   "x": 66,
+   "y": 51
+  },
+  {
+   "age": 29,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15184,
+   "level": "the-temples",
+   "name": "Zulban Ubbulåm",
+   "name_english": "Zulban Vaultyawn",
+   "notable": [
+    "high politeness",
+    "high bravery",
+    "low excitement seeking",
+    "values fairness"
+   ],
+   "positions": [],
+   "profession": "Glassmaker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "glassmaker"
+    },
+    {
+     "level": 6,
+     "skill": "cook"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 2,
+     "skill": "pacify"
+    },
+    {
+     "level": 1,
+     "skill": "console"
+    }
+   ],
+   "x": 82,
+   "y": 58
+  },
+  {
+   "age": 59,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 15185,
+   "level": "the-guildhalls",
+   "name": "Stâkud Ushatlised",
+   "name_english": "Stâkud Basementmark",
+   "notable": [
+    "high bashful",
+    "high bravery",
+    "scorns stoicism"
+   ],
+   "positions": [],
+   "profession": "Stonecutter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 3,
+     "skill": "console"
+    },
+    {
+     "level": 3,
+     "skill": "lying"
+    },
+    {
+     "level": 2,
+     "skill": "flattery"
+    },
+    {
+     "level": 2,
+     "skill": "intimidation"
+    }
+   ],
+   "x": 82,
+   "y": 81
+  },
+  {
+   "age": 28,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 15186,
+   "level": "the-farms",
+   "name": "Sarvesh Kirmelbil",
+   "name_english": "Sarvesh Mergedtome",
+   "notable": [
+    "low dutifulness",
+    "low perfectionist",
+    "scorns cunning"
+   ],
+   "positions": [],
+   "profession": "Stoneworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 9,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 5,
+     "skill": "masonry"
+    },
+    {
+     "level": 5,
+     "skill": "set_bone"
+    },
+    {
+     "level": 5,
+     "skill": "carve_stone"
+    },
+    {
+     "level": 5,
+     "skill": "engrave_stone"
+    }
+   ],
+   "x": 88,
+   "y": 65
+  },
+  {
+   "age": 47,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 15188,
+   "level": "the-guildhalls",
+   "name": "Sodel Tobulstigaz",
+   "name_english": "Sodel Canyonrasps",
+   "notable": [
+    "high art inclined",
+    "values leisure time",
+    "values tranquility"
+   ],
+   "positions": [],
+   "profession": "Presser",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "pressing"
+    },
+    {
+     "level": 5,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    }
+   ],
+   "x": 80,
+   "y": 83
+  },
+  {
+   "age": 57,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15191,
+   "level": "the-temples",
+   "name": "Mistêm Zanegducim",
+   "name_english": "Mistêm Relicworked",
+   "notable": [],
+   "positions": [],
+   "profession": "Lye Maker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "lye_making"
+    },
+    {
+     "level": 4,
+     "skill": "cut_stone"
+    },
+    {
+     "level": 4,
+     "skill": "comedy"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    }
+   ],
+   "x": 63,
+   "y": 94
+  },
+  {
+   "age": 0,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-temples",
+   "home_job": "hauler",
+   "id": 15280,
+   "level": "the-temples",
+   "name": "Likot Ilidingish",
+   "name_english": "Likot Rulebodice",
+   "notable": [
+    "high excitement seeking",
+    "low cheer propensity",
+    "low tolerant"
+   ],
+   "positions": [],
+   "profession": "Dwarven Baby",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [],
+   "x": 60,
+   "y": 97
+  },
+  {
+   "age": 38,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-great-hall",
+   "home_job": "performer",
+   "id": 15333,
+   "level": "the-great-hall",
+   "name": "Dôbar Berberdan",
+   "name_english": "Dôbar Earthwalks",
+   "notable": [
+    "high privacy",
+    "low lust propensity",
+    "scorns self control",
+    "scorns cunning"
+   ],
+   "positions": [],
+   "profession": "Beekeeper",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "beekeeping"
+    },
+    {
+     "level": 3,
+     "skill": "make_music"
+    },
+    {
+     "level": 2,
+     "skill": "play_stringed_instrument"
+    },
+    {
+     "level": 2,
+     "skill": "processplants"
+    },
+    {
+     "level": 1,
+     "skill": "situational_awareness"
+    }
+   ],
+   "x": 70,
+   "y": 52
+  },
+  {
+   "age": 49,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 15334,
+   "level": "the-great-hall",
+   "name": "Shorast Gegetthob",
+   "name_english": "Shorast Violetgirder",
+   "notable": [
+    "high closeminded",
+    "low friendliness",
+    "low privacy",
+    "values truth"
+   ],
+   "positions": [],
+   "profession": "Metalsmith",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 1,
+     "skill": "forge_armor"
+    },
+    {
+     "level": 1,
+     "skill": "lying"
+    },
+    {
+     "level": 1,
+     "skill": "smelt"
+    },
+    {
+     "level": 1,
+     "skill": "swimming"
+    }
+   ],
+   "x": 69,
+   "y": 48
+  },
+  {
+   "age": 30,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "butcher",
+   "id": 15335,
+   "level": "the-great-hall",
+   "name": "Erush Edëmtarmid",
+   "name_english": "Erush Keyblade",
+   "notable": [
+    "low assertiveness",
+    "low discord",
+    "low immoderation"
+   ],
+   "positions": [],
+   "profession": "Butcher",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "butcher"
+    },
+    {
+     "level": 5,
+     "skill": "brewing"
+    },
+    {
+     "level": 4,
+     "skill": "flattery"
+    },
+    {
+     "level": 4,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    }
+   ],
+   "x": 72,
+   "y": 57
+  },
+  {
+   "age": 23,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 76,
+    "y": 121,
+    "z": 92
+   },
+   "district": "the-workshops",
+   "home_job": "mason",
+   "id": 15337,
+   "level": null,
+   "name": "Tekkud Febatír",
+   "name_english": "Tekkud Arrowdyes",
+   "notable": [
+    "values nature"
+   ],
+   "positions": [],
+   "profession": "Mason",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "masonry"
+    },
+    {
+     "level": 3,
+     "skill": "crutch_walk"
+    },
+    {
+     "level": 2,
+     "skill": "flattery"
+    },
+    {
+     "level": 2,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 2,
+     "skill": "conversation"
+    }
+   ]
+  },
+  {
+   "age": 45,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15338,
+   "level": "the-great-hall",
+   "name": "Onol Nishadag",
+   "name_english": "Onol Tradesoak",
+   "notable": [
+    "high vanity",
+    "low activity level",
+    "high politeness"
+   ],
+   "positions": [],
+   "profession": "Tanner",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "tanner"
+    },
+    {
+     "level": 4,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "persuasion"
+    },
+    {
+     "level": 3,
+     "skill": "conversation"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 77,
+   "y": 48
+  },
+  {
+   "age": 49,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-forges",
+   "home_job": "smith",
+   "id": 15341,
+   "level": "the-guildhalls",
+   "name": "Uzol Oslanlek",
+   "name_english": "Uzol Woundbristles",
+   "notable": [
+    "low perseverance",
+    "low dutifulness",
+    "low pride",
+    "values self control"
+   ],
+   "positions": [],
+   "profession": "Weaponsmith",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 11,
+     "skill": "situational_awareness"
+    },
+    {
+     "level": 11,
+     "skill": "armor"
+    },
+    {
+     "level": 11,
+     "skill": "climbing"
+    },
+    {
+     "level": 11,
+     "skill": "discipline"
+    }
+   ],
+   "x": 59,
+   "y": 51
+  },
+  {
+   "age": 61,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "farmer",
+   "id": 15343,
+   "level": "the-temples",
+   "name": "Asob Uzoldakon",
+   "name_english": "Asob Oilomens",
+   "notable": [
+    "low swayed by emotions",
+    "low stress vulnerability"
+   ],
+   "positions": [],
+   "profession": "Presser",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "pressing"
+    },
+    {
+     "level": 7,
+     "skill": "pacify"
+    },
+    {
+     "level": 2,
+     "skill": "comedy"
+    },
+    {
+     "level": 2,
+     "skill": "console"
+    },
+    {
+     "level": 1,
+     "skill": "flattery"
+    }
+   ],
+   "x": 78,
+   "y": 59
+  },
+  {
+   "age": 18,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 15344,
+   "level": "the-great-hall",
+   "name": "Kumil Bâsenalåth",
+   "name_english": "Kumil Spraybolts",
+   "notable": [
+    "scorns friendship"
+   ],
+   "positions": [],
+   "profession": "Bowyer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 1,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 1,
+     "skill": "pacify"
+    },
+    {
+     "level": 1,
+     "skill": "bowyer"
+    },
+    {
+     "level": 1,
+     "skill": "mechanics"
+    }
+   ],
+   "x": 80,
+   "y": 72
+  },
+  {
+   "age": 44,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 15345,
+   "level": "the-temples",
+   "name": "Ïteb Febushul",
+   "name_english": "Ïteb Arrowrealms",
+   "notable": [
+    "low hate propensity",
+    "low swayed by emotions",
+    "high lust propensity"
+   ],
+   "positions": [],
+   "profession": "Woodworker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "potash_making"
+    },
+    {
+     "level": 3,
+     "skill": "flattery"
+    },
+    {
+     "level": 3,
+     "skill": "bowyer"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    }
+   ],
+   "x": 58,
+   "y": 52
+  },
+  {
+   "age": 44,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-great-hall",
+   "home_job": "fisher",
+   "id": 15346,
+   "level": "the-great-hall",
+   "name": "Rakust Ducimrobek",
+   "name_english": "Rakust Workbarbs",
+   "notable": [
+    "low activity level",
+    "high gregariousness",
+    "low stress vulnerability"
+   ],
+   "positions": [],
+   "profession": "Fish Dissector",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 4,
+     "skill": "negotiation"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 4,
+     "skill": "lying"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 68,
+   "y": 66
+  },
+  {
+   "age": 53,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-farms",
+   "home_job": "butcher",
+   "id": 15349,
+   "level": "the-great-hall",
+   "name": "Geshud Ushatzaled",
+   "name_english": "Geshud Basementnoiseless",
+   "notable": [
+    "low hate propensity",
+    "high depression propensity",
+    "values fairness",
+    "scorns family",
+    "scorns independence"
+   ],
+   "positions": [],
+   "profession": "Butcher",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "butcher"
+    },
+    {
+     "level": 3,
+     "skill": "record_keeping"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 2,
+     "skill": "console"
+    }
+   ],
+   "x": 68,
+   "y": 57
+  },
+  {
+   "age": 42,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15350,
+   "level": "the-great-hall",
+   "name": "Zaneg Zasstinthäd",
+   "name_english": "Zaneg Crystaltheater",
+   "notable": [
+    "low violent",
+    "values law",
+    "values fairness"
+   ],
+   "positions": [],
+   "profession": "Glazer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "glazing"
+    },
+    {
+     "level": 3,
+     "skill": "forge_weapon"
+    },
+    {
+     "level": 2,
+     "skill": "concentration"
+    },
+    {
+     "level": 2,
+     "skill": "knowledge_acquisition"
+    },
+    {
+     "level": 1,
+     "skill": "dance"
+    }
+   ],
+   "x": 70,
+   "y": 63
+  },
+  {
+   "age": 52,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-temples",
+   "home_job": "hauler",
+   "id": 15351,
+   "level": "the-temples",
+   "name": "Doren Tiristtenshed",
+   "name_english": "Doren Rimchance",
+   "notable": [
+    "low bravery",
+    "low humor",
+    "scorns eloquence"
+   ],
+   "positions": [],
+   "profession": "Peasant",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "pacify"
+    },
+    {
+     "level": 2,
+     "skill": "negotiation"
+    },
+    {
+     "level": 2,
+     "skill": "persuasion"
+    },
+    {
+     "level": 1,
+     "skill": "lying"
+    },
+    {
+     "level": 1,
+     "skill": "flattery"
+    }
+   ],
+   "x": 49,
+   "y": 65
+  },
+  {
+   "age": 37,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "jeweler",
+   "id": 15352,
+   "level": "the-temples",
+   "name": "Kûbuk Melbilletmos",
+   "name_english": "Kûbuk Tomecobalt",
+   "notable": [
+    "low violent",
+    "low emotionally obsessive",
+    "scorns skill"
+   ],
+   "positions": [],
+   "profession": "Gem Setter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "encrustgem"
+    },
+    {
+     "level": 2,
+     "skill": "dissect_vermin"
+    },
+    {
+     "level": 1,
+     "skill": "brewing"
+    },
+    {
+     "level": 1,
+     "skill": "armor"
+    },
+    {
+     "level": 1,
+     "skill": "climbing"
+    }
+   ],
+   "x": 79,
+   "y": 56
+  },
+  {
+   "age": 40,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "carpenter",
+   "id": 15353,
+   "level": "the-guildhalls",
+   "name": "Nish Ducimamug",
+   "name_english": "Nish Workfogs",
+   "notable": [
+    "low perseverance",
+    "low activity level",
+    "values law",
+    "scorns introspection"
+   ],
+   "positions": [],
+   "profession": "Carpenter",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "carpentry"
+    },
+    {
+     "level": 6,
+     "skill": "clothesmaking"
+    },
+    {
+     "level": 4,
+     "skill": "console"
+    },
+    {
+     "level": 4,
+     "skill": "persuasion"
+    },
+    {
+     "level": 3,
+     "skill": "negotiation"
+    }
+   ],
+   "x": 58,
+   "y": 51
+  },
+  {
+   "age": 43,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 15354,
+   "level": "the-great-hall",
+   "name": "Urdim Thîkuttosid",
+   "name_english": "Urdim Bookarmors",
+   "notable": [
+    "high altruism"
+   ],
+   "positions": [],
+   "profession": "Siege Engineer",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "siegecraft"
+    },
+    {
+     "level": 5,
+     "skill": "flattery"
+    },
+    {
+     "level": 5,
+     "skill": "forge_armor"
+    },
+    {
+     "level": 3,
+     "skill": "dance"
+    },
+    {
+     "level": 2,
+     "skill": "make_music"
+    }
+   ],
+   "x": 67,
+   "y": 61
+  },
+  {
+   "age": 35,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-barracks",
+   "home_job": "guard",
+   "id": 15355,
+   "level": "the-great-hall",
+   "name": "Olin Vabôkzuglar",
+   "name_english": "Olin Orbsships",
+   "notable": [
+    "high curious"
+   ],
+   "positions": [],
+   "profession": "Beekeeper",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 3,
+     "skill": "intimidation"
+    },
+    {
+     "level": 3,
+     "skill": "persuasion"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "flattery"
+    },
+    {
+     "level": 2,
+     "skill": "judging_intent"
+    }
+   ],
+   "x": 69,
+   "y": 56
+  },
+  {
+   "age": 50,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "crafter",
+   "id": 15468,
+   "level": "the-great-hall",
+   "name": "Medtob Logemathel",
+   "name_english": "Medtob Paintring",
+   "notable": [],
+   "positions": [],
+   "profession": "Soap Maker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 13,
+     "skill": "soap_making"
+    },
+    {
+     "level": 6,
+     "skill": "pacify"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 3,
+     "skill": "comedy"
+    },
+    {
+     "level": 3,
+     "skill": "conversation"
+    }
+   ],
+   "x": 70,
+   "y": 70
+  },
+  {
+   "age": 39,
+   "caste": "female",
+   "civ": "Land of the Meat Gods",
+   "df_pos": {
+    "x": 102,
+    "y": 126,
+    "z": 96
+   },
+   "district": "the-farms",
+   "home_job": "herder",
+   "id": 15470,
+   "level": null,
+   "name": "Rigòth Bisekdeduk",
+   "name_english": "Rigòth Veiledmanors",
+   "notable": [
+    "high lust propensity",
+    "high wastefulness",
+    "scorns decorum",
+    "scorns peace"
+   ],
+   "positions": [],
+   "profession": "Animal Caretaker",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 10,
+     "skill": "animalcare"
+    },
+    {
+     "level": 4,
+     "skill": "lying"
+    },
+    {
+     "level": 4,
+     "skill": "pacify"
+    },
+    {
+     "level": 4,
+     "skill": "negotiation"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    }
+   ]
+  },
+  {
+   "age": 58,
+   "caste": "male",
+   "civ": "Land of the Meat Gods",
+   "district": "the-workshops",
+   "home_job": "mechanic",
+   "id": 15472,
+   "level": "the-guildhalls",
+   "name": "Udil Kablokum",
+   "name_english": "Udil Namedspears",
+   "notable": [
+    "low immodesty",
+    "low depression propensity",
+    "high cheer propensity",
+    "scorns skill",
+    "values independence"
+   ],
+   "positions": [],
+   "profession": "Siege Operator",
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "role": "citizen",
+   "skills": [
+    {
+     "level": 6,
+     "skill": "siegeoperate"
+    },
+    {
+     "level": 3,
+     "skill": "judging_intent"
+    },
+    {
+     "level": 2,
+     "skill": "dress_wounds"
+    },
+    {
+     "level": 2,
+     "skill": "make_music"
+    },
+    {
+     "level": 1,
+     "skill": "leadership"
+    }
+   ],
+   "x": 62,
+   "y": 58
+  }
+ ],
+ "schema": "bomrekedan.people/v1"
+}

@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex, OnceLock};
 
 mod pit_debt;
 mod library;
+pub(crate) use library::{breathe, breathing, dress};
 include!(concat!(env!("OUT_DIR"), "/boss_assets.rs"));
 pub(super) use pit_debt::{leviathan_laser, ravage};
 pub(super) use library::registered as library_registered;

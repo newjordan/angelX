@@ -4,7 +4,7 @@
 
 use std::sync::{Arc, Mutex, OnceLock};
 
-use super::map::{MAP_H, MAP_W, Place, Realm, STRUCTURES, TILE, place_tile};
+use super::map::{MAP_H, MAP_W, Place, Realm, TILE};
 use crate::ink::Img;
 use crate::realm::Wish;
 
@@ -100,9 +100,11 @@ pub fn footprint(wish: &Wish) -> (i32, i32) {
 
 /// The open country: off every set piece, and out of the March, which
 /// belongs to the houses. Wishes never move once raised: lots stay where
-/// they stood.
+/// they stood. (In the blank-slate plan all of the realm is open country:
+/// what stands is kept clear by the reserved ground.)
 fn wild(tx: i32, ty: i32) -> bool {
-    !super::map::in_set_piece(tx, ty) && super::biome::at(tx, ty) != super::biome::Biome::March
+    super::plan::tabula()
+        || (!super::map::in_set_piece(tx, ty) && super::biome::at(tx, ty) != super::biome::Biome::March)
 }
 
 /// Ground a lot may be cleared on: meadow, ash, and trees or rocks to clear.
@@ -111,16 +113,7 @@ fn buildable(t: u8) -> bool {
 }
 
 fn structures() -> &'static [(i32, i32, i32, i32)] {
-    static IN_REALM: OnceLock<Vec<(i32, i32, i32, i32)>> = OnceLock::new();
-    IN_REALM.get_or_init(|| {
-        STRUCTURES
-            .iter()
-            .map(|&(ax, ay, w, h)| {
-                let (x, y) = place_tile(ax, ay);
-                (x, y, w, h)
-            })
-            .collect()
-    })
+    super::map::structures()
 }
 
 /// The best free lot of `tw`x`th` tiles near `(gx, gy)`, avoiding `taken`:
@@ -168,11 +161,128 @@ pub fn open_for(wishes: &[Wish], lot: Lot) -> bool {
         && lot.tx + lot.tw < MAP_W - 1
         && lot.ty + lot.th < MAP_H - 1;
     let mut taken = reserved();
+    taken.extend(halts());
     taken.extend(lots(wishes).iter().flatten().copied());
     inside && ground(lot, &taken, 1).is_some()
 }
 
+/// What the map says of ground, summed so that a lot's whole footprint is one
+/// question of four reads: how many of its tiles are not ground a lot may stand
+/// on, are not wild, would be cleared of a tree or rock, and (for the road
+/// along its front) lie on a road. The map never changes once it is built, so
+/// the sums are made once. `find_in` asked each tile of every footprint at
+/// every start of the map for each wish, which was most of a wish's cost: 80 ms
+/// a wish, and a realm of forty wishes froze for two seconds each time its list
+/// of wishes changed.
+struct Sums {
+    unfit: Vec<u32>,
+    unwild: Vec<u32>,
+    cleared: Vec<u32>,
+    road: Vec<u32>,
+}
+
+const SUM_W: usize = MAP_W as usize + 1;
+
+impl Sums {
+    fn get() -> &'static Sums {
+        static SUMS: OnceLock<Sums> = OnceLock::new();
+        SUMS.get_or_init(|| {
+            let realm = Realm::get();
+            let mut sums = Sums {
+                unfit: vec![0; SUM_W * (MAP_H as usize + 1)],
+                unwild: vec![0; SUM_W * (MAP_H as usize + 1)],
+                cleared: vec![0; SUM_W * (MAP_H as usize + 1)],
+                road: vec![0; SUM_W * (MAP_H as usize + 1)],
+            };
+            for y in 0..MAP_H {
+                for x in 0..MAP_W {
+                    let t = realm.at(x, y);
+                    let here = (y as usize + 1) * SUM_W + x as usize + 1;
+                    let flags = [
+                        u32::from(!buildable(t)),
+                        u32::from(!wild(x, y)),
+                        u32::from(matches!(t, b'T' | b'^' | b'd')),
+                        u32::from(matches!(t, b'=' | b'H')),
+                    ];
+                    for (table, flag) in [&mut sums.unfit, &mut sums.unwild, &mut sums.cleared, &mut sums.road].into_iter().zip(flags) {
+                        table[here] = flag + table[here - 1] + table[here - SUM_W] - table[here - SUM_W - 1];
+                    }
+                }
+            }
+            sums
+        })
+    }
+
+    /// The sum over tiles `x0..x1` by `y0..y1`.
+    fn over(table: &[u32], x0: i32, y0: i32, x1: i32, y1: i32) -> u32 {
+        let at = |x: i32, y: i32| table[y as usize * SUM_W + x as usize];
+        at(x1, y1) + at(x0, y0) - at(x1, y0) - at(x0, y1)
+    }
+}
+
+/// Test and dev builds can have the old tile-by-tile search answer instead,
+/// to time one against the other in one process (`optimize_bench`).
+#[cfg(any(test, feature = "testing"))]
+pub static SLOW_SEARCH: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
 fn find_in(
+    tw: i32,
+    th: i32,
+    (gx, gy): (i32, i32),
+    taken: &[Lot],
+    margin: i32,
+    nearest: bool,
+) -> Option<Lot> {
+    #[cfg(any(test, feature = "testing"))]
+    if SLOW_SEARCH.load(std::sync::atomic::Ordering::Relaxed) {
+        return find_in_slow(tw, th, (gx, gy), taken, margin, nearest);
+    }
+    let sums = Sums::get();
+    let (last_x, last_y) = (MAP_W - tw - 2, MAP_H - th - 2);
+    // The starts a taken lot or a structure rules out: those whose footprint,
+    // with `margin` tiles of open ground round it, meets its rectangle.
+    let mut blocked = vec![false; (MAP_W * MAP_H) as usize];
+    let structures = structures().iter().map(|&(x, y, w, h)| Lot { tx: x, ty: y, tw: w, th: h });
+    for rock in taken.iter().copied().chain(structures) {
+        if rock.tw <= 0 || rock.th <= 0 {
+            continue;
+        }
+        for y in (rock.ty - th - margin + 1).max(1)..=(rock.ty + rock.th + margin - 1).min(last_y) {
+            for x in (rock.tx - tw - margin + 1).max(1)..=(rock.tx + rock.tw + margin - 1).min(last_x) {
+                blocked[(y * MAP_W + x) as usize] = true;
+            }
+        }
+    }
+    let mut best: Option<(i64, Lot)> = None;
+    for ty in 1..=last_y {
+        for tx in 1..=last_x {
+            if blocked[(ty * MAP_W + tx) as usize] {
+                continue;
+            }
+            let (x1, y1) = (tx + tw, ty + th);
+            if Sums::over(&sums.unfit, tx, ty, x1, y1) != 0 || (margin > 0 && Sums::over(&sums.unwild, tx, ty, x1, y1) != 0) {
+                continue;
+            }
+            let obstacles = i64::from(Sums::over(&sums.cleared, tx, ty, x1, y1));
+            // Facing a road reads as built, not dropped.
+            let road = Sums::over(&sums.road, tx - 1, y1, x1 + 1, y1 + 2) != 0;
+            let (cx2, cy2) = (2 * tx + tw, 2 * ty + th);
+            let (dx, dy) = (i64::from(cx2 - 2 * gx - 1), i64::from(cy2 - 2 * gy - 1));
+            // Nearness to its place matters most; a road only breaks close ties.
+            let score = (dx * dx + dy * dy) * if nearest { 1000 } else { 1 }
+                + obstacles * 40 + if road { 0 } else { 48 };
+            if best.as_ref().is_none_or(|(s, _)| score < *s) {
+                best = Some((score, Lot { tx, ty, tw, th }));
+            }
+        }
+    }
+    best.map(|(_, lot)| lot)
+}
+
+/// `find_in` as it was written, asking every tile of every footprint: what
+/// the fast one must answer exactly (`tests/world/wishes__tests.rs`).
+#[cfg(any(test, feature = "testing"))]
+fn find_in_slow(
     tw: i32,
     th: i32,
     (gx, gy): (i32, i32),
@@ -188,13 +298,11 @@ fn find_in(
             let Some(obstacles) = ground(lot, taken, margin) else {
                 continue;
             };
-            // Facing a road reads as built, not dropped.
             let road = (tx - 1..tx + tw + 1)
                 .flat_map(|x| (ty + th..ty + th + 2).map(move |y| (x, y)))
                 .any(|(x, y)| matches!(realm.at(x, y), b'=' | b'H'));
             let (cx2, cy2) = (2 * tx + tw, 2 * ty + th);
             let (dx, dy) = (i64::from(cx2 - 2 * gx - 1), i64::from(cy2 - 2 * gy - 1));
-            // Nearness to its place matters most; a road only breaks close ties.
             let score = (dx * dx + dy * dy) * if nearest { 1000 } else { 1 }
                 + obstacles * 40 + if road { 0 } else { 48 };
             if best.as_ref().is_none_or(|(s, _)| score < *s) {
@@ -205,12 +313,26 @@ fn find_in(
     best.map(|(_, lot)| lot)
 }
 
+/// The ground the waystations hold (`super::waystations`).
+fn halts() -> Vec<Lot> {
+    super::waystations::placed().iter().map(|p| p.rect).collect()
+}
+
 /// The Delve's gate holds its own ground and the castles theirs; wishes
 /// build around them.
 fn reserved() -> Vec<Lot> {
     let (tx, ty, tw, th) = crate::rules::squires_town::YARD;
-    let mut taken: Vec<Lot> = vec![delve_gate(), super::college::lot(), Lot { tx, ty, tw, th }];
+    let mut taken: Vec<Lot> = vec![delve_gate(), super::college::lot()];
+    // The squires' yard stands in Castle Town: not on the blank-slate map.
+    if super::plan::full() {
+        taken.push(Lot { tx, ty, tw, th });
+    }
     taken.extend(super::castles::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th }));
+    // A camp keeps the tile where its knight stands and the ground its name is
+    // carved on, below it (the blank-slate plan).
+    if super::plan::tabula() {
+        taken.extend(super::houses::footprints().map(|(tx, ty, tw, th)| Lot { tx, ty, tw, th: th + 3 }));
+    }
     taken
 }
 
@@ -245,11 +367,19 @@ pub fn lots(wishes: &[Wish]) -> Arc<Vec<Option<Lot>>> {
     }
     // The lots knights chose stand first, whatever order they were raised in:
     // the realm finds the others ground around them.
+    let mut taken = reserved();
+    // A lot an old save chose where the blank-slate plan now stands the Keep,
+    // a camp or the Delve's gate is chosen again, as an unplaced wish's is.
+    let fixed = taken.clone();
+    let tabula = super::plan::tabula();
     let chosen = |wish: &Wish| {
         let (tw, th) = footprint(wish);
-        wish.lot.map(|(tx, ty)| Lot { tx, ty, tw, th })
+        wish.lot
+            .map(|(tx, ty)| Lot { tx, ty, tw, th })
+            .filter(|l| !tabula || !fixed.iter().any(|f| f.overlaps(l)))
     };
-    let mut taken = reserved();
+    // The waystations' ground is theirs.
+    taken.extend(halts());
     taken.extend(wishes.iter().filter_map(chosen));
     let mut out = Vec::with_capacity(wishes.len());
     for wish in wishes {
@@ -294,7 +424,9 @@ pub fn cleared(lots: &[Option<Lot>], tx: i32, ty: i32) -> bool {
 }
 
 /// The Delve's gate: a stair into the Highlands' hillside below the Mines,
-/// just above the North Road. Fixed for the realm.
+/// just above the North Road. Fixed for the realm. (The blank-slate plan's is
+/// `plan::tabula::DELVE_GATE`, beside the tiny Keep: [`delve_gate`] says
+/// which.)
 pub const DELVE_GATE: Lot = Lot {
     tx: 92,
     ty: 31,
@@ -303,6 +435,10 @@ pub const DELVE_GATE: Lot = Lot {
 };
 
 pub fn delve_gate() -> Lot {
+    if super::plan::tabula() {
+        let (tx, ty, tw, th) = super::plan::tabula::DELVE_GATE;
+        return Lot { tx, ty, tw, th };
+    }
     DELVE_GATE
 }
 
@@ -311,3 +447,7 @@ pub fn delve_stand() -> (i32, i32) {
     let gate = delve_gate();
     (gate.tx + gate.tw / 2, gate.ty + gate.th)
 }
+
+#[cfg(test)]
+#[path = "../../tests/world/wishes__tests.rs"]
+mod tests;

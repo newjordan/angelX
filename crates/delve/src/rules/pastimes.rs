@@ -283,6 +283,9 @@ pub struct Records {
     pub brasswake: Score,
     #[serde(default, skip_serializing_if = "Score::is_empty")]
     pub rafterwake: Score,
+    /// Book Hop: the most crossings a knight made in a minute.
+    #[serde(default, skip_serializing_if = "Score::is_empty")]
+    pub hop: Score,
     #[serde(default, skip_serializing_if = "Score::is_empty")]
     pub pennon: Score,
     #[serde(skip_serializing_if = "Score::is_empty")]
@@ -317,6 +320,7 @@ impl Records {
             && self.latch.valid()
             && self.brasswake.valid()
             && self.rafterwake.valid()
+            && self.hop.valid()
             && self.pennon.valid()
             && self.mossbell.valid()
             && self.roundtable.iter().all(Score::valid)
@@ -348,6 +352,7 @@ impl Records {
             &mut self.latch,
             &mut self.brasswake,
             &mut self.rafterwake,
+            &mut self.hop,
             &mut self.pennon,
             &mut self.mossbell,
             &mut self.gander,
@@ -545,6 +550,7 @@ impl Records {
             self.latch.merge(&other.latch);
             self.brasswake.merge(&other.brasswake);
             self.rafterwake.merge(&other.rafterwake);
+            self.hop.merge(&other.hop);
             self.pennon.merge(&other.pennon);
             self.mossbell.merge(&other.mossbell);
             self.peal.merge(&other.peal);
@@ -1174,6 +1180,75 @@ impl Run {
         }
     }
 
+    /// A round of `game` is begun: the realm's count of its plays.
+    fn note_play(&mut self, game: Game) {
+        let record = &mut self.home.countryside.games;
+        if game == Game::Trencher {
+            record.trencher.plays = record.trencher.plays.saturating_add(1);
+        } else if game == Game::Chariot {
+            record.chariot.plays = record.chariot.plays.saturating_add(1);
+            self.pastimes.wager = None;
+        } else if game == Game::Halfpipe {
+            record.halfpipe.plays = record.halfpipe.plays.saturating_add(1);
+        } else if game == Game::Volley {
+            record.volley.plays = record.volley.plays.saturating_add(1);
+        } else if game == Game::Surf {
+            record.surf.plays = record.surf.plays.saturating_add(1);
+        } else if game == Game::Cart {
+            record.cart.plays = record.cart.plays.saturating_add(1);
+        } else if game == Game::Pot {
+            record.pot.plays = record.pot.plays.saturating_add(1);
+        } else if game == Game::Sled {
+            record.sled.plays = record.sled.plays.saturating_add(1);
+        } else if game == Game::Hobbyhorse {
+            record.hobbyhorse.plays = record.hobbyhorse.plays.saturating_add(1);
+        } else if game == Game::Cheese {
+            record.cheese.plays = record.cheese.plays.saturating_add(1);
+        } else if game == Game::DuckShoot {
+            record.duckshoot.plays = record.duckshoot.plays.saturating_add(1);
+        } else if game == Game::Longbow {
+            record.longbow.plays = record.longbow.plays.saturating_add(1);
+        } else if game == Game::Powder {
+            record.powder.plays = record.powder.plays.saturating_add(1);
+        } else if game == Game::Gander {
+            record.gander.plays = record.gander.plays.saturating_add(1);
+        } else if game == Game::Siege {
+            record.siege.plays = record.siege.plays.saturating_add(1);
+        } else if game == Game::Peal {
+            record.peal.plays = record.peal.plays.saturating_add(1);
+        } else {
+            record.plays[game.index()] = record.plays[game.index()].saturating_add(1);
+        }
+    }
+
+    /// A random room's arcade game (`encounter`): one round of `game` for
+    /// every seat, begun as the pad would begin it, each knight standing at
+    /// their spot on the stage already raised in the hall.
+    pub(super) fn start_encounter_pastime(&mut self, game: Game, seats: &[u32], spots: &[(f32, f32)]) {
+        let Some(&starter) = seats.first() else {
+            return;
+        };
+        self.pastimes.leave();
+        let rotation = (self.home.countryside.games.plays_for(game) % 5) as usize;
+        self.note_play(game);
+        let (sx, sy) = spots.first().copied().unwrap_or((0.0, 0.0));
+        self.pastimes.round = Some(new_round(game, starter, (sx, sy), rotation, Some(seats)));
+        for (&id, &(x, y)) in seats.iter().zip(spots).skip(1) {
+            self.pastimes.heats.insert(id, new_round(game, id, (x, y), rotation, Some(seats)));
+        }
+        // The shared courtyard and the joust hall have one yard for the heat.
+        if game == Game::Powder {
+            let yard = Powder::new(seats, (self.seed % 7) as u8);
+            if let Some(r) = self.pastimes.round.as_mut() {
+                r.powder = Some(yard.clone());
+            }
+            for r in self.pastimes.heats.values_mut() {
+                r.powder = Some(yard.clone());
+            }
+        }
+        self.pastimes.heat = Some(Heat { game, seats: seats.to_vec(), done: BTreeMap::new(), standing: BTreeMap::new() });
+    }
+
     pub(super) fn start_crossroads_pastime(&mut self, game: Game) {
         let seats = self.crossroads.as_ref().unwrap().seats.clone();
         let Some(&owner) = seats.first() else { return; };
@@ -1318,44 +1393,8 @@ impl Run {
                 }) else {
                     return;
                 };
-                let record = &mut self.home.countryside.games;
-                let rotation = (record.plays_for(game) % 5) as usize;
-                if game == Game::Trencher {
-                    record.trencher.plays = record.trencher.plays.saturating_add(1);
-                } else if game == Game::Chariot {
-                    record.chariot.plays = record.chariot.plays.saturating_add(1);
-                    self.pastimes.wager = None;
-                } else if game == Game::Halfpipe {
-                    record.halfpipe.plays = record.halfpipe.plays.saturating_add(1);
-                } else if game == Game::Volley {
-                    record.volley.plays = record.volley.plays.saturating_add(1);
-                } else if game == Game::Surf {
-                    record.surf.plays = record.surf.plays.saturating_add(1);
-                } else if game == Game::Cart {
-                    record.cart.plays = record.cart.plays.saturating_add(1);
-                } else if game == Game::Pot {
-                    record.pot.plays = record.pot.plays.saturating_add(1);
-                } else if game == Game::Sled {
-                    record.sled.plays = record.sled.plays.saturating_add(1);
-                } else if game == Game::Hobbyhorse {
-                    record.hobbyhorse.plays = record.hobbyhorse.plays.saturating_add(1);
-                } else if game == Game::Cheese {
-                    record.cheese.plays = record.cheese.plays.saturating_add(1);
-                } else if game == Game::DuckShoot {
-                    record.duckshoot.plays = record.duckshoot.plays.saturating_add(1);
-                } else if game == Game::Longbow {
-                    record.longbow.plays = record.longbow.plays.saturating_add(1);
-                } else if game == Game::Powder {
-                    record.powder.plays = record.powder.plays.saturating_add(1);
-                } else if game == Game::Gander {
-                    record.gander.plays = record.gander.plays.saturating_add(1);
-                } else if game == Game::Siege {
-                    record.siege.plays = record.siege.plays.saturating_add(1);
-                } else if game == Game::Peal {
-                    record.peal.plays = record.peal.plays.saturating_add(1);
-                } else {
-                    record.plays[game.index()] = record.plays[game.index()].saturating_add(1);
-                }
+                let rotation = (self.home.countryside.games.plays_for(game) % 5) as usize;
+                self.note_play(game);
                 // Everyone in the room is in: the starter plays the lead
                 // round, each friend a round of their own.
                 let seat_ids: Vec<u32> = eligible.iter().map(|&(id, _, _)| id).collect();
@@ -1634,6 +1673,11 @@ impl Run {
 
     /// Everyone has finished: the best is crowned before the party.
     fn judge_heat(&mut self, heat: &Heat) {
+        // A random room's game pays the room's purse (`encounter`).
+        if self.encounter_hosts() {
+            self.heat_to_encounter(heat);
+            return;
+        }
         if self.crossroads.is_some() {
             let mut seats = heat.seats.clone();
             seats.sort_by(|a, b| {

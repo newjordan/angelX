@@ -1,5 +1,10 @@
 # The walking kingdom
 
+The new [Kingdom Works frontier](https://github.com/newjordan/angelX/blob/main/docs/KINGDOM-WORKS.md) is a player-built surface
+with resource claims, roads, workers, production and castle construction.
+Press **4** while walking the surface to open its build desk, then **C** to
+walk what you have built. Its gate returns to the campaign described below.
+
 ## Architecture decision
 
 Use the mini-viz realm itself as the continuous surface, at its native
@@ -41,8 +46,8 @@ directly between their authored visit rooms.
 
 Click the overview, press P with it focused, or use `/world walk` to enter
 the walking kingdom. WASD walks, E enters nearby doors, F fires, and Esc
-returns to the overview. Starting a delve places the party outside its
-gate. Starting overview walking places a new walker at the Keep; reopening
+returns to the overview. Starting a delve seats the party together in the Sozzled Griffin, whose
+front door opens on the kingdom outside the Delve's gate. Starting overview walking places a new walker at the Keep; reopening
 the same walking map keeps their position.
 
 Landscape painting is shared and cached. The 1792 by 1936 landscape and

@@ -1,0 +1,35 @@
+{
+  "knight": {
+    "active": false,
+    "activation_note": "Creator art, not a boss: never registered in the boss library. It is read by the Creator's preview and Test drive only (render/creation/baked.rs).",
+    "anchor": "bottom-centre",
+    "class": "hero",
+    "cell_moss_mix": 0,
+    "props": [
+      "great-helm with a gold crest",
+      "blue plate armour",
+      "gold trim",
+      "cyan eye slits",
+      "bare gauntlets"
+    ],
+    "cell_props": [
+      "great-helm with a gold crest",
+      "blue plate armour"
+    ],
+    "v1": [
+      64,
+      54
+    ],
+    "v2": null,
+    "grade": {
+      "v1": [
+        320,
+        320
+      ]
+    },
+    "study": {
+      "v1": [],
+      "v2": []
+    }
+  }
+}

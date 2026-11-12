@@ -4,6 +4,7 @@
 //! `draw/`; all operate on `App` state through this parent module.
 
 use crate::*;
+use angel_plug::stage::{StageArt, StageWorld};
 
 mod agent_panel_view;
 mod route_caps;
@@ -12,7 +13,7 @@ pub(crate) use route_caps::{
     format_evidence_duration, format_evidence_tokens, model_capability_detail, route_context_badge,
 };
 mod brain_route_view;
-mod stage_view;
+pub(crate) mod stage_view;
 mod transcript_view;
 
 #[cfg(test)]
@@ -26,8 +27,11 @@ pub(crate) use stage_view::render_vault_for_test;
 pub(crate) use stage_view::{
     ambient_stage_column_steal_allowed, artifacts_pane_active, maybe_paint_world_scene,
     maybe_run_expensive_world_compose, miniviz_dancer_paint_allowed,
-    miniviz_expensive_compose_allowed, scryglass_live_world_title_allowed, scryglass_route_title,
-    scryglass_scene_accessories_allowed, scryglass_scene_body_allowed,
+    miniviz_expensive_compose_allowed, scryglass_scene_body_allowed,
+};
+#[cfg(test)]
+pub(crate) use stage_view::{
+    scryglass_live_world_title_allowed, scryglass_route_title, scryglass_scene_accessories_allowed,
     stage_live_route_title_allowed, stage_route_title,
 };
 pub(crate) use transcript_view::render_transcript;
@@ -113,6 +117,7 @@ pub(crate) fn render_header(
     include_mode: bool,
     chrome: &FrameChrome,
 ) {
+    crate::ui::angelface::note_region(crate::ui::angelface::Region::Header, area);
     if area.width == 0 || area.height == 0 {
         return;
     }
@@ -400,7 +405,7 @@ pub(crate) fn render_cockpit_with_agent_panels(
 }
 
 pub(crate) fn render_selection_and_approval_overlays(frame: &mut Frame, app: &mut App) {
-    if app.pending_approval.is_none() {
+    if app.top_overlay() != Overlay::Approval {
         // The originating pane owns selection even when the pointer crosses a
         // panel boundary. Rebind only to its CURRENT text viewport: the AgentBay
         // registration excludes portraits/controls, and transcript excludes its
@@ -445,9 +450,10 @@ pub(crate) fn render_selection_and_approval_overlays(frame: &mut Frame, app: &mu
             }
         }
         brain_route_view::render_agent_control_menu(frame, app);
-        // Loop input owns the keyboard ahead of every picker. Match that
-        // precedence in the final compositor pass, independent of Stage route,
-        // media overlays, focus, and the side column's available height.
+        // The loop card paints first and the `/browser` picker over it, the
+        // order `top_overlay` serves keys in. Match it in the final compositor
+        // pass, independent of Stage route, media overlays, focus, and the
+        // side column's available height.
         crate::ui::views::loop_view::render(frame, app);
         if app.browser_picker.is_some() {
             render_browser_picker(frame, app);
@@ -554,14 +560,13 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
         .unwrap_or(0);
-    app.realm.world
-        .note_guardian_peers(&app.overwatch.peers, peer_now_ms);
+    app.realm.note_peers(&app.overwatch.peers, peer_now_ms);
     // Peer transitions belong to the ambient world, not the conversation.
     // Drain them into diagnostics so routine activity never adds chat rows.
     for event in app.overwatch.peer_events.drain(..) {
         tracing::debug!("{}", event.notice_text());
     }
-    let root = crate::ui::loop_rail_live::frame(app, frame.area());
+    let root = frame.area();
     // Name this frame's dialogs before any pane paints: a Kitty image
     // re-sends whole placeholder rows whenever it changes, repainting over a
     // dialog's unchanged cells, so image panes under a dialog draw in plain
@@ -595,10 +600,9 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // return too: a resize, shell, image, or compact Core frame must pause
     // hidden reveal lifetime and cannot retain the preceding fast tick.
     app.world_pane_visible = false;
-    app.realm.overworld_map = None;
+    app.realm.begin_stage_frame();
     app.scryglass.begin_frame();
     app.panes.clear();
-    app.realm.dungeon.controls_visible = false;
     #[cfg(feature = "glass")]
     crate::ui::glass::set_card(None);
     if root.width == 0 || root.height == 0 {
@@ -626,238 +630,28 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     app.tool_herald_area = None;
     app.loop_dialog_hits.clear();
     crate::ui::glass::game_surface(app.dungeon_view_active());
-    // Setup is a foreground object; the ordinary workspace keeps painting.
-    if app.dungeon_view_active() {
-        let now = Instant::now();
-        // The host's delve as its newest tick stands (the words around the
-        // room read it), and the seat whose own client draws the room.
-        let screen = app.realm.view().screen();
-        let deck = app
-            .dungeon
-            .forge
-            .draft
-            .as_ref()
-            .map(|d| app.realm.dungeon.wish_deck(d.player))
-            .unwrap_or_default();
-        let player = app.realm.dungeon.forge.draft.as_ref().map(|d| d.player);
-        let (making, depth) = app.with_realm(|r, cx| { let session = r.session(cx); (player.and_then(|id| session.wish_making(id)), session.wish_depth()) });
-        let known = crate::app::control::known_wishes(&deck, making.as_ref(), depth);
-        let (upgrades, upgrade_note) = app
-            .dungeon
-            .forge
-            .draft
-            .as_ref()
-            .map(|d| app.realm.dungeon.wish_upgrades(d.player))
-            .unwrap_or_default();
-        // The room goes out as the terminal's own picture this frame: its
-        // cells under it need not be drawn.
-        let native = app.viewer.kitty()
-            && app.viewer.map_pixels_native()
-            && !app.dungeon_controls_blocked()
-            && app.realm.dungeon.intro.is_none()
-            && app.realm.dungeon.forge.draft.is_none()
-            && !app.realm.dungeon.cards_open
-            && app.realm.dungeon.exhibit_text.is_none()
-            && app.realm.dungeon.activity_menu.is_none();
+    if let Some(index) = app.cart_on_screen() {
         app.image_occluders.push(root);
         app.viewer.clear_still();
-        app.realm.dungeon.controls_visible = if let Some(intro) = &app.realm.dungeon.intro {
-            crate::ui::viz::delve_intro_viz::render(frame, root, intro, app.realm.dungeon.realm.as_ref());
-            true
-        } else if let Some(seat) = app.realm.dungeon.activity_menu {
-            frame.render_widget(ratatui::widgets::Clear, root);
-            let couch = app.realm.dungeon.joined.is_none() && app.realm.dungeon.hosting.is_none();
-            let help = if couch {
-                "1 / 2 selects a knight · Tab switches"
-            } else {
-                ""
-            };
-            frame.render_widget(ratatui::widgets::Paragraph::new(format!(
-                "PAUSED · Knight {seat}\n\n[ LEAVE ]  Enter / Backspace\n\nEsc resumes · F2 returns to the composer\n{help}"
-            )).block(ratatui::widgets::Block::bordered().title("Activity menu")), root);
-            true
-        } else if let Some(text) = &app.realm.dungeon.exhibit_text {
-            frame.render_widget(ratatui::widgets::Clear, root);
-            frame.render_widget(
-                ratatui::widgets::Paragraph::new(text.as_str())
-                    .block(
-                        ratatui::widgets::Block::bordered()
-                            .title("Host-local research · ↑/↓ scroll · E/Esc close"),
-                    )
-                    .wrap(ratatui::widgets::Wrap { trim: false })
-                    .scroll((app.realm.dungeon.exhibit_scroll, 0)),
-                root,
-            );
-            true
-        } else if let Some(joined) = &app.realm.dungeon.joined {
-            // Cells drawn from the seat's own picture, made off this thread.
-            let picture = if native {
-                None
-            } else {
-                joined.seat.request(now);
-                joined.seat.picture()
-            };
-            crate::ui::viz::joined_viz::render(
-                frame,
-                joined,
-                picture.as_ref(),
-                root,
-                &app.realm.dungeon.notice,
-                app.realm.dungeon.chorus.subtitle(std::time::Instant::now()),
-                app.realm.dungeon
-                    .forge
-                    .draft
-                    .as_ref()
-                    .map(|d| crate::ui::viz::shooter_viz::Wish {
-                        part: d.part.word(),
-                        words: d.words.as_str(),
-                        confirm: d.confirm,
-                        known: known.clone(),
-                        pick: d.pick.clone(),
-                        resolved: d.known.as_ref().and_then(|i| {
-                            known
-                                .iter()
-                                .find(|k| &k.0 == i)
-                                .map(|k| (k.1.clone(), k.2.clone()))
-                        }),
-                        sanctuary: d.sanctuary,
-                        scroll: joined.run().and_then(|run| crate::ui::viz::shooter_viz::scroll_of(&run, joined.actor())),
-                        upgrades: upgrades.clone(),
-                        upgrade_note,
-                        upgrade_page: d.upgrade_page,
-                    }),
-                app.realm.dungeon
-                    .cards_open
-                    .then_some((app.realm.dungeon.cards_page, app.realm.dungeon.cards_sel)),
-                native,
-            )
-        } else if let Some((snapshot, knight)) = &screen {
-            // Cells are drawn from the seat's own picture: made on its own
-            // worker while the server steps on its own thread, and here when
-            // the delve is stepped by hand (tests), so a test sees this frame's.
-            let seat = app.realm.dungeon.shooter.seat(*knight);
-            let picture = if native {
-                None
-            } else if let Some(seat) = seat {
-                if app.realm.dungeon.shooter.threaded() {
-                    seat.request(now);
-                } else {
-                    seat.frame(now);
-                }
-                seat.picture()
-            } else {
-                None
-            };
-            crate::ui::viz::shooter_viz::render_room(
-                frame,
-                &snapshot.run,
-                crate::ui::viz::shooter_viz::Room::Seat(picture.as_ref()),
-                root,
-                &app.realm.dungeon.notice,
-                app.realm.dungeon.key_releases,
-                !app.terminal_focused || app.dungeon_controls_blocked(),
-                app.realm.dungeon.hosting.is_some(),
-                &app.dungeon_harness_status(),
-                app.realm.dungeon
-                    .cards_open
-                    .then_some((app.realm.dungeon.cards_page, app.realm.dungeon.cards_sel)),
-                app.realm.dungeon.realm.as_ref(),
-                app.realm.dungeon.chorus.subtitle(std::time::Instant::now()),
-                app.realm.dungeon
-                    .forge
-                    .draft
-                    .as_ref()
-                    .map(|d| crate::ui::viz::shooter_viz::Wish {
-                        part: d.part.word(),
-                        words: d.words.as_str(),
-                        confirm: d.confirm,
-                        known: known.clone(),
-                        pick: d.pick.clone(),
-                        resolved: d.known.as_ref().and_then(|i| {
-                            known
-                                .iter()
-                                .find(|k| &k.0 == i)
-                                .map(|k| (k.1.clone(), k.2.clone()))
-                        }),
-                        sanctuary: d.sanctuary,
-                        scroll: crate::ui::viz::shooter_viz::scroll_of(&snapshot.run, d.player),
-                        upgrades: upgrades.clone(),
-                        upgrade_note,
-                        upgrade_page: d.upgrade_page,
-                    }),
-                native,
-            )
-        } else {
-            crate::ui::viz::together_viz::render_game(
-                frame,
-                &app.realm.together,
-                root,
-                &app.realm.dungeon.notice,
-            )
-        } && !app.dungeon_controls_blocked();
-        // The wish scroll's choices, the wish sealed, the genie freed: the
-        // seat's picture carries them when it is shown whole; in cells,
-        // the scroll's own half-block version.
-        if !native && app.realm.dungeon.forge.draft.is_none() && app.realm.dungeon.activity_menu.is_none() && !app.realm.dungeon.cards_open {
-            if let Some(joined) = &app.realm.dungeon.joined {
-                if let Some(run) = joined.run() {
-                    crate::ui::viz::shooter_viz::offer_box(frame, root, &run, joined.actor());
-                }
-            } else if let Some((snapshot, knight)) = &screen {
-                crate::ui::viz::shooter_viz::offer_box(frame, root, &snapshot.run, *knight);
-            }
+        let harness = app.dungeon_harness_status();
+        crate::ui::viz::cartridge_viz::render(frame, root, app.games.carts[index].as_mut(), &harness);
+        crate::ui::views::setup_view::render(frame, root, app);
+        render_selection_and_approval_overlays(frame, app);
+        if let Some(pending) = app.pending_turn.as_mut() {
+            pending.echo_drawn = true;
         }
-        // Text overlays must stay above the game: fall back to cells while a
-        // dialog owns input instead of placing an image over its buttons.
-        if !app.dungeon_controls_blocked()
-            && app.realm.dungeon.intro.is_none()
-            && app.realm.dungeon.forge.draft.is_none()
-            && !app.realm.dungeon.cards_open
-            && app.realm.dungeon.activity_menu.is_none()
-        {
-            let seat = match (&app.realm.dungeon.joined, &screen) {
-                (Some(joined), _) => Some(joined.seat.clone()),
-                (None, Some((_, knight))) => app.realm.dungeon.shooter.seat(*knight).cloned(),
-                (None, None) => None,
-            };
-            if let Some(seat) = seat {
-                crate::ui::viz::shooter_viz::render_seat(
-                    frame,
-                    &mut app.viewer,
-                    &seat,
-                    root,
-                    true,
-                    now,
-                );
-            }
-        }
-        // Couch friends retain the activity's camera; the departed host has
-        // a small view of their own safe entrance alongside it, from the
-        // host's own seat.
-        if app.realm.dungeon.hosting.is_none()
-            && app.realm.dungeon.activity_menu.is_none()
-            && !app.realm.dungeon.cards_open
-            && !app.dungeon_controls_blocked()
-            && let Some((snapshot, 2)) = &screen
-            && snapshot.run.exits.outside.contains_key(&1)
-            && root.width >= 80
-            && root.height >= 24
-            && let Some(host) = app.realm.dungeon.shooter.seat(1)
-        {
-            if app.realm.dungeon.shooter.threaded() {
-                host.request(now);
-            } else {
-                host.frame(now);
-            }
-            let inset = Rect::new(root.right() - 25, root.bottom() - 13, 24, 7);
-            let border = ratatui::widgets::Block::bordered().title("P1 outside · E rejoin");
-            let inside = border.inner(inset);
-            frame.render_widget(ratatui::widgets::Clear, inset);
-            if let Some(picture) = host.picture() {
-                crate::ui::viz::shooter_viz::paint_picture(frame, inside, &picture);
-            }
-            frame.render_widget(border, inset);
-        }
+        app.scryglass.finish_frame();
+        app.settle_walk();
+        return;
+    }
+    // Setup is a foreground object; the ordinary workspace keeps painting.
+    if app.dungeon_view_active() {
+        let harness = app.dungeon_harness_status();
+        let facts = app.realm_facts();
+        app.with_realm(|realm, cx| realm.prepare_game(cx));
+        app.image_occluders.push(root);
+        app.realm
+            .draw_game(frame, root, &facts, &harness, &mut app.viewer);
         crate::ui::views::setup_view::render(frame, root, app);
         render_selection_and_approval_overlays(frame, app);
         if let Some(pending) = app.pending_turn.as_mut() {
@@ -1027,7 +821,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
         && app
             .scryglass
             .controller
-            .resolved_scene(false, false, app.realm.world.quest_owns_pane())
+            .resolved_scene(false, false, app.realm.quest_owns_pane())
             == crate::ui::scryglass::StageSurface::Research
         && app
             .module_host
@@ -1105,7 +899,7 @@ pub(crate) fn ui(frame: &mut Frame, app: &mut App) {
     // hit targets for the visible board rather than the covered world.
     if app.moa_deck_owns_input() {
         app.world_pane_visible = false;
-        app.realm.overworld_map = None;
+        app.realm.clear_map_view();
         app.scryglass.begin_frame();
         app.scryglass.surface = crate::ui::scryglass::StageSurface::Moa;
         app.agent_buttons
@@ -1176,8 +970,9 @@ fn merge_frame_borders(frame: &mut Frame, app: &App, header_boxed: bool) {
 }
 
 pub(crate) fn render_message_composer(frame: &mut Frame, app: &mut App, area: Rect) {
+    crate::ui::angelface::note_region(crate::ui::angelface::Region::Composer, area);
     let intent = crate::ui::views::status_view::composer_intent(&app.input);
-    let busy = app.thinking.is_some() || app.bg_job.is_some();
+    let busy = app.flight_owner().is_agent_busy();
     let steerable = matches!(
         intent,
         crate::ui::views::status_view::ComposerIntent::Empty
@@ -1355,12 +1150,7 @@ pub(crate) fn composer_cursor_position(
     if inner_width == 0 || inner_height == 0 || !app.terminal_focused {
         return None;
     }
-    if app.pending_approval.is_some()
-        || app.agent_menu.is_some()
-        || app.moa_deck_owns_input()
-        || app.loop_dialog.is_some()
-        || app.shell_focused
-    {
+    if app.top_overlay() != Overlay::None || app.shell_focused {
         return None;
     }
     let stage_focused = app
@@ -1802,7 +1592,7 @@ fn clip_caption(line: Line<'static>, max: usize) -> Line<'static> {
 fn formation_status_bar(app: &mut App, bar: Rect) -> Line<'static> {
     use crate::ui::hud::{HUD_BLUE, HUD_DIM, HUD_PHOSPHOR};
 
-    let busy = app.thinking.is_some() || app.bg_job.is_some();
+    let busy = app.flight_owner().is_agent_busy();
     let button = if busy {
         "[Formation:edit]"
     } else {
@@ -1812,7 +1602,7 @@ fn formation_status_bar(app: &mut App, bar: Rect) -> Line<'static> {
     spans.push(Span::styled(button, Style::new().fg(HUD_BLUE)));
     spans.push(Span::styled(
         format!(" · {}", app.moa_arm_status()),
-        Style::new().fg(if app.moa_one_shot.is_some() || app.moa_session.is_some() {
+        Style::new().fg(if app.moa_phase().is_live() {
             HUD_PHOSPHOR
         } else {
             HUD_DIM
@@ -2546,6 +2336,9 @@ mod merge_frame_tests;
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/frames__capture_tests.rs"]
 mod frames_capture_tests;
+#[cfg(all(test, feature = "delve"))]
+#[path = "../../../tests/cockpit/app/golden_frames__tests.rs"]
+mod golden_frames;
 
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/frames__teaser_tests.rs"]

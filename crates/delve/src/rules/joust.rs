@@ -29,6 +29,8 @@
 use super::*;
 use crate::realm::chivalry::{Mount, Stable, Steed, TENDED_BALANCE};
 
+pub mod show;
+
 /// A champion of the realm at the lists.
 pub struct Rival {
     pub id: &'static str,
@@ -243,6 +245,9 @@ pub struct Wager {
     /// How it came out, once the bout is over.
     #[serde(default)]
     pub won: Option<bool>,
+    /// A favour thrown this pass (one a pass).
+    #[serde(default)]
+    pub threw: bool,
 }
 
 /// A bout at the lists, as it stands.
@@ -298,6 +303,13 @@ pub struct Joust {
     /// treasury can't cover an entry (a bout for honour).
     #[serde(default)]
     pub purse: u32,
+    /// Favours thrown to each rider from the gallery this pass: a rider
+    /// with the crowd behind him is steadied, one knock the lighter.
+    #[serde(default)]
+    pub roar: (u8, u8),
+    /// What lately happened, for the picture (`show`).
+    #[serde(default, skip_serializing_if = "show::Show::quiet")]
+    pub show: show::Show,
 }
 
 /// The lists' lanes either side of the tilt, and its ends (arena units).
@@ -309,7 +321,7 @@ pub const MEETING: f32 = 24.0;
 /// The plate at the lists' west end where a knight mounts (tiles).
 pub const MOUNT_PLATE: (i32, i32, i32, i32) = (1, 8, 2, 1);
 /// How long a bout's verdict stands before the knights get down.
-pub const VERDICT_TICKS: u32 = 5 * HZ;
+pub const VERDICT_TICKS: u32 = 9 * HZ;
 /// How long a rider holds Space at the end to withdraw from a bout.
 pub const WITHDRAW_HOLD: u32 = HZ;
 /// Ticks before the meeting when lances and shields are set: what each
@@ -353,6 +365,9 @@ impl Joust {
             && self.passes.1 <= 3
             && self.balance.0 <= 16
             && self.balance.1 <= 16
+            && self.roar.0 <= MAX_PLAYERS as u8
+            && self.roar.1 <= MAX_PLAYERS as u8
+            && self.show.valid()
             && self.purse <= PURSE
             && seat(self.knight)
             && foe.is_none_or(|id| seat(id) && id != self.knight)
@@ -415,19 +430,22 @@ impl Joust {
         match self.stage {
             Stage::Ready => 0.0,
             Stage::Done => 1.0,
-            Stage::Charge => {
-                let m = self.meeting() as f32;
-                let t = self.t as f32;
-                let after = m + self.clash() as f32;
-                if t <= m {
-                    share * (t / m).powf(1.5)
-                } else if t <= after {
-                    share
-                } else {
-                    let k = ((t - after) / (m * 0.6)).min(1.0);
-                    share + (1.0 - share) * (1.0 - (1.0 - k) * (1.0 - k))
-                }
-            }
+            Stage::Charge => self.along_at(share, self.t),
+        }
+    }
+
+    /// `along` as the charge stood `at` ticks in.
+    fn along_at(&self, share: f32, at: u32) -> f32 {
+        let m = self.meeting() as f32;
+        let t = at as f32;
+        let after = m + self.clash() as f32;
+        if t <= m {
+            share * (t / m).powf(1.5)
+        } else if t <= after {
+            share
+        } else {
+            let k = ((t - after) / (m * 0.6)).min(1.0);
+            share + (1.0 - share) * (1.0 - (1.0 - k) * (1.0 - k))
         }
     }
 
@@ -453,6 +471,25 @@ impl Joust {
     pub fn riders(&self) -> ((f32, f32, bool), (f32, f32, bool)) {
         let share = self.share();
         let (a, b) = (self.along(share), self.along(1.0 - share));
+        let span = EAST_END - WEST_END;
+        if self.from_west() {
+            (
+                (WEST_END + span * a, SOUTH_LANE, true),
+                (EAST_END - span * b, NORTH_LANE, false),
+            )
+        } else {
+            (
+                (EAST_END - span * a, SOUTH_LANE, false),
+                (WEST_END + span * b, NORTH_LANE, true),
+            )
+        }
+    }
+
+    /// Where the riders were `at` ticks into this charge (the picture's
+    /// dust and trails look back along the way they came).
+    pub fn riders_at(&self, at: u32) -> ((f32, f32, bool), (f32, f32, bool)) {
+        let share = self.share();
+        let (a, b) = (self.along_at(share, at), self.along_at(1.0 - share, at));
         let span = EAST_END - WEST_END;
         if self.from_west() {
             (
@@ -593,6 +630,12 @@ fn next_mount(m: Mount, step: i8) -> Mount {
 }
 
 impl Run {
+    /// A bout is being ridden in the room the party is in: the lists take
+    /// the whole screen.
+    pub fn joust_showing(&self) -> bool {
+        self.joust.is_some() && self.room().kind == RoomKind::Lists
+    }
+
     /// The knights at the lists who could ride or watch: up, awake, here.
     fn at_the_lists(&self) -> Vec<u32> {
         self.players
@@ -653,6 +696,7 @@ impl Run {
                             side: 0,
                         },
                         won: None,
+                        threw: false,
                     },
                 ))
             })
@@ -715,6 +759,8 @@ impl Run {
             lance: lance_for(self.seed, bout, 0),
             gallery,
             purse,
+            roar: (0, 0),
+            show: show::Show::default(),
         });
         *self.marks.entry("joust:start".into()).or_default() += 1;
         self.cues.push(if friendly {
@@ -804,6 +850,7 @@ impl Run {
         let theirs = j.foe.as_ref().map(|f| key(f.id));
         let mut ended = false;
         j.t += 1;
+        j.show.tick();
         match j.stage {
             Stage::Ready => {
                 // Before the first pass, each rider picks a horse at the end.
@@ -827,6 +874,7 @@ impl Run {
                 }
                 if mine.fire && !j.keys.fire && !j.spurred {
                     j.spurred = true;
+                    j.show.spurred[0] = Some(j.show.t);
                     self.sounds.push("step_wood");
                 }
                 if let (Some(f), Some(input)) = (j.foe.as_mut(), theirs)
@@ -835,6 +883,7 @@ impl Run {
                     && !f.spurred
                 {
                     f.spurred = true;
+                    j.show.spurred[1] = Some(j.show.t);
                     self.sounds.push("step_wood");
                 }
                 let patience = if j.course == 0 {
@@ -902,6 +951,7 @@ impl Run {
                 // riders hold for it): a late press still counts inside it.
                 let window = j.clash() - 1;
                 if j.unset() {
+                    let before = (j.aim, j.shield);
                     if mine.move_y < 0 {
                         j.aim = Aim::High;
                     } else if mine.move_y > 0 {
@@ -911,7 +961,14 @@ impl Run {
                         j.shield = j.shield.other();
                         self.sounds.push("shield_up");
                     }
+                    if j.aim != before.0 {
+                        j.show.aimed[0] = Some(j.show.t);
+                    }
+                    if j.shield != before.1 {
+                        j.show.shielded[0] = Some(j.show.t);
+                    }
                     if let (Some(f), Some(input)) = (j.foe.as_mut(), theirs) {
+                        let before = (f.aim, f.shield);
                         if input.move_y < 0 {
                             f.aim = Aim::High;
                         } else if input.move_y > 0 {
@@ -921,8 +978,15 @@ impl Run {
                             f.shield = f.shield.other();
                             self.sounds.push("shield_up");
                         }
+                        if f.aim != before.0 {
+                            j.show.aimed[1] = Some(j.show.t);
+                        }
+                        if f.shield != before.1 {
+                            j.show.shielded[1] = Some(j.show.t);
+                        }
                     }
                 }
+                self.cheer_from_the_gallery(&mut j, inputs);
                 if let Some(f) = j.foe.as_mut() {
                     j.guard = f.shield;
                 }
@@ -955,12 +1019,47 @@ impl Run {
         if let (Some(f), Some(input)) = (j.foe.as_mut(), theirs) {
             f.keys = Held::of(input);
         }
+        for (&id, w) in j.gallery.iter_mut() {
+            w.keys = Held::of(key(id));
+        }
         if ended {
             self.get_down(&j);
             return;
         }
         self.joust = Some(j);
         self.seat_riders();
+    }
+
+    /// The gallery's favours: while the riders close, a knight in the
+    /// gallery who backs a rider throws him a favour with F, one a pass.
+    /// A rider with a favour thrown to him has the crowd behind him: at the
+    /// meeting he is steadied, one knock the lighter.
+    fn cheer_from_the_gallery(&mut self, j: &mut Joust, inputs: &BTreeMap<u32, Input>) {
+        if j.stage != Stage::Charge || j.t >= j.meeting() {
+            return;
+        }
+        let ids: Vec<u32> = j.gallery.keys().copied().collect();
+        for id in ids {
+            let fire = inputs
+                .get(&id)
+                .copied()
+                .filter(|i| i.valid())
+                .is_some_and(|i| i.fire);
+            let Some(w) = j.gallery.get_mut(&id) else {
+                continue;
+            };
+            let (Some(side), true) = (w.side, fire && !w.keys.fire && !w.threw) else {
+                continue;
+            };
+            w.threw = true;
+            if side == 0 {
+                j.roar.0 += 1;
+            } else {
+                j.roar.1 += 1;
+            }
+            j.show.throw(id, side);
+            self.sounds.push("play_card");
+        }
     }
 
     /// The gallery's wagers, before the first pass: A or D backs the rider
@@ -1029,8 +1128,11 @@ impl Run {
         let open = |h: Hit| matches!(h, Hit::Clean | Hit::Smite);
         let weight = |h: Hit, s: Steed| if open(h) { s.weight } else { 0 };
         let theirs_weight = if j.foe.is_some() { weight(theirs, b) } else { 0 };
-        j.balance.1 = j.balance.1.saturating_sub(mine.knocks() + weight(mine, a));
-        j.balance.0 = j.balance.0.saturating_sub(theirs.knocks() + theirs_weight);
+        let (knock0, knock1) = (theirs.knocks() + theirs_weight, mine.knocks() + weight(mine, a));
+        // The crowd behind a rider takes a knock off the blow.
+        let steady = (j.roar.0 > 0 && knock0 > 0, j.roar.1 > 0 && knock1 > 0);
+        j.balance.1 = j.balance.1.saturating_sub(knock1 - u32::from(steady.1));
+        j.balance.0 = j.balance.0.saturating_sub(knock0 - u32::from(steady.0));
         j.score.0 += mine.points();
         j.score.1 += theirs.points();
         match mine.points().cmp(&theirs.points()) {
@@ -1040,6 +1142,28 @@ impl Run {
         }
         j.fallen = (j.balance.0 == 0, j.balance.1 == 0);
         j.hits = Some((mine, theirs));
+        let taken = (
+            show::weight_of(theirs, j.fallen.0),
+            show::weight_of(mine, j.fallen.1),
+        );
+        let aims = (j.aim, j.foe.as_ref().map_or(j.lance, |f| f.aim));
+        let at = j.show.t;
+        let x = j.meeting_x();
+        j.show.meet(show::Meet {
+            born: at,
+            course: j.course,
+            hits: (mine, theirs),
+            aims,
+            taken,
+            steady,
+            down: j.fallen,
+            x,
+        });
+        if mine != Hit::Miss || theirs != Hit::Miss {
+            // The room holds its breath on the blow: a clean one a beat, a
+            // mighty one longer, a fall longest of all.
+            self.hold_for(taken.0.max(taken.1));
+        }
         if mine != Hit::Miss || theirs != Hit::Miss {
             let big = mine == Hit::Smite || theirs == Hit::Smite || j.fallen.0 || j.fallen.1;
             self.fx.push(Fx::Shake(if big { 12 } else { 6 }));
@@ -1063,6 +1187,10 @@ impl Run {
     /// The pass is ridden out: the bout ends with a fall, two passes won,
     /// or the third pass; otherwise back to the ends for the next.
     fn end_pass(&mut self, j: &mut Joust) {
+        j.roar = (0, 0);
+        for w in j.gallery.values_mut() {
+            w.threw = false;
+        }
         let decided = j.fallen.0 || j.fallen.1 || j.passes.0 >= 2 || j.passes.1 >= 2;
         if !decided && j.course < 2 {
             j.course += 1;

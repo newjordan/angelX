@@ -8,7 +8,7 @@ fn crossroads() -> Run {
     run.floor_plates.clear();
     run.crossroads = Some(State {
         depth: 4, pack: crate::rules::Pack::Archive,
-        choices: [Game::Gander, Game::Powder, Game::Shaft], seats: vec![1, 2],
+        choices: [Game::Racers, Game::Powder, Game::Shaft], seats: vec![1, 2],
         votes: Default::default(), stage: Stage::Voting, left: VOTE_TIME,
         chosen: None, order: Vec::new(),
     });

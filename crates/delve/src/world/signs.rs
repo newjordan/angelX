@@ -9,7 +9,7 @@ use super::biome;
 use super::kingdom::{self, Geography};
 use super::map::{MAP_H, MAP_W};
 use super::roads::{self, ROADS};
-use crate::rules::{RoomKind, Tile};
+use crate::rules::Tile;
 use std::collections::VecDeque;
 use std::sync::OnceLock;
 
@@ -39,11 +39,15 @@ pub const REACH: u32 = 60;
 pub const READ: f32 = 6.0;
 /// How far out from the post the roads are told apart, in tiles.
 const FORK: i32 = 4;
+/// A halt counts this much farther than it lies against a place or a way
+/// down, so it is named only where it is the nearest by a margin.
+const HALT_EXTRA: u32 = 8;
 
 /// Every fingerpost in the realm.
 pub fn posts() -> &'static [Post] {
     static POSTS: OnceLock<Vec<Post>> = OnceLock::new();
-    POSTS.get_or_init(|| build(&kingdom::geography(&[])))
+    // No road runs on the blank-slate plan's hillside, so no post stands.
+    POSTS.get_or_init(|| if super::plan::tabula() { Vec::new() } else { build(&kingdom::geography(&[])) })
 }
 
 fn idx((x, y): (i32, i32)) -> usize {
@@ -83,6 +87,17 @@ fn build(geo: &Geography) -> Vec<Post> {
         }
     }
     let road = |t: (i32, i32)| t.0 > 0 && t.1 > 0 && t.0 < MAP_W - 1 && t.1 < MAP_H - 1 && kingdom::is_road(geo, t);
+    // Where the way to each dungeon mouth leaves the main roads: a post
+    // stands there too, so a fork to a way down is signed.
+    let raster = roads::raster();
+    for m in crate::rules::world::MOUTHS.iter() {
+        if let Some(site) = geo.sites.iter().find(|s| s.room == m.room)
+            && let Some((tile, dir)) = fork_of(site.stand, &raster, &road)
+        {
+            marks.push((tile, dir, false));
+        }
+    }
+    let halts = super::waystations::placed();
     let mut posts: Vec<Post> = Vec::new();
     for (mark, (dx, dy), crossing) in marks {
         if posts.iter().any(|p| chebyshev(p.road, mark) < SPACING) {
@@ -105,6 +120,10 @@ fn build(geo: &Geography) -> Vec<Post> {
                 && geo.room.tile(t.0, t.1) == Tile::Floor
                 && !road(t)
                 && geo.sites.iter().all(|s| chebyshev(s.stand, t) > 2 && s.lot.is_none_or(|l| !l.contains(t.0, t.1)))
+                // A halt's ground is the halt's.
+                && halts.iter().all(|h| {
+                    !(h.rect.tx - 1..h.rect.tx + h.rect.tw + 1).contains(&t.0) || !(h.rect.ty - 1..h.rect.ty + h.rect.th + 1).contains(&t.1)
+                })
         });
         let Some(at) = spot else {
             continue;
@@ -117,10 +136,56 @@ fn build(geo: &Geography) -> Vec<Post> {
     posts
 }
 
+/// Where the road from `stand` first meets a main road: the tile, and the
+/// way the road runs into it.
+fn fork_of(stand: (i32, i32), raster: &[u8], road: &impl Fn((i32, i32)) -> bool) -> Option<((i32, i32), (i32, i32))> {
+    let mut seen = std::collections::HashSet::from([stand]);
+    let mut queue = VecDeque::from([(stand, stand)]);
+    while let Some((at, from)) = queue.pop_front() {
+        if at != stand && raster[idx(at)] >= roads::MAIN {
+            return Some((at, (at.0 - from.0, at.1 - from.1)));
+        }
+        for next in [(at.0 + 1, at.1), (at.0 - 1, at.1), (at.0, at.1 + 1), (at.0, at.1 - 1)] {
+            if road(next) && seen.insert(next) {
+                queue.push_back((next, at));
+            }
+        }
+    }
+    None
+}
+
+/// What an arm names.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ArmKind {
+    /// A region of the kingdom.
+    Region,
+    /// A place with a door, a world room of the realm.
+    Place,
+    /// A waystation (`super::waystations`).
+    Halt,
+    /// A way down into a dungeon (`crate::rules::world::MOUTHS`).
+    Dungeon,
+}
+
+/// What an arm's name is: a way down, a halt, a region, or a place.
+pub fn arm_kind(name: &str) -> ArmKind {
+    if crate::rules::world::MOUTHS.iter().any(|m| m.name == name) {
+        ArmKind::Dungeon
+    } else if super::waystations::STOPS.iter().any(|s| s.name == name) {
+        ArmKind::Halt
+    } else if biome::Biome::ALL.iter().any(|b| b.name() == name) {
+        ArmKind::Region
+    } else {
+        ArmKind::Place
+    }
+}
+
 /// What each road leaving `from` leads to. At a biome crossing each arm
-/// names the biome its road runs into; elsewhere, the first other biome
-/// down that road within [`REACH`], else the nearest place it reaches
-/// (the March's castles go by their biome's name).
+/// names the biome its road runs into; at a fork, the destination down that
+/// road within [`REACH`]: a way down into a dungeon (counted half as far as
+/// it is), a place, or a waystation (counted a little farther than it is),
+/// whichever is nearest, else the first other biome (the March's castles go
+/// by their biome's name).
 fn arms(geo: &Geography, from: (i32, i32), crossing: bool, road: &impl Fn((i32, i32)) -> bool) -> Vec<(Way, String)> {
     let own = biome::at(from.0, from.1);
     let n = (MAP_W * MAP_H) as usize;
@@ -169,19 +234,49 @@ fn arms(geo: &Geography, from: (i32, i32), crossing: bool, road: &impl Fn((i32, 
                 }
             }
         }
-        let place = geo
+        // The way down counts half as far as it lies, a halt a little more.
+        // A door within the ring round the post lies the way it stands from
+        // the post.
+        let toward = |t: (i32, i32)| {
+            let (dx, dy) = (t.0 - from.0, t.1 - from.1);
+            if dx.abs() >= dy.abs() {
+                if dx > 0 { Way::East } else { Way::West }
+            } else if dy > 0 {
+                Way::South
+            } else {
+                Way::North
+            }
+        };
+        let mut dest: Vec<(u32, u32, String)> = geo
             .sites
             .iter()
             .filter(|s| s.stand.0 >= 0 && s.stand.1 >= 0 && s.stand.0 < MAP_W && s.stand.1 < MAP_H)
             .filter(|s| biome::at(s.stand.0, s.stand.1) != biome::Biome::March)
-            .filter(|s| way[idx(s.stand)] == Some(w))
-            .min_by_key(|s| dist[idx(s.stand)])
+            .filter(|s| {
+                way[idx(s.stand)] == Some(w) || (way[idx(s.stand)].is_none() && chebyshev(s.stand, from) < FORK && toward(s.stand) == w)
+            })
             .map(|s| {
-                let name = if s.room == RoomKind::Gate { "The Delve" } else { s.name.as_str() };
-                (dist[idx(s.stand)], name)
-            });
-        let pick = if crossing { entered.or(biome_hit).or(place) } else { biome_hit.or(place) };
+                let d = if dist[idx(s.stand)] == u32::MAX { chebyshev(s.stand, from) as u32 } else { dist[idx(s.stand)] };
+                match crate::rules::world::MOUTHS.iter().find(|m| m.room == s.room) {
+                    Some(m) => (d, d, m.name.to_string()),
+                    None => (d, d * 2, s.name.clone()),
+                }
+            })
+            .collect();
+        dest.extend(
+            super::waystations::placed()
+                .iter()
+                .filter(|p| way[idx(p.road)] == Some(w))
+                .map(|p| (dist[idx(p.road)], dist[idx(p.road)] * 2 + HALT_EXTRA, super::waystations::STOPS[p.stop].name.to_string())),
+        );
+        let place = dest.into_iter().min_by_key(|&(_, cost, _)| cost).map(|(d, _, name)| (d, name));
+        let pick = if crossing {
+            entered.map(|(d, n)| (d, n.to_string())).or(biome_hit.map(|(d, n)| (d, n.to_string()))).or(place)
+        } else {
+            place.or(biome_hit.map(|(d, n)| (d, n.to_string())))
+        };
         if let Some((d, name)) = pick {
+            let name = name.as_str();
             if let Some(same) = out.iter_mut().find(|(_, n, _)| n == name) {
                 if d < same.2 {
                     *same = (w, name.to_string(), d);

@@ -34,6 +34,7 @@ fn quiet() -> Run {
     run.open_room_for_test(room);
     run.enter_for_test(room);
     run.calm_for_test();
+    run.settle_seams_for_test();
     run.enemies.clear();
     run.window = None;
     run.works.perils.clear();
@@ -1918,4 +1919,209 @@ fn a_storm_of_shield_clangs_stays_under_the_effect_cap() {
     }
     assert!(run.works.booms.len() <= 32);
     assert!(run.valid_snapshot());
+}
+
+// ─── the second grimoire, continued ─────────────────────────────────────────
+
+#[test]
+fn vesper_bell_rings_the_fliers_down_and_lets_them_up_again() {
+    let mut run = quiet();
+    let raw = "name Vesper Bell\nkind spell\nrarity rare\ncooldown 22\nvesper 1\n";
+    let checked = cards::check("vesper-bell", raw).expect("the card is written straight");
+    assert!(run.add_card(checked.card, 1), "learned and equipped");
+    let bat = foe(&mut run, EnemyKind::Bat, 24.0, 14.0);
+    let walker = foe(&mut run, EnemyKind::Skeleton, 20.0, 10.0);
+    run.step(&BTreeMap::from([(
+        1,
+        Input {
+            cast: 1,
+            ..Default::default()
+        },
+    )]));
+    let bat_grounded = run
+        .enemies
+        .iter()
+        .find(|e| e.id == bat)
+        .unwrap()
+        .grounded;
+    // The cast tick itself spends one of the bell's ticks.
+    assert_eq!(bat_grounded, spells::VESPER_GROUNDS - 1, "the bell grounds the bat");
+    let walker_grounded = run
+        .enemies
+        .iter()
+        .find(|e| e.id == walker)
+        .unwrap()
+        .grounded;
+    assert_eq!(walker_grounded, 0, "a walker never noticed");
+    // And when the bell has faded, the wings come back.
+    idle(&mut run, spells::VESPER_GROUNDS + 2);
+    let bat_grounded = run
+        .enemies
+        .iter()
+        .find(|e| e.id == bat)
+        .unwrap()
+        .grounded;
+    assert_eq!(bat_grounded, 0, "the wings return");
+}
+
+#[test]
+fn monks_patience_forbids_fire_and_halves_the_blow() {
+    let mut run = quiet();
+    let raw = "name Monk's Patience\nkind spell\nrarity rare\ncooldown 40\npatience 1\n";
+    let checked = cards::check("monks-patience", raw).expect("the card is written straight");
+    assert!(run.add_card(checked.card, 1), "learned and equipped");
+    run.step(&BTreeMap::from([(
+        1,
+        Input {
+            cast: 1,
+            ..Default::default()
+        },
+    )]));
+    // The cast tick itself spends one tick of it.
+    assert_eq!(
+        run.players[&1].patience,
+        spells::PATIENCE_TICKS - 1,
+        "the patience begins"
+    );
+    // A knight in patience may not fire, however much they mean to.
+    for _ in 0..4 {
+        run.step(&BTreeMap::from([(
+            1,
+            Input {
+                fire: true,
+                ..Default::default()
+            },
+        )]));
+    }
+    assert!(
+        run.projectiles.is_empty(),
+        "the monk needs nothing from the crossbow"
+    );
+    // The mend: half a second in, some health has come back.
+    run.players.get_mut(&1).unwrap().hp = run.players[&1].max_hp / 2;
+    idle(&mut run, HZ / 2);
+    assert!(
+        run.players[&1].hp > run.players[&1].max_hp / 2,
+        "the mend trickles"
+    );
+    // Half of every blow, against a control knight with no patience.
+    let mut control = quiet();
+    let (patient_loss, plain_loss) = {
+        let strike = |run: &mut Run| {
+            let hero = run.players.get_mut(&1).unwrap();
+            hero.invulnerable = 0;
+            let hp = hero.hp;
+            run.projectiles.push(Projectile {
+                x: hero.x,
+                y: hero.y,
+                vx: 4.0,
+                vy: 0.0,
+                hostile: true,
+                look: None,
+                kind: Shot::Orb,
+                damage: 40,
+                pierce: 0,
+                last_hit: None,
+                empowered: false,
+                ttl: 30,
+                traits: ShotTraits::default(),
+            });
+            idle(run, 3);
+            hp - run.players[&1].hp
+        };
+        let patient = strike(&mut run);
+        let plain = strike(&mut control);
+        (patient, plain)
+    };
+    assert!(plain_loss > 0, "the control blow landed");
+    assert_eq!(
+        patient_loss * 2,
+        plain_loss,
+        "half of every blow ({patient_loss} vs {plain_loss})"
+    );
+    // When the patience is spent, the crossbow answers again.
+    run.players.get_mut(&1).unwrap().patience = 1;
+    idle(&mut run, 2);
+    run.step(&BTreeMap::from([(
+        1,
+        Input {
+            fire: true,
+            ..Default::default()
+        },
+    )]));
+    assert!(!run.projectiles.is_empty(), "the patience is over");
+}
+
+#[test]
+fn plague_of_frogs_frogs_the_small_ones_and_leaves_the_rest() {
+    let mut run = quiet();
+    let raw = "name Plague of Frogs\nkind spell\nrarity rare\ncooldown 35\nfrogs 1\n";
+    let checked = cards::check("plague-of-frogs", raw).expect("the card is written straight");
+    assert!(run.add_card(checked.card, 1), "learned and equipped");
+    // A bat is small; a Broodmarrow is not.
+    run.spawn_at_for_test(EnemyKind::Bat, 24.0, 14.0);
+    let bat = run.enemies.last().unwrap().id;
+    let big = foe(&mut run, EnemyKind::Broodmarrow, 20.0, 10.0);
+    run.step(&BTreeMap::from([(
+        1,
+        Input {
+            cast: 1,
+            ..Default::default()
+        },
+    )]));
+    let bat_frog = run.enemies.iter().find(|e| e.id == bat).unwrap().frog;
+    // The cast tick itself spends one tick of the plague.
+    assert_eq!(bat_frog, spells::FROG_TICKS - 1, "the bat is a frog now");
+    let big_frog = run.enemies.iter().find(|e| e.id == big).unwrap().frog;
+    assert_eq!(big_frog, 0, "a hill of hide is no frog");
+    // The frog hops away from the knights, and can do nothing else.
+    let (x0, y0) = {
+        let bat_e = run.enemies.iter().find(|e| e.id == bat).unwrap();
+        (bat_e.x, bat_e.y)
+    };
+    idle(&mut run, 3 * HZ);
+    let (x1, y1) = {
+        let bat_e = run.enemies.iter().find(|e| e.id == bat).unwrap();
+        (bat_e.x, bat_e.y)
+    };
+    assert!(
+        (x1 - 16.0).hypot(y1 - 14.0) > (x0 - 16.0).hypot(y0 - 14.0),
+        "it hops away ({x0},{y0}) -> ({x1},{y1})"
+    );
+    // The plague wears off.
+    idle(&mut run, spells::FROG_TICKS);
+    let bat_frog = run.enemies.iter().find(|e| e.id == bat).unwrap().frog;
+    assert_eq!(bat_frog, 0, "it is itself again, and cross about it");
+}
+
+#[test]
+fn excommunicate_reads_the_nearest_monster_out_of_the_room() {
+    let mut run = quiet();
+    let raw = "name Excommunicate\nkind spell\nrarity relic\ncooldown 45\nexcommunicate 1\n";
+    let checked = cards::check("excommunicate", raw).expect("the card is written straight");
+    assert!(run.add_card(checked.card, 1), "learned and equipped");
+    let near = foe(&mut run, EnemyKind::Skeleton, 20.0, 14.0);
+    let far = foe(&mut run, EnemyKind::Hob, 28.0, 6.0);
+    run.step(&BTreeMap::from([(
+        1,
+        Input {
+            cast: 1,
+            ..Default::default()
+        },
+    )]));
+    let (sx, sy, frozen, shunned) = {
+        let e = run.enemies.iter().find(|e| e.id == near).unwrap();
+        (e.x, e.y, e.frozen, e.shunned)
+    };
+    // The stun spends its first tick the same one it lands.
+    assert_eq!(frozen, spells::EXCOMMUNICATE_FREEZE - 1, "the shame holds it");
+    assert!(shunned, "it drops from its kind's rolls this death");
+    // It stands in a corner now, far from any knight, and the nearer
+    // monster was the one read out — the Hob at (28,6) stays where it was.
+    let room = run.room();
+    let (w, h) = (room.width(), room.height());
+    let corner = (sx - 2.5).abs() < 0.01 || (sx - (w - 2.5)).abs() < 0.01;
+    assert!(corner && (sy - 2.5).abs() < 0.01 || corner && (sy - (h - 2.5)).abs() < 0.01, "in a corner ({sx},{sy})");
+    let hob = run.enemies.iter().find(|e| e.id == far).unwrap();
+    assert!(!hob.shunned && hob.frozen == 0, "the farther one keeps its place in the book");
 }

@@ -2,9 +2,10 @@
 //! thread with the host's terminal as one of its clients, a friend's angelX
 //! joined over a real socket by the link (a `NativeLink`), and a browser
 //! seat spoken to as a browser speaks, byte for byte, on its own socket.
+#![cfg(feature = "delve")]
 use crate::app::App;
-use crate::drive::together_shooter::command::DelveCmd;
-use crate::drive::together_shooter::{Input, Run};
+use crate::delve::together_shooter::command::DelveCmd;
+use crate::delve::together_shooter::{Input, Run};
 use angel_delve::wire;
 use angel_net::codec::Bytes;
 use angel_net::doc::delta::apply;
@@ -327,7 +328,7 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
         .expect("the host's seat drew");
     assert_eq!(
         (picture.w, picture.h),
-        crate::stage::world_viz::overworld::arena::seat_size()
+        crate::delve::world_viz::overworld::arena::seat_size()
     );
 
     // An edit on the host reaches every client.
@@ -363,8 +364,8 @@ fn a_threaded_host_its_own_seat_a_joined_friend_and_a_browser_seat_play_one_delv
 
     // What the run banks settles into the host's realm.
     if let Some(mut run) = host.dungeon.shooter.as_mut() {
-        let mut spoils = crate::drive::together_realm::Spoils::default();
-        spoils.add(crate::drive::together_realm::Spoil::Bone, 4);
+        let mut spoils = crate::delve::together_realm::Spoils::default();
+        spoils.add(crate::delve::together_realm::Spoil::Bone, 4);
         run.bank.push(angel_delve::realm::Haul {
             hero: friend_knight,
             spoils,

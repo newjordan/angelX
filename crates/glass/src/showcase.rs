@@ -269,8 +269,9 @@ impl Host {
     }
 
     /// Times the operator has closed the showcase so far (its close
-    /// button, Escape over it); a producer's own close does not count. A
-    /// showing nobody asked for can hold back while one was just closed.
+    /// button, Escape over it), at this window or at a remote one; a
+    /// producer's own close does not count. A showing nobody asked for can
+    /// hold back while one was just closed.
     pub fn showcase_dismissals(&self) -> u32 {
         self.shared.showcase_dismissals.load(Ordering::Relaxed)
     }
@@ -278,6 +279,22 @@ impl Host {
     /// Clicks on the showcase's content so far (a video pauses on one).
     pub fn showcase_clicks(&self) -> u32 {
         self.shared.showcase_clicks.load(Ordering::Relaxed)
+    }
+}
+
+impl crate::Shared {
+    /// The operator closed showing `serial`, at this window or at one on the far
+    /// end of a remote link. It stops being live, but only if it is still the one
+    /// up: a newer showing is not theirs to close. The close is counted either
+    /// way, because they did close what they were looking at. True when this call
+    /// ended the showing.
+    pub(crate) fn operator_closed(&self, serial: u64) -> bool {
+        let ended = self
+            .showcase_live
+            .compare_exchange(serial, 0, Ordering::AcqRel, Ordering::Relaxed)
+            .is_ok();
+        self.showcase_dismissals.fetch_add(1, Ordering::Relaxed);
+        ended
     }
 }
 
@@ -405,6 +422,11 @@ struct Open {
     /// When new content arrived in the open panel: the squire waves.
     waved: Option<Instant>,
     herald: Herald,
+    /// The current module resource stays leased for this showing. A clip
+    /// swap replaces this Arc without resetting `since` or the panel rect.
+    squire_clip: Option<(crate::squire::ShowcaseClipIdentity, std::sync::Arc<crate::squire::ShowcaseSquireClip>)>,
+    squire_livery: Option<Livery>,
+    retinue_liveries: Vec<Livery>,
     marks: Vec<Mark>,
     /// The mark under the pointer, and its tip's size.
     hot: Option<(usize, (u32, u32))>,
@@ -529,8 +551,9 @@ impl Popup {
         scale: f32,
         font: &str,
     ) -> Vec<Picture> {
-        let Some(request) = host.shared.showcase.lock_recover().take() else {
-            return Vec::new();
+        let request = host.shared.showcase.lock_recover().take();
+        let Some(request) = request else {
+            return self.refresh_squire_clip(&host.shared);
         };
         match request {
             Request::Close => {
@@ -551,9 +574,21 @@ impl Popup {
                 let retinue: Vec<Livery> = retinue.into_iter().take(squire::MOST_RETINUE).collect();
                 self.serial_seen = host.shared.showcase_live.load(Ordering::Acquire);
                 self.metrics = Metrics::at(scale);
-                let mut pictures = vec![self.frame_picture(), self.icons_picture(), squire::sheet(livery.as_ref(), squire::SHEET), wizard::sheet()];
+                let squire_clip = if herald == Herald::Squire {
+                    host.shared.showcase_squire_clip.lock_recover().clone()
+                } else {
+                    None
+                };
+                let squire_picture = squire_clip.as_ref().map_or_else(
+                    || squire::placeholder_sheet(squire::SHEET),
+                    |(_, clip)| clip.picture(livery.as_ref(), squire::SHEET),
+                );
+                let mut pictures = vec![self.frame_picture(), self.icons_picture(), squire_picture, wizard::sheet()];
                 for (i, livery) in retinue.iter().enumerate() {
-                    pictures.push(squire::sheet(Some(livery), squire::RETINUE_SHEETS + i as u32));
+                    pictures.push(squire_clip.as_ref().map_or_else(
+                        || squire::placeholder_sheet(squire::RETINUE_SHEETS + i as u32),
+                        |(_, clip)| clip.picture(Some(livery), squire::RETINUE_SHEETS + i as u32),
+                    ));
                 }
                 let title_px = match self.title_picture(&title, font) {
                     Some(picture) => {
@@ -578,6 +613,7 @@ impl Popup {
                     Some(open) => (open.since, Some(Instant::now())),
                     None => (Instant::now(), None),
                 };
+                let retinue_count = retinue.len();
                 self.closing = None;
                 self.open = Some(Open {
                     size,
@@ -593,9 +629,12 @@ impl Popup {
                     last_bar_press: None,
                     waved,
                     herald,
+                    squire_clip,
+                    squire_livery: livery,
+                    retinue_liveries: retinue,
                     marks,
                     hot: None,
-                    retinue: retinue.len(),
+                    retinue: retinue_count,
                     nav,
                     model,
                     zoom: 1.0,
@@ -608,6 +647,37 @@ impl Popup {
                 pictures
             }
         }
+    }
+
+    /// Replace the authored clip for the lead and retinue. The open instance
+    /// keeps its original clock, rect, and pointer state; picture uploads
+    /// take effect on the next frame.
+    fn refresh_squire_clip(&mut self, shared: &crate::Shared) -> Vec<Picture> {
+        let Some(open) = self.open.as_mut() else { return Vec::new() };
+        if open.herald != Herald::Squire {
+            return Vec::new();
+        }
+        let replacement = shared.showcase_squire_clip.lock_recover().clone();
+        let unchanged = match (&replacement, &open.squire_clip) {
+            (Some((replacement, _)), Some((current, _))) => replacement == current,
+            (None, None) => true,
+            _ => false,
+        };
+        if unchanged {
+            return Vec::new();
+        }
+        open.squire_clip = replacement;
+        let mut pictures = vec![open.squire_clip.as_ref().map_or_else(
+            || squire::placeholder_sheet(squire::SHEET),
+            |(_, clip)| clip.picture(open.squire_livery.as_ref(), squire::SHEET),
+        )];
+        for (i, livery) in open.retinue_liveries.iter().enumerate() {
+            pictures.push(open.squire_clip.as_ref().map_or_else(
+                || squire::placeholder_sheet(squire::RETINUE_SHEETS + i as u32),
+                |(_, clip)| clip.picture(Some(livery), squire::RETINUE_SHEETS + i as u32),
+            ));
+        }
+        pictures
     }
 
     pub(crate) fn is_open(&self) -> bool {
@@ -673,13 +743,7 @@ impl Popup {
 
     /// The operator closed it: tell the producer, then fade out.
     fn dismiss(&mut self, shared: &crate::Shared) {
-        let _ = shared.showcase_live.compare_exchange(
-            self.serial_seen,
-            0,
-            Ordering::AcqRel,
-            Ordering::Relaxed,
-        );
-        shared.showcase_dismissals.fetch_add(1, Ordering::Relaxed);
+        shared.operator_closed(self.serial_seen);
         self.close();
     }
 
@@ -745,7 +809,11 @@ impl Popup {
     /// The seated squire under `p`: his place (0 the lead).
     fn squire_at(&self, p: [f32; 2]) -> Option<usize> {
         let open = self.open.as_ref()?;
-        if open.herald != Herald::Squire || open.since.elapsed().as_secs_f32() < squire::INTRO_END || open.grab.is_some() {
+        if open.herald != Herald::Squire
+            || open.squire_clip.is_none()
+            || open.since.elapsed().as_secs_f32() < squire::INTRO_END
+            || open.grab.is_some()
+        {
             return None;
         }
         let m = self.metrics;
@@ -808,8 +876,18 @@ impl Popup {
         if t < squire::INTRO_END {
             return None;
         }
-        let (_, wait) = squire::idle(t - squire::INTRO_END, open.waved.map(|w| w.elapsed().as_secs_f32()));
-        Some(Instant::now() + std::time::Duration::from_secs_f32(wait.max(0.02)))
+        if let Some((_, clip)) = &open.squire_clip {
+            let waved = open.waved.map(|w| w.elapsed().as_secs_f32());
+            let wave_seconds = clip.wave.iter().map(|step| f32::from(step.millis) / 1000.0).sum::<f32>();
+            if let Some(w) = waved.filter(|w| *w < wave_seconds) {
+                let (_, wait) = crate::squire::ShowcaseSquireClip::frame_at(&clip.wave, w, false);
+                return Some(Instant::now() + std::time::Duration::from_secs_f32(wait.max(0.02)));
+            }
+            let own = t - squire::INTRO_END;
+            let (_, wait) = crate::squire::ShowcaseSquireClip::frame_at(&clip.idle, own, true);
+            return Some(Instant::now() + std::time::Duration::from_secs_f32(wait.max(0.02)));
+        }
+        None
     }
 
     /// Pictures to upload before the next draw.
@@ -1443,8 +1521,15 @@ impl Popup {
                             let own = t - squire::INTRO_END + 1.7 * place as f32;
                             pose.frame = if open.named.is_some_and(|(i, _)| i == place) {
                                 squire::Frame::SitWave
+                            } else if let Some((_, clip)) = &open.squire_clip {
+                                let wave_seconds = clip.wave.iter().map(|step| f32::from(step.millis) / 1000.0).sum::<f32>();
+                                let (frame, _) = match waved.filter(|w| *w < wave_seconds) {
+                                    Some(w) => crate::squire::ShowcaseSquireClip::frame_at(&clip.wave, w, false),
+                                    None => crate::squire::ShowcaseSquireClip::frame_at(&clip.idle, own, true),
+                                };
+                                crate::squire::Frame::from_index(frame)
                             } else {
-                                squire::idle(own, waved).0
+                                squire::Frame::Sit
                             };
                             pose.left = faces_left;
                         }
@@ -1857,6 +1942,9 @@ mod tests {
             last_bar_press: None,
             waved: None,
             herald: Herald::Squire,
+            squire_clip: None,
+            squire_livery: None,
+            retinue_liveries: Vec::new(),
             marks: Vec::new(),
             hot: None,
             retinue: 0,
@@ -1870,6 +1958,25 @@ mod tests {
             copied: None,
         });
         popup
+    }
+
+    fn clip(frame: u8, colour: u8) -> crate::squire::ShowcaseSquireClip {
+        let mut palette = vec![[0, 0, 0]; 12];
+        palette[1] = [colour, 20, 30];
+        crate::squire::ShowcaseSquireClip {
+            palette,
+            frames: (0..9).map(|_| vec![1; 320]).collect(),
+            idle: vec![crate::squire::ClipStep { frame, millis: 10_000 }],
+            wave: vec![crate::squire::ClipStep { frame: 8, millis: 1_000 }],
+            card: None,
+        }
+    }
+
+    fn lead_pose_frame(layers: &[Layer]) -> f32 {
+        layers.iter().find_map(|layer| match &layer.kind {
+            LayerKind::PicturePart(id, rect) if *id == squire::SHEET => Some(rect[0]),
+            _ => None,
+        }).expect("lead squire pose")
     }
 
     #[test]
@@ -2005,5 +2112,62 @@ mod tests {
         popup.closing.as_mut().unwrap().0 -= std::time::Duration::from_secs(1);
         assert!(popup.layers().is_empty());
         assert!(!popup.animating());
+    }
+
+    #[test]
+    fn open_clip_swap_keeps_the_squire_instance_position_and_animation_phase() {
+        let mut popup = open_popup((640, 480), Fit::Contain);
+        let shared = crate::Shared::default();
+        popup.open.as_mut().unwrap().retinue_liveries.push(Livery {
+            field: [10, 20, 30],
+            shadow: [5, 10, 15],
+            charge: [200, 190, 100],
+        });
+        let old = std::sync::Arc::new(clip(5, 40));
+        let identity = |generation, revision, digest: &str| crate::squire::ShowcaseClipIdentity { module: "showcase-squire".into(), name: "pack".into(), generation, revision, digest: digest.into() };
+        *shared.showcase_squire_clip.lock_recover() = Some((identity(1, 1, "old"), old));
+        popup.open.as_mut().unwrap().since = Instant::now() - std::time::Duration::from_secs(4);
+        popup.refresh_squire_clip(&shared);
+        let rect = popup.open.as_ref().unwrap().rect;
+        let since = popup.open.as_ref().unwrap().since;
+        assert_eq!(lead_pose_frame(&popup.layers()), 5.0 * 16.0);
+
+        let replacement = std::sync::Arc::new(clip(7, 90));
+        // Revision counters are scoped; a new generation can publish the same
+        // revision number with different authored pixels.
+        *shared.showcase_squire_clip.lock_recover() = Some((identity(2, 1, "new"), replacement));
+        let pictures = popup.refresh_squire_clip(&shared);
+        assert_eq!(pictures.len(), 2, "lead and retinue sheets are replaced in place");
+        assert_eq!(pictures[0].id, squire::SHEET);
+        assert_eq!(pictures[1].id, squire::RETINUE_SHEETS);
+        assert!(pictures[0].rgba.iter().any(|channel| *channel == 90));
+        assert_eq!(popup.open.as_ref().unwrap().rect, rect);
+        assert_eq!(popup.open.as_ref().unwrap().since, since);
+        assert_eq!(lead_pose_frame(&popup.layers()), 7.0 * 16.0);
+    }
+
+    #[test]
+    fn absent_authored_clip_has_no_invisible_hover_target() {
+        let mut popup = open_popup((640, 480), Fit::Contain);
+        popup.open.as_mut().unwrap().since = Instant::now() - std::time::Duration::from_secs(4);
+        assert_eq!(popup.squire_at([320.0, 240.0]), None);
+    }
+
+    #[test]
+    fn closing_a_showcase_releases_its_clip_after_the_exit_animation() {
+        let mut popup = open_popup((640, 480), Fit::Contain);
+        let shared = crate::Shared::default();
+        let clip = std::sync::Arc::new(clip(5, 40));
+        let weak = std::sync::Arc::downgrade(&clip);
+        let identity = crate::squire::ShowcaseClipIdentity { module: "showcase-squire".into(), name: "pack".into(), generation: 1, revision: 1, digest: "test".into() };
+        *shared.showcase_squire_clip.lock_recover() = Some((identity, clip.clone()));
+        popup.refresh_squire_clip(&shared);
+        drop(clip);
+        *shared.showcase_squire_clip.lock_recover() = None;
+        popup.close();
+        assert!(weak.upgrade().is_some(), "the closing animation still owns its art");
+        popup.closing.as_mut().unwrap().0 -= std::time::Duration::from_secs(10);
+        assert!(popup.layers().is_empty());
+        assert!(weak.upgrade().is_none(), "the old generation is released after close");
     }
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::drive::together_shooter::RoomKind;
+use crate::delve::together_shooter::RoomKind;
 use crate::tests::TestEnvGuard;
 use ratatui::{Terminal, backend::TestBackend};
 fn app() -> App {
@@ -152,7 +152,7 @@ fn miniviz_buttons_dispatch_before_map_and_gate_handlers() {
 fn miniviz_only_rendered_dungeon_sprite_opens_gate_menu() {
     let _lock = crate::tests::env_lock();
     let _env = env();
-    use crate::stage::world_viz::overworld::{self, map::TILE, wishes};
+    use crate::delve::world_viz::overworld::{self, map::TILE, wishes};
     let mut app = app();
     paint(&mut app);
     let gate = wishes::delve_gate();

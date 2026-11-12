@@ -1,0 +1,89 @@
+{
+  "boss": "a6-crusader",
+  "camera": "overhead",
+  "definition_sha256": null,
+  "display_policy": {
+    "activation_note": "Creator art, not a boss: never registered in the boss library. It is read by the Creator's preview and Test drive only (render/creation/baked.rs).",
+    "active": false,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "great helm with a cross slit",
+      "white feather plume"
+    ],
+    "class": "hero",
+    "grade": {
+      "v1": [
+        320,
+        320
+      ]
+    },
+    "props": [
+      "great helm with a cross slit",
+      "white feather plume",
+      "oxblood tabard with a cream star",
+      "longsword"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      64,
+      54
+    ],
+    "v2": null
+  },
+  "identity_props": [
+    "great helm with a cross slit",
+    "white feather plume",
+    "oxblood tabard with a cream star",
+    "longsword"
+  ],
+  "integration_status": "art-only: v1 only (no v2 art, no study sizes); no gameplay definition or registration is fabricated",
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 36,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1292,
+      "sha256": "d9bb70aa5b7e72669c3cfe7c19a01e9dcdfa881744dd8caf36ab4a08b4b26b92",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v1-strike.png": {
+      "colours": 37,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1104,
+      "sha256": "ed484704faa8feb0a9c92f2152b478154777bd6438101070afc3241539c39381",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 40,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1260,
+      "sha256": "6ca66de8879eb011b6c18b60cb3146088961d8f842ebec0bbc26ddb451c8fa08",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    }
+  },
+  "reference_policy": "Frames are the source's native renders, written 1:1 (no resampling): the fidelity fields are 1.0 by construction, not a quality score.",
+  "resample": "nearest",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

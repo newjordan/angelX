@@ -562,7 +562,10 @@ fn independent_campaign_reports_incomplete_book_before_launching_roles() {
     let error = run(&root, "parity", runtime, &AtomicBool::new(false)).unwrap_err();
     assert!(error.contains("book generation"), "{error}");
     assert!(club.steps.lock().unwrap().is_empty());
-    assert_eq!(load_state(&root, "parity").unwrap().1.status, "ready");
+    assert_eq!(
+        load_state(&root, "parity").unwrap().1.status,
+        RunStatus::Ready
+    );
     std::fs::remove_dir_all(root).unwrap();
 }
 
@@ -788,7 +791,7 @@ fn referee_rechecks_are_bounded_and_reject_changed_immutable_inputs() {
     );
     assert_eq!(
         load_state(&root, "parity").unwrap().1.status,
-        "budget_exhausted"
+        RunStatus::BudgetExhausted
     );
     std::fs::remove_dir_all(root).unwrap();
 }
@@ -1126,10 +1129,10 @@ fn recovery_accepts_only_complete_hash_bound_reports_and_replaces_interrupted_ro
     let configured = spec();
     start(&root, configured.clone()).unwrap();
     let mut unfinished = role("parity", "odd", "attack", 0, 0);
-    unfinished.state = "running".into();
+    unfinished.state = RoleStatus::Running;
     recover_role(&root, &configured, &mut unfinished).unwrap();
     assert_eq!(unfinished.id, "attack-odd-r0-a1");
-    assert_eq!(unfinished.state, "pending");
+    assert_eq!(unfinished.state, RoleStatus::Pending);
     let mut role = role("parity", "odd", "attack", 0, 2);
     let work = prepare_role(&root, &configured, &role).unwrap();
     let report = "{\"claims\":[{\"id\":\"lead\",\"statement\":\"A testable question\",\"status\":\"CONJECTURE\",\"test\":\"Enumerate the exact input\"}]}";
@@ -1142,9 +1145,9 @@ fn recovery_accepts_only_complete_hash_bound_reports_and_replaces_interrupted_ro
         json!({"stop_reason":"answer"}),
     )
     .unwrap();
-    role.state = "running".into();
+    role.state = RoleStatus::Running;
     recover_role(&root, &configured, &mut role).unwrap();
-    assert_eq!(role.state, "finished");
+    assert_eq!(role.state, RoleStatus::Finished);
     assert_eq!(
         role.outcome.unwrap().evidence.report_sha256,
         output.evidence.report_sha256
@@ -1856,4 +1859,194 @@ fn bounded_role_schemas_keep_scoped_capabilities_and_retrieval_is_immutably_grou
     forged["source_receipt"]["sha256"] = json!("0".repeat(64));
     assert!(lead_tool.call(&forged).is_err());
     std::fs::remove_dir_all(root).unwrap();
+}
+
+/// Rewrite the newest saved state the way an older or newer build might have left it.
+fn rewrite_saved_state(root: &Path, edit: impl FnOnce(&mut Value)) {
+    let dir = root.join(base("parity")).join("states");
+    let latest = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .max()
+        .unwrap();
+    let path = dir.join(latest);
+    let mut saved: Value = serde_json::from_slice(&std::fs::read(&path).unwrap()).unwrap();
+    edit(&mut saved);
+    std::fs::write(path, serde_json::to_vec_pretty(&saved).unwrap()).unwrap();
+}
+
+fn assert_state_round_trips(saved: &Value) {
+    let loaded: CampaignState = serde_json::from_value(saved.clone()).unwrap();
+    assert_eq!(&serde_json::to_value(&loaded).unwrap(), saved);
+}
+
+#[test]
+fn status_words_round_trip_exactly_and_words_this_build_never_wrote_still_load() {
+    let root = workspace();
+    let mut saved = start(&root, spec()).unwrap();
+    for word in [
+        "ready",
+        "running",
+        "completed",
+        "saturated",
+        "budget_exhausted",
+        "execution_blocked",
+        "cancelled",
+        "deadline",
+        "from-a-newer-build",
+    ] {
+        saved["status"] = json!(word);
+        assert_state_round_trips(&saved);
+    }
+    for word in [
+        "pending",
+        "refereed",
+        "blocked",
+        "integrated",
+        "from-a-newer-build",
+    ] {
+        saved["doors"][0]["state"] = json!(word);
+        assert_state_round_trips(&saved);
+    }
+    for word in [
+        "pending",
+        "running",
+        "finished",
+        "failed",
+        "from-a-newer-build",
+    ] {
+        saved["literature"]["state"] = json!(word);
+        for role in ["attack", "referee", "writer"] {
+            saved["doors"][0][role]["state"] = json!(word);
+        }
+        assert_state_round_trips(&saved);
+    }
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn a_saved_campaign_with_an_unknown_status_word_is_listed_verbatim_and_resumes() {
+    let _guard = crate::tests::env_lock();
+    let root = workspace();
+    start(&root, spec()).unwrap();
+    rewrite_saved_state(&root, |saved| saved["status"] = json!("from-a-newer-build"));
+    assert_eq!(
+        status(&root, None).unwrap()["campaigns"][0]["status"],
+        "from-a-newer-build"
+    );
+    assert_eq!(
+        status(&root, Some("parity")).unwrap()["status"],
+        "from-a-newer-build"
+    );
+    let (runtime, _, integrator) = runtime(&root, Scenario::Correct);
+    let result = run(&root, "parity", runtime, &AtomicBool::new(false)).unwrap();
+    assert_eq!(result["status"], "completed", "{result:#}");
+    assert_eq!(integrator.bundles.lock().unwrap().len(), 1);
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn a_role_with_an_unknown_word_is_never_launched_or_recovered_so_its_door_waits_for_the_deadline() {
+    let _guard = crate::tests::env_lock();
+    let root = workspace();
+    let mut configured = spec();
+    configured.campaign_timeout_secs = 1;
+    start(&root, configured).unwrap();
+    rewrite_saved_state(&root, |saved| {
+        saved["doors"][0]["attack"]["state"] = json!("from-a-newer-build")
+    });
+    let (runtime, _, integrator) = runtime(&root, Scenario::Correct);
+    let result = run(&root, "parity", runtime, &AtomicBool::new(false)).unwrap();
+    assert_eq!(result["status"], "deadline", "{result:#}");
+    assert_eq!(result["doors"][0]["attack"]["state"], "from-a-newer-build");
+    assert_eq!(result["doors"][0]["state"], "pending");
+    assert!(integrator.bundles.lock().unwrap().is_empty());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
+fn campaign_status_moves_only_along_the_coordinators_table() {
+    let mut status = RunStatus::Ready;
+    assert!(status.step(RunStatus::Completed).is_err());
+    assert_eq!(status, RunStatus::Ready, "a refused move changes nothing");
+    status.step(RunStatus::Running).unwrap();
+    status.step(RunStatus::Cancelled).unwrap();
+    status.step(RunStatus::Running).unwrap();
+    status.step(RunStatus::BudgetExhausted).unwrap();
+    assert!(
+        status.step(RunStatus::Running).is_err(),
+        "only a recheck reopens a budget-exhausted campaign"
+    );
+    status.step(RunStatus::Ready).unwrap();
+    for settled in [RunStatus::Completed, RunStatus::Saturated] {
+        for next in [RunStatus::Ready, RunStatus::Running, RunStatus::Cancelled] {
+            assert!(settled.clone().step(next).is_err());
+        }
+    }
+    let mut word = RunStatus::parse("from-a-newer-build");
+    word.step(RunStatus::Running).unwrap();
+    assert_eq!(word.as_str(), "running");
+}
+
+#[test]
+fn door_and_role_status_move_only_along_their_tables() {
+    let mut door = DoorStatus::Pending;
+    assert!(door.step(DoorStatus::Integrated).is_err());
+    door.step(DoorStatus::Refereed).unwrap();
+    door.step(DoorStatus::Integrated).unwrap();
+    assert!(
+        door.step(DoorStatus::Blocked).is_err(),
+        "integrated is final"
+    );
+    let mut blocked = DoorStatus::Blocked;
+    blocked.step(DoorStatus::Pending).unwrap();
+
+    let mut role = RoleStatus::Pending;
+    assert!(role.step(RoleStatus::Finished).is_err());
+    role.step(RoleStatus::Running).unwrap();
+    role.step(RoleStatus::Finished).unwrap();
+    assert!(role.step(RoleStatus::Running).is_err());
+    role.step(RoleStatus::Failed).unwrap();
+    role.step(RoleStatus::Finished).unwrap();
+
+    let mut door = new_doors(&spec(), 0).remove(0);
+    door.advance(DoorStatus::Refereed).unwrap();
+    assert!(
+        door.advance(DoorStatus::Integrated).is_err(),
+        "a door is integrated only from a finished writer"
+    );
+    assert_eq!(door.state, DoorStatus::Refereed);
+    door.writer.state = RoleStatus::Finished;
+    door.advance(DoorStatus::Integrated).unwrap();
+}
+
+#[test]
+fn run_status_words_decide_what_run_skips_and_when_the_command_line_fails() {
+    let settled = ["completed", "saturated", "budget_exhausted"];
+    let unfinished = [
+        "budget_exhausted",
+        "deadline",
+        "execution_blocked",
+        "cancelled",
+    ];
+    for word in [
+        "ready",
+        "running",
+        "completed",
+        "saturated",
+        "budget_exhausted",
+        "execution_blocked",
+        "cancelled",
+        "deadline",
+        "from-a-newer-build",
+    ] {
+        let status = RunStatus::parse(word);
+        assert_eq!(status.as_str(), word);
+        assert_eq!(status.is_settled(), settled.contains(&word), "{word}");
+        assert_eq!(
+            status.left_unfinished(),
+            unfinished.contains(&word),
+            "{word}"
+        );
+    }
 }

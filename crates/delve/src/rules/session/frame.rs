@@ -543,6 +543,7 @@ pub fn drawable(run: &Run) -> bool {
             .keys()
             .all(|id| run.players.contains_key(id))
         && run.kingdom.valid()
+        && run.home.industry.valid(crate::kingdom::catalog())
         && run.squire_academy.valid()
         && run.home.squire_academy.valid()
         && run.tune.valid()

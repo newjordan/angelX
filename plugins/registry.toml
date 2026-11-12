@@ -1,0 +1,11 @@
+# The angelX plugin registry: every published plugin, one table per id.
+#
+# Submit yours with `angelX plugin submit` from the plugin's folder once it is
+# pushed to a public repository: it fetches the plugin back, checks it, and
+# opens the pull request that adds its table here. Each table pins the plugin
+# to one reviewed commit and the digest of its files there; an install
+# refuses anything else. docs/PLUGINS.md has the whole story, and
+# scripts/plugins/check-registry.py is what checks a pull request.
+#
+# Tables stay in id order. Do not edit one by hand unless you are reviewing.
+

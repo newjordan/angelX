@@ -9,10 +9,14 @@ use crate::rules::questline::{book, Questline};
 fn every_shipped_file_loads_clean() {
     let b = book();
     assert!(b.notes.is_empty(), "notes: {:?}", b.notes);
-    let seats = b.lines.iter().filter(|q| !q.is_kingdom()).count();
+    // Re-pinned 2026-11-06: Bomrekedan's seven questlines (`bom-*.txt`,
+    // `power bomrekedan:`) ship beside the seats; they teach no power, so
+    // the seats are the lines that do (was `!is_kingdom()`, 22 of 23).
+    let seats = b.lines.iter().filter(|q| !q.is_kingdom() && !q.is_bomrekedan()).count();
     assert_eq!(seats, 22, "the bible names twenty-two seats");
+    assert_eq!(b.lines.iter().filter(|q| q.is_bomrekedan()).count(), 7, "the fort's seven lines");
     // Beside them, the kingdom's own line: the Heartwright's.
-    assert_eq!(b.lines.len(), 23);
+    assert_eq!(b.lines.len(), 30);
     for q in &b.lines {
         assert!(!q.teacher.is_empty(), "{}: no teacher", q.power);
         assert!(!q.art.is_empty(), "{}: no figure", q.power);

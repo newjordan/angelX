@@ -13,6 +13,7 @@
 //! ANGELX_FRAMES_DIR=/tmp/angelx-frames cargo test -p angelX-cockpit \
 //!   --no-default-features frames_capture -- --nocapture
 //! ```
+#![cfg(feature = "delve")]
 
 use super::*;
 use crate::ui::chart;

@@ -33,6 +33,7 @@ fn party() -> Run {
     r.open_room_for_test(at);
     r.enter_for_test(at);
     r.calm_for_test();
+    r.settle_seams_for_test();
     r.enemies.clear();
     r.works.perils.clear();
     r.window = None;

@@ -915,6 +915,32 @@ impl Reflector for CancellableReflector {
 // Campaign state
 // ---------------------------------------------------------------------------
 
+/// Where the /rl campaign stands. `RlState` keeps the mode flag, the outcome the
+/// worker thread writes into the shared progress, and the cancel flag apart;
+/// [`RlState::phase`] is the one place they are read together.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum CampaignPhase {
+    Idle,
+    Running,
+    /// A stop was requested but the worker has not settled yet, so the
+    /// campaign still holds its slot and a new one cannot start.
+    Stopping,
+    /// An outcome is in, this session's or one read back from disk.
+    Settled,
+}
+
+impl CampaignPhase {
+    /// The status word the model's `rl_campaign` tool reports. A stopping
+    /// campaign is still "running" there; `stop_requested` carries the rest.
+    pub(crate) fn status_word(self) -> &'static str {
+        match self {
+            CampaignPhase::Idle => "idle",
+            CampaignPhase::Running | CampaignPhase::Stopping => "running",
+            CampaignPhase::Settled => "settled",
+        }
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct RlState {
     pub mode: RlMode,
@@ -930,13 +956,31 @@ pub(crate) struct RlState {
 }
 
 impl RlState {
+    pub fn phase(&self) -> CampaignPhase {
+        let Ok(progress) = self.progress.lock() else {
+            return CampaignPhase::Idle;
+        };
+        if progress.outcome.is_some() {
+            CampaignPhase::Settled
+        } else if self.mode != RlMode::Campaign {
+            CampaignPhase::Idle
+        } else if self
+            .cancel
+            .as_ref()
+            .is_some_and(|cancel| cancel.load(Ordering::Acquire))
+        {
+            CampaignPhase::Stopping
+        } else {
+            CampaignPhase::Running
+        }
+    }
+
+    /// A campaign holds the slot until its worker settles, stop requested or not.
     pub fn running(&self) -> bool {
-        self.mode == RlMode::Campaign
-            && self
-                .progress
-                .lock()
-                .map(|progress| progress.outcome.is_none())
-                .unwrap_or(false)
+        matches!(
+            self.phase(),
+            CampaignPhase::Running | CampaignPhase::Stopping
+        )
     }
 
     pub fn progress_snapshot(&self) -> RunProgress {
@@ -949,16 +993,13 @@ impl RlState {
     /// The campaign thread reports the stop itself once its children have ended;
     /// nothing here claims completion on their behalf.
     pub fn stop(&mut self) -> bool {
-        if !self.running() {
+        if self.phase() != CampaignPhase::Running {
             return false;
         }
         let Some(cancel) = self.cancel.as_ref() else {
             return false;
         };
-        if cancel.swap(true, Ordering::AcqRel) {
-            return false;
-        }
-        true
+        !cancel.swap(true, Ordering::AcqRel)
     }
 
     #[cfg_attr(not(test), allow(dead_code))]
@@ -1010,10 +1051,13 @@ impl RlState {
         club: Arc<dyn Club>,
         owner: Option<LoopCampaignContext>,
     ) -> Result<String, String> {
-        if self.running() {
+        let phase = self.phase();
+        if matches!(phase, CampaignPhase::Running | CampaignPhase::Stopping) {
             // The model's rl_campaign cannot type `/rl stop`; its own stop can.
             return Err(if owner.is_some() {
                 crate::agent::harness::book::ow_ledgers::CAMPAIGN_ACTIVE.into()
+            } else if phase == CampaignPhase::Stopping {
+                "an RL campaign is still stopping (run again once it settles)".into()
             } else {
                 "an RL campaign is already in progress (/rl stop first)".into()
             });

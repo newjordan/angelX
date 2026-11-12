@@ -788,7 +788,9 @@ impl<T: Send + 'static> Glass<T> {
     fn finish_open(&mut self) -> Result<(), String> {
         let window = Arc::clone(self.window.as_ref().ok_or("the window is not open")?);
         let preparing = self.preparing.take().ok_or("the renderer was already made")?;
-        let renderer = Renderer::new(Arc::clone(&window), &self.options, preparing)?;
+        let mut renderer = Renderer::new(Arc::clone(&window), &self.options, preparing)?;
+        let card_squire_clip = self.host.shared.showcase_squire_clip.lock_recover().clone();
+        renderer.set_card_squire_clip(card_squire_clip.as_ref());
         crate::startup::mark("renderer");
         let cell = renderer.cell();
         eprintln!(
@@ -1000,6 +1002,8 @@ impl<T: Send + 'static> Glass<T> {
         for (id, stage) in stages {
             renderer.set_stage(id, stage);
         }
+        let producers = std::mem::take(&mut *self.host.shared.gpu_pictures.lock_recover());
+        for (id, producer) in producers { renderer.set_gpu_picture(id, producer); }
         let scenes = std::mem::take(&mut *self.host.shared.scenes.lock_recover());
         for (id, scene) in scenes {
             renderer.set_scene(id, scene);
@@ -1576,6 +1580,7 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
                 }
             }
             UserEvent::Showcase => {
+                let card_squire_clip = self.host.shared.showcase_squire_clip.lock_recover().clone();
                 if let Some(renderer) = self.renderer.as_mut() {
                     let grid = self.host.grid_size();
                     let pictures = self.showcase.take_request(
@@ -1585,6 +1590,7 @@ impl<T: Send + 'static> ApplicationHandler<UserEvent> for Glass<T> {
                         &self.options.font_family,
                     );
                     renderer.apply(pictures);
+                    renderer.set_card_squire_clip(card_squire_clip.as_ref());
                 }
                 self.update_cursor();
                 self.draw(true);

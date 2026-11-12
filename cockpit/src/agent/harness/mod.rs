@@ -87,6 +87,7 @@ mod lane;
 mod live_outcomes;
 pub(crate) mod live_policy;
 mod loop_experiment;
+mod exe_digest;
 mod needs_pro;
 mod orchestrator;
 mod project;

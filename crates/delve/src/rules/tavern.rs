@@ -381,14 +381,17 @@ impl Run {
         if !self.home.residents.contains("maud") || self.kingdom.moments.errand.is_some() {
             return;
         }
-        // Nobody has won a race: the griffins want flying.
-        if !self.race_won() {
+        // Nobody has won a race: the griffins want flying (if the Eyrie is
+        // where a knight can go: the blank-slate map has no door to it).
+        if !self.race_won() && self.on_the_way(RoomKind::Eyrie) {
             self.kingdom.moments.errand = Some(RoomKind::Eyrie);
             self.found = Some((self.tick, 0, "MAUD: NOBODY'S WON A RACE YET. THE GRIFFINS ARE BORED.".into()));
             return;
         }
-        let unwon = Game::ALL.iter().enumerate().find(|&(i, _)| {
-            self.home.countryside.games_paid & (1 << i) == 0 && !self.marks.contains_key(&game_mark(i))
+        let unwon = Game::ALL.iter().enumerate().find(|&(i, game)| {
+            self.home.countryside.games_paid & (1 << i) == 0
+                && !self.marks.contains_key(&game_mark(i))
+                && self.on_the_way(game.room())
         });
         if let Some((_, game)) = unwon {
             self.kingdom.moments.errand = Some(game.room());

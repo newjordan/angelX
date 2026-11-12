@@ -23,6 +23,7 @@
 //! one unit a tile.
 mod drift;
 pub mod leg;
+pub mod show;
 #[cfg(test)]
 mod oracle;
 pub use drift::*;
@@ -64,6 +65,10 @@ pub const ROLL_REST: u32 = 45;
 /// Collapsing planks: how long after the first ball passes a rotten plank
 /// it takes to go.
 pub const ROT: u32 = HZ;
+/// How long a rotten plank stays down once it has gone, before it is laid
+/// again (fresh, its clock started by the next ball over it): whoever comes
+/// behind meets planks, not a drift of holes it is roped back before forever.
+pub const REGROW: u32 = 2 * HZ;
 /// Seconds of one tick.
 const DT: f32 = 1.0 / HZ as f32;
 /// The mark a won race leaves (settled into the realm as `race_won`).
@@ -702,6 +707,10 @@ pub struct Race3d {
     /// A crossroads heat keeps even the Touge to ninety seconds.
     #[serde(default)]
     pub crossroads: bool,
+    /// What the picture remembers of the race (`show.rs`): kept beside it,
+    /// set aside while the module ticks, never part of the rules.
+    #[serde(default, skip_serializing_if = "show::Show::quiet")]
+    pub show: show::Show,
 }
 
 impl Race3d {
@@ -713,6 +722,7 @@ impl Race3d {
             && self.won.len() <= MAX_PLAYERS as usize
             && self.riders.keys().chain(self.ante.keys()).all(|id| (1..=MAX_PLAYERS).contains(id))
             && self.riders.values().all(Rider::valid)
+            && self.show.valid(self.t)
             && self.taken.iter().all(|&i| usize::from(i) < track.items.len())
             && self.planks.len() <= track.samples.len()
             && self.bolts.len() <= 4 * MAX_PLAYERS as usize
@@ -846,12 +856,26 @@ impl Run {
         } else {
             folly::take_antes(&mut self.players)
         };
+        self.open_race3d(index, course, ante, scores, self.crossroads.is_some());
+    }
+
+    /// The field lined up on `course` for the knights of `scores`, who have
+    /// anted `ante`. `short` is a host that stakes and pays the race itself
+    /// (the crossroads, a random room): even the Touge keeps to ninety seconds.
+    pub(super) fn open_race3d(
+        &mut self,
+        index: usize,
+        course: Course,
+        ante: BTreeMap<u32, u32>,
+        scores: BTreeMap<u32, u32>,
+        short: bool,
+    ) {
         let riders = scores
             .keys()
             .enumerate()
             .map(|(k, &id)| {
                 let (s, mut x, lane) = grid(course, k);
-                if course == Course::Touge && self.crossroads.is_some() {
+                if course == Course::Touge && short {
                     x = (k as f32 - (scores.len() as f32 - 1.0) / 2.0) * 1.6;
                 }
                 (id, Rider::new(s, x, lane))
@@ -870,7 +894,8 @@ impl Run {
             ended: 0,
             won: BTreeMap::new(),
             practice: false,
-            crossroads: self.crossroads.is_some(),
+            crossroads: short,
+            show: show::Show::default(),
         });
         self.sounds.push("door_seal");
         self.cues.push("folly".into());
@@ -919,6 +944,7 @@ impl Run {
             won: BTreeMap::new(),
             practice: true,
             crossroads: false,
+            show: show::Show::default(),
         });
         self.sounds.push("swing");
         self.cues.push("folly".into());
@@ -964,6 +990,10 @@ impl Run {
             self.race3d = Some(race);
             return;
         }
+        // What the picture remembers is set aside while the field ticks: the
+        // module never sees it, and `observe` reads what the tick changed.
+        let show = std::mem::take(&mut race.show);
+        let before = race.clone();
         if race.course != Course::Touge {
             // The ball, the cart and the griffin tick in the module: no answer leaves the race standing.
             if let Ok(ran) = leg::run(&mut race, inputs, &standing) {
@@ -972,7 +1002,7 @@ impl Run {
                     self.finish_race3d(&mut race);
                 }
             }
-            self.race3d = Some(race);
+            self.keep_show(race, show, &before);
             return;
         }
         // The Touge reads libm's sine and cosine, which the module cannot reproduce: still native.
@@ -1002,7 +1032,21 @@ impl Run {
         if all_home || race.t >= TITLE + race.time_limit() {
             self.finish_race3d(&mut race);
         }
+        self.keep_show(race, show, &before);
+    }
+
+    /// The tick is over: write down what it changed, put the race back, and
+    /// let the heaviest thing that happened hold the room a moment (the
+    /// realm's own hit-stop: a hard wreck, the first knight home).
+    fn keep_show(&mut self, mut race: Race3d, mut show: show::Show, before: &Race3d) {
+        show.observe(before, &race);
+        let held = show.held(race.t);
+        race.show = if show.valid(race.t) { show } else { show::Show::default() };
         self.race3d = Some(race);
+        if let Some(weight) = held {
+            self.hold_for(weight);
+            self.finish_hit_hold();
+        }
     }
 
     /// The board: the first home takes the pot and the laurel, and everyone
@@ -1096,4 +1140,4 @@ fn install_oracle() {
 
 #[cfg(test)]
 #[path = "../../tests/rules/together_race3d__tests.rs"]
-mod tests;
+pub(crate) mod tests;

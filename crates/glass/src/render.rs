@@ -110,6 +110,10 @@ pub struct Renderer {
     /// The card on show (`render_card.rs`), and its pictures.
     card_show: Option<CardShow>,
     card_art: CardArt,
+    /// Resource identity used to prepare the card's squire sheet.
+    card_squire_identity: Option<crate::squire::ShowcaseClipIdentity>,
+    /// The matching module lease also supplies card idle and wave timing.
+    card_squire_clip: Option<Arc<crate::ShowcaseSquireClip>>,
     font_family: String,
     palette: Palette,
     opacity: f32,
@@ -491,6 +495,8 @@ impl Renderer {
             fonts,
             card_show: None,
             card_art: CardArt::default(),
+            card_squire_identity: None,
+            card_squire_clip: None,
             font_family: options.font_family.clone(),
             palette: options.palette.clone(),
             opacity: options.background_opacity,
@@ -1456,7 +1462,7 @@ impl Renderer {
                         // pollutes it.
                         // T31: fused hit returns `fg` + `premul` from one
                         // probe; no `fgu` pack, no second cache check.
-                        let (fg, premul) = if cursor_block_active && at_cursor {
+                        let (_, premul) = if cursor_block_active && at_cursor {
                             let v = cursor_text;
                             (v, premultiply(v, f32::from_bits(abits)))
                         } else {
@@ -1614,7 +1620,7 @@ impl Renderer {
                     // alpha as the glyph above): one probe, no `fgu`.
                     // T54 (strike arm): same single-guard fusion as the
                     // glyph site above.
-                    let (fg, strike_premul) = if cursor_block_active && at_cursor {
+                    let (_, strike_premul) = if cursor_block_active && at_cursor {
                         let v = cursor_text;
                         (v, premultiply(v, f32::from_bits(abits)))
                     } else {
@@ -1975,6 +1981,10 @@ impl Renderer {
         self.core.set_scene_target(id, scene);
     }
 
+    pub fn set_gpu_picture(&mut self,id:u32,producer:Option<(Box<dyn angel_gpu::PictureProducer>,(u32,u32))>) {
+        self.core.set_gpu_picture(id,producer);
+    }
+
     /// Draw every stage and scene into its texture before the frame that
     /// shows them.
     fn render_stages(&mut self) {
@@ -1983,6 +1993,7 @@ impl Renderer {
         self.core.render_stages(cell, now);
         self.core.set_scene_clock(now);
         self.core.render_scenes();
+        self.core.render_gpu_pictures();
     }
 
     /// Draw and present. Returns false when the surface had no frame to give.

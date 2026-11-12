@@ -119,6 +119,23 @@ pub fn boss(culture: Culture, chapter: u32) -> Boss {
     b
 }
 
+/// A dread the road has stirred `stir` times (`road::Descent::stir`): a
+/// little more of it and a little angrier, its signature a little sooner.
+/// Every number stays inside the same bounds `boss` keeps.
+pub fn awaken(b: &mut Boss, stir: u8) {
+    let s = u32::from(stir.min(road::MOST_STIR));
+    b.hp = (b.hp + STIR_HP * s).min(900);
+    b.rage = (b.rage + STIR_RAGE * s as f32).min(0.6);
+    if let Some(sig) = b.windups.first_mut() {
+        sig.every = sig.every.saturating_sub(STIR_SOONER * s).max(150);
+    }
+}
+
+/// What each stir adds: health, rage, and ticks off its signature's wait.
+pub const STIR_HP: u32 = 40;
+pub const STIR_RAGE: f32 = 0.03;
+pub const STIR_SOONER: u32 = 15;
+
 /// The most shots a charge-up of `kind` may throw (`bosses::check`'s own
 /// bounds).
 fn most_shots(kind: Windup) -> u32 {
@@ -135,7 +152,8 @@ impl Run {
     /// end of the list (or made its chapter's strength) if need be.
     pub(in crate::rules) fn ready_dread(&mut self) -> Option<usize> {
         let village = self.deep_floor().and_then(guards)?;
-        let fresh = boss(self.home.deep.culture_at(village), chapter(village));
+        let mut fresh = boss(self.home.deep.culture_at(village), chapter(village));
+        awaken(&mut fresh, self.deep.as_ref().map_or(0, |d| d.stir));
         if let Some(i) = self.bosses.iter().position(|b| b.id == fresh.id) {
             if self.bosses[i] != fresh {
                 self.bosses[i] = fresh;

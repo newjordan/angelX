@@ -542,6 +542,15 @@ fn apply(
             let local = host.showcase(show);
             *showing = Some((serial, local));
         }
+        Down::ShowcaseSquire(update) => match update.prepare() {
+            Ok(resource) => {
+                let (identity, clip) = resource.map_or((None, None), |(identity, clip)| {
+                    (Some(identity), Some(clip))
+                });
+                host.showcase_squire_clip(identity, clip);
+            }
+            Err(error) => eprintln!("REMOTE: retaining previous squire clip: {error}"),
+        },
         Down::ShowcaseClose => {
             host.close_showcase();
             *showing = None;
@@ -683,4 +692,42 @@ mod tests {
         assert_eq!(back.buffer, original.buffer);
         assert_eq!((back.area, back.title.as_str(), back.serial, back.cursor, back.knight), (original.area, "Setup", 4, Some(5), crate::card::Knight::Guard));
     }
+}
+
+#[cfg(test)]
+mod squire_clip_tests {
+    use super::*;
+
+    #[test]
+    fn viewer_retains_last_valid_lease_on_error_and_clears_explicit_removal() {
+        let (host, _hub) = crate::remote::server::headless("clip-viewer", GridSize::default());
+        let value = serde_json::json!({
+            "palette":vec![[1,2,3];12],
+            "frames":(0..9).map(|_| serde_json::json!({"pixels":vec![1;320]})).collect::<Vec<_>>(),
+            "idle":[{"frame":5,"millis":1000}], "wave":[{"frame":8,"millis":1000}],
+        });
+        let resource = (crate::ShowcaseClipIdentity { module:"showcase-squire".into(), name:"pack".into(), generation:2, revision:1, digest:"remote-art".into() }, Arc::new(crate::ShowcaseSquireClip::from_json(&value).unwrap()));
+        let update = wire::SquireClipUpdate::capture(Some(&resource)).unwrap();
+        let mut backend = host.backend();
+        let mut screen = Screen::default();
+        let mut showing = None;
+        let mut title = String::new();
+        assert!(apply(&host, &mut backend, &mut screen, &mut showing, &mut title, "test", Down::ShowcaseSquire(update.clone())).is_none());
+        let installed = host.shared.showcase_squire_clip.lock_recover().clone().unwrap();
+        assert_eq!(installed.0, resource.0);
+        let mut invalid = update;
+        invalid.pack = Some("{}".into());
+        apply(&host, &mut backend, &mut screen, &mut showing, &mut title, "test", Down::ShowcaseSquire(invalid));
+        let retained = host.shared.showcase_squire_clip.lock_recover().clone().unwrap();
+        assert!(Arc::ptr_eq(&installed.1, &retained.1));
+        let removal = wire::SquireClipUpdate::capture(None).unwrap();
+        apply(&host, &mut backend, &mut screen, &mut showing, &mut title, "test", Down::ShowcaseSquire(removal));
+        assert!(host.shared.showcase_squire_clip.lock_recover().is_none());
+    }
+}
+
+#[cfg(test)]
+mod card_motion_tests {
+    use super::*;
+    include!("card_motion_tests.rs");
 }

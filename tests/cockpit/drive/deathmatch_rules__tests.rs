@@ -1062,7 +1062,12 @@ fn the_town_door_returns_everyone_with_their_original_kit_and_one_purse() {
     assert_eq!(r.deathmatch.as_ref().unwrap().winner, Some(1));
     assert_eq!(r.players[&1].carried.get(Spoil::Gold), 110);
     assert_eq!(r.players[&2].carried.get(Spoil::Gold), 90);
-    for _ in 0..PODIUM + 2 {
+    // The winning blow holds the room (the realm's hit-stop), and the podium's
+    // clock waits out the hold: a second's slack beyond the podium covers it.
+    for _ in 0..PODIUM + HZ {
+        if !r.deathmatch_showing() {
+            break;
+        }
         r.step(&BTreeMap::new());
     }
     assert!(!r.deathmatch_showing());
@@ -1601,7 +1606,7 @@ fn deathmatch_round(seats: u32) -> Run {
         h.carried.add(Spoil::Gold, 200);
     }
     run.descend();
-    run.crossroads.as_mut().unwrap().choices = [deathmatch_card(), Game::Powder, Game::Gander];
+    run.crossroads.as_mut().unwrap().choices = [deathmatch_card(), Game::Powder, Game::Racers];
     for id in 1..=seats {
         vote(&mut run, id, 1);
     }

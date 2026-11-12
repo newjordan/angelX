@@ -228,6 +228,92 @@ const LANCER_BACK: [&str; 18] = [
     "....................",
 ];
 
+// The Phantom Lancer in pale hood and cloth, silver-blue, a faint wisp for a
+// plume; the figure draws a dithered afterimage behind itself (`draw`).
+const PHANTOM_FRONT: [&str; 18] = [
+    ".........Qz.........",
+    "........zQzz........",
+    ".......vVVVVvz......",
+    "......vVWVVWVv......",
+    "......VxxxxxxV......",
+    "......VxzxxzxV......",
+    "....vWvvUUUUvvWv....",
+    "..vVWVvQzzzzQvVWVv..",
+    ".vVWWvvQzUUzQvvWWVv.",
+    ".vVvv.QzzUUzzQ.vvVv.",
+    ".VWv..QzUzzUzQ..vWV.",
+    ".vv...QUzzzzUQ...vv.",
+    "......QvvuuvvQ......",
+    "......QzzzzzzQ......",
+    "......QzQ..QzQ......",
+    ".......vVvvVv.......",
+    ".......uVuuVu.......",
+    "....................",
+];
+const PHANTOM_BACK: [&str; 18] = [
+    ".........Qz.........",
+    "........zQzz........",
+    ".......vVVVVvz......",
+    "......vVWWWWVv......",
+    "......vVVVVVVv......",
+    "......vUVVVVUv......",
+    "....vWvvUUUUvvWv....",
+    "..vVWVvQQQQQQvVWVv..",
+    ".vVWWvvQzzzzQvvWWVv.",
+    ".vVvv.QzzzzzzQ.vvVv.",
+    ".VWv..QzzUUzzQ..vWV.",
+    ".vv...QzUzzUzQ...vv.",
+    "......QvvvvvvQ......",
+    "......QzzzzzzQ......",
+    "......QzQ..QzQ......",
+    ".......vVvvVv.......",
+    ".......uVuuVu.......",
+    "....................",
+];
+
+// The Mirage Duelist: slim in midnight blue and gold, a plume on a wide
+// hat and a veil to the eyes, as unlike the Lancers as can be.
+const MIRAGE_FRONT: [&str; 18] = [
+    ".........oT.........",
+    "........oTTt........",
+    ".......oTTo.........",
+    "....sssxxxxxsss.....",
+    ".....sxSSSSSxs......",
+    ".......TkTTkT.......",
+    ".......qqqqqq.......",
+    ".....Oqqqqqqqqo.....",
+    "....ooQqqOOqqQoo....",
+    "....oqQqqOtqqQqo....",
+    "....tq.QqqOqQ.qt....",
+    "....tt.qqOtqq.tt....",
+    ".......OOOOOO.......",
+    ".......qqqqqq.......",
+    ".......qQ..Qq.......",
+    ".......xx..xx.......",
+    "......xxx..xxx......",
+    "....................",
+];
+const MIRAGE_BACK: [&str; 18] = [
+    ".........oT.........",
+    "........oTTt........",
+    ".......oTTo.........",
+    "....sssxxxxxsss.....",
+    ".....sxSSSSSxs......",
+    ".......qqqqqq.......",
+    ".......qQqqQq.......",
+    ".....Oqqqqqqqqo.....",
+    "....ooQqqqqqqQoo....",
+    "....oqQqqqqqqQqo....",
+    "....tq.QqqqqQ.qt....",
+    "....tt.qqqqqq.tt....",
+    ".......OOOOOO.......",
+    ".......qqqqqq.......",
+    ".......qQ..Qq.......",
+    ".......xx..xx.......",
+    "......xxx..xxx......",
+    "....................",
+];
+
 // Across, facing right: the Hammerer's horn and beard forward, the
 // Butcher's belly before him, the Alchemist's still on his back.
 const HAMMER_SIDE: [&str; 18] = [
@@ -332,6 +418,48 @@ const LANCER_SIDE: [&str; 18] = [
     "....................",
 ];
 
+const PHANTOM_SIDE: [&str; 18] = [
+    ".......Qz...........",
+    "......zQzz..........",
+    "......vVVVVv........",
+    ".....vVWVVWVv.......",
+    ".....VWVVxxxV.......",
+    ".....VWVVxzxx.......",
+    "......vUUUUVv.......",
+    ".....vWVQzzzv.......",
+    "....vWVVQzUUz.......",
+    "....vVvvQzzUz.......",
+    "....VWvVQzUzz.......",
+    "....vv.Qzzzzz.......",
+    ".......QvuuvQ.......",
+    ".......QzzzzzQ......",
+    ".......QzQ.Qz.......",
+    "........vVvV........",
+    "........uVuV........",
+    "....................",
+];
+
+const MIRAGE_SIDE: [&str; 18] = [
+    "........oT..........",
+    ".......oTTt.........",
+    "......oTTo..........",
+    ".....ssxxxxss.......",
+    ".....sxSSSSxs.......",
+    "......TkTTT.........",
+    "......qqqqq.........",
+    ".....Oqqqqqo........",
+    "....ooQqqOqo........",
+    "....oqQqqOtq........",
+    "....tq.QqOqQ........",
+    "....tt.qqOtq........",
+    ".......OOOOO........",
+    ".......qqqqq........",
+    ".......qQ.Qq........",
+    ".......xx.xx........",
+    "......xxx.xxx.......",
+    "....................",
+];
+
 fn body(c: Champion, face: Facing) -> &'static [&'static str] {
     match (c, face) {
         (Champion::Hammerer, Facing::Down) => &HAMMER_FRONT,
@@ -349,6 +477,12 @@ fn body(c: Champion, face: Facing) -> &'static [&'static str] {
         (Champion::Lancer, Facing::Down) => &LANCER_FRONT,
         (Champion::Lancer, Facing::Side) => &LANCER_SIDE,
         (Champion::Lancer, Facing::Up) => &LANCER_BACK,
+        (Champion::PhantomLancer, Facing::Down) => &PHANTOM_FRONT,
+        (Champion::PhantomLancer, Facing::Side) => &PHANTOM_SIDE,
+        (Champion::PhantomLancer, Facing::Up) => &PHANTOM_BACK,
+        (Champion::MirageDuelist, Facing::Down) => &MIRAGE_FRONT,
+        (Champion::MirageDuelist, Facing::Side) => &MIRAGE_SIDE,
+        (Champion::MirageDuelist, Facing::Up) => &MIRAGE_BACK,
     }
 }
 
@@ -405,9 +539,10 @@ fn angle(c: Champion, g: Grip) -> f32 {
         (Champion::Butcher, Grip::Rest) => -60.0,
         (Champion::Alchemist, Grip::Rest) => 70.0,
         (Champion::Reaver, Grip::Rest) => -45.0,
-        (Champion::Lancer, Grip::Rest) => -84.0,
+        (Champion::Lancer | Champion::PhantomLancer, Grip::Rest) => -84.0,
+        (Champion::MirageDuelist, Grip::Rest) => -62.0,
         // The lance thrusts straight; it never sweeps.
-        (Champion::Lancer, Grip::Swing(p)) => -14.0 + 10.0 * p,
+        (Champion::Lancer | Champion::PhantomLancer | Champion::MirageDuelist, Grip::Swing(p)) => -14.0 + 10.0 * p,
         (_, Grip::Overhead) => -92.0,
         (_, Grip::Down) => 36.0,
         (Champion::Alchemist, Grip::Fling) => -100.0,
@@ -475,6 +610,25 @@ fn arm(im: &mut Img, c: Champion, (x, y): (f32, f32), a: f32, fury: bool) {
             bar(im, (x, y), a, (14.0, 4.0), 3.0, ['H', 'i', 'h']);
             bar(im, (x, y), a, (18.0, 3.0), 1.0, ['H', 'H', 'H']);
         }
+        Champion::PhantomLancer => {
+            // The Lancer's long lance in ghost-blue: a pale ash shaft, the
+            // guard, a silver point, and a faint copy of it a pixel behind.
+            bar(im, (x, y), a, (-4.0, 18.0), 2.0, ['v', 'Q', 'u']);
+            bar(im, (x, y), a, (1.5, 2.5), 6.0, ['W', 'V', 'v']);
+            bar(im, (x, y), a, (14.0, 4.0), 3.0, ['W', 'V', 'v']);
+            bar(im, (x, y), a, (18.0, 3.0), 1.0, ['W', 'W', 'W']);
+            let (px, py) = (-a.sin(), a.cos());
+            for k in 0..10 {
+                let u = 2.0 + k as f32 * 2.0;
+                im.put((x + a.cos() * u + px * 3.0).round() as i32, (y + a.sin() * u + py * 3.0).round() as i32, 'S');
+            }
+        }
+        Champion::MirageDuelist => {
+            // A slim foil: a gold cup at the hand, a bright thin blade.
+            bar(im, (x, y), a, (-3.0, 3.0), 2.0, ['b', 'B', 'x']);
+            bar(im, (x, y), a, (0.0, 2.0), 7.0, ['T', 'O', 'o']);
+            bar(im, (x, y), a, (2.0, 19.0), 1.0, ['W', 'W', 'V']);
+        }
         Champion::Alchemist => {
             // A lit flask in the fist: the glass, the brew, the wick.
             let (dx, dy) = (a.cos(), a.sin());
@@ -523,12 +677,12 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
         (Facing::Side, Champion::Butcher) => (16, 12),
         (Facing::Side, Champion::Alchemist) => (15, 11),
         (Facing::Side, Champion::Reaver) => (14, 11),
-        (Facing::Side, Champion::Lancer) => (14, 11),
+        (Facing::Side, Champion::Lancer | Champion::PhantomLancer | Champion::MirageDuelist) => (14, 11),
         (Facing::Down, Champion::Hammerer) => (18, 13),
         (Facing::Down, Champion::Butcher) => (18, 12),
         (Facing::Down, Champion::Alchemist) => (17, 12),
         (Facing::Down, Champion::Reaver) => (18, 12),
-        (Facing::Down, Champion::Lancer) => (18, 12),
+        (Facing::Down, Champion::Lancer | Champion::PhantomLancer | Champion::MirageDuelist) => (18, 12),
         (Facing::Up, _) => (2, 13),
     };
     let hand = ((BODY_X + hx) as f32, (HEAD + hy + sink) as f32);
@@ -554,9 +708,24 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
     for (left, x0) in [(true, BODY_X + near), (false, BODY_X + far)] {
         let top = HEAD + 17;
         let up = lift(left);
-        im.rect(x0, top - up, 3, 2, 'B');
-        im.rect(x0, top + 2 - up, 3, 3, 'I');
-        im.put(if left { x0 - 1 } else { x0 + 3 }, top + 4 - up, 'I');
+        // The Phantom Lancer's greaves are pale cloth, not leather.
+        let (leg, boot) = if c == Champion::PhantomLancer { ('v', 'U') } else { ('B', 'I') };
+        im.rect(x0, top - up, 3, 2, leg);
+        im.rect(x0, top + 2 - up, 3, 3, boot);
+        im.put(if left { x0 - 1 } else { x0 + 3 }, top + 4 - up, boot);
+    }
+    if c == Champion::PhantomLancer {
+        // The afterimage: a dithered shadow of the body, a stride behind.
+        let mut fringe = Img::new(body.w, body.h);
+        for y in 0..body.h {
+            for x in 0..body.w {
+                if body.get(x, y).is_some() && (x + y) % 2 == 0 {
+                    fringe.put(x, y, 'u');
+                }
+            }
+        }
+        let behind = if face == Facing::Side { -2 } else { 2 };
+        im.stamp(&fringe, BODY_X + behind, HEAD + sink);
     }
     im.stamp(&body, BODY_X, HEAD + sink);
     // The Butcher's chain hangs off his shoulder, the hook at its end.
@@ -606,7 +775,7 @@ fn draw(c: Champion, face: Facing, stride: Option<u8>, g: Grip, fury: bool, wind
             Champion::Hammerer => 19.0,
             Champion::Butcher => 12.0,
             Champion::Reaver => 11.0,
-            Champion::Alchemist | Champion::Lancer => 0.0,
+            Champion::Alchemist | Champion::Lancer | Champion::PhantomLancer | Champion::MirageDuelist => 0.0,
         };
         let head = angle(c, g);
         let mut t = -125.0f32.to_radians();
@@ -839,17 +1008,19 @@ pub(super) fn over(cv: &mut Img, run: &Run) {
                     cv.put(bx, by - 6, if k == 1 { 'R' } else { 'p' });
                 }
             }
-            Thrown::Javelin => {
+            Thrown::Javelin | Thrown::SpiritLance => {
                 // A long shaft along its flight, its point bright, and the air
-                // torn behind it.
+                // torn behind it; the spirit lance is pale and leaves a wake.
+                let ghost = t.kind == Thrown::SpiritLance;
                 let l = t.vx.hypot(t.vy).max(0.01);
                 let (ux, uy) = (t.vx / l, t.vy / l * 0.6);
                 let (tx, ty) = (x, y - 7);
                 for k in 0..14 {
                     let (px, py) = (tx - (ux * k as f32) as i32, ty - (uy * k as f32) as i32);
-                    cv.put(px, py, if k < 3 { 'H' } else if k < 4 { 'i' } else { 'O' });
+                    let (tip, neck, shaft, under) = if ghost { ('W', 'V', 'v', 'Q') } else { ('H', 'i', 'O', 'B') };
+                    cv.put(px, py, if k < 3 { tip } else if k < 4 { neck } else { shaft });
                     if k >= 4 {
-                        cv.put(px, py + 1, 'B');
+                        cv.put(px, py + 1, under);
                     }
                 }
                 for k in 0..3 {
@@ -943,12 +1114,12 @@ pub(super) fn fit(hero: &Hero) -> crate::rules::looks::Body {
         (Facing::Side, Champion::Butcher) => (16, 12),
         (Facing::Side, Champion::Alchemist) => (15, 11),
         (Facing::Side, Champion::Reaver) => (14, 11),
-        (Facing::Side, Champion::Lancer) => (14, 11),
+        (Facing::Side, Champion::Lancer | Champion::PhantomLancer | Champion::MirageDuelist) => (14, 11),
         (Facing::Down, Champion::Hammerer) => (18, 13),
         (Facing::Down, Champion::Butcher) => (18, 12),
         (Facing::Down, Champion::Alchemist) => (17, 12),
         (Facing::Down, Champion::Reaver) => (18, 12),
-        (Facing::Down, Champion::Lancer) => (18, 12),
+        (Facing::Down, Champion::Lancer | Champion::PhantomLancer | Champion::MirageDuelist) => (18, 12),
         (Facing::Up, _) => (2, 13),
     };
     fit.right.anchor = (BODY_X + hx, HEAD + sink + hy);

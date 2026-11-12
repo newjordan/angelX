@@ -441,18 +441,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
             // small figure in a tunic that greys when the realm's
             // granary is bare or its unrest high — the countryside
             // feels the same economy the villages eat from.
-            let holdings = &run.home.holdings;
-            let tunic = if holdings.stores == 0 || holdings.unrest >= crate::rules::holdings::RESTLESS {
-                'G'
-            } else {
-                'O'
-            };
-            let sway = ((run.tick / 24 + i as u64) % 2) as i32;
-            let (kx, ky) = (x + 9, y + 3 - sway);
-            cv.ellipse(kx as f32, (ky - 5) as f32, 2.0, 2.0, 'c');
-            cv.rect(kx - 2, ky - 3, 5, 5, tunic);
-            cv.line(kx - 2, ky + 2, kx - 2, ky + 4, 'B');
-            cv.line(kx + 2, ky + 2, kx + 2, ky + 4, 'B');
+            super::holdings_folk::keeper(cv, run, plot, (x + 9, y + 3));
         }
     }
     if kind == RoomKind::Windmill {

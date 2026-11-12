@@ -88,17 +88,29 @@ A sound the rules name before its own take is made plays a stand-in
 `bomb_toss` and `shoulder_slam` plays `hit_blast`. A file of the hook's own
 name takes over once the stand-in is dropped from that table.
 
-The Bard's sounds (`rules::bard`; made offline by `../synth_sfx.py`):
+The Bard's sounds (`rules::bard`). Only the Bard's own seat hears them (`Run::seat_sounds`):
 
 | Sound | When |
 |---|---|
-| sax_g2 … sax_a3 | each volley of the Bard's notes blows the next stab of its riff (`bard::RIFF`: two bars of sixteenths in A minor, bouncing off the low A), so a held stream plays a deep techno sax line: tongued hard, scooped up into pitch, the tone closing down like a filter, a sine an octave under |
-| bard_kick | under every fourth volley (`bard::pulse`): a deep techno kick, so a held stream is four on the floor at 112.5 BPM |
-| hit_note | a note lands: an open hi-hat over the groove, so hitting fills it in |
-| bard_lullaby | the Bard sings (R): the same sax slow and breathy, falling home through E major over a soft swell, two heartbeats slowing under it (every other ultimate keeps `boss_rise`) |
-| bard_wub | held two seconds without a break (`bard::WUB_AT`), the bass drops in under every kick: an A an octave under the riff, its filter opening and shutting twice a beat (wub wub) |
-| bard_overload | held a whole riff (`bard::GLITCH_AT`), the horn overloads once: a crushed zap screaming up, a boom through the floor, a crash and a buzz (the banner says "Wub wub!") |
-| bard_glitch_0 … bard_glitch_3 | after the overload, one on each off-beat: the stab caught in a loop, a machine's blips, a tape stop, crushed static |
+| hit_note | a note lands: an open hi-hat over the groove, so hitting fills it in (made offline by `../synth_sfx.py`) |
+| bard_a_000 ... bard_h_095 | the Bard's stream plays a song, one beat of it a file: the first volley of every beat (three volleys, twelve ticks, 0.4 s) names the next slice of the knight's song (`bard::volley_sounds`), so a held stream plays the song forward in step with its fire and, let go, stops within the slice that is sounding. Eight songs (`a` to `h`), 96 beats (24 bars) each; held past the last, it goes round again from beat 32 (`bard::LOOP_FROM`). The slices are pre-mixed by how deep into the groove the knight is: the high synth alone on bar 1, with the bassline from bar 2 (the 13th volley, `bard::BASS_AT`) and with the drums from bar 4 (the 37th, `bard::DROP_AT`, the overload: "Wub wub!") |
+| bard_a_lull ... bard_h_lull | the Bard sings (R): a breakdown phrase from the knight's song, its lead and pads and a little of the bass, no drums, two seconds and a fade (every other ultimate keeps `boss_rise`). The knight's next groove is the next song |
+
+The songs are eight of Knight Shift Radio's own: uplifting-trance instrumentals (YuE2 renders) that really aired
+(`../bard_tracks/songs.json`; titles, ids and air times are in `../bard_tracks/SOURCES.md`). Each was separated into
+stems (htdemucs_6s: lead synth, bass, drums), its beat grid and sections found (`../bard_tracks/analyze.py`), and a
+24-bar excerpt that starts where a drop lands stretched, pitch kept, to 150 BPM (`../bard_tracks/build.py`; the songs
+run at 138 to 140, so 1.07 to 1.09 times faster). Slices are 44.1 kHz stereo 96 kbit/s mp3, 0.4 s plus a 16 ms tail
+of the next beat's start faded out (and a 16 ms fade-in at the head, 3 ms on a song's first slice) so each crossfades
+with its neighbour into the unbroken audio. Levelled by tier over the phrase that plays it: -22, -20.5 and -19.5 LUFS
+(the effects' median is -19.3), peaks limited to -2 dBFS. About 4.6 MB for the 776 files; `../bard_tracks/tracks.json`
+holds the measured numbers of each song (stretch, kick sync on the grid, tier gains, where the Lullaby is from).
+
+The Mirage Duelist's voice (`rules::champions::mirage`; a spoken line, rendered with a text-to-speech model rather than made by `../synth_sfx.py`):
+
+| Sound | When |
+|---|---|
+| mirage_bing_bong | the Duelist casts Swashbuckle (key 1): "Bing bong!", once at the start of the dash, never per bounce or per slash. A knight's voice (`VOICE_LEVEL`, muted with the voices), throttled to one per 1.2 s so a spammed spell never stacks it; mono 44.1 kHz mp3, 0.81 s, RMS -23 dB like the knights' chatter |
 
 Music tracks: `crypt`, `mines`, `keep`, `boss`, `sanctuary`, `menu`.
 Sources and licences are in `../LICENSES.md`.
@@ -145,6 +157,9 @@ noise every five seconds (`knights_noise_rate`, an ignored test, measures it).
 
 ## Regenerating
 
+- `../bard_tracks/` makes the Bard's songs from the stems of the stations' songs (`separate.py`, `analyze.py`,
+  `pick.py`, `build.py`; `demo.py` lays the game's own schedule on a timeline and measures it). The sources are
+  not in the repository.
 - `../synth_sfx.py` makes the spectacle's sounds from noise bursts, filtered
   sweeps and decaying sine modes (numpy and scipy, no API, no sound pack),
   encodes them as mono 44.1 kHz 96 kbit/s mp3 and levels them itself: RMS

@@ -55,7 +55,7 @@ pub(super) fn beacon_painted() -> bool {
 }
 
 /// A rail point as the eye has it: the dot it lands on and how far.
-fn project(cam: &Cam, s: f32, x: f32, z: f32) -> Option<(f32, f32, f32)> {
+pub(super) fn project(cam: &Cam, s: f32, x: f32, z: f32) -> Option<(f32, f32, f32)> {
     let w = rail::rail().world(s, x, z);
     raster::project_point(&cam.view(), W as usize, H as usize, cam.point(v3(w[0], w[1], w[2])))
 }
@@ -123,15 +123,16 @@ fn forward(cam: &Cam, s: f32) -> V3 {
 pub(super) fn paint(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session, seat: u32) {
     let anchor = units(s.anchor());
     let mut pieces: Vec<Piece> = Vec::new();
+    // On the way home the gates and rings are strings of lights on a hair of a
+    // ring (`finale.rs`), so the beacon is the one great thing in the picture.
+    let home = super::finale::on(s);
+    let mut ghosts: Vec<super::finale::Ghost> = Vec::new();
     for p in &s.props {
         let Some(id) = slot(p.thing) else { continue };
         let taken = p.taken & bit(seat) != 0;
         if taken || (units(p.s) - anchor).abs() >= 110.0 {
             continue;
         }
-        let Some(pic) = bank::at(id, "idle", s.elapsed) else {
-            continue;
-        };
         let su = units(p.s);
         let Some((px, py, d)) = project(cam, su, units(p.x), units(p.z)) else {
             continue;
@@ -139,12 +140,25 @@ pub(super) fn paint(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session, seat: u
         if d < 1.0 {
             continue;
         }
-        let hole = if p.thing == Thing::Gate { GATE_HOLE } else { RING_HOLE };
-        let k = (units(p.w) - WITHIN) * dots_per_unit(cam, d) / hole;
         // A ring is round in a plane square to the rail: turned from the eye,
         // it narrows by the cosine of the turn.
         let to = cam.point(rail_point(su, units(p.x), units(p.z))).normalize();
         let narrow = to.dot(forward(cam, su)).abs().clamp(0.35, 1.0);
+        if home {
+            let r = units(p.w) * dots_per_unit(cam, d);
+            ghosts.push(super::finale::Ghost {
+                at: (px, py),
+                r: (r * narrow, r),
+                depth: d,
+                hearth: p.thing == Thing::Ring,
+            });
+            continue;
+        }
+        let Some(pic) = bank::at(id, "idle", s.elapsed) else {
+            continue;
+        };
+        let hole = if p.thing == Thing::Gate { GATE_HOLE } else { RING_HOLE };
+        let k = (units(p.w) - WITHIN) * dots_per_unit(cam, d) / hole;
         pieces.push(Piece {
             pic,
             at: (px, py),
@@ -157,6 +171,13 @@ pub(super) fn paint(im: &mut Img, depth: &[f32], cam: &Cam, s: &Session, seat: u
     pieces.sort_by(|a, b| b.depth.total_cmp(&a.depth));
     for piece in &pieces {
         blit(im, depth, piece);
+    }
+    if !ghosts.is_empty() {
+        let flame = beacon_at(s).and_then(|su| project(cam, su, 0.0, 11.0)).map(|(x, y, _)| (x, y));
+        ghosts.sort_by(|a, b| b.depth.total_cmp(&a.depth));
+        for g in &ghosts {
+            super::finale::ghost(im, depth, g, s, flame);
+        }
     }
 }
 
@@ -202,7 +223,9 @@ pub(super) fn beacon_at(s: &Session) -> Option<f32> {
 /// durations.
 fn beacon_frame(s: &Session) -> Option<&'static Pic> {
     use crate::rules::griffinwing::Mode;
-    if matches!(s.mode, Mode::Victory | Mode::Tally) {
+    // Dark until the wing's comets reach it, then the sheet's own flame.
+    let lit = s.mode == Mode::Tally || (s.mode == Mode::Victory && s.mode_t >= super::moments::LIGHT_AT);
+    if matches!(s.mode, Mode::Victory | Mode::Tally) && lit {
         bank::at("beacon", "lit", s.elapsed)
     } else {
         bank::pic("beacon", "unlit", 0)

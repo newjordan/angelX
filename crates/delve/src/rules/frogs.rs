@@ -25,6 +25,9 @@ pub const LEAP_TICKS: u32 = 9;
 /// How long a hop lasts, and the rest between hops.
 pub const HOP_TICKS: u32 = 10;
 const REST_MIN: u32 = 36;
+/// A frogged monster's hop: one every this many ticks, of this far.
+pub const HOP_WINDOW: u32 = 14;
+pub const MONSTER_HOP: f32 = 1.3;
 /// The puff each way, and how long the new figure stays in the Sanctuary.
 pub const PUFF: u64 = 20;
 pub const LINGER: u64 = 6 * HZ as u64;
@@ -165,6 +168,7 @@ impl Run {
             || self.side_on()
             || self.dungeon.depth == 0
             || self.folly.as_ref().is_some_and(|m| m.room == index && !m.done)
+            || self.hop.as_ref().is_some_and(|m| m.room == index && !m.done)
         {
             return;
         }

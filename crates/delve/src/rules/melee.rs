@@ -53,7 +53,7 @@ impl Blade {
             return Blade::Sword;
         }
         match hero.arm.as_deref().unwrap_or("") {
-            "great-maul" => return Blade::Maul,
+            "great-maul" | "prospectors-pick" => return Blade::Maul,
             "twin-axes" | "grave-axes" | "reaver-axes" => return Blade::Axe,
             "grave-staff" => return Blade::Spear,
             "cleaver" => return Blade::Cleaver,
@@ -252,7 +252,7 @@ pub struct State {
 
 pub fn stroke(hero: &Hero, arc: f32) -> Stroke {
     match hero.arm.as_deref().unwrap_or("") {
-        "great-maul" => Stroke::Overhead,
+        "great-maul" | "prospectors-pick" => Stroke::Overhead,
         "grave-staff" => Stroke::Thrust,
         "twin-axes" | "grave-axes" | "reaver-axes" => Stroke::Chain,
         _ if arc < 80.0 => Stroke::Thrust,

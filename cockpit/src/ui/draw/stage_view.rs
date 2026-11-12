@@ -5,6 +5,75 @@
 
 use super::*;
 
+use angel_plug::stage::{
+    ResearchEntry, ResearchRail, StageArt, StageCue, StageFacts, StagePlaces, StageTitles,
+    StageWorld,
+};
+use crate::ui::viewer::Viewer;
+
+fn titles(app: &App) -> &'static StageTitles {
+    app.realm.stage_titles()
+}
+
+fn realm_quest_owns_pane(app: &App) -> bool {
+    app.realm.quest_owns_pane()
+}
+
+fn realm_visiting_tower(app: &App) -> bool {
+    app.realm.visiting_tower()
+}
+
+fn realm_inside_interior(app: &App) -> bool {
+    app.realm.inside_interior()
+}
+
+fn realm_together_on(app: &App) -> bool {
+    app.realm.together_on()
+}
+
+fn realm_no_active_work(app: &App) -> bool {
+    app.realm.no_active_work()
+}
+
+fn realm_ambient_interior(app: &App) -> bool {
+    app.realm.ambient_interior_visible()
+}
+
+fn realm_walk_shown(app: &App) -> bool {
+    app.realm.walk_on_map(&app.realm_facts())
+}
+
+fn stage_facts(app: &App) -> StageFacts {
+    StageFacts {
+        motion: app.visual_motion,
+        scenery_relaxed: app.scenery_relaxed(),
+        compose_allowed: miniviz_expensive_compose_allowed(
+            crate::ui::scryglass::StageSurface::WorldMap,
+        ),
+        comp_mode: crate::drive::comp_mode::enabled(),
+        follow_agent: app.scryglass.follow_agent,
+        look_yaw: app.scryglass.look_yaw,
+        look_pitch: app.scryglass.look_pitch,
+        fov: app.scryglass.fov,
+        yaw_offset: app.world_yaw_offset,
+        cue: match app.scryglass.controller.overlay() {
+            Some(crate::ui::scryglass::StageOverlay::Arrival { destination }) => {
+                StageCue::Arrival(<crate::app::control::realm::GameHost as StagePlaces>::place_id(
+                    *destination,
+                ))
+            }
+            Some(crate::ui::scryglass::StageOverlay::Journey { destination, .. }) => {
+                StageCue::Journey(<crate::app::control::realm::GameHost as StagePlaces>::place_id(
+                    *destination,
+                ))
+            }
+            _ => StageCue::None,
+        },
+        occluders: app.image_occluders.clone(),
+        workspace: app.tools.current_workspace().to_path_buf(),
+    }
+}
+
 /// The document body as a presented page: lay the paragraph into a
 /// scratch buffer first, so the page's lines are exactly the wrapped,
 /// scrolled lines the cells would show, then hand them to the
@@ -51,14 +120,14 @@ pub(super) fn render_artifacts(frame: &mut Frame, app: &mut App, area: Rect) {
     }
     app.clear_expired_lifecycle_ceremony();
 
-    app.scryglass.sync_arrival(app.realm.world.arrived_building());
+    app.scryglass.sync_arrival(app.realm.arrived_place());
     let media_is_video = app
         .scryglass
         .active_media()
         .and_then(|index| app.media.get(index))
         .is_some_and(Media::is_video);
     let media_fault = app.scryglass.active_error().is_some();
-    let quest_owns_pane = app.realm.world.quest_owns_pane();
+    let quest_owns_pane = realm_quest_owns_pane(app);
     let scene =
         app.scryglass
             .controller
@@ -75,7 +144,7 @@ pub(super) fn render_artifacts(frame: &mut Frame, app: &mut App, area: Rect) {
     if !matches!(scene, crate::ui::scryglass::StageSurface::Still(_)) {
         app.viewer.clear_still();
     }
-    if app.pending_approval.is_some() || app.loop_dialog.is_some() || app.agent_menu.is_some() {
+    if app.top_overlay().takes_pointer() {
         app.viewer.inspector.drag = None;
     }
 
@@ -232,6 +301,7 @@ pub(crate) fn artifacts_pane_active(
 }
 
 /// Skip the expensive compose closure when the pane is hidden or off-stage.
+#[cfg(test)]
 pub(crate) fn maybe_run_expensive_world_compose<F, T>(allowed: bool, compose: F) -> Option<T>
 where
     F: FnOnce() -> T,
@@ -241,6 +311,7 @@ where
 
 /// Kitty compose, braille `World::render`, and first-person ride.
 /// Hidden / comp-mode skip the closure; visible default Stage still paints.
+#[cfg(test)]
 pub(crate) fn maybe_paint_world_scene<F, T>(
     surface: crate::ui::scryglass::StageSurface,
     paint: F,
@@ -256,7 +327,7 @@ fn skip_hidden_stage_compose(app: &mut App) {
 }
 
 fn render_workshop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
-    let block = hud_block(crate::stage::identity::STAGE_TITLE_SMITHY);
+    let block = hud_block(titles(app).smithy);
     let inner = block.inner(area);
     frame.render_widget(block, area);
     if inner.width > 0 && inner.height > 0 {
@@ -332,11 +403,7 @@ fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let context = app.refresh_research();
-    let map_width = if inner.width >= 96 && inner.height >= 20 {
-        27
-    } else {
-        0
-    };
+    let map_width = app.realm.research_rail_width(inner);
     let mut body = Rect::new(
         inner.x,
         inner.y,
@@ -372,87 +439,27 @@ fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
             12.min(inner.height.saturating_sub(2)),
         );
         app.world_pane_visible = true;
-        let first_hit = app.world_buttons.len();
         render_world_map_surface(frame, app, map);
-        for (_, button) in &mut app.world_buttons[first_hit..] {
-            if let WorldButton::ScryglassLandmark(building) = *button {
-                *button = WorldButton::Research(Action::Place(Place::from_building(building)));
-            }
-        }
-        let caption = Rect::new(map.x, map.bottom(), map.width, 1);
-        frame.render_widget(
-            Paragraph::new("REALM / RESEARCH PLACES")
-                .style(Style::new().fg(crate::ui::hud::HUD_DIM)),
-            caption,
-        );
-        let mut y = caption.bottom();
-        for place in Place::ALL {
-            if y >= inner.bottom().saturating_sub(1) {
-                break;
-            }
-            let selected = place == app.research.place;
-            let active = app.research.active_places[place as usize];
-            let label = format!(
-                "{} {} {}{}",
-                if selected { "▸" } else { "├" },
-                place.building().glyph(),
-                place.label(),
-                if active > 0 {
-                    format!(" · {active}")
-                } else {
-                    String::new()
-                }
-            );
-            let rect = Rect::new(map.x, y, map.width, 1);
-            frame.render_widget(
-                Paragraph::new(crate::drive::research_workspace::view::fit(
-                    &label,
-                    map.width as usize,
-                ))
-                .style(Style::new().fg(if selected || active > 0 {
-                    crate::ui::hud::HUD_PHOSPHOR
-                } else {
-                    crate::ui::hud::HUD_TEXT
-                })),
+        let rail = ResearchRail {
+            selected: app.research.place as usize,
+            active: app.research.active_places,
+            entry: app.research.selected_entry().map(|entry| ResearchEntry {
+                state: entry.state.label(),
+                color: crate::drive::research_workspace::view::state_color(entry.state),
+                title: entry.title.clone(),
+                summary: entry.summary.clone(),
+            }),
+        };
+        let hits = app
+            .realm
+            .draw_research_rail(frame, map, inner.bottom(), &rail);
+        app.world_buttons.extend(hits.places.into_iter().map(|(rect, index)| {
+            (
                 rect,
-            );
-            app.world_buttons
-                .push((rect, WorldButton::Research(Action::Place(place))));
-            y += 1;
-        }
-        if y + 3 < inner.bottom() {
-            y += 1;
-            frame.render_widget(
-                Paragraph::new("SELECTED EVIDENCE").style(Style::new().fg(crate::ui::hud::HUD_DIM)),
-                Rect::new(map.x, y, map.width, 1),
-            );
-            if let Some(entry) = app.research.selected_entry() {
-                let text = format!(
-                    "{}\n{}\n{}",
-                    entry.state.label(),
-                    crate::drive::research_workspace::view::fit(&entry.title, map.width as usize),
-                    entry.summary
-                );
-                frame.render_widget(
-                    Paragraph::new(text)
-                        .wrap(Wrap { trim: false })
-                        .style(Style::new().fg(
-                            crate::drive::research_workspace::view::state_color(entry.state),
-                        )),
-                    Rect::new(
-                        map.x,
-                        y + 1,
-                        map.width,
-                        inner.bottom().saturating_sub(y + 3).min(5),
-                    ),
-                );
-            }
-            let inspect = Rect::new(map.x, inner.bottom() - 2, map.width, 1);
-            frame.render_widget(
-                Paragraph::new("[Enter] Inspect selection")
-                    .style(Style::new().fg(crate::ui::hud::HUD_PHOSPHOR)),
-                inspect,
-            );
+                WorldButton::Research(Action::Place(Place::ALL[index])),
+            )
+        }));
+        if let Some(inspect) = hits.inspect {
             app.world_buttons
                 .push((inspect, WorldButton::Research(Action::Inspect)));
         }
@@ -468,269 +475,17 @@ fn render_research_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 /// Both sway/bob a couple of cells so they read as dancing *around*, not glued
 /// to a single corner. World overlays stay on subdued dots, not native portraits.
 fn render_world_map_surface(frame: &mut Frame, app: &mut App, area: Rect) {
-    // A running quest leaves the town map for the actual region mesh. A
-    // deliberate /world visit (including the school) keeps its chosen place.
-    if app.realm.world.live_adventure_view() {
-        render_live_adventure(frame, app, area);
-        return;
-    }
-    if !render_dotmax_interior(frame, app, area)
-        && crate::stage::world_viz::overworld::map_enabled()
+    let adventure = app.realm.live_adventure_view();
+    let facts = stage_facts(app);
+    if app
+        .realm
+        .draw_world_map(frame, area, &facts, &mut app.viewer)
     {
-        render_overworld(frame, app, area);
-    } else if !app.realm.world.ambient_interior_visible() {
-        let (width, height) = world_sample_size(app, area);
-        let yaw = if app.scryglass.follow_agent {
-            app.world_yaw_offset
-        } else {
-            app.scryglass.look_yaw + app.world_yaw_offset
-        };
-        if let Some(Some(world)) =
-            maybe_paint_world_scene(crate::ui::scryglass::StageSurface::WorldMap, || {
-                app.realm.world.scryglass_frame_with_motion(
-                    width,
-                    height,
-                    app.scenery_relaxed(),
-                    yaw,
-                    app.scryglass.look_pitch,
-                    app.scryglass.fov,
-                    app.visual_motion,
-                )
-            })
-        {
-            paint_world_frame(frame, app, area, &world);
+        if !adventure {
+            render_hammertime_mascot(frame, app, area);
         }
-    }
-    render_hammertime_mascot(frame, app, area);
-}
-
-/// A running quest's picture: the region it's out in, walked as the Delve's
-/// crawl (with two lines under its picture for what the party is doing) or
-/// as the older expedition.
-fn render_live_adventure(frame: &mut Frame, app: &mut App, area: Rect) {
-    let crawl = crate::stage::world_viz::crawl::enabled() && area.height >= 10;
-    let (area, log) = if crawl {
-        (
-            Rect {
-                height: area.height - 2,
-                ..area
-            },
-            Some(Rect {
-                y: area.bottom() - 2,
-                height: 2,
-                ..area
-            }),
-        )
     } else {
-        (area, None)
-    };
-    let (width, height) = world_sample_size(app, area);
-    let yaw = if app.scryglass.follow_agent {
-        app.world_yaw_offset
-    } else {
-        app.scryglass.look_yaw + app.world_yaw_offset
-    };
-    if let Some(Some(world)) =
-        maybe_paint_world_scene(crate::ui::scryglass::StageSurface::WorldMap, || {
-            app.realm.world.scryglass_frame_with_motion(
-                width,
-                height,
-                app.scenery_relaxed(),
-                yaw,
-                app.scryglass.look_pitch,
-                app.scryglass.fov,
-                app.visual_motion,
-            )
-        })
-    {
-        paint_world_frame(frame, app, area, &world);
-    }
-    if let Some(log) = log {
-        let said = app.realm.world.crawl_log(app.visual_motion);
-        let back = Style::default().bg(ratatui::style::Color::Rgb(5, 8, 12));
-        frame.render_widget(
-            Paragraph::new(vec![
-                Line::from(Span::styled(
-                    format!(" {}", said[0]),
-                    Style::default().fg(ratatui::style::Color::Rgb(196, 178, 140)),
-                )),
-                Line::from(Span::styled(
-                    format!(" {}", said[1]),
-                    Style::default().fg(ratatui::style::Color::Rgb(122, 124, 114)),
-                )),
-            ])
-            .style(back),
-            log,
-        );
-    }
-}
-
-/// The Realm route's base layer: the pixel overworld. The camera's scale is
-/// locked to the terminal's cell size and the view takes the pane's shape,
-/// so a larger pane (or a zoomed-out terminal) shows more of the realm
-/// rather than a bigger picture of the same place. Image-capable terminals
-/// get the frame through the graphics protocol; any other terminal gets it
-/// in half blocks.
-fn render_overworld(frame: &mut Frame, app: &mut App, area: Rect) {
-    use crate::stage::world_viz::overworld;
-    let paper = ratatui::style::Color::Rgb(0, 0, 0);
-    let buf = frame.buffer_mut();
-    for y in area.top()..area.bottom() {
-        for x in area.left()..area.right() {
-            if let Some(cell) = buf.cell_mut((x, y)) {
-                cell.set_char(' ').set_bg(paper);
-            }
-        }
-    }
-    let mut scene = overworld_scene(app);
-    // A school room is drawn in the map's place; only the map can be walked.
-    let walkable = scene.school_room.is_none();
-    // Under an open dialog the map draws in half blocks: a terminal image
-    // would repaint over the dialog each time the map moves.
-    let covered = app
-        .image_occluders
-        .iter()
-        .any(|dialog| dialog.intersects(area));
-    if app.viewer.map_pixels_native() && !covered {
-        let (cell_w, cell_h) = app.viewer.map_cell_pixels();
-        let scale = overworld::map_scale(cell_h);
-        let view_w = (u32::from(area.width) * u32::from(cell_w) / scale).max(1) as i32;
-        let view_h = (u32::from(area.height) * u32::from(cell_h) / scale).max(1) as i32;
-        let lazy = overworld::LazyFrame::new(scene.clone(), view_w, view_h, scale);
-        let (frame_w, frame_h) = lazy.size();
-        let key = scene.key() ^ (u64::from(frame_w) << 32 | u64::from(frame_h)).rotate_left(11);
-        // In the window the mini-viz presents these pixels itself;
-        // the viewer's encode/decode round trip below is for
-        // terminal graphics protocols. The map moves on every few steps in
-        // the same place: it changes in its window picture rather than
-        // taking a new one.
-        let slot = {
-            use std::hash::{Hash, Hasher};
-            let mut hasher = std::collections::hash_map::DefaultHasher::new();
-            ("world map picture", area.x, area.y, area.width, area.height).hash(&mut hasher);
-            hasher.finish()
-        };
-        if crate::ui::present::picture_in_place(slot, key, (frame_w, frame_h), area, frame.buffer_mut(), || {
-            lazy.as_ref().to_vec()
-        }) {
-            if walkable {
-                app.realm.overworld_map = Some((area, overworld::view_sized(&scene, view_w, view_h)));
-            }
-            return;
-        }
-        let state = app
-            .viewer
-            .render_map_pixels(frame, area, key, move || (lazy, frame_w, frame_h));
-        if state == crate::ui::viewer::WorldPixelsState::Ready {
-            if walkable {
-                app.realm.overworld_map = Some((area, overworld::view_sized(&scene, view_w, view_h)));
-            }
-            return;
-        }
-    }
-    // Ordinary terminals, and the first frame while an image encodes: two
-    // map pixels per half-block pixel, the view shaped like the pane. The
-    // camera keeps to that two-pixel grid, so a moving view shifts whole
-    // half-block pixels instead of resampling (and shimmering) every one.
-    let snap = |c: f32| (c / HALFBLOCK_MAP_PX as f32).round() * HALFBLOCK_MAP_PX as f32;
-    scene.camera = (snap(scene.camera.0), snap(scene.camera.1));
-    let (view_w, view_h) = (
-        i32::from(area.width) * HALFBLOCK_MAP_PX,
-        i32::from(area.height) * 2 * HALFBLOCK_MAP_PX,
-    );
-    if walkable {
-        app.realm.overworld_map = Some((area, overworld::view_sized(&scene, view_w, view_h)));
-    }
-    paint_halfblock_frame(
-        frame,
-        area,
-        &overworld::frame_cached(&scene, view_w, view_h),
-    );
-}
-
-/// Map pixels per half-block pixel on terminals without graphics.
-const HALFBLOCK_MAP_PX: i32 = 2;
-
-/// The live scene, plus the travel and arrival glass the stage is showing.
-fn overworld_scene(app: &App) -> crate::stage::world_viz::overworld::Scene {
-    let mut scene = app.realm.world.overworld_scene_moving(app.visual_motion);
-    // Travel and arrival cues, which used to take the whole pane, become a
-    // glass over the map: the ride while the knight travels, the place's
-    // painting when he arrives.
-    if crate::stage::world_viz::overworld::glass_enabled()
-        && app.realm.world.overworld_view_label().is_none()
-        && !app.realm.world.graph_visiting()
-        && !app.realm.walk.on
-    {
-        use crate::ui::scryglass::StageOverlay;
-        // A serving knight rides home to his own castle, not the Keep: the
-        // Keep's ride and arrival glass would say otherwise.
-        let home = app.realm.world.overworld_home().is_some();
-        scene.glass = match app.scryglass.controller.overlay() {
-            Some(
-                StageOverlay::Arrival { destination } | StageOverlay::Journey { destination, .. },
-            ) if home && *destination == crate::stage::world_viz::Building::Keep => None,
-            Some(StageOverlay::Arrival { destination }) => {
-                Some(app.realm.world.overworld_plate_glass(*destination))
-            }
-            Some(StageOverlay::Journey { destination, .. }) => {
-                Some(app.realm.world.overworld_ride_glass(*destination))
-            }
-            _ => None,
-        };
-    }
-    crate::stage::world_viz::overworld::pace(&mut scene, app.scenery_relaxed());
-    scene
-}
-
-/// A pixel frame as `▀` half blocks (fg top, bg bottom), aspect kept and
-/// letterboxed on black paper.
-fn paint_halfblock_frame(
-    frame: &mut Frame,
-    area: Rect,
-    img: &crate::stage::world_viz::overworld::Img,
-) {
-    if area.width == 0 || area.height == 0 || img.w <= 0 || img.h <= 0 {
-        return;
-    }
-    let (grid_w, grid_h) = (f32::from(area.width), f32::from(area.height) * 2.0);
-    let scale = (grid_w / img.w as f32).min(grid_h / img.h as f32);
-    let (draw_w, draw_h) = (img.w as f32 * scale, img.h as f32 * scale);
-    let (ox, oy) = ((grid_w - draw_w) / 2.0, (grid_h - draw_h) / 2.0);
-    // Each half-block pixel is the mean of the map pixels it covers (at most
-    // 4×4), not one of them: a moving picture keeps its colours steady.
-    let sample = |gx: f32, gy: f32| -> ratatui::style::Color {
-        let span = |g: f32, o: f32| {
-            let from = ((g - 0.5 - o) / scale).floor() as i32;
-            let to = (((g + 0.5 - o) / scale).floor() as i32).clamp(from + 1, from + 4);
-            (from, to)
-        };
-        let ((x0, x1), (y0, y1)) = (span(gx, ox), span(gy, oy));
-        let (mut sum, mut n) = ([0u32; 3], 0u32);
-        for y in y0..y1 {
-            for x in x0..x1 {
-                let [r, g, b] = if x < 0 || y < 0 {
-                    [0, 0, 0]
-                } else {
-                    img.get(x, y).unwrap_or([0, 0, 0])
-                };
-                sum = [sum[0] + u32::from(r), sum[1] + u32::from(g), sum[2] + u32::from(b)];
-                n += 1;
-            }
-        }
-        let n = n.max(1);
-        ratatui::style::Color::Rgb((sum[0] / n) as u8, (sum[1] / n) as u8, (sum[2] / n) as u8)
-    };
-    let buf = frame.buffer_mut();
-    for cy in 0..area.height {
-        for cx in 0..area.width {
-            let (gx, gy) = (f32::from(cx) + 0.5, f32::from(cy) * 2.0 + 0.5);
-            if let Some(cell) = buf.cell_mut((area.x + cx, area.y + cy)) {
-                cell.set_char('▀')
-                    .set_fg(sample(gx, gy))
-                    .set_bg(sample(gx, gy + 1.0));
-            }
-        }
+        crate::ui::viz::cartridge_viz::shelf(frame, area, app);
     }
 }
 
@@ -814,57 +569,6 @@ fn paint_world_overlay_dots(frame: &mut Frame, area: Rect, path: &std::path::Pat
     true
 }
 
-/// An explicitly entered room has one synchronous Dotmax presentation. The
-/// original source art never goes through the native image worker.
-fn render_dotmax_interior(frame: &mut Frame, app: &mut App, area: Rect) -> bool {
-    if !app.realm.world.ambient_interior_visible() {
-        return false;
-    }
-    let (width, height) = world_sample_size(app, area);
-    let explicit_still = app.realm.world.visiting_scrying_tower() && crate::drive::comp_mode::enabled();
-    let paint = || {
-        let Some(image) = app.realm.world.ambient_braille_frame(
-            width,
-            height,
-            if explicit_still {
-                crate::ui::viz::lifecycle_viz::MotionMode::Off
-            } else {
-                app.visual_motion
-            },
-        ) else {
-            return false;
-        };
-        paint_world_frame(frame, app, area, &image);
-        true
-    };
-    // An operator-opened tower is a cached still in competition mode. It does
-    // not restart ambient simulation or its fast tick.
-    maybe_run_expensive_world_compose(
-        explicit_still
-            || miniviz_expensive_compose_allowed(
-                crate::ui::scryglass::StageSurface::WorldFirstPerson,
-            ),
-        paint,
-    )
-    .unwrap_or(false)
-}
-
-fn world_sample_size(app: &App, area: Rect) -> (usize, usize) {
-    app.viewer.dot_geometry(area).map_or(
-        (usize::from(area.width), usize::from(area.height)),
-        |geometry| (geometry.grid_width, geometry.grid_height),
-    )
-}
-
-fn paint_world_frame(
-    frame: &mut Frame,
-    app: &mut App,
-    area: Rect,
-    image: &std::sync::Arc<crate::ui::term::art::ColoredBrailleImage>,
-) {
-    paint_dot_frame(frame, app, area, image, 0);
-}
-
 fn paint_dot_frame(
     frame: &mut Frame,
     app: &mut App,
@@ -872,16 +576,33 @@ fn paint_dot_frame(
     image: &std::sync::Arc<crate::ui::term::art::ColoredBrailleImage>,
     scene_tag: u64,
 ) {
-    if let Some(geometry) = app.viewer.dot_geometry(area) {
+    paint_dot_image(
+        frame,
+        &mut app.viewer,
+        app.tools.current_workspace(),
+        app.realm.interior_tag(),
+        area,
+        image,
+        scene_tag,
+    );
+}
+
+pub(crate) fn paint_dot_image(
+    frame: &mut Frame,
+    viewer: &mut Viewer,
+    workspace: &std::path::Path,
+    interior: Option<u8>,
+    area: Rect,
+    image: &std::sync::Arc<crate::ui::term::art::ColoredBrailleImage>,
+    scene_tag: u64,
+) {
+    if let Some(geometry) = viewer.dot_geometry(area) {
         use std::hash::{Hash, Hasher};
         let mut scene = std::collections::hash_map::DefaultHasher::new();
         scene_tag.hash(&mut scene);
-        app.tools.current_workspace().hash(&mut scene);
-        app.realm.world
-            .interior_building()
-            .map(|building| building as u8)
-            .hash(&mut scene);
-        if app.viewer.render_world_dots(
+        workspace.hash(&mut scene);
+        interior.hash(&mut scene);
+        if viewer.render_world_dots(
             frame,
             area,
             scene.finish(),
@@ -990,7 +711,7 @@ fn render_lifecycle_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 }
 
 fn render_raytrace_stage(frame: &mut Frame, app: &mut App, area: Rect) {
-    let block = hud_block(crate::stage::identity::STAGE_TITLE_RAYTRACE);
+    let block = hud_block(titles(app).raytrace);
     let inner = block.inner(area);
     let (scene_area, footer_area) = visual_panel_body(inner);
     frame.render_widget(block, area);
@@ -1015,9 +736,9 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     let live =
         stage_live_route_title_allowed().then(|| crate::ui::viz::loop_viz::title(&app.loop_ctl));
     let title = stage_route_title(
-        crate::stage::identity::STAGE_TITLE_QUINTAIN_PREFIX,
+        titles(app).quintain_prefix,
         live.as_deref().map(str::trim),
-        crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+        titles(app).dynamic_suffix,
     );
     let block = hud_block(title.as_str());
     let inner = block.inner(area);
@@ -1035,7 +756,7 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
         };
         // Out in a region, the loop is the Delve's crawl, with the loop's
         // numbers kept under it.
-        if app.realm.world.loop_crawl_on() {
+        if app.realm.loop_crawl_on() {
             let hud = crate::ui::viz::loop_viz::hud_with_flight(
                 &app.loop_ctl,
                 &app.submission_slot,
@@ -1052,7 +773,9 @@ fn render_loop_stage(frame: &mut Frame, app: &mut App, area: Rect) {
                 ..scene_area
             };
             if picture.height > 0 {
-                render_live_adventure(frame, app, picture);
+                let facts = stage_facts(app);
+                app.realm
+                    .draw_live_adventure(frame, picture, &facts, &mut app.viewer);
             }
             frame.render_widget(
                 Paragraph::new(hud),
@@ -1089,9 +812,9 @@ fn render_rl_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     let live =
         stage_live_route_title_allowed().then(|| crate::ui::viz::rl_viz::title(&app.tools.rl()));
     let title = stage_route_title(
-        crate::stage::identity::STAGE_TITLE_REINFORCE_PREFIX,
+        titles(app).reinforce_prefix,
         live.as_deref().map(str::trim),
-        crate::stage::identity::STAGE_TITLE_REINFORCE_SUFFIX,
+        titles(app).reinforce_suffix,
     );
     let block = hud_block(title.as_str());
     let inner = block.inner(area);
@@ -1184,9 +907,9 @@ fn render_rl_view_tabs(frame: &mut Frame, app: &mut App, area: Rect) {
 fn render_agent_graph_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     let live = stage_live_route_title_allowed().then(crate::ui::viz::graph_viz::title);
     let title = stage_route_title(
-        crate::stage::identity::STAGE_TITLE_ROUNDTABLE_PREFIX,
+        titles(app).roundtable_prefix,
         live.as_deref().map(str::trim),
-        crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+        titles(app).dynamic_suffix,
     );
     let block = hud_block(title.as_str());
     let inner = block.inner(area);
@@ -1211,9 +934,9 @@ fn render_agent_graph_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 fn render_observatory_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     let live = stage_live_route_title_allowed().then(|| app.observatory.title());
     let title = stage_route_title(
-        crate::stage::identity::STAGE_TITLE_OBSERVATORY_PREFIX,
+        titles(app).observatory_prefix,
         live.as_deref().map(str::trim),
-        crate::stage::identity::STAGE_TITLE_DYNAMIC_SUFFIX,
+        titles(app).dynamic_suffix,
     );
     let block = hud_block(title.as_str());
     let inner = block.inner(area);
@@ -1288,7 +1011,7 @@ fn short_backplane_id(value: &str) -> String {
 }
 
 fn render_quest_stage(frame: &mut Frame, app: &mut App, area: Rect) {
-    let block = hud_block(crate::stage::identity::STAGE_TITLE_QUEST_BOARD);
+    let block = hud_block(titles(app).quest_board);
     let inner = block.inner(area);
     let (body, footer) = visual_panel_body(inner);
     frame.render_widget(block, area);
@@ -1484,7 +1207,7 @@ fn render_assets_stage(frame: &mut Frame, app: &mut App, area: Rect) {
 
 fn render_vault_stage(frame: &mut Frame, app: &mut App, area: Rect) {
     if !app.atlas.enabled() {
-        let title = crate::stage::identity::STAGE_TITLE_VAULT;
+        let title = titles(app).vault;
         let block = hud_block(title);
         let inner = block.inner(area);
         let (body, footer) = visual_panel_body(inner);
@@ -1757,6 +1480,8 @@ fn render_scryglass(
     area: Rect,
     resolved: crate::ui::scryglass::StageSurface,
 ) {
+    // angelface sits over the mini-viz: she needs to know where it is.
+    crate::ui::angelface::note_panel(area);
     // The mini-viz stays the realm while a delve is on: the knight waits at
     // the Delve's gate, and a click there opens the Delve's menu.
     let active_index = app.scryglass.active_media();
@@ -1769,22 +1494,18 @@ fn render_scryglass(
     let route_kind = match resolved {
         crate::ui::scryglass::StageSurface::Lesson => "TEACHING WINDOW",
         crate::ui::scryglass::StageSurface::Catalog => "LIVING CATALOG",
-        crate::ui::scryglass::StageSurface::Arrival(_) => {
-            crate::stage::identity::STAGE_TITLE_ARRIVAL
-        }
+        crate::ui::scryglass::StageSurface::Arrival(_) => titles(app).arrival,
         // Z5: off Castle Town the two world surfaces are one place — the
         // quest — and they say so together. The region itself is already the
         // head of `World::title()`, so the kind only has to name the mode.
         crate::ui::scryglass::StageSurface::WorldFirstPerson
         | crate::ui::scryglass::StageSurface::WorldMap
-            if app.realm.world.quest_owns_pane() =>
+            if realm_quest_owns_pane(app) =>
         {
-            crate::stage::identity::STAGE_TITLE_QUEST
+            titles(app).quest
         }
-        crate::ui::scryglass::StageSurface::WorldFirstPerson => {
-            crate::stage::identity::STAGE_TITLE_EXPLORE
-        }
-        _ => crate::stage::identity::STAGE_TITLE_REALM,
+        crate::ui::scryglass::StageSurface::WorldFirstPerson => titles(app).explore,
+        _ => titles(app).realm,
     };
     // Live titles clone the media label and build world.title() (town / quest /
     // ward / activity / renown). Comp / lean keeps the route identity only.
@@ -1815,8 +1536,7 @@ fn render_scryglass(
         resolved,
         crate::ui::scryglass::StageSurface::WorldMap
             | crate::ui::scryglass::StageSurface::WorldFirstPerson
-    ) && app.realm.world.memory_health()
-        == crate::knowledge::memory::store::MemoryHealth::Degraded;
+    ) && app.realm.memory_degraded();
     let title = if memory_warning {
         " Memory degraded ".to_string()
     } else if let crate::ui::scryglass::StageSurface::Lesson = resolved {
@@ -1836,7 +1556,7 @@ fn render_scryglass(
             app.media.len(),
             media_label.as_deref().unwrap_or("Asset").escape_debug()
         )
-    } else if app.realm.world.visiting_scrying_tower() {
+    } else if realm_visiting_tower(app) {
         " Wizard’s Tower · Scryglass ".to_string()
     } else {
         scryglass_route_title(kind, None, &queued)
@@ -1854,9 +1574,9 @@ fn render_scryglass(
     let _media_caption = media_label.is_some();
     // The composer shares and repaints our bottom border. Keep reset on the
     // top edge, with space reserved so the place title cannot cover the button.
-    let camera_title = world_pane.then(|| match app.realm.world.overworld_view_label() {
+    let camera_title = (world_pane && app.realm.has_world()).then(|| match app.realm.camera_label() {
         Some(place) if matches!(resolved, crate::ui::scryglass::StageSurface::WorldMap) => {
-            let place = truncate_control_value(place, area.width.saturating_sub(14) as usize);
+            let place = truncate_control_value(&place, area.width.saturating_sub(14) as usize);
             format!(" {place} [Follow] ")
         }
         _ => " [Follow] ".to_string(),
@@ -1878,7 +1598,7 @@ fn render_scryglass(
     if let Some(label) = &camera_title {
         block = block.title_top(Line::from(label.clone()).alignment(Alignment::Right));
     }
-    let quest_tint = world_pane.then(|| app.realm.world.quest_border_style()).flatten();
+    let quest_tint = world_pane.then(|| app.realm.quest_border_style()).flatten();
     match (focused, quest_tint) {
         (true, Some(style)) => {
             block = block.border_style(style.add_modifier(Modifier::BOLD));
@@ -1909,12 +1629,13 @@ fn render_scryglass(
         return;
     }
     let formation_h = 0;
-    let object_dock = world_pane
+    let object_dock = app.realm.has_world()
+        && world_pane
         && active_index.is_none()
         && matches!(resolved, crate::ui::scryglass::StageSurface::WorldMap
             | crate::ui::scryglass::StageSurface::WorldFirstPerson)
-        && !app.realm.world.inside_interior()
-        && !app.realm.together.enabled();
+        && !realm_inside_interior(app)
+        && !realm_together_on(app);
     let footer_h = u16::from(inner.height >= 2);
     let scene_h = inner.height.saturating_sub(formation_h + footer_h);
     let mut scene_rect = Rect::new(inner.x, inner.y, inner.width, scene_h);
@@ -1991,19 +1712,19 @@ fn render_scryglass(
         );
     } else if !scryglass_scene_body_allowed()
         && active_index.is_none()
-        && !app.realm.world.visiting_scrying_tower()
+        && !realm_visiting_tower(app)
     {
         // Comp / lean: keep the route chrome, skip lesson wrap, catalog
         // listing, and still/video decode. World map/ride already share
         // maybe_paint_world_scene; this gate avoids entering those bodies.
-    } else if world_pane && app.realm.together.enabled() && active_index.is_none() {
+    } else if world_pane && realm_together_on(app) && active_index.is_none() {
         app.viewer.clear_still();
         app.world_pane_visible = false;
-        crate::ui::viz::together_viz::render(frame, &app.realm.together, scene_rect);
+        app.realm.draw_together(frame, scene_rect);
     } else if world_pane
-        && !app.realm.world.inside_interior()
-        && !app.realm.world.quest_owns_pane()
-        && app.realm.world.latest_active_work().is_none()
+        && !realm_inside_interior(app)
+        && !realm_quest_owns_pane(app)
+        && realm_no_active_work(app)
         && app.startup_intro.render_miniviz(
             frame,
             scene_rect,
@@ -2403,7 +2124,7 @@ fn render_scryglass(
                 }
             }
         }
-    } else if app.realm.world.ambient_interior_visible()
+    } else if realm_ambient_interior(app)
         && matches!(
             resolved,
             crate::ui::scryglass::StageSurface::WorldMap
@@ -2412,17 +2133,10 @@ fn render_scryglass(
         )
     {
         app.world_pane_visible = true;
-        let (width, height) = world_sample_size(app, scene_rect);
-        if !render_dotmax_interior(frame, app, scene_rect)
-            && let Some(world) = maybe_paint_world_scene(resolved, || {
-                app.realm.world
-                    .ambient_braille_frame(width, height, app.visual_motion)
-            })
-            .flatten()
-        {
-            paint_world_frame(frame, app, scene_rect, &world);
-        }
-        if app.realm.world.interior_building() == Some(crate::stage::world_viz::Building::Observatory) {
+        let facts = stage_facts(app);
+        app.realm
+            .draw_interior(frame, scene_rect, &facts, &mut app.viewer);
+        if app.realm.interior_is_observatory() {
             app.world_buttons.push((
                 Rect::new(
                     scene_rect.x + scene_rect.width / 3,
@@ -2435,29 +2149,9 @@ fn render_scryglass(
         }
     } else if let crate::ui::scryglass::StageSurface::Arrival(building) = resolved {
         app.scryglass.surface = crate::ui::scryglass::StageSurface::Arrival(building);
-        if !render_dotmax_interior(frame, app, scene_rect) {
-            let (width, height) = world_sample_size(app, scene_rect);
-            let yaw = if app.scryglass.follow_agent {
-                app.world_yaw_offset
-            } else {
-                app.scryglass.look_yaw + app.world_yaw_offset
-            };
-            if let Some(world) = maybe_paint_world_scene(resolved, || {
-                app.realm.world.scryglass_frame_with_motion(
-                    width,
-                    height,
-                    app.scenery_relaxed(),
-                    yaw,
-                    app.scryglass.look_pitch,
-                    app.scryglass.fov,
-                    app.visual_motion,
-                )
-            })
-            .flatten()
-            {
-                paint_world_frame(frame, app, scene_rect, &world);
-            }
-        }
+        let facts = stage_facts(app);
+        app.realm
+            .draw_arrival(frame, scene_rect, &facts, &mut app.viewer);
     } else {
         app.world_pane_visible = true;
         match resolved {
@@ -2469,26 +2163,12 @@ fn render_scryglass(
             // using it here made camera, weather, residents, and room state
             // disappear on image-capable terminals.
             crate::ui::scryglass::StageSurface::WorldFirstPerson => {
-                let (width, height) = world_sample_size(app, scene_rect);
-                let yaw = if app.scryglass.follow_agent {
-                    app.world_yaw_offset
-                } else {
-                    app.scryglass.look_yaw + app.world_yaw_offset
-                };
-                if let Some(world) = maybe_paint_world_scene(resolved, || {
-                    app.realm.world.scryglass_frame_with_motion(
-                        width,
-                        height,
-                        app.scenery_relaxed(),
-                        yaw,
-                        app.scryglass.look_pitch,
-                        app.scryglass.fov,
-                        app.visual_motion,
-                    )
-                })
-                .flatten()
+                let facts = stage_facts(app);
+                if !app
+                    .realm
+                    .draw_first_person(frame, scene_rect, &facts, &mut app.viewer)
                 {
-                    paint_world_frame(frame, app, scene_rect, &world);
+                    render_world_map_surface(frame, app, scene_rect);
                 }
             }
             _ => {}
@@ -2498,14 +2178,14 @@ fn render_scryglass(
     if footer_h > 0
         && (scryglass_scene_accessories_allowed()
             || active_index.is_some()
-            || app.realm.world.visiting_scrying_tower())
+            || realm_visiting_tower(app))
     {
         // The row the floating dock stands in for, with its actions before
         // any are trimmed for width: only the ordinary world's and an
         // arrival's rows float.
         let mut dock_offer: Option<Vec<WorldButton>> = None;
         let (caption, mut controls): (Line<'static>, Vec<(&'static str, WorldButton)>) =
-            if world_pane && app.realm.together.enabled() && active_index.is_none() {
+            if world_pane && realm_together_on(app) && active_index.is_none() {
                 (
                     Line::from("Together · /together help · /together off returns to realm"),
                     Vec::new(),
@@ -2629,18 +2309,14 @@ fn render_scryglass(
                     ]
                 };
                 (Line::from(spans), controls)
-            } else if app.realm.walk.on && app.walk_map_shown() {
+            } else if realm_walk_shown(app) {
                 walk_caption(app)
-            } else if app.realm.world.inside_interior() {
+            } else if realm_inside_interior(app) {
                 let mut controls = Vec::new();
-                if app.realm.world.interior_building()
-                    == Some(crate::stage::world_viz::Building::Scriptorium)
-                {
+                if app.realm.interior_is_scriptorium() {
                     controls.push(("Catalog", WorldButton::ScryglassCatalog));
                 }
-                if app.realm.world.interior_building()
-                    == Some(crate::stage::world_viz::Building::Observatory)
-                {
+                if app.realm.interior_is_observatory() {
                     controls.push(("Assets", WorldButton::Assets));
                 }
                 controls.extend([
@@ -2650,7 +2326,7 @@ fn render_scryglass(
                 (Line::from(""), controls)
             } else if app.scryglass.arrival().is_some() {
                 let mut controls = Vec::new();
-                if app.realm.world.has_authored_interior() {
+                if app.realm.has_authored_interior() {
                     controls.push(("Enter", WorldButton::ScryglassEnter));
                 }
                 controls.extend([
@@ -2660,21 +2336,24 @@ fn render_scryglass(
                 dock_offer = Some(controls.iter().map(|(_, button)| *button).collect());
                 (Line::from(""), controls)
             } else {
-                let exploring = app.realm.world.live_adventure_view()
-                    || matches!(
+                let row = app.realm.realm_row(
+                    matches!(
                         resolved,
                         crate::ui::scryglass::StageSurface::WorldFirstPerson
-                    );
-                let view = if exploring { "Map" } else { "Explore" };
+                    ),
+                    footer_rect.width >= 96,
+                );
                 let mut controls = Vec::new();
-                if !app.realm.world.riding() && app.realm.world.has_authored_interior() {
+                if row.enter {
                     controls.push(("Enter", WorldButton::ScryglassEnter));
                 }
-                if !app.realm.world.visiting_school() {
+                if let Some(view) = row.view {
                     controls.push((view, WorldButton::ScryglassMap));
                 }
+                if row.tower {
+                    controls.push(("Tower", WorldButton::Tower));
+                }
                 controls.extend([
-                    ("Tower", WorldButton::Tower),
                     ("Assets", WorldButton::Assets),
                     ("Library", WorldButton::ScryglassLibrary),
                     ("Vault", WorldButton::ScryglassVault),
@@ -2684,7 +2363,7 @@ fn render_scryglass(
                 // Compact Realm captions carry causal and memory-health
                 // evidence. Keep their existing space; `r` and `/research`
                 // remain available when the extra navigation verb cannot fit.
-                if footer_rect.width >= 96 {
+                if row.research {
                     controls.insert(
                         controls.len() - 1,
                         (
@@ -2761,36 +2440,13 @@ fn render_scryglass(
 /// The caption while the visitor walks: the door at hand and the keys, in
 /// plain words.
 fn walk_caption(app: &App) -> (Line<'static>, Vec<(&'static str, WorldButton)>) {
-    use crate::stage::world_viz::overworld::DoorOpens;
-    let text = Style::new().fg(crate::ui::hud::HUD_TEXT);
-    let dim = Style::new().fg(crate::ui::hud::HUD_DIM);
-    let name = Style::new()
-        .fg(crate::ui::hud::HUD_GOLD)
-        .add_modifier(Modifier::BOLD);
-    match app.realm.world.visitor_door() {
-        Some(door) if door.opens().is_some() => (
-            Line::from(vec![
-                Span::styled("E: ", text),
-                Span::styled(door.name(), name),
-                Span::styled(", Esc leaves", dim),
-            ]),
-            vec![
-                ("Go in", WorldButton::WalkIn),
-                ("Leave", WorldButton::WalkLeave),
-            ],
-        ),
-        Some(door) => (
-            Line::from(vec![
-                Span::styled(door.name(), name),
-                Span::styled(". Arrows walk, Esc leaves", dim),
-            ]),
-            vec![("Leave", WorldButton::WalkLeave)],
-        ),
-        None => (
-            Line::from(Span::styled("Arrows walk, E goes in, Esc leaves", text)),
-            vec![("Leave", WorldButton::WalkLeave)],
-        ),
+    let (line, opens) = app.realm.walk_caption();
+    let mut controls = Vec::new();
+    if opens {
+        controls.push(("Go in", WorldButton::WalkIn));
     }
+    controls.push(("Leave", WorldButton::WalkLeave));
+    (line, controls)
 }
 
 fn compact_media_time(duration: Duration) -> String {

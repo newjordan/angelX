@@ -279,6 +279,8 @@ export function dockerPhaseArgs({
       '--bin',
       'angel',
       '--no-default-features',
+      '--features',
+      'delve',
       '--release',
       '--locked',
       '--offline',
@@ -423,7 +425,7 @@ export function runContainerVerification(manifestPath, { v8Archive, receiptPath 
         log_sha256: logIdentity(fetch),
       },
       build: {
-        command: 'cargo build --bin angel --no-default-features --release --locked --offline',
+        command: 'cargo build --bin angel --no-default-features --features delve --release --locked --offline',
         network: 'none',
         duration_ms: build.durationMs,
         log_sha256: logIdentity(build),

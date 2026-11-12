@@ -26,12 +26,9 @@ OUT = HERE / "sfx"
 PEAK = 0.72  # a hair under -2 dBFS, so the mp3 encode never overshoots it
 BODY_DB = -20.0
 STEP_DB = -26.0
-# The Bard's riff blows seven and a half stabs a second, and a hi-hat rides
-# on what lands; its glitches stutter on the off-beats: each sits under a
-# single effect's body.
-NOTE_DB = -22.0
+# A hi-hat rides on each note of the Bard's that lands, a few a second: it
+# sits under a single effect's body.
 HAT_DB = -26.0
-GLITCH_DB = -25.0
 # The blades, the magic and the wishes sit by loudness, not body RMS: a
 # whoosh is all treble and a boom all bass, so the same RMS would play the
 # one far louder than the other. Each is set (dB off `BODY_DB`) so that,
@@ -735,87 +732,9 @@ def gore_burst(b):
 
 
 # ─── the Bard (`rules::bard`) ────────────────────────────────────────────────
-# The note stream is a deep techno sax pulse: each volley blows the next stab
-# of `rules::bard::RIFF` (a two-bar A-minor riff in sixteenths, bouncing off
-# the low A), one file a pitch, and every fourth volley lands a sub kick
-# under it, so a held stream is four-on-the-floor at 112.5 BPM. A note that
-# lands opens a hi-hat on top: hitting fills the groove in. The Lullaby is
-# the same horn, slow and breathy, over a swell that puts the room to bed.
-
-SAX = {"g2": 98.00, "a2": 110.00, "c3": 130.81, "d3": 146.83, "e3": 164.81, "g3": 196.00, "a3": 220.00}
-
-
-def horn(f, amp, dark, b, formant=0.55):
-    """A saxophone line from three curves a sample: its pitch `f` (Hz), its
-    loudness `amp` and how far its tone is closed down, `dark` (0 bright,
-    higher darker). Every harmonic of the conical bore, rolled off by `dark`
-    with a filter's bump at the corner; the horn's formants (its honk at
-    about 550 Hz, the edge near 1.3 and 2.6 kHz); breath riding on the
-    loud parts; a grain of growl an octave under; driven a little hot."""
-    n = len(f)
-    phase = 2 * np.pi * np.cumsum(f) / SR
-    out = np.zeros(n)
-    top = int(9000 / max(np.min(f), 40)) + 1
-    for k in range(1, top + 1):
-        fk = f * k
-        roll = k ** -0.65 * np.exp(-(k - 1) * dark)
-        corner = 1.0 + 0.8 * np.exp(-((k - 1) * dark - 1.6) ** 2 * 2.0)
-        a = roll * corner * (fk < 11000)
-        if np.max(a) < 1e-4:
-            continue
-        out += a * np.sin(k * phase)
-    honk = band(out, 420, 720, 2) * 1.8 + band(out, 1100, 1550, 2) * 0.9 + band(out, 2300, 3000, 2) * 0.5
-    out = out * (1 - formant) + honk * formant
-    growl = 1.0 + 0.18 * np.sin(phase / 2)
-    out *= growl
-    out = out / (np.max(np.abs(out)) + 1e-9)
-    breath = band(b.noise(n / SR), 1200, 5200, 2)
-    breath = breath / (np.max(np.abs(breath)) + 1e-9)
-    out = out + breath * 0.09 * (0.4 + 0.6 * np.exp(-np.arange(n) / (SR * 0.04)))
-    return drive(out * amp, 1.8)
-
-
-def scoop(freq, dur, cents=-70, settle=0.03):
-    """The horn's pitch on a stab: blown in a little flat and lipped up."""
-    t = t_of(dur)
-    return freq * 2 ** (cents * np.exp(-t / settle) / 1200)
-
-
-def stab(freq, b, dur=0.3):
-    """One stab of the riff: a hard tongued attack, the tone closing down
-    over a sixteenth as a filter would, a sine an octave under it for the
-    floor, and a short dark room."""
-    t = t_of(dur)
-    n = len(t)
-    f = scoop(freq, dur)
-    amp = shape(n, [(0, 0), (0.025, 1), (0.22, 0.75), (0.5, 0.35), (1, 0)])
-    dark = 0.012 + 0.09 * (1 - np.exp(-t / 0.08))
-    x = horn(f, amp, dark, b)
-    sub = np.sin(2 * np.pi * np.cumsum(f / 2) / SR) * shape(n, [(0, 0), (0.02, 1), (0.45, 0.4), (1, 0)])
-    x = x + 0.35 * sub
-    return fade_out(tail(x, 0.22, 0.16, b), 0.06)
-
-
-def _sax(name):
-    def make(b):
-        return stab(SAX[name[4:]], b)
-    make.__name__ = name
-    return make
-
-
-SAX_NOTES = [_sax(f"sax_{n}") for n in SAX]
-
-
-def bard_kick(b):
-    """The pulse under the riff, every fourth volley: a deep techno kick, a
-    click, a body dropping from 150 Hz to the floor, a little overdriven."""
-    d = 0.38
-    x = canvas_of(d)
-    place(x, drive(thud(150, 44, d, 0.13), 2.2), 0, 1.0)
-    place(x, high(b.noise(0.004), 3000) * exp_env(0.004, 0.0008), 0, 0.5)
-    place(x, band(b.noise(0.02), 900, 2200) * exp_env(0.02, 0.005), 0, 0.2)
-    return fade_out(x, 0.05)
-
+# The Bard's songs are slices of Knight Shift Radio's trance (`bard_tracks/`),
+# not synthesised here; what stays is the note that lands: an open hi-hat on
+# top of the groove, so hitting fills it in.
 
 def hit_note(b):
     """A note lands: an open hi-hat, six square waves out of tune with each
@@ -827,140 +746,6 @@ def hit_note(b):
     x = x / (np.max(np.abs(x)) + 1e-9)
     x += high(b.noise(d), 8000) * exp_env(d, 0.04, 0.0005) * 0.6
     return fade_out(tail(x, 0.08, 0.1, b), 0.04)
-
-
-def bitcrush(x, bits=4, hold=8):
-    """Fewer steps and a held sample: the sound of a horn in a broken
-    machine."""
-    held = np.repeat(x[::hold], hold)[: len(x)]
-    q = 2 ** (bits - 1)
-    return np.round(held * q) / q
-
-
-def bard_wub(b):
-    """The bass that drops in once the groove is held (`bard::WUB_AT`): an
-    A an octave under the riff's floor, detuned saws through a filter that
-    opens and shuts twice to the beat (wub wub), a sine under it all, driven.
-    One beat long, so beat after beat it never stops wobbling."""
-    d = 0.53
-    t = t_of(d)
-    f0 = 55.0
-    lfo = 0.5 - 0.5 * np.cos(2 * np.pi * t / (d / 2))
-    fc = 140 * (1800 / 140) ** (lfo ** 1.4)
-    out = np.zeros_like(t)
-    for detune in (-0.12, 0.0, 0.13):
-        f = f0 * 2 ** (detune / 12)
-        for k in range(1, int(6000 / f)):
-            fk = f * k
-            gain = (1.0 / k) / np.sqrt(1 + (fk / fc) ** 8)
-            gain *= 1 + 1.4 * np.exp(-((fk - fc) / (0.25 * fc)) ** 2)
-            out += gain * np.sin(2 * np.pi * fk * t + k * detune * 7)
-    out = out / (np.max(np.abs(out)) + 1e-9)
-    out += 0.7 * np.sin(2 * np.pi * f0 * t)
-    out = drive(out * 1.6, 2.5)
-    out *= shape(len(t), [(0, 0), (0.01, 1), (0.92, 1), (1, 0)])
-    return out
-
-
-def bard_overload(b):
-    """The horn overloads (`bard::GLITCH_AT`): a crushed zap screaming up,
-    a boom that drops through the floor, a crash, and the machine buzzing
-    in its wake."""
-    d = 1.2
-    x = canvas_of(d)
-    zap = sweep(180, 3200, 0.28) * shape(int(SR * 0.28), [(0, 0), (0.1, 0.6), (0.9, 1), (1, 0)])
-    place(x, bitcrush(zap, 5, 6), 0, 0.5)
-    place(x, drive(thud(110, 28, 0.9, 0.3), 2.0), 0.26, 1.2)
-    place(x, high(b.noise(0.9), 2500) * exp_env(0.9, 0.22, 0.001), 0.26, 0.45)
-    buzz_t = t_of(0.8)
-    buzz = np.sign(np.sin(2 * np.pi * 110 * buzz_t)) * (0.5 + 0.5 * np.sign(np.sin(2 * np.pi * 13 * buzz_t)))
-    place(x, low(buzz, 2400) * exp_env(0.8, 0.25), 0.32, 0.22)
-    for at in [0.42, 0.55, 0.61, 0.79]:
-        place(x, bitcrush(band(b.noise(0.03), 1500, 6000), 3, 12) * exp_env(0.03, 0.01), at, 0.35)
-    return fade_out(tail(x, 0.5, 0.2, b), 0.15)
-
-
-def bard_glitch_0(b):
-    """A glitch on the off-beat: the horn's stab caught in a loop, the same
-    twenty-five milliseconds four times over, crushed."""
-    src = stab(SAX["a3"], b, 0.2)
-    n = int(SR * 0.025)
-    piece = src[int(SR * 0.012): int(SR * 0.012) + n]
-    x = np.concatenate([piece * g for g in (1.0, 0.9, 0.8, 0.65, 0.5)])
-    return fade_out(bitcrush(x, 5, 3), 0.01)
-
-
-def bard_glitch_1(b):
-    """A glitch: a machine's blips, high, out of order."""
-    x = canvas_of(0.14)
-    for i, f in enumerate([1760, 2637, 1975, 3520]):
-        tt = t_of(0.022)
-        place(x, np.sign(np.sin(2 * np.pi * f * tt)) * 0.5, i * 0.03, 1.0)
-    return fade_out(low(x, 7000), 0.01)
-
-
-def bard_glitch_2(b):
-    """A glitch: the stab slowing to a stop, as a tape does."""
-    d = 0.2
-    t = t_of(d)
-    f = SAX["e3"] * (1 - t / d) ** 1.5 + 1.0
-    amp = shape(len(t), [(0, 0), (0.03, 1), (0.8, 0.7), (1, 0)])
-    x = horn(f, amp, 0.05, b)
-    return fade_out(bitcrush(x, 6, 2), 0.02)
-
-
-def bard_glitch_3(b):
-    """A glitch: a burst of crushed static with the mains hum through it."""
-    d = 0.12
-    t = t_of(d)
-    x = band(b.noise(d), 800, 7000) * 0.8 + 0.5 * np.sign(np.sin(2 * np.pi * 60 * t))
-    x *= shape(len(t), [(0, 0), (0.05, 1), (0.6, 0.8), (1, 0)])
-    return fade_out(bitcrush(x, 3, 16), 0.01)
-
-
-def bard_lullaby(b):
-    """The Bard sings (R): the sax again, slow now, breathy and close: a
-    phrase falling home through E major over a soft swell of the chords,
-    two heartbeats under it slowing, and a long dark room. Soft in, soft
-    out: two seconds and a little."""
-    d = 2.5
-    x = canvas_of(d)
-    # The line: (start, Hz), gliding between notes, the last one held.
-    line = [(0.00, 329.63), (0.42, 293.66), (0.64, 261.63), (0.98, 246.94),
-            (1.18, 207.65), (1.40, 220.00)]
-    n = int(SR * d)
-    t = np.arange(n) / SR
-    f = np.full(n, line[0][1])
-    for (at, hz), nxt in zip(line, line[1:] + [(d, line[-1][1])]):
-        i, j = int(at * SR), int(nxt[0] * SR)
-        f[i:j] = hz
-    glide = int(SR * 0.045)
-    kernel = np.ones(glide) / glide
-    f = np.convolve(np.pad(f, (glide, glide), mode="edge"), kernel, mode="same")[glide:-glide]
-    vib = 1 + 0.009 * np.sin(2 * np.pi * 5.2 * t) * np.clip((t - 1.55) / 0.3, 0, 1)
-    f = f * vib
-    amp = shape(n, [(0, 0), (0.05, 0.8), (0.16, 0.7), (0.2, 0.55), (0.26, 0.75), (0.39, 0.6),
-                    (0.48, 0.7), (0.56, 0.75), (0.8, 0.6), (0.94, 0.25), (1, 0)])
-    sax = horn(f, amp, 0.09 + 0.03 * np.sin(2 * np.pi * 0.7 * t), b, formant=0.65)
-    place(x, sax, 0, 0.75)
-    # The swell under it: Am, F, E, Am, slow in and out.
-    for at, end, chord in [(0.0, 0.7, [110.0, 220.0, 261.63, 329.63]),
-                           (0.6, 1.1, [87.31, 174.61, 220.0, 261.63]),
-                           (1.0, 1.5, [82.41, 164.81, 207.65, 246.94]),
-                           (1.4, 2.5, [110.0, 220.0, 261.63, 329.63])]:
-        dur = end - at
-        m = int(SR * dur)
-        env = shape(m, [(0, 0), (0.35, 1), (0.7, 0.85), (1, 0)])
-        tt = t_of(dur)
-        pad = sum(np.sin(2 * np.pi * fr * tt + 0.3 * np.sin(2 * np.pi * 5.1 * tt)) / (1 + k * 0.6)
-                  for k, fr in enumerate(chord))
-        place(x, low(pad, 1400, 2) * env, at, 0.14)
-    # Two heartbeats, the second further off and softer: the room nods off.
-    place(x, thud(110, 42, 0.4, 0.12), 0.0, 0.5)
-    place(x, thud(100, 40, 0.4, 0.12), 0.95, 0.3)
-    head = int(SR * 0.03)
-    x[:head] *= np.linspace(0, 1, head)
-    return fade_out(tail(x, 0.8, 0.32, b), 0.45)
 
 
 # ─── moving filters, blades through air, sparkles ────────────────────────────
@@ -1812,8 +1597,7 @@ EFFECTS = {fn.__name__: fn for fn in [
     crack_open, hand_rise, hand_grab, hand_drag, ground_close,
     hell_gate_rise, hell_gate_enter, circle_toll,
     gore_kick, gore_thunk, gore_chop, gore_splat, gore_bones, gore_burst,
-    *SAX_NOTES, bard_kick, hit_note, bard_lullaby, bard_wub, bard_overload,
-    bard_glitch_0, bard_glitch_1, bard_glitch_2, bard_glitch_3,
+    hit_note,
     *WEAPON_MAGIC,
     *STEPS_UP,
 ]}
@@ -1841,8 +1625,7 @@ def render(name, trim_db=0.0):
     b = Bench(name)
     x = EFFECTS[name](b)
     x = np.nan_to_num(x)
-    target = (STEP_DB if name.startswith("step_") else NOTE_DB if name.startswith("sax_")
-              else HAT_DB if name == "hit_note" else GLITCH_DB if name.startswith("bard_glitch")
+    target = (STEP_DB if name.startswith("step_") else HAT_DB if name == "hit_note"
               else BODY_DB + LEVEL.get(name, 0.0))
     x = level(x, target + trim_db)
     path = OUT / f"{name}.mp3"

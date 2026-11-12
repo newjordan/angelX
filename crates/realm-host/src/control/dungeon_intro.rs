@@ -111,6 +111,11 @@ impl Session<'_> {
 
     /// The Delve's menu: the way into every run, new or under way.
     pub fn open_intro(&mut self) {
+        // A friend's delve is the game: the menu could only begin another.
+        if self.dungeon.venue() == Venue::Joined {
+            self.expand_dungeon();
+            return;
+        }
         let resume = self
             .dungeon
             .shooter

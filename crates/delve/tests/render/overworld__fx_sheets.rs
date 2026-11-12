@@ -254,6 +254,7 @@ fn sheets_from_book(book: crate::rules::cards::Book) -> Vec<(&'static str, Img)>
                         age: f * 5,
                         owner: 1,
                         fall: if f == 3 { Some(4) } else { None },
+                        thick: false,
                     }),
                     _ => r.works.booms.push(skills::Boom {
                         x: 7.0,
@@ -578,8 +579,12 @@ fn wall_stock_preserves_every_legacy_arm_and_guard_icon() {
     let count = book.cards.len();
     book.cards.retain(|c| !matches!(c.id.as_str(), "stock-blade" | "stock-staff" | "stock-maul"));
     assert_eq!(count - book.cards.len(), 3);
-    // The Reaver's and the Lancer's cards came after the review.
-    let later = ["reaver-axes", "hurl-axe", "leap", "bloodlust", "war-lance", "javelin", "vault", "brace"];
+    // The Reaver's, the Lancer's, the Phantom Lancer's and the Mirage Duelist's cards came after the review.
+    let later = [
+        "reaver-axes", "hurl-axe", "leap", "bloodlust", "war-lance", "javelin", "vault", "brace",
+        "phantom-lance", "spirit-lance", "doppelganger", "juxtapose",
+        "mirage-foil", "swashbuckle", "mirror-swap", "echo-strike",
+    ];
     book.cards.retain(|c| !later.contains(&c.id.as_str()));
     let (_, icons) = sheets_from_book(book).into_iter().find(|(n, _)| *n == "icons").unwrap();
     // The combined line's reviewed icon sheet before wall stock was added.
@@ -620,6 +625,11 @@ fn reviewed_effect_frames_keep_their_pixels() {
     // reviewed separately; the legacy-only sheet above retains its old pin.
     // The Reaver's and the Lancer's arms and spells add their own icon rows;
     // every other sheet keeps its pixels.
+    // Re-pinned 2026-11-05 (the Phantom Lancer): its arm and three spells add
+    // four icon rows to the book's icon sheets (`card-icons`, `icons`); every
+    // other sheet keeps its pixels. Without the four: 1112795696684530217 and
+    // 12139528279184385265. The Mirage Duelist's four more (the same day):
+    // without them 14404856012706023356 and 8315541119334172930.
     // Re-pinned 2026-11-02 (enemy-shot clarity): a hostile shot's marker
     // gains a black rim, a pulsing pink ring and a white core so it can
     // never read as the player's own bullet. Only the warnings sheet moved.
@@ -627,6 +637,8 @@ fn reviewed_effect_frames_keep_their_pixels() {
         .into_iter()
         .map(|(n, im)| (n.into(), im.content_hash()))
         .collect();
+    // Re-pinned 2026-11-07: only `card-icons` moved; the monk's four cards (Vesper Bell,
+    // Monk's Patience, Plague of Frogs, Excommunicate) join the book with their icons.
     let expected: std::collections::BTreeMap<String, u64> =
         serde_json::from_str(include_str!("fixtures/fx-art.json")).unwrap();
     assert_eq!(actual, expected);

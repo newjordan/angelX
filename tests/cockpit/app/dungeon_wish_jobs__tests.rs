@@ -18,10 +18,10 @@ fn fixture(label: &str) -> (App, std::path::PathBuf) {
         .unwrap()
         .set_workspace(dir.clone());
     app.realm.dungeon.save_path = Some(dir.join(".angel/dungeon/session.json"));
-    let mut run = crate::drive::together_shooter::Run::new(0, 9, Some("Guest"));
+    let mut run = crate::delve::together_shooter::Run::new(0, 9, Some("Guest"));
     run.descend_for_test();
     app.realm.dungeon.shooter.set(Some(run));
-    crate::drive::together_files::refresh_phrasebook(&dir);
+    crate::delve::together_files::refresh_phrasebook(&dir);
     app.realm.dungeon.forge.wish_session = app.realm.dungeon.shooter.wish_session();
     (app, dir)
 }
@@ -175,8 +175,8 @@ fn a_failed_chosen_job_refunds_instead_of_adopting_a_matching_book_entry() {
 fn speculative_job_is_promoted_once_but_never_adopted_by_a_reused_seat() {
     let _guard = crate::tests::env_lock();
     let (mut app, dir) = fixture("promotion");
-    let club = crate::drive::together_grants::Scripted::new(&[ANSWER], Duration::from_millis(200));
-    app.realm.dungeon.forge.grants.oracle = Some(crate::drive::realm_services::oracle(club.clone()));
+    let club = crate::delve::together_grants::Scripted::new(&[ANSWER], Duration::from_millis(200));
+    app.realm.dungeon.forge.grants.oracle = Some(crate::app::control::realm::club_oracle(club.clone()));
     app.teach_spoken(vec![(2, "golden grace".into(), 1, Default::default())]);
     let job = app.realm.dungeon.forge.learning[0].job;
     let runners = app.realm.dungeon.forge.grants.runners.clone().unwrap();
@@ -233,8 +233,8 @@ fn simultaneous_same_name_results_share_one_captured_definition_and_id() {
     let _guard = crate::tests::env_lock();
     let (mut app, dir) = fixture("same-name");
     let club =
-        crate::drive::together_grants::Scripted::new(&[ANSWER, ANSWER], Duration::from_millis(20));
-    app.realm.dungeon.forge.grants.oracle = Some(crate::drive::realm_services::oracle(club.clone()));
+        crate::delve::together_grants::Scripted::new(&[ANSWER, ANSWER], Duration::from_millis(20));
+    app.realm.dungeon.forge.grants.oracle = Some(crate::app::control::realm::club_oracle(club.clone()));
     for player in [1, 2] {
         app.realm.dungeon
             .forge
@@ -261,8 +261,8 @@ fn simultaneous_same_name_results_share_one_captured_definition_and_id() {
 fn admission_checkpoint_failure_delays_model_launch_and_retries_original_claim_once() {
     let _guard = crate::tests::env_lock();
     let (mut app, dir) = fixture("admission");
-    let club = crate::drive::together_grants::Scripted::new(&[ANSWER], Duration::ZERO);
-    app.realm.dungeon.forge.grants.oracle = Some(crate::drive::realm_services::oracle(club.clone()));
+    let club = crate::delve::together_grants::Scripted::new(&[ANSWER], Duration::ZERO);
+    app.realm.dungeon.forge.grants.oracle = Some(crate::app::control::realm::club_oracle(club.clone()));
     let claim = queue(&mut app, 1, "golden grace");
     app.teach_claim(claim.clone());
     let path = app.realm.dungeon.save_path.take().unwrap();

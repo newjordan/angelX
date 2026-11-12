@@ -1,0 +1,30 @@
+# The Erinys at the Gate — Eigriteil Rainsuitors, the erinys mayor, at Bomrekedan's drawbridge.
+# A Bomrekedan questline (quests.json: the-erinys-mayor and
+# the-erinys-at-the-gate, joined). Same file shape and caveats as steel.txt.
+# Sir Castor also teaches in the Gate room; give the two different `at`.
+power   bomrekedan:erinys
+teacher Eigriteil Rainsuitors
+place   the drawbridge of Bomrekedan, where seven erinys warriors once waited and were turned away
+room    Gate
+look    grey wings folded tight, a poet's slate under one arm, and a mayor's chain worn as if it were lent
+line    Two hundred and forty-nine years, and the dwarves have made me their mayor. I am still deciding how I feel.
+teach   A petition ignored is not forgotten. The asker remembers it, and so does whoever was standing next to them.
+hook    Seven names are cut into the gate's left post, small, at the height of an erinys's hand: every warrior who asked to live here in the first year and was ignored.
+step    The seven names | read the seven names on the gatepost aloud with the mayor | petitions_read 1 | Gorafio, Sketefio, Giful, Kerafio, Efitarjeggin, Gurefio, Elmul. Say them so they are said. | cue read
+step    The two codices | read Elements of the Erinys and Uncovering the Erinys at her side, one each visit | codices_read 2 | Dwarves wrote about us. Erinyes wrote about us. Only one of them was right, and it was not always ours. | cue read
+step    The mayor's hours | sit three petitions with the mayor at her office | offices_sat 3 | Now you have heard what a mayor hears. Mostly it is about beds. | cue sit
+step    The oath | see four erinys residents sworn as citizens of the Kingdom of Meat Gods | erinys_sworn 4 | Residents for years, citizens now. Gurefio wept, and denies it. | needs
+step    The winged company | take an erinys companion down into the Delve and bring them home standing | erinys_companions_home 1 | Home, and standing. That is the whole of the promise. | needs
+trial   The winged hall | clear one hall with an erinys companion beside you and neither of you falling | erinys_unbroken_halls 1 | Seven were turned away. You have brought one home. Six to go.
+reward  the erinyes join the delve roster as companions (a Bomrekedan questline: no power is taught)
+title   the Gate-Opener
+keepsake a grey feather, tied with the mayor's red cord
+ties    Sir Castor keeps the Delve's own gate (gate_sieges_held), and Ast Ringtwinkled keeps this one against the ratfolk (the ratfolk line); the codices are on the library's shelves, with The Struggle Understood the naga want back.
+art
+8..8..8
+88.8.88
+.88888.
+...7...
+..888..
+..8.8..
+.8...8.

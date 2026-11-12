@@ -47,3 +47,46 @@ fn measure_tavern_figures_hot_path() {
     }
     eprintln!("removed builtin body construction: {:?} / 240 frames", start.elapsed());
 }
+
+/// The four code-drawn knights are picked at the pub like anyone else, and a
+/// picker in any seat is drawn exactly as that design's own seat is plain.
+#[test]
+fn the_code_drawn_knights_are_at_the_pub_and_draw_as_their_seats_plain_knight() {
+    use crate::rules::knights::plain_seat;
+    let picks: Vec<(usize, u32)> = PATRONS
+        .iter()
+        .enumerate()
+        .filter_map(|(i, p)| plain_seat(p.kit).map(|seat| (i, seat)))
+        .collect();
+    assert_eq!(picks.iter().map(|(_, s)| *s).collect::<Vec<_>>(), [1, 2, 3, 4]);
+    for (i, seat) in picks {
+        assert_eq!(a::patron_room(i), crate::rules::RoomKind::Alehouse, "{} sits in the pub", PATRONS[i].kit);
+        let mut plain = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
+        for id in 2..=4 {
+            plain.join_seat(id, &format!("Seat {id}"));
+        }
+        let wanted = knights::figure_at(&plain.players[&seat], seat, false, Default::default(), false, 0);
+        // Someone in the sixth seat, nothing like the design's own.
+        let mut run = Run::at_home(41, 1, Some("Friend"), Default::default(), Default::default());
+        run.join_seat(6, "Seat 6");
+        run.walk_alehouse();
+        run.pick_patron(6, i);
+        let hero = &run.players[&6];
+        assert_eq!(hero.knight.as_deref(), Some(PATRONS[i].kit));
+        assert_eq!(hero.ult(), plain.players[&seat].ult(), "{} keeps a plain knight's ultimate", PATRONS[i].kit);
+        let mut drawn = hero.clone();
+        (drawn.x, drawn.y, drawn.aim_x, drawn.aim_y) = {
+            let p = &plain.players[&seat];
+            (p.x, p.y, p.aim_x, p.aim_y)
+        };
+        let got = knights::figure_at(&drawn, 6, false, Default::default(), false, 0);
+        assert_eq!((got.w, got.h), (wanted.w, wanted.h), "{}", PATRONS[i].kit);
+        for y in 0..got.h {
+            for x in 0..got.w {
+                assert_eq!(got.get(x, y), wanted.get(x, y), "{} at {x},{y}", PATRONS[i].kit);
+            }
+        }
+        // And the bench shows the same knight, standing.
+        assert!(patron_bodies()[i].w > 0);
+    }
+}

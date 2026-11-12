@@ -261,7 +261,7 @@ pub const CURIOS: [Curio; 33] = [
 
 /// The catalogue entry called `id`.
 pub fn get(id: &str) -> Option<&'static Curio> {
-    CURIOS.iter().find(|c| c.id == id)
+    CURIOS.iter().find(|c| c.id == id).or_else(|| super::fey::artifact(id))
 }
 
 /// Whether every word on every curio passes the card checker's list.

@@ -1,0 +1,26 @@
+# The hexer's own medicine, bottled and pointed the other way.
+name   Plague of Frogs
+kind   spell
+rarity rare
+text   Every small monster near becomes a frog for six seconds. Ribbit.
+drop   4
+chest  6
+cooldown 35
+frogs 1
+art
+....CC....CC....
+...CCCC..CCCC...
+.CCYYCCC.CCYYCC.
+.CCYwYYCCYYwYC..
+.CCYYYYCCYYYYC..
+..CCCCCCCCCCCC..
+...CkCCC..CCkC..
+..CCCC....CCCC..
+.CC..CC..CC..CC.
+.CC..CC..CC..CC.
+.CC..CC..CC..CC.
+..CC..........CC
+................
+................
+................
+................

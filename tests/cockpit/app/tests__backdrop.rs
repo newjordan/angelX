@@ -2,16 +2,23 @@
 //! monolith). `ANGEL_BACKDROP=off` must skip Stage/agent-bay paint and the
 //! miniworld sim taxes — plus the visible-stage positive control.
 
-use super::{render_app_text, seed_live_streaming_app, seed_preview_app};
+use super::{render_app_text, seed_preview_app};
+#[cfg(feature = "delve")]
+use super::seed_live_streaming_app;
+#[cfg(feature = "delve")]
 use crate::agent::harness;
 use crate::drive::loop_ctl;
 use crate::tests::{TestEnvGuard, env_lock};
+#[cfg(feature = "delve")]
 use crate::ui::scryglass;
+#[cfg(feature = "delve")]
 use crate::ui::surfaces;
+#[cfg(feature = "delve")]
 use std::time::{Duration, Instant};
 
 /// A2: text-only mode must not paint Stage/agent bay and must not advance the
 /// miniworld sim clock on the UI loop (no invisible scenery tax).
+#[cfg(feature = "delve")]
 #[test]
 fn backdrop_off_skips_stage_paint_and_world_sim_ticks() {
     let _lock = env_lock();
@@ -76,6 +83,7 @@ fn backdrop_off_skips_agent_info_header_side_plate() {
 
 /// A2: quick-lookup roll and scryglass poll must not keep the UI on the fast
 /// tick (or run Stage presentation work) when the Stage was not painted.
+#[cfg(feature = "delve")]
 #[test]
 fn hidden_advance_clears_expired_lifecycle_ceremony() {
     use crate::ui::viz::lifecycle_viz::CeremonyKind;
@@ -160,6 +168,7 @@ fn backdrop_off_skips_invisible_lesson_roll_tax() {
 
 /// A2: successful turn settlement under ANGEL_BACKDROP=off must not credit
 /// renown / hit rewards disk — Stage presentation tax only.
+#[cfg(feature = "delve")]
 #[test]
 fn backdrop_off_skips_world_turn_end_renown_tax() {
     let _lock = env_lock();
@@ -205,6 +214,7 @@ fn backdrop_off_skips_world_turn_end_renown_tax() {
 }
 
 /// A2: loop loom / status mirrors must not run when Stage is not painted.
+#[cfg(feature = "delve")]
 #[test]
 fn backdrop_off_skips_world_loop_mirror_tax() {
     let _lock = env_lock();
@@ -231,6 +241,7 @@ fn backdrop_off_skips_world_loop_mirror_tax() {
 
 /// A2: live tool storms must not pay world classify / journey / notice tax when
 /// the Stage was not painted (ANGEL_BACKDROP=off). Strip still records activity.
+#[cfg(feature = "delve")]
 #[test]
 fn backdrop_off_skips_world_tool_journey_tax() {
     let _lock = env_lock();
@@ -309,6 +320,7 @@ fn backdrop_off_skips_live_loop_fast_tick() {
 }
 
 /// A2: when the Stage is painted, scenery ticks resume.
+#[cfg(feature = "delve")]
 #[test]
 fn visible_stage_earns_world_sim_ticks() {
     let _lock = env_lock();

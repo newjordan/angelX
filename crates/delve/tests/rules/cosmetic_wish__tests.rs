@@ -123,6 +123,7 @@ fn existing_card_painter_accepts_ink_only_and_roundtrips_paint_assets() {
     let serialized = serde_json::to_string(&Look {
         words: "hat".into(),
         worn: sprite.clone(),
+        body: false,
     })
     .unwrap();
     let restored: Look = serde_json::from_str(&serialized).unwrap();
@@ -217,4 +218,19 @@ fn queued_painter_keeps_its_owner_when_the_seat_is_reused_before_dispatch() {
         run.players[&1].worn(&run.book).last().copied(),
         card.looks.worn.as_ref()
     );
+}
+
+#[test]
+fn a_mirror_scroll_crosses_to_the_rules_worker_and_back() {
+    let mut run = run();
+    run.begin_mirror_wish(1).unwrap();
+    run.offer_wish(1, "a red hat", None).unwrap();
+    let sent = crate::rules::runtime_state::capture_for_step(&run).unwrap().into_value();
+    let mut worker = crate::rules::runtime_state::restore_value(&sent).unwrap();
+    worker.step(&std::collections::BTreeMap::new());
+    let answered = crate::rules::runtime_state::capture(&worker).unwrap().into_value();
+    let mut host = crate::rules::runtime_state::restore_value(&answered).unwrap();
+    assert!(host.players[&1].mirror_wish);
+    host.choose(1, 0).unwrap();
+    assert!(host.asked[0].cosmetic);
 }

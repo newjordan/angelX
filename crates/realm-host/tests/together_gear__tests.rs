@@ -84,3 +84,29 @@ fn a_card_dragged_in_the_hand_reads_as_its_two_slots_and_nothing_past_the_hand()
         assert!(read(2, HAND, bad).is_err(), "{}", String::from_utf8_lossy(bad));
     }
 }
+
+#[test]
+fn a_creator_piece_comes_in_pieces_is_put_back_together_and_read_as_a_creation() {
+    use angel_delve::rules::creation::{Creation, Role};
+    use angel_delve::rules::rite::Made;
+    let made = Made::Creature(Creation { role: Role::Minion, name: "Pip".into(), ..Creation::default() });
+    let body = serde_json::to_vec(&made).unwrap();
+    // The seat sends it the way the client does: whole when it fits, else in pieces.
+    let sent = angel_net::client::pieces(CREATION, &body);
+    let mut uploads = Uploads::default();
+    let mut whole = None;
+    for (kind, piece) in &sent {
+        assert!(ToServer::Action { kind: *kind, body: piece }.to_vec().len() <= MAX_CLIENT_MESSAGE);
+        whole = uploads.take(1, *kind, piece);
+    }
+    let (kind, bytes) = whole.expect("whole after the last piece");
+    assert_eq!(kind, CREATION);
+    match read(1, kind, &bytes) {
+        Ok(Gear::Creation(got)) => assert_eq!(got, made),
+        other => panic!("{other:?}"),
+    }
+    // A recipe the Creator would not seal is refused at the door, and so is nonsense.
+    let bad = Made::Creature(Creation { role: Role::Weapon, ..Creation::default() });
+    assert!(read(1, CREATION, &serde_json::to_vec(&bad).unwrap()).is_err());
+    assert!(read(1, CREATION, b"not json").is_err());
+}

@@ -257,6 +257,38 @@ pub fn failed() {
     });
 }
 
+/// Start a run snapshot and hand back the guard that ends it. A run function
+/// has one success exit and many `?` exits; the guard makes "the run ended" the
+/// guard's job instead of every exit's.
+pub fn begin_run(source: &str, rounds: usize) -> RunGuard {
+    begin(source, rounds);
+    RunGuard { finished: false }
+}
+
+/// Owns the end of one published run. [`finish`](Self::finish) publishes
+/// `done()`; leaving the run any other way (an error return, the operator's
+/// stop, a panic) drops the guard and publishes `failed()`, so the panel never
+/// keeps showing a dead run as live.
+#[must_use = "dropping the guard before finish() publishes the run as failed"]
+pub struct RunGuard {
+    finished: bool,
+}
+
+impl RunGuard {
+    pub fn finish(mut self) {
+        self.finished = true;
+        done();
+    }
+}
+
+impl Drop for RunGuard {
+    fn drop(&mut self) {
+        if !self.finished {
+            failed();
+        }
+    }
+}
+
 /// The latest snapshot, if any run has published since startup.
 pub fn current() -> Option<RlSnapshot> {
     SNAPSHOT.lock().ok().and_then(|guard| guard.clone())

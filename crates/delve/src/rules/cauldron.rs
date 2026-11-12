@@ -129,8 +129,25 @@ impl Essence {
                 Effect::Cast(Shape::Meteor) | Effect::Nova(_) | Effect::Bombs(_) => {
                     return Essence::Fire;
                 }
-                Effect::Cabbages(_) | Effect::Hedge(_) => return Essence::Garden,
-                Effect::Imposture(_) | Effect::Summon(..) => return Essence::Trick,
+                // An area cast is made of its element.
+                Effect::Area(area) => {
+                    use cards::Element;
+                    return match area.element {
+                        Element::Fire => Essence::Fire,
+                        Element::Frost => Essence::Frost,
+                        Element::Poison | Element::Earth => Essence::Garden,
+                        Element::Holy => Essence::Life,
+                        Element::Storm | Element::Arcane => Essence::Arcane,
+                    };
+                }
+                Effect::Cabbages(_) | Effect::Hedge(_) | Effect::Frogs(_) => {
+                    return Essence::Garden;
+                }
+                Effect::Imposture(_) | Effect::Summon(..) | Effect::Excommunicate(_) => {
+                    return Essence::Trick;
+                }
+                Effect::Patience(_) => return Essence::Life,
+                Effect::Vesper(_) => return Essence::Arcane,
                 Effect::Heal(_) | Effect::Ward(_) => return Essence::Life,
                 Effect::Cast(_) => return Essence::Arcane,
                 _ => {}
@@ -419,10 +436,24 @@ pub fn power(card: &Card) -> f32 {
             Effect::Cast(Shape::Bolt) => 32.0,
             Effect::Cast(Shape::Ring) => 96.0,
             Effect::Cast(Shape::Meteor) => 96.0,
+            // Strokes on a crowd, the tests' measure: three in full and the
+            // rest at a quarter (`aoe`), a size up about a third more.
+            Effect::Area(area) => {
+                let base = match area.form {
+                    cards::Form::Wave | cards::Form::Nova => 120.0,
+                    cards::Form::Burst | cards::Form::Field => 140.0,
+                    cards::Form::Cone | cards::Form::Pillar => 100.0,
+                    cards::Form::Line => 110.0,
+                };
+                base * (1.0 + 0.33 * f32::from(area.size.saturating_sub(1)))
+            }
             Effect::Heal(v) => 2.0 * v as f32,
             Effect::Ward(v) => 25.0 * v as f32,
             Effect::Bombs(v) => 40.0 * v as f32,
-            Effect::Hedge(_) | Effect::Imposture(_) => 90.0,
+            Effect::Hedge(_) | Effect::Imposture(_) | Effect::Frogs(_) => 90.0,
+            Effect::Vesper(_) => 40.0,
+            Effect::Patience(_) => 60.0,
+            Effect::Excommunicate(_) => 70.0,
             Effect::Summon(n, b) => {
                 n as f32
                     * match b {
@@ -474,6 +505,7 @@ pub fn effect_mix(card: &Card) -> Vec<String> {
         .iter()
         .map(|e| match *e {
             Effect::Cast(shape) => format!("cast {}", shape.word()),
+            Effect::Area(area) => format!("cast {} {}", area.form.word(), area.element.word()),
             Effect::Summon(_, behaviour) => format!("summon {}", behaviour.word()),
             _ => e.parts().0.to_string(),
         })
@@ -619,7 +651,7 @@ pub fn pet_shot(inputs: [&Card; 2]) -> Option<&Card> {
                 .split(|ch: char| !ch.is_ascii_alphabetic())
                 .any(|w| CREATURES.contains(&w) || CREATURES.iter().any(|c| w.strip_suffix('s') == Some(c)))
     };
-    let shoots = |c: &Card| c.effects.iter().any(|e| matches!(e, Effect::Cast(_))) || c.looks.shot.is_some();
+    let shoots = |c: &Card| c.effects.iter().any(|e| matches!(e, Effect::Cast(_) | Effect::Area(_))) || c.looks.shot.is_some();
     match inputs {
         [a, b] if creature(a) && shoots(b) && !creature(b) => Some(a),
         [a, b] if creature(b) && shoots(a) && !creature(a) => Some(b),
@@ -747,7 +779,7 @@ impl Run {
             Ask::Pick(stir.picks.len())
         } else if pot.brewed(id) {
             Ask::Brewed
-        } else if hero.spells.iter().flatten().count() < 2 {
+        } else if hero.spells.iter().flatten().filter(|id| super::kingdom_gear::item(id).is_none()).count() < 2 {
             Ask::Short
         } else {
             Ask::Brew
@@ -975,7 +1007,8 @@ impl Run {
         let learned = self
             .players
             .get(&id)
-            .is_some_and(|h| h.spells.get(usize::from(slot)).is_some_and(Option::is_some));
+            .is_some_and(|h| h.spells.get(usize::from(slot)).and_then(Option::as_deref)
+                .is_some_and(|id| super::kingdom_gear::item(id).is_none()));
         if !learned {
             return;
         }
@@ -1003,6 +1036,11 @@ impl Run {
         let [Some(a), Some(b)] = names else {
             return;
         };
+        // Bound workshop relics are reusable equipment, not ingredients that
+        // can be melted down and then issued again for free at the armory.
+        if super::kingdom_gear::item(&a).is_some() || super::kingdom_gear::item(&b).is_some() {
+            return;
+        }
         let (Some(ca), Some(cb)) = (self.book.get(&a), self.book.get(&b)) else {
             return;
         };

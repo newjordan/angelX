@@ -2025,9 +2025,7 @@ impl AgentGraphEngine {
             "  0.0s · descendant budget admitted initial graph · {}",
             initial_budget_receipt.fields()
         ));
-        let mut winding: Option<String> = None;
-        let mut cancelled = false;
-        let mut graph_deadline_reached = false;
+        let mut winding: Option<GraphWind> = None;
         let mut wind_started: Option<Instant> = None;
         let mut running = 0usize;
         let seat_cancel = Arc::new(AtomicBool::new(false));
@@ -2054,7 +2052,7 @@ impl AgentGraphEngine {
                         events: &[String],
                         run_phase: GraphRunPhase,
                         final_answer: Option<&str>,
-                        error: Option<&str>|
+                        error: Option<&GraphWind>|
          -> GraphSnapshot {
             GraphSnapshot {
                 episode_id: snapshot_episode_id.clone(),
@@ -2085,17 +2083,12 @@ impl AgentGraphEngine {
                     .collect(),
                 events: events.to_vec(),
                 final_answer: final_answer.map(|a| head_chars(a, SNAPSHOT_ANSWER_CAP)),
-                error: error.map(|reason| head_chars(reason, GRAPH_FAILURE_REASON_CAP)),
+                error: error.map(|wind| head_chars(wind.reason(), GRAPH_FAILURE_REASON_CAP)),
                 elapsed_ms: started.elapsed().as_millis(),
                 fanin: graph_fanin_truth(spec, phase, outputs),
-                incomplete_reason: error.filter(|_| run_phase != GraphRunPhase::Done).map(
-                    |reason| {
-                        graph_incomplete_reason_label(
-                            reason,
-                            matches!(run_phase, GraphRunPhase::Cancelled),
-                        )
-                    },
-                ),
+                incomplete_reason: error
+                    .filter(|_| run_phase != GraphRunPhase::Done)
+                    .map(GraphWind::label),
             }
         };
         publish_graph_snapshot(snapshot(
@@ -2118,18 +2111,16 @@ impl AgentGraphEngine {
             {
                 cancel_requested_at = Some(GraphTimestamp::now(started));
                 seat_cancel.store(true, Ordering::Relaxed);
-                winding = Some("cancelled by operator".to_string());
-                cancelled = true;
+                winding = Some(GraphWind::Cancelled);
                 wind_started = Some(Instant::now());
             }
             if winding.is_none() && request_deadline.is_some_and(|end| Instant::now() >= end) {
                 seat_cancel.store(true, Ordering::Relaxed);
-                winding = Some(format!(
+                winding = Some(GraphWind::Deadline(format!(
                     "deadline {}s reached; operator cap graph.deadline_secs / ANGEL_GRAPH_DEADLINE_SECS={}",
                     deadline.as_secs(),
                     deadline.as_secs()
-                ));
-                graph_deadline_reached = true;
+                )));
                 wind_started = Some(Instant::now());
             }
             if winding.is_none() {
@@ -2471,7 +2462,8 @@ impl AgentGraphEngine {
                         }
                         Err(e) => {
                             if running == 0 {
-                                winding = Some(format!("spawn capacity: {e}"));
+                                winding =
+                                    Some(GraphWind::SpawnCapacity(format!("spawn capacity: {e}")));
                                 seat_cancel.store(true, Ordering::Relaxed);
                                 wind_started = Some(Instant::now());
                             }
@@ -2488,7 +2480,7 @@ impl AgentGraphEngine {
             // abandonment, not stopped work; failure/deadline behavior remains
             // separate from this explicit cancellation path.
             if let Some(ws) = wind_started
-                && !cancelled
+                && !matches!(winding, Some(GraphWind::Cancelled))
                 && ws.elapsed() > WIND_DOWN_GRACE
             {
                 for (i, p) in phase.iter_mut().enumerate() {
@@ -2532,22 +2524,27 @@ impl AgentGraphEngine {
             let termination = if done.termination.kind == GraphTraceTerminationKind::BudgetExhausted
             {
                 done.termination
-            } else if done.result.is_err() && cancelled {
+            } else if done.result.is_err() && matches!(winding, Some(GraphWind::Cancelled)) {
                 GraphTraceTerminationV1::failure(
                     GraphTraceTerminationKind::Interrupt,
-                    winding.as_deref().unwrap_or("cancelled by operator"),
+                    winding
+                        .as_ref()
+                        .map_or("cancelled by operator", GraphWind::reason),
                 )
-            } else if done.result.is_err() && graph_deadline_reached {
+            } else if done.result.is_err() && matches!(winding, Some(GraphWind::Deadline(_))) {
                 GraphTraceTerminationV1::failure(
                     GraphTraceTerminationKind::Deadline,
-                    winding.as_deref().unwrap_or("graph deadline reached"),
+                    winding
+                        .as_ref()
+                        .map_or("graph deadline reached", GraphWind::reason),
                 )
             } else if done.result.is_err() && winding.is_some() {
                 GraphTraceTerminationV1::failure(
                     GraphTraceTerminationKind::Abandoned,
-                    winding
-                        .as_deref()
-                        .unwrap_or("graph wound down after another node failed"),
+                    winding.as_ref().map_or(
+                        "graph wound down after another node failed",
+                        GraphWind::reason,
+                    ),
                 )
             } else {
                 done.termination
@@ -2717,10 +2714,10 @@ impl AgentGraphEngine {
                                             gate_note[idx] = Some(format!(
                                                 "FAIL · retry budget denied · {reason}"
                                             ));
-                                            winding = Some(format!(
+                                            winding = Some(GraphWind::GateRetryDenied(format!(
                                                 "gate '{}' retry denied: {budget_error}",
                                                 node.id
-                                            ));
+                                            )));
                                             seat_cancel.store(true, Ordering::Relaxed);
                                             wind_started = Some(Instant::now());
                                             push_event(
@@ -2736,12 +2733,12 @@ impl AgentGraphEngine {
                                     phase[idx] = GraphNodePhase::Failed;
                                     gate_note[idx] = Some(format!("FAIL · {reason}"));
                                     if winding.is_none() {
-                                        winding = Some(format!(
+                                        winding = Some(GraphWind::GateRejected(format!(
                                             "gate '{}' rejected after {} retr{}: {reason}",
                                             node.id,
                                             retries[idx],
                                             if retries[idx] == 1 { "y" } else { "ies" }
-                                        ));
+                                        )));
                                         seat_cancel.store(true, Ordering::Relaxed);
                                         wind_started = Some(Instant::now());
                                     }
@@ -2757,7 +2754,10 @@ impl AgentGraphEngine {
                         phase[idx] = GraphNodePhase::Failed;
                         push_event(&mut events, format!("✗ {} · {e}", node.id));
                         if winding.is_none() {
-                            winding = Some(format!("node '{}' failed: {e}", node.id));
+                            winding = Some(GraphWind::NodeFailed {
+                                node: node.id.clone(),
+                                reason: format!("node '{}' failed: {e}", node.id),
+                            });
                             seat_cancel.store(true, Ordering::Relaxed);
                             wind_started = Some(Instant::now());
                         }
@@ -2781,20 +2781,21 @@ impl AgentGraphEngine {
                 &events,
                 GraphRunPhase::Running,
                 None,
-                winding.as_deref(),
+                winding.as_ref(),
             ));
         }
         for (idx, context) in inflight.iter_mut().enumerate() {
             let Some(context) = context.take() else {
                 continue;
             };
-            let reason = winding
-                .as_deref()
-                .unwrap_or("graph result channel closed before the seat landed");
+            let reason = winding.as_ref().map_or(
+                "graph result channel closed before the seat landed",
+                GraphWind::reason,
+            );
             let trace_idx = traces.len();
-            let termination = if cancelled {
+            let termination = if matches!(winding, Some(GraphWind::Cancelled)) {
                 GraphTraceTerminationV1::failure(GraphTraceTerminationKind::Interrupt, reason)
-            } else if graph_deadline_reached {
+            } else if matches!(winding, Some(GraphWind::Deadline(_))) {
                 GraphTraceTerminationV1::failure(GraphTraceTerminationKind::Deadline, reason)
             } else {
                 GraphTraceTerminationV1::failure(GraphTraceTerminationKind::Abandoned, reason)
@@ -2843,7 +2844,7 @@ impl AgentGraphEngine {
                 phase[idx] = GraphNodePhase::Failed;
             }
             if winding.is_none() {
-                winding = Some(reason.to_string());
+                winding = Some(GraphWind::SeatLost);
             }
         }
         crate::ui::viz::agentviz::clear();
@@ -2851,16 +2852,14 @@ impl AgentGraphEngine {
         if winding.is_none() {
             let fanin = graph_fanin_truth(spec, &phase, &outputs);
             if !fanin.finished_with_result {
-                winding = Some(classify_graph_incomplete(
-                    spec, &phase, &outputs, cancelled, None,
-                ));
+                winding = Some(classify_graph_incomplete(spec, &phase, &outputs));
             }
         }
 
-        let run_phase = match (&winding, cancelled) {
-            (Some(_), true) => GraphRunPhase::Cancelled,
-            (Some(_), false) => GraphRunPhase::Failed,
-            (None, _) => GraphRunPhase::Done,
+        let run_phase = match &winding {
+            Some(GraphWind::Cancelled) => GraphRunPhase::Cancelled,
+            Some(_) => GraphRunPhase::Failed,
+            None => GraphRunPhase::Done,
         };
         let answer = if run_phase == GraphRunPhase::Done {
             sink_answer(spec, &outputs)
@@ -2904,9 +2903,7 @@ impl AgentGraphEngine {
             } else {
                 Vec::new()
             },
-            incomplete_reason: winding
-                .as_ref()
-                .map(|reason| graph_incomplete_reason_label(reason, cancelled)),
+            incomplete_reason: winding.as_ref().map(GraphWind::label),
             fanin: graph_fanin_truth(spec, &phase, &outputs),
             token_allocation: token_allocation.as_ref().map(|budget| budget.snapshot()),
             traces,
@@ -2914,11 +2911,11 @@ impl AgentGraphEngine {
                 kind: match run_phase {
                     GraphRunPhase::Done => GraphEpisodeTerminationKind::Completed,
                     GraphRunPhase::Cancelled => GraphEpisodeTerminationKind::OperatorCancelled,
-                    GraphRunPhase::Failed if graph_deadline_reached => {
+                    GraphRunPhase::Failed if matches!(winding, Some(GraphWind::Deadline(_))) => {
                         GraphEpisodeTerminationKind::Deadline
                     }
                     GraphRunPhase::Failed | GraphRunPhase::Running
-                        if winding.as_deref().is_some_and(|r| {
+                        if winding.as_ref().map(GraphWind::reason).is_some_and(|r| {
                             r.contains("planner produced no")
                                 || r.contains("no schedulable")
                                 || r.contains("terminal fan-in")
@@ -2932,8 +2929,8 @@ impl AgentGraphEngine {
                 },
                 phase: run_phase,
                 detail_sha256: winding
-                    .as_deref()
-                    .map(|reason| crate::knowledge::cut::sha256_hex(reason.as_bytes())),
+                    .as_ref()
+                    .map(|wind| crate::knowledge::cut::sha256_hex(wind.reason().as_bytes())),
                 final_output_sha256: (!answer.is_empty())
                     .then(|| crate::knowledge::cut::sha256_hex(answer.as_bytes())),
             },
@@ -2971,13 +2968,13 @@ impl AgentGraphEngine {
             &events,
             run_phase,
             (!answer.is_empty()).then_some(answer.as_str()),
-            winding.as_deref(),
+            winding.as_ref(),
         );
         publish_graph_snapshot(final_snapshot.clone());
         let budget_status = descendant_budget_status(&descendant_budget)?;
         match winding {
-            Some(reason) => Err(GraphRunError::Run(Box::new(GraphRunFailure {
-                reason: format!("graph '{}' did not complete: {reason}", spec.name),
+            Some(wind) => Err(GraphRunError::Run(Box::new(GraphRunFailure {
+                reason: format!("graph '{}' did not complete: {}", spec.name, wind.reason()),
                 snapshot: final_snapshot,
                 episode,
                 episode_persistence,
@@ -3059,64 +3056,102 @@ fn graph_fanin_truth(
     GraphFaninTruth {
         finished_with_result: finished,
         result: finished.then_some(result),
-        reason: (!finished).then(|| classify_graph_incomplete(spec, phase, outputs, false, None)),
+        reason: (!finished).then(|| {
+            classify_graph_incomplete(spec, phase, outputs)
+                .reason()
+                .to_string()
+        }),
     }
 }
 
-fn graph_incomplete_reason_label(reason: &str, cancelled: bool) -> String {
-    if cancelled || reason.contains("cancelled") {
-        return "cancelled".to_string();
-    }
-    // A recoverable stream death is the incomplete-stream class.
-    if is_recoverable_stream_error(reason) {
-        if let Some(node) = reason
-            .split("node '")
-            .nth(1)
-            .and_then(|s| s.split('\'').next())
-        {
-            return format!("provider_stall:{node}");
+/// Why a graph run is winding down: the first thing that went wrong, set once
+/// and never replaced. Each variant renders the text callers have always read
+/// (`GraphRunFailure::reason`, `GraphSnapshot::error`, the episode's detail
+/// digest) through [`GraphWind::reason`], and the short class that
+/// `incomplete_reason` carries through [`GraphWind::label`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum GraphWind {
+    /// The operator cancelled the run.
+    Cancelled,
+    /// The graph's wall-clock cap passed. Holds the rendered reason.
+    Deadline(String),
+    /// No seat could be spawned. Holds the rendered reason.
+    SpawnCapacity(String),
+    /// A gate wanted a retry the descendant budget refused. Holds the reason.
+    GateRetryDenied(String),
+    /// A gate rejected the work with no retry left. Holds the reason.
+    GateRejected(String),
+    /// A node's own provider or turn error. `reason` is the rendered text.
+    NodeFailed { node: String, reason: String },
+    /// A seat never landed. Its reason is a fixed text.
+    SeatLost,
+    /// Nothing was ready to dispatch.
+    NoSchedulableNodes,
+    /// The planner finished and nothing followed.
+    PlannerNoPlan,
+    /// Every node ran and the sinks produced no result.
+    FaninIncomplete,
+}
+
+impl GraphWind {
+    fn reason(&self) -> &str {
+        match self {
+            Self::Cancelled => "cancelled by operator",
+            Self::Deadline(reason)
+            | Self::SpawnCapacity(reason)
+            | Self::GateRetryDenied(reason)
+            | Self::GateRejected(reason)
+            | Self::NodeFailed { reason, .. } => reason,
+            Self::SeatLost => "graph result channel closed before the seat landed",
+            Self::NoSchedulableNodes => "no schedulable nodes",
+            Self::PlannerNoPlan => "planner produced no schedulable plan",
+            Self::FaninIncomplete => "terminal fan-in did not finish with a result",
         }
-        return "provider_stall".to_string();
     }
-    if let Some(rest) = reason.strip_prefix("node '")
-        && let Some(node) = rest.split('\'').next()
-    {
-        return format!("node_failed:{node}");
+
+    /// The class `incomplete_reason` carries.
+    fn label(&self) -> String {
+        let reason = self.reason();
+        match self {
+            Self::Cancelled => return "cancelled".to_string(),
+            // A node's own words, its error text and its id, never make a
+            // cancelled run: a provider that says "cancelled" has failed.
+            Self::NodeFailed { node, .. } => {
+                return format!("node_failed:{}", node.split('\'').next().unwrap_or(node));
+            }
+            // Every other reason keeps today's reading of the word, so a gate
+            // or spawn text that happens to contain it is still called a
+            // cancelled run until the operator rules on that.
+            _ if reason.contains("cancelled") => return "cancelled".to_string(),
+            _ => {}
+        }
+        if reason.contains("no schedulable") {
+            return "no_schedulable_nodes".to_string();
+        }
+        if reason.contains("planner") || reason.contains("no plan") {
+            return "planner_no_plan".to_string();
+        }
+        reason.to_string()
     }
-    if reason.contains("no schedulable") {
-        return "no_schedulable_nodes".to_string();
-    }
-    if reason.contains("planner") || reason.contains("no plan") {
-        return "planner_no_plan".to_string();
-    }
-    reason.to_string()
 }
 
 fn classify_graph_incomplete(
     spec: &GraphSpec,
     phase: &[GraphNodePhase],
     _outputs: &HashMap<String, String>,
-    cancelled: bool,
-    winding: Option<&str>,
-) -> String {
-    if cancelled {
-        return "cancelled by operator".to_string();
-    }
-    if let Some(reason) = winding {
-        return reason.to_string();
-    }
+) -> GraphWind {
     let started = phase
         .iter()
         .filter(|p| !matches!(p, GraphNodePhase::Pending | GraphNodePhase::Skipped))
         .count();
     if started == 0 {
-        return "no schedulable nodes".to_string();
+        return GraphWind::NoSchedulableNodes;
     }
     let planner = spec.nodes.iter().position(|n| n.id == "planner");
     if planner.is_some_and(|i| phase[i] == GraphNodePhase::Done) && started == 1 {
-        return "planner produced no schedulable plan".to_string();
+        return GraphWind::PlannerNoPlan;
     }
-    "terminal fan-in did not finish with a result".to_string()
+    GraphWind::FaninIncomplete
 }
 
 fn node_system_prompt(

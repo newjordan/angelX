@@ -1,0 +1,10 @@
+{
+ "generator": "Luna (gpt-6-luna) via Codex CLI, reduced by sprites.py",
+ "note": "Reduced by crates/delve/assets/lightgallop/sprites.py from the art wave concept sheets (Luna via Codex CLI, kept outside the repository, bound here by SHA-256), area-averaged, lifted out of the shadow (gamma 0.8) and snapped to the realm inks.",
+ "seat_mask": "v1/<frame>-seat-mask.png: the red cloth, its red value in four bands (value/70), re-inked per seat by the stage",
+ "sheets": {
+  "rider-actions": "56b1d83bbd1f6c6a4a1ed26e7f496d38423138e0f043070f0ba9eda26fe8c04a",
+  "rider-gallop": "0bb0fb57f7fd74d028b27bd28d9ea21011916efd118bd6ec830da328174a2592"
+ },
+ "wheel": "the tuck roll is drawn in code (a steel wheel with the sun shield), not reduced"
+}

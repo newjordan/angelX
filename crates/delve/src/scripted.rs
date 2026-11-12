@@ -38,6 +38,9 @@ pub fn installed() -> bool {
 /// test dispatcher for other games and registered nothing for `id`.
 #[cfg(any(test, feature = "testing"))]
 pub fn answers_natively(id: &str) -> bool {
+    // Only a test build asks the shared dispatcher by name.
+    #[cfg(not(test))]
+    let _ = id;
     #[cfg(test)]
     if TEST_DISPATCH.get().is_some() {
         return !TEST_ENGINES

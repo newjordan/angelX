@@ -1,5 +1,17 @@
 # The open kingdom
 
+> **The shipped realm is the blank-slate plan (2026-11-08).** The operator:
+> "one tiny castle, started, for the main castle, and then surrounding
+> hillsides with nothing, but a camp, where the other models castles should
+> be built. close to tabula rasa with just the basics pretty much." The
+> upper world is now one open grass country with the Keep, a tiny castle
+> just begun, in the middle of it, a camp for each model house on a loose
+> ring of hillside round it, and the way down to the Delve beside the Keep.
+> Everything below this box describes the **full plan**, the realm as it
+> was; none of it is deleted, and it comes back by changing one line:
+> `PLAN` in `crates/delve/src/world/plan.rs` from `Plan::Tabula` to
+> `Plan::Full`. See "The blank-slate plan" at the end of this file.
+
 The kingdom map (the Delve's surface and the cockpit's mini-viz realm, one
 geography) was a grid of 16x11 screens fenced with tree hedges: about a
 hundred same-size places, tree tiles everywhere, one-tile roads, castles in
@@ -105,8 +117,8 @@ rows, fronts on five.
 A **fingerpost** stands on the verge at every road crossing of a biome
 border and every junction of main roads (none closer than 10 tiles). Its
 arms are worked out from the road graph: walking each road that leaves the
-post, the first other biome reached within 60 road tiles names the arm,
-else the nearest place that way. The post is a world prop in the dusk
+post, the region entered names the arm at a biome border, and at a fork the
+destination that way does (see "Where the fingerposts point" below). The post is a world prop in the dusk
 timbers (drawn in the landscape for the cockpit map and the Delve atlas);
 the arm names are lettered beside it in small grey only while a knight is
 within 6 tiles, so they read as you pass and never clutter the map.
@@ -115,6 +127,64 @@ Entering a biome writes its name **small in the top-left corner** of that
 knight's own view (top right while the goal's arrow holds that corner),
 grey, fading over three seconds. No centre banner, no
 minimap: the ground names (one per biome, on an open green) stay.
+
+## Where the fingerposts point
+
+At a biome border a post's arms name the region the road runs into. At a fork
+they name the destination down that road: a place with a door, a waystation,
+or a way down into a dungeon (`world/signs.rs`). Of what lies down a road the
+nearest wins; a way down counts half as far as it lies and a halt a little
+farther, so a halt is named only where it is the nearest by a margin. A way
+down's arm wears a small stair going down before its name. A post also stands
+where the road to each way down leaves the main road (`rules::world::MOUTHS`),
+and a door within the ring round a post is named on the arm it lies toward.
+
+## Ways down
+
+Three entrances lead down from the kingdom: the Delve's gate (the Undercroft
+and the Winding Stair), the shaft at the Mines' head and the Swamp's plate in
+Sir Damp's marsh. `rules::world::MOUTHS` lists them, and a test keeps every
+entrance that goes down on the list. Each has its door on the map, reached by
+road from the Keep, and a halt within twenty tiles. A sign stands by each door:
+a stair going down on a dark board, DOWN under it, and on the Delve's the
+party's deepest floor once they have been down.
+
+## Waystations
+
+Eleven halts stand beside the roads (`world/waystations.rs`, drawn by
+`render/overworld/arena/waystation.rs`, the keeper's talk in
+`rules/waystation.rs`). Each is a lean-to with its keeper and kettle, a coach
+at its post, a rally pole and a lantern on a post, seven tiles across and four
+deep with the apron before it. Their ground is worked out once from the roads
+and the open ground beside them, on the realm with no wishes raised, and
+no wish's lot may stand on it (`wishes::lots`); nothing about a halt is solid or
+changes the map, so the kingdom's tiles are as they were.
+
+The coaches run the halts in a ring: Harbour, Gatehill, Mineside,
+Ashroad, Listsend, Coastgate, Longbow, Homecoming, Midway, Marchgate, Swamp
+Lane and back to Harbour (`the ring is the order of `STOPS`). E beside a
+keeper and they greet the knight; E again and they ask where to:
+
+- **1** the coach on to the next halt, **2** the coach back to the one before.
+  It carries every living knight within ten tiles of its post, together, and sets
+  them down side by side on the next halt's apron. A knight left behind has a
+  rally called for them at the halt the coach ran to.
+- **3** a rally at this halt: every other knight's arrow points here, named
+  RALLY, for three minutes or until each of them has come within six tiles. It
+  stands down at once if the party is already gathered, and with no one else on
+  the road it calls no one.
+
+The rally pole's pennon flies only while a rally stands at its halt, and the
+lantern burns only while a rally stands there or a coach has run from or to it
+in the last twenty seconds. A puff of dust rises at the post when a coach comes
+or goes. The older coach posts by the Keep, the Village and the other doors
+keep their single-knight hop.
+
+## Class banners
+
+No banner stands on the road. A class is taken up only at the Sozzled Griffin's
+tables, each at its patron's; the lots beside the halls' doors where the stones
+stood stay empty, so the kingdom's trinkets and the herald keep their places.
 
 ## Set dressing
 
@@ -194,3 +264,110 @@ new ground replaces the saved one, a return door whose place's door moved
 (a castle's gate) goes with it and the party with it, and a knight out on
 the surface who now stands inside a wall steps onto the nearest open
 ground.
+
+
+## The blank-slate plan
+
+The map is the same size (240 x 176 tiles, ten by eleven chunks of 24 x 16),
+so saves, chunk streaming and the wire are untouched. What it holds is the
+whole of the plan (`world/plan.rs`, `world::plan::tabula`):
+
+| what | where |
+|---|---|
+| the ground | open meadow edge to edge, no trees, rock, water, roads or paths; one biome (The March); the 2D tufts crowd on the crests of broad swells and thin in the hollows, the 3D floor takes the same swells as light and shade |
+| the Keep | a tiny castle just begun, `8 x 5` tiles at (124, 83) in the middle chunk (5, 5): a half-raised squat tower, a stump of a twin, low wall stubs with a gap and a timber frame for the gate, scaffolding, a hoist, a heap of stone, the Keep's banner. Small enough to see whole (the view is 24 x 14). It has no door and no inside |
+| the spawn | the tile before the Keep, (128, 88) (`Place::Keep.stand_world()`, `kingdom::keep_stand()`) |
+| the way down | the Delve's gate, `3 x 3` at (139, 84), its stand (140, 87): the only door on the map (`Door::Delve`, `wishes::delve_gate()`, `delve_stand()`) |
+| the camps | sixteen, one for each model house in house order, `7 x 4` tiles each: two tents and a fire and the house's banner in its own colours (`House::field`/`charge`, the dusk inks as every banner on the map), the house's knight standing at home on `houses::stand(id)`, its name carved on the ground below. One to a chunk of the ring two chunks out from the Keep's, each set by hand in its chunk (`tabula::CAMPS`), 29 to 59 tiles from the Keep (five to nine seconds on foot), at least 15 from each other. No wall, no gate, no door, nothing inside |
+| wishes | stand on the open ground as ever (`world::wishes`), found near the Keep and the Delve's gate first, never on the Keep, a camp, a camp's knight tile and name, or the gate |
+
+`houses::footprint(id)` and `houses::stand(id)` are the one place a house's
+site is decided: under the Full plan its castle's wall on the March
+(`houses::SITES`), under the blank-slate plan its camp. `castles::castles()`
+is the sixteen camps and the Keep (`Castle::is_camp`, `Castle::is_tiny`);
+the Dragon Keep is not on the map.
+
+### What came off the map (and is still in the code)
+
+The eleven biomes and their borders; the fourteen authored set pieces
+(`map::SET_PIECES`/`AUTHORED`, `STRUCTURES`) and every place in them; the
+thirty-seven countryside places (`kingdom::REGIONS`), the kingdom's halls and
+Bomrekedan's gate; the roads (`roads::ROADS`), fingerposts, the eleven
+waystations, the thirty finds and the set dressing; the College and its
+approach; the Squires' Yard; the region names lettered on the ground; the
+twelve road walkers, the birds and the chimney smoke; the Dragon Keep and the
+March's great castles. Each is behind one question, `plan::tabula()` or
+`plan::full()`, asked once at the edge (`map::Realm`, `map::set_pieces`,
+`map::structures`, `biome::chunk`, `roads::raster`, `doors::doors`,
+`kingdom::geography`, `kingdom::closed_tiles`, `wishes::delve_gate`/`reserved`,
+`college::lot`, `signs::posts`, `finds::finds`, `dressing::get`,
+`waystations::placed`, `squires_town::on_map`, the scene's authored staging,
+`world3d::chunks::builds`). A play that wants the old country back changes
+`PLAN`.
+
+### Tests
+
+This crate's own test build keeps the Full plan (`plan::active()`), so the
+rooms' and systems' tests that assert the old layout stay green; set
+`ANGEL_REALM_PLAN=tabula` to stand the blank-slate plan up for a run. The
+plan's own facts (`tests/world/plan__tests.rs`) are checked two ways: the
+first group builds the plan directly (`plan::tabula`: one castle, sixteen
+camps wholly in their chunks on walkable meadow, the Delve's door reachable
+on foot from the spawn, nothing overlapping), the second reads the global map
+through its modules and is ignored unless the plan is standing
+(`ANGEL_REALM_PLAN=tabula cargo test -p angel-delve --lib world::plan --
+--include-ignored`).
+
+### Saves
+
+Old saves load: the kingdom room's map is replaced as before
+(`Run::raise_kingdom`); a knight standing where the Keep, a camp or the gate
+now stands steps onto the nearest open ground; a return door to a place that
+is off the map comes out at the Keep; a wish's lot chosen where the plan now
+stands something is chosen again by the realm (`wishes::lots`).
+
+### Nothing points at a place that is gone
+
+What tells a knight to go somewhere asks `Run::on_the_way(room)` first: in the
+full plan every place has its door; on the blank slate a place is on the way
+only when the home floor's doors and stairs lead to it from the Delve's gate
+(`rules/kingdom.rs`). So Maud's gossip, Merlin's errand and the King's herald
+never name the Eyrie, a Colosseum arena or the Land Office, and the
+herald's and the Foreman's "at the Land Office" lines are not said. A castle is
+never raided there (`Holding::raidable`: its raid is fought in its hall, which
+is not on the map), so a castle the realm owns keeps its rent and its walls;
+its deed, coffer and bays are what they were and its pennon flies over its
+camp. An old save's errand or rumour at a place with no door, a coach's rally,
+a road traveller and a journal entry on ground that is closed now are let go
+when the map is replaced (`forget_what_is_gone`); a return door or a knight on
+closed ground comes out on the nearest open ground, as before.
+
+In 3D the look is one ramp a place, so a camp's tents and banner would take the
+hillside's green: each camp near the view lies two small zones over its cloth
+in a ramp of its house's colour, and the Keep's banner one in the Keep's red
+(`world3d::realm_look::camp_zones`, `cloth_ramp`; none in the full plan).
+
+### What lost its way in
+
+Every room, system or game whose only door on the surface was one of the
+places above can no longer be walked to from the surface. All of it is intact
+and comes back under the Full plan. Found by walking the home floor's real
+doors and stairs from the Delve's gate (`world/plan` test
+`report_rooms_with_no_way_in_once_the_places_are_off_the_map`): of the 54
+rooms the full map had a door to, 49 are still reachable that way (the home
+floor's own roads join the Forest, Village, Fairground, Smithy, Market, the
+Mines' head and the rest to the Delve's courtyard), and five are not: Labyrinth
+College (grounds and, through it, the hall, class, library, lab, tower and
+study), the Colosseum's hall and its arena games, the Griffin Eyrie, the Land
+Office (the King's court) and the shared realm hall (the Keep's and every
+castle's hall: the castle deeds and the Holdings Court). Gates and systems on
+the map itself that have no way in: the Round Table adventures (Lanternward,
+Moonfall, Bannerpeak, Griffinwing, Lightgallop), Deathmatch and Knight
+Racers' kingdom gate (all enter through `roundtable::enter`, which needs the
+Dark Forest's door; Knight Racers keeps its Crossroads card), the Forest road's
+mouth and the Old Oak, the Squires' Yard, the waystations' coaches and rally,
+the fingerposts, the thirty finds, the roads' travellers, the class stones'
+lots (classes are still taken at the Sozzled Griffin) and the mission doors at
+places that are gone. The Dark Forest's solo Knight Racers entry is one of
+these: with the Forest off the map it is reached through the Crossroads card
+only.

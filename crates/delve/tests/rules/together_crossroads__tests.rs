@@ -119,6 +119,11 @@ fn all_pool_games_seat_six_including_the_fallen_and_end_on_their_clock() {
             }
             race.t = race3d::TITLE + race.time_limit() - 1;
             assert!(race.ante.is_empty());
+        } else if game == Game::Racers {
+            let race = run.knight_racers.as_ref().unwrap();
+            assert_eq!(race.cars.len(), 6, "six knights on the grid, the fallen one too");
+            assert_eq!(race.laps(), 1);
+            run.crossroads.as_mut().unwrap().left = 1;
         } else {
             assert_eq!(run.pastimes.heat.as_ref().unwrap().seats.len(), 6);
             run.pastimes.round.as_mut().unwrap().left = 1;
@@ -160,7 +165,7 @@ fn the_fallen_sapper_drops_a_keg_in_the_same_yard_each_seat_sees() {
     let mut run = stairs(3, 6);
     run.players.get_mut(&2).unwrap().hp = 0;
     run.descend();
-    run.crossroads.as_mut().unwrap().choices = [Game::Powder, Game::Gander, Game::Shaft];
+    run.crossroads.as_mut().unwrap().choices = [Game::Powder, Game::Racers, Game::Shaft];
     for id in 1..=6 { vote(&mut run, id, 1); }
     let yard = run.pastimes.round.as_ref().unwrap().powder.as_ref().unwrap();
     let starts: std::collections::BTreeSet<_> = yard.knights.iter().map(|k| k.tile()).collect();
@@ -263,7 +268,7 @@ fn deathmatch_round(seats: u32) -> Run {
     run.players.get_mut(&2).unwrap().hp = 0;
     for h in run.players.values_mut() { h.carried.add(Spoil::Gold, 200); }
     run.descend();
-    run.crossroads.as_mut().unwrap().choices = [deathmatch_card(), Game::Powder, Game::Gander];
+    run.crossroads.as_mut().unwrap().choices = [deathmatch_card(), Game::Powder, Game::Racers];
     for id in 1..=seats { vote(&mut run, id, 1); }
     run
 }
@@ -300,7 +305,7 @@ fn deathmatch_is_the_sixth_seeded_card_but_never_dealt_to_one_present_seat() {
 fn deathmatch_selected_after_a_departure_falls_back_to_a_playable_card() {
     let mut run = stairs(3, 2);
     run.descend();
-    run.crossroads.as_mut().unwrap().choices = [deathmatch_card(), Game::Powder, Game::Gander];
+    run.crossroads.as_mut().unwrap().choices = [deathmatch_card(), Game::Powder, Game::Racers];
     run.players.get_mut(&2).unwrap().absent = true;
     vote(&mut run, 1, 1);
     assert!(!run.crossroads_voting());
@@ -359,4 +364,72 @@ fn deathmatch_pool_shots() {
     let f = s.fighters.get_mut(&2).unwrap();
     (f.hero.x, f.hero.y) = (25., 23.);
     save(&run, "playing");
+}
+
+/// What the race's own pilot would press for each knight, as keys.
+fn racer_keys(run: &Run) -> BTreeMap<u32, Input> {
+    let race = run.knight_racers.as_ref().unwrap();
+    race.bot_drives_all().into_iter().filter(|(id, _)| run.players.contains_key(id)).map(|(id, d)| {
+        (id, Input { move_x: d.steer, move_y: if d.brake { 1 } else if d.gas { -1 } else { 0 }, dash: d.boost, ..Default::default() })
+    }).collect()
+}
+
+#[test]
+fn the_knight_racers_card_runs_one_lap_and_pays_the_purse_in_finishing_order() {
+    let mut run = stairs(3, 2);
+    run.descend();
+    run.crossroads.as_mut().unwrap().choices = [Game::Racers, Game::Powder, Game::Shaft];
+    assert_eq!(Game::Racers.name(), "KNIGHT RACERS");
+    let old: Game = serde_json::from_str("\"gander\"").expect("an old save's joust card still loads");
+    assert_eq!(old, Game::Racers);
+    // `ANGEL_CROSSROADS_PROOF=dir` keeps the cards, the race every ten seconds and the purse as PNGs.
+    let proof = std::env::var_os("ANGEL_CROSSROADS_PROOF").map(std::path::PathBuf::from);
+    let shot = |run: &Run, name: &str| if let Some(dir) = &proof {
+        std::fs::create_dir_all(dir).unwrap();
+        let im = crate::render::overworld::arena::frame_for(run, 384, 224, Some(1));
+        image::save_buffer(dir.join(format!("{name}.png")), &im.rgba_bytes(), 384, 224, image::ColorType::Rgba8).unwrap();
+    };
+    shot(&run, "0-cards");
+    vote(&mut run, 1, 1);
+    vote(&mut run, 2, 1);
+    assert!(run.crossroads_racing());
+    let race = run.knight_racers.as_ref().expect("the card puts the party on the grid");
+    assert_eq!(race.laps(), 1);
+    assert!(crate::rules::knight_racers::cup().contains(&race.course));
+    assert!(race.cars.contains_key(&1) && race.cars.contains_key(&2));
+    assert_ne!(race.cars[&1].pod, race.cars[&2].pod, "each knight races the pod of their seat");
+    assert_eq!(run.roundtable_under_way().map(|a| a.slug), Some("knight_racers"));
+    assert!(run.valid_snapshot());
+    let gold_before = run.bank.len();
+    let mut ticks = 0;
+    while run.crossroads.as_ref().unwrap().stage == Stage::Playing {
+        let keys = racer_keys(&run);
+        run.step(&keys);
+        ticks += 1;
+        if ticks % 300 == 0 { shot(&run, &format!("1-race-{ticks:05}")); }
+        assert!(ticks <= RACERS_TIME + 10, "the race must end on time");
+    }
+    let c = run.crossroads.as_ref().unwrap();
+    assert_eq!(c.stage, Stage::Results);
+    assert_eq!(c.order.len(), 2, "both knights are placed");
+    shot(&run, "2-purse");
+    assert!(ticks < RACERS_TIME, "two knights driving the line finish one lap before the cap ({ticks} ticks)");
+    assert!(run.knight_racers.is_none());
+    assert_eq!(run.bank.len() - gold_before, 2);
+    assert!(run.valid_snapshot());
+    for _ in 0..RESULTS_TIME { run.step(&BTreeMap::new()); }
+    assert!(run.crossroads.is_none());
+    assert_eq!(run.dungeon.depth, 4);
+}
+
+#[test]
+fn a_knight_who_never_drives_cannot_hold_the_racers_card_past_its_time() {
+    let mut run = stairs(3, 1);
+    run.descend();
+    run.crossroads.as_mut().unwrap().choices = [Game::Racers, Game::Powder, Game::Shaft];
+    vote(&mut run, 1, 1);
+    assert!(run.knight_racers.as_ref().unwrap().cars.values().filter(|c| c.cpu).count() == 5, "a lone knight races five rivals");
+    for _ in 0..RACERS_TIME + 2 { run.step(&BTreeMap::new()); }
+    assert_eq!(run.crossroads.as_ref().unwrap().stage, Stage::Results);
+    assert_eq!(run.crossroads.as_ref().unwrap().order, vec![1]);
 }

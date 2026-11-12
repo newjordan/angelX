@@ -7,6 +7,7 @@ import json, os, sys
 root = sys.argv[1]
 A = json.load(open(f"{root}/ab_analysis.json"))
 out = f"{root}/dash/data"
+os.makedirs(out, exist_ok=True)
 SRC = {"web": "Web pages", "desk": "Desktop apps"}
 ARM = {"first": "First look", "casc": "ground"}
 SIZE = {"xs<16": "under 16 px", "s16-23": "16–23 px", "m24-39": "24–39 px", "l40+": "40 px and up"}
@@ -64,4 +65,8 @@ if os.path.exists(L):
                                  "pass_pct": round(100 * o["tasks_pass"] / o["tasks_n"], 1) if o["tasks_n"] else None,
                                  "ground_hits": o["ground_hit"], "ground_scored": o["ground_scored"],
                                  "ground_pct": round(100 * o["ground_hit"] / o["ground_scored"], 1) if o["ground_scored"] else None,
-                                 "provider_errors": o.get("infra_errors", 0)}])
+                                 "infrastructure_errors": o.get("infra_errors", 0),
+                                 "invalid_runs": o.get("invalid_runs", 0),
+                                 "expected_runs": o.get("expected_runs"),
+                                 "missing_runs": o.get("missing_runs"),
+                                 "status": o.get("status", "unverified_legacy_summary")}])

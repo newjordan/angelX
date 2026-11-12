@@ -1,0 +1,35 @@
+# The Tired Ivy — Likot Stoppedlabors, chief medical dwarf, in Bomrekedan's hospital.
+# A Bomrekedan questline, placed from expansions/bomrekedan/kingdom/questlines/
+# ivy.txt (quests.json: the-tired-ivy and three-names-in-the-gossip, joined)
+# and adapted to the engine the way bom-steel.txt says: every step and the
+# trial cued; the counters this line's own (the infirmary hour and the unhurt
+# hall are not Dame Alyce's, and a relic here is not Old Carom's).
+# He stands on the Noble Halls (`room BomNobleHalls`), in The Tired Ivy
+# (kingdom.json the-tired-ivy), between the beds and the traction benches.
+power   bomrekedan:ivy
+teacher Likot Stoppedlabors
+place   The Tired Ivy, Bomrekedan's hospital on the Noble Halls, three traction benches and not enough soap
+room    BomNobleHalls
+at      45 60
+look    young for the post, a bruise ring round his throat gone yellow, and a satchel of splints he counts every hour
+line    Twenty-eight, and chief medical dwarf. The last one was not strangled by a spider. I was.
+teach   You cannot mend in a hurry, and you cannot keep a secret in a hospital. People talk while they are being stitched.
+hook    The hospital's patient book has three names written in its margin that are not patients: Strangerfought, Parchedwhisker, the Music of Diamond.
+step    The infirmary hour | serve one infirmary hour with Likot: splint, bandage, sit with them | ivy_hours_served 1 | Splint, bandage, sit with them. Then write it down. | cue tend
+step    The wax | carry the hospital's last wax to the soap shelf with Likot | wax_carried 1 | Three soap makers in this fort and no soap. Wax, then, and we will think of something. | cue carry
+step    The three who talked | question the three who named the treasures to visiting swordsmen, one each visit | informants_questioned 3 | A bracelet, a flask, an instrument. Our own. They told strangers where they sleep. | cue ask
+step    The thief | sit the night watch over the display cases with Likot and catch the thief at the glass | thieves_caught 1 | So someone was listening. Now someone is not. | cue watch
+step    The treasures home | lock the stolen treasures back in their display cases | treasures_cased 1 | Locked, this time. I have the key, and I am very hard to strangle now. | cue fetch
+trial   The mended ward | walk a whole ward round with Likot and leave nobody splinted who could walk | ward_rounds 1 | Nobody to splint. I will put that in the book too. | cue round
+reward  the Tired Ivy raised a level: more health at each delve's start, a proposed Mend gift (a Bomrekedan questline: no power is taught)
+title   the Ivy's Orderly
+keepsake a splint of hazel wood, with Likot's knot on it
+ties    Dame Alyce keeps the Priory's own infirmary (Mending Strike); Kekkit, the spider that strangled Likot, is Bomrek Baldnesswinds' to burn out (Kekkit's Web).
+art
+...8...
+..888..
+...8...
+.88888.
+.8.7.8.
+.88888.
+..8.8..

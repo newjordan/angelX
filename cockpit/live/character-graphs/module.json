@@ -1,0 +1,14 @@
+{
+  "api_version": 2,
+  "id": "character-graphs",
+  "kind": "system",
+  "entry": "index.js",
+  "state_schema": 1,
+  "exports": [
+    {
+      "kind": "resource",
+      "name": "pack",
+      "contract": "character-animation-graph-pack/1"
+    }
+  ]
+}

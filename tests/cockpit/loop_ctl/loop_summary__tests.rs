@@ -1,5 +1,7 @@
 use super::*;
-use crate::drive::together_settlement::planning::{Outcome, ResearchPassage};
+use crate::drive::loop_ctl;
+use angel_realm_host::together_settlement::planning::{Outcome, ResearchPassage};
+use angel_plug::feed::{LoopPhase, LoopTier};
 
 fn log_row(
     iteration: usize,
@@ -152,7 +154,7 @@ fn summary_mirrors_every_status_and_tier() {
     ];
     for (state, mirror) in statuses {
         assert_eq!(format!("{state:?}"), format!("{mirror:?}"));
-        assert_eq!(LoopStatus::from(state), mirror);
+        assert_eq!(LoopStatus::from(LoopPhase::from(state)), mirror);
     }
     for (state, mirror) in [
         (Tier::Local, EscalationTier::Local),
@@ -160,12 +162,15 @@ fn summary_mirrors_every_status_and_tier() {
         (Tier::Sota, EscalationTier::Sota),
     ] {
         assert_eq!(format!("{state:?}"), format!("{mirror:?}"));
-        assert_eq!(EscalationTier::from(state), mirror);
+        assert_eq!(EscalationTier::from(LoopTier::from(state)), mirror);
     }
-    assert_eq!(LoopStatus::default(), LoopStatus::from(Status::default()));
+    assert_eq!(
+        LoopStatus::default(),
+        LoopStatus::from(LoopPhase::from(Status::default()))
+    );
     assert_eq!(
         EscalationTier::default(),
-        EscalationTier::from(Tier::default())
+        EscalationTier::from(LoopTier::from(Tier::default()))
     );
 }
 

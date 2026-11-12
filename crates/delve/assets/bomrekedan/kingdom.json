@@ -1,0 +1,9793 @@
+{
+ "artifacts": [
+  {
+   "df_artifact_id": 374,
+   "item": "The Struggle Understood (topaz-bound codex)",
+   "maker": "Sxostess Thiefsingle",
+   "maker_race": "NAGA",
+   "material": "topaz",
+   "name": "The Struggle Understood",
+   "name_native": "The Struggle Understood",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 497,
+   "item": "puddingstone skufio",
+   "material": "puddingstone",
+   "name": "The Music of Diamond",
+   "name_native": "Gufirud Skardregra",
+   "type": "instrument"
+  },
+  {
+   "df_artifact_id": 700,
+   "item": "On the Kobolds (black zircon-bound codex)",
+   "maker": "Iwethi Fragrantblossom",
+   "maker_race": "ELF",
+   "material": "black zircon",
+   "name": "On the Kobolds",
+   "name_native": "On the Kobolds",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 822,
+   "item": "The Ashen Bone: The Truth (golden beryl-bound codex)",
+   "maker": "Skosvirfjufio Duskhonors",
+   "maker_race": "VALKYRIE",
+   "material": "golden beryl",
+   "name": "The Ashen Bone: The Truth",
+   "name_native": "The Ashen Bone: The Truth",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1069,
+   "item": "The Knowledge of Velvetbrown (serpentine-bound codex)",
+   "maker": "Hindul Blazeswhispered",
+   "maker_race": "VALKYRIE",
+   "material": "serpentine",
+   "name": "The Knowledge of Velvetbrown",
+   "name_native": "The Knowledge of Velvetbrown",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1203,
+   "item": "Interpretations of the Forest Retreat (borax-bound codex)",
+   "maker": "Skigigrun Smilecactus",
+   "maker_race": "VALKYRIE",
+   "material": "borax",
+   "name": "Interpretations of the Forest Retreat",
+   "name_native": "Interpretations of the Forest Retreat",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1205,
+   "item": "The Rhythm: Fact or Fiction? (aluminum-bound codex)",
+   "maker": "Ngokang Ramnightmares",
+   "maker_race": "GOBLIN",
+   "material": "aluminum",
+   "name": "The Rhythm: Fact or Fiction?",
+   "name_native": "The Rhythm: Fact or Fiction?",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1225,
+   "item": "Never Underestimate the Dwarf (slate-bound codex)",
+   "maker": "Tholtig Ramsilvers",
+   "maker_race": "DWARF",
+   "material": "slate",
+   "name": "Never Underestimate the Dwarf",
+   "name_native": "Never Underestimate the Dwarf",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1259,
+   "item": "Elements of the Erinys (green zircon-bound codex)",
+   "maker": "Gurjul Ridermusic",
+   "maker_race": "VALKYRIE",
+   "material": "green zircon",
+   "name": "Elements of the Erinys",
+   "name_native": "Elements of the Erinys",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1430,
+   "item": "Harshness Ever Onward (rhodolite-bound codex)",
+   "maker": "Såkzul Fencetundras",
+   "maker_race": "DWARF",
+   "material": "rhodolite",
+   "name": "Harshness Ever Onward",
+   "name_native": "Harshness Ever Onward",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1505,
+   "item": "Did the Forest Falter? (sardonyx-bound codex)",
+   "maker": "Hindul Blazeswhispered",
+   "maker_race": "VALKYRIE",
+   "material": "sardonyx",
+   "name": "Did the Forest Falter?",
+   "name_native": "Did the Forest Falter?",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1810,
+   "item": "Wheelroars and The Universe (amethyst-bound codex)",
+   "maker": "Zon Rhythmmountains",
+   "maker_race": "DWARF",
+   "material": "amethyst",
+   "name": "Wheelroars and The Universe",
+   "name_native": "Wheelroars and The Universe",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 1862,
+   "item": "Uncovering the Erinys (phyllite-bound codex)",
+   "maker": "Kondafio Musicalsing",
+   "maker_race": "VALKYRIE",
+   "material": "phyllite",
+   "name": "Uncovering the Erinys",
+   "name_native": "Uncovering the Erinys",
+   "type": "book"
+  },
+  {
+   "df_artifact_id": 2043,
+   "item": "ginkgo wood armor stand",
+   "maker": "Eral Tombsbucks",
+   "maker_race": "DWARF",
+   "material": "ginkgo wood",
+   "name": "The Confident Fortunes",
+   "name_native": "Thikénosram",
+   "type": "armorstand"
+  },
+  {
+   "df_artifact_id": 2044,
+   "item": "microcline statue of Idala Flightcyclones",
+   "maker": "Sibrek Tradedlegends",
+   "maker_race": "DWARF",
+   "material": "microcline",
+   "name": "Blamedrain the Everseeing Standards",
+   "name_native": "Nulomudar Iluslorbam",
+   "type": "statue"
+  },
+  {
+   "df_artifact_id": 2045,
+   "item": "water flask (morion)",
+   "maker": "Ushat Furwires",
+   "maker_race": "DWARF",
+   "material": "morion",
+   "name": "Parchedwhisker the Friends of Color",
+   "name_native": "Fashrikkir Babin Dakas",
+   "type": "flask"
+  },
+  {
+   "df_artifact_id": 2046,
+   "item": "hazel wood grate",
+   "maker": "Erib Standardhandled",
+   "maker_race": "DWARF",
+   "material": "hazel wood",
+   "name": "The Kind Droplets",
+   "name_native": "Nosîmóboth",
+   "type": "grate"
+  },
+  {
+   "df_artifact_id": 2047,
+   "item": "apple wood bracelet",
+   "maker": "Zon Roadsack",
+   "maker_race": "DWARF",
+   "material": "apple wood",
+   "name": "Strangerfought the Frightful Smith",
+   "name_native": "Rakasbardum Shasareshtân",
+   "type": "bracelet"
+  },
+  {
+   "df_artifact_id": 2048,
+   "item": "limonite amulet",
+   "maker": "Deduk Ledglaze",
+   "maker_race": "DWARF",
+   "material": "limonite",
+   "name": "The Roasted Leap",
+   "name_native": "Ibeshtagùz",
+   "type": "amulet"
+  },
+  {
+   "df_artifact_id": 2049,
+   "item": "hematite crown",
+   "maker": "Kulet Unionsringed",
+   "maker_race": "DWARF",
+   "material": "hematite",
+   "name": "The Lacy Portent",
+   "name_native": "Vakistniral",
+   "type": "crown"
+  },
+  {
+   "df_artifact_id": 2050,
+   "item": "hematite mug",
+   "maker": "Ilral Breachfigures",
+   "maker_race": "DWARF",
+   "material": "hematite",
+   "name": "Spatteredoils",
+   "name_native": "Isakuzol",
+   "type": "goblet"
+  },
+  {
+   "df_artifact_id": 2051,
+   "item": "steel shield",
+   "maker": "Ùshrir Lashedgate",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Workdishes the Channel of Stockades",
+   "name_native": "Ducimgan Catten Kikrost",
+   "type": "shield"
+  },
+  {
+   "df_artifact_id": 2052,
+   "item": "sheep wool tunic",
+   "maker": "Dodók Cobaltyoung",
+   "maker_race": "DWARF",
+   "material": "sheep wool",
+   "name": "The Accidental Crab Rag",
+   "name_native": "Kuthdêngozsitunib",
+   "type": "armor"
+  },
+  {
+   "df_artifact_id": 2053,
+   "item": "iron scimitar",
+   "maker": "Fath Quietinked",
+   "maker_race": "DWARF",
+   "material": "iron",
+   "name": "The Admirer of Faith",
+   "name_native": "Nebél Tabar",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2054,
+   "item": "steel shield",
+   "maker": "Ùshrir Lashedgate",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "The Reigns of Elevation",
+   "name_native": "Ikud Todör",
+   "type": "shield"
+  },
+  {
+   "df_artifact_id": 2055,
+   "item": "steel battle axe",
+   "maker": "Ilral Breachfigures",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Oilyveiled",
+   "name_native": "Uzolbisek",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2056,
+   "item": "steel shield",
+   "maker": "Ùshrir Lashedgate",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Tradetrammeled",
+   "name_native": "Nishrìthar",
+   "type": "shield"
+  },
+  {
+   "df_artifact_id": 2057,
+   "item": "steel shield",
+   "maker": "Ineth Tongssyrups",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "The Viper of Sides",
+   "name_native": "Zenon Adek",
+   "type": "shield"
+  },
+  {
+   "df_artifact_id": 2058,
+   "item": "hazel wood bed",
+   "maker": "Oddom Gearedsecrets",
+   "maker_race": "DWARF",
+   "material": "hazel wood",
+   "name": "The Fences of Competing",
+   "name_native": "Ustuth Âgoth",
+   "type": "bed"
+  },
+  {
+   "df_artifact_id": 2059,
+   "item": "steel mace",
+   "maker": "Ineth Tongssyrups",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "The Gleeful Helms",
+   "name_native": "Àlilzon",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2060,
+   "item": "steel shield",
+   "maker": "Ùshrir Lashedgate",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Cloistermusty the Mountainous Summit",
+   "name_native": "Oddomarrug Onolkobel",
+   "type": "shield"
+  },
+  {
+   "df_artifact_id": 2061,
+   "item": "steel battle axe",
+   "maker": "Datan Dentcraft",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Fondleprison the Wood of Harshness",
+   "name_native": "Gatizräm Lolum Gethust",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2062,
+   "item": "{steel mace}",
+   "maker": "Ineth Tongssyrups",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "The Stop of Troubling",
+   "name_native": "Tôsed Kobem",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2063,
+   "item": "steel battle axe",
+   "maker": "Datan Dentcraft",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "The Good of Yells",
+   "name_native": "Eshon Taron",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2064,
+   "item": "tetrahedrite millstone",
+   "maker": "Uvash Braidedtraded",
+   "maker_race": "DWARF",
+   "material": "tetrahedrite",
+   "name": "The Cremation of Rogues",
+   "name_native": "Orshet Astås",
+   "type": "millstone"
+  },
+  {
+   "df_artifact_id": 2065,
+   "item": "steel mace",
+   "maker": "Ineth Tongssyrups",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Fordoil",
+   "name_native": "Atuluzol",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2066,
+   "item": "steel shield",
+   "maker": "Ineth Tongssyrups",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Blueautumns",
+   "name_native": "Enôrthatthil",
+   "type": "shield"
+  },
+  {
+   "df_artifact_id": 2067,
+   "item": "steel short sword",
+   "maker": "Vucar Balancelashes",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Dwellerthrows the Wax of Curls",
+   "name_native": "Kokebarros Rithlut Amem",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2068,
+   "item": "steel shield",
+   "maker": "Ineth Tongssyrups",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "The Tattooed Sicknesses",
+   "name_native": "Zegngumrash",
+   "type": "shield"
+  },
+  {
+   "df_artifact_id": 2069,
+   "item": "iron left gauntlet",
+   "maker": "Urdim Metalgrouped",
+   "maker_race": "DWARF",
+   "material": "iron",
+   "name": "Secretivespread the Lucky Skulls",
+   "name_native": "Nekutkoman Mersethnekol",
+   "type": "gloves"
+  },
+  {
+   "df_artifact_id": 2070,
+   "item": "{steel short sword}",
+   "maker": "Ast Ringtwinkled",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Shockedskewered the Crucifixion of Radiance",
+   "name_native": "Otunggecast Memrut Atêsh",
+   "type": "weapon"
+  },
+  {
+   "df_artifact_id": 2071,
+   "item": "steel shield",
+   "maker": "Vucar Balancelashes",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Agepoet",
+   "name_native": "Anamolnen",
+   "type": "shield"
+  },
+  {
+   "df_artifact_id": 2072,
+   "item": "steel shield",
+   "maker": "Vucar Balancelashes",
+   "maker_race": "DWARF",
+   "material": "steel",
+   "name": "Yawnwing",
+   "name_native": "Åmfesh",
+   "type": "shield"
+  }
+ ],
+ "bedroom_blocks": [
+  {
+   "bedrooms": [
+    "bedroom-2177"
+   ],
+   "id": "bedroom-block-1",
+   "level": "the-noble-halls",
+   "name": "Bedroom Block 1",
+   "owned": 1,
+   "rect": {
+    "h": 8,
+    "w": 26,
+    "x": 51,
+    "y": 39
+   },
+   "rooms": 1
+  },
+  {
+   "bedrooms": [
+    "bedroom-11158"
+   ],
+   "id": "bedroom-block-2",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 2",
+   "owned": 0,
+   "rect": {
+    "h": 6,
+    "w": 5,
+    "x": 67,
+    "y": 25
+   },
+   "rooms": 1
+  },
+  {
+   "bedrooms": [
+    "bedroom-11035",
+    "bedroom-11036",
+    "bedroom-11037",
+    "bedroom-11038",
+    "bedroom-11039",
+    "bedroom-11040",
+    "bedroom-11041",
+    "bedroom-11042",
+    "bedroom-11043",
+    "bedroom-11044",
+    "bedroom-11045"
+   ],
+   "id": "bedroom-block-3",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 3",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 26
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-11157",
+    "bedroom-11171",
+    "bedroom-11170",
+    "bedroom-11169",
+    "bedroom-11168",
+    "bedroom-11167",
+    "bedroom-11166",
+    "bedroom-11165",
+    "bedroom-11164"
+   ],
+   "id": "bedroom-block-4",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 4",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 71,
+    "y": 26
+   },
+   "rooms": 9
+  },
+  {
+   "bedrooms": [
+    "bedroom-11024",
+    "bedroom-11025",
+    "bedroom-11026",
+    "bedroom-11027",
+    "bedroom-11028",
+    "bedroom-11029",
+    "bedroom-11030",
+    "bedroom-11031",
+    "bedroom-11032",
+    "bedroom-11033",
+    "bedroom-11034"
+   ],
+   "id": "bedroom-block-5",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 5",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 30
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-11154",
+    "bedroom-11155",
+    "bedroom-11156",
+    "bedroom-11159",
+    "bedroom-11161",
+    "bedroom-11162",
+    "bedroom-11163"
+   ],
+   "id": "bedroom-block-6",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 6",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 30
+   },
+   "rooms": 7
+  },
+  {
+   "bedrooms": [
+    "bedroom-11013",
+    "bedroom-11014",
+    "bedroom-11015",
+    "bedroom-11016",
+    "bedroom-11017",
+    "bedroom-11018",
+    "bedroom-11019",
+    "bedroom-11020",
+    "bedroom-11021",
+    "bedroom-11022",
+    "bedroom-11023"
+   ],
+   "id": "bedroom-block-7",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 7",
+   "owned": 1,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 34
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-11143",
+    "bedroom-11144",
+    "bedroom-11145",
+    "bedroom-11146",
+    "bedroom-11147",
+    "bedroom-11148",
+    "bedroom-11149",
+    "bedroom-11150",
+    "bedroom-11151",
+    "bedroom-11152",
+    "bedroom-11172",
+    "bedroom-11153"
+   ],
+   "id": "bedroom-block-8",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 8",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 34
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-2867",
+    "bedroom-2866",
+    "bedroom-2868",
+    "bedroom-2865",
+    "bedroom-2864",
+    "bedroom-2869",
+    "bedroom-2863",
+    "bedroom-2862",
+    "bedroom-2861",
+    "bedroom-2860",
+    "bedroom-2859"
+   ],
+   "id": "bedroom-block-9",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 9",
+   "owned": 10,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 38
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-3080",
+    "bedroom-3081",
+    "bedroom-3082",
+    "bedroom-3083",
+    "bedroom-3084",
+    "bedroom-3085",
+    "bedroom-3086",
+    "bedroom-3087",
+    "bedroom-3088",
+    "bedroom-3089",
+    "bedroom-3090",
+    "bedroom-3091"
+   ],
+   "id": "bedroom-block-10",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 10",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 38
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-2848",
+    "bedroom-2849",
+    "bedroom-2850",
+    "bedroom-2851",
+    "bedroom-2852",
+    "bedroom-2853",
+    "bedroom-2854",
+    "bedroom-2855",
+    "bedroom-2856",
+    "bedroom-2857",
+    "bedroom-2858"
+   ],
+   "id": "bedroom-block-11",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 11",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 42
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-3068",
+    "bedroom-3069",
+    "bedroom-3070",
+    "bedroom-3071",
+    "bedroom-3072",
+    "bedroom-3078",
+    "bedroom-3073",
+    "bedroom-3074",
+    "bedroom-3075",
+    "bedroom-3076",
+    "bedroom-3077",
+    "bedroom-3079"
+   ],
+   "id": "bedroom-block-12",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 12",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 42
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-2847",
+    "bedroom-2846",
+    "bedroom-2845",
+    "bedroom-2844",
+    "bedroom-2843",
+    "bedroom-2842",
+    "bedroom-2841",
+    "bedroom-2840",
+    "bedroom-2839",
+    "bedroom-2838",
+    "bedroom-2837"
+   ],
+   "id": "bedroom-block-13",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 13",
+   "owned": 8,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 46
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-3056",
+    "bedroom-3057",
+    "bedroom-3058",
+    "bedroom-3059",
+    "bedroom-3060",
+    "bedroom-3061",
+    "bedroom-3062",
+    "bedroom-3063",
+    "bedroom-3064",
+    "bedroom-3065",
+    "bedroom-3066",
+    "bedroom-3067"
+   ],
+   "id": "bedroom-block-14",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 14",
+   "owned": 8,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 46
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-1775",
+    "bedroom-1776",
+    "bedroom-1777",
+    "bedroom-1778",
+    "bedroom-1385",
+    "bedroom-1384",
+    "bedroom-1372",
+    "bedroom-1118",
+    "bedroom-1117",
+    "bedroom-1116",
+    "bedroom-1115"
+   ],
+   "id": "bedroom-block-15",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 15",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 50
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-140",
+    "bedroom-141",
+    "bedroom-142",
+    "bedroom-143",
+    "bedroom-1276",
+    "bedroom-1265",
+    "bedroom-1266",
+    "bedroom-1277",
+    "bedroom-1808",
+    "bedroom-1809",
+    "bedroom-1822",
+    "bedroom-1823"
+   ],
+   "id": "bedroom-block-16",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 16",
+   "owned": 10,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 50
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-1782",
+    "bedroom-1781",
+    "bedroom-1780",
+    "bedroom-1779",
+    "bedroom-1386",
+    "bedroom-1383",
+    "bedroom-1371",
+    "bedroom-1113",
+    "bedroom-1114"
+   ],
+   "id": "bedroom-block-17",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 17",
+   "owned": 7,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 54
+   },
+   "rooms": 9
+  },
+  {
+   "bedrooms": [
+    "bedroom-130",
+    "bedroom-131",
+    "bedroom-132",
+    "bedroom-133",
+    "bedroom-1275",
+    "bedroom-1264",
+    "bedroom-1267",
+    "bedroom-1278",
+    "bedroom-1807",
+    "bedroom-1810",
+    "bedroom-1821",
+    "bedroom-1824"
+   ],
+   "id": "bedroom-block-18",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 18",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 54
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-1783",
+    "bedroom-1784",
+    "bedroom-1785",
+    "bedroom-1786",
+    "bedroom-1415",
+    "bedroom-1382",
+    "bedroom-1373",
+    "bedroom-1111",
+    "bedroom-1110",
+    "bedroom-1109",
+    "bedroom-1108"
+   ],
+   "id": "bedroom-block-19",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 19",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 58
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-152",
+    "bedroom-151",
+    "bedroom-150",
+    "bedroom-134",
+    "bedroom-1259",
+    "bedroom-1263",
+    "bedroom-1268",
+    "bedroom-1279",
+    "bedroom-1811",
+    "bedroom-1820",
+    "bedroom-1825"
+   ],
+   "id": "bedroom-block-20",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 20",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 58
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-1787",
+    "bedroom-1788",
+    "bedroom-1789",
+    "bedroom-1790",
+    "bedroom-1374",
+    "bedroom-1104",
+    "bedroom-1105",
+    "bedroom-1106",
+    "bedroom-1107"
+   ],
+   "id": "bedroom-block-21",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 21",
+   "owned": 7,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 62
+   },
+   "rooms": 9
+  },
+  {
+   "bedrooms": [
+    "bedroom-136",
+    "bedroom-137",
+    "bedroom-138",
+    "bedroom-139",
+    "bedroom-1258",
+    "bedroom-1274",
+    "bedroom-1269",
+    "bedroom-1280",
+    "bedroom-1805",
+    "bedroom-1812",
+    "bedroom-1819",
+    "bedroom-1826"
+   ],
+   "id": "bedroom-block-22",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 22",
+   "owned": 10,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 62
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-1794",
+    "bedroom-1793",
+    "bedroom-1792",
+    "bedroom-1791",
+    "bedroom-1387",
+    "bedroom-1380",
+    "bedroom-1375",
+    "bedroom-1103",
+    "bedroom-1102",
+    "bedroom-1101",
+    "bedroom-1100"
+   ],
+   "id": "bedroom-block-23",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 23",
+   "owned": 8,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 66
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-147",
+    "bedroom-153",
+    "bedroom-145",
+    "bedroom-144",
+    "bedroom-1257",
+    "bedroom-1262",
+    "bedroom-1270",
+    "bedroom-1281",
+    "bedroom-1804",
+    "bedroom-1813",
+    "bedroom-1818",
+    "bedroom-1827"
+   ],
+   "id": "bedroom-block-24",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 24",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 66
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-1389",
+    "bedroom-1379",
+    "bedroom-1376",
+    "bedroom-1096",
+    "bedroom-1097",
+    "bedroom-1098",
+    "bedroom-1099"
+   ],
+   "id": "bedroom-block-25",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 25",
+   "owned": 7,
+   "rect": {
+    "h": 5,
+    "w": 29,
+    "x": 31,
+    "y": 70
+   },
+   "rooms": 7
+  },
+  {
+   "bedrooms": [
+    "bedroom-197",
+    "bedroom-198",
+    "bedroom-199",
+    "bedroom-200",
+    "bedroom-1256",
+    "bedroom-1261",
+    "bedroom-1271",
+    "bedroom-1282",
+    "bedroom-1814",
+    "bedroom-1817",
+    "bedroom-1828"
+   ],
+   "id": "bedroom-block-26",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 26",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 70
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-1799",
+    "bedroom-1798",
+    "bedroom-1797",
+    "bedroom-1796",
+    "bedroom-1388",
+    "bedroom-1378",
+    "bedroom-1377",
+    "bedroom-1095",
+    "bedroom-1094",
+    "bedroom-1093",
+    "bedroom-1092"
+   ],
+   "id": "bedroom-block-27",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 27",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 74
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-204",
+    "bedroom-203",
+    "bedroom-202",
+    "bedroom-1283",
+    "bedroom-1255",
+    "bedroom-1260",
+    "bedroom-1272",
+    "bedroom-1273",
+    "bedroom-1802",
+    "bedroom-1815",
+    "bedroom-1816",
+    "bedroom-1829"
+   ],
+   "id": "bedroom-block-28",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 28",
+   "owned": 9,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 74
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-11046",
+    "bedroom-11051",
+    "bedroom-11052",
+    "bedroom-11057",
+    "bedroom-11058",
+    "bedroom-11063",
+    "bedroom-11064",
+    "bedroom-11069",
+    "bedroom-11070",
+    "bedroom-11075",
+    "bedroom-11076"
+   ],
+   "id": "bedroom-block-29",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 29",
+   "owned": 2,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 78
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-11080",
+    "bedroom-11081",
+    "bedroom-11091",
+    "bedroom-11090",
+    "bedroom-11089",
+    "bedroom-11103",
+    "bedroom-11102",
+    "bedroom-11106",
+    "bedroom-11105",
+    "bedroom-11104"
+   ],
+   "id": "bedroom-block-30",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 30",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 78
+   },
+   "rooms": 10
+  },
+  {
+   "bedrooms": [
+    "bedroom-11047",
+    "bedroom-11050",
+    "bedroom-11053",
+    "bedroom-11056",
+    "bedroom-11059",
+    "bedroom-11062",
+    "bedroom-11065",
+    "bedroom-11068",
+    "bedroom-11071",
+    "bedroom-11074",
+    "bedroom-11077"
+   ],
+   "id": "bedroom-block-31",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 31",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 82
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-11082",
+    "bedroom-11083",
+    "bedroom-11084",
+    "bedroom-11085",
+    "bedroom-11086",
+    "bedroom-11087",
+    "bedroom-11088",
+    "bedroom-11099",
+    "bedroom-11100",
+    "bedroom-11107",
+    "bedroom-11110",
+    "bedroom-11111"
+   ],
+   "id": "bedroom-block-32",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 32",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 82
+   },
+   "rooms": 12
+  },
+  {
+   "bedrooms": [
+    "bedroom-11048",
+    "bedroom-11049",
+    "bedroom-11054",
+    "bedroom-11055",
+    "bedroom-11060",
+    "bedroom-11061",
+    "bedroom-11066",
+    "bedroom-11067",
+    "bedroom-11072",
+    "bedroom-11073",
+    "bedroom-11078"
+   ],
+   "id": "bedroom-block-33",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 33",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 45,
+    "x": 15,
+    "y": 86
+   },
+   "rooms": 11
+  },
+  {
+   "bedrooms": [
+    "bedroom-11079",
+    "bedroom-11092",
+    "bedroom-11093",
+    "bedroom-11094",
+    "bedroom-11095",
+    "bedroom-11096",
+    "bedroom-11097",
+    "bedroom-11098",
+    "bedroom-11101",
+    "bedroom-11108",
+    "bedroom-11109",
+    "bedroom-11112"
+   ],
+   "id": "bedroom-block-34",
+   "level": "the-dormitories",
+   "name": "Bedroom Block 34",
+   "owned": 0,
+   "rect": {
+    "h": 5,
+    "w": 49,
+    "x": 67,
+    "y": 86
+   },
+   "rooms": 12
+  }
+ ],
+ "crop": {
+  "df_x0": 15,
+  "df_y0": 71,
+  "h": 100,
+  "over_game_view": false,
+  "pad": 2,
+  "w": 117
+ },
+ "dropped_levels": [
+  {
+   "buildings": 20,
+   "content": 133,
+   "function": "The Catacombs",
+   "z": 90
+  },
+  {
+   "buildings": 75,
+   "content": 78,
+   "function": "The Great Hall",
+   "z": 92
+  },
+  {
+   "buildings": 34,
+   "content": 76,
+   "function": "The Pump Works",
+   "z": 89
+  },
+  {
+   "buildings": 27,
+   "content": 58,
+   "function": "The Pump Works",
+   "z": 101
+  },
+  {
+   "buildings": 13,
+   "content": 37,
+   "function": "The Workshops",
+   "z": 96
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 82
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 80
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 79
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 78
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 77
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 76
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 75
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 74
+  },
+  {
+   "buildings": 0,
+   "content": 0,
+   "function": "The Mines",
+   "z": 73
+  }
+ ],
+ "levels": [
+  {
+   "counts": {
+    "beds": 6,
+    "boxes": 12,
+    "cabinets": 12,
+    "df_stair_tiles": 21,
+    "doors": 7,
+    "machines": 81,
+    "statues": 27,
+    "workshops": 0,
+    "zones": 2
+   },
+   "entrance": {
+    "arrive": {
+     "x": 38,
+     "y": 55
+    },
+    "at": {
+     "h": 3,
+     "w": 3,
+     "x": 36,
+     "y": 52
+    },
+    "near": "trade depot"
+   },
+   "file": "levels/the-gate.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 61,
+      "y": 61
+     },
+     "at": {
+      "h": 2,
+      "w": 2,
+      "x": 61,
+      "y": 63
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-great-hall"
+    }
+   ],
+   "name": "The Gate",
+   "slug": "the-gate",
+   "walled_pockets": 3959,
+   "z": 100
+  },
+  {
+   "counts": {
+    "beds": 0,
+    "boxes": 10,
+    "chairs": 95,
+    "df_stair_tiles": 25,
+    "doors": 3,
+    "machines": 2,
+    "statues": 52,
+    "stockpiles": 3,
+    "tables": 95,
+    "unfinished": 9,
+    "workshops": 0,
+    "zones": 1
+   },
+   "file": "levels/the-great-hall.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 61,
+      "y": 62
+     },
+     "at": {
+      "h": 2,
+      "w": 2,
+      "x": 61,
+      "y": 63
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-gate"
+    },
+    {
+     "arrive": {
+      "x": 61,
+      "y": 61
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 64,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-farms"
+    }
+   ],
+   "name": "The Great Hall",
+   "slug": "the-great-hall",
+   "walled_pockets": 3736,
+   "z": 99
+  },
+  {
+   "counts": {
+    "beds": 0,
+    "df_stair_tiles": 25,
+    "doors": 12,
+    "farm_plots": 8,
+    "machines": 2,
+    "statues": 18,
+    "stockpiles": 2,
+    "workshops": 14,
+    "zones": 3
+   },
+   "file": "levels/the-farms.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 64,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 64,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-great-hall"
+    },
+    {
+     "arrive": {
+      "x": 63,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 61,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-workshops"
+    }
+   ],
+   "name": "The Farms and Stills",
+   "slug": "the-farms",
+   "walled_pockets": 13123,
+   "z": 98
+  },
+  {
+   "counts": {
+    "beds": 0,
+    "df_stair_tiles": 25,
+    "doors": 3,
+    "machines": 2,
+    "statues": 8,
+    "stockpiles": 4,
+    "workshops": 20
+   },
+   "file": "levels/the-workshops.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 62,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 61,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-farms"
+    },
+    {
+     "arrive": {
+      "x": 64,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 64,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-noble-halls"
+    }
+   ],
+   "name": "The Workshops",
+   "slug": "the-workshops",
+   "walled_pockets": 0,
+   "z": 97
+  },
+  {
+   "counts": {
+    "bedrooms": 1,
+    "beds": 9,
+    "bookcases": 15,
+    "boxes": 8,
+    "cabinets": 10,
+    "chairs": 14,
+    "coffins": 1,
+    "df_stair_tiles": 25,
+    "doors": 13,
+    "machines": 2,
+    "statues": 22,
+    "stockpiles": 3,
+    "tables": 14,
+    "unfinished": 2,
+    "workshops": 0,
+    "zones": 10
+   },
+   "file": "levels/the-noble-halls.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 64,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 64,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-workshops"
+    },
+    {
+     "arrive": {
+      "x": 62,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 61,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-temples"
+    }
+   ],
+   "name": "The Noble Halls",
+   "slug": "the-noble-halls",
+   "walled_pockets": 0,
+   "z": 95
+  },
+  {
+   "counts": {
+    "altars": 16,
+    "beds": 0,
+    "bookcases": 3,
+    "cabinets": 3,
+    "chairs": 10,
+    "df_stair_tiles": 25,
+    "doors": 25,
+    "machines": 20,
+    "statues": 93,
+    "tables": 10,
+    "unfinished": 14,
+    "workshops": 0,
+    "zones": 26
+   },
+   "file": "levels/the-temples.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 61,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 61,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-noble-halls"
+    },
+    {
+     "arrive": {
+      "x": 64,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 64,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-guildhalls"
+    }
+   ],
+   "name": "The Temples",
+   "slug": "the-temples",
+   "walled_pockets": 71,
+   "z": 94
+  },
+  {
+   "counts": {
+    "beds": 6,
+    "bookcases": 29,
+    "boxes": 6,
+    "cabinets": 35,
+    "chairs": 52,
+    "df_stair_tiles": 26,
+    "doors": 3,
+    "machines": 1,
+    "statues": 30,
+    "stockpiles": 2,
+    "tables": 52,
+    "unfinished": 1,
+    "wells": 4,
+    "workshops": 0,
+    "zones": 8
+   },
+   "file": "levels/the-guildhalls.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 64,
+      "y": 60
+     },
+     "at": {
+      "h": 5,
+      "w": 2,
+      "x": 64,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-temples"
+    },
+    {
+     "arrive": {
+      "x": 61,
+      "y": 61
+     },
+     "at": {
+      "h": 2,
+      "w": 2,
+      "x": 61,
+      "y": 62
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-dormitories"
+    }
+   ],
+   "name": "The Guildhalls",
+   "slug": "the-guildhalls",
+   "walled_pockets": 0,
+   "z": 93
+  },
+  {
+   "counts": {
+    "bedrooms": 349,
+    "beds": 362,
+    "cabinets": 364,
+    "df_stair_tiles": 25,
+    "doors": 681,
+    "machines": 1,
+    "statues": 358,
+    "workshops": 0,
+    "zones": 355
+   },
+   "file": "levels/the-dormitories.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 62,
+      "y": 64
+     },
+     "at": {
+      "h": 2,
+      "w": 2,
+      "x": 61,
+      "y": 62
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-guildhalls"
+    },
+    {
+     "arrive": {
+      "x": 62,
+      "y": 60
+     },
+     "at": {
+      "h": 1,
+      "w": 1,
+      "x": 62,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-barracks"
+    }
+   ],
+   "name": "The Dormitories",
+   "slug": "the-dormitories",
+   "walled_pockets": 0,
+   "z": 91
+  },
+  {
+   "counts": {
+    "beds": 0,
+    "boxes": 18,
+    "cabinets": 14,
+    "df_stair_tiles": 12,
+    "doors": 3,
+    "statues": 24,
+    "stockpiles": 1,
+    "workshops": 0,
+    "zones": 4
+   },
+   "file": "levels/the-barracks.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 66,
+      "y": 48
+     },
+     "at": {
+      "h": 1,
+      "w": 1,
+      "x": 62,
+      "y": 61
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-dormitories"
+    },
+    {
+     "arrive": {
+      "x": 41,
+      "y": 23
+     },
+     "at": {
+      "h": 3,
+      "w": 1,
+      "x": 38,
+      "y": 23
+     },
+     "deep_stair": false,
+     "direction": "down",
+     "same_xy_as_other_end": true,
+     "to": "the-forges"
+    }
+   ],
+   "name": "The Barracks",
+   "slug": "the-barracks",
+   "walled_pockets": 2,
+   "z": 88
+  },
+  {
+   "counts": {
+    "beds": 0,
+    "df_stair_tiles": 9,
+    "furnaces": 3,
+    "stockpiles": 8,
+    "workshops": 1
+   },
+   "file": "levels/the-forges.txt",
+   "links": [
+    {
+     "arrive": {
+      "x": 38,
+      "y": 22
+     },
+     "at": {
+      "h": 3,
+      "w": 1,
+      "x": 38,
+      "y": 23
+     },
+     "deep_stair": false,
+     "direction": "up",
+     "same_xy_as_other_end": true,
+     "to": "the-barracks"
+    }
+   ],
+   "name": "The Forges",
+   "slug": "the-forges",
+   "walled_pockets": 0,
+   "z": 81
+  }
+ ],
+ "place_counts": {
+  "archery": 1,
+  "barracks": 6,
+  "bedroom": 350,
+  "depot": 1,
+  "dining": 2,
+  "dormitory": 6,
+  "dungeon": 1,
+  "farm": 8,
+  "furnace:smelter": 1,
+  "furnace:woodfurnace": 2,
+  "guildhall": 7,
+  "hospital": 1,
+  "office": 3,
+  "pen": 2,
+  "stockpile": 21,
+  "tavern": 1,
+  "temple": 27,
+  "tomb": 1,
+  "well": 4,
+  "workshop:butchers": 1,
+  "workshop:carpenters": 4,
+  "workshop:clothiers": 1,
+  "workshop:craftsdwarfs": 2,
+  "workshop:farmers": 1,
+  "workshop:jewelers": 2,
+  "workshop:kitchen": 4,
+  "workshop:masons": 9,
+  "workshop:mechanics": 2,
+  "workshop:metalsmithsforge": 1,
+  "workshop:still": 8
+ },
+ "places": [
+  {
+   "df_building_id": 2789,
+   "id": "barracks-2789",
+   "kind": "barracks",
+   "level": "the-gate",
+   "name": "Steel Swords barracks",
+   "rect": {
+    "h": 13,
+    "w": 15,
+    "x": 57,
+    "y": 57
+   }
+  },
+  {
+   "df_building_id": 6127,
+   "id": "barracks-6127",
+   "kind": "barracks",
+   "level": "the-gate",
+   "name": "Barracks #284",
+   "rect": {
+    "h": 11,
+    "w": 17,
+    "x": 56,
+    "y": 45
+   }
+  },
+  {
+   "df_building_id": 9521,
+   "id": "depot-9521",
+   "kind": "depot",
+   "level": "the-gate",
+   "material": "native gold",
+   "name": "Trade Depot",
+   "quality": 0,
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 51
+   }
+  },
+  {
+   "df_building_id": 1145,
+   "id": "the-brunch-of-paddling",
+   "kind": "tavern",
+   "level": "the-great-hall",
+   "location": "The Brunch of Paddling",
+   "location_id": 1,
+   "location_native": "Olom Iden",
+   "name": "The Brunch of Paddling",
+   "rect": {
+    "h": 37,
+    "w": 28,
+    "x": 66,
+    "y": 45
+   }
+  },
+  {
+   "df_building_id": 4086,
+   "id": "stockpile-4086",
+   "kind": "stockpile",
+   "level": "the-great-hall",
+   "name": "Instruments",
+   "rect": {
+    "h": 4,
+    "w": 14,
+    "x": 67,
+    "y": 78
+   }
+  },
+  {
+   "df_building_id": 4087,
+   "id": "stockpile-4087",
+   "kind": "stockpile",
+   "level": "the-great-hall",
+   "name": "Tavern drinks and meals",
+   "rect": {
+    "h": 4,
+    "w": 22,
+    "x": 72,
+    "y": 78
+   }
+  },
+  {
+   "df_building_id": 4915,
+   "id": "stockpile-4915",
+   "kind": "stockpile",
+   "level": "the-great-hall",
+   "name": "Good food",
+   "rect": {
+    "h": 18,
+    "w": 11,
+    "x": 48,
+    "y": 55
+   }
+  },
+  {
+   "df_building_id": 14,
+   "id": "pen-14",
+   "kind": "pen",
+   "level": "the-farms",
+   "name": "Pen #2",
+   "rect": {
+    "h": 47,
+    "w": 45,
+    "x": 26,
+    "y": 38
+   }
+  },
+  {
+   "df_building_id": 22,
+   "id": "pen-22",
+   "kind": "pen",
+   "level": "the-farms",
+   "name": "Pen #3",
+   "rect": {
+    "h": 17,
+    "w": 4,
+    "x": 38,
+    "y": 55
+   }
+  },
+  {
+   "df_building_id": 23,
+   "id": "workshop-butchers-23",
+   "kind": "workshop:butchers",
+   "level": "the-farms",
+   "material": "cherry wood",
+   "name": "Butcher's Shop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 33,
+    "y": 59
+   }
+  },
+  {
+   "df_building_id": 24,
+   "id": "workshop-farmers-24",
+   "kind": "workshop:farmers",
+   "level": "the-farms",
+   "material": "pear wood",
+   "name": "Farmer's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 33,
+    "y": 63
+   }
+  },
+  {
+   "df_building_id": 34,
+   "id": "farm-34",
+   "kind": "farm",
+   "level": "the-farms",
+   "name": "Farm Plot",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 7,
+    "x": 68,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 35,
+   "id": "farm-35",
+   "kind": "farm",
+   "level": "the-farms",
+   "name": "Farm Plot",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 7,
+    "x": 68,
+    "y": 60
+   }
+  },
+  {
+   "df_building_id": 36,
+   "id": "farm-36",
+   "kind": "farm",
+   "level": "the-farms",
+   "name": "Farm Plot",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 7,
+    "x": 68,
+    "y": 64
+   }
+  },
+  {
+   "df_building_id": 37,
+   "id": "farm-37",
+   "kind": "farm",
+   "level": "the-farms",
+   "name": "Farm Plot",
+   "rect": {
+    "h": 3,
+    "w": 7,
+    "x": 68,
+    "y": 68
+   }
+  },
+  {
+   "df_building_id": 47,
+   "id": "workshop-still-47",
+   "kind": "workshop:still",
+   "level": "the-farms",
+   "material": "shale",
+   "name": "Still",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 59,
+    "y": 49
+   }
+  },
+  {
+   "df_building_id": 48,
+   "id": "workshop-still-48",
+   "kind": "workshop:still",
+   "level": "the-farms",
+   "material": "shale",
+   "name": "Still",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 63,
+    "y": 49
+   }
+  },
+  {
+   "df_building_id": 445,
+   "id": "workshop-kitchen-445",
+   "kind": "workshop:kitchen",
+   "level": "the-farms",
+   "material": "shale",
+   "name": "Kitchen",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 91,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 446,
+   "id": "workshop-kitchen-446",
+   "kind": "workshop:kitchen",
+   "level": "the-farms",
+   "material": "shale",
+   "name": "Kitchen",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 91,
+    "y": 68
+   }
+  },
+  {
+   "df_building_id": 9334,
+   "id": "workshop-still-9334",
+   "kind": "workshop:still",
+   "level": "the-farms",
+   "material": "gabbro",
+   "name": "Still",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 67,
+    "y": 49
+   }
+  },
+  {
+   "df_building_id": 9335,
+   "id": "workshop-still-9335",
+   "kind": "workshop:still",
+   "level": "the-farms",
+   "material": "gabbro",
+   "name": "Still",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 91,
+    "y": 60
+   }
+  },
+  {
+   "df_building_id": 9336,
+   "id": "workshop-still-9336",
+   "kind": "workshop:still",
+   "level": "the-farms",
+   "material": "gabbro",
+   "name": "Still",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 91,
+    "y": 64
+   }
+  },
+  {
+   "df_building_id": 9337,
+   "id": "workshop-kitchen-9337",
+   "kind": "workshop:kitchen",
+   "level": "the-farms",
+   "material": "gabbro",
+   "name": "Kitchen",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 86,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 9338,
+   "id": "workshop-kitchen-9338",
+   "kind": "workshop:kitchen",
+   "level": "the-farms",
+   "material": "gabbro",
+   "name": "Kitchen",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 86,
+    "y": 68
+   }
+  },
+  {
+   "df_building_id": 9342,
+   "id": "workshop-still-9342",
+   "kind": "workshop:still",
+   "level": "the-farms",
+   "material": "sandstone",
+   "name": "Still",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 58,
+    "y": 76
+   }
+  },
+  {
+   "df_building_id": 9343,
+   "id": "workshop-still-9343",
+   "kind": "workshop:still",
+   "level": "the-farms",
+   "material": "sandstone",
+   "name": "Still",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 62,
+    "y": 76
+   }
+  },
+  {
+   "df_building_id": 9344,
+   "id": "workshop-still-9344",
+   "kind": "workshop:still",
+   "level": "the-farms",
+   "material": "sandstone",
+   "name": "Still",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 66,
+    "y": 76
+   }
+  },
+  {
+   "df_building_id": 9420,
+   "id": "farm-9420",
+   "kind": "farm",
+   "level": "the-farms",
+   "name": "Farm Plot",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 8,
+    "x": 75,
+    "y": 68
+   }
+  },
+  {
+   "df_building_id": 9421,
+   "id": "farm-9421",
+   "kind": "farm",
+   "level": "the-farms",
+   "name": "Farm Plot",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 8,
+    "x": 75,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 9422,
+   "id": "farm-9422",
+   "kind": "farm",
+   "level": "the-farms",
+   "name": "Farm Plot",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 8,
+    "x": 75,
+    "y": 60
+   }
+  },
+  {
+   "df_building_id": 9423,
+   "id": "farm-9423",
+   "kind": "farm",
+   "level": "the-farms",
+   "name": "Farm Plot",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 8,
+    "x": 75,
+    "y": 64
+   }
+  },
+  {
+   "df_building_id": 5,
+   "id": "workshop-carpenters-5",
+   "kind": "workshop:carpenters",
+   "level": "the-workshops",
+   "material": "cherry wood",
+   "name": "Carpenter's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 68,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 10,
+   "id": "workshop-craftsdwarfs-10",
+   "kind": "workshop:craftsdwarfs",
+   "level": "the-workshops",
+   "material": "cherry wood",
+   "name": "Craftsdwarf's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 68,
+    "y": 60
+   }
+  },
+  {
+   "df_building_id": 32,
+   "id": "stockpile-32",
+   "kind": "stockpile",
+   "level": "the-workshops",
+   "name": "Wood Stockpile #3",
+   "rect": {
+    "h": 23,
+    "w": 13,
+    "x": 79,
+    "y": 52
+   }
+  },
+  {
+   "df_building_id": 49,
+   "id": "workshop-masons-49",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "shale",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 55,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 50,
+   "id": "workshop-masons-50",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "shale",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 51,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 51,
+   "id": "workshop-masons-51",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "shale",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 47,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 54,
+   "id": "stockpile-54",
+   "kind": "stockpile",
+   "level": "the-workshops",
+   "name": "Stockpile #5",
+   "rect": {
+    "h": 43,
+    "w": 56,
+    "x": 2,
+    "y": 51
+   }
+  },
+  {
+   "df_building_id": 189,
+   "id": "workshop-clothiers-189",
+   "kind": "workshop:clothiers",
+   "level": "the-workshops",
+   "material": "bauxite",
+   "name": "Clothier's Shop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 55,
+    "y": 52
+   }
+  },
+  {
+   "df_building_id": 208,
+   "id": "stockpile-208",
+   "kind": "stockpile",
+   "level": "the-workshops",
+   "name": "Wood Stockpile #7",
+   "rect": {
+    "h": 23,
+    "w": 13,
+    "x": 93,
+    "y": 52
+   }
+  },
+  {
+   "df_building_id": 209,
+   "id": "stockpile-209",
+   "kind": "stockpile",
+   "level": "the-workshops",
+   "name": "Wood Stockpile #8",
+   "rect": {
+    "h": 16,
+    "w": 27,
+    "x": 79,
+    "y": 76
+   }
+  },
+  {
+   "df_building_id": 215,
+   "id": "workshop-carpenters-215",
+   "kind": "workshop:carpenters",
+   "level": "the-workshops",
+   "material": "hazel wood",
+   "name": "Carpenter's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 72,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 287,
+   "id": "workshop-jewelers-287",
+   "kind": "workshop:jewelers",
+   "level": "the-workshops",
+   "material": "shale",
+   "name": "Jeweler's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 47,
+    "y": 52
+   }
+  },
+  {
+   "df_building_id": 288,
+   "id": "workshop-jewelers-288",
+   "kind": "workshop:jewelers",
+   "level": "the-workshops",
+   "material": "shale",
+   "name": "Jeweler's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 51,
+    "y": 52
+   }
+  },
+  {
+   "df_building_id": 1890,
+   "id": "workshop-craftsdwarfs-1890",
+   "kind": "workshop:craftsdwarfs",
+   "level": "the-workshops",
+   "material": "cherry wood",
+   "name": "Craftsdwarf's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 72,
+    "y": 60
+   }
+  },
+  {
+   "df_building_id": 1916,
+   "id": "workshop-masons-1916",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "claystone",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 51,
+    "y": 47
+   }
+  },
+  {
+   "df_building_id": 1917,
+   "id": "workshop-masons-1917",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "microcline",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 51,
+    "y": 44
+   }
+  },
+  {
+   "df_building_id": 2148,
+   "id": "workshop-masons-2148",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "shale",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 55,
+    "y": 44
+   }
+  },
+  {
+   "df_building_id": 2149,
+   "id": "workshop-masons-2149",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "shale",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 55,
+    "y": 47
+   }
+  },
+  {
+   "df_building_id": 2150,
+   "id": "workshop-masons-2150",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "shale",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 47,
+    "y": 47
+   }
+  },
+  {
+   "df_building_id": 2151,
+   "id": "workshop-masons-2151",
+   "kind": "workshop:masons",
+   "level": "the-workshops",
+   "material": "claystone",
+   "name": "Stoneworker's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 47,
+    "y": 44
+   }
+  },
+  {
+   "df_building_id": 3093,
+   "id": "workshop-mechanics-3093",
+   "kind": "workshop:mechanics",
+   "level": "the-workshops",
+   "material": "ginkgo wood",
+   "name": "Mechanic's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 68,
+    "y": 64
+   }
+  },
+  {
+   "df_building_id": 3094,
+   "id": "workshop-mechanics-3094",
+   "kind": "workshop:mechanics",
+   "level": "the-workshops",
+   "material": "cherry wood",
+   "name": "Mechanic's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 72,
+    "y": 64
+   }
+  },
+  {
+   "df_building_id": 9346,
+   "id": "workshop-carpenters-9346",
+   "kind": "workshop:carpenters",
+   "level": "the-workshops",
+   "material": "walnut wood",
+   "name": "Carpenter's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 68,
+    "y": 68
+   }
+  },
+  {
+   "df_building_id": 9347,
+   "id": "workshop-carpenters-9347",
+   "kind": "workshop:carpenters",
+   "level": "the-workshops",
+   "material": "walnut wood",
+   "name": "Carpenter's Workshop",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 72,
+    "y": 68
+   }
+  },
+  {
+   "df_building_id": 2173,
+   "id": "dining-2173",
+   "kind": "dining",
+   "level": "the-noble-halls",
+   "name": "Dining Hall #189",
+   "owner": 14371,
+   "owner_name": "Uvash Braidedtraded",
+   "rect": {
+    "h": 7,
+    "w": 26,
+    "x": 51,
+    "y": 47
+   }
+  },
+  {
+   "block": "bedroom-block-1",
+   "df_building_id": 2177,
+   "id": "bedroom-2177",
+   "kind": "bedroom",
+   "level": "the-noble-halls",
+   "name": "Uvash Braidedtraded's Bedroom",
+   "owner": 14371,
+   "owner_name": "Uvash Braidedtraded",
+   "rect": {
+    "h": 8,
+    "w": 26,
+    "x": 51,
+    "y": 39
+   }
+  },
+  {
+   "df_building_id": 2178,
+   "id": "office-2178",
+   "kind": "office",
+   "level": "the-noble-halls",
+   "name": "Office #191",
+   "owner": 14371,
+   "owner_name": "Uvash Braidedtraded",
+   "rect": {
+    "h": 6,
+    "w": 26,
+    "x": 51,
+    "y": 54
+   }
+  },
+  {
+   "df_building_id": 2321,
+   "id": "office-2321",
+   "kind": "office",
+   "level": "the-noble-halls",
+   "name": "Office #192",
+   "owner": 14077,
+   "owner_name": "Kulet Unionsringed",
+   "rect": {
+    "h": 9,
+    "w": 10,
+    "x": 67,
+    "y": 59
+   }
+  },
+  {
+   "df_building_id": 3311,
+   "id": "the-tired-ivy",
+   "kind": "hospital",
+   "level": "the-noble-halls",
+   "location": "The Tired Ivy",
+   "location_id": 26,
+   "location_native": "Kanrinal",
+   "name": "The Tired Ivy",
+   "rect": {
+    "h": 15,
+    "w": 13,
+    "x": 38,
+    "y": 56
+   }
+  },
+  {
+   "df_building_id": 3312,
+   "id": "stockpile-3312",
+   "kind": "stockpile",
+   "level": "the-noble-halls",
+   "name": "Hospital splints crutches buckets",
+   "rect": {
+    "h": 2,
+    "w": 7,
+    "x": 52,
+    "y": 59
+   }
+  },
+  {
+   "df_building_id": 3313,
+   "id": "stockpile-3313",
+   "kind": "stockpile",
+   "level": "the-noble-halls",
+   "name": "Hospital cloth and thread",
+   "rect": {
+    "h": 2,
+    "w": 7,
+    "x": 52,
+    "y": 65
+   }
+  },
+  {
+   "df_building_id": 3314,
+   "id": "stockpile-3314",
+   "kind": "stockpile",
+   "level": "the-noble-halls",
+   "name": "Hospital soap",
+   "rect": {
+    "h": 2,
+    "w": 3,
+    "x": 52,
+    "y": 61
+   }
+  },
+  {
+   "df_building_id": 3333,
+   "id": "tomb-3333",
+   "kind": "tomb",
+   "level": "the-noble-halls",
+   "name": "Tomb #280",
+   "owner": 14371,
+   "owner_name": "Uvash Braidedtraded",
+   "rect": {
+    "h": 9,
+    "w": 26,
+    "x": 51,
+    "y": 30
+   }
+  },
+  {
+   "df_building_id": 3904,
+   "id": "dungeon-3904",
+   "kind": "dungeon",
+   "level": "the-noble-halls",
+   "name": "Dungeon #282",
+   "rect": {
+    "h": 8,
+    "w": 7,
+    "x": 60,
+    "y": 68
+   }
+  },
+  {
+   "df_building_id": 5735,
+   "guild_profession": "doctor",
+   "id": "the-elder-years",
+   "kind": "guildhall",
+   "level": "the-noble-halls",
+   "location": "The Elder Years",
+   "location_id": 28,
+   "location_native": "Okirîd",
+   "name": "The Elder Years",
+   "rect": {
+    "h": 11,
+    "w": 11,
+    "x": 77,
+    "y": 58
+   }
+  },
+  {
+   "df_building_id": 7262,
+   "id": "dining-7262",
+   "kind": "dining",
+   "level": "the-noble-halls",
+   "name": "Dining Hall #287",
+   "owner": 14173,
+   "owner_name": "Ùshrir Oilclub",
+   "rect": {
+    "h": 13,
+    "w": 13,
+    "x": 88,
+    "y": 57
+   }
+  },
+  {
+   "df_building_id": 7263,
+   "id": "office-7263",
+   "kind": "office",
+   "level": "the-noble-halls",
+   "name": "Office #288",
+   "owner": 14173,
+   "owner_name": "Ùshrir Oilclub",
+   "rect": {
+    "h": 13,
+    "w": 14,
+    "x": 101,
+    "y": 57
+   }
+  },
+  {
+   "df_building_id": 1142,
+   "id": "the-temple-of-justice",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Temple of Justice",
+   "location_id": 0,
+   "location_native": "Rath Imketh",
+   "name": "The Temple of Justice",
+   "rect": {
+    "h": 19,
+    "w": 20,
+    "x": 73,
+    "y": 54
+   },
+   "religion": "The Strong Cult",
+   "religion_entity": 1385,
+   "religion_native": "Emenngotûn"
+  },
+  {
+   "df_building_id": 1160,
+   "id": "the-blameless-crevice",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Blameless Crevice",
+   "location_id": 3,
+   "location_native": "Ustannunùr",
+   "name": "The Blameless Crevice",
+   "rect": {
+    "h": 13,
+    "w": 21,
+    "x": 53,
+    "y": 42
+   }
+  },
+  {
+   "df_building_id": 1338,
+   "id": "the-sanctum-of-beaching",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Sanctum of Beaching",
+   "location_id": 4,
+   "location_native": "Ottem Mìshos",
+   "name": "The Sanctum of Beaching",
+   "rect": {
+    "h": 19,
+    "w": 16,
+    "x": 38,
+    "y": 54
+   },
+   "religion": "The Ripe Cult",
+   "religion_entity": 2357,
+   "religion_native": "Ethramngotûn"
+  },
+  {
+   "deity": "Limâr Wealthsgem the Jade Jewel",
+   "df_building_id": 1963,
+   "id": "the-red-wheel",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Red Wheel",
+   "location_id": 5,
+   "location_native": "Angkol",
+   "name": "The Red Wheel",
+   "rect": {
+    "h": 11,
+    "w": 6,
+    "x": 40,
+    "y": 43
+   }
+  },
+  {
+   "deity": "Datan the Ivory Gravel",
+   "df_building_id": 1964,
+   "id": "the-useless-razor",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Useless Razor",
+   "location_id": 6,
+   "location_native": "Kizabstukos",
+   "name": "The Useless Razor",
+   "rect": {
+    "h": 11,
+    "w": 6,
+    "x": 47,
+    "y": 43
+   }
+  },
+  {
+   "deity": "Galka",
+   "df_building_id": 1965,
+   "id": "the-glittery-pregnancy",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Glittery Pregnancy",
+   "location_id": 7,
+   "location_native": "Esermerir",
+   "name": "The Glittery Pregnancy",
+   "rect": {
+    "h": 11,
+    "w": 5,
+    "x": 74,
+    "y": 43
+   }
+  },
+  {
+   "deity": "Asháb Godlyflag the Ruler of Princesses",
+   "df_building_id": 1966,
+   "id": "the-crested-mucus",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Crested Mucus",
+   "location_id": 8,
+   "location_native": "Zimgodum",
+   "name": "The Crested Mucus",
+   "rect": {
+    "h": 11,
+    "w": 6,
+    "x": 80,
+    "y": 43
+   }
+  },
+  {
+   "deity": "Gerjategra",
+   "df_building_id": 1967,
+   "id": "the-brass-labor",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Brass Labor",
+   "location_id": 9,
+   "location_native": "Konosèrith",
+   "name": "The Brass Labor",
+   "rect": {
+    "h": 11,
+    "w": 5,
+    "x": 87,
+    "y": 43
+   }
+  },
+  {
+   "deity": "Eslim Lakesocean the Submerged",
+   "df_building_id": 1968,
+   "id": "the-ill-date",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Ill Date",
+   "location_id": 10,
+   "location_native": "Enendëm",
+   "name": "The Ill Date",
+   "rect": {
+    "h": 7,
+    "w": 7,
+    "x": 39,
+    "y": 73
+   }
+  },
+  {
+   "deity": "Sugeilmagufan the Famous",
+   "df_building_id": 1969,
+   "id": "the-still-void",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Still Void",
+   "location_id": 11,
+   "location_native": "Isantorir",
+   "name": "The Still Void",
+   "rect": {
+    "h": 7,
+    "w": 7,
+    "x": 46,
+    "y": 73
+   }
+  },
+  {
+   "deity": "Gerjald",
+   "df_building_id": 1970,
+   "id": "the-poetic-bust",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Poetic Bust",
+   "location_id": 12,
+   "location_native": "Dimshasåblel",
+   "name": "The Poetic Bust",
+   "rect": {
+    "h": 12,
+    "w": 6,
+    "x": 54,
+    "y": 73
+   }
+  },
+  {
+   "deity": "Otu Pureangels",
+   "df_building_id": 1971,
+   "id": "the-blotted-whiteness",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Blotted Whiteness",
+   "location_id": 13,
+   "location_native": "Kodvolal",
+   "name": "The Blotted Whiteness",
+   "rect": {
+    "h": 12,
+    "w": 6,
+    "x": 61,
+    "y": 73
+   }
+  },
+  {
+   "deity": "The Tooth of Blades",
+   "df_building_id": 1972,
+   "id": "the-maligned-pulp",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Maligned Pulp",
+   "location_id": 14,
+   "location_native": "Tongusfurgig",
+   "name": "The Maligned Pulp",
+   "rect": {
+    "h": 12,
+    "w": 5,
+    "x": 68,
+    "y": 73
+   }
+  },
+  {
+   "deity": "Skeirdrugrir",
+   "df_building_id": 1973,
+   "id": "the-humorous-meat",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Humorous Meat",
+   "location_id": 15,
+   "location_native": "Alekigril",
+   "name": "The Humorous Meat",
+   "rect": {
+    "h": 12,
+    "w": 5,
+    "x": 74,
+    "y": 73
+   }
+  },
+  {
+   "deity": "Shigós Goalfords the Foggy",
+   "df_building_id": 1974,
+   "id": "the-fancy-chunk",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Fancy Chunk",
+   "location_id": 16,
+   "location_native": "Lemlorbor",
+   "name": "The Fancy Chunk",
+   "rect": {
+    "h": 12,
+    "w": 6,
+    "x": 80,
+    "y": 73
+   }
+  },
+  {
+   "deity": "Nökor the Fatal",
+   "df_building_id": 1975,
+   "id": "the-early-supper",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Early Supper",
+   "location_id": 17,
+   "location_native": "Ednis",
+   "name": "The Early Supper",
+   "rect": {
+    "h": 12,
+    "w": 5,
+    "x": 87,
+    "y": 73
+   }
+  },
+  {
+   "deity": "Zim the Competitive",
+   "df_building_id": 10156,
+   "id": "the-competitive-clod",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Competitive Clod",
+   "location_id": 29,
+   "location_native": "Âgothân",
+   "name": "The Competitive Clod",
+   "rect": {
+    "h": 8,
+    "w": 18,
+    "x": 55,
+    "y": 34
+   }
+  },
+  {
+   "deity": "Kes Yellspacks the Natural Controller",
+   "df_building_id": 10157,
+   "id": "the-fragile-hell",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Fragile Hell",
+   "location_id": 30,
+   "location_native": "Inglazshash",
+   "name": "The Fragile Hell",
+   "rect": {
+    "h": 8,
+    "w": 18,
+    "x": 74,
+    "y": 34
+   }
+  },
+  {
+   "deity": "Avuz",
+   "df_building_id": 10158,
+   "id": "the-rustic-lunch",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Rustic Lunch",
+   "location_id": 31,
+   "location_native": "Ikùlasin",
+   "name": "The Rustic Lunch",
+   "rect": {
+    "h": 5,
+    "w": 14,
+    "x": 39,
+    "y": 80
+   }
+  },
+  {
+   "deity": "Ustå Shinflax the Matched Heavens",
+   "df_building_id": 10159,
+   "id": "the-dispersed-wanderer",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Dispersed Wanderer",
+   "location_id": 32,
+   "location_native": "Olumlegon",
+   "name": "The Dispersed Wanderer",
+   "rect": {
+    "h": 12,
+    "w": 6,
+    "x": 54,
+    "y": 86
+   }
+  },
+  {
+   "deity": "Rurjul the Mint",
+   "df_building_id": 10160,
+   "id": "the-even-plain",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Even Plain",
+   "location_id": 33,
+   "location_native": "Dègzimkel",
+   "name": "The Even Plain",
+   "rect": {
+    "h": 12,
+    "w": 6,
+    "x": 60,
+    "y": 86
+   }
+  },
+  {
+   "deity": "Nutsskins the Coastal Saffron",
+   "df_building_id": 10161,
+   "id": "the-quiescent-simplicity",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Quiescent Simplicity",
+   "location_id": 34,
+   "location_native": "Esarguz",
+   "name": "The Quiescent Simplicity",
+   "rect": {
+    "h": 12,
+    "w": 7,
+    "x": 66,
+    "y": 86
+   }
+  },
+  {
+   "deity": "The Murk of Rhyming",
+   "df_building_id": 10162,
+   "id": "the-silvery-fish",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Silvery Fish",
+   "location_id": 35,
+   "location_native": "Raltatlosh",
+   "name": "The Silvery Fish",
+   "rect": {
+    "h": 12,
+    "w": 4,
+    "x": 75,
+    "y": 86
+   }
+  },
+  {
+   "deity": "Searchleaps the Rights of Action",
+   "df_building_id": 10163,
+   "id": "the-random-man",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Random Man",
+   "location_id": 36,
+   "location_native": "Serkibudos",
+   "name": "The Random Man",
+   "rect": {
+    "h": 12,
+    "w": 4,
+    "x": 79,
+    "y": 86
+   }
+  },
+  {
+   "df_building_id": 10164,
+   "id": "the-messianic",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Messianic",
+   "location_id": 37,
+   "location_native": "Milolodroz",
+   "name": "The Messianic",
+   "rect": {
+    "h": 12,
+    "w": 4,
+    "x": 83,
+    "y": 86
+   },
+   "religion": "The Faith of Tin",
+   "religion_entity": 2393,
+   "religion_native": "Isul Akrul"
+  },
+  {
+   "df_building_id": 10165,
+   "id": "the-tenacious-twist",
+   "kind": "temple",
+   "level": "the-temples",
+   "location": "The Tenacious Twist",
+   "location_id": 38,
+   "location_native": "Vudnisgim",
+   "name": "The Tenacious Twist",
+   "rect": {
+    "h": 12,
+    "w": 5,
+    "x": 87,
+    "y": 86
+   },
+   "religion": "The Creed of Wisps",
+   "religion_entity": 1603,
+   "religion_native": "Alim Ulet"
+  },
+  {
+   "df_building_id": 2044,
+   "guild_profession": "farmer",
+   "id": "the-harsh-boldness",
+   "kind": "guildhall",
+   "level": "the-guildhalls",
+   "location": "The Harsh Boldness",
+   "location_id": 18,
+   "location_native": "Gethustmurak",
+   "name": "The Harsh Boldness",
+   "rect": {
+    "h": 10,
+    "w": 21,
+    "x": 53,
+    "y": 44
+   }
+  },
+  {
+   "df_building_id": 2153,
+   "id": "well-2153",
+   "kind": "well",
+   "level": "the-guildhalls",
+   "material": "shale",
+   "name": "Well",
+   "quality": 0,
+   "rect": {
+    "h": 1,
+    "w": 1,
+    "x": 82,
+    "y": 26
+   }
+  },
+  {
+   "df_building_id": 2154,
+   "id": "well-2154",
+   "kind": "well",
+   "level": "the-guildhalls",
+   "material": "shale",
+   "name": "Well",
+   "quality": 0,
+   "rect": {
+    "h": 1,
+    "w": 1,
+    "x": 80,
+    "y": 28
+   }
+  },
+  {
+   "df_building_id": 2155,
+   "id": "well-2155",
+   "kind": "well",
+   "level": "the-guildhalls",
+   "material": "shale",
+   "name": "Well",
+   "quality": 0,
+   "rect": {
+    "h": 1,
+    "w": 1,
+    "x": 84,
+    "y": 28
+   }
+  },
+  {
+   "df_building_id": 2156,
+   "id": "well-2156",
+   "kind": "well",
+   "level": "the-guildhalls",
+   "material": "shale",
+   "name": "Well",
+   "quality": 0,
+   "rect": {
+    "h": 1,
+    "w": 1,
+    "x": 82,
+    "y": 30
+   }
+  },
+  {
+   "df_building_id": 2157,
+   "id": "stockpile-2157",
+   "kind": "stockpile",
+   "level": "the-guildhalls",
+   "name": "Well supplies",
+   "rect": {
+    "h": 9,
+    "w": 9,
+    "x": 78,
+    "y": 24
+   }
+  },
+  {
+   "df_building_id": 2158,
+   "id": "stockpile-2158",
+   "kind": "stockpile",
+   "level": "the-guildhalls",
+   "name": "Soap",
+   "rect": {
+    "h": 1,
+    "w": 2,
+    "x": 78,
+    "y": 24
+   }
+  },
+  {
+   "df_building_id": 2972,
+   "id": "the-sanctuary-of-blossoms",
+   "kind": "temple",
+   "level": "the-guildhalls",
+   "location": "The Sanctuary of Blossoms",
+   "location_id": 24,
+   "location_native": "Rovol Âtrid",
+   "name": "The Sanctuary of Blossoms",
+   "rect": {
+    "h": 11,
+    "w": 9,
+    "x": 87,
+    "y": 58
+   },
+   "religion": "The Ripe Cult",
+   "religion_entity": 2357,
+   "religion_native": "Ethramngotûn"
+  },
+  {
+   "df_building_id": 2973,
+   "guild_profession": "craftsman",
+   "id": "the-walled-rampart",
+   "kind": "guildhall",
+   "level": "the-guildhalls",
+   "location": "The Walled Rampart",
+   "location_id": 23,
+   "location_native": "Adildîshmab",
+   "name": "The Walled Rampart",
+   "rect": {
+    "h": 18,
+    "w": 9,
+    "x": 43,
+    "y": 55
+   }
+  },
+  {
+   "df_building_id": 3092,
+   "guild_profession": "metalsmith",
+   "id": "the-crystalline-boulders",
+   "kind": "guildhall",
+   "level": "the-guildhalls",
+   "location": "The Crystalline Boulders",
+   "location_id": 25,
+   "location_native": "Zasetur",
+   "name": "The Crystalline Boulders",
+   "rect": {
+    "h": 9,
+    "w": 12,
+    "x": 75,
+    "y": 75
+   }
+  },
+  {
+   "df_building_id": 3138,
+   "guild_profession": "stoneworker",
+   "id": "the-bronze-cave",
+   "kind": "guildhall",
+   "level": "the-guildhalls",
+   "location": "The Bronze Cave",
+   "location_id": 21,
+   "location_native": "Kilrudäs",
+   "name": "The Bronze Cave",
+   "rect": {
+    "h": 18,
+    "w": 11,
+    "x": 75,
+    "y": 55
+   }
+  },
+  {
+   "df_building_id": 3903,
+   "guild_profession": "farmer",
+   "id": "the-lush-waves",
+   "kind": "guildhall",
+   "level": "the-guildhalls",
+   "location": "The Lush Waves",
+   "location_id": 27,
+   "location_native": "Lelgasuker",
+   "name": "The Lush Waves",
+   "rect": {
+    "h": 10,
+    "w": 20,
+    "x": 53,
+    "y": 74
+   }
+  },
+  {
+   "df_building_id": 6360,
+   "id": "barracks-6360",
+   "kind": "barracks",
+   "level": "the-guildhalls",
+   "name": "Barracks #286",
+   "rect": {
+    "h": 16,
+    "w": 25,
+    "x": 70,
+    "y": 18
+   }
+  },
+  {
+   "df_building_id": 10604,
+   "guild_profession": "planter",
+   "id": "the-ugly-frill",
+   "kind": "guildhall",
+   "level": "the-guildhalls",
+   "location": "The Ugly Frill",
+   "location_id": 39,
+   "location_native": "Eknarthîdas",
+   "name": "The Ugly Frill",
+   "rect": {
+    "h": 7,
+    "w": 12,
+    "x": 75,
+    "y": 47
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 130,
+   "id": "bedroom-130",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kulet Unionsringed's Bedroom",
+   "owner": 14077,
+   "owner_name": "Kulet Unionsringed",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 131,
+   "id": "bedroom-131",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Catten Vesselsmiths's Bedroom",
+   "owner": 14076,
+   "owner_name": "Catten Vesselsmiths",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 132,
+   "id": "bedroom-132",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ineth Bridgeweaver's Bedroom",
+   "owner": 14174,
+   "owner_name": "Ineth Bridgeweaver",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 133,
+   "id": "bedroom-133",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Melbil Coastpaddles's Bedroom",
+   "owner": 14226,
+   "owner_name": "Melbil Coastpaddles",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 134,
+   "id": "bedroom-134",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bomrek Baldnesswinds's Bedroom",
+   "owner": 14229,
+   "owner_name": "Bomrek Baldnesswinds",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 136,
+   "id": "bedroom-136",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Melbil Ownerlashed's Bedroom",
+   "owner": 14078,
+   "owner_name": "Melbil Ownerlashed",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 137,
+   "id": "bedroom-137",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Doren Martyrfigures's Bedroom",
+   "owner": 14079,
+   "owner_name": "Doren Martyrfigures",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 138,
+   "id": "bedroom-138",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Mörul Keymornings's Bedroom",
+   "owner": 14469,
+   "owner_name": "Mörul Keymornings",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 139,
+   "id": "bedroom-139",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ushat Grandcobalt's Bedroom",
+   "owner": 14407,
+   "owner_name": "Ushat Grandcobalt",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 140,
+   "id": "bedroom-140",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Melbil Spreadpulley's Bedroom",
+   "owner": 14172,
+   "owner_name": "Melbil Spreadpulley",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 141,
+   "id": "bedroom-141",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ùshrir Oilclub's Bedroom",
+   "owner": 14173,
+   "owner_name": "Ùshrir Oilclub",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 142,
+   "id": "bedroom-142",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Lokum Towergild's Bedroom",
+   "owner": 14466,
+   "owner_name": "Lokum Towergild",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 143,
+   "id": "bedroom-143",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Catten Clenchwire's Bedroom",
+   "owner": 1329,
+   "owner_name": "Catten Clenchwire",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 144,
+   "id": "bedroom-144",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ushat Furwires's Bedroom",
+   "owner": 14225,
+   "owner_name": "Ushat Furwires",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 145,
+   "id": "bedroom-145",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Besmar Leapbridged's Bedroom",
+   "owner": 14470,
+   "owner_name": "Besmar Leapbridged",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 147,
+   "id": "bedroom-147",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Cerol Heavenmanors's Bedroom",
+   "owner": 14082,
+   "owner_name": "Cerol Heavenmanors",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 150,
+   "id": "bedroom-150",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Eral Tombsbucks's Bedroom",
+   "owner": 14081,
+   "owner_name": "Eral Tombsbucks",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 151,
+   "id": "bedroom-151",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Sibrek Tradedlegends's Bedroom",
+   "owner": 14080,
+   "owner_name": "Sibrek Tradedlegends",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 152,
+   "id": "bedroom-152",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Datan Dentcraft's Bedroom",
+   "owner": 1333,
+   "owner_name": "Datan Dentcraft",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 153,
+   "id": "bedroom-153",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Monom Roaddrinks's Bedroom",
+   "owner": 14224,
+   "owner_name": "Monom Roaddrinks",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 197,
+   "id": "bedroom-197",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Oddom Beastbasements's Bedroom",
+   "owner": 14474,
+   "owner_name": "Oddom Beastbasements",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 198,
+   "id": "bedroom-198",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ùshrir Lashedgate's Bedroom",
+   "owner": 14482,
+   "owner_name": "Ùshrir Lashedgate",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 199,
+   "id": "bedroom-199",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ral Taxcloister's Bedroom",
+   "owner": 14478,
+   "owner_name": "Ral Taxcloister",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 200,
+   "id": "bedroom-200",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Rith Bowlances's Bedroom",
+   "owner": 1328,
+   "owner_name": "Rith Bowlances",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 202,
+   "id": "bedroom-202",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Nish Poolfloor's Bedroom",
+   "owner": 5421,
+   "owner_name": "Nish Poolfloor",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 203,
+   "id": "bedroom-203",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Dodók Cobaltyoung's Bedroom",
+   "owner": 14475,
+   "owner_name": "Dodók Cobaltyoung",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 204,
+   "id": "bedroom-204",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ineth Tongssyrups's Bedroom",
+   "owner": 14484,
+   "owner_name": "Ineth Tongssyrups",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1092,
+   "id": "bedroom-1092",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kosoth Matchedwheel's Bedroom",
+   "owner": 14488,
+   "owner_name": "Kosoth Matchedwheel",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1093,
+   "id": "bedroom-1093",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Dôbar Earthwalks's Bedroom",
+   "owner": 15333,
+   "owner_name": "Dôbar Earthwalks",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1094,
+   "id": "bedroom-1094",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Vucar Balancelashes's Bedroom",
+   "owner": 14718,
+   "owner_name": "Vucar Balancelashes",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1095,
+   "id": "bedroom-1095",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Momuz Cloisterdrunken's Bedroom",
+   "owner": 14839,
+   "owner_name": "Momuz Cloisterdrunken",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-25",
+   "df_building_id": 1096,
+   "id": "bedroom-1096",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Udib Agepaddled's Bedroom",
+   "owner": 14825,
+   "owner_name": "Udib Agepaddled",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-25",
+   "df_building_id": 1097,
+   "id": "bedroom-1097",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Rîsen Covenletters's Bedroom",
+   "owner": 14620,
+   "owner_name": "Rîsen Covenletters",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-25",
+   "df_building_id": 1098,
+   "id": "bedroom-1098",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Domas Orbsmouth's Bedroom",
+   "owner": 14467,
+   "owner_name": "Domas Orbsmouth",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-25",
+   "df_building_id": 1099,
+   "id": "bedroom-1099",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Urdim Metalgrouped's Bedroom",
+   "owner": 14487,
+   "owner_name": "Urdim Metalgrouped",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1100,
+   "id": "bedroom-1100",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Uvash Braidedtraded's Bedroom",
+   "owner": 14371,
+   "owner_name": "Uvash Braidedtraded",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1101,
+   "id": "bedroom-1101",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ingish Handleblazed's Bedroom",
+   "owner": 14940,
+   "owner_name": "Ingish Handleblazed",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1102,
+   "id": "bedroom-1102",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kogan Waningcobalt's Bedroom",
+   "owner": 14558,
+   "owner_name": "Kogan Waningcobalt",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1103,
+   "id": "bedroom-1103",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ineth Dikegrooves's Bedroom",
+   "owner": 14619,
+   "owner_name": "Ineth Dikegrooves",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1104,
+   "id": "bedroom-1104",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Goden Ragworked's Bedroom",
+   "owner": 14605,
+   "owner_name": "Goden Ragworked",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1105,
+   "id": "bedroom-1105",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Mosus Spearspattered's Bedroom",
+   "owner": 14521,
+   "owner_name": "Mosus Spearspattered",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1106,
+   "id": "bedroom-1106",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ilral Breachfigures's Bedroom",
+   "owner": 1325,
+   "owner_name": "Ilral Breachfigures",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1107,
+   "id": "bedroom-1107",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Litast Paddlelarge's Bedroom",
+   "owner": 14536,
+   "owner_name": "Litast Paddlelarge",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1108,
+   "id": "bedroom-1108",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Etur Wheeledyore's Bedroom",
+   "owner": 14473,
+   "owner_name": "Etur Wheeledyore",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1109,
+   "id": "bedroom-1109",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kivish Tinstatic's Bedroom",
+   "owner": 14483,
+   "owner_name": "Kivish Tinstatic",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1110,
+   "id": "bedroom-1110",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Oddom Tinhushes's Bedroom",
+   "owner": 14519,
+   "owner_name": "Oddom Tinhushes",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1111,
+   "id": "bedroom-1111",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ast Ringtwinkled's Bedroom",
+   "owner": 14554,
+   "owner_name": "Ast Ringtwinkled",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 58
+   }
+  },
+  {
+   "df_building_id": 1112,
+   "id": "dormitory-1112",
+   "kind": "dormitory",
+   "level": "the-dormitories",
+   "name": "Dormitory #56",
+   "rect": {
+    "h": 5,
+    "w": 9,
+    "x": 43,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1113,
+   "id": "bedroom-1113",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Solon Wheeledgrasped's Bedroom",
+   "owner": 14476,
+   "owner_name": "Solon Wheeledgrasped",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1114,
+   "id": "bedroom-1114",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Erib Standardhandled's Bedroom",
+   "owner": 14472,
+   "owner_name": "Erib Standardhandled",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1115,
+   "id": "bedroom-1115",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ubbul Papercrowds's Bedroom",
+   "owner": 5841,
+   "owner_name": "Ubbul Papercrowds",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1116,
+   "id": "bedroom-1116",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Doren Washedboard's Bedroom",
+   "owner": 14477,
+   "owner_name": "Doren Washedboard",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1117,
+   "id": "bedroom-1117",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Aban Plankshook's Bedroom",
+   "owner": 14486,
+   "owner_name": "Aban Plankshook",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1118,
+   "id": "bedroom-1118",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Rakust Hairyfurnace's Bedroom",
+   "owner": 14527,
+   "owner_name": "Rakust Hairyfurnace",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1255,
+   "id": "bedroom-1255",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Udib Strapsmerchant's Bedroom",
+   "owner": 14606,
+   "owner_name": "Udib Strapsmerchant",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 1256,
+   "id": "bedroom-1256",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Sibrek Girderink's Bedroom",
+   "owner": 14607,
+   "owner_name": "Sibrek Girderink",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 1257,
+   "id": "bedroom-1257",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Tun Lobstercrafts's Bedroom",
+   "owner": 14556,
+   "owner_name": "Tun Lobstercrafts",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 1258,
+   "id": "bedroom-1258",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Lokum Quillwound's Bedroom",
+   "owner": 14550,
+   "owner_name": "Lokum Quillwound",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 1259,
+   "id": "bedroom-1259",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zutthan Cloisterdeeps's Bedroom",
+   "owner": 14523,
+   "owner_name": "Zutthan Cloisterdeeps",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1260,
+   "id": "bedroom-1260",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ast Tongsdusk's Bedroom",
+   "owner": 14658,
+   "owner_name": "Ast Tongsdusk",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 1261,
+   "id": "bedroom-1261",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Inod Gorgepattern's Bedroom",
+   "owner": 14609,
+   "owner_name": "Inod Gorgepattern",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 1262,
+   "id": "bedroom-1262",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Deduk Mirrorbranded's Bedroom",
+   "owner": 14616,
+   "owner_name": "Deduk Mirrorbranded",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 1263,
+   "id": "bedroom-1263",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kulet Paddleseer's Bedroom",
+   "owner": 14612,
+   "owner_name": "Kulet Paddleseer",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 1264,
+   "id": "bedroom-1264",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Obok Complexclasp's Bedroom",
+   "owner": 14555,
+   "owner_name": "Obok Complexclasp",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 1265,
+   "id": "bedroom-1265",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Oddom Gearedsecrets's Bedroom",
+   "owner": 14617,
+   "owner_name": "Oddom Gearedsecrets",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 1266,
+   "id": "bedroom-1266",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Dastot Flankcraft's Bedroom",
+   "owner": 14622,
+   "owner_name": "Dastot Flankcraft",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 1267,
+   "id": "bedroom-1267",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Vabôk Rampartswallowed's Bedroom",
+   "owner": 14623,
+   "owner_name": "Vabôk Rampartswallowed",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 1268,
+   "id": "bedroom-1268",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Deduk Ledglaze's Bedroom",
+   "owner": 14621,
+   "owner_name": "Deduk Ledglaze",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 1269,
+   "id": "bedroom-1269",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Tekkud Claspwheeled's Bedroom",
+   "owner": 14626,
+   "owner_name": "Tekkud Claspwheeled",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 1270,
+   "id": "bedroom-1270",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Doren Plaittome's Bedroom",
+   "owner": 14627,
+   "owner_name": "Doren Plaittome",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 1271,
+   "id": "bedroom-1271",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ingish Whipsensed's Bedroom",
+   "owner": 14614,
+   "owner_name": "Ingish Whipsensed",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1272,
+   "id": "bedroom-1272",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Stâkud Fatedlashes's Bedroom",
+   "owner": 14660,
+   "owner_name": "Stâkud Fatedlashes",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1273,
+   "id": "bedroom-1273",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Libash Gilttowns's Bedroom",
+   "owner": 14667,
+   "owner_name": "Libash Gilttowns",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 1274,
+   "id": "bedroom-1274",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Id Hatchetchanneled's Bedroom",
+   "owner": 14618,
+   "owner_name": "Id Hatchetchanneled",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 1275,
+   "id": "bedroom-1275",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ustuth Phrasedaggers's Bedroom",
+   "owner": 14526,
+   "owner_name": "Ustuth Phrasedaggers",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 1276,
+   "id": "bedroom-1276",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kogsak Roughhills's Bedroom",
+   "owner": 14553,
+   "owner_name": "Kogsak Roughhills",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 1277,
+   "id": "bedroom-1277",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Dodók Divedink's Bedroom",
+   "owner": 14665,
+   "owner_name": "Dodók Divedink",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 1278,
+   "id": "bedroom-1278",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Olon Towerlate's Bedroom",
+   "owner": 14721,
+   "owner_name": "Olon Towerlate",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 1279,
+   "id": "bedroom-1279",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Astesh Laboredsquashed's Bedroom",
+   "owner": 14662,
+   "owner_name": "Astesh Laboredsquashed",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 1280,
+   "id": "bedroom-1280",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kûbuk Blockgloves's Bedroom",
+   "owner": 14630,
+   "owner_name": "Kûbuk Blockgloves",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 1281,
+   "id": "bedroom-1281",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Melbil Ramparttreasures's Bedroom",
+   "owner": 14714,
+   "owner_name": "Melbil Ramparttreasures",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 1282,
+   "id": "bedroom-1282",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Asmel Boltedsand's Bedroom",
+   "owner": 14719,
+   "owner_name": "Asmel Boltedsand",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1283,
+   "id": "bedroom-1283",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Stâkud Scorchingsabre's Bedroom",
+   "owner": 14517,
+   "owner_name": "Stâkud Scorchingsabre",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1371,
+   "id": "bedroom-1371",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zasit Urnfocused's Bedroom",
+   "owner": 14611,
+   "owner_name": "Zasit Urnfocused",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1372,
+   "id": "bedroom-1372",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Solon Pulleyclasps's Bedroom",
+   "owner": 14608,
+   "owner_name": "Solon Pulleyclasps",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1373,
+   "id": "bedroom-1373",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Erib Phraseshoots's Bedroom",
+   "owner": 14613,
+   "owner_name": "Erib Phraseshoots",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1374,
+   "id": "bedroom-1374",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Alåth Tradeportal's Bedroom",
+   "owner": 14625,
+   "owner_name": "Alåth Tradeportal",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1375,
+   "id": "bedroom-1375",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ustuth Dimplemines's Bedroom",
+   "owner": 14717,
+   "owner_name": "Ustuth Dimplemines",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-25",
+   "df_building_id": 1376,
+   "id": "bedroom-1376",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Mebzuth Hatchetseed's Bedroom",
+   "owner": 15084,
+   "owner_name": "Mebzuth Hatchetseed",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1377,
+   "id": "bedroom-1377",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Shorast Treatydances's Bedroom",
+   "owner": 15091,
+   "owner_name": "Shorast Treatydances",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1378,
+   "id": "bedroom-1378",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zulban Vaultyawn's Bedroom",
+   "owner": 15184,
+   "owner_name": "Zulban Vaultyawn",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-25",
+   "df_building_id": 1379,
+   "id": "bedroom-1379",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Catten Vesselnotch's Bedroom",
+   "owner": 15095,
+   "owner_name": "Catten Vesselnotch",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1380,
+   "id": "bedroom-1380",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ona Growledlined's Bedroom",
+   "owner": 4363,
+   "owner_name": "Ona Growledlined",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 66
+   }
+  },
+  {
+   "df_building_id": 1381,
+   "id": "dormitory-1381",
+   "kind": "dormitory",
+   "level": "the-dormitories",
+   "name": "Dormitory #106",
+   "rect": {
+    "h": 5,
+    "w": 9,
+    "x": 31,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1382,
+   "id": "bedroom-1382",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Inod Gangbridge's Bedroom",
+   "owner": 14944,
+   "owner_name": "Inod Gangbridge",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1383,
+   "id": "bedroom-1383",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Lòr Spunlanced's Bedroom",
+   "owner": 14661,
+   "owner_name": "Lòr Spunlanced",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1384,
+   "id": "bedroom-1384",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Mestthos Pageechoes's Bedroom",
+   "owner": 14716,
+   "owner_name": "Mestthos Pageechoes",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1385,
+   "id": "bedroom-1385",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Inod Salvetrailed's Bedroom",
+   "owner": 15139,
+   "owner_name": "Inod Salvetrailed",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1386,
+   "id": "bedroom-1386",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zefon Ceilingdwelled's Bedroom",
+   "owner": 15137,
+   "owner_name": "Zefon Ceilingdwelled",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1387,
+   "id": "bedroom-1387",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Rakust Mirrorlocks's Bedroom",
+   "owner": 15133,
+   "owner_name": "Rakust Mirrorlocks",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1388,
+   "id": "bedroom-1388",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Erush Robustgold's Bedroom",
+   "owner": 15089,
+   "owner_name": "Erush Robustgold",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-25",
+   "df_building_id": 1389,
+   "id": "bedroom-1389",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ïngiz Brotherkey's Bedroom",
+   "owner": 1323,
+   "owner_name": "Ïngiz Brotherkey",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1415,
+   "id": "bedroom-1415",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zon Dimpleportal's Bedroom",
+   "owner": 14861,
+   "owner_name": "Zon Dimpleportal",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1775,
+   "id": "bedroom-1775",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #120",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1776,
+   "id": "bedroom-1776",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #121",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1777,
+   "id": "bedroom-1777",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Nish Workfogs's Bedroom",
+   "owner": 15353,
+   "owner_name": "Nish Workfogs",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-15",
+   "df_building_id": 1778,
+   "id": "bedroom-1778",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Reg Creaturelabored's Bedroom",
+   "owner": 14941,
+   "owner_name": "Reg Creaturelabored",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1779,
+   "id": "bedroom-1779",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ònul Tautkeys's Bedroom",
+   "owner": 14937,
+   "owner_name": "Ònul Tautkeys",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1780,
+   "id": "bedroom-1780",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Doren Rimchance's Bedroom",
+   "owner": 15351,
+   "owner_name": "Doren Rimchance",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1781,
+   "id": "bedroom-1781",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #126",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-17",
+   "df_building_id": 1782,
+   "id": "bedroom-1782",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #127",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1783,
+   "id": "bedroom-1783",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #128",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1784,
+   "id": "bedroom-1784",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #129",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1785,
+   "id": "bedroom-1785",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zaneg Crystaltheater's Bedroom",
+   "owner": 15350,
+   "owner_name": "Zaneg Crystaltheater",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-19",
+   "df_building_id": 1786,
+   "id": "bedroom-1786",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Fath Echocastles's Bedroom",
+   "owner": 15135,
+   "owner_name": "Fath Echocastles",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1787,
+   "id": "bedroom-1787",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #132",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1788,
+   "id": "bedroom-1788",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #133",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1789,
+   "id": "bedroom-1789",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kûbuk Tomecobalt's Bedroom",
+   "owner": 15352,
+   "owner_name": "Kûbuk Tomecobalt",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-21",
+   "df_building_id": 1790,
+   "id": "bedroom-1790",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ònul Ringedchance's Bedroom",
+   "owner": 15182,
+   "owner_name": "Ònul Ringedchance",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1791,
+   "id": "bedroom-1791",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Stâkud Basementmark's Bedroom",
+   "owner": 15185,
+   "owner_name": "Stâkud Basementmark",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1792,
+   "id": "bedroom-1792",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #137",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1793,
+   "id": "bedroom-1793",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #138",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-23",
+   "df_building_id": 1794,
+   "id": "bedroom-1794",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #139",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 66
+   }
+  },
+  {
+   "df_building_id": 1795,
+   "id": "dormitory-1795",
+   "kind": "dormitory",
+   "level": "the-dormitories",
+   "name": "Dormitory #140",
+   "rect": {
+    "h": 5,
+    "w": 17,
+    "x": 15,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1796,
+   "id": "bedroom-1796",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Amost Granitework's Bedroom",
+   "owner": 15078,
+   "owner_name": "Amost Granitework",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1797,
+   "id": "bedroom-1797",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #142",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1798,
+   "id": "bedroom-1798",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Amost Roughnesslobsters's Bedroom",
+   "owner": 15080,
+   "owner_name": "Amost Roughnesslobsters",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-27",
+   "df_building_id": 1799,
+   "id": "bedroom-1799",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #144",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1802,
+   "id": "bedroom-1802",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Likot Stoppedlabors's Bedroom",
+   "owner": 14722,
+   "owner_name": "Likot Stoppedlabors",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 74
+   }
+  },
+  {
+   "df_building_id": 1803,
+   "id": "dormitory-1803",
+   "kind": "dormitory",
+   "level": "the-dormitories",
+   "name": "Dormitory #146",
+   "rect": {
+    "h": 5,
+    "w": 9,
+    "x": 95,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 1804,
+   "id": "bedroom-1804",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zas Trailanvil's Bedroom",
+   "owner": 14824,
+   "owner_name": "Zas Trailanvil",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 1805,
+   "id": "bedroom-1805",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Äs Wheeledwebs's Bedroom",
+   "owner": 14828,
+   "owner_name": "Äs Wheeledwebs",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 62
+   }
+  },
+  {
+   "df_building_id": 1806,
+   "id": "dormitory-1806",
+   "kind": "dormitory",
+   "level": "the-dormitories",
+   "name": "Dormitory #149",
+   "rect": {
+    "h": 5,
+    "w": 9,
+    "x": 95,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 1807,
+   "id": "bedroom-1807",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Sigun Spearchews's Bedroom",
+   "owner": 14832,
+   "owner_name": "Sigun Spearchews",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 1808,
+   "id": "bedroom-1808",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zefon Bandedgates's Bedroom",
+   "owner": 14715,
+   "owner_name": "Zefon Bandedgates",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 1809,
+   "id": "bedroom-1809",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Oddom Blowntorches's Bedroom",
+   "owner": 6448,
+   "owner_name": "Oddom Blowntorches",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 1810,
+   "id": "bedroom-1810",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #153",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 1811,
+   "id": "bedroom-1811",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Minkot Lullchannel's Bedroom",
+   "owner": 14841,
+   "owner_name": "Minkot Lullchannel",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 1812,
+   "id": "bedroom-1812",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Urdim Bookarmors's Bedroom",
+   "owner": 15354,
+   "owner_name": "Urdim Bookarmors",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 1813,
+   "id": "bedroom-1813",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #156",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 1814,
+   "id": "bedroom-1814",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Cog Laboredeven's Bedroom",
+   "owner": 15094,
+   "owner_name": "Cog Laboredeven",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1815,
+   "id": "bedroom-1815",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #158",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1816,
+   "id": "bedroom-1816",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #159",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 1817,
+   "id": "bedroom-1817",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #160",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 1818,
+   "id": "bedroom-1818",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #161",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 1819,
+   "id": "bedroom-1819",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #162",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 1820,
+   "id": "bedroom-1820",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #163",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 1821,
+   "id": "bedroom-1821",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #164",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 1822,
+   "id": "bedroom-1822",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #165",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-16",
+   "df_building_id": 1823,
+   "id": "bedroom-1823",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #166",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 50
+   }
+  },
+  {
+   "block": "bedroom-block-18",
+   "df_building_id": 1824,
+   "id": "bedroom-1824",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #167",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 54
+   }
+  },
+  {
+   "block": "bedroom-block-20",
+   "df_building_id": 1825,
+   "id": "bedroom-1825",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #168",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 58
+   }
+  },
+  {
+   "block": "bedroom-block-22",
+   "df_building_id": 1826,
+   "id": "bedroom-1826",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #169",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 62
+   }
+  },
+  {
+   "block": "bedroom-block-24",
+   "df_building_id": 1827,
+   "id": "bedroom-1827",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #170",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 66
+   }
+  },
+  {
+   "block": "bedroom-block-26",
+   "df_building_id": 1828,
+   "id": "bedroom-1828",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #171",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 70
+   }
+  },
+  {
+   "block": "bedroom-block-28",
+   "df_building_id": 1829,
+   "id": "bedroom-1829",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #172",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 74
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2837,
+   "id": "bedroom-2837",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Lorbam Splatterdiamonds's Bedroom",
+   "owner": 14829,
+   "owner_name": "Lorbam Splatterdiamonds",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2838,
+   "id": "bedroom-2838",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Goden Fencedgates's Bedroom",
+   "owner": 14831,
+   "owner_name": "Goden Fencedgates",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2839,
+   "id": "bedroom-2839",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Aban Youngportals's Bedroom",
+   "owner": 14836,
+   "owner_name": "Aban Youngportals",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2840,
+   "id": "bedroom-2840",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Likot Oarriddles's Bedroom",
+   "owner": 14897,
+   "owner_name": "Likot Oarriddles",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2841,
+   "id": "bedroom-2841",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Onget Shippelt's Bedroom",
+   "owner": 15100,
+   "owner_name": "Onget Shippelt",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2842,
+   "id": "bedroom-2842",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Dumat Clashesspears's Bedroom",
+   "owner": 15099,
+   "owner_name": "Dumat Clashesspears",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2843,
+   "id": "bedroom-2843",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Sodel Urngolds's Bedroom",
+   "owner": 15140,
+   "owner_name": "Sodel Urngolds",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2844,
+   "id": "bedroom-2844",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Erush Keyblade's Bedroom",
+   "owner": 15335,
+   "owner_name": "Erush Keyblade",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2845,
+   "id": "bedroom-2845",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #205",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2846,
+   "id": "bedroom-2846",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #206",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-13",
+   "df_building_id": 2847,
+   "id": "bedroom-2847",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #207",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2848,
+   "id": "bedroom-2848",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #208",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2849,
+   "id": "bedroom-2849",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #209",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2850,
+   "id": "bedroom-2850",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Geshud Basementnoiseless's Bedroom",
+   "owner": 15349,
+   "owner_name": "Geshud Basementnoiseless",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2851,
+   "id": "bedroom-2851",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Onol Tradesoak's Bedroom",
+   "owner": 15338,
+   "owner_name": "Onol Tradesoak",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2852,
+   "id": "bedroom-2852",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Mistêm Relicworked's Bedroom",
+   "owner": 15191,
+   "owner_name": "Mistêm Relicworked",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2853,
+   "id": "bedroom-2853",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Skura Galeseeds's Bedroom",
+   "owner": 5778,
+   "owner_name": "Skura Galeseeds",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2854,
+   "id": "bedroom-2854",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Rimtar Boatclobbered's Bedroom",
+   "owner": 15086,
+   "owner_name": "Rimtar Boatclobbered",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2855,
+   "id": "bedroom-2855",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Edzul Mouthconstructs's Bedroom",
+   "owner": 15098,
+   "owner_name": "Edzul Mouthconstructs",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2856,
+   "id": "bedroom-2856",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Lolor Boltsglides's Bedroom",
+   "owner": 14838,
+   "owner_name": "Lolor Boltsglides",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2857,
+   "id": "bedroom-2857",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Geshud Theaterdish's Bedroom",
+   "owner": 14834,
+   "owner_name": "Geshud Theaterdish",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-11",
+   "df_building_id": 2858,
+   "id": "bedroom-2858",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Nil Wirebridge's Bedroom",
+   "owner": 14830,
+   "owner_name": "Nil Wirebridge",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2859,
+   "id": "bedroom-2859",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Tun Ceilingslapped's Bedroom",
+   "owner": 14833,
+   "owner_name": "Tun Ceilingslapped",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2860,
+   "id": "bedroom-2860",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Id Shieldtheater's Bedroom",
+   "owner": 14840,
+   "owner_name": "Id Shieldtheater",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2861,
+   "id": "bedroom-2861",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kadol Containchanneled's Bedroom",
+   "owner": 14215,
+   "owner_name": "Kadol Containchanneled",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2862,
+   "id": "bedroom-2862",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Avuz Tinpaint's Bedroom",
+   "owner": 14835,
+   "owner_name": "Avuz Tinpaint",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2863,
+   "id": "bedroom-2863",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Litast Manordived's Bedroom",
+   "owner": 7405,
+   "owner_name": "Litast Manordived",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2864,
+   "id": "bedroom-2864",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Tekkud Arrowdyes's Bedroom",
+   "owner": 15337,
+   "owner_name": "Tekkud Arrowdyes",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2865,
+   "id": "bedroom-2865",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Rakust Workbarbs's Bedroom",
+   "owner": 15346,
+   "owner_name": "Rakust Workbarbs",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2866,
+   "id": "bedroom-2866",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #226",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2867,
+   "id": "bedroom-2867",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Fikod Inchquakes's Bedroom",
+   "owner": 15085,
+   "owner_name": "Fikod Inchquakes",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2868,
+   "id": "bedroom-2868",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Uzol Woundbristles's Bedroom",
+   "owner": 15341,
+   "owner_name": "Uzol Woundbristles",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-9",
+   "df_building_id": 2869,
+   "id": "bedroom-2869",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Sarvesh Mergedtome's Bedroom",
+   "owner": 15186,
+   "owner_name": "Sarvesh Mergedtome",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3056,
+   "id": "bedroom-3056",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Fath Quietinked's Bedroom",
+   "owner": 14887,
+   "owner_name": "Fath Quietinked",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3057,
+   "id": "bedroom-3057",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Fath Lizardbolts's Bedroom",
+   "owner": 14890,
+   "owner_name": "Fath Lizardbolts",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3058,
+   "id": "bedroom-3058",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Tholtig Carrysilvers's Bedroom",
+   "owner": 14901,
+   "owner_name": "Tholtig Carrysilvers",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3059,
+   "id": "bedroom-3059",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Vabôk Oilyshields's Bedroom",
+   "owner": 14938,
+   "owner_name": "Vabôk Oilyshields",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3060,
+   "id": "bedroom-3060",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kikrost Metalcloisters's Bedroom",
+   "owner": 15075,
+   "owner_name": "Kikrost Metalcloisters",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3061,
+   "id": "bedroom-3061",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Astesh Squeezedtools's Bedroom",
+   "owner": 15076,
+   "owner_name": "Astesh Squeezedtools",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3062,
+   "id": "bedroom-3062",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Tekkud Constructjungles's Bedroom",
+   "owner": 15103,
+   "owner_name": "Tekkud Constructjungles",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3063,
+   "id": "bedroom-3063",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Eigriteil Rainsuitors's Bedroom",
+   "owner": 4771,
+   "owner_name": "Eigriteil Rainsuitors",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3064,
+   "id": "bedroom-3064",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #240",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3065,
+   "id": "bedroom-3065",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #241",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3066,
+   "id": "bedroom-3066",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #242",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-14",
+   "df_building_id": 3067,
+   "id": "bedroom-3067",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #243",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 46
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3068,
+   "id": "bedroom-3068",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kivish Massivegirder's Bedroom",
+   "owner": 14893,
+   "owner_name": "Kivish Massivegirder",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3069,
+   "id": "bedroom-3069",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Reg Mountainpride's Bedroom",
+   "owner": 14896,
+   "owner_name": "Reg Mountainpride",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3070,
+   "id": "bedroom-3070",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zasit Guildmerges's Bedroom",
+   "owner": 14903,
+   "owner_name": "Zasit Guildmerges",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3071,
+   "id": "bedroom-3071",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Momuz Coaldust's Bedroom",
+   "owner": 15081,
+   "owner_name": "Momuz Coaldust",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3072,
+   "id": "bedroom-3072",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Unib Bowedcloisters's Bedroom",
+   "owner": 15088,
+   "owner_name": "Unib Bowedcloisters",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3073,
+   "id": "bedroom-3073",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Kumil Spraybolts's Bedroom",
+   "owner": 15344,
+   "owner_name": "Kumil Spraybolts",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3074,
+   "id": "bedroom-3074",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Saquar Clashesspeak's Bedroom",
+   "owner": 4348,
+   "owner_name": "Saquar Clashesspeak",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3075,
+   "id": "bedroom-3075",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Shorast Violetgirder's Bedroom",
+   "owner": 15334,
+   "owner_name": "Shorast Violetgirder",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3076,
+   "id": "bedroom-3076",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #252",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3077,
+   "id": "bedroom-3077",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #253",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3078,
+   "id": "bedroom-3078",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Tobul Faintedlash's Bedroom",
+   "owner": 15136,
+   "owner_name": "Tobul Faintedlash",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-12",
+   "df_building_id": 3079,
+   "id": "bedroom-3079",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #255",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 42
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3080,
+   "id": "bedroom-3080",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Cerol Blockadecrow's Bedroom",
+   "owner": 14902,
+   "owner_name": "Cerol Blockadecrow",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3081,
+   "id": "bedroom-3081",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Zon Runglabored's Bedroom",
+   "owner": 14900,
+   "owner_name": "Zon Runglabored",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3082,
+   "id": "bedroom-3082",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Ingish Fortresspoints's Bedroom",
+   "owner": 15087,
+   "owner_name": "Ingish Fortresspoints",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3083,
+   "id": "bedroom-3083",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Cog Glazestokers's Bedroom",
+   "owner": 14939,
+   "owner_name": "Cog Glazestokers",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3084,
+   "id": "bedroom-3084",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Medtob Trumpetmastered's Bedroom",
+   "owner": 15101,
+   "owner_name": "Medtob Trumpetmastered",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3085,
+   "id": "bedroom-3085",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Olin Channeledglow's Bedroom",
+   "owner": 14806,
+   "owner_name": "Olin Channeledglow",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3086,
+   "id": "bedroom-3086",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Sodel Canyonrasps's Bedroom",
+   "owner": 15188,
+   "owner_name": "Sodel Canyonrasps",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3087,
+   "id": "bedroom-3087",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Asob Oilomens's Bedroom",
+   "owner": 15343,
+   "owner_name": "Asob Oilomens",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3088,
+   "id": "bedroom-3088",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #264",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3089,
+   "id": "bedroom-3089",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Momuz Rightdiamonds's Bedroom",
+   "owner": 14632,
+   "owner_name": "Momuz Rightdiamonds",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3090,
+   "id": "bedroom-3090",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #266",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-10",
+   "df_building_id": 3091,
+   "id": "bedroom-3091",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #267",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 38
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11013,
+   "id": "bedroom-11013",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #303",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11014,
+   "id": "bedroom-11014",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #304",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11015,
+   "id": "bedroom-11015",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #305",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11016,
+   "id": "bedroom-11016",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #306",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11017,
+   "id": "bedroom-11017",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #307",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11018,
+   "id": "bedroom-11018",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #308",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11019,
+   "id": "bedroom-11019",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #309",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11020,
+   "id": "bedroom-11020",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #310",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11021,
+   "id": "bedroom-11021",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #311",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11022,
+   "id": "bedroom-11022",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #312",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-7",
+   "df_building_id": 11023,
+   "id": "bedroom-11023",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Udil Namedspears's Bedroom",
+   "owner": 15472,
+   "owner_name": "Udil Namedspears",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11024,
+   "id": "bedroom-11024",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #314",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11025,
+   "id": "bedroom-11025",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #315",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11026,
+   "id": "bedroom-11026",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #316",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11027,
+   "id": "bedroom-11027",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #317",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11028,
+   "id": "bedroom-11028",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #318",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11029,
+   "id": "bedroom-11029",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #319",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11030,
+   "id": "bedroom-11030",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #320",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11031,
+   "id": "bedroom-11031",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #321",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11032,
+   "id": "bedroom-11032",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #322",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11033,
+   "id": "bedroom-11033",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #323",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-5",
+   "df_building_id": 11034,
+   "id": "bedroom-11034",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #324",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11035,
+   "id": "bedroom-11035",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #325",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11036,
+   "id": "bedroom-11036",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #326",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11037,
+   "id": "bedroom-11037",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #327",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11038,
+   "id": "bedroom-11038",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #328",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11039,
+   "id": "bedroom-11039",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #329",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11040,
+   "id": "bedroom-11040",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #330",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11041,
+   "id": "bedroom-11041",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #331",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11042,
+   "id": "bedroom-11042",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #332",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11043,
+   "id": "bedroom-11043",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #333",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11044,
+   "id": "bedroom-11044",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #334",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-3",
+   "df_building_id": 11045,
+   "id": "bedroom-11045",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #335",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11046,
+   "id": "bedroom-11046",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #336",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11047,
+   "id": "bedroom-11047",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #337",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11048,
+   "id": "bedroom-11048",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #338",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 15,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11049,
+   "id": "bedroom-11049",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #339",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11050,
+   "id": "bedroom-11050",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #340",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11051,
+   "id": "bedroom-11051",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #341",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 19,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11052,
+   "id": "bedroom-11052",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #342",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11053,
+   "id": "bedroom-11053",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #343",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11054,
+   "id": "bedroom-11054",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #344",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 23,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11055,
+   "id": "bedroom-11055",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #345",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11056,
+   "id": "bedroom-11056",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #346",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11057,
+   "id": "bedroom-11057",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #347",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 27,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11058,
+   "id": "bedroom-11058",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #348",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11059,
+   "id": "bedroom-11059",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #349",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11060,
+   "id": "bedroom-11060",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #350",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 31,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11061,
+   "id": "bedroom-11061",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #351",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11062,
+   "id": "bedroom-11062",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #352",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11063,
+   "id": "bedroom-11063",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #353",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 35,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11064,
+   "id": "bedroom-11064",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #354",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11065,
+   "id": "bedroom-11065",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #355",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11066,
+   "id": "bedroom-11066",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #356",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 39,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11067,
+   "id": "bedroom-11067",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #357",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11068,
+   "id": "bedroom-11068",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #358",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11069,
+   "id": "bedroom-11069",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #359",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 43,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11070,
+   "id": "bedroom-11070",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Medtob Paintring's Bedroom",
+   "owner": 15468,
+   "owner_name": "Medtob Paintring",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11071,
+   "id": "bedroom-11071",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #361",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11072,
+   "id": "bedroom-11072",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #362",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 47,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11073,
+   "id": "bedroom-11073",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #363",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11074,
+   "id": "bedroom-11074",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #364",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11075,
+   "id": "bedroom-11075",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #365",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 51,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-29",
+   "df_building_id": 11076,
+   "id": "bedroom-11076",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Rigòth Veiledmanors's Bedroom",
+   "owner": 15470,
+   "owner_name": "Rigòth Veiledmanors",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-31",
+   "df_building_id": 11077,
+   "id": "bedroom-11077",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #367",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-33",
+   "df_building_id": 11078,
+   "id": "bedroom-11078",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #368",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 55,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11079,
+   "id": "bedroom-11079",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #369",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11080,
+   "id": "bedroom-11080",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #370",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11081,
+   "id": "bedroom-11081",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #371",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11082,
+   "id": "bedroom-11082",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #372",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11083,
+   "id": "bedroom-11083",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #373",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11084,
+   "id": "bedroom-11084",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #374",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11085,
+   "id": "bedroom-11085",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #375",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11086,
+   "id": "bedroom-11086",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #376",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11087,
+   "id": "bedroom-11087",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #377",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11088,
+   "id": "bedroom-11088",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #378",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11089,
+   "id": "bedroom-11089",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #379",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11090,
+   "id": "bedroom-11090",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #380",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11091,
+   "id": "bedroom-11091",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #381",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11092,
+   "id": "bedroom-11092",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #382",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11093,
+   "id": "bedroom-11093",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #383",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11094,
+   "id": "bedroom-11094",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #384",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11095,
+   "id": "bedroom-11095",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #385",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11096,
+   "id": "bedroom-11096",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #386",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11097,
+   "id": "bedroom-11097",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #387",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11098,
+   "id": "bedroom-11098",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #388",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11099,
+   "id": "bedroom-11099",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #389",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11100,
+   "id": "bedroom-11100",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #390",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11101,
+   "id": "bedroom-11101",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #391",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11102,
+   "id": "bedroom-11102",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #392",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11103,
+   "id": "bedroom-11103",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #393",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11104,
+   "id": "bedroom-11104",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #394",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11105,
+   "id": "bedroom-11105",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #395",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-30",
+   "df_building_id": 11106,
+   "id": "bedroom-11106",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #396",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 78
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11107,
+   "id": "bedroom-11107",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #397",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11108,
+   "id": "bedroom-11108",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #398",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11109,
+   "id": "bedroom-11109",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #399",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11110,
+   "id": "bedroom-11110",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #400",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-32",
+   "df_building_id": 11111,
+   "id": "bedroom-11111",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #401",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 82
+   }
+  },
+  {
+   "block": "bedroom-block-34",
+   "df_building_id": 11112,
+   "id": "bedroom-11112",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #402",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 86
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11143,
+   "id": "bedroom-11143",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #403",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11144,
+   "id": "bedroom-11144",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #404",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11145,
+   "id": "bedroom-11145",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #405",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11146,
+   "id": "bedroom-11146",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #406",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 79,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11147,
+   "id": "bedroom-11147",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #407",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 83,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11148,
+   "id": "bedroom-11148",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #408",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11149,
+   "id": "bedroom-11149",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #409",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11150,
+   "id": "bedroom-11150",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #410",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11151,
+   "id": "bedroom-11151",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #411",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11152,
+   "id": "bedroom-11152",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #412",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11153,
+   "id": "bedroom-11153",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #413",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 34
+   }
+  },
+  {
+   "block": "bedroom-block-6",
+   "df_building_id": 11154,
+   "id": "bedroom-11154",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #414",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 67,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-6",
+   "df_building_id": 11155,
+   "id": "bedroom-11155",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #415",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-6",
+   "df_building_id": 11156,
+   "id": "bedroom-11156",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #416",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11157,
+   "id": "bedroom-11157",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #417",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 71,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-2",
+   "df_building_id": 11158,
+   "id": "bedroom-11158",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #418",
+   "rect": {
+    "h": 6,
+    "w": 5,
+    "x": 67,
+    "y": 25
+   }
+  },
+  {
+   "block": "bedroom-block-6",
+   "df_building_id": 11159,
+   "id": "bedroom-11159",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #419",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 30
+   }
+  },
+  {
+   "df_building_id": 11160,
+   "id": "dormitory-11160",
+   "kind": "dormitory",
+   "level": "the-dormitories",
+   "name": "Dormitory #420",
+   "rect": {
+    "h": 5,
+    "w": 13,
+    "x": 91,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-6",
+   "df_building_id": 11161,
+   "id": "bedroom-11161",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #421",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-6",
+   "df_building_id": 11162,
+   "id": "bedroom-11162",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #422",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-6",
+   "df_building_id": 11163,
+   "id": "bedroom-11163",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #423",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 30
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11164,
+   "id": "bedroom-11164",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #424",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 111,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11165,
+   "id": "bedroom-11165",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #425",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11166,
+   "id": "bedroom-11166",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #426",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 103,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11167,
+   "id": "bedroom-11167",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #427",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 99,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11168,
+   "id": "bedroom-11168",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #428",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 95,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11169,
+   "id": "bedroom-11169",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #429",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 91,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11170,
+   "id": "bedroom-11170",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #430",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 87,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-4",
+   "df_building_id": 11171,
+   "id": "bedroom-11171",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #431",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 75,
+    "y": 26
+   }
+  },
+  {
+   "block": "bedroom-block-8",
+   "df_building_id": 11172,
+   "id": "bedroom-11172",
+   "kind": "bedroom",
+   "level": "the-dormitories",
+   "name": "Bedroom #432",
+   "rect": {
+    "h": 5,
+    "w": 5,
+    "x": 107,
+    "y": 34
+   }
+  },
+  {
+   "df_building_id": 1403,
+   "id": "barracks-1403",
+   "kind": "barracks",
+   "level": "the-barracks",
+   "name": "Barracks #115",
+   "rect": {
+    "h": 11,
+    "w": 12,
+    "x": 63,
+    "y": 43
+   }
+  },
+  {
+   "df_building_id": 1525,
+   "id": "barracks-1525",
+   "kind": "barracks",
+   "level": "the-barracks",
+   "name": "Barracks #117",
+   "rect": {
+    "h": 8,
+    "w": 12,
+    "x": 63,
+    "y": 35
+   }
+  },
+  {
+   "df_building_id": 1526,
+   "id": "barracks-1526",
+   "kind": "barracks",
+   "level": "the-barracks",
+   "name": "Barracks #118",
+   "rect": {
+    "h": 10,
+    "w": 12,
+    "x": 63,
+    "y": 25
+   }
+  },
+  {
+   "df_building_id": 1542,
+   "id": "archery-1542",
+   "kind": "archery",
+   "level": "the-barracks",
+   "name": "Archery Range #119",
+   "rect": {
+    "h": 6,
+    "w": 10,
+    "x": 64,
+    "y": 27
+   }
+  },
+  {
+   "df_building_id": 1602,
+   "id": "stockpile-1602",
+   "kind": "stockpile",
+   "level": "the-barracks",
+   "name": "Ammo Stockpile #20",
+   "rect": {
+    "h": 1,
+    "w": 7,
+    "x": 67,
+    "y": 33
+   }
+  },
+  {
+   "df_building_id": 1391,
+   "id": "workshop-metalsmithsforge-1391",
+   "kind": "workshop:metalsmithsforge",
+   "level": "the-forges",
+   "material": "iron",
+   "name": "Metalsmith's Forge",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 47,
+    "y": 17
+   }
+  },
+  {
+   "df_building_id": 1392,
+   "id": "furnace-smelter-1392",
+   "kind": "furnace:smelter",
+   "level": "the-forges",
+   "material": "dolomite",
+   "name": "Smelter",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 28,
+    "y": 30
+   }
+  },
+  {
+   "df_building_id": 1393,
+   "id": "furnace-woodfurnace-1393",
+   "kind": "furnace:woodfurnace",
+   "level": "the-forges",
+   "material": "claystone",
+   "name": "Wood Furnace",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 32,
+    "y": 30
+   }
+  },
+  {
+   "df_building_id": 1395,
+   "id": "furnace-woodfurnace-1395",
+   "kind": "furnace:woodfurnace",
+   "level": "the-forges",
+   "material": "shale",
+   "name": "Wood Furnace",
+   "quality": 0,
+   "rect": {
+    "h": 3,
+    "w": 3,
+    "x": 40,
+    "y": 30
+   }
+  },
+  {
+   "df_building_id": 1396,
+   "id": "stockpile-1396",
+   "kind": "stockpile",
+   "level": "the-forges",
+   "name": "Stone Stockpile #13",
+   "rect": {
+    "h": 3,
+    "w": 5,
+    "x": 28,
+    "y": 26
+   }
+  },
+  {
+   "df_building_id": 1397,
+   "id": "stockpile-1397",
+   "kind": "stockpile",
+   "level": "the-forges",
+   "name": "Stockpile #14",
+   "rect": {
+    "h": 3,
+    "w": 5,
+    "x": 33,
+    "y": 26
+   }
+  },
+  {
+   "df_building_id": 1398,
+   "id": "stockpile-1398",
+   "kind": "stockpile",
+   "level": "the-forges",
+   "name": "Bar/Block Stockpile #15",
+   "rect": {
+    "h": 3,
+    "w": 5,
+    "x": 38,
+    "y": 26
+   }
+  },
+  {
+   "df_building_id": 1399,
+   "id": "stockpile-1399",
+   "kind": "stockpile",
+   "level": "the-forges",
+   "name": "Wood Stockpile #16",
+   "rect": {
+    "h": 5,
+    "w": 7,
+    "x": 44,
+    "y": 29
+   }
+  },
+  {
+   "df_building_id": 1400,
+   "id": "stockpile-1400",
+   "kind": "stockpile",
+   "level": "the-forges",
+   "name": "Bar/Block Stockpile #17",
+   "rect": {
+    "h": 3,
+    "w": 4,
+    "x": 43,
+    "y": 17
+   }
+  },
+  {
+   "df_building_id": 1401,
+   "id": "stockpile-1401",
+   "kind": "stockpile",
+   "level": "the-forges",
+   "name": "Bar/Block Stockpile #18",
+   "rect": {
+    "h": 2,
+    "w": 8,
+    "x": 43,
+    "y": 21
+   }
+  },
+  {
+   "df_building_id": 1402,
+   "id": "stockpile-1402",
+   "kind": "stockpile",
+   "level": "the-forges",
+   "name": "Stockpile #19",
+   "rect": {
+    "h": 4,
+    "w": 11,
+    "x": 32,
+    "y": 17
+   }
+  },
+  {
+   "df_building_id": 3382,
+   "id": "stockpile-3382",
+   "kind": "stockpile",
+   "level": "the-forges",
+   "name": "Stockpile #27",
+   "rect": {
+    "h": 20,
+    "w": 20,
+    "x": 12,
+    "y": 2
+   }
+  }
+ ],
+ "schema": "bomrekedan.kingdom/v1",
+ "seams": {
+  "the-barracks": {
+   "classes": {
+    "coal": 5,
+    "gem": 10,
+    "iron": 9,
+    "reagent": 57,
+    "stone": 11099
+   },
+   "top_minerals": [
+    {
+     "name": "gypsum",
+     "tiles": 45
+    },
+    {
+     "name": "bauxite",
+     "tiles": 12
+    },
+    {
+     "name": "limonite",
+     "tiles": 9
+    },
+    {
+     "name": "lignite",
+     "tiles": 5
+    },
+    {
+     "name": "blue jade",
+     "tiles": 3
+    },
+    {
+     "name": "morion",
+     "tiles": 3
+    },
+    {
+     "name": "green tourmaline",
+     "tiles": 2
+    },
+    {
+     "name": "milk quartz",
+     "tiles": 2
+    }
+   ],
+   "top_named": [
+    {
+     "name": "sandstone",
+     "tiles": 187
+    },
+    {
+     "name": "gypsum",
+     "tiles": 45
+    },
+    {
+     "name": "bauxite",
+     "tiles": 12
+    },
+    {
+     "name": "limonite",
+     "tiles": 9
+    },
+    {
+     "name": "lignite",
+     "tiles": 5
+    },
+    {
+     "name": "blue jade",
+     "tiles": 3
+    },
+    {
+     "name": "morion",
+     "tiles": 3
+    },
+    {
+     "name": "green tourmaline",
+     "tiles": 2
+    }
+   ],
+   "z": 88
+  },
+  "the-dormitories": {
+   "classes": {
+    "coal": 115,
+    "copper": 80,
+    "gem": 93,
+    "iron": 61,
+    "precious_gem": 1,
+    "reagent": 494,
+    "stone": 6653,
+    "tin": 4
+   },
+   "top_minerals": [
+    {
+     "name": "gypsum",
+     "tiles": 442
+    },
+    {
+     "name": "lignite",
+     "tiles": 115
+    },
+    {
+     "name": "tetrahedrite",
+     "tiles": 80
+    },
+    {
+     "name": "jet",
+     "tiles": 62
+    },
+    {
+     "name": "bauxite",
+     "tiles": 37
+    },
+    {
+     "name": "limonite",
+     "tiles": 32
+    },
+    {
+     "name": "hematite",
+     "tiles": 29
+    },
+    {
+     "name": "satinspar",
+     "tiles": 6
+    },
+    {
+     "name": "prase",
+     "tiles": 5
+    },
+    {
+     "name": "selenite",
+     "tiles": 5
+    },
+    {
+     "name": "alabaster",
+     "tiles": 4
+    },
+    {
+     "name": "brown jasper",
+     "tiles": 4
+    }
+   ],
+   "top_named": [
+    {
+     "name": "shale",
+     "tiles": 1218
+    },
+    {
+     "name": "gypsum",
+     "tiles": 442
+    },
+    {
+     "name": "lignite",
+     "tiles": 115
+    },
+    {
+     "name": "tetrahedrite",
+     "tiles": 80
+    },
+    {
+     "name": "jet",
+     "tiles": 62
+    },
+    {
+     "name": "sandstone",
+     "tiles": 61
+    },
+    {
+     "name": "bauxite",
+     "tiles": 37
+    },
+    {
+     "name": "limonite",
+     "tiles": 32
+    }
+   ],
+   "z": 91
+  },
+  "the-farms": {
+   "classes": {
+    "soil": 8684
+   },
+   "top_minerals": [],
+   "top_named": [
+    {
+     "name": "peat",
+     "tiles": 358
+    },
+    {
+     "name": "clay loam",
+     "tiles": 188
+    },
+    {
+     "name": "yellow sand",
+     "tiles": 16
+    }
+   ],
+   "z": 98
+  },
+  "the-forges": {
+   "classes": {
+    "coal": 12,
+    "gem": 4,
+    "iron": 28,
+    "platinum": 3,
+    "reagent": 60,
+    "stone": 9464
+   },
+   "top_minerals": [
+    {
+     "name": "kaolinite",
+     "tiles": 28
+    },
+    {
+     "name": "magnetite",
+     "tiles": 25
+    },
+    {
+     "name": "microcline",
+     "tiles": 23
+    },
+    {
+     "name": "bituminous coal",
+     "tiles": 11
+    },
+    {
+     "name": "gypsum",
+     "tiles": 8
+    },
+    {
+     "name": "clear tourmaline",
+     "tiles": 3
+    },
+    {
+     "name": "hematite",
+     "tiles": 3
+    },
+    {
+     "name": "native platinum",
+     "tiles": 3
+    },
+    {
+     "name": "lignite",
+     "tiles": 1
+    },
+    {
+     "name": "marcasite",
+     "tiles": 1
+    },
+    {
+     "name": "rose quartz",
+     "tiles": 1
+    }
+   ],
+   "top_named": [
+    {
+     "name": "kaolinite",
+     "tiles": 28
+    },
+    {
+     "name": "claystone",
+     "tiles": 25
+    },
+    {
+     "name": "magnetite",
+     "tiles": 25
+    },
+    {
+     "name": "microcline",
+     "tiles": 23
+    },
+    {
+     "name": "bituminous coal",
+     "tiles": 11
+    },
+    {
+     "name": "gypsum",
+     "tiles": 8
+    },
+    {
+     "name": "clear tourmaline",
+     "tiles": 3
+    },
+    {
+     "name": "hematite",
+     "tiles": 3
+    }
+   ],
+   "z": 81
+  },
+  "the-gate": {
+   "classes": {
+    "soil": 1451
+   },
+   "top_minerals": [],
+   "top_named": [
+    {
+     "name": "clay loam",
+     "tiles": 283
+    }
+   ],
+   "z": 100
+  },
+  "the-great-hall": {
+   "classes": {
+    "soil": 7715
+   },
+   "top_minerals": [],
+   "top_named": [
+    {
+     "name": "clay loam",
+     "tiles": 524
+    },
+    {
+     "name": "peat",
+     "tiles": 57
+    }
+   ],
+   "z": 99
+  },
+  "the-guildhalls": {
+   "classes": {
+    "coal": 4,
+    "copper": 8,
+    "gem": 37,
+    "iron": 25,
+    "reagent": 93,
+    "stone": 9693
+   },
+   "top_minerals": [
+    {
+     "name": "kaolinite",
+     "tiles": 72
+    },
+    {
+     "name": "jet",
+     "tiles": 29
+    },
+    {
+     "name": "hematite",
+     "tiles": 22
+    },
+    {
+     "name": "microcline",
+     "tiles": 14
+    },
+    {
+     "name": "tetrahedrite",
+     "tiles": 8
+    },
+    {
+     "name": "cinnabar",
+     "tiles": 5
+    },
+    {
+     "name": "bituminous coal",
+     "tiles": 4
+    },
+    {
+     "name": "limonite",
+     "tiles": 3
+    },
+    {
+     "name": "pink jade",
+     "tiles": 3
+    },
+    {
+     "name": "amethyst",
+     "tiles": 2
+    },
+    {
+     "name": "lace agate",
+     "tiles": 2
+    },
+    {
+     "name": "marcasite",
+     "tiles": 2
+    }
+   ],
+   "top_named": [
+    {
+     "name": "shale",
+     "tiles": 277
+    },
+    {
+     "name": "kaolinite",
+     "tiles": 72
+    },
+    {
+     "name": "jet",
+     "tiles": 29
+    },
+    {
+     "name": "hematite",
+     "tiles": 22
+    },
+    {
+     "name": "microcline",
+     "tiles": 14
+    },
+    {
+     "name": "tetrahedrite",
+     "tiles": 8
+    },
+    {
+     "name": "cinnabar",
+     "tiles": 5
+    },
+    {
+     "name": "bituminous coal",
+     "tiles": 4
+    }
+   ],
+   "z": 93
+  },
+  "the-noble-halls": {
+   "classes": {
+    "coal": 18,
+    "gem": 9,
+    "iron": 47,
+    "reagent": 112,
+    "stone": 9767
+   },
+   "top_minerals": [
+    {
+     "name": "kaolinite",
+     "tiles": 109
+    },
+    {
+     "name": "limonite",
+     "tiles": 27
+    },
+    {
+     "name": "hematite",
+     "tiles": 20
+    },
+    {
+     "name": "bituminous coal",
+     "tiles": 18
+    },
+    {
+     "name": "lavender jade",
+     "tiles": 2
+    },
+    {
+     "name": "marcasite",
+     "tiles": 2
+    },
+    {
+     "name": "white jade",
+     "tiles": 2
+    },
+    {
+     "name": "bauxite",
+     "tiles": 1
+    },
+    {
+     "name": "brown jasper",
+     "tiles": 1
+    },
+    {
+     "name": "morion",
+     "tiles": 1
+    },
+    {
+     "name": "red tourmaline",
+     "tiles": 1
+    },
+    {
+     "name": "tiger iron",
+     "tiles": 1
+    }
+   ],
+   "top_named": [
+    {
+     "name": "shale",
+     "tiles": 317
+    },
+    {
+     "name": "kaolinite",
+     "tiles": 109
+    },
+    {
+     "name": "limonite",
+     "tiles": 27
+    },
+    {
+     "name": "hematite",
+     "tiles": 20
+    },
+    {
+     "name": "bituminous coal",
+     "tiles": 18
+    },
+    {
+     "name": "lavender jade",
+     "tiles": 2
+    },
+    {
+     "name": "marcasite",
+     "tiles": 2
+    },
+    {
+     "name": "white jade",
+     "tiles": 2
+    }
+   ],
+   "z": 95
+  },
+  "the-temples": {
+   "classes": {
+    "coal": 21,
+    "copper": 13,
+    "gem": 6,
+    "iron": 8,
+    "platinum": 2,
+    "reagent": 143,
+    "soil": 3,
+    "stone": 8177,
+    "tin": 1
+   },
+   "top_minerals": [
+    {
+     "name": "bauxite",
+     "tiles": 71
+    },
+    {
+     "name": "microcline",
+     "tiles": 67
+    },
+    {
+     "name": "bituminous coal",
+     "tiles": 15
+    },
+    {
+     "name": "tetrahedrite",
+     "tiles": 13
+    },
+    {
+     "name": "hematite",
+     "tiles": 8
+    },
+    {
+     "name": "lignite",
+     "tiles": 6
+    },
+    {
+     "name": "cinnabar",
+     "tiles": 5
+    },
+    {
+     "name": "chrysoprase",
+     "tiles": 3
+    },
+    {
+     "name": "green tourmaline",
+     "tiles": 2
+    },
+    {
+     "name": "native platinum",
+     "tiles": 2
+    },
+    {
+     "name": "cassiterite",
+     "tiles": 1
+    },
+    {
+     "name": "tiger iron",
+     "tiles": 1
+    }
+   ],
+   "top_named": [
+    {
+     "name": "shale",
+     "tiles": 435
+    },
+    {
+     "name": "bauxite",
+     "tiles": 71
+    },
+    {
+     "name": "microcline",
+     "tiles": 67
+    },
+    {
+     "name": "bituminous coal",
+     "tiles": 15
+    },
+    {
+     "name": "tetrahedrite",
+     "tiles": 13
+    },
+    {
+     "name": "hematite",
+     "tiles": 8
+    },
+    {
+     "name": "lignite",
+     "tiles": 6
+    },
+    {
+     "name": "cinnabar",
+     "tiles": 5
+    }
+   ],
+   "z": 94
+  },
+  "the-workshops": {
+   "classes": {
+    "soil": 7826
+   },
+   "top_minerals": [],
+   "top_named": [
+    {
+     "name": "yellow sand",
+     "tiles": 444
+    },
+    {
+     "name": "sandy clay",
+     "tiles": 96
+    },
+    {
+     "name": "clay loam",
+     "tiles": 27
+    }
+   ],
+   "z": 97
+  }
+ },
+ "source": {
+  "civ": "Land of the Meat Gods",
+  "exported_from": "tools/angelx-kingdom-export.lua -> expansions/bomrekedan/df-export",
+  "group": "Kingdom of Meat Gods",
+  "site": "Kingdom of Meat Gods",
+  "site_native": "Kingdom of Meat Gods",
+  "world": "The Planet of Enchanting",
+  "world_native": "Anenu Ewè",
+  "year": 106
+ },
+ "surface_level": "the-gate",
+ "wealth": {
+  "architecture": 1305217,
+  "armor": 520587,
+  "displayed": 1003503,
+  "exported": 25450,
+  "furniture": 834235,
+  "held": 306894,
+  "imported": 70366,
+  "offered": 0,
+  "other": 924179,
+  "total": 4976556,
+  "weapons": 81941
+ }
+}

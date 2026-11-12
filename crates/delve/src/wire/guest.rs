@@ -418,17 +418,21 @@ fn put_field(run: &mut Run, tree: &Value, name: &str) -> bool {
         };
     }
     put!(
-        playtest, raid_id, naked_start, identity, hitstop, phase, floor_plates, exits, parked, score, dungeon,
+        playtest, raid_id, naked_start, identity, rite, hitstop, phase, floor_plates, exits, parked, score, dungeon,
         boss_gates, settlement_site, settlement_exhibits, at, kingdom, tune, bank, reclaimed, home, treasury, merchant,
-        mode, open_floors, spin, collapse_at, deep_beat, strikes, spheres, phantoms, bard_songs, scarecrows, imps,
-        cauldron, brewing, first, light, banner, deeds, unboxed, stall, descending, captive, folly, bats, gantry_room,
+        mode, open_floors, spin, collapse_at, deep_beat, strikes, zones, spheres, phantoms, bard_songs, scarecrows, imps,
+        cauldron, brewing, first, light, banner, deeds, unboxed, stall, descending, captive, folly, bats, encounter,
+        encounter_rooms, gantry_room,
         gantry, powder, hop, race3d_room, race3d, pots_broken, holding_used, holding_raid, crab, forage, valves,
-        pigeons, heist, town, nook, pot_shards, cat, dare, dares_kept, rune, runes_taken, hexes, round, song, marks,
-        lifted, hinted, kegs, lobs, flings, wells, hooks, webs, slams, ravages, hireling, squires, squire_academy, countryside_squires, squire_hall, squire_field, squire_mark, joust, chariot, forest,
+        pigeons, heist, town, nook, reclaim, pot_shards, cat, dare, dares_kept, rune, runes_taken, hexes, round, song, marks,
+        lifted, hinted, kegs, lobs, flings, wells, sacs, hooks, webs, slams, ravages, hireling, squires, squire_academy, countryside_squires, squire_hall, squire_field, squire_mark, joust, chariot, forest,
         forest_road, lanternward, moonfall, bannerpeak, griffinwing, lightgallop, deathmatch, college, questline, campaign, alehouse, champions, heroes, gore, minions,
-        pastimes, cinder, latch, brasswake, rafterwake, pennon, mossbell, critters, pits, frogs, shoulders, bosses, book,
+        pastimes, cinder, latch, brasswake, rafterwake, pennon, wayfarers, mossbell, critters, pits, frogs, shoulders, bosses, book,
         found, shake, traps, rocks, waves, works, window, makers, ladders, spectacle, sparks, blasts, floor_tally, floor_results, boons,
         wishing, lamp, genie, asked, held, fellowship, again, rewards,
+        // The ballot between floors counts its clock down a tick at a time, and a Knight Racers
+        // card puts its whole race there: left out of this list each tick read the run whole.
+        crossroads, knight_racers,
     )
 }
 

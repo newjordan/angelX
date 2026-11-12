@@ -347,6 +347,11 @@ pub(super) fn supported(run: &Run) -> bool {
         && run.mode != crate::rules::fortune::Mode::LightsOut
         && run.room().kind != RoomKind::Wanted
         && run.room().kind != RoomKind::DeepVillage
+        // The Wax Maze lays its own stone and lanes (`wax_maze::walls`).
+        && !super::wax_maze::walled(run)
+        && !super::belfry_shoot::walled(run)
+        && !super::powder_room::walled(run)
+        && !super::book_hop::walled(run)
         && bank(run.dungeon.pack).floor.imgs[..6]
             .iter()
             .all(Option::is_some)
@@ -554,6 +559,7 @@ fn objects_for_room(run:&Run,s:i32)->Vec<Object> {
         for c in 0..room.cols as i32 {
             if room.tile(c, r) == Tile::Block
                 && room.kind != RoomKind::Forge
+                && room.kind != RoomKind::DwarfHall
                 && !room.kind.nook()
                 && !(room.kind == RoomKind::Threshold && r <= 3)
             {

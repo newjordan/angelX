@@ -35,11 +35,13 @@ mod layers;
 mod look;
 mod picture;
 mod post;
+mod producer;
 mod scene;
 mod stage;
 mod wallpaper;
 
 pub use atlas::Entry;
+pub use producer::PictureProducer;
 pub use draw::ReadBack;
 pub use frame::{COLOR, Draw, Frame, Instance, MASK, MESH_TRIANGLE, PARCHMENT, PICTURE, PICTURE_PREMULTIPLIED, PICTURE_STRAIGHT, PRIMITIVE};
 pub use hash::{FastMap, FxHasher};
@@ -84,6 +86,7 @@ pub struct Core {
     frame_number: u64,
     /// Meshes, depth buffers and scene targets (`scene.rs`).
     three: scene::SceneState,
+    producers: HashMap<u32, (Box<dyn PictureProducer>, (u32,u32))>,
     wallpaper: Option<GpuWallpaper>,
     /// The soft shadow under lifted layers, once drawn into the atlas.
     shadow_entry: Option<Entry>,
@@ -242,6 +245,7 @@ impl Core {
             slides: HashMap::new(),
             frame_number: 0,
             three: scene::SceneState::default(),
+            producers: HashMap::new(),
             wallpaper: None,
             shadow_entry: None,
             light_entry: None,

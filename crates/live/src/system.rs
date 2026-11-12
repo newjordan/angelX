@@ -288,12 +288,18 @@ impl Worker {
     /// One `apply`. A resident worker is sent what changed since the state it
     /// last answered and answers with ops on the state it was sent; any error
     /// leaves `resident` empty, so the next call re-seeds the worker first.
+    ///
+    /// With `keep` the state comes back to the caller, so a resident worker's
+    /// copy is a clone of it; without, the state becomes that copy and nothing
+    /// is cloned (the host's step reads no state back, and a state is
+    /// hundreds of kilobytes a tick).
     fn step(
         &mut self,
         mut state: Value,
         event: Value,
         validate: impl Fn(&Value) -> Result<(), String>,
-    ) -> Result<(Value, Value), String> {
+        keep: bool,
+    ) -> Result<(Option<Value>, Value), String> {
         let resident = self.resident_worker;
         let (key, sent) = if resident {
             let held = match self.resident.take() {
@@ -321,14 +327,18 @@ impl Worker {
                 .ok_or("system reply missing state")?;
         }
         validate(&state)?;
-        if resident {
-            self.resident = Some(state.clone());
-        }
         let output = reply
             .get_mut("output")
             .map(Value::take)
             .unwrap_or(Value::Null);
-        Ok((state, output))
+        if resident && !keep {
+            self.resident = Some(state);
+            return Ok((None, output));
+        }
+        if resident {
+            self.resident = Some(state.clone());
+        }
+        Ok((keep.then_some(state), output))
     }
     fn terminate(&mut self) {
         if self.terminated {
@@ -523,10 +533,36 @@ impl System {
     /// (`Worker::step`); callers still pass and receive whole states.
     pub fn apply(
         &mut self,
-        mut state: Value,
+        state: Value,
         event: Value,
         validate: impl Fn(&Value) -> Result<(), String>,
     ) -> Result<(Value, Value), String> {
+        self.apply_keeping(state, event, validate, true)
+            .map(|(state, output)| (state.unwrap_or(Value::Null), output))
+    }
+
+    /// `apply` for a caller that has what it needs of the state once `validate`
+    /// has seen it, and wants only the output: a resident worker's copy of the
+    /// state is the state itself, not a clone of it.
+    pub fn apply_discarding(
+        &mut self,
+        state: Value,
+        event: Value,
+        validate: impl Fn(&Value) -> Result<(), String>,
+    ) -> Result<Value, String> {
+        self.apply_keeping(state, event, validate, false)
+            .map(|(_, output)| output)
+    }
+
+    fn apply_keeping(
+        &mut self,
+        mut state: Value,
+        event: Value,
+        validate: impl Fn(&Value) -> Result<(), String>,
+        keep: bool,
+    ) -> Result<(Option<Value>, Value), String> {
+        // A recording reads the state after the step.
+        let keep = keep || self.record.is_some();
         let tape = self
             .record
             .is_some()
@@ -564,8 +600,8 @@ impl System {
             .active
             .as_mut()
             .ok_or("system is preparing its first implementation")?;
-        let result = worker.step(state, event, validate);
-        if let (Ok((after, _)), Some((record, (before, event)))) =
+        let result = worker.step(state, event, validate, keep);
+        if let (Ok((Some(after), _)), Some((record, (before, event)))) =
             (&result, self.record.as_mut().zip(tape))
         {
             record.push(&before, &event, after);

@@ -2945,3 +2945,350 @@ fn direct_graph_keeps_tool_generation_when_override_changes_between_nodes() {
     assert!(seen.len() >= 2, "{seen:?}");
     assert!(seen.iter().all(|value| value == "graph tool generation one"), "{seen:?}");
 }
+
+/// What a graph trace records for a node turn that ended in each stop reason.
+/// Flags are passed through as given; `kind` and `infrastructure_failure` are
+/// derived. An idle-timeout node reads `kind: deadline` with whatever
+/// `deadline_reached` the turn carried (false when the watchdog stopped it).
+#[test]
+fn graph_trace_termination_for_every_stop_reason_is_pinned() {
+    use TurnStopReason::*;
+    let table = [
+        (Answer, "answer", false),
+        (Interrupt, "interrupt", false),
+        (Deadline, "deadline", false),
+        (IdleTimeout, "deadline", false),
+        (MaxHops, "max_hops", false),
+        (ProviderError, "provider_failure", true),
+        (CaptureFailure, "capture_failure", true),
+        (CheckpointFailure, "capture_failure", true),
+        (ExecutionBlocked, "policy_guard", false),
+        (NeedsPro, "policy_guard", false),
+    ];
+    for (reason, kind, infrastructure) in table {
+        let term = GraphTraceTerminationV1::from_turn(reason, false, false, true, Some("detail"));
+        let value = serde_json::to_value(&term).unwrap();
+        assert_eq!(value["kind"], kind, "{reason:?}");
+        assert_eq!(value["stop_reason"], reason.as_str(), "{reason:?}");
+        assert_eq!(
+            value["infrastructure_failure"], infrastructure,
+            "{reason:?}"
+        );
+        assert_eq!(value["interrupted"], false);
+        assert_eq!(value["deadline_reached"], false);
+        assert_eq!(value["max_hops_reached"], true);
+    }
+}
+
+/// Fails the named node with `text` and lets every other node answer.
+struct NodeErrorClub {
+    fail_node: &'static str,
+    text: &'static str,
+}
+
+impl Club for NodeErrorClub {
+    fn respond(&self, _prompt: &str) -> Result<String, String> {
+        Err("node-error test must use chat_streaming".to_string())
+    }
+
+    fn label(&self) -> &str {
+        "node-error"
+    }
+
+    fn chat_streaming(
+        &self,
+        messages: &[ChatMsg],
+        _tools: &[ToolDef],
+        _cancel: &AtomicBool,
+        _on_delta: &mut dyn FnMut(StreamDelta),
+    ) -> Result<ClubReply, String> {
+        let system = messages
+            .first()
+            .map(|m| m.content.as_ref())
+            .unwrap_or_default();
+        if system.contains(&format!("node={} ", self.fail_node)) {
+            Err(self.text.to_string())
+        } else {
+            Ok(ClubReply::Text("plan ok".to_string()))
+        }
+    }
+}
+
+fn run_failed_graph(fail_node: &'static str, text: &'static str) -> GraphRunError {
+    let club = Arc::new(NodeErrorClub { fail_node, text });
+    let mut graph = spec(
+        "node-error",
+        vec![
+            node("planner", "plan", &[]),
+            node(fail_node, "work", &["planner"]),
+        ],
+    );
+    for n in &mut graph.nodes {
+        n.tools = Some("none".into());
+    }
+    let cancel = AtomicBool::new(false);
+    AgentGraphEngine::new(
+        std::env::temp_dir(),
+        Some(club as Arc<dyn Club>),
+        Vec::new(),
+    )
+    .without_persistence()
+    .run(&graph, "task", &cancel)
+    .unwrap_err()
+}
+
+/// A provider error that happens to say "cancelled" is the node's own failure,
+/// not an operator cancellation: the label, the phase and the episode kind
+/// say so.
+#[test]
+fn a_node_error_that_says_cancelled_is_a_failed_run_not_a_cancelled_one() {
+    let error = run_failed_graph("joiner", "request cancelled by upstream proxy");
+    let failure = error.run_failure().expect("sealed failure receipt");
+    assert_eq!(failure.snapshot.phase, GraphRunPhase::Failed);
+    assert_eq!(failure.episode.termination.phase, GraphRunPhase::Failed);
+    assert_eq!(
+        failure.episode.termination.kind,
+        GraphEpisodeTerminationKind::Failed
+    );
+    assert_eq!(
+        failure.snapshot.incomplete_reason.as_deref(),
+        Some("node_failed:joiner")
+    );
+    assert_eq!(
+        failure.episode.incomplete_reason.as_deref(),
+        Some("node_failed:joiner")
+    );
+}
+
+/// The same goes for a node whose id happens to contain the word.
+#[test]
+fn a_node_id_that_says_cancelled_is_a_failed_run_not_a_cancelled_one() {
+    let error = run_failed_graph("cancelled_orders", "forced failure");
+    let failure = error.run_failure().expect("sealed failure receipt");
+    assert_eq!(failure.snapshot.phase, GraphRunPhase::Failed);
+    assert_eq!(
+        failure.snapshot.incomplete_reason.as_deref(),
+        Some("node_failed:cancelled_orders")
+    );
+    assert_eq!(
+        failure.episode.incomplete_reason.as_deref(),
+        Some("node_failed:cancelled_orders")
+    );
+}
+
+/// Pinned today: an ordinary node failure's label and the reason text a caller
+/// reads after "did not complete:".
+#[test]
+fn a_plain_node_failure_labels_node_failed_and_keeps_its_reason_text() {
+    let club_error = "forced failure";
+    let error = {
+        let club = Arc::new(NodeErrorClub {
+            fail_node: "joiner",
+            text: club_error,
+        });
+        let mut graph = spec(
+            "plain-failure",
+            vec![
+                node("planner", "plan", &[]),
+                node("joiner", "work", &["planner"]),
+            ],
+        );
+        for n in &mut graph.nodes {
+            n.tools = Some("none".into());
+        }
+        AgentGraphEngine::new(
+            std::env::temp_dir(),
+            Some(club as Arc<dyn Club>),
+            Vec::new(),
+        )
+        .without_persistence()
+        .run(&graph, "task", &AtomicBool::new(false))
+        .unwrap_err()
+    };
+    let failure = error.run_failure().expect("sealed failure receipt");
+    assert_eq!(
+        failure.snapshot.incomplete_reason.as_deref(),
+        Some("node_failed:joiner")
+    );
+    assert_eq!(
+        failure.snapshot.error.as_deref(),
+        Some("node 'joiner' failed: forced failure")
+    );
+    assert!(
+        failure
+            .reason
+            .ends_with("did not complete: node 'joiner' failed: forced failure"),
+        "{}",
+        failure.reason
+    );
+    assert_eq!(
+        failure.episode.termination.kind,
+        GraphEpisodeTerminationKind::Failed
+    );
+}
+
+/// Pinned today: an operator cancel labels `cancelled`, a graph deadline
+/// labels with its own text.
+#[test]
+fn operator_cancel_and_deadline_keep_their_incomplete_labels() {
+    let _guard = crate::tests::env_lock();
+    let club = WindDownAttributionClub::shared();
+    let graph = spec("label-cancel", vec![node("worker", "work", &[])]);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let worker_cancel = Arc::clone(&cancel);
+    let worker_club = Arc::clone(&club);
+    let engine = AgentGraphEngine::new(
+        std::env::temp_dir(),
+        Some(worker_club as Arc<dyn Club>),
+        Vec::new(),
+    )
+    .without_persistence();
+    let worker = std::thread::spawn(move || engine.run(&graph, "task", &worker_cancel));
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while !club.started.load(Ordering::Acquire) {
+        assert!(Instant::now() < deadline, "graph node never started");
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    cancel.store(true, Ordering::Release);
+    let error = worker.join().expect("graph worker joins").unwrap_err();
+    let failure = error.run_failure().expect("sealed cancellation receipt");
+    assert_eq!(failure.snapshot.phase, GraphRunPhase::Cancelled);
+    assert_eq!(
+        failure.snapshot.incomplete_reason.as_deref(),
+        Some("cancelled")
+    );
+    assert_eq!(
+        failure.episode.incomplete_reason.as_deref(),
+        Some("cancelled")
+    );
+    assert_eq!(
+        failure.snapshot.error.as_deref(),
+        Some("cancelled by operator")
+    );
+
+    let club = WindDownAttributionClub::shared();
+    let mut graph = spec("label-deadline", vec![node("worker", "work", &[])]);
+    graph.deadline_secs = Some(1);
+    let error = AgentGraphEngine::new(
+        std::env::temp_dir(),
+        Some(club as Arc<dyn Club>),
+        Vec::new(),
+    )
+    .without_persistence()
+    .run(&graph, "task", &AtomicBool::new(false))
+    .unwrap_err();
+    let failure = error.run_failure().expect("sealed deadline receipt");
+    let text =
+        "deadline 1s reached; operator cap graph.deadline_secs / ANGEL_GRAPH_DEADLINE_SECS=1";
+    assert_eq!(failure.snapshot.phase, GraphRunPhase::Failed);
+    assert_eq!(failure.snapshot.error.as_deref(), Some(text));
+    assert_eq!(failure.snapshot.incomplete_reason.as_deref(), Some(text));
+    assert_eq!(failure.episode.incomplete_reason.as_deref(), Some(text));
+}
+
+/// Today's text classifier, kept here as the oracle the typed reasons must
+/// match for every reason except a node's own failure.
+fn legacy_label(reason: &str, cancelled: bool) -> String {
+    if cancelled || reason.contains("cancelled") {
+        return "cancelled".to_string();
+    }
+    if is_recoverable_stream_error(reason) {
+        if let Some(node) = reason
+            .split("node '")
+            .nth(1)
+            .and_then(|s| s.split('\'').next())
+        {
+            return format!("provider_stall:{node}");
+        }
+        return "provider_stall".to_string();
+    }
+    if let Some(rest) = reason.strip_prefix("node '")
+        && let Some(node) = rest.split('\'').next()
+    {
+        return format!("node_failed:{node}");
+    }
+    if reason.contains("no schedulable") {
+        return "no_schedulable_nodes".to_string();
+    }
+    if reason.contains("planner") || reason.contains("no plan") {
+        return "planner_no_plan".to_string();
+    }
+    reason.to_string()
+}
+
+#[test]
+fn graph_wind_labels_match_the_old_text_classifier() {
+    let winds = [
+        GraphWind::Cancelled,
+        GraphWind::Deadline(
+            "deadline 60s reached; operator cap graph.deadline_secs / ANGEL_GRAPH_DEADLINE_SECS=60"
+                .to_string(),
+        ),
+        GraphWind::SpawnCapacity("spawn capacity: no seats".to_string()),
+        GraphWind::SpawnCapacity("spawn capacity: request cancelled".to_string()),
+        GraphWind::GateRetryDenied("gate 'g' retry denied: budget spent".to_string()),
+        GraphWind::GateRejected("gate 'g' rejected after 1 retry: not good".to_string()),
+        GraphWind::GateRejected("gate 'g' rejected after 0 retries: cancelled".to_string()),
+        GraphWind::NodeFailed {
+            node: "worker".to_string(),
+            reason: "node 'worker' failed: boom".to_string(),
+        },
+        GraphWind::NodeFailed {
+            node: "worker".to_string(),
+            reason: "node 'worker' failed: no schedulable seat".to_string(),
+        },
+        GraphWind::SeatLost,
+        GraphWind::NoSchedulableNodes,
+        GraphWind::PlannerNoPlan,
+        GraphWind::FaninIncomplete,
+    ];
+    for wind in winds {
+        let cancelled = wind == GraphWind::Cancelled;
+        assert_eq!(
+            wind.label(),
+            legacy_label(wind.reason(), cancelled),
+            "{wind:?}"
+        );
+    }
+}
+
+/// The texts callers read after "did not complete:" and in the snapshot.
+#[test]
+fn graph_wind_reasons_keep_their_texts() {
+    assert_eq!(GraphWind::Cancelled.reason(), "cancelled by operator");
+    assert_eq!(
+        GraphWind::SeatLost.reason(),
+        "graph result channel closed before the seat landed"
+    );
+    assert_eq!(
+        GraphWind::NoSchedulableNodes.reason(),
+        "no schedulable nodes"
+    );
+    assert_eq!(
+        GraphWind::PlannerNoPlan.reason(),
+        "planner produced no schedulable plan"
+    );
+    assert_eq!(
+        GraphWind::FaninIncomplete.reason(),
+        "terminal fan-in did not finish with a result"
+    );
+    // The planner text mentions "no schedulable", so it has always labelled
+    // as `no_schedulable_nodes`, never `planner_no_plan`.
+    assert_eq!(GraphWind::PlannerNoPlan.label(), "no_schedulable_nodes");
+}
+
+/// The one deliberate change: a node's own words never make a cancelled run.
+#[test]
+fn a_node_failure_that_says_cancelled_labels_node_failed() {
+    let wind = GraphWind::NodeFailed {
+        node: "worker".to_string(),
+        reason: "node 'worker' failed: request cancelled".to_string(),
+    };
+    assert_eq!(legacy_label(wind.reason(), false), "cancelled");
+    assert_eq!(wind.label(), "node_failed:worker");
+    let wind = GraphWind::NodeFailed {
+        node: "cancelled_orders".to_string(),
+        reason: "node 'cancelled_orders' failed: boom".to_string(),
+    };
+    assert_eq!(wind.label(), "node_failed:cancelled_orders");
+}

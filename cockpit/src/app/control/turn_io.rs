@@ -1,6 +1,15 @@
 //! Streaming advance loop and input/key/mouse/paste handling.
 use super::*;
-use crate::WorldButton;
+use crate::{Overlay, WorldButton};
+use crate::agent::harness::cartridges::fleet::SubmissionPhase;
+use crate::agent::harness::cartridges::records::SubmissionStatus;
+use crate::drive::loop_ctl::{EscalationTier, LoopState, LoopStatus};
+use angel_plug::stage::StagePlaces as _;
+use angel_plug::stage::StageWorld as _;
+use angel_plug::feed::{
+    Checkpoint, Competition, Feed, FeedRules, FeedWorld, Health, LoopBudget, LoopFacts, LoopPhase,
+    LoopTier, Route, Serving,
+};
 
 /// Keep one provider burst from monopolizing the UI thread. The count bound
 /// handles tiny token deltas; the payload bound handles unusually large
@@ -10,9 +19,6 @@ use crate::WorldButton;
 /// keys must be able to paint within a second even while tokens arrive.
 pub(crate) const STREAM_EVENTS_PER_FRAME: usize = 64;
 pub(crate) const STREAM_BYTES_PER_FRAME: usize = 8 * 1024;
-/// Display-side sensing can arrive in a reconnect burst. Preserve FIFO while
-/// preventing that optional telemetry from monopolizing input/draw latency.
-pub(crate) const VILLAGE_PULSES_PER_FRAME: usize = 64;
 /// A pasted draft larger than this would make every subsequent composer wrap
 /// and draw traverse context the model cannot use effectively. Ordinary typing
 /// remains unrestricted; this guards accidental bulk clipboard ingress.
@@ -390,6 +396,194 @@ fn notice_gauge_row_index(messages: &[Message], note: &str) -> Option<usize> {
         })
 }
 
+impl From<LoopStatus> for LoopPhase {
+    fn from(status: LoopStatus) -> Self {
+        match status {
+            LoopStatus::Idle => Self::Idle,
+            LoopStatus::Baselining => Self::Baselining,
+            LoopStatus::Running => Self::Running,
+            LoopStatus::Verifying => Self::Verifying,
+            LoopStatus::AwaitingApproval => Self::AwaitingApproval,
+            LoopStatus::Paused => Self::Paused,
+            LoopStatus::Done => Self::Done,
+            LoopStatus::Stopped => Self::Stopped,
+            LoopStatus::Failed => Self::Failed,
+        }
+    }
+}
+
+impl From<EscalationTier> for LoopTier {
+    fn from(tier: EscalationTier) -> Self {
+        match tier {
+            EscalationTier::Local => Self::Local,
+            EscalationTier::Swarm => Self::Swarm,
+            EscalationTier::Sota => Self::Sota,
+        }
+    }
+}
+
+impl LoopState {
+    /// An owned snapshot of the fields the realm side reads.
+    pub(crate) fn feed_facts(&self) -> LoopFacts {
+        let settled = || {
+            self.submission_results
+                .iter()
+                .filter_map(|r| r.official.as_ref())
+        };
+        let promoted: Vec<_> = settled().filter(|o| o.promoted_improvement()).collect();
+        let failed: Vec<_> = settled().filter(|o| promotion_failed(o)).collect();
+        let active = matches!(
+            self.status,
+            LoopStatus::Baselining
+                | LoopStatus::Running
+                | LoopStatus::Verifying
+                | LoopStatus::AwaitingApproval
+        );
+        let elapsed_secs = if !active || self.started_ms == 0 {
+            0
+        } else {
+            let now_ms = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            now_ms.saturating_sub(self.started_ms) / 1000
+        };
+        LoopFacts {
+            active,
+            has_id: !self.id.is_empty(),
+            phase: self.status.into(),
+            iteration: self.iteration,
+            tier: self.tier.into(),
+            submissions: self.submissions,
+            podrace: self.podrace,
+            pivot: self.pivot,
+            measured_candidates: self.measured_candidates,
+            verifier_blocked: self.verifier_blocked.clone(),
+            task: self.task.clone(),
+            stale_count: self.stale_count,
+            checkpoint: self.durable_settlement_events().map(|events| Checkpoint {
+                loop_id: events.loop_id,
+                workspace: events.workspace,
+                rows: events.rows,
+                plans: events
+                    .plans
+                    .iter()
+                    .filter_map(|(iteration, plan)| {
+                        Some((*iteration, serde_json::to_value(plan).ok()?))
+                    })
+                    .collect(),
+            }),
+            last_log_all_errors: self.log.last().is_some_and(|entry| {
+                entry.tool_errors > 0 && entry.tool_errors >= entry.tool_calls
+            }),
+            idle_log_tail: self
+                .log
+                .iter()
+                .rev()
+                .take_while(|entry| {
+                    entry.tool_calls <= entry.tool_errors
+                        && !entry.workspace_changed
+                        && entry.new_findings == 0
+                        && entry.outcome_progress == 0
+                        && entry.novel_outcome_actions == 0
+                        && entry.verified_outcome_actions == 0
+                })
+                .count(),
+            promotions: promoted.len(),
+            last_promotion_score: promoted.last().and_then(|o| o.official_score.clone()),
+            promotion_failures: failed.len(),
+            last_promotion_failure_score: failed.last().and_then(|o| o.official_score.clone()),
+            budget: LoopBudget {
+                max_iters: self.max_iters,
+                tokens_spent: self.tokens_spent,
+                token_budget: self.token_budget,
+                elapsed_secs,
+                deadline_secs: self.deadline_secs,
+            },
+        }
+    }
+}
+
+/// Whether a settled submission is a promotion that didn't happen: rejected
+/// or timed out, or accepted and plainly no record. A result still waiting
+/// on its promotion isn't one.
+fn promotion_failed(o: &SubmissionStatus) -> bool {
+    match SubmissionPhase::from_status(&o.status) {
+        SubmissionPhase::Rejected | SubmissionPhase::TimedOut => true,
+        SubmissionPhase::Accepted => {
+            !o.promoted_improvement()
+                && (o.improved == Some(false)
+                    || o.promotion_status
+                        .as_deref()
+                        .is_some_and(|s| s != "promoted" && s != "unavailable"))
+        }
+        _ => false,
+    }
+}
+
+pub(crate) fn serving_of(
+    thinking: Option<&Thinking>,
+    bag: &crate::agent::club::Bag,
+    engagement: Option<&crate::agent::formations::MoaEngagement>,
+) -> Serving {
+    let lead = match thinking {
+        Some(thinking) => route_of_thinking(thinking),
+        None => {
+            let chrome = bag.in_hand_chrome();
+            route_with_key(
+                bag.in_hand_label().to_string(),
+                chrome.route.driver.clone(),
+                chrome.route.model.clone(),
+            )
+        }
+    };
+    let seats = engagement
+        .map(|engagement| {
+            engagement
+                .roster
+                .assignments()
+                .iter()
+                .flatten()
+                .map(|seat| {
+                    route_with_key(
+                        seat.agent.clone(),
+                        seat.driver.clone(),
+                        Some(seat.model.clone()),
+                    )
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    Serving {
+        lead,
+        seats,
+        turn: thinking.is_some(),
+    }
+}
+
+pub(crate) fn route_of_thinking(thinking: &Thinking) -> Route {
+    let resolved = thinking
+        .club
+        .as_ref()
+        .and_then(|club| club.resolved_route_if_known());
+    let route = resolved.as_ref().unwrap_or(&thinking.requested_route);
+    route_with_key(
+        thinking.club_label.clone(),
+        route.driver.clone(),
+        route.model.clone(),
+    )
+}
+
+fn route_with_key(label: String, driver: String, model: Option<String>) -> Route {
+    let key = crate::ui::agent_panel::profile::profile_for_route(&label, &driver, model.as_deref()).key;
+    Route {
+        label,
+        driver,
+        model,
+        key,
+    }
+}
+
 /// Number of simulation ticks due, plus whether older backlog must be dropped.
 fn world_tick_budget(elapsed: std::time::Duration) -> (u32, bool) {
     let due = elapsed.as_nanos() / WORLD_TICK_INTERVAL.as_nanos();
@@ -414,9 +608,7 @@ impl App {
         if ticks == 0 {
             return;
         }
-        for _ in 0..ticks {
-            self.realm.world.tick();
-        }
+        self.realm.feed(Feed::Ticks(ticks));
         self.world_ticked_at = if dropped_backlog {
             now
         } else {
@@ -599,50 +791,8 @@ impl App {
 
     /// Poll the worker; when the reply (or error) lands, record it and clear.
     /// Also drains live tool-call events so the UI shows activity as it happens.
-    /// The houses serving now: the lead is the route answering the running
-    /// turn, else the route in hand; a formation in hand or armed seats its
-    /// models' houses beside it. Each route maps to its model family's house,
-    /// whichever machine or provider serves it.
-    pub(crate) fn serving_houses(&self) -> crate::stage::houses::Serving {
-        use crate::stage::houses;
-        let lead = match self.thinking.as_ref() {
-            Some(thinking) => {
-                let resolved = thinking
-                    .club
-                    .as_ref()
-                    .and_then(|club| club.resolved_route_if_known());
-                let route = resolved.as_ref().unwrap_or(&thinking.requested_route);
-                houses::of_route(&thinking.club_label, &route.driver, route.model.as_deref())
-            }
-            None => {
-                let chrome = self.bag.in_hand_chrome();
-                houses::of_route(
-                    self.bag.in_hand_label(),
-                    &chrome.route.driver,
-                    chrome.route.model.as_deref(),
-                )
-            }
-        };
-        let mut seats: Vec<houses::HouseId> = Vec::new();
-        if let Some(engagement) = self.moa_one_shot.as_ref().or(self.moa_session.as_ref()) {
-            for seat in engagement.roster.assignments().iter().flatten() {
-                if let Some(house) = houses::of_route(&seat.agent, &seat.driver, Some(&seat.model))
-                    && !seats.contains(&house)
-                {
-                    seats.push(house);
-                }
-            }
-        }
-        let lead = lead.or_else(|| seats.first().copied());
-        seats.retain(|&house| Some(house) != lead);
-        houses::Serving {
-            lead,
-            seated: seats,
-            turn: self.thinking.is_some(),
-        }
-    }
-
     pub(crate) fn advance(&mut self) {
+        self.tick_approval();
         self.advance_live_modules();
         // The showcase's buttons: its arrows step to the showing asked
         // for; its copy button hands over what to copy, sent between draws.
@@ -720,25 +870,32 @@ impl App {
         // (ANGEL_BACKDROP=off / shell / image / compact Core). Comp / lean
         // keeps chrome but must not pay the badge/classify tax.
         if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible) {
-            self.realm.world.note_memory_health(self.tools.store.health());
-            let atlas_status = self.atlas.status();
-            self.realm.world
-                .note_atlas_status(atlas_status.health, atlas_status.review_count);
-            let clerk_status = clerk.status();
-            self.realm.world.note_backplane_status(
-                clerk_status.health,
-                clerk_status.queue_depth,
-                usize::from(
-                    clerk_status.health
-                        == crate::knowledge::atlas_clerk::ClerkHealth::ResourceConflict,
-                ),
-            );
+            self.realm.health(&|| {
+                let memory = self.tools.store.health();
+                let atlas_status = self.atlas.status();
+                let clerk_status = clerk.status();
+                Health {
+                    memory,
+                    atlas: atlas_status.health,
+                    atlas_reviews: atlas_status.review_count,
+                    clerk: clerk_status.health,
+                    clerk_queue: clerk_status.queue_depth,
+                    clerk_conflicts: usize::from(
+                        clerk_status.health
+                            == crate::knowledge::atlas_clerk::ClerkHealth::ResourceConflict,
+                    ),
+                }
+            });
         }
         // Who is serving: the overworld's knight rides from that house's
         // castle, and the Delve names its party from those houses.
-        let serving = self.serving_houses();
-        crate::stage::houses::note_serving(&serving);
-        self.realm.world.note_serving(&serving);
+        self.realm.serving(&|| {
+            serving_of(
+                self.thinking.as_ref(),
+                &self.bag,
+                self.moa_one_shot.as_ref().or(self.moa_session.as_ref()),
+            )
+        });
         match self.session.save_status() {
             crate::knowledge::session::SessionSaveStatus::Failed(error) => {
                 if !self.session_warning_notified {
@@ -794,38 +951,13 @@ impl App {
         if self.loop_active() {
             self.note_ops_loop(self.loop_ctl.iteration);
         } else {
-            self.realm.dungeon.ops_loop = 0;
+            self.realm.feed(Feed::LoopIdle);
         }
         if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible) {
-            let active = self.loop_active();
-            let iteration = self.loop_ctl.iteration;
-            // Share the visual inactivity/blocker interpretation with the quest.
-            // Objective-comparison absence is not evidence of an idle party.
-            let agitated = active
-                && crate::stage::world_viz::LoopMirror::stall_level(&self.loop_ctl.summary()) >= 2;
-            let done = self.loop_ctl.status == crate::drive::loop_ctl::LoopStatus::Done;
-            let loop_budget = active.then(|| {
-                let now_ms = SystemTime::now()
-                    .duration_since(UNIX_EPOCH)
-                    .map(|d| d.as_millis() as u64)
-                    .unwrap_or(0);
-                crate::stage::world_viz::LoopBudgetSnapshot {
-                    iteration,
-                    max_iters: self.loop_ctl.max_iters,
-                    tokens_spent: self.loop_ctl.tokens_spent,
-                    token_budget: self.loop_ctl.token_budget,
-                    elapsed_secs: if self.loop_ctl.started_ms == 0 {
-                        0
-                    } else {
-                        now_ms.saturating_sub(self.loop_ctl.started_ms) / 1000
-                    },
-                    deadline_secs: self.loop_ctl.deadline_secs,
-                }
-            });
-            self.realm.world
-                .note_loop(active, iteration, agitated, done, loop_budget);
-            let visiting_quintain = self.realm.world.visiting_quintain();
-            if visiting_quintain
+            let at_quintain = self
+                .realm
+                .loop_noted(&|| self.loop_ctl.feed_facts());
+            if at_quintain
                 && !self.quintain_route_presented
                 && self.scryglass.controller.route() == crate::ui::scryglass::StageRoute::Realm
                 && self.scryglass.controller.overlay().is_none()
@@ -833,7 +965,7 @@ impl App {
                 self.scryglass
                     .navigate(crate::ui::scryglass::StageRoute::Loop);
             }
-            self.quintain_route_presented = visiting_quintain;
+            self.quintain_route_presented = at_quintain;
         } else {
             // Forget presentation latch while hidden so a later visible visit
             // can still expand the loop viz.
@@ -853,10 +985,20 @@ impl App {
                 // its request. Deny the stale request instead of presenting
                 // an orphan modal with no live action behind it.
                 let _ = req.reply.send(crate::agent::approval::Decision::Deny);
+            } else if std::time::Instant::now() >= req.deadline {
+                // It waited in the inbox past its worker's patience: the
+                // worker has already denied it and left.
+                let _ = req.reply.send(crate::agent::approval::Decision::Deny);
             } else {
+                let scope_label = req.scope.label();
+                self.approval_focus = (0, 0);
+                self.approval_deadline = Some((
+                    crate::ui::views::approval_view::serial(&req.prompt, Some(scope_label.as_str())),
+                    req.deadline,
+                ));
                 self.pending_approval = Some(PendingApproval {
                     prompt: req.prompt,
-                    scope_label: Some(req.scope.label()),
+                    scope_label: Some(scope_label),
                     reply: req.reply,
                 });
                 self.request_terminal_attention();
@@ -866,7 +1008,7 @@ impl App {
         // UI gates (SOTA loop escalation and green self-edit integration) that
         // do not pass through the shared approval broker.
         if crate::platform::yolo::enabled()
-            && let Some(pending) = self.pending_approval.take()
+            && let Some(pending) = self.take_approval()
         {
             let _ = pending
                 .reply
@@ -946,9 +1088,7 @@ impl App {
                                     self.system_msg(format!(
                                         "{message}; operator task/answer contract retained"
                                     ));
-                                    self.realm.dungeon.ops.note(
-                                        crate::drive::together_shooter::holdings::Op::Compactions,
-                                    );
+                                    self.realm.feed(Feed::Compacted);
                                 } else {
                                     self.system_msg("context compaction evidence could not be retained; history left intact".to_string());
                                 }
@@ -1121,7 +1261,7 @@ impl App {
             let total_secs = thinking.started.elapsed().as_secs();
             if idle_secs >= idle_timeout && total_secs >= idle_timeout {
                 thinking.begin_draining();
-                if let Some(pending) = self.pending_approval.take() {
+                if let Some(pending) = self.take_approval() {
                     let _ = pending.reply.send(crate::agent::approval::Decision::Deny);
                 }
                 self.turn_first_output_ms = None;
@@ -1220,7 +1360,7 @@ impl App {
                     {
                         crate::ui::showcase::open_chart(chart);
                     }
-                    self.realm.world.note_graph_event(&id, &event);
+                    self.realm.graph_event(&id, &event);
                     self.request_redraw("graph crop data");
                 }
                 TurnEvent::Heartbeat => {}
@@ -1245,13 +1385,17 @@ impl App {
                     // (ANGEL_BACKDROP=off / shell / image) so tool storms do not
                     // pay classify + active_work + scryglass overlay tax.
                     // Comp / lean keeps chrome; the journey tax is additional.
-                    if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
+                    let painted =
+                        crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible);
+                    self.realm.feed(Feed::ToolCall {
+                        id: &id,
+                        name: &name,
+                        args: &args_summary,
+                        painted,
+                    });
+                    if painted
+                        && let Some(destination) = realm::GameHost::tool_destination(&name, &args_summary)
                     {
-                        let destination =
-                            crate::stage::world_viz::classify_tool_activity(&name, &args_summary)
-                                .building;
-                        self.realm.world
-                            .note_tool_call_event(id.clone(), &name, &args_summary);
                         self.reset_world_yaw();
                         self.scryglass.begin_journey(
                             id.clone(),
@@ -1279,15 +1423,16 @@ impl App {
                 } => {
                     self.research.result(&id, &name, &summary, outcome);
                     self.note_ops_result(&id.0, outcome.attributable_success());
-                    if name == "graph" {
-                        self.realm.world.settle_graph_call(&id, outcome);
-                    }
                     // A2: Stage-only result sparks — strip/trace still update.
-                    if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
-                    {
-                        self.realm.world
-                            .note_tool_result_event(&id, &name, &summary, outcome);
-                    }
+                    self.realm.feed(Feed::ToolResult {
+                        id: &id,
+                        name: &name,
+                        summary: &summary,
+                        outcome,
+                        painted: crate::drive::comp_mode::stage_world_mirrors_allowed(
+                            self.world_pane_visible,
+                        ),
+                    });
                     if self.transcript_mode == crate::app::TranscriptMode::Trace {
                         self.messages.push(Message {
                             role: Role::Activity,
@@ -1308,15 +1453,13 @@ impl App {
                     self.tool_strip.result_event(&id, &name, &summary, outcome);
                 }
                 TurnEvent::Notice(note) | TurnEvent::RolloutCaptureError(note) => {
-                    // The scriptorium copies a scroll for every compaction.
-                    if note.starts_with("compacting context") {
-                        self.realm.dungeon.ops.note(crate::drive::together_shooter::holdings::Op::Compactions);
-                    }
                     // A2: world notice banners are Stage chrome.
-                    if crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
-                    {
-                        self.realm.world.note_notice(&note);
-                    }
+                    self.realm.feed(Feed::Notice {
+                        text: &note,
+                        painted: crate::drive::comp_mode::stage_world_mirrors_allowed(
+                            self.world_pane_visible,
+                        ),
+                    });
                     // Routine murmurs ride the strip's in-place note line; a
                     // repeating guard holds ONE gauge row that bumps its
                     // ×count in place instead of stacking scrollback; only
@@ -1358,14 +1501,7 @@ impl App {
                     ));
                 }
                 TurnEvent::ResearchEvidence(evidence) => {
-                    self.realm.world
-                        .note_school(crate::stage::world_viz::SchoolSnapshot {
-                            active: evidence.active,
-                            observations: evidence.observations,
-                            checks: evidence.checks,
-                            contrasts: evidence.contrasts,
-                            inconclusive: evidence.inconclusive,
-                        });
+                    self.realm.feed(Feed::Evidence(evidence));
                 }
                 TurnEvent::SubmissionSlot(slot) => {
                     use crate::agent::harness::SubmissionSlotPhase;
@@ -1385,28 +1521,31 @@ impl App {
                         let label = format!("{board} submission {}", id.chars().take(8).collect::<String>());
                         match slot.phase {
                             SubmissionSlotPhase::InFlight if new_flight => {
-                                self.realm.world.competition_test_started(&label);
+                                self.realm.competition(Competition::Started(&label));
                             }
                             SubmissionSlotPhase::InFlight => {
-                                self.realm.world.competition_test_pending(&label);
+                                self.realm.competition(Competition::Pending(&label));
                             }
                             SubmissionSlotPhase::Accepted => {
                                 if let Some(score) = slot.score.as_deref() {
-                                    self.realm.world.competition_test_reported_score(&label, score);
+                                    self.realm.competition(Competition::Reported {
+                                        label: &label,
+                                        score,
+                                    });
                                 } else {
-                                    self.realm.world.competition_test_complete(&format!(
+                                    self.realm.competition(Competition::Complete(&format!(
                                         "{label} · accepted; score not reported"
-                                    ));
+                                    )));
                                 }
                             }
                             SubmissionSlotPhase::Rejected => {
-                                self.realm.world.competition_test_error(
-                                    &label,
-                                    &format!("{board} rejected the submission"),
-                                );
+                                self.realm.competition(Competition::Error {
+                                    label: &label,
+                                    reason: &format!("{board} rejected the submission"),
+                                });
                             }
                             SubmissionSlotPhase::TimedOut => {
-                                self.realm.world.competition_test_timeout(&label);
+                                self.realm.competition(Competition::TimedOut(&label));
                             }
                             SubmissionSlotPhase::Empty | SubmissionSlotPhase::Dormant => {}
                         }
@@ -1442,7 +1581,7 @@ impl App {
         // timeout above does for a loop.
         if let Some(reason) = self.loop_watchdog(&thinking) {
             thinking.begin_draining();
-            if let Some(pending) = self.pending_approval.take() {
+            if let Some(pending) = self.take_approval() {
                 let _ = pending.reply.send(crate::agent::approval::Decision::Deny);
             }
             self.turn_first_output_ms = None;
@@ -1813,18 +1952,7 @@ impl App {
     }
 
     pub(crate) fn drain_village_pulses(&mut self) -> usize {
-        let Some(rx) = &self.village_rx else {
-            return 0;
-        };
-        let mut drained = 0;
-        for _ in 0..VILLAGE_PULSES_PER_FRAME {
-            let Ok(pulse) = rx.try_recv() else {
-                break;
-            };
-            self.realm.world.note_village(pulse);
-            drained += 1;
-        }
-        drained
+        self.realm.drain_village()
     }
 
     /// Z1: diff `loop_ctl` against the last-seen mirror and fold the edge
@@ -1832,19 +1960,9 @@ impl App {
     /// visibility — the quest is session state, like the village pulses —
     /// and before `note_loop` so the world sees the events first.
     pub(crate) fn adventure_mirror_drain(&mut self) {
-        // The loop log is persisted by loop_ctl. Iteration boundaries alone
-        // are not receipts (resume may first observe iteration 200).
-        let summary = self.loop_ctl.summary();
-        if !self.loop_ctl.id.is_empty() {
-            self.realm.sync_loop(&summary);
-        }
         let party = self.adventure_party_size();
-        let events = self
-            .loop_mirror
-            .drain(&summary, self.realm.world.tool_mix(), party);
-        for ev in events {
-            self.realm.world.note_adventure(ev);
-        }
+        self.realm
+            .adventure(&|| self.loop_ctl.feed_facts(), party);
     }
 
     /// Live formation width as the hero's party. No single source of truth
@@ -1853,7 +1971,7 @@ impl App {
     /// assigned seat count — one-shot first, then the session formation.
     /// Solo hero = 1.
     fn adventure_party_size(&self) -> u8 {
-        let engaged = self.moa_one_shot.as_ref().or(self.moa_session.as_ref());
+        let engaged = self.moa_armed();
         let seats = engaged
             .map(|engagement| engagement.roster.assigned_count())
             .filter(|&seats| seats > 0)
@@ -1883,10 +2001,10 @@ impl App {
             match result {
                 Ok(snapshot) => {
                     if snapshot.failed_benchmarks > 0 {
-                        self.realm.world.competition_test_error(
-                            &format!("{label} status poll"),
-                            &format!("{} benchmark queries failed", snapshot.failed_benchmarks),
-                        );
+                        self.realm.competition(Competition::Error {
+                            label: &format!("{label} status poll"),
+                            reason: &format!("{} benchmark queries failed", snapshot.failed_benchmarks),
+                        });
                     } else if let Some(entry) = snapshot.entries.iter().find(|entry| {
                         matches!(
                             entry.phase,
@@ -1895,18 +2013,18 @@ impl App {
                                 | crate::agent::harness::cartridges::fleet::SubmissionPhase::Unknown
                         )
                     }) {
-                        self.realm.world.competition_test_pending(&format!(
+                        self.realm.competition(Competition::Pending(&format!(
                             "{} · {} · no score yet",
                             entry.benchmark, entry.status
-                        ));
+                        )));
                     } else if let Some(entry) = snapshot.entries.iter().find(|entry| {
                         entry.phase
                             == crate::agent::harness::cartridges::fleet::SubmissionPhase::TimedOut
                     }) {
-                        self.realm.world.competition_test_timeout(&format!(
+                        self.realm.competition(Competition::TimedOut(&format!(
                             "{} · {}",
                             entry.benchmark, entry.status
-                        ));
+                        )));
                     } else if let Some(entry) = snapshot.entries.iter().find(|entry| {
                         matches!(
                             entry.phase,
@@ -1917,27 +2035,29 @@ impl App {
                         if entry.phase
                             == crate::agent::harness::cartridges::fleet::SubmissionPhase::Rejected
                         {
-                            self.realm.world.competition_test_error(
-                                &entry.benchmark,
-                                &format!("{label} status {}", entry.status),
-                            );
+                            self.realm.competition(Competition::Error {
+                                label: &entry.benchmark,
+                                reason: &format!("{label} status {}", entry.status),
+                            });
                         } else if let Some(score) = entry.score.as_deref() {
-                            self.realm.world.competition_test_reported_score(
-                                &entry.benchmark,
+                            self.realm.competition(Competition::Reported {
+                                label: &entry.benchmark,
                                 score,
-                            );
+                            });
                         } else {
-                            self.realm.world.competition_test_complete(&format!(
+                            self.realm.competition(Competition::Complete(&format!(
                                 "{} · {} · score not reported",
                                 entry.benchmark, entry.status
-                            ));
+                            )));
                         }
                     }
                     self.comp_fleet.apply(snapshot);
                 }
                 Err(error) => {
-                    self.realm.world
-                        .competition_test_error(&format!("{label} status poll"), &error);
+                    self.realm.competition(Competition::Error {
+                        label: &format!("{label} status poll"),
+                        reason: &error,
+                    });
                     self.comp_fleet.fail(error);
                 }
             }
@@ -1995,10 +2115,12 @@ impl App {
         // Horse lore is earned here: the calls this turn's houses actually
         // served season their bloodlines in the realm's stable. A route
         // that reports no usage still served the turn: one call's credit.
-        let calls = usage.map_or(1, |after| {
-            after.turns.saturating_sub(before_usage.turns).max(1) as u32
-        });
-        self.note_horse_service(thinking, calls);
+        {
+            let calls = usage.map_or(1, |after| {
+                after.turns.saturating_sub(before_usage.turns).max(1) as u32
+            });
+            self.note_horse_service(thinking, calls);
+        }
         // A loop iteration is one turn: its provider-reported spend replaces
         // the iteration's estimates (routes that report nothing keep them).
         if self.loop_ctl.awaiting_turn
@@ -2013,33 +2135,19 @@ impl App {
     /// the lead house takes the calls, each seated house one share. Saved
     /// with the realm; a failed save leaves the tally for the next turn.
     fn note_horse_service(&mut self, thinking: &Thinking, calls: u32) {
-        use crate::stage::houses;
-        let resolved = thinking
-            .club
-            .as_ref()
-            .and_then(|club| club.resolved_route_if_known());
-        let route = resolved.as_ref().unwrap_or(&thinking.requested_route);
-        let lead = houses::of_route(&thinking.club_label, &route.driver, route.model.as_deref());
-        let seated: Vec<houses::HouseId> = self
-            .serving_houses()
-            .seated
-            .into_iter()
-            .filter(|&h| Some(h) != lead)
-            .collect();
-        if lead.is_none() && seated.is_empty() {
-            return;
-        }
-        let realm = self.realm.economy();
-        if let Some(house) = lead {
-            realm
-                .home
-                .stable
-                .note_service(houses::get(house).key, calls);
-        }
-        for house in seated {
-            realm.home.stable.note_service(houses::get(house).key, 1);
-        }
-        let _ = realm.save();
+        self.realm.horse_service(
+            &|| {
+                (
+                    route_of_thinking(thinking),
+                    serving_of(
+                        self.thinking.as_ref(),
+                        &self.bag,
+                        self.moa_one_shot.as_ref().or(self.moa_session.as_ref()),
+                    ),
+                )
+            },
+            calls,
+        );
     }
 
     /// Collapse the turn's tool activity into one compact tally line in the
@@ -2323,7 +2431,7 @@ impl App {
             self.last_background_operation = output.as_ref().map(|_| job.operation());
             self.last_background_output = output;
             let message = job.cancellation_message();
-            if let Some(pending) = self.pending_approval.take() {
+            if let Some(pending) = self.take_approval() {
                 let _ = pending.reply.send(crate::agent::approval::Decision::Deny);
             }
             self.messages.push(Message {
@@ -2337,7 +2445,7 @@ impl App {
             return false;
         };
         let already_draining = self.thinking.as_ref().is_some_and(Thinking::is_draining);
-        if let Some(pending) = self.pending_approval.take() {
+        if let Some(pending) = self.take_approval() {
             let _ = pending.reply.send(crate::agent::approval::Decision::Deny);
         }
         // Esc means stop: queued steers must not outlive the interrupt (they'd
@@ -2504,14 +2612,14 @@ impl App {
         // operator's route. Its camera gets the same controls as Explore.
         let adventure_camera = self.scryglass.surface
             == crate::ui::scryglass::StageSurface::WorldMap
-            && self.realm.world.live_adventure_view();
+            && self.realm.live_adventure_view();
         let camera_active = adventure_camera
             || matches!(
                 self.scryglass.controller.route(),
                 crate::ui::scryglass::StageRoute::Explore(_)
             );
         // The global stop contract wins over stage navigation.
-        if matches!(code, KeyCode::Esc) && (self.thinking.is_some() || self.bg_job.is_some()) {
+        if matches!(code, KeyCode::Esc) && self.flight_owner().is_agent_busy() {
             return false;
         }
         // Asset shortcuts belong to the focused viewer only while no draft is
@@ -2872,32 +2980,20 @@ impl App {
             if self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldFirstPerson
                 || adventure_camera
             {
-                if self.realm.world.interior_building()
-                    == Some(crate::stage::world_viz::Building::Observatory)
-                    && matches!(code, KeyCode::Enter | KeyCode::Char('a'))
-                {
+                let act = self.realm.first_person_key(code);
+                if act.open_assets {
                     self.apply_world_button(WorldButton::Assets);
-                    return true;
                 }
-                if self.realm.world.interior_building()
-                    == Some(crate::stage::world_viz::Building::Scriptorium)
-                    && matches!(code, KeyCode::Enter | KeyCode::Char('c'))
-                {
+                if act.open_catalog {
                     self.scryglass.open_catalog();
-                    return true;
                 }
-                // Keep the familiar key as a status shortcut. Dotmax is the
-                // sole outdoor renderer; room entry owns plate transitions.
-                if matches!(code, KeyCode::Char('v')) {
-                    crate::stage::world_viz::world3d::cycle();
-                    self.system_msg(crate::stage::world_viz::world3d::status_line());
-                    return true;
+                if let Some(line) = act.say {
+                    self.system_msg(line);
                 }
-                if !self.realm.world.inside_interior()
-                    && !self.realm.world.riding()
-                    && matches!(code, KeyCode::Enter)
-                {
+                if act.enter_interior {
                     self.enter_world_interior();
+                }
+                if act.handled {
                     return true;
                 }
             }
@@ -2906,20 +3002,12 @@ impl App {
             && self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldMap
             && !adventure_camera
         {
-            match code {
-                KeyCode::Left | KeyCode::Char('h') => {
-                    self.realm.world.cycle_landmark(-1);
-                    return true;
-                }
-                KeyCode::Right | KeyCode::Char('l') => {
-                    self.realm.world.cycle_landmark(1);
-                    return true;
-                }
-                KeyCode::Enter => {
-                    self.toggle_world_camera();
-                    return true;
-                }
-                _ => {}
+            let act = self.realm.map_key(code);
+            if act.toggle_camera {
+                self.toggle_world_camera();
+            }
+            if act.handled {
+                return true;
             }
         }
         match code {
@@ -2982,8 +3070,8 @@ impl App {
             }
             return;
         }
-        if self.realm.world.inside_interior() {
-            if self.realm.world.leave_interior() {
+        if let Some(left) = self.realm.leave_interior() {
+            if left {
                 self.reset_world_yaw();
             }
             return;
@@ -3020,9 +3108,9 @@ impl App {
             | crate::ui::scryglass::StageSurface::Vault
             | crate::ui::scryglass::StageSurface::Fault => {}
             crate::ui::scryglass::StageSurface::Workshop
-            | crate::ui::scryglass::StageSurface::Loop
             | crate::ui::scryglass::StageSurface::WorldFirstPerson
             | crate::ui::scryglass::StageSurface::Hidden => {}
+            crate::ui::scryglass::StageSurface::Loop => {}
         }
         if !self.scryglass.controller.back() {
             self.focus_module("core");
@@ -3032,7 +3120,7 @@ impl App {
     pub(crate) fn on_key(&mut self, key: event::KeyEvent) {
         // `/setup` owns the keyboard while it is open. An approval still
         // answers first: a running turn may be waiting on it.
-        if self.setup.open() && self.pending_approval.is_none() {
+        if self.top_overlay() == Overlay::Setup {
             self.setup_key(key);
             return;
         }
@@ -3059,26 +3147,39 @@ impl App {
         }
         // An approval modal captures keys until answered: y/Enter approve,
         // a approve-all (this kind, rest of turn), n/Esc deny. Other keys ignored.
-        if self.pending_approval.is_some() {
-            use crate::ui::views::approval_view::{KeyOutcome, key_outcome};
-            match key_outcome(key.code, self.approval_choice()) {
-                KeyOutcome::Answer(d) => self.answer_approval(d),
-                KeyOutcome::Focus(i) => self.set_approval_choice(i),
-                KeyOutcome::Ignore => {} // keep waiting for a key the ask takes
+        match self.top_overlay() {
+            Overlay::Approval => {
+                use crate::ui::views::approval_view::{KeyOutcome, key_outcome};
+                match key_outcome(key.code, self.approval_choice()) {
+                    KeyOutcome::Answer(d) => self.answer_approval(d),
+                    KeyOutcome::Focus(i) => self.set_approval_choice(i),
+                    KeyOutcome::Ignore => {} // keep waiting for a key the ask takes
+                }
+                return;
             }
-            return;
-        }
-        if self.browser_picker.is_some() && self.browser_picker_key(key.code) {
-            return;
-        }
-        if self.loop_dialog.is_some() && self.loop_dialog_key(key.code) {
-            return;
-        }
-        if self.agent_menu.is_some() && self.agent_menu_key(key.code) {
-            return;
-        }
-        if self.moa_deck.is_some() && self.moa_deck_key(key.code, key.modifiers) {
-            return;
+            // Each of these takes every key while it is open, except the
+            // Formation deck, which hands a few (live-turn Esc, ^C, ^G) back.
+            Overlay::BrowserPicker => {
+                if self.browser_picker_key(key.code) {
+                    return;
+                }
+            }
+            Overlay::LoopDialog => {
+                if self.loop_dialog_key(key.code) {
+                    return;
+                }
+            }
+            Overlay::AgentMenu => {
+                if self.agent_menu_key(key.code) {
+                    return;
+                }
+            }
+            Overlay::MoaDeck => {
+                if self.moa_deck_key(key.code, key.modifiers) {
+                    return;
+                }
+            }
+            Overlay::Setup | Overlay::None => {}
         }
         if self.dungeon_key(key) {
             return;
@@ -3103,12 +3204,7 @@ impl App {
         if self.shell_focused {
             if let Some(sh) = self.shell.as_mut() {
                 if !sh.is_alive() {
-                    self.shell = None;
-                    self.shell_focused = false;
-                    let _ = self
-                        .module_host
-                        .suspend(&crate::platform::runtime::ModuleId::new("shell"));
-                    self.system_msg("shell process exited".to_string());
+                    self.close_shell(Some("shell process exited"));
                 } else if let Some(bytes) = pty::key_to_bytes(&key) {
                     sh.send(&bytes);
                     return;
@@ -3116,7 +3212,7 @@ impl App {
                     return;
                 }
             } else {
-                self.shell_focused = false;
+                self.close_shell(None);
             }
         }
         // Ctrl-L mirrors `/redraw`: clear stale outer-terminal cells on the
@@ -3326,23 +3422,18 @@ impl App {
     }
 
     pub(crate) fn on_paste(&mut self, text: &str) {
-        if self.pending_approval.is_some() {
-            return;
-        }
-        if self.setup.open() {
-            self.setup_paste(text);
-            return;
-        }
-        if self.loop_dialog.is_some() {
-            return;
-        }
-
-        if self.moa_deck_owns_input() {
-            return;
-        }
-
-        if self.agent_menu.is_some() {
-            return;
+        match self.top_overlay() {
+            Overlay::None => {}
+            Overlay::Setup => {
+                self.setup_paste(text);
+                return;
+            }
+            // Every other modal swallows a paste: none has a field to take it.
+            Overlay::Approval
+            | Overlay::BrowserPicker
+            | Overlay::LoopDialog
+            | Overlay::AgentMenu
+            | Overlay::MoaDeck => return,
         }
         if self.shell_focused {
             if let Some(sh) = self.shell.as_mut() {
@@ -3643,9 +3734,42 @@ impl App {
         }
     }
 
+    /// Take the waiting ask off the card. The answer it armed and its
+    /// worker's clock leave with it, so the next ask starts on Approve with a
+    /// clock of its own, whatever its words are.
+    pub(crate) fn take_approval(&mut self) -> Option<PendingApproval> {
+        self.approval_focus = (0, 0);
+        self.approval_deadline = None;
+        self.pending_approval.take()
+    }
+
+    /// Once per tick: clear what an ask left behind when something outside
+    /// this file (the loop's own code) took it, and retire an ask whose
+    /// worker has given up. The worker denied it at the deadline and left, so
+    /// a card still up would capture the keyboard for an answer nobody reads.
+    fn tick_approval(&mut self) {
+        let Some(pa) = &self.pending_approval else {
+            self.approval_focus = (0, 0);
+            self.approval_deadline = None;
+            return;
+        };
+        let Some((serial, deadline)) = self.approval_deadline else {
+            return;
+        };
+        if std::time::Instant::now() < deadline
+            || serial != crate::ui::views::approval_view::serial(&pa.prompt, pa.scope_label.as_deref())
+        {
+            return;
+        }
+        if let Some(pa) = self.take_approval() {
+            let _ = pa.reply.send(crate::agent::approval::Decision::Deny);
+        }
+        self.system_msg("approval request timed out · denied".to_string());
+    }
+
     /// Answer the waiting approval, by key or by a click on the card.
     pub(crate) fn answer_approval(&mut self, d: crate::approval::Decision) {
-        let Some(pa) = self.pending_approval.take() else {
+        let Some(pa) = self.take_approval() else {
             return;
         };
         let _ = pa.reply.send(d);
@@ -3666,9 +3790,11 @@ impl App {
     }
 
     pub(crate) fn on_mouse(&mut self, ev: event::MouseEvent) {
+        use angel_plug::stage::StageWorld;
         use crate::ui::mouse;
         use event::{MouseButton, MouseEventKind};
 
+        let overlay = self.top_overlay();
         // A link is a click-release gesture, never a drag. Reset even when a
         // modal/other surface consumes the event before transcript dispatch.
         if matches!(
@@ -3682,10 +3808,7 @@ impl App {
         }
         if matches!(ev.kind, MouseEventKind::Up(MouseButton::Left)) {
             let pressed = self.pressed_transcript_link.take();
-            if self.pending_approval.is_none()
-                && self.loop_dialog.is_none()
-                && self.agent_menu.is_none()
-                && !self.setup.open()
+            if !overlay.takes_pointer()
                 && self
                     .selection
                     .as_ref()
@@ -3716,16 +3839,14 @@ impl App {
         });
         if !world_drag_valid
             || matches!(ev.kind, MouseEventKind::Up(_) | MouseEventKind::Down(_))
-            || self.pending_approval.is_some()
-            || self.loop_dialog.is_some()
-            || self.agent_menu.is_some()
+            || overlay.takes_pointer()
         {
             self.scryglass_drag = None;
         }
         if matches!(ev.kind, MouseEventKind::Up(_)) && self.viewer.inspector.drag.take().is_some() {
             return;
         }
-        if self.pending_approval.is_some() {
+        if overlay == Overlay::Approval {
             self.viewer.inspector.drag = None;
             let under = self
                 .approval_hits
@@ -3745,12 +3866,29 @@ impl App {
             return;
         }
         let (x, y) = (ev.column, ev.row);
-        if self.setup.open() {
+        if overlay == Overlay::Setup {
             self.viewer.inspector.drag = None;
             self.setup_mouse(ev);
             return;
         }
-        if self.loop_dialog.is_some() {
+        // The `/browser` chooser: its rows are registered as world buttons, so
+        // a click on a row commits it; everything else stays off the panes
+        // behind it until it closes.
+        if overlay == Overlay::BrowserPicker {
+            self.viewer.inspector.drag = None;
+            if matches!(ev.kind, MouseEventKind::Down(MouseButton::Left))
+                && let Some(&(_, WorldButton::BrowserPick(index))) = self
+                    .world_buttons
+                    .iter()
+                    .find(|(rect, button)| {
+                        matches!(button, WorldButton::BrowserPick(_)) && mouse::point_in(*rect, x, y)
+                    })
+            {
+                self.commit_browser_pick(index);
+            }
+            return;
+        }
+        if overlay == Overlay::LoopDialog {
             self.viewer.inspector.drag = None;
             if matches!(ev.kind, MouseEventKind::Down(MouseButton::Left)) {
                 self.loop_dialog_click(x, y);
@@ -3764,7 +3902,7 @@ impl App {
 
         // The floating Brain Route deck owns the pointer while open. A click
         // outside closes it; wheel motion navigates without changing panes.
-        if self.agent_menu.is_some() {
+        if overlay == Overlay::AgentMenu {
             self.viewer.inspector.drag = None;
             match ev.kind {
                 MouseEventKind::ScrollUp => self.move_agent_menu(-1),
@@ -3938,13 +4076,13 @@ impl App {
                     .find(|(r, _)| mouse::point_in(*r, x, y))
                 {
                     match btn {
-                        AgentButton::Model if self.thinking.is_none() && self.bg_job.is_none() => {
+                        AgentButton::Model if !self.flight_owner().is_agent_busy() => {
                             self.open_agent_menu(
                                 crate::ui::agent_panel::controls::AgentMenuKind::Model,
                             )
                         }
                         AgentButton::ReasoningEffort
-                            if self.thinking.is_none() && self.bg_job.is_none() =>
+                            if !self.flight_owner().is_agent_busy() =>
                         {
                             self.open_agent_menu(
                                 crate::ui::agent_panel::controls::AgentMenuKind::Thinking,
@@ -3991,13 +4129,14 @@ impl App {
                 if self.scryglass_camera_hit(x, y) {
                     self.focus_module("artifacts");
                     self.scryglass.follow_agent = false;
-                    if let Some(rect) = self.panes.rect_of(mouse::PaneId::Artifacts) {
-                        self.scryglass_drag =
-                            Some(crate::stage::world_viz::world_camera::WorldDrag {
-                                last: (x, y),
-                                rect,
-                                surface: self.scryglass.surface,
-                            });
+                    if self.realm.has_world()
+                        && let Some(rect) = self.panes.rect_of(mouse::PaneId::Artifacts)
+                    {
+                        self.scryglass_drag = Some(crate::stage::WorldDrag {
+                            last: (x, y),
+                            rect,
+                            surface: self.scryglass.surface,
+                        });
                     }
                     self.selection = None;
                     self.copy_requested = false;
@@ -4112,8 +4251,9 @@ impl App {
     }
 
     fn scryglass_map_hit(&self, x: u16, y: u16) -> bool {
+        let adventure = self.realm.live_adventure_view();
         self.scryglass.surface == crate::ui::scryglass::StageSurface::WorldMap
-            && !self.realm.world.live_adventure_view()
+            && !adventure
             && self
                 .panes
                 .rect_of(crate::ui::mouse::PaneId::Artifacts)
@@ -4121,28 +4261,54 @@ impl App {
     }
 
     fn toggle_world_camera(&mut self) {
-        self.reset_world_yaw();
-        if self.realm.world.toggle_adventure_map() {
-            self.scryglass.return_to_world();
-            self.scryglass.follow();
-        } else if !self.realm.world.visiting_school() && !self.realm.world.inside_interior() {
-            self.scryglass.toggle_world_route(self.realm.world.destination());
-        }
+        use angel_plug::stage::StageRules;
+        let effect = self.realm.press_toggle_camera();
+        self.apply_stage_effect(effect);
     }
 
     fn enter_world_interior(&mut self) {
-        if self.realm.world.enter_interior() {
+        use angel_plug::stage::StageRules;
+        let effect = self.realm.press_enter();
+        self.apply_stage_effect(effect);
+    }
+
+    fn apply_stage_effect(&mut self, effect: angel_plug::stage::StageEffect) {
+        use angel_plug::stage::StagePlaces;
+        type Places = crate::app::control::realm::GameHost;
+        if effect.reset_yaw {
             self.reset_world_yaw();
-            if matches!(
+        }
+        if effect.stop_walk {
+            angel_live::realm::RealmHost::stop_walk(&mut self.realm);
+        }
+        if effect.return_to_world {
+            self.scryglass.return_to_world();
+        }
+        if effect.follow {
+            self.scryglass.follow();
+        }
+        if effect.back_from_arrival
+            && matches!(
                 self.scryglass.controller.overlay(),
                 Some(crate::ui::scryglass::StageOverlay::Arrival { .. })
-            ) {
-                self.scryglass.back_overlay();
-            }
+            )
+        {
+            self.scryglass.back_overlay();
+        }
+        if effect.open_catalog {
+            self.scryglass.open_catalog();
+        }
+        if let Some(place) = effect.explore.and_then(Places::place_of) {
+            self.scryglass
+                .navigate(crate::ui::scryglass::StageRoute::Explore(place));
+        }
+        if let Some(place) = effect.toggle_route.and_then(Places::place_of) {
+            self.scryglass.toggle_world_route(place);
         }
     }
 
     fn study_selected_catalog(&mut self) {
+        use angel_plug::stage::StageRules;
         let shelf = self.scryglass.selected_shelf();
         let topic = shelf
             .arc
@@ -4151,7 +4317,7 @@ impl App {
             .unwrap_or(shelf.title)
             .to_string();
         if self.scryglass.begin_selected_lesson() {
-            self.realm.world.begin_teaching_lesson(&topic);
+            self.realm.teach(&topic);
             self.focus_module("artifacts");
         } else {
             self.system_msg("Librarium is behind another active Scryglass surface.".to_string());
@@ -4241,29 +4407,26 @@ impl App {
     /// staged next/session roster; an in-flight turn owns its existing wrapper
     /// until completion.
     pub(crate) fn apply_world_button(&mut self, btn: WorldButton) {
+        use angel_plug::stage::StageRules;
         match btn {
-            WorldButton::DockSurface => {}
             WorldButton::DockToggle => {
                 self.object_dock.tiles.clear();
                 self.object_dock
                     .toggle(std::time::Instant::now(), self.visual_motion);
-                self.world_buttons.retain(|(_, button)| {
-                    matches!(button, WorldButton::DockToggle | WorldButton::DockSurface)
-                });
+                self.world_buttons
+                    .retain(|(_, button)| dock_control(button));
             }
             WorldButton::DockNext => {
                 self.object_dock.tiles.clear();
                 self.object_dock.page = self.object_dock.page.saturating_add(1);
-                self.world_buttons.retain(|(_, button)| {
-                    matches!(button, WorldButton::DockToggle | WorldButton::DockSurface)
-                });
+                self.world_buttons
+                    .retain(|(_, button)| dock_control(button));
             }
             WorldButton::DockPrevious => {
                 self.object_dock.tiles.clear();
                 self.object_dock.page = self.object_dock.page.saturating_sub(1);
-                self.world_buttons.retain(|(_, button)| {
-                    matches!(button, WorldButton::DockToggle | WorldButton::DockSurface)
-                });
+                self.world_buttons
+                    .retain(|(_, button)| dock_control(button));
             }
             WorldButton::Assets => {
                 self.scryglass.open_assets();
@@ -4271,11 +4434,8 @@ impl App {
             }
             WorldButton::Tower => {
                 while self.scryglass.back_overlay() {}
-                self.realm.world.visit_scrying_tower();
-                self.scryglass
-                    .navigate(crate::ui::scryglass::StageRoute::Explore(
-                        crate::stage::world_viz::Building::Observatory,
-                    ));
+                let effect = self.realm.press_tower();
+                self.apply_stage_effect(effect);
                 self.focus_module("artifacts");
             }
             WorldButton::AssetSelect(index) => {
@@ -4333,11 +4493,8 @@ impl App {
             }
             WorldButton::ScryglassLibrary => {
                 self.scryglass.back_overlay();
-                self.realm.world.begin_teaching_lesson("open shelves");
-                self.scryglass
-                    .navigate(crate::ui::scryglass::StageRoute::Explore(
-                        crate::stage::world_viz::Building::Scriptorium,
-                    ));
+                let effect = self.realm.press_library();
+                self.apply_stage_effect(effect);
                 self.scryglass.open_catalog();
                 self.focus_module("artifacts");
             }
@@ -4361,51 +4518,33 @@ impl App {
                 self.enter_world_interior();
             }
             WorldButton::ScryglassLeave => {
-                if self.realm.world.leave_interior() {
-                    self.reset_world_yaw();
-                }
+                let effect = self.realm.press_leave();
+                self.apply_stage_effect(effect);
             }
             WorldButton::ScryglassCatalog => {
-                if self.realm.world.interior_building()
-                    == Some(crate::stage::world_viz::Building::Scriptorium)
-                {
-                    self.scryglass.open_catalog();
-                }
+                let effect = self.realm.press_catalog();
+                self.apply_stage_effect(effect);
             }
             WorldButton::ScryglassStudy => self.study_selected_catalog(),
             WorldButton::ScryglassAskTutor => self.draft_current_lesson_for_tutor(),
             WorldButton::ScryglassCopySource => self.copy_current_lesson_source(),
             WorldButton::ScryglassFollow => {
-                if self.realm.walk.on {
-                    self.stop_walk();
-                } else if self.realm.world.visiting_scrying_tower() {
-                    self.realm.world.follow_overworld();
-                    self.scryglass.return_to_world();
-                } else if self.realm.world.live_adventure_view() {
-                    self.reset_world_yaw();
-                    self.scryglass.follow();
-                } else if self.scryglass.controller.route()
-                    == crate::ui::scryglass::StageRoute::Realm
-                {
-                    if self.realm.world.overworld_view_label().is_some() {
-                        self.realm.world.follow_overworld();
-                    } else {
-                        self.realm.world.cycle_camera_zoom();
-                    }
-                } else {
-                    self.scryglass.follow();
-                }
+                let realm_route =
+                    self.scryglass.controller.route() == crate::ui::scryglass::StageRoute::Realm;
+                let effect = self.realm.press_follow(realm_route);
+                self.apply_stage_effect(effect);
             }
-            WorldButton::ScryglassLandmark(building) => {
-                self.reset_world_yaw();
-                self.realm.world.select_landmark(building);
-                self.scryglass.return_to_world();
+            WorldButton::ScryglassLandmark(id) => {
+                let effect = self.realm.press_landmark(id);
+                self.apply_stage_effect(effect);
             }
             WorldButton::ScryglassVideoToggle => self.scryglass.toggle_video(),
             WorldButton::ScryglassVideoBack => self.scryglass.seek_video(-5),
             WorldButton::ScryglassVideoForward => self.scryglass.seek_video(5),
-            WorldButton::WalkIn => self.go_in(),
-            WorldButton::WalkLeave => self.stop_walk(),
+            WorldButton::WalkIn => {
+                self.with_realm(|realm, cx| angel_live::realm::RealmHost::go_in(realm, cx))
+            }
+            WorldButton::WalkLeave => angel_live::realm::RealmHost::stop_walk(&mut self.realm),
             WorldButton::Back => self.back_from_visual_surface(),
         }
     }
@@ -4473,7 +4612,7 @@ impl App {
             if self.scryglass.begin_lesson(term) {
                 // A2: knight walk to Scriptorium is Stage presentation only.
                 if crate::ui::surfaces::BackdropMode::from_env().paints_in_process() {
-                    self.realm.world.begin_teaching_lesson(&world_term);
+                    self.realm.feed(Feed::Lesson(&world_term));
                 }
                 self.focus_module("artifacts");
             } else {
@@ -4492,13 +4631,11 @@ impl App {
     pub(crate) fn finish_world_turn(&mut self, ok: bool) {
         self.research.finish_turn();
         self.note_ops_end(ok);
-        if crate::ui::surfaces::BackdropMode::from_env().paints_in_process()
-            && crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible)
-        {
-            self.realm.world.turn_ended(ok);
-        } else {
-            self.realm.world.turn_ended_hidden_stage(ok);
-        }
+        self.realm.feed(Feed::TurnEnded {
+            ok,
+            painted: crate::ui::surfaces::BackdropMode::from_env().paints_in_process()
+                && crate::drive::comp_mode::stage_world_mirrors_allowed(self.world_pane_visible),
+        });
     }
 
     fn vertical_composer_cursor(&self, delta: isize) -> usize {
@@ -4979,3 +5116,7 @@ mod reasoning_roll_grapheme_tests;
 #[cfg(test)]
 #[path = "../../../../tests/cockpit/app/app_control__turn_io__r04c_cont2_measurements.rs"]
 mod r04c_cont2_measurements;
+
+fn dock_control(button: &WorldButton) -> bool {
+    matches!(button, WorldButton::DockToggle)
+}

@@ -8,6 +8,16 @@
 id = "dig"
 label = "DigUp"
 
+[plugin]
+version = "1.0.0"
+description = "Find files by what they show or say (pictures, PDFs, documents, recordings, video, code) with a local DigUp index."
+authors = ["angelX contributors"]
+license = "MIT"
+repository = "https://github.com/newjordan/angelX"
+keywords = ["search", "semantic", "files", "images", "pdf", "code", "local"]
+# Linux x86_64: unpacks DigUp's pinned helper and fetches its model (865 MB, once).
+setup = "install.sh"
+
 [[commands]]
 name = "dig"
 usage = "<what you're looking for, in your own words>"

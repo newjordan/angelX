@@ -35,6 +35,7 @@ pub fn room(kind: RoomKind) -> bool {
                 | RoomKind::Wanted
                 | RoomKind::Ledge
                 | RoomKind::Forge
+                | RoomKind::DwarfHall
                 | RoomKind::Holding
                 | RoomKind::Kitchen
                 | RoomKind::Reading
@@ -94,6 +95,7 @@ impl Run {
             || self.powder.as_ref().is_some_and(|s| s.room == self.at)
             || self.hop.as_ref().is_some_and(|s| s.room == self.at)
             || self.nook.as_ref().is_some_and(|s| s.room == self.at)
+            || self.encounter_running()
     }
 
     pub fn can_hold_leave(&self, id: u32) -> bool {
@@ -152,8 +154,7 @@ impl Run {
             return;
         }
         self.exits.holding.clear();
-        if !room(self.dungeon.rooms[index].kind)
-            && ![self.folly_room, self.gantry_room, self.race3d_room].contains(&Some(index)) {
+        if !room(self.dungeon.rooms[index].kind) && !self.hosts_game(index) {
             self.exits.entry = None;
         } else {
             // Where each knight stands in the room left, kept inside it: a
@@ -598,6 +599,8 @@ impl Run {
         if self.powder.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.powder = None; }
         if self.hop.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.hop = None; }
         if self.nook.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.nook = None; }
+        // A random room's game ends with its stage (`encounter`).
+        if self.encounter.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.abandon_encounter(); }
         if self.race3d.as_ref().is_some_and(|s| room.is_none_or(|at| s.room == at)) { self.race3d = None; }
     }
 
@@ -615,12 +618,14 @@ impl Run {
         self.projectiles.clear();
         self.imps.clear();
         self.strikes.clear();
+        self.zones.clear();
         self.spheres.clear();
         self.phantoms.clear();
         self.kegs.clear();
         self.lobs.clear();
         self.flings.clear();
         self.wells.clear();
+        self.sacs.clear();
         self.hooks.clear();
         self.webs.clear();
         self.slams.clear();

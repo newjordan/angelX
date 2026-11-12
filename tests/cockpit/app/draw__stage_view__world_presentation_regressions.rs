@@ -1,15 +1,17 @@
+#![cfg(feature = "delve")]
 use super::*;
 
 /// Exercise the real Stage router while the native image worker would have
 /// enough time to replace the first Dotmax fallback. All rooms, two layouts,
 /// animated ticks and a leave/re-enter cycle must retain dot glyphs.
+#[cfg(feature = "delve")]
 #[test]
 fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
     let _guard = crate::tests::env_lock();
     let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _backed = crate::tests::TestEnvGuard::set("ANGEL_BACKED_MAP", "1");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    use crate::stage::world_viz::Building;
+    use crate::delve::world_viz::Building;
     for building in [
         Building::Keep,
         Building::Gatehouse,
@@ -21,7 +23,7 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
         Building::Observatory,
     ] {
         let mut app = App::preview(crate::ui::viewer::Viewer::new());
-        app.realm.world = crate::stage::world_viz::World::new(71);
+        app.realm.world = crate::delve::world_viz::World::new(71);
         app.realm.world.settle_at_for_test(building);
         app.scryglass = crate::ui::scryglass::Scryglass::for_world(building);
         app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Full;
@@ -79,12 +81,13 @@ fn every_room_stays_dot_rendered_after_worker_warmup_and_resize() {
 
 /// Exercise the default route, including the real stage dispatcher and dot
 /// bridge: an active mine journey must move without opting into Explore.
+#[cfg(feature = "delve")]
 #[test]
 fn default_realm_animates_the_expedition_and_map_visits_still_win() {
     let _guard = crate::tests::env_lock();
     let _protocol = crate::tests::TestEnvGuard::set("ANGEL_IMAGE_PROTOCOL", "halfblocks");
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
-    use crate::stage::world_viz::{AdventureEvent, Building, LoopKind, World};
+    use crate::delve::world_viz::{AdventureEvent, Building, LoopKind, World};
     let mut app = App::preview(crate::ui::viewer::Viewer::new());
     app.realm.world = World::new(42);
     app.realm.world.settle_at_for_test(Building::Keep);
@@ -140,13 +143,14 @@ fn default_realm_animates_the_expedition_and_map_visits_still_win() {
     assert!(app.realm.world.live_adventure_view());
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn object_dock_routes_real_stage_actions_and_collapsed_draw_removes_hits() {
     let _guard = crate::tests::env_lock();
     let _comp = crate::tests::TestEnvGuard::unset("ANGEL_COMP_MODE");
     let mut app = App::preview(crate::ui::viewer::Viewer::new());
     app.scryglass = crate::ui::scryglass::Scryglass::for_world(
-        crate::stage::world_viz::Building::Keep);
+        crate::ui::scryglass::Building::Keep);
     app.visual_motion = crate::ui::viz::lifecycle_viz::MotionMode::Off;
     let mut terminal = ratatui::Terminal::new(
         ratatui::backend::TestBackend::new(100, 26)).unwrap();
@@ -209,6 +213,7 @@ fn object_dock_routes_real_stage_actions_and_collapsed_draw_removes_hits() {
         "asset overlays must not inherit hidden dock hits");
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn object_dock_every_action_gets_real_mouse_clicks_even_when_called_to_delve() {
     use crate::tests::{env_lock, TestEnvGuard};

@@ -45,6 +45,7 @@ fn research_door(map: &Map) -> &Value {
     &map.nodes[map.index["q.open"]]
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn checked_negative_routes_reach_fresh_plan_context_without_closing_the_question() {
     let workspace = Workspace::new();

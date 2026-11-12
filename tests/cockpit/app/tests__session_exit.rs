@@ -450,3 +450,199 @@ fn graceful_exit_keeps_status_available_and_new_submitted_input_cancels_it() {
     );
     drop(worker);
 }
+
+fn land_green_reborn_build(app: &mut App, exe: &str) {
+    let (tx, rx) = std::sync::mpsc::channel();
+    app.reborn_rx = Some(rx);
+    tx.send(Ok(PathBuf::from(exe))).unwrap();
+    app.drain_reborn();
+}
+
+fn finish_live_turn(app: &mut App, worker: &TurnSender) {
+    let mut completed = app.history.clone();
+    completed.push(ChatMsg::assistant("owned completed answer"));
+    worker
+        .send(Ok((
+            completed,
+            "owned completed answer".into(),
+            crate::agent::club::RouteIdentity {
+                driver: "practice".into(),
+                model: None,
+                reasoning_effort: None,
+            },
+            crate::agent::harness::TurnStopReason::Answer,
+        )))
+        .unwrap();
+    // The first tick takes the finished turn; the next reaches the idle boundary.
+    app.advance();
+    assert!(app.thinking.is_none());
+    app.advance();
+}
+
+#[test]
+fn reborn_landing_waits_for_the_live_turn_and_retains_queued_input_on_the_way_out() {
+    let _lock = env_lock();
+    let fixture = Fixture::new();
+    let _env = [
+        TestEnvGuard::set("HOME", fixture.0.to_str().unwrap()),
+        TestEnvGuard::set("ANGEL_REPO_IDENTITY", "0"),
+    ];
+    let (mut app, worker) = seed_live_streaming_app(Vec::new());
+    bind_owned_session(&mut app, &fixture);
+    let sentinel = "EXACT_QUEUED_BEFORE_REBORN_LANDS";
+    app.input = sentinel.into();
+    app.submit();
+    assert_eq!(app.steer_queue.len(), 1);
+
+    land_green_reborn_build(&mut app, "/offline/angel-next");
+    assert!(app.thinking.is_some());
+    assert!(
+        !app.should_quit,
+        "a green build must not end the run loop under a live turn"
+    );
+    assert_eq!(
+        app.exit_request,
+        Some(crate::app::ExitRequest::WaitingForIdle)
+    );
+    assert_eq!(
+        app.reborn_exec.as_deref(),
+        Some(std::path::Path::new("/offline/angel-next"))
+    );
+
+    finish_live_turn(&mut app, &worker);
+    assert!(app.should_quit);
+    assert_eq!(
+        app.reborn_exec.as_deref(),
+        Some(std::path::Path::new("/offline/angel-next"))
+    );
+    assert!(app.steer_queue.is_empty());
+    let record: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(app.session.path()).unwrap()).unwrap();
+    assert!(
+        record["history"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|m| m["content"] == sentinel),
+        "the queued message is retained in the saved session"
+    );
+}
+
+#[test]
+fn new_input_after_a_reborn_landing_cancels_the_restart_and_leaves_no_staged_exec() {
+    let _lock = env_lock();
+    let fixture = Fixture::new();
+    let _env = [
+        TestEnvGuard::set("HOME", fixture.0.to_str().unwrap()),
+        TestEnvGuard::set("ANGEL_REPO_IDENTITY", "0"),
+    ];
+    let (mut app, worker) = seed_live_streaming_app(Vec::new());
+    bind_owned_session(&mut app, &fixture);
+    land_green_reborn_build(&mut app, "/offline/angel-next");
+    assert!(app.reborn_exec.is_some());
+
+    app.input = "carry on with something else".into();
+    app.submit();
+    assert!(app.exit_request.is_none() && !app.should_quit);
+    assert!(
+        app.reborn_exec.is_none(),
+        "a cancelled exit must not leave the restart staged"
+    );
+
+    // A later ordinary exit closes the cockpit; it never execs the old build.
+    app.input = "/exit".into();
+    app.submit();
+    assert!(!app.should_quit);
+    app.input = "/exit".into();
+    app.submit();
+    assert!(app.should_quit);
+    assert!(app.reborn_exec.is_none());
+    drop(worker);
+}
+
+#[test]
+fn typed_exit_while_a_reborn_restart_waits_closes_without_restarting() {
+    let _lock = env_lock();
+    let fixture = Fixture::new();
+    let _env = [
+        TestEnvGuard::set("HOME", fixture.0.to_str().unwrap()),
+        TestEnvGuard::set("ANGEL_REPO_IDENTITY", "0"),
+    ];
+    let (mut app, worker) = seed_live_streaming_app(Vec::new());
+    bind_owned_session(&mut app, &fixture);
+    land_green_reborn_build(&mut app, "/offline/angel-next");
+    assert!(!app.should_quit);
+
+    app.input = "/exit".into();
+    app.submit();
+    assert!(app.should_quit);
+    assert!(app.reborn_exec.is_none(), "/exit means exit, not restart");
+    drop(worker);
+}
+
+#[test]
+fn reborn_build_landing_after_an_exit_request_keeps_the_plain_exit() {
+    let _lock = env_lock();
+    let fixture = Fixture::new();
+    let _env = [
+        TestEnvGuard::set("HOME", fixture.0.to_str().unwrap()),
+        TestEnvGuard::set("ANGEL_REPO_IDENTITY", "0"),
+    ];
+    let (mut app, worker) = seed_live_streaming_app(Vec::new());
+    bind_owned_session(&mut app, &fixture);
+    app.input = "/exit".into();
+    app.submit();
+    assert_eq!(
+        app.exit_request,
+        Some(crate::app::ExitRequest::WaitingForIdle)
+    );
+
+    land_green_reborn_build(&mut app, "/offline/angel-next");
+    assert!(!app.should_quit);
+    assert!(app.reborn_exec.is_none());
+    assert_eq!(
+        app.exit_request,
+        Some(crate::app::ExitRequest::WaitingForIdle)
+    );
+
+    finish_live_turn(&mut app, &worker);
+    assert!(app.should_quit);
+    assert!(app.reborn_exec.is_none());
+}
+
+#[test]
+fn reborn_landing_under_a_live_loop_does_not_restart() {
+    let _lock = env_lock();
+    let mut app = seed_preview_app();
+    app.loop_ctl.status = loop_ctl::LoopStatus::Running;
+
+    land_green_reborn_build(&mut app, "/offline/angel-next");
+    assert!(app.reborn_rx.is_none());
+    assert!(!app.should_quit);
+    assert!(app.exit_request.is_none());
+    assert!(app.reborn_exec.is_none());
+    assert!(
+        app.messages.last().unwrap().text.contains("loop"),
+        "the operator is told why the restart did not happen"
+    );
+}
+
+#[test]
+fn archive_and_delete_wait_while_a_turn_is_live() {
+    let _lock = env_lock();
+    let fixture = Fixture::new();
+    let _env = [
+        TestEnvGuard::set("HOME", fixture.0.to_str().unwrap()),
+        TestEnvGuard::set("ANGEL_REPO_IDENTITY", "0"),
+    ];
+    let (mut app, worker) = seed_live_streaming_app(Vec::new());
+    bind_owned_session(&mut app, &fixture);
+    for command in ["/archive", "/delete"] {
+        app.input = command.into();
+        app.submit();
+        assert!(!app.should_quit, "{command} must not close a live turn");
+        assert!(app.session.path().is_file(), "{command} left the session");
+        assert!(app.thinking.is_some());
+    }
+    drop(worker);
+}

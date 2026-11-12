@@ -15,6 +15,7 @@ use super::knight::{
 };
 use super::boss::{BOSS_ID, Beat as BossBeat, Boss};
 use super::layout::{self, HEIGHT, SNOW, WIDTH, cell_centre, cell_feet, info, world};
+use super::show::{Cry, Kind, Show};
 use super::world::{Grid, TILE, Tile, World};
 use crate::rules::{HZ, Hero, Input, MAX_PLAYERS};
 use serde::{Deserialize, Serialize};
@@ -134,6 +135,9 @@ pub struct Session {
     /// The board has been up once on this way in.
     pub seen: bool,
     pub completed: Option<u32>,
+    /// What the picture remembers: marks, calls and weighty blows (`show`).
+    #[serde(default, skip_serializing_if = "Show::quiet")]
+    pub show: Show,
 }
 
 /// The map as it stands: the fixed tiles with the changed ones over them.
@@ -191,6 +195,7 @@ impl Session {
             scaled: 0,
             seen: false,
             completed: None,
+            show: Show::default(),
         };
         let ids: Vec<u32> = players
             .iter()
@@ -318,6 +323,7 @@ impl Session {
             && self.wipe <= WIPE_TICKS
             && self.scaled <= MAX_PLAYERS as u8
             && self.completed.is_none_or(|t| t <= self.elapsed)
+            && self.show.valid()
             && (self.phase != Phase::Finale || self.banners == 0xFF)
     }
 
@@ -369,6 +375,9 @@ impl Session {
         }
         if self.phase == Phase::Finale && self.banners != 0xFF {
             self.phase = Phase::Play;
+        }
+        if !self.show.valid() {
+            self.show = Show::default();
         }
     }
 
@@ -439,6 +448,7 @@ impl Session {
                 .filter(|i| i.valid())
                 .unwrap_or_default()
         };
+        self.show.tick(self.elapsed);
         self.fx.iter_mut().for_each(|f| f.t = f.t.saturating_sub(1));
         self.fx.retain(|f| f.t > 0);
         if let Some(a) = &mut self.announce {
@@ -606,6 +616,7 @@ impl Session {
             self.step_pole(k, say);
             return;
         }
+        let start = (k.pips, k.size, k.pit, k.bubble.is_some());
         let (mut cmd, bits) = k.cmd(input);
         if k.pose > 0 {
             // The item-get pose: held still, the world goes on.
@@ -635,6 +646,40 @@ impl Session {
         // The last safe footing: still on plain ground, not by a hazard.
         self.note_safe(k);
         k.prev = bits;
+        self.note_show(id, k, start);
+    }
+
+    /// What the picture should make a fuss of after this knight's tick: dust
+    /// under a running foot, a hurt, a fall, a knight gone down.
+    fn note_show(&mut self, id: u32, k: &Knight, start: (u8, Size, u32, bool)) {
+        let (pips, size, pit, bubble) = start;
+        let now = self.elapsed;
+        let (fx, fy) = k.body.foot();
+        let rank = |s: Size| match s {
+            Size::Small => 0,
+            Size::Big => 1,
+            Size::Flame => 2,
+        };
+        if k.pit > 0 && pit == 0 {
+            self.show.mark(now, Kind::Pit, fx, fy.min(HEIGHT * TILE - 8), id, 0);
+        } else if k.bubble.is_some() && !bubble {
+            self.show.mark(now, Kind::Down, fx, fy - 10, id, 0);
+            self.show.blow(now, id, fx, fy - 10, show_weight(true));
+        } else if k.pips < pips || rank(k.size) < rank(size) {
+            let way = if k.body.vx >= 0 { 1 } else { -1 };
+            self.show.mark(now, Kind::Hurt, fx, fy - 10, id, way);
+            self.show.blow(now, id, fx, fy - 10, show_weight(false));
+        }
+        if k.body.ground
+            && k.body.mode == Move::Ground
+            && !k.body.crouch
+            && k.pit == 0
+            && k.bubble.is_none()
+            && k.body.vx.abs() > 720
+            && (now + id) % 4 == 0
+        {
+            self.show.mark(now, Kind::Step, fx, fy, id, i32::from(k.body.vx.signum()));
+        }
     }
 
     fn note_safe(&mut self, k: &mut Knight) {
@@ -667,21 +712,50 @@ impl Session {
     ) {
         let (fx, fy) = k.body.foot();
         match e {
-            Ev::Jump(kind) => match kind {
-                Jump::Second => say.push("swing"),
-                Jump::Triple => say.push("spell_cast"),
-                Jump::Long | Jump::Back | Jump::Kick => say.push("roll"),
-                Jump::Spring => say.push("shield_up"),
-                _ => {}
-            },
+            Ev::Jump(kind) => {
+                let now = self.elapsed;
+                match kind {
+                    Jump::Second => say.push("swing"),
+                    Jump::Triple => say.push("spell_cast"),
+                    Jump::Long | Jump::Back | Jump::Kick => say.push("roll"),
+                    Jump::Spring => say.push("shield_up"),
+                    _ => {}
+                }
+                let n = match kind {
+                    Jump::Plain => 0,
+                    Jump::Second => 1,
+                    Jump::Triple => 2,
+                    Jump::Long => 3,
+                    Jump::Back => 4,
+                    Jump::Kick => 5,
+                    Jump::Spring => 6,
+                    Jump::Bounce | Jump::None => 7,
+                };
+                if kind == Jump::Kick {
+                    let wall = i32::from(k.body.wall) * 7;
+                    self.show.mark(now, Kind::Kick, fx + wall, fy - 10, id, i32::from(k.body.face));
+                } else if kind == Jump::Spring {
+                    self.show.mark(now, Kind::Spring, fx, fy, id, 0);
+                    self.show.shout(now, Cry::Lift, id);
+                    self.show.blow(now, id, fx, fy, crate::rules::juice::Weight::Solid);
+                } else {
+                    self.show.mark(now, Kind::Hop, fx, fy, id, n);
+                }
+            }
             Ev::Land { fell } => {
                 k.landed = 0;
                 if fell > 1700 {
                     self.fx(FxKind::Dust, fx, fy);
                     say.push("step_stone");
                 }
+                if fell > 900 {
+                    self.show.mark(self.elapsed, Kind::Land, fx, fy, id, fell / Q);
+                }
             }
-            Ev::Skid => self.fx(FxKind::Dust, fx, fy),
+            Ev::Skid => {
+                self.fx(FxKind::Dust, fx, fy);
+                self.show.mark(self.elapsed, Kind::Skid, fx, fy, id, i32::from(k.body.face));
+            }
             Ev::Spring => {}
             Ev::Hatch => {
                 let tile = (fx.div_euclid(TILE), fy.div_euclid(TILE));
@@ -697,6 +771,8 @@ impl Session {
             Ev::Slam { x, y } => {
                 k.shock = 10;
                 k.chain = 0;
+                self.show.mark(self.elapsed, Kind::Slam, x, y, id, knobs.slam);
+                self.show.blow(self.elapsed, id, x, y, crate::rules::juice::Weight::Crushing);
                 self.slam(id, k, x, y, knobs.slam, say);
             }
         }
@@ -709,20 +785,25 @@ impl Session {
         match t {
             Tile::Coin => {
                 self.set_tile(tx, ty, Tile::Spent);
-                self.coin(k, say);
+                self.coin(id, k, say);
                 self.fx(FxKind::Coin, cx, top);
                 self.fx(FxKind::Bump, cx, top);
+                self.show.mark(self.elapsed, Kind::Coin, cx, top, id, 0);
+                self.show.mark(self.elapsed, Kind::Block, cx, top, id, 0);
                 say.push("clang");
             }
             Tile::Many(n) => {
                 self.set_tile(tx, ty, if n > 1 { Tile::Many(n - 1) } else { Tile::Spent });
-                self.coin(k, say);
+                self.coin(id, k, say);
                 self.fx(FxKind::Coin, cx, top);
                 self.fx(FxKind::Bump, cx, top);
+                self.show.mark(self.elapsed, Kind::Coin, cx, top, id, 0);
+                self.show.mark(self.elapsed, Kind::Block, cx, top, id, 0);
                 say.push("clang");
             }
             Tile::Power => {
                 self.set_tile(tx, ty, Tile::Spent);
+                self.show.mark(self.elapsed, Kind::Block, cx, top, id, 1);
                 let kind = if k.size == Size::Small {
                     ItemKind::Loaf
                 } else {
@@ -740,9 +821,11 @@ impl Session {
                     for d in [-5, 5] {
                         self.fx(FxKind::Debris, cx + d, top + 8);
                     }
+                    self.show.mark(self.elapsed, Kind::Block, cx, top + 8, id, 2);
                     say.push("crack_open");
                 } else {
                     self.fx(FxKind::Bump, cx, top);
+                    self.show.mark(self.elapsed, Kind::Block, cx, top, id, 0);
                     say.push("clang");
                 }
             }
@@ -764,10 +847,13 @@ impl Session {
         }
     }
 
-    fn coin(&mut self, k: &mut Knight, say: &mut Vec<&'static str>) {
+    fn coin(&mut self, id: u32, k: &mut Knight, say: &mut Vec<&'static str>) {
         k.coins += 1;
         k.score += 10;
         say.push("gold");
+        if k.coins % 100 == 0 {
+            self.show.shout(self.elapsed, Cry::Hundred, id);
+        }
         if k.coins % 20 == 0 {
             k.pips = (k.pips + 1).min(PIPS);
         }
@@ -796,6 +882,20 @@ impl Session {
             k.score += 500;
             self.fx(FxKind::Debris, self.boss.x, y - 8);
             self.fx(FxKind::Gleam, self.boss.x, y - 14);
+            {
+                use crate::rules::juice::Weight;
+                let now = self.elapsed;
+                let (bx, by) = (self.boss.x, y - 22);
+                if self.boss.defeated() {
+                    self.show.mark(now, Kind::Crown, bx, by, _id, i32::from(self.boss.phase));
+                    self.show.blow(now, _id, bx, by, Weight::Finale);
+                    self.show.shout(now, Cry::Crown, _id);
+                } else {
+                    self.show.mark(now, Kind::Plate, bx, by, _id, i32::from(self.boss.plates));
+                    self.show.blow(now, _id, bx, by, Weight::Kill);
+                    self.show.shout(now, Cry::Plate, _id);
+                }
+            }
             say.push(if self.boss.defeated() {
                 "boss_death"
             } else if self.boss.phase > phase {
@@ -909,8 +1009,9 @@ impl Session {
             let (cx, cy) = cell_centre(c);
             if overlap(me, (cx - 5, cy - 5, cx + 5, cy + 5)) {
                 self.taken.insert(n16);
-                self.coin(k, say);
+                self.coin(id, k, say);
                 self.fx(FxKind::Coin, cx, cy);
+                self.show.mark(self.elapsed, Kind::Coin, cx, cy, id, 1);
             }
         }
         // The ring of eight.
@@ -922,6 +1023,7 @@ impl Session {
             if overlap(me, (cx - 7, cy - 7, cx + 7, cy + 7)) {
                 self.sparks |= 1 << n;
                 self.fx(FxKind::Gleam, cx, cy);
+                self.show.mark(self.elapsed, Kind::Spark, cx, cy, id, n as i32);
                 say.push("spell_cast");
                 if self.sparks == 0xFF {
                     self.award(6, Some(k), say);
@@ -950,6 +1052,7 @@ impl Session {
                 if self.gates & (1 << n) == 0 {
                     self.gates |= 1 << n;
                     self.fx(FxKind::Gleam, cx, cy);
+                    self.show.mark(self.elapsed, Kind::Gate, cx, cy + 8, id, n as i32);
                     say.push("shield_up");
                 }
                 if (n as u8) + 1 > self.checkpoint {
@@ -983,6 +1086,7 @@ impl Session {
                     banner: 2,
                     t: ANNOUNCE_TICKS,
                 });
+                self.show.mark(self.elapsed, Kind::Banner, pole_x, base - height * TILE, 0, 2);
             }
         }
         // The courtyard's door and the board: E at either.
@@ -1061,11 +1165,25 @@ impl Session {
             t: ANNOUNCE_TICKS,
         });
         say.push("wish_grant");
+        let (px, py) = cell_centre(info().great_pole);
+        let mut at = (px, py);
+        let mut together = 0u8;
         if let Some(k) = who {
             k.pose = POSE_TICKS;
             k.score += 1000;
             let (fx, fy) = k.body.foot();
             self.fx(FxKind::Gleam, fx, fy - 24);
+            at = (fx, fy);
+            // Friends standing by when it goes up: the table raised it together.
+            together = 1 + self
+                .seats
+                .values()
+                .filter(|o| o.alive() && (o.body.foot().0 - fx).abs() < 150 && (o.body.foot().1 - fy).abs() < 90)
+                .count() as u8;
+        }
+        self.show.mark(self.elapsed, Kind::Banner, at.0, at.1, 0, i32::from(banner));
+        if together >= 2 && self.seats.len() >= 1 {
+            self.show.shout(self.elapsed, Cry::Together(together), 0);
         }
     }
 
@@ -1435,6 +1553,16 @@ impl Session {
                     k.chain = k.chain.saturating_add(1);
                     k.body.bounce(bits & super::knight::B_JUMP != 0);
                 }
+                {
+                    let now = self.elapsed;
+                    let chain = i32::from(k.chain);
+                    self.show.mark(now, Kind::Stomp, cx, cy - 6, id, value.min(30000) as i32);
+                    let weight = if chain >= 4 || striking { crate::rules::juice::Weight::Crushing } else { crate::rules::juice::Weight::Solid };
+                    self.show.blow(now, id, cx, cy - 6, weight);
+                    if chain >= 3 && chain % 2 == 1 {
+                        self.show.shout(now, Cry::Chain(chain.min(255) as u8), id);
+                    }
+                }
                 if kind == FoeKind::Capped && !striking {
                     let mut cap = Item::new(ItemKind::Cap, cx, cy);
                     cap.dir = if k.body.face > 0 { 1 } else { -1 };
@@ -1492,6 +1620,7 @@ impl Session {
                         gone.push(n);
                         say.push("potion");
                         k.score += 1000;
+                        self.show.mark(self.elapsed, Kind::Power, fx, k.body.foot().1 - 10, id, it.kind as i32);
                         match (it.kind, k.size) {
                             (ItemKind::Loaf, Size::Small) | (ItemKind::Flame, Size::Small) => {
                                 k.size = Size::Big;
@@ -1595,6 +1724,7 @@ impl Session {
                     c.t = 0;
                     k.body.bounce(bits & super::knight::B_JUMP != 0);
                     say.push("kill");
+                    self.show.mark(self.elapsed, Kind::Cap, it.rect().0 + 7, it.rect().1, id, 0);
                 } else if bits & super::knight::B_ACT != 0 && !k.carry && k.free() {
                     let c = &mut self.items[n];
                     c.cap = CapState::Carried;
@@ -1649,7 +1779,9 @@ impl Session {
             let hit = alive
                 .iter()
                 .find(|(_, r, _)| overlap(*r, (bx - 12, by - 12, bx + 12, by + 12)));
-            if let Some(&(_, _, (fx, fy))) = hit {
+            if let Some(&(rescuer, _, (fx, fy))) = hit {
+                self.show.mark(self.elapsed, Kind::Rescue, bx, by, id, 0);
+                self.show.shout(self.elapsed, Cry::Saved, rescuer);
                 if let Some(k) = self.seats.get_mut(&id) {
                     k.bubble = None;
                     k.pips = BACK_PIPS;
@@ -1681,3 +1813,12 @@ impl Session {
 #[cfg(all(test, feature = "bend-cases-games-a-bannerpeak"))]
 #[path = "../../../tests/rules/bannerpeak_session_bend_cases__tests.rs"]
 pub mod bend_cases_session;
+
+/// How hard a fall or a hurt lands on the picture.
+fn show_weight(down: bool) -> crate::rules::juice::Weight {
+    if down {
+        crate::rules::juice::Weight::Crushing
+    } else {
+        crate::rules::juice::Weight::Solid
+    }
+}

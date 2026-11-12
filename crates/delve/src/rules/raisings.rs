@@ -209,6 +209,10 @@ pub fn settle(raised: &mut Vec<Raised>, treasury: &mut Spoils, orders: &[Order])
     let mut changed = false;
     let mut said = Vec::new();
     for order in orders {
+        // A `bom:` order is a work of Bomrekedan's (`bomrekedan::works`).
+        if order.plan.starts_with(super::world::bomrekedan::works::PREFIX) {
+            continue;
+        }
         let Some(plan) = plan(&order.plan) else {
             continue;
         };
@@ -391,11 +395,14 @@ impl Run {
     /// delve starts.
     pub(super) fn raised_gifts(&mut self, first: bool) {
         let raised = &self.home.raised;
+        // Bomrekedan's works add theirs, at most MOST_GIVEN of each gift.
+        let works = &self.home.bomrekedan;
         let points = |gift: Gift| -> u32 {
             (0..raised.len())
                 .filter(|&i| plan(&raised[i].plan).is_some_and(|p| p.gift == gift))
                 .map(|i| strength(raised, i))
-                .sum()
+                .sum::<u32>()
+                + works.points(gift)
         };
         let (wishes, purse) = (points(Gift::Wishes), points(Gift::Purse));
         let (bombs, mail, ward) = (points(Gift::Bombs), points(Gift::Mail), points(Gift::Ward));

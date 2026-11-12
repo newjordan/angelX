@@ -175,3 +175,44 @@ fn weave_export_pngs() {
         }
     }
 }
+
+/// Film only (Knights Wish film, 2026-11-04): the Mage's weave a tick a frame,
+/// native size, three spells back to back among demons.
+/// `KW_WEAVE_FILM=<dir> cargo test kw_weave_film -- --ignored`
+#[test]
+#[ignore = "film export"]
+fn kw_weave_film() {
+    let dir = &std::path::PathBuf::from(std::env::var_os("KW_WEAVE_FILM").expect("set KW_WEAVE_FILM"));
+    std::fs::create_dir_all(dir).unwrap();
+    let mut n = 0u32;
+    let mut shoot = |r: &Run| {
+        let im = super::super::seat_scene(r, super::super::NATIVE_W, super::super::NATIVE_H + super::super::party::BAND_H + super::super::party::HUD_H, Some(1)).compose();
+        image::RgbaImage::from_raw(im.w as u32, im.h as u32, im.rgba_scaled(1)).unwrap().save(dir.join(format!("{n:05}.png"))).unwrap();
+        n += 1;
+    };
+    let mut r = Run::new(21, 1, None);
+    let room = r.dungeon.rooms.iter().position(|r| r.kind == RoomKind::Fight && !r.great()).unwrap();
+    r.enter_for_test(room);
+    r.calm_for_test();
+    r.enemies.clear();
+    r.projectiles.clear();
+    r.dungeon.depth = 7;
+    let mage = crate::rules::classes::CLASSES.iter().find(|c| c.name == "Mage").unwrap();
+    r.become_class(1, mage);
+    let h = r.players.get_mut(&1).unwrap();
+    (h.x, h.y, h.aim_x, h.aim_y) = (8.0, 14.0, 1.0, 0.0);
+    h.invulnerable = 100_000;
+    let foes = |r: &mut Run| for (x, y) in [(25.0, 13.0), (27.0, 15.0), (28.0, 12.5), (26.0, 16.5), (29.0, 14.5), (24.0, 11.0)] { r.spawn_at_for_test(EnemyKind::Demon, x, y); };
+    foes(&mut r);
+    let idle = |r: &mut Run, ticks: u32, shoot: &mut dyn FnMut(&Run)| for _ in 0..ticks { r.step(&BTreeMap::new()); shoot(r); };
+    let tap = |r: &mut Run, cast: u8, shoot: &mut dyn FnMut(&Run)| { r.step(&BTreeMap::from([(1, Input { cast, ..Default::default() })])); shoot(r); };
+    idle(&mut r, 20, &mut shoot);
+    for (keys, hold) in [([1u8, 2, 3], 70u32), ([3, 3, 3], 55), ([1, 1, 1], 60)] {
+        for k in keys { tap(&mut r, k, &mut shoot); idle(&mut r, 9, &mut shoot); }
+        idle(&mut r, 6, &mut shoot);
+        tap(&mut r, 4, &mut shoot);
+        idle(&mut r, hold, &mut shoot);
+        if r.enemies.len() < 3 { foes(&mut r); }
+    }
+    idle(&mut r, 20, &mut shoot);
+}

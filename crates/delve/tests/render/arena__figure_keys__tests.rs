@@ -14,7 +14,11 @@ fn a_key_says_what_a_figure_is() {
     assert!(is_key(&key));
     assert_eq!(parts(&key), Some(["knight", "realm", "slash", "3", "seat2", "r"]));
     assert!(!is_key("knight/realm/slash/3/seat2"), "six parts");
-    assert!(!is_key("knight/realm/slash/3/seat2/up"), "facing r or l");
+    assert!(!is_key("knight/realm/slash/3/seat2/up"), "facing r, l, u or d");
+    assert!(!is_key("knight/realm/slash/3/seat2/x"));
+    for facing in ["u", "d"] {
+        assert!(is_key(&format!("knight/realm/slash/3/seat2/{facing}")), "a knight facing up or down: {facing}");
+    }
     assert!(!is_key("knight/Realm/slash/3/seat2/r"), "lower case");
     assert!(!is_key("knight/../slash/3/seat2/r"));
     let company = colours_part(2, &[('7', 'A')]);
@@ -40,7 +44,7 @@ fn each_seats_rig_is_named_by_its_design_and_the_old_knight_is_realm() {
 fn turned_over_a_name_faces_the_other_way_and_its_feet_mirror() {
     let mut bare = Img::new(51, 3);
     bare.put(2, 1, '7');
-    let n = Named { key: "knight/realm/idle/0/seat1/r".into(), dress: "bare".into(), pivot: [20, 40], rung: crate::rules::resolution::Rung::BASE, bare: Some(Arc::new(bare)) };
+    let n = Named { key: "knight/realm/idle/0/seat1/r".into(), dress: "bare".into(), pivot: [20, 40], rung: crate::rules::resolution::Rung::BASE, bare: Some(Arc::new(bare)), vertical: None };
     let l = n.mirrored(51);
     assert_eq!(&*l.key, "knight/realm/idle/0/seat1/l");
     assert_eq!(l.pivot, [30, 40]);
@@ -147,4 +151,55 @@ fn the_name_carries_the_knights_rung() {
     crate::rules::resolution::set_rule(Some(crate::rules::resolution::Rule::Fixed(crate::rules::resolution::Rung::of(128).unwrap())));
     assert!(named_bodies(&run).iter().all(|b| b.named.as_ref().unwrap().rung.px() == 128));
     crate::rules::resolution::set_rule(None);
+}
+
+#[test]
+fn a_knight_facing_up_or_down_carries_it_beside_the_side_it_is_drawn_on() {
+    crate::rules::resolution::set_rule(None);
+    let mut run = crypt_fight(1);
+    let ask = |run: &mut Run, aim: (f32, f32)| {
+        for h in run.players.values_mut() {
+            (h.aim_x, h.aim_y) = aim;
+        }
+        named_bodies(run)
+    };
+    // At the sides: no facing of its own, the key as it was.
+    for aim in [(1.0, 0.0), (-1.0, 0.0), (1.0, 0.7), (-1.0, -0.7)] {
+        for b in ask(&mut run, aim) {
+            let n = b.named.unwrap();
+            assert_eq!((n.vertical, n.faced_key()), (None, None), "{aim:?}");
+        }
+    }
+    // Up and down the room: `u` and `d`, and the key still the rig's side.
+    for (aim, facing) in [((0.0, -1.0), 'u'), ((0.0, 1.0), 'd'), ((0.3, -1.0), 'u'), ((-0.5, 1.0), 'd')] {
+        let bodies = ask(&mut run, aim);
+        assert_eq!(bodies.len(), 2, "{aim:?}");
+        for b in bodies {
+            let n = b.named.unwrap();
+            assert_eq!(n.vertical, Some(facing), "{aim:?}");
+            let (key, faced) = (n.key.to_string(), n.faced_key().expect("a faced key"));
+            assert!(is_key(&faced) && faced.ends_with(&format!("/{facing}")), "{faced}");
+            assert_eq!(&key[..key.len() - 1], &faced[..faced.len() - 1], "the same figure");
+            assert!(key.ends_with(if aim.0 < -0.3 { "/l" } else { "/r" }), "{aim:?}: still the side it is drawn on: {key}");
+            // Turned over, a knight seen from behind is the same drawing on either hand.
+            assert_eq!(n.mirrored(b.img.w).faced_key(), n.faced_key());
+        }
+    }
+}
+
+#[test]
+fn a_blow_bends_a_name_into_another_width_on_the_same_feet() {
+    let mut bare = Img::new(51, 3);
+    bare.put(2, 1, '7');
+    let n = Named { key: "knight/realm/hurt/1/seat1/r".into(), dress: "bare".into(), pivot: [25, 40], rung: crate::rules::resolution::Rung::BASE, bare: Some(Arc::new(bare)), vertical: Some('d') };
+    // The same picture: the same feet, but the body alone is the upright one's, so it goes.
+    let same = n.bent(51, 51);
+    assert_eq!((same.pivot, same.bare.is_none(), same.vertical), ([25, 40], true, Some('d')));
+    // The bend widens the picture and the game stands it by its middle (`stand`): the feet are put where the upright picture's are.
+    for to in [52, 53, 55] {
+        let b = n.bent(51, to);
+        let upright_left = 100 - 51 / 2;
+        let bent_left = 100 - to / 2;
+        assert_eq!(bent_left + b.pivot[0], upright_left + n.pivot[0], "{to}");
+    }
 }

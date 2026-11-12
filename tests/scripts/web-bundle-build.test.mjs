@@ -7,8 +7,8 @@ const source = (path) => readFileSync(new URL(`../../${path}`, import.meta.url),
 test('the browser bundle has an independent Cargo fingerprint and object file', () => {
   assert.match(source('cockpit/Cargo.toml'), /angel-web-bundle\s*=\s*\{\s*path\s*=\s*"web-bundle"/u)
   assert.doesNotMatch(source('cockpit/build.rs'), /fn delve_web|fn renderers|fn wasm_cargo|WASM_BINDGEN/u)
-  assert.doesNotMatch(source('cockpit/src/drive/together_web.rs'), /include!\(concat!\(env!\("OUT_DIR"\)/u)
-  assert.match(source('cockpit/src/drive/together_web.rs'), /angel_web_bundle/u)
+  assert.doesNotMatch(source('cockpit/delve-cart/src/together_web.rs'), /include!\(concat!\(env!\("OUT_DIR"\)/u)
+  assert.match(source('cockpit/delve-cart/src/together_web.rs'), /angel_web_bundle/u)
   assert.match(source('cockpit/web-bundle/lib.rs'), /include!\(concat!\(env!\("OUT_DIR"\)/u)
   assert.match(source('cockpit/web-bundle/build.rs'), /fn delve_web/u)
 })

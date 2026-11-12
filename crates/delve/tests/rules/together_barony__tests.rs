@@ -412,9 +412,18 @@ fn a_floor_of_the_mines_has_its_forge_hall_once_the_workings_are_his() {
         assert!(run.valid_snapshot(), "seed {seed}");
         // The floor's politics are drawn as ever, the forge-hall with them.
         assert!(run.boss_gate_line().is_some(), "seed {seed}");
-        // And a Crypt floor never has one.
+        // The next floor down has the forge of its own halls, one hall.
         run.descend_for_test();
-        assert!(!run.dungeon.rooms.iter().any(|r| r.kind == RoomKind::Forge));
+        assert!(barony::forge_of(run.dungeon.pack).is_some());
+        assert_eq!(
+            run.dungeon
+                .rooms
+                .iter()
+                .filter(|r| r.kind == RoomKind::Forge)
+                .count(),
+            1,
+            "seed {seed}"
+        );
     }
 }
 

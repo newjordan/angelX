@@ -16,6 +16,8 @@ fn game(n: u32) -> Run {
         },
     )]));
     assert!(r.latch.is_some());
+    // The title and 3-2-1 stand the bout still; these tests are about the bout.
+    r.latch.as_mut().unwrap().count = 0;
     r
 }
 fn tell(ticks: u32, height: i8) -> Duel {
@@ -584,6 +586,9 @@ fn latch_miss_rollback_keeps_records_and_the_paid_pot_consistent() {
     for _ in 0..3 { r.step(&BTreeMap::new()); }
     assert_eq!(r.latch.as_ref().unwrap().duels[&2].beat, Beat::Miss);
     r.step(&BTreeMap::from([(1, input)]));
+    // The blow that breaks Clasp holds the bay still for the realm's hit-stop; simulation time stands
+    // still through it, so the late press below is no staler for it.
+    while r.hitstop.left > 0 { r.step(&BTreeMap::new()); }
     for _ in 0..4 { r.step(&BTreeMap::new()); }
     r.step(&BTreeMap::from([(2, input)]));
     let s = r.latch.as_ref().unwrap();

@@ -13,7 +13,8 @@
 //!   Clip and frame are the
 //!   rig's sample (`quick_rig::Clip`, the frame's index in it). Colours are
 //!   `seat<N>` for a seat's own (`knights::realm_colours`), or `colours-<hash>`
-//!   for a company's. Facing is `r` as the rig is drawn, `l` turned over.
+//!   for a company's. Facing is `r` as the rig is drawn, `l` turned over, and
+//!   `u` or `d` for a knight that faces up or down the room (see `vertical`).
 //! - **dress**: what the figure carries over its body, as stamped: the held
 //!   arm (`bow`, `sword`, `axe`, ...), its shield and the way it faces
 //!   (`shield-across`, `shield-up-toward`, ...), a hat. A pack entry may ask
@@ -23,6 +24,11 @@
 //!   pivot as stamped), so a drawing of any size lands on them.
 //! - **rung**: the finest rung the figure may be drawn at
 //!   (`rules::resolution`).
+//! - **vertical**: `u` or `d` when the knight faces up or down the room
+//!   (`knights::facing`); its key is still the rig's `r` or `l`, the side
+//!   it is drawn on, and a pack that draws it by `u` or `d` says so in a key
+//!   of that facing (`faced_key`). A pack with no such entry draws the
+//!   figure by its `r` or `l` key, as it always did.
 //! - **bare**: the rig's body alone as it was stamped, before its shield,
 //!   arm and hat, in the figure's own picture: a drawing of the body alone
 //!   (`covers: body` in a pack) takes the place of these pixels and leaves
@@ -31,7 +37,10 @@
 //! What is not the rig's own frame is never named: a worn wish or a tint
 //! over it, a body wished whole, a frog, a statue, a rolled or tossed or
 //! struck figure bent from its frame. Those keep their pixel hash, and a
-//! pack that has no drawing for that hash leaves their inks.
+//! pack that has no drawing for that hash leaves their inks. One exception
+//! is a knight whose mirror wish was drawn whole (`Look::body`, docs/LADDER.md
+//! "A wished look"): its worn ink is left off the rig, so the rig's plain
+//! knight is named, and a looks pack draws it.
 
 use std::sync::Arc;
 
@@ -47,6 +56,11 @@ pub struct Named {
     pub pivot: [i32; 2],
     pub rung: Rung,
     pub bare: Option<Arc<Img>>,
+    /// `u` or `d` when the knight faces up or down (the way `facing` says
+    /// it; none at the sides): the facing a pack may draw it by, before the
+    /// key's own (`faced_key`). It does not turn over with the figure: a
+    /// knight seen from behind is the same drawing on either hand.
+    pub vertical: Option<char>,
 }
 
 impl Named {
@@ -66,6 +80,23 @@ impl Named {
         }
     }
 
+    /// The key a pack may draw this figure by when it faces up or down: its
+    /// key with the facing part `u` or `d`; none at the sides.
+    pub fn faced_key(&self) -> Option<String> {
+        let (base, _) = self.key.rsplit_once('/')?;
+        self.vertical.map(|v| format!("{base}/{v}"))
+    }
+
+    /// The same figure bent over by a blow (`strike::pose`) into a picture of
+    /// another width, its feet where the upright picture's are: the bare body
+    /// is the upright picture's and goes, so only a whole drawing is asked for.
+    pub fn bent(&self, from_width: i32, to_width: i32) -> Self {
+        Self {
+            pivot: [self.pivot[0] + to_width / 2 - from_width / 2, self.pivot[1]],
+            bare: None,
+            ..self.clone()
+        }
+    }
 }
 
 /// A clip's name, as the rig's JSON and a key say it.
@@ -124,11 +155,12 @@ pub fn knight_key(design: &str, clip: Clip, frame: usize, colours: &str) -> Stri
 }
 
 /// The parts of a key, if it is one: `(kind, design, clip, frame, colours,
-/// facing)`.
+/// facing)`; the facing is `r` or `l`, or `u` or `d` for a figure drawn facing
+/// up or down.
 pub fn parts(key: &str) -> Option<[&str; 6]> {
     let mut it = key.split('/');
     let out = [it.next()?, it.next()?, it.next()?, it.next()?, it.next()?, it.next()?];
-    (it.next().is_none() && out.iter().all(|p| !p.is_empty()) && matches!(out[5], "r" | "l")).then_some(out)
+    (it.next().is_none() && out.iter().all(|p| !p.is_empty()) && matches!(out[5], "r" | "l" | "u" | "d")).then_some(out)
 }
 
 /// Whether `key` is a well-formed figure key (what a pack entry may name).

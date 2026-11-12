@@ -30,6 +30,7 @@ mod folk;
 mod gifts;
 mod houses;
 mod panel;
+mod road;
 mod roost;
 mod roots;
 mod salt;
@@ -39,6 +40,7 @@ mod sky;
 pub(super) use dread::rows_for as dread_rows;
 pub(super) use dread::{figure as dread_figure, lantern_beam as dread_lantern, under as dread_under};
 pub(super) use panel::{screen, signs};
+pub(super) use road::meeting;
 
 /// A people's stone and light, as inks.
 pub(super) struct Look {

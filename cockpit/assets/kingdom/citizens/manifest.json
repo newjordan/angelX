@@ -1,0 +1,555 @@
+{
+  "schema": 1,
+  "concept": {
+    "file": "workers-concept.png",
+    "prompt": "prompts.json#concept"
+  },
+  "style_reference": "../concepts/village-vision.png",
+  "source_tool": "built-in image_gen",
+  "assets": [
+    {
+      "id": "builder",
+      "atlas": "builder-sheet.png",
+      "size": [
+        1774,
+        887
+      ],
+      "cell": [
+        443.5,
+        443.5
+      ],
+      "grid": [
+        4,
+        2
+      ],
+      "body_height": 366,
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            215,
+            411
+          ]
+        },
+        {
+          "rect": [
+            443,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            214,
+            408
+          ]
+        },
+        {
+          "rect": [
+            887,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            215,
+            411
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            213,
+            408
+          ]
+        },
+        {
+          "rect": [
+            0,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            178,
+            409
+          ]
+        },
+        {
+          "rect": [
+            443,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            178,
+            409
+          ]
+        },
+        {
+          "rect": [
+            887,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            178,
+            410
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            179,
+            409
+          ]
+        }
+      ],
+      "animations": {
+        "walk": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frame_ms": 140
+        },
+        "work": {
+          "frames": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "frame_ms": 180
+        }
+      },
+      "notes": "One shared scale for all frames. Anchors measured at the actor ground point, excluding tools and brick stack. Preserve slight natural walk bob."
+    },
+    {
+      "id": "farmer",
+      "atlas": "farmer-sheet.png",
+      "size": [
+        1774,
+        887
+      ],
+      "cell": [
+        443.5,
+        443.5
+      ],
+      "grid": [
+        4,
+        2
+      ],
+      "body_height": 350,
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            259,
+            396
+          ]
+        },
+        {
+          "rect": [
+            443,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            213,
+            397
+          ]
+        },
+        {
+          "rect": [
+            887,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            192,
+            396
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            150,
+            397
+          ]
+        },
+        {
+          "rect": [
+            0,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            230,
+            392
+          ]
+        },
+        {
+          "rect": [
+            443,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            195,
+            392
+          ]
+        },
+        {
+          "rect": [
+            887,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            159,
+            392
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            147,
+            392
+          ]
+        }
+      ],
+      "animations": {
+        "walk": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frame_ms": 140
+        },
+        "work": {
+          "frames": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "frame_ms": 180
+        }
+      },
+      "notes": "One shared scale for all frames. Anchors measured at the actor ground point, excluding tools and brick stack. Preserve slight natural walk bob."
+    },
+    {
+      "id": "porter",
+      "atlas": "porter-sheet.png",
+      "size": [
+        1774,
+        887
+      ],
+      "cell": [
+        443.5,
+        443.5
+      ],
+      "grid": [
+        4,
+        2
+      ],
+      "body_height": 390,
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            224,
+            418
+          ]
+        },
+        {
+          "rect": [
+            443,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            220,
+            414
+          ]
+        },
+        {
+          "rect": [
+            887,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            224,
+            418
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            221,
+            417
+          ]
+        },
+        {
+          "rect": [
+            0,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            225,
+            417
+          ]
+        },
+        {
+          "rect": [
+            443,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            220,
+            417
+          ]
+        },
+        {
+          "rect": [
+            887,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            215,
+            417
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            217,
+            417
+          ]
+        }
+      ],
+      "animations": {
+        "walk": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frame_ms": 140
+        },
+        "work": {
+          "frames": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "frame_ms": 180
+        }
+      },
+      "notes": "One shared scale for all frames. Anchors measured at the actor ground point, excluding tools and brick stack. Preserve slight natural walk bob."
+    },
+    {
+      "id": "arcanist",
+      "atlas": "arcanist-sheet.png",
+      "size": [
+        1774,
+        887
+      ],
+      "cell": [
+        443.5,
+        443.5
+      ],
+      "grid": [
+        4,
+        2
+      ],
+      "body_height": 352,
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            237,
+            413
+          ]
+        },
+        {
+          "rect": [
+            443,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            236,
+            413
+          ]
+        },
+        {
+          "rect": [
+            887,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            235,
+            413
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            235,
+            411
+          ]
+        },
+        {
+          "rect": [
+            0,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            239,
+            413
+          ]
+        },
+        {
+          "rect": [
+            443,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            239,
+            413
+          ]
+        },
+        {
+          "rect": [
+            887,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            239,
+            413
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            239,
+            413
+          ]
+        }
+      ],
+      "animations": {
+        "walk": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frame_ms": 140
+        },
+        "work": {
+          "frames": [
+            4,
+            5,
+            6,
+            7
+          ],
+          "frame_ms": 180
+        }
+      },
+      "notes": "One shared scale for all frames. Anchors measured at the actor ground point, excluding tools and brick stack. Preserve slight natural walk bob."
+    }
+  ]
+}

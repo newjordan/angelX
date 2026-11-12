@@ -56,6 +56,12 @@ Each lane works in its own branch off `world/monolith`, owns its files, and prov
 
 ## Castles on the map
 
+> The blank-slate plan (`crates/delve/src/world/plan.rs`, the shipped realm
+> since 2026-11-08) overrides this for the map as shipped: one tiny castle,
+> the Keep, small enough to see whole, and a camp (tents, a fire, a banner)
+> where each house's castle will stand. `world3d::realm_camp` stands them in
+> the monolith language. What follows is the full plan's.
+
 Every castle on the map is a great walled exterior (realm/map,
 `crates/delve/src/world/castles.rs`): a rectangle of **closed ground** the
 walker goes round and never enters, with **one gate** in its south face

@@ -38,6 +38,11 @@ pub trait Host: Send + Sync {
     /// The directory the paintings of the workspace in hand are kept in: the
     /// window reads them from there.
     fn paint_dir(&self, dir: &std::path::Path);
+
+    /// The directory the workspace's wished looks are composed in
+    /// (`together_looker`): the window watches its `pack.json` and lays it
+    /// over its HD pack. A cockpit with no such window ignores it.
+    fn looks_dir(&self, _dir: &std::path::Path) {}
 }
 
 static HOST: OnceLock<Box<dyn Host>> = OnceLock::new();
@@ -67,6 +72,13 @@ pub fn paint_host(url: &str, trust: &angel_serve::client::Trust) {
 pub fn paint_dir(dir: &std::path::Path) {
     if let Some(host) = HOST.get() {
         host.paint_dir(dir);
+    }
+}
+
+/// Tell the cockpit where the workspace's wished looks are composed.
+pub fn looks_dir(dir: &std::path::Path) {
+    if let Some(host) = HOST.get() {
+        host.looks_dir(dir);
     }
 }
 

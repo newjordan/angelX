@@ -129,6 +129,9 @@ pub enum Piece {
     Weapon,
     /// A spell: no question of the identity start asks for one.
     Magic,
+    /// A creature that fights for the knight (a spell or play card that
+    /// calls one): only the rite of passage asks for it (`rite`).
+    Minion,
     Ultimate,
 }
 
@@ -141,6 +144,7 @@ pub fn piece_of(card: &Card) -> Option<Piece> {
     }
     match card.kind {
         cards::Kind::Arm => Some(Piece::Weapon),
+        cards::Kind::Spell | cards::Kind::Play if card.imps().is_some() || card.minion().is_some() => Some(Piece::Minion),
         cards::Kind::Spell => Some(Piece::Magic),
         cards::Kind::Hold | cards::Kind::Guard => card
             .looks
@@ -192,6 +196,12 @@ impl Ask {
             Ask::Weapon => "weapon",
             Ask::Ultimate => "ultimate",
         }
+    }
+
+    /// Whether an entry that answers `answers` (`scrolls::Entry`) answers
+    /// this question.
+    pub fn accepts(self, answers: Option<Ask>) -> bool {
+        answers == Some(self)
     }
 }
 
@@ -258,6 +268,17 @@ impl Making {
             (Some(Ask::Ultimate), Piece::Ultimate) => true,
             _ => false,
         }
+    }
+
+    /// What an answer looks like, for the scroll's line under the heading.
+    pub fn hint(&self) -> &'static str {
+        self.asks().first().map_or("", |a| a.hint())
+    }
+
+    /// What a refusal opens with, and what the super wish waits for: the
+    /// knight's making.
+    pub fn first(&self) -> &'static str {
+        "First, wish yourself into being."
     }
 
     /// The scroll's heading for a knight still unmade: the open question.
@@ -369,7 +390,7 @@ impl Run {
             return Some(format!("First, wish the recruit's ultimate. {} {} doesn't answer it.", super::recruit_ults::question(kit), wish.name));
         }
         let ask = m.asks().first().map_or("What are you?", |a| a.question());
-        Some(format!("First, wish yourself into being. {ask} {} doesn't answer it.", wish.name))
+        Some(format!("{} {ask} {} doesn't answer it.", m.first(), wish.name))
     }
 
     /// The first floor's rooms under the identity start: walking into
@@ -409,6 +430,11 @@ impl Run {
     /// A knight still unmade whose words could not be learned (no model
     /// to ask): the scroll grants its plain answer to their question.
     pub fn grant_neutral(&mut self, id: u32) -> Result<String, String> {
+        self.grant_neutral_for(id, "")
+    }
+
+    /// [`grant_neutral`](Self::grant_neutral) for a wish said in `words`.
+    pub fn grant_neutral_for(&mut self, id: u32, _words: &str) -> Result<String, String> {
         let ask = self
             .players
             .get(&id)

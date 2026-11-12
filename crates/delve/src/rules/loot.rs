@@ -223,6 +223,7 @@ pub fn drop_chance(kind: EnemyKind) -> u32 {
         EnemyKind::Broodmarrow => 90,
         EnemyKind::Oathbound => 55,
         EnemyKind::Whirlgrave => 65,
+        EnemyKind::Fungelder => 60,
         EnemyKind::BogHand | EnemyKind::Wisp => 30,
         EnemyKind::Drowned => 60,
     }
@@ -258,6 +259,8 @@ pub fn spoil_chance(kind: EnemyKind) -> u32 {
         EnemyKind::Broodmarrow => 90,
         EnemyKind::Oathbound => 55,
         EnemyKind::Whirlgrave => 65,
+        // Its spoils are spore and compost; the Fungal Deep takes its cut.
+        EnemyKind::Fungelder => 70,
         EnemyKind::BogHand | EnemyKind::Wisp => 35,
         EnemyKind::Drowned => 70,
     }

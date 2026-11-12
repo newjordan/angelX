@@ -1,5 +1,7 @@
 use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 use std::path::PathBuf;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 use std::time::{Duration, Instant};
 
 pub(crate) const SELECTION_DISSOLVE: Duration = Duration::from_millis(250);
@@ -592,47 +594,37 @@ impl Formation {
         slots
     }
 
+    /// Engage this formation's env: first hand back whatever the previous
+    /// engagement wrote (see [`put`]), then write this formation's knobs.
     pub(crate) fn apply_sota_env(self) {
+        hand_back_written_env();
         // The formation's own name, so the MoA ledgers can attribute per-turn
         // economics to the exact formation that spent them. The resting stance
         // owns no turns, so disengaging clears the marker.
         if self.is_resting() {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::remove_var("ANGEL_SOTA_MOA_FORMATION") };
+            clear("ANGEL_SOTA_MOA_FORMATION");
         } else {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_FORMATION", self.name) };
+            put("ANGEL_SOTA_MOA_FORMATION", self.name);
         }
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_MODE", "manual") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_ALWAYS", "0") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_MAX", "0") };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_WIDTH", self.width.to_string()) };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_MAX_WIDTH", self.max_width.to_string()) };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_LAYERS", self.layers.to_string()) };
+        put("ANGEL_SOTA_MOA_MODE", "manual");
+        put("ANGEL_SOTA_MOA_ALWAYS", "0");
+        put("ANGEL_SOTA_MOA_MAX", "0");
+        put("ANGEL_SOTA_MOA_WIDTH", self.width.to_string());
+        put("ANGEL_SOTA_MOA_MAX_WIDTH", self.max_width.to_string());
+        put("ANGEL_SOTA_MOA_LAYERS", self.layers.to_string());
         // Refinement layers fan out at the formation's own width, not the
         // generic 6-seat default: layers=2 with width=3 must spend 3 aggregator
         // calls per layer, each carrying the full history plus every draft.
         // Formations with a single layer never refine, so the knob is cleared
         // (the disengage path lands here too — SoloStrike layers=1).
         if self.layers > 1 {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SWARM_REFINE_WIDTH", self.width.to_string()) };
+            put("ANGEL_SWARM_REFINE_WIDTH", self.width.to_string());
         } else {
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::remove_var("ANGEL_SWARM_REFINE_WIDTH") };
+            clear("ANGEL_SWARM_REFINE_WIDTH");
         }
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_SAMPLES", self.samples.to_string()) };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_JUDGE_PANEL", self.judge_panel.to_string()) };
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::set_var("ANGEL_SOTA_MOA_VERIFY", self.verify.to_string()) };
+        put("ANGEL_SOTA_MOA_SAMPLES", self.samples.to_string());
+        put("ANGEL_SOTA_MOA_JUDGE_PANEL", self.judge_panel.to_string());
+        put("ANGEL_SOTA_MOA_VERIFY", self.verify.to_string());
         set_flag("ANGEL_SOTA_MOA_JUDGE", self.judge);
         set_flag("ANGEL_SOTA_MOA_VERIFY_GUARD", self.verify_guard);
         set_flag("ANGEL_SOTA_MOA_REFLECT", self.reflect);
@@ -649,54 +641,38 @@ impl Formation {
             // Two operator-picked models. The dissent gate must stay off:
             // escalation turns judge on and adds verify passes, which is the
             // 5-seat council arriving through the side door. Do not pin Sol.
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::remove_var("ANGEL_SOTA_MOA_DISSENT_GATE") };
+            clear("ANGEL_SOTA_MOA_DISSENT_GATE");
             // If one corner doesn't answer, the other's draft carries the turn.
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_ALLOW_DEGRADED", "1") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::remove_var("ANGEL_OPENAI_MODEL") };
+            put("ANGEL_SOTA_MOA_ALLOW_DEGRADED", "1");
+            clear("ANGEL_OPENAI_MODEL");
             clear_grok_war_role_pins();
         } else if self.id == FormationId::GrokWar {
             // Frontier war posture: leave the cheap LongCat profile so the
             // GLM / DeepSeek / OpenAI / Grok seats can actually fire.
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::remove_var("ANGEL_SOTA_MOA_COST_PROFILE") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_PROPOSE_CLUB", "glm") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_EXTRA_PROPOSERS", "deepseek,openai") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_JUDGE_CLUB", "grok") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_AGG_CLUB", "grok") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_VERIFY_CLUB", "none") };
+            clear("ANGEL_SOTA_MOA_COST_PROFILE");
+            put("ANGEL_SOTA_MOA_PROPOSE_CLUB", "glm");
+            put("ANGEL_SOTA_MOA_EXTRA_PROPOSERS", "deepseek,openai");
+            put("ANGEL_SOTA_MOA_JUDGE_CLUB", "grok");
+            put("ANGEL_SOTA_MOA_AGG_CLUB", "grok");
+            put("ANGEL_SOTA_MOA_VERIFY_CLUB", "none");
             // Grok is the manager: research tool + high effort synthesis.
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_GROK_TOOL", "1") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_SOTA_MOA_GROK_RESEARCH", "1") };
+            put("ANGEL_GROK_TOOL", "1");
+            put("ANGEL_SOTA_MOA_GROK_RESEARCH", "1");
             if std::env::var_os("ANGEL_GROK_REASONING_EFFORT").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_GROK_REASONING_EFFORT", "high") };
+                put("ANGEL_GROK_REASONING_EFFORT", "high");
             }
             // OpenAI Sol seat rides at MAX reasoning for the war window.
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_OPENAI_MODEL", "gpt-5.6-sol") };
-            // TODO: Audit that the environment access only happens in single-threaded code.
-            unsafe { std::env::set_var("ANGEL_OPENAI_REASONING_EFFORT", "max") };
+            put("ANGEL_OPENAI_MODEL", "gpt-5.6-sol");
+            put("ANGEL_OPENAI_REASONING_EFFORT", "max");
             // Kernel competition still wants Treebeard when the operator did
             // not pin a different lane.
             if std::env::var_os("ANGEL_LANE").is_none()
                 && std::env::var_os("ANGEL_TASK_TREEBEARD").is_none()
             {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_LANE", "treebeard") };
+                put("ANGEL_LANE", "treebeard");
             }
             if std::env::var_os("ANGEL_TRAJECTORY_LOG").is_none() {
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_TRAJECTORY_LOG", "1") };
+                put("ANGEL_TRAJECTORY_LOG", "1");
             }
             clear_tag_team_pins();
         } else {
@@ -706,6 +682,77 @@ impl Formation {
     }
 }
 
+/// A formation is an overlay on the process environment: its knobs travel as env
+/// vars (the swarm pipeline and the seat builders read them back), so engaging
+/// one overwrites or removes settings the operator may have launched with.
+///
+/// Every write goes through [`put`] / [`clear`], which remember what the process
+/// held before the first write. The next `apply_sota_env` hands those values
+/// back before it writes its own, so a formation lasts as long as its
+/// engagement: leaving it neither costs the operator a setting nor leaves a pin
+/// the formation added. A knob someone else changed since (it no longer holds the
+/// value written here) is left alone.
+struct Written {
+    key: &'static str,
+    /// What the process held before this module's first write.
+    prior: Option<OsString>,
+    /// What this module last left there; `None` = it removed the key.
+    left: Option<OsString>,
+}
+
+static WRITTEN: Mutex<Vec<Written>> = Mutex::new(Vec::new());
+
+fn written() -> MutexGuard<'static, Vec<Written>> {
+    WRITTEN.lock().unwrap_or_else(PoisonError::into_inner)
+}
+
+fn put(key: &'static str, value: impl AsRef<OsStr>) {
+    let value = value.as_ref();
+    note_write(key, Some(value.to_owned()));
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var(key, value) };
+}
+
+fn clear(key: &'static str) {
+    note_write(key, None);
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::remove_var(key) };
+}
+
+fn note_write(key: &'static str, left: Option<OsString>) {
+    let mut written = written();
+    match written.iter_mut().find(|entry| entry.key == key) {
+        Some(entry) => entry.left = left,
+        None => written.push(Written {
+            key,
+            prior: std::env::var_os(key),
+            left,
+        }),
+    }
+}
+
+/// Undo [`put`] / [`clear`] for every knob still holding what this module left.
+fn hand_back_written_env() {
+    for entry in written().drain(..) {
+        if std::env::var_os(entry.key) != entry.left {
+            continue;
+        }
+        match entry.prior {
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            Some(value) => unsafe { std::env::set_var(entry.key, value) },
+            // TODO: Audit that the environment access only happens in single-threaded code.
+            None => unsafe { std::env::remove_var(entry.key) },
+        }
+    }
+}
+
+/// Tests that engage a formation start and end with an empty overlay, so one
+/// test's engagement cannot hand values back into another's environment.
+#[cfg(test)]
+pub(crate) fn forget_written_env() {
+    written().clear();
+}
+
 /// Tag Team owns two knobs: the dissent gate that keeps its metered advice seat
 /// conditional, and the degraded-quorum allowance that lets one live corner
 /// carry a turn. Leaving the formation drops both, so another formation (or the
@@ -713,10 +760,8 @@ impl Formation {
 /// frontier formation must keep its strict quorum. The Sol model/effort pins are
 /// deliberately left alone: an operator who set them outside engagement keeps them.
 fn clear_tag_team_pins() {
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_SOTA_MOA_DISSENT_GATE") };
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::remove_var("ANGEL_SOTA_MOA_ALLOW_DEGRADED") };
+    clear("ANGEL_SOTA_MOA_DISSENT_GATE");
+    clear("ANGEL_SOTA_MOA_ALLOW_DEGRADED");
 }
 
 fn clear_grok_war_role_pins() {
@@ -729,8 +774,7 @@ fn clear_grok_war_role_pins() {
         "ANGEL_SOTA_MOA_AGG_CLUB",
         "ANGEL_SOTA_MOA_VERIFY_CLUB",
     ] {
-        // TODO: Audit that the environment access only happens in single-threaded code.
-        unsafe { std::env::remove_var(key) };
+        clear(key);
     }
 }
 
@@ -821,9 +865,8 @@ fn recommended_model(
         .map(|choice| choice.route.clone())
 }
 
-fn set_flag(name: &str, on: bool) {
-    // TODO: Audit that the environment access only happens in single-threaded code.
-    unsafe { std::env::set_var(name, if on { "1" } else { "0" }) };
+fn set_flag(name: &'static str, on: bool) {
+    put(name, if on { "1" } else { "0" });
 }
 
 #[derive(Clone, Debug)]

@@ -306,7 +306,15 @@ fn rows_of(kind: AllyKind) -> &'static [&'static str] {
 /// wishes for them put on it (`minions::dressed`).
 pub(super) fn ally(cv: &mut Img, run: &Run, hire: &Hireling) {
     let (x, y) = at(hire.x, hire.y);
-    let body = if let Some(kind) = hire.kind.squire() {
+    let made = hire
+        .made
+        .as_ref()
+        .and_then(|t| run.home.rites.kept.get(t.rite as usize))
+        .and_then(|r| r.creature());
+    let body = if let Some(c) = made {
+        // A friend a knight made in the Creator: its own baked figure.
+        crate::render::creation::world_creature(c, true, true, run.tick, 22)
+    } else if let Some(kind) = hire.kind.squire() {
         super::academy_squires::sprite(kind, hire.summoner.unwrap_or(1))
     } else { super::minions::body(hire.kind, run.tick).unwrap_or_else(|| Img::from_rows(rows_of(hire.kind))) };
     let (mut im, mut worn) = super::minions::dressed(run, hire, &body);
@@ -329,5 +337,12 @@ pub(super) fn ally(cv: &mut Img, run: &Run, hire: &Hireling) {
         super::paintings::wearing((im.w, im.h), worn);
         stand(cv, &im, x, y);
         super::paintings::unworn();
+        if let Some(tag) = hire.made.as_ref().filter(|_| !hire.down()) {
+            // Whose it is, over its head.
+            let name = super::rite_wall::tag_name(&tag.by);
+            let w = super::super::ink::text_width(&name);
+            cv.rect(x - w / 2 - 1, y - im.h - 9, w + 2, 8, 'K');
+            cv.text(x - w / 2, y - im.h - 8, &name, 'h');
+        }
     }
 }

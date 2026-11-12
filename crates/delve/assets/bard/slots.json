@@ -235,8 +235,8 @@
     "collision": "sound reaches enemy centres in the current room, through scenery"
   },
   "sounds": {
-    "stream": "sax_* (rules::bard::RIFF, one stab a volley) and bard_kick on every fourth",
+    "stream": "bard_<song>_<beat>: one beat of the knight's song (rules::bard::slice), named on the first volley of each beat, the high synth then the bass then the drums as the groove builds",
     "hit": "hit_note",
-    "ultimate": "bard_lullaby"
+    "ultimate": "bard_<song>_lull"
   }
 }

@@ -452,7 +452,10 @@ pub(super) fn scenery(run: &Run) -> Img {
         }
         RoomKind::Lists => lists(&mut cv, &mut lights, tick, room.doors[0]),
         RoomKind::MineHead => mine_head(&mut cv, run, &mut lights, tick),
-        RoomKind::KingsHall => super::barony::kings_hall(&mut cv, run, &mut lights, tick),
+        RoomKind::KingsHall => {
+            super::barony::kings_hall(&mut cv, run, &mut lights, tick);
+            super::reclaim::kings_lamps(&mut cv, run, &mut lights);
+        }
         RoomKind::LandOffice => super::holdings::office_scenery(&mut cv, &mut lights, tick),
         RoomKind::Forest => super::forest::scenery(&mut cv),
         RoomKind::Eyrie => super::race3d::eyrie_scenery(&mut cv, &mut lights, tick),
@@ -972,6 +975,7 @@ pub(super) fn mine_head(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: 
     for y in ((y0 + ah)..13 * TILE).step_by(5) {
         cv.line(mx0 + 4, y, mx1 - 5, y, 'b');
     }
+    super::goods::ore_carts(cv, run, tick);
     torch(cv, lights, mx0 - 10, y0 + ah + 6, tick, 5);
     torch(cv, lights, mx1 + 9, y0 + ah + 6, tick, 6);
     // Spoil heaps and a cart east of the adit.
@@ -1030,6 +1034,10 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         };
         let board = home::board(&[(label.into(), '9')]);
         cv.stamp(&board, (cv.w - board.w) / 2, cv.h - board.h - TILE);
+    }
+    // What a knight beside a new knight's piece is told (`rite`).
+    if matches!(kind, RoomKind::Gate | RoomKind::Alehouse) {
+        super::rite_wall::prompt(cv, run);
     }
     if crate::rules::countryside::PLACES.contains(&kind)
         || crate::rules::countryside::WEST_PLACES.contains(&kind)

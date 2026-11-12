@@ -88,6 +88,8 @@ fn capture(shared: &Shared, origin: &Origin) -> (Batch, Vec<String>) {
     (batch, report)
 }
 enum Attempt {
+    // Only the tests read whether the batch changed anything (`admit_spells`).
+    #[cfg_attr(not(test), allow(dead_code))]
     Accepted(bool),
     Deferred(String),
     Refused(String),

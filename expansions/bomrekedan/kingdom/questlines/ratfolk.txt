@@ -1,0 +1,30 @@
+# The Ratfolk Host — Ast Ringtwinkled, captain of the Steel Swords, at Bomrekedan's drawbridge.
+# A Bomrekedan questline (quests.json: the-ratfolk-host). Same file shape and
+# caveats as steel.txt. Two other teachers share the Gate room (Sir Castor,
+# Eigriteil); give each a different `at`.
+power   bomrekedan:ratfolk
+teacher Ast Ringtwinkled
+place   the drawbridge of Bomrekedan, where The Seduction of Distinguishing shattered in year 105
+room    Gate
+look    a steel short sword named Shockedskewered at her hip, a captain's sash, and ratfolk teeth on a string she will not explain
+line    They came five times. Axemen, then lashers, then thieves, then the whole host. They will come a sixth.
+teach   A gate is not held by the wall. It is held by the dwarf who does not step back from it.
+hook    Ninety-one tally marks are scratched down the inside of the drawbridge's chain housing, and the last ten are fresher than the rest.
+step    The gate siege | hold the drawbridge through one cued siege of three waves | gate_sieges_held 1 | Three waves. Nisam brought nine, but three is how you learn. | cue stand
+step    The count | count the ratfolk dead with Ast, mark by mark on the chain housing | ratfolk_counted 1 | Ninety-one. I do not count them to boast. I count them so I know how many are left. | cue count
+step    The hammermen | defeat a dozen ratfolk hammermen, macemen and swordsmen in the Delve | ratfolk_felled 12 | Twelve. They hit hard and they do not stop. Neither do we. | needs
+step    The camp | find the camp the ratfolk host marched from | ratfolk_camp_found 1 | So that is where. Draw it for me, and draw it twice. | needs
+step    The standard | bring Nisam Shelterglossed's standard home from the camp | relics_returned 1 | A human leading ratfolk at our gate. He can have it back when he asks politely. | cue fetch
+trial   The shattered host | clear one hall without retreating past its centre line, the way the host broke at the bridge | forward_halls 1 | They shattered against Whipstirs. Now they have shattered against you.
+reward  ratfolk arms for the weapon racks, and the gate is quiet a season (a Bomrekedan questline: no power is taught)
+title   the Bridge-Holder
+keepsake a ratfolk tooth on a steel wire
+ties    The gate siege pools with Sir Castor's (gate_sieges_held); the standard is a relic like Old Carom's ball (relics_returned); the centre-line hall is Goodwife Barley's proving hall (forward_halls).
+art
+...8...
+..888..
+.8.8.8.
+...8...
+..777..
+..8.8..
+.8...8.

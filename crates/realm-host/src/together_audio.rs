@@ -114,19 +114,12 @@ pub const SFX: &[&str] = &[
     "gore_splat",
     "gore_bones",
     "gore_burst",
-    // The Bard (`rules::bard`): the kick under its riff, a note landing (an
-    // open hi-hat), and the Lullaby. The riff's sax stabs are `bard::SAX`.
-    "bard_kick",
+    // The Bard (`rules::bard`): a note landing (an open hi-hat). Its songs'
+    // slices and Lullabies are `bard::names()`.
     "hit_note",
-    "bard_lullaby",
-    // Held, the groove builds (`bard::WUB_AT`, `bard::GLITCH_AT`): the wub
-    // under the kick, the overload, the glitches on the off-beats.
-    "bard_wub",
-    "bard_overload",
-    "bard_glitch_0",
-    "bard_glitch_1",
-    "bard_glitch_2",
-    "bard_glitch_3",
+    // The Mirage Duelist's Swashbuckle (`rules::champions::mirage`): its
+    // "bing bong", once a cast, in the knights' voice class.
+    "mirage_bing_bong",
     // The blades (`rules::melee`): a whoosh by the arm (`melee::SWING_SOUNDS`),
     // a contact by its weight (`CONTACT_SOUNDS`), a turned bullet's ting
     // and whizz (`PARRY_SOUNDS`).
@@ -178,18 +171,19 @@ pub const SFX: &[&str] = &[
     "sky_lit",
 ];
 
-/// Every effect the game may name: `SFX`, the Bard's sax stabs, then the
-/// knights' clips.
+/// Every effect the game may name: `SFX`, the Bard's songs (a slice a beat,
+/// a Lullaby each), then the knights' clips.
 pub fn names() -> impl Iterator<Item = &'static str> {
     SFX.iter()
         .copied()
-        .chain(angel_delve::rules::bard::SAX.iter().copied())
+        .chain(angel_delve::rules::bard::names().iter().copied())
         .chain(super::together_shooter::chatter::names().iter().copied())
 }
 
-/// A knight's grunt or chatter, rather than an effect.
+/// A knight's grunt or chatter, rather than an effect; the Mirage Duelist's
+/// cry goes with them (`VOICE_LEVEL`, and off with the voices).
 fn is_voice(name: &str) -> bool {
-    name.starts_with("knights/")
+    name.starts_with("knights/") || name == "mirage_bing_bong"
 }
 
 /// Every music track.
@@ -205,16 +199,18 @@ fn gap(name: &str) -> Duration {
         "shot_bow" | "shot_crossbow" | "shot_handgonne" | "shot_bolt" | "shot_arcane"
         | "shot_spark" => 70,
         "hit" | "hit_blade" | "hit_axe" | "hit_arrow" | "hit_bolt" | "hit_blast" | "hit_magic" | "hit_note" => 60,
-        // A riff stab: the next volley's is often another name, so this
-        // only stops a doubled one; the kick comes every fourth volley.
-        n if n.starts_with("sax_") => 70,
-        "bard_kick" | "bard_wub" => 300,
-        n if n.starts_with("bard_glitch") => 150,
+        // A song's slice is a beat (0.4 s) and the next beat is another name:
+        // this only stops a tapped fire from restarting the song's opening
+        // over itself. A Lullaby is a bar and a half.
+        n if angel_delve::rules::bard::is_slice(n) => 300,
+        n if angel_delve::rules::bard::is_bard_sound(n) => 800,
         "step_stone" | "step_gravel" | "step_ash" | "step_wet" | "step_moss" | "step_wood" => 210,
         "knight_hit" | "knight_hit_big" | "gold" | "bomb_toss" | "shield_up" => 120,
         "boss_roar" | "boss_rage" | "boss_death" | "crack_open" | "hand_rise" | "hand_grab"
         | "hand_drag" | "ground_close" | "hell_gate_rise" | "hell_gate_enter" | "circle_toll"
-        | "knight_fall" | "bard_lullaby" | "bard_overload" => 800,
+        | "knight_fall" => 800,
+        // About a second long: another is not heard over the first.
+        "mirage_bing_bong" => 1200,
         "kill" => 90,
         "gore_kick" | "gore_thunk" | "gore_chop" | "gore_splat" | "gore_bones" | "gore_burst" => 110,
         "swing" | "roll" | "shield_block" | "clang" | "spike" | "vent_fire" => 150,
@@ -407,7 +403,10 @@ impl Audio {
             return;
         }
         self.sounding.retain(|&end| end > now);
-        if self.sounding.len() >= MAX_AT_ONCE {
+        // The Bard's song is never the effect that is let go: a missed slice
+        // is a hole in the music, and only its own seat's slices come here.
+        let song = angel_delve::rules::bard::is_bard_sound(name);
+        if self.sounding.len() >= MAX_AT_ONCE && !song {
             return;
         }
         let file = self
@@ -509,14 +508,34 @@ fn quiet(command: &mut Command) -> &mut Command {
 }
 
 /// One effect, fire and forget.
+/// One effect, played by a player process of its own. The process is
+/// started off the frame, by the effects' own thread: a party's volleys ask
+/// for dozens of effects a second, and starting each on the host's frame
+/// cost the host its smoothness (the browser seats play theirs in the page).
 fn play_once(path: &Path, level: f32) {
     if cfg!(any(test, feature = "testing")) {
         return;
     }
-    if let Some(mut child) = once_player(path, level) {
-        std::thread::spawn(move || {
-            let _ = child.wait();
-        });
+    static PLAYER: std::sync::OnceLock<Option<std::sync::mpsc::Sender<(PathBuf, f32)>>> =
+        std::sync::OnceLock::new();
+    let player = PLAYER.get_or_init(|| {
+        let (tx, rx) = std::sync::mpsc::channel::<(PathBuf, f32)>();
+        std::thread::Builder::new()
+            .name("delve-sfx".into())
+            .spawn(move || {
+                let mut playing: Vec<Child> = Vec::new();
+                for (path, level) in rx {
+                    playing.retain_mut(|child| !matches!(child.try_wait(), Ok(Some(_)) | Err(_)));
+                    if let Some(child) = once_player(&path, level) {
+                        playing.push(child);
+                    }
+                }
+            })
+            .ok()
+            .map(|_| tx)
+    });
+    if let Some(player) = player {
+        let _ = player.send((path.to_path_buf(), level));
     }
 }
 

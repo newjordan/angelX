@@ -220,7 +220,7 @@ fn row_width(places: &[Place]) -> i32 {
 fn layout(run: &Run, id: u32, keys: &Keys, max_w: i32) -> Option<Bar> {
     let hero = run.players.get(&id).filter(|h| h.hp > 0)?;
     // The Wax Maze's lanes run along the room's foot: the bar keeps out.
-    if super::wax_maze::tucks_tray(run) {
+    if super::wax_maze::tucks_tray(run) || super::powder_room::tucks_tray(run) || super::book_hop::tucks_tray(run) {
         return None;
     }
     let icons = run.tray(id, keys);

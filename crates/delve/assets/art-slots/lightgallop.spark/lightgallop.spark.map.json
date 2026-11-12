@@ -1,0 +1,65 @@
+{
+ "anchor_canvas_wh": [
+  10,
+  10
+ ],
+ "anchor_xy": [
+  5,
+  5
+ ],
+ "embed_kits": [
+  "v1"
+ ],
+ "geometry": "The road, every collision box and every timing belong to the rules (rules/lightgallop); art never sets a hitbox or the terrain.",
+ "pieces": [
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "idle-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-0",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "idle-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-1",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 2,
+   "label": "idle-2: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-2",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 3,
+   "label": "idle-3: reduced to the native canvas and snapped to the realm inks.",
+   "name": "idle-3",
+   "runtime": true,
+   "state": "idle"
+  },
+  {
+   "approved": true,
+   "frame": 0,
+   "label": "loose-0: reduced to the native canvas and snapped to the realm inks.",
+   "name": "loose-0",
+   "runtime": true,
+   "state": "loose"
+  },
+  {
+   "approved": true,
+   "frame": 1,
+   "label": "loose-1: reduced to the native canvas and snapped to the realm inks.",
+   "name": "loose-1",
+   "runtime": true,
+   "state": "loose"
+  }
+ ],
+ "runtime": true
+}

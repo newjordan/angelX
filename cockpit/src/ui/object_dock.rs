@@ -3,7 +3,7 @@
 use std::time::{Duration, Instant};
 
 use super::viz::lifecycle_viz::MotionMode;
-use crate::app::{App, WorldButton};
+use crate::app::{App, Overlay, WorldButton};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -329,9 +329,7 @@ pub(crate) fn prepare(app: &mut App, area: Rect, exploring: bool, offered: Vec<W
 pub(crate) fn render_overlay(frame: &mut Frame<'_>, app: &mut App) {
     if !app.object_dock.visible { return; }
     // Modal controls still own the screen. Glass must disappear with the text.
-    if app.pending_approval.is_some() || app.loop_dialog.is_some()
-        || app.agent_menu.is_some() || app.setup.open() || app.moa_deck_owns_input()
-    {
+    if app.top_overlay() != Overlay::None {
         app.object_dock.visible = false;
         app.object_dock.tiles.clear();
         app.object_dock.objects.clear();
@@ -670,6 +668,5 @@ mod tests {
         }
         assert!(untouched > 2500);
         assert!(app.object_dock.hit(50, 24).is_none(), "no catch-all panel hit");
-        assert!(!app.world_buttons.iter().any(|(_, b)| *b == WorldButton::DockSurface));
     }
 }

@@ -8,13 +8,13 @@ pub(crate) mod entry;
 mod failed_routes;
 mod projection;
 mod resources;
-pub(crate) use angel_delve::world::routing;
 mod store;
 pub(crate) mod workflow;
 
 use crate::agent::harness::book::{self, labyrinth_campaign as legend};
+use crate::app::control::realm::GameHost;
+use angel_plug::drive::DriveWorld;
 pub(crate) use cli::cli;
-pub(crate) use failed_routes::has_negative_attempt;
 pub(crate) use projection::Projection;
 use serde_json::{Value, json};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
@@ -124,8 +124,8 @@ pub(crate) fn passage(node: &Value) -> Passage {
 }
 
 pub(crate) struct Map {
-    pub(super) document: Value,
-    pub(super) nodes: Vec<Value>,
+    pub(crate) document: Value,
+    pub(crate) nodes: Vec<Value>,
     index: BTreeMap<String, usize>,
     charted: Vec<bool>,
 }
@@ -343,14 +343,7 @@ impl Map {
         })).collect::<Vec<_>>())
     }
 
-    pub(crate) fn route(&self, from: &str, to: &str, explore: bool) -> Result<Value, String> {
-        let start = *self.index.get(from).ok_or("unknown starting node")?;
-        let goal = *self.index.get(to).ok_or("unknown destination node")?;
-        if self.node_passage(start).cost(explore).is_none()
-            || self.node_passage(goal).cost(explore).is_none()
-        {
-            return Ok(json!({"path":null,"reason":"endpoint is closed for this route policy"}));
-        }
+    fn adjacency(&self) -> Vec<BTreeSet<usize>> {
         let mut edges = vec![BTreeSet::new(); self.nodes.len()];
         for (i, node) in self.nodes.iter().enumerate() {
             for link in node["links"].as_array().into_iter().flatten() {
@@ -362,12 +355,29 @@ impl Map {
                 edges[j].insert(i);
             }
         }
-        let path = routing::shortest_path(self.nodes.len(), start, goal, |at| {
-            edges[at]
-                .iter()
-                .filter_map(|&i| self.node_passage(i).cost(explore).map(|cost| (i, cost)))
-                .collect()
-        });
+        edges
+    }
+
+    pub(crate) fn route(&self, from: &str, to: &str, explore: bool) -> Result<Value, String> {
+        let start = *self.index.get(from).ok_or("unknown starting node")?;
+        let goal = *self.index.get(to).ok_or("unknown destination node")?;
+        if self.node_passage(start).cost(explore).is_none()
+            || self.node_passage(goal).cost(explore).is_none()
+        {
+            return Ok(json!({"path":null,"reason":"endpoint is closed for this route policy"}));
+        }
+        let edges = std::cell::OnceCell::new();
+        let path = <GameHost as DriveWorld>::shortest_path(
+            self.nodes.len(),
+            start,
+            goal,
+            &mut |at| {
+                edges.get_or_init(|| self.adjacency())[at]
+                    .iter()
+                    .filter_map(|&i| self.node_passage(i).cost(explore).map(|cost| (i, cost)))
+                    .collect()
+            },
+        );
         Ok(json!({"policy":if explore {"explore"} else {"established"},
             "path":path.map(|path| path.into_iter().map(|i| json!({"id":self.nodes[i]["id"],
                 "passage":self.node_passage(i).label(),"tier":self.nodes[i]["tier"]})).collect::<Vec<_>>())}))
@@ -484,6 +494,40 @@ pub(crate) fn command(workspace: &Path, arg: Option<&str>) -> Result<String, Str
         ),
     };
     serde_json::to_string_pretty(&value).map_err(|error| error.to_string())
+}
+
+impl angel_plug::drive::ResearchMap for Map {
+    fn document(&self) -> &Value {
+        &self.document
+    }
+
+    fn nodes(&self) -> &[Value] {
+        &self.nodes
+    }
+
+    fn frontier(&self, task: Option<&str>, limit: usize) -> Value {
+        Map::frontier(self, task, limit)
+    }
+
+    fn route(&self, from: &str, to: &str, explore: bool) -> Result<Value, String> {
+        Map::route(self, from, to, explore)
+    }
+
+    fn is_charted(&self, node: &Value) -> bool {
+        passage(node) == Passage::Charted
+    }
+
+    fn has_negative_attempt(&self, node: &Value) -> bool {
+        failed_routes::has_negative_attempt(node)
+    }
+}
+
+pub(crate) struct Maps;
+
+impl angel_plug::drive::Labyrinth for Maps {
+    fn load(&self, root: &Path) -> Result<Option<Box<dyn angel_plug::drive::ResearchMap>>, String> {
+        Ok(load(root)?.map(|map| Box::new(map) as Box<dyn angel_plug::drive::ResearchMap>))
+    }
 }
 
 #[cfg(test)]

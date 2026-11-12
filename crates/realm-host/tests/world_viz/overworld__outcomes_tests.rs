@@ -201,3 +201,21 @@ fn outcome_receipts_change_the_landmark_picture_and_stay_on_palette() {
         }
     }
 }
+
+#[test]
+fn every_place_keeps_its_seal_on_the_full_map_and_only_the_newest_shows_where_all_stand_at_the_keep() {
+    let mut seals = Outcomes::default();
+    let green = outcome(ExecutionOutcome::Succeeded, VerificationOutcome::Passed);
+    let red = outcome(ExecutionOutcome::Failed, VerificationOutcome::NotApplicable);
+    seals.note(Place::Smithy, green, 10);
+    seals.note(Place::Lists, red, 30);
+    seals.note(Place::Chapel, green, 20);
+    let shown = seals.shown(40);
+    if angel_delve::world::plan::tabula() {
+        // The newest receipt, at the Lists, alone.
+        assert_eq!(shown.len(), 1);
+        assert_eq!((shown[0].place, shown[0].seal), (Place::Lists, Seal::Failed));
+    } else {
+        assert_eq!(shown.len(), 3);
+    }
+}

@@ -487,7 +487,7 @@ struct TurnLedger {
     artifacts: Vec<Value>,
     turn_id: Option<String>,
     session: Option<String>,
-    stop_reason: Option<&'static str>,
+    stop_reason: Option<super::turn::TurnStopReason>,
     timing_origin: Option<std::time::Instant>,
     active_model_call: Option<usize>,
     next_model_call: usize,
@@ -573,7 +573,7 @@ pub(crate) fn note_turn_session(session: &str) {
     });
 }
 
-pub(crate) fn note_stop_reason(reason: &'static str) {
+pub(crate) fn note_stop_reason(reason: super::turn::TurnStopReason) {
     TURN_LEDGER.with(|cell| cell.borrow_mut().stop_reason = Some(reason));
 }
 
@@ -1605,7 +1605,8 @@ fn attach_turn_ledger(record: &mut Value, club: Option<&dyn Club>) {
             serde_json::json!({"kind":"local", "host":null,"seat":null,"lease_id":null});
         record["turn"]["operator_turn_id"] = serde_json::json!(ledger.turn_id);
         record["turn"]["session"] = serde_json::json!(ledger.session);
-        record["turn"]["stop_reason"] = serde_json::json!(ledger.stop_reason);
+        record["turn"]["stop_reason"] =
+            serde_json::json!(ledger.stop_reason.map(super::turn::TurnStopReason::as_str));
     });
     record["workspace_state"] = trace_schema::workspace_state(
         crate::knowledge::experience::current_turn_workspace().as_deref(),

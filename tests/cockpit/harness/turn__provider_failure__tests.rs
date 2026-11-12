@@ -721,3 +721,32 @@ fn a_bend_source_edit_changes_the_next_turns_retries_and_a_broken_law_is_refused
             .retry
     );
 }
+
+#[test]
+fn policy_control_errors_withdrawal_preserves_pinned_bend_and_next_turn_uses_native_fallback() {
+    let root=Root::new("withdrawal");install_shipped(&root);
+    let path=root.module().join("index.js");
+    let original=std::fs::read_to_string(&path).unwrap();
+    assert!(original.contains("delay_ms: verdict.delay"));
+    std::fs::write(&path,original.replace("delay_ms: verdict.delay","delay_ms: 5")).unwrap();
+    let (mut modules,registry)=live_registry(&root);
+    let ctx=context(1,None);let error="HTTP 503: overloaded";
+    let before=decide_failure(&registry,error,&ctx);
+    assert_eq!(before.verdict.delay_ms,5);assert!(matches!(before.leg,LegSource::Live { .. }));
+    let snapshot=modules.snapshot();let status=snapshot.statuses.iter().find(|s|s.id=="errors").unwrap();
+    assert!(status.build.is_some(),"fixture did not load receipt-checked packaged Bend");
+    modules.withdraw(vec![("errors".into(),status.generation)]).unwrap();drop(snapshot);
+    registry.set_live_policies(modules.snapshot().policies);
+    let held=decide_failure(&registry,error,&ctx);
+    assert_eq!(held.leg,before.leg);assert_eq!(held.verdict,before.verdict);
+    registry.pin_live_policies();
+    let native=decide_failure(&registry,error,&ctx);
+    assert_eq!(native.leg,LegSource::Native);assert_eq!(native.verdict.delay_ms,1000);
+    assert_eq!(native.verdict,native_verdict(error,&ctx));
+    std::fs::write(&path,original.replace("delay_ms: verdict.delay","delay_ms: 7")).unwrap();
+    modules.enable(vec!["errors".into()]).unwrap();
+    registry.set_live_policies(modules.snapshot().policies);
+    assert_eq!(decide_failure(&registry,error,&ctx).leg,LegSource::Native,"re-enable altered a pinned native-fallback turn");
+    registry.pin_live_policies();let returned=decide_failure(&registry,error,&ctx);
+    assert!(matches!(returned.leg,LegSource::Live { .. }));assert_eq!(returned.verdict.delay_ms,7);
+}

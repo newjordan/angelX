@@ -390,6 +390,10 @@ fn the_first_home_takes_the_pot_and_the_laurel_and_everyone_keeps_their_haul() {
     run.step(&BTreeMap::new());
     assert_eq!(race(&run).riders[&2].finish, Some(race(&run).t));
     assert!(!race(&run).done, "still racing while one is out on the course");
+    // The first knight home holds the room a moment (the photo finish's freeze).
+    while run.hitstop.frozen() {
+        run.step(&BTreeMap::new());
+    }
     {
         let r = rider(&mut run, 1);
         (r.s, r.vs) = (finish - 0.05, 3.0);
@@ -407,7 +411,8 @@ fn the_first_home_takes_the_pot_and_the_laurel_and_everyone_keeps_their_haul() {
     assert!(run.found.as_ref().unwrap().2.contains("TWO WON THE SHAFT RUN"));
     // The board stays up a while, then the hall comes back.
     assert!(run.race3d_showing());
-    ticks(&mut run, PODIUM, &BTreeMap::new());
+    // (A few ticks more: the first home's hold stands the board's clock still.)
+    ticks(&mut run, PODIUM + 16, &BTreeMap::new());
     assert!(!run.race3d_showing());
     assert!(run.valid_snapshot());
 }
@@ -435,7 +440,7 @@ fn a_friends_mirror_carries_the_race() {
 
 /// A knight who keys the obvious things: forward, middle, hop the drift,
 /// switch off an ending line, jump what is ahead, fly round the stone.
-fn autopilot(run: &Run, id: u32) -> Input {
+pub(crate) fn autopilot(run: &Run, id: u32) -> Input {
     let r = race(run);
     let me = &r.riders[&id];
     let t = track(r.course);
@@ -618,7 +623,7 @@ fn e_at_the_perch_flies_everyone_free_and_again_after_the_board() {
     assert!(!run.players.values().any(|h| h.laurel));
     assert!(run.race_won(), "the first win leaves its mark");
     assert!(run.found.as_ref().unwrap().2.contains("FLEW THE GORGE FIRST"));
-    for _ in 0..PODIUM {
+    for _ in 0..PODIUM + 16 {
         run.step(&BTreeMap::new());
     }
     assert!(!run.race3d_showing());

@@ -11,6 +11,7 @@ mod provider_failure;
 mod silence_guard;
 mod reasoning;
 pub(crate) mod research;
+mod tools_in_flight;
 mod verify;
 
 use super::*;
@@ -19,6 +20,7 @@ pub(crate) use classify::*;
 pub(crate) use competition::*;
 pub(crate) use dispatch::*;
 use provider_failure::{FailureClass, FailureContext, decide_failure, leg_note, leg_parts};
+use tools_in_flight::ToolsInFlight;
 pub(crate) use reasoning::*;
 pub(crate) use verify::*;
 
@@ -144,6 +146,86 @@ impl TurnStopReason {
     }
 }
 
+/// The three booleans that ride beside `stop_reason` on a turn's result, in the
+/// task JSON and in the persisted records. `stop_reason` is the authority; these
+/// are its projection, kept for readers that predate it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct StopFlags {
+    pub(crate) interrupted: bool,
+    pub(crate) deadline_reached: bool,
+    pub(crate) max_hops_reached: bool,
+}
+
+impl StopFlags {
+    const NONE: Self = Self {
+        interrupted: false,
+        deadline_reached: false,
+        max_hops_reached: false,
+    };
+}
+
+impl TurnStopReason {
+    /// The one table: the flags every constructor in this file reports for
+    /// this reason. `interrupted` means the turn was cut short rather than
+    /// answered or failed. `None` for `IdleTimeout`, which no constructor
+    /// builds: the idle watchdog re-labels a turn that was already ending some
+    /// other way, and the flags stay that turn's (see [`Retag::IdleTimeout`]).
+    pub(crate) fn flags(self) -> Option<StopFlags> {
+        let flags = |interrupted, deadline_reached, max_hops_reached| {
+            Some(StopFlags {
+                interrupted,
+                deadline_reached,
+                max_hops_reached,
+            })
+        };
+        match self {
+            Self::Answer => flags(false, false, false),
+            Self::Interrupt | Self::NeedsPro => flags(true, false, false),
+            Self::Deadline => flags(true, true, false),
+            Self::MaxHops => flags(true, false, true),
+            Self::ExecutionBlocked
+            | Self::CaptureFailure
+            | Self::CheckpointFailure
+            | Self::ProviderError => flags(false, false, false),
+            Self::IdleTimeout => None,
+        }
+    }
+}
+
+/// A late verdict the turn wrapper stamps over a turn that already ended. Both
+/// change the reason and keep part of what the ended turn reported, so each
+/// says exactly which part.
+#[derive(Clone, Copy, Debug)]
+enum Retag {
+    /// An owned process was killed for the operator's cancel: the turn reads
+    /// as an interrupt. `interrupted` becomes true; the deadline and max-hops
+    /// flags stay as the ended turn had them.
+    OperatorKill,
+    /// The idle watchdog fired. Every flag stays as the ended turn had it, so
+    /// `interrupted` is true when the turn came back as a stopped outcome and
+    /// false when it came back as a failure (a cancelled provider wait).
+    IdleTimeout,
+}
+
+impl Retag {
+    fn reason(self) -> TurnStopReason {
+        match self {
+            Self::OperatorKill => TurnStopReason::Interrupt,
+            Self::IdleTimeout => TurnStopReason::IdleTimeout,
+        }
+    }
+
+    fn flags(self, ended: StopFlags) -> StopFlags {
+        match self {
+            Self::OperatorKill => StopFlags {
+                interrupted: true,
+                ..ended
+            },
+            Self::IdleTimeout => ended,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TurnOutcome {
     pub(crate) reward_binding: Option<super::rollout::RewardReceipt>,
@@ -151,6 +233,7 @@ pub(crate) struct TurnOutcome {
     pub(crate) stop_notice: Option<String>,
     pub(crate) stop_reason: TurnStopReason,
     pub(crate) hops: usize,
+    /// The three flags project `stop_reason` (see [`TurnStopReason::flags`]).
     pub(crate) interrupted: bool,
     pub(crate) deadline_reached: bool,
     pub(crate) max_hops_reached: bool,
@@ -511,14 +594,15 @@ fn tool_wall_shares(durations: &[u128], batch_ms: u128) -> Vec<u128> {
 
 impl TurnOutcome {
     fn answer(answer: String, hops: usize) -> Self {
+        let flags = TurnStopReason::Answer.flags().unwrap_or(StopFlags::NONE);
         Self {
             answer,
             stop_notice: None,
             stop_reason: TurnStopReason::Answer,
             hops,
-            interrupted: false,
-            deadline_reached: false,
-            max_hops_reached: false,
+            interrupted: flags.interrupted,
+            deadline_reached: flags.deadline_reached,
+            max_hops_reached: flags.max_hops_reached,
             acceptance: None,
             rollout_id: None,
             tools: Vec::new(),
@@ -533,20 +617,40 @@ impl TurnOutcome {
     }
 
     fn stopped(answer: String, stop_reason: TurnStopReason, hops: usize) -> Self {
+        let flags = stop_reason.flags().unwrap_or(StopFlags {
+            interrupted: true,
+            ..StopFlags::NONE
+        });
         Self {
             answer,
             stop_notice: None,
             stop_reason,
             hops,
-            interrupted: true,
-            deadline_reached: stop_reason == TurnStopReason::Deadline,
-            max_hops_reached: stop_reason == TurnStopReason::MaxHops,
+            interrupted: flags.interrupted,
+            deadline_reached: flags.deadline_reached,
+            max_hops_reached: flags.max_hops_reached,
             acceptance: None,
             rollout_id: None,
             tools: Vec::new(),
             timing: None,
             reward_binding: None,
         }
+    }
+
+    fn flags(&self) -> StopFlags {
+        StopFlags {
+            interrupted: self.interrupted,
+            deadline_reached: self.deadline_reached,
+            max_hops_reached: self.max_hops_reached,
+        }
+    }
+
+    fn retag(&mut self, how: Retag) {
+        let flags = how.flags(self.flags());
+        self.stop_reason = how.reason();
+        self.interrupted = flags.interrupted;
+        self.deadline_reached = flags.deadline_reached;
+        self.max_hops_reached = flags.max_hops_reached;
     }
 }
 
@@ -555,11 +659,54 @@ pub(crate) struct TurnFailure {
     pub(crate) message: String,
     pub(crate) stop_reason: TurnStopReason,
     pub(crate) hops: usize,
+    /// The three flags project `stop_reason` (see [`TurnStopReason::flags`]).
     pub(crate) interrupted: bool,
     pub(crate) deadline_reached: bool,
     pub(crate) max_hops_reached: bool,
     pub(crate) acceptance: Option<Box<TaskAcceptanceTelemetry>>,
     pub(crate) rollout_id: Option<String>,
+}
+
+impl TurnFailure {
+    /// A failure with the flags the table gives `stop_reason`.
+    fn new(message: String, stop_reason: TurnStopReason, hops: usize) -> Self {
+        let flags = stop_reason.flags().unwrap_or(StopFlags::NONE);
+        Self {
+            message,
+            stop_reason,
+            hops,
+            interrupted: flags.interrupted,
+            deadline_reached: flags.deadline_reached,
+            max_hops_reached: flags.max_hops_reached,
+            acceptance: None,
+            rollout_id: None,
+        }
+    }
+
+    /// Replace the reason with one the table fixes, and its flags with it.
+    fn restamp(&mut self, stop_reason: TurnStopReason) {
+        let flags = stop_reason.flags().unwrap_or(StopFlags::NONE);
+        self.stop_reason = stop_reason;
+        self.interrupted = flags.interrupted;
+        self.deadline_reached = flags.deadline_reached;
+        self.max_hops_reached = flags.max_hops_reached;
+    }
+
+    fn flags(&self) -> StopFlags {
+        StopFlags {
+            interrupted: self.interrupted,
+            deadline_reached: self.deadline_reached,
+            max_hops_reached: self.max_hops_reached,
+        }
+    }
+
+    fn retag(&mut self, how: Retag) {
+        let flags = how.flags(self.flags());
+        self.stop_reason = how.reason();
+        self.interrupted = flags.interrupted;
+        self.deadline_reached = flags.deadline_reached;
+        self.max_hops_reached = flags.max_hops_reached;
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -815,15 +962,12 @@ fn run_turn_steered_observed(
     task_capture: Option<TaskCaptureContext<'_>>,
     history_checkpoint: Option<HistoryCheckpoint<'_>>,
 ) -> Result<TurnOutcome, TurnFailure> {
-    let catalog = book::catalog::bind_turn(history).map_err(|message| TurnFailure {
-        message: format!("book generation: {message}"),
-        stop_reason: TurnStopReason::ProviderError,
-        hops: 0,
-        interrupted: false,
-        deadline_reached: false,
-        max_hops_reached: false,
-        acceptance: None,
-        rollout_id: None,
+    let catalog = book::catalog::bind_turn(history).map_err(|message| {
+        TurnFailure::new(
+            format!("book generation: {message}"),
+            TurnStopReason::ProviderError,
+            0,
+        )
     })?;
     let catalog = super::core_catalog::bind_book(catalog);
     let _book_owner = book::catalog::publish_owner(cancel as *const AtomicBool as usize, &catalog);
@@ -842,15 +986,11 @@ fn run_turn_steered_observed(
         let (effective_cancel, done, timed_out) = (&effective_cancel, &done, &timed_out);
         let watcher = scope.spawn(move || {
             let mut last_progress = Instant::now();
-            let mut tool_active = false;
+            let mut tools = ToolsInFlight::default();
             while !done.load(Ordering::Acquire) {
                 match relay_rx.recv_timeout(Duration::from_millis(20)) {
                     Ok(event) => {
-                        match &event {
-                            TurnEvent::ToolCall { .. } => tool_active = true,
-                            TurnEvent::ToolResult { .. } => tool_active = false,
-                            _ => {}
-                        }
+                        tools.note(&event);
                         last_progress = Instant::now();
                         let _ = events.send(event);
                     }
@@ -868,7 +1008,7 @@ fn run_turn_steered_observed(
                     && idle.is_some_and(|limit| {
                         // Let a due tool-idle escalation settle its owned child
                         // and return a recoverable failure before turn cancellation.
-                        let grace = if tool_active
+                        let grace = if tools.any()
                             && super::exec::tool_idle_timeout()
                                 .is_some_and(|tool_limit| tool_limit <= limit)
                         {
@@ -946,14 +1086,8 @@ fn run_turn_steered_observed(
         // The process kill remains the authoritative cancellation receipt.
         if kills.iter().any(|(_, kill)| kill.reason == "cancelled") {
             match &mut result {
-                Ok(outcome) => {
-                    outcome.stop_reason = TurnStopReason::Interrupt;
-                    outcome.interrupted = true;
-                }
-                Err(failure) => {
-                    failure.stop_reason = TurnStopReason::Interrupt;
-                    failure.interrupted = true;
-                }
+                Ok(outcome) => outcome.retag(Retag::OperatorKill),
+                Err(failure) => failure.retag(Retag::OperatorKill),
             }
         }
         if let Ok(outcome) = &mut result {
@@ -962,7 +1096,7 @@ fn run_turn_steered_observed(
         if timed_out.load(Ordering::Acquire) {
             return match result {
                 Ok(mut outcome) => {
-                    outcome.stop_reason = TurnStopReason::IdleTimeout;
+                    outcome.retag(Retag::IdleTimeout);
                     outcome.answer = format!(
                         "turn idle timeout ({}s without progress)",
                         idle.unwrap().as_secs()
@@ -970,7 +1104,7 @@ fn run_turn_steered_observed(
                     Ok(outcome)
                 }
                 Err(mut failure) => {
-                    failure.stop_reason = TurnStopReason::IdleTimeout;
+                    failure.retag(Retag::IdleTimeout);
                     failure.message = format!(
                         "turn idle timeout ({}s without progress): {}",
                         idle.unwrap().as_secs(),
@@ -1158,17 +1292,8 @@ fn run_turn_tiered(
         workspace_state_started.elapsed().as_millis(),
     );
     crate::agent::turn::phase::mark("formation_budget");
-    let _formation_budget_scope =
-        super::formation_budget::start_turn().map_err(|message| TurnFailure {
-            message,
-            stop_reason: TurnStopReason::ProviderError,
-            hops: 0,
-            interrupted: false,
-            deadline_reached: false,
-            max_hops_reached: false,
-            acceptance: None,
-            rollout_id: None,
-        })?;
+    let _formation_budget_scope = super::formation_budget::start_turn()
+        .map_err(|message| TurnFailure::new(message, TurnStopReason::ProviderError, 0))?;
     if let Some(budget) = super::formation_budget::current()
         && !club.supports_formation_budget()
     {
@@ -1199,16 +1324,11 @@ fn run_turn_tiered(
         Ok(recorder) => recorder,
         Err(error) => {
             if rollout_required {
-                return Err(TurnFailure {
-                    message: format!("required rollout capture could not start: {error}"),
-                    stop_reason: TurnStopReason::CaptureFailure,
-                    hops: 0,
-                    interrupted: false,
-                    deadline_reached: false,
-                    max_hops_reached: false,
-                    acceptance: None,
-                    rollout_id: None,
-                });
+                return Err(TurnFailure::new(
+                    format!("required rollout capture could not start: {error}"),
+                    TurnStopReason::CaptureFailure,
+                    0,
+                ));
             }
             let _ = events.send(TurnEvent::RolloutCaptureError(format!(
                 "rollout capture unavailable; turn continues without it: {error}"
@@ -1217,16 +1337,11 @@ fn run_turn_tiered(
         }
     };
     if rollout_required && rollout_recorder.rollout_id().is_none() {
-        return Err(TurnFailure {
-            message: "required rollout capture is off; select shadow or local capture".to_string(),
-            stop_reason: TurnStopReason::CaptureFailure,
-            hops: 0,
-            interrupted: false,
-            deadline_reached: false,
-            max_hops_reached: false,
-            acceptance: None,
-            rollout_id: None,
-        });
+        return Err(TurnFailure::new(
+            "required rollout capture is off; select shadow or local capture".to_string(),
+            TurnStopReason::CaptureFailure,
+            0,
+        ));
     }
     // New turn → clear the per-turn approval cache (approve-all decisions from a
     // previous turn don't carry over). Inert unless an approval gate fires.
@@ -1612,6 +1727,11 @@ fn run_turn_tiered(
     // first stop the run is repeated on the unchanged code: one pass can be
     // luck. A failed re-run is `⠧⠑`.
     let mut last_green_run: Option<book::v_verification::GreenRun> = None;
+    // The harness-added test run of the last response passed in full
+    // (`ANGEL_TASK_END_AT_GREEN`): its summary line, and the hop it ran in.
+    let end_at_green = super::task_mode::end_at_green();
+    let mut autotest_green: Option<String> = None;
+    let mut autotest_hop_failed: usize = usize::MAX;
     let confirm_green_runs = book::v_verification::confirm_green_extra_runs(competition);
     let confirm_green_on_chance =
         book::v_verification::confirm_green_by_chance(task_active, competition);
@@ -2044,14 +2164,13 @@ fn run_turn_tiered(
             if rollout_required {
                 if let Some(error) = rollout_capture_error.take() {
                     return Err(TurnFailure {
-                        message: format!("required rollout capture failed: {error}"),
-                        stop_reason: TurnStopReason::CaptureFailure,
-                        hops: outcome.hops,
-                        interrupted: false,
-                        deadline_reached: false,
-                        max_hops_reached: false,
                         acceptance: outcome.acceptance.map(Box::new),
                         rollout_id: outcome.rollout_id,
+                        ..TurnFailure::new(
+                            format!("required rollout capture failed: {error}"),
+                            TurnStopReason::CaptureFailure,
+                            outcome.hops,
+                        )
                     });
                 }
             }
@@ -2100,10 +2219,7 @@ fn run_turn_tiered(
             if rollout_required {
                 if let Some(error) = rollout_capture_error.take() {
                     failure.message = format!("required rollout capture failed: {error}");
-                    failure.stop_reason = TurnStopReason::CaptureFailure;
-                    failure.interrupted = false;
-                    failure.deadline_reached = false;
-                    failure.max_hops_reached = false;
+                    failure.restamp(TurnStopReason::CaptureFailure);
                 }
             }
             return Err(failure);
@@ -2157,7 +2273,7 @@ fn run_turn_tiered(
             crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
-            crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Interrupt.as_str());
+            crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Interrupt);
             log_trajectory(club, history, &note, hop, true, None);
             write_exp(
                 "interrupt",
@@ -2192,7 +2308,7 @@ fn run_turn_tiered(
             crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
-            crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Deadline.as_str());
+            crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Deadline);
             log_trajectory(club, history, &note, hop, true, verdicts.reward());
             write_exp(
                 "deadline",
@@ -2235,7 +2351,7 @@ fn run_turn_tiered(
             crate::agent::harness::trajectory::note_task_timing(
                 &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
             );
-            crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::MaxHops.as_str());
+            crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::MaxHops);
             log_trajectory(club, history, &message, hop, true, verdicts.reward());
             write_exp(
                 "max_hops",
@@ -2273,16 +2389,7 @@ fn run_turn_tiered(
                 );
             }
             observed_failure!(
-                TurnFailure {
-                    message,
-                    stop_reason: TurnStopReason::MaxHops,
-                    hops: hop,
-                    interrupted: true,
-                    deadline_reached: false,
-                    max_hops_reached: true,
-                    acceptance: None,
-                    rollout_id: None,
-                },
+                TurnFailure::new(message, TurnStopReason::MaxHops, hop),
                 "max_hops"
             );
         }
@@ -2730,6 +2837,16 @@ fn run_turn_tiered(
         let red_hop = red_seen.take(failed_checks);
         let stuck_hop = silence.take_wake();
         let reply = loop {
+            // The write and its full green test run are both in the history:
+            // stop here as the model would, through the same stop checks,
+            // without asking it for a closing message.
+            if let Some(line) = autotest_green.take() {
+                let notice = super::task_mode::completion_notice(&line, &edited_paths);
+                let _ = events.send(TurnEvent::Notice(
+                    "task complete: the test run after the last edit passed in full; no closing model call".into(),
+                ));
+                break crate::agent::club::ClubReply::Text(notice);
+            }
             // A retry backoff can cross the existing turn deadline. Settle at
             // the owned boundary before opening another provider request.
             if cancel.load(Ordering::Acquire)
@@ -2769,16 +2886,7 @@ fn run_turn_tiered(
                 );
                 let _ = events.send(TurnEvent::Notice(message.clone()));
                 observed_failure!(
-                    TurnFailure {
-                        message,
-                        stop_reason: TurnStopReason::CheckpointFailure,
-                        hops: hop,
-                        interrupted: false,
-                        deadline_reached: false,
-                        max_hops_reached: false,
-                        acceptance: None,
-                        rollout_id: None,
-                    },
+                    TurnFailure::new(message, TurnStopReason::CheckpointFailure, hop),
                     "checkpoint_failure"
                 );
             }
@@ -2914,6 +3022,7 @@ fn run_turn_tiered(
                 }
                 crate::agent::club::set_pending_responses_replay(None);
                 crate::agent::turn::phase::mark("request_sent");
+                warm_beside_first_request();
                 match effective_effort.as_deref() {
                     Some(effort) => club.chat_streaming_with_effort(
                         history,
@@ -3338,7 +3447,7 @@ fn run_turn_tiered(
                         leg_digest,
                     );
                     crate::agent::harness::trajectory::note_stop_reason(
-                        TurnStopReason::ProviderError.as_str(),
+                        TurnStopReason::ProviderError,
                     );
                     // Seal the progress ledger even when no model answer exists.
                     // Failed transport never earns a verifier reward or answer.
@@ -3396,19 +3505,11 @@ fn run_turn_tiered(
                         }
                     };
                     observed_failure!(
-                        TurnFailure {
-                            message: format!(
-                                "{err}; {retry_disposition}{}",
-                                leg_note(&failure.leg)
-                            ),
-                            stop_reason: TurnStopReason::ProviderError,
-                            hops: hop,
-                            interrupted: false,
-                            deadline_reached: false,
-                            max_hops_reached: false,
-                            acceptance: None,
-                            rollout_id: None,
-                        },
+                        TurnFailure::new(
+                            format!("{err}; {retry_disposition}{}", leg_note(&failure.leg)),
+                            TurnStopReason::ProviderError,
+                            hop,
+                        ),
                         "provider_error"
                     );
                 }
@@ -3895,9 +3996,7 @@ fn run_turn_tiered(
                     &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                 );
                 if research_turn && budget_expired(turn_start.elapsed().as_secs(), turn_budget) {
-                    crate::agent::harness::trajectory::note_stop_reason(
-                        TurnStopReason::Deadline.as_str(),
-                    );
+                    crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Deadline);
                     log_trajectory(club, history, &answer, hop, true, verdicts.reward());
                     observed_outcome!(
                         TurnOutcome::stopped(answer, TurnStopReason::Deadline, hop)
@@ -3905,9 +4004,7 @@ fn run_turn_tiered(
                         "deadline"
                     );
                 }
-                crate::agent::harness::trajectory::note_stop_reason(
-                    TurnStopReason::Answer.as_str(),
-                );
+                crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Answer);
                 log_trajectory(club, history, &answer, hop, false, verdicts.reward());
                 file_report(
                     club,
@@ -3933,6 +4030,7 @@ fn run_turn_tiered(
                 observed_outcome!(TurnOutcome::answer(answer, hop), "answer");
             }
             crate::agent::club::ClubReply::Calls(mut calls) => {
+                super::task_mode::append_test_after_write(&mut calls, hop);
                 // Routes this hop raises; they ride the tail of its last tool
                 // result as one warpath, never a message of their own.
                 let mut raised: Vec<book::Raise> = Vec::new();
@@ -4105,16 +4203,7 @@ fn run_turn_tiered(
                             ),
                         );
                         observed_failure!(
-                            TurnFailure {
-                                message,
-                                stop_reason: TurnStopReason::CheckpointFailure,
-                                hops: hop,
-                                interrupted: false,
-                                deadline_reached: false,
-                                max_hops_reached: false,
-                                acceptance: None,
-                                rollout_id: None,
-                            },
+                            TurnFailure::new(message, TurnStopReason::CheckpointFailure, hop),
                             "checkpoint_failure"
                         );
                     }
@@ -4701,6 +4790,17 @@ fn run_turn_tiered(
                     if track_task_facts && succeeded && shell_runs_tests_anywhere(call) {
                         last_red_run = None;
                     }
+                    if !succeeded {
+                        autotest_hop_failed = hop;
+                    }
+                    if end_at_green
+                        && succeeded
+                        && autotest_hop_failed != hop
+                        && call.id.starts_with("call_autotest_")
+                        && verification_outcome(call, &result) != Some(VerificationOutcome::Failed)
+                    {
+                        autotest_green = super::task_mode::full_green_line(&result);
+                    }
                     if succeeded
                         && (confirm_green_runs > 0 || confirm_green_on_chance)
                         && verification_outcome(call, &result) != Some(VerificationOutcome::Failed)
@@ -4987,7 +5087,7 @@ fn run_turn_tiered(
                         &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                     );
                     crate::agent::harness::trajectory::note_stop_reason(
-                        TurnStopReason::ExecutionBlocked.as_str(),
+                        TurnStopReason::ExecutionBlocked,
                     );
                     log_trajectory(club, history, &note, hop, true, verdicts.reward());
                     write_exp(
@@ -5004,16 +5104,7 @@ fn run_turn_tiered(
                         ),
                     );
                     observed_failure!(
-                        TurnFailure {
-                            message: note,
-                            stop_reason: TurnStopReason::ExecutionBlocked,
-                            hops: hop,
-                            interrupted: false,
-                            deadline_reached: false,
-                            max_hops_reached: false,
-                            acceptance: None,
-                            rollout_id: None,
-                        },
+                        TurnFailure::new(note, TurnStopReason::ExecutionBlocked, hop),
                         "execution_blocked"
                     );
                 }
@@ -5182,9 +5273,7 @@ fn run_turn_tiered(
                         crate::agent::harness::trajectory::note_task_timing(
                             &timing.finish_with_history(turn_start.elapsed().as_millis(), history),
                         );
-                        crate::agent::harness::trajectory::note_stop_reason(
-                            TurnStopReason::Answer.as_str(),
-                        );
+                        crate::agent::harness::trajectory::note_stop_reason(TurnStopReason::Answer);
                         log_trajectory(club, history, &answer, hop, false, verdicts.reward());
                         file_report(
                             club,
@@ -5353,6 +5442,23 @@ fn apply_final_advisor(
         }
         Err(_) => answer,
     }
+}
+
+/// Work the first tool call would otherwise pay for, started as the process's
+/// first model request goes out so it overlaps the wait for the answer: the
+/// toolchain digests held at start-up are released, and the result classifier
+/// (a V8 policy leg whose first evaluation builds its isolate) is run once.
+/// Later hops and later turns find both already done.
+fn warm_beside_first_request() {
+    static FIRST: std::sync::Once = std::sync::Once::new();
+    FIRST.call_once(|| {
+        crate::agent::tools::build::release_pin_hashing();
+        let _ = std::thread::Builder::new()
+            .name("angel-first-dispatch-warm".into())
+            .spawn(|| {
+                let _ = is_error_result("ok");
+            });
+    });
 }
 
 struct PostWriteObservers<'a> {

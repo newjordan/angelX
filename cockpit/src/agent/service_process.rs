@@ -116,6 +116,32 @@ impl Drop for ServiceChild {
     }
 }
 
+impl angel_plug::services::OwnedChild for ServiceChild {
+    fn take_stdin(&mut self) -> Option<ChildStdin> {
+        ServiceChild::take_stdin(self)
+    }
+
+    fn take_stdout(&mut self) -> Option<ChildStdout> {
+        ServiceChild::take_stdout(self)
+    }
+
+    fn alive(&mut self) -> bool {
+        ServiceChild::alive(self)
+    }
+
+    fn retire(&mut self) -> io::Result<ExitStatus> {
+        ServiceChild::retire(self)
+    }
+}
+
+pub(crate) struct Services;
+
+impl angel_plug::services::Processes for Services {
+    fn spawn_owned(&self, command: &mut Command) -> io::Result<Box<dyn angel_plug::services::OwnedChild>> {
+        ServiceChild::spawn(command).map(|child| Box::new(child) as Box<dyn angel_plug::services::OwnedChild>)
+    }
+}
+
 #[cfg(test)]
 #[path = "../../../tests/cockpit/app/service_process__tests.rs"]
 pub(crate) mod tests;

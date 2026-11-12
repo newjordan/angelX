@@ -5,11 +5,11 @@
 //!   bobbing across its flight, a neon wake of mint and teal swaying behind
 //!   it on the path it took.
 //! - **A volley** (`bard::volley_sounds`): sound blasting off the horn,
-//!   lit arcs opening along the aim; on the beat, when the kick drops
-//!   (`bard::pulse`), notes thrown out of the bell and the kick thumping
-//!   out across the floor, a shock with a dark wake; with the wub in, a
-//!   teal ring after it that bends with the bass.
-//! - **The overload** (`bard::GLITCH_AT`): the picture round the knight
+//!   lit arcs opening along the aim; on the beat, the first volley of each
+//!   slice of the song (`bard::on_beat`), notes thrown out of the bell and
+//!   the kick thumping out across the floor, a shock with a dark wake; with
+//!   the bass in, a teal ring after it that bends with the bassline.
+//! - **The overload** (`bard::DROP_AT`): the picture round the knight
 //!   tears and splits, and the horn blows out a ring split into its
 //!   colours like a bad signal.
 //! - **A note landing** (`feel::Impact::note`, drawn in `vfx`): a flash, a
@@ -186,7 +186,7 @@ pub(crate) fn blasts(cv: &mut Img, run: &Run) {
         let (x, y) = super::super::at(hero.x, hero.y);
         let (bx, by) = bell(hero, (x, y));
         let aim = hero.aim_y.atan2(hero.aim_x);
-        let beat = sim::pulse(hero.loosed.wrapping_sub(1)).is_some();
+        let beat = sim::on_beat(hero.groove);
         let mut pen = Pen::new(cv, 500);
         let k = age as f32 / 4.0;
         let spread = if beat { 0.95 } else { 0.65 };
@@ -216,7 +216,7 @@ pub(crate) fn blasts(cv: &mut Img, run: &Run) {
 pub(crate) fn beats(cv: &mut Img, run: &Run) {
     for hero in run.players.values() {
         let Some(age) = since_volley(hero) else { continue };
-        if sim::pulse(hero.loosed.wrapping_sub(1)).is_none() {
+        if !sim::on_beat(hero.groove) {
             continue;
         }
         let (x, y) = super::super::at(hero.x, hero.y);
@@ -283,7 +283,7 @@ pub(crate) fn glitches(cv: &mut Img, run: &Run) {
     for (&id, hero) in run.players.iter().filter(|(_, h)| h.hp > 0 && plays(h)) {
         let stage = sim::stage(hero.groove);
         let (x, y) = super::super::at(hero.x, hero.y);
-        if hero.groove == sim::GLITCH_AT
+        if hero.groove == sim::DROP_AT
             && let Some(age) = since_volley(hero)
         {
             // The overload: the horn blows out a ring, white to teal, split

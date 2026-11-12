@@ -1,0 +1,93 @@
+{
+  "schema": 1,
+  "title": "Knight's Wish \u2014 mineral sentinel field enemies",
+  "generated_with": "OpenAI built-in imagegen",
+  "atlas": "ore-enemies-atlas.png",
+  "source_width": 1246,
+  "source_height": 1263,
+  "style": "Crisp pixel-painted fantasy; 3/4 front; mineral material cues; upper-left light; transparent full-body sprites",
+  "runtime_role": "Field enemy appearances and ore forecast portraits; monster_art owns combat behavior and renderer integration",
+  "assets": [
+    {
+      "id": "iron-ore-sentinel",
+      "resource": "iron-ore",
+      "name": "Iron Ore Sentinel",
+      "rect": [
+        0,
+        0,
+        623,
+        631
+      ],
+      "visual_cue": "Broad rust-banded iron pavise and hammer arm",
+      "combat_identity": "Frontal shield and heavy bash",
+      "visible_bbox": [
+        18,
+        89,
+        573,
+        563
+      ]
+    },
+    {
+      "id": "coal-blast-crawler",
+      "resource": "coal",
+      "name": "Coal Blast Crawler",
+      "rect": [
+        623,
+        0,
+        623,
+        631
+      ],
+      "visual_cue": "Brittle coal shell, thin hot fissures, gripped explosive keg",
+      "combat_identity": "Planted blinking explosive kegs",
+      "visible_bbox": [
+        21,
+        129,
+        581,
+        560
+      ]
+    },
+    {
+      "id": "crystal-prism-stalker",
+      "resource": "crystal",
+      "name": "Crystal Prism Stalker",
+      "rect": [
+        0,
+        631,
+        586,
+        632
+      ],
+      "visual_cue": "Tall teal-violet facets, angular ranged arm, white prism core",
+      "combat_identity": "Copies and refracts player shots after a visible tell",
+      "visible_bbox": [
+        30,
+        12,
+        557,
+        581
+      ]
+    },
+    {
+      "id": "ember-cinderhound",
+      "resource": "ember",
+      "name": "Ember Cinderhound",
+      "rect": [
+        586,
+        631,
+        660,
+        632
+      ],
+      "visual_cue": "Low obsidian charge stance, bright molten seams, burning mane and tail",
+      "combat_identity": "Crouch, line charge, lingering fire",
+      "visible_bbox": [
+        23,
+        69,
+        629,
+        548
+      ]
+    }
+  ],
+  "provenance": {
+    "prompt": "Create a transparent ENEMY GAME SPRITE ATLAS for KNIGHT'S WISH, a dark storybook fantasy dungeon game linked to a kingdom factory. Match attached reference ONLY in premium detailed pixel-art rendering, crisp square clusters, stepped silhouettes, earthy materials, localized luminous accents, three-quarter front view and upper-left light. These are FOUR NEW ordinary dangerous field enemies, not the reference boss. Exactly 2 by 2 equal grid; each full-body enemy centered in its own quadrant,15% empty transparent margin on ALL sides, no cropped limbs, no labels, text, UI, floor, scenery, pedestals, shadows or border. Distinct compact silhouettes and simple large masses, instantly readable at30\u201336px native size. TOP LEFT IRON ORE SENTINEL: stocky sinister armored construct made of dark iron plates with rusty orange ore seams, helmet slit with a dim amber eye. Its left arm carries a HUGE rectangular riveted iron front shield/pavise with battered silver edges, covering most torso; its right arm is a heavy blunt hammer fist pulled back for a bash. Two squat plated legs, broad defensive silhouette. Mostly cold iron gray and rust, NOT bright flames. TOP RIGHT COAL BLAST CRAWLER: low six-legged soot-black shale creature, angular brittle coal shell with dangerous thin ember-orange cracks, small yellow eyes deep in a dark face. One squat round iron-banded explosive keg gripped under its front pair of claws, very short small glowing fuse. Jagged dark rounded body, broad low silhouette, visibly combustible black coal rather than lava. BOTTOM LEFT CRYSTAL PRISM STALKER: elegant floating enemy composed of sharp faceted teal-and-violet crystal shards, one tall diamond torso with a single luminous white-cyan eye, two long angular blade arms, two smaller prismatic shards orbiting close beside shoulders. One arm extends toward the viewer as if aligning a refracted shot. Bright geometric planes, cool cyan, violet and pale edges, no organic skin, no robe. Bottom pointed feet floating together, narrow tall silhouette. BOTTOM RIGHT EMBER CINDERHOUND: threatening low four-legged obsidian hound crouching ready to charge, angular wolf-like head and heavy front claws, dark volcanic plate hide split by luminous golden-orange molten seams, burning eyes, short flame-edged mane and a curved ember tail; lean horizontal poised charger silhouette, NOT upright, not a dragon, no wings. Molten internal fire dominates warm orange highlights but keep readable black armor masses. Every creature's material clearly announces its mineral: iron shield/rust, coal brittle soot/explosive, crystal prism/ranged, ember lava/charge. Mature game monsters, fierce, legible, cohesive pixel aesthetic. True alpha background, no smoke clouds obscuring bodies.",
+    "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-8008ca53-9b4c-4788-97d0-81e581d0b8b1.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+    "sha256": "3ee0e087429d6bf5a256ca600b78952373dc7706d580260cc19ff5c908fdef7c"
+  }
+}

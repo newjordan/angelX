@@ -8,18 +8,24 @@
 //! rules keep (so it rolls clean round the loop, with no sprite frames to
 //! jitter). Art never sets a hitbox or a curve.
 use super::super::ink::{Img, Rgb, bayer, hash, shade, text_width};
+use super::juice;
 use super::roundtable::{self as shell, Look};
 use crate::rules::lightgallop::{
     self as rules, Session,
     level::level,
     math::{self, Q},
     rider::{GAUGE_MAX, Rider},
-    session::{REFORM, WARDEN_FALL},
+    session::WARDEN_FALL,
     terrain::Kind,
+    show::Kind as Event,
     world::{CrateKind, FoeKind, SpringKind, foe_at, foe_body},
 };
 use crate::rules::{HZ, Run};
 use std::{collections::BTreeMap, sync::OnceLock};
+
+mod finish;
+mod fx;
+mod moments;
 
 const LOOK: Look = Look {
     name: rules::NAME,
@@ -51,16 +57,27 @@ fn draw(run: &Run, focus: Option<u32>) -> (Img, Img) {
         let r = &seat.rider;
         // A heavy blow jolts the picture, never the heads-up display.
         let jolt = super::camera::smooth_shake(u64::from(s.elapsed), u32::from(r.shake), 12, 3.0);
-        let v = View { cx: r.cam_x + jolt.0, cy: r.cam_y + jolt.1, zoom: r.zoom, w: 384, h: 224 };
-        let words = hud_words(s, &seat.rider);
-        // What the riders' tags keep clear of: the heads-up display's words,
-        // and the tally's panel when it is up.
-        let mut taken: Vec<Rect> = words.iter().map(Word::rect).collect();
-        if s.tally.is_some() {
-            taken.push(PANEL);
-        }
+        let kick = fx::jolt(s, id);
+        let v = View { cx: r.cam_x + jolt.0 + kick.0, cy: r.cam_y + jolt.1 + kick.1, zoom: r.zoom, w: 384, h: 224 };
+        let words = hud_words(s, id, &seat.rider);
+        // What the riders' tags keep clear of: the heads-up display's words.
+        let taken: Vec<Rect> = words.iter().map(Word::rect).collect();
         scene(&mut im, s, id, &v, &taken);
+        let lean = fx::tilt_of(s, id);
+        if lean != 0 {
+            im = fx::tilted(&im, lean);
+        }
+        moments::rims(&mut im, s, id);
         hud(&mut im, s, id, &words);
+        match &s.tally {
+            Some(y) => finish::scene(&mut im, run, s, y),
+            None => {
+                moments::fly_ups(&mut im, s, &v, id);
+                if let Some(call) = moments::call(s, id) {
+                    moments::banner(&mut im, &call);
+                }
+            }
+        }
     }
     (im, Img::new(384, 224))
 }
@@ -128,6 +145,38 @@ struct Anim {
     durations: Vec<u32>,
     /// Painted art (the whole slot is), not the labelled block.
     painted: bool,
+    /// Where each frame's seat cloth is, and its band 0 to 3 (dark to light): the pixels a
+    /// seat's own colour dresses (`dressed`). Empty for art with no cloth.
+    cloth: Vec<Vec<(i32, i32, u8)>>,
+}
+
+/// The pixels of frame `key`'s seat mask: where the cloth is, and its band.
+fn cloth_of(id: &str, key: &str) -> Vec<(i32, i32, u8)> {
+    let Some(bytes) = super::slot_art::bytes(id, &format!("{key}-seat-mask")) else {
+        return Vec::new();
+    };
+    let mask = image::load_from_memory(bytes).expect("Lightgallop seat mask").to_rgba8();
+    mask.enumerate_pixels().filter(|(_, _, p)| p[3] > 0).map(|(x, y, p)| (x as i32, y as i32, (p[0] / 70).min(3))).collect()
+}
+
+/// Each seat's cloth ramp, dark to light. The art is painted in the red of seat 4's ramp.
+const CLOTH: [[char; 4]; 6] = [
+    ['s', 'q', '1', 'z'],
+    ['I', 'O', '4', 't'],
+    ['D', 'l', 'A', 'Y'],
+    ['8', 'p', '7', 'R'],
+    ['d', '(', ')', '['],
+    ['!', '?', ';', '%'],
+];
+
+/// `frame` with its cloth in `seat`'s colours.
+fn dressed(frame: &Img, cloth: &[(i32, i32, u8)], seat: u32) -> Img {
+    let ramp = CLOTH[(seat.max(1) as usize - 1) % 6];
+    let mut out = frame.clone();
+    for &(x, y, band) in cloth {
+        out.put(x, y, ramp[usize::from(band)]);
+    }
+    out
 }
 
 /// A word on a placeholder block: where its letters start in the block's own
@@ -189,6 +238,7 @@ fn bank() -> &'static BTreeMap<(String, String), Anim> {
                             frames: frames.clone(),
                             durations: s.states[*state].clone(),
                             painted: true,
+                            cloth: (0..frames.len()).map(|i| cloth_of(&s.id, &format!("{state}-{i}"))).collect(),
                         },
                     );
                 }
@@ -207,7 +257,7 @@ fn bank() -> &'static BTreeMap<(String, String), Anim> {
                     bare.push(b);
                     names.push(n);
                 }
-                out.insert((s.id.clone(), state.clone()), Anim { frames, bare, names, durations: durations.clone(), painted: false });
+                out.insert((s.id.clone(), state.clone()), Anim { cloth: vec![Vec::new(); frames.len()], frames, bare, names, durations: durations.clone(), painted: false });
             }
         }
         out
@@ -707,12 +757,17 @@ pub fn scene(im: &mut Img, s: &Session, id: u32, v: &View, taken: &[Rect]) {
     order.sort_by_key(|(seat, _)| **seat == id);
     let mut tags = Vec::new();
     for (&seat, st) in order {
-        tags.extend(rider(im, s, seat, &st.rider, v, seat != id));
+        tags.extend(rider(im, s, seat, &st.rider, v, id));
     }
+    fx::events(im, s, v, id);
+    fx::pack(im, s, v, id);
     let mut taken = taken.to_vec();
     taken.extend(over_bell);
-    for tag in place_tags(tags, &taken) {
-        say(im, &tag);
+    // (At the finish the stage covers the road, and so the tags with it.)
+    if s.tally.is_none() {
+        for tag in place_tags(tags, &taken) {
+            say(im, &tag);
+        }
     }
     dimming(im, s, v);
 }
@@ -1052,6 +1107,9 @@ fn foes(im: &mut Img, s: &Session, v: &View) {
                 // The warden's fall: rings of cold smoke climbing off it and a
                 // fountain of warm sparks.
                 let age = i32::from(st.pop);
+                if age < 16 {
+                    stamp_scaled(im, frame_of("lightgallop.warden", "defeat", age as u32), sx, sy, v.zoom);
+                }
                 for k in 0..4 {
                     let r = 8 + age * 2 / 3 + k * 14;
                     if r < 90 {
@@ -1066,26 +1124,30 @@ fn foes(im: &mut Img, s: &Session, v: &View) {
                     im.rect(x, y, 3, 3, if k % 2 == 0 { '6' } else { '5' });
                 }
             }
-            let age = REFORM.saturating_sub(st.pop) as i32;
-            if spot.kind != FoeKind::Warden && age < 12 {
-                let r = 4 + age;
-                circle(im, sx, sy - fh / 2, r, 'V');
-                im.rect(sx - 1, sy - fh / 2 - 1 - age / 2, 3, 3, '6');
-            }
             continue;
         }
+        // A foe sees a knight coming: it leans in.
+        let alert = s.seats.values().any(|st| {
+            let rx = st.rider.x / Q;
+            st.rider.down == 0 && rx < spot.x + 40 && rx > spot.x - if spot.kind == FoeKind::Warden { 240 } else { 150 }
+        });
         let (id, state) = match spot.kind {
-            FoeKind::Snuffer => ("lightgallop.snuffer", if st.flinch > 0 { "hurt" } else { "idle" }),
-            FoeKind::Floater => ("lightgallop.floater", "idle"),
+            FoeKind::Snuffer => ("lightgallop.snuffer", if st.flinch > 0 { "hurt" } else if alert { "alert" } else { "idle" }),
+            FoeKind::Floater => ("lightgallop.floater", if alert { "alert" } else { "idle" }),
             FoeKind::Bramble => ("lightgallop.bramble", "a"),
-            FoeKind::Warden => ("lightgallop.warden", if st.flinch > 0 { "hit" } else { "idle" }),
+            FoeKind::Warden => ("lightgallop.warden", if st.flinch > 0 { "hit" } else if alert { "roar" } else { "idle" }),
         };
+        let (_, _, facing) = foe_at(lvl, spot, s.elapsed);
         // The placeholder blocks carry words, so they are never mirrored; the
-        // art will face the way `foe_at` says.
+        // drawn creatures look left, and turn when they walk right.
         let f = frame_of(id, state, s.elapsed / 2);
         // Floaters hover: the block is centred on the post's height.
         let drop = if spot.kind == FoeKind::Floater { (f.h - fh) / 2 } else { 0 };
-        stamp_block(im, id, state, s.elapsed / 2, sx, sy + drop, v.zoom);
+        if painted(id) && facing > 0 {
+            stamp_scaled(im, &f.flip_h(), sx, sy + drop, v.zoom);
+        } else {
+            stamp_block(im, id, state, s.elapsed / 2, sx, sy + drop, v.zoom);
+        }
         if spot.kind == FoeKind::Warden {
             // Its hits left, over its head.
             let top = sy - v.len(fh) - 10;
@@ -1100,7 +1162,8 @@ fn foes(im: &mut Img, s: &Session, v: &View) {
 /// How many ticks of a hit's grace show the hurt block.
 const FLASH: u32 = 70;
 
-fn rider(im: &mut Img, s: &Session, seat: u32, r: &Rider, v: &View, other: bool) -> Option<Tag> {
+fn rider(im: &mut Img, s: &Session, seat: u32, r: &Rider, v: &View, me: u32) -> Option<Tag> {
+    let other = seat != me;
     let t = &level().terrain;
     if v.qx(r.x) < -60 || v.qx(r.x) > v.w + 60 {
         return None;
@@ -1133,70 +1196,80 @@ fn rider(im: &mut Img, s: &Session, seat: u32, r: &Rider, v: &View, other: bool)
     } else {
         "gallop"
     };
-    // Speed lines streaming back, and hoof dust at pace.
+    let c = r.centre(t);
+    // A pack on one spot is fanned out a little, right and up, so every horse can be seen.
+    let (fan_x, fan_y) = fan(s, me, seat);
+    let (sx, sy) = (v.qx(c.0) + fan_x, v.qy(c.1) + fan_y);
+    // Wind along the way it goes (for the knight at this screen), and hoof dust at pace.
+    if !other {
+        fx::lines(im, s, v, seat, r, false, (sx, sy));
+    }
+    fx::dust(im, s, v, seat, r);
+    fx::loop_light(im, s, v, seat, r);
     {
-        let speed = r.speed();
-        let (sx, sy) = (v.qx(r.x), v.qy(r.y));
-        if speed > 1500 && r.down == 0 {
-            let n = ((speed - 1500) / 100).clamp(2, 9);
-            for k in 0..n {
-                let h = hash(k, s.elapsed as i32 / 2, seat) as i32;
-                let len = 10 + (speed - 1500) / 40 + h.rem_euclid(14);
-                let dy = h.rem_euclid(40) - 34;
-                let x0 = sx - r.dir * (18 + h.rem_euclid(30));
-                im.line(x0, sy + dy, x0 - r.dir * len, sy + dy, if k % 2 == 0 { 'i' } else { 'v' });
-            }
-        }
-        if r.grounded() && speed > 700 && r.down == 0 {
-            for k in 0..3 {
-                let h = hash(k, s.elapsed as i32, seat + 9) as i32;
-                let age = (s.elapsed as i32 + k * 3) % 9;
-                im.rect(
-                    sx - r.dir * (6 + age * 3) + h.rem_euclid(3),
-                    sy - 1 - age / 2 - h.rem_euclid(3),
-                    (3 + age / 3).max(1),
-                    (2 + age / 4).max(1),
-                    if r.skid { 'T' } else { 'J' },
-                );
-            }
-        }
+        let (fx_, fy_) = (v.qx(r.x), v.qy(r.y));
         if r.draft && r.down == 0 {
-            // In a pack's wake: wind drawn in over the horse's head.
+            // In a pack's wake: the leader's wind drawn in over the horse's head.
             for k in 0..3 {
                 let h = hash(k, s.elapsed as i32 / 2, seat + 5) as i32;
-                let x0 = sx + r.dir * (16 + h.rem_euclid(14));
-                im.line(x0, sy - 22 + k * 6, x0 + r.dir * (10 + h.rem_euclid(10)), sy - 22 + k * 6, 'V');
+                let x0 = fx_ + r.dir * (16 + h.rem_euclid(14));
+                im.line(x0, fy_ - 22 + k * 6, x0 + r.dir * (10 + h.rem_euclid(10)), fy_ - 22 + k * 6, 'V');
             }
         }
         if r.spur && r.down == 0 {
             // The lantern flame streaming from the saddle.
             for k in 0..4 {
-                im.rect(sx - r.dir * (14 + k * 4), sy - 14 + k % 2, 3 - k / 2, 3, if k < 2 { '6' } else { '4' });
+                im.rect(fx_ - r.dir * (14 + k * 4), fy_ - 14 + k % 2, 3 - k / 2, 3, if k < 2 { '6' } else { '4' });
             }
         }
         if r.crouch && r.charge > 0 {
             let rr = 6 + r.charge / 160;
-            im.frame(sx - rr, sy - rr, 2 * rr, rr, '4');
+            im.frame(fx_ - rr, fy_ - rr, 2 * rr, rr, '4');
         }
     }
     // The gait quickens with the pace: a frame for every few pixels run.
-    let gait = (r.x / Q / 11) as u32;
+    let gait = (r.x / Q / 9) as u32;
     let colour = rider_ink(seat);
     let label = format!("{seat}");
-    let frame = match state {
-        "gallop" | "spur" | "roll" | "idle" | "charge" => {
-            let n = bank()[&("lightgallop.rider".to_owned(), state.to_owned())].frames.len() as u32;
-            (gait % n) as usize
-        }
-        _ => 0,
+    let img = if painted("lightgallop.rider") {
+        let anim = &bank()[&("lightgallop.rider".to_owned(), state.to_owned())];
+        let n = anim.frames.len();
+        let i = match state {
+            "gallop" | "spur" => gait as usize % n,
+            "roll" | "charge" => (s.elapsed / 2) as usize % n,
+            "idle" => (s.elapsed / 10) as usize % n,
+            "lunge" => usize::from(r.vy > 0 && n > 1),
+            "victory" | "hurt" => (s.elapsed / 8) as usize % n,
+            _ => 0,
+        };
+        dressed(&anim.frames[i], &anim.cloth[i], seat)
+    } else {
+        let n = bank()[&("lightgallop.rider".to_owned(), state.to_owned())].frames.len() as u32;
+        let frame = match state {
+            "gallop" | "spur" | "roll" | "idle" | "charge" => (gait % n) as usize,
+            _ => 0,
+        };
+        rider_block(state, frame, colour, &label)
     };
-    let img = rider_block(state, frame, colour, &label);
-    // Blink through a rider's grace after a hit.
-    if r.hurt > 0 && r.down == 0 && (s.elapsed / 3) % 2 == 0 {
-        return None;
-    }
-    let c = r.centre(t);
-    let (sx, sy) = (v.qx(c.0), v.qy(c.1));
+    // A blow turns the horse one light ink for a few ticks (the kit's impact frame).
+    let struck = s.show.fx.iter().any(|f| {
+        u32::from(f.seat) == seat && matches!(f.kind, Event::Hit | Event::Fall) && f.age(s.elapsed) < f.weight.flash()
+    });
+    let img = if struck { juice::impact_frame(&img, 'H') } else { img };
+    // Through a rider's grace after a hit the horse flickers (every other pixel), never vanishes.
+    let img = if r.hurt > 0 && r.down == 0 && (s.elapsed / 3) % 2 == 0 {
+        let mut thin = img.clone();
+        for y in 0..thin.h {
+            for x in 0..thin.w {
+                if (x + y) % 2 == 0 {
+                    thin.clear(x, y);
+                }
+            }
+        }
+        thin
+    } else {
+        img
+    };
     let ang = if state == "roll" || state == "charge" {
         // A rolling ball turns as it goes, a spin of its own.
         (r.x / Q * 9) * r.dir
@@ -1205,10 +1278,41 @@ fn rider(im: &mut Img, s: &Session, seat: u32, r: &Rider, v: &View, other: bool)
     } else {
         r.ang
     };
+    fx::ghosts(im, v, seat, r, &img, ang, r.dir < 0);
     stamp_turned(im, &img, (sx, sy), (24, 24), ang, v.zoom, r.dir < 0);
+    fx::lock_on(im, s, v, r, (sx, sy));
+    if !other {
+        fx::lines(im, s, v, seat, r, true, (sx, sy));
+    }
     // Another knight's number over the horse, if the horse is in the picture.
     let on_screen = sx > -24 && sx < v.w + 24;
     (other && on_screen).then(|| Tag { cx: sx, y: sy - 34, text: label, ink: colour })
+}
+
+/// How far another knight's horse is drawn aside from where it stands when it
+/// stands on the viewer's (or on a lower seat's), screen pixels: a step right
+/// and up for each horse it would hide behind, so a pack at the gate reads as a pack.
+fn fan(s: &Session, me: u32, seat: u32) -> (i32, i32) {
+    if seat == me {
+        return (0, 0);
+    }
+    let t = &level().terrain;
+    let key = |id: u32| (id != me, id);
+    let at = |id: u32| {
+        let c = s.seats[&id].rider.centre(t);
+        (c.0 / Q, c.1 / Q)
+    };
+    let (px, py) = at(seat);
+    let behind = s
+        .seats
+        .keys()
+        .filter(|&&o| key(o) < key(seat))
+        .filter(|&&o| {
+            let (ox, oy) = at(o);
+            (ox - px).abs() < 16 && (oy - py).abs() < 20
+        })
+        .count() as i32;
+    (behind * 5, -behind * 3)
 }
 
 /// A rectangle, `(x, y, w, h)`.
@@ -1318,18 +1422,17 @@ const GLOAM_X: i32 = 324;
 // and clear of the road, on lines of their own: the title card (two lines),
 // the fall, the bell. The terminal's text rows (`art/roundtable/lightgallop.rs`)
 // stand on the same lines, eight pixels to a row.
-const TITLE_Y: i32 = 36;
-const FALL_Y: i32 = 59;
 const BELL_Y: i32 = 70;
 
 /// The heads-up display's words for the viewer `r` (the tally has its own).
-fn hud_words(s: &Session, r: &Rider) -> Vec<Word> {
+fn hud_words(s: &Session, id: u32, r: &Rider) -> Vec<Word> {
     let acts = ["DOWNHILL GATE", "WHEEL ARCH", "REED FEN", "BELL GATE"];
     let gap = (r.x - s.dim) / Q;
     let near = gap < 260;
     let mut out = vec![
         Word::new(4, 3, acts[Session::act_at(r.x / Q)], 'v', false),
-        Word::new(4, 13, &format!("SPARKS {:3}", r.sparks), 'T', false),
+        // The count lights up as a spark lands on it.
+        Word::new(4, 13, &format!("SPARKS {:3}", r.sparks), if moments::last_gain(s, id).is_some_and(|a| a < 8) { '6' } else { 'T' }, false),
         Word::new(CLOCK_X, 3, &clock(s.elapsed), 'H', false),
     ];
     if r.chain >= 2 {
@@ -1347,14 +1450,6 @@ fn hud_words(s: &Session, r: &Rider) -> Vec<Word> {
     // The bottom: keys at the start, then only the way out.
     if s.elapsed < 360 {
         out.push(Word::centred(192, 213, "A D RUN   E LEAP   SPACE SPUR", 'T'));
-    }
-    // The title card as the ride begins.
-    if s.elapsed < 75 {
-        out.push(Word::centred(192, TITLE_Y, "MOONWELL ROAD", 'T'));
-        out.push(Word::centred(192, TITLE_Y + 11, "THE DIMMING COMES", 'v'));
-    }
-    if r.down > 0 {
-        out.push(Word::centred(192, FALL_Y, "THE LANTERN CARRIES YOU", 'T'));
     }
     if s.tally.is_none() && s.bell_t.is_some() {
         out.push(Word::centred(192, BELL_Y, "RING THE BELL", 'T'));
@@ -1398,132 +1493,6 @@ fn hud(im: &mut Img, s: &Session, id: u32, words: &[Word]) {
         }
     }
     for w in words {
-        say(im, w);
-    }
-    if let Some(y) = &s.tally {
-        tally(im, s, y);
-    }
-}
-
-/// The tally's panel, and the frame inside it that the words stay within.
-const PANEL: (i32, i32, i32, i32) = (56, 36, 272, 168);
-
-/// The rank's stamp at tally tick `t`: `(x, y, w, h, grow)`, big at first and
-/// then settling. `None` before it lands.
-fn rank_stamp(letter: &str, t: u32) -> Option<(i32, i32, i32, i32, i32)> {
-    if t < 110 {
-        return None;
-    }
-    let grow = if t < 118 { 6 } else { 4 };
-    let (w, h) = (text_width(letter) * grow + 12, 7 * grow + 10);
-    Some((294 - w / 2, 96 - (h - 38) / 2, w, h, grow))
-}
-
-/// The shower of sparks at tally tick `t`: where each piece is (a 3 pixel
-/// square) and its colour, falling over the party while the numbers tick.
-fn confetti(t: u32) -> Vec<(i32, i32, char)> {
-    if t >= 420 {
-        return Vec::new();
-    }
-    (0..28i32)
-        .filter_map(|k| {
-            let h = hash(k, 7, 11) as i32;
-            let (x, fall) = (h.rem_euclid(384), 20 + h.rem_euclid(5));
-            let y = (h.rem_euclid(224) + t as i32 * fall / 10).rem_euclid(224);
-            // Below the heads-up display's bar and the pack's strip.
-            (y > 30).then_some((x, y, if k % 3 == 0 { '5' } else { '6' }))
-        })
-        .collect()
-}
-
-/// Everyone's own score, in rows of at most four (three for a table of five or
-/// six, which would not fit across), centred on the panel. The best rider
-/// wears the laurel.
-fn score_words(y: &rules::Tally) -> Vec<Word> {
-    let entries: Vec<(u32, String)> = y
-        .scores
-        .iter()
-        .map(|(&sid, v)| (sid, format!("{}{sid} {v}", if sid == y.best { "  " } else { "" })))
-        .collect();
-    let per_row = if entries.len() > 4 { 3 } else { entries.len().max(1) };
-    let mut out = Vec::new();
-    for (n, row) in entries.chunks(per_row).enumerate() {
-        let across = row.iter().map(|(_, text)| text_width(text)).sum::<i32>() + 12 * (row.len() as i32 - 1);
-        let mut x = 192 - across / 2;
-        for (sid, text) in row {
-            let mut word = Word::new(x, 158 + n as i32 * 11, text, rider_ink(*sid), false);
-            word.laurel = *sid == y.best;
-            out.push(word);
-            x += text_width(text) + 12;
-        }
-    }
-    out
-}
-
-/// Every word on the tally panel at this moment, the title first.
-fn tally_words(s: &Session, y: &rules::Tally) -> Vec<Word> {
-    let lvl = level();
-    let t = s.elapsed.saturating_sub(y.at);
-    let mut out = vec![Word::centred(192, 44, "MOONWELL ROAD CLEAR", 'T')];
-    // Rows tick up one after another.
-    let tick = |from: u32, to: u32, len: u32| -> u32 { to * t.saturating_sub(from).min(len) / len };
-    let secs = y.time / HZ;
-    let par = lvl.par / HZ;
-    // The party's points carry a bonus for the lanterns lit (a hundred for all
-    // six, `make_tally`), which each knight's own line below leaves out: it
-    // gets a row of its own, between the lanterns and the total it is part of.
-    let bonus = 100 * y.posts / lvl.posts.len().max(1) as u32;
-    let rows: [(&str, String, bool); 6] = [
-        ("TIME", format!("{}  PAR {}", clock(tick(6, y.time, 30)), clock(par * HZ)), secs <= par),
-        ("SPARKS", format!("{} / {}", tick(24, y.sparks, 30), lvl.sparks.len()), true),
-        ("BEST CHAIN", format!("{}", tick(42, y.chain, 20)), y.chain >= 4),
-        ("LANTERNS", format!("{} / {}", tick(54, y.posts, 12), lvl.posts.len()), y.posts as usize == lvl.posts.len()),
-        ("LANTERN BONUS", format!("+{}", tick(58, bonus, 10)), bonus > 0),
-        ("POINTS", format!("{}", tick(66, y.points, 40)), true),
-    ];
-    for (n, (name, value, good)) in rows.iter().enumerate() {
-        let ry = 58 + n as i32 * 13;
-        out.push(Word::new(76, ry, name, 'v', false));
-        out.push(Word::new(180, ry, value, if *good { 'T' } else { 'H' }, false));
-    }
-    if t >= 100 {
-        out.push(Word::centred(294, 70, "RANK", 'v'));
-    }
-    out.push(Word::centred(192, 146, "EACH KNIGHT", 'v'));
-    out.extend(score_words(y));
-    if t >= 45 {
-        out.push(Word::centred(192, 190, "E RIDE AGAIN   HOLD ESC LEAVE", if (s.elapsed / 15) % 2 == 0 { 'T' } else { 'H' }));
-    }
-    out
-}
-
-fn tally(im: &mut Img, s: &Session, y: &rules::Tally) {
-    let t = s.elapsed.saturating_sub(y.at);
-    im.rect(PANEL.0, PANEL.1, PANEL.2, PANEL.3, 'k');
-    im.frame(PANEL.0, PANEL.1, PANEL.2, PANEL.3, 'T');
-    im.frame(PANEL.0 + 2, PANEL.1 + 2, PANEL.2 - 4, PANEL.3 - 4, 'B');
-    let letter = ["C", "B", "A", "S"][usize::from(y.rank.min(3))];
-    let stamp = rank_stamp(letter, t);
-    let words = tally_words(s, y);
-    // The shower falls behind the words: a piece that would land on a word or
-    // on the stamp, or touch one (it would read as a stop or a dot), is left
-    // out, so every number stays plain to read.
-    let keep_clear: Vec<_> =
-        words.iter().map(Word::rect).chain(stamp.map(|(x, y, w, h, _)| (x, y, w, h))).collect();
-    for (x, y, c) in confetti(t) {
-        if !keep_clear.iter().any(|&r| meet(r, (x - 3, y - 3, 9, 9))) {
-            im.rect(x, y, 3, 3, c);
-        }
-    }
-    // The rank lands with a stamp, big at first, then settling.
-    if let Some((bx, by, bw, bh, grow)) = stamp {
-        let mut big = Img::new(text_width(letter), 7);
-        big.text(0, 0, letter, if y.rank == 3 { '6' } else { 'T' });
-        im.rect(bx, by, bw, bh, 'X');
-        im.frame(bx, by, bw, bh, 'T');
-        im.stamp_times(&big, bx + 6, by + 5, grow);
-    }
-    for w in &words {
         say(im, w);
     }
 }
@@ -1584,3 +1553,7 @@ pub fn overview(run: &Run, from: i32, w: i32, zoom: i32) -> Img {
 #[cfg(test)]
 #[path = "../../../../tests/render/arena__lightgallop__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__lightgallop_film__tests.rs"]
+mod film;

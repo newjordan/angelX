@@ -22,3 +22,12 @@ fn routes_provider_guidance_without_secret_values() {
     assert!(anthropic.contains("ANTHROPIC_API_KEY"));
     assert!(anthropic.contains("claude-opus-5-5"));
 }
+
+#[test]
+fn connect_claude_is_the_anthropic_guidance() {
+    let text = connect_text(Some("anthropic"));
+    for needle in ["ANTHROPIC_API_KEY", "claude-opus-5-5", "claude-sonnet-5-5"] {
+        assert!(text.contains(needle), "{needle}");
+    }
+    assert_eq!(connect_text(Some("claude")), text);
+}

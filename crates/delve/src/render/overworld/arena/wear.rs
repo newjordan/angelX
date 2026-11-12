@@ -61,8 +61,10 @@ pub(super) fn dressed_aimed(body: &Img, fit: Body, worn: &[&Sprite], tick: u64, 
             let hand = sprite.at.as_deref().and_then(crate::rules::looks::place) == Some("right");
             let original = *sprite;
             let sprite = fitted(sprite, part);
-            let im = super::knights::sprite_img(&sprite, tick);
-            let mut at = part.origin((im.w, im.h));
+            let im = super::kingdom_gear::image(original, part)
+                .unwrap_or_else(|| super::knights::sprite_img(&sprite, tick));
+            let mut at = super::kingdom_gear::origin(original, &im, part)
+                .unwrap_or_else(|| part.origin((im.w, im.h)));
             let phase = phase.wrapping_add(n as u32 * 977);
             let mut pose = Pose::of(&sprite.moves, tick, phase, (0.0, 0.0));
             // Resolve the PNG rectangle once, before motion. Its centre is
@@ -85,12 +87,16 @@ pub(super) fn dressed_aimed(body: &Img, fit: Body, worn: &[&Sprite], tick: u64, 
             } else {
                 [0.0, 0.0, im.w as f32, im.h as f32]
             };
-            let pivot = (rect[0] + rect[2] / 2.0, rect[1] + rect[3] / 2.0);
+            let mut pivot = (rect[0] + rect[2] / 2.0, rect[1] + rect[3] / 2.0);
             if hand && let Some(aim) = aim {
                 pose = Pose { angle: clock_angle(aim, -std::f32::consts::FRAC_PI_2), ..Pose::STILL };
-                let grip = (pivot.0.floor() as i32, pivot.1.floor() as i32);
-                let contact = clock_anchor(body, &im, grip, part.anchor);
-                at = (contact.0 - grip.0, contact.1 - grip.1);
+                if super::kingdom_gear::origin(original, &im, part).is_some() {
+                    pivot = ((part.anchor.0 - at.0) as f32, (part.anchor.1 - at.1) as f32);
+                } else {
+                    let grip = (pivot.0.floor() as i32, pivot.1.floor() as i32);
+                    let contact = clock_anchor(body, &im, grip, part.anchor);
+                    at = (contact.0 - grip.0, contact.1 - grip.1);
+                }
             }
             let (moved, offset) = pose.apply(&im, pivot);
             // Keep the standing point fixed and the entire moving piece above

@@ -359,7 +359,7 @@ pub(super) fn way_on_marker(over: &mut Img, run: &Run, (ox, oy): (i32, i32), tic
 pub(super) fn beyond(over: &mut Img, run: &Run, (ox, oy): (i32, i32)) {
     let (cx, cy) = ((ox + NATIVE_W / 2) as f32, (oy + NATIVE_H / 2) as f32);
     // Under the Wax Maze's strip, not behind it.
-    let top = wax_maze::strip_bottom(run).map_or(0.0, |b| (b + 5) as f32);
+    let top = wax_maze::strip_bottom(run).or_else(|| belfry_shoot::strip_bottom(run)).or_else(|| powder_room::strip_bottom(run)).map_or(0.0, |b| (b + 5) as f32);
     let mut mark = |x: i32, y: i32, ink: char| {
         if (ox..ox + NATIVE_W).contains(&x) && (oy..oy + NATIVE_H).contains(&y) {
             return;
@@ -426,39 +426,12 @@ pub(super) fn achievement_banner(cv: &mut Img, run: &Run, feat: &crate::rules::f
     cv.stamp(&board, (NATIVE_W - w) / 2, y);
 }
 
-/// Fortune's dare as the party arrives on a floor: her red board drops in
-/// from the top past its rest, holds the dare, and lifts away (the shared
-/// motion, `board_from`). It waits behind the floor's own wish sign
+/// Fortune's dare as the party arrives on a floor: a small card low in the
+/// view's left corner (`fortune::dare`), two lines of plain words and her
+/// purse in pictures. It waits behind the floor's own wish sign
 /// (`Tune::dare_after`): one board at a time, the wish's key read first.
 pub(super) fn dare_board(cv: &mut Img, run: &Run) {
-    use super::super::ink::text_width;
-    use crate::rules::dares::CALLED;
-    let after = (run.tune.dare_after * crate::rules::HZ as f32).round().max(0.0) as u64;
-    let Some(dare) = run
-        .dare
-        .as_ref()
-        .filter(|d| run.tick >= d.since + after && run.tick < d.since + after + CALLED)
-    else {
-        return;
-    };
-    let rows = [
-        ("FORTUNE DARES YOU".to_string(), 'O'),
-        (dare.kind.name().to_uppercase(), 'i'),
-        (dare.kind.says().to_uppercase(), 'h'),
-        ("HER PURSE: GOLD AND A GEM EACH".to_string(), 'O'),
-    ];
-    let w = rows.iter().map(|(t, _)| text_width(t)).max().unwrap_or(0) + 12;
-    let h = rows.len() as i32 * 9 + 7;
-    let mut board = Img::new(w + 1, h + 1);
-    chrome::panel(&mut board, (0, 0, w, h), chrome::Tone::EMBER);
-    for (i, (text, ink)) in rows.iter().enumerate() {
-        board.text((w - text_width(text)) / 2, 4 + i as i32 * 9, text, *ink);
-    }
-    let age = run.tick.saturating_sub(dare.since + after) as f32;
-    // It settles under a folly's or a heat's standings, top right, when
-    // one is up, so neither board covers the other.
-    let settle = top_right_board_bottom(run).map_or(4, |b| b + 3);
-    board_from(cv, &board, ((NATIVE_W - w) / 2, settle), age, Some(CALLED as f32), -(h as f32 + settle as f32));
+    super::fortune::dare::board(cv, run);
 }
 
 /// Where the standings board top right (`folly_board`, `heat_board`)
@@ -466,7 +439,7 @@ pub(super) fn dare_board(cv: &mut Img, run: &Run) {
 pub(super) fn top_right_board_bottom(run: &Run) -> Option<i32> {
     let here = run.at;
     // The Wax Maze's strip is one row along the top.
-    if let Some(bottom) = wax_maze::strip_bottom(run) {
+    if let Some(bottom) = wax_maze::strip_bottom(run).or_else(|| belfry_shoot::strip_bottom(run)).or_else(|| powder_room::strip_bottom(run)) {
         return Some(bottom);
     }
     let folly = run.bats.as_ref().is_some_and(|f| f.room == here)

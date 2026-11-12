@@ -1,9 +1,9 @@
 //! Prepare a character appearance resource off the UI/tick path. The generic
 //! module kernel owns registration, state and resource leases; this adapter
 //! translates the character contract to the current Delve presentation model.
+use super::together_frames::Frame;
 use angel_delve::realm::{Avatar, appearance::Animation};
 use angel_live::Asset;
-use super::together_frames::Frame;
 use image::{ImageFormat, RgbaImage};
 use serde::Deserialize;
 use serde_json::Value;
@@ -42,6 +42,27 @@ pub struct Appearance {
     _assets: Vec<Arc<Asset>>,
 }
 impl Appearance {
+    pub fn with_clip(
+        mut self,
+        steps: &[angel_delve::realm::appearance::Step],
+    ) -> Result<Self, String> {
+        if self.avatar.is_none() {
+            return Err("animation requires enabled character art".into());
+        }
+        if let Some(avatar) = &mut self.avatar {
+            let animation = avatar
+                .animation
+                .as_mut()
+                .ok_or("animation requires prepared art frames")?;
+            *animation = animation.with_steps(steps)?;
+            self.fingerprint = angel_live::host::sha256_hex(
+                &serde_json::to_vec(&(&self.fingerprint, steps))
+                    .map_err(|error| error.to_string())?,
+            );
+            avatar.source_id = self.fingerprint.clone();
+        }
+        Ok(self)
+    }
     pub fn matches(&self, avatar: Option<&Avatar>) -> bool {
         match (&self.avatar, avatar) {
             (Some(_), Some(current)) => current.source_id == self.fingerprint,
@@ -75,17 +96,17 @@ pub fn bind(
     assets: &BTreeMap<String, Arc<Asset>>,
 ) -> Result<angel_live::kernel::Binding, String> {
     let spec: Specification = serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
-    if !(1..=4).contains(&spec.player)
+    if !(1..=angel_delve::rules::MAX_PLAYERS).contains(&spec.player)
         || spec.frame_ticks == 0
         || spec.frame_ticks > 300
         || spec.frames.len() > 8
         || (!spec.disabled && spec.frames.is_empty())
         || (spec.disabled && !spec.frames.is_empty())
     {
-        return Err(
-            "character appearance: player 1..4, 1..8 frames, and frame_ticks 1..300 are required"
-                .into(),
-        );
+        return Err(format!(
+            "character appearance: player 1..{}, 1..8 frames, and frame_ticks 1..300 are required",
+            angel_delve::rules::MAX_PLAYERS
+        ));
     }
     let fingerprint = angel_live::host::sha256_hex(value.to_string().as_bytes());
     let (frames, held) = super::together_frames::prepare(spec.frames, assets)?;
@@ -136,6 +157,51 @@ pub fn bind(
 mod tests {
     use super::*;
     use serde_json::json;
+    #[test]
+    fn all_game_seats_accept_appearance_without_resetting_player_state() {
+        let mut run = angel_delve::rules::Run::new(3, 9, None);
+        for player in 2..=angel_delve::rules::MAX_PLAYERS {
+            run.join_seat(player, &format!("Player {player}"));
+        }
+        for player in [5, 6] {
+            let hero = run.players.get_mut(&player).unwrap();
+            hero.hp = 7;
+            hero.x = 12.0;
+            hero.spell_cooldowns[0] = 19;
+            let value = json!({"player":player,"frames":[{"pixels":vec![[10,200,10,255];1024]}]});
+            let appearance = bind(&value, &BTreeMap::new()).unwrap();
+            assert!(
+                appearance
+                    .downcast_ref::<Appearance>()
+                    .unwrap()
+                    .install(&mut run)
+            );
+            let hero = &run.players[&player];
+            assert_eq!((hero.hp, hero.x, hero.spell_cooldowns[0]), (7, 12.0, 19));
+            assert_eq!(
+                hero.avatar.as_ref().unwrap().pixels_at(run.tick)[0],
+                [10, 200, 10, 255]
+            );
+        }
+        let restored = angel_delve::rules::runtime_state::restore(
+            angel_delve::rules::runtime_state::capture(&run).unwrap(),
+        )
+        .unwrap();
+        for player in [5, 6] {
+            assert_eq!(
+                restored.players[&player]
+                    .avatar
+                    .as_ref()
+                    .unwrap()
+                    .pixels_at(run.tick)[0],
+                [10, 200, 10, 255]
+            );
+        }
+        for player in [0, angel_delve::rules::MAX_PLAYERS + 1] {
+            let value = json!({"player":player,"frames":[{"pixels":vec![[10,200,10,255];1024]}]});
+            assert!(bind(&value, &BTreeMap::new()).is_err());
+        }
+    }
     #[test]
     fn prepared_character_swap_changes_frames_without_resetting_gameplay_and_preserves_phase() {
         let mut run = angel_delve::rules::Run::new(3, 9, None);

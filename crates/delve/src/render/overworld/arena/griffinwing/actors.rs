@@ -19,13 +19,13 @@ fn u(v: i32) -> f32 {
 }
 
 /// The rail's frame at `s` units: along, across (to the right) and up.
-fn frame(s: f32) -> (V3, V3, V3) {
+pub(super) fn frame(s: f32) -> (V3, V3, V3) {
     let yaw = rail::rail().at(s).yaw;
     let (sin, cos) = yaw.dsin_cos();
     (v3(cos, sin, 0.0), v3(-sin, cos, 0.0), V3::UP)
 }
 
-fn at(s: f32, x: f32, z: f32) -> V3 {
+pub(super) fn at(s: f32, x: f32, z: f32) -> V3 {
     let w = rail::rail().world(s, x, z);
     v3(w[0], w[1], w[2])
 }
@@ -353,184 +353,67 @@ fn lamp(m: &mut Mesh, c: V3, f: V3, r: V3, foe: &Foe, lit: bool, turn: f32) {
     }
 }
 
-/// The Wyrm: a smoke-dark head in scaled armour with its horn cone and
-/// lantern, jaws that open to spit, coils down into the roost.
-fn wyrm(m: &mut Mesh, s: f32, b: &Beast, tick: u32) {
-    let (f, r, _) = frame(s);
-    let head = at(s, u(b.x), u(b.z));
-    let k = 1.5;
-    let open = match b.st {
-        Wyrm::Tell | Wyrm::Roar => 0.9,
-        Wyrm::Coil => 0.4,
-        _ => 0.0,
-    };
-    let breathe = ((tick as f32) * 0.1).dsin() * 0.2;
-    // The head and its jaws, facing the camera (back along the rail).
-    cuboid(
-        m,
-        head,
-        f * (2.2 * k),
-        r * (3.0 * k),
-        V3::UP * (2.0 * k),
-        mat::ARMOR,
-    );
-    cuboid(
-        m,
-        head - f * (2.3 * k) - V3::UP * ((1.0 + open) * k),
-        f * (1.4 * k),
-        r * (2.4 * k),
-        V3::UP * (0.5 * k),
-        mat::ARMOR,
-    );
-    cuboid(
-        m,
-        head - f * (2.35 * k) + V3::UP * ((0.4 - open * 0.2) * k),
-        f * 0.2,
-        r * (1.8 * k),
-        V3::UP * (0.3 * k),
-        if open > 0.0 {
-            mat::MOONLIGHT
-        } else {
-            mat::STONE_DARK
-        },
-    );
-    for side in [-1.0f32, 1.0] {
-        // Eyes under a heavy brow, horn-ears at the sides.
-        cuboid(
-            m,
-            head - f * (2.25 * k) + r * (side * 1.6 * k) + V3::UP * ((1.1 + breathe) * k),
-            f * 0.1,
-            r * (0.8 * k),
-            V3::UP * (0.36 * k),
-            mat::MOONLIGHT,
-        );
-        cuboid(
-            m,
-            head - f * (2.22 * k) + r * (side * 1.6 * k) + V3::UP * (1.65 * k),
-            f * (0.2 * k),
-            r * (1.1 * k),
-            V3::UP * (0.2 * k),
-            mat::STONE_DARK,
-        );
-        cuboid(
-            m,
-            head + r * (side * 3.1 * k) + V3::UP * (1.6 * k),
-            f * (0.4 * k),
-            r * (0.4 * k),
-            V3::UP * (1.4 * k),
-            mat::STONE,
-        );
-        // Nostrils.
-        cuboid(
-            m,
-            head - f * (2.3 * k) + r * (side * 0.5 * k) + V3::UP * (0.0 * k),
-            f * 0.06,
-            r * (0.2 * k),
-            V3::UP * (0.14 * k),
-            mat::STONE_DARK,
-        );
-    }
-    // Teeth along the jaw.
-    for i in -4..=4 {
-        let tx = i as f32 * 0.55 * k;
-        cuboid(
-            m,
-            head - f * (2.35 * k) + r * tx + V3::UP * ((-0.35 - open * 0.5) * k),
-            f * 0.05,
-            r * (0.12 * k),
-            V3::UP * (0.28 * k),
-            mat::BONE,
-        );
-    }
-    // The horn cone with its lantern.
-    cuboid(
-        m,
-        head + V3::UP * (3.0 * k),
-        f * (0.7 * k),
-        r * (0.7 * k),
-        V3::UP * (1.0 * k),
-        mat::BRASS,
-    );
-    cuboid(
-        m,
-        head + V3::UP * (4.2 * k),
-        f * (0.4 * k),
-        r * (0.4 * k),
-        V3::UP * (0.4 * k),
-        mat::BRASS,
-    );
-    cuboid(
-        m,
-        head + V3::UP * (4.9 * k),
-        f * (0.25 * k),
-        r * (0.25 * k),
-        V3::UP * (0.3 * k),
-        mat::FIRE,
-    );
-    // The coils: scaled body going down and curling back.
-    for i in 0..9 {
-        let t = i as f32;
-        let sway = ((tick as f32) * 0.05 + t * 0.7).dsin();
-        let c =
-            head + f * ((1.8 + t * 1.2) * k) + r * (sway * 2.2) - V3::UP * ((2.5 + t * 1.9) * k);
-        cuboid(
-            m,
-            c,
-            f * (1.3 * k),
-            r * ((2.6 - t * 0.15) * k),
-            V3::UP * (1.1 * k),
-            if i % 2 == 0 { mat::ARMOR } else { mat::BRASS },
-        );
-    }
-}
-
-/// The coils' sweep when it lands: two great slabs of body, a gap between.
-fn coil_wall(m: &mut Mesh, s: f32, b: &Beast, half: f32) {
+/// The coils' sweep: two great banded lengths of the Wyrm's body slide in
+/// from the walls, a gap between, hold, and draw back (`wyrm.rs`). Over the
+/// tell a sliver of each shows at the walls, so the body is seen to move before
+/// it sweeps.
+fn coil_wall(m: &mut Mesh, s: f32, b: &Beast, half: f32, tick: u32) {
     let gap = u(b.gap);
     let g = u(boss::GAP_HALF);
-    let slab = |m: &mut Mesh, x0: f32, x1: f32| {
-        if x1 - x0 > 0.2 {
-            block(
-                m,
-                rail::rail(),
-                s,
-                (x0 + x1) * 0.5,
-                0.0,
-                (1.6, (x1 - x0) * 0.5, 9.0),
-                mat::STONE_DARK,
-            );
-            block(
-                m,
-                rail::rail(),
-                s - 1.65,
-                (x0 + x1) * 0.5,
-                0.0,
-                (0.05, (x1 - x0) * 0.5, 8.4),
-                mat::BRASS,
-            );
-        }
+    let smooth = |t: f32| {
+        let t = t.clamp(0.0, 1.0);
+        t * t * (3.0 - 2.0 * t)
     };
-    slab(m, -half, gap - g);
-    slab(m, gap + g, half);
+    let reach = match b.st {
+        Wyrm::Coil => {
+            let t = b.ticks as f32;
+            smooth((22.0 - t) / 6.0).min(smooth(t / 5.0))
+        }
+        Wyrm::Tell if b.atk == 1 => 0.2 * smooth((1.0 - b.ticks as f32 / 40.0 - 0.55) / 0.45),
+        _ => 0.0,
+    };
+    if reach <= 0.0 {
+        return;
+    }
+    if gap - g > -half {
+        super::wyrm::coil_slab(m, s, -half, gap - g, reach, tick);
+    }
+    if gap + g < half {
+        super::wyrm::coil_slab(m, s, half, gap + g, reach, tick);
+    }
 }
 
-/// The cold-light roar: a column of light from the Wyrm's mouth.
-fn roar_beam(m: &mut Mesh, s0: f32, s1: f32, b: &Beast) {
+/// The cold-light roar: a shaft of light from the Wyrm's mouth down to the
+/// column it has locked on the wing's own rail (the guide it runs along is the
+/// line from the mouth to the column's foot, `wyrm.rs`), narrow at the teeth
+/// and as wide as the column where it lands. It is a lattice of light, four
+/// rails and hoops between them, so the picture is not walled off by it.
+fn roar_beam(m: &mut Mesh, mouth: V3, s1: f32, b: &Beast) {
     let x = u(b.col);
     let w = u(boss::COL_HALF);
-    let r = rail::rail();
-    let q = |s: f32, x: f32, z: f32| {
-        let p = r.world(s, x, z);
-        v3(p[0], p[1], p[2])
-    };
-    for z in [-5.0f32, 0.0, 5.0] {
-        m.push_quad(
-            q(s0, x - w, z),
-            q(s1, x - w, z),
-            q(s1, x + w, z),
-            q(s0, x + w, z),
-            mat::MOONLIGHT,
-        );
+    let (f, r, _) = frame(s1);
+    let (n, e) = (V3::UP * 0.5, r * 0.5);
+    let throat = [mouth - e - n, mouth + e - n, mouth + e + n, mouth - e + n];
+    let foot = [
+        at(s1, x - w, -5.5),
+        at(s1, x + w, -5.5),
+        at(s1, x + w, 5.5),
+        at(s1, x - w, 5.5),
+    ];
+    let along = |i: usize, t: f32| throat[i].lerp(foot[i], t);
+    // The four rails.
+    for i in 0..4 {
+        let (a, z) = (along(i, 0.0), along(i, 1.0));
+        m.push_quad(a + r * 0.3, z + r * 0.3, z - r * 0.3, a - r * 0.3, mat::MOONLIGHT);
+        m.push_quad(a + V3::UP * 0.3, z + V3::UP * 0.3, z - V3::UP * 0.3, a - V3::UP * 0.3, mat::MOONLIGHT);
+    }
+    // The hoops: close together at the mouth, wider apart toward the wing.
+    for t in [0.08f32, 0.2, 0.36, 0.56, 0.8, 1.0] {
+        for i in 0..4 {
+            let j = (i + 1) % 4;
+            let (a, z) = (along(i, t), along(j, t));
+            m.push_quad(a + f * 0.3, z + f * 0.3, z - f * 0.3, a - f * 0.3, mat::MOONLIGHT);
+        }
     }
 }
 
@@ -811,18 +694,20 @@ pub fn movers(m: &mut Mesh, s: &Session, seat: u32, eye: V3) {
             }
         }
     }
+    super::wyrm::draw(m, s);
     if let Some(b) = &s.boss {
-        wyrm(m, anchor + u(boss::HEAD), b, tick);
-        if b.st == Wyrm::Coil {
-            coil_wall(m, anchor, b, half * 0.9);
+        if matches!(b.st, Wyrm::Coil | Wyrm::Tell) {
+            coil_wall(m, anchor, b, half * 0.9, tick);
         }
         if b.st == Wyrm::Roar {
-            roar_beam(m, anchor, anchor + u(boss::HEAD), b);
+            if let Some(mouth) = super::wyrm::mouth(s) {
+                roar_beam(m, mouth, anchor, b);
+            }
         }
     }
     for p in &s.props {
         let taken = p.taken & crate::rules::griffinwing::bit(seat) != 0;
-        if taken && matches!(p.thing, Thing::Gate | Thing::Ring) {
+        if matches!(p.thing, Thing::Gate | Thing::Ring) && (taken || super::finale::on(s)) {
             continue;
         }
         if (u(p.s) - anchor).abs() < 110.0 {

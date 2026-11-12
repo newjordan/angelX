@@ -41,6 +41,7 @@ function fixture(t) {
   copyFileSync(runner, script)
   copyFileSync(copier, join(dirname(script), 'copy-cockpit-test-image.py'))
   writeFileSync(join(dirname(script), 'check-locks.sh'), 'exit 0\n')
+  writeFileSync(join(dirname(script), 'check-plug-boundary.sh'), 'exit 0\n')
   writeFileSync(join(dirname(script), 'check-legacy-terminal-boundary.sh'), 'exit 0\n')
   writeFileSync(join(dirname(script), 'check-active-connections.py'), 'pass\n')
   const binary = join(artifacts, 'angel-tests')
@@ -83,6 +84,11 @@ if [[ " $* " == *' --package angel-code-mode --lib '* ]]; then
   printf covered > "$FIXTURE_ROOT/code-mode-covered"
   exit "\${FIXTURE_CODE_MODE_EXIT:-0}"
 fi
+if [[ " $* " == *' --package angel-delve-cart --lib '* ]]; then
+  [[ "$ANGEL_YOLO" == 0 && "$ANGEL_YOLO_SMART" == 0 ]]
+  printf covered > "$FIXTURE_ROOT/delve-cart-covered"
+  exit "\${FIXTURE_DELVE_CART_EXIT:-0}"
+fi
 if [[ "$1" == build ]]; then
   [[ " $* " == *' --bins '* && " $* " == *' --message-format=json '* ]]
   if [[ "\${FIXTURE_BUILD_EXIT:-0}" != 0 ]]; then
@@ -90,6 +96,8 @@ if [[ "$1" == build ]]; then
     exit "$FIXTURE_BUILD_EXIT"
   fi
   printf '%s\n' '${artifact('angel', cli, false)}' '${artifact('angel-sandbox', helper, false)}'
+elif [[ "$1" == check ]]; then
+  [[ " $* " == *' --no-default-features --bin angel '* ]]
 else
   [[ "$1" == test ]]
   if [[ " $* " == *' --no-run '* ]]; then
@@ -172,6 +180,7 @@ for (const exitCode of [0, 17]) {
     assert.equal(existsSync(ownTemp), false)
     assert.equal(existsSync(callerFile), true)
     assert.equal(existsSync(join(f.root, 'code-mode-covered')), exitCode === 0)
+    assert.equal(existsSync(join(f.root, 'delve-cart-covered')), exitCode === 0)
   })
 }
 
@@ -264,5 +273,34 @@ test('independent V8 test failure fails the standard gate', (t) => {
   })
   assert.equal(result.status, 29, result.stderr)
   assert.equal(existsSync(join(f.root, 'code-mode-covered')), true)
+  assert.equal(existsSync(join(f.root, 'delve-cart-covered')), false)
+  assert.deepEqual(readdirSync(f.parent), [])
+})
+
+test('independent Delve cartridge test failure fails the standard gate', (t) => {
+  const f = fixture(t)
+  const result = spawnSync('bash', [f.script, '--test-threads=1'], {
+    cwd: f.root, encoding: 'utf8', timeout: 10_000,
+    env: { ...f.env, FIXTURE_DELVE_CART_EXIT: '31' },
+  })
+  assert.equal(result.status, 31, result.stderr)
+  assert.equal(existsSync(join(f.root, 'code-mode-covered')), true)
+  assert.equal(existsSync(join(f.root, 'delve-cart-covered')), true)
+  assert.deepEqual(readdirSync(f.parent), [])
+})
+
+test('a plug boundary failure stops the standard gate before any build', (t) => {
+  const f = fixture(t)
+  writeFileSync(
+    join(dirname(f.script), 'check-plug-boundary.sh'),
+    "echo 'check-plug-boundary: RULE 1 BROKE' >&2\nexit 7\n",
+  )
+  const result = spawnSync('bash', [f.script, '--test-threads=1'], {
+    cwd: f.root, encoding: 'utf8', timeout: 10_000, env: f.env,
+  })
+  assert.equal(result.status, 7, result.stderr)
+  assert.match(result.stderr, /check-plug-boundary: RULE 1 BROKE/)
+  assert.equal(existsSync(join(f.root, 'code-mode-covered')), false)
+  assert.equal(existsSync(join(f.root, 'delve-cart-covered')), false)
   assert.deepEqual(readdirSync(f.parent), [])
 })

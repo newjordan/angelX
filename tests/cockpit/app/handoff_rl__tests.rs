@@ -296,3 +296,107 @@ fn handoff_cycle_submit_result_then_force_ad_infinitum() {
     assert_eq!(st.handoff_count, 8);
     assert!(st.can_force_roll().is_ok());
 }
+
+#[test]
+fn status_does_not_say_active_beside_a_tripped_cap() {
+    // A cap is only acted on at a turn boundary, so between the moment it is
+    // reached and the next boundary the controller is still armed. The status
+    // must not call that plain ACTIVE while it prints the cap as tripped.
+    let mut by_rolls = HandoffRlState::new();
+    by_rolls.start(None);
+    by_rolls.max_iters = 2;
+    by_rolls.handoff_count = 2;
+    let mut by_deadline = HandoffRlState::new();
+    by_deadline.start(None);
+    by_deadline.deadline_secs = 60;
+    by_deadline.started_ms = now_ms().saturating_sub(61_000);
+    for st in [by_rolls, by_deadline] {
+        assert!(st.active, "the boundary has not stopped it yet");
+        let text = st.status_text();
+        assert!(text.contains("budget: TRIPPED"), "{text}");
+        assert!(!text.contains("status: ACTIVE"), "{text}");
+    }
+}
+
+#[test]
+fn status_keeps_its_words_for_every_other_state() {
+    let fresh = HandoffRlState::new();
+    let text = fresh.status_text();
+    assert!(
+        text.starts_with("handoff RL status: INACTIVE · standard\n"),
+        "{text}"
+    );
+    assert!(!text.contains("last stop"), "{text}");
+
+    let mut armed = HandoffRlState::new();
+    armed.start(None);
+    armed.max_iters = 5;
+    armed.handoff_count = 4;
+    let text = armed.status_text();
+    assert!(
+        text.starts_with("handoff RL status: ACTIVE · standard\n"),
+        "{text}"
+    );
+    assert!(!text.contains("TRIPPED"), "{text}");
+
+    let mut stopped = HandoffRlState::new();
+    stopped.start(None);
+    stopped.stop();
+    let text = stopped.status_text();
+    assert!(
+        text.starts_with("handoff RL status: INACTIVE · standard\n"),
+        "{text}"
+    );
+    assert!(text.contains("  last stop: stopped by user"), "{text}");
+
+    // A campaign the cap already stopped keeps showing both lines, truthfully.
+    let mut capped = HandoffRlState::new();
+    capped.start(None);
+    capped.max_iters = 1;
+    capped.handoff_count = 1;
+    let why = capped.budget_tripped().expect("the cap is reached");
+    capped.stop_for_budget(&why);
+    let text = capped.status_text();
+    assert!(
+        text.starts_with("handoff RL status: INACTIVE · standard\n"),
+        "{text}"
+    );
+    assert!(text.contains(&format!("  last stop: {why}")), "{text}");
+    assert!(
+        text.contains(&format!("  budget: TRIPPED · {why}")),
+        "{text}"
+    );
+}
+
+#[test]
+fn phase_names_the_states_the_flags_stand_for() {
+    let mut st = HandoffRlState::new();
+    assert_eq!(st.phase(), HandoffPhase::Fresh);
+
+    st.start(None);
+    assert_eq!(st.phase(), HandoffPhase::Active);
+
+    st.max_iters = 1;
+    st.handoff_count = 1;
+    match st.phase() {
+        HandoffPhase::CapReached(why) => assert!(why.contains("max rolls"), "{why}"),
+        other => panic!("a reached cap is not {other:?}"),
+    }
+    st.max_iters = 5; // raising the cap before the boundary rearms it
+    assert_eq!(st.phase(), HandoffPhase::Active);
+
+    st.stop();
+    assert_eq!(
+        st.phase(),
+        HandoffPhase::Stopped("stopped by user".to_string())
+    );
+    st.stop_for_guard("turn failed");
+    assert_eq!(st.phase(), HandoffPhase::Stopped("turn failed".to_string()));
+
+    st.start(None);
+    assert_eq!(
+        st.phase(),
+        HandoffPhase::Active,
+        "a restart clears the stop"
+    );
+}

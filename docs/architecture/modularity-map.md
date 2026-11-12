@@ -1,7 +1,7 @@
 # Stable mechanisms and replaceable systems
 
 This is the working inventory for the AngelX modularity refactor in private
-PR #29. "Stable" means infrequent mechanism changes with explicit compatibility;
+draft PR #37, continuing the merged PR #29. "Stable" means infrequent mechanism changes with explicit compatibility;
 it does not freeze bugs in place. Feature behavior must stay outside these
 contracts, even when that behavior is important to the application.
 
@@ -240,6 +240,15 @@ currently batches one V8 invocation per active generation on the simulation
 thread; execution scheduling needs further efficiency work. Do not count these
 incremental adapters as the entire character
 pack acceptance or mark the PR ready on this evidence.
+
+Player selections currently live in the live module's in-memory checkpoint:
+the module worker constructs a fresh registry on startup, and its checkpoint
+handoff covers replacement within that worker. A process restart has no durable
+selection restore path here. Seat numbers are session-local and the network's
+seat token is a session resume credential, so neither is by itself a durable
+player identity. Persistent per-player choices still need durable identity,
+storage and validated restore, including unavailable selected packs; reload
+tests alone do not prove restart persistence.
 
 The rules bridge also avoids redundant JSON-tree copies and reuses the typed
 Run produced by validation. Its current four-seat/eight-frame fixture reports
@@ -1174,6 +1183,7 @@ composed and passes test compilation (`/tmp/angelx-native-integration-testcheck1
 but remains untested. Review also identified guest reforge queues stranded by
 leaving and a checked shutdown path that can bypass pending authored paint; both
 remain open.
+
 The v4 offer, brew and kick test repairs and reset follow-ups are composed; test
 check 19 passes (`/tmp/angelx-native-integration-testcheck19.log`). Runtime suite
 v5 is building and will repeat the worker scenarios plus close, guest reforge,
@@ -1448,3 +1458,921 @@ candidate rejection, in-flight handoff coverage, resource-retirement evidence an
 measured edit-to-activation/runtime cost. A manifest-only or tuning-only change
 does not complete a system extraction. Keep PR #29 draft until the agreed module
 acceptance checks pass; record the exact remaining boundaries between passes.
+
+### November 2 recovery and 0.2.7 reconciliation
+
+Private PR #29 was merged into `dev` on November 1 at `1c6a4ada516e`. Its
+published commit does not contain the later native-owner integration. The
+original integration and chat worktrees disappeared. The v23 native-owner
+source was recovered at `~/.codex/angelx-activation-work/recovered-v23`; its
+tracked diff and four untracked source hashes matched the original v23 test
+run before documentation recovery. Suite v23 passed 104 selected lifecycle and
+crash-boundary checks on that source, with matching before/after fingerprints.
+The prior full `angel-delve` library suite passed 2,993 tests (301 ignored).
+These results apply to that recovered source, not to current `dev`.
+
+Current private `dev` is `79bf9383f`; it includes 0.2.7 and has since moved
+Delve host code into `crates/realm-host`. The recovered source patch does not
+apply directly. A separate private follow-up checkout at
+`~/.codex/angelx-activation-work/private-followup` is based on that `dev`
+commit. The primary checkout contains extensive existing user changes and was
+not modified. Reconcile ownership and behavioral changes into the current
+architecture before creating a follow-up draft PR; preserve all operator locks.
+The remaining scene-incarnation capability, runtime cost, receipt compaction,
+full acceptance and actual production cutover remain unverified.
+
+Read-only reconciliation found that current `crates/realm-host/src/together_sim.rs`
+still keeps `Run` and `Journal` in native Core and sends a full Run through
+`step_system`; it does not depend on `angel-delve-system`. The owned-session
+foundation remains available in `crates/live`, `crates/delve-system`, and
+`crates/delve`, but native worker ownership has not yet been activated. The
+recovered stable-sync marker/outbox and its receipt recovery are also absent
+from current `dev`; the old cockpit control paths are now realm-host controls,
+with model-turn accounting still crossing the cockpit/realm-host boundary.
+Neither the recovered v23 code nor current `dev` includes the staged atomic
+scene-incarnation fence. Port these as coherent, separately tested boundaries;
+do not replace newer squire, Kingdom Loop, ability, or checkpoint changes with
+older files wholesale.
+
+The 0.2.7 reconciliation found the existing character-pack path already binds
+separate executable ability, art/animation, SFX and VFX resources; that evidence
+is not proof of native world-authority replacement. The showcase squire remains
+an authored sprite/pose implementation inside Glass. A separate candidate
+extraction is being prepared to swap its prepared art and clip while preserving
+the open showcase's position, phase and resource ownership. This is a Glass
+subsystem boundary, not a proposed new public system or crate.
+
+The native worker cutover still depends on transactional ability/source plans:
+current realm-host mutates `Run` in the native prelude and after-step paths,
+while the recovered implementation freezes source/frame/actor ownership across
+uncertain receipts. Switching only the frame driver or adding an unused
+Authority adapter would not be an operational extraction. Detailed current-dev
+port constraints are preserved at
+`~/.codex/angelx-activation-work/reconciliation-0.2.7/RECONCILIATION.md`.
+
+Follow-up work is staged outside this checkout: the realm-host authority port
+has a frame/source-plan draft but still lacks caller-ticket and connection
+reconciliation; the stable marker/outbox port awaits compilation and independent
+crash/exit review. A showcase squire clip draft is being reviewed for actual
+removal of authored Glass policy and failure-atomic resource selection. None of
+these drafts is yet evidence of a current-dev cutover.
+
+The first 0.2.7 Glass baseline build failed because the machine selected
+incompatible Rust compilers for artifacts and build scripts. A fresh target now
+pins both Cargo and rustc to the repository's `1.99.0` toolchain; the build is
+running in `~/.codex/angelx-activation-work/private-followup-target-rust1990`.
+
+The first pinned 0.2.7 Glass baseline build succeeded with the repository's
+Rust 1.99.0 toolchain; this was a compile-only baseline, not a hot-swap test
+(`~/.codex/angelx-activation-work/test-logs/glass-baseline-027-pinned.log`).
+The current-dev native authority candidate was applied to a separate test
+checkout and `angel-realm-host` test type-check is running. Its source has not
+yet been integrated into the follow-up checkout or behavior-tested. A separate
+stable/outbox draft and a showcase clip draft remain under review: the former
+has unresolved completion/forced-exit and receipt-compaction boundaries, and the
+latter still duplicates the authored fallback in Glass.
+
+The first 0.2.7 authority review candidate was applied only to the separate
+`native-v9-checkout`; its `angel-realm-host --tests` type-check is running with
+pinned Rust 1.99.0. The independently ported stable/outbox work has important
+differences from v9: worker-completion crash recovery, origin-workspace binding,
+exact payload receipts and forced-exit behavior still need reconciliation. A
+showcase clip draft removed its duplicate Glass pixel templates, but its first
+card-path replacement was transparent; that visible regression must be fixed
+before the draft can be integrated.
+
+The first native test type-check exposed ten current-dev API mismatches after a
+test-only fixture feature was enabled. An isolated v11 correction addresses
+those compiler diagnostics and is being checked; compilation and lifecycle
+behavior are not yet verified. The independent stable/outbox delta applies to
+that candidate but has not been integrated or tested with it. Its bounded receipt
+ledger deliberately fails closed at 16,384 entries until a safe compaction
+protocol exists; provider completion and the first durable local write also
+remain separate operations.
+
+The revised showcase draft routes card pixels through the live clip and removes
+the old Glass pixel fallback. Review found a remaining startup/disabled-hotload
+blank interval, card animation still authored in Glass, and a missing release
+bundle entry. These must be resolved and tested before integration. Its first
+five focused Glass tests are building in a separate checkout; they do not by
+themselves establish the end-to-end Registry-to-Glass activation path.
+
+The isolated native v11 candidate now passes `cargo check --tests` for
+`angel-realm-host` with unchanged source fingerprints. This checks types only;
+the first selected lifecycle tests are building. Independent review found two
+behavioral blockers: recovery can stall with no game open, and some local
+commands receive the wrong ticket scope and are refused. It also flagged unused
+squire-payment paths for investigation. The stable/outbox delta incorrectly
+credits the first seat for an unknown route and may write to a different
+checkpoint path from the host's drain. These are being corrected before the
+candidate is integrated or published.
+
+The first showcase test build failed on a borrowed-identity lifetime error; no
+Glass test ran. A newer scratch candidate also addresses startup bootstrapping,
+card animation and release packaging, but has not yet been compiled or validated.
+
+Six selected tests passed on the isolated v11 source with matching before/after
+fingerprints, including a real worker swap with an open frame and lost finish,
+seat-incarnation fencing, source uncertainty and durable outbox replay. These
+results predate the combined v12 and stable/outbox corrections; those newer
+changes require their own tests. A candidate Glass revision is now under test.
+
+The first stable/outbox delta also touched the operator-locked
+`cockpit/src/drive/loop_ctl.rs` in the isolated test checkout. That file was
+immediately restored to the exact private-dev version and the lock check passes;
+no protected change belongs in the integration. Forced-exit retention is being
+redesigned around an unlocked boundary before the delta can be accepted.
+
+The candidate Glass build passed six focused tests covering open-clip swaps,
+phase retention, absent art, lease cleanup, card pixels and card timing, with
+unchanged tested source fingerprints. These are Glass-unit results, not proof of
+the whole Registry-to-Glass path. An independent review then found that a stale
+startup clip could reappear after removal followed by a bad edit; a candidate fix
+and regression test are now included in the cockpit build under test. The
+original six tests precede that cockpit-only fix.
+
+The revised native candidate adds no-game recovery and correct local command
+ticket routing; its targeted tests are running. A separate stable/outbox revision
+uses an unlocked caller seam, restores the old `Thinking::spawn` signature, and
+adds a loop admission check and retry coverage. It has not yet been compiled or
+combined with the v12 test source. No new draft PR has been published.
+
+Private `dev` advanced to `ac10f81cec88` during the follow-up. The showcase
+candidate applied cleanly on a new isolated checkout of that base; protected
+files match that base and the lock check passes. The earlier source at
+`79bf9383f` passed six Glass tests and five cockpit bootstrap/registry tests;
+the latter include the fix for removal followed by a failed edit. Tests are
+being repeated on the newer base before publication. Release evidence tests
+also pass (31 tests), and the runtime inventory lists the module and its pack.
+
+The isolated native v12 source passed ten selected tests, including the four
+new no-game recovery and command-routing regressions, with unchanged source
+fingerprints. These results do not cover the newer stable/outbox delta or the
+advanced `dev` base. The durable receipt ledger still needs safe compaction and
+there is no provider/local-storage atomic transaction.
+
+On `ac10f81cec88`, the candidate again passed six Glass-unit tests and five
+cockpit startup/registry tests on matching source fingerprints. Private `dev`
+then advanced to `78754756fa24` with an identical tree, so the follow-up checkout
+was fast-forwarded without changing those tested bytes. Independent review found
+two gaps before publication: standalone Glass consumers need their authored pack
+installed at their entry points, and remote Glass clients need live clip updates
+and removals. Both are being addressed; the present Glass candidate is not yet
+a complete extraction. The combined native/outbox candidate is under test in a
+separate checkout, and its long-lived receipt-cap limitation remains open.
+
+The combined native/outbox build exposed a visibility error, and the cockpit
+test build also exposed a fixture compiled in dependency mode without its test
+support. Minimal isolated fixes are under test; the combined candidate has not
+yet passed these checks. The receipt cap is intentional until safe retirement
+exists: a producer may retry an older event after a later receipt, so simply
+evicting old IDs can double-credit a seat after a crash. A regression was
+prepared for that sequence.
+
+Private `dev` advanced to `40d55f033` with only documentation changes; the
+follow-up fast-forwarded without changing the previously tested Glass source.
+Standalone entry-point loading and versioned remote clip replacement/removal
+are staged in separate patches and have not yet been integrated or tested.
+
+The combined native authority and outbox source passes fourteen selected
+realm-host lifecycle and recovery tests on matching source fingerprints. Its
+cockpit production binary also passes `cargo check`; the full cockpit test build
+currently has 411 diagnostics, mainly old test fixtures borrowing the new
+owned `RunMut` API. Fixture migration is in progress. The bounded receipt
+ledger remains fail-closed: a later event can be applied before an earlier
+producer retries, so evicting older random IDs without a shared retirement
+lease can double-credit after restart.
+
+The combined Glass candidate passes twelve focused Glass tests and five cockpit
+startup/registry tests with unchanged source fingerprints. Those include remote
+replacement, removal, late-viewer catch-up, old viewer compatibility and
+per-field decoding bounds. The standalone terminal build is being checked.
+Remote review found that the existing large frame envelope is allocated before
+the new per-field bounds are checked; this needs attention before publication.
+A new viewer cannot connect to an older v1 host, while a v1 viewer can connect
+to a v2 host without receiving clip extensions. A single end-to-end
+Registry-to-Glass visibility measurement remains outstanding.
+
+After adding standalone entry-point loading and remote update/removal, the
+current Glass candidate passed sixteen targeted Glass tests and five cockpit
+startup/registry tests with unchanged source fingerprints. The standalone
+`angel-glass-term --all-targets` check passed, as did 31 release-evidence tests
+before the final remote-only changes. The remote reader now chooses a clip
+frame limit from the decoded tag before accumulating the body; separate tests
+cover raw and compressed oversized clips, large video, late subscribers and
+unchanged frames. V1 viewers can attach to a v2 host without clip extensions;
+a v2 viewer cannot attach to a v1 host. Generic callers of `wire::read` must
+now supply the `FrameMessage` bound.
+
+On this machine, one warm headless synthetic pack trial measured 51 changes
+after three warmups: file write plus forced Registry refresh and snapshot was
+p50 212 µs / p95 783 µs; the App-to-Glass host setter was p50 1 µs / p95 3 µs.
+Combined p50/p95 were 214/784 µs. This measures a synthetic pack and a direct
+refresh into a no-window Host; it excludes file watching, scheduling, renderer,
+GPU, first visible pixels and network. It is not a full edit-to-visible result
+or a general runtime benchmark. The measurement source and method are recorded
+in `docs/performance/showcase-squire-activation-latency.md`.
+
+Native cockpit fixture migration reduced the combined build's 411 compiler
+diagnostics to six; a further correction is under test. Passing the isolated
+realm-host cases and a production type-check does not yet establish the whole
+native cutover on current dev. The receipt-cap and provider/local-write limits
+remain open.
+
+Subsequent focused validation passed sixteen Glass tests after the bounded
+frame-reader and late-subscriber fix, five cockpit startup/registry tests, and
+the standalone terminal all-targets check. The release-evidence suite passes
+31 tests after adding the compile-time pack and timing note to its inventory.
+Both lockfiles gained only an `angel-glass` → `serde_json` edge; the existing
+package identities and counts are unchanged, and the release policy's recorded
+lockfile hashes were updated. This is not a fresh advisory scan.
+
+The separate native candidate now also passes cockpit test compilation and ten
+selected cockpit receipt/context/exit tests; these results do not mean that the
+candidate is included in the Glass extraction. Next: review and integrate the
+native cutover with its production state-preservation and longer-running
+receipt lifecycle checks. Also measure true edit-to-visible timing, including
+the watcher, UI scheduling and rendering, and compare steady-state frame cost.
+
+### Shipped policy capture on the live-module draft
+
+The shipped policy inventory now captures the same JSON dependencies and
+bounded generation inputs as the live loader. This keeps an embedded policy's
+generation digest consistent with the directory that can replace it. Capture
+uses two matching reads and embeds the validated bytes, and watches selected
+files and directories for rebuilds. Manifest selection must remain stable
+across capture. Four V8 capture-contract tests and all 132 Glass library tests
+passed on the merged draft source, including digest parity and rejection
+boundaries.
+
+On the merged draft at `c778edce0`, a fresh cockpit build and five focused
+startup, invalid-clip and removal/rollback tests passed, followed by the
+standalone `angel-glass-term --all-targets` check. The source fingerprint was
+unchanged throughout. These checks cover the published Glass extraction; they
+do not validate the separate native candidate.
+
+The native world-authority and receipt work remains a separate candidate. Its
+real-worker swap and Realm-host tests passed against an earlier dev base, but
+current dev's off-frame settlement and control changes still need semantic
+reconciliation and fresh lifecycle, performance and cockpit verification. It
+is not included in this draft change.
+
+In the separate brew discovery prototype, review found that two stale observers
+could both take one recovered result and contend for its sole checkpoint owner.
+An isolated correction passed 12 admission tests and 17 brew tests, with one
+native swap test ignored. Its workers still hold the shared simulation core
+during native IPC and lack a proven bounded shutdown/drain path; neither that
+correction nor the broader native candidate is included here.
+A separate held-browser continuity test exposed another native cutover gap:
+replacing the old core replaces its live sound-asset registry, while an
+already-issued voice can still own its bytes. The new server then cannot find
+that sound in its registry. Preserve or reconcile those registries before
+cutover and verify the issued URL remains usable through retirement. An
+isolated correction shares the retained registry before candidate preparation;
+focused tests preserve a prior sound through startup and browser readiness,
+admit six new seats and reclaim candidate-only media after a failed preparation.
+It remains outside this draft until the broader native cutover is reconciled.
+
+### Browser generation preparation
+
+Hosting and hosted-session restore now admit a retained browser generation
+before changing the run. Capture, hashing and compression run on a bounded
+worker; the server and native/WebSocket seats can start while page requests
+wait for that generation. Captured bytes and their content URLs stay together,
+and an in-flight response retains its bytes through server shutdown. Only a
+failed generation that never published assets can be retried on the same
+server, preserving its run, listener, join key and native seats. A successful
+generation is not replaced by this path.
+
+The process admits at most two retained or preparing generations, with bounded
+file count and size. Sixteen cold HTTP requests per generation may wait for at
+most 30 seconds; additional classified requests receive 503, leaving room in
+the connection-admission pool while preparation is pending. Raw or idle
+connections can still fill that existing pool. A failed worker releases its
+capacity after it finishes, while a cancelled worker retains capacity until
+its filesystem work actually exits. Source stamps detect ordinary concurrent
+changes before the captured generation is published; immutable version
+directories or an atomic source manifest are still needed for a
+filesystem-wide atomic source update.
+A blocked filesystem call cannot currently be forcibly cancelled.
+
+URL and ETag construction now share the same content digest; gzip policy and
+the resulting URL, validator and response bytes are unchanged. On the composed
+source, 58 Serve unit tests, 25 real socket tests, seven browser-capture tests,
+seven native host tests and 13 Sim tests passed; five existing Sim tests were
+ignored. Tests include concurrent cold requests, native joins, failed-generation
+retry, capacity refusal, asset parity with the previous capture, and an in-flight
+body surviving shutdown. The implementation was independently reviewed and
+operator-locked files and their existing seals were unchanged.
+
+In shared-machine development-profile samples, capture of 391 shipped files
+(189,379,456 bytes) took 54–68 ms. Hash/compression of that input took 9.985 s
+before digest reuse and 6.068 s afterward; these are phase samples, not a
+production benchmark. One subsequent native host activation took 1.896 s,
+the first complete HTTP response 3.923 s, and hosted restore 39 ms. A warm
+100-HEAD sample took 3.700 ms total. Full native activation, browser-first-view
+latency, live replacement of successful generations and sustained runtime cost
+remain open; moving preparation off-frame does not itself make it faster.
+
+### Precomputed embedded browser assets
+
+The build now captures immutable embedded files and prepares their existing
+content digests and gzip representations once. At runtime, reuse requires the
+same name, MIME type and exact bytes; changed or beside-the-binary assets still
+take the normal capture and preparation path. The generated Rust references
+are published atomically, and old linked executables retain their embedded
+bytes if a later build fails. The generated index is written earlier, so this
+is not a transaction over every build output. Nor does it make concurrent
+source-tree edits an atomic filesystem snapshot or live-replace a successful
+browser generation.
+
+On the composed source, eight browser capture/parity tests, 62 Serve unit
+tests, 25 real socket tests and 197 release-tooling tests passed. The tests cover
+the full 391-file response set, URL/ETag/plain/gzip parity and changed or missing
+beside music. The release tests use fixtures; they do not prove an actual
+shipping package. A measured preloaded 189 MB server workload prepared the
+first page in 353–359 ms, compared with 1.80–1.88 s using normal preparation;
+this excludes initial resource reads and is not a launch measurement. A portable
+proxy binary grew by 13,869,152 bytes, and build-time preparation took 1.47–1.70 s
+in the optimized sample. Actual release-binary size, platform portability,
+and end-to-end launch remain to be qualified. A separate clone-local Cargo
+experiment built both WebGPU and WebGL renderers and exercised shell asset
+edit, addition, removal and restoration. The generated source returned to its
+original hash after restoration, and 12 decoded plain/gzip response bodies
+matched the source and legacy preparation. The experiment also caught and
+avoided stale absolute paths inherited from a copied Cargo target; it primed
+the build in its own source tree before measuring.
+
+### Six-seat character selections
+
+The rules admit six players, but character loadout registration and its
+appearance, executable and VFX validators previously stopped at four. The
+shipped command now registers and accepts all six seats while keeping four
+ability slots per player. Its executable probe gives a selected sixth-seat
+ability the same player context and rules validation as the earlier seats.
+
+On the composed source, all three appearance tests passed, including checkpoint
+restore and invalid-player rejection. The character ability suite passed 21
+tests, with four existing visual/Bend-specific tests ignored. A V8 registry
+test selects art,
+abilities, sound and effects for seats five and six, casts both, validates the
+issued effect scene, and replaces the executable provider while retaining the
+casts, sounds, visuals, health, mana and cooldowns. A shared-machine debug
+sample on the composed source measured the two-cast rules/ability tick at
+2.11 ms and forced provider refresh plus source activation at 60.77 ms; these
+are not production latency or end-to-end rendered edit-to-visible measurements.
+Character selections still need durable player identities and restart
+persistence as noted above.
+
+### Ability ownership across seat replacement
+
+An ability request can remain queued while a player leaves and the seat is
+reused. The executable host now checks the request's captured raid and seat
+epoch before admission and retains those fields with pending and running
+casts. It checks ownership before and after each rules step, including an
+already-processed tick. When replacement advances the seat epoch, the new
+occupant cannot execute the previous occupant's work. In the tested immediate
+guest-seat replacement, previously issued projectiles, voices and visual
+entries remain. Ordinary provider replacement continues to retain active casts
+and their original dependencies.
+
+The original V8 regression admitted a queued request and emitted an effect for
+the replacement; the corrected implementation passed the complete ability
+suite: 25 passed and four optional tests ignored. The tests cover queued and
+running replacement, same-tick retirement, a request from another raid,
+preservation of issued effects, six seats and existing provider swaps. The
+protected-file check passed. Three alternating debug-profile samples of 180
+four-player ticks measured median ability-batch times of 575–615 µs before and
+582–636 µs after; concurrent work and the small sample make this an indicative
+measurement rather than a precise overhead estimate.
+
+Raid and seat epoch are not a unique identity across independent sessions. In
+hostless/watch mode a remote occupant can hold seat one; that seat's removal
+does not use the guest-seat retirement path, so its transport-owned identity
+and replacement fencing remain unproven. A real watch-server regression in the
+isolated profile candidate confirms the case: a matching reserved name joins
+seat one, a same-token reconnect keeps its lease, and a fresh-token replacement
+with the same name incorrectly receives that same lease. The final assertion
+fails; the candidate and its prospective reservation fix are not in this PR.
+Profile selections still need an authoritative session-incarnation lease;
+already-issued follow visuals also need ownership-aware detachment to avoid
+following a replacement, and visuals currently retire when their player is
+absent. The durable store, session lease and native owner cutover remain
+isolated candidates, not part of this change.
+
+### Independent character animation
+
+The character selector can now choose authored looping clips independently of
+art. A versioned animation pack lowers frame ordering and timing exactly into
+the existing bounded wire representation, and replacement preserves normalized
+playback phase. Glass's arena view samples the current animated frame. Optional
+imports keep the character selector and unrelated abilities available when the
+motion provider is absent: the requested clip remains in selector state, the
+UI reports the pending choice and default art plays until the provider returns.
+A present incompatible provider, invalid clip or removed selected option is
+rejected without replacing the last working generation. Existing required
+imports remain required; older loaders reject the new manifest field.
+
+On the composed source, 101 live-module tests and 28 ability tests passed,
+with four ignored in each suite; both Delve appearance tests also passed from
+the integration checkout. Tests cover late provider registration,
+contract and cycle checks, preservation of old leases, missing-pack fallback,
+live replacement and a real Run snapshot restore. The cold selector restore
+uses captured state loaded by a test fixture; it does not test a production
+durable-profile load path. A debug forced-refresh sample measured 26 ms to
+install and 82 ms through publication of guest pixels, with a 201,239-byte
+snapshot. This excludes the edit itself and is not an automatic-watcher,
+GPU-presentation or release benchmark. Clips currently lower to at most eight
+frames; animation graphs, quick-rig and durable profile composition remain
+open.
+
+The first integration omitted the animated loadout contract from the live
+Sim's source filter. The Sim now admits already-validated `Loadout` bindings
+instead of maintaining a second contract-name list. A production-boundary
+regression installs art, an executable slot and an animation through
+`Sim::set_live_characters`, then edits and reloads the animation while
+checking that the slot remains installed. It also waits for the real local Link
+seat to enter play and the authoritative hero to return, then sends a spell
+input and observes an ability start through the live Sim. The fixture removes
+enemies to keep transport timing from ending the fight. The focused test and
+the full active ability suite passed (29 passed, four ignored). An initial
+local projection alone was not a readiness signal: earlier attempts sent the
+input while the seat was reconnecting and are not evidence of cast behavior.
+
+
+### Character animation graphs
+
+A `character-animation-graph-pack/1` supplies bounded authored states and
+ordered transitions over authoritative gameplay facts. Players select a graph
+independently of their art and ability providers; the versioned
+`character-graph-loadout/1` resolves both resources before activation. Missing
+optional graph packs retain the requested choice and use default art until the
+pack returns. Invalid replacements preserve the last working generation. Graph
+states use the existing animation wire format, and phase is preserved or
+restarted according to the authored edge. Graph and standalone clip selections
+are mutually exclusive. No additional public subsystem or crate is introduced.
+
+The cursor belongs to a player, raid and seat epoch and retires on explicit
+avatar reassignment, including matching source fingerprints. An explicit newer
+same-owner selection can reclaim that avatar; ordinary source reload and graph
+provider disappearance/return cannot. Retiring graph presentation does not
+discard an ability cancellation. Animation state and phase survive a
+same-token socket resume and two listener rehosts. Walking
+is detected by before/after authoritative position samples, rather than the
+footstep phase, which can wrap to zero during continuous movement. Samples are
+fenced across owner, tick, room, depth and topology changes. Same-room jumps
+under 2.5 units remain indistinguishable from physical movement; fresh Runtime
+binding still lacks an authoritative session-incarnation token. A replacement
+seat cannot claim an old seat's graph until that context exists; graph refusal
+leaves the existing unleased ability/art behavior unchanged, including the
+legacy isolation issue below. Graph profile persistence, skeletal/blended
+graphs, one-shot completion and native-owner handoff are not yet implemented.
+
+The frozen composed-source ability suite passed 44 tests with four ignored;
+policy checks passed 41 assertions. Coverage includes real movement across
+footstep wrap, pauses and repeated observers, seat changes, rehosting, socket
+resume, graph provider replacement, guest pixels and the connected-seat cast
+regression, explicit reselection, overflow, fallback and cancellation. The six
+new ownership tests also passed in the PR checkout with all 11 tested source
+hashes matching the frozen candidate. A debug sample measured 233 ms for 100,000 paired runtime hooks (one graph cursor,
+two heroes) and 114 ms from forced refresh through guest
+pixels. These figures exclude simulation physics, the automatic watcher,
+network and GPU presentation; they are not a full-frame or release benchmark.
+The earlier wrap regression failed before the corrected implementation.
+
+### Native integration gates
+
+The tracked `cockpit/src/drive/together_abilities/tests.rs` is not the test
+module wired by `cockpit/src/drive/mod.rs`; the active path is under
+`tests/cockpit/drive/together_abilities__tests.rs`. The dormant file contains
+distinct native ownership, acknowledgement and retry cases, so its assertions
+need reconciliation with the native candidate before it can be removed. It is
+not evidence of executed coverage.
+
+Current legacy character selections are unleased resources indexed by numeric
+seat. Retiring a prior seat's casts does not retire those sources, so a fresh
+occupant can receive the prior selection when the Runtime installs them again.
+Two real-token regressions confirmed this for both the first watch seat and a
+regular seat after a fresh-token replacement and provider reload; same-token
+resume occurred before each replacement. The isolated durable-profile candidate fences leased profiles but intentionally
+retains legacy unleased semantics; it does not establish full seat isolation.
+A migration needs an explicit current-reservation selection or claim, while
+same-token resume and already-issued effects retain their existing owners.
+
+The separate native-owner candidate passed its original sound regression and a
+real process replacement retaining six seats, a Link receipt, journal and
+previously issued HTTP sound bytes. Its broader cockpit execution exposed an
+issued-visual loss on seat replacement and a controls-test stack overflow. A
+refused-frame cue-drain test also failed with additional startup cues; their
+ownership and delivery need investigation. These candidates are not in this
+PR, and these focused passes do not prove their full lifecycle or cleanup.
+
+On the later isolated native-owner candidate, seven real-process replacement
+scenarios passed, including six seats and unchanged previously issued HTTP
+sound bytes; six further process transport tests passed with worker-death,
+open-frame retry and single cue/sound delivery. These tests used separately
+stripped, hash-verified debug workers, not production release artifacts. The
+full controls suite still has a clustered browser/host failure: the candidate
+passed 81, failed five and ignored eight; a clean current-production baseline
+also reproduced that cluster (74 passed, 10 failed, eight ignored). The native
+candidate's original controls stack overflow is fixed in isolation. Native
+open-Begin ownership, first Runtime/resource transfer, reconciled lifecycle,
+profile legacy-seat migration and release packaging remain integration gates.
+The isolated 300-card transport fixture measured raw Tick p50 20.239 ms and
+p95 22.206 ms over 24 samples; the median JSON delta frame was 397 bytes and
+the checkpoint was 302,332 bytes. Worker activation took 3.402 s excluding
+Rust compilation. Rendering, native ability work, model work and durable IO
+were excluded. This is a fixture diagnostic, not a production frame-budget
+result, and warrants investigation before claiming the native path meets the
+desired runtime or activation costs. The measured v17 candidate clones a full Run for its native ability path, and `DelveServer::step` calls `Shared::publish`
+every step, whose `Core::snapshot` clones the accepted Run to apply native
+presentation overlays. Publication also does field traversal/fingerprinting
+and conditional typed Run decoding. Small wire deltas alone do not establish
+a lightweight local-state fast path; both per-frame clones must be eliminated
+or otherwise demonstrated to be off that path before integrating the cutover.
+
+In a separate animation-profile/reservation candidate, a full host run passed
+562, failed three and ignored 49: a restored HTTP response was empty, then two
+restores reported browser generations busy. The same three cases passed in a
+fresh process; that is not a full-suite pass. A clean current-PR host
+baseline passed 553 with 49 ignored and no failures. A repeat of the candidate's
+same exact host executable from the package directory then passed 565 with 49
+ignored; the original failures remain evidence of nondeterminism rather than
+a demonstrated cleanup fix. Existing real-generation coverage checks bounded
+refusal, preservation of active hosts and a successful retry after an owner
+retires. This candidate is not integrated.
+
+A separate debug attribution run of that transport fixture observed zero
+checkpoint callbacks during 24 ordinary ticks and a 397-byte median delta.
+Raw Tick p50/p95 were 11.139/15.571 ms; typed client event staging was
+4.486/6.163 ms, and local Session.apply was 6.206/6.973 ms. A small Cursor RPC
+with typed validation was 0.095/0.694 ms. These are separate busy-host samples,
+not a controlled speed comparison or an isolation of Publisher alone; rules,
+invariants, field projection and diff are included in Session.apply.
+
+A separate 64-sample debug observation-acquisition benchmark on that fixture
+measured the old Run clone/drop at p50 446 µs, p95 926 µs, and a mean of
+7,668 allocations requesting 1,090,023 bytes. Retaining the same immutable
+HostView Arc measured below the timer's 1 µs resolution with zero allocations.
+Only acquisition/drop was measured; this does not establish a frame speedup.
+The Arc approach is in an unintegrated candidate, and the presentation
+publication still clones the Run every step.
+
+Next, compose a reservation-bound selection intent with graph and profile
+ownership. A graph presentation refusal must not silently discard unrelated
+ability cancellation, and explicit same-owner reselection must be distinguishable
+from an unchanged reload after an independent avatar takeover. A fresh seat
+needs authoritative current-reservation context before it can claim a prior
+numeric seat; graph-off or provider disappearance must not erase that fence.
+Coordinate this with native open-Begin retirement and preserve the original
+Resource, visual, sound and pending-work owners through listener/worker handoff.
+
+Independent review reproduced a stale profile-cleanup failure using a real
+Kernel-bound resource and Runtime: replacing the Run with a different
+session/seat owner carrying an intentionally matching avatar caused
+`set_source_incarnation` to erase that avatar. The old cleanup compared only
+`source_id`; it must also fence the actual session, reservation and seat epoch,
+and preserve already-issued resource owners. Reproduction and failed output
+are retained under `<local>/profile-independent-review/`; the profile/graph
+composition has not yet fixed or integrated this case.
+
+A separate 64-sample debug Publisher/Receiver attribution on the 610-card
+fixture measured changing-tick Publisher p50/p95 3.522/4.775 ms with 10,359
+mean allocation calls; Receiver p50/p95 4.478/6.080 ms with 17,901. Standalone
+`Run::valid_snapshot` measured 2.794/4.273 ms and 9,612 calls. Even a
+status-only Publisher still traversed/validated the Run, whereas the receiver
+reused the typed Run for that case. These independent medians are not additive;
+the measurements exclude RPC, rules stepping, rendering and checkpoint capture.
+Incremental validation and typed view application remain necessary before
+claiming the native ordinary-tick path meets the lightweight-state goal.
+
+The unintegrated native reservation-handoff candidate has a separate confirmed
+shutdown race. A real WebSocket paused after the old listener's stop check can
+resume after its Sessions have transferred and admit a seat into the new
+owner's shared reservations while its Joined event goes to the old listener.
+The deterministic barrier regression fails in the isolated d985 candidate;
+its test and log are retained under `<local>/profile-independent-review/` and
+`<local>/profile-review-race-d985`. The current PR does not contain that Sessions
+transfer. Fix and test both late and already-admitted connections, including
+handoff and resource ownership, before bringing the candidate into the PR.
+
+An isolated correction fences source admission under the reservation lock and
+tracks watcher connection identities across handoff. Four real-connection
+boundary tests cover late admission, an already-admitted seat, watcher
+capacity and old cleanup, and a queued join with a retained stopped Manual;
+the frozen candidate's full Serve suite passed 98 tests. This is not yet a
+combined native-gameplay or profile test. Review also found that the first
+candidate changed the public `Sessions::watcher_left` signature, so retain
+source compatibility while qualifying keyed internal cleanup. Logs, source
+hashes and the isolated patches are in `<local>/profile-independent-review/`.
+
+The later isolated event-driven transport prototype preserves the public
+watcher API and passed 106 Serve tests, three default-API tests, and Linux TLS
+and all-features build checks. A real notifier-syscall failure and production
+Sim recovery from a stopped handoff remain unproved; Windows and macOS builds
+were not run. The first combined graph/profile ability run passed 41, failed
+11 and ignored four. In particular, fresh selections made before a seat
+exists must remain usable without granting a later replacement seat an old
+selection. Their one-use provenance must originate at explicit native user
+ingress: generic command dispatch also handles storage completions and module
+restoration and cannot establish that provenance. No combined fix is shipped.
+An explicit edit to one slot also cannot authorize unrelated restored art,
+graph or slots from the same atomic loadout. The pending selection must carry
+field-scoped authority, or start from a clean draft, and be consumed only by
+the first proven matching reservation. Status, save, completion, reload and
+edits for other seats must not create or extend that authority.
+An isolated generic receipt implementation passed its default and V8 serial
+suites, but independent adversarial tests exposed two blockers: a panicking
+native selection factory terminates the module worker, and replacing a native
+resource can run its destructor while the selection-authority mutex is held.
+The latter permits deadlock or lock inversion. Preserve
+`<local>/live-explicit-selection-evidence/adversarial-v1.log`; do not integrate
+that version. A corrected isolated v2 passed the targeted panic and reentrant
+destructor tests, 153 default tests and 173 V8 tests (six and eight ignored,
+respectively), plus a V8 production-library build. Its source and receipts are
+under `<local>/live-explicit-selection-evidence/`. The profile/graph composition
+and actual user-ingress and reservation handoff remain unqualified.
+
+On a separate native-overlay candidate, six of seven real worker replacement
+tests passed; the seventh used a fixed two-second model delay. In a separate
+controlled run, activation took approximately 3.2 seconds. Its blocking-model
+test retained the job through replacement and returned its answer after
+release, using frozen v19 workers with matching production source. That
+isolated pass does not establish acceptable activation speed. A changing-frame
+debug fixture with six animated avatars measured simulation-step p50/p95
+16.186/29.925 ms and wire publication 5.305/10.677 ms; these separate
+measurements include different work and are not additive. Repeat UI
+observation was cached, while first materialization remained measurable.
+These timings exclude production release and GPU performance.
+The v20 isolated simulation suite subsequently passed 89 tests with eight
+ignored, including the controlled model and actual retained Sound and Prepared
+resource lifetime tests. Seven actual replacement scenarios then passed with
+v20-built, hash-verified debug workers. The controlled model remained active
+until release; activation was 1.182 seconds in that run, compared with 3.193
+seconds in the earlier controlled sample under different load. These samples
+are not a speed comparison. Integration with the current profile/transport
+source and production release-worker qualification remain pending.
+
+Built-in encounter templates are immutable compile-time inputs; repeated
+validation now reuses a checked per-pack copy while each mutable Run catalogue
+continues to own its boss values. A dynamically authored provider must bypass
+or invalidate this built-in cache when that boundary becomes live. On a
+matched debug 610-card/no-art fixture, three alternating baseline/cache runs
+measured validation p50 2.660–2.688 ms versus 0.069–0.070 ms, Publisher p50
+3.314–3.375 ms versus 0.558–0.596 ms, and Receiver p50 4.121–4.243 ms versus
+1.139–1.247 ms. All six encoded traces were identical. These are separate
+standalone observations excluding RPC, rules stepping and rendering, not a
+whole-frame benchmark. Across all seven packs the cache retains about 63 KiB
+of measured Rust heap/layout storage; cold lookups can be slower.
+The formatted current-source tests passed 3 cache differential, 41 boss-gate,
+64 session (one ignored) and 15 live-catalogue cases; the default-feature
+WebAssembly type-check passed. A separate direct `bosses::read_into` regression
+passed against both matched libraries for all packs, including two revisions,
+another authored ID, other-pack preservation and malformed-reload rollback.
+Results are under `<local>/tmp/native-owner-step2-evidence/`.
+
+On the cache-qualified source, a separate 64-frame debug attribution found
+that the full Receiver accepted a changing 610-card/no-art view in p50/p95
+1.076/1.170 ms and requested a mean 1,302,221 bytes in 9,306 allocations.
+Typed Run decoding plus display restoration, excluding final validation, took
+0.826/0.972 ms. The nested Book decode accounted for 0.536/0.580 ms and
+7,142 allocations; cloning an owned Book still needed those allocations,
+while retaining an immutable `Arc<Book>` was below timer resolution and made
+none. That Arc observation is a hypothetical acquisition measurement, not an
+implemented optimization. The Book subtree's existing wire-document Arc was
+unchanged for all 64 frames, and reconstructed Run values matched the actual
+Receiver at the first and last frame. An ownership-aware typed reuse path is a
+candidate next step only if it preserves public behavior, validation and
+atomic rollback for malformed deltas. These component timings are not additive
+and exclude the full frame and renderer; the standalone caller and prebuilt
+libraries used different debug optimization levels. Source fingerprints,
+commands and logs are in `typed-view-cost-v22-receipt.json` under
+`<local>/tmp/native-owner-step2-evidence/`.
+
+The combined native profile, selection and transport candidate passed an
+isolated no-default cockpit compile check with all 10,313 source fingerprints
+unchanged. This check does not run the new UI, clipboard, socket or
+feature-enabled lifecycle tests and does not qualify the candidate for
+integration. Static review identified two additional ingress boundaries: a
+tool-generated UI key must not inherit the physical user's selection
+authority through a custom keybinding, and a deferred clipboard submission
+must retain the reservation and provider witnesses from the original submit
+rather than recapturing them after the read finishes. Same-owner resealing
+also needs to retain a matching bound lease across a transient disconnect
+without accepting a replacement owner. The source receipt and compile log are
+under `<local>/character-profile-graph-evidence/`; the candidate remains
+separate until those regressions and the combined lifecycle gates pass.
+
+The initial isolated Glass card-motion extraction passed 163 remote-feature
+tests and failed three: a cycle-boundary comparison, remote packet size and a
+legacy wave assertion. Its source fingerprints were unchanged during the run;
+the failure log is `<local>/glass-card-evidence/v1-glass-remote-workspace.log`.
+The replacement candidate must preserve reactions for existing version-one
+art packs through an explicitly owned motion resource, cover provider removal
+and replacement, and pass the old-viewer and actual-renderer tests before it
+can be integrated. The initial candidate is not part of the PR.
+
+The Registry does not currently provide an explicit module withdrawal. A
+missing source is deliberately treated as a failed edit: the existing
+`crates/live/src/tests.rs` removal regression requires the last good module to
+remain active and report an error. Deleting a directory therefore does not
+prove resource or route removal, and the Glass compatibility candidate's
+deletion-based lifecycle assertions cannot pass as written. A withdrawal
+contract needs to stop new admissions, reconcile dependent modules, and retain
+issued jobs and leased resources until their owners release them. In
+particular, Kernel completion and service invocation currently resolve through
+the active module/route tables, so simply deleting those tables can strand
+already-issued work. Design and qualification remain open; do not change the
+failed-edit behavior to simulate withdrawal.
+
+### Current private dev reconciliation (in progress)
+
+Private dev advanced from `199e09c2cc9d` to `c51d804648f5` with a
+cartridge and plug extraction. The isolated reconciliation retains the
+`DriveWorld` character-resource binding and delegates prepared character
+installation to the world while retaining Glass's independent squire clip
+binding and application. It carries the animation pack and graph contracts
+through the existing loadout binder. The two Rust lockfile records in the
+release policy are calculated from the composed lockfiles. The protected seal
+check passes and protected files match upstream. This is source reconciliation,
+not a completed extraction: the merged source still needs feature-specific
+build, lifecycle, behavior, cleanup and cost qualification before publication.
+
+Glass card-motion v3h remains a separate candidate: its pre-reconciliation
+Glass suite passed 170 tests (two manual tests ignored), a real GPU lifecycle
+test passed, release fixtures passed 32 tests, and the old viewer accepted an
+actual new packet. Motion is approximate, and explicit provider withdrawal
+remains open. Native v2 passed the actual trusted-versus-synthetic F3 test and
+31 clipboard tests, but a reservation-admission gap requires the unqualified
+v3 fix. The two-file typed Book candidate also requires qualification on the
+composed revision; prior component tests do not establish end-to-end cost.
+
+On the first composed source, the no-default cockpit/bin/test check passed
+(`cargo check --locked --no-default-features --bin angel --tests`; 10,364
+source files matched before/after), 97 `angel-live` library tests passed with
+four ignored, and 31 release-evidence tests passed. Review then found the
+console-only Glass squire label missing and standalone cartridge tests lacking
+the dependency testing feature. Their focused fixes are applied separately;
+they require a fresh check and do not inherit the first source fingerprint.
+
+The revised Glass-without-Delve cockpit check passed. The first default-feature
+check found 23 stale test references to the pre-cartridge `drive` paths; these
+are now redirected to the Delve test boundary and require a repeat check.
+
+After redirecting the test paths, the default cockpit/bin/test check passed;
+the standalone cartridge check and a boss-guest test passed in an isolated
+checkout with an offline-generated standalone lock. On the composed source,
+14 hotload tests passed (one manual timing ignored), 44 character lifecycle
+tests passed (four ignored), 161 remote-enabled Glass library tests passed,
+and 31 release-evidence tests passed. The character tests include six-seat
+reload, live fairy fields, executable and animation swaps, and retained issued
+sound and visual effects; they do not qualify the separate native v3 candidate.
+All 10,364 source fingerprints matched across these checks.
+
+With compilation idle, the ignored headless activation fixture measured 51
+samples: file write through forced Registry refresh and App-to-Glass setter
+p50/p95 1.459/1.948 ms; the setter alone was 0.006/0.010 ms. This excludes the
+watcher, renderer and GPU, and its current assertion does not read back the
+installed host identity. A separate real Registry-to-remote-viewer identity
+regression passed for two valid edits and retention after a malformed edit. A four-seat Bend fairy-field fixture
+measured 120 complete rules/ability ticks p50/p95 0.704/1.054 ms (maximum
+1.240 ms), excluding rendering and compilation. Both are debug local samples,
+not a comparison with a matching baseline or a full frame budget.
+
+The Glass-without-Delve console fallback also passed its real runtime regression.
+The identity and console tests ran against the same 10,364-file source
+fingerprint with no changes during either run. Their receipts and the composed
+check, lifecycle and timing logs are under `<local>/angelx-pr37-dev-c51-*`.
+Explicit Registry withdrawal, the retained-publication prototype, the native
+reservation fix, old-viewer requalification on this source and full
+watcher-to-GPU latency remain open.
+
+A post-publication plug audit found the merged cockpit had gained two
+Delve-gated core tests and direct game-type names. The duplicate character
+assertion remains covered by the existing cartridge-boundary hotload test; the
+console fallback regression now lives with the console implementation while
+still exercising the production showcase bridge. Both tests passed on an
+unchanged 10,364-file source fingerprint. The plug check reports five core
+gates (its limit) and zero stray game names; protected seals still pass.
+
+
+## Implemented: Glass card motion with Registry V10
+
+The implementation in private draft PR #37 was qualified in isolated source
+`<local>/glass-card-motion-registry-v10c-47a7990d4`, based on
+`47a7990d4c1d5d655f44aed0273aa4b30e4e715f`. It composes the authored
+card-motion extraction, V9 dependency/withdrawal foundation and V10
+empty-ready-scan shortcut. Its tested contents were published at
+`c4eab07fb23999e2cba909019a55032c2c12f220`; compatibility with later private
+dev changes still requires verification. The cartridge-first binder,
+installed-identity regression, console-only fallback, plug boundary and
+protected locks/seals remain intact.
+
+Art and authored card tracks have separate owners. `/2` art declares its motion
+provider; `/1` art without a motion import keeps the unique ambient compatibility
+default. Explicit optional `/1` motion intent survives an absent provider in a
+private agent binding: unrelated ambient providers cannot silently replace it.
+The existing api-version-2 import declaration carries that intent; no public
+Glass/Kernel API or wire-schema extension was added for the tests.
+
+V10 isolates unrelated changed closures while preserving atomic provider and
+consumer replacement. A failed captured dependent candidate retains its admitted
+composition and blocks its affected provider update. Missing source retains
+accepted authored bytes with a visible error, but a valid provider update may
+rebind those accepted bytes and advance the dependent/composite generation.
+This is source retention, not identity pinning or unregistration. Already-issued
+compositions and Resource imports remain on their old prepared dependency.
+
+Explicit exact-generation withdrawal rejects a required provider without its
+required dependents. Joint withdrawal removes the installed Host resource;
+optional consumers instead retain art-only fallback. Process-local disable
+intent prevents source scans or a newly enabled dependent from resurrecting a
+removed provider. Invalid re-enable preserves suppression atomically; valid
+re-enable publishes fresh identities. Actual remote removal/catch-up frames
+synchronize lease assertions: old composites release after publisher frames and
+issued references drop. Registry jobs can separately drain, retry or abort;
+these visual-resource tests do not imply that issued jobs were cancelled.
+
+Qualification on one frozen 10,371-file tracked-plus-untracked source fingerprint:
+
+| Executed gate | Result |
+| --- | --- |
+| Glass-without-Delve App hotload, including installed identity and required/optional lifecycle | 13 passed, 2 manual ignored |
+| Whole agent hotload subtree, including binding/version/bootstrap/source retention | 10 passed, 1 manual ignored |
+| Console-only Glass fallback | 1 passed |
+| Full remote-enabled Glass library suite | 170 passed, 2 manual ignored |
+| Explicit real Vulkan renderer replacement/removal fixture | 1 passed; Immediate fallback when Mailbox unavailable |
+| Frozen historical old-viewer binary decoding the newly generated candidate packet | 1 passed |
+| Delve+Glass character/ability lifecycle, including casts, cooldowns, seats, animation and issued effects | 44 passed, 4 manual ignored |
+| Entire Delve cartridge drive/settlement subtree | 42 passed, 1 manual ignored |
+| App and agent hotload repeated from that same Delve+Glass binary | 13 and 10 passed; 2 and 1 manual ignored |
+| Production release static tests and plug/legacy checks | 32 passed; five core gates, zero stray game names |
+
+The packet gate enforces a complete 65,536-byte publication ceiling, including
+identity and framing. Its constructed maximum art/track fixture is 61,907 bytes
+(61,376-byte prepared JSON, 49,138-byte motion). Motion remains an approximation
+of old renderer float formulas: sampled maximum logical offsets are Busy
+0.331825 px, Oops 0.072449 px and Cheer 0.039604 px; boundary label/direction
+changes are bounded to 1 ms in the regression, not bit-exact pose parity.
+
+A real production inventory/archive was generated with a separate temporary
+Git index; the ordinary index was unchanged. Archive SHA-256 is
+`3b8769fae2c4e21d940071236ae79825cf39ed08aeb1fe24e13f4c227802652c`
+(394,024,960 bytes). All six art/motion runtime files byte-match the source,
+including the provider pack; both manifest and JavaScript imports are verified,
+and extracted module JavaScript bootstraps the archived provider. This is a
+source-archive/module-bootstrap check, not a packaged binary launch.
+
+Evidence is under `<local>/glass-card-evidence/47-motion-v10c-*`: source-before and
+source-after-runtime JSON receipts match exactly; binary/packet hashes, full
+runtime logs, real-release inventory and archive receipt are preserved. Original
+V9/V9b/V10 failures remain preserved: the overstrict missing-source identity
+assertion, V8 numeric JSON normalization, and a cleanup assertion before an
+outstanding publisher frame finished. Revised tests assert actual accepted-source
+semantics and wait for an observed remote removal before requiring release.
+
+Remaining boundaries are a full packaged desktop launch, real watcher-to-GPU or
+photon latency, exact old float parity, persisted disable intent, and composition
+with the separate native withdrawal/reservation candidate. No performance run
+was performed in this lane. Later documentation-only changes have separate final
+source receipts and do not replace the frozen runtime fingerprint.
+
+### Follow-up: package the existing character animation providers
+
+The source-release inventory now includes the already-shipped optional
+`character-motion` and `character-graphs` module manifests and entry points.
+The abilities manifest imports both providers, but the previous inventory
+omitted them, so source archives could not offer those animation choices.
+The release test builds and extracts an archive from the real provider files,
+checks their declared contracts against the abilities manifest, verifies exact
+file bytes and executes each provider. All 33 release-evidence tests pass;
+the protected-file and plug-boundary checks also pass. This establishes source
+archive coverage for these providers, not a packaged executable or GPU launch.
+The separate native ownership, persistent-choice and dependency-handoff
+composition remains under qualification and is not part of this change.
+
+### Policy override lifecycle
+
+Pure live policy overrides can be withdrawn or re-enabled as an atomic batch
+through the existing control path. A `policy-control/1` receipt identifies the
+resulting generations. Withdrawal leaves bounded code-free tombstones and
+preserves already captured Programs; future decisions use their existing
+shipped Bend or native fallback. Re-enable validates every requested policy
+before publication. Mixed policy/system batches and policy declarations with
+Kernel imports or exports are rejected rather than implying unsupported
+dependency handoff. Disabled intent is process-local.
+
+On the exact implementation source, two normal-bundle embedded-V8 consumer
+tests passed for captured effort/error policy withdrawal and fallback. The full
+live V8 suite passed 169 tests with five ignored both with and without refresh
+shadow; five lifecycle tests were confirmed in each run. The release evidence suite
+passed 33 tests; a source archive was inspected against the captured Bend files
+and policy bootstrap probes. A local worker fixture observed a captured
+JavaScript dependency edit activating in 321 ms; this excludes Bend compilation,
+browser rendering and GPU presentation.
+
+The control changes future offered policy generations. It does not establish a
+turn-wide context for all policy consumers, inheritance by delegated work,
+persistent disable choices or propagation to the separate rules worker. Those
+boundaries require their own implementation and tests before claiming complete
+live replacement.

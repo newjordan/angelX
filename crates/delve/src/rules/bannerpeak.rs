@@ -32,6 +32,7 @@ pub mod foes;
 pub mod knight;
 pub mod layout;
 pub mod session;
+pub mod show;
 pub mod world;
 
 pub use knight::Knight;
@@ -177,10 +178,10 @@ pub const REPEAT_PURSE: u32 = 12;
 
 impl Run {
     pub fn bannerpeak_showing(&self) -> bool {
-        self.room().kind == RoomKind::Forest && self.bannerpeak.is_some()
+        self.on_stage() && self.bannerpeak.is_some()
     }
     pub fn start_bannerpeak(&mut self) {
-        if self.room().kind != RoomKind::Forest {
+        if !self.on_stage() {
             return;
         }
         self.forest.leave();
@@ -220,11 +221,17 @@ impl Run {
         let mut say = Vec::new();
         s.step(inputs, &present, &knobs, &mut say);
         self.sounds.extend(say);
+        // The heaviest blow of the tick holds the room's time, as the realm's hit-stop does.
+        let held = s.show.hold.take();
         if !was_done && s.completed.is_some() {
             self.bannerpeak_pays(&s);
         }
         let done = s.completed.is_some();
         self.bannerpeak = Some(s);
+        if let Some(weight) = held {
+            self.hold_for(weight);
+        }
+        self.finish_hit_hold();
         // Done: E takes everyone back to the kingdom.
         if done {
             let returning: Vec<u32> = inputs

@@ -596,6 +596,57 @@ fn agent_control_rail_reuses_chip_strings_across_unchanged_frames() {
     assert_eq!(cached.effort.as_deref(), chrome.effort());
 }
 
+/// The FORMATION chip on the pilot rail follows the formation through the turn:
+/// armed for the next turn, then engaged while the worker runs, then plain
+/// again once the worker settles. The chip cache must not hold a stale word
+/// across those changes.
+#[test]
+fn formation_chip_follows_a_one_shot_through_its_turn() {
+    use super::render_agent_controls;
+    use crate::agent::club::Bag;
+    use crate::agent::formations::{FormationId, FormationRoster, MoaEngagement};
+    use crate::app::App;
+    use crate::ui::viewer::Viewer;
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+
+    let _guard = crate::tests::env_lock();
+    let mut app = App::preview(Viewer::static_preview());
+    app.bag = Bag::for_render_test(&[
+        ("alpha", &[("model-a", true)]),
+        ("beta", &[("model-b", true)]),
+    ]);
+    let roster = FormationRoster::new(FormationId::Duel, &app.bag.moa_model_choices());
+    app.moa_one_shot = MoaEngagement::new(FormationId::Duel, roster);
+    let chip = |app: &mut App| {
+        let mut terminal = Terminal::new(TestBackend::new(96, 2)).expect("test terminal");
+        terminal
+            .draw(|frame| render_agent_controls(frame, app, frame.area()))
+            .expect("render");
+        app.agent_control_chips
+            .as_ref()
+            .expect("the draw fills the chip cache")
+            .moa_text
+            .clone()
+    };
+    let armed = chip(&mut app);
+    assert!(armed.contains("/next"), "armed for the next turn: {armed}");
+
+    assert!(app.apply_armed_moa_to_turn());
+    let engaged = chip(&mut app);
+    assert!(
+        engaged.contains("/live"),
+        "a formation is running the turn: {engaged}"
+    );
+
+    app.restore_moa_after_turn();
+    let settled = chip(&mut app);
+    assert!(
+        settled.contains("[FORMATION ▾]"),
+        "the worker settled, the chip is plain again: {settled}"
+    );
+}
+
 /// Operator definition: the avatar block is a quarter of the bay's width, and
 /// that width defines the avatar: the height is what the portrait needs to fill
 /// it. Borderless: the block keeps its corner spot with no frame lines.

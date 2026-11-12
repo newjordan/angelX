@@ -55,6 +55,10 @@ pub struct Loadout {
     pub executables: BTreeMap<String, Executable>,
     #[serde(skip)]
     pub appearance: Option<super::together_appearance::Appearance>,
+    #[serde(skip)]
+    pub motion: Option<super::together_motion::Graph>,
+    #[serde(skip)]
+    pub graph_intent: Option<u64>,
 }
 #[derive(Clone, Debug)]
 pub struct Executable {
@@ -204,7 +208,7 @@ pub fn bind(
     factory: &Candidate,
 ) -> Result<Binding, String> {
     let mut loadout: Loadout = serde_json::from_value(value.clone()).map_err(|e| e.to_string())?;
-    if !(1..=4).contains(&loadout.player)
+    if !(1..=angel_delve::rules::MAX_PLAYERS).contains(&loadout.player)
         || name != format!("ability-seat-{}", loadout.player)
         || loadout.abilities.len() > 16
     {
@@ -295,9 +299,7 @@ pub fn bind(
     Ok(Arc::new(loadout))
 }
 
-pub fn validate_definitions(
-    definitions: &BTreeMap<String, Definition>,
-) -> Result<(), String> {
+pub fn validate_definitions(definitions: &BTreeMap<String, Definition>) -> Result<(), String> {
     if definitions.len() > 16 {
         return Err("ability catalogue exceeds sixteen definitions".into());
     }
@@ -330,8 +332,9 @@ pub fn probe(
     // Probe every executable in this loadout against the actual game-port schema,
     // before the kernel publishes code, state and resources together.
     let mut run = Run::new(1, 1, Some("Two"));
-    run.join_seat(3, "Three");
-    run.join_seat(4, "Four");
+    for player in 3..=angel_delve::rules::MAX_PLAYERS {
+        run.join_seat(player, &format!("Probe {player}"));
+    }
     for ability in loadout.abilities.keys() {
         let mut instance = instantiate(ability)?;
         let source = Source {
@@ -341,6 +344,8 @@ pub fn probe(
         let cast = Cast {
             source,
             player: loadout.player,
+            raid: run.raid_id,
+            epoch: run.seat_epoch(loadout.player),
             slot: 0,
             ability: loadout
                 .executables
@@ -372,12 +377,21 @@ struct Source {
 pub struct Cast {
     source: Source,
     player: u32,
+    raid: u64,
+    epoch: u64,
     slot: u8,
     ability: String,
     pub definition: Definition,
     media: Arc<BTreeMap<String, super::together_media::Voice>>,
     vfx: Arc<super::together_visuals::Bank>,
     resource: Option<Resource>,
+}
+impl Cast {
+    fn owns_seat(&self, run: &Run) -> bool {
+        self.raid == run.raid_id
+            && run.players.contains_key(&self.player)
+            && self.epoch == run.seat_epoch(self.player)
+    }
 }
 pub struct Pending {
     resource: Resource,
@@ -400,6 +414,9 @@ pub struct Runtime {
     pub sources: BTreeMap<u32, Resource>,
     pub groups: BTreeMap<(String, u64), Group>,
     pub pending: BTreeMap<String, Pending>,
+    motion: BTreeMap<u32, super::together_motion::Cursor>,
+    motion_intents: BTreeMap<u32, super::together_motion::Intent>,
+    pub motion_faults: BTreeMap<u32, String>,
     cancelled: BTreeMap<(String, u32), u64>,
     last: Option<(u64, u64)>,
     init_faults: BTreeMap<(String, u64), String>,
@@ -408,20 +425,127 @@ pub struct Runtime {
     pub effects: u64,
 }
 impl Runtime {
+    /// An explicit native presentation assignment wins even when bytes match.
+    pub fn retire_motion(&mut self, player: u32) {
+        if let Some(intent) = self.motion_intents.get_mut(&player) {
+            intent.retire();
+        }
+        if let Some(cursor) = self.motion.get_mut(&player) {
+            cursor.retire_explicitly();
+        }
+    }
     pub fn set_sources(&mut self, sources: Vec<Resource>, run: &mut Run) {
-        self.sources = sources
-            .into_iter()
-            .filter_map(|resource| {
-                resource
-                    .binding::<Loadout>()
-                    .map(|loadout| loadout.player)
-                    .map(|player| (player, resource))
-            })
-            .collect();
+        let mut accepted = BTreeMap::new();
+        let mut explicit = BTreeSet::new();
+        let mut owner_refused = BTreeSet::new();
+        for resource in sources {
+            let Some(loadout) = resource.binding::<Loadout>() else {
+                continue;
+            };
+            let player = loadout.player;
+            if let Some(revision) = loadout
+                .graph_intent
+                .filter(|_| loadout.motion.is_some() || self.motion_intents.contains_key(&player))
+            {
+                if !run.players.contains_key(&player) {
+                    self.motion_intents
+                        .entry(player)
+                        .or_insert_with(|| {
+                            super::together_motion::Intent::new(revision, run, player)
+                        })
+                        .retire();
+                    owner_refused.insert(player);
+                    accepted.insert(player, resource);
+                    continue;
+                }
+                let intent = self
+                    .motion_intents
+                    .entry(player)
+                    .or_insert_with(|| super::together_motion::Intent::new(revision, run, player));
+                match intent.admit(revision, run, player) {
+                    Ok(reselected) => {
+                        if reselected {
+                            explicit.insert(player);
+                        }
+                        self.motion_faults.remove(&player);
+                    }
+                    Err(error) => {
+                        if self.motion_faults.get(&player) != Some(&error) {
+                            run.seat_notices
+                                .push((player, format!("Graph presentation refused: {error}")));
+                        }
+                        self.motion_faults.insert(player, error);
+                        if intent.owns_identity(run, player) {
+                            if let Some(previous) = self.sources.get(&player) {
+                                accepted.insert(player, previous.clone());
+                            }
+                        } else {
+                            // Executable/art selection keeps the existing unleased
+                            // behavior. Only graph ownership is refused; never
+                            // substitute the previous occupant's executable source.
+                            intent.retire();
+                            owner_refused.insert(player);
+                            accepted.insert(player, resource);
+                        }
+                        continue;
+                    }
+                }
+            } else if let Some(intent) = self.motion_intents.get_mut(&player) {
+                intent.retire();
+            }
+            accepted.insert(player, resource);
+        }
+        for (&player, intent) in &mut self.motion_intents {
+            if !accepted.contains_key(&player) {
+                intent.retire();
+            }
+        }
+        self.sources = accepted;
+        let mut previous = std::mem::take(&mut self.motion);
+        for (&player, cursor) in &previous {
+            if self
+                .sources
+                .get(&player)
+                .is_none_or(|source| source.binding::<Loadout>().unwrap().appearance.is_none())
+            {
+                cursor.clear(run, player);
+            }
+        }
         for resource in self.sources.values() {
             let loadout = resource.binding::<Loadout>().unwrap();
-            if let Some(appearance) = &loadout.appearance {
-                appearance.install(run);
+            if !explicit.contains(&loadout.player)
+                && previous
+                    .get(&loadout.player)
+                    .is_some_and(|cursor| !cursor.current_owner(run, loadout.player))
+            {
+                if let Some(intent) = self.motion_intents.get_mut(&loadout.player) {
+                    intent.retire();
+                }
+            }
+            let presentation_allowed = self
+                .motion_intents
+                .get(&loadout.player)
+                .is_none_or(|intent| intent.active);
+            let legacy_art_allowed =
+                presentation_allowed || owner_refused.contains(&loadout.player);
+            if let Some(graph) = &loadout.motion {
+                if presentation_allowed {
+                    self.motion.insert(
+                        loadout.player,
+                        graph.activate(
+                            previous.remove(&loadout.player),
+                            run,
+                            loadout.player,
+                            explicit.contains(&loadout.player),
+                        ),
+                    );
+                } else if let Some(cursor) = previous.remove(&loadout.player) {
+                    self.motion.insert(loadout.player, cursor);
+                }
+            } else if legacy_art_allowed {
+                if let Some(appearance) = &loadout.appearance {
+                    appearance.install(run);
+                }
             }
             let key = (resource.module.clone(), loadout.player);
             let last = self.cancelled.entry(key).or_default();
@@ -461,6 +585,23 @@ impl Runtime {
             .retain(|key, group| !group.casts.is_empty() || owns_pending(key));
         self.init_faults.retain(|key, _| owns_pending(key));
     }
+    /// Retire work owned by a departed seat incarnation. Already committed
+    /// projectiles, sound leases and visual leases are independent of casts.
+    fn fence_seats(&mut self, run: &Run) {
+        self.pending.retain(|_, pending| pending.cast.owns_seat(run));
+        for group in self.groups.values_mut() {
+            let stale = group
+                .casts
+                .iter()
+                .filter_map(|(id, cast)| (!cast.owns_seat(run)).then_some(id.clone()))
+                .collect::<Vec<_>>();
+            for id in stale {
+                group.casts.remove(&id);
+                group.cancelled.push(id);
+            }
+        }
+        self.retire();
+    }
     fn install(&self, run: &mut Run) {
         for (player, hero) in &mut run.players {
             hero.module_spells = self
@@ -496,24 +637,32 @@ impl Runtime {
             self.last = None;
             self.media.reset();
         }
-        for group in self.groups.values_mut() {
-            let missing = group
-                .casts
-                .iter()
-                .filter_map(|(id, cast)| {
-                    (!run.players.contains_key(&cast.player)).then_some(id.clone())
-                })
-                .collect::<Vec<_>>();
-            for id in missing {
-                group.casts.remove(&id);
-                group.cancelled.push(id);
-            }
-        }
-        self.retire();
+        self.fence_seats(run);
         self.install(run);
+        for (&player, cursor) in &mut self.motion {
+            cursor.before_step(run, player);
+        }
     }
     pub fn after_step(&mut self, run: &mut Run) {
         self.visuals.advance(run);
+        // A seat can be replaced after before_step and before the frame is
+        // committed. Fence again before dispatching any executable work.
+        self.fence_seats(run);
+        for (&player, cursor) in &mut self.motion {
+            if let Some(graph) = self
+                .sources
+                .get(&player)
+                .and_then(|source| source.binding::<Loadout>())
+                .and_then(|loadout| loadout.motion.as_ref())
+            {
+                graph.advance(cursor, run, player);
+                if cursor.is_retired() {
+                    if let Some(intent) = self.motion_intents.get_mut(&player) {
+                        intent.retire();
+                    }
+                }
+            }
+        }
         let now = (run.raid_id, run.tick);
         if self.last == Some(now) {
             return;
@@ -661,7 +810,9 @@ impl Runtime {
         self.retire();
     }
     fn admit(&mut self, request: Request, run: &Run) {
-        if self.pending.len()
+        if request.raid != run.raid_id
+            || request.epoch != run.seat_epoch(request.player)
+            || self.pending.len()
             + self
                 .groups
                 .values()
@@ -709,6 +860,8 @@ impl Runtime {
                 generation: source.generation,
             },
             player: request.player,
+            raid: request.raid,
+            epoch: request.epoch,
             slot: request.slot,
             ability: executable
                 .map(|code| code.ability.clone())

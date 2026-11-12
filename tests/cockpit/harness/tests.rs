@@ -240,6 +240,8 @@ mod git_tools;
 mod hooks;
 #[path = "tests__hop_progress.rs"]
 mod hop_progress;
+#[path = "tests__idle_watch.rs"]
+mod idle_watch;
 #[path = "tests__independence_gate.rs"]
 mod independence_gate;
 #[path = "tests__interception_seats.rs"]
@@ -278,6 +280,8 @@ mod scenarios;
 mod schedule;
 #[path = "tests__skills.rs"]
 mod skills;
+#[path = "tests__stop_wire.rs"]
+mod stop_wire;
 #[path = "tests__telemetry.rs"]
 mod telemetry;
 #[path = "tests__tool_aging.rs"]
@@ -475,7 +479,10 @@ fn t06c_tool_idle_escalation_is_failed_and_model_can_recover() {
 }
 
 // Exercise the real turn/deadline/dispatch/envelope seam, not a fabricated row.
-fn assert_lifecycle_proc_envelope(cancel_after_launch: bool, provider_failure: bool) {
+fn assert_lifecycle_proc_envelope(
+    cancel_after_launch: bool,
+    provider_failure: bool,
+) -> (String, bool, bool, bool) {
     let _lock = crate::tests::env_lock();
     let dir = scratch("proc-envelope");
     let _env = [
@@ -544,6 +551,15 @@ fn assert_lifecycle_proc_envelope(cancel_after_launch: bool, provider_failure: b
     )];
     let (tx, _rx) = mpsc::channel();
     let result = run_turn_observed(&club, &registry, &mut history, &cancel, Some(3), &tx);
+    let wire = match &result {
+        Ok(o) => (o.stop_reason, o.interrupted, o.deadline_reached),
+        Err(f) => (f.stop_reason, f.interrupted, f.deadline_reached),
+    };
+    let max_hops = match &result {
+        Ok(o) => o.max_hops_reached,
+        Err(f) => f.max_hops_reached,
+    };
+    let wire = (wire.0.as_str().to_string(), wire.1, wire.2, max_hops);
     let ctx = TaskJsonContext {
         task_id: None,
         run_id: None,
@@ -595,6 +611,7 @@ fn assert_lifecycle_proc_envelope(cancel_after_launch: bool, provider_failure: b
         assert_eq!(value["answer"], "fixture answer");
     }
     let _ = std::fs::remove_dir_all(dir);
+    wire
 }
 
 #[test]

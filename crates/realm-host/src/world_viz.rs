@@ -143,6 +143,32 @@ pub struct LoopBudgetSnapshot {
     pub deadline_secs: u64,
 }
 
+/// The sky over the town, in the order [`World::sky`] checks it. Not stored:
+/// it is derived from the session's health (storm and rainbow stamps, failed
+/// turns, tool errors, the loop budget) and the living weather.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Sky {
+    Storm,
+    Rainbow,
+    Rain,
+    Clouds,
+    Drizzle,
+    Fair,
+}
+
+impl Sky {
+    fn label(self) -> &'static str {
+        match self {
+            Sky::Storm => "storm",
+            Sky::Rainbow => "rainbow",
+            Sky::Rain => "rain",
+            Sky::Clouds => "clouds",
+            Sky::Drizzle => "drizzle",
+            Sky::Fair => "fair",
+        }
+    }
+}
+
 impl Building {
     pub fn label(self) -> &'static str {
         crate::identity::landmark(self).display_name
@@ -1368,14 +1394,32 @@ impl World {
         }
     }
 
+    /// The stage JSON's `environment.weather`: the sky's name, or "" when fair.
     pub fn weather_label(&self) -> &str {
-        self.weather().trim().trim_start_matches('·').trim()
+        match self.sky() {
+            Sky::Fair => "",
+            sky => sky.label(),
+        }
     }
 
     pub fn weather_report(&self) -> String {
         let clock = life::weather_for_beats(self.hearth.beats, self.seed);
         let resolved = self.outcome_weather();
-        let sky = if resolved == life::Weather::Clearing {
+        // The sky the map and the stage JSON show. A quiet session leaves it
+        // to the living weather, which also has clouds and the clearing.
+        let sky = match self.sky() {
+            Sky::Fair => resolved.label(),
+            sky => sky.label(),
+        };
+        let over = if sky == resolved.label() {
+            String::new()
+        } else {
+            format!(
+                "the session's {sky} sits over the {} sky; ",
+                resolved.label()
+            )
+        };
+        let reason = if resolved == life::Weather::Clearing {
             format!(
                 "clearing-after-green, {} beats remaining",
                 self.clearing_until_beat.saturating_sub(self.hearth.beats)
@@ -1398,10 +1442,11 @@ impl World {
             "ceremony banners rest"
         };
         format!(
-            "Sky: {} — clock {}; {}; {}.",
-            resolved.label(),
-            clock.label(),
+            "Sky: {} — clock {}; {}{}; {}.",
             sky,
+            clock.label(),
+            over,
+            reason,
             banners
         )
     }
@@ -2318,23 +2363,24 @@ impl World {
             )
     }
 
-    /// Session weather, folded from real health: quota storms dominate, then
-    /// the recovery rainbow, rain while errors pile up, clouds while the loop
-    /// budget runs thin — the living weather's drizzle murmurs under all of
-    /// them, and fair skies say nothing at all.
-    fn weather(&self) -> &'static str {
+    /// The sky over the town, folded from real health: quota storms dominate,
+    /// then the recovery rainbow, rain while errors pile up, clouds while the
+    /// loop budget runs thin — the living weather's drizzle murmurs under all
+    /// of them, and fair skies say nothing at all. The stage JSON, the
+    /// `/world weather` report and the map all read this one ladder.
+    fn sky(&self) -> Sky {
         if self.tick < self.storm_until {
-            " · storm"
+            Sky::Storm
         } else if self.tick < self.rainbow_until {
-            " · rainbow"
+            Sky::Rainbow
         } else if self.raining() {
-            " · rain"
+            Sky::Rain
         } else if self.budget_thin() {
-            " · clouds"
+            Sky::Clouds
         } else if self.outcome_weather() == life::Weather::Drizzle {
-            " · drizzle"
+            Sky::Drizzle
         } else {
-            ""
+            Sky::Fair
         }
     }
 

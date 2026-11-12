@@ -614,3 +614,223 @@ fn roster_keeps_one_preference_generation_after_reload() {
     std::fs::remove_file(path).unwrap();
     std::fs::remove_dir(dir).unwrap();
 }
+
+// --- a formation is an overlay on the operator's environment ------------------
+
+/// Every env knob a formation can write.
+const FORMATION_KNOBS: &[&str] = &[
+    "ANGEL_SOTA_MOA_FORMATION",
+    "ANGEL_SOTA_MOA_MODE",
+    "ANGEL_SOTA_MOA_ALWAYS",
+    "ANGEL_SOTA_MOA_MAX",
+    "ANGEL_SOTA_MOA_WIDTH",
+    "ANGEL_SOTA_MOA_MAX_WIDTH",
+    "ANGEL_SOTA_MOA_LAYERS",
+    "ANGEL_SWARM_REFINE_WIDTH",
+    "ANGEL_SOTA_MOA_SAMPLES",
+    "ANGEL_SOTA_MOA_JUDGE_PANEL",
+    "ANGEL_SOTA_MOA_VERIFY",
+    "ANGEL_SOTA_MOA_JUDGE",
+    "ANGEL_SOTA_MOA_VERIFY_GUARD",
+    "ANGEL_SOTA_MOA_REFLECT",
+    "ANGEL_SOTA_MOA_GROK_RESEARCH",
+    "ANGEL_SOTA_MOA_RESEARCH",
+    "ANGEL_SOTA_MOA_DISSENT_GATE",
+    "ANGEL_SOTA_MOA_ALLOW_DEGRADED",
+    "ANGEL_SOTA_MOA_PROPOSE_CLUB",
+    "ANGEL_SOTA_MOA_EXTRA_PROPOSERS",
+    "ANGEL_SOTA_MOA_JUDGE_CLUB",
+    "ANGEL_SOTA_MOA_AGG_CLUB",
+    "ANGEL_SOTA_MOA_VERIFY_CLUB",
+    "ANGEL_SOTA_MOA_COST_PROFILE",
+    "ANGEL_GROK_TOOL",
+    "ANGEL_GROK_REASONING_EFFORT",
+    "ANGEL_OPENAI_MODEL",
+    "ANGEL_OPENAI_REASONING_EFFORT",
+    "ANGEL_LANE",
+    "ANGEL_TASK_TREEBEARD",
+    "ANGEL_TRAJECTORY_LOG",
+];
+
+/// Hand the process an operator environment: the listed knobs set, every other
+/// formation knob unset. Dropping it puts the process back as it was and empties
+/// the overlay, so one test's engagement never hands values back into another's.
+struct OperatorEnv {
+    _guards: Vec<crate::tests::TestEnvGuard>,
+}
+
+impl Drop for OperatorEnv {
+    fn drop(&mut self) {
+        forget_written_env();
+    }
+}
+
+fn operator_env(operator: &[(&'static str, &str)]) -> OperatorEnv {
+    forget_written_env();
+    let guards = FORMATION_KNOBS
+        .iter()
+        .map(|key| match operator.iter().find(|(name, _)| name == key) {
+            Some((_, value)) => crate::tests::TestEnvGuard::set(key, value),
+            None => crate::tests::TestEnvGuard::unset(key),
+        })
+        .collect();
+    OperatorEnv { _guards: guards }
+}
+
+fn knob(key: &str) -> Option<String> {
+    std::env::var(key).ok()
+}
+
+/// Grok War leaves the cheap profile so its metered seats can fire. The profile
+/// is the operator's, so it comes back when the war ends.
+#[test]
+fn grok_war_gives_the_operators_cost_profile_back() {
+    let _lock = crate::tests::env_lock();
+    let _env = operator_env(&[("ANGEL_SOTA_MOA_COST_PROFILE", "cheap")]);
+
+    formation(FormationId::GrokWar).apply_sota_env();
+    assert_eq!(knob("ANGEL_SOTA_MOA_COST_PROFILE"), None);
+    formation(FormationId::Council).apply_sota_env();
+    assert_eq!(
+        knob("ANGEL_SOTA_MOA_COST_PROFILE").as_deref(),
+        Some("cheap")
+    );
+}
+
+/// The `high` Grok effort is the war's, not the operator's: it goes with the
+/// war. An effort the operator set stays theirs the whole way through.
+#[test]
+fn grok_war_effort_pin_ends_with_the_war() {
+    let _lock = crate::tests::env_lock();
+    let _env = operator_env(&[]);
+
+    formation(FormationId::GrokWar).apply_sota_env();
+    assert_eq!(knob("ANGEL_GROK_REASONING_EFFORT").as_deref(), Some("high"));
+    formation(FormationId::SoloStrike).apply_sota_env();
+    assert_eq!(knob("ANGEL_GROK_REASONING_EFFORT"), None);
+}
+
+#[test]
+fn an_effort_the_operator_set_survives_the_war() {
+    let _lock = crate::tests::env_lock();
+    let _env = operator_env(&[("ANGEL_GROK_REASONING_EFFORT", "xhigh")]);
+
+    formation(FormationId::GrokWar).apply_sota_env();
+    assert_eq!(
+        knob("ANGEL_GROK_REASONING_EFFORT").as_deref(),
+        Some("xhigh")
+    );
+    formation(FormationId::SoloStrike).apply_sota_env();
+    assert_eq!(
+        knob("ANGEL_GROK_REASONING_EFFORT").as_deref(),
+        Some("xhigh")
+    );
+}
+
+/// Every pin the war adds goes with it, and every setting it overrode comes
+/// back: the Sol model and effort, the Grok tool switch, trajectory logging and
+/// the lane.
+#[test]
+fn leaving_grok_war_restores_every_knob_it_wrote() {
+    let _lock = crate::tests::env_lock();
+    let _env = operator_env(&[
+        ("ANGEL_OPENAI_MODEL", "operator-model"),
+        ("ANGEL_OPENAI_REASONING_EFFORT", "xhigh"),
+        ("ANGEL_GROK_TOOL", "0"),
+        ("ANGEL_SOTA_MOA_COST_PROFILE", "cheap"),
+    ]);
+
+    formation(FormationId::GrokWar).apply_sota_env();
+    assert_eq!(knob("ANGEL_OPENAI_MODEL").as_deref(), Some("gpt-5.6-sol"));
+    assert_eq!(
+        knob("ANGEL_OPENAI_REASONING_EFFORT").as_deref(),
+        Some("max")
+    );
+    assert_eq!(knob("ANGEL_GROK_TOOL").as_deref(), Some("1"));
+    assert_eq!(knob("ANGEL_TRAJECTORY_LOG").as_deref(), Some("1"));
+    assert_eq!(knob("ANGEL_LANE").as_deref(), Some("treebeard"));
+
+    formation(FormationId::Council).apply_sota_env();
+    assert_eq!(
+        knob("ANGEL_OPENAI_MODEL").as_deref(),
+        Some("operator-model")
+    );
+    assert_eq!(
+        knob("ANGEL_OPENAI_REASONING_EFFORT").as_deref(),
+        Some("xhigh")
+    );
+    assert_eq!(knob("ANGEL_GROK_TOOL").as_deref(), Some("0"));
+    assert_eq!(
+        knob("ANGEL_SOTA_MOA_COST_PROFILE").as_deref(),
+        Some("cheap")
+    );
+    assert_eq!(knob("ANGEL_TRAJECTORY_LOG"), None);
+    assert_eq!(knob("ANGEL_LANE"), None);
+    for pin in [
+        "ANGEL_SOTA_MOA_PROPOSE_CLUB",
+        "ANGEL_SOTA_MOA_EXTRA_PROPOSERS",
+        "ANGEL_SOTA_MOA_JUDGE_CLUB",
+        "ANGEL_SOTA_MOA_AGG_CLUB",
+        "ANGEL_SOTA_MOA_VERIFY_CLUB",
+    ] {
+        assert_eq!(knob(pin), None, "{pin}");
+    }
+}
+
+/// The cockpit applies the staged formation every turn and again on every
+/// failure path. A repeat must not mistake its own earlier write for the
+/// operator's setting.
+#[test]
+fn applying_the_same_formation_again_still_restores_the_operators_env() {
+    let _lock = crate::tests::env_lock();
+    let _env = operator_env(&[("ANGEL_SOTA_MOA_COST_PROFILE", "cheap")]);
+
+    for _ in 0..3 {
+        formation(FormationId::GrokWar).apply_sota_env();
+    }
+    assert_eq!(knob("ANGEL_GROK_REASONING_EFFORT").as_deref(), Some("high"));
+    assert_eq!(knob("ANGEL_SOTA_MOA_COST_PROFILE"), None);
+    formation(FormationId::SoloStrike).apply_sota_env();
+    assert_eq!(knob("ANGEL_GROK_REASONING_EFFORT"), None);
+    assert_eq!(
+        knob("ANGEL_SOTA_MOA_COST_PROFILE").as_deref(),
+        Some("cheap")
+    );
+}
+
+/// Restoring runs only for a knob this module wrote and nobody has changed
+/// since: an effort picked mid-war is the operator's new choice.
+#[test]
+fn a_knob_changed_during_the_war_is_not_overwritten_on_exit() {
+    let _lock = crate::tests::env_lock();
+    let _env = operator_env(&[]);
+
+    formation(FormationId::GrokWar).apply_sota_env();
+    // TODO: Audit that the environment access only happens in single-threaded code.
+    unsafe { std::env::set_var("ANGEL_GROK_REASONING_EFFORT", "low") };
+    formation(FormationId::SoloStrike).apply_sota_env();
+    assert_eq!(knob("ANGEL_GROK_REASONING_EFFORT").as_deref(), Some("low"));
+}
+
+/// Tag Team drops the operator's Sol pin while it runs ("do not pin Sol") and
+/// gives it back when it ends.
+#[test]
+fn tag_team_hands_the_operators_openai_pin_back_on_exit() {
+    let _lock = crate::tests::env_lock();
+    let _env = operator_env(&[
+        ("ANGEL_OPENAI_MODEL", "operator-model"),
+        ("ANGEL_SOTA_MOA_DISSENT_GATE", "1"),
+    ]);
+
+    formation(FormationId::TagTeam).apply_sota_env();
+    assert_eq!(knob("ANGEL_OPENAI_MODEL"), None);
+    formation(FormationId::Council).apply_sota_env();
+    assert_eq!(
+        knob("ANGEL_OPENAI_MODEL").as_deref(),
+        Some("operator-model")
+    );
+    // The quorum pins are deliberately not handed back: a frontier formation
+    // keeps its strict quorum even when the operator's env carried them.
+    assert_eq!(knob("ANGEL_SOTA_MOA_ALLOW_DEGRADED"), None);
+    assert_eq!(knob("ANGEL_SOTA_MOA_DISSENT_GATE"), None);
+}

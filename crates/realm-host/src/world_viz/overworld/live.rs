@@ -12,7 +12,7 @@ use std::cmp::Reverse;
 use std::collections::{BinaryHeap, VecDeque};
 
 use super::super::adventure::Region;
-use super::super::{Building, RealmActivity, World};
+use super::super::{Building, RealmActivity, Sky, World};
 use super::castles::{self, RiderPose};
 use super::glass::{GLASS_H, GLASS_W, Glass, picture_from_rgba};
 use super::ink::Img;
@@ -904,6 +904,12 @@ impl World {
             s.tool = Some(Tool::Sword);
         }
         s.wayfarers = self.overworld_deeds.wayfarers();
+        // The blank-slate map (`angel_delve::world::plan`) has no road, rookery
+        // or fields for a deed to walk between, and every place's stand is the
+        // Keep's: its traffic would pile up there. The record still counts.
+        if angel_delve::world::plan::tabula() {
+            s.wayfarers.clear();
+        }
         s.record = self.overworld_deeds.record().clone();
         s.sparks = self.overworld_deeds.sparks(self.tick);
         s.outcomes = self.overworld_outcomes.shown(self.tick);
@@ -975,18 +981,13 @@ impl World {
                 state: u.state,
             })
             .collect();
-        s.weather = if self.tick < self.storm_until {
-            Weather::Storm
-        } else if self.tick < self.rainbow_until {
-            Weather::Rainbow
-        } else if self.raining() {
-            Weather::Rain
-        } else if self.budget_thin() {
-            Weather::Clouds
-        } else if self.outcome_weather() == super::super::life::Weather::Drizzle {
-            Weather::Drizzle
-        } else {
-            Weather::Fair
+        s.weather = match self.sky() {
+            Sky::Storm => Weather::Storm,
+            Sky::Rainbow => Weather::Rainbow,
+            Sky::Rain => Weather::Rain,
+            Sky::Clouds => Weather::Clouds,
+            Sky::Drizzle => Weather::Drizzle,
+            Sky::Fair => Weather::Fair,
         };
         s.fireworks = self.tick < self.firework_until;
         s.ambient = ambient_for(self.hearth.daylight())

@@ -2,12 +2,12 @@
 //! on them, as labelled blocks. Nothing here decides what is solid.
 use super::super::super::ink::{Img, hash, text_width};
 use super::labels::{Kind, Layout, Part, Rect};
-use super::{Cam, VIEW_H, VIEW_Y, bank};
+use super::{Cam, VIEW_H, VIEW_Y, bank, cast};
 use crate::rules::moonfall::{
     Session,
     folk::{CAST, Folk},
-    state::{DITCH_FILLED, Item, Knight, Mask, WispMode},
-    town::{self, COLS, HOUSES, LAMPS, ROWS, TILE, Tile},
+    state::{DITCH_FILLED, Item, Knight, Mask, ROLL, WispMode},
+    town::{self, COLS, HOUSES, LAMPS, ROWS, Spot, TILE, Tile},
 };
 
 /// Draw `s` on a dark plate so it reads over any ground.
@@ -663,16 +663,252 @@ pub(super) fn actors(im: &mut Img, labels: &mut Layout, s: &Session, cam: Cam, t
         all.push((w.y / town::Q + 6, A::Wisp(i)));
     }
     all.sort_by_key(|(y, _)| *y);
+    // Once the lights hold the knights cheer.
+    let party = matches!(s.phase, crate::rules::moonfall::state::Phase::Won { .. }) || s.completed.is_some();
     for (_, a) in all {
         match a {
             A::Folk(fig) => folk_block(im, labels, s, &fig, cam, tick),
-            A::Knight(id, k) => knight_block(im, labels, id, k, cam, tick, id == me),
+            A::Knight(id, k) => knight_block(im, labels, id, k, cam, tick, id == me, party),
             A::Wisp(i) => wisp_block(im, s, i, cam, tick),
         }
     }
 }
 
+/// Which way a villager looks for the sprites: left, right, up or down.
+fn slot_of(folk: Folk) -> &'static str {
+    match folk {
+        Folk::Mira => "mira",
+        Folk::Tovin => "tovin",
+        Folk::Nessa => "nessa",
+        Folk::Orin => "orin",
+        Folk::Pella => "pella",
+        Folk::Aster => "aster",
+    }
+}
+
+/// What a villager is doing, as a sprite state and the tick it plays from:
+/// walking the way they face, at their trade where they stand to do it, or
+/// standing about (a breath and a blink each, out of step with the others).
+pub(super) fn folk_state(s: &Session, fig: &crate::rules::moonfall::folk::Figure, tick: u32) -> (&'static str, u32) {
+    let phase = tick + fig.folk.index() as u32 * 9;
+    if fig.moving {
+        return (cast::facing("walk", fig.face), phase);
+    }
+    let at = |spot: Spot| (fig.x, fig.y) == spot.px();
+    let trade = match fig.folk {
+        Folk::Mira if at(Spot::ArchPorch) => Some("work"),
+        Folk::Mira if [Spot::Lamp1, Spot::Lamp2, Spot::Lamp3, Spot::Lamp4, Spot::Lamp5, Spot::Lamp6].into_iter().any(at) => Some("light"),
+        Folk::Tovin if at(Spot::BridgePost) => Some("work"),
+        Folk::Nessa if at(Spot::ForgeAt) => Some("work"),
+        Folk::Orin if at(Spot::ReedBank) => Some("search"),
+        Folk::Orin if at(Spot::ScriptDesk) => Some("work"),
+        Folk::Pella if at(Spot::Podium) => Some("cry"),
+        Folk::Pella if s.cry.is_some_and(|(who, _, _)| who == Folk::Pella) => Some("cry"),
+        _ => None,
+    };
+    match trade {
+        Some(state) => (state, phase),
+        None => (cast::facing("idle", fig.face), phase),
+    }
+}
+
+/// A shadow under the feet, soft on the ground.
+fn shadow(im: &mut Img, x: i32, y: i32, rx: f32) {
+    im.ellipse(x as f32, y as f32 - 1.0, rx, 2.0, 'f');
+}
+
 fn folk_block(im: &mut Img, labels: &mut Layout, s: &Session, fig: &crate::rules::moonfall::folk::Figure, cam: Cam, tick: u32) {
+    let (x, y) = (fig.x - cam.x, fig.y - cam.y + VIEW_Y);
+    let slot = slot_of(fig.folk);
+    if fig.folk == Folk::Aster {
+        let dir = if fig.face == 2 { "left" } else { "right" };
+        let state = match (fig.moving, s.world.shod.is_none(), dir) {
+            (true, true, "left") => "lame-left",
+            (true, true, _) => "lame-right",
+            (true, false, "left") => "ride-left",
+            (true, false, _) => "ride-right",
+            (false, _, "left") => "idle-left",
+            _ => "idle-right",
+        };
+        let Some(anim) = cast::anim(slot, state) else { return folk_labelled(im, labels, s, fig, cam, tick) };
+        let pic = anim.at(tick);
+        if !on_screen(im, x - 17, y - 34, 34, 36) {
+            return;
+        }
+        shadow(im, x, y, 13.0);
+        im.stamp(pic, x - pic.w / 2, y - pic.h + 1);
+        let body = Rect::new(x - 15, y - 31, 30, 31);
+        labels.body(body);
+        labels.tag(Kind::Folk, fig.folk.index() as u32, x, y - 41, "ASTER VALE", fig.folk.ink(), body);
+        return;
+    }
+    let (state, phase) = folk_state(s, fig, tick);
+    let Some(pic) = cast::frame(slot, state, phase) else { return folk_labelled(im, labels, s, fig, cam, tick) };
+    if !on_screen(im, x - 14, y - 30, 28, 34) {
+        return;
+    }
+    shadow(im, x, y, 6.0);
+    im.stamp(pic, x - pic.w / 2, y - pic.h + 1);
+    let body = Rect::new(x - 8, y - 26, 16, 26);
+    labels.body(body);
+    labels.tag(Kind::Folk, fig.folk.index() as u32, x, y - 35, fig.folk.short(), fig.folk.ink(), body);
+}
+
+/// Where a knight's feet are on the screen.
+pub(super) fn feet_of(k: &Knight, cam: Cam) -> (i32, i32) {
+    let (px, py) = k.px();
+    (px - cam.x, py - cam.y + VIEW_Y)
+}
+
+/// Dust kicked up behind a walking knight, and a ring of it at a sidestep:
+/// a few grey puffs each left where the foot was, rising and thinning. A
+/// pure function of the stride, so the room and a mirror draw the same.
+fn dust(im: &mut Img, x: i32, y: i32, k: &Knight) {
+    if k.down > 0 || (k.stride == 0 && k.roll == 0) {
+        return;
+    }
+    let (dx, dy): (i32, i32) = match k.face {
+        0 => (0, 1),
+        1 => (0, -1),
+        2 => (-1, 0),
+        _ => (1, 0),
+    };
+    let rolling = k.roll > 0;
+    for j in 0..if rolling { 4u32 } else { 3 } {
+        let age = ((k.stride + 5 * j) % 12) as i32;
+        let behind = age * 9 / 4;
+        let side = (j % 2) as i32 * 3 - 1;
+        let (px, py) = (x - dx * behind - dy * side, y - dy * behind - age / 5 - 1);
+        let (k_out, size) = (age as f32 / 14.0, if age < 3 { 1 } else { 2 });
+        for (ox, oy) in [(0, 0), (1, 0), (0, 1), (1, 1)].into_iter().take(size * size) {
+            if bayer_keep(px + ox, py + oy, k_out) {
+                im.put(px + ox, py + oy, if age < 4 { 'H' } else if age < 8 { 'i' } else { 'h' });
+            }
+        }
+    }
+    if rolling && k.roll + 1 >= ROLL {
+        for s in [-1, 1] {
+            im.put(x + s * 6, y - 1, 'i');
+            im.put(x + s * 8, y - 2, 'h');
+        }
+    }
+}
+
+/// Whether the dither leaves this pixel of a fading puff.
+fn bayer_keep(x: i32, y: i32, fade: f32) -> bool {
+    super::super::super::ink::bayer(x, y) >= fade
+}
+
+fn knight_state(k: &Knight, tick: u32, id: u32, party: bool) -> (&'static str, u32) {
+    let phase = tick + id * 5;
+    if party && k.down == 0 {
+        ("cheer", tick + id * 3)
+    } else if k.down > 0 {
+        ("down", tick)
+    } else if k.roll > 0 {
+        (cast::facing("roll", k.face), ROLL.saturating_sub(k.roll))
+    } else if k.stride > 0 {
+        (cast::facing("walk", k.face), k.stride)
+    } else {
+        (cast::facing("idle", k.face), phase)
+    }
+}
+
+fn knight_block(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: Cam, tick: u32, mine: bool, party: bool) {
+    let (px, py) = k.px();
+    let (x, y) = (px - cam.x, py - cam.y + VIEW_Y);
+    let (state, phase) = knight_state(k, tick, id, party);
+    let Some(pic) = cast::knight(k.mask, state, id).map(|a| a.at(phase)) else {
+        return knight_labelled(im, labels, id, k, cam, tick, mine);
+    };
+    if !on_screen(im, x - 14, y - 30, 28, 34) {
+        return;
+    }
+    let ink = seat_ink(id);
+    // The viewer's own number keeps its place first, then the lowest seats.
+    let prio = if mine { 0 } else { id };
+    if k.down > 0 {
+        shadow(im, x, y, 9.0);
+        im.stamp(pic, x - pic.w / 2, y - pic.h + 1);
+        let body = Rect::new(x - 9, y - 12, 18, 12);
+        labels.body(body);
+        labels.tag(Kind::Knight, prio, x, y - 22, "OUT", 'h', body);
+        return;
+    }
+    // A hurt knight blinks.
+    if k.hurt > 0 && (tick / 3) % 2 == 0 && k.hurt < 80 {
+        return;
+    }
+    let rolling = k.roll > 0;
+    shadow(im, x, y, if rolling { 4.0 } else { 6.0 });
+    dust(im, x, y, k);
+    im.stamp(pic, x - pic.w / 2, y - pic.h + 1);
+    // What is in the hands is held up over the helm, bobbing.
+    let mut top = y - 26;
+    if k.held != Item::Empty {
+        let bob = ((tick / 8) % 2) as i32;
+        let icon = match k.held {
+            Item::Ink => "item-ink",
+            Item::Reeds => "item-reeds",
+            Item::Pass => "item-pass",
+            Item::Scroll => "item-scroll",
+            _ => "item-shoe",
+        };
+        match cast::frame(icon, "idle", 0) {
+            Some(it) => im.stamp(it, x - it.w / 2, y - 40 - bob),
+            None => {
+                im.rect(x - 3, y - 36 - bob, 6, 5, k.held.ink());
+                im.frame(x - 3, y - 36 - bob, 6, 5, 'k');
+            }
+        }
+        top = y - 40;
+    }
+    if mine {
+        // A small pointer over the viewer's own knight, in their house colour.
+        let by = top - 4 - (tick / 10 % 2) as i32;
+        for (dx, dy) in [(-2, 0), (-1, 0), (0, 0), (1, 0), (2, 0), (-1, 1), (0, 1), (1, 1), (0, 2)] {
+            im.put(x + dx, by + dy, ink);
+        }
+        im.put(x, by + 3, 'k');
+        top = by - 1;
+    }
+    let shape = Rect::new(x - 8, top, 16, y - top);
+    labels.body(shape);
+    labels.tag(Kind::Knight, prio, x, top - 9, &format!("{id}"), ink, shape);
+}
+
+fn wisp_block(im: &mut Img, s: &Session, i: usize, cam: Cam, tick: u32) {
+    let w = &s.world.wisps[i];
+    let (x, y) = (w.x / town::Q - cam.x, w.y / town::Q - cam.y + VIEW_Y);
+    let state = match w.mode {
+        WispMode::Hunt => "drift",
+        WispMode::Snuff(_) => "snuff",
+        WispMode::Shy(_) => "shy",
+    };
+    let Some(pic) = cast::frame("wisp", state, tick + 4 * i as u32) else {
+        return wisp_labelled(im, s, i, cam, tick);
+    };
+    if !on_screen(im, x - 10, y - 20, 20, 30) {
+        return;
+    }
+    // Where it is going: a few faint dots along the way, so it can be read
+    // and stepped around.
+    if w.mode == WispMode::Hunt {
+        if let Some(&(_, at)) = s.lights().iter().find(|&&(id, _)| id == w.aim) {
+            let (tx, ty) = (at.0 - cam.x, at.1 - cam.y + VIEW_Y);
+            for k in 1..=4 {
+                let (dx, dy) = ((tx - x) * k / 12, (ty - y) * k / 12);
+                if dx.abs() + dy.abs() < 64 {
+                    im.put(x + dx, y - 8 + dy, '3');
+                }
+            }
+        }
+    }
+    let bob = ((tick / 6 + i as u32) % 4) as i32 - 1;
+    im.stamp(pic, x - pic.w / 2, y - 16 + bob);
+}
+
+fn folk_labelled(im: &mut Img, labels: &mut Layout, s: &Session, fig: &crate::rules::moonfall::folk::Figure, cam: Cam, tick: u32) {
     let (x, y) = (fig.x - cam.x, fig.y - cam.y + VIEW_Y);
     if !on_screen(im, x - 14, y - 30, 28, 34) {
         return;
@@ -728,7 +964,7 @@ fn folk_block(im: &mut Img, labels: &mut Layout, s: &Session, fig: &crate::rules
     }
 }
 
-fn knight_block(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: Cam, tick: u32, mine: bool) {
+fn knight_labelled(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: Cam, tick: u32, mine: bool) {
     let (px, py) = k.px();
     let (x, y) = (px - cam.x, py - cam.y + VIEW_Y);
     if !on_screen(im, x - 14, y - 30, 28, 34) {
@@ -799,7 +1035,7 @@ fn knight_block(im: &mut Img, labels: &mut Layout, id: u32, k: &Knight, cam: Cam
     labels.tag(Kind::Knight, prio, x, body - if k.held != Item::Empty { 22 } else { 17 }, &format!("{id}"), ink, shape);
 }
 
-fn wisp_block(im: &mut Img, s: &Session, i: usize, cam: Cam, tick: u32) {
+fn wisp_labelled(im: &mut Img, s: &Session, i: usize, cam: Cam, tick: u32) {
     let w = &s.world.wisps[i];
     let (x, y) = (w.x / town::Q - cam.x, w.y / town::Q - cam.y + VIEW_Y);
     if !on_screen(im, x - 10, y - 20, 20, 30) {

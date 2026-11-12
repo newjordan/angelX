@@ -10,7 +10,8 @@ Sprint one seeded rampart, jump three breaches, duck or jump sparse aimed bolts,
 and knock down the pennant-bearing siege captain before the other knights.
 
 ## Words on the title card
-BREAK THE SIEGE
+PENNON RUSH, BREAK THE SIEGE; then 3, 2, 1, GO (the lanes wait two seconds, so the
+whole table starts on one breath)
 
 ## Who plays
 Every seated knight at once in a personal copy of the same seeded battlement.
@@ -79,3 +80,24 @@ at 0/3/6/11 ticks also clear. The bot takes off twelve pixels before the breach,
 holds through the rise and reads the captain's exact footprint. Live F2 applied all three proposals with three network bots and restored defaults.
 The network bots cleared in 793/802/803 ticks with one fall each; F2 captures show
 all five selected values.
+
+## The night of 2026-11-07: how it looks and feels
+The whole screen is the rampart at night: a crescent moon, a camp of fires and siege
+engines sliding at three paces behind the wall, a moat lapping its foot, torches that
+throw light, pennants that wave, fire arrows lobbed over. Two thin strips frame it:
+the clock, a rail of every knight's pip against the lane's pennons, the table's rally
+gauge and the pot above; a chip for each knight (crown on the leader, shield when warded,
+a red tick a fall) below. The other knights run the same wall as faint ghosts in your window.
+Every blow lands: a white-grey frame, squash and knock-back on the struck pennon, sparks and
+a number; a felled pennon throws splinters, holds its lane 4 ticks and flies its score to
+your chip; the captain's bar drains with a pale chip; his blow shakes the screen and rings
+along the stone. A knight struck flashes, shakes and rims the screen red, and the run of hits
+shatters; a fall into a breach splashes in the moat. Calls (SENTRY DOWN, X5 COMBO, THE
+CAPTAIN, BANNER TORN, LAST STAND, SIEGE BROKEN, TAKES THE LEAD, WARD FOR ALL) stand over
+the strip; the last five seconds are big numbers. Every third pennon felled at the table
+hands a ward to every knight without one (the rally). The captain's fall holds the room 6 ticks;
+the end is film bars, TIME UP or SIEGE BROKEN, an iris, then the wall top at night with
+fireworks, a podium, paper, the pot counting up, NEW BEST and E AGAIN.
+Words: at most three plain words a prompt, nothing overlapping, nothing past 384 by 224;
+YOU is only the knight looking, every other knight by name (KNIGHT n for the default).
+The state is `Session::show` (`rules/pennon/show.rs`); the picture is `arena/pennon/*`.

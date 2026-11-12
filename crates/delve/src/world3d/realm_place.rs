@@ -26,7 +26,7 @@ impl Stood {
         self.pieces.extend(m.pieces);
     }
 
-    fn lamp(&mut self, m: &Mono, at: [f32; 3], reach: f32, strength: f32, weight: f32) {
+    pub(super) fn lamp(&mut self, m: &Mono, at: [f32; 3], reach: f32, strength: f32, weight: f32) {
         self.lamps.push((weight, SetLamp { at: m.point(at), reach, strength }));
     }
 }
@@ -147,6 +147,9 @@ pub fn place(b: &Build, terrain: &Terrain) -> Stood {
                 m.put("cylinder-12", Kind::Wood, [0.0, h - 3.0, -2.0], [m.w * 0.5, 7.0, m.d * 0.5], 0.0);
             }
         }
+        // The blank-slate plan's two places (`crate::world::plan`).
+        Kit::KeepBegun => super::realm_camp::keep_begun(&mut m, y0, &mut s),
+        Kit::Camp => super::realm_camp::camp(&mut m, y0, &mut s),
         Kit::Colosseum | Kit::Hippodrome => {
             let h = if b.kit == Kit::Colosseum { 104.0 } else { 52.0 };
             arena(&mut m, Kind::Stone, h, y0);

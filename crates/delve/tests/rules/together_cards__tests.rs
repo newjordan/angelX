@@ -447,12 +447,39 @@ fn a_creature_bullet_is_its_own_recipe() {
     assert_eq!(Bonus::of([&tadpoles]).homing, 1);
 }
 
+/// The first of the private table's refused words, which its list keeps in
+/// rot13 as `NOT_FOR_WORK` does, so no source file here spells it.
+#[cfg(private_table)]
+fn a_slur() -> String {
+    super::super::private_table::NOT_AT_THE_TABLE[0]
+        .chars()
+        .map(|c| match c {
+            'a'..='m' => (c as u8 + 13) as char,
+            'n'..='z' => (c as u8 - 13) as char,
+            c => c,
+        })
+        .collect()
+}
+
 #[test]
 fn a_card_not_safe_for_work_is_turned_away() {
-    let rude = check("wish-rude-1", "name Big Dick Energy\nkind hold\nhoming 1\n").unwrap_err();
-    assert!(rude.errors.iter().any(|e| e.contains("`dick` is not for this game")), "{:?}", rude.errors);
-    let said = check("wish-rude-1", "name Loud Bullets\nkind hold\ntext Bullets that swear like a sailor: fuck.\nhoming 1\n").unwrap_err();
-    assert!(said.errors.iter().any(|e| e.contains("`fuck`")), "{:?}", said.errors);
+    // A public build has no private table: every card stays safe for work.
+    #[cfg(not(private_table))]
+    {
+        let rude = check("wish-rude-1", "name Big Dick Energy\nkind hold\nhoming 1\n").unwrap_err();
+        assert!(rude.errors.iter().any(|e| e.contains("`dick` is not for this game")), "{:?}", rude.errors);
+        let said = check("wish-rude-1", "name Loud Bullets\nkind hold\ntext Bullets that swear like a sailor: fuck.\nhoming 1\n").unwrap_err();
+        assert!(said.errors.iter().any(|e| e.contains("`fuck`")), "{:?}", said.errors);
+    }
+    // Dev's private table grants a rude ask as asked (`private_table`,
+    // 028003d68); only its slurs are turned away.
+    #[cfg(private_table)]
+    {
+        assert!(check("wish-rude-1", "name Big Dick Energy\nkind hold\nhoming 1\n").is_ok());
+        let slur = a_slur();
+        let said = check("wish-rude-1", &format!("name Loud Bullets\nkind hold\ntext Bullets that say {slur}.\nhoming 1\n")).unwrap_err();
+        assert!(said.errors.iter().any(|e| e.contains(&format!("`{slur}` is not for this game"))), "{:?}", said.errors);
+    }
     // Whole words only, and toilet humour stays.
     for fine in ["Cocktail Bullets", "Fart Cannon", "Poop Armor", "Peacock Shot"] {
         assert!(check("wish-fine-1", &format!("name {fine}\nkind hold\nhoming 1\n")).is_ok(), "{fine}");

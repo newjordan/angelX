@@ -1,0 +1,308 @@
+LEVEL the-dormitories
+NAME The Dormitories
+Z 91
+SIZE 117 100
+ORIGIN 15 71
+TILES
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+####################################################################B################################################
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#########..B#..B#..B#########..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...#########...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#########...#...#...#########...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D###########D###D###D###########D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#...#..B#..B#########...#...#..B#########..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...#########...D...........D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#########...#...#...#########...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D###########D###D###D###########D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#########...#...#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#########...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D###########D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#########..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#########...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D###########D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#########..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#########...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D###########D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#########..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#.......#...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D##.......##D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#.......#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...D.......D...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#.......#...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D##.......##D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#.......#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...D.......D...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#.......#...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D##.......##D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#.......#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...D.......D...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#..>....#...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D##.>>....##D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#.>>....#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...D.......D...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#.......#...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D##.......##D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#.......#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...D.......D...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#.......#...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D##.......##D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#.......#..B#..B#..B#..B#..B#..B#...#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...D.......D...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#.......#...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D##.......##D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#.......#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...D.......D...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#.......#...#...#...#...#...#...#...#...#...#...#...#...##
+#################D###D###D###D###D###D###D###D###D###D###D###########D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#########..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#########...#...#...#...#...#...#...#...#...#...#...#...##
+#####################D###D###D###D###D###D###D###D###D###D###########D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#########..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#########...#...#...#...#...#...#...#...#...#...#...#...##
+#####################D###D###D###D###D###D###D###D###D###D###########D###D###D###D###D###D###D###D###D###D###D###D###
+################..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#########..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B#..B##
+################...D...D...D...D...D...D...D...D...D...D...#########...D...D...D...D...D...D...D...D...D...D...D...##
+################...#...#...#...#...#...#...#...#...#...#...#########...#...#...#...#...#...#...#...#...#...#...#...##
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+#####################################################################################################################
+DRESS
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                    g                                                
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s           s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b           b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k           k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s       s   s                   s           s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b           b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k           k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s                   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s       s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b           b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                  s   s   s   s   s   s   s   s   s   s   s           s   s   s   s   s   s   s   s   s   s   s   s  
+                 b   b   b   b   b   b   b   b   b   b   b           b   b   b   b   b   b   b   b   b   b   b   b   
+                k   k   k   k   k   k   k   k   k   k   k           k   k   k   k   k   k   k   k   k   k   k   k    
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+                                                                                                                     
+ROCK
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrcrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrkkkkkkkkkkkkrrrrrrrrrrrrrrrrrrrrr rrrrrrrrrrr     crrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrr   r   r   r   r   k   r   r   r   r   x   xrrrrrrrr   r   r   r     crr   r   r   r   r   r   r   rr
+rrrrrrrrrrrrrrrr                                           xrrrrrrrr           r     crr                           rr
+rrrrrrrrrrrrrrrr   r   r   r   r   k   k   r   r   r   x   xrrrrrrrr   r   r   r     crk   r   r   r   r   r   r   rr
+rrrrrrrrrrrrrrrrr rrr rrr rrr rrr rrr kkk rrr jrr rrr xxx jjrrrrrrrrr rrr rrr rr     krkk rrr rrr rrr rrr rrr rrr rrr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   k   r   r   r   x   jrrrrrrrr   r   r   rrrrcrrrr   r   r   r   r   r   r   rr
+rrrrrrrrrrrrrrrr                                           xrrrrrrrr           rrrrcrrrr                           rr
+rrrrrrrrrrrrrrrr   r   r   j   r   r   r   r   r   x   x   xrrrrrrrr   r   r   rrcccrrrr   r   r   r   r   r   r   rr
+rrrrrrrrrrrrrrrrr rrr rrr rrr rrr rrr rrr kkr rrr xxx xxx xxrrrrrrrrr rrr rrr rrrrccrrrrr krr rrr rrr rrr rrr rrr rrr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   k   r   x   x   xrrrrrrrx   r   r   r   c   r   k   r   r   r   r   r   rr
+rrrrrrrrrrrrrrrr                                           xrrrrrrrx                                               rr
+rrrrrrrrrrrrrrri   r   r   r   r   r   r   r   r   x   x   xrrrrrrrx   r   r   r   c   r   k   k   r   r   j   r   rr
+rrrrrrrrrrrrrrrii rr  rrr rrr rrr rrr rrr rrk kjr xxx xxx xxrrrrrrrxx rrr rrr rrr rrc crr rrr rk  krr rrr jjr rrr rrr
+rrrrrrrrrrrrrrri   r   r   r   r   r   r   r   j   x   x   xrrrrrrrx   r   r   r   r   r   r   r   r   r   j   r   rr
+rrrrrrrrrrrrrrrx                                           xrrrrrrrx                                               jr
+rrrrrrrrrrrrrrrx   x   r   r   r   r   r   r   k   x   x   xrrrrrrrx   r   r   r   r   c   r   r   k   r   r   x   jr
+rrrrrrrrrrrrrrrxx xxx xrr rrr rrr rrr rrr rrr rrk kkx xxx xxrrrrrrrxx rrr rrr rrr rrr rcc rrr rrr rrk xrx rrr xxJ jjr
+rrrrrrrrrrrrrrrx   x   x   r   r   r   r   r   r   k   x   xrrrrrrrx   r   r   r   r   r   r   r   x   x   x   x   xr
+rrrrrrrrrrrrrrrx                                           xrrrrrrrx                                               xr
+rrrrrrrrrrrrrrrx   x   x   r   r   r   r   k   r   x   x   xrrrrrrrx   r   r   r   r   r   r   t   x   k   x   x   xr
+rrrrrrrrrrrrrrrxx xxx xxx xrr rrr kkk rrr kkr rrr xxk jxk kxrrrrrrrxx rrr rrr rrr jjr rrr ccx txx xxx kkx xxx xxx xxr
+rrrrrrrrrrrrrrrx   x   x   x   r   k   k   k   k   x   k   xrrrrrrrx   r   r   r   j   r   c   x   x   k   x   x   xr
+rrrrrrrrrrrrrrrx                                           kkkkxxkkk                                               xr
+rrrrrrrrrrrrrrrx   x   x   x   r   k   k   r   r   k   k   x       k   c   r   r   r   x   c   x   x   i   x   x   xr
+rrrrrrrrrrrrrrrxx xxx xxx xxx xrr kkr rrr rrr rrr xxx xxk kk       kx ccc rrr rrr rrr xxx xxc ccx xxx xix kkk xxx xxr
+rrrrrrrrrrrrrrrx   x   x   x   r   r   r   r   c   x   x   k       x   c   c   r   r   x   x   c   x   i   k   k   xr
+rrrrrrrrrrrrrrrx                                                                                                   xr
+rrrrrrrrrrrrrrrx   x   t   x   r   r   r   r   r   c   c   c       c   c   r   c   x   x       x   x   x   x   x   xr
+rrrrrrrrrrrrrrrxx xxx xxx xxr rrr rrr rrr rrr rrr cxx ccx xx       cx ccr rrr ccc rxx xxx   x xxx ccx xxx iix jkk xxr
+rrrrrrrrrrrrrrrx   x   x   x   r   r   r   r   r   x       x       x   r   r   c   r   x       x   x   x   x   x   xr
+rrrrrrrrrrrrrrrx                                                                                                   xr
+rrrrrrrrrrrrrrrx   x   x   x   r   j   r   r   r   x   x   x       x   r   r   r   r   x   x   x   c   i   x   x   xr
+rrrrrrrrrrrrrrrxx xxx xxx xxr xrr rrr rrr rrr rrr xxx xxx xx       xx xrr rrr rrr rrx xxx xxx xxx xcc xxi xxx xxx xkr
+rrrrrrrrrrrrrrrr   x   r   r   r   r   r   r   r   x   x   x       x       r   r   x   x   x   x   x   x   x   x   kr
+rrrrrrrrrrrrrrrr                                                                                                   kr
+rrrrrrrrrrrrrrrr   j   r   r   r   r   r   r   r   x   x   x       x   r   r   r   r   r   x   x   x   x   x   x   rr
+rrrrrrrrrrrrrrrrr rrr rrr rrr rrr rrr rrr rrr rrr rxx xxx xx       xx rrr rrr rrr rrr rrr xxx xxx xxx ccx iix rrr rrr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   r   r   r   x   x       x   r   r   r   r   r   x   x   x   c   i   r   rr
+rrrrrrrrrrrrrrrr                                                                                                   rr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   r   r   r   x   x       r   r   r   r   r   r   r   r   r   c   r   r   rr
+rrrrrrrrrrrrrrrrr rrr rrr rrr rrr rrr rrr rrr rrr rrr xxx xx       xr rrr rrr rrr rrr rrj jrr rrr rrr ric iir rrr rrr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   r   r   r   x   x       r   j   r   r   r   r   r   r   r   i   i   r   rr
+rrrrrrrrrrrrrrrr                                                                                                   rr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   r   r   r   x   x       r   r   r   r   r   r   r   r   r   i   i   r   rr
+rrrrrrrrrrrrrrrrr rrr rrr rjr rrr rrr rrr rrr rrr rrr rrx xx       rr rrr rrr rrr rrr rrr rrr rrr rrr iii iii rrr rrr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   r   r   r   r   r       r   r   r   r   r   r   r   r   r   i   i   r   rr
+rrrrrrrrrrrrrrrr                                                                                                   rr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   r   r   r   r   r       r   r   r   r   r   r   r   r   r   r   r   r   rr
+rrrrrrrrrrrrrrrrr rrr rrr rrr rrr rrr rrr rrr rrr rrr rrr rr       rr rrr rcr crr rrr rii rrr rrr rrr rrr rrr rrr rrr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   r   r   r   r   r       r   r   c   c   r   i   r       r   r   r   x   rr
+rrrrrrrrrrrrrrrr                                                                                                   xr
+rrrrrrrrrrrrrrrr   r   r   r   r   r   r   r   r   r   j   r       r   c   r   c   i   r   i       r   r   r   x   xr
+rrrrrrrrrrrrrrrrr rrr rrr rrj jrr rrr rrk krr rrr rrr jrr rrrjjjjjrrr ccr rrr rcr iii rrr rri iir rrr rrr xxx xxx xxr
+rrrrrrrrrrrrrrrr   r   r   r   t   r   k   r   r   r   j   jrrrrrrrr   r   r   c   i   r   r   i   r   r   x   x   xr
+rrrrrrrrrrrrrrrr                                           jrrrrrrrc                                               xr
+rrrrrrrrrrrrrrrr   r   r   r   r   k   r   r   r   r   j   jrrrrrrrc   r   r   r   r   r   r   i   r   r   x   x   xr
+rrrrrrrrrrrrrrrrrrrrr rrr rrr kkr kkk rrr rrr rrr jjj jjj jjrrrrrrrrr rrr rrr crr rrr iir rrr iii rrr xxx xxx xxx xxr
+rrrrrrrrrrrrrrrx   r   r   r   r   k   r   r   r   j   j   jrrrrrrrr   r   r   r   r   i   r   i   r   x   x   x   xr
+rrrrrrrrrrrrrrrx                                           jrrrrrrrj                                               xr
+rrrrrrrrrrrrrrrx   x   x   r   k   k   r   r   r   j   j   jrrrrrrrr   r   c   r   r   i   r   r   r   j   x   x   xr
+rrrrrrrrrrrrrrrxxxxxx xxx xrr kkk kkk rrr rrr rrj jjj jjj jjrrrrrrrrr rrr ccc rrr rrr rri rrr rrr iii jxj xxx xxx xxr
+rrrrrrrrrrrrrrrx   x   x   x   k   r   r   r   r   j   j   jjrrrrrrr   r   r   r   r   r   i   r   i   x   x   x   xr
+rrrrrrrrrrrrrrrx                                            jrrrrrrr                                               xr
+rrrrrrrrrrrrrrrx   x   x   x   k   r   k   r   j   j   j   jjrrrrrrr   r   r   r   r   r   i   r   x   x   x   x   xr
+rrrrrrrrrrrrrrrxxxxxxxxxxxxxrkkrrrrrrrrrkrkkkjjjjjjjjjjjjjjjrrrrrrrrrrrcccrrrrrrrrrrrrrrrrrriiirrrxxxxxxxxxxxxxxxxxxr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr

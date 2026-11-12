@@ -23,6 +23,11 @@
 //! | `d`  | dead tree   | `H`  | planks        |
 //!
 //! Buildings are drawn over meadow; their footprints live in [`Place`].
+//!
+//! All of the above is the **full plan**. Under the blank-slate plan
+//! (`super::plan`, the one switch) the realm is open meadow from edge to
+//! edge: no set pieces stand, no authored place is on the map, and the
+//! tables here are kept, not read.
 
 use std::sync::OnceLock;
 
@@ -85,12 +90,35 @@ pub fn screen_origin(ax: i32, ay: i32) -> (i32, i32) {
 }
 
 /// Every set piece: the authored screen and the realm tile of its top-left.
+/// None stand in the blank-slate plan.
 pub fn set_pieces() -> impl Iterator<Item = ((i32, i32), (i32, i32))> {
-    (0..AUTHORED_Y).flat_map(|ay| {
+    let stands = super::plan::full();
+    (0..AUTHORED_Y).flat_map(move |ay| {
         (0..AUTHORED_X)
-            .filter(move |&ax| SET_PIECES[(ay * AUTHORED_X + ax) as usize].is_some())
+            .filter(move |&ax| stands && SET_PIECES[(ay * AUTHORED_X + ax) as usize].is_some())
             .map(move |ax| ((ax, ay), screen_origin(ax, ay)))
     })
+}
+
+/// The realm's own structures, in realm tiles (`STRUCTURES` moved by
+/// [`place_tile`]): what stands inside the set pieces. None in the
+/// blank-slate plan.
+pub fn structures() -> &'static [(i32, i32, i32, i32)] {
+    static IN_REALM: OnceLock<Vec<(i32, i32, i32, i32)>> = OnceLock::new();
+    IN_REALM
+        .get_or_init(|| {
+            if !super::plan::full() {
+                return Vec::new();
+            }
+            STRUCTURES
+                .iter()
+                .map(|&(ax, ay, w, h)| {
+                    let (x, y) = place_tile(ax, ay);
+                    (x, y, w, h)
+                })
+                .collect()
+        })
+        .as_slice()
 }
 
 /// Whether realm tile `(x, y)` lies inside a set piece.
@@ -365,6 +393,9 @@ impl Realm {
     }
 
     fn build() -> Realm {
+        if super::plan::tabula() {
+            return Realm::tabula();
+        }
         let roads = super::roads::raster();
         let mut tiles = super::wild::grow(&roads);
         for ((ax, ay), (ox, oy)) in set_pieces() {
@@ -393,6 +424,12 @@ impl Realm {
         }
         super::roads::lay(&mut tiles, &roads);
         Realm { tiles }
+    }
+
+    /// The blank-slate realm: open meadow edge to edge
+    /// (`super::plan::tabula`). Pure: a test builds it without the global.
+    pub fn tabula() -> Realm {
+        Realm { tiles: super::plan::tabula::terrain() }
     }
 
     /// Terrain at a tile; off-map reads clamp to the nearest edge tile so
@@ -522,6 +559,13 @@ impl Place {
         Place::School,
     ];
 
+    /// Whether the place stands on the map the plan lays out: all of them in
+    /// the full plan, only the Keep (a tiny castle, with no door) in the
+    /// blank-slate plan.
+    pub fn on_map(self) -> bool {
+        super::plan::full() || self == Place::Keep
+    }
+
     /// HUD name.
     pub fn label(self) -> &'static str {
         match self {
@@ -603,14 +647,23 @@ impl Place {
         }
     }
 
-    /// The stand tile in the realm.
+    /// The stand tile in the realm. In the blank-slate plan the Keep's is the
+    /// tile before the tiny castle, and a place that is not on the map stands
+    /// there too (whatever points at it points at the Keep).
     pub fn stand_world(self) -> (i32, i32) {
+        if super::plan::tabula() {
+            return super::plan::tabula::KEEP_STAND;
+        }
         let (tx, ty) = self.stand();
         place_tile(tx, ty)
     }
 
-    /// The footprint in the realm.
+    /// The footprint in the realm (the tiny castle's, for the Keep, in the
+    /// blank-slate plan; a place that is not on the map is the Keep's too).
     pub fn footprint_world(self) -> (i32, i32, i32, i32) {
+        if super::plan::tabula() {
+            return super::plan::tabula::KEEP;
+        }
         let (tx, ty, tw, th) = self.footprint();
         let (x, y) = place_tile(tx, ty);
         (x, y, tw, th)

@@ -235,6 +235,7 @@ fn loop_objectives_wrap_at_display_columns_and_keep_long_words() {
     assert_eq!(fit("解析器解析器", 7), "解析器…");
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn a_plan_shrinks_its_film_before_it_drops_its_pictures() {
     let tall = plan(Rect::new(0, 0, 140, 60), 4, true, 6).unwrap();
@@ -337,6 +338,7 @@ fn the_ticker_counts_laps_and_shows_what_is_left() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn the_ticker_is_a_top_strip_with_the_knight_at_its_left() {
     let area = Rect::new(0, 2, 160, TICKER_ROWS);
@@ -421,7 +423,9 @@ fn the_widget_reads_the_running_loop_and_goes_when_it_ends() {
 #[cfg(feature = "glass")]
 mod window {
     use super::*;
-    use angel_glass::card::{Knight, TITLE_ROWS};
+    use angel_glass::card::Knight;
+    #[cfg(feature = "delve")]
+    use angel_glass::card::TITLE_ROWS;
 
     #[test]
     fn the_glass_pill_rides_the_picker_in_hand_and_the_actions() {
@@ -482,13 +486,14 @@ mod window {
         );
     }
 
+    #[cfg(feature = "delve")]
     #[test]
     fn the_films_play_where_the_card_keeps_room_for_them() {
         let root = Rect::new(0, 0, 160, 50);
         let dialog = LoopLaunchDialog::new("ship the parser", 0, false);
         let plan = card_plan(root).unwrap();
         let key = art_key(plan, (2, 4));
-        let art = make(key);
+        let art = make(key).expect("the Delve makes the films");
         let (open, _) = card(root, &dialog, Some(&art), Phase::Open).unwrap();
         assert_eq!(open.films.len(), 3, "text shade, race and goal");
         let race = &open.films[1];
@@ -512,6 +517,7 @@ mod window {
         assert_ne!(launch.films[1].sheet.id, race.sheet.id);
     }
 
+    #[cfg(feature = "delve")]
     #[test]
     fn text_rows_hide_the_transcript_and_leave_art_and_gaps_clear() {
         let dialog = LoopLaunchDialog::new(
@@ -578,6 +584,7 @@ mod window {
         }
     }
 
+    #[cfg(feature = "delve")]
     #[test]
     fn the_ticker_draws_its_knight_in_profile_in_the_window() {
         let race = Race {

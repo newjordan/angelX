@@ -266,6 +266,10 @@ pub struct WaxMaze {
     /// `CATCH[chain]`.
     #[serde(default)]
     pub chain: u8,
+    /// What lately happened in the maze, for the picture to make a fuss of
+    /// (`wax_show`).
+    #[serde(default, skip_serializing_if = "wax_show::WaxShow::quiet")]
+    pub show: wax_show::WaxShow,
 }
 
 /// The lines a maze's lanes run along, across a room `n` tiles wide (or
@@ -451,6 +455,7 @@ impl WaxMaze {
             && self.wraiths.len() <= 4
             && self.pale <= PALE
             && usize::from(self.chain) <= CATCH.len()
+            && self.show.valid()
             && self.eaten.len() <= MAX_PLAYERS as usize
             && self.ante.len() <= MAX_PLAYERS as usize
             && self.spooked.len() <= MAX_PLAYERS as usize
@@ -582,6 +587,9 @@ impl Run {
         self.powder = None;
         self.hop = None;
         self.folly_room = None;
+        // A hall picked here plays the rotation until the pool deals it a game
+        // (`pick_encounters`, which `finish_descent` runs after this).
+        self.encounter_rooms.clear();
         if self.dungeon.depth == 0 {
             return;
         }
@@ -590,12 +598,20 @@ impl Run {
                 .as_ref()
                 .is_some_and(|g| g.economy.camp(i).is_some() || g.guardian == i)
         };
-        let fights: Vec<usize> = (0..self.dungeon.rooms.len())
-            .filter(|&i| {
-                let r = &self.dungeon.rooms[i];
-                r.kind == RoomKind::Hall && !r.great() && !r.cleared && i != self.at && !camps(i)
-            })
-            .collect();
+        let of = |kind: RoomKind| -> Vec<usize> {
+            (0..self.dungeon.rooms.len())
+                .filter(|&i| {
+                    let r = &self.dungeon.rooms[i];
+                    r.kind == kind && !r.great() && !r.cleared && i != self.at && !camps(i)
+                })
+                .collect()
+        };
+        // An ordinary hall; a floor laid with none deals its game to an
+        // ordinary fight room instead, so every floor of a delve has one.
+        let mut fights = of(RoomKind::Hall);
+        if fights.is_empty() {
+            fights = of(RoomKind::Fight);
+        }
         if fights.is_empty() {
             return;
         }
@@ -686,6 +702,7 @@ impl Run {
                 came: home,
             })
             .collect();
+        let total = wax.len() as u16;
         let (ante, scores) = take_antes(&mut self.players);
         let eaten = scores.keys().map(|&id| (id, 0u16)).collect();
         let at16 = |h: &Hero| ((h.x * 16.0) as i32, (h.y * 16.0) as i32);
@@ -714,6 +731,7 @@ impl Run {
             starts,
             ways: BTreeMap::new(),
             chain: 0,
+            show: wax_show::WaxShow { total, ..Default::default() },
         });
         // Those who follow the party find their feet in the maze.
         self.hireling_follows();
@@ -745,15 +763,21 @@ impl Run {
             return;
         }
         maze.t += 1;
+        let now = self.tick as u32;
+        maze.show.tick(now);
         if maze.titled() {
             self.folly = Some(maze);
             return;
+        }
+        if maze.t == TITLE {
+            // GO kicks the picture.
+            self.fx.push(Fx::Shake(8));
         }
         let (cols, rows) = (self.room().cols as i32, self.room().rows as i32);
         let index = |(x, y): (i32, i32)| (x >= 0 && y >= 0 && x < cols && y < rows).then(|| (y * cols + x) as u16);
         // Eating, and the holy water.
         let mut chomps = 0;
-        let mut holy = false;
+        let mut holy = None;
         for (&id, hero) in self.players.iter().filter(|(_, h)| h.hp > 0 && !h.stone) {
             let Some(at) = index(tile_of(hero.x, hero.y)) else {
                 continue;
@@ -762,15 +786,19 @@ impl Run {
                 let eaten = maze.eaten.entry(id).or_default();
                 *eaten = eaten.saturating_add(1);
                 chomps += 1;
+                maze.show.bite(now, id, at);
             }
             if maze.holy.remove(&at) {
-                holy = true;
+                holy = Some((id, at));
             }
         }
         if chomps > 0 && self.tick % 4 == 0 {
             self.sounds.push("spoil_pickup");
         }
-        if holy {
+        if let Some((id, tile)) = holy {
+            maze.show.splash(now, id, tile);
+            self.hold_for(juice::Weight::Crushing);
+            self.fx.push(Fx::Shake(juice::Weight::Crushing.shake_ticks()));
             // Every wraith but a pair of eyes turns pale, and those abroad
             // turn tail.
             maze.pale = PALE;
@@ -812,6 +840,11 @@ impl Run {
             .map(|h| tile_of(h.x, h.y))
             .collect();
         self.roam(&mut maze, &hunted, &threats);
+        if maze.t >= TITLE + MAZE_TIME - LATE {
+            maze.show.quicken(now);
+        }
+        // The heaviest moment of the tick holds the room's time (`juice`).
+        let mut heaviest: Option<juice::Weight> = None;
         // Touches.
         let at16 = |p: (i32, i32)| (p.0 as f32 / 16.0, p.1 as f32 / 16.0);
         let hunted: BTreeSet<u32> = hunted.iter().map(|&(id, _, _)| id).collect();
@@ -829,6 +862,10 @@ impl Run {
                 if pale {
                     let worth = CATCH[usize::from(maze.chain).min(CATCH.len() - 1)];
                     maze.chain = maze.chain.saturating_add(1).min(CATCH.len() as u8);
+                    let spot = ((wx * 16.0) as i32, (wy * 16.0) as i32);
+                    maze.show.caught(now, id, spot, k, worth, maze.chain);
+                    let weight = wax_show::catch_weight(maze.chain);
+                    heaviest = heaviest.max(Some(weight));
                     let eaten = maze.eaten.entry(id).or_default();
                     *eaten = eaten.saturating_add(worth);
                     hero.carried.add(Spoil::Bone, 1);
@@ -842,7 +879,11 @@ impl Run {
                     continue;
                 }
                 let eaten = maze.eaten.entry(id).or_default();
-                *eaten = eaten.saturating_sub(SPILL);
+                let spilt = (*eaten).min(SPILL);
+                *eaten -= spilt;
+                let (here, from) = (((hero.x / TILE_UNITS * 16.0) as i32, (hero.y / TILE_UNITS * 16.0) as i32), ((wx * 16.0) as i32, (wy * 16.0) as i32));
+                maze.show.touched(now, id, here, from, spilt);
+                heaviest = heaviest.max(Some(juice::Weight::Crushing));
                 maze.spooked.insert(id, maze.t + SPOOKED);
                 maze.ways.remove(&id);
                 (hero.x, hero.y) = at16(maze.starts.get(&id).copied().unwrap_or(maze.door));
@@ -850,6 +891,11 @@ impl Run {
                 hero.dash_ticks = 0;
                 self.sounds.push("hero_hurt");
             }
+        }
+        maze.show.standings(now, &maze.eaten, maze.wax.len() as u16);
+        if let Some(weight) = heaviest {
+            self.hold_for(weight);
+            self.fx.push(Fx::Shake(weight.shake_ticks().min(12)));
         }
         if maze.wax.is_empty() || maze.t >= TITLE + MAZE_TIME {
             self.finish_wax_maze(&mut maze);
@@ -1002,6 +1048,10 @@ impl Run {
             .map_or_else(|| "NOBODY".to_string(), |h| h.name.to_uppercase());
         let most = best.and_then(|id| maze.eaten.get(&id)).copied().unwrap_or(0);
         self.found = Some((self.tick, 0, format!("{name} ATE THE MOST WAX: {most}!")));
+        // The last of it holds the room still, then the podium (`wax_show`).
+        maze.show.finish(self.tick as u32, best.unwrap_or(0), pot, most, maze.t >= TITLE + MAZE_TIME);
+        self.hold_for(juice::Weight::Finale);
+        self.fx.push(Fx::Shake(12));
         self.sounds.push("play_card");
         self.cues.push("pastime_won".into());
     }
@@ -1098,11 +1148,16 @@ pub struct BatShoot {
     pub scores: BTreeMap<u32, u32>,
     pub ante: BTreeMap<u32, u32>,
     pub done: bool,
+    /// What lately happened, for the picture to make a fuss of
+    /// (`belfry_show`).
+    #[serde(default, skip_serializing_if = "belfry_show::BatShow::quiet")]
+    pub show: belfry_show::BatShow,
 }
 
 impl BatShoot {
     pub fn valid(&self) -> bool {
-        self.t <= TITLE + BAT_TIME + HZ
+        self.show.valid()
+            && self.t <= TITLE + BAT_TIME + HZ
             && self.scores.len() <= MAX_PLAYERS as usize
             && self.ante.len() <= MAX_PLAYERS as usize
             && self.scores.keys().chain(self.ante.keys()).all(|id| (1..=MAX_PLAYERS).contains(id))
@@ -1143,6 +1198,7 @@ impl Run {
             || self.powder.as_ref().is_some_and(|p| p.room == self.at && !p.done)
             || self.hop.as_ref().is_some_and(|h| h.room == self.at && !h.done)
             || self.race3d.as_ref().is_some_and(|r| r.room == self.at && !r.done)
+            || self.encounter_hosts()
     }
 
     /// Into the even floors' folly: the belfry's bats wake.
@@ -1154,6 +1210,7 @@ impl Run {
             scores,
             ante,
             done: false,
+            show: Default::default(),
         });
         self.sounds.push("door_seal");
         self.cues.push("folly".into());
@@ -1181,6 +1238,13 @@ impl Run {
             return;
         }
         shoot.t += 1;
+        let now = self.tick as u32;
+        shoot.show.tick(now);
+        if shoot.t == TITLE {
+            // GO: the bell tolls and the picture kicks.
+            shoot.show.toll(now);
+            self.fx.push(Fx::Shake(8));
+        }
         if !shoot.titled() && (shoot.t - TITLE).is_multiple_of(BAT_EVERY) {
             // Down from the rafters: open floor in the room's upper half,
             // spread by the seed.
@@ -1189,17 +1253,30 @@ impl Run {
                 .flat_map(|y| (1..room.cols as i32 - 1).map(move |x| (x, y)))
                 .filter(|&(x, y)| room.tile(x, y) == Tile::Floor)
                 .collect();
+            let mut dropped = Vec::new();
             for k in 0..BAT_FLOCK {
                 if self.enemies.len() >= BAT_ALIVE || open.is_empty() {
                     break;
                 }
                 let spot = mix(self.seed ^ u64::from(shoot.t) << 4 ^ u64::from(k));
                 let (x, y) = open[(spot % open.len() as u64) as usize];
-                self.spawn_body(EnemyKind::Bat, (x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.5) * TILE_UNITS);
+                if let Some(id) = self.spawn_body(EnemyKind::Bat, (x as f32 + 0.5) * TILE_UNITS, (y as f32 + 0.5) * TILE_UNITS) {
+                    dropped.push((id, (x * 16 + 8, y * 16 + 8)));
+                }
             }
+            shoot.show.flock(now, ((shoot.t - TITLE) / BAT_EVERY) as u16, &dropped);
         }
+        // What the knights' shots did this tick, for the picture.
+        self.bats_watch(&mut shoot);
         if shoot.t >= TITLE + BAT_TIME {
             shoot.done = true;
+            let left: Vec<(u32, (i32, i32))> = self
+                .enemies
+                .iter()
+                .filter(|e| e.kind == EnemyKind::Bat)
+                .map(|e| (e.id, ((e.x / TILE_UNITS * 16.0) as i32, (e.y / TILE_UNITS * 16.0) as i32)))
+                .collect();
+            shoot.show.scatter(now, &left);
             self.enemies.retain(|e| e.kind != EnemyKind::Bat);
             let pot: u32 = shoot.ante.values().sum();
             let best = shoot
@@ -1226,6 +1303,14 @@ impl Run {
                 .and_then(|id| self.players.get(&id))
                 .map_or_else(|| "NOBODY".to_string(), |h| h.name.to_uppercase());
             self.found = Some((self.tick, 0, format!("{name} SHOT THE MOST BATS!")));
+            // The last of it holds the room still, the bell tolls, then the
+            // podium (`belfry_show`).
+            let most = best.and_then(|id| shoot.scores.get(&id)).copied().unwrap_or(0);
+            shoot.show.toll(now);
+            self.sounds.push("circle_toll");
+            shoot.show.finish(now, best.unwrap_or(0), pot, most);
+            self.hold_for(juice::Weight::Finale);
+            self.fx.push(Fx::Shake(12));
             self.sounds.push("play_card");
             self.cues.push("pastime_won".into());
         }

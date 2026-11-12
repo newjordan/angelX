@@ -42,7 +42,6 @@ fn dungeon_help() -> String {
 }
 
 use crate::together_sim as sim;
-const STEP: Duration = sim::STEP;
 /// The realm settles what the run banked at least this often.
 const SETTLE: Duration = Duration::from_millis(250);
 /// Where the terminal sends no key releases, a key it stops repeating is let
@@ -84,6 +83,7 @@ impl DungeonView {
             }))
         };
         let p1 = ShooterInput {
+            builder: None,
             latch_tick: None,
             mirror: 0,
             leave_activity: false,
@@ -239,7 +239,12 @@ impl DungeonView {
 
 impl Session<'_> {
     pub(super) fn prepare_votes(&mut self) {
-        if self.dungeon.shooter.as_ref().is_none() || self.dungeon.shooter.playtest_votes_ready() {
+        // The realm is away settling: its votes are read next frame.
+        if self.dungeon.settling.is_some() {
+            return;
+        }
+        // Without waiting on the game's lock: a busy game is read next frame.
+        if self.dungeon.shooter.as_ref().is_none() || self.dungeon.shooter.try_playtest_votes_ready() != Some(false) {
             return;
         }
         let (records, seen) = {
@@ -472,15 +477,6 @@ impl Session<'_> {
         }
     }
 
-    /// When the delve's next fixed step is due, while it plays and is
-    /// stepped on this thread (the server's own thread keeps its own time).
-    pub(crate) fn dungeon_step_due(&self) -> Option<Instant> {
-        if !self.dungeon_wants_fast_tick() || self.dungeon.shooter.threaded() {
-            return None;
-        }
-        self.dungeon.shooter.clock().map(|last| last + STEP)
-    }
-
     /// Where this workspace keeps its own delve cards.
     pub(super) fn cards_dir(&self) -> std::path::PathBuf {
         self.cx.workspace().join(".angel/dungeon/cards")
@@ -493,6 +489,11 @@ impl Session<'_> {
     }
 
     pub fn start_shooter(&mut self, guest: Option<&str>) {
+        // A friend's delve is the game while it is joined: a run of one's own
+        // would sit beside it, with the keys and the screen split between them.
+        if self.dungeon.venue() == Venue::Joined {
+            return;
+        }
         let _ = self.dungeon.shooter.command(GameCommand::Retreat);
         if !self.settle_realm() || !self.settle_home() {
             return;
@@ -553,7 +554,7 @@ impl Session<'_> {
             treasury,
         )));
         let mut setup = vec![GameCommand::ConfigureSession {
-            naked_start: true, identity: shooter::identity::on(), host: player.clone(),
+            naked_start: true, identity: shooter::identity::on(), rite: shooter::rite::on(), host: player.clone(),
         }];
         for (id, name, knight) in friends {
             setup.push(GameCommand::JoinSeat {
@@ -572,10 +573,8 @@ impl Session<'_> {
         }
         // The wish grant runners stand ready (and the model warm) before
         // anyone wishes: the first wish pays no start-up.
-        if self.dungeon.joined.is_none() {
-            let oracle = self.dungeon.forge.grants.selected(|| self.cx.oracle());
-            self.dungeon.forge.grants.ready(&oracle);
-        }
+        let oracle = self.dungeon.forge.grants.selected(|| self.cx.oracle());
+        self.dungeon.forge.grants.ready(&oracle);
         // At admission only, read the identical durable site the passive camera
         // sees. Neither loop frames nor receipts mutate a running Delve.
         if let Ok(Some(site)) = self.world.settlement_site()
@@ -641,7 +640,20 @@ impl Session<'_> {
     /// moves onto a server friends can reach; the host's own seat is a
     /// client of it like theirs.
     pub(super) fn host_dungeon(&mut self, tail: &str) -> String {
+        if self.dungeon.venue() == Venue::Joined {
+            return "You are in a friend's delve; /dungeon leave first, then /dungeon host.".into();
+        }
         if self.dungeon.hosting.is_some() {
+            if self.dungeon.shooter.browser_failure().is_some() {
+                return match crate::together_web::shipped_prepared() {
+                    Ok(Some(generation)) => match self.dungeon.shooter.retry_browser(generation) {
+                        Ok(()) => "Dungeon browser retry started · same run, seats and link".into(),
+                        Err(error) => format!("Dungeon browser retry: {error}"),
+                    },
+                    Ok(None) => "Dungeon browser unavailable in this build".into(),
+                    Err(error) => format!("Dungeon browser retry: {error}"),
+                };
+            }
             return format!("Dungeon already hosted.\n{}", self.invitation_lines());
         }
         // `--3` (or `-3`) seats three friends, up to `--5` (`--6` with
@@ -680,6 +692,10 @@ impl Session<'_> {
         if let Err(error) = door::public_door() {
             return format!("Dungeon host: {error}");
         }
+        let browser = match crate::together_web::shipped_prepared() {
+            Ok(browser) => browser,
+            Err(error) => return format!("Dungeon host: {error}"),
+        };
         // Friends join a delve still in its entrance room; otherwise hosting
         // begins a fresh one.
         if self
@@ -691,14 +707,15 @@ impl Session<'_> {
             self.start_shooter(None);
         }
         let hosting = Hosting { friends, watch };
-        let hosted = self.dungeon.shooter.host_as(
+        let hosted = self.dungeon.shooter.host_prepared(
             sim::Door {
                 bind,
                 seats: hosting.seats(),
                 key: None,
-                bundle: crate::together_web::shipped(),
+                bundle: None,
             },
             watch,
+            browser,
         );
         if let Err(error) = hosted {
             return format!("Dungeon host: {error}");
@@ -991,6 +1008,9 @@ impl Session<'_> {
                 }
             }
             "start" => {
+                if self.dungeon.venue() == Venue::Joined {
+                    return "You are in a friend's delve; /dungeon leave first, then /dungeon start.".into();
+                }
                 if self.dungeon.shooter.is_some() {
                     self.expand_dungeon();
                     return "Dungeon already open. R restarts a finished run; /dungeon off closes it.".into();
@@ -1052,6 +1072,16 @@ impl Session<'_> {
     /// (`together_sim`); stepped by hand (the tests) the same clock is run
     /// here, to `now`. Pauses discard controls and elapsed time.
     pub fn advance_shooter_at(&mut self, now: Instant) {
+        self.advance_shooter_inner(now);
+        if let Some(error) = self.dungeon.shooter.take_browser_failure() {
+            tracing::warn!(%error, "hosted browser preparation failed");
+            self.dungeon.notice = "Browser preparation failed · native seats remain connected · /dungeon host retries".into();
+        }
+
+    }
+
+    fn advance_shooter_inner(&mut self, now: Instant) {
+        self.dungeon.collect_settled(false);
         self.dungeon.audio.pump_live(now);
         self.prepare_votes();
         let keyboard = self.dungeon_keyboard_active();
@@ -1103,6 +1133,18 @@ impl Session<'_> {
                             }
                         }
                         Gear::Grant(id) => grants.push(id),
+                        // A thing made in the Creator, brought to life: the run kept it for the
+                        // realm and the world takes it in; the maker is told how it went.
+                        Gear::Creation(made) => {
+                            match self.dungeon.shooter.command(GameCommand::Contribute { player: knight, made }) {
+                                Ok(GameReply::Chosen(line)) => {
+                                    self.dungeon.notice = line.clone();
+                                    replies.push((knight, line));
+                                }
+                                Ok(_) => {}
+                                Err(error) => replies.push((knight, error)),
+                            }
+                        }
                         // A card dragged in the seat's own hand: the run
                         // checks the slots, and a stale drag does nothing.
                         Gear::Hand(from, to) => {
@@ -1260,8 +1302,10 @@ impl Session<'_> {
                 .is_none_or(|at| now.saturating_duration_since(at) >= SETTLE);
         if settle {
             self.dungeon.settled = Some(now);
-            self.settle_votes();
-            if self.settle_realm() {
+            if self.dungeon.settling.is_none() {
+                self.settle_votes();
+            }
+            if !self.settle_off_frame() && self.settle_realm() {
                 self.settle_home();
             }
         }
@@ -1303,10 +1347,12 @@ impl Session<'_> {
                 }
             }
         }
-        for sound in sounds {
-            let voice=self.dungeon.shooter.live_voice(&sound);
-            let origin=self.dungeon.shooter.media_origin();
-            self.dungeon.audio.sfx_from(&sound, now,voice,origin);
+        if !sounds.is_empty() {
+            let voices = self.dungeon.shooter.live_voices(&sounds);
+            let origin = self.dungeon.shooter.media_origin();
+            for (sound, voice) in sounds.iter().zip(voices) {
+                self.dungeon.audio.sfx_from(sound, now, voice, origin.clone());
+            }
         }
         if ask && self.dungeon.forge.draft.is_none() {
             self.open_lamp_wish();
@@ -1416,8 +1462,11 @@ impl Session<'_> {
             KeyCode::Char(c) => KeyCode::Char(c.to_ascii_lowercase()),
             code => code,
         };
-        // Shift+C is the ride key (`rules::shoulders`); c alone is the cards.
-        let code = if code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::SHIFT) {
+        // The build desk displays C for walking the village. Elsewhere the
+        // terminal keeps plain C for cards and Shift+C for shoulders.
+        let building = self.dungeon.shooter.as_ref().is_some_and(|run|
+            run.dungeon.depth == 0 && run.kingdom.industry.get(&1).is_some_and(|b|b.open));
+        let code = if code == KeyCode::Char('c') && (building || key.modifiers.contains(KeyModifiers::SHIFT)) {
             KeyCode::Char('C')
         } else {
             code

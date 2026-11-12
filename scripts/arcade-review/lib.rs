@@ -1,6 +1,6 @@
 //! Offline art fixture using the actual cockpit painter and exporter.
 #[cfg(test)]
-#[path = "../../cockpit/src/stage/world_viz/art/cells.rs"]
+#[path = "../../cockpit/delve-cart/src/world_viz/art/cells.rs"]
 mod cells;
 #[cfg(test)]
 use cells::paint_cells;

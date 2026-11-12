@@ -34,11 +34,15 @@ fn wish(r: &mut Run, id: u32, word: &str) -> Result<String, String> {
 #[test]
 fn the_old_company_carry_their_own_and_the_recruits_none() {
     let owned: Vec<&str> = knights::COMPANY.iter().map(|k| k.id).take_while(|id| Ult::own(id).is_some()).collect();
-    assert_eq!(owned.len(), 22, "the company before the recruits");
+    assert_eq!(owned.len(), 24, "the company before the recruits");
     let ults: std::collections::BTreeSet<&str> = owned.iter().map(|id| Ult::own(id).unwrap().word()).collect();
     assert_eq!(ults.len(), owned.len(), "each their own");
-    for k in &knights::COMPANY[owned.len()..] {
+    // The code-drawn knights came later too, but they are plain knights.
+    for k in knights::COMPANY[owned.len()..].iter().filter(|k| knights::plain_seat(k.id).is_none()) {
         assert!(recruit(k.id), "{} came after the company and has none of their own", k.id);
+    }
+    for k in knights::COMPANY.iter().filter(|k| knights::plain_seat(k.id).is_some()) {
+        assert!(!recruit(k.id), "{} is a plain knight, not a recruit", k.id);
     }
     assert_eq!(Ult::of(None), Ult::PilgrimsArrow, "a new player is still Sir Percival");
 }

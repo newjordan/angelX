@@ -40,9 +40,23 @@ fn table(name: &str, across: usize, keep: f32) -> Option<Vec<[u8; 3]>> {
 
 /// The surfaces of beat `stage`, when the slot is painted whole: the gorge's
 /// and the roost's rock and stone, the causeway's brick for its walls and the
-/// stone for its road, the roost's bone, the mist below.
+/// stone for its road, the roost's bone, the mist below. The Wyrm's scales and
+/// plates (`skin.rs`) are laid over two materials nothing else in the flight
+/// uses, in every beat, whatever the slot holds.
 fn make(stage: u8) -> Option<Painted> {
     let mut p = Painted::new();
+    let _ = canyon(&mut p, stage);
+    p.set(mat::STABLE_ROOF, super::skin::scales());
+    p.set(mat::STABLE_WALL, super::skin::plates());
+    p.set(mat::STABLE_TIMBER, super::skin::horn());
+    p.set(mat::STABLE_FLOOR, super::skin::belly());
+    p.set(mat::TACK_LEATHER, super::skin::web());
+    p.set(mat::HAY, super::skin::slab());
+    Some(p)
+}
+
+/// The canyon's own tables, or nothing when the slot is not whole.
+fn canyon(p: &mut Painted, stage: u8) -> Option<()> {
     // Rock and stone: a tile is 4 units.
     p.set(mat::ROCK, table("rock", 2, KEEP)?);
     p.set(mat::STONE, table("stone", 2, KEEP)?);
@@ -58,7 +72,7 @@ fn make(stage: u8) -> Option<Painted> {
         // Ribs a half unit wide: a tile is 2 units.
         p.set(mat::BONE, table("bone", 4, KEEP)?);
     }
-    Some(p)
+    Some(())
 }
 
 /// The painted surfaces for beat `stage` (0 to 2), or `None` to run the shared

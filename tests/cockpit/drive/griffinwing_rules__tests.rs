@@ -220,6 +220,10 @@ impl Pair {
             return self.refuse(&asked, &keys, want);
         }
         let got = self.bent.step(inputs, &self.heroes, &self.nums);
+        // What the picture remembers (`show`) is the session's own: the module
+        // is never sent it and the oracle's step never writes it, so it is no
+        // part of the parity between them.
+        self.bent.show = Default::default();
         if self.native != self.bent || want.sounds != got.sounds || want.leave != got.leave {
             let (a, b) = (
                 serde_json::to_value(&self.native).unwrap(),

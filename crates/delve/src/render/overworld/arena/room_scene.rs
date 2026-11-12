@@ -519,6 +519,7 @@ fn layered(run: &Run, w: i32, h: i32, focus: Option<u32>) -> bool {
         && run.results_showing(focus).is_none()
         && run.room().kind != RoomKind::Kingdom
         && !stage::takeover(run)
+        && !run.joust_showing()
         && !run.forest_road_showing()
         && !run.roundtable_showing()
         && !(run.circle() > 0 && !run.at_home_now())
@@ -716,12 +717,13 @@ fn pastime_scene(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Option<RoomSc
 }
 
 pub fn scene_for(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
+    if industry::showing(run, focus) || industry::frontier(run) { return RoomScene::flat(frame_for(run, w, h, focus)); }
     // From the third floor a wish's painting shows at its middle grants too.
     super::paintings::with_hd(super::paintings::hd_floor(run.floor()), || scene_here(run, w, h, focus))
 }
 
 fn scene_here(run: &Run, w: i32, h: i32, focus: Option<u32>) -> RoomScene {
-    if super::crossroads::showing(run) || super::crossroads::pastime(run) {
+    if super::crossroads::showing(run) || super::crossroads::pastime(run) || super::encounter::pastime(run) {
         return RoomScene::flat(frame_for(run, w, h, focus));
     }
     if kingdom_3d(run, w, h, focus)

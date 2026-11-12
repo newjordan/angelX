@@ -13,6 +13,7 @@ fn bytes(cmd: &DelveCmd) -> Vec<u8> {
 /// Every field of an input set to something, for the round trips.
 fn busy() -> Input {
     Input {
+        builder: Some(crate::rules::builder_input::BuilderAction::Selection(511)),
         latch_tick: Some(1_760_000_000),
         mirror: 5,
         leave_held: true,
@@ -158,6 +159,7 @@ fn a_repeated_tick_keeps_what_is_held_and_drops_presses_and_one_shots() {
     let held = repeat.input();
     assert!(held.vote.is_none() && !held.leave_activity && !held.activity_menu && !held.skip_plate);
     assert_eq!(held.mirror, 0, "repeats never replay creator actions");
+    assert!(held.builder.is_none(), "repeats never build another plot");
     assert!(held.fire && held.dash && held.ult && held.interact && held.leave_held);
     assert_eq!((held.move_x, held.aim_x, held.play, held.cast, held.skill), (-1, 1, 4, 3, 5));
     assert_eq!(DelveCmd::neutral().input(), Input::default());

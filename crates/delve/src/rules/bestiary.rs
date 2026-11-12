@@ -12,7 +12,7 @@ pub struct Entry {
     pub says: &'static str,
 }
 
-pub const ENTRIES: [Entry; 40] = [
+pub const ENTRIES: [Entry; 41] = [
     Entry {
         kind: EnemyKind::Bat,
         name: "Bat",
@@ -197,6 +197,11 @@ pub const ENTRIES: [Entry; 40] = [
         kind: EnemyKind::Whirlgrave,
         name: "Whirlgrave",
         says: "Leans on the world until the world leans back.",
+    },
+    Entry {
+        kind: EnemyKind::Fungelder,
+        name: "Fungelder",
+        says: "Grows mushrooms between you and your archers. It calls it landscaping.",
     },
     Entry {
         kind: EnemyKind::BogHand,

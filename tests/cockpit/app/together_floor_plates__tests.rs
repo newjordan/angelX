@@ -1,7 +1,7 @@
 //! The floor plates under the cockpit's keys.
 
-use crate::drive::together_shooter::*;
-use crate::drive::together_shooter::floor_plates::*;
+use crate::delve::together_shooter::*;
+use crate::delve::together_shooter::floor_plates::*;
 
 #[test]
 fn together_floor_plates_any_terminal_key_is_consumed_before_game_actions() {

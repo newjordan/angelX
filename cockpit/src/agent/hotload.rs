@@ -1,5 +1,11 @@
 //! Adapt the independent live-module host to the cockpit's existing V8 engine.
-pub(crate) use angel_live::{Client, RealmStyle, Snapshot, UiPolicy};
+#[cfg(feature = "glass")]
+pub(crate) mod showcase_squire;
+use crate::app::control::realm::GameHost;
+use angel_plug::drive::DriveWorld;
+pub(crate) use angel_live::{Client, Snapshot, UiPolicy};
+#[cfg(test)]
+pub(crate) use angel_live::RealmStyle;
 
 /// The module root a cockpit loads: `ANGEL_LIVE_DIR`, else the resource
 /// bundle's `cockpit/live`.
@@ -82,19 +88,31 @@ pub(crate) fn bind_resource(
     imports: &angel_live::kernel::Resources,
 ) -> Result<angel_live::kernel::Binding, String> {
     if let Some(binding) =
-        crate::drive::together_loadouts::bind(contract, name, value, assets, factory, imports)?
+        <GameHost as DriveWorld>::bind_resource(contract, name, value, assets, factory, imports)?
     {
-        Ok(binding)
-    } else if contract == crate::drive::together_appearance::CONTRACT {
-        character_resource(name, value, assets)
-    } else if contract == crate::drive::together_abilities::CONTRACT {
-        crate::drive::together_abilities::bind(name, value, assets, factory)
-    } else if [
+        return Ok(binding);
+    }
+    if contract == "glass-card-motion/1" {
+        #[cfg(feature = "glass")]
+        { return showcase_squire::bind_motion(value); }
+        #[cfg(not(feature = "glass"))]
+        { return Ok(std::sync::Arc::new(())); }
+    }
+    if matches!(contract, "glass-squire-clip/1" | "glass-squire-clip/2") {
+        return bind_showcase_squire_versioned(contract, name, value, factory);
+    }
+    if [
+        "glass-squire-clip/",
+        "glass-card-motion/",
         "character-appearance/",
         "game-abilities/",
         "character-loadout/",
         "ability-pack/",
         "character-art-pack/",
+        "character-animation-pack/",
+        "character-animation-graph-pack/",
+        "character-graph-loadout/",
+        "character-animated-loadout/",
         "sound-pack/",
         "effect-pack/",
     ]
@@ -106,26 +124,44 @@ pub(crate) fn bind_resource(
         Ok(std::sync::Arc::new(()))
     }
 }
-fn character_resource(
+fn bind_showcase_squire_versioned(
+    contract: &str,
     name: &str,
     value: &serde_json::Value,
-    assets: &std::collections::BTreeMap<String, std::sync::Arc<angel_live::Asset>>,
+    factory: &angel_live::kernel::Candidate,
 ) -> Result<angel_live::kernel::Binding, String> {
-    if value["player"]
-        .as_u64()
-        .is_none_or(|player| name != format!("character-seat-{player}"))
+    #[cfg(feature = "glass")]
     {
-        return Err("character resource name must match its player seat".into());
+        showcase_squire::bind_live_versioned(contract, name, value, &factory.manifest)
     }
-    crate::drive::together_appearance::bind(value, assets)
+    #[cfg(not(feature = "glass"))]
+    {
+        let _ = (contract, name, value, factory);
+        Ok(std::sync::Arc::new(()))
+    }
 }
 
-fn validate_host_contract(kind: &str, value: &serde_json::Value) -> Result<(), String> {
-    if kind == "game" {
-        let policy = serde_json::from_value(value.clone()).map_err(|error| error.to_string())?;
-        crate::drive::together_sim::validate_live_rules(&policy)?;
-    }
-    Ok(())
+#[cfg(feature = "glass")]
+fn bind_showcase_squire(
+    name: &str,
+    value: &serde_json::Value,
+) -> Result<angel_live::kernel::Binding, String> {
+    showcase_squire::bind(name, value)
+}
+
+#[cfg(not(feature = "glass"))]
+fn bind_showcase_squire(
+    _name: &str,
+    _value: &serde_json::Value,
+) -> Result<angel_live::kernel::Binding, String> {
+    Ok(std::sync::Arc::new(()))
+}
+
+pub(crate) fn validate_host_contract(
+    kind: &str,
+    value: &serde_json::Value,
+) -> Result<(), String> {
+    <GameHost as DriveWorld>::validate_contract(kind, value)
 }
 
 /// Live-module evaluation is the Kernel's V8 backend: a small pool of threads
@@ -139,45 +175,223 @@ mod tests {
     use super::*;
     use std::time::{Duration, Instant};
 
+    #[cfg(feature = "glass")]
     #[test]
-    fn character_module_publishes_prepared_native_resources_through_its_registered_command() {
-        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("live");
+    fn bad_hot_edited_squire_clip_keeps_the_previous_prepared_generation() {
+        use std::sync::Arc;
+        let root = std::env::temp_dir().join(format!("angel-squire-pack-{}", std::process::id()));
+        let module = root.join("showcase-squire");
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&module).unwrap();
+        std::fs::write(module.join("module.json"), r#"{"api_version":2,"id":"showcase-squire","kind":"system","entry":"index.js","state_schema":1,"exports":[{"kind":"resource","name":"pack","contract":"glass-squire-clip/1"}]}"#).unwrap();
+        std::fs::write(module.join("pack.json"), serde_json::json!({
+            "palette": vec![[0,0,0]; 12],
+            "frames": (0..9).map(|_| serde_json::json!({"pixels": vec![1; 320]})).collect::<Vec<_>>(),
+            "idle": [{"frame":5,"millis":4500}],
+            "wave": [{"frame":8,"millis":1000}]
+        }).to_string()).unwrap();
+        let source = "const pack=require('./pack.json'); module.exports={apiVersion:2,initialize:()=>({}),reduce:state=>({state}),resources:()=>({pack})}";
+        std::fs::write(module.join("index.js"), source).unwrap();
         let mut registry = angel_live::Registry::with_resources(
-            root,
+            root.clone(), evaluate, validate_host_contract, bind_resource,
+        );
+        registry.refresh(true);
+        let first = registry.snapshot().resources["showcase-squire/pack"].clone();
+        let first_clip = first.binding::<Arc<angel_glass::ShowcaseSquireClip>>().unwrap().clone();
+
+        let mut bad: serde_json::Value = serde_json::from_slice(&std::fs::read(module.join("pack.json")).unwrap()).unwrap();
+        bad["frames"][0]["pixels"] = serde_json::json!(vec![1; 319]);
+        std::fs::write(module.join("pack.json"), bad.to_string()).unwrap();
+        registry.refresh(true);
+        let current = registry.snapshot().resources["showcase-squire/pack"].clone();
+        let current_clip = current.binding::<Arc<angel_glass::ShowcaseSquireClip>>().unwrap();
+        assert_eq!(current.generation, first.generation);
+        assert!(Arc::ptr_eq(&first_clip, current_clip), "invalid pixels cannot replace the old resource lease");
+        drop(registry);
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[cfg(feature = "glass")]
+    #[test]
+    fn authored_card_track_edits_reject_invalid_candidates_and_retain_missing_sources() {
+        use std::sync::Arc;
+        let root = std::env::temp_dir().join(format!("angel-card-track-{}", std::process::id()));
+        let module = root.join("showcase-squire");
+        std::fs::create_dir_all(&module).unwrap();
+        std::fs::write(
+            module.join("module.json"),
+            std::fs::read(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("live/showcase-squire/module.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            module.join("index.js"),
+            std::fs::read(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("live/showcase-squire/index.js"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            module.join("pack.json"),
+            include_str!("../../live/showcase-squire/pack.json"),
+        )
+        .unwrap();
+        let motion = root.join("showcase-card-motion");
+        std::fs::create_dir_all(&motion).unwrap();
+        std::fs::write(
+            motion.join("module.json"),
+            std::fs::read(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("live/showcase-card-motion/module.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            motion.join("index.js"),
+            std::fs::read(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("live/showcase-card-motion/index.js"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        let mut value: serde_json::Value = serde_json::json!({"card":serde_json::from_str::<serde_json::Value>(include_str!("../../live/showcase-card-motion/pack.json")).unwrap()});
+        std::fs::write(motion.join("pack.json"), value["card"].to_string()).unwrap();
+        let mut registry = angel_live::Registry::with_resources(
+            root.clone(),
             evaluate,
             validate_host_contract,
             bind_resource,
         );
         registry.refresh(true);
-        let response = registry
-            .dispatch(
-                angel_live::kernel::Kind::Command,
-                "character",
-                &serde_json::json!({"type":"command","name":"character","arguments":"gold 2"}),
-            )
-            .unwrap();
-        assert_eq!(response["output"], "character gold selected for player 2");
-        let snapshot = registry.snapshot();
-        let appearance = snapshot.resources["abilities/character-seat-2"]
-            .binding::<crate::drive::together_abilities::Loadout>()
+        let first = registry.snapshot().resources["showcase-squire/pack"].clone();
+        let clip = first
+            .binding::<Arc<angel_glass::ShowcaseSquireClip>>()
             .unwrap()
-            .appearance
-            .as_ref()
+            .clone();
+        let (host, _hub) = angel_glass::remote::server::headless("card-tracks", Default::default());
+        host.showcase_squire_clip(
+            Some(angel_glass::ShowcaseClipIdentity {
+                module: first.module.clone(),
+                name: first.name.clone(),
+                generation: first.generation,
+                revision: first.revision,
+                digest: first.identity.clone(),
+            }),
+            Some(clip.clone()),
+        );
+        for step in value["card"]["states"]["busy"]["steps"]
+            .as_array_mut()
+            .unwrap()
+        {
+            step["offset"][0] = serde_json::json!(17);
+        }
+        std::fs::write(motion.join("pack.json"), value["card"].to_string()).unwrap();
+        registry.refresh(true);
+        let edited = registry.snapshot().resources["showcase-squire/pack"].clone();
+        let edited_clip = edited
+            .binding::<Arc<angel_glass::ShowcaseSquireClip>>()
+            .unwrap()
+            .clone();
+        assert!(edited.generation > first.generation);
+        assert_eq!(edited_clip.frames, clip.frames);
+        assert_ne!(edited_clip.card, clip.card);
+        // Wire publication is bounded after prepared-data reserialization.
+        let edited_identity = angel_glass::ShowcaseClipIdentity {
+            module: edited.module.clone(),
+            name: edited.name.clone(),
+            generation: edited.generation,
+            revision: edited.revision,
+            digest: edited.identity.clone(),
+        };
+        let update = angel_glass::remote::wire::SquireClipUpdate::capture(Some(&(
+            edited_identity.clone(),
+            edited_clip.clone(),
+        )))
+        .unwrap();
+        assert!(update.pack.as_ref().unwrap().len() <= 64 * 1024);
+        host.showcase_squire_clip(Some(edited_identity), Some(edited_clip.clone()));
+        let working = value.clone();
+        value["card"]["states"]["busy"]["steps"][0]["millis"] = serde_json::json!(0);
+        std::fs::write(motion.join("pack.json"), value["card"].to_string()).unwrap();
+        registry.refresh(true);
+        let retained = registry.snapshot().resources["showcase-squire/pack"].clone();
+        assert_eq!(retained.generation, edited.generation);
+        assert!(Arc::ptr_eq(
+            retained
+                .binding::<Arc<angel_glass::ShowcaseSquireClip>>()
+                .unwrap(),
+            &edited_clip
+        ));
+        // A structurally valid oversized track also fails before replacing the lease.
+        value["card"]["states"]["busy"]["steps"][0]["millis"] = serde_json::json!(1);
+        let steps = value["card"]["states"]["busy"]["steps"]
+            .as_array_mut()
             .unwrap();
-        let mut run = angel_delve::rules::Run::new(3, 9, Some("Two"));
-        assert!(appearance.install(&mut run));
-        assert_eq!(
-            run.players[&2].avatar.as_ref().unwrap().colour,
-            [225, 165, 50]
-        );
+        let step = steps[0].clone();
+        steps.resize(1500, step);
+        let mut oversized: serde_json::Value =
+            serde_json::from_str(include_str!("../../live/showcase-squire/pack.json")).unwrap();
+        oversized["card"] = value["card"].clone();
         assert!(
-            character_resource(
-                "another-seat",
-                &serde_json::json!({"player":2,"disabled":true}),
-                &Default::default()
-            )
-            .is_err()
+            showcase_squire::prepare(&oversized)
+                .unwrap_err()
+                .contains("64 KiB")
         );
+        std::fs::write(motion.join("pack.json"), value["card"].to_string()).unwrap();
+        registry.refresh(true);
+        assert_eq!(
+            registry.snapshot().resources["showcase-squire/pack"].generation,
+            edited.generation
+        );
+        std::fs::remove_dir_all(&motion).unwrap();
+        registry.refresh(true);
+        assert_eq!(
+            registry.snapshot().resources["showcase-squire/pack"].generation,
+            edited.generation,
+            "required dependency disappearance retains the whole last-good /2 lease"
+        );
+        assert!(registry.snapshot().statuses.iter().any(|status| status.id == "showcase-card-motion" && status.error.is_some()));
+        std::fs::create_dir_all(&motion).unwrap();
+        std::fs::write(
+            motion.join("module.json"),
+            std::fs::read(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("live/showcase-card-motion/module.json"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        std::fs::write(
+            motion.join("index.js"),
+            std::fs::read(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .join("live/showcase-card-motion/index.js"),
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        std::fs::write(motion.join("pack.json"), working["card"].to_string()).unwrap();
+        registry.refresh(true);
+        assert_eq!(
+            registry.snapshot().resources["showcase-squire/pack"]
+                .binding::<Arc<angel_glass::ShowcaseSquireClip>>()
+                .unwrap()
+                .card,
+            edited_clip.card
+        );
+        std::fs::remove_dir_all(&module).unwrap();
+        registry.refresh(true);
+        let missing = registry.snapshot();
+        assert!(missing.resources.contains_key("showcase-squire/pack"), "source disappearance is not withdrawal");
+        assert!(missing.statuses.iter().any(|status| status.id == "showcase-squire" && status.error.is_some()));
+        host.showcase_squire_clip(None, None);
+        std::fs::remove_dir_all(root).unwrap();
     }
 
     fn copy_tree(from: &std::path::Path, to: &std::path::Path) {

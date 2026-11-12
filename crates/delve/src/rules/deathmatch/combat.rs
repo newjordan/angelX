@@ -293,6 +293,12 @@ impl Session {
         }
         for effect in &card.effects {
             match *effect {
+                // The colosseum has no ground to burn: an area is one stroke
+                // on the rivals it would reach (`zones`).
+                Effect::Area(area) => {
+                    let (centre, reach, damage) = super::zones::duel_stroke(&area, at, aim, damage);
+                    self.area(id, centre, reach, damage);
+                }
                 Effect::Rip(n) => {
                     self.area(id, aim, 4., n);
                     self.fighters.get_mut(&id).unwrap().hero.mend(n / 2, stakes::Mend::Potion);

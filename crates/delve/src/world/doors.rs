@@ -78,6 +78,11 @@ fn title_case(text: &str) -> String {
 pub fn doors() -> &'static [((i32, i32), Door)] {
     static DOORS: OnceLock<Vec<((i32, i32), Door)>> = OnceLock::new();
     DOORS.get_or_init(|| {
+        // The blank-slate plan has the way down to the Delve and nothing else:
+        // the tiny Keep and the camps are not doors.
+        if super::plan::tabula() {
+            return vec![(wishes::delve_stand(), Door::Delve)];
+        }
         Place::ALL
             .into_iter()
             .map(|place| (place.stand_world(), Door::Place(place)))

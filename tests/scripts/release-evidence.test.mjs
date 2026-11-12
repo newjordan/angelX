@@ -14,6 +14,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, relative, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import test from 'node:test'
+import { createRequire } from 'node:module'
+import { runInNewContext } from 'node:vm'
 
 import {
   RELEASE_PATHS,
@@ -902,7 +904,7 @@ test('active Node and target-filtered offline Cargo graphs satisfy release polic
   )
   assert.deepEqual(
     rust.advisory_policy.lockfiles.map((row) => row.package_count),
-    [524, 455, 79],
+    [530, 460, 79],
   )
   assert.equal(rust.advisory_policy.python.status, 'not-applicable')
   assert.deepEqual(
@@ -936,4 +938,77 @@ test('vendored dotmax keeps the unused imageproc branch out of the active graph'
 
 test('Darwin process lease bridge is declared as a packaged runtime helper', () => {
   assert.ok(REQUIRED_RUNTIME_HELPERS.includes('scripts/runtime/process-start-token.py'))
+})
+
+
+test('packaged squire dependency ships canonical motion and executes from the extracted archive', (t) => {
+  const root = fixture(t)
+  const modules = ['showcase-squire', 'showcase-card-motion']
+  const paths = modules.flatMap((module) => ['module.json', 'index.js', 'pack.json'].map((name) => `cockpit/live/${module}/${name}`))
+  for (const path of paths) {
+    assert.ok(REQUIRED_RUNTIME_HELPERS.includes(path), `runtime inventory: ${path}`)
+    assert.ok(RELEASE_PATHS.includes(path), `archive allowlist: ${path}`)
+    write(join(root, path), readFileSync(join(ROOT, path)))
+  }
+  assert.ok(REQUIRED_COCKPIT_EMBEDDED_FILES.includes('cockpit/live/showcase-card-motion/pack.json'))
+  command(root, 'git', ['add', ...paths])
+  command(root, 'git', ['commit', '--quiet', '-m', 'squire motion packaging fixture'])
+  const entries = inventoryReleaseFiles(root)
+  for (const path of paths) assert.ok(entries.some((entry) => entry.path === path))
+  const archive = join(root, 'out/cards.tar')
+  createSourceArchive(root, archive, entries)
+  const extracted = join(root, 'extracted')
+  mkdirSync(extracted)
+  command(root, 'tar', ['-xf', archive, '-C', extracted])
+  const load = (module, resource) => {
+    const filename = join(extracted, 'cockpit/live', module, 'index.js')
+    const context = { module: { exports: {} }, require: createRequire(filename), resource }
+    runInNewContext(readFileSync(filename, 'utf8'), context, { filename })
+    return context.module.exports.resources().pack
+  }
+  const manifest = JSON.parse(readFileSync(join(extracted, 'cockpit/live/showcase-squire/module.json')))
+  const [dependency] = manifest.imports
+  assert.equal(dependency.contract, 'glass-card-motion/1')
+  const motion = load(dependency.module)
+  const art = load('showcase-squire', (module, name) => {
+    assert.equal(module, dependency.module)
+    assert.equal(name, 'pack')
+    return { value: motion }
+  })
+  assert.deepEqual(Object.keys(art.card.states).sort(), ['busy', 'cheer', 'guard', 'oops', 'present', 'sit', 'wave'])
+  assert.equal(art.frames.length, 9)
+  assert.ok(Buffer.byteLength(JSON.stringify(art)) < 64 * 1024)
+})
+
+test('source archive ships the abilities animation and graph providers', (t) => {
+  const root = fixture(t)
+  const modules = ['character-motion', 'character-graphs']
+  const paths = modules.flatMap((id) => ['module.json', 'index.js'].map((name) => `cockpit/live/${id}/${name}`))
+  const abilitiesManifest = 'cockpit/live/abilities/module.json'
+  for (const path of [...paths, abilitiesManifest]) {
+    assert.ok(RELEASE_PATHS.includes(path), `archive allowlist: ${path}`)
+    assert.ok(REQUIRED_RUNTIME_HELPERS.includes(path), `runtime inventory: ${path}`)
+    write(join(root, path), readFileSync(join(ROOT, path)))
+  }
+  command(root, 'git', ['add', ...paths, abilitiesManifest])
+  const archive = join(root, 'out/character-providers.tar')
+  createSourceArchive(root, archive, inventoryReleaseFiles(root))
+  const extracted = join(root, 'extracted')
+  mkdirSync(extracted)
+  command(root, 'tar', ['-xf', archive, '-C', extracted])
+  const abilities = JSON.parse(readFileSync(join(extracted, abilitiesManifest), 'utf8'))
+  for (const id of modules) {
+    const directory = join(extracted, 'cockpit/live', id)
+    const manifest = JSON.parse(readFileSync(join(directory, 'module.json'), 'utf8'))
+    const dependency = abilities.imports.find((entry) => entry.module === id)
+    assert.ok(dependency?.optional, `${id} must be an optional abilities import`)
+    assert.ok(manifest.exports.some((entry) => entry.name === 'pack' && entry.contract === dependency.contract))
+    for (const name of ['module.json', 'index.js']) {
+      assert.deepEqual(readFileSync(join(directory, name)), readFileSync(join(ROOT, 'cockpit/live', id, name)))
+    }
+    const context = { module: { exports: {} } }
+    runInNewContext(readFileSync(join(directory, manifest.entry), 'utf8'), context, { timeout: 2000 })
+    assert.equal(context.module.exports.apiVersion, 2)
+    assert.ok(Object.keys(context.module.exports.resources().pack.options).length > 0)
+  }
 })

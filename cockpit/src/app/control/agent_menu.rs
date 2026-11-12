@@ -192,7 +192,7 @@ impl App {
 
     pub(crate) fn open_agent_menu(&mut self, kind: AgentMenuKind) {
         self.launch_interaction();
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             return;
         }
         self.agent_menu_search = None;
@@ -241,7 +241,7 @@ impl App {
     }
 
     pub(crate) fn open_agent_menu_filtered(&mut self, kind: AgentMenuKind, query: &str) -> bool {
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             return false;
         }
         self.open_agent_menu(kind);
@@ -516,7 +516,7 @@ impl App {
         if self.agent_menu.is_none() {
             return false;
         }
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             self.agent_menu = None;
             self.agent_menu_search = None;
             return true;
@@ -612,7 +612,7 @@ impl App {
     }
 
     pub(crate) fn apply_agent_menu_action(&mut self, action: AgentMenuAction) {
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             self.agent_menu = None;
             return;
         }

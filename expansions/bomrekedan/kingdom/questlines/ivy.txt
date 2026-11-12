@@ -1,0 +1,31 @@
+# The Tired Ivy — Likot Stoppedlabors, chief medical dwarf, in Bomrekedan's hospital.
+# A Bomrekedan questline (quests.json: the-tired-ivy and
+# three-names-in-the-gossip, joined). Same file shape and caveats as
+# steel.txt. Dame Alyce also teaches in the Priory room; give each a
+# different `at`.
+power   bomrekedan:ivy
+teacher Likot Stoppedlabors
+place   The Tired Ivy, Bomrekedan's hospital, three traction benches and not enough soap
+room    Priory
+look    young for the post, a bruise ring round his throat gone yellow, and a satchel of splints he counts every hour
+line    Twenty-eight, and chief medical dwarf. The last one was not strangled by a spider. I was.
+teach   You cannot mend in a hurry, and you cannot keep a secret in a hospital. People talk while they are being stitched.
+hook    The hospital's patient book has three names written in its margin that are not patients: Strangerfought, Parchedwhisker, the Music of Diamond.
+step    The infirmary hour | serve one infirmary hour with Likot: three cued ministrations | infirmary_hours 1 | Splint, bandage, sit with them. Then write it down. | cue tend
+step    The wax | bring wax home from the Crypt for soap and candles | crypt_wax_brought 8 | Three soap makers in this fort and no soap. Wax, then, and we will think of something. | needs
+step    The three who talked | question the three who named the treasures to visiting swordsmen, one each visit | informants_questioned 3 | A bracelet, a flask, an instrument. Our own. They told strangers where they sleep. | cue ask
+step    The thief | catch the artifact thief in the Delve | artifact_thieves_caught 1 | So someone was listening. Now someone is not. | needs
+step    The treasures home | bring the stolen treasure back to the display cases | relics_returned 1 | Locked, this time. I have the key, and I am very hard to strangle now. | cue fetch
+trial   The mended hall | clear one hall with every knight unhurt | unbroken_halls 1 | Nobody to splint. I will put that in the book too.
+reward  the Tired Ivy raised a level: more health at each delve's start, a proposed Mend gift (a Bomrekedan questline: no power is taught)
+title   the Ivy's Orderly
+keepsake a splint of hazel wood, with Likot's knot on it
+ties    The infirmary hour pools with Dame Alyce's (infirmary_hours) and so does the unhurt hall (unbroken_halls); the stolen treasures are relics like Bomrek's axe (relics_returned).
+art
+...8...
+..888..
+...8...
+.88888.
+.8.7.8.
+.88888.
+..8.8..

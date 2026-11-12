@@ -94,11 +94,18 @@ pub(crate) const MOONLIT: Ramp = Ramp(&[
 // Noise — deterministic, allocation-free
 // ============================================================================
 
-// The noise itself lives in the realm host, whose weather and water draw with
-// it; the other surfaces read it from here.
-pub(crate) use angel_realm_host::retro_noise::hash01;
-#[cfg(test)]
-pub(crate) use angel_realm_host::retro_noise::value_noise;
+#[inline]
+pub(crate) fn hash01(x: i32, y: i32, seed: u64) -> f32 {
+    let mut h = seed
+        .wrapping_add((x as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15))
+        .wrapping_add((y as u64).wrapping_mul(0xBF58_476D_1CE4_E5B9));
+    h ^= h >> 30;
+    h = h.wrapping_mul(0x94D0_49BB_1331_11EB);
+    h ^= h >> 27;
+    h = h.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+    h ^= h >> 31;
+    ((h >> 40) as f32) / ((1u64 << 24) as f32)
+}
 
 // ============================================================================
 // Firelight

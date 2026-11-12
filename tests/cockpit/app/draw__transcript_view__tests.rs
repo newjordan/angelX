@@ -1,5 +1,6 @@
 use super::*;
 
+#[cfg(feature = "delve")]
 #[test]
 fn delegate_status_renders_before_delegate_completion_without_child_process() {
     use std::sync::{Arc, atomic::AtomicBool};
@@ -1067,6 +1068,7 @@ fn rebuilt_same_length_history_invalidates_cached_heights_and_spawns() {
     assert_ne!(app.transcript_heights, old_heights);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn herald_row_click_opens_the_ledger_of_literal_calls() {
     let _guard = crate::tests::env_lock();

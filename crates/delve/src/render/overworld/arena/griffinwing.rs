@@ -14,13 +14,21 @@ mod actors;
 mod bank;
 mod cam;
 mod canyon;
+mod finale;
+mod finish;
+mod guide;
+mod fx;
 mod hud;
 mod layout;
+mod moments;
 mod paint;
 mod set;
 mod sky;
+mod skin;
+mod wyrm;
 
 use super::super::ink::Img;
+use super::juice;
 use super::race3d::dots_with;
 use super::roundtable::{self as shell, Look};
 use crate::render::world3d::math::{V3, v3};
@@ -141,24 +149,72 @@ fn dots(s: &Session, seat: u32) -> (Img, Vec<f32>, Cam) {
         })
     });
     let mut im = dots_with(rgba.as_raw(), W, H, TONE);
+    finale::flood(&mut im, &depth, &cam, s);
     sky::paint(&mut im, &depth, &cam.sky_view(), sky_of(s), s.elapsed);
     set::paint(&mut im, &depth, &cam, s, seat);
     (im, depth, cam)
 }
 
+/// How far a blow has shaken the world, in dots, for `seat`: its own
+/// blows and falls, a bomb's, and the heavy ones of the wing (a lamp, the
+/// Wyrm). The plates stand still.
+fn shaken(s: &Session, seat: u32) -> (i32, i32) {
+    use crate::rules::griffinwing::show::What;
+    use crate::rules::juice::Weight;
+    let now = s.elapsed;
+    // The beacon taking its flame: a great shake as it lights, dying away.
+    let ignite = (s.mode == Mode::Victory && s.mode_t >= moments::LIGHT_AT)
+        .then(|| (Weight::Crushing, s.mode_t - moments::LIGHT_AT));
+    let blows = s.show.fx.iter().filter_map(|f| {
+        let mine = u32::from(f.seat) == seat;
+        let weight = match f.what {
+            What::Hurt | What::Fall if mine => f.weight,
+            What::Pop if mine && f.weight >= Weight::Crushing => f.weight,
+            What::Pop if f.weight >= Weight::Kill => Weight::Solid,
+            What::Starfall if mine => Weight::Kill,
+            What::LampOut | What::WyrmDown => f.weight,
+            _ => return None,
+        };
+        Some((weight, f.age(now)))
+    });
+    juice::shake(blows.chain(ignite), u64::from(now))
+}
+
+/// `im` moved by `(dx, dy)`, the edge it uncovers made of the edge's own
+/// last row, so a shake never shows black paper.
+fn shifted(im: &Img, (dx, dy): (i32, i32)) -> Img {
+    if (dx, dy) == (0, 0) {
+        return im.clone();
+    }
+    let mut out = Img::new(im.w, im.h);
+    for y in 0..im.h {
+        let sy = (y - dy).clamp(0, im.h - 1);
+        for x in 0..im.w {
+            let sx = (x - dx).clamp(0, im.w - 1);
+            if let Some(c) = im.get(sx, sy) {
+                out.set(x, y, c);
+            }
+        }
+    }
+    out
+}
+
 /// The whole picture, for `seat`.
 fn scene(run: &Run, s: &Session, seat: u32) -> Img {
     let (mut im, depth, cam) = dots(s, seat);
-    hud::paint(
-        &mut im,
-        &hud::Ctx {
-            s,
-            run,
-            seat,
-            cam: &cam,
-            depth: &depth,
-        },
-    );
+    let ctx = hud::Ctx {
+        s,
+        run,
+        seat,
+        cam: &cam,
+        depth: &depth,
+    };
+    hud::paint_world(&mut im, &ctx);
+    if guide::on() {
+        guide::paint(&mut im, &cam, s);
+    }
+    let mut im = shifted(&im, shaken(s, seat));
+    hud::paint_screen(&mut im, &ctx);
     im
 }
 

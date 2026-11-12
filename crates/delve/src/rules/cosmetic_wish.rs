@@ -6,6 +6,12 @@ use super::*;
 pub struct Look {
     pub words: String,
     pub worn: looks::Sprite,
+    /// The whole knight is drawn from `words` (a body-maker's HD drawings,
+    /// `realm-host`'s `together_looker`, drawn by a window's pack): the
+    /// worn ink stays saved but is left off the knight while this holds. It
+    /// is set only for the words the look has, and a new wish clears it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub body: bool,
 }
 
 /// A stable, filename-safe card key, independent of seat and run.
@@ -98,8 +104,23 @@ impl Run {
             .or_insert_with(|| Look {
                 words: offer.said.clone(),
                 worn: looks::Sprite::default(),
-            })
-            .words = offer.said.clone();
+                body: false,
+            });
+        // A new wish never wears the old wish's body: the card's words are
+        // always the words the knight is drawn from. The same words again
+        // leave the body on: the knight is already that look.
+        let dropped = self.home.wardrobe.mirror_looks.get_mut(&name).is_some_and(|look| {
+            let changed = look.body && look.words != offer.said;
+            look.words = offer.said.clone();
+            if changed {
+                look.body = false;
+            }
+            changed
+        });
+        if dropped {
+            // The worn ink is the knight's look again until the new body lands.
+            self.restore_mirror_look(id);
+        }
         self.asked.retain(|a| !(a.cosmetic && a.knight == id));
         self.asked.push(genie::Asked {
             cosmetic: true,
@@ -167,11 +188,13 @@ impl Run {
             .ok_or("No knight for this look.")?
             .mirror_owner()
             .to_owned();
+        let body = self.home.wardrobe.mirror_looks.get(&name).is_some_and(|l| l.body && l.words == words);
         self.home.wardrobe.mirror_looks.insert(
             name,
             Look {
                 words: words.into(),
                 worn,
+                body,
             },
         );
         self.restore_mirror_look(id);
@@ -197,11 +220,13 @@ impl Run {
             return false;
         }
         for name in names {
+            let body = self.home.wardrobe.mirror_looks.get(&name).is_some_and(|l| l.body && l.words == card.text);
             self.home.wardrobe.mirror_looks.insert(
                 name,
                 Look {
                     words: card.text.clone(),
                     worn: worn.clone(),
+                    body,
                 },
             );
         }
@@ -226,13 +251,68 @@ impl Run {
         let Some(look) = self.home.wardrobe.mirror_looks.get(&owner) else {
             return;
         };
-        let Ok(card) = self.mirror_paint_card(id, &look.words) else {
+        let body = look.body;
+        let Ok(mut card) = self.mirror_paint_card(id, &look.words) else {
             return;
         };
+        // A knight drawn whole from its words wears no ink over the rig: its
+        // plain knight is what the room stamps and a pack draws by name.
+        if body {
+            card.looks.worn = None;
+        }
         self.book.insert(card);
+    }
+
+    /// The body-maker has drawn (or, `on` false, lost) the whole knight for
+    /// the look whose card is `card` (`key`): kept with the look, for
+    /// every seat that holds the realm knight. Only the words the look has
+    /// count: a late result for an older wish changes nothing. Whether
+    /// anything changed.
+    pub fn set_mirror_body(&mut self, card: &str, words: &str, on: bool) -> bool {
+        let mut changed = false;
+        for (name, look) in self.home.wardrobe.mirror_looks.iter_mut() {
+            if key(name) == card && look.body != on && (!on || look.words == words) {
+                look.body = on;
+                changed = true;
+            }
+        }
+        if changed {
+            let ids: Vec<_> = self.players.keys().copied().collect();
+            for id in ids {
+                self.restore_mirror_look(id);
+            }
+        }
+        changed
+    }
+
+    /// The seated knights drawn whole from their look: the card id the
+    /// body-maker's set is kept under and the seat each sits at, by seat.
+    pub fn mirror_bodies(&self) -> Vec<(String, u32)> {
+        self.players
+            .iter()
+            .filter(|(_, h)| {
+                self.home
+                    .wardrobe
+                    .mirror_looks
+                    .get(h.mirror_owner())
+                    .is_some_and(|look| look.body)
+            })
+            .map(|(&id, h)| (key(h.mirror_owner()), id))
+            .collect()
+    }
+
+    /// Whether knight `id` is drawn whole from their look.
+    pub fn has_mirror_body(&self, id: u32) -> bool {
+        self.players.get(&id).is_some_and(|h| {
+            self.home.wardrobe.mirror_looks.get(h.mirror_owner()).is_some_and(|look| look.body)
+        })
     }
 }
 
 #[cfg(test)]
 #[path = "../../tests/rules/cosmetic_wish__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/cosmetic_body__tests.rs"]
+mod body_tests;

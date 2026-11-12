@@ -10,8 +10,10 @@ use crate::rules::Run;
 use crate::rules::bounties;
 use crate::rules::home::BOUNTY_BOARD;
 
-/// The board on its posts, as the cellar's scenery has it.
-pub(super) fn furniture(cv: &mut Img) {
+/// The board on its posts, as the cellar's scenery has it, with the
+/// `printed` extra notices the Type-Foundry's type has run off beside Wren's
+/// three.
+pub(super) fn furniture(cv: &mut Img, printed: usize) {
     let (c, r, w, _) = BOUNTY_BOARD;
     let (x0, x1) = (c * TILE, (c + w) * TILE);
     let foot = (r + 1) * TILE - 2;
@@ -42,17 +44,21 @@ pub(super) fn furniture(cv: &mut Img) {
     }
     cv.frame(x0 + 1, top, pw, ph, 'B');
     cv.line(x0 + 1, top, x1 - 2, top, 'P');
-    // Three notes, each with a red pin and Wren's hand on it.
-    for i in 0..3 {
-        let (nx, ny) = (x0 + 6 + i * 13, top + 3 + (i % 2) * 2);
-        cv.rect(nx, ny, 10, 13, '9');
-        cv.put(nx + 9, ny + 12, 'c');
+    // Three notes, each with a red pin and Wren's hand on it; narrower to
+    // make room when type has printed more, which are set in even lines.
+    let (step, wide) = if printed > 0 { (9, 7) } else { (13, 10) };
+    let first = if printed > 0 { x0 + 3 } else { x0 + 6 };
+    for i in 0..3 + printed as i32 {
+        let (nx, ny) = (first + i * step, top + 3 + (i % 2) * 2);
+        let typed = i >= 3;
+        cv.rect(nx, ny, wide, 13, if typed { 'c' } else { '9' });
+        cv.put(nx + wide - 1, ny + 12, if typed { '$' } else { 'c' });
         for l in 0..4 {
-            let len = 4 + (hash(i, l, 63) % 3) as i32;
-            cv.line(nx + 2, ny + 4 + l * 2, nx + 1 + len, ny + 4 + l * 2, 'J');
+            let len = if typed { wide - 4 } else { 4 + (hash(i, l, 63) % 3) as i32 };
+            cv.line(nx + 2, ny + 4 + l * 2, nx + 1 + len, ny + 4 + l * 2, if typed { 'G' } else { 'J' });
         }
-        cv.put(nx + 5, ny, '7');
-        cv.put(nx + 5, ny + 1, '8');
+        cv.put(nx + wide / 2, ny, '7');
+        cv.put(nx + wide / 2, ny + 1, '8');
     }
 }
 

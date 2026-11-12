@@ -6,6 +6,16 @@
 id = "rea"
 label = "REA"
 
+[plugin]
+version = "1.0.0"
+description = "Reverse engineer native binaries, Electron and JavaScript apps, .NET assemblies, APKs, firmware and websites with REA's CLI."
+authors = ["angelX contributors"]
+license = "MIT"
+repository = "https://github.com/newjordan/angelX"
+keywords = ["reverse-engineering", "decompile", "binaries", "electron", "apk", "firmware"]
+# Installs the pinned rea-agents CLI (Node.js and npm) and REA's own skill.
+setup = "install.sh"
+
 [[commands]]
 name = "rea"
 usage = "<target path, app or URL> [what to find or build]"

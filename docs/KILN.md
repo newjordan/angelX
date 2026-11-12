@@ -94,7 +94,10 @@ the game exactly, so that is where the engineering goes. The brain is kept thin.
   `~/.angelX/kiln/jobs/<id>/`.
 - **Backends**: kiln, and pxl (a local pixel-art tool) for sketches until kiln covers a need.
 - **Review**: a page with every job's variants at true size and zoomed, votes and notes. Approved
-  pieces go to the library (recipes, renders, notes) and lessons into the style bible.
+  pieces go to the library (recipes, renders, notes) and lessons into the style bible. The header's
+  **lighter** link (or `kiln-studio lighter`) opens Pixel Art Lighter v3.5.22, vendored under
+  `tools/kiln-studio/lighter/`. Its Up direction is positive green, so `name-Normal.png` renames to
+  `<file>_n.png` for an authored normal. Do not invert channels.
 
 ## Rules for every lane
 

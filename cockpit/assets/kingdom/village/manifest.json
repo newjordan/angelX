@@ -1,0 +1,933 @@
+{
+  "schema": 1,
+  "style_reference": "../concepts/village-vision.png",
+  "sources": [
+    {
+      "file": "brick-corners-atlas.png",
+      "size": [
+        1263,
+        1246
+      ],
+      "mode": "RGBA",
+      "sha256": "6ccfe2855a4ba41526e81048164a17f5d895f911c3d3f3e5f35d05ec678ff40a"
+    },
+    {
+      "file": "brick-cottage-stages-atlas.png",
+      "size": [
+        1261,
+        1247
+      ],
+      "mode": "RGBA",
+      "sha256": "5c7acfb1ef06b0adcb94202d689ec81ed86db83a12c3720eaaa83b8658b95e32"
+    },
+    {
+      "file": "brick-junctions-atlas.png",
+      "size": [
+        1263,
+        1246
+      ],
+      "mode": "RGBA",
+      "sha256": "84cb75ee83340168adb8c1173e4fdfd7c522c2f4381d3c25c65af946d09a263a"
+    },
+    {
+      "file": "brick-walls-gates-atlas.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "sha256": "b5b3aaac295937e79f11c22785c3db20c2682398eb021892d1522039330f8cad"
+    },
+    {
+      "file": "brickworks-modules-atlas.png",
+      "size": [
+        1312,
+        1199
+      ],
+      "mode": "RGBA",
+      "sha256": "01574325c65b9c0e238f435626cb3b9deb61e1c56e1146df467d2f597c1989a8"
+    },
+    {
+      "file": "brickworks-quarter-concept.png",
+      "size": [
+        1586,
+        992
+      ],
+      "mode": "RGB",
+      "sha256": "9eca0d31ff41bed05b5b4d32baf4bccec45a78b1f6eaa5828737448eb76a73a8"
+    },
+    {
+      "file": "bridges-connectors-atlas.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGBA",
+      "sha256": "34a2ccadeb57107ab6b49b691d5c2d8376d650a09b6b4f5a0e17acd5fc8173f4"
+    },
+    {
+      "file": "fire-press-animation-atlas.png",
+      "size": [
+        1774,
+        887
+      ],
+      "mode": "RGBA",
+      "sha256": "ee8aaa93a165971ad0164ea39e6e072499522df3010e9c6250ca4c000c44353d"
+    },
+    {
+      "file": "power-housings-atlas.png",
+      "size": [
+        1774,
+        887
+      ],
+      "mode": "RGBA",
+      "sha256": "77f765492ab3aa572d472ee2bd7c7df5159765121d991767594675c51bd13fbf"
+    },
+    {
+      "file": "rotors-animation-atlas.png",
+      "size": [
+        1774,
+        887
+      ],
+      "mode": "RGBA",
+      "sha256": "f8c982cbfe1bee992835ca695255a2641063d256f1c7762bf92c24b52885bee6"
+    },
+    {
+      "file": "walls-gate-stages-atlas.png",
+      "size": [
+        1774,
+        887
+      ],
+      "mode": "RGBA",
+      "sha256": "efa521c564e241681862b6cf802a56cae0b8a83a902bafc92ad8af383b958da8"
+    }
+  ],
+  "assets": [
+    {
+      "id": "clay-pit",
+      "atlas": "brickworks-modules-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            656,
+            599
+          ],
+          "anchor": [
+            328.0,
+            542
+          ]
+        }
+      ],
+      "reference_size": 586
+    },
+    {
+      "id": "brickworks",
+      "atlas": "brickworks-modules-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            656,
+            0,
+            656,
+            599
+          ],
+          "anchor": [
+            320.5,
+            559
+          ]
+        }
+      ],
+      "reference_size": 611
+    },
+    {
+      "id": "brick-kiln",
+      "atlas": "brickworks-modules-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            599,
+            656,
+            600
+          ],
+          "anchor": [
+            330.0,
+            525
+          ]
+        }
+      ],
+      "reference_size": 590
+    },
+    {
+      "id": "masonry-yard",
+      "atlas": "brickworks-modules-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            656,
+            599,
+            656,
+            600
+          ],
+          "anchor": [
+            314.0,
+            532
+          ]
+        }
+      ],
+      "reference_size": 614
+    },
+    {
+      "id": "brick-cottage",
+      "atlas": "brick-cottage-stages-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            630,
+            623
+          ],
+          "anchor": [
+            315,
+            536
+          ]
+        },
+        {
+          "rect": [
+            630,
+            0,
+            631,
+            623
+          ],
+          "anchor": [
+            315,
+            536
+          ]
+        },
+        {
+          "rect": [
+            0,
+            623,
+            630,
+            624
+          ],
+          "anchor": [
+            315,
+            565
+          ]
+        },
+        {
+          "rect": [
+            630,
+            623,
+            631,
+            624
+          ],
+          "anchor": [
+            315,
+            565
+          ]
+        }
+      ],
+      "reference_size": 482,
+      "default_frame": 3,
+      "construction": true
+    },
+    {
+      "id": "brick-wall-ew",
+      "atlas": "brick-walls-gates-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            316.5,
+            499
+          ]
+        }
+      ],
+      "reference_size": 517
+    },
+    {
+      "id": "brick-gate",
+      "atlas": "brick-walls-gates-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            314.0,
+            542
+          ]
+        },
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            314.0,
+            542
+          ]
+        }
+      ],
+      "reference_size": 522,
+      "default_frame": 0
+    },
+    {
+      "id": "bridge-ew",
+      "atlas": "bridges-connectors-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            338.5,
+            482
+          ]
+        }
+      ],
+      "reference_size": 537
+    },
+    {
+      "id": "bridge-ns",
+      "atlas": "bridges-connectors-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            627,
+            0,
+            627,
+            627
+          ],
+          "anchor": [
+            326.5,
+            589
+          ]
+        }
+      ],
+      "reference_size": 552
+    },
+    {
+      "id": "brick-wall-post",
+      "atlas": "bridges-connectors-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            319.5,
+            509
+          ]
+        }
+      ],
+      "reference_size": 426
+    },
+    {
+      "id": "brick-wall-ns",
+      "atlas": "bridges-connectors-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            627,
+            627,
+            627,
+            627
+          ],
+          "anchor": [
+            315,
+            307
+          ]
+        }
+      ],
+      "reference_size": 562
+    },
+    {
+      "id": "brick-wall-ne",
+      "atlas": "brick-corners-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            631,
+            623
+          ],
+          "anchor": [
+            238,
+            554
+          ]
+        }
+      ],
+      "reference_size": 447
+    },
+    {
+      "id": "brick-wall-nw",
+      "atlas": "brick-corners-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            631,
+            0,
+            632,
+            623
+          ],
+          "anchor": [
+            400,
+            554
+          ]
+        }
+      ],
+      "reference_size": 447
+    },
+    {
+      "id": "brick-wall-se",
+      "atlas": "brick-corners-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            623,
+            631,
+            623
+          ],
+          "anchor": [
+            238,
+            277
+          ]
+        }
+      ],
+      "reference_size": 446
+    },
+    {
+      "id": "brick-wall-sw",
+      "atlas": "brick-corners-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            631,
+            623,
+            632,
+            623
+          ],
+          "anchor": [
+            400,
+            277
+          ]
+        }
+      ],
+      "reference_size": 447
+    },
+    {
+      "id": "waterwheel",
+      "atlas": "power-housings-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            887,
+            887
+          ],
+          "anchor": [
+            455,
+            743
+          ]
+        }
+      ],
+      "reference_size": 822
+    },
+    {
+      "id": "drive-shaft",
+      "atlas": "power-housings-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            887,
+            0,
+            887,
+            887
+          ],
+          "anchor": [
+            447.5,
+            739
+          ]
+        }
+      ],
+      "reference_size": 785
+    },
+    {
+      "id": "wheel-rotor",
+      "atlas": "rotors-animation-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            168,
+            457
+          ]
+        },
+        {
+          "rect": [
+            443,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            157,
+            457
+          ]
+        },
+        {
+          "rect": [
+            887,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            152,
+            457
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            148,
+            457
+          ]
+        }
+      ],
+      "reference_size": 822,
+      "animations": {
+        "work": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frame_ms": 160
+        }
+      }
+    },
+    {
+      "id": "shaft-rotor",
+      "atlas": "rotors-animation-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            226,
+            521
+          ]
+        },
+        {
+          "rect": [
+            443,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            226,
+            521
+          ]
+        },
+        {
+          "rect": [
+            887,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            225,
+            521
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            226,
+            521
+          ]
+        }
+      ],
+      "reference_size": 1020.5,
+      "animations": {
+        "work": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frame_ms": 130
+        }
+      }
+    },
+    {
+      "id": "kiln-fire",
+      "atlas": "fire-press-animation-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            303,
+            424
+          ]
+        },
+        {
+          "rect": [
+            443,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            303,
+            424
+          ]
+        },
+        {
+          "rect": [
+            887,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            303,
+            424
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            303,
+            424
+          ]
+        }
+      ],
+      "reference_size": 1593,
+      "animations": {
+        "work": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frame_ms": 130
+        }
+      }
+    },
+    {
+      "id": "brick-press",
+      "atlas": "fire-press-animation-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            793.5,
+            739
+          ]
+        },
+        {
+          "rect": [
+            443,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            793.5,
+            739
+          ]
+        },
+        {
+          "rect": [
+            887,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            793.5,
+            739
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            793.5,
+            739
+          ]
+        }
+      ],
+      "reference_size": 1833,
+      "animations": {
+        "work": {
+          "frames": [
+            0,
+            1,
+            2,
+            3
+          ],
+          "frame_ms": 190
+        }
+      }
+    },
+    {
+      "id": "brick-wall-stages",
+      "atlas": "walls-gate-stages-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            232.0,
+            388
+          ]
+        },
+        {
+          "rect": [
+            443,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            220.5,
+            391
+          ]
+        },
+        {
+          "rect": [
+            887,
+            0,
+            443,
+            443
+          ],
+          "anchor": [
+            210.5,
+            392
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            0,
+            444,
+            443
+          ],
+          "anchor": [
+            206.5,
+            388
+          ]
+        }
+      ],
+      "reference_size": 390,
+      "construction": true
+    },
+    {
+      "id": "brick-gate-stages",
+      "atlas": "walls-gate-stages-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            230.5,
+            388
+          ]
+        },
+        {
+          "rect": [
+            443,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            219.0,
+            388
+          ]
+        },
+        {
+          "rect": [
+            887,
+            443,
+            443,
+            444
+          ],
+          "anchor": [
+            211.5,
+            388
+          ]
+        },
+        {
+          "rect": [
+            1330,
+            443,
+            444,
+            444
+          ],
+          "anchor": [
+            210.5,
+            388
+          ]
+        }
+      ],
+      "reference_size": 390,
+      "construction": true
+    },
+    {
+      "id": "brick-wall-nes",
+      "atlas": "brick-junctions-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            0,
+            631,
+            623
+          ],
+          "anchor": [
+            285,
+            464
+          ]
+        }
+      ],
+      "reference_size": 512
+    },
+    {
+      "id": "brick-wall-new",
+      "atlas": "brick-junctions-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            631,
+            0,
+            632,
+            623
+          ],
+          "anchor": [
+            251,
+            464
+          ]
+        }
+      ],
+      "reference_size": 512
+    },
+    {
+      "id": "brick-wall-nsw",
+      "atlas": "brick-junctions-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            0,
+            623,
+            585,
+            623
+          ],
+          "anchor": [
+            378,
+            385
+          ]
+        }
+      ],
+      "reference_size": 512
+    },
+    {
+      "id": "brick-wall-esw",
+      "atlas": "brick-junctions-atlas.png",
+      "frames": [
+        {
+          "rect": [
+            585,
+            623,
+            678,
+            623
+          ],
+          "anchor": [
+            297,
+            385
+          ]
+        }
+      ],
+      "reference_size": 512
+    }
+  ]
+}

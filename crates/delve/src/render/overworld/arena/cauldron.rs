@@ -177,6 +177,10 @@ pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>, legible: bool,
                 let Some(spell) = spell else {
                     continue;
                 };
+                if crate::rules::kingdom_gear::item(spell).is_some() {
+                    lines.push((format!("{} BOUND RELIC", slot + 1), 'J', false));
+                    continue;
+                }
                 let name = run.book.get(spell).map_or(spell.as_str(), |c| c.name.as_str());
                 let picked = picks.contains(&(slot as u8));
                 lines.push((format!("{} {}", slot + 1, say(name)), if picked { '6' } else { 'h' }, picked));

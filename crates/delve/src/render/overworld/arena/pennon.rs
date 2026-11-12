@@ -1,17 +1,17 @@
 //! Pennon Rush: one native grain, cached battlement and per-seat sprite variants.
 use super::super::{
     chrome,
-    ink::{Img, ink, text_width},
+    ink::{Img, ink},
 };
+#[cfg(test)]
+use super::rafterwake::attack_stamp;
 use super::rafterwake::{
-    attack_stamp, big, cell_actor, cell_backdrop, center, danger_art, danger_colour, flip, image,
-    label_wells, name, outline, present_stage, presentation, recolour, slot_chrome, slot_image,
-    slot_knight_pose,
+    center, danger_art, flip, image, label_wells, outline, recolour, slot_image, slot_knight_pose,
 };
 use super::{NATIVE_H, NATIVE_W};
 use crate::rules::{
-    HZ, Run,
-    pennon::{Area, Beat, FLOOR, Foe, GOLD_PER_SEAT, Q, WIDTH, ramparts},
+    Run,
+    pennon::{Beat, Foe, Q},
 };
 use std::{
     collections::BTreeMap,
@@ -281,336 +281,7 @@ pub(super) fn contour_colour(run: &Run, focus: Option<u32>) -> Option<[u8; 3]> {
         .find(|(f, _)| *f == '7')
         .map_or('7', |(_, t)| *t))
 }
-fn standings(run: &Run, id: u32) -> Vec<(u32, i32)> {
-    let s = run.pennon.as_ref().unwrap();
-    let mut order = s.lanes.keys().copied().collect::<Vec<_>>();
-    order.sort_by_key(|who| (s.score(*who), *who));
-    let own = order.iter().position(|who| *who == id).unwrap();
-    if own >= 3 {
-        order.truncate(3);
-        order.push(id);
-    }
-    order
-        .into_iter()
-        .enumerate()
-        .map(|(n, who)| (who, 56 + n as i32 * 32))
-        .collect()
-}
-fn text_labels(run: &Run, id: u32) -> Vec<(i32, i32, String)> {
-    let s = run.pennon.as_ref().unwrap();
-    let d = &s.lanes[&id];
-    if s.left == 0 {
-        let mut words = vec![
-            (
-                (NATIVE_W
-                    - text_width(if s.won {
-                        "SIEGE BROKEN"
-                    } else {
-                        "SHIFT FINISHED"
-                    }))
-                    / 2,
-                24,
-                if s.won {
-                    "SIEGE BROKEN"
-                } else {
-                    "SHIFT FINISHED"
-                }
-                .into(),
-            ),
-            (148, 43, "PROGRESS".into()),
-            (212, 43, "FALLS".into()),
-            (274, 43, "FINISH".into()),
-        ];
-        for (n, &who) in s.order.iter().enumerate() {
-            let y = 64 + n as i32 * 24;
-            let d = &s.lanes[&who];
-            let score = d.score.to_string();
-            words.extend([
-                (28, y, s.place(who).to_string()),
-                (
-                    44,
-                    y,
-                    if who == id {
-                        "YOU".into()
-                    } else {
-                        name(run, who, 12)
-                    },
-                ),
-                (148 + text_width("PROGRESS") - text_width(&score), y, score),
-                (
-                    212 + text_width("FALLS") - text_width(&d.falls.to_string()),
-                    y,
-                    d.falls.to_string(),
-                ),
-                (
-                    {
-                        let finish = d.finish.map_or("--".into(), |t| {
-                            format!("{}.{:02} S", t / HZ, (t % HZ) * 100 / HZ)
-                        });
-                        274 + text_width("FINISH") - text_width(&finish)
-                    },
-                    y,
-                    d.finish.map_or("--".into(), |t| {
-                        format!("{}.{:02} S", t / HZ, (t % HZ) * 100 / HZ)
-                    }),
-                ),
-            ]);
-        }
-        let leader = s.order[0];
-        let pot = format!("{}G POT + CROWN", GOLD_PER_SEAT * s.lanes.len() as u32);
-        words.push(((NATIVE_W - text_width(&pot)) / 2, 165, pot));
-        let rule = "MOST WORK, FEWER FALLS, EARLIER FINISH";
-        words.push(((NATIVE_W - text_width(rule)) / 2, 179, rule.into()));
-        words.push((
-            (NATIVE_W - text_width("E AGAIN")) / 2,
-            206,
-            "E AGAIN".into(),
-        ));
-        if s.order
-            .iter()
-            .filter(|&&r| s.score(r) == s.score(leader))
-            .count()
-            > 1
-        {
-            words.push((
-                (NATIVE_W - text_width("TIE SPLIT")) / 2,
-                151,
-                "TIE SPLIT".into(),
-            ));
-        }
-        return words;
-    }
-    if presentation().compact_hud {
-        let mut words = vec![
-            (130, 8, "PENNON RUSH".into()),
-            (16, 8, format!("{} S", s.left.div_ceil(HZ))),
-            (
-                282,
-                8,
-                format!("{}G POT", GOLD_PER_SEAT * s.lanes.len() as u32),
-            ),
-            (
-                16,
-                20,
-                if d.down > 0 {
-                    "CATCH YOUR BREATH"
-                } else if d.height >= 820 {
-                    "READ THE CAPTAIN"
-                } else {
-                    "RUN JUMP SHOOT"
-                }
-                .into(),
-            ),
-            (
-                12,
-                210,
-                format!("WAVE {} / 4", d.foes.iter().filter(|f| f.hp == 0).count()),
-            ),
-            (108, 210, format!("WARD {}", d.ward)),
-            (216, 210, format!("FALLS {}", d.falls)),
-            (
-                300,
-                210,
-                format!("BEST {}", run.home.countryside.games.pennon.best),
-            ),
-        ];
-        for (n, &who) in s.lanes.keys().enumerate() {
-            words.push((
-                18 + n as i32 * 94,
-                32,
-                format!(
-                    "{} {} {}",
-                    s.place(who),
-                    if who == id {
-                        "YOU".into()
-                    } else {
-                        name(run, who, 6)
-                    },
-                    s.lanes[&who].score
-                ),
-            ));
-        }
-        if crate::rules::pennon::LENGTH - s.left < presentation().hint_seconds * HZ {
-            words.extend([
-                (24, 194, "WASD RUN".into()),
-                (84, 194, "ARROWS AIM".into()),
-                (156, 194, "F SHOOT".into()),
-                (216, 194, "E JUMP".into()),
-                (270, 194, "S DUCK".into()),
-            ]);
-        }
-        if d.chain > 0 && d.down == 0 {
-            words.push((308, 20, format!("X{}", d.chain)));
-        }
-        return words;
-    }
-    let mut words = vec![
-        (130, 6, "PENNON RUSH".into()),
-        (16, 6, format!("{} S", s.left.div_ceil(HZ))),
-        (
-            281,
-            6,
-            format!("{}G POT", GOLD_PER_SEAT * s.lanes.len() as u32),
-        ),
-        (282, 32, "BREAK THE SIEGE".into()),
-        (14, 195, "WASD RUN".into()),
-        (76, 195, "ARROWS AIM".into()),
-        (146, 195, "F SHOOT".into()),
-        (208, 195, "E JUMP".into()),
-        (
-            15,
-            210,
-            format!("WAVE {} / 4", d.foes.iter().filter(|f| f.hp == 0).count()),
-        ),
-        (98, 210, format!("WARD {}", d.ward)),
-        (158, 210, "S DUCK".into()),
-        (282, 182, format!("FALLS {}", d.falls)),
-        (
-            282,
-            196,
-            format!("BEST {}", run.home.countryside.games.pennon.best),
-        ),
-    ];
-    for (who, y) in standings(run, id) {
-        let v = &s.lanes[&who];
-        let score = v.score.to_string();
-        words.push((
-            282,
-            y,
-            format!(
-                "{} {}",
-                s.place(who),
-                if who == id {
-                    "YOU".into()
-                } else {
-                    name(run, who, 7)
-                }
-            ),
-        ));
-        words.push((377 - text_width(&score), y, score));
-    }
-    if d.down > 0 {
-        words.push((102, 23, "CATCH YOUR BREATH".into()));
-    } else if d.height >= 820 {
-        words.push((94, 23, "READ THE CAPTAIN".into()));
-    } else {
-        words.push((105, 23, "RUN JUMP SHOOT".into()));
-    }
-    words
-}
-fn cell_combo(im: &mut Img, chain: u32) {
-    static GLYPHS: OnceLock<Vec<(char, Img)>> = OnceLock::new();
-    let glyphs = GLYPHS.get_or_init(|| {
-        "X0123456789"
-            .chars()
-            .map(|c| {
-                let mut source = Img::new(10, 14);
-                big(&mut source, 0, 0, &c.to_string());
-                let mut glyph = Img::new(15, 21);
-                for y in 0..21 {
-                    for x in 0..15 {
-                        if let Some(colour) = source.get(x * 2 / 3, y * 2 / 3) {
-                            glyph.set(x, y, colour);
-                        }
-                    }
-                }
-                (c, glyph)
-            })
-            .collect()
-    });
-    for (n, c) in format!("X{chain}").chars().enumerate() {
-        if let Some((_, glyph)) = glyphs.iter().find(|(key, _)| *key == c) {
-            im.stamp(glyph, 16 + n as i32 * 18, 15);
-        }
-    }
-}
-fn backdrop(seed: u64, terminal: bool) -> &'static Img {
-    static BG: [OnceLock<[Img; 3]>; 4] = [const { OnceLock::new() }; 4];
-    let all =
-        BG[usize::from(super::slot_art::enabled()) * 2 + usize::from(terminal)].get_or_init(|| {
-            std::array::from_fn(|seed| {
-                let mut im = Img::black(WIDTH, 144);
-                let source = slot_image("pennon.room", "backdrop", &Img::new(1, 1));
-                if source.w > 1 {
-                    // Only distant sky: the source's continuous parapet would bridge real breaches.
-                    for y in 0..FLOOR {
-                        for x in 0..WIDTH {
-                            if let Some(c) = source.get(x, y) {
-                                im.set(x, y, c.map(|v| (u16::from(v) * 2 / 5) as u8));
-                            }
-                        }
-                    }
-                }
-                for x in (0..WIDTH).step_by(64) {
-                    for yy in 88..112 {
-                        for xx in x..x + 48 {
-                            im.set(xx, yy, [6, 11, 16]);
-                        }
-                    }
-                }
-                let a = art();
-                for p in ramparts(seed as u64) {
-                    // Clip the last masonry tile exactly at each physical breach edge.
-                    for dx in 0..p.w {
-                        for dy in 0..32 {
-                            if let Some(c) = a.all["brick"].body.get(dx % 32, dy % 16) {
-                                im.set(p.x + dx, FLOOR + dy, c);
-                            }
-                        }
-                    }
-                    for x in (p.x + 10..p.x + p.w - 22).step_by(64) {
-                        im.stamp(&a.all["merlon"].body, x, FLOOR + 4);
-                    }
-                }
-                for x in [36, 302, 576, 856, 1172] {
-                    im.stamp(&a.all["pennant"].body, x, FLOOR - 48);
-                }
-                if terminal { cell_backdrop(&im) } else { im }
-            })
-        });
-    &all[(seed % 3) as usize]
-}
-fn danger(im: &mut Img, z: Area, cam: i32, shake: i32, stage: usize) {
-    let (on, period) = match stage {
-        0 => (1, 5),
-        1 | 2 => (2, 5),
-        _ => (3, 4),
-    };
-    let colour = danger_colour(if stage < 2 { 2 } else { 3 });
-    let (x, y) = (z.x - cam + 12 + shake, z.y + 38);
-    for xx in 0..z.w {
-        if xx / 4 % period < on {
-            for dy in 0..3 {
-                im.set(x + xx, y + z.h - 3 + dy, colour);
-            }
-            im.set(x + xx, y, colour);
-        }
-    }
-    for yy in 0..z.h {
-        if yy / 4 % period < on {
-            for dx in 0..2 {
-                im.set(x + dx, y + yy, colour);
-                im.set(x + z.w - 2 + dx, y + yy, colour);
-            }
-        }
-    }
-}
-fn aim_line(im: &mut Img, x: i32, y: i32, tx: i32, ty: i32, stage: usize) {
-    let dx = tx - x;
-    let dy = ty - y;
-    let length = dx.abs().max(dy.abs()).max(1);
-    for n in 0..=length {
-        if n / 5 % 4 <= stage as i32 {
-            let xx = x + dx * n / length;
-            let yy = y + dy * n / length;
-            im.set(xx, yy, danger_colour(3));
-            im.set(xx, yy + 1, danger_colour(2));
-        }
-    }
-    // The solid arrowhead fixes the intended landing height independently of colour.
-    im.line(tx - 4, ty - 4, tx, ty, '2');
-    im.line(tx, ty, tx - 4, ty + 4, '2');
-}
+
 fn foe_pose(f: &Foe, tick: u64) -> usize {
     if f.hp == 0 {
         10
@@ -646,351 +317,81 @@ fn foe_pose(f: &Foe, tick: u64) -> usize {
         }
     }
 }
-fn solid(im: &mut Img, fx: &mut Img, pic: &Img, x: i32, y: i32, mask: bool) {
-    im.stamp(pic, x, y);
-    if mask {
-        for yy in 0..pic.h {
-            for xx in 0..pic.w {
-                if pic.get(xx, yy).is_some() {
-                    fx.set(x + xx, y + yy, [0, 0, 0]);
-                }
-            }
-        }
-    }
-}
-fn draw(run: &Run, focus: Option<u32>, with_text: bool) -> (Img, Img) {
+
+mod actors;
+mod finish;
+mod fx;
+mod hud;
+mod moments;
+mod scene;
+
+use actors::Cx;
+use hud::Words;
+
+/// One frame of the siege for the seat looked through: the picture, and the
+/// small words the picture carries (drawn into it, or handed to the terminal).
+fn frame(run: &Run, focus: Option<u32>) -> (Img, Words) {
     let s = run.pennon.as_ref().unwrap();
-    let id = focus
-        .filter(|id| s.lanes.contains_key(id))
-        .unwrap_or(*s.lanes.keys().next().unwrap());
+    let id = focus.filter(|id| s.lanes.contains_key(id)).unwrap_or(*s.lanes.keys().next().unwrap());
     let d = &s.lanes[&id];
-    let a = art();
+    #[cfg(test)]
+    hud::forget();
+    let mut words = Words::default();
+    let over = finish::age(s).filter(|_| s.left == 0);
+    if let Some(e) = over.filter(|&e| e >= finish::FINALE) {
+        return (finish::scene_for(run, s, id, e, &mut words), words);
+    }
+    let t = s.show.t;
+    let cam = hud::camera(s, d);
+    let cx = Cx { run, s, d, id, cam, t, tick: run.tick };
+    let shake = moments::shake(run, &cx);
+    let ids: Vec<u32> = s.lanes.keys().copied().collect();
+    // The world, shaken as one: its sky, its wall, its figures and its dust.
+    let mut world = Img::black(NATIVE_W, NATIVE_H);
+    scene::paint(&mut world, d.seed, cam, t);
+    fx::behind(&mut world, &cx);
+    actors::draw(&mut world, &cx);
+    fx::front(&mut world, &cx);
     let mut im = Img::black(NATIVE_W, NATIVE_H);
-    let mut fx = Img::new(NATIVE_W, NATIVE_H);
-    if s.left == 0 {
-        chrome::panel(
-            &mut im,
-            (16, 16, 352, 202),
-            chrome::Tone {
-                fill: &[[16, 26, 34]],
-                ..chrome::Tone::BRASS
-            },
-        );
-    } else {
-        let shake = if d.freeze > 0 {
-            if d.freeze % 2 == 0 { 1 } else { -1 }
-        } else {
-            0
-        };
-        let px = |x: i32| x - d.camera + 12 + shake;
-        let py = |y: i32| y + 38;
-        let bg = backdrop(d.seed, !with_text);
-        for y in 0..144 {
-            for x in 0..254 {
-                if let Some(c) = bg.get(x + d.camera, y) {
-                    im.set(x + 12, y + 38, c);
-                }
-            }
-        }
-        for (n, x) in [340, 848].into_iter().enumerate() {
-            if !d.pickups[n] {
-                im.stamp(&a.all["repair"].body, px(x) - 12, py(FLOOR) - 24);
-            }
-        }
-        if d.effect > 0 && d.effect_y >= FLOOR {
-            let n = ((12 - d.effect) * 4 / 12).min(3);
-            let pic = &a.all[&format!("fx-dust-{n}")].body;
-            im.stamp(pic, px(d.effect_x) - pic.w / 2, py(d.effect_y) - pic.h);
-        }
-        for f in &d.foes {
-            if px(f.x) < -70 || px(f.x) > 330 {
-                continue;
-            }
-            let pose = foe_pose(f, run.tick);
-            let prefix = if f.captain { "captain" } else { "sentry" };
-            let mut key = format!(
-                "{prefix}-{}",
-                [
-                    "idle",
-                    "walk-1",
-                    "walk-2",
-                    "drop-tell",
-                    "drop",
-                    "hook-tell",
-                    "hook",
-                    "flinch",
-                    "damage-1",
-                    "damage-2",
-                    "defeat",
-                    "recover"
-                ][pose]
-            );
-            if f.captain && f.beat == Beat::Tell && f.hp > 0 && f.flinch == 0 {
-                key = format!(
-                    "captain-{}-tell-{}",
-                    if f.hook { "hook" } else { "drop" },
-                    f.tell_stage()
-                );
-            }
-            if f.captain && f.stage() > 0 && !matches!(pose, 8..=10) {
-                key = format!("{key}-stage-{}", f.stage());
-            }
-            if !f.captain && f.hp > 0 && f.stage() > 0 {
-                let state = if f.flinch > 0 {
-                    "flinch"
-                } else {
-                    match f.beat {
-                        Beat::Walk => {
-                            if f.stage() == 2 {
-                                if run.tick / 7 % 2 == 0 {
-                                    "limp-1"
-                                } else {
-                                    "limp-2"
-                                }
-                            } else if run.tick / 7 % 2 == 0 {
-                                "walk-1"
-                            } else {
-                                "walk-2"
-                            }
-                        }
-                        Beat::Tell => "tell",
-                        Beat::Attack => "attack",
-                        Beat::Rest if f.ticks < 12 => "recover",
-                        _ => {
-                            if f.stage() == 2 {
-                                "last-stand"
-                            } else {
-                                "idle"
-                            }
-                        }
-                    }
-                };
-                let damaged = format!("sentry-damaged-{state}");
-                if a.all.contains_key(&damaged) {
-                    key = damaged;
-                }
-            }
-            let sprite = &a.all[&key];
-            if matches!(f.beat, Beat::Tell | Beat::Attack) && f.hp > 0 {
-                if f.captain {
-                    danger(
-                        &mut im,
-                        f.danger,
-                        d.camera,
-                        shake,
-                        if f.beat == Beat::Attack {
-                            3
-                        } else {
-                            f.tell_stage()
-                        },
-                    );
-                } else if f.beat == Beat::Tell {
-                    aim_line(
-                        &mut im,
-                        px(f.x - 16),
-                        py(FLOOR - if f.hook { 16 } else { 26 }),
-                        px(f.aim.0),
-                        py(f.aim.1),
-                        f.tell_stage(),
-                    );
-                }
-            }
-            let body = if with_text {
-                sprite.body.clone()
-            } else {
-                cell_actor(&sprite.body, None)
-            };
-            im.stamp(&body, px(f.x) - body.w / 2, py(FLOOR) - body.h + 2);
-            if !with_text {
-                fx.stamp(
-                    &sprite.details,
-                    px(f.x) - sprite.body.w / 2,
-                    py(FLOOR) - sprite.body.h + 2,
-                );
-            }
-            if f.captain && f.hp > 0 {
-                im.rect(px(f.x) - 25, py(FLOOR) - 86, 50, 3, 's');
-                im.rect(
-                    px(f.x) - 24,
-                    py(FLOOR) - 85,
-                    48 * i32::from(f.hp) / 18,
-                    2,
-                    'o',
-                );
-            }
-            if f.captain && f.beat == Beat::Attack {
-                let n = ((10 - f.ticks.min(10)) * 4 / 10).min(3);
-                let effect =
-                    &a.all[&format!("fx-{}-{n}", if f.hook { "hook" } else { "drop" })].body;
-                if f.hook {
-                    for x in (f.danger.x..f.danger.x + f.danger.w).step_by(40) {
-                        if super::slot_art::enabled() {
-                            attack_stamp(
-                                &mut im,
-                                &mut fx,
-                                effect,
-                                px(x),
-                                py(FLOOR) - effect.h,
-                                (px(f.danger.x), py(f.danger.y), f.danger.w, f.danger.h),
-                                !with_text,
-                            );
-                        } else {
-                            solid(
-                                &mut im,
-                                &mut fx,
-                                effect,
-                                px(x),
-                                py(FLOOR) - effect.h,
-                                !with_text,
-                            );
-                        }
-                    }
-                } else {
-                    let x = px(f.danger.x + f.danger.w / 2) - effect.w / 2;
-                    if super::slot_art::enabled() {
-                        attack_stamp(
-                            &mut im,
-                            &mut fx,
-                            effect,
-                            x,
-                            py(FLOOR) - effect.h,
-                            (px(f.danger.x), py(f.danger.y), f.danger.w, f.danger.h),
-                            !with_text,
-                        );
-                    } else {
-                        solid(
-                            &mut im,
-                            &mut fx,
-                            effect,
-                            x,
-                            py(FLOOR) - effect.h,
-                            !with_text,
-                        );
-                    }
-                }
-            }
-        }
-        if d.effect > 0 && d.effect_y < FLOOR {
-            let n = ((12 - d.effect) * 4 / 12).min(3);
-            let pic = &a.all[&format!("fx-impact-{n}")].body;
-            solid(
-                &mut im,
-                &mut fx,
-                pic,
-                px(d.effect_x) - pic.w / 2,
-                py(d.effect_y) - pic.h / 2,
-                !with_text,
-            );
-        }
-        for shot in &d.shots {
-            let key = if shot.enemy { "enemy-bolt" } else { "bolt" };
-            let pic = &a.all[key].body;
-            solid(
-                &mut im,
-                &mut fx,
-                pic,
-                px(shot.x / Q) - pic.w / 2,
-                py(shot.y / Q) - pic.h / 2,
-                !with_text,
-            );
-        }
-        let overlap = d.foes.iter().any(|f| (f.x - d.x / Q).abs() < 48);
-        let knight = knight(run, id, usize::from(d.pose), d.dir, overlap && with_text);
-        let knight = if with_text {
-            knight
-        } else {
-            cell_actor(&knight, Some(seat_colour(run, id)))
-        };
-        solid(
-            &mut im,
-            &mut fx,
-            &knight,
-            px(d.x / Q) - 24,
-            py(d.y / Q) - 46,
-            !with_text,
-        );
-        if !with_text {
-            fx.rect(0, 0, NATIVE_W, 38, 'k');
-            fx.rect(0, 182, NATIVE_W, 42, 'k');
-            fx.rect(0, 38, 12, 144, 'k');
-            fx.rect(266, 38, NATIVE_W - 266, 144, 'k');
-        }
-        im.rect(0, 0, 276, 38, 'k');
-        im.rect(0, 182, 276, 42, 'k');
-        im.rect(0, 38, 12, 144, 'k');
-        im.rect(266, 38, NATIVE_W - 266, 144, 'k');
-        if presentation().compact_hud {
-            (im, fx) = present_stage(&im, &fx, true);
-        } else {
-            im.line(12, 183, 265, 183, 'S');
-            im.line(276, 32, 276, 212, 'S');
-        }
-        if super::slot_art::enabled() {
-            im.stamp(slot_chrome("pennon.chrome", false, false), 0, 0);
-        }
-        for (who, y) in standings(run, id)
-            .into_iter()
-            .filter(|_| !presentation().compact_hud)
-        {
-            im.rect(282, y + 18, 94, 3, 's');
-            im.rect(282, y + 18, 94 * s.lanes[&who].score as i32 / 1000, 3, 'o');
-        }
-        if d.chain > 0 && d.down == 0 {
-            if super::slot_art::enabled() {
-                im.stamp(slot_chrome("pennon.chrome", false, true), 0, 0);
-            }
-            if !presentation().compact_hud && with_text {
-                big(&mut im, 16, 20, &format!("X{}", d.chain));
-            } else if !presentation().compact_hud {
-                cell_combo(&mut im, d.chain);
-            }
-        }
+    im.stamp(&world, shake.0, shake.1);
+    moments::mend_edges(&mut im, shake);
+    // The strips and what is thrown over the picture stay still.
+    hud::top(&mut im, s, d, id, &mut words, t);
+    hud::bottom(&mut im, run, s, id, &mut words);
+    let last = s.show.struck(id, 3).map(|h| h.age(t));
+    hud::captain(&mut im, d, last);
+    let grown = s.show.hits.iter().filter(|h| h.seat == id).map(|h| h.age(t)).min();
+    let lost = s.show.downs.iter().rev().find(|k| k.seat == id && !k.ward).map(|k| (k.lost, t.saturating_sub(k.born)));
+    hud::combo(&mut im, d, grown, lost);
+    fx::rim(&mut im, &cx);
+    fx::numbers(&mut im, &cx, shake, &ids);
+    if over.is_none() {
+        moments::callout(&mut im, run, &cx);
+        moments::celebrate(&mut im, &cx);
+        moments::last_seconds(&mut im, &cx);
+        moments::hints(&mut im, &mut words, &cx);
     }
-    if super::slot_art::enabled() && s.left == 0 {
-        im.stamp(slot_chrome("pennon.chrome", true, false), 0, 0);
+    moments::opening(&mut im, &cx);
+    if let Some(e) = over {
+        finish::finale(&mut im, run, s, id, e);
     }
-    if s.left > 0 && presentation().compact_hud {
-        for (n, &who) in s.lanes.keys().enumerate() {
-            let colours = seat_colour(run, who);
-            let colour = ink(colours
-                .iter()
-                .find(|(f, _)| *f == '7')
-                .map_or('7', |(_, t)| *t))
-            .unwrap();
-            for y in 32..40 {
-                for x in 9 + n as i32 * 94..13 + n as i32 * 94 {
-                    im.set(x, y, colour);
-                }
-            }
-        }
-        if crate::rules::pennon::LENGTH - s.left < presentation().hint_seconds * HZ {
-            im.rect(20, 190, 340, 18, 'k');
-        }
-    }
-    let words = text_labels(run, id);
-    if !with_text && s.left > 0 {
-        label_wells(&mut im, &mut fx, &words);
-    }
-    if with_text {
-        for (x, y, t) in words {
-            im.text(x, y, &t, 't');
-        }
-    }
-    (im, fx)
+    (im, words)
 }
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
-    draw(run, focus, true)
+    let (mut im, words) = frame(run, focus);
+    words.draw(&mut im);
+    (im, Img::new(NATIVE_W, NATIVE_H))
 }
 pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
-    draw(run, focus, false)
+    let (mut im, words) = frame(run, focus);
+    let mut fx = Img::new(NATIVE_W, NATIVE_H);
+    label_wells(&mut im, &mut fx, &words.plain());
+    (im, fx)
 }
 pub(super) fn labels(run: &Run, focus: Option<u32>) -> Vec<(i32, i32, String)> {
-    let s = run.pennon.as_ref().unwrap();
-    let id = focus
-        .filter(|id| s.lanes.contains_key(id))
-        .unwrap_or(*s.lanes.keys().next().unwrap());
-    text_labels(run, id)
+    frame(run, focus).1.plain()
 }
+
 pub(super) fn sign(im: &mut Img, run: &Run) {
     if run.room().kind != crate::rules::RoomKind::Muster || run.pennon.is_some() {
         return;
@@ -1104,3 +505,7 @@ mod slot_tests {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__pennon_show__tests.rs"]
+mod show_tests;

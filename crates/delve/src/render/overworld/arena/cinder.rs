@@ -10,6 +10,12 @@ use crate::rules::{
 };
 use std::sync::OnceLock;
 
+mod finish;
+mod fx;
+mod hud;
+mod moments;
+mod scene;
+
 const CW: i32 = 24;
 const CH: i32 = 20;
 const BX: i32 = 96;
@@ -746,7 +752,12 @@ fn landing(b: &Board) -> i32 {
 }
 
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
-    draw(run, focus, true)
+    // The bench's "before": the screen as it was, kept in this build for it.
+    #[cfg(test)]
+    if juice_tests::before() {
+        return draw(run, focus, true);
+    }
+    scene::layers(run, focus)
 }
 pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     draw(run, focus, false)
@@ -1061,6 +1072,10 @@ pub(super) fn sign(cv: &mut Img, run: &Run) {
     center(cv, 315, 60, "CINDER STACK", 'O');
     center(cv, 315, 70, "E PLAY", 'u');
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/cinder__juice_tests.rs"]
+mod juice_tests;
 
 #[cfg(test)]
 mod slot_tests {

@@ -155,6 +155,13 @@ impl Terrain {
                 let mut t = sum / n;
                 if matches!(corner[k], Corner::Floor) {
                     t += 1.5 * (vnoise(x / 40.0, z / 40.0, 907) * 2.0 - 1.0);
+                    // The blank-slate plan's open country rolls: the knights'
+                    // floor stays level under their feet, so the hills are
+                    // light and shade on it, broad swells lit on their crests
+                    // and dark in their hollows.
+                    if crate::world::plan::tabula() {
+                        t += 14.0 * (vnoise(x / 230.0, z / 170.0, 913) * 2.0 - 1.0) + 5.0 * (vnoise(x / 80.0, z / 60.0, 917) * 2.0 - 1.0);
+                    }
                 }
                 let crop = [(x0, y0), (x1, y0), (x0, y1), (x1, y1)]
                     .iter()

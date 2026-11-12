@@ -115,10 +115,14 @@ fn chebyshev(a: (i32, i32), b: (i32, i32)) -> i32 {
 
 /// Every tile a find may stand on: open ground with open ground round it,
 /// five tiles off any road, clear of doors, lots, set pieces, castles and
-/// fingerposts. Worked out once.
+/// fingerposts and waystations. Worked out once.
 pub(super) fn spots() -> &'static [(i32, i32)] {
     static SPOTS: OnceLock<Vec<(i32, i32)>> = OnceLock::new();
     SPOTS.get_or_init(|| {
+        // Nothing is hidden on the blank-slate plan's hillside.
+        if super::plan::tabula() {
+            return Vec::new();
+        }
         let geo = kingdom::geography(&[]);
         let idx = |(x, y): (i32, i32)| (y * MAP_W + x) as usize;
         // Steps to the nearest road, up to 6.
@@ -144,6 +148,7 @@ pub(super) fn spots() -> &'static [(i32, i32)] {
         }
         let castles: Vec<(i32, i32, i32, i32)> = super::castles::footprints().collect();
         let posts = super::signs::posts();
+        let halts = super::waystations::placed();
         (3..MAP_H - 3)
             .flat_map(|y| (3..MAP_W - 3).map(move |x| (x, y)))
             .filter(|&t| near[idx(t)] >= 5)
@@ -160,6 +165,8 @@ pub(super) fn spots() -> &'static [(i32, i32)] {
                 castles.iter().all(|&(cx, cy, cw, ch)| x < cx - 6 || y < cy - 6 || x >= cx + cw + 6 || y >= cy + ch + 6)
             })
             .filter(|&t| posts.iter().all(|p| chebyshev(p.at, t) > 4))
+            // And off a waystation's ground.
+            .filter(|&t| halts.iter().all(|h| chebyshev((h.rect.tx + 3, h.rect.ty + 2), t) > 7))
             .collect()
     })
 }
@@ -174,7 +181,7 @@ pub fn finds(seed: u64) -> Arc<Vec<Find>> {
     {
         return found.clone();
     }
-    let out = Arc::new(place(seed));
+    let out = Arc::new(if super::plan::tabula() { Vec::new() } else { place(seed) });
     *cache = Some((seed, out.clone()));
     out
 }

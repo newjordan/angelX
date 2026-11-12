@@ -1,4 +1,4 @@
-import { runGraphCli } from './worker-lock.mjs'
+import { runGraphCli, tickLockHolder, tickLockOwner } from './worker-lock.mjs'
 import { workerPaths } from './worker-paths.mjs'
 // habitsmith-tick — the idle-time habit loop closer (H5 of
 // docs/WORKERS.md), sibling of dossier-tick (D4) and reflex-tick (M5):
@@ -127,13 +127,20 @@ async function cli(argv) {
     return 0
   }
 
-  // ── lockfile (the graph file has no locking) ──
-  const existingLock = readJson(lockPath, null)
-  if (!dryRun && existingLock && now - (existingLock.ts || 0) < 60 * 60_000) {
+  // ── lockfile (this state dir's heartbeat and verdict spool; the graph has its own lease) ──
+  const holder = dryRun ? null : tickLockHolder(readJson(lockPath, null), now)
+  if (holder) {
+    writeHeartbeat(
+      makeHeartbeat({
+        now: nowIso,
+        action: 'skip',
+        reason: `another tick holds the lock — ${holder.reason}`,
+      }),
+    )
     console.log('habitsmith-tick: another tick holds the lock; skipping.')
     return 0
   }
-  if (!dryRun) fs.writeFileSync(lockPath, JSON.stringify({ pid: process.pid, ts: now }))
+  if (!dryRun) fs.writeFileSync(lockPath, JSON.stringify(tickLockOwner(now)))
 
   try {
     const CausalGraph = (await import('../../lib/research/CausalGraph.js')).default

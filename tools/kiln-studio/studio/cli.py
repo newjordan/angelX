@@ -3,6 +3,7 @@
     kiln-studio job new "<brief>" [--variants N] [--agents claude,codex] [--budget 20m] [--concept]
     kiln-studio job list | status <id> | resume <id>
     kiln-studio serve [--port 8770]            the review page on 127.0.0.1
+    kiln-studio lighter [--port 8771]          Pixel Art Lighter (green-up normals)
     kiln-studio mcp --root <dir>               the kiln MCP server on stdio
     kiln-studio mcp-config --root <dir>        how to add it to Claude Code or Codex
     kiln-studio shot|check|describe|export <source> [--name N]
@@ -49,6 +50,10 @@ def main(argv=None):
     s = sub.add_parser("serve", help="the review page")
     s.add_argument("--port", type=int, default=8770)
     s.add_argument("--host", default="127.0.0.1")
+
+    lt = sub.add_parser("lighter", help="Pixel Art Lighter: lighting preview and green-up normal maps")
+    lt.add_argument("--port", type=int, default=8771)
+    lt.add_argument("--host", default="127.0.0.1")
 
     m = sub.add_parser("mcp", help="the kiln MCP server on stdio")
     m.add_argument("--root", default=".", help="the workspace every path is inside (default: here)")
@@ -142,6 +147,11 @@ def cmd_serve(a):
     serve(a.host, a.port)
 
 
+def cmd_lighter(a):
+    from .review import serve_lighter
+    serve_lighter(a.host, a.port)
+
+
 def cmd_mcp(a):
     from .mcp_server import serve
     serve(a.root, kind=a.kind, brief=a.brief, allowed=set(a.tools.split(",")) if a.tools else None, deadline=a.deadline)
@@ -197,6 +207,6 @@ def cmd_comfy(a):
         print("answering" if comfy.answers() else "down")
 
 
-COMMANDS = {"job": cmd_job, "serve": cmd_serve, "mcp": cmd_mcp, "mcp-config": cmd_mcp_config,
+COMMANDS = {"job": cmd_job, "serve": cmd_serve, "lighter": cmd_lighter, "mcp": cmd_mcp, "mcp-config": cmd_mcp_config,
             "shot": cmd_look, "check": cmd_look, "describe": cmd_look, "export": cmd_look,
             "models": cmd_models, "backends": cmd_backends, "comfy": cmd_comfy}

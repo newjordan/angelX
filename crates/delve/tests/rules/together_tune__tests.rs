@@ -97,7 +97,19 @@ mod pin_fixture;
 // [14858749390580260271, 13084091908644842062] again.
 // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
 // pixel rows spell no word; with the old haft: 12130336921791875028, 13594381247324347038.
-const TODAY: [u64; 2] = [9895685452468505560, 7623024478293304650];
+// Re-pinned 2026-11-05: the Phantom Lancer's four cards join the book (words and icons in the book; no play); without them it plays to
+// [9895685452468505560, 7623024478293304650] again.
+// Re-pinned 2026-11-05 again: the Mirage Duelist's four cards join the book (words and icons in the book; no play); without them it plays to
+// [14915710321524842308, 13101378087934547812] again.
+// Re-pinned 2026-11-07 for Bomrekedan (`world::bomrekedan`): the home floor
+// gains the fort's ten levels and their stairs, and the kingdom's map the
+// Gate of Bomrekedan's lot and its lane, so only the kingdom trace moves;
+// without the fort it plays to [10788363592441244139, 18163811269752239951] again.
+// Re-pinned 2026-11-07: the monk's four cards (Vesper Bell, Monk's Patience,
+// Plague of Frogs, Excommunicate) join the book (words and icons in the book; no
+// play); without them it plays to [10788363592441244139, 2535990183205918992] again,
+// the Fungelder's and the cards' defaults left out of the writing (`played_with`).
+const TODAY: [u64; 2] = [11130803013024068170, 10304641019489614671];
 // Same 2026-10-25 book, courtyard and Home shape, with legacy shot size;
 // recomputed for the same 2026-10-29 tuning (before it, [352830734382821604,
 // 16491480568805732842]).
@@ -118,7 +130,15 @@ const TODAY: [u64; 2] = [9895685452468505560, 7623024478293304650];
 // Re-pinned 2026-11-02 with TODAY for the same reasons.
 // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
 // pixel rows spell no word; with the old haft: 2110600820783080601, 13010351322939937272.
-const BEFORE_SHOT_SIZE: [u64; 2] = [13757483260821440085, 12799931716232654172];
+// Re-pinned 2026-11-05 with TODAY for the same reason; without the four cards both
+// traces play to [13757483260821440085, 12799931716232654172] again.
+// Re-pinned 2026-11-05 again with TODAY for the same reason; without the Mirage Duelist's
+// four cards both traces play to [14245037398276877129, 15750494943612253710] again.
+// Re-pinned 2026-11-07 for Bomrekedan with TODAY: the kingdom trace alone;
+// without the fort it plays to [10610929201740668214, 16771686891660709217] again.
+// Re-pinned 2026-11-07 with TODAY for the same reason; without the four cards both
+// traces play to [10610929201740668214, 6223818091034572166] again.
+const BEFORE_SHOT_SIZE: [u64; 2] = [10125106904931073403, 8745696721767406025];
 
 /// The tavern annex and idle mirror-wish flag are projected back to the
 /// audited d59b1096a fixture in `pin_fixture`, only when writing the final
@@ -261,6 +281,15 @@ fn played_with(tune: Tune, without_beats: bool) -> [u64; 2] {
         let json = serde_json::to_string(&snapshot).unwrap();
         let written = crate::rules::layout::expand_saved_tiles(&json);
         let written = if without_beats { without_beat(&written) } else { written };
+        // The Fungelder's sacs, the Monk's Patience, the thick mushroom walls
+        // and the monsters' Vesper, frog and shunned marks (`foes`, `spells`):
+        // none of them is in play in these fixtures, and each is written at
+        // its default. Those defaults are no part of what today's code wrote.
+        let written = written
+            .replace("\"patience\":0,", "")
+            .replace("\"sacs\":[],", "")
+            .replace(",\"thick\":false", "")
+            .replace("\"grounded\":0,\"frog\":0,\"shunned\":false,", "");
         written.replace(&tally, "").replace("\"held\":\"open\",", "").replace("\"away\":false,", "").replace("\"cinder\":null,", "").replace("\"latch\":null,", "").replace("\"mossbell\":null,", "").replace("\"brasswake\":null,", "").replace("\"rafterwake\":null,", "").replace("\"pennon\":null,", "")
     };
     [fnv(written(&fight)), fnv(written(&kingdom))]

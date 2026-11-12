@@ -877,7 +877,21 @@ fn crowded_floor_seat_streams_keep_their_bytes() {
     // stage lights) and the hostile shot marker's rim, ring and core.
     // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
     // pixel rows spell no word; with the old haft: 1882928994010962433.
-    assert_eq!(hash, 2769533478400836961, "a seat's stream changed");
+    // Re-pinned 2026-11-04: an open floor keeps what happened on it
+    // (`chronicle`): its chambers' entering, shutting and winning ticks and
+    // its traces ride the stream; the run with those fields left out and
+    // the party scale sim are as they were; before it, 2769533478400836961.
+    // Re-pinned 2026-11-05: the Phantom Lancer's four cards join the book (words and icons in the book; no play);
+    // without them it is 2769533478400836961 again.
+    // Re-pinned 2026-11-05 again: the Mirage Duelist's four cards join the book (words and icons in the book; no play);
+    // without them it is 15852659958153928625 again.
+    // Re-pinned 2026-11-07: the world swarm's chronicle fields (an open floor keeps what happened on it) ride the stream beside the Phantom Lancer and Mirage Duelist cards; before the two together, 10794578154253769961.
+    // Re-pinned 2026-11-07: the Fungelder and the monk's four cards (Vesper Bell, Monk's
+    // Patience, Plague of Frogs, Excommunicate) ride the stream: a `sacs` field on the run,
+    // `patience` on every knight, `grounded`, `frog` and `shunned` on every monster, `thick`
+    // on every barricade, and the four cards' words and icons in the book; no play moves
+    // (the tune traces play as before); before them, 5423067574289220033.
+    assert_eq!(hash, 15918512744042566721, "a seat's stream changed");
     let held = publisher.fields.held();
     let prints: usize = held.iter().map(|row| row.2).sum();
     let caps: usize = held.iter().map(|row| row.3).sum();
@@ -970,7 +984,21 @@ fn wall_stock_catalog_does_not_change_crowded_play_or_seat_views() {
     // marker's rim, ring and core (see `crowded_floor_seat_streams_keep_their_bytes`).
 // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
 // pixel rows spell no word; with the old haft: 7425682259668414249.
-assert_eq!(legacy_hash, 11054487409244316441, "the pre-stock six-seat stream keeps every byte");
+    // Re-pinned 2026-11-04: an open floor keeps what happened on it
+    // (`chronicle`): its chambers' entering, shutting and winning ticks and
+    // its traces ride the stream; the run with those fields left out and
+    // the party scale sim are as they were; before it, 11054487409244316441.
+// Re-pinned 2026-11-05: the Phantom Lancer's four cards join the book (words and icons in the book; no play);
+// without them it is 11054487409244316441 again.
+// Re-pinned 2026-11-05 again: the Mirage Duelist's four cards join the book (words and icons in the book; no play);
+// without them it is 11305617156658664953 again.
+// Re-pinned 2026-11-07: the world swarm's chronicle fields (an open floor keeps what happened on it) ride the stream beside the Phantom Lancer and Mirage Duelist cards; before the two together, 15899262367337040793.
+// Re-pinned 2026-11-07: the Fungelder and the monk's four cards (Vesper Bell, Monk's
+// Patience, Plague of Frogs, Excommunicate) ride the stream: a `sacs` field on the run,
+// `patience` on every knight, `grounded`, `frog` and `shunned` on every monster, `thick`
+// on every barricade, and the four cards' words and icons in the book; no play moves
+// (the tune traces play as before); before them, 14597524934093499693.
+assert_eq!(legacy_hash, 7488914916273899191, "the pre-stock six-seat stream keeps every byte");
 }
 
 fn crowded_floor(seats: usize) -> (Run, Publisher, Vec<SeatKept>, u64) {
@@ -1219,7 +1247,21 @@ fn melee_presentation_keeps_the_original_combat_stream() {
     // marker's rim, ring and core (see `crowded_floor_seat_streams_keep_their_bytes`).
 // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
 // pixel rows spell no word; with the old haft: 8951735538196169899.
-assert_eq!(melee_stream(), 3338730820575322251, "fields other than melee and ranged feedback changed");
+    // Re-pinned 2026-11-04: an open floor keeps what happened on it
+    // (`chronicle`): its chambers' entering, shutting and winning ticks and
+    // its traces ride the stream; the run with those fields left out and
+    // the party scale sim are as they were; before it, 3338730820575322251.
+// Re-pinned 2026-11-05: the Phantom Lancer's four cards join the book (words and icons in the book; no play);
+// without them it is 3338730820575322251 again.
+// Re-pinned 2026-11-05 again: the Mirage Duelist's four cards join the book (words and icons in the book; no play);
+// without them it is 6193209714726380979 again.
+// Re-pinned 2026-11-07: the world swarm's chronicle fields (an open floor keeps what happened on it) ride the stream beside the Phantom Lancer and Mirage Duelist cards; before the two together, 7896750787217042729.
+// Re-pinned 2026-11-07: the Fungelder and the monk's four cards (Vesper Bell, Monk's
+// Patience, Plague of Frogs, Excommunicate) ride the stream: a `sacs` field on the run,
+// `patience` on every knight, `grounded`, `frog` and `shunned` on every monster, `thick`
+// on every barricade, and the four cards' words and icons in the book; no play moves
+// (the tune traces play as before); before them, 6546419143770473883.
+assert_eq!(melee_stream(), 5599650319494895517, "fields other than melee and ranged feedback changed");
 }
 
 /// The open melee's seat streams with the melee and ranged feedback left
@@ -1278,7 +1320,21 @@ fn before_the_melee_pass_both_open_melee_streams_are_as_they_were() {
     // marker's rim, ring and core (see `crowded_floor_seat_streams_keep_their_bytes`).
 // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
 // pixel rows spell no word; with the old haft: 1098345232346840749.
-assert_eq!(crowded, 6953334652780031813, "the seat streams before the pass");
+    // Re-pinned 2026-11-04: an open floor keeps what happened on it
+    // (`chronicle`): its chambers' entering, shutting and winning ticks and
+    // its traces ride the stream; the run with those fields left out and
+    // the party scale sim are as they were; before it, 6953334652780031813.
+// Re-pinned 2026-11-05: the Phantom Lancer's four cards join the book (words and icons in the book; no play);
+// without them it is 6953334652780031813 again.
+// Re-pinned 2026-11-05 again: the Mirage Duelist's four cards join the book (words and icons in the book; no play);
+// without them it is 12461342234581620877 again.
+// Re-pinned 2026-11-07: the world swarm's chronicle fields (an open floor keeps what happened on it) ride the stream beside the Phantom Lancer and Mirage Duelist cards; before the two together, 458888176446739533.
+// Re-pinned 2026-11-07: the Fungelder and the monk's four cards (Vesper Bell, Monk's
+// Patience, Plague of Frogs, Excommunicate) ride the stream: a `sacs` field on the run,
+// `patience` on every knight, `grounded`, `frog` and `shunned` on every monster, `thick`
+// on every barricade, and the four cards' words and icons in the book; no play moves
+// (the tune traces play as before); before them, 14157752563549125783.
+assert_eq!(crowded, 14029830480052148679, "the seat streams before the pass");
     // Re-pinned 2026-10-30 for Astra's night: about two hundred cards join the
     // loot table, the spells at their old share (`cards::SPELL_DROP_SHARE`);
     // with those cards out of the book it is 4246741471458056213 again.
@@ -1289,7 +1345,19 @@ assert_eq!(crowded, 6953334652780031813, "the seat streams before the pass");
     // (`weave`); with it out of the book it is 7577508959848238445 again.
     // Re-pinned 2026-11-02: the twin axes' haft repainted from ink o to R so its
     // pixel rows spell no word; with the old haft: 4435195022729175363.
-    assert_eq!(stripped, 18333802186596070491, "the combat stream before the pass");
+    // Re-pinned 2026-11-04: an open floor keeps what happened on it
+    // (`chronicle`): its chambers' entering, shutting and winning ticks and
+    // its traces ride the stream; the run with those fields left out and
+    // the party scale sim are as they were; before it, 18333802186596070491.
+    // Re-pinned 2026-11-05: the Phantom Lancer's four cards join the book (words and
+    // icons in the book; no play); without them it is 18333802186596070491 again.
+    // Re-pinned 2026-11-05 again: the Mirage Duelist's four cards join the book (words and
+    // icons in the book; no play); without them it is 11867901484328913883 again.
+    // Re-pinned 2026-11-07: the world swarm's chronicle fields (an open floor keeps what happened on it) ride the stream beside the Phantom Lancer and Mirage Duelist cards; before the two together, 17307296898419390101.
+    // Re-pinned 2026-11-07: the Fungelder and the monk's four cards (Vesper Bell, Monk's
+    // Patience, Plague of Frogs, Excommunicate) ride the stream, as in `crowded_floor_seat_streams_keep_their_bytes`;
+    // before them, 16766325799530759611.
+    assert_eq!(stripped, 9727552776567430085, "the combat stream before the pass");
 }
 
 /// A bullet turned off a knight's blade is the knight's on every seat: the
@@ -1341,4 +1409,94 @@ fn squire_only_updates_stay_on_the_incremental_guest_path() {
     let seen = guest.read(&tree, Some(&["squire_field".into()]), &Shots::Same).unwrap();
     assert_eq!(seen.squires, run.squires);
     assert_eq!(guest.stats().1, 1, "moving squires must not deserialize the whole run");
+}
+
+#[test]
+fn a_traveller_on_the_road_and_a_talk_with_it_reach_a_guest_without_a_full_reread() {
+    use angel_net::doc::delta::diff;
+    let mut run = kingdom();
+    let mut publisher = Publisher::default();
+    let mut guest = Guest::default();
+    let quiet = publisher.publish(&run).unwrap();
+    assert!(quiet.field("wayfarers").is_none(), "a quiet road is not sent");
+    guest.read(&quiet, None, &Shots::Rebuild).unwrap();
+    let rereads = guest.stats().1;
+    let x = run.players[&1].x + 3.0;
+    run.wayfarers.on = Some(crate::rules::wayfarers::Wayfarer {
+        kind: crate::rules::wayfarers::Kind::Gossip,
+        name: "Sorrel".into(),
+        x,
+        y: run.players[&1].y,
+        east: true,
+        road: 0,
+        along: 4.0,
+        dir: 1,
+        born: run.tick,
+        stage: crate::rules::wayfarers::Stage::Walking,
+        moved: 0,
+        still: 0,
+        met: true,
+        done: false,
+        sold: 0,
+        gang: Vec::new(),
+    });
+    run.wayfarers.talks.insert(1, crate::rules::wayfarers::Talk { page: 1, opened: run.tick, said: String::new() });
+    let next = publisher.publish(&run).unwrap();
+    let patch = diff(&quiet, &next).unwrap();
+    assert!(Guest::fields(&patch).unwrap().iter().any(|n| n == "wayfarers"));
+    let local = guest.read(&next, Guest::fields(&patch).as_deref(), &Shots::Same).unwrap();
+    assert_eq!(local.wayfarers, run.wayfarers);
+    assert_eq!(guest.stats().1, rereads, "the traveller patch forced a full Run reread");
+    // The guest's own copy speaks the same words.
+    assert_eq!(local.wayfarer_speech(1), run.wayfarer_speech(1));
+}
+
+/// The names of the top-level fields two trees do not agree on.
+fn differing(a: &Value, b: &Value) -> Vec<String> {
+    let (Value::Struct(a), Value::Struct(b)) = (a.get(), b.get()) else { return vec!["(not structs)".into()] };
+    let mut names: Vec<String> = a.iter().filter(|(n, v)| b.iter().find(|(m, _)| m == n).is_none_or(|(_, w)| w != v)).map(|(n, _)| n.to_string()).collect();
+    names.extend(b.iter().filter(|(n, _)| !a.iter().any(|(m, _)| m == n)).map(|(n, _)| n.to_string()));
+    names
+}
+
+#[test]
+fn a_crossroads_clock_and_a_race_read_by_putting_their_fields_back_are_the_run_a_whole_read_gives() {
+    use crate::rules::crossroads::{Game, RACERS_TIME, Stage, State};
+    use angel_net::doc::delta::diff;
+    let mut run = fight();
+    run.join_seat(2, "Friend");
+    run.floor_plates.clear();
+    run.crossroads = Some(State {
+        depth: 4,
+        pack: crate::rules::Pack::Archive,
+        choices: [Game::Racers, Game::Powder, Game::Shaft],
+        seats: vec![1, 2],
+        votes: Default::default(),
+        stage: Stage::Playing,
+        left: RACERS_TIME,
+        chosen: Some(0),
+        order: Vec::new(),
+    });
+    let mut session = crate::rules::knight_racers::Session::new(&run.players);
+    session.skip_menus();
+    run.knight_racers = Some(session);
+    assert!(run.crossroads_racing(), "the race is on at the crossroads");
+    let drive = BTreeMap::from([(1, crate::rules::Input { move_y: -1, ..Default::default() })]);
+    let mut publisher = Publisher::default();
+    let mut guest = Guest::default();
+    let mut last = publisher.publish(&run).unwrap();
+    guest.read(&last, None, &Shots::Rebuild).unwrap();
+    for tick in 0..40 {
+        run.step(&drive);
+        let next = publisher.publish(&run).unwrap();
+        let patch = diff(&last, &next).unwrap();
+        let fields = Guest::fields(&patch).unwrap();
+        assert!(fields.iter().any(|n| n == "crossroads") && fields.iter().any(|n| n == "knight_racers"), "tick {tick}: both move, {fields:?}");
+        let local = guest.read(&next, Some(&fields), &Guest::shots_of(&patch)).unwrap();
+        let whole = read_back(&next);
+        let (a, b) = (publish(&local).unwrap(), publish(&whole).unwrap());
+        assert!(a == b, "tick {tick}: the guest's run and a whole read differ in {:?} (patch named {fields:?})", differing(&a, &b));
+        last = next;
+    }
+    assert_eq!(guest.stats().1, 1, "only the first read was whole (it forced one for: {})", guest.stats().2);
 }

@@ -431,6 +431,70 @@ fn hosting_moves_the_run_onto_a_door_friends_reach_and_unhosting_moves_it_back()
 }
 
 #[test]
+fn the_doorway_says_whether_a_link_is_open_kept_or_neither_and_for_whom() {
+    let dir = std::env::temp_dir().join(format!("angel-sim-doorway-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    let save = dir.join("session.json");
+    let door = |bind: std::net::SocketAddr| Door { bind, seats: 2, key: None, bundle: None };
+    let mut sim = Sim::from(Some(fight()));
+    assert_eq!(sim.doorway(), Doorway::Solo);
+
+    // A saved session's link that cannot be opened again stays on record,
+    // unopened, and the checkpoint writes it as it read it.
+    sim.keep_door("100.64.0.9:7777".into(), "KEPTKEY,second".into(), true);
+    assert_eq!(
+        sim.doorway(),
+        Doorway::Kept { addr: "100.64.0.9:7777".into(), key: "KEPTKEY,second".into(), watch: true }
+    );
+    assert!(sim.invitation().is_none() && !sim.hosted(), "a kept link is not an open door");
+    let taken = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    assert!(sim.host_as(door(taken.local_addr().unwrap()), true).is_err());
+    assert!(matches!(sim.doorway(), Doorway::Kept { .. }), "a door that fails to open keeps the link");
+    sim.save_checkpoint(&save, 3).unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&save).unwrap()).unwrap();
+    assert!(saved["invitation"] == serde_json::json!(["100.64.0.9:7777", "KEPTKEY,second"]));
+    assert_eq!(saved["watch"], true);
+
+    // Opened, the door replaces the kept link; a new key keeps who watches.
+    sim.host_as(door("127.0.0.1:0".parse().unwrap()), true).unwrap();
+    let Doorway::Hosted { addr, watch, .. } = sim.doorway() else { panic!("the door is open") };
+    assert!(watch && addr == sim.server().unwrap().addr().to_string());
+    sim.server().unwrap().new_key();
+    sim.remember_invitation();
+    assert!(sim.invitation().unwrap().1 == sim.server().unwrap().key(), "the new key is on record");
+    assert!(matches!(sim.doorway(), Doorway::Hosted { watch: true, .. }));
+    // An open door is not displaced by a saved link.
+    sim.keep_door("100.64.0.9:7777".into(), "OLD".into(), false);
+    assert!(matches!(sim.doorway(), Doorway::Hosted { watch: true, .. }));
+
+    // Closing is final: nothing is kept and nothing is saved.
+    sim.unhost().unwrap();
+    assert_eq!(sim.doorway(), Doorway::Solo);
+    sim.save_checkpoint(&save, 3).unwrap();
+    let saved: serde_json::Value = serde_json::from_slice(&std::fs::read(&save).unwrap()).unwrap();
+    assert!(saved["invitation"].is_null() && saved.get("watch").is_none());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn a_doorway_never_shows_its_key_when_printed() {
+    let door = Doorway::Hosted { addr: "127.0.0.1:1".into(), key: "SECRETKEY".into(), watch: false };
+    assert!(!format!("{door:?} {door:#?}").contains("SECRETKEY"));
+    assert!(format!("{door:?}").contains("127.0.0.1:1"));
+}
+
+#[test]
+fn shutting_a_doorway_closes_an_open_link_and_leaves_a_kept_one() {
+    let mut open = Doorway::Hosted { addr: "a".into(), key: "k".into(), watch: false };
+    open.shut();
+    assert_eq!(open, Doorway::Solo);
+    let kept = Doorway::Kept { addr: "a".into(), key: "k".into(), watch: true };
+    let mut still = kept.clone();
+    still.shut();
+    assert_eq!(still, kept);
+}
+
+#[test]
 fn the_server_steps_on_its_own_thread_and_the_checkpoint_is_written_off_it() {
     let dir = std::env::temp_dir().join(format!("angel-sim-thread-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&dir);

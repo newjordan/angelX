@@ -251,6 +251,7 @@ pub fn name(kind: RoomKind) -> &'static str {
         kind if super::college::is_room(kind) => super::college::label(kind),
         kind if super::ranch::is_room(kind) => super::ranch::label(kind),
         kind if super::colosseum::is_room(kind) => super::colosseum::label(kind),
+        kind if super::world::bomrekedan::is_level(kind) => super::world::bomrekedan::title(kind).unwrap_or("BOMREKEDAN"),
         _ => "UNDERCROFT",
     }
 }
@@ -1044,6 +1045,8 @@ impl Run {
         let pressed = self.rooms_pressed(inputs);
         self.tick_bowcountry(pressed);
         self.tick_town(inputs, pressed);
+        // In the fort below the Greenwood, E beside one of its people.
+        self.tick_bomrekedan_people(pressed);
         self.tick_race_wagers(inputs);
         // Humphrey the Risen is retired: the surface stays free of zombies,
         // and any still standing from an older save are cleared away.

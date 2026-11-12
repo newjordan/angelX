@@ -9,7 +9,7 @@ fn draw(run: &Run, focus: u32) -> Terminal<TestBackend> {
     let mut terminal = Terminal::new(TestBackend::new(96, 28)).unwrap();
     terminal
         .draw(|f| {
-            crate::ui::viz::shooter_viz::paint_picture_ui(
+            crate::delve::shooter_viz::paint_picture_ui(
                 f,
                 Rect::new(0, 0, 96, 28),
                 run,

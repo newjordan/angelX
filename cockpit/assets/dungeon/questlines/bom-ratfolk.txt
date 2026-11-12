@@ -1,0 +1,35 @@
+# The Ratfolk Host — Ast Ringtwinkled, captain of the Steel Swords, at Bomrekedan's drawbridge.
+# A Bomrekedan questline, placed from expansions/bomrekedan/kingdom/questlines/
+# ratfolk.txt (quests.json: the-ratfolk-host) and adapted to the engine the
+# way bom-steel.txt says: every step and the trial cued, so the line can be
+# walked to its end today; the counters this line's own (the gate siege is
+# not Sir Castor's gate_sieges_held, which counts toward a skill).
+# She stands on the Gate (`room BomGate`), in the Steel Swords barracks by
+# the drawbridge's hatch, clear of the stair down to the Great Hall.
+power   bomrekedan:ratfolk
+teacher Ast Ringtwinkled
+place   the Steel Swords barracks at Bomrekedan's drawbridge, where The Seduction of Distinguishing shattered in year 105
+room    BomGate
+at      68 66
+look    a steel short sword named Shockedskewered at her hip, a captain's sash, and ratfolk teeth on a string she will not explain
+line    They came five times. Axemen, then lashers, then thieves, then the whole host. They will come a sixth.
+teach   A gate is not held by the wall. It is held by the dwarf who does not step back from it.
+hook    Ninety-one tally marks are scratched down the inside of the drawbridge's chain housing, and the last ten are fresher than the rest.
+step    The gate siege | hold the drawbridge with Ast through one drilled siege of three waves | drawbridge_sieges_held 1 | Three waves. Nisam brought nine, but three is how you learn. | cue stand
+step    The count | count the ratfolk dead with Ast, mark by mark on the chain housing | ratfolk_counted 1 | Ninety-one. I do not count them to boast. I count them so I know how many are left. | cue count
+step    The hammermen | stand a dozen hammer, mace and sword blows in Ast's drill, the way the ratfolk swing them | hammer_drills_stood 1 | Twelve. They hit hard and they do not stop. Neither do we. | cue drill
+step    The camp | trace the host's march back on Ast's map to the camp it came from | ratfolk_camp_found 1 | So that is where. Draw it for me, and draw it twice. | cue trace
+step    The standard | hang Nisam Shelterglossed's standard on the barracks wall with Ast | standard_brought_home 1 | A human leading ratfolk at our gate. He can have it back when he asks politely. | cue fetch
+trial   The shattered host | hold the drawbridge with Ast through the host's last charge, not one step back past the hatch | host_charges_held 1 | They shattered against Whipstirs. Now they have shattered against you. | cue hold
+reward  ratfolk arms for the weapon racks, and the gate is quiet a season (a Bomrekedan questline: no power is taught)
+title   the Bridge-Holder
+keepsake a ratfolk tooth on a steel wire
+ties    Eigriteil Rainsuitors keeps the same gate's petitions (the erinys line); the standard is a relic of the fort's own, like Monom's axe (Kekkit's Web).
+art
+...8...
+..888..
+.8.8.8.
+...8...
+..777..
+..8.8..
+.8...8.

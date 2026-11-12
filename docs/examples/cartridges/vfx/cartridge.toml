@@ -1,6 +1,16 @@
 id = "vfx"
 label = "Bend Pixel VFX"
 
+[plugin]
+version = "1.0.0"
+description = "Pixel-art VFX rendered locally with Bend: transparent PNG sheets, GIFs, atlas JSON and Godot SpriteFrames."
+authors = ["angelX contributors"]
+license = "MIT"
+repository = "https://github.com/newjordan/angelX"
+keywords = ["vfx", "pixel-art", "sprites", "animation", "godot", "bend"]
+# Builds the Bend renderer and checks it (`bin/vfx doctor`).
+setup = "install.sh"
+
 [[commands]]
 name = "vfx"
 usage = "<effect to make or recipe to edit>"

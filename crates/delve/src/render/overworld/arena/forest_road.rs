@@ -335,6 +335,10 @@ pub(super) fn frame(run: &Run, w: i32, h: i32, focus: Option<u32>) -> Img {
     out
 }
 pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
+    // The Forest road's mouth and the Old Oak stand on the full plan's map only.
+    if !crate::world::plan::full() {
+        return;
+    }
     let (nx, ny) = road::NORTH;
     let (x, y) = (nx * 16 + 8 - origin.0, ny * 16 + 8 - origin.1);
     text(im, x - 48, y + 14, "N FOREST ROAD", 'g');

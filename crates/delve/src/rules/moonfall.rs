@@ -398,10 +398,10 @@ fn knight_valid(k: &Knight) -> bool {
 
 impl Run {
     pub fn moonfall_showing(&self) -> bool {
-        self.room().kind == RoomKind::Forest && self.moonfall.is_some()
+        self.on_stage() && self.moonfall.is_some()
     }
     pub fn start_moonfall(&mut self) {
-        if self.room().kind != RoomKind::Forest {
+        if !self.on_stage() {
             return;
         }
         self.forest.leave();

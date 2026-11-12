@@ -18,7 +18,7 @@ fn local_model_dungeon_grant_flight() {
     );
     std::fs::create_dir_all(&out).unwrap();
     let club: Arc<dyn Club> = Arc::new(HttpClub::new("dungeon-flight", url, model, None));
-    let oracle = crate::drive::realm_services::oracle(club);
+    let oracle = crate::app::control::realm::club_oracle(club);
     let runners = Runners::new(1);
     for (index, words) in ["stars spinning round me", "ticking poison damage", "a bigger spiked shield"]
         .into_iter()

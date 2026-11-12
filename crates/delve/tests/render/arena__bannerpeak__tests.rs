@@ -6,6 +6,7 @@ use super::super::frame_for;
 use super::*;
 use super::super::super::ink::{ink, palette_index};
 use crate::rules::bannerpeak::{
+    body::Pose,
     knight::follow,
     boss, foes,
     layout::{self, HUB, MARSH, MILL, SHAFT, SNOW, SUMMIT, info},

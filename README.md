@@ -49,7 +49,7 @@ To compile with Blaze instead of Cargo, install it once with
 `python3 scripts/runtime/install-blaze.py`, then launch with
 `ANGEL_BUILD_BACKEND=blaze ./bin/angelX`.
 
-[Product site](https://omni-space.tech) · [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) ·
+[Product site](https://omni-space.tech) · [Model setup](docs/MODELS.md) · [/commands](docs/COMMANDS.md) · [Plugins](docs/PLUGINS.md) ·
 [Feature evidence](docs/FEATURES.md) · [Backup and peer watch](docs/BACKUP.md) · [Attributions](THIRD_PARTY_NOTICES.md) · [MIT](LICENSE) ·
 [Contributing](CONTRIBUTING.md) · [Security](SECURITY.md)
 
@@ -83,7 +83,23 @@ To compile with Blaze instead of Cargo, install it once with
   <img alt="Loop workshop: time, iterations and token cap" src="docs/images/ui/loop-workshop.png" width="49%">
 </p>
 
-## New in 0.2.7: the Muse Hackathon update
+## New in 0.2.85: the speed update
+
+angelX and pi 1.5.0 on the same model, side by side.
+[Release notes](docs/RELEASE_0.2.85.md).
+
+| DeepSeek V4.1 Flash, 2026-11-11 | solved | agent time | median task | cost |
+|---|---:|---:|---:|---:|
+| **angelX 0.2.85** · polyglot-v1 | **136 / 136** | **18.7 min** | **5.6 s** | **$0.19** |
+| pi 1.5.0 · polyglot-v1 | 127 / 136 | 102.9 min | 8.3 s | $0.91 |
+| **angelX 0.2.85** · held-out tests | **113 / 133** | **21.4 min** | **5.5 s** | **$0.17** |
+| pi 1.5.0 · held-out tests | 101 / 133 | 137.6 min | 7.5 s | $1.45 |
+| **angelX 0.2.85** · Go | **36 / 36** | **9.1 min** | **3.6 s** | **$0.06** |
+| pi 1.5.0 · Go | 32 / 36 | 44.3 min | 7.3 s | $0.35 |
+
+<sub>Prime Intellect Verifiers v0.3.1 · thinking off · one attempt per task, 600 s, fresh environment; method in the [release notes](docs/RELEASE_0.2.85.md#results).</sub>
+
+## From 0.2.7: the Muse Hackathon update
 
 Same model, the maker's own coding agent, all 136 polyglot tasks side by side:
 angelX finishes faster on a fraction of the tokens.
@@ -156,6 +172,7 @@ say, on this machine. See [Cartridges](docs/CARTRIDGES.md).
 - **Repository tools** — Search files, inspect symbols, follow definitions, and review diffs.
 - **Content-checked edits** — Hashline editing checks file content before applying anchored changes.
 - **Programmable tools** — Run tool calls, loops, and filters locally in JavaScript with `code_mode`.
+- **Plugins** — `/plugins install <id>` adds commands, skills and tools from the public registry, each pinned to a reviewed commit; `angelX plugin new` and `angelX plugin submit` take your own from a folder to a pull request. See [Plugins](docs/PLUGINS.md).
 - **Long-session context** — Compact, deduplicate, and age retained context as work continues.
 - **Project memory** — Review source-linked knowledge in Atlas and reuse it in later tasks.
 - **Persistent goals** — Resume sessions and autonomous work with configurable run limits.

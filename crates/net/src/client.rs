@@ -115,6 +115,9 @@ pub trait GameClient: Sized {
     }
     /// The player tapped choice `n` (from 0) of `choices`.
     fn choose(&mut self, _n: u32) {}
+    /// A pointer press in final frame pixels. True means the game's current
+    /// screen consumed it; otherwise the shell may continue its normal input.
+    fn pointer(&mut self, _frame_x:u32, _frame_y:u32, _button:u8)->bool { false }
     /// Picks beside the text line (`controls.text`), for a page to show
     /// while the line is open (the Delve's "Upgrade what you hold"): a
     /// heading line, then one pick a line as `key\tlabel\ttag\ttip\twords`,
@@ -135,6 +138,19 @@ pub trait GameClient: Sized {
     /// The page lost what it was sent (a lost GPU context): the next stage
     /// sends every picture again.
     fn stage_reset(&mut self) {}
+    /// A one-off action the player made (a wish typed in the shell's text line, a vote) that the
+    /// game keeps for itself: true when it was taken here, and then it is not sent. The default
+    /// keeps nothing. The Delve's Creator takes its Wish line this way, so no wish is spent.
+    fn keep_action(&mut self, _kind: u32, _body: &[u8]) -> bool {
+        false
+    }
+    /// One-off actions the game itself has to send its host (the Creator's piece, brought to
+    /// life), drained as commands are sampled: `(kind, body)`. A body too big for one client
+    /// message goes in pieces (`pieces`), one a command, so a seat stays inside its message
+    /// budget. The default sends none.
+    fn take_actions(&mut self) -> Vec<(u32, Vec<u8>)> {
+        Vec::new()
+    }
     /// Whether the page draws a stage's 3D props (`angel-stage`'s `STG3`
     /// frames), said before each stage: where it does not, the game draws
     /// with what a stage had before them (flat sprites). The default is a
@@ -199,6 +215,8 @@ pub struct Runtime<G: GameClient> {
     idling: bool,
     rtt_ms: Option<f64>,
     outgoing: Vec<Vec<u8>>,
+    /// Actions the game asked to send, in pieces, one going out with each command.
+    queued: std::collections::VecDeque<(u32, Vec<u8>)>,
     lines: Vec<String>,
     frame: Frame,
     /// The client knobs the engine keeps: everyone else drawn this far
@@ -238,6 +256,7 @@ impl<G: GameClient> Runtime<G> {
             idling: false,
             rtt_ms: None,
             outgoing: Vec::new(),
+            queued: std::collections::VecDeque::new(),
             lines: Vec::new(),
             frame: Frame::default(),
             interp_ms: INTERP_MS,
@@ -446,11 +465,17 @@ impl<G: GameClient> Runtime<G> {
                 self.pending.pop_front();
             }
         }
+        for (kind, body) in game.take_actions() {
+            self.queued.extend(pieces(kind, &body));
+        }
         // Only the newest `MAX_CMDS` of a pile-up go out.
         let skip = bodies.len().saturating_sub(crate::proto::MAX_CMDS);
         let cmds = bodies[skip..].iter().map(|(seq, body)| (*seq, body.as_slice())).collect();
         let msg = ToServer::Cmds { applied: self.newest_tick, cmds };
         self.outgoing.push(msg.to_vec());
+        if let Some((kind, body)) = self.queued.pop_front() {
+            self.outgoing.push(ToServer::Action { kind, body: &body }.to_vec());
+        }
         self.last_cmd_ms = now_ms;
     }
 
@@ -461,6 +486,9 @@ impl<G: GameClient> Runtime<G> {
 
     /// A one-off choice (a vote, a wish, a chat line).
     pub fn action(&mut self, kind: u32, body: &[u8]) {
+        if self.game.as_mut().is_some_and(|g| g.keep_action(kind, body)) {
+            return;
+        }
         self.outgoing.push(ToServer::Action { kind, body }.to_vec());
     }
 
@@ -518,6 +546,10 @@ impl<G: GameClient> Runtime<G> {
         if let Some(game) = self.game.as_mut() {
             game.choose(n);
         }
+    }
+
+    pub fn pointer(&mut self, frame_x:u32, frame_y:u32, button:u8)->bool {
+        self.game.as_mut().is_some_and(|game|game.pointer(frame_x,frame_y,button))
     }
 
     /// The picks beside the text line (`GameClient::picks`).
@@ -598,6 +630,33 @@ impl<G: GameClient> Runtime<G> {
     }
 }
 
+/// An action kind that carries a piece of a larger one: its kind, how many pieces, which this is,
+/// then its bytes. The server puts them back together (`angel_realm_host::together_gear::Uploads`).
+pub const PIECE: u32 = 100;
+/// The bytes a piece carries: the action's framing and the piece's header still fit in a client message.
+pub const PIECE_BYTES: usize = 900;
+
+/// The messages that carry one action: itself when it fits in one, else its pieces, in order.
+pub fn pieces(kind: u32, body: &[u8]) -> Vec<(u32, Vec<u8>)> {
+    use crate::codec::put_varint;
+    if body.len() <= PIECE_BYTES {
+        return vec![(kind, body.to_vec())];
+    }
+    let chunks: Vec<&[u8]> = body.chunks(PIECE_BYTES).collect();
+    chunks
+        .iter()
+        .enumerate()
+        .map(|(i, chunk)| {
+            let mut out = Vec::with_capacity(chunk.len() + 12);
+            put_varint(&mut out, u64::from(kind));
+            put_varint(&mut out, chunks.len() as u64);
+            put_varint(&mut out, i as u64);
+            out.extend_from_slice(chunk);
+            (PIECE, out)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -658,6 +717,9 @@ mod tests {
         fn controls(&self) -> &'static str {
             "{}"
         }
+        fn keep_action(&mut self, kind: u32, _: &[u8]) -> bool {
+            kind == 77
+        }
     }
 
     fn welcome() -> Vec<u8> {
@@ -678,6 +740,27 @@ mod tests {
         let mut body = Vec::new();
         put_varint(&mut body, crate::codec::zigzag(i64::from(x)));
         ToClient::Snapshot { tick, ack, whole: true, body: &body }.to_vec()
+    }
+
+    #[test]
+    fn an_action_the_game_keeps_is_never_sent() {
+        let mut rt = Runtime::<Line>::new();
+        rt.connected("join", "", "Gwen", 0);
+        rt.take_outgoing();
+        rt.recv(&welcome(), 0.0).unwrap();
+        rt.action(77, b"mine");
+        assert!(rt.take_outgoing().is_empty(), "the game took it");
+        rt.action(5, b"yours");
+        let out = rt.take_outgoing();
+        assert_eq!(out.len(), 1);
+        match ToServer::decode(&out[0]) {
+            Ok(ToServer::Action { kind: 5, body }) => assert_eq!(body, b"yours"),
+            other => panic!("{other:?}"),
+        }
+        // Before a game is booted there is nobody to keep anything: it is sent as ever.
+        let mut idle = Runtime::<Line>::new();
+        idle.action(77, b"x");
+        assert_eq!(idle.take_outgoing().len(), 1);
     }
 
     #[test]

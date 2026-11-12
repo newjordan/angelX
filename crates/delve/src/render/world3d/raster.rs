@@ -150,6 +150,22 @@ impl Painted {
         self.tables[at] = Some(Mips([a, b, c, d]));
     }
 
+    /// Repaint part of a table this scene already paints: `f` gives the new colour of the samples
+    /// it wants to change (`x`, `y` in `0..SIDE`) and `None` for those to keep. A material this scene
+    /// does not paint is left as it is.
+    pub fn patch(&mut self, material: u8, f: impl Fn(usize, usize) -> Option<[u8; 3]>) {
+        let Some(Some(mips)) = self.tables.get(usize::from(material)) else {
+            return;
+        };
+        let mut table = mips.0[0].to_vec();
+        for (i, rgb) in table.iter_mut().enumerate() {
+            if let Some(c) = f(i % Self::SIDE, i / Self::SIDE) {
+                *rgb = c;
+            }
+        }
+        self.set(material, table);
+    }
+
     /// The base colour of `material` at sample `(x, y)` (0 to `SIDE`) seen at
     /// `depth`, when this scene paints it.
     fn sample(&self, material: u8, x: usize, y: usize, depth: f32) -> Option<[u8; 3]> {
@@ -211,6 +227,30 @@ const HORIZON_GLOW_GAIN: f32 = 0.52;
 /// be hashed into `cinematic_key`.
 const STAR_SEED: u64 = 0x574f_524c_4433_445f;
 
+thread_local! {
+    static ROLL: std::cell::Cell<f32> = const { std::cell::Cell::new(0.0) };
+}
+
+/// The camera's roll about its own axis on this thread, radians; 0 unless a `roll` guard is held.
+pub fn current_roll() -> f32 { ROLL.with(|r| r.get()) }
+
+/// Holds a camera roll for as long as it lives: every render on this thread leans the lens
+/// `r` radians (positive: clockwise, the right side down, so the horizon climbs on the right).
+/// A lens that is not rolled is bit for bit what it always was.
+#[must_use]
+pub struct RollGuard(f32);
+pub fn roll(r: f32) -> RollGuard { RollGuard(ROLL.with(|c| c.replace(r))) }
+impl Drop for RollGuard {
+    fn drop(&mut self) { ROLL.with(|c| c.set(self.0)); }
+}
+
+/// A camera's right and up turned about its forward axis by `roll`.
+pub fn rolled(right: V3, up: V3, roll: f32) -> (V3, V3) {
+    if roll == 0.0 { return (right, up); }
+    let (s, c) = roll.sin_cos();
+    (right * c - up * s, up * c + right * s)
+}
+
 /// Camera basis + projection scales, built once per frame.
 struct Camera {
     pos: V3,
@@ -236,6 +276,7 @@ impl Camera {
         let right = v3(-sin_h, cos_h, 0.0);
         let fwd = v3(cos_h * cos_p, sin_h * cos_p, sin_p);
         let up = fwd.cross(right).normalize();
+        let (right, up) = rolled(right, up, current_roll());
         let tan_h = (view.fov_rad.clamp(0.20, 2.40) * 0.5).tan();
         // Braille dots are ~square, so the vertical field follows the dot
         // aspect directly rather than the terminal cell aspect.
@@ -395,6 +436,10 @@ fn render_fogged(
 pub enum Backdrop {
     Night,
     Dark([u8; 3]),
+    /// A dot that hit nothing shows this colour, and the fog the scene's own
+    /// surfaces fade into is this colour too (a place with a haze of its own: smoke over a
+    /// forge, the damp of a cave). `Dark` and `Night` keep the shared night haze.
+    Haze([u8; 3]),
 }
 
 /// Rows per band: the frame is cut into horizontal bands and each band is
@@ -438,6 +483,7 @@ pub fn render_meshes_painted(
         return (RgbaImage::new(dot_w as u32, dot_h as u32), Vec::new());
     }
     let camera = Camera::new(view, dot_w, dot_h);
+    let haze = match backdrop { Backdrop::Haze(rgb) => rgb, _ => NIGHT_HAZE };
     let mut pixels = vec![0u8; dot_w * dot_h * 4];
     let mut depth = vec![f32::INFINITY; dot_w * dot_h];
     SCRATCH.with(|cell| {
@@ -465,11 +511,11 @@ pub fn render_meshes_painted(
                 for px in 0..dot_w {
                     let index = local * dot_w + px;
                     let color = if depth[index].is_finite() {
-                        surface[index].shade_with(uv[index], depth[index], fire, fog, painted)
+                        surface[index].shade_with(uv[index], depth[index], fire, fog, painted, haze)
                     } else {
                         match backdrop {
                             Backdrop::Night => sky_color(camera.ray(px, py)),
-                            Backdrop::Dark(rgb) => rgb,
+                            Backdrop::Dark(rgb) | Backdrop::Haze(rgb) => rgb,
                         }
                     };
                     let base = index * 4;
@@ -909,7 +955,7 @@ impl Surface {
     }
 
     fn shade(self, uv: [f32; 2], depth: f32, fire: Firelight, fog: f32) -> [u8; 3] {
-        self.shade_with(uv, depth, fire, fog, None)
+        self.shade_with(uv, depth, fire, fog, None, NIGHT_HAZE)
     }
 
     fn shade_with(
@@ -919,6 +965,7 @@ impl Surface {
         fire: Firelight,
         fog: f32,
         painted: Option<&Painted>,
+        haze: [u8; 3],
     ) -> [u8; 3] {
         let (base, fog_resistance, emissive) =
             material_sample_with(self.mat, uv, depth, painted);
@@ -935,7 +982,7 @@ impl Surface {
                 base = warm_swing(base, fire.warm);
             }
             let lit = scale_rgb(base, strength);
-            return mix_rgb(lit, NIGHT_HAZE, fog_amount(depth, fog) * fog_resistance);
+            return mix_rgb(lit, haze, fog_amount(depth, fog) * fog_resistance);
         }
         let lantern = if lantern_lit(self.mat) {
             lantern_gain(depth)
@@ -953,7 +1000,7 @@ impl Surface {
         };
         let lit = mix_rgb(lit, rim_color, self.rim);
         let resistance = fog_resistance * (1.0 - 0.40 * self.rim);
-        mix_rgb(lit, NIGHT_HAZE, fog_amount(depth, fog) * resistance)
+        mix_rgb(lit, haze, fog_amount(depth, fog) * resistance)
     }
 }
 

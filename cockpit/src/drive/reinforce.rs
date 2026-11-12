@@ -1687,7 +1687,7 @@ pub fn run_nontechnical_reinforce(
     promotion
         .manifest
         .validate(CohortRole::Promotion, promotion.cases, promotion.config)?;
-    telemetry::begin("nontechnical", request.rounds);
+    let run_telemetry = telemetry::begin_run("nontechnical", request.rounds);
     let report = run_reinforce_inner(
         generator,
         reward,
@@ -1703,9 +1703,8 @@ pub fn run_nontechnical_reinforce(
         }),
     )
     .map(|run| run.report);
-    match &report {
-        Ok(_) => telemetry::done(),
-        Err(_) => telemetry::failed(),
+    if report.is_ok() {
+        run_telemetry.finish();
     }
     report
 }
@@ -1789,7 +1788,7 @@ pub fn run_reinforce(
         audit.evaluators,
     )?;
     promotion::validate_audit_separation(selection.manifest, audit.manifest)?;
-    telemetry::begin("technical", request.rounds);
+    let run_telemetry = telemetry::begin_run("technical", request.rounds);
 
     let frozen_training = campaign.authority.try_load_candidate(
         &campaign_request_sha256,
@@ -1880,7 +1879,7 @@ pub fn run_reinforce(
         }
         telemetry::released();
     }
-    telemetry::done();
+    run_telemetry.finish();
     Ok(result)
 }
 
@@ -1896,7 +1895,7 @@ pub fn run_reinforce_unchecked_for_ablation(
     rounds: usize,
     cfg: &ReinforceConfig,
 ) -> ReinforceReport {
-    telemetry::begin("ablation", rounds);
+    let run_telemetry = telemetry::begin_run("ablation", rounds);
     let report = run_reinforce_inner(
         generator,
         reward,
@@ -1909,7 +1908,7 @@ pub fn run_reinforce_unchecked_for_ablation(
     )
     .expect("unchecked promotion has no fallible gate")
     .report;
-    telemetry::done();
+    run_telemetry.finish();
     report
 }
 

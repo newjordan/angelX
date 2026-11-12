@@ -35,7 +35,7 @@ fn the_stage_draws_on_both_routes_at_every_size() {
 }
 
 /// Every moment the review sets up, with how many knights.
-const MOMENTS: &[(&str, u32)] = &[
+pub(super) const MOMENTS: &[(&str, u32)] = &[
     ("stair", 1), ("lock", 1), ("circle", 1), ("slash", 1), ("slash3", 1), ("spin", 1), ("lunge", 1),
     ("shield", 1), ("block", 1), ("parry", 1), ("hop", 1), ("flip", 1), ("plunge", 1), ("roll", 1),
     ("chest", 1), ("down", 2), ("retry", 2), ("talk", 1), ("bomb", 1), ("bomb-open", 1), ("sigil", 1), ("lever", 1),
@@ -133,6 +133,7 @@ fn a_painted_brazier_burns_down_through_its_dying_flame_once_and_in_order() {
         return;
     }
     let mut r = Run::lanternward_at_for_test("lamp-lit", 1);
+    r.lanternward.as_mut().unwrap().stage_t = 200;
     let spot = brazier_spot(&r);
     let shows = |r: &mut Run, t: u16, state: &str, tick: u32| {
         for p in r.lanternward.as_mut().unwrap().props.iter_mut().filter(|p| p.kind == lw::Pk::Brazier) {
@@ -169,6 +170,7 @@ fn write_lanternward_brazier_strip() {
     let dir = std::path::PathBuf::from(dir).join("lanternward");
     std::fs::create_dir_all(&dir).unwrap();
     let mut r = Run::lanternward_at_for_test("lamp-lit", 1);
+    r.lanternward.as_mut().unwrap().stage_t = 200;
     let (w, h, k) = (28, 34, 6);
     let mut frames = Vec::new();
     let grab = |r: &Run, frames: &mut Vec<Img>| {
@@ -231,6 +233,8 @@ fn camera_on(r: &mut Run, kind: lw::Pk, nth: usize) -> (usize, (i32, i32)) {
     let s = r.lanternward.as_mut().unwrap();
     let i = s.props.iter().enumerate().filter(|(_, p)| p.kind == kind).map(|(i, _)| i).nth(nth).expect("the room has the prop");
     let (x, y) = (s.props[i].x, s.props[i].y);
+    // The party has been in the room a while: no card, no wipe over it.
+    s.stage_t = 200;
     let seat = s.seats.get_mut(&1).unwrap();
     seat.x = x - 7 * 16 * lw::world::Q;
     seat.y = y + 4 * 16 * lw::world::Q;
@@ -284,9 +288,15 @@ fn a_painted_prop_stamps_its_own_frames_and_the_code_adds_no_art_of_its_own() {
 fn a_painted_great_brazier_beacon_and_chest_leave_the_blocks_code_art_out() {
     use lw::Pk;
     // Above the frame's top row, where the block's flame is drawn, a painted lit
-    // prop draws what its unlit twin does.
+    // prop draws no flame of its own: the flame-coloured pixels there are the
+    // same as its unlit twin's (its pool of lamplight is on the floor, in
+    // browns, not in the flame's golds).
     let above = |screen: &Img, (x, foot): (i32, i32), tall: i32| -> Vec<Option<[u8; 3]>> {
-        (1..=10).flat_map(|dy| (-5..=5).map(move |dx| (dx, dy))).map(|(dx, dy)| screen.get(x + dx, foot - tall - dy)).collect()
+        let flame = ['6', '@', '4', '5', 'w'].map(|c| ink(c).unwrap());
+        (1..=10)
+            .flat_map(|dy| (-5..=5).map(move |dx| (dx, dy)))
+            .map(|(dx, dy)| screen.get(x + dx, foot - tall - dy).filter(|c| flame.contains(c)))
+            .collect()
     };
     for (moment, kind, tall, lit, unlit, id, state) in [
         ("lamp", Pk::Great, 22, (1u8, 0u16), (0u8, 0u16), "great", "lit"),

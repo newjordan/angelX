@@ -935,7 +935,6 @@ fn behead(
         let near = x >= bx0 - 1 && x <= bx1 && y >= by0 - 1 && y <= by1;
         (near && !inside(x, y)).then_some(fresh)
     };
-    let cut = by1;
     let head_mid = ((bx0 + bx1) as f32 / 2.0, (by0 + by1) as f32 / 2.0);
     let neck_top = (o.0 + (head_mid.0 - im.w as f32 / 2.0), o.1 - h + by1 as f32);
     // The trunk stands a moment, wobbling, then falls along the blow.

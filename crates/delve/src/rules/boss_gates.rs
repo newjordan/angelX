@@ -472,9 +472,11 @@ impl Run {
                 }
             }
             if e.camp_slot.is_none()
-                // The Wanted hall and a holding's raiders keep their own
-                // company, not the floor's provision.
-                && !matches!(self.room().kind, RoomKind::Wanted | RoomKind::Holding)
+                // The Wanted hall, a holding's raiders and a lost hall's
+                // set-piece keep their own company, not the floor's provision.
+                && !matches!(self.room().kind, RoomKind::Wanted | RoomKind::Holding | RoomKind::DwarfHall)
+                && !self.admitted_claim_guardian(e)
+                && !self.admitted_ore_sentry(e)
                 && !g.encounter(self.at, e.kind, e.boss)
                 && !g.economy.alive_emission(self.at, e.id, e.kind, e.stage)
             {
@@ -539,7 +541,7 @@ impl Run {
         let bosses: Vec<_> = self
             .enemies
             .iter()
-            .filter(|e| e.kind == EnemyKind::Boss)
+            .filter(|e| e.kind == EnemyKind::Boss && !self.admitted_claim_guardian(e))
             .collect();
         let optional_pit = self.room().kind == RoomKind::Pit; // native Pit Tyrant is not a graph boss
         // The Wanted hall's outlaw and company are its own, not the floor's.

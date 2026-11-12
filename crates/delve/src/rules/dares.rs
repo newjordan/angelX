@@ -49,6 +49,30 @@ impl DareKind {
         }
     }
 
+    /// The name as a card's first line: two or three plain words.
+    pub fn card_name(self) -> &'static str {
+        match self {
+            DareKind::Untouched => "NOT A SCRATCH",
+            DareKind::StandFirm => "STAND FIRM",
+            DareKind::AgainstTheClock => "BEAT THE CLOCK",
+            DareKind::Pathfinder => "PATHFINDER",
+            DareKind::MakeItQuick => "MAKE IT QUICK",
+            DareKind::Unstoppable => "UNSTOPPABLE",
+        }
+    }
+
+    /// The rule as a card's second line: at most three plain words.
+    pub fn card_rule(self) -> &'static str {
+        match self {
+            DareKind::Untouched => "TWO CLEAN ROOMS",
+            DareKind::StandFirm => "NO ROLLING",
+            DareKind::AgainstTheClock => "STAIRS BY 4:00",
+            DareKind::Pathfinder => "CLEAR 3 ROOMS",
+            DareKind::MakeItQuick => "BOSS IN 45S",
+            DareKind::Unstoppable => "4 KILLS, TWICE",
+        }
+    }
+
     pub fn word(self) -> &'static str {
         match self {
             DareKind::Untouched => "untouched",

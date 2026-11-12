@@ -203,6 +203,7 @@ fn writer_workspace_store_redacts_at_write() {
     assert_sink_redacted(&path, secret, control);
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn writer_village_save_state_redacts() {
     let _lock = crate::tests::env_lock();
@@ -212,11 +213,11 @@ fn writer_village_save_state_redacts() {
         std::process::id()
     ));
     let _ = std::fs::remove_file(&path);
-    let state = crate::stage::village::VillageState {
+    let state = crate::delve::village::VillageState {
         apprentice_name: format!("{secret} {control}"),
         ..Default::default()
     };
-    crate::stage::village::save_state(&path, &state);
+    crate::delve::village::save_state(&path, &state);
     assert_sink_redacted(&path, secret, control);
 }
 

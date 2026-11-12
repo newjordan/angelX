@@ -1,9 +1,12 @@
 use super::*;
+use crate::agent::harness::ToolEventId;
+#[cfg(feature = "delve")]
 use crate::agent::{
-    harness::{ExecutionOutcome, Tool, ToolEventId, ToolOutcome, VerificationOutcome},
+    harness::{ExecutionOutcome, Tool, ToolOutcome, VerificationOutcome},
     tools::graph::{GraphTool, emit_requested, emit_returned},
 };
 
+#[cfg(feature = "delve")]
 #[test]
 fn graph_crop_native_events_keep_data_when_the_world_stage_is_hidden() {
     let _guard = crate::tests::env_lock();

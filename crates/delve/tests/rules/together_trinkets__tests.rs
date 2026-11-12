@@ -169,6 +169,34 @@ fn the_coach_rides_round_the_realm_and_back() {
 }
 
 #[test]
+fn the_coach_takes_the_friends_beside_it_and_leaves_the_ones_far_off() {
+    let mut r = kingdom();
+    r.join_seat(2, "Sir Boots");
+    r.join_seat(3, "Dame Far");
+    let geo = geography::geography(&r.kingdom.wishes);
+    let posts: Vec<(i32, i32)> = things(&geo)
+        .into_iter()
+        .filter(|(t, _)| *t == Thing::Coach)
+        .map(|(_, p)| p)
+        .collect();
+    stand_at(&mut r, 1, posts[0]);
+    stand_at(&mut r, 2, (posts[0].0 + 2, posts[0].1));
+    stand_at(&mut r, 3, (posts[0].0 + 40, posts[0].1));
+    let far = (r.players[&3].x, r.players[&3].y);
+    r.step(&press(1));
+    let next = posts[1];
+    for id in [1, 2] {
+        let h = &r.players[&id];
+        let tile = ((h.x / TILE_UNITS) as i32, (h.y / TILE_UNITS) as i32);
+        assert!((tile.0 - next.0).abs() <= 3 && (tile.1 - next.1).abs() <= 3, "knight {id} at {tile:?} vs {next:?}");
+        assert_eq!(geo.room.tile(tile.0, tile.1), Tile::Floor);
+    }
+    assert!((r.players[&1].x - r.players[&2].x).abs() > 1.0, "set down side by side");
+    assert_eq!((r.players[&3].x, r.players[&3].y), far, "the far knight stays");
+    assert!(r.valid_snapshot());
+}
+
+#[test]
 fn a_quintain_beaten_hard_thwacks_back() {
     let mut r = Run::at_home(41, 1, None, Default::default(), Default::default());
     let yard = r.dungeon.rooms.iter().position(|room| room.kind == RoomKind::Yard).unwrap();

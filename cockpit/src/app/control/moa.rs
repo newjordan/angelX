@@ -1,6 +1,68 @@
 use super::*;
 
+/// Where the MoA formation machine stands, read off the arm fields so the chip, the
+/// label, the status line, the inspector and the chip cache all say the same thing.
+///
+/// The fields are `moa_one_shot` (armed for the next turn), `moa_session` (armed for
+/// every turn), `moa_restore_after_turn` (a one-shot's wrapper took the route and gives it
+/// back when the worker settles) and the open deck. A turn consumes the one-shot, so from
+/// then until the worker settles only `moa_restore_after_turn` says a formation is running.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum MoaPhase {
+    /// Nothing armed, deck closed: normal coordinator turns.
+    Idle,
+    /// The deck is open with nothing armed: a draft pick, not yet an arm.
+    Staging,
+    /// A one-shot is armed for the next turn; a staged session waits behind it.
+    NextTurn,
+    /// A session roster is armed for every turn.
+    Session,
+    /// A one-shot formation is running the turn. The turn consumed its engagement, so
+    /// the formation's name and seats are no longer held here.
+    Engaged,
+}
+
+impl MoaPhase {
+    /// The word the inspector reports.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Self::Idle => "idle",
+            Self::Staging => "staging",
+            Self::NextTurn => "next-turn",
+            Self::Session => "session",
+            Self::Engaged => "engaged",
+        }
+    }
+
+    /// A formation is armed or running (the deck's draft pick does not count).
+    pub(crate) fn is_live(self) -> bool {
+        !matches!(self, Self::Idle | Self::Staging)
+    }
+}
+
 impl App {
+    /// The formation's phase. A one-shot staged during a run shows as `NextTurn`
+    /// (it is what the operator can still change), then a run under a one-shot, then
+    /// the session, then the open deck.
+    pub(crate) fn moa_phase(&self) -> MoaPhase {
+        if self.moa_one_shot.is_some() {
+            MoaPhase::NextTurn
+        } else if self.moa_restore_after_turn {
+            MoaPhase::Engaged
+        } else if self.moa_session.is_some() {
+            MoaPhase::Session
+        } else if self.moa_deck.is_some() {
+            MoaPhase::Staging
+        } else {
+            MoaPhase::Idle
+        }
+    }
+
+    /// The formation armed for a turn: the one-shot first, else the session roster.
+    pub(crate) fn moa_armed(&self) -> Option<&crate::agent::formations::MoaEngagement> {
+        self.moa_one_shot.as_ref().or(self.moa_session.as_ref())
+    }
+
     pub(crate) fn close_moa_deck(&mut self) {
         self.moa_deck = None;
         self.scryglass
@@ -42,7 +104,7 @@ impl App {
                 if self.moa_deck.is_none() {
                     let mut deck =
                         crate::agent::formations::MoaDeckState::new(self.bag.moa_model_choices());
-                    if let Some(active) = self.moa_one_shot.as_ref().or(self.moa_session.as_ref()) {
+                    if let Some(active) = self.moa_armed() {
                         deck.load_engagement(active);
                     }
                     self.moa_deck = Some(deck);
@@ -50,7 +112,7 @@ impl App {
                 let _ = self
                     .module_host
                     .activate(&crate::platform::runtime::ModuleId::new("artifacts"));
-                let live = if self.thinking.is_some() || self.bg_job.is_some() {
+                let live = if self.flight_owner().is_agent_busy() {
                     " · current run keeps its existing roster"
                 } else {
                     ""
@@ -201,27 +263,32 @@ impl App {
     }
 
     pub(crate) fn moa_arm_chip(&self) -> Option<String> {
-        if let Some(engagement) = &self.moa_one_shot {
-            let formation = crate::agent::formations::formation(engagement.formation);
-            return Some(format!(
-                " · {} {}/{} armed ",
-                formation.name,
-                engagement.roster.assigned_count(),
-                engagement.roster.slot_count()
-            ));
-        }
-        self.moa_session.as_ref().map(|engagement| {
-            let formation = crate::agent::formations::formation(engagement.formation);
-            format!(
-                " · {} {}/{} session ",
-                formation.name,
-                engagement.roster.assigned_count(),
-                engagement.roster.slot_count()
-            )
-        })
+        let scope = match self.moa_phase() {
+            MoaPhase::Idle | MoaPhase::Staging => return None,
+            MoaPhase::Engaged => return Some(" · formation engaged ".to_string()),
+            MoaPhase::NextTurn => "armed",
+            MoaPhase::Session => "session",
+        };
+        let engagement = self.moa_armed()?;
+        let formation = crate::agent::formations::formation(engagement.formation);
+        Some(format!(
+            " · {} {}/{} {scope} ",
+            formation.name,
+            engagement.roster.assigned_count(),
+            engagement.roster.slot_count()
+        ))
     }
 
     pub(crate) fn moa_arm_status(&self) -> String {
+        if self.moa_phase() == MoaPhase::Engaged {
+            return match &self.moa_session {
+                Some(session) => format!(
+                    "engaged · this turn · {} session",
+                    crate::agent::formations::formation(session.formation).name
+                ),
+                None => "engaged · this turn".to_string(),
+            };
+        }
         match (&self.moa_one_shot, &self.moa_session) {
             (Some(next), Some(session)) => format!(
                 "{} next · {} session",
@@ -266,15 +333,16 @@ impl App {
         }
     }
 
-    /// Short label for the agent-panel FORMATION chip (armed > draft > plain).
+    /// Short label for the agent-panel FORMATION chip (armed > engaged > draft > plain).
     pub(crate) fn moa_formation_chip_label(&self) -> String {
-        if let Some(engagement) = self.moa_one_shot.as_ref().or(self.moa_session.as_ref()) {
+        let scope = match self.moa_phase() {
+            MoaPhase::Engaged => return "FORMATION/live".to_string(),
+            MoaPhase::NextTurn => Some("next"),
+            MoaPhase::Session => Some("sess"),
+            MoaPhase::Staging | MoaPhase::Idle => None,
+        };
+        if let (Some(scope), Some(engagement)) = (scope, self.moa_armed()) {
             let name = crate::agent::formations::formation(engagement.formation).name;
-            let scope = if self.moa_one_shot.is_some() {
-                "next"
-            } else {
-                "sess"
-            };
             return format!("{name}/{scope}");
         }
         if let Some(deck) = self.moa_deck.as_ref() {
@@ -542,7 +610,7 @@ impl App {
         } else {
             "armed for one turn"
         };
-        let live = if self.thinking.is_some() || self.bg_job.is_some() {
+        let live = if self.flight_owner().is_agent_busy() {
             " · current run unchanged"
         } else {
             ""
@@ -595,7 +663,7 @@ impl App {
     pub(crate) fn clear_moa_arm(&mut self) {
         self.moa_one_shot = None;
         self.moa_session = None;
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             self.moa_restore_after_turn |= self.moa_restore_route.is_some();
         } else {
             self.moa_restore_after_turn = false;

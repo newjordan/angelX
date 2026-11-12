@@ -238,38 +238,76 @@ impl Cartridge {
 }
 
 /// Every plugged-in cartridge: the compiled ones, then config-only folders.
+/// Read once at startup; [`reload`] reads the folders again after a plugin
+/// install or removal.
 pub(crate) fn all() -> &'static [Cartridge] {
-    static ALL: OnceLock<Vec<Cartridge>> = OnceLock::new();
-    ALL.get_or_init(|| {
-        let mut found: Vec<Cartridge> = Vec::new();
-        // Tests play the fixture board first, whatever else is plugged in.
-        #[cfg(test)]
-        found.push(Cartridge::new(test_board(), Some(&TestBoard)));
-        for (text, hooks) in COMPILED {
-            match Config::parse(text) {
-                Ok(config) => found.push(Cartridge::new(config, Some(*hooks))),
-                Err(error) => eprintln!("cartridge: a compiled cartridge.toml is invalid: {error}"),
-            }
+    *plugged()
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+fn plugged() -> &'static std::sync::RwLock<&'static [Cartridge]> {
+    static PLUGGED: OnceLock<std::sync::RwLock<&'static [Cartridge]>> = OnceLock::new();
+    PLUGGED.get_or_init(|| std::sync::RwLock::new(Box::leak(load().into_boxed_slice())))
+}
+
+/// Read the cartridge folders again, so a plugin installed or removed while
+/// angelX runs takes effect without a restart: its commands, skills and pages
+/// at once, its tools from the next start (the session's tool registry is
+/// built once). Cartridges already plugged in keep their places, so the
+/// active competition does not change under a running loop; new ones follow.
+/// Each reload keeps the previous list alive for callers still holding it.
+pub(crate) fn reload() {
+    let mut fresh = load();
+    let mut next: Vec<Cartridge> = Vec::with_capacity(fresh.len());
+    for old in all() {
+        if let Some(at) = fresh.iter().position(|c| c.id() == old.id()) {
+            next.push(fresh.remove(at));
         }
-        for folder in config::folders(&config::roots()) {
-            if config::has_source(&folder) {
-                continue;
-            }
-            let path = folder.join("cartridge.toml");
-            match std::fs::read_to_string(&path)
-                .map_err(|e| e.to_string())
-                .and_then(|text| Config::parse(&text))
-            {
-                Ok(config) if found.iter().any(|c| c.id() == config.id) => {}
-                Ok(config) => found.push(Cartridge {
-                    folder: Some(folder.clone()),
-                    ..Cartridge::new(config, None)
-                }),
-                Err(error) => eprintln!("cartridge: {}: {error}", path.display()),
-            }
+    }
+    next.append(&mut fresh);
+    let next: &'static [Cartridge] = Box::leak(next.into_boxed_slice());
+    *plugged()
+        .write()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = next;
+}
+
+fn load() -> Vec<Cartridge> {
+    let mut found: Vec<Cartridge> = Vec::new();
+    // Tests play the fixture board first, whatever else is plugged in.
+    #[cfg(test)]
+    found.push(Cartridge::new(test_board(), Some(&TestBoard)));
+    for (text, hooks) in COMPILED {
+        match Config::parse(text) {
+            Ok(config) => found.push(Cartridge::new(config, Some(*hooks))),
+            Err(error) => eprintln!("cartridge: a compiled cartridge.toml is invalid: {error}"),
         }
-        found
-    })
+    }
+    for folder in config::folders(&config::roots()) {
+        if config::has_source(&folder) {
+            continue;
+        }
+        let path = folder.join("cartridge.toml");
+        match std::fs::read_to_string(&path)
+            .map_err(|e| e.to_string())
+            .and_then(|text| Config::parse(&text))
+        {
+            Ok(config) if found.iter().any(|c| c.id() == config.id) => {}
+            Ok(config) => found.push(Cartridge {
+                folder: Some(folder.clone()),
+                ..Cartridge::new(config, None)
+            }),
+            Err(error) => eprintln!("cartridge: {}: {error}", path.display()),
+        }
+    }
+    found
+}
+
+/// Whether `id` is a source cartridge compiled into this binary.
+pub(crate) fn compiled(id: &str) -> bool {
+    all()
+        .iter()
+        .any(|cartridge| cartridge.compiled && cartridge.id() == id)
 }
 
 /// The fixture cartridge engine tests run against: board CLI `board`.

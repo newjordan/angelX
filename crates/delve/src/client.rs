@@ -68,6 +68,7 @@ mod down;
 use down::Down;
 mod creator;
 use creator::mirror_action;
+mod creation;
 
 /// The knight whose client draws a host's shared screen. A local couch
 /// creator takes priority over room location; P1 wins when both are open.
@@ -241,6 +242,9 @@ fn set_primer_knob(k: &mut arena::primer::Knobs, name: &str, value: f64) -> Opti
 
 pub const CONTROLS: &str = controls!("Make a wish", "Wish for anything, in your words", "the genie offers how");
 const NAME_CONTROLS: &str = controls!("Mirror name", "Type a short name, then Enter", "save name");
+/// The Creator's Wish line: the same text line the wish scroll uses, its words kept here
+/// (`keep_action`) so nothing reaches the host while the Creator is open.
+const CREATOR_CONTROLS: &str = controls!("Wish it", "A flaming bone axe with a skull pommel", "ask the genie");
 /// What each of the Delve's buttons is (see `CONTROLS`).
 mod key {
     pub const TEAM: u32 = OK | SHIFT;
@@ -368,11 +372,15 @@ pub struct DelveClient {
     ballot: Ballot,
     /// The activity menu (Esc in a room's game): the knight waits.
     menu: bool,
+    /// Opt-in dev scroll; its recipe and controls never enter the Run.
+    creation: creation::Editor,
     /// A fallen seat's camera and menu, never part of a command or run.
     down: Option<Down>,
     /// A wish scroll's choice tapped (1 to 3, 0 to roll it up), for the
     /// next command.
     picked: Option<u8>,
+    /// Latest pointer action awaits exactly one command sample.
+    builder_pressed: Option<crate::rules::builder_input::BuilderAction>,
     /// The map key is held, with nothing else having the keys: the whole
     /// floor's map is laid over the view (`arena::MapView`). Kept here, in
     /// the seat's own screen, and never sent or run.
@@ -475,8 +483,10 @@ impl DelveClient {
             drawn_shot_gap: None,
             ballot: Ballot::default(),
             menu: false,
+            creation: creation::Editor::default(),
             down: None,
             picked: None,
+            builder_pressed: None,
             map_held: false,
             leaving: 0,
             skipping: 0,
@@ -616,7 +626,7 @@ impl DelveClient {
         // A knight its keys do not move (a ride, the privy, a Bladewind, a
         // side-on hall) is drawn from the server's ticks, between two like
         // everyone else, never held at the newest.
-        if newest.players.get(&knight).is_some_and(|h| h.mirror.open) {
+        if self.creation.session.open || newest.players.get(&knight).is_some_and(|h| h.mirror.open) {
             self.ghosts.clear();
             self.shown.clear();
             self.offset = (0.0, 0.0);
@@ -745,7 +755,7 @@ impl DelveClient {
     fn walk(&self, hands: &Hands) -> Option<Input> {
         let run = self.newest()?;
         let knight = self.knight?;
-        if run.players.get(&knight).is_some_and(|h| h.mirror.open)
+        if self.creation.session.open || run.players.get(&knight).is_some_and(|h| h.mirror.open)
             || self.menu || self.ballot.open || !self.ballot.queue.is_empty() || run.floor_plate(Some(knight)).is_some() {
             return None;
         }
@@ -1057,14 +1067,14 @@ pub(crate) fn sound_gap(name: &str) -> u32 {
         "spell_cast" => 250,
         "shot_bow" | "shot_crossbow" | "shot_handgonne" | "shot_bolt" | "shot_arcane" | "shot_spark" => 70,
         "hit" | "hit_blade" | "hit_axe" | "hit_arrow" | "hit_bolt" | "hit_blast" | "hit_magic" | "hit_note" => 60,
-        n if n.starts_with("sax_") => 70,
-        "bard_kick" | "bard_wub" => 300,
-        n if n.starts_with("bard_glitch") => 150,
+        n if crate::rules::bard::is_slice(n) => 300,
+        n if crate::rules::bard::is_bard_sound(n) => 800,
         "step_stone" | "step_gravel" | "step_ash" | "step_wet" | "step_moss" | "step_wood" => 210,
         "knight_hit" | "knight_hit_big" | "gold" | "bomb_toss" | "shield_up" => 120,
         "boss_roar" | "boss_rage" | "boss_death" | "crack_open" | "hand_rise" | "hand_grab" | "hand_drag"
         | "ground_close" | "hell_gate_rise" | "hell_gate_enter" | "circle_toll" | "knight_fall" | "boss_rise"
-        | "boss_fall" | "descend" | "door_seal" | "door_open" | "area_leave" | "bard_lullaby" | "bard_overload" => 800,
+        | "boss_fall" | "descend" | "door_seal" | "door_open" | "area_leave" => 800,
+        "mirage_bing_bong" => 1200,
         "kill" => 90,
         "gore_kick" | "gore_thunk" | "gore_chop" | "gore_splat" | "gore_bones" | "gore_burst" => 110,
         "swing" | "roll" | "shield_block" | "clang" | "spike" | "vent_fire" => 150,
@@ -1197,7 +1207,7 @@ impl GameClient for DelveClient {
             if same_window && spent && !previous.window.as_ref().unwrap().wished.contains(&id) {
                 self.wish_notice =
                     Some(if run.can_wish(id) { "Wish spent: more held. E at the genie's lamp." } else { "Wish spent: none held." });
-            } else if !same_window && run.can_wish(id) && run.players.get(&id).is_some_and(|h| h.unmade(&run.book)) {
+            } else if !same_window && run.can_wish(id) && run.players.get(&id).is_some_and(|h| h.shape.is_some() && h.unmade(&run.book)) {
                 // A knight still a shape: the wishes are for making them.
                 self.wish_notice = Some("You are a shape. Press T: wish yourself into being.");
             } else if !same_window && run.can_wish(id) {
@@ -1213,6 +1223,12 @@ impl GameClient for DelveClient {
             if naming(&run) && self.newest().is_none_or(|old| !naming(old)) {
                 self.wish_notice = Some("Mirror name: press T, type a short name, then Enter.");
             }
+        }
+        // A knight who owes the realm their rite is invited to the Creator as they arrive, whether
+        // they began the session or came into one running: a slip on their own screen that opens
+        // it with C, and puts itself off to a corner hint after a few seconds (`rite`).
+        if let Some(id) = self.knight {
+            self.creation.invite.update(run.owes_rite(id), run.tick);
         }
         self.keep(tick, run);
         self.settle_ballot();
@@ -1243,6 +1259,36 @@ impl GameClient for DelveClient {
     }
 
     fn command(&mut self, hands: &Hands) -> DelveCmd {
+        let pointer = self.builder_pressed.take();
+        if let Some(action) = pointer.filter(|_|self.knight.zip(self.newest())
+            .is_some_and(|(knight,run)|crate::rules::builder_input::layout(run,knight).is_some())) {
+            return DelveCmd { pressed:Input{builder:Some(action),..Input::default()},..DelveCmd::default() };
+        }
+        #[cfg(feature = "creator-dev")]
+        if !self.creation.session.open && hands.held & button::MAP != 0 && hands.pressed & button::X12 != 0 {
+            self.set_knob("creator_open", 1.0);
+            if self.creation.session.open { return DelveCmd::neutral(); }
+        }
+        if !self.creation.session.open && self.creation.invite.up() && hands.pressed & key::RIDE != 0 {
+            // The rite's invitation: C opens the Creator (the ride key is the rite's while it is owed).
+            self.set_knob("creator_open", 1.0);
+            if self.creation.session.open {
+                self.creation.invite.opened();
+                return DelveCmd::neutral();
+            }
+        }
+        if self.creation.session.open {
+            let tick = self.newest().map_or(0, |r| r.tick);
+            self.creation.hands(hands, tick);
+            self.menu = false;
+            self.leaving = 0;
+            self.skipping = 0;
+            self.picked = None;
+            self.map_held = false;
+            self.ballot.queue.clear();
+            self.ballot.open = false;
+            return DelveCmd::neutral();
+        }
         if (hands.pressed & key::MAP_KEY != 0 && hands.held & button::SHIFT != 0)
             || (hands.held & key::MAP_KEY != 0 && hands.pressed & button::USE != 0) {
             self.viewer.calm_screen = !self.viewer.calm_screen;
@@ -1403,6 +1449,11 @@ impl GameClient for DelveClient {
                 cmd.pressed.move_y=cmd.held.move_y;
             }
         }
+        // The race gate's menus (and its results board) take Enter as a pick: Enter is no key of the
+        // race itself, so E, F and Space are not the only ways to say yes.
+        if pressed & button::OK != 0 && self.newest().is_some_and(|r| r.knight_racers_showing()) {
+            cmd.pressed.interact = true;
+        }
         if let Some(run) = self.newest().filter(|r| r.pennon_showing()) {
             let tick = self.rafter_seen.unwrap_or(run.tick);
             if cmd.held.fire || cmd.held.interact {cmd.held.latch_tick=Some(tick);}
@@ -1460,6 +1511,7 @@ impl GameClient for DelveClient {
             && !self.ballot.open
             && self.ballot.queue.is_empty()
         };
+        self.map_held &= !self.creation.session.open;
         let full = self.map_held;
         // Our own shots go with our knight: ahead of the server when it is,
         // between two ticks like everyone's when it is not.
@@ -1508,7 +1560,10 @@ impl GameClient for DelveClient {
         #[cfg(test)]
         let mut drawn_all = Vec::new();
         let ahead = own.as_ref().map(|_| shots.as_slice());
+        let invite = self.creation.invite.shown(self.newest().map_or(0, |r| r.tick));
         let primer = &mut self.primer;
+        let creation = &self.creation.session;
+        let floor = self.creation.floor.as_ref();
         // A seat's view, its HUD in the band under it (`arena::in_seat`).
         let img = arena::with_deathmatch_prediction(deathmatch_own, || arena::with_watch(watching, || arena::in_seat(|| self.kept[after].run.drawn_with_shots(&pose, alpha, knight.zip(own.as_ref()), ahead, |run| {
             let seat_view = watching.or(knight).and_then(|k| run.view_for_seat(k));
@@ -1569,6 +1624,8 @@ impl GameClient for DelveClient {
                 crate::render::escape::paint(&mut parts.screen, run, knight);
                 crate::render::genie::paint(&mut parts.screen, run, knight);
                 if let Some(k) = knight { primer.paint(&mut parts.screen, run, k); }
+                crate::render::creation::paint_with(&mut parts.screen, creation, run.tick, None, floor);
+                crate::render::creation::paint_invite(&mut parts.screen, invite, creation.open);
                 let mut parts = arena::seat_lift_with(parts, run, knight, &map);
                 if let Some(hud) = &down_hud { hud.paint(&mut parts.screen); }
                 crate::render::viewer::options(&mut parts.screen, full, self.viewer);
@@ -1590,6 +1647,8 @@ impl GameClient for DelveClient {
             crate::render::escape::paint(&mut img, run, knight);
             crate::render::genie::paint(&mut img, run, knight);
             if let Some(k) = knight { primer.paint(&mut img, run, k); }
+            crate::render::creation::paint_with(&mut img, creation, run.tick, None, floor);
+            crate::render::creation::paint_invite(&mut img, invite, creation.open);
             let mut img = arena::seat_lift_frame_with(&img, run, knight, &map);
             if let Some(hud) = &down_hud { hud.paint(&mut img); }
             crate::render::viewer::options(&mut img, full, self.viewer);
@@ -1664,7 +1723,9 @@ impl GameClient for DelveClient {
     }
 
     fn controls(&self) -> &'static str {
-        if self.knight.zip(self.newest()).is_some_and(|(id, run)|
+        if self.creation.session.open {
+            CREATOR_CONTROLS
+        } else if self.knight.zip(self.newest()).is_some_and(|(id, run)|
             run.players.get(&id).is_some_and(|h| h.mirror.open && h.mirror.row == 9)) {
             NAME_CONTROLS
         } else {
@@ -1674,6 +1735,8 @@ impl GameClient for DelveClient {
 
     fn knobs(&self) -> Vec<Knob> {
         vec![
+            Knob::new("creator_open", "creator (dev)", "Open the Creator scroll", "Local biped study. Arrows edit, E next, Q back, Esc close. The world keeps running.", Side::Client)
+                .range(0.0, 1.0, 1.0).default(0.0).at(f64::from(self.creation.session.open)),
             Knob::new("calm_screen", "viewer", "Calm screen (off / on)", "This viewer only: no shake, soft flashes. Shift+N toggles.", Side::Client)
                 .range(0.0, 1.0, 1.0).default(0.0).at(f64::from(self.viewer.calm_screen)),
             Knob::new("shot_ease_ms", "net", "Own shot handover eases (ms)", "SHOT_EASE_MS (angel-delve client.rs)", Side::Client)
@@ -1688,6 +1751,19 @@ impl GameClient for DelveClient {
 
     fn set_knob(&mut self, name: &str, value: f64) -> Option<f64> {
         match name {
+            "creator_open" => {
+                if value < 0.5 {
+                    self.creation.session.open = false;
+                } else if let Some((tick, maker)) = self.knight.and_then(|id| {
+                    let run = self.newest()?;
+                    let hero = run.players.get(&id)?;
+                    (hero.hp > 0 && !hero.mirror.open && hero.offer.is_none() && !run.side_on())
+                        .then(|| (run.tick, hero.shown_name()))
+                }) {
+                    self.creation.session.open(tick, &maker);
+                }
+                Some(f64::from(self.creation.session.open))
+            }
             "calm_screen" => {
                 self.viewer.calm_screen = value >= 0.5;
                 Some(f64::from(self.viewer.calm_screen))
@@ -1743,6 +1819,7 @@ impl GameClient for DelveClient {
     /// "1 As you said: Triple Volley I", one a line; and on a summoner's,
     /// whom it is for, turned with 4 ("4 For: your dead").
     fn choices(&self) -> String {
+        if self.creation.session.open { return String::new(); }
         let (Some(knight), Some(run)) = (self.knight, self.newest()) else {
             return String::new();
         };
@@ -1768,6 +1845,7 @@ impl GameClient for DelveClient {
     /// Choice `n` tapped; the line after the choices on a summoner's scroll
     /// turns whom it is for (4); any past the three rolls the scroll up.
     fn choose(&mut self, n: u32) {
+        if self.creation.session.open { return; }
         let turn = self
             .knight
             .zip(self.newest())
@@ -1781,6 +1859,18 @@ impl GameClient for DelveClient {
         } else {
             0
         });
+    }
+
+    fn pointer(&mut self, frame_x:u32, frame_y:u32, button:u8)->bool {
+        if self.menu || self.ballot.open || self.down.is_some() || self.map_held {return false;}
+        let Some(layout)=self.knight.zip(self.newest())
+            .and_then(|(knight,run)|crate::rules::builder_input::layout(run,knight)) else {return false;};
+        let (w,h)=self.size();
+        let Some((x,y))=crate::rules::builder_input::logical_point(frame_x,frame_y,w,
+            arena::view_rows(h as i32) as u32,arena::BAND_H as u32) else {return false;};
+        let Some(action)=crate::rules::builder_input::hit(&layout,x,y,button) else {return false;};
+        self.builder_pressed=Some(action);
+        true
     }
 
     /// "Upgrade what you hold" beside the wish line: each ladder our knight
@@ -1864,6 +1954,28 @@ impl GameClient for DelveClient {
         self.stage_sizes.clear();
         self.paintings.forget();
         self.hd.forget();
+    }
+
+    /// The Creator's Wish line: while the scroll is open the words typed in the shell's text line
+    /// (action kind 2, `{"words": ..}`) are the genie's to read, and nothing is sent to the host,
+    /// so no wish is spent. A wish pick (kind 1) is swallowed the same way.
+    /// A thing brought to life in the Creator, on its way to the host (`rite`).
+    fn take_actions(&mut self) -> Vec<(u32, Vec<u8>)> {
+        std::mem::take(&mut self.creation.outbox)
+    }
+
+    fn keep_action(&mut self, kind: u32, body: &[u8]) -> bool {
+        if !self.creation.session.open || !matches!(kind, 1 | 2) {
+            return false;
+        }
+        let tick = self.newest().map_or(0, |r| r.tick);
+        if kind == 2
+            && let Ok(json) = serde_json::from_slice::<serde_json::Value>(body)
+            && let Some(words) = json["words"].as_str()
+        {
+            self.creation.session.say(words, tick);
+        }
+        true
     }
 
     fn stage_props(&mut self, on: bool) {

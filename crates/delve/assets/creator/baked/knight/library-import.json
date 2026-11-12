@@ -1,0 +1,91 @@
+{
+  "boss": "knight",
+  "camera": "overhead",
+  "definition_sha256": null,
+  "display_policy": {
+    "activation_note": "Creator art, not a boss: never registered in the boss library. It is read by the Creator's preview and Test drive only (render/creation/baked.rs).",
+    "active": false,
+    "anchor": "bottom-centre",
+    "cell_moss_mix": 0,
+    "cell_props": [
+      "great-helm with a gold crest",
+      "blue plate armour"
+    ],
+    "class": "hero",
+    "grade": {
+      "v1": [
+        320,
+        320
+      ]
+    },
+    "props": [
+      "great-helm with a gold crest",
+      "blue plate armour",
+      "gold trim",
+      "cyan eye slits",
+      "bare gauntlets"
+    ],
+    "study": {
+      "v1": [],
+      "v2": []
+    },
+    "v1": [
+      64,
+      54
+    ],
+    "v2": null
+  },
+  "identity_props": [
+    "great-helm with a gold crest",
+    "blue plate armour",
+    "gold trim",
+    "cyan eye slits",
+    "bare gauntlets"
+  ],
+  "integration_status": "art-only: v1 only (no v2 art, no study sizes); no gameplay definition or registration is fabricated",
+  "outputs": {
+    "library-v1-rest.png": {
+      "colours": 29,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1874,
+      "sha256": "cd259ad2a85e14117977b46ade70ddbacec58a744e7ca53a62442414c673c291",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v1-strike.png": {
+      "colours": 29,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1405,
+      "sha256": "78a4773aed35a90e21b5775e4b4b279105ac9bbdafa12496a228a4427aee308e",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    },
+    "library-v1-windup.png": {
+      "colours": 29,
+      "edge_agreement": 1.0,
+      "key_colour_agreement": 1.0,
+      "opaque_pixels": 1715,
+      "sha256": "d9af94ae68f5260bc0c7ec76861bdb14d7f8721f7be217c73489256310c399d8",
+      "silhouette_iou": 1.0,
+      "size": [
+        64,
+        54
+      ]
+    }
+  },
+  "reference_policy": "Frames are the source's native renders, written 1:1 (no resampling): the fidelity fields are 1.0 by construction, not a quality score.",
+  "resample": "nearest",
+  "thresholds": {
+    "edge_agreement": 0.85,
+    "key_colour_agreement": 0.9,
+    "silhouette_iou": 0.98
+  }
+}

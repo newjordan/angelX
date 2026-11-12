@@ -809,3 +809,151 @@ fn runtime_assets_can_be_added_and_replaced_while_the_same_socket_server_runs() 
     assert_eq!(fetch(&format!("/a/{}",next.name)),b"replacement sound");
     server.stop();
 }
+
+#[test]
+fn cold_browser_generation_keeps_http_consistent_and_ws_live() {
+    use angel_serve::http::{ClientBundle, PreparedAssets, LiveAsset, StaticFile};
+    use std::sync::{Arc, atomic::{AtomicUsize, Ordering}, mpsc};
+    let (release, held) = mpsc::channel();
+    let (captured, ready) = mpsc::channel();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let count = calls.clone();
+    let started = Instant::now();
+    let static_files=Box::leak(vec![StaticFile::generated("song.txt", "text/plain", b"old sound", angel_serve::hash::sha1(b"old sound"), None)].into_boxed_slice());
+    let generation = PreparedAssets::start_static(move |_| {
+        count.fetch_add(1, Ordering::SeqCst);
+        captured.send(()).unwrap();
+        held.recv().unwrap();
+        Ok(ClientBundle { index_html: "old={{asset:song.txt}}".into(), files: vec![("song.txt".into(), b"old sound".to_vec(), "text/plain".into()), ("flight.bin".into(), vec![b'z'; 4 * 1024 * 1024], "application/octet-stream".into())] })
+    }, static_files).unwrap();
+    assert!(started.elapsed() < Duration::from_millis(100));
+    ready.recv_timeout(WAIT).unwrap();
+    let mut config = ServeConfig::new("127.0.0.1:0".parse().unwrap());
+    config.key = Some(KEY.into());
+    config.prepared_assets = Some(generation.clone());
+    let live = LiveAsset::prepare(&"a".repeat(64), "wav", "audio/wav", b"issued live sound".to_vec()).unwrap();
+    config.live_assets.admit(&[live.clone()]).unwrap();
+    let started = Instant::now();
+    let server = Arc::new(Server::start(Tally::default(), config).unwrap());
+    assert!(started.elapsed() < Duration::from_millis(100));
+    let (done, completed) = mpsc::channel();
+    let requests: Vec<_> = (0..6).map(|_| {
+        let server = server.clone(); let done = done.clone();
+        std::thread::spawn(move || { done.send(http(&server, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n")).unwrap(); })
+    }).collect();
+    assert!(completed.recv_timeout(Duration::from_millis(50)).is_err());
+    // Saturate the separate cold-page budget without filling the 512-slot
+    // pre-hello pool. Extra page requests fail promptly, leaving WS admission.
+    let overflow: Vec<_> = (0..34).map(|_| {
+        let server = server.clone(); let done = done.clone();
+        std::thread::spawn(move || { done.send(http(&server, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n")).unwrap(); })
+    }).collect();
+    for _ in 0..24 {
+        assert!(completed.recv_timeout(WAIT).unwrap().starts_with("HTTP/1.1 503"));
+    }
+    let before_join = Instant::now();
+    let (mut ws, seat) = join(&server, 0);
+    assert_eq!(seat, Some(0));
+    assert!(before_join.elapsed() < Duration::from_millis(250));
+    assert!(http(&server, &format!("GET /a/{} HTTP/1.1\r\nConnection: close\r\n\r\n", live.name)).ends_with("issued live sound"));
+    release.send(()).unwrap();
+    let page = completed.recv_timeout(WAIT).unwrap();
+    assert!(page.starts_with("HTTP/1.1 200"));
+    for _ in 1..16 { assert_eq!(completed.recv_timeout(WAIT).unwrap(), page); }
+    for task in overflow { task.join().unwrap(); }
+    for task in requests { task.join().unwrap(); }
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+    let path = page.split("old=").nth(1).unwrap().trim();
+    assert!(http(&server, &format!("GET {path} HTTP/1.1\r\nConnection: close\r\n\r\n")).ends_with("old sound"));
+    let warm = Instant::now();
+    for _ in 0..100 {
+        assert!(http(&server, &format!("HEAD {path} HTTP/1.1\r\nConnection: close\r\n\r\n")).starts_with("HTTP/1.1 200"));
+    }
+    eprintln!("100 immutable warm HEAD requests {:?}", warm.elapsed());
+    // A separate generation cannot change a live page's content identity.
+    let mut replacement = ServeConfig::new("127.0.0.1:0".parse().unwrap());
+    replacement.prepared_assets = Some(PreparedAssets::start(|_| Ok(ClientBundle { index_html: "new={{asset:song.txt}}".into(), files: vec![("song.txt".into(), b"new sound".to_vec(), "text/plain".into())] })).unwrap());
+    let newer = Server::start(Tally::default(), replacement).unwrap();
+    let newer_page = http(&newer, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n");
+    assert_ne!(newer_page.split("new=").nth(1).unwrap().trim(), path);
+    assert!(http(&server, &format!("GET {path} HTTP/1.1\r\nConnection: close\r\n\r\n")).ends_with("old sound"));
+    drop(newer);
+    ws.close(code::NORMAL);
+    drop(ws);
+    let hash = angel_serve::hash::hex(&angel_serve::hash::sha1(&vec![b'z'; 4 * 1024 * 1024]));
+    let mut flight = TcpStream::connect(server.addr()).unwrap();
+    flight.set_read_timeout(Some(WAIT)).unwrap();
+    flight.write_all(format!("GET /a/{}.bin HTTP/1.1\r\nConnection: close\r\n\r\n", &hash[..16]).as_bytes()).unwrap();
+    let mut first = [0; 1024]; let n = flight.read(&mut first).unwrap();
+    assert!(n > 0);
+    drop(generation);
+    let server = Arc::try_unwrap(server).unwrap_or_else(|_| panic!("request Arc leaked"));
+    server.stop();
+    let mut retained = first[..n].to_vec(); flight.read_to_end(&mut retained).unwrap();
+    let body = retained.windows(4).position(|p| p == b"\r\n\r\n").unwrap() + 4;
+    assert_eq!(retained.len() - body, 4 * 1024 * 1024);
+    assert!(retained[body..].iter().all(|b| *b == b'z'));
+    drop(flight);
+
+    // A failed capture is retained: every page fails explicitly, never recaptured.
+    let mut failed = ServeConfig::new("127.0.0.1:0".parse().unwrap());
+    failed.key = Some(KEY.into());
+    failed.prepared_assets = Some(PreparedAssets::start(|_| Err(std::io::Error::other("private source failure"))).unwrap());
+    let server = Server::start(Tally::default(), failed).unwrap();
+    for _ in 0..2 {
+        let response = http(&server, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n");
+        assert!(response.starts_with("HTTP/1.1 503"));
+        assert!(!response.contains("private source"));
+    }
+    let mut other_failed = ServeConfig::new("127.0.0.1:0".parse().unwrap());
+    other_failed.prepared_assets = Some(PreparedAssets::start(|_| Err(std::io::Error::other("second failed source"))).unwrap());
+    let other_failed = Server::start(Tally::default(), other_failed).unwrap();
+    assert!(http(&other_failed, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 503"));
+    // Both failure facts remain hosted while their resource slots permit retry.
+    assert!(server.browser_failure().is_some());
+    assert!(server.take_browser_failure().is_some());
+    assert!(server.take_browser_failure().is_none());
+    let (mut ws, seat) = join(&server, 0);
+    let key = server.key();
+    let addr = server.addr();
+    server.retry_browser(PreparedAssets::start(|_| Ok(ClientBundle::placeholder())).unwrap()).unwrap();
+    assert!(http(&server, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 200"));
+    assert_eq!(server.addr(), addr); assert_eq!(server.key(), key);
+    assert_eq!(server.players().iter().find(|p| p.seat == seat.unwrap()).unwrap().name, "Gwen");
+    // The old large in-flight HTTP reader may still be leaving its existing
+    // close/linger path; its successful generation remains charged until then.
+    let until_retired = Instant::now() + Duration::from_secs(2);
+    let retry = loop {
+        match PreparedAssets::start(|_| Ok(ClientBundle::placeholder())) {
+            Ok(generation) => break generation,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                assert!(Instant::now() < until_retired); std::thread::yield_now();
+            }
+            Err(error) => panic!("retry admission: {error}"),
+        }
+    };
+    other_failed.retry_browser(retry).unwrap();
+    assert!(http(&other_failed, "GET / HTTP/1.1\r\nConnection: close\r\n\r\n").starts_with("HTTP/1.1 200"));
+    drop(other_failed);
+    // A served generation cannot be replaced: its URLs remain valid.
+    assert!(server.retry_browser(PreparedAssets::start(|_| Ok(ClientBundle::placeholder())).unwrap()).is_err());
+    ws.close(code::NORMAL); drop(ws); drop(server);
+
+    // A blocked source does not make server stop join the worker. Waiting HTTP
+    // is cancelled, capacity stays charged until that worker actually exits.
+    let (release, held) = mpsc::channel();
+    let mut pending = ServeConfig::new("127.0.0.1:0".parse().unwrap());
+    pending.prepared_assets = Some(PreparedAssets::start(move |_| { held.recv().unwrap(); Ok(ClientBundle::placeholder()) }).unwrap());
+    let server = Server::start(Tally::default(), pending).unwrap();
+    let mut conn = TcpStream::connect(server.addr()).unwrap();
+    conn.set_read_timeout(Some(WAIT)).unwrap();
+    conn.write_all(b"GET / HTTP/1.1\r\nConnection: close\r\n\r\n").unwrap();
+    std::thread::sleep(Duration::from_millis(30));
+    let started = Instant::now();
+    server.stop();
+    assert!(started.elapsed() < Duration::from_millis(250));
+    let mut response = String::new(); conn.read_to_string(&mut response).unwrap();
+    assert!(response.starts_with("HTTP/1.1 503"));
+    release.send(()).unwrap();
+    eprintln!("browser generation: scheduling and server opening <100ms; held source WS join <250ms; stop {:?}", started.elapsed());
+}

@@ -21,6 +21,10 @@ struct Saved {
     /// The hosted session's address and join key: a restart opens the same
     /// link again. (An older save's invitation tokens: the first is the key.)
     invitation: Option<(String, String)>,
+    /// The host played no knight (`/dungeon host --watch`). Absent in an older
+    /// save and for a host that played its own: the env switch decides then.
+    #[serde(default)]
+    watch: bool,
     /// Country intents and unpaid Squires' Yard gold, awaiting a realm commit.
     /// Keep the historical field name and default for old checkpoints. Never
     /// serialize general combat/bounty marks or expose this on the guest wire.
@@ -92,9 +96,13 @@ impl DungeonView {
             return Ok(());
         }
         let gate = self.shooter.checkpoint_gate();
+        let gate_at = Instant::now();
         let _checkpoint = gate.as_ref().map(|gate| {
             gate.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
         });
+        if crate::stress_log() {
+            eprintln!("stress-gate: wait {:.1} ms", gate_at.elapsed().as_secs_f64() * 1e3);
+        }
         self.shooter.latch();
         let Some(path) = &self.save_path else {
             return Ok(());
@@ -112,6 +120,8 @@ impl DungeonView {
             .set_tune_file(workspace.join(".angel/dungeon/tune.json"));
         // Its paintings, which the window draws from.
         crate::services::paint_dir(&crate::together_sheets::paint_dir(workspace));
+        // Its wished looks, which the window lays over its HD pack.
+        crate::services::looks_dir(&crate::together_looker::looks_dir(workspace));
         let file = match std::fs::File::open(&path) {
             Ok(file) => file,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
@@ -209,9 +219,9 @@ impl DungeonView {
         }
         let door = saved
             .invitation
-            .map(|(bind, key)| {
-                let key = key.split(',').next().unwrap_or_default().to_string();
-                crate::together_door::bind(&bind).map(|bind| (bind, key))
+            .map(|(saved_bind, saved_key)| {
+                let key = saved_key.split(',').next().unwrap_or_default().to_string();
+                crate::together_door::bind(&saved_bind).map(|bind| (bind, key, saved_bind, saved_key))
             })
             .transpose()?;
         let commands = saved
@@ -245,23 +255,32 @@ impl DungeonView {
             if saved.version < 6 && !commands.pending_wishes()?.is_empty() { return Err("old private checkpoint cannot contain wish jobs".into()); }
             commands.validate_wish_world(&saved.run)?;
         }
+        let browser = if door.is_some() {
+            crate::together_web::shipped_prepared().map_err(|e| e.to_string())?
+        } else { None };
         self.raid_serial = saved.raid_serial.max(saved.run.raid_id);
         // Install world and journal under one lock, before its server starts.
         self.shooter.restore_session(saved.run, commands);
-        if let Some((bind, key)) = door {
-            let watch = Hosting::watch_by_default();
+        if let Some((bind, key, saved_bind, saved_key)) = door {
+            // A host that watched still watches; the env switch only ever
+            // makes a host watch, as it does for `/dungeon host`.
+            let watch = saved.watch || Hosting::watch_by_default();
             let hosting = Hosting {
                 friends: Hosting::most_friends(watch),
                 watch,
             };
-            self.shooter.host_as(
+            // The saved link is on record until it is open again: an address
+            // that is not up yet must not cost the next checkpoint its key.
+            self.shooter.keep_door(saved_bind, saved_key, watch);
+            self.shooter.host_prepared(
                 crate::together_sim::Door {
                     bind,
                     seats: hosting.seats(),
                     key: Some(key),
-                    bundle: crate::together_web::shipped(),
+                    bundle: None,
                 },
                 watch,
+                browser,
             )?;
             self.hosting = Some(hosting);
         }
@@ -273,6 +292,7 @@ impl DungeonView {
 
 impl Drop for DungeonView {
     fn drop(&mut self) {
+        self.collect_settled(true);
         if let Err(error) = self.checkpoint(Instant::now(), true) {
             tracing::warn!(%error, "could not save dungeon on exit");
         }
@@ -308,7 +328,7 @@ mod tests {
 
     #[test]
     fn dungeon_checkpoint_restores_same_run_and_invitation() {
-        let _guard = crate::tests::env_lock();
+        let _guard = crate::tests::browser_capacity();
         let dir = TempDir::new();
         let mut view = DungeonView::default();
         view.restore(dir.path()).unwrap();

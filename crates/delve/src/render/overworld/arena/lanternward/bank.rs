@@ -81,6 +81,21 @@ pub(super) fn whole_or_blocks(states: &mut [(String, Vec<(Img, bool)>)], block: 
     }
 }
 
+/// A frame hand-inked in the realm's inks (`assets/lanternward/art`), padded
+/// back to its slot's size. The reviewed slot PNGs come first.
+fn inked(s: &Slot, state: &str, i: usize) -> Option<Img> {
+    let slot = s.id.strip_prefix("lanternward.")?;
+    let set = super::art_data::SETS.iter().find(|set| set.slot == slot && set.state == state)?;
+    let frame = set.frames.get(i)?;
+    let mut im = Img::new(s.size[0], s.size[1]);
+    for (y, row) in frame.rows.iter().enumerate() {
+        for (x, ch) in row.chars().enumerate() {
+            im.put(i32::from(frame.x) + x as i32, i32::from(frame.y) + y as i32, ch);
+        }
+    }
+    Some(im)
+}
+
 fn bank() -> &'static BTreeMap<(String, String), Anim> {
     static BANK: OnceLock<BTreeMap<(String, String), Anim>> = OnceLock::new();
     BANK.get_or_init(|| {
@@ -113,6 +128,9 @@ fn bank() -> &'static BTreeMap<(String, String), Anim> {
                                         im.set(x as i32, y as i32, [p[0], p[1], p[2]]);
                                     }
                                 }
+                                return (im, true);
+                            }
+                            if let Some(im) = inked(&s, state, i) {
                                 return (im, true);
                             }
                             (block(&s), false)
@@ -159,6 +177,14 @@ pub(super) fn frame(id: &str, state: &str, tick: u32) -> &'static Img {
         index += 1;
     }
     &anim.frames[index]
+}
+
+/// Frame number `index` of `state`, held at its last frame when it runs past.
+pub(super) fn frame_at(id: &str, state: &str, index: usize) -> &'static Img {
+    let anim = bank()
+        .get(&(format!("lanternward.{id}"), state.to_owned()))
+        .unwrap_or_else(|| panic!("slot lanternward.{id} has no state {state}"));
+    &anim.frames[index.min(anim.frames.len() - 1)]
 }
 
 /// Stamp a slot's frame with its bottom centre at `(x, foot)`.

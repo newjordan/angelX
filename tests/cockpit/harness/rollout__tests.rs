@@ -1633,3 +1633,41 @@ fn coding_eval_reward_requires_current_passed_typed_receipt_and_exports() {
         std::fs::remove_dir_all(root).unwrap();
     }
 }
+
+/// What a persisted rollout records for each turn stop reason. Flags are
+/// passed through as given; only `kind` and the infrastructure marker are
+/// derived, and every reason without its own kind lands on `policy_guard`.
+#[test]
+fn termination_kind_for_every_stop_reason_is_pinned() {
+    let table = [
+        ("answer", TerminationKind::Answer, false),
+        ("interrupt", TerminationKind::OperatorInterrupt, false),
+        ("deadline", TerminationKind::Deadline, false),
+        ("max_hops", TerminationKind::MaxHops, false),
+        ("provider_error", TerminationKind::ProviderFailure, true),
+        ("idle_timeout", TerminationKind::PolicyGuard, false),
+        ("execution_blocked", TerminationKind::PolicyGuard, false),
+        ("capture_failure", TerminationKind::PolicyGuard, false),
+        ("checkpoint_failure", TerminationKind::PolicyGuard, false),
+        ("needs_pro", TerminationKind::PolicyGuard, false),
+    ];
+    for (stop_reason, kind, infrastructure) in table {
+        let termination = Termination::from_turn(stop_reason, true, false, true, Some("answer"));
+        assert_eq!(termination.kind, kind, "{stop_reason}");
+        assert_eq!(termination.stop_reason, stop_reason);
+        assert_eq!(
+            termination.infrastructure.is_some(),
+            infrastructure,
+            "{stop_reason}"
+        );
+        assert!(
+            termination.interrupted
+                && !termination.deadline_reached
+                && termination.max_hops_reached
+        );
+    }
+    let lost = Termination::process_lost();
+    assert_eq!(lost.kind, TerminationKind::ProcessLost);
+    assert_eq!(lost.stop_reason, "process_lost");
+    assert!(lost.interrupted && !lost.deadline_reached && !lost.max_hops_reached);
+}

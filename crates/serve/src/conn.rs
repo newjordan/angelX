@@ -329,7 +329,10 @@ fn serve_http<G: GameServer>(hub: &Hub<G>, stream: &mut TcpStream) -> Option<Vec
                     response
                 }
             },
-            ("GET" | "HEAD", "/") => http::body(&req, &hub.assets.index, REVALIDATE, keep),
+            ("GET" | "HEAD", "/") => match { let generation = hub.assets.read().unwrap_or_else(|e| e.into_inner()).clone(); generation }.wait(&hub.stop) {
+                Ok(assets) => http::body(&req, &assets.index, REVALIDATE, keep),
+                Err(()) => { keep = false; http::plain("503 Service Unavailable", "browser unavailable", false, &[]) },
+            },
             ("GET" | "HEAD", path) if path.starts_with("/paint/") => {
                 http::painting(&req, hub.paint_dir.as_deref(), &path["/paint/".len()..], keep)
             }
@@ -338,9 +341,15 @@ fn serve_http<G: GameServer>(hub: &Hub<G>, stream: &mut TcpStream) -> Option<Vec
             }
             ("GET" | "HEAD", path) => {
                 let name = path.strip_prefix("/a/").unwrap_or("");
-                if let Some(body) = hub.assets.files.get(name) { http::body(&req, body, IMMUTABLE, keep) }
-                else if let Some(asset) = hub.live_assets.get(name) { asset.response(&req, keep) }
-                else {http::plain("404 Not Found", "not here", keep, &[])}
+                if let Some(asset) = hub.live_assets.get(name) { asset.response(&req, keep) }
+                else if name.is_empty() { http::plain("404 Not Found", "not here", keep, &[]) }
+                else { match { let generation = hub.assets.read().unwrap_or_else(|e| e.into_inner()).clone(); generation }.wait(&hub.stop) {
+                    Ok(assets) => match assets.files.get(name) {
+                        Some(body) => http::body(&req, body, IMMUTABLE, keep),
+                        None => http::plain("404 Not Found", "not here", keep, &[]),
+                    },
+                    Err(()) => { keep = false; http::plain("503 Service Unavailable", "browser unavailable", false, &[]) },
+                }}
             },
             _ => http::plain("405 Method Not Allowed", "GET only", keep, &[("Allow", "GET, HEAD")]),
         };

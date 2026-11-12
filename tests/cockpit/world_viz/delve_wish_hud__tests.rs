@@ -49,7 +49,7 @@ fn write_wish_hud_review() {
             .save(dir.join(format!("{state}-native.png"))).unwrap();
         let mut terminal = Terminal::new(TestBackend::new(120, 40)).unwrap();
         terminal.draw(|f| {
-            crate::ui::viz::shooter_viz::render(f, &run, Rect::new(0, 0, 120, 40),
+            crate::shooter_viz::render(f, &run, Rect::new(0, 0, 120, 40),
                 if state == "before" { "Wish earned: 1 ready. Press T." } else { "Wish spent: 0 left in this window." },
                 false, false, true, "", None, None, None, None, false);
         }).unwrap();

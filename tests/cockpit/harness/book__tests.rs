@@ -1587,3 +1587,82 @@ fn a_lasting_loop_meets_a_new_page_each_turn() {
         "a change starts a new stretch at the route"
     );
 }
+
+#[test]
+fn a_locked_loop_is_sent_with_its_copies_collapsed_when_switched_on() {
+    use crate::agent::club::{ChatMsg, ChatRole, ToolCall};
+    use crate::tests::TestEnvGuard;
+    let _guard = crate::tests::env_lock();
+    let probe = |hop: usize| {
+        ChatMsg::assistant_calls(vec![ToolCall {
+            id: format!("call_{hop}"),
+            name: "shell".to_string(),
+            args: serde_json::json!({ "command": "npx jest dbg.spec.js" }),
+        }])
+    };
+    // The same probe, the same output but for its timing digits, four times,
+    // with a loop stamp after each copy; a different call in between.
+    let mut history = vec![ChatMsg::system("standing"), ChatMsg::user("task")];
+    for hop in 0..4 {
+        history.push(probe(hop));
+        history.push(ChatMsg::tool(
+            format!("call_{hop}"),
+            format!("len 19 over false\nTime: 0.0{hop}9 s"),
+        ));
+        history.push(ChatMsg::harness("⛔⠇⠓⠑"));
+        if hop == 1 {
+            history.push(ChatMsg::assistant_calls(vec![ToolCall {
+                id: "call_read".to_string(),
+                name: "read_file".to_string(),
+                args: serde_json::json!({ "path": "bowling.js" }),
+            }]));
+            history.push(ChatMsg::tool("call_read", "export class Bowling {}"));
+            history.push(ChatMsg::harness("⠼⠃ an advisory that is not a loop turn"));
+        }
+    }
+
+    let _off = TestEnvGuard::unset(l_loops::LOOP_COLLAPSE_ENV);
+    assert_eq!(l_loops::collapse_repeats(&history).len(), history.len());
+
+    let _on = TestEnvGuard::set(l_loops::LOOP_COLLAPSE_ENV, "1");
+    let sent = l_loops::collapse_repeats(&history);
+    let shape: Vec<String> = sent
+        .iter()
+        .map(|message| match message.role {
+            ChatRole::Assistant => format!("call {}", message.tool_calls[0].id),
+            ChatRole::Tool => format!("result {}", message.tool_call_id.as_deref().unwrap()),
+            _ => message.content.to_string(),
+        })
+        .collect();
+    assert_eq!(
+        shape,
+        [
+            "standing",
+            "task",
+            "call call_0",
+            "result call_0",
+            "⛔⠇⠓⠑",
+            "call call_read",
+            "result call_read",
+            "⠼⠃ an advisory that is not a loop turn",
+            "⛔⠇⠓⠃\n\n⠇⠓⠃ name the assumption behind the repeated call and check what could change its answer",
+        ]
+    );
+    // The view never ends where an earlier one did: each further copy closes
+    // the request with the next page, starting from the count.
+    let mut longer = history.clone();
+    longer.push(probe(4));
+    longer.push(ChatMsg::tool("call_4", "len 19 over false\nTime: 0.049 s"));
+    let closing = |h: &[ChatMsg]| l_loops::collapse_repeats(h).last().unwrap().content.to_string();
+    assert!(closing(&longer).starts_with("⛔⠇⠓⠉\n\n⠇⠓⠉ "), "{}", closing(&longer));
+    let three: Vec<ChatMsg> = history[..14].to_vec();
+    assert!(closing(&three).starts_with("⛔⠇⠁ ×3\n\n⠇⠁ You've repeated"), "{}", closing(&three));
+
+    // Two sightings are not a locked loop yet.
+    let short: Vec<ChatMsg> = history[..8].to_vec();
+    assert_eq!(l_loops::collapse_repeats(&short).len(), short.len());
+    // A changed outcome is not a copy.
+    let mut changed = history.clone();
+    changed[12] = ChatMsg::tool("call_2", "len 20 over true\nTime: 0.029 s");
+    assert!(l_loops::collapse_repeats(&changed).len() > sent.len());
+}

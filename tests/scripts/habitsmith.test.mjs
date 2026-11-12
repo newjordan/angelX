@@ -5,6 +5,10 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { spawnSync } from 'node:child_process'
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 import * as habitsCore from '../../lib/habits/core.mjs'
 import * as habitsWorker from '../../scripts/runtime/habitsmith.mjs'
@@ -38,6 +42,7 @@ import {
   DRIFT_BELIEF,
 } from '../../lib/habits/core.mjs'
 import { killed, factMapFrom } from '../../scripts/runtime/habitsmith-tick.mjs'
+import { tickLockOwner } from '../../scripts/runtime/worker-lock.mjs'
 import {
   dossierFacts,
   ingestRepoFacts,
@@ -502,4 +507,61 @@ test('habit facts coexist with dossier facts: neither leaks into the other’s v
   // The dossier probe queue never surfaces workflow facts.
   const { ranking } = proposeDossierProbe(g, KEY, { now: NOW })
   assert.ok(ranking.every((r) => r.hypothesisId.startsWith('hyp_dossier_')))
+})
+
+// The tick's state-dir lock: the graph lease keys on the graph path, this file on
+// the state dir (heartbeat, verdict spool). It must not outlive a killed tick.
+function tickWithLock(lock) {
+  const dir = mkdtempSync(join(tmpdir(), 'angel-habitsmith-lock-'))
+  try {
+    const stateDir = join(dir, 'state')
+    mkdirSync(stateDir)
+    const lockPath = join(stateDir, 'lock')
+    if (lock) writeFileSync(lockPath, JSON.stringify(lock))
+    const run = spawnSync(
+      process.execPath,
+      [
+        'scripts/runtime/habitsmith-tick.mjs',
+        '--force',
+        '--ledger',
+        join(dir, 'ledger.jsonl'),
+        '--graph',
+        join(dir, 'graph.json'),
+        '--state-dir',
+        stateDir,
+        '--proposed-dir',
+        join(dir, 'proposed'),
+        '--skills-dir',
+        join(dir, 'skills'),
+      ],
+      { cwd: new URL('../..', import.meta.url), encoding: 'utf8' },
+    )
+    const beat = join(stateDir, 'heartbeat.json')
+    return {
+      run,
+      heartbeat: existsSync(beat) ? JSON.parse(readFileSync(beat, 'utf8')) : null,
+      lockLeft: existsSync(lockPath) ? JSON.parse(readFileSync(lockPath, 'utf8')) : null,
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+test('a lock left by a tick that was killed does not hold the next tick', () => {
+  const gone = spawnSync(process.execPath, ['-e', '0']).pid
+  const { run, heartbeat, lockLeft } = tickWithLock({ pid: gone, ts: Date.now() })
+  assert.equal(run.status, 0, run.stderr || run.stdout)
+  assert.match(run.stdout, /habitsmith-tick: 0 verdict\(s\) folded/)
+  assert.equal(heartbeat.action, 'ran')
+  assert.equal(lockLeft, null, 'the tick that took the lock releases it')
+})
+
+test('a live tick keeps the lock, and the skip says why on the heartbeat', () => {
+  const holder = tickLockOwner(Date.now())
+  const { run, heartbeat, lockLeft } = tickWithLock(holder)
+  assert.equal(run.status, 0, run.stderr || run.stdout)
+  assert.match(run.stdout, /another tick holds the lock; skipping\./)
+  assert.equal(heartbeat?.action, 'skip')
+  assert.match(heartbeat?.reason, /^another tick holds the lock — .*alive/)
+  assert.equal(lockLeft?.token, holder.token, 'a skipped tick never touches the holder\'s lock')
 })

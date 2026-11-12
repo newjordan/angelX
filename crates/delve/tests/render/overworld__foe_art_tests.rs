@@ -298,6 +298,11 @@ fn approved_foe_hashes() -> std::collections::BTreeMap<String, u64> {
     hashes
 }
 
+// Re-pinned 2026-11-07 for the Fungelder (`sprites::fungelder`): a new page in the
+// bestiary, so `v1-Fungelder` is new, and the thirteen guardians' hashes move with
+// it because the walk spawns one more monster before them (the run's ids and
+// counters at that point). With the Fungelder left out of the walk, every one of the
+// other sixty-nine hashes is what it was.
 #[test]
 fn approved_bestiary_pixels_stay_exact() {
     let expected: std::collections::BTreeMap<String, u64> =

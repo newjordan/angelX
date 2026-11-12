@@ -1,0 +1,35 @@
+[package]
+name = "angel-delve-cart"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.95"
+license = "MIT"
+publish = false
+
+[features]
+glass = ["dep:angel-glass", "angel-plug/glass"]
+testing = ["angel-realm-host/testing"]
+
+[dependencies]
+angel-delve = { path = "../../crates/delve", features = ["bend-engine"] }
+angel-glass = { path = "../../crates/glass", optional = true }
+angel-live = { path = "../../crates/live" }
+angel-plug = { path = "../../crates/plug" }
+angel-realm-host = { path = "../../crates/realm-host" }
+angel-serve = { path = "../../crates/serve" }
+angel-stage = { path = "../../crates/stage" }
+angel-web-bundle = { path = "../web-bundle" }
+base64 = "0.22"
+image = "0.25.10"
+png = "0.18"
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "unstable-rendered-line-info"] }
+serde = { version = "1", features = ["derive", "rc"] }
+serde_json = "1"
+tracing = "0.1"
+unicode-segmentation = "=1.13.3"
+unicode-width = "0.2"
+ureq = { version = "2", path = "../../vendor/ureq", default-features = false, features = ["json", "tls", "native-certs", "gzip", "brotli"] }
+
+# No [dev-dependencies]: this crate sits outside the cockpit's workspace, and
+# cargo refuses `cargo test --package angel-delve-cart` (the gate's step) for a
+# non-member that has any. Its tests need nothing beyond its dependencies.

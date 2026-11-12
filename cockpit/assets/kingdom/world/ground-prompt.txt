@@ -1,0 +1,8 @@
+Use case: stylized-concept.
+Asset type: production ground texture atlas for a top-down medieval pixel-art village-building game. Make one square opaque image divided EXACTLY into a clean 2 by 2 grid of equal-size square texture cells. The four cells fill their quadrants edge to edge, with no lines, borders, padding, labels or shadows between them. Each cell is a flat overhead surface texture, no perspective, no buildings, no props taller than a stone, no characters.
+Style: premium textured pixel art with clearly visible stepped square pixel clusters; restrained natural medieval palette; readable low-contrast ground beneath detailed game sprites; match mossy olive grass, blue-gray slate and dark teal water. Avoid smooth photographic textures or glossy 3D.
+Top left: rich red-orange clay bank earth, damp terracotta ochre, shovel-cut rough impressions and scattered tiny clay crumbs, subtle lighter drying patches. Clearly clay, no bricks.
+Top right: pale sun-dried cracked clay and fine sandy silt, warm buff terracotta, earthy rust cracks and a few gray pebbles.
+Bottom left: shallow river ford seen directly from above, quiet transparent blue-teal water over rounded gray and brown pebbles, tiny white ripple streaks, more visible riverbed than deep water. No large stepping stones or single path.
+Bottom right: trampled muddy cart-road surface, compact warm dark umber soil, understated parallel wheel ruts and small gray stones, no grass borders.
+Constraints: four full continuous flat textures only. Exact half-width/half-height boundaries. No text, frame, logo, watermark, scenic composition, isometric blocks or separate tile objects.

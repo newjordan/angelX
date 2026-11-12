@@ -1,0 +1,23 @@
+# The Duelist's second: change places with an image of her own.
+name   Mirror Swap
+kind   spell
+rarity relic
+text   Swap with your nearest image, or blink 2 tiles. Safe 0.4s.
+drop   0
+chest  0
+cooldown 7
+feat 1
+art
+.............
+..xxx...xxx..
+.xWWWx.xvvvx.
+.xWVWx.xvuvx.
+.xWWWx.xvvvx.
+..xVx...xux..
+.xxVxxxxxux..
+xWVVVWvvuuux.
+.xVxVx.xuxux.
+.xVx.x.x.xux.
+.xxx.....xxx.
+.............
+.............

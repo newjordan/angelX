@@ -1,5 +1,7 @@
 //! Workspace/status/config, session lifecycle, keybinds, skills and memory.
 use super::*;
+use angel_plug::feed::{Feed, FeedWorld};
+use angel_plug::stage::StagePlaces;
 
 fn recap_preview(text: &str, width: usize) -> String {
     let single_line = text
@@ -222,8 +224,7 @@ impl App {
         // PTYs retain their own cwd independently of the tool registry. Keeping
         // one alive here would leave an apparently-current terminal operating
         // on the repository we just left.
-        self.shell = None;
-        self.shell_focused = false;
+        self.close_shell(None);
         // Project-derived artifacts and visualization state must not make the
         // new repository look as if it produced the old repository's output.
         self.media.clear();
@@ -232,15 +233,8 @@ impl App {
         self.clipboard_paste.clear();
         self.pending_stage_copy = None;
         self.clipboard_image_copy = None;
-        self.realm.world = crate::stage::world_viz::World::for_workspace(&target);
-        self.realm.together = crate::drive::together::Together::default();
-        self.realm.dungeon.reset_retaining_wish_jobs();
-        if let Err(error) = self.realm.dungeon.restore(&target) {
-            self.realm.dungeon.notice = format!("Could not restore delve: {error}");
-        }
-        self.scryglass = crate::ui::scryglass::Scryglass::for_session(self.realm.world.destination());
-        self.realm.world
-            .enable_districts(crate::app::scan_workspace_districts(&target));
+        self.realm.feed(Feed::Workspace(&target));
+        self.scryglass = crate::ui::scryglass::Scryglass::opening(self.realm.destination_place());
         self.world_buttons.clear();
         self.agent_buttons.clear();
         self.last_completed_route = None;
@@ -638,9 +632,7 @@ impl App {
                 crate::drive::comp_mode::status_text()
             }
             "podrace" | "competition" | "race" => {
-                crate::drive::comp_mode::set(true);
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_COMPETITION_MODE", "1") };
+                crate::drive::comp_mode::engage_competition();
                 self.request_redraw("turbo podrace engaged");
                 let msg = self.loop_start_immediate(rest.to_string(), 0, false, true);
                 format!("⚡ TURBO PODRACE ENGAGED (competition mode active) · {msg}")
@@ -652,9 +644,7 @@ impl App {
                 format!("⚡ TURBO LOOP ENGAGED · {msg}")
             }
             "handoff" | "rl" => {
-                crate::drive::comp_mode::set(true);
-                // TODO: Audit that the environment access only happens in single-threaded code.
-                unsafe { std::env::set_var("ANGEL_COMPETITION_MODE", "1") };
+                crate::drive::comp_mode::engage_competition();
                 self.request_redraw("turbo handoff rl engaged");
                 let msg = self.handoff_rl_start_immediate(rest.to_string(), 0, true);
                 format!("⚡ TURBO HANDOFF RL ENGAGED · {msg}")
@@ -995,15 +985,15 @@ impl App {
             return;
         }
         match action {
-            Action::NextBox if self.thinking.is_none() && self.bg_job.is_none() => {
+            Action::NextBox if !self.flight_owner().is_agent_busy() => {
                 self.bag.cycle();
                 self.remember_brain_route();
             }
-            Action::PrevMode if self.thinking.is_none() && self.bg_job.is_none() => {
+            Action::PrevMode if !self.flight_owner().is_agent_busy() => {
                 self.bag.cycle_sub(false);
                 self.remember_brain_route();
             }
-            Action::NextMode if self.thinking.is_none() && self.bg_job.is_none() => {
+            Action::NextMode if !self.flight_owner().is_agent_busy() => {
                 self.bag.cycle_sub(true);
                 self.remember_brain_route();
             }
@@ -1467,7 +1457,7 @@ impl App {
         }
         // A gauntlet spins up worker threads and lands a `bg_job`; it must not
         // race a live turn (`bg_job` and `thinking` are mutually exclusive).
-        if self.thinking.is_some() || self.bg_job.is_some() {
+        if self.flight_owner().is_agent_busy() {
             return "busy — finish or interrupt the current turn before /quest gauntlet"
                 .to_string();
         }

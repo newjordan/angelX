@@ -1,7 +1,7 @@
 //! Wishes placed from the cockpit's realm.
 
-use crate::stage::world_viz::overworld::wishes::*;
-use crate::stage::world_viz::overworld::{MAP_H, MAP_W};
+use crate::world_viz::overworld::wishes::*;
+use crate::world_viz::overworld::{MAP_H, MAP_W};
 
 #[test]
 fn a_realm_without_any_free_lot_reports_every_undrawn_landmark() {
@@ -15,7 +15,7 @@ fn a_realm_without_any_free_lot_reports_every_undrawn_landmark() {
         find(2, 2, (12, 12), &[occupied]).is_none(),
         "both placement passes are full"
     );
-    let mut realm = crate::drive::together_realm::Realm::default();
+    let mut realm = crate::together_realm::Realm::default();
     realm.ask("Jordan", "a golden hall").unwrap();
     realm.ask("Jordan", "a spiked gate").unwrap();
     let names = names_without_ground(&realm.wishes, &[Some(delve_gate()), None]);

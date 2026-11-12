@@ -10,8 +10,12 @@ use super::super::ink::{Img, text_width};
 use super::roundtable::label;
 use crate::rules::{Run, lanternward as rules};
 
+mod art_data;
 mod bank;
+mod feel;
 mod hud;
+mod light;
+mod moments;
 mod scene;
 
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
@@ -63,3 +67,11 @@ pub(super) fn kingdom(im: &mut Img, run: &Run, origin: (i32, i32)) {
 #[cfg(test)]
 #[path = "../../../../tests/render/arena__lanternward__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__lanternward_film__tests.rs"]
+mod film;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__lanternward_time__tests.rs"]
+mod time;

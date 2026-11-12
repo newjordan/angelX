@@ -14,8 +14,7 @@ use std::hash::{Hash, Hasher};
 use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock};
 
-// The braille fitter and its cells are the Delve's renderer's too.
-pub use angel_delve::render::braille::{
+pub use angel_stage::braille::{
     ColoredBrailleCell, ColoredBrailleImage, DMD_PALETTE, DotSample, braille_bits, braille_char,
     braille_dot_bit, fit_braille,
 };

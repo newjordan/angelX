@@ -15,6 +15,7 @@ model work use the configured routes and can incur provider charges.
 | `/status`, `/usage`, `/context [all]` | Inspect session state, reported usage and retained context. |
 | `/mcp`, `/tools` | Inspect available tools and MCP connections. |
 | `/skills [check\|search <query>\|<name>[,<name>...] [task]]` | Inspect, find or select playbooks. |
+| `/plugins [search <words>\|info <id>\|install <id>\|update [id]\|remove <id>\|setup <id>\|check <dir>]` | Find, install, update and remove [plugins](PLUGINS.md); `angelX plugin submit` publishes one. |
 | `/cd <path>`, `/workspace <path>` | Change project and start a fresh model thread. |
 | `/mention <file>` | Attach workspace file context. |
 | `/diff [all\|staged] [--stat]`, `/review` | Inspect changes or request a review. |

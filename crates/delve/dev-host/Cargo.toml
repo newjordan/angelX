@@ -17,6 +17,8 @@ angel-delve = { path = "..", features = ["testing"] }
 serde_json = "1"
 angel-net = { path = "../../net" }
 angel-serve = { path = "../../serve" }
+# The Bend rules modules, run in V8 as the cockpit and realm host run them.
+angel-live = { path = "../../live", features = ["v8"] }
 
 [[bin]]
 name = "delve-walker"

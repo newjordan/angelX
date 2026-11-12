@@ -247,15 +247,138 @@ fn ground_look(img: &image::RgbImage, target: &str) -> Result<(f64, f64), String
     Ok(frame_to_px(parse_ground_reply(&reply)?, img.dimensions()))
 }
 
+/// The size the model reads best, in both directions. Its answers drift with
+/// how far the bitmap is from this box: 4K uncapped actuates 6/26, the same
+/// scene capped to 1920x1080 actuates 23/26; a 1280x720 laptop frame actuates
+/// 7/32, the same frame fitted up to 1920x1080 actuates 27/32. The drift is
+/// **per axis**: a 4:3 frame fitted inside the box (1440x1080) still actuates
+/// 6/32 and fitted to the box's width (1920x1440) 7/32, while stretching it
+/// onto 1920x1080 actuates 24/32; a 3440x1440 screen capped to 1920x804
+/// actuates 8/31 and stretched onto 1920x1080 24/31. So every screenshot is
+/// resized onto exactly this frame, aspect not kept, and the point mapped back
+/// per axis. Stretching a non-16:9 screen distorts it (up to ~1.9x on the axes
+/// measured); tiling a big screen into 1080p quadrants would keep native detail
+/// and is not built.
+/// Closed-loop bench, `scripts/bench/mage-hands/bench/web_loop_bench.py`.
+pub(crate) const GROUND_FRAME: (u32, u32) = (1920, 1080);
+
+/// `shot` resized onto `frame` (each axis to the frame's, aspect not kept) and
+/// the per-axis factor that turns a fitted-frame point back into a shot point.
+pub(crate) fn fit_frame(
+    shot: &image::RgbImage,
+    frame: (u32, u32),
+) -> (std::borrow::Cow<'_, image::RgbImage>, (f64, f64)) {
+    use std::borrow::Cow;
+    let (w, h) = shot.dimensions();
+    if (w, h) == frame {
+        return (Cow::Borrowed(shot), (1.0, 1.0));
+    }
+    let fitted = image::imageops::resize(
+        shot,
+        frame.0.max(1),
+        frame.1.max(1),
+        image::imageops::FilterType::Lanczos3,
+    );
+    (
+        Cow::Owned(fitted),
+        (f64::from(w) / f64::from(frame.0.max(1)), f64::from(h) / f64::from(frame.1.max(1))),
+    )
+}
+
+/// A pixel counts as changed when any channel moved more than this many
+/// levels: enough to ignore re-encode jitter, small enough to see a 1 px
+/// focus ring.
+pub(crate) const CLICK_PIXEL_LEVEL: u8 = 10;
+
+/// Differing pixels that mean "the screen answered". On the live model an
+/// inert click left 0 px changed and an actuating one left at least 379, so
+/// the threshold sits an order of magnitude under the smallest real answer.
+pub(crate) const CLICK_CHANGED_PX: usize = 120;
+
+/// A screenshot is only evidence once it has stopped moving: the verifier
+/// polls this often and gives up after `SETTLE_MAX`.
+pub(crate) const SETTLE_POLL: Duration = Duration::from_millis(120);
+pub(crate) const SETTLE_MAX: Duration = Duration::from_millis(1500);
+
+/// How many pixels of the frame moved between two screenshots of the same
+/// output. A size change is a whole new frame, not a diff.
+pub(crate) fn frame_changed_px(
+    before: &image::RgbImage,
+    after: &image::RgbImage,
+    level: u8,
+) -> usize {
+    if before.dimensions() != after.dimensions() {
+        return before.dimensions().0 as usize * before.dimensions().1 as usize;
+    }
+    let mut n = 0usize;
+    for (a, b) in before.pixels().zip(after.pixels()) {
+        if a.0.iter().zip(b.0.iter()).any(|(x, y)| x.abs_diff(*y) > level) {
+            n += 1;
+        }
+    }
+    n
+}
+
+/// What the frame says about a click: what happened, not what was wanted.
+pub(crate) fn click_verdict(changed_px: usize) -> String {
+    if changed_px > CLICK_CHANGED_PX {
+        format!(
+            "the screen changed ({changed_px} px) — the click did something. \
+             A change is not proof it was the target: if the screen now shows the \
+             wrong thing, ground the target again on this frame."
+        )
+    } else {
+        format!(
+            "the screen did NOT change ({changed_px} px) — the click hit nothing inert \
+             or nothing at all; ground the target again instead of repeating the point."
+        )
+    }
+}
+
+/// Differing pixels that mean a keystroke reached the screen. Measured on the
+/// mage-hands typing fixture at 1920x1080 with real key events and DOM truth
+/// (`reports/mage-typing-20261102`): one character moved 62-103 px, two
+/// 102-151, three 162-206, and a 6-9 character token 309-382, while the same
+/// characters typed with no editable field focused moved exactly 0 px in every
+/// arm. The click threshold (120 px) would call a one-character type a failure,
+/// so typing gets its own floor, an order of magnitude under the smallest real
+/// change.
+pub(crate) const TYPE_CHANGED_PX: usize = 24;
+
+/// What the frame says about a type: evidence, never a claim about the field.
+pub(crate) fn type_verdict(changed_px: usize, chars: usize) -> String {
+    if changed_px > TYPE_CHANGED_PX {
+        format!(
+            "the screen changed ({changed_px} px) after {chars} characters — the keystrokes \
+             reached the screen. A change is not proof they landed in the field you meant: \
+             read the field back before typing more."
+        )
+    } else {
+        format!(
+            "the screen did NOT change ({changed_px} px) after {chars} characters — no editable \
+             field had keyboard focus, so the text went nowhere. A disabled or read-only field \
+             takes the click and swallows the text: ground and click an editable field first, \
+             then type."
+        )
+    }
+}
+
+/// A point in a fitted frame, back in the original screenshot's pixels.
+pub(crate) fn uncap_point(at: (f64, f64), back: (f64, f64)) -> (f64, f64) {
+    (at.0 * back.0, at.1 * back.1)
+}
+
 /// First look on the whole shot, then the zoom cascade. A zoom pass that
 /// gets no usable point keeps the last one; only the first look fails closed.
 fn ground_point(shot: &image::RgbImage, target: &str) -> Result<((f64, f64), usize), String> {
-    let size = shot.dimensions();
-    let mut at = ground_look(shot, target)?;
+    let (frame, back) = fit_frame(shot, GROUND_FRAME);
+    let frame = frame.as_ref();
+    let size = frame.dimensions();
+    let mut at = ground_look(frame, target)?;
     let mut passes = 1;
     for zoom in GROUND_ZOOMS {
         let (x0, y0, w, h) = zoom_window(at, size, zoom);
-        let crop = image::imageops::crop_imm(shot, x0, y0, w, h).to_image();
+        let crop = image::imageops::crop_imm(frame, x0, y0, w, h).to_image();
         let up = image::imageops::resize(&crop, size.0, size.1, image::imageops::FilterType::Lanczos3);
         let Ok((ux, uy)) = ground_look(&up, target) else {
             break;
@@ -266,7 +389,7 @@ fn ground_point(shot: &image::RgbImage, target: &str) -> Result<((f64, f64), usi
         );
         passes += 1;
     }
-    Ok((at, passes))
+    Ok((uncap_point(at, back), passes))
 }
 
 fn ask_ground_model(jpeg: &[u8], target: &str) -> Result<String, String> {
@@ -631,11 +754,77 @@ impl DesktopTool {
         validate_coords(x, y)?;
         Ok(format!(
             "{target} is at ({x},{y}) on {output} ({passes} looks, zooming in; screenshot \
-             {path}). Act with click {{x:{x}, y:{y}}}, then screenshot to verify.",
+             {path}). Act with click {{x:{x}, y:{y}}}, then screenshot to verify — grounding \
+             never refuses, so a target that is not on screen still gets a confident point.",
         ))
     }
 
     fn click(&self, args: &Value) -> Result<String, String> {
+        // Verification is the screen, and only the screen: `hands.rs` has no
+        // page DOM to ask. The measured behaviour of that witness
+        // (reports/mage-selfcorrect-20261101) is asymmetric — an unchanged
+        // frame never followed a click that worked, a changed frame followed
+        // 3 of 32 that did not — so the verdict below states what the frame
+        // did and never claims the target was reached.
+        let verify = args.get("verify").and_then(Value::as_bool).unwrap_or(false);
+        let before = if verify { self.settled().ok() } else { None };
+        let base = self.click_raw(args)?;
+        let Some(before) = before else {
+            return Ok(base);
+        };
+        let after = match self.settled() {
+            Ok(after) => after,
+            Err(e) => return Ok(format!("{base} (screen not re-read: {e})")),
+        };
+        Ok(format!(
+            "{base} {}",
+            click_verdict(frame_changed_px(&before, &after, CLICK_PIXEL_LEVEL))
+        ))
+    }
+
+    /// The frame once it has stopped moving: two identical grabs in a row, or
+    /// `SETTLE_MAX` whichever comes first. A verdict read from a frame that was
+    /// still painting is a verdict about the paint, not about the click —
+    /// measured on real pages, where a click that opened a new document left a
+    /// 276 px difference in the first grab and a click that opened nothing left
+    /// 200 000 px (reports/mage-selfcorrect-20261101).
+    fn settled(&self) -> Result<image::RgbImage, String> {
+        let started = Instant::now();
+        let mut last = self.grab(None)?;
+        loop {
+            if started.elapsed() >= SETTLE_MAX {
+                return Ok(last);
+            }
+            std::thread::sleep(SETTLE_POLL);
+            let now = self.grab(None)?;
+            if frame_changed_px(&last, &now, CLICK_PIXEL_LEVEL) == 0 {
+                return Ok(now);
+            }
+            last = now;
+        }
+    }
+
+    /// `grim` into a temp file and read the pixels back: the "what does the
+    /// screen look like right now" that click verification needs, without
+    /// saving or presenting a shot.
+    fn grab(&self, output: Option<&str>) -> Result<image::RgbImage, String> {
+        let dir = hands_dir(&self.workspace);
+        std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+        let file = dir.join(format!(".grab-{}.png", stamp()));
+        let mut argv: Vec<String> = Vec::new();
+        if let Some(output) = output {
+            argv.push("-o".into());
+            argv.push(output.to_string());
+        }
+        argv.push(file.to_string_lossy().into_owned());
+        let refs: Vec<&str> = argv.iter().map(String::as_str).collect();
+        let read = run_capture("grim", &refs)
+            .and_then(|_| image::open(&file).map(|i| i.to_rgb8()).map_err(|e| e.to_string()));
+        let _ = std::fs::remove_file(&file);
+        read
+    }
+
+    fn click_raw(&self, args: &Value) -> Result<String, String> {
         let x = args.get("x").and_then(Value::as_i64).ok_or("missing 'x'")?;
         let y = args.get("y").and_then(Value::as_i64).ok_or("missing 'y'")?;
         validate_coords(x, y)?;
@@ -704,7 +893,11 @@ impl Tool for DesktopTool {
                 (saved under .angel/hands/ and opened on the Stage preview for the operator; present=false skips the preview; read it yourself with vision_look), \
                 ground {target: 'the Save button', agent?, output?} (a GUI model finds it on screen and returns click coords). Act (operator-approved): \
                 focus {address|workspace|class}, key {key: 'ctrl+l'}, type {text}, \
-                click {x,y,button?}, launch {command: argv array, agent?}. Prefer your own                 agent display: agent_start gives you a headless monitor + workspace 90 the                 operator never sees; launch and screenshot there with agent=true, agent_stop                 removes it. Touch the operator's real screens only when the task is about                 their open apps. Observe first, act second, screenshot to verify."
+                click {x,y,button?,verify?}, launch {command: argv array, agent?}. \
+                click verify=true re-reads the screen and says whether the frame changed (a \
+                changed frame is not proof the target was hit). type verify=true re-reads it \
+                too and reports a frame that did not change as the text having gone nowhere \
+                (a disabled or read-only field takes the click and drops the keys); Prefer your own                 agent display: agent_start gives you a headless monitor + workspace 90 the                 operator never sees; launch and screenshot there with agent=true, agent_stop                 removes it. Touch the operator's real screens only when the task is about                 their open apps. Observe first, act second, screenshot to verify."
                 .to_string(),
             params: json!({
                 "type": "object",
@@ -719,6 +912,7 @@ impl Tool for DesktopTool {
                     "address": {"type": "string"}, "workspace": {"type": "integer"},
                     "class": {"type": "string"}, "key": {"type": "string"},
                     "text": {"type": "string"}, "x": {"type": "integer"}, "y": {"type": "integer"},
+                    "verify": {"type": "boolean"},
                     "button": {"type": "string", "enum": ["left","right","middle"]},
                     "command": {"type": "array", "items": {"type": "string"}}
                 },
@@ -809,8 +1003,26 @@ impl Tool for DesktopTool {
                     .and_then(Value::as_str)
                     .ok_or("missing 'text'")?;
                 validate_type_text(text)?;
+                // A count is not evidence: `wtype` types into whatever holds
+                // keyboard focus, and a disabled or read-only field takes the
+                // click and drops the characters. verify=true answers with the
+                // screen instead of the intention (reports/mage-typing-20261102).
+                let verify = args.get("verify").and_then(Value::as_bool).unwrap_or(false);
+                let before = if verify { self.settled().ok() } else { None };
                 run_capture("wtype", &["--", text])?;
-                Ok(format!("typed {} chars", text.chars().count()))
+                let chars = text.chars().count();
+                let base = format!("typed {chars} chars");
+                let Some(before) = before else {
+                    return Ok(base);
+                };
+                let after = match self.settled() {
+                    Ok(after) => after,
+                    Err(e) => return Ok(format!("{base} (screen not re-read: {e})")),
+                };
+                Ok(format!(
+                    "{base} {}",
+                    type_verdict(frame_changed_px(&before, &after, CLICK_PIXEL_LEVEL), chars)
+                ))
             }
             "click" => self.click(args),
             "launch" => {

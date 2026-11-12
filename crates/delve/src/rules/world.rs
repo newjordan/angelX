@@ -21,12 +21,42 @@
 
 use super::*;
 
-/// The surface includes authored rooms in addition to a bounded saved settlement.
-pub const HOME_ROOM_LIMIT: usize = 128;
+pub mod bomrekedan;
+
+/// The most rooms a saved loop settlement's floor may hold (`Site::decode`).
+pub const SETTLEMENT_ROOM_LIMIT: usize = 128;
+
+/// The most rooms the home floor may hold: a full settlement, then the whole
+/// world raised on top of it (`ROOMS`, the kingdom and the realm hall), with
+/// room to spare. The world is never cut to fit. Bomrekedan's levels have
+/// their own ten slots at the top of it.
+pub const HOME_ROOM_LIMIT: usize = SURFACE_ROOM_BUDGET + bomrekedan::LEVELS.len();
+
+/// Slots the surface rooms draw from, below the slots that are the fort's. A
+/// crowded settlement (`SETTLEMENT_ROOM_LIMIT`) no longer pushes the world's
+/// rooms, the tavern first, off the home floor; what still will not fit is
+/// named on `Floor::fort_admit`, never dropped without a word.
+const SURFACE_ROOM_BUDGET: usize = 246;
 
 /// World rooms sit north of the Undercroft, beyond a loop settlement's
 /// excavation (within six cells of the cellar, never reaching row -5).
-pub const ROOMS: [(RoomKind, (i32, i32)); 72] = [
+pub const ROOMS: [(RoomKind, (i32, i32)); 72 + bomrekedan::CELLS.len()] = joined(SURFACE, bomrekedan::CELLS);
+
+/// `a` then `b`, as one array (`ROOMS`, `ENTRANCES`).
+const fn joined<T: Copy, const A: usize, const B: usize, const N: usize>(a: [T; A], b: [T; B]) -> [T; N] {
+    assert!(A > 0 && A + B == N);
+    let mut out = [a[0]; N];
+    let mut i = 0;
+    while i < N {
+        out[i] = if i < A { a[i] } else { b[i - A] };
+        i += 1;
+    }
+    out
+}
+
+/// The rooms of the realm above the Delve, then (in `ROOMS`) the levels of
+/// Bomrekedan (`bomrekedan::CELLS`).
+const SURFACE: [(RoomKind, (i32, i32)); 72] = [
     super::muster_tent::CELL,
     (super::squire_rooms::ROOMS[0].0, super::squire_rooms::ROOMS[0].2),
     (super::squire_rooms::ROOMS[1].0, super::squire_rooms::ROOMS[1].2),
@@ -227,7 +257,11 @@ pub const CELLAR_FRONT: (f32, f32) = (14.0, 3.4);
 pub const ADIT: (i32, i32, i32, i32) = (10, 1, 4, 3);
 pub const SHAFT: (i32, i32, i32, i32) = (11, 3, 2, 1);
 
-pub const ENTRANCES: [Entrance; 75] = [
+pub const ENTRANCES: [Entrance; 75 + bomrekedan::DOORS.len()] = joined(SURFACE_ENTRANCES, bomrekedan::DOORS);
+
+/// The entrances of the realm above the Delve, then (in `ENTRANCES`) the
+/// stairs of Bomrekedan (`bomrekedan::DOORS`).
+const SURFACE_ENTRANCES: [Entrance; 75] = [
     super::squire_rooms::DOORS[0],
     super::squire_rooms::DOORS[1],
     super::squire_rooms::DOORS[2],
@@ -494,6 +528,23 @@ pub const ENTRANCES: [Entrance; 75] = [
     super::alehouse::DOORS[4],
 ];
 
+/// A way down from the kingdom into a dungeon: the world room whose entrance
+/// it is, that entrance, what the kingdom's signs call it, and the pack its
+/// first floor is. Every entrance that goes down is listed here, so the
+/// kingdom marks it, signs the road to it and keeps a halt near it.
+pub struct Mouth {
+    pub entrance: &'static str,
+    pub room: RoomKind,
+    pub name: &'static str,
+    pub below: Pack,
+}
+
+pub const MOUTHS: [Mouth; 3] = [
+    Mouth { entrance: "gate", room: RoomKind::Gate, name: "The Delve", below: Pack::Crypt },
+    Mouth { entrance: "shaft", room: RoomKind::MineHead, name: "The Mines", below: Pack::Cavern },
+    Mouth { entrance: "swamp-plate", room: RoomKind::Marsh, name: "The Swamp", below: Pack::Swamp },
+];
+
 /// Does the entrance stand open, by what the realm has built?
 pub fn open(e: &Entrance, home: &super::home::Home) -> bool {
     e.needs.is_none_or(|w| {
@@ -624,7 +675,7 @@ impl RoomKind {
                 | RoomKind::SquireBarracks
                 | RoomKind::SquireHall
                 | RoomKind::SquireLanes
-        )
+        ) || bomrekedan::is_level(self)
     }
 }
 
@@ -718,12 +769,13 @@ pub fn mine_head_room(cell: (i32, i32)) -> Room {
     room
 }
 
-fn world_room(kind: RoomKind, cell: (i32, i32)) -> Room {
+pub(super) fn world_room(kind: RoomKind, cell: (i32, i32)) -> Room {
     match kind {
         kind if super::college::is_room(kind) => super::college::room(kind, cell),
         kind if super::ranch::is_room(kind) => super::ranch::room(kind, cell),
         kind if super::colosseum::is_room(kind) => super::colosseum::room(kind, cell),
         RoomKind::Alehouse => super::alehouse::room(cell),
+        kind if bomrekedan::is_level(kind) => bomrekedan::room(kind, cell),
         RoomKind::MusterTent => super::muster_tent::room(cell),
         kind if super::squire_rooms::is_room(kind) => super::squire_rooms::room(kind, cell),
         RoomKind::Bazaar => super::bazaar::room(cell),
@@ -808,12 +860,29 @@ pub fn raise_world(floor: &mut Floor) -> bool {
             }
         }
     }
-    for (kind, cell) in ROOMS {
-        if floor.rooms.len() >= HOME_ROOM_LIMIT || floor.rooms.iter().any(|r| r.cell == cell) {
-            continue;
-        }
+    let (surface_missing, fort_missing): (Vec<_>, Vec<_>) = {
+        let taken = |cell: (i32, i32)| floor.rooms.iter().any(|r| r.cell == cell);
+        (
+            SURFACE.iter().copied().filter(|&(_, cell)| !taken(cell)).collect(),
+            bomrekedan::CELLS.iter().copied().filter(|&(_, cell)| !taken(cell)).collect(),
+        )
+    };
+    let free_prior = SURFACE_ROOM_BUDGET.saturating_sub(floor.rooms.len());
+    let free_now = HOME_ROOM_LIMIT.saturating_sub(floor.rooms.len());
+    let surface_take = surface_missing.len().min(free_prior);
+    let fort_take = fort_missing.len().min(free_now.saturating_sub(surface_take));
+    for &(kind, cell) in surface_missing.iter().take(surface_take) {
         floor.rooms.push(world_room(kind, cell));
         changed = true;
+    }
+    for &(kind, cell) in fort_missing.iter().take(fort_take) {
+        floor.rooms.push(world_room(kind, cell));
+        changed = true;
+    }
+    let mut admit = layout::FortAdmit::default();
+    admit.held_back = (surface_missing.len() - surface_take) as u16;
+    for &(kind, _) in fort_missing.iter().skip(fort_take) {
+        admit.omitted.push(bomrekedan::title(kind).unwrap_or("A LEVEL").to_string());
     }
     // The Yard's doors to the squires' rooms, on any Undercroft's Yard.
     changed |= super::squire_rooms::doors_in_yard(floor);
@@ -916,10 +985,106 @@ pub fn raise_world(floor: &mut Floor) -> bool {
             }
         }
     }
+    // Untouched saved ground follows a re-import. A level that holds goods,
+    // a chest, a roster or a door is left as the save had it and named.
+    for &(kind, cell) in &bomrekedan::CELLS {
+        let Some(index) = floor.rooms.iter().position(|r| r.cell == cell) else {
+            continue;
+        };
+        let title = bomrekedan::title(kind).unwrap_or("A LEVEL");
+        if floor.rooms[index].kind != kind {
+            admit.kept.push(format!("{title} CELL HELD"));
+            continue;
+        }
+        let fresh = bomrekedan::room(kind, cell);
+        if floor.rooms[index].fingerprint() == fresh.fingerprint() {
+            continue;
+        }
+        let same_size = (floor.rooms[index].cols, floor.rooms[index].rows) == (fresh.cols, fresh.rows);
+        if same_size && fort_ground_untouched(&floor.rooms[index]) {
+            let visited = floor.rooms[index].visited;
+            let cleared = floor.rooms[index].cleared;
+            floor.rooms[index] = fresh;
+            floor.rooms[index].visited = visited;
+            floor.rooms[index].cleared = cleared;
+            admit.refreshed.push(title.to_string());
+            changed = true;
+        } else {
+            admit.kept.push(title.to_string());
+        }
+    }
+    floor.fort_admit = admit;
     if changed {
         floor.world_revision = floor.world_revision.wrapping_add(1);
     }
     changed
+}
+
+/// A fort level still as the import laid it: nothing a knight has set down,
+/// no fight waiting, no doorway cut. Those stay; the import does not wipe them.
+fn fort_ground_untouched(room: &Room) -> bool {
+    room.items.is_empty() && room.chest.is_none() && room.roster.is_empty() && room.doors == [false; 4] && room.laid.is_none()
+}
+
+impl Run {
+    /// Raise the world, then say what the fort's admission did and step a
+    /// knight off ground a re-import closed under them.
+    pub fn raise_home_world(&mut self) -> bool {
+        let changed = raise_world(&mut self.dungeon);
+        self.settle_fort_feet();
+        self.announce_fort();
+        changed
+    }
+
+    /// After untouched ground was brought up to the import: a knight standing
+    /// where that ground is now shut steps onto the level's arrival.
+    pub fn settle_fort_feet(&mut self) {
+        let refreshed = self.dungeon.fort_admit.refreshed.clone();
+        if refreshed.is_empty() {
+            return;
+        }
+        let kind = self.room().kind;
+        if !bomrekedan::is_level(kind) {
+            return;
+        }
+        let Some(title) = bomrekedan::title(kind) else {
+            return;
+        };
+        if !refreshed.iter().any(|n| n == title) {
+            return;
+        }
+        let at = bomrekedan::DOORS
+            .iter()
+            .find_map(|e| match e.to {
+                Dest::Room(k, at) if k == kind => Some(at),
+                _ => None,
+            })
+            .unwrap_or(bomrekedan::ARRIVAL);
+        let spots: Vec<(u32, i32, i32)> = self
+            .players
+            .iter()
+            .map(|(id, h)| (*id, (h.x / TILE_UNITS).floor() as i32, (h.y / TILE_UNITS).floor() as i32))
+            .collect();
+        let stuck: Vec<u32> = spots
+            .into_iter()
+            .filter(|&(_, x, y)| !matches!(self.room().tile(x, y), Tile::Floor | Tile::Door | Tile::Stairs))
+            .map(|(id, _, _)| id)
+            .collect();
+        for id in stuck {
+            if let Some(hero) = self.players.get_mut(&id) {
+                (hero.x, hero.y) = (at.0 * TILE_UNITS, at.1 * TILE_UNITS);
+            }
+        }
+    }
+
+    /// The admission line, once, when there is something to say.
+    pub fn announce_fort(&mut self) {
+        let line = self.dungeon.fort_admit.line();
+        if line.is_empty() || self.found.is_some() {
+            return;
+        }
+        self.found = Some((self.tick, 1, line));
+    }
 }
 
 /// The home floor as it lies below the world: without the world's rooms or
@@ -929,6 +1094,7 @@ pub fn raise_world(floor: &mut Floor) -> bool {
 pub fn below_the_world(floor: &Floor) -> Floor {
     let mut below = floor.clone();
     below.world_revision = 0;
+    below.fort_admit = layout::FortAdmit::default();
     below.rooms.retain(|r| !r.kind.in_world());
     if let Some(cellar) = below.rooms.iter().position(|r| r.kind == RoomKind::Home) {
         let (c, r, w, h) = CELLAR_STAIR;
@@ -986,13 +1152,14 @@ impl Run {
         // A knight who arrives standing on stairs steps off before they work.
         self.stairs_held = true;
         self.record_kingdom_visit();
+        self.note_arrival();
     }
 
     /// A new delve, begun in the world: in the gate courtyard, the gate's
     /// stair before the party, the Undercroft below it.
     #[cfg(any(test, feature = "testing"))]
     pub fn come_to_the_gate(&mut self) {
-        raise_world(&mut self.dungeon);
+        self.raise_home_world();
         if let Some(gate) = room_of(&self.dungeon, RoomKind::Gate) {
             self.arrive(gate, COURTYARD_ARRIVAL);
             // The welcome home waits for the Undercroft itself.

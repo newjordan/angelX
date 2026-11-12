@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "title": "Knight's Wish \u2014 mineral enemies attack anticipation",
+  "generated_with": "OpenAI built-in imagegen",
+  "atlas": "ore-enemies-windup-atlas.png",
+  "source_width": 1254,
+  "source_height": 1254,
+  "style": "Crisp pixel-painted fantasy; 3/4 front; mineral material cues; upper-left light; transparent full-body sprites",
+  "runtime_role": "Field enemy appearances and ore forecast portraits; monster_art owns combat behavior and renderer integration",
+  "assets": [
+    {
+      "id": "iron-ore-sentinel",
+      "resource": "iron-ore",
+      "name": "Iron Ore Sentinel",
+      "rect": [
+        0,
+        0,
+        627,
+        627
+      ],
+      "visual_cue": "Broad rust-banded iron pavise and hammer arm",
+      "combat_identity": "Frontal shield and heavy bash",
+      "visible_bbox": [
+        162,
+        161,
+        475,
+        462
+      ]
+    },
+    {
+      "id": "coal-blast-crawler",
+      "resource": "coal",
+      "name": "Coal Blast Crawler",
+      "rect": [
+        627,
+        0,
+        627,
+        627
+      ],
+      "visual_cue": "Brittle coal shell, thin hot fissures, gripped explosive keg",
+      "combat_identity": "Planted blinking explosive kegs",
+      "visible_bbox": [
+        142,
+        230,
+        483,
+        460
+      ]
+    },
+    {
+      "id": "crystal-prism-stalker",
+      "resource": "crystal",
+      "name": "Crystal Prism Stalker",
+      "rect": [
+        0,
+        627,
+        627,
+        627
+      ],
+      "visual_cue": "Tall teal-violet facets, angular ranged arm, white prism core",
+      "combat_identity": "Copies and refracts player shots after a visible tell",
+      "visible_bbox": [
+        156,
+        141,
+        481,
+        438
+      ]
+    },
+    {
+      "id": "ember-cinderhound",
+      "resource": "ember",
+      "name": "Ember Cinderhound",
+      "rect": [
+        627,
+        627,
+        627,
+        627
+      ],
+      "visual_cue": "Low obsidian charge stance, bright molten seams, burning mane and tail",
+      "combat_identity": "Crouch, line charge, lingering fire",
+      "visible_bbox": [
+        133,
+        196,
+        472,
+        403
+      ]
+    }
+  ],
+  "provenance": {
+    "prompt": "Create the MATCHING WINDUP/ATTACK-TELEGRAPH FRAME atlas for the four enemy sprites in the attached reference. This is animation production: preserve EACH enemy's EXACT identity, armour, colors, anatomy, number of limbs, camera, upper-left lighting and pixel-art rendering. Same 2 by 2 cell layout: iron sentinel top-left, coal crawler top-right, crystal stalker bottom-left, ember hound bottom-right. Change ONLY their combat preparation poses and localized attack energy. All four are full bodies, isolated on TRUE transparent alpha background. Keep all extremities within their own quadrant, with wide transparent gutters and at least15% padding; no text, labels, frames, scenery, ground, broad smoke clouds, arrows or UI symbols. Make the poses read distinctly from the resting reference at36px native display. TOP LEFT IRON SENTINEL WINDUP: the SAME rust-banded armored sentinel is braced on planted squat legs, its huge hammer fist on SCREEN LEFT now raised HIGH above its shoulder ready for a heavy downward bash; its enormous rectangular riveted pavise shield stays on SCREEN RIGHT but angles slightly outward, briefly showing a sliver of chest. Slight backward torso lean makes the coming impact clear. Keep exact shield and helmet shape and iron/rust materials, no extra weapons. TOP RIGHT COAL CRAWLER WINDUP: the SAME six-legged brittle black shale crawler braces lower with outer legs wide while its front claws hold its SAME iron-banded explosive keg forward and slightly UP toward the viewer. The short fuse is now brightly burning golden yellow and the coal shell's thin ember-orange fractures brighten subtly. The keg must be unmistakable as the imminent danger. Do not turn whole body into lava; preserve predominantly black coal. BOTTOM LEFT CRYSTAL STALKER WINDUP: the SAME floating violet/teal prismatic enemy opens BOTH angular blade arms wide in a deliberate refracting pose, central diamond chest-core now shines brilliant pale cyan-white; the same two nearby floating shoulder shards align forward to frame the attack. Preserve tall pointed torso, faceted armor, no face or robe. This is a readable anticipation frame, not a beam or projectile already fired. BOTTOM RIGHT EMBER HOUND WINDUP: the SAME four-legged obsidian hound COMPRESSES into a much LOWER tight crouch, head almost at front paw height, heavy rear legs flexed like a loaded spring, front claws gathered ready to launch forward, glowing mane and ember tail swept BACK along the spine by gathering heat. Preserve same wolf-like head, volcanic plates, molten orange seams, curled flame tail identity, no wings, no extra legs. Mature crisp hand-painted PIXEL ART with deliberate square clusters and bold silhouettes, not smooth painting. Do not add environment or alter monster designs. Full transparent four-sprite atlas with clean separation.",
+    "output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-8e07b9a7-1b32-42d3-bf75-d8f53a897887.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+    "layout_correction_prompt": "TECHNICAL SPRITE ATLAS LAYOUT CORRECTION. Recreate the attached four windup monster sprites EXACTLY in the same designs, poses, lighting and crisp pixel-art style, but make every individual sprite 28 PERCENT SMALLER within its current quadrant. Keep the same 2 by2 layout on a square canvas: top-left raised-hammer iron shield sentinel, top-right coal crawler offering live fuse keg, bottom-left prism stalker with arms open, bottom-right tightly crouched ember hound. Every sprite MUST be fully confined to the INNER60 PERCENT of its own square quadrant, centered, with at least20 PERCENT EMPTY TRANSPARENT MARGIN from every quadrant boundary. There must be a BROAD completely empty transparent vertical gutter through the entire middle of the image and a BROAD completely empty transparent horizontal gutter through the middle. No extremity may cross either gutter. In particular, both extended prism arms and all hound paws must remain entirely inside their own cells, no overlap even when their bounding rectangles are considered. Do not redesign, simplify, add details, change palette, change anatomy or change attack preparation poses. Preserve all four full bodies and the exact raised hammer, lit keg, bright cyan prism chest and low hound stance. This is the SAME production animation frame atlas, only zoomed out to ensure clean independent rectangular crops. Truly transparent background; no text, boxes, borders, ground or checkerboard. Output all four complete smaller monsters, not a screenshot layout.",
+    "selected_output_hint": "Generated images are saved to ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696 as ~/.codex/generated_images/01a1ad26-0e1c-72d1-8a54-a338efbfc696/exec-804c5bbc-921c-4d8b-b8c6-9e7c561d11f9.png by default.\nIf you need to use a generated image at another path, copy it and leave the original in place unless the user explicitly asks you to delete it.\nThe generated image is already displayed to the user. There is no need to render it in the final response as a Markdown image or file link.",
+    "sha256": "2675da4945b04632f0649c85c216cf0403d433cc137e3e2243ae91d944e32f35"
+  },
+  "animation_state": "windup"
+}

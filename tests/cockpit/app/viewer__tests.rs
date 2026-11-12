@@ -32,6 +32,8 @@ fn status_report_reply_is_recognised_inside_noise() {
 }
 
 use super::*;
+#[cfg(feature = "delve")]
+use crate::delve::cart::viewer::Pictures;
 use std::time::Duration;
 
 const ASYNC_IMAGE_TEST_TIMEOUT: Duration = Duration::from_secs(10);
@@ -49,6 +51,7 @@ fn assert_responsive_draw_samples(samples: &mut [Duration], label: &str) {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn ambient_halfblocks_use_one_resident_encode_and_keep_map_policy() {
     use ratatui::Terminal;
@@ -145,8 +148,10 @@ fn ambient_halfblocks_use_one_resident_encode_and_keep_map_policy() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn room_pixels_distinguish_pending_failed_and_empty_surfaces() {
+    use crate::delve::cart::viewer::WorldPixelsState;
     use ratatui::{Terminal, backend::TestBackend};
     let mut viewer = Viewer::with_picker(halfblock_picker());
     let hold = viewer.hold_room_worker_for_test();
@@ -216,6 +221,10 @@ fn trusted_terminal_hints_select_resident_pixel_protocols() {
         Some(ProtocolType::Kitty)
     );
     assert_eq!(
+        protocol_from_terminal_hints(Some("xterm-256color"), Some("glass 0.1.0"), false, false, false,),
+        Some(ProtocolType::Kitty)
+    );
+    assert_eq!(
         protocol_from_terminal_hints(Some("xterm-256color"), None, true, false, false,),
         Some(ProtocolType::Sixel)
     );
@@ -263,7 +272,7 @@ fn kitty_council_table_is_encoded_off_thread_and_cached() {
 }
 
 #[test]
-fn changing_council_and_map_sequences_coalesce_behind_one_pending_encode() {
+fn changing_council_sequences_coalesce_behind_one_pending_encode() {
     use ratatui::Terminal;
     use ratatui::backend::TestBackend;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -299,7 +308,24 @@ fn changing_council_and_map_sequences_coalesce_behind_one_pending_encode() {
         Some(&old_key),
         "a newer council picture replaced the admitted encode"
     );
+}
 
+#[cfg(feature = "delve")]
+#[test]
+fn changing_map_sequences_coalesce_behind_one_pending_encode() {
+    use ratatui::Terminal;
+    use ratatui::backend::TestBackend;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    let mut picker = Picker::halfblocks();
+    picker.set_protocol_type(ProtocolType::Kitty);
+    let mut viewer = Viewer::with_picker(picker);
+    let old_key = PortalCacheKey {
+        sequence: 1,
+        width: 40,
+        height: 10,
+    };
+    let mut terminal = Terminal::new(TestBackend::new(40, 10)).expect("test terminal");
     let (_map_hold, map_rx) = mpsc::channel();
     viewer.map_pending = Some(PendingPortal {
         key: old_key.clone(),
@@ -322,6 +348,7 @@ fn changing_council_and_map_sequences_coalesce_behind_one_pending_encode() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn kitty_map_composes_off_the_draw_thread_on_one_resident_worker() {
     use ratatui::Terminal;
@@ -1065,8 +1092,17 @@ fn a_tmux_client_on_a_kitty_graphics_terminal_gets_pixel_graphics() {
     for name in ["screen-256color", "xterm-256color", "alacritty", ""] {
         assert_eq!(super::protocol_for_client_termname(name), None, "{name}");
     }
+    assert_eq!(
+        super::protocol_for_tmux_client("xterm-256color", "glass 0.1.0"),
+        Some(ProtocolType::Kitty)
+    );
+    assert_eq!(
+        super::protocol_for_tmux_client("xterm-256color", "XTerm(396)"),
+        None
+    );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
     let _guard = crate::tests::env_lock();
@@ -1074,8 +1110,8 @@ fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
     let mut picker = Picker::halfblocks();
     picker.set_protocol_type(ProtocolType::Kitty);
     let mut viewer = Viewer::with_picker(picker);
-    let sim = crate::drive::together_sim::Sim::from(Some(
-        crate::drive::together_shooter::Run::new(17, 1, None),
+    let sim = crate::delve::together_sim::Sim::from(Some(
+        crate::delve::together_shooter::Run::new(17, 1, None),
     ));
     let seat = sim.seat(1).expect("the host's own seat");
     let mut terminal = ratatui::Terminal::new(ratatui::backend::TestBackend::new(120, 40)).unwrap();
@@ -1087,7 +1123,7 @@ fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
     while upload.is_none() && std::time::Instant::now() < until {
         terminal
             .draw(|frame| {
-                crate::ui::viz::shooter_viz::render_seat(
+                crate::delve::shooter_viz::render_seat(
                     frame,
                     &mut viewer,
                     seat,
@@ -1097,7 +1133,7 @@ fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
                 );
             })
             .unwrap();
-        upload = viewer.game_upload.take();
+        upload = viewer.plane.game_upload.take();
     }
     // It goes out as one PNG Kitty places.
     let upload = upload.expect("the frame is uploaded with a draw");
@@ -1120,6 +1156,7 @@ fn dungeon_native_room_encodes_kitty_pixels_inside_game_viewport() {
     );
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
     use ratatui::Terminal;
@@ -1127,7 +1164,7 @@ fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
     let mut picker = Picker::halfblocks();
     picker.set_protocol_type(ProtocolType::Kitty);
     let mut viewer = Viewer::with_picker(picker);
-    let img = || crate::stage::world_viz::overworld::Img::new(768, 448);
+    let img = || crate::delve::world_viz::overworld::Img::new(768, 448);
     let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
     let area = Rect::new(0, 0, 100, 30);
     let mut uploads = Vec::new();
@@ -1137,7 +1174,7 @@ fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
                 assert!(viewer.render_game_img(frame, area, seq, (768, 448), img));
             })
             .unwrap();
-        uploads.push(viewer.game_upload.take());
+        uploads.push(viewer.plane.game_upload.take());
     }
     assert!(uploads[0].as_ref().unwrap().contains("f=100"));
     assert!(uploads[1].is_none(), "the same frame is not sent twice");
@@ -1153,7 +1190,7 @@ fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
     };
     assert_ne!(id(first), id(second), "a new frame fills the other slot");
     // 768x448 into 100x30 cells of 1:2 (1000x600): width-bound, 29 rows.
-    let (_, cols, rows, _) = viewer.game_png.unwrap();
+    let (_, cols, rows, _) = viewer.plane.game_png.unwrap();
     assert_eq!((cols, rows), (100, 29));
 
     let mut plain = Viewer::with_picker(Picker::halfblocks());
@@ -1162,10 +1199,12 @@ fn a_delve_frame_goes_to_kitty_once_and_keeps_its_shape() {
         .unwrap();
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn the_seat_picture_goes_out_at_a_whole_multiple_of_itself() {
-    let native = crate::stage::world_viz::overworld::Img::new(384, 224);
-    let png = super::scaled_png(&native, 100, 30);
+    let native = crate::delve::world_viz::overworld::Img::new(384, 224);
+    let shape = crate::delve::cart::viewer::cell_shape(&crate::ui::glass::Lent);
+    let png = crate::delve::cart::viewer::scaled_png(&native, 100, 30, shape);
     let dim = |at: usize| u32::from_be_bytes(png[at..at + 4].try_into().unwrap());
     assert_eq!((dim(16), dim(20)), (384 * 3, 224 * 3));
 }

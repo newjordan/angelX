@@ -80,9 +80,22 @@ pub fn meadow(wx: i32, wy: i32) -> Option<char> {
     let (cx, cy) = (wx.div_euclid(7), wy.div_euclid(6));
     let (lx, ly) = (wx.rem_euclid(7), wy.rem_euclid(6));
     let h = hash(cx, cy, 21);
-    if h % 5 < 2 {
+    // The blank-slate plan's country (`crate::world::plan`) is open hillside:
+    // the tufts crowd on the crests of broad swells and thin out in their
+    // hollows, so black paper reads as rolling ground, never a field of marks.
+    let swell = crate::world::plan::tabula().then(|| hill(cx * 7 + 3, cy * 6 + 3));
+    // And faint contour dashes along the swells' own levels, as a surveyor
+    // draws a hillside, so the ground reads as rolling and not flat.
+    if swell.is_some() {
+        let level = |x: i32, y: i32| (hill(x, y) * 6.0) as i32;
+        let here = level(wx, wy);
+        if (here != level(wx + 1, wy) || here != level(wx, wy + 1)) && (wx + 2 * wy).rem_euclid(7) < 4 {
+            return Some('F');
+        }
+    }
+    if swell.map_or(h % 5 < 2, |s| (h >> 12) % 10 < 1 + (s * 6.0) as u32) {
         let (ox, oy) = (((h >> 3) % 4) as i32, ((h >> 6) % 4) as i32);
-        let bright = (h >> 9).is_multiple_of(3);
+        let bright = (h >> 9).is_multiple_of(3) || swell.is_some_and(|s| s > 0.66 && (h >> 9) % 2 == 0);
         if ly == oy && (lx == ox || lx == ox + 2) {
             return Some(if bright { 'l' } else { 'E' });
         }
@@ -94,6 +107,15 @@ pub fn meadow(wx: i32, wy: i32) -> Option<char> {
         return Some('o');
     }
     None
+}
+
+/// How high the hillside stands at a world pixel, 0 (a hollow) to 1 (a crest):
+/// broad swells with smaller ones on them, a pure function of the pixel.
+pub fn hill(wx: i32, wy: i32) -> f32 {
+    let (x, y) = (wx as f32, wy as f32);
+    let n = 0.7 * vnoise(x / 230.0, y / 170.0, 931) + 0.3 * vnoise(x / 80.0, y / 62.0, 937);
+    // Value noise sits near its middle: stretched so crests and hollows are real.
+    ((n - 0.5) * 2.2 + 0.5).clamp(0.0, 1.0)
 }
 
 fn road(

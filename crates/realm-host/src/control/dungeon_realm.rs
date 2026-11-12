@@ -8,7 +8,38 @@ use crate::together_shooter as shooter;
 impl Session<'_> {
     /// The island's realm, loaded beside the world's rewards on first use.
     pub(crate) fn realm(&mut self) -> &mut Realm {
+        // A settlement off the frame holds it: wait for it to come back.
+        self.dungeon.collect_settled(true);
         economy(&mut self.dungeon.realm, self.world)
+    }
+
+    /// One settlement cycle, the realm's claims then the home's, off the
+    /// frame where the server runs on its own threads; in place (and its
+    /// outcome known) otherwise. True when it went off the frame.
+    pub fn settle_off_frame(&mut self) -> bool {
+        if self.dungeon.settling.is_some() {
+            return true;
+        }
+        if self.dungeon.shooter.link().is_none() {
+            return false;
+        }
+        self.flush_holdings_ops();
+        self.realm();
+        self.dungeon.settle_off_frame()
+    }
+
+    /// Run one part of the cycle in place with the realm in hand.
+    fn settle_in_place(
+        &mut self,
+        part: fn(&mut Realm, &mut super::dungeon_settle::InPlace<'_>, &mut super::dungeon_settle::Io) -> bool,
+    ) -> bool {
+        self.realm();
+        let mut realm = self.dungeon.realm.take().expect("the realm was loaded above");
+        let mut io = super::dungeon_settle::Io::of(self.dungeon);
+        let ok = part(&mut realm, &mut super::dungeon_settle::InPlace(self.dungeon), &mut io);
+        self.dungeon.realm = Some(realm);
+        io.apply(self.dungeon);
+        ok
     }
 
     /// The host's name on plaques: the first word of git's user.name, else $USER.
@@ -18,59 +49,7 @@ impl Session<'_> {
 
     /// Move what the run banked into the treasury, under each knight's name.
     pub fn settle_realm(&mut self) -> bool {
-        // A claim remains in the game journal until both stores agree on its
-        // identity. New spoils can accumulate while this exact claim retries.
-        for _ in 0..16 {
-            let settled = (|| {
-                let Some(claim) = self.dungeon.shooter.claim_realm()? else {
-                    return Ok(None);
-                };
-                if self.realm().persistent() && self.dungeon.save_path.is_none() {
-                    return Err("the game checkpoint path is unavailable".into());
-                }
-                // Save the emptied queues AND retained receipt in one core
-                // capture before the destination is allowed to spend it.
-                self.dungeon.checkpoint(std::time::Instant::now(), true)?;
-                let host = self.host_name();
-                let result = self.realm().settle_claim(&claim, &host)?;
-                self.dungeon.shooter.acknowledge_realm(&claim)?;
-                self.dungeon.checkpoint(std::time::Instant::now(), true)?;
-                Ok::<_, String>(Some((claim, result)))
-            })();
-            let (claim, result) = match settled {
-                Ok(Some(settled)) => settled,
-                Ok(None) => return true,
-                Err(error) => {
-                    self.dungeon.notice = format!("Could not save the realm: {error}");
-                    return false;
-                }
-            };
-            let now = std::time::Instant::now();
-            if result.applied && !claim.transfer.hauls.is_empty() {
-                self.dungeon.chorus.cue("banked", now);
-            }
-            if result.tribute_paid {
-                self.dungeon.chorus.cue("tribute", now);
-            }
-            if result.applied && result.affordable.len() > self.dungeon.ready_heard {
-                self.dungeon.chorus.cue("treasury_ready", now);
-            }
-            self.dungeon.ready_heard = result.affordable.len();
-            if !result.lines.is_empty() {
-                let mut notice = result.lines.join(" · ");
-                if !result.affordable.is_empty() {
-                    notice.push_str(&format!(
-                        " · the treasury can raise: {} (Tab → realm)",
-                        result.affordable.join(", ")
-                    ));
-                }
-                self.dungeon.notice = notice;
-            }
-        }
-        // Bound UI work if a producer keeps banking; a restart/close may not
-        // discard a backlog simply because one bounded transfer completed.
-        self.dungeon.notice = "The realm is still banking the party's spoils".into();
-        false
+        self.settle_in_place(|realm, game, io| super::dungeon_settle::realm_cycle(realm, game, io))
     }
 
     /// Pay for what the party asked for at the Undercroft's plates out of
@@ -78,95 +57,7 @@ impl Session<'_> {
     /// chosen, and tell the run what now stands and what it can spend.
     pub fn settle_home(&mut self) -> bool {
         self.flush_holdings_ops();
-        for _ in 0..16 {
-            let settled = (|| {
-                let context = self.realm().home_context();
-                self.dungeon
-                    .shooter
-                    .sync_home(context.home.clone(), context.treasury.clone())?;
-                let Some(claim) = self.dungeon.shooter.claim_home_with_context(&context)? else {
-                    return Ok(None);
-                };
-                if self.realm().persistent() && self.dungeon.save_path.is_none() {
-                    return Err("the game checkpoint path is unavailable".into());
-                }
-                // Persist reservations/facts before the destination is allowed
-                // to pay. A replay always uses this same request and payload.
-                self.dungeon.checkpoint(std::time::Instant::now(), true)?;
-                if self.dungeon.shooter.home_completion(&claim)?.is_none() {
-                    let host = self.host_name();
-                    let unsaved = self.dungeon.bounties_unsaved;
-                    let (realm, sim) = (&mut self.dungeon.realm, &mut self.dungeon.shooter);
-                    let result = realm
-                        .as_mut()
-                        .ok_or("realm was not loaded")?
-                        .prepare_home_claim(&claim, &host, unsaved, |request| {
-                            sim.evaluate_home(request)
-                        })?;
-                    self.dungeon.shooter.complete_home(&claim, result)?;
-                }
-                let completed = self
-                    .dungeon
-                    .shooter
-                    .home_completion(&claim)?
-                    .ok_or("home delivery did not commit")?;
-                // Only after world+delivery is durable may a refund commit and
-                // its destination discard the large prepared result.
-                self.dungeon.checkpoint(std::time::Instant::now(), true)?;
-                self.realm().finish_home_claim(&claim, &completed)?;
-                let realm = self.realm();
-                let (home, treasury) = (realm.home.clone(), realm.treasury.clone());
-                self.dungeon.shooter.sync_home(home, treasury)?;
-                self.dungeon.shooter.acknowledge_home(&claim, &completed)?;
-                self.dungeon.checkpoint(std::time::Instant::now(), true)?;
-                Ok::<_, String>(Some(completed))
-            })();
-            let completed = match settled {
-                Ok(Some(completed)) => completed,
-                Ok(None) => return true,
-                Err(error) => {
-                    self.dungeon.notice = format!("Could not save the realm: {error}");
-                    return false;
-                }
-            };
-            self.dungeon.bounties_unsaved = false;
-            let now = std::time::Instant::now();
-            let built_or_opened = !completed.result.said.is_empty();
-            for (cue, notice) in completed.result.said {
-                self.dungeon.chorus.cue(&cue, now);
-                self.dungeon.notice = notice;
-            }
-            if let Some(feat) = completed
-                .result
-                .announced
-                .last()
-                .and_then(|id| shooter::feats::feat(id))
-            {
-                self.dungeon.notice = if built_or_opened {
-                    format!(
-                        "{} · Deed: {} ({})",
-                        self.dungeon.notice,
-                        feat.name,
-                        feat.tier.name()
-                    )
-                } else {
-                    format!(
-                        "Deed recorded: {}. {} ({} in the Herald's coffer, Fortune's hall)",
-                        feat.name,
-                        feat.says,
-                        feat.tier.name()
-                    )
-                };
-            }
-            if !completed.delivered.refund.is_empty() {
-                self.dungeon.notice = format!(
-                    "Purchase could not be delivered; {} returned to the treasury",
-                    completed.delivered.refund.label()
-                );
-            }
-        }
-        self.dungeon.notice = "The realm is still settling the party's purchases".into();
-        false
+        self.settle_in_place(|realm, game, io| super::dungeon_settle::home_cycle(realm, game, io))
     }
 
     /// angelX's own work since the last settle, folded into the holdings:

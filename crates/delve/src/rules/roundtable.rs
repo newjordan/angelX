@@ -267,6 +267,11 @@ impl Run {
         if self.room().kind != RoomKind::Kingdom || self.kingdom.door_held {
             return false;
         }
+        // The adventures' gates stand on the full plan's map only
+        // (`crate::world::plan`): the blank-slate hillside has none.
+        if !crate::world::plan::full() {
+            return false;
+        }
         for a in games() {
             let (x, y) = (
                 (a.entry.0 as f32 + 0.5) * TILE_UNITS,
@@ -297,7 +302,8 @@ impl Run {
             "bannerpeak" => Run::bannerpeak_for_test(),
             "griffinwing" => Run::griffinwing_for_test(),
             "lightgallop" => Run::lightgallop_for_test(),
-            "knight_racers" => fixture(&knight_racers::ADVENTURE),
+            // The fixture opens on the grid, as it always did; the gate's menus are for play.
+            "knight_racers" => { let mut run = fixture(&knight_racers::ADVENTURE); if let Some(s) = run.knight_racers.as_mut() { s.skip_menus(); } run }
             "deathmatch" => fixture(&deathmatch::ADVENTURE),
             _ => return None,
         })

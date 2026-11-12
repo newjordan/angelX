@@ -199,7 +199,7 @@ pub(super) fn figure(f: &Figure, tick: u32) -> Img {
         (Folk::Carter, _) => carter(f.loaded, f.t),
         (Folk::Smith, _) => {
             let mut im = Img::from_rows(&SMITH);
-            if (f.t / 9).is_multiple_of(2) {
+            if f.pose == Pose::Work && (f.t / 9).is_multiple_of(2) {
                 // The hammer down on the anvil.
                 for y in 0..4 {
                     for x in 6..10 {
@@ -289,6 +289,9 @@ fn stockpile(cv: &mut Img, run: &Run) {
         cv.put(x + 2, y - 5, 'T');
         cv.line(x, y, x + 4, y, 'P');
     }
+    // The ore itself, beside the sacks: a lump for every piece in the
+    // stockpile.
+    super::goods::ore_heap(cv, run);
 }
 
 /// The gate-hall's ruin, as it fell: broken walls of dressed stone, its
@@ -768,6 +771,7 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
         return;
     };
     let progress = f.work.and_then(|w| b.progress(w));
+    let burn = run.home.goods.burn(b, f.id);
     let lit = b.is_lit(f.id);
     let (c, r, w, h) = FURNACE;
     let (x0, y0, fw, fh) = (c * TILE, r * TILE, w * TILE, h * TILE);
@@ -817,11 +821,7 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
             let (ex, ey) = ((x - mx) as f32 / 10.0, (y - (my - 10)) as f32 / 10.0);
             if y >= top && (y >= my - 10 || ex * ex + ey * ey <= 1.0) {
                 let ink = if lit {
-                    match hash(x, y + (tick / 3) as i32, 99) % 5 {
-                        0 => '6',
-                        1 | 2 => '@',
-                        _ => '7',
-                    }
+                    super::goods::mouth(&burn, x, y, my - y, tick)
                 } else {
                     'k'
                 };
@@ -830,10 +830,14 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
         }
     }
     if lit {
-        lights.push(fire(mx, my - 8, 90.0, 0.6));
-        // Smoke out of the chimney, and sparks.
-        let smoke = kit::smoke(tick);
-        cv.stamp(&smoke, mx - smoke.w / 2, TILE - smoke.h + 2);
+        if let Some((r, s)) = super::goods::glow(&burn) {
+            lights.push(fire(mx, my - 8, r, s));
+        }
+        // Smoke out of the chimney only while the forge works.
+        if burn == crate::rules::goods::Burn::Working {
+            let smoke = kit::smoke(tick);
+            cv.stamp(&smoke, mx - smoke.w / 2, TILE - smoke.h + 2);
+        }
     }
     if progress.is_none() {
         // Rubble round the ruin.
@@ -861,6 +865,7 @@ pub(super) fn forge(cv: &mut Img, run: &Run, lights: &mut Vec<Light>, tick: u32)
         cv.line(ax + 1, ay + 4, ax + 14, ay + 4, 'h');
     }
     home::plate_marked(cv, FORGE_PLATE, false, &anvil_mark());
+    super::goods::bins(cv, run, lights);
 }
 
 // ── Figures and boards ───────────────────────────────────────────────────
@@ -874,7 +879,7 @@ pub(super) fn folk(cv: &mut Img, run: &Run) {
         let im = figure(&f, tick);
         let (x, y) = at(f.x, f.y);
         stand(cv, &im, x, y);
-        if f.folk == Folk::Smith && (f.t / 9).is_multiple_of(2) && f.t % 9 < 4 {
+        if f.folk == Folk::Smith && f.pose == Pose::Work && (f.t / 9).is_multiple_of(2) && f.t % 9 < 4 {
             let sx = if f.east { x + 6 } else { x - 6 };
             for k in 0..4 {
                 cv.put(sx + (k - 2) * 2, y - 8 - (f.t % 9) as i32 - k % 2, '6');
@@ -998,6 +1003,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             }
             None => lines.push(("NO MISSION NOW: BUILD, AND RELIGHT".into(), 'h')),
         }
+        lines.extend(super::reclaim::mission_lines(run));
         let board = home::board(&lines);
         place(cv, &board, barony::king_plate(b), false);
         return;
@@ -1060,9 +1066,11 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             } else if standing_on(run, TABLE_PLATE).is_some() {
                 let mut lines = vec![("THE FORGES OF CAER DWFN".to_string(), '9')];
                 for (i, f) in FORGES.iter().enumerate() {
-                    let state = if b.is_lit(f.id) {
-                        "BURNING".to_string()
-                    } else if let Some(p) = f.work.and_then(|w| b.progress(w)) {
+                    if b.is_lit(f.id) {
+                        lines.push(super::goods::war_state(b, &run.home.goods, f));
+                        continue;
+                    }
+                    let state = if let Some(p) = f.work.and_then(|w| b.progress(w)) {
                         if p >= 1000 {
                             "REBUILT, COLD".into()
                         } else {
@@ -1075,10 +1083,10 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
                     } else {
                         "LOST".into()
                     };
-                    lines.push((
-                        format!("{}: {state}", f.name.to_uppercase()),
-                        if b.is_lit(f.id) { '5' } else { 'h' },
-                    ));
+                    lines.push((format!("{}: {state}", f.name.to_uppercase()), 'h'));
+                }
+                if b.holds_workings() {
+                    lines.extend(super::goods::war_stock(run));
                 }
                 let board = home::board(&lines);
                 place(cv, &board, TABLE_PLATE, true);
@@ -1093,10 +1101,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             };
             let def = f.work.and_then(barony::work);
             let board = match (def.and_then(|d| b.progress(d.id)), b.is_lit(f.id)) {
-                (_, true) => home::board(&[
-                    (format!("{} BURNS", f.name.to_uppercase()), '5'),
-                    (f.makes.to_uppercase(), 'h'),
-                ]),
+                (_, true) => super::goods::forge_board(run, f, buying),
                 (None, _) => {
                     let def = def.expect("rebuildable");
                     price_board(

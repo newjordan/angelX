@@ -49,6 +49,7 @@ pub(crate) fn machine_mode(arg: &OsStr) -> bool {
                 | "--bind-graph-reward"
                 | "--jev-json"
                 | "--comp-status"
+                | "--plugin"
                 | "--watch-fixture"
                 | "--export-harness-rollout"
                 | "--audit-harness-rollout"

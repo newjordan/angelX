@@ -9,6 +9,7 @@ pub mod doors;
 pub mod houses;
 pub mod kingdom;
 pub mod map;
+pub mod plan;
 pub mod routing;
 pub mod wild;
 pub mod biome;
@@ -17,5 +18,6 @@ pub mod signs;
 pub mod finds;
 pub mod dressing;
 pub mod wishes;
+pub mod waystations;
 
 pub use castles::castles;

@@ -106,6 +106,14 @@ impl Run {
         self.rocks.clear();
         self.waves = Waves::default();
         self.spiked = false;
+        // Book Hop's river is its hall's only hazard (`hop`).
+        if self.hop.as_ref().is_some_and(|h| h.room == self.at && !h.done) {
+            return;
+        }
+        // A hosted game's hall has no traps of its own (`encounter`).
+        if self.encounter_hosts() {
+            return;
+        }
         let room = &self.dungeon.rooms[self.at];
         if room.cleared || self.guardian_locked() {
             return;

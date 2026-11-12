@@ -165,6 +165,91 @@ fn watcher_exposes_truthful_submission_slot_telemetry() {
     );
 }
 
+fn slot_with(status: &str) -> SlotSnapshot {
+    SlotSnapshot {
+        id: GOLD_ID.into(),
+        status: status.into(),
+        score: None,
+        rejection_reason: None,
+        receipt: None,
+    }
+}
+
+/// Every status word the slot watcher settles on, and what the HUD reads it as.
+const SETTLED_WORDS: [(&str, SubmissionSlotPhase); 11] = [
+    ("accepted", SubmissionSlotPhase::Accepted),
+    ("promoted", SubmissionSlotPhase::Accepted),
+    ("rejected", SubmissionSlotPhase::Rejected),
+    ("failed", SubmissionSlotPhase::Rejected),
+    ("error", SubmissionSlotPhase::Rejected),
+    ("cancelled", SubmissionSlotPhase::Rejected),
+    ("canceled", SubmissionSlotPhase::Rejected),
+    ("superseded", SubmissionSlotPhase::Rejected),
+    ("timeout", SubmissionSlotPhase::TimedOut),
+    ("timed_out", SubmissionSlotPhase::TimedOut),
+    ("timed-out", SubmissionSlotPhase::TimedOut),
+];
+
+/// Words the slot watcher keeps observing through. `complete`, `completed`
+/// and `promotion failed` are settled for the fleet row and are not here on
+/// purpose: a status the watcher does not recognise is not evidence of
+/// acceptance.
+const IN_FLIGHT_WORDS: [&str; 17] = [
+    "queued",
+    "pending",
+    "submitted",
+    "validating",
+    "running",
+    "in-flight",
+    "in_flight",
+    "complete",
+    "completed",
+    "promotion failed",
+    "scoring",
+    "retrying",
+    "unknown",
+    "not accepted",
+    "accepted.",
+    "",
+    "   ",
+];
+
+#[test]
+fn the_slot_watcher_settles_on_exactly_the_words_it_always_has() {
+    for (word, phase) in SETTLED_WORDS {
+        for spelled in [word.to_string(), word.to_uppercase(), format!("  {word}\t")] {
+            let snapshot = slot_with(&spelled);
+            assert!(snapshot.is_terminal(), "{spelled:?}");
+            assert!(!snapshot.is_in_flight(), "{spelled:?}");
+            let mut watcher = SubmissionWatcher::new();
+            watcher.adopt(GOLD_ID);
+            watcher.observe_snapshot(snapshot);
+            assert_eq!(watcher.phase(), SlotPhase::Terminal, "{spelled:?}");
+            assert_eq!(watcher.telemetry(true).phase, phase, "{spelled:?}");
+            assert_eq!(
+                watcher.pending_notify().expect("notified").status,
+                spelled,
+                "the raw status stays what the notice carries"
+            );
+        }
+    }
+    for word in IN_FLIGHT_WORDS {
+        let snapshot = slot_with(word);
+        assert!(!snapshot.is_terminal(), "{word:?}");
+        assert!(snapshot.is_in_flight(), "{word:?}");
+        let mut watcher = SubmissionWatcher::new();
+        watcher.adopt(GOLD_ID);
+        watcher.observe_snapshot(snapshot);
+        assert_eq!(watcher.phase(), SlotPhase::InFlight, "{word:?}");
+        assert_eq!(
+            watcher.telemetry(true).phase,
+            SubmissionSlotPhase::InFlight,
+            "{word:?}"
+        );
+        assert!(watcher.pending_notify().is_none(), "{word:?}");
+    }
+}
+
 #[test]
 fn watcher_superseded_terminal_is_not_reported_as_accepted() {
     let snapshot = SlotSnapshot {

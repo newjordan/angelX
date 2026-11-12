@@ -11,10 +11,13 @@ use crate::rules::{
     moonfall::{self as rules, state::Panel, town},
 };
 
+mod art_data;
 mod bank;
+mod cast;
 mod ground;
 mod hud;
 mod labels;
+mod moments;
 mod sky;
 
 /// The town's window: below the sky band, above the clock bar.
@@ -82,17 +85,10 @@ fn scene_drawn(run: &Run, focus: Option<u32>, paint_over: bool) -> Scene {
         return Scene { base: im, fx, labels: Vec::new(), left_out: Vec::new(), keep: Vec::new() };
     };
     let mut cam = camera(me.px());
-    // A touch jolts the screen, and so does the moon landing.
-    let amount = match s.phase {
-        rules::state::Phase::Rewind { t, fell: true, .. } if (8..26).contains(&t) => 3,
-        _ if me.hurt + 4 >= rules::state::WARDED => 2,
-        _ => 0,
-    };
-    if amount > 0 {
-        let h = super::super::ink::hash(tick as i32, me_id as i32, 77);
-        cam.x += (h % (2 * amount + 1)) as i32 - amount as i32;
-        cam.y += ((h >> 8) % (2 * amount + 1)) as i32 - amount as i32;
-    }
+    // A touch jolts the screen, and so does the bell, the moon, a new dawn and the lights holding.
+    let (jx, jy) = moments::jolt(s, me, tick + me_id * 7);
+    cam.x += jx;
+    cam.y += jy;
     sky::sky(&mut im, s, shown, tick);
     let band = im.clone();
     // Words are asked for as the town is drawn and settled once it is:
@@ -103,8 +99,17 @@ fn scene_drawn(run: &Run, focus: Option<u32>, paint_over: bool) -> Scene {
     ground::houses(&mut im, &mut words, s, cam, tick, shown);
     ground::actors(&mut im, &mut words, s, cam, tick, shown, me_id);
     sky::tint(&mut im, s, cam, shown, Some(me), &band);
+    sky::shafts(&mut im, s, shown, tick);
+    moments::fireflies(&mut im, s, cam, shown, tick);
+    moments::toll(&mut im, s, cam, tick);
+    moments::found(&mut im, s, me, cam, tick);
+    moments::finale(&mut im, s, tick);
     ground::cries(&mut words, s, cam, shown);
-    sky::moon(&mut im, s, shown, tick);
+    let (_, mx, my, _, _) = sky::disc(s, shown);
+    let (kx, ky) = ground::feet_of(me, cam);
+    let look = (((kx as f32 - mx) / 170.0).clamp(-1.0, 1.0), ((ky as f32 - my) / 170.0).clamp(-1.0, 1.0));
+    sky::moon(&mut im, s, shown, tick, look);
+    moments::pull(&mut im, s, shown, tick);
     hud::bell_banner(&mut words, s);
     hud::keep_outs(&mut words, s, me, shown);
     let keep = words.keeps();
@@ -121,13 +126,16 @@ fn scene_drawn(run: &Run, focus: Option<u32>, paint_over: bool) -> Scene {
         sky::flare(&mut im, level, tint);
     }
     sky::beams(&mut fx, s, cam, tick);
+    moments::rewind_under(&mut fx, s, tick);
     sky::ritual(&mut fx, s, shown, tick);
+    moments::rewind_over(&mut fx, s, tick);
     hud::bar(&mut im, s, me, me_id, shown, tick);
     hud::news(&mut im, s, me);
     hud::final_hours(&mut im, s, shown, tick);
     hud::hold_bar(&mut im, me);
     hud::first_hint(&mut im, s);
-    hud::card(&mut im, s);
+    moments::found_over(&mut im, s, me, cam, tick);
+    moments::draw_card(&mut im, s, me);
     hud::end_card(&mut im, s);
     hud::out_card(&mut im, me);
     hud::talk_box(&mut im, s, me, tick);
@@ -168,3 +176,9 @@ pub(super) fn kingdom(im: &mut Img, _run: &Run, origin: (i32, i32)) {
 #[cfg(test)]
 #[path = "../../../../tests/render/arena__moonfall__tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__moonfall_film__tests.rs"]
+mod film;
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__moonfall_time__tests.rs"]
+mod time;

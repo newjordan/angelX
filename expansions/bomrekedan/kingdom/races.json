@@ -1,0 +1,1782 @@
+{
+ "additional_races_mods": [
+  "Additional Races. Gnolls",
+  "Additional Races. Naga",
+  "Additional Races. Ratfolk",
+  "Additional Races. Erinyes"
+ ],
+ "fort_peoples": [
+  {
+   "living": 186,
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "roles": {
+    "citizen": 184,
+    "dead": 4,
+    "visitor": 2
+   }
+  },
+  {
+   "living": 14,
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "roles": {
+    "citizen": 2,
+    "resident": 9,
+    "visitor": 3
+   }
+  },
+  {
+   "living": 10,
+   "race": "HUMAN",
+   "race_name": "human",
+   "roles": {
+    "citizen": 2,
+    "dead": 4,
+    "resident": 3,
+    "visitor": 5
+   }
+  },
+  {
+   "living": 2,
+   "race": "GNOLL",
+   "race_name": "gnoll",
+   "roles": {
+    "resident": 2
+   }
+  },
+  {
+   "living": 0,
+   "race": "BLIND_CAVE_OGRE",
+   "race_name": "blind cave ogre",
+   "roles": {
+    "dead": 2
+   }
+  },
+  {
+   "living": 0,
+   "race": "DEMON_25",
+   "race_name": "gray demon",
+   "roles": {
+    "dead": 1
+   }
+  },
+  {
+   "living": 0,
+   "race": "DEMON_46",
+   "race_name": "fire wraith",
+   "roles": {
+    "dead": 7
+   }
+  },
+  {
+   "living": 0,
+   "race": "DEMON_49",
+   "race_name": "copper devil",
+   "roles": {
+    "hostile": 4
+   }
+  },
+  {
+   "living": 0,
+   "race": "ELF",
+   "race_name": "elf",
+   "roles": {
+    "dead": 1
+   }
+  },
+  {
+   "living": 0,
+   "race": "GIANT",
+   "race_name": "giant",
+   "roles": {
+    "dead": 1
+   }
+  },
+  {
+   "living": 0,
+   "race": "GOBLIN",
+   "race_name": "goblin",
+   "roles": {
+    "dead": 51
+   }
+  },
+  {
+   "living": 0,
+   "race": "NAGA",
+   "race_name": "naga",
+   "roles": {
+    "dead": 1
+   }
+  },
+  {
+   "living": 0,
+   "race": "RATFOLK",
+   "race_name": "ratfolk",
+   "roles": {
+    "dead": 91
+   }
+  },
+  {
+   "living": 0,
+   "race": "TROGLODYTE",
+   "race_name": "troglodyte",
+   "roles": {
+    "dead": 25
+   }
+  },
+  {
+   "living": 0,
+   "race": "TROLL",
+   "race_name": "troll",
+   "roles": {
+    "dead": 2
+   }
+  }
+ ],
+ "intelligent_race_count": 455,
+ "intelligent_race_names": [
+  "Stodir's eye",
+  "aardvark man",
+  "adder man",
+  "aegirocassis man",
+  "afrovenator man",
+  "albatross man",
+  "alligator man",
+  "allosaurus man",
+  "amargasaurus man",
+  "ammonite man",
+  "amphibian man",
+  "anaconda man",
+  "andrewsarchus man",
+  "ankylosaurus man",
+  "anole man",
+  "anomalocaris man",
+  "anomalocaris person",
+  "anteosaurus man",
+  "antman",
+  "ape brute",
+  "archaeopteryx man",
+  "archelon man",
+  "armadillo man",
+  "armadillo monster",
+  "arthropleura man",
+  "axolotl man",
+  "aye-aye man",
+  "badger man",
+  "bark scorpion man",
+  "barn owl man",
+  "bat man",
+  "beaver man",
+  "beetle man",
+  "black bear man",
+  "black mamba man",
+  "blind cave ogre",
+  "blizzard man",
+  "bluejay man",
+  "bobcat man",
+  "bogeyman",
+  "brachiosaurus man",
+  "brontosaurus man",
+  "brown recluse spider man",
+  "buitreraptor man",
+  "bushmaster man",
+  "bushtit man",
+  "buzzard man",
+  "capuchin man",
+  "capybara devil",
+  "capybara man",
+  "cardinal man",
+  "carnotaurus man",
+  "cassowary man",
+  "cave fish man",
+  "cave swallow man",
+  "centipede person",
+  "ceratosaurus man",
+  "chameleon man",
+  "cheetah man",
+  "chinchilla man",
+  "chipmunk man",
+  "coati man",
+  "cockatiel man",
+  "colepiocephale man",
+  "copper devil",
+  "copperhead snake man",
+  "cougar man",
+  "coyote man",
+  "crab man",
+  "creature of evil",
+  "creature of the night",
+  "creature of twilight",
+  "crow man",
+  "cuttlefish man",
+  "cyclops",
+  "damselfly man",
+  "dark gnome",
+  "dark hag",
+  "dark tan brute",
+  "deer man",
+  "deinonychus man",
+  "deinotherium man",
+  "desert tortoise man",
+  "diadectes man",
+  "dilophosaurus man",
+  "dimetrodon man",
+  "dingo man",
+  "diplocaulus man",
+  "diplodocus man",
+  "disease Soldier",
+  "dodo man",
+  "dragonfly man",
+  "drepanopterus man",
+  "drepanosaurus man",
+  "dunkleosteus man",
+  "dusk horror",
+  "dwarf",
+  "eagle man",
+  "echidna man",
+  "elephant man",
+  "elephant seal man",
+  "elf",
+  "elk man",
+  "emaciated woman",
+  "emu man",
+  "entelodon man",
+  "eoraptor man",
+  "erinys",
+  "eryops man",
+  "ettin",
+  "europasaurus man",
+  "eye of night",
+  "fairy",
+  "fire wraith",
+  "firefly man",
+  "fist of Anoth",
+  "fly man",
+  "flying squirrel man",
+  "foul blendec",
+  "fox man",
+  "freak of evil",
+  "freak of twilight",
+  "gazelle man",
+  "gerrothorax man",
+  "gharial man",
+  "giant",
+  "giant tortoise man",
+  "gila monster man",
+  "giraffe man",
+  "glyptodon man",
+  "gnoll",
+  "goblin",
+  "goldenrod demon",
+  "gorlak",
+  "grackle man",
+  "grasshopper man",
+  "gray demon",
+  "gray devil",
+  "gray langur man",
+  "gray squirrel man",
+  "gray wraith",
+  "great horned owl man",
+  "green tree frog man",
+  "gremlin",
+  "grey parrot man",
+  "grizzly bear man",
+  "groaning creature",
+  "groundhog man",
+  "haikouichthys man",
+  "hallucigenia man",
+  "hallucigenia person",
+  "hammerhead worm person",
+  "hamster man",
+  "hare man",
+  "harp seal man",
+  "harpy",
+  "haunt of embers",
+  "hedgehog man",
+  "helicoprion man",
+  "heliotrope devil",
+  "hibbertopterus peachi man",
+  "hibbertopterus scouleri man",
+  "hippo man",
+  "hoary marmot man",
+  "honey badger man",
+  "hornbill man",
+  "hornet brute",
+  "horror of shadow",
+  "horror of twilight",
+  "horseshoe crab man",
+  "hulking crone",
+  "hulking freak",
+  "human",
+  "hyena man",
+  "hypsilophodon man",
+  "ibex man",
+  "ichthyosaurus man",
+  "iguana man",
+  "iguanodon man",
+  "impala man",
+  "jackal man",
+  "jaekelopterus man",
+  "jaguar man",
+  "jeholopterus man",
+  "jumping spider man",
+  "kakapo man",
+  "kangaroo man",
+  "kea man",
+  "kelenken man",
+  "kentrosaurus man",
+  "kestrel man",
+  "king cobra man",
+  "kingsnake man",
+  "kiwi man",
+  "koala man",
+  "kobold",
+  "kosmoceratops man",
+  "lammergeier man",
+  "leech man",
+  "leopard gecko man",
+  "leopard man",
+  "leopard seal man",
+  "light blue devil",
+  "linhenykus man",
+  "lion man",
+  "lion tamarin man",
+  "lizard man",
+  "loon man",
+  "lorikeet man",
+  "louse man",
+  "lynx man",
+  "lystrosaurus man",
+  "magpie man",
+  "mandrill man",
+  "manera",
+  "mantis man",
+  "masked lovebird man",
+  "megacerops man",
+  "megalania man",
+  "megalodon man",
+  "meganeura man",
+  "megatherium man",
+  "merperson",
+  "microceratus man",
+  "midnight creature",
+  "midnight ogre",
+  "mimetaster man",
+  "mink man",
+  "minotaur",
+  "miohippus man",
+  "misery Spirit",
+  "moa man",
+  "monarch butterfly man",
+  "mongoose man",
+  "monitor lizard man",
+  "mononykus man",
+  "moon brute",
+  "moon snail man",
+  "moon troll",
+  "moose fiend",
+  "moose man",
+  "mosasaurus man",
+  "mosquito man",
+  "moth man",
+  "mountain gnome",
+  "mountain goat man",
+  "muskox man",
+  "naga",
+  "narwhal man",
+  "nautilus man",
+  "night hag",
+  "night's demon",
+  "night's eye",
+  "nightwing",
+  "nodosaurus man",
+  "nothronychus man",
+  "nudibranch person",
+  "ocelot man",
+  "octopus man",
+  "oestocephalus man",
+  "ogre",
+  "okapi man",
+  "olm man",
+  "one-eyed brute",
+  "one-humped camel man",
+  "opabinia man",
+  "opossum man",
+  "orca man",
+  "oriole man",
+  "osprey man",
+  "ostenocaris man",
+  "ostrich man",
+  "otter man",
+  "oviraptor man",
+  "pachycephalosaurus man",
+  "panda man",
+  "pangolin man",
+  "paraceratherium man",
+  "parakeet man",
+  "parasaurolophus man",
+  "peach-faced lovebird man",
+  "penguin man",
+  "peregrine falcon man",
+  "pine green brute",
+  "pixie",
+  "platybelodon man",
+  "platypus man",
+  "plesiosaurus man",
+  "plump helmet man",
+  "polar bear man",
+  "pond turtle man",
+  "porcupine fiend",
+  "porcupine man",
+  "procompsognathus man",
+  "psephoderma man",
+  "pterodactylus man",
+  "puffin man",
+  "pygmy mammoth man",
+  "python man",
+  "quagga man",
+  "quetzalcoatlus man",
+  "raccoon man",
+  "rat man",
+  "ratfolk",
+  "rattlesnake man",
+  "raven man",
+  "red panda man",
+  "red squirrel man",
+  "red-winged blackbird man",
+  "reptile man",
+  "rhamphorhynchus man",
+  "rhesus macaque man",
+  "rhinoceros man",
+  "roach man",
+  "rodent man",
+  "salamander man",
+  "saltwater crocodile man",
+  "satyr",
+  "secretary bird man",
+  "serpent man",
+  "shade monster",
+  "shadow man",
+  "sharovipteryx man",
+  "shoebill stork man",
+  "sinopterus man",
+  "skink man",
+  "skinless monster",
+  "skunk man",
+  "sloth bear man",
+  "sloth man",
+  "slug man",
+  "smilodon man",
+  "snail man",
+  "snapping turtle man",
+  "snowy owl man",
+  "soldier of night",
+  "sparrow man",
+  "sperm whale man",
+  "spider monkey man",
+  "spinosaurus aegyptiacus man",
+  "spinosaurus man",
+  "spinosaurus mirabilis man",
+  "sponge man",
+  "squid man",
+  "stegosaurus man",
+  "stoat man",
+  "sunstone brute",
+  "suzhousaurus man",
+  "swan man",
+  "tapir man",
+  "tardigrade man",
+  "therizinosaurus man",
+  "thrips man",
+  "thylacine man",
+  "tick man",
+  "tiger man",
+  "tiger salamander man",
+  "tiktaalik man",
+  "titanoboa man",
+  "toad man",
+  "tortoise fiend",
+  "torvosaurus man",
+  "triceratops man",
+  "trilobite man",
+  "troglodyte",
+  "troll",
+  "troll of twilight",
+  "tsintaosaurus man",
+  "tullimonstrum man",
+  "turquoise devil",
+  "twilight brute",
+  "twilight crone",
+  "two-humped camel man",
+  "tyrannosaurus man",
+  "utahraptor man",
+  "velociraptor man",
+  "velvet worm person",
+  "vile crone",
+  "vomit devil",
+  "vulture demon",
+  "vulture man",
+  "vuuhs's Soldier",
+  "walrus man",
+  "war Soldier",
+  "warthog man",
+  "weasel man",
+  "wereanteater",
+  "werebeaver",
+  "werebull",
+  "werecapybara",
+  "werechameleon",
+  "werechinchilla",
+  "werefox",
+  "weregila monster",
+  "werehorse",
+  "werehyena",
+  "wereiguana",
+  "werelizard",
+  "weremammoth",
+  "weremole",
+  "weremonkey",
+  "weremoose",
+  "weremouse",
+  "wereopossum",
+  "werepangolin",
+  "wereraccoon",
+  "wererat",
+  "wereshrew",
+  "wereskink",
+  "wereskunk",
+  "weretortoise",
+  "werezebra",
+  "white brute",
+  "white demon",
+  "white stork man",
+  "wicked creature",
+  "wild boar man",
+  "wiwaxia man",
+  "wolf man",
+  "wolverine man",
+  "woman of evil",
+  "wombat man",
+  "woolly mammoth man",
+  "woolly rhinoceros man",
+  "worm man",
+  "wren man",
+  "zebra man"
+ ],
+ "not_in_people_json": [
+  {
+   "id": 15322,
+   "name": "",
+   "race": "DEMON_49",
+   "race_name": "copper devil",
+   "role": "hostile"
+  },
+  {
+   "id": 15323,
+   "name": "",
+   "race": "DEMON_49",
+   "race_name": "copper devil",
+   "role": "hostile"
+  },
+  {
+   "id": 15324,
+   "name": "",
+   "race": "DEMON_49",
+   "race_name": "copper devil",
+   "role": "hostile"
+  },
+  {
+   "id": 15325,
+   "name": "",
+   "race": "DEMON_49",
+   "race_name": "copper devil",
+   "role": "hostile"
+  }
+ ],
+ "notable_races": [
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A large cavern-dwelling humanoid monster.  It has a gaping mouth with many sharp teeth.  It has no eyes and only two digits on each hand and foot.",
+   "history": [
+    "2 blind cave ogres lie dead on the map"
+   ],
+   "in_fort": {
+    "dead": 2
+   },
+   "name": "blind cave ogre",
+   "plural": "blind cave ogres",
+   "race": "BLIND_CAVE_OGRE",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A giant humanoid monster with a single eye set in its forehead.",
+   "history": [],
+   "in_fort": {},
+   "name": "cyclops",
+   "plural": "cyclopes",
+   "race": "CYCLOPS",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "DEFAULT"
+   ],
+   "civilizations": 0,
+   "description": "An enormous tortoise twisted into humanoid form with external ribs. It squirms and fidgets. Its gray scales are large and overlapping. Beware its poisonous gas!",
+   "history": [
+    "one gray demon lies dead on the map"
+   ],
+   "in_fort": {
+    "dead": 1
+   },
+   "name": "gray demon",
+   "plural": "gray demons",
+   "race": "DEMON_25",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "DEFAULT"
+   ],
+   "civilizations": 0,
+   "description": "A huge blob composed of flame. It has three long, hanging tails and it squirms and fidgets. Beware its poisonous vapors!",
+   "history": [
+    "7 fire wraiths lie dead on the map"
+   ],
+   "in_fort": {
+    "dead": 7
+   },
+   "name": "fire wraith",
+   "plural": "fire wraiths",
+   "race": "DEMON_46",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A very large hairy earthworm. It has a spiral shell and it is ravening. Its copper hair is unkempt. Beware its deadly spittle!",
+   "history": [
+    "4 hostile on the map at export"
+   ],
+   "in_fort": {
+    "hostile": 4
+   },
+   "name": "copper devil",
+   "plural": "copper devils",
+   "race": "DEMON_49",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 8,
+   "description": "A short, sturdy creature fond of drink and industry.",
+   "history": [
+    "living in the fort: 184 citizen, 2 visitor",
+    "4 dwarves lie dead on the map",
+    "made 33 of the artifacts kept in the fort",
+    "4 of the fort's own dead are recorded by name"
+   ],
+   "in_fort": {
+    "citizen": 184,
+    "dead": 4,
+    "visitor": 2
+   },
+   "name": "dwarf",
+   "plural": "dwarves",
+   "race": "DWARF",
+   "sites": 145
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 10,
+   "description": "A medium-sized creature dedicated to the ruthless protection of nature.",
+   "history": [
+    "one elf lies dead on the map",
+    "made 1 of the artifacts kept in the fort"
+   ],
+   "in_fort": {
+    "dead": 1
+   },
+   "name": "elf",
+   "plural": "elves",
+   "race": "ELF",
+   "sites": 29
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A giant humanoid monster with two heads.",
+   "history": [],
+   "in_fort": {},
+   "name": "ettin",
+   "plural": "ettins",
+   "race": "ETTIN",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A gigantic creature resembling a human, almost unparalleled in size.",
+   "history": [
+    "one giant lies dead on the map"
+   ],
+   "in_fort": {
+    "dead": 1
+   },
+   "name": "giant",
+   "plural": "giants",
+   "race": "GIANT",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "MALE",
+    "FEMALE"
+   ],
+   "civilizations": 10,
+   "description": "A savage hyena humanoid.",
+   "history": [
+    "living in the fort: 2 resident"
+   ],
+   "in_fort": {
+    "resident": 2
+   },
+   "mod": "Additional Races. Gnolls",
+   "name": "gnoll",
+   "plural": "gnolls",
+   "race": "GNOLL",
+   "sites": 22
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 8,
+   "description": "A medium-sized humanoid driven to cruelty by its evil nature.",
+   "history": [
+    "51 goblins lie dead on the map: a defeated host",
+    "made 1 of the artifacts kept in the fort"
+   ],
+   "in_fort": {
+    "dead": 51
+   },
+   "name": "goblin",
+   "plural": "goblins",
+   "race": "GOBLIN",
+   "sites": 20
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 10,
+   "description": "A medium-sized creature prone to great ambition.",
+   "history": [
+    "living in the fort: 2 citizen, 3 resident, 5 visitor",
+    "4 humans lie dead on the map"
+   ],
+   "in_fort": {
+    "citizen": 2,
+    "dead": 4,
+    "resident": 3,
+    "visitor": 5
+   },
+   "name": "human",
+   "plural": "humans",
+   "race": "HUMAN",
+   "sites": 71
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 11,
+   "description": "A small, squat humanoid with large pointy ears and yellow glowing eyes.",
+   "history": [],
+   "in_fort": {},
+   "name": "kobold",
+   "plural": "kobolds",
+   "race": "KOBOLD",
+   "sites": 11
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A giant humanoid monster with the head of a bull.",
+   "history": [],
+   "in_fort": {},
+   "name": "minotaur",
+   "plural": "minotaurs",
+   "race": "MINOTAUR",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "FEMALE_TWO",
+    "FEMALE_FOUR",
+    "FEMALE_SIX",
+    "MALE_TWO",
+    "MALE_FOUR",
+    "MALE_SIX"
+   ],
+   "civilizations": 6,
+   "description": "A humanoid with the tail of a serpent instead of legs.",
+   "history": [
+    "one naga lies dead on the map",
+    "made 1 of the artifacts kept in the fort"
+   ],
+   "in_fort": {
+    "dead": 1
+   },
+   "mod": "Additional Races. Naga",
+   "name": "naga",
+   "plural": "naga",
+   "race": "NAGA",
+   "sites": 13
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A giant humanoid monster found stomping about in the evil plains.  Their low howls can be heard long before they are seen.",
+   "history": [],
+   "in_fort": {},
+   "name": "ogre",
+   "plural": "ogres",
+   "race": "OGRE",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "MALE",
+    "FEMALE"
+   ],
+   "civilizations": 8,
+   "description": "A hunched rat-like humanoid with beady eyes a matted pelt.",
+   "history": [
+    "91 ratfolk lie dead on the map: a defeated host"
+   ],
+   "in_fort": {
+    "dead": 91
+   },
+   "mod": "Additional Races. Ratfolk",
+   "name": "ratfolk",
+   "plural": "ratfolk",
+   "race": "RATFOLK",
+   "sites": 25
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A savage man-like cave creature.",
+   "history": [
+    "25 troglodytes lie dead on the map: a defeated host"
+   ],
+   "in_fort": {
+    "dead": 25
+   },
+   "name": "troglodyte",
+   "plural": "troglodytes",
+   "race": "TROGLODYTE",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "FEMALE",
+    "MALE"
+   ],
+   "civilizations": 0,
+   "description": "A huge humanoid monster with coarse fur, large tusks and horns.",
+   "history": [
+    "2 trolls lie dead on the map"
+   ],
+   "in_fort": {
+    "dead": 2
+   },
+   "name": "troll",
+   "plural": "trolls",
+   "race": "TROLL",
+   "sites": 0
+  },
+  {
+   "castes": [
+    "MALE",
+    "FEMALE"
+   ],
+   "civilizations": 10,
+   "description": "A large humanoid who appears to be both physically and mentally drained but oddly euphoric anyway.",
+   "history": [
+    "living in the fort: 2 citizen, 9 resident, 3 visitor",
+    "made 6 of the artifacts kept in the fort"
+   ],
+   "in_fort": {
+    "citizen": 2,
+    "resident": 9,
+    "visitor": 3
+   },
+   "mod": "Additional Races. Erinyes",
+   "name": "erinys",
+   "plural": "erinyes",
+   "race": "VALKYRIE",
+   "sites": 44
+  }
+ ],
+ "schema": "bomrekedan.races/v1",
+ "world_civilizations": [
+  {
+   "civilizations": 91,
+   "figures": 0,
+   "named": [],
+   "race": "REPTILE_MAN",
+   "race_name": "reptile man",
+   "sites": 0,
+   "unnamed": 91
+  },
+  {
+   "civilizations": 90,
+   "figures": 0,
+   "named": [],
+   "race": "AMPHIBIAN_MAN",
+   "race_name": "amphibian man",
+   "sites": 0,
+   "unnamed": 90
+  },
+  {
+   "civilizations": 90,
+   "figures": 0,
+   "named": [],
+   "race": "BAT_MAN",
+   "race_name": "bat man",
+   "sites": 0,
+   "unnamed": 90
+  },
+  {
+   "civilizations": 86,
+   "figures": 0,
+   "named": [],
+   "race": "RODENT MAN",
+   "race_name": "rodent man",
+   "sites": 0,
+   "unnamed": 86
+  },
+  {
+   "civilizations": 85,
+   "figures": 0,
+   "named": [],
+   "race": "ANT_MAN",
+   "race_name": "antman",
+   "sites": 0,
+   "unnamed": 85
+  },
+  {
+   "civilizations": 85,
+   "figures": 0,
+   "named": [],
+   "race": "SERPENT_MAN",
+   "race_name": "serpent man",
+   "sites": 0,
+   "unnamed": 85
+  },
+  {
+   "civilizations": 84,
+   "figures": 0,
+   "named": [],
+   "race": "OLM_MAN",
+   "race_name": "olm man",
+   "sites": 0,
+   "unnamed": 84
+  },
+  {
+   "civilizations": 83,
+   "figures": 0,
+   "named": [],
+   "race": "CAVE_SWALLOW_MAN",
+   "race_name": "cave swallow man",
+   "sites": 0,
+   "unnamed": 83
+  },
+  {
+   "civilizations": 81,
+   "figures": 0,
+   "named": [],
+   "race": "CAVE_FISH_MAN",
+   "race_name": "cave fish man",
+   "sites": 0,
+   "unnamed": 81
+  },
+  {
+   "civilizations": 11,
+   "figures": 294,
+   "named": [
+    {
+     "figures": 29,
+     "id": 977,
+     "name": "Koris",
+     "name_native": "Koris",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 15,
+     "id": 1001,
+     "name": "Krugusrukus",
+     "name_native": "Krugusrukus",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 31,
+     "id": 1017,
+     "name": "Peelbus",
+     "name_native": "Peelbus",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 29,
+     "id": 1033,
+     "name": "Kribiditlolis",
+     "name_native": "Kribiditlolis",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 32,
+     "id": 1049,
+     "name": "Blulmin",
+     "name_native": "Blulmin",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 31,
+     "id": 1073,
+     "name": "Pistrolmus",
+     "name_native": "Pistrolmus",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 30,
+     "id": 1097,
+     "name": "Thodis",
+     "name_native": "Thodis",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 11,
+     "id": 1103,
+     "name": "Pruchunker",
+     "name_native": "Pruchunker",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 29,
+     "id": 1119,
+     "name": "Kiglonkin",
+     "name_native": "Kiglonkin",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 31,
+     "id": 1123,
+     "name": "Thlastodis",
+     "name_native": "Thlastodis",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 26,
+     "id": 1133,
+     "name": "Godochrirbis",
+     "name_native": "Godochrirbis",
+     "ours": false,
+     "sites": 1
+    }
+   ],
+   "race": "KOBOLD",
+   "race_name": "kobold",
+   "sites": 11,
+   "unnamed": 0
+  },
+  {
+   "civilizations": 10,
+   "figures": 1789,
+   "named": [
+    {
+     "figures": 342,
+     "id": 1041,
+     "name": "The Steamy Fogs",
+     "name_native": "Tayolíoda",
+     "ours": false,
+     "sites": 8
+    },
+    {
+     "figures": 250,
+     "id": 1023,
+     "name": "The Thunder of Verse",
+     "name_native": "Eletha Nicana",
+     "ours": false,
+     "sites": 5
+    },
+    {
+     "figures": 143,
+     "id": 1117,
+     "name": "The Unbridled Luxuries",
+     "name_native": "Ayafasalore",
+     "ours": false,
+     "sites": 4
+    },
+    {
+     "figures": 150,
+     "id": 1099,
+     "name": "The Growth of Laboring",
+     "name_native": "Mame Equa",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 71,
+     "id": 1127,
+     "name": "The Meandering Horns",
+     "name_native": "Thefaroílime",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 275,
+     "id": 1075,
+     "name": "The Emancipated Bewilderment",
+     "name_native": "Thimireiÿe",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 307,
+     "id": 983,
+     "name": "The Feral Lilac",
+     "name_native": "Oÿifómeÿi",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 2,
+     "id": 997,
+     "name": "The Siege Blossom of Drilling",
+     "name_native": "Thimalolama Ecefe",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 149,
+     "id": 1059,
+     "name": "The Molten Dell",
+     "name_native": "Mesicairene",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 100,
+     "id": 1089,
+     "name": "The Enjoyable Beach",
+     "name_native": "Nicecirofa",
+     "ours": false,
+     "sites": 1
+    }
+   ],
+   "race": "ELF",
+   "race_name": "elf",
+   "sites": 29,
+   "unnamed": 0
+  },
+  {
+   "civilizations": 10,
+   "figures": 2813,
+   "named": [
+    {
+     "figures": 305,
+     "id": 1113,
+     "name": "The Eternal Seducer",
+     "name_native": "Wituhpaaatututip",
+     "ours": false,
+     "sites": 4
+    },
+    {
+     "figures": 380,
+     "id": 987,
+     "name": "The Scaly Witch",
+     "name_native": "Atahyukhpitatup",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 294,
+     "id": 1061,
+     "name": "The Terror of Trails",
+     "name_native": "Pitutik Hyuhyup",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 367,
+     "id": 1005,
+     "name": "The Poison of Death",
+     "name_native": "Pitataa Ahyita",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 345,
+     "id": 1027,
+     "name": "The Coastal Monsters",
+     "name_native": "Ahyahpikapjahyup",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 267,
+     "id": 1085,
+     "name": "The Jade Seduction",
+     "name_native": "Hyuhpuppitituk",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 192,
+     "id": 1109,
+     "name": "The Disloyalty of Organizing",
+     "name_native": "Pihyuhyata Aggitaggup",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 305,
+     "id": 1129,
+     "name": "The Safe Cruelties",
+     "name_native": "Hyutatakpitahpa",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 78,
+     "id": 1043,
+     "name": "The Destined Tight Nightmares",
+     "name_native": "Patihpaajupjukpipjutakh",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 280,
+     "id": 1069,
+     "name": "The Youthful Scorpion",
+     "name_native": "Uhyihyapihyugga",
+     "ours": false,
+     "sites": 1
+    }
+   ],
+   "race": "GNOLL",
+   "race_name": "gnoll",
+   "sites": 22,
+   "unnamed": 0
+  },
+  {
+   "civilizations": 10,
+   "figures": 3031,
+   "named": [
+    {
+     "figures": 328,
+     "id": 985,
+     "name": "The Realm of Noses",
+     "name_native": "Omon Uknol",
+     "ours": false,
+     "sites": 10
+    },
+    {
+     "figures": 437,
+     "id": 1077,
+     "name": "The Kingdom of Craft",
+     "name_native": "Behal Specut",
+     "ours": false,
+     "sites": 9
+    },
+    {
+     "figures": 352,
+     "id": 1121,
+     "name": "The Sienna Empires",
+     "name_native": "Rossidur",
+     "ours": false,
+     "sites": 8
+    },
+    {
+     "figures": 158,
+     "id": 993,
+     "name": "The Flowery Union",
+     "name_native": "Testrigil",
+     "ours": false,
+     "sites": 7
+    },
+    {
+     "figures": 350,
+     "id": 1035,
+     "name": "The Nation of Bristling",
+     "name_native": "Mong Spishab",
+     "ours": false,
+     "sites": 7
+    },
+    {
+     "figures": 331,
+     "id": 1093,
+     "name": "The Meal Empires of Showing",
+     "name_native": "Loneldur Lershi",
+     "ours": false,
+     "sites": 7
+    },
+    {
+     "figures": 406,
+     "id": 1105,
+     "name": "The Nation of Cathedrals",
+     "name_native": "Mong Kaslun",
+     "ours": false,
+     "sites": 7
+    },
+    {
+     "figures": 199,
+     "id": 1063,
+     "name": "The Elevated Confederacies",
+     "name_native": "Geralpesor",
+     "ours": false,
+     "sites": 6
+    },
+    {
+     "figures": 200,
+     "id": 1025,
+     "name": "The Friendly Confederacies",
+     "name_native": "Oledpesor",
+     "ours": false,
+     "sites": 5
+    },
+    {
+     "figures": 270,
+     "id": 1125,
+     "name": "The Godly Kingdoms",
+     "name_native": "Anothbehal",
+     "ours": false,
+     "sites": 5
+    }
+   ],
+   "race": "HUMAN",
+   "race_name": "human",
+   "sites": 71,
+   "unnamed": 0
+  },
+  {
+   "civilizations": 10,
+   "figures": 1938,
+   "named": [
+    {
+     "figures": 229,
+     "id": 1007,
+     "name": "The Wind of Forever",
+     "name_native": "Gufold Skiguruful",
+     "ours": false,
+     "sites": 7
+    },
+    {
+     "figures": 221,
+     "id": 1131,
+     "name": "The Ivory Embrace",
+     "name_native": "Efarildsurjafio",
+     "ours": false,
+     "sites": 6
+    },
+    {
+     "figures": 261,
+     "id": 989,
+     "name": "The Jungle of Saffron",
+     "name_native": "Eigrurod Skardroful",
+     "ours": false,
+     "sites": 5
+    },
+    {
+     "figures": 200,
+     "id": 1067,
+     "name": "The Swamps of Stilling",
+     "name_native": "Randul Gogrein",
+     "ours": false,
+     "sites": 5
+    },
+    {
+     "figures": 137,
+     "id": 1015,
+     "name": "The Messianic Vines",
+     "name_native": "Hoteilmirkerjul",
+     "ours": false,
+     "sites": 4
+    },
+    {
+     "figures": 175,
+     "id": 1037,
+     "name": "The Poem of Warmth",
+     "name_native": "Hutad Herjio",
+     "ours": false,
+     "sites": 4
+    },
+    {
+     "figures": 213,
+     "id": 1111,
+     "name": "The Glimmer of Yawns",
+     "name_native": "Endifin Erfja",
+     "ours": false,
+     "sites": 4
+    },
+    {
+     "figures": 185,
+     "id": 1115,
+     "name": "The Robust Growl",
+     "name_native": "Sugorjungerjul",
+     "ours": false,
+     "sites": 4
+    },
+    {
+     "figures": 178,
+     "id": 1053,
+     "name": "The Reticence of Permanencies",
+     "name_native": "Gitatotein Skigeigalmad",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 139,
+     "id": 1091,
+     "name": "The Hoof of Obscurity",
+     "name_native": "Skul Gerjorjur",
+     "ours": false,
+     "sites": 2
+    }
+   ],
+   "race": "VALKYRIE",
+   "race_name": "erinys",
+   "sites": 44,
+   "unnamed": 0
+  },
+  {
+   "civilizations": 8,
+   "figures": 2854,
+   "named": [
+    {
+     "figures": 532,
+     "id": 999,
+     "name": "The Lined Lancers",
+     "name_native": "Velkivish",
+     "ours": false,
+     "sites": 36
+    },
+    {
+     "figures": 471,
+     "id": 975,
+     "name": "The Arrow of Moistening",
+     "name_native": "Feb Idash",
+     "ours": false,
+     "sites": 23
+    },
+    {
+     "figures": 345,
+     "id": 1045,
+     "name": "The Furious Chambers",
+     "name_native": "Thusestmafol",
+     "ours": false,
+     "sites": 23
+    },
+    {
+     "figures": 262,
+     "id": 1095,
+     "name": "The Boot of Kindling",
+     "name_native": "Cog Stizash",
+     "ours": false,
+     "sites": 19
+    },
+    {
+     "figures": 637,
+     "id": 1011,
+     "name": "Land of the Meat Gods",
+     "name_native": "Land of the Meat Gods",
+     "ours": true,
+     "sites": 12
+    },
+    {
+     "figures": 247,
+     "id": 1107,
+     "name": "The Leafy Mines",
+     "name_native": "Govosavuz",
+     "ours": false,
+     "sites": 12
+    },
+    {
+     "figures": 220,
+     "id": 1079,
+     "name": "The Blockade of Practicing",
+     "name_native": "Medtob Mubun",
+     "ours": false,
+     "sites": 11
+    },
+    {
+     "figures": 140,
+     "id": 1057,
+     "name": "The Artificial Hame",
+     "name_native": "Berimèzum",
+     "ours": false,
+     "sites": 9
+    }
+   ],
+   "race": "DWARF",
+   "race_name": "dwarf",
+   "sites": 145,
+   "unnamed": 0
+  },
+  {
+   "civilizations": 8,
+   "figures": 2035,
+   "named": [
+    {
+     "figures": 313,
+     "id": 1055,
+     "name": "The Immorality of Tests",
+     "name_native": "Ago Öx",
+     "ours": false,
+     "sites": 6
+    },
+    {
+     "figures": 194,
+     "id": 1083,
+     "name": "The Mucous Evils",
+     "name_native": "Osnongûsbu",
+     "ours": false,
+     "sites": 5
+    },
+    {
+     "figures": 229,
+     "id": 1029,
+     "name": "The Unholy Nightmare",
+     "name_native": "Kugabåx",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 153,
+     "id": 1501,
+     "name": "The Hell of Vines",
+     "name_native": "Gozru Alba",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 265,
+     "id": 991,
+     "name": "The Fly of Sorcerers",
+     "name_native": "Atu Stronol",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 321,
+     "id": 1009,
+     "name": "The Spider of Respecting",
+     "name_native": "Utes Ozgël",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 291,
+     "id": 1019,
+     "name": "The Connected Flies",
+     "name_native": "Äkonatu",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 269,
+     "id": 1071,
+     "name": "The Belted Tick",
+     "name_native": "Êngusstâsost",
+     "ours": false,
+     "sites": 1
+    }
+   ],
+   "race": "GOBLIN",
+   "race_name": "goblin",
+   "sites": 20,
+   "unnamed": 0
+  },
+  {
+   "civilizations": 8,
+   "figures": 4662,
+   "named": [
+    {
+     "figures": 882,
+     "id": 1051,
+     "name": "The Cruelty of Venoms",
+     "name_native": "Vekkak Vorrak",
+     "ours": false,
+     "sites": 5
+    },
+    {
+     "figures": 115,
+     "id": 1031,
+     "name": "The Sin of Sloths",
+     "name_native": "K'keek Kerrak",
+     "ours": false,
+     "sites": 4
+    },
+    {
+     "figures": 535,
+     "id": 1101,
+     "name": "The Seduction of Distinguishing",
+     "name_native": "Kekech Ikekokoch",
+     "ours": false,
+     "sites": 4
+    },
+    {
+     "figures": 784,
+     "id": 981,
+     "name": "The Large Wraith",
+     "name_native": "Retichreek'tk",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 670,
+     "id": 1081,
+     "name": "The Mountainous Horror",
+     "name_native": "Eek'eetaeetekak",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 576,
+     "id": 1087,
+     "name": "The Scourge of Memory",
+     "name_native": "Ch'eeka Eekekek",
+     "ours": false,
+     "sites": 3
+    },
+    {
+     "figures": 518,
+     "id": 1021,
+     "name": "The Hardy Hatred",
+     "name_native": "Retotakekkeek",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 582,
+     "id": 1003,
+     "name": "The Hatred of Hours",
+     "name_native": "Kekkeek Tcheta",
+     "ours": false,
+     "sites": 1
+    }
+   ],
+   "race": "RATFOLK",
+   "race_name": "ratfolk",
+   "sites": 25,
+   "unnamed": 0
+  },
+  {
+   "civilizations": 6,
+   "figures": 1827,
+   "named": [
+    {
+     "figures": 316,
+     "id": 995,
+     "name": "The Cruelty of Tightness",
+     "name_native": "Jseef Ysustjc",
+     "ours": false,
+     "sites": 5
+    },
+    {
+     "figures": 307,
+     "id": 979,
+     "name": "The Confining Flies",
+     "name_native": "Hersxisyyyssxiewaysol",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 302,
+     "id": 1013,
+     "name": "The Seduction of Systems",
+     "name_native": "Tsohsishi Sxyxshsyn",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 224,
+     "id": 1065,
+     "name": "The Jade Tick",
+     "name_native": "Thysuvepxsaxsusep",
+     "ours": false,
+     "sites": 2
+    },
+    {
+     "figures": 331,
+     "id": 1039,
+     "name": "The Puzzling Evils",
+     "name_native": "Siststshuynax",
+     "ours": false,
+     "sites": 1
+    },
+    {
+     "figures": 347,
+     "id": 1047,
+     "name": "The Deceiver of Gangs",
+     "name_native": "Sasuohast Thijxs",
+     "ours": false,
+     "sites": 1
+    }
+   ],
+   "race": "NAGA",
+   "race_name": "naga",
+   "sites": 13,
+   "unnamed": 0
+  }
+ ]
+}

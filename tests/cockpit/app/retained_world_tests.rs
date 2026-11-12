@@ -1,6 +1,7 @@
+#![cfg(feature = "delve")]
 #[cfg(test)]
 mod retained_world {
-    use crate::stage::world_viz::{Building, World, world3d};
+    use crate::delve::world_viz::{Building, World, world3d};
 
     #[test]
     fn dotmax_outdoors_and_all_eight_room_plates_round_trip() {
@@ -27,7 +28,7 @@ mod retained_world {
             let stage = crate::ui::scryglass::Scryglass::for_world(building);
             assert_eq!(
                 stage.controller.route(),
-                crate::ui::scryglass::StageRoute::Explore(building)
+                crate::ui::scryglass::StageRoute::Explore(building.into())
             );
             let before = world
                 .scryglass_frame_paced(48, 18, false, 0.0, 0.0, 1.05)

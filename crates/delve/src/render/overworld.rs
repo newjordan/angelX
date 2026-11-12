@@ -17,6 +17,7 @@
 #![cfg_attr(not(test), allow(dead_code))]
 
 pub mod arena;
+pub mod camps;
 pub mod castles;
 pub mod chrome;
 pub mod college;

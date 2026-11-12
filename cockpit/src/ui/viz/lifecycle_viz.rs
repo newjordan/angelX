@@ -6,6 +6,8 @@
 //! they are missing or corrupt, procedural arena geometry and the bundled rider
 //! dot mask preserve the same event meaning.
 
+use crate::app::control::realm::GameHost as Realm;
+use angel_plug::loop_art::{LoopArtArt, Stride};
 use crate::ui::retro_kit;
 use crate::ui::term::art::{ColoredBrailleImage, DMD_PALETTE};
 use ratatui::{
@@ -340,7 +342,7 @@ pub(crate) fn calibration_kind(raw: &str) -> Option<CeremonyKind> {
 pub(crate) fn warm_assets() {
     crate::stage::knight_journey::warm();
     let root = default_asset_root();
-    crate::stage::knight_cast::warm();
+    <Realm as LoopArtArt>::warm_rider();
     // Only supporting sequences are active now. Do not decode discarded
     // mounted packs, then evict useful frames before the first ceremony.
     for sequence in [Sequence::FlagRaise, Sequence::MaidenWave] {
@@ -727,6 +729,23 @@ fn poses_for(outcome: Outcome, timeline: Timeline) -> (Pose, Pose) {
     }
 }
 
+fn rider_image(card: &angel_plug::loop_art::Sprite) -> Option<std::sync::Arc<image::RgbaImage>> {
+    static CACHE: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<u64, std::sync::Arc<image::RgbaImage>>>,
+    > = std::sync::OnceLock::new();
+    let mut cache = CACHE.get_or_init(Default::default).lock().ok()?;
+    if let Some(image) = cache.get(&card.key) {
+        return Some(image.clone());
+    }
+    let image = std::sync::Arc::new(image::RgbaImage::from_raw(
+        card.width,
+        card.height,
+        card.rgba.to_vec(),
+    )?);
+    cache.insert(card.key, image.clone());
+    Some(image)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn draw_rider(
     canvas: &mut DotCanvas,
@@ -740,25 +759,21 @@ fn draw_rider(
     base: Rgb,
     accent: Rgb,
 ) {
-    use crate::stage::knight_cast::{Pose as CastPose, Side};
-    let side = if mirror {
-        Side::RedLeft
-    } else {
-        Side::BlueRight
+    let stride = match pose {
+        Pose::Approach => Stride::StepA,
+        Pose::Canter | Pose::Retreat => Stride::StepB,
+        _ => Stride::Stand,
     };
-    let cast_pose = match pose {
-        Pose::Approach => CastPose::StepA,
-        Pose::Canter | Pose::Retreat => CastPose::StepB,
-        _ => CastPose::Mounted,
-    };
-    if let Some(sprite) = crate::stage::knight_cast::sprite(side, cast_pose) {
+    if let Some(card) = <Realm as LoopArtArt>::rider_sprite(mirror, stride)
+        && let Some(sprite) = rider_image(&card)
+    {
         let region = crate::ui::term::art::ImageRegion {
             x: 0,
             y: 0,
             width: sprite.width(),
             height: sprite.height(),
         };
-        let stem = 0x4341_5354_0000 + (side as u64) * 16 + cast_pose as u64;
+        let stem = card.key;
         // Fit both axes together instead of stretching a square horse across
         // a wide action lane. The ground remains shared by both companions.
         let fit = (width as f32 * 2.0 / sprite.width() as f32)
@@ -766,12 +781,12 @@ fn draw_rider(
         let w = ((sprite.width() as f32 * fit / 2.0).floor() as usize).max(1);
         let h = ((sprite.height() as f32 * fit / 4.0).floor() as usize).max(1);
         if let Some(image) =
-            crate::ui::term::art::colored_rgba_region_braille(sprite, stem, region, w, h, false)
+            crate::ui::term::art::colored_rgba_region_braille(&sprite, stem, region, w, h, false)
         {
             let cell_x = x + (width.saturating_sub(w) / 2) as i32;
             let cell_y = y + height.saturating_sub(h) as i32;
             let retreat = matches!(pose, Pose::Retreat);
-            canvas.erase_silhouette(sprite, cell_x, cell_y, w, h, retreat);
+            canvas.erase_silhouette(&sprite, cell_x, cell_y, w, h, retreat);
             canvas.paste_image(&image, cell_x, cell_y, w, h, retreat, None);
             return;
         }

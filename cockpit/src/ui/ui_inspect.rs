@@ -432,6 +432,7 @@ fn render_snapshot(
 }
 
 fn semantic_state(app: &App) -> Value {
+    use angel_plug::stage::StageWorld;
     let focused = app.module_host.focused().map(|id| id.as_str().to_string());
     // Only stable menu labels; never the typed field, credentials, or job output.
     let setup_menu = app.setup.menu.as_ref().map(|menu| {
@@ -485,28 +486,15 @@ fn semantic_state(app: &App) -> Value {
             "tutor_name": tutor.name
         })
     });
-    let latest_work = app.realm.world.latest_active_work();
-    let active_work = app
-        .world
-        .active_work()
-        .map(|work| {
-            json!({
-                "id": work.id.0,
-                "literal": work.literal,
-                "landmark": format!("{:?}", work.landmark),
-                "activity": format!("{:?}", work.activity),
-                "summary": work.summary,
-                "outcome": work.outcome.map(|outcome| json!({
-                    "execution": outcome.execution.as_str(),
-                    "verification": outcome.verification.as_str()
-                }))
-            })
-        })
-        .collect::<Vec<_>>();
-    let next_unlock = app.realm.world.next_unlock().map(|(threshold, label)| {
-        json!({ "threshold": threshold, "label": label, "remaining": threshold.saturating_sub(app.realm.world.renown()) })
-    });
-    let hearth = app.realm.world.hearth_state();
+    let selected_building = match stage_route {
+        crate::ui::scryglass::StageRoute::Explore(building) => Some(format!("{building:?}")),
+        _ => None,
+    };
+    let world_semantics = app.realm.world_semantics(selected_building);
+    let (current_operation, destination) = match app.realm.latest_work() {
+        Some((literal, landmark)) => (Some(literal), Some(landmark)),
+        None => (None, None),
+    };
     let formation = formation_semantics(app);
     let atlas_status = app.atlas.status();
     let atlas_items = app.atlas.list(
@@ -531,8 +519,14 @@ fn semantic_state(app: &App) -> Value {
     let mut semantics = json!({
         "focus": {
             "module": focused,
+            "overlay": app.top_overlay().as_str(),
             "approval": app.pending_approval.is_some(),
             "approval_scope": app.pending_approval.as_ref().and_then(|pending| pending.scope_label.clone()),
+            "approval_armed": app.pending_approval.as_ref().map(|_| {
+                crate::ui::views::approval_view::decision_token(
+                    crate::ui::views::approval_view::ANSWERS[app.approval_choice()],
+                )
+            }),
             "loop_dialog": app.loop_dialog.is_some(),
             "agent_menu": agent_menu,
             "setup_menu": setup_menu,
@@ -542,12 +536,13 @@ fn semantic_state(app: &App) -> Value {
             "label": app.bag.in_hand_label(),
             "model": app.bag.in_hand_mode(),
             "reasoning_effort": app.bag.reasoning_effort(),
-            "busy": app.thinking.is_some() || app.bg_job.is_some(),
+            "busy": app.flight_owner().is_agent_busy(),
+            "flight": app.flight_owner().as_str(),
             "detail_mode": if focused_agent { "focused" } else { "summary" },
             "reasoning_visible": focused_agent,
             "reasoning_state": if app.thinking.is_some() { "live" } else { "previous-turn" },
-            "current_operation": latest_work.map(|work| work.literal.as_str()),
-            "destination": latest_work.map(|work| format!("{:?}", work.landmark)),
+            "current_operation": current_operation,
+            "destination": destination,
             "output_budget": output_budget,
             "output_budget_policy": format!("{:?}", route_metadata.output_budget),
             "output_budget_provenance": route_metadata.output_budget_provenance,
@@ -597,28 +592,7 @@ fn semantic_state(app: &App) -> Value {
                 "rect": [rect.x, rect.y, rect.width, rect.height]
             })).collect::<Vec<_>>()
         },
-        "world": {
-            "town": app.realm.world.town_name(),
-            "tier": app.realm.world.level(),
-            "renown": app.realm.world.renown(),
-            "next_unlock": next_unlock,
-            "riding": app.realm.world.riding(),
-            "arrived": app.realm.world.arrived_building().map(|building| format!("{:?}", building)),
-            "inside_interior": app.realm.world.inside_interior(),
-            "interior": app.realm.world.interior_building().map(|building| format!("{:?}", building)),
-            "destination": format!("{:?}", app.realm.world.destination()),
-            "selected_building": match stage_route { crate::ui::scryglass::StageRoute::Explore(building) => Some(format!("{building:?}")), _ => None },
-            "camera_mode": app.realm.world.camera_mode_label(),
-            "active_events": active_work,
-            "event_diagnostics": app.realm.world.event_diagnostics(),
-            "causal_ribbon": app.realm.world.causal_ribbon(),
-            "environment": {
-                "weather": app.realm.world.weather_label(),
-                "hearth": { "light": hearth.light, "warmth": hearth.warmth, "beats": hearth.beats, "prosperity": hearth.prosperity },
-                "day_phase": hearth.phase().label()
-            },
-            "memory_health": format!("{:?}", app.realm.world.memory_health()).to_ascii_lowercase()
-        },
+        "world": world_semantics,
         "formation": formation,
         "media": {
             "total": app.media.len(),
@@ -701,20 +675,21 @@ fn semantic_state(app: &App) -> Value {
 }
 
 fn formation_semantics(app: &App) -> Value {
-    let (engagement, phase) = if let Some(engagement) = app.moa_one_shot.as_ref() {
-        (Some(engagement), "next-turn")
-    } else if let Some(engagement) = app.moa_session.as_ref() {
-        (Some(engagement), "session")
-    } else {
-        (
-            None,
-            if app.moa_deck.is_some() {
-                "staging"
-            } else {
-                "idle"
-            },
-        )
-    };
+    use crate::app::control::MoaPhase;
+    let phase = app.moa_phase();
+    if phase == MoaPhase::Engaged {
+        // The turn consumed the engagement now running; a session staged behind it is
+        // the only roster still held.
+        let mut engaged =
+            json!({ "phase": phase.as_str(), "engagement_id": Value::Null, "seats": [] });
+        if let Some(session) = app.moa_session.as_ref() {
+            engaged["session_formation"] =
+                json!(crate::agent::formations::formation(session.formation).name);
+        }
+        return engaged;
+    }
+    let engagement = app.moa_armed();
+    let phase = phase.as_str();
     let Some(engagement) = engagement else {
         return app.moa_deck.as_ref().map_or_else(
             || json!({ "phase": phase, "engagement_id": Value::Null, "seats": [] }),
@@ -747,7 +722,7 @@ fn formation_semantics(app: &App) -> Value {
 
 fn apply_operation(app: &mut App, operation: &UiOperation) -> Result<String, String> {
     if let UiOperation::InspectImage { action } = operation {
-        if app.pending_approval.is_some() || app.agent_menu.is_some() || app.loop_dialog.is_some() {
+        if app.top_overlay().takes_pointer() {
             return Err("a modal owns input".into());
         }
         return if app.inspect_still(*action) {
@@ -785,7 +760,7 @@ fn apply_operation(app: &mut App, operation: &UiOperation) -> Result<String, Str
 
     let code = match operation {
         UiOperation::OpenControl { control } => {
-            if app.thinking.is_some() || app.bg_job.is_some() {
+            if app.flight_owner().is_agent_busy() {
                 return Err("brain controls are locked while a turn owns the flight slot".into());
             }
             match control {

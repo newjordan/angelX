@@ -130,7 +130,8 @@ pub const WALL_HP: u32 = 150;
 pub const WALL_LIFE: u32 = 12 * HZ;
 pub const WALL_MAX: usize = 2;
 pub const WALL_CRUMBLE: u8 = 16;
-const WALL_THICK: f32 = 0.5;
+/// How close a body or a shot must stand to a wall's line to be touching it.
+pub const WALL_THICK: f32 = 0.5;
 const GNAW: u32 = 8;
 const GNAW_EVERY: u64 = 10;
 
@@ -248,6 +249,9 @@ impl Mine {
 }
 
 /// A palisade between two points. `fall` counts down while it comes apart.
+/// A `thick` wall (the Fungelder's mushrooms) is democratic: it stops
+/// every shot in the room, knight's and monster's alike, and shoves
+/// knights as gladly as foes.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Barricade {
     pub a: (f32, f32),
@@ -257,6 +261,8 @@ pub struct Barricade {
     pub owner: u32,
     #[serde(default)]
     pub fall: Option<u8>,
+    #[serde(default)]
+    pub thick: bool,
 }
 
 impl Barricade {
@@ -265,7 +271,7 @@ impl Barricade {
     }
 
     pub fn share(&self) -> f32 {
-        self.hp as f32 / WALL_HP as f32
+        self.hp as f32 / if self.thick { super::foes::MUSHROOM_HP as f32 } else { WALL_HP as f32 }
     }
 }
 
@@ -626,6 +632,7 @@ impl Run {
                         age: 0,
                         owner: id,
                         fall: None,
+                        thick: false,
                     });
                 }
                 self.sounds.push("skill_barrier");
@@ -903,7 +910,7 @@ impl Run {
         let walkers: Vec<(f32, f32, f32)> = self
             .enemies
             .iter()
-            .filter(|e| e.hp > 0 && !e.kind.flies() && e.kind != EnemyKind::Dummy)
+            .filter(|e| e.hp > 0 && !e.wings() && e.kind != EnemyKind::Dummy)
             .map(|e| (e.x, e.y, e.radius()))
             .collect();
         let mut index = 0;
@@ -961,16 +968,23 @@ impl Run {
     }
 
     /// Barricades take shots and the weight of foes; they crumble when spent
-    /// or when their time is up.
+    /// or when their time is up. A thick wall (the Fungelder's garden) is
+    /// democratic: it stops the knights' own arrows too, rots younger, and
+    /// shoves knights as gladly as foes.
     fn tick_barricades(&mut self) {
         let tick = self.tick;
         let shots: Vec<usize> = (0..self.projectiles.len())
-            .filter(|&i| self.projectiles[i].hostile && self.projectiles[i].ttl > 0)
+            .filter(|&i| self.projectiles[i].ttl > 0)
             .collect();
         let mut broke = false;
         for wall in self.works.barricades.iter_mut().filter(|w| w.standing()) {
             wall.age += 1;
             for &i in &shots {
+                // A palisade stops only what a monster threw at it; a
+                // mushroom does not take sides.
+                if !self.projectiles[i].hostile && !wall.thick {
+                    continue;
+                }
                 let shot = &mut self.projectiles[i];
                 let before = (shot.x - shot.vx * DT, shot.y - shot.vy * DT);
                 let (px, py) = nearest_on(wall.a, wall.b, shot.x, shot.y);
@@ -993,9 +1007,50 @@ impl Run {
                     }
                 }
             }
-            if wall.hp == 0 || wall.age > WALL_LIFE {
+            let life = if wall.thick {
+                foes::MUSHROOM_LIFE
+            } else {
+                WALL_LIFE
+            };
+            if wall.hp == 0 || wall.age > life {
                 wall.fall = Some(WALL_CRUMBLE);
                 broke = true;
+            }
+        }
+        // The garden has opinions about where a knight may stand, too:
+        // whatever was moved into a thick wall is pushed back out.
+        let thick: Vec<((f32, f32), (f32, f32))> = self
+            .works
+            .barricades
+            .iter()
+            .filter(|w| w.thick && w.standing())
+            .map(|w| (w.a, w.b))
+            .collect();
+        if !thick.is_empty() {
+            let room = &self.dungeon.rooms[self.at];
+            let grid = Grid { room, barred: true };
+            for hero in self.players.values_mut().filter(|h| h.targetable()) {
+                for &(a, b) in &thick {
+                    let (px, py) = nearest_on(a, b, hero.x, hero.y);
+                    let reach = HERO_RADIUS * 0.7 + WALL_THICK;
+                    let (dx, dy) = (hero.x - px, hero.y - py);
+                    let d = dx.hypot(dy);
+                    if d >= reach {
+                        continue;
+                    }
+                    let (ux, uy) = if d > 0.001 {
+                        (dx / d, dy / d)
+                    } else {
+                        unit(-(b.1 - a.1), b.0 - a.0)
+                    };
+                    let want = (px + ux * reach, py + uy * reach);
+                    (hero.x, hero.y) = grid.slide(
+                        (hero.x, hero.y),
+                        (want.0 - hero.x, want.1 - hero.y),
+                        HERO_RADIUS,
+                        Mover::Hero,
+                    );
+                }
             }
         }
         let mut dust: Vec<(f32, f32)> = Vec::new();

@@ -835,12 +835,11 @@ impl Run {
         for (id, cooldown, hp) in before {
             if let Some(k) = s.knights.get(&id) {
                 if k.cooldown > cooldown {
-                    if let Some(hero) = self.players.get(&id) {
-                        if hero.weapon == Weapon::Notes
-                            || classes::shot_sound(hero).is_some_and(|s| s.starts_with("sax_"))
-                        {
-                            // Heard after the volley flew: its own stab.
-                            super::bard::volley_sounds(hero.loosed.wrapping_sub(1), hero.groove, &mut self.sounds);
+                    if let Some(hero) = self.players.get_mut(&id) {
+                        if hero.weapon == Weapon::Notes || classes::is_bard(hero) {
+                            // Heard after the volley flew: the next of its song.
+                            hero.groove = hero.groove.saturating_add(1);
+                            super::bard::volley_sounds(id, hero.songs, hero.groove, &mut self.seat_sounds);
                         } else {
                             self.sounds.push(classes::shot_sound(hero).unwrap_or(match hero.weapon {
                                 Weapon::Bow => "shot_bow",
@@ -851,6 +850,15 @@ impl Run {
                                 Weapon::Fists => "clang",
                             }));
                         }
+                    }
+                }
+                // The groove breaks on a ready beat with nothing loosed, as on foot.
+                if k.cooldown == 0 && !inputs.get(&id).is_some_and(|i| i.fire) {
+                    if let Some(hero) = self.players.get_mut(&id).filter(|h| h.groove != 0) {
+                        if hero.groove >= super::bard::DROP_AT {
+                            hero.songs = hero.songs.wrapping_add(1);
+                        }
+                        hero.groove = 0;
                     }
                 }
                 if k.hp < hp {
@@ -895,7 +903,11 @@ impl Run {
             self.start_forest_road();
             return true;
         }
-        if self.room().kind == RoomKind::Kingdom
+        // The Forest's mouth and the Old Oak stand on the full plan's map only
+        // (`crate::world::plan`): on the blank-slate plan that ground is open hillside.
+        let on_map = crate::world::plan::full();
+        if on_map
+            && self.room().kind == RoomKind::Kingdom
             && self.players.iter().any(|(id, h)| {
                 h.hp > 0
                     && !h.stone
@@ -911,7 +923,7 @@ impl Run {
                 return true;
             }
         }
-        if self.home.siege_campaign_begun && self.room().kind == RoomKind::Kingdom {
+        if on_map && self.home.siege_campaign_begun && self.room().kind == RoomKind::Kingdom {
             let (x, y) = (
                 (ENT_TILE.0 as f32 + 0.5) * TILE_UNITS,
                 (ENT_TILE.1 as f32 + 0.5) * TILE_UNITS,

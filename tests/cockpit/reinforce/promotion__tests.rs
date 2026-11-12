@@ -825,6 +825,26 @@ fn receipt_backed_promotion_and_final_audit_require_real_complete_execution() {
     let _ = std::fs::remove_dir_all(receipt_root);
 }
 
+/// The telemetry snapshot is process-global and other tests publish into it, so
+/// the failing campaign is re-run until the snapshot read back is the technical
+/// run's own, and a run that errored out must have published its terminal state.
+fn assert_errored_technical_run_published_failed<T: std::fmt::Debug>(
+    run: impl Fn() -> Result<T, String>,
+) {
+    let mut last = None;
+    for _ in 0..16 {
+        run().unwrap_err();
+        let snapshot = crate::drive::reinforce::telemetry::current();
+        if let Some(snapshot) = snapshot.filter(|s| s.source == "technical") {
+            if snapshot.phase == crate::drive::reinforce::telemetry::RlPhase::Failed {
+                return;
+            }
+            last = Some(snapshot.phase);
+        }
+    }
+    panic!("a technical run that errored out left its snapshot in {last:?}, not Failed");
+}
+
 #[test]
 fn technical_campaign_resumes_frozen_training_and_phase_after_evaluator_failure() {
     let _env = crate::tests::env_lock();
@@ -968,6 +988,13 @@ fn technical_campaign_resumes_frozen_training_and_phase_after_evaluator_failure(
         .unwrap_err()
         .contains("frozen training proposal authority context mismatch")
     );
+    assert_errored_technical_run_published_failed(|| {
+        run(
+            &ResumeAfterSelectionGenerator,
+            &MustNotScore,
+            &MustNotReflect,
+        )
+    });
     std::fs::write(&candidate_path, candidate_bytes).unwrap();
 
     let plan_path = std::fs::read_dir(root.join("ledger/plans"))
@@ -986,6 +1013,13 @@ fn technical_campaign_resumes_frozen_training_and_phase_after_evaluator_failure(
         .unwrap_err()
         .contains("complete evaluation plan authority context mismatch")
     );
+    assert_errored_technical_run_published_failed(|| {
+        run(
+            &ResumeAfterSelectionGenerator,
+            &MustNotScore,
+            &MustNotReflect,
+        )
+    });
     std::fs::write(&plan_path, plan_bytes).unwrap();
 
     selection_evaluator.fail.store(false, Ordering::SeqCst);

@@ -51,20 +51,30 @@ impl Outcomes {
     }
 
     pub fn shown(&self, tick: u64) -> Vec<Echo> {
-        Place::ALL
+        let mut shown: Vec<(u64, Echo)> = Place::ALL
             .into_iter()
             .filter_map(|place| {
                 let stamp = self.places[place as usize]?;
                 let age = tick.checked_sub(stamp.tick)?;
-                (age < LIFETIME).then_some(Echo {
-                    place,
-                    seal: stamp.seal,
-                    // Motes have settled by frame six; the final hold must
-                    // not invalidate the frame cache with invisible phases.
-                    phase: (age / FRAME_TICKS).min(6) as u8,
-                })
+                (age < LIFETIME).then_some((
+                    stamp.tick,
+                    Echo {
+                        place,
+                        seal: stamp.seal,
+                        // Motes have settled by frame six; the final hold must
+                        // not invalidate the frame cache with invisible phases.
+                        phase: (age / FRAME_TICKS).min(6) as u8,
+                    },
+                ))
             })
-            .collect()
+            .collect();
+        // The blank-slate map (`angel_delve::world::plan`) puts every place at
+        // the Keep, so the seals would stand one on another: the newest shows.
+        if angel_delve::world::plan::tabula() {
+            shown.sort_by_key(|&(tick, _)| tick);
+            shown.drain(..shown.len().saturating_sub(1));
+        }
+        shown.into_iter().map(|(_, echo)| echo).collect()
     }
 }
 

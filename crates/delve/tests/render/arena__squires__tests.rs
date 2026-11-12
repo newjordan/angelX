@@ -540,6 +540,7 @@ fn inactive_owners_squires_are_never_drawn_after_a_full_step() {
         power: 0,
         taunt: 0,
         rising: 0,
+            made: None,
     };
     run.squire_hall.companions.push(Companion {
         owner: 1,

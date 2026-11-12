@@ -177,14 +177,20 @@ fn after_arrival(s: &Session, line: &str) -> (Option<f32>, Option<f32>) {
 /// 2026-10-29 and as it was fixed: the floor's wish sign is up long enough
 /// to read as the party arrives (it waited under the title card and the
 /// dare), Fortune's dare comes after it, and a beginner who has not found
-/// the wish key is told it in the first calm moment.
+/// the wish key is told it in the first calm moment. Fortune's dare is the
+/// card low in the left corner now (378367f44): its second line, whichever
+/// of the six dares the floor drew.
 #[test]
 fn a_beginner_reads_the_first_floors_wish_sign_and_is_told_the_wish_key() {
     let s = play(1, Beginner::default(), 45, None);
     let (up, read) = after_arrival(&s, "T TO MAKE THEM");
     assert!(up.is_some_and(|t| t < 3.0), "the wish sign came up {up:?} s into the floor");
     assert!(read.is_some_and(|t| t < 6.0), "the wish sign was read {read:?} s into the floor");
-    let (dare, _) = after_arrival(&s, "FORTUNE DARES YOU");
+    use crate::rules::dares::DareKind;
+    let dare = [DareKind::Untouched, DareKind::StandFirm, DareKind::AgainstTheClock, DareKind::Pathfinder, DareKind::MakeItQuick, DareKind::Unstoppable]
+        .into_iter()
+        .filter_map(|kind| after_arrival(&s, kind.card_rule()).0)
+        .min_by(f32::total_cmp);
     assert!(dare.is_some_and(|t| t >= 4.5), "the dare came down {dare:?} s into the floor, over the wish sign");
     let (hint, hint_read) = after_arrival(&s, "T MAKE A WISH");
     assert!(hint.is_some_and(|t| t < 10.0) && hint_read.is_some(), "the wish key's hint: up {hint:?}, read {hint_read:?}");

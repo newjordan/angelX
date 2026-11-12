@@ -1,0 +1,1465 @@
+{
+  "format": "kwpixel.overhead-animation/1",
+  "id": "knight",
+  "camera": "overhead",
+  "fps": 12,
+  "native_frame": [
+    64,
+    54
+  ],
+  "anchor_convention": "bottom-centre, pixel [32,53]; soles on row 52. A state's anchor y is the edge its soles stand on in its own frames: the drive draws it `53 - anchor_y` rows lower.",
+  "palette": "master palette (29 colours), ungraded source RGBA",
+  "sampling": "nearest",
+  "alpha": "binary 0/255",
+  "atlas": null,
+  "states": {
+    "idle": {
+      "frames": [
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            768,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            832,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            896,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            960,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1024,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1088,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1152,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1216,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1280,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1344,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1408,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1472,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1536,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1600,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1664,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1728,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1792,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1856,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1920,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            1984,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2048,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2112,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2176,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2240,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2304,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2368,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2432,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2496,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2560,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2624,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2688,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2752,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2816,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2880,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            2944,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        53
+      ]
+    },
+    "walk-south": {
+      "frames": [
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            768,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            832,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            896,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            960,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            1024,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            1088,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            1152,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            1216,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            1280,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            1344,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            1408,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            1472,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        51
+      ],
+      "root_stride_native_px": [
+        0.0,
+        5.376
+      ]
+    },
+    "walk-east": {
+      "frames": [
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            768,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            832,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            896,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            960,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            1024,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            1088,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            1152,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            1216,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            1280,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            1344,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            1408,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            1472,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        53
+      ],
+      "root_stride_native_px": [
+        21.216,
+        0.0
+      ]
+    },
+    "attack": {
+      "frames": [
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            768,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            832,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            896,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            960,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1024,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1088,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1152,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1216,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1280,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1344,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1408,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1472,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1536,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1600,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1664,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1728,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1792,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1856,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1920,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            1984,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            2048,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            2112,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            2176,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            2240,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            2304,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            2368,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            2432,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            2496,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": false,
+      "anchor": [
+        32,
+        53
+      ]
+    },
+    "walk-west": {
+      "mirror_of": "walk-east",
+      "flip_x": true,
+      "loop": true,
+      "anchor": [
+        32,
+        53
+      ],
+      "root_stride_native_px": [
+        -21.216,
+        0.0
+      ]
+    }
+  },
+  "creator": {
+    "name": "KNIGHT",
+    "dye": {
+      "hues": [
+        213.0,
+        234.0
+      ],
+      "min_sat": 0.1,
+      "min_val": 0.16
+    },
+    "clips": [
+      "idle",
+      "walk-east",
+      "walk-south",
+      "attack"
+    ],
+    "loop_duplicates_dropped": [
+      "idle"
+    ],
+    "windup_frame": 9,
+    "strike_frame": 17
+  },
+  "runtime_status": "read by the Creator preview and Test drive (render/creation/baked.rs); the boss library itself still consumes only rest and windup.",
+  "gait_phase": "Phase by distance travelled, not by the clock: the Test drive sets one cycle length per run unit whatever the frame count, so its pace is the same for every creature.",
+  "attack_events": {
+    "anticipation_starts": 4,
+    "windup_key": 10,
+    "windup_hold_ticks": [
+      10,
+      15
+    ],
+    "swing": 16,
+    "strike": 17,
+    "impact_hold_ticks": [
+      17,
+      18
+    ],
+    "recovery_starts": 22,
+    "settled": 39,
+    "total_ticks": 40
+  }
+}

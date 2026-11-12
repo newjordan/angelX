@@ -8,6 +8,9 @@ use super::{BTreeMap, HZ, Input, MAX_PLAYERS, RoomKind, Run, Spoil};
 use serde::{Deserialize, Serialize};
 use std::collections::VecDeque;
 
+pub mod show;
+use show::Kind;
+
 /// Larger closes the aisle faster, in native pixels per tick.
 pub const STRIDE: u32 = 3;
 /// Larger leaves more breathing space between fresh blows.
@@ -111,6 +114,8 @@ impl Foe {
     fn step(&mut self, x: i32, y: i32, seed: u64, tune: &super::tune::Tune) -> bool {
         self.flinch = self.flinch.saturating_sub(1);
         if self.hp == 0 {
+            // A fallen foe counts the ticks it has lain, for the picture to let it fade.
+            self.ticks = (self.ticks + 1).min(90);
             return false;
         }
         match self.beat {
@@ -227,6 +232,9 @@ pub struct Lane {
     pub fire_key: bool,
     pub key: bool,
     pub last_strike: Option<u64>,
+    /// What just happened in this aisle, for the picture (`show`).
+    #[serde(default, skip_serializing_if = "show::Show::quiet")]
+    pub show: show::Show,
     #[serde(
         default,
         skip_serializing_if = "crate::rules::runtime_state::omit",
@@ -267,6 +275,7 @@ impl Lane {
             fire_key: false,
             key: true,
             last_strike: None,
+            show: show::Show::default(),
             history: VecDeque::new(),
         };
         s.spawn();
@@ -320,6 +329,7 @@ impl Lane {
             })
             && self.effect <= 12
             && self.finish.is_none_or(|t| t <= LENGTH)
+            && self.show.valid()
     }
     fn sample(&self, tick: u64) -> Sample {
         Sample {
@@ -340,16 +350,21 @@ impl Lane {
         self.effect_y = y - 20;
         self.freeze = tune.brass_stop;
     }
-    fn hit(&mut self, x: i32, y: i32, tune: &super::tune::Tune) {
+    fn hit(&mut self, x: i32, y: i32, boss: bool, tune: &super::tune::Tune, now: u32) {
         if self.hurt > 0 || self.down > 0 || self.finish.is_some() {
             return;
         }
         self.contact(x, y, tune);
+        let way = if x >= self.x { 1 } else { -1 };
         if self.guard {
             self.pose = 10;
             self.pose_ticks = 10;
+            self.show.mark(Kind::Hurt { guarded: true, boss }, self.wave, (self.x, self.y), way, now);
             return;
         }
+        let kind = Kind::Hurt { guarded: false, boss };
+        self.show.mark(kind, self.wave, (self.x, self.y), way, now);
+        self.freeze = (self.freeze + kind.hold() + u32::from(boss)).min(8);
         self.hp -= 1;
         self.chain = 0;
         self.combo = 0;
@@ -363,6 +378,7 @@ impl Lane {
             self.pose = 9;
             self.pose_ticks = 18;
             self.holding = false;
+            self.show.mark(Kind::Fall, self.wave, (self.x, self.y), way, now);
         }
     }
     /// Fresh attacks are judged against the frame sampled by the client. History
@@ -380,6 +396,8 @@ impl Lane {
         } else {
             Input::default()
         };
+        let born = now as u32;
+        self.show.tick(born);
         self.history.push_back(self.sample(now));
         while self
             .history
@@ -408,6 +426,7 @@ impl Lane {
                         self.pose = 7;
                         self.pose_ticks = 12;
                         thrown = true;
+                        self.show.mark(Kind::Throw, self.wave, (self.x, self.y), self.dir, born);
                     } else if self.cask == s.cask
                         && s.cask.is_some_and(|x| (x - s.x).abs() <= 28)
                         && (s.y - 150).abs() <= 20
@@ -416,6 +435,7 @@ impl Lane {
                         self.cask = None;
                         self.pose = 6;
                         self.pose_ticks = 10;
+                        self.show.mark(Kind::Grab, self.wave, (self.x, self.y), self.dir, born);
                     }
                 }
                 if fire
@@ -428,6 +448,7 @@ impl Lane {
                     self.cooldown = tune.brass_combo;
                     self.pose = 3 + self.combo;
                     self.pose_ticks = 10;
+                    let swing = self.combo;
                     let reach = if self.combo == 2 { 48 } else { 38 };
                     if let Some(index) = s.foes.iter().position(|&(x, y, hp)| {
                         hp > 0
@@ -443,17 +464,30 @@ impl Lane {
                             e.x = (e.x + s.dir * tune.brass_shove as i32)
                                 .clamp(margin, (i32::from(self.wave) + 1) * 240 - margin);
                             let (x, y) = (e.x, e.y);
+                            let (boss, slain) = (e.boss, e.hp == 0);
                             self.score += 10;
                             self.chain += 1;
                             self.combo = (self.combo + 1) % 3;
-                            if e.hp == 0 {
+                            let mut gain = 10;
+                            if slain {
                                 e.beat = Beat::Defeat;
-                                self.score += if e.boss { 600 } else { 100 };
+                                e.ticks = 0;
+                                let bounty = if boss { 600 } else { 100 };
+                                self.score += bounty;
+                                gain += bounty as u16;
                             }
                             self.contact(x, y, tune);
+                            let kind = Kind::Blow { swing, boss, slain, gain, foe: index as u8 };
+                            self.show.mark(kind, self.wave, (x, y), s.dir, born);
+                            self.freeze = (self.freeze + kind.hold()).min(8);
+                            if self.chain % 5 == 0 {
+                                let at = (self.x, self.y);
+                                self.show.mark(Kind::Streak { n: self.chain.min(9999) as u16 }, self.wave, at, s.dir, born);
+                            }
                         }
                     } else {
                         self.combo = 0;
+                        self.show.mark(Kind::Whiff { swing }, self.wave, (self.x + s.dir * 28, self.y), s.dir, born);
                     }
                 }
             }
@@ -474,6 +508,7 @@ impl Lane {
                 self.pose = 11;
                 self.pose_ticks = 12;
                 self.hurt = 24;
+                self.show.mark(Kind::Rise, self.wave, (self.x, self.y), self.dir, born);
             }
             return thrown;
         }
@@ -492,9 +527,13 @@ impl Lane {
             };
         }
         if !self.guard && self.pose_ticks == 0 {
+            let (was_x, was_y) = (self.x, self.y);
             self.x = (self.x + i32::from(input.move_x) * tune.brass_stride as i32)
                 .clamp(24, ((i32::from(self.wave) + 1) * 240).min(END - 24));
             self.y = (self.y + i32::from(input.move_y) * tune.brass_stride as i32).clamp(126, 174);
+            if (self.x, self.y) != (was_x, was_y) && elapsed % 6 == 0 {
+                self.show.mark(Kind::Step, self.wave, (self.x, self.y), self.dir, born);
+            }
             if input.move_x != 0 {
                 self.dir = i32::from(input.move_x);
             }
@@ -507,6 +546,7 @@ impl Lane {
             self.bread = None;
             self.hp = (self.hp + 2).min(6);
             self.score += 25;
+            self.show.mark(Kind::Bread, self.wave, (self.x, self.y), self.dir, born);
         }
         let mut contacts = Vec::new();
         for e in &mut self.foes {
@@ -517,8 +557,14 @@ impl Lane {
             let end = (e.danger.x + e.danger.w).clamp(24, edge);
             e.danger.x = e.danger.x.clamp(24, edge);
             e.danger.w = end.saturating_sub(e.danger.x);
-            if landed && e.danger.contains(self.x, self.y) {
-                contacts.push((e.x, e.y));
+            if landed {
+                let found = e.danger.contains(self.x, self.y);
+                let centre = (e.danger.x + e.danger.w / 2, e.danger.y + e.danger.h / 2);
+                let kind = Kind::Quake { boss: e.boss, rush: e.rush, hit: found };
+                self.show.mark(kind, self.wave, centre, e.dir, born);
+                if found {
+                    contacts.push((e.x, e.y, e.boss));
+                }
             }
         }
         for c in &mut self.incoming {
@@ -526,8 +572,11 @@ impl Lane {
                 c.tell -= 1;
                 if c.tell == 0 {
                     c.burst = 12;
-                    if c.danger.contains(self.x, self.y) {
-                        contacts.push((c.danger.x + c.danger.w / 2, c.danger.y + c.danger.h / 2));
+                    let found = c.danger.contains(self.x, self.y);
+                    let centre = (c.danger.x + c.danger.w / 2, c.danger.y + c.danger.h / 2);
+                    self.show.mark(Kind::Smash { hit: found, from: c.from }, self.wave, centre, 1, born);
+                    if found {
+                        contacts.push((centre.0, centre.1, false));
                     }
                 }
             } else {
@@ -535,15 +584,17 @@ impl Lane {
             }
         }
         self.incoming.retain(|c| c.tell > 0 || c.burst > 0);
-        for (x, y) in contacts {
-            self.hit(x, y, tune);
+        for (x, y, boss) in contacts {
+            self.hit(x, y, boss, tune, born);
         }
         if self.foes.iter().all(|e| e.hp == 0) && self.x >= ((i32::from(self.wave) + 1) * 240) - 40
         {
             if self.wave == 3 {
                 self.finish = Some(elapsed);
                 self.pose = 0;
+                self.show.mark(Kind::Finish, self.wave, (self.x, self.y), self.dir, born);
             } else {
+                self.show.mark(Kind::Clear { wave: self.wave }, self.wave, (self.x, self.y), self.dir, born);
                 self.wave += 1;
                 self.bread = Some(self.x + 12);
                 self.cask = Some(self.x + 34);
@@ -594,6 +645,15 @@ pub struct Session {
     pub order: Vec<u32>,
     pub key: bool,
     pub won: bool,
+    /// What the whole table hears: a new leader, a team kick, the keeper (`show`).
+    #[serde(default, skip_serializing_if = "show::Calls::quiet")]
+    pub show: show::Calls,
+    /// The run's tick the round ended on, for the podium's clock.
+    #[serde(default)]
+    pub done: u32,
+    /// The round beat the best on the books.
+    #[serde(default)]
+    pub broke: bool,
 }
 impl Session {
     pub fn new(seats: impl Iterator<Item = u32>, seed: u64) -> Self {
@@ -604,6 +664,70 @@ impl Session {
             order: Vec::new(),
             key: true,
             won: false,
+            show: show::Calls::default(),
+            done: 0,
+            broke: false,
+        }
+    }
+    /// Call what the table should hear after the lanes moved at `now`.
+    pub fn call_the_table(&mut self, now: u32) {
+        self.show.tick(now);
+        let seats = self.lanes.len();
+        let born = |d: &Lane, pick: fn(Kind) -> bool| d.show.marks.iter().any(|m| m.born == now && pick(m.kind));
+        let kicked: Vec<u32> = self
+            .lanes
+            .iter()
+            .filter(|(_, d)| born(d, |k| matches!(k, Kind::Blow { swing: 2, .. })))
+            .map(|(&id, _)| id)
+            .collect();
+        for id in kicked {
+            self.show.kicked(id, now);
+        }
+        // The thrower of a cask sees where it came down.
+        let down: Vec<(u32, u32, bool)> = self
+            .lanes
+            .iter()
+            .flat_map(|(&to, d)| {
+                d.show.marks.iter().filter(move |m| m.born == now).filter_map(move |m| match m.kind {
+                    Kind::Smash { hit, from } => Some((to, from, hit)),
+                    _ => None,
+                })
+            })
+            .collect();
+        for (to, from, hit) in down {
+            if to != from {
+                if let Some(d) = self.lanes.get_mut(&from) {
+                    let at = (d.x, d.y);
+                    d.show.mark(Kind::Landed { hit, to }, d.wave, at, d.dir, now);
+                }
+            }
+        }
+        if seats > 1 {
+            let fell: Vec<u32> = self.lanes.iter().filter(|(_, d)| born(d, |k| k == Kind::Fall)).map(|(&id, _)| id).collect();
+            for id in fell {
+                self.show.call(show::Cry::Fell, id, now);
+            }
+            let ahead = self.lanes.keys().copied().min_by_key(|&id| self.score(id));
+            let alone = ahead.filter(|&a| self.lanes.keys().all(|&id| id == a || self.score(id).0 > self.score(a).0));
+            if let Some(a) = alone.filter(|&a| self.lanes[&a].score >= 40) {
+                if self.show.leader != Some(a) {
+                    self.show.leader = Some(a);
+                    self.show.call(show::Cry::Lead, a, now);
+                }
+            }
+        }
+        if self.show.first_keeper.is_none() {
+            if let Some((&id, _)) = self.lanes.iter().find(|(_, d)| d.wave == 3) {
+                self.show.first_keeper = Some(id);
+                self.show.call(show::Cry::Keeper, id, now);
+            }
+        }
+        if self.show.first_slain.is_none() {
+            let slain = self.lanes.iter().find(|(_, d)| born(d, |k| matches!(k, Kind::Blow { boss: true, slain: true, .. }))).map(|(&id, _)| id);
+            if let Some(id) = slain {
+                self.show.first_slain = Some(id);
+                self.show.call(show::Cry::Slain, id, now);
+            }
         }
     }
     pub fn score(&self, id: u32) -> (std::cmp::Reverse<u32>, u32, u32) {
@@ -649,6 +773,7 @@ impl Session {
                 .iter()
                 .all(|(&id, d)| (1..=MAX_PLAYERS).contains(&id) && d.valid() && d.seed == self.seed)
             && self.left <= LENGTH
+            && self.show.valid()
             && self.order.len() <= self.lanes.len()
             && self
                 .order
@@ -671,6 +796,9 @@ impl Session {
         self.order.clear();
         self.key = true;
         self.won = false;
+        self.show = show::Calls::default();
+        self.done = 0;
+        self.broke = false;
     }
 }
 impl Run {
@@ -768,7 +896,9 @@ impl Run {
             });
             self.sounds.push("play_card");
         }
+        s.call_the_table(self.tick as u32);
         if s.left == 0 || s.lanes.values().all(|d| d.finish.is_some()) {
+            s.done = self.tick as u32;
             s.left = 0;
             s.order = s.lanes.keys().copied().collect();
             let mut order = std::mem::take(&mut s.order);
@@ -777,6 +907,8 @@ impl Run {
             s.key = true;
             s.won = s.lanes.values().any(|d| d.finish.is_some());
             let record = &mut self.home.countryside.games.brasswake;
+            let top = s.lanes.values().map(|d| (d.score / WORK_PER_RECORD).min(1000) as u16).max().unwrap_or(0);
+            s.broke = top > record.best && top > 0;
             record.best = record.best.max(
                 s.lanes
                     .values()

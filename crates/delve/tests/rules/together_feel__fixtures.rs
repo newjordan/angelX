@@ -10,6 +10,7 @@ pub fn quiet() -> Run {
     run.open_room_for_test(room);
     run.enter_for_test(room);
     run.calm_for_test();
+    run.settle_seams_for_test();
     run.enemies.clear();
     run.projectiles.clear();
     run.window = None;

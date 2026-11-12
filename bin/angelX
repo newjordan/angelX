@@ -17,6 +17,9 @@
 # launch opens the menu by itself. `angelX setup --text` is the same thing as
 # plain questions, for a terminal the cockpit cannot draw in.
 #
+# `angelX plugin` finds, installs, updates and publishes plugins: cartridges
+# from the public registry (docs/PLUGINS.md). `angelX plugin help` lists it all.
+#
 # `angelX update` refreshes the local CLI alias that points at this launcher;
 # full checkouts also refresh their optional desktop entry. A prebuilt install
 # (install.sh) updates to the latest release instead.
@@ -205,7 +208,7 @@ done
 # to a cockpit session on another machine. A word that is not a directory
 # here and reads as a host is one; a directory stays the workspace.
 SESSION_MODE=0
-if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ ! -d "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ] && [ "$1" != setup ] && [ "$1" != build ] \
+if [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ ! -d "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ] && [ "$1" != setup ] && [ "$1" != build ] && [ "$1" != plugin ] && [ "$1" != plugins ] \
   && printf '%s' "$1" | grep -qE '^[A-Za-z0-9_][A-Za-z0-9._@-]*(:[A-Za-z0-9._-]*)?$|^:[A-Za-z0-9._-]+$'; then
   SESSION_MODE=1; FORWARD_ARGS=(--attach "$1"); shift
   case "${1:-}" in --term | --glass) FORWARD_ARGS+=("$1"); shift ;; esac
@@ -215,7 +218,7 @@ fi
 # interpreted as prompt text, and may precede a machine mode.
 if [ "$SESSION_MODE" = 1 ]; then
   :
-elif [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ] && [ "$1" != setup ] && [ "$1" != build ]; then
+elif [ $# -gt 0 ] && [ "${1#-}" = "$1" ] && [ "$1" != update ] && [ "$1" != reset-terminal ] && [ "$1" != setup ] && [ "$1" != build ] && [ "$1" != plugin ] && [ "$1" != plugins ]; then
   WORKSPACE_ARG="$1"; shift
 elif [ "${1:-}" = --workspace ]; then
   [ $# -ge 2 ] && [ -n "$2" ] || _launch_invalid '--workspace requires a directory'
@@ -249,6 +252,9 @@ case "${1:-}" in
     [ $# -eq 1 ] || _launch_invalid 'inspection options take no additional arguments'
     HEADLESS_MODE=1; FORWARD_ARGS=("$@"); set -- ;;
   update | reset-terminal | setup) FORWARD_ARGS=("$@"); set -- ;;
+  # `angelX plugin …` (docs/PLUGINS.md): find, install and publish plugins.
+  plugin | plugins)
+    shift; HEADLESS_MODE=1; FORWARD_ARGS=(--plugin "$@"); set -- ;;
   # Remote glass: attach, list and end sessions, and the far end of an attach
   # (run by `ssh <host> angelX --session-host <name>`; its stdout is the link).
   --session-host | --attach | --sessions | --kill-session)
@@ -641,12 +647,18 @@ fi
 if [ "$(uname -s)" = "Darwin" ] && ! pkg-config --exists libavcodec libavformat libswscale 2>/dev/null; then
   SKIP_DEFAULT_FEATURES=1
 fi
+CARGO_FEATURES=glass,delve
+if [ "${ANGEL_DELVE:-1}" = "0" ]; then
+  CARGO_FEATURES=glass
+  [ "$SKIP_DEFAULT_FEATURES" = "1" ] || CARGO_FEATURES=glass,scryglass-video
+  SKIP_DEFAULT_FEATURES=1
+fi
 if [ "$SKIP_DEFAULT_FEATURES" = "1" ]; then
   CARGO_BUILD_ARGS+=(--no-default-features)
 fi
 # One application/feature set for the window, terminal and inspection commands.
 # Switching entrypoints must not relink the host or benchmark a leaner variant.
-CARGO_BUILD_ARGS+=(--features glass)
+CARGO_BUILD_ARGS+=(--features "$CARGO_FEATURES")
 BIN="$COCKPIT_DIR/target/$PROFILE/angel"
 RUN_PROFILE="$PROFILE"
 # Only an explicit no-build request may choose an already completed image.

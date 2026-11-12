@@ -1,0 +1,786 @@
+{
+  "format": "kwpixel.overhead-animation/1",
+  "id": "frog-knight",
+  "camera": "overhead",
+  "fps": 12,
+  "native_frame": [
+    64,
+    54
+  ],
+  "anchor_convention": "bottom-centre, pixel [32,53]; soles on row 52. A state's anchor y is the edge its soles stand on in its own frames: the drive draws it `53 - anchor_y` rows lower.",
+  "palette": "master palette (40 colours), ungraded source RGBA",
+  "sampling": "nearest",
+  "alpha": "binary 0/255",
+  "atlas": null,
+  "states": {
+    "idle": {
+      "frames": [
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            768,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            832,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            896,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-idle-strip.png",
+          "atlas_rect": [
+            960,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        52
+      ]
+    },
+    "walk-south": {
+      "frames": [
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-south-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        51
+      ],
+      "root_stride_native_px": [
+        0.0,
+        0.0
+      ]
+    },
+    "walk-east": {
+      "frames": [
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-walk-east-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": true,
+      "anchor": [
+        32,
+        51
+      ],
+      "root_stride_native_px": [
+        0.0,
+        0.0
+      ]
+    },
+    "attack": {
+      "frames": [
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            0,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            64,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            128,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            192,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            256,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            320,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            384,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            448,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            512,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            576,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            640,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            704,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            768,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            832,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        },
+        {
+          "file": "library-v1-attack-strip.png",
+          "atlas_rect": [
+            896,
+            0,
+            64,
+            54
+          ],
+          "duration_ticks": 1
+        }
+      ],
+      "loop": false,
+      "anchor": [
+        32,
+        50
+      ]
+    },
+    "walk-west": {
+      "mirror_of": "walk-east",
+      "flip_x": true,
+      "loop": true,
+      "anchor": [
+        32,
+        51
+      ],
+      "root_stride_native_px": [
+        -0.0,
+        0.0
+      ]
+    }
+  },
+  "creator": {
+    "name": "FROG KNIGHT",
+    "dye": {
+      "hues": [
+        6.0,
+        51.0
+      ],
+      "min_sat": 0.1,
+      "min_val": 0.16
+    },
+    "clips": [
+      "idle",
+      "walk-east",
+      "walk-south",
+      "attack"
+    ],
+    "loop_duplicates_dropped": [],
+    "ways": true,
+    "ways_clips": [
+      "idle",
+      "walk",
+      "attack",
+      "hit",
+      "death"
+    ],
+    "windup_frame": 6,
+    "strike_frame": 8
+  },
+  "runtime_status": "read by the Creator preview and Test drive (render/creation/baked.rs); the boss library itself still consumes only rest and windup.",
+  "gait_phase": "Phase by distance travelled, not by the clock: the Test drive sets one cycle length per run unit whatever the frame count, so its pace is the same for every creature.",
+  "ways": {
+    "directions": [
+      "s",
+      "sw",
+      "w",
+      "nw",
+      "n",
+      "ne",
+      "e",
+      "se"
+    ],
+    "atlas": "library-v1-ways.png",
+    "cell": [
+      64,
+      54
+    ],
+    "fps": 12,
+    "clips": {
+      "idle": {
+        "row": 0,
+        "frames": 16,
+        "loop": true,
+        "events": {},
+        "anchor_y": {
+          "s": 52,
+          "sw": 52,
+          "w": 52,
+          "nw": 52,
+          "n": 52,
+          "ne": 52,
+          "e": 52,
+          "se": 52
+        },
+        "source": "idle"
+      },
+      "walk": {
+        "row": 8,
+        "frames": 12,
+        "loop": true,
+        "events": {
+          "step_l": 0,
+          "step_r": 6
+        },
+        "anchor_y": {
+          "s": 51,
+          "sw": 51,
+          "w": 51,
+          "nw": 51,
+          "n": 51,
+          "ne": 51,
+          "e": 51,
+          "se": 51
+        },
+        "source": "walk"
+      },
+      "attack": {
+        "row": 16,
+        "frames": 15,
+        "loop": false,
+        "events": {
+          "windup": 3,
+          "hit": 8
+        },
+        "anchor_y": {
+          "s": 50,
+          "sw": 50,
+          "w": 50,
+          "nw": 50,
+          "n": 50,
+          "ne": 50,
+          "e": 50,
+          "se": 50
+        },
+        "source": "attack"
+      },
+      "hit": {
+        "row": 24,
+        "frames": 4,
+        "loop": false,
+        "events": {},
+        "anchor_y": {
+          "s": 52,
+          "sw": 52,
+          "w": 52,
+          "nw": 52,
+          "n": 52,
+          "ne": 52,
+          "e": 52,
+          "se": 52
+        },
+        "source": "hit"
+      },
+      "death": {
+        "row": 32,
+        "frames": 9,
+        "loop": false,
+        "events": {},
+        "anchor_y": {
+          "s": 52,
+          "sw": 52,
+          "w": 52,
+          "nw": 52,
+          "n": 52,
+          "ne": 52,
+          "e": 52,
+          "se": 52
+        },
+        "source": "death"
+      }
+    },
+    "source": {
+      "manifest": "kwpixel/night-20261107/wish2char/runs/B3/pixels/game/manifest.json",
+      "contract": "kwpixel.wish2char.game-set/1"
+    }
+  },
+  "attack_events": {
+    "anticipation_starts": 1,
+    "windup_key": 3,
+    "windup_hold_ticks": [
+      3,
+      6
+    ],
+    "swing": 7,
+    "strike": 8,
+    "impact_hold_ticks": [
+      8,
+      9
+    ],
+    "recovery_starts": 10,
+    "settled": 14,
+    "total_ticks": 15
+  }
+}

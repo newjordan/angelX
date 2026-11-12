@@ -66,15 +66,20 @@ pub const HOLY: &str = "holy";
 /// The Bard's notes: gold, dancing, a neon wake behind them.
 pub const SONG: &str = "song";
 
-/// What a class's own shot sounds like as it leaves: the Bard's is the next
-/// stab of its riff (`bard::RIFF`; the kick under it is `bard::pulse`).
+/// What a class's own shot sounds like as it leaves. The Bard has none to
+/// name: its stream plays the next slice of its song on the beat
+/// (`bard::volley_sounds`), for its own ears alone.
 pub fn shot_sound(hero: &Hero) -> Option<&'static str> {
     match of(hero)?.name {
         "Mage" => Some("shot_arcane"),
         "Healer" => Some("shot_spark"),
-        "Bard" => Some(super::bard::riff_note(hero.loosed)),
         _ => None,
     }
+}
+
+/// Whether the knight is a Bard: its notes sound as its song (`bard`).
+pub fn is_bard(hero: &Hero) -> bool {
+    of(hero).is_some_and(|c| c.name == "Bard")
 }
 
 /// How near (tiles) a knight stands to a banner to change at it.
@@ -149,8 +154,9 @@ impl Run {
                 continue;
             }
             // A press at a door is for the door: where its ENTER sign
-            // shows, the door is nearer than any trinket (`kingdom::door_at`).
-            if super::kingdom::door_at(&geo, hero.x, hero.y).is_none() {
+            // shows, the door is nearer than any trinket (`kingdom::door_at`);
+            // beside a waystation's keeper it is for the keeper.
+            if super::kingdom::door_at(&geo, hero.x, hero.y).is_none() && self.keeper_beside(id).is_none() {
                 users.push(id);
             }
         }

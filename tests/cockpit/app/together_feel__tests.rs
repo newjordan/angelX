@@ -1,7 +1,7 @@
 //! The feel of a fight on the cockpit's own screen.
 
-use crate::drive::together_shooter::*;
-use crate::drive::together_shooter::feel::testing::*;
+use crate::together_shooter::*;
+use crate::together_shooter::feel::testing::*;
 use std::collections::BTreeMap;
 
 /// Integrated fights: `ANGEL_ARENA_SHOTS=<dir> cargo test write_integration_shots -- --ignored`.

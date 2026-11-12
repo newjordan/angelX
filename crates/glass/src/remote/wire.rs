@@ -27,8 +27,9 @@ use serde::{Deserialize, Serialize};
 use crate::scene::{Node, Scene};
 use crate::{GridSize, Layer, Mark, Showing, Stage};
 
-/// The protocol's version. A window and a session speak only their own.
-pub const VERSION: u32 = 1;
+/// Latest protocol. Hosts also accept v1 viewers, omitting clip updates while
+/// preserving the original v1 message discriminants and bundled viewer art.
+pub const VERSION: u32 = 2;
 
 /// What the session's end writes before its first frame.
 pub const MAGIC: &[u8; 20] = b"\0ANGEL-REMOTE-GLASS\n";
@@ -182,6 +183,138 @@ pub enum Down {
     /// Who is at work in the session: sent to a `Kind::Watch` link when
     /// it attaches and whenever it changes.
     Presence(Presence),
+    /// A validated authored clip replacement, or explicit removal.
+    ShowcaseSquire(SquireClipUpdate),
+}
+
+/// Clip updates are independent of grid/video frames. Version and bounds are
+/// checked before publication; malformed updates retain the viewer's old lease.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SquireClipUpdate {
+    pub version: u32,
+    #[serde(deserialize_with = "decode_clip_identity")]
+    pub identity: Option<crate::ShowcaseClipIdentity>,
+    #[serde(deserialize_with = "decode_clip_pack")]
+    pub pack: Option<String>,
+}
+
+/// Bincode strings and byte sequences have the same length-prefixed wire
+/// representation. Read as a sequence so its declared length is checked before
+/// allocating, rather than letting String's deserializer allocate first.
+struct ClipString<const LIMIT: usize>(String);
+
+impl<'de, const LIMIT: usize> Deserialize<'de> for ClipString<LIMIT> {
+    fn deserialize<D: serde::Deserializer<'de>>(decoder: D) -> Result<Self, D::Error> {
+        struct Bounded<const LIMIT: usize>;
+        impl<'de, const LIMIT: usize> serde::de::Visitor<'de> for Bounded<LIMIT> {
+            type Value = ClipString<LIMIT>;
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(formatter, "a UTF-8 clip string of at most {LIMIT} bytes")
+            }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                if seq.size_hint().is_some_and(|len| len > LIMIT) {
+                    return Err(serde::de::Error::custom("remote clip string exceeds allocation bound"));
+                }
+                let mut bytes = Vec::with_capacity(seq.size_hint().unwrap_or(0).min(LIMIT));
+                while let Some(byte) = seq.next_element::<u8>()? {
+                    if bytes.len() == LIMIT {
+                        return Err(serde::de::Error::custom("remote clip string exceeds allocation bound"));
+                    }
+                    bytes.push(byte);
+                }
+                String::from_utf8(bytes).map(ClipString).map_err(serde::de::Error::custom)
+            }
+        }
+        decoder.deserialize_seq(Bounded::<LIMIT>)
+    }
+}
+
+fn decode_clip_pack<'de, D: serde::Deserializer<'de>>(decoder: D) -> Result<Option<String>, D::Error> {
+    Option::<ClipString<{ SquireClipUpdate::MAX_BYTES }>>::deserialize(decoder)
+        .map(|pack| pack.map(|pack| pack.0))
+}
+
+fn decode_clip_identity<'de, D: serde::Deserializer<'de>>(decoder: D) -> Result<Option<crate::ShowcaseClipIdentity>, D::Error> {
+    #[derive(Deserialize)]
+    struct Identity {
+        module: ClipString<128>,
+        name: ClipString<128>,
+        generation: u64,
+        revision: u64,
+        digest: ClipString<256>,
+    }
+    Option::<Identity>::deserialize(decoder).map(|identity| identity.map(|identity| crate::ShowcaseClipIdentity {
+        module: identity.module.0, name: identity.name.0,
+        generation: identity.generation, revision: identity.revision, digest: identity.digest.0,
+    }))
+}
+
+impl SquireClipUpdate {
+    const MAX_BYTES: usize = 64 * 1024;
+
+    pub fn capture(
+        resource: Option<&(crate::ShowcaseClipIdentity, Arc<crate::ShowcaseSquireClip>)>,
+    ) -> Result<Self, String> {
+        let (identity, pack) = match resource {
+            None => (None, None),
+            Some((identity, clip)) => {
+                if clip.palette.len() != 12 || clip.frames.len() != 9
+                    || clip.frames.iter().any(|frame| frame.len() != 320)
+                    || clip.idle.is_empty() || clip.idle.len() > 64
+                    || clip.wave.is_empty() || clip.wave.len() > 64 {
+                    return Err("invalid remote squire clip dimensions".into());
+                }
+                let value = clip.wire_value()?;
+                crate::ShowcaseSquireClip::from_json(&value)?;
+                (Some(identity.clone()), Some(value.to_string()))
+            }
+        };
+        let update = Self {
+            version: 1,
+            identity,
+            pack,
+        };
+        update.prepare()?;
+        Ok(update)
+    }
+
+    pub fn prepare(
+        &self,
+    ) -> Result<Option<(crate::ShowcaseClipIdentity, Arc<crate::ShowcaseSquireClip>)>, String> {
+        if self.version != 1 {
+            return Err("unsupported remote squire clip version".into());
+        }
+        match (&self.identity, &self.pack) {
+            (None, None) => Ok(None),
+            (Some(identity), Some(pack)) => {
+                if identity.module.is_empty()
+                    || identity.module.len() > 128
+                    || identity.name.is_empty()
+                    || identity.name.len() > 128
+                    || identity.digest.is_empty()
+                    || identity.digest.len() > 256
+                    || pack.len() > Self::MAX_BYTES
+                {
+                    return Err("remote squire clip exceeds identity or payload bounds".into());
+                }
+                // Reserve the complete uncompressed frame, including the unchanged
+                // enum/identity envelope and five-byte framing header.
+                let packet_bytes = options()
+                    .serialized_size(&Down::ShowcaseSquire(self.clone()))
+                    .map_err(|error| error.to_string())?
+                    .checked_add(5)
+                    .ok_or("remote squire packet size overflow")?;
+                if packet_bytes > Self::MAX_BYTES as u64 {
+                    return Err("remote squire packet exceeds the 64 KiB publication budget".into());
+                }
+                let value = serde_json::from_str(pack)
+                    .map_err(|e| format!("invalid remote squire pack: {e}"))?;
+                let clip = crate::ShowcaseSquireClip::from_json(&value)?;
+                Ok(Some((identity.clone(), Arc::new(clip))))
+            }
+            _ => Err("remote squire clip identity/payload mismatch".into()),
+        }
+    }
 }
 
 /// The grid, as runs of cells that changed.
@@ -439,8 +572,68 @@ pub fn write<T: Serialize>(out: &mut impl Write, message: &T) -> io::Result<()> 
     out.flush()
 }
 
+/// Frame limits are selected from the encoded enum tag before allocating the
+/// body. All current tags fit bincode's one-byte varint representation.
+/// Clips get a small envelope; existing video/blob messages keep MAX_FRAME.
+///
+/// `read` is the remote protocol reader for `Up` and `Down`. Generic wrappers
+/// must carry this bound as well as `Deserialize`; custom message types must
+/// explicitly define their first-byte policy rather than inherit a large cap.
+pub trait FrameMessage {
+    fn frame_limit(tag: u8) -> io::Result<usize>;
+}
+
+const CLIP_FRAME_LIMIT: usize = 64 * 1024 + 1024;
+const CLIP_TAG: u8 = 21;
+
+impl FrameMessage for Down {
+    fn frame_limit(tag: u8) -> io::Result<usize> {
+        match tag {
+            CLIP_TAG => Ok(CLIP_FRAME_LIMIT),
+            0..=20 => Ok(MAX_FRAME),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unknown downstream frame kind")),
+        }
+    }
+}
+
+impl FrameMessage for Up {
+    fn frame_limit(tag: u8) -> io::Result<usize> {
+        match tag {
+            0..=4 => Ok(MAX_FRAME),
+            _ => Err(io::Error::new(io::ErrorKind::InvalidData, "unknown upstream frame kind")),
+        }
+    }
+}
+
+fn read_message_body<T: FrameMessage>(input: &mut impl Read, encoded_len: usize, compressed: bool) -> io::Result<Vec<u8>> {
+    let mut tag = [0u8; 1];
+    input.read_exact(&mut tag)?;
+    let limit = T::frame_limit(tag[0])?;
+    if encoded_len > limit {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "frame kind exceeds its encoded byte limit"));
+    }
+    // A raw frame's admitted size is known: reserve it once so large video
+    // frames do not repeatedly grow/copy their buffer. Inflated output grows
+    // only as bytes arrive, under the selected message-kind cap.
+    let mut body = if compressed { Vec::new() } else { Vec::with_capacity(encoded_len) };
+    body.push(tag[0]);
+    // Read at most the selected limit; the extra-byte probe detects overflow
+    // without allocating the large global frame allowance for a small clip.
+    (&mut *input).take((limit - 1) as u64).read_to_end(&mut body)?;
+    let mut extra = [0u8; 1];
+    if input.read(&mut extra)? != 0 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "inflated frame kind exceeds its byte limit"));
+    }
+    if !compressed && body.len() != encoded_len {
+        return Err(io::Error::new(io::ErrorKind::UnexpectedEof, "truncated frame body"));
+    }
+    Ok(body)
+}
+
 /// Read one frame's message. `Ok(None)` at a clean end of the stream.
-pub fn read<T: for<'a> Deserialize<'a>>(input: &mut impl Read) -> io::Result<Option<T>> {
+/// Compressed frames stream through a bounded decoder: only its small input
+/// buffer is read before the inflated tag selects the allocation limit.
+pub fn read<T: for<'a> Deserialize<'a> + FrameMessage>(input: &mut impl Read) -> io::Result<Option<T>> {
     let mut header = [0u8; 4];
     match input.read_exact(&mut header) {
         Ok(()) => {}
@@ -448,19 +641,26 @@ pub fn read<T: for<'a> Deserialize<'a>>(input: &mut impl Read) -> io::Result<Opt
         Err(e) => return Err(e),
     }
     let len = u32::from_le_bytes(header) as usize;
-    if len == 0 || len > MAX_FRAME + 1 {
+    if len < 2 || len > MAX_FRAME + 1 {
         return Err(io::Error::new(io::ErrorKind::InvalidData, format!("a frame of {len} bytes")));
     }
-    let mut body = vec![0u8; len];
-    input.read_exact(&mut body)?;
-    let message = match body[0] {
-        0 => decode(&body[1..])?,
-        1 => decode(&inflate(&body[1..])?)?,
-        flags => {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, format!("frame flags {flags}")));
+    let mut flags = [0u8; 1];
+    input.read_exact(&mut flags)?;
+    let encoded_len = len - 1;
+    let mut payload = input.take(encoded_len as u64);
+    let body = match flags[0] {
+        0 => read_message_body::<T>(&mut payload, encoded_len, false)?,
+        1 => {
+            let mut decoder = flate2::read::DeflateDecoder::new(&mut payload);
+            let body = read_message_body::<T>(&mut decoder, encoded_len, true)?;
+            if decoder.total_in() != encoded_len as u64 {
+                return Err(io::Error::new(io::ErrorKind::InvalidData, "compressed frame has trailing or missing bytes"));
+            }
+            body
         }
+        flags => return Err(io::Error::new(io::ErrorKind::InvalidData, format!("frame flags {flags}"))),
     };
-    Ok(Some(message))
+    Ok(Some(decode(&body)?))
 }
 
 /// Read until [`MAGIC`], keeping what came before it (a launcher's error,
@@ -616,5 +816,133 @@ mod tests {
         let mut bad = (u32::MAX).to_le_bytes().to_vec();
         bad.push(0);
         assert!(read::<Down>(&mut &bad[..]).is_err());
+    }
+}
+
+#[cfg(test)]
+mod squire_update_tests {
+    use super::*;
+
+    #[test]
+    fn frame_reader_selects_clip_limit_before_consuming_a_large_raw_body() {
+        struct Counted { bytes: std::io::Cursor<Vec<u8>>, consumed: usize }
+        impl Read for Counted {
+            fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+                let count = self.bytes.read(bytes)?;
+                self.consumed += count;
+                Ok(count)
+            }
+        }
+        let mut bytes = (8u32 * 1024 * 1024).to_le_bytes().to_vec();
+        bytes.extend([0, CLIP_TAG]);
+        let mut input = Counted { bytes:std::io::Cursor::new(bytes), consumed:0 };
+        let error = read::<Down>(&mut input).unwrap_err().to_string();
+        assert!(error.contains("encoded byte limit"), "{error}");
+        assert_eq!(input.consumed, 6, "header, flags and tag suffice to reject the frame");
+        let update = Down::ShowcaseSquire(SquireClipUpdate { version:1, identity:None, pack:None });
+        assert_eq!(encode(&update).unwrap()[0], CLIP_TAG, "pin the stable bincode clip tag");
+    }
+
+    #[test]
+    fn compressed_clip_frames_are_bounded_before_full_inflation() {
+        use flate2::write::DeflateEncoder;
+        let mut inflated = vec![CLIP_TAG];
+        inflated.resize(CLIP_FRAME_LIMIT * 8, 0);
+        let mut encoder = DeflateEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder.write_all(&inflated).unwrap();
+        let compressed = encoder.finish().unwrap();
+        assert!(compressed.len() < CLIP_FRAME_LIMIT);
+        let mut framed = ((compressed.len() + 1) as u32).to_le_bytes().to_vec();
+        framed.push(1);
+        framed.extend(compressed);
+        let error = read::<Down>(&mut &framed[..]).unwrap_err().to_string();
+        assert!(error.contains("inflated frame kind"), "{error}");
+        // An oversized encoded envelope also fails once the streamed decoder
+        // reveals a clip tag, even when the declared remainder is absent.
+        let mut encoder = DeflateEncoder::new(Vec::new(), flate2::Compression::fast());
+        encoder.write_all(&encode(&Down::ShowcaseSquire(SquireClipUpdate { version:1, identity:None, pack:None })).unwrap()).unwrap();
+        let mut oversized = (8u32 * 1024 * 1024).to_le_bytes().to_vec();
+        oversized.push(1);
+        oversized.extend(encoder.finish().unwrap());
+        let error = read::<Down>(&mut &oversized[..]).unwrap_err().to_string();
+        assert!(error.contains("encoded byte limit"), "reject before reading missing large remainder: {error}");
+    }
+
+    #[test]
+    fn large_video_and_consecutive_frames_still_read_with_and_without_compression() {
+        let message = Down::Blob { hash:[1,2], deflated:false, bytes:vec![42; CLIP_FRAME_LIMIT * 4] };
+        let encoded = encode(&message).unwrap();
+        let mut raw = ((encoded.len() + 1) as u32).to_le_bytes().to_vec();
+        raw.push(0);
+        raw.extend(encoded);
+        for mut framed in [raw, frame(&message).unwrap().to_vec()] {
+            framed.extend(frame(&Down::Present).unwrap().iter());
+            let mut input = &framed[..];
+            assert!(matches!(read::<Down>(&mut input).unwrap(), Some(Down::Blob { bytes, .. }) if bytes.len() == CLIP_FRAME_LIMIT * 4));
+            assert!(matches!(read::<Down>(&mut input).unwrap(), Some(Down::Present)));
+        }
+    }
+
+    #[test]
+    fn decoder_rejects_oversized_declared_clip_fields_before_reading_payload() {
+        let mut update = SquireClipUpdate { version:1, identity:None, pack:Some("x".repeat(SquireClipUpdate::MAX_BYTES + 1)) };
+        let mut encoded = encode(&update).unwrap();
+        encoded.truncate(encoded.len() - SquireClipUpdate::MAX_BYTES - 1);
+        let error = decode::<SquireClipUpdate>(&encoded).unwrap_err().to_string();
+        assert!(error.contains("allocation bound"), "length must fail before missing payload is read: {error}");
+        update.pack = Some("{}".into());
+        update.identity = Some(crate::ShowcaseClipIdentity { module:"showcase-squire".into(), name:"pack".into(), generation:1, revision:1, digest:"d".into() });
+        let decoded = decode::<SquireClipUpdate>(&encode(&update).unwrap()).unwrap();
+        assert_eq!(decoded.identity, update.identity, "bounded decoding preserves the v2 wire shape");
+        assert_eq!(decoded.pack, update.pack);
+        for field in 0..3 {
+            let mut oversized = update.clone();
+            let identity = oversized.identity.as_mut().unwrap();
+            match field {
+                0 => identity.module = "x".repeat(129),
+                1 => identity.name = "x".repeat(129),
+                _ => identity.digest = "x".repeat(257),
+            }
+            let encoded = encode(&oversized).unwrap();
+            let error = decode::<SquireClipUpdate>(&encoded).unwrap_err().to_string();
+            assert!(error.contains("allocation bound"), "{error}");
+        }
+    }
+
+    #[test]
+    fn clip_decode_bounds_do_not_limit_video_blob_frames() {
+        let message = Down::Blob { hash:[1,2], deflated:false, bytes:vec![42; SquireClipUpdate::MAX_BYTES * 2] };
+        let encoded = encode(&message).unwrap();
+        assert!(matches!(decode::<Down>(&encoded).unwrap(), Down::Blob { bytes, .. } if bytes.len() == SquireClipUpdate::MAX_BYTES * 2));
+        let update = SquireClipUpdate { version:1, identity:None, pack:None };
+        assert!(decode::<SquireClipUpdate>(&encode(&update).unwrap()).unwrap().prepare().unwrap().is_none());
+    }
+
+    #[test]
+    fn invalid_version_shape_or_payload_is_refused_before_replacing_art() {
+        let mut update = SquireClipUpdate {
+            version: 1,
+            identity: None,
+            pack: None,
+        };
+        assert!(update.prepare().unwrap().is_none());
+        update.version = 2;
+        assert!(update.prepare().is_err());
+        update.version = 1;
+        update.pack = Some("{}".into());
+        assert!(update.prepare().is_err());
+        update.identity = Some(crate::ShowcaseClipIdentity {
+            module: "m".into(),
+            name: "pack".into(),
+            generation: 1,
+            revision: 1,
+            digest: "d".into(),
+        });
+        assert!(
+            update.prepare().is_err(),
+            "malformed indexed art is rejected"
+        );
+        update.pack = Some(" ".repeat(SquireClipUpdate::MAX_BYTES + 1));
+        assert!(update.prepare().unwrap_err().contains("bounds"));
     }
 }

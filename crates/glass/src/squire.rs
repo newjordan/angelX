@@ -4,10 +4,8 @@
 //! legs over the edge, riding along wherever it is dragged. When it
 //! closes he stands and walks it off.
 //!
-//! An original figure, twelve by sixteen pixels, drawn here as text and
-//! shown at a whole multiple of its pixels so it stays crisp. Everything
-//! he does is a function of time since the panel opened or closed, the
-//! same way the window's motes are: nothing is kept.
+//! Motion, placement, and drawing support for showcase knights. Authored
+//! pixels and clip timing arrive through the live showcase resource.
 
 use crate::graphics::Picture;
 use crate::layer::{LAYER_PICTURES, Layer, LayerKind, Placement};
@@ -35,6 +33,12 @@ pub(crate) enum Frame {
     SitWave,
 }
 
+impl Frame {
+    pub(crate) fn from_index(index: u8) -> Self {
+        FRAMES.get(index as usize).copied().unwrap_or(Frame::Sit)
+    }
+}
+
 const FRAMES: [Frame; 9] = [
     Frame::Stand,
     Frame::StepA,
@@ -47,85 +51,209 @@ const FRAMES: [Frame; 9] = [
     Frame::SitWave,
 ];
 
-/// Facing right. `p` the plume and `g` the emblem (the one warm
-/// accent), `o` outline, `h` `s` `m` `d` steel bright to dark, `v` the
-/// visor's slits, `c` the tabard, `b` boots, `.` nothing.
-const TOP: [&str; 15] = [
-    "......ppp.......",
-    "....ppppp.......",
-    "...pp..p........",
-    ".....oooooo.....",
-    "....ohhsssso....",
-    "....ohsssvvo....",
-    "....ohssssso....",
-    "....ohssvvvo....",
-    ".....ommmmo.....",
-    "....oommmmmoo...",
-    "...ohhmcccmmmo..",
-    "..ohhmccgccmmdo.",
-    "..ohmmcgggcmmdo.",
-    "..ohm.ccgcc.mdo.",
-    "..oo..ccccc..oo.",
-];
+/// Authored squire art, sitting clips and optional card-state tracks.
+/// The showcase retains its entrance/exit machinery; card actor policy is
+/// prepared from the live module and sampled against the existing card clock.
+#[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
+pub struct ShowcaseSquireClip {
+    pub palette: Vec<[u8; 3]>,
+    pub frames: Vec<Vec<u8>>,
+    pub idle: Vec<ClipStep>,
+    pub wave: Vec<ClipStep>,
+    /// Version-two module-owned card actor choreography. Legacy packs retain
+    /// their authored idle/wave as a neutral card fallback.
+    #[cfg_attr(feature = "remote", serde(default, skip_serializing_if = "Option::is_none"))]
+    pub card: Option<crate::CardMotion>,
+}
 
-fn legs(frame: Frame) -> [&'static str; 5] {
-    match frame {
-        Frame::Stand => [
-            ".....occccco....",
-            ".....omm.mmo....",
-            ".....omm.mmo....",
-            ".....omm.mmo....",
-            ".....obbbobbb...",
-        ],
-        Frame::StepA => [
-            ".....occccco....",
-            "....omm...mmo...",
-            "...omm.....mmo..",
-            "..omm.......mmo.",
-            ".obbb.......obbb",
-        ],
-        Frame::StepB => [
-            ".....occccco....",
-            "......ommmo.....",
-            "......ommmo.....",
-            "......ommmo.....",
-            "......obbbbb....",
-        ],
-        Frame::Windup => [
-            ".....occccco....",
-            "...mmo..omm.....",
-            ".obb....omm.....",
-            "........omm.....",
-            "........obbbb...",
-        ],
-        Frame::Kick => [
-            ".....occcccommmm",
-            ".....omm....obbb",
-            ".....omm........",
-            ".....omm........",
-            ".....obbbb......",
-        ],
-        Frame::SitSwing => [
-            ".....occcccmmmmo",
-            "..............mo",
-            "..............ob",
-            "................",
-            "................",
-        ],
-        Frame::Sit | Frame::SitWave => [
-            ".....occcccmmmo.",
-            "............omo.",
-            "............omo.",
-            "............omo.",
-            "............obbb",
-        ],
-        Frame::Hop => [
-            ".....occccco....",
-            "....omm...mmo...",
-            "....obb...obb...",
-            "................",
-            "................",
-        ],
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
+pub struct ClipStep {
+    pub frame: u8,
+    pub millis: u16,
+}
+
+/// Exact prepared resource identity. Revision numbers are scoped to a resource
+/// and can repeat across providers or generations.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "remote", derive(serde::Serialize, serde::Deserialize))]
+pub struct ShowcaseClipIdentity {
+    pub module: String,
+    pub name: String,
+    pub generation: u64,
+    pub revision: u64,
+    pub digest: String,
+}
+
+impl ShowcaseSquireClip {
+    const MAX_PACK_BYTES: usize = 1024 * 1024;
+
+    /// Parse a bounded squire resource from a caller-owned module pack.
+    /// Glass validates the generic contract but chooses neither a pack path
+    /// nor a default authored clip; callers install the prepared lease.
+    pub fn from_json_bytes(bytes: &[u8]) -> Result<Self, String> {
+        if bytes.len() > Self::MAX_PACK_BYTES {
+            return Err("squire clip exceeds 1024 KiB".into());
+        }
+        let value: serde_json::Value = serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
+        Self::from_json(&value)
+    }
+
+    pub fn from_json(value: &serde_json::Value) -> Result<Self, String> {
+        fn steps(value: &serde_json::Value, key: &str, max_total_ms: u32) -> Result<Vec<ClipStep>, String> {
+            let values = value
+                .get(key)
+                .and_then(serde_json::Value::as_array)
+                .filter(|values| !values.is_empty() && values.len() <= 64)
+                .ok_or_else(|| format!("squire clip `{key}` must have 1..64 steps"))?;
+            let steps: Vec<ClipStep> = values
+                .iter()
+                .map(|step| {
+                    let frame = step
+                        .get("frame")
+                        .and_then(serde_json::Value::as_u64)
+                        .filter(|&frame| frame < 9)
+                        .ok_or_else(|| format!("squire clip `{key}` frame must be 0..8"))?
+                        as u8;
+                    let millis = step
+                        .get("millis")
+                        .and_then(serde_json::Value::as_u64)
+                        .filter(|&millis| (40..=10_000).contains(&millis))
+                        .ok_or_else(|| format!("squire clip `{key}` duration must be 40..10000ms"))?
+                        as u16;
+                    Ok(ClipStep { frame, millis })
+                })
+                .collect::<Result<_, String>>()?;
+            if steps.iter().map(|step| u32::from(step.millis)).sum::<u32>() > max_total_ms {
+                return Err(format!(
+                    "squire clip `{key}` exceeds its total duration limit"
+                ));
+            }
+            Ok(steps)
+        }
+
+        let palette_values = value
+            .get("palette")
+            .and_then(serde_json::Value::as_array)
+            .filter(|palette| palette.len() == 12)
+            .ok_or("squire clip palette must contain twelve RGB colours")?;
+        let palette = palette_values
+            .iter()
+            .map(|colour| {
+                let channels = colour
+                    .as_array()
+                    .filter(|channels| channels.len() == 3)
+                    .ok_or("squire clip palette entries must be RGB")?;
+                let mut rgb = [0; 3];
+                for (out, channel) in rgb.iter_mut().zip(channels) {
+                    *out = channel
+                        .as_u64()
+                        .filter(|&channel| channel <= 255)
+                        .ok_or("squire clip RGB channels must be bytes")? as u8;
+                }
+                Ok(rgb)
+            })
+            .collect::<Result<Vec<[u8; 3]>, String>>()?;
+        let frame_values = value
+            .get("frames")
+            .and_then(serde_json::Value::as_array)
+            .filter(|frames| frames.len() == 9)
+            .ok_or("squire clip must contain nine showcase poses")?;
+        let frames = frame_values
+            .iter()
+            .map(|frame| {
+                let pixels = frame
+                    .get("pixels")
+                    .and_then(serde_json::Value::as_array)
+                    .filter(|pixels| pixels.len() == 320)
+                    .ok_or("each squire pose must contain 320 indexed pixels")?;
+                pixels
+                    .iter()
+                    .map(|pixel| {
+                        pixel
+                            .as_u64()
+                            .filter(|&index| index < 12)
+                            .map(|index| index as u8)
+                            .ok_or_else(|| "squire pixel indices must be 0..11".to_string())
+                    })
+                    .collect::<Result<Vec<_>, String>>()
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let idle = steps(value, "idle", 60_000)?;
+        let wave = steps(value, "wave", 10_000)?;
+        let card = value
+            .get("card")
+            .map(crate::CardMotion::from_json)
+            .transpose()?;
+        let clip = ShowcaseSquireClip {
+            palette,
+            frames,
+            idle,
+            wave,
+            card,
+        };
+        #[cfg(feature = "remote")]
+        if clip.card.is_some() && clip.wire_value()?.to_string().len() > 64 * 1024 {
+            return Err("prepared squire card exceeds the 64 KiB remote publication budget".into());
+        }
+        Ok(clip)
+    }
+
+    #[cfg(feature = "remote")]
+    pub(crate) fn wire_value(&self) -> Result<serde_json::Value, String> {
+        let mut value = serde_json::json!({"palette":self.palette,"frames":self.frames.iter().map(|pixels|serde_json::json!({"pixels":pixels})).collect::<Vec<_>>(),"idle":self.idle,"wave":self.wave});
+        if let Some(card) = &self.card {
+            value["card"] = serde_json::to_value(card).map_err(|error| error.to_string())?;
+        }
+        Ok(value)
+    }
+
+    pub(crate) fn frame_at(steps: &[ClipStep], elapsed: f32, looped: bool) -> (u8, f32) {
+        let total: u32 = steps.iter().map(|step| u32::from(step.millis)).sum();
+        if total == 0 {
+            return (0, 1.0);
+        }
+        let mut at = (elapsed.max(0.0) * 1000.0) as u32;
+        if looped {
+            at %= total;
+        } else if at >= total {
+            return (steps.last().map_or(0, |step| step.frame), 0.0);
+        }
+        for step in steps {
+            let duration = u32::from(step.millis);
+            if at < duration {
+                return (step.frame, (duration - at) as f32 / 1000.0);
+            }
+            at -= duration;
+        }
+        (steps.last().map_or(0, |step| step.frame), 0.0)
+    }
+
+    pub(crate) fn picture(&self, livery: Option<&Livery>, id: u32) -> Picture {
+        let (w, h) = (W * FRAMES.len(), H * 2);
+        let mut rgba = vec![0u8; w * h * 4];
+        for i in 0..FRAMES.len() {
+            let Some(frame) = self.frames.get(i) else { continue };
+            for y in 0..H {
+                for x in 0..W {
+                    let Some(index) = frame.get(y * W + x).copied().map(usize::from) else { continue };
+                    if index == 0 { continue; }
+                    let rgb = match (index, livery) {
+                        (9, Some(l)) => l.field,
+                        (10, Some(l)) => l.shadow,
+                        (11, Some(l)) => l.charge,
+                        _ => self.palette.get(index).copied().unwrap_or([0; 3]),
+                    };
+                    let pixel = [rgb[0], rgb[1], rgb[2], 255];
+                    for (sy, sx) in [(y, i * W + x), (H + y, i * W + (W - 1 - x))] {
+                        let offset = (sy * w + sx) * 4;
+                        rgba[offset..offset + 4].copy_from_slice(&pixel);
+                    }
+                }
+            }
+        }
+        Picture { id, width: w as u32, height: h as u32, rgba, cols: 0, rows: 0 }
     }
 }
 
@@ -139,75 +267,15 @@ pub struct Livery {
     pub charge: [u8; 3],
 }
 
-/// The raised arm of [`Frame::SitWave`]: `(column, row, ink)` laid over
-/// the figure, the resting arm cleared first.
-const WAVE: [(usize, usize, u8); 22] = [
-    (13, 11, b'.'), (14, 11, b'.'), (13, 12, b'.'), (14, 12, b'.'),
-    (13, 13, b'.'), (14, 13, b'.'), (13, 14, b'.'), (14, 14, b'.'),
-    (12, 5, b'o'), (13, 5, b'h'), (14, 5, b'o'),
-    (12, 6, b'o'), (13, 6, b'm'), (14, 6, b'o'),
-    (12, 7, b'o'), (13, 7, b'm'), (14, 7, b'o'),
-    (12, 8, b'o'), (13, 8, b'm'), (14, 8, b'o'),
-    (13, 9, b'm'), (14, 9, b'o'),
-];
-
-/// The figure for `frame`, row by row.
-fn figure(frame: Frame) -> Vec<Vec<u8>> {
-    let mut rows: Vec<Vec<u8>> = TOP.iter().copied().chain(legs(frame)).map(|r| r.as_bytes().to_vec()).collect();
-    if frame == Frame::SitWave {
-        for (x, y, c) in WAVE {
-            rows[y][x] = c;
-        }
-    }
-    rows
-}
-
-fn ink(c: u8, livery: Option<&Livery>) -> Option<[u8; 4]> {
-    let rgba = |[r, g, b]: [u8; 3]| [r, g, b, 255];
-    if let Some(l) = livery {
-        match c {
-            b'p' => return Some(rgba(l.field)),
-            b'c' => return Some(rgba(l.shadow)),
-            b'g' => return Some(rgba(l.charge)),
-            _ => {}
-        }
-    }
-    Some(match c {
-        b'p' | b'g' => [196, 134, 92, 255],
-        b'h' => [196, 202, 214, 255],
-        b'o' => [16, 18, 24, 255],
-        b's' => [158, 166, 180, 255],
-        b'm' => [104, 112, 128, 255],
-        b'd' => [64, 70, 84, 255],
-        b'v' => [8, 8, 12, 255],
-        b'c' => [52, 64, 104, 255],
-        b'b' => [44, 38, 42, 255],
-        _ => return None,
-    })
-}
-
-/// Every frame in a row, facing right; below, the same row turned to
-/// face left. In `livery` when a house serves; the Keep's own colours
-/// (indigo, the warm accent) when none does.
-pub(crate) fn sheet(livery: Option<&Livery>, id: u32) -> Picture {
+/// A transparent sheet keeps layout and animation geometry stable while no
+/// authored clip is available. Pixel art itself comes from the live resource.
+pub(crate) fn placeholder_sheet(id: u32) -> Picture {
     let (w, h) = (W * FRAMES.len(), H * 2);
-    let mut rgba = vec![0u8; w * h * 4];
-    for (i, &frame) in FRAMES.iter().enumerate() {
-        for (y, row) in figure(frame).iter().enumerate() {
-            for (x, &c) in row.iter().enumerate().take(W) {
-                let Some(px) = ink(c, livery) else { continue };
-                for (sy, sx) in [(y, i * W + x), (H + y, i * W + (W - 1 - x))] {
-                    let o = (sy * w + sx) * 4;
-                    rgba[o..o + 4].copy_from_slice(&px);
-                }
-            }
-        }
-    }
     Picture {
         id,
         width: w as u32,
         height: h as u32,
-        rgba,
+        rgba: vec![0; w * h * 4],
         cols: 0,
         rows: 0,
     }
@@ -323,32 +391,6 @@ pub(crate) fn roof_stand(rect: [f32; 4], seat_x: f32, px: f32) -> [f32; 2] {
 }
 
 /// How long a wave lasts, and each arm's swing in it.
-pub(crate) const WAVE_SECONDS: f32 = 1.0;
-const WAVE_BEAT: f32 = 0.16;
-/// Now and then he swings his legs: a few kicks every so often.
-const SWING_EVERY: f32 = 4.5;
-const SWING_BEAT: f32 = 0.22;
-const SWINGS: f32 = 4.0;
-
-/// Sitting, `t` seconds after he sat down, `waved` seconds after a
-/// greeting (if one is going): the frame, and how long until it may
-/// change. Nothing changes between swings, so the window sleeps.
-pub(crate) fn idle(t: f32, waved: Option<f32>) -> (Frame, f32) {
-    if let Some(w) = waved.filter(|w| (0.0..WAVE_SECONDS).contains(w)) {
-        let beat = (w / WAVE_BEAT) as u32;
-        let frame = if beat % 2 == 0 { Frame::SitWave } else { Frame::Sit };
-        return (frame, WAVE_BEAT - w % WAVE_BEAT);
-    }
-    let into = t.max(0.0) % SWING_EVERY;
-    let start = SWING_EVERY - SWINGS * SWING_BEAT;
-    if into < start {
-        return (Frame::Sit, start - into);
-    }
-    let beat = ((into - start) / SWING_BEAT) as u32;
-    let frame = if beat % 2 == 0 { Frame::SitSwing } else { Frame::Sit };
-    (frame, SWING_BEAT - (into - start) % SWING_BEAT)
-}
-
 pub(crate) fn layer(id: u64, sheet: u32, pose: Pose, px: f32, opacity: f32) -> Layer {
     let index = FRAMES.iter().position(|&f| f == pose.frame).unwrap_or(0) as f32;
     let row = if pose.left { H as f32 } else { 0.0 };
@@ -368,52 +410,27 @@ mod tests {
     use super::*;
 
     #[test]
-    fn every_frame_is_drawn_to_size() {
-        for &frame in &FRAMES {
-            let rows = figure(frame);
-            assert_eq!(rows.len(), H, "{frame:?}");
-            for row in rows {
-                assert_eq!(row.len(), W, "{frame:?}");
-                assert!(row.iter().all(|&c| c == b'.' || ink(c, None).is_some()), "{frame:?}");
-            }
-        }
-        let sheet = sheet(None, SHEET);
+    fn caller_supplied_json_uses_the_generic_validated_clip_contract() {
+        let pack = serde_json::json!({
+            "palette": vec![[0, 0, 0]; 12],
+            "frames": (0..9).map(|_| serde_json::json!({"pixels": vec![1; 320]})).collect::<Vec<_>>(),
+            "idle": [{"frame": 5, "millis": 4500}],
+            "wave": [{"frame": 8, "millis": 1000}],
+        });
+        let bytes = serde_json::to_vec(&pack).unwrap();
+        let clip = ShowcaseSquireClip::from_json_bytes(&bytes).expect("valid caller-supplied pack");
+        assert_eq!(clip.frames.len(), 9);
+        assert!(clip.frames.iter().flatten().all(|&pixel| pixel == 1));
+        assert!(ShowcaseSquireClip::from_json_bytes(b"{}").is_err());
+        assert!(ShowcaseSquireClip::from_json_bytes(&vec![b' '; ShowcaseSquireClip::MAX_PACK_BYTES + 1]).is_err());
+    }
+
+    #[test]
+    fn missing_authored_clip_is_a_transparent_layout_preserving_sheet() {
+        let sheet = placeholder_sheet(SHEET);
         assert_eq!(sheet.rgba.len() as u32, sheet.width * sheet.height * 4);
-    }
-
-    #[test]
-    fn he_swings_his_legs_now_and_then_and_waves_when_asked() {
-        let (frame, wait) = idle(0.5, None);
-        assert_eq!(frame, Frame::Sit);
-        assert!(wait > 1.0, "between swings the window can sleep");
-        let swinging = (0..40).map(|i| idle(i as f32 * 0.05 + 3.6, None).0);
-        assert!(swinging.clone().any(|f| f == Frame::SitSwing));
-        let waving = (0..6).map(|i| idle(10.0, Some(i as f32 * 0.16 + 0.01)).0);
-        assert!(waving.clone().any(|f| f == Frame::SitWave));
-        assert_eq!(idle(0.5, Some(WAVE_SECONDS + 0.1)).0, Frame::Sit, "the wave ends");
-    }
-
-    #[test]
-    fn a_house_dresses_him_in_its_colours() {
-        let livery = Livery { field: [10, 20, 30], shadow: [5, 10, 15], charge: [200, 190, 100] };
-        let plain = sheet(None, SHEET);
-        let dressed = sheet(Some(&livery), SHEET);
-        assert_ne!(plain.rgba, dressed.rgba);
-        let has = |rgba: &[u8], c: [u8; 3]| rgba.chunks(4).any(|p| p[..3] == c && p[3] == 255);
-        assert!(has(&dressed.rgba, livery.field) && has(&dressed.rgba, livery.charge));
-        assert!(has(&dressed.rgba, livery.shadow));
-    }
-
-    #[test]
-    fn the_left_row_is_the_right_row_turned() {
-        let sheet = sheet(None, SHEET);
-        let w = sheet.width as usize;
-        let at = |x: usize, y: usize| &sheet.rgba[(y * w + x) * 4..(y * w + x) * 4 + 4];
-        for y in 0..H {
-            for x in 0..W {
-                assert_eq!(at(x, y), at(W - 1 - x, H + y));
-            }
-        }
+        assert_eq!((sheet.width, sheet.height), ((W * FRAMES.len()) as u32, (H * 2) as u32));
+        assert!(sheet.rgba.iter().all(|&channel| channel == 0));
     }
 
     #[test]

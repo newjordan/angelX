@@ -1,7 +1,7 @@
 //! Flat stone, chunky knight billboards and a held arm, on the existing
 //! race raster. Only this seat's 192 by 90 view is shaded, then doubled.
 use super::super::ink::{Img, text_width};
-use super::{enlarge, knights, race3d};
+use super::{enlarge, juice, knights, race3d};
 use crate::render::world3d::{
     math::v3,
     mesh::{Mesh, mat},
@@ -11,7 +11,13 @@ use crate::rules::{
     HZ, Run, Weapon,
     deathmatch::{self as dm, Fighter, Pickup, Session},
 };
-use std::sync::OnceLock;
+
+mod arm;
+mod hud;
+mod moments;
+mod pit;
+mod podium;
+mod world;
 
 const PAPER: [u8; 3] = [12, 12, 13];
 const EDGE: [u8; 3] = [58, 57, 55];
@@ -40,70 +46,6 @@ fn toned(src: &Img) -> Img {
         }
     }
     out
-}
-fn mesh() -> &'static Mesh {
-    static MESH: OnceLock<Mesh> = OnceLock::new();
-    MESH.get_or_init(|| {
-        let mut m = Mesh::new();
-        // Zero UVs leave broad flat planes rather than the town's textures.
-        let mut quad = |a, b, c, d, material| {
-            m.push_tri([a, b, c], [[0.; 2]; 3], material);
-            m.push_tri([a, c, d], [[0.; 2]; 3], material);
-        };
-        for (y, row) in dm::MAP.iter().enumerate() {
-            for (x, cell) in row.bytes().enumerate() {
-                if cell == b'#' {
-                    continue;
-                }
-                let (x, y) = (x as i32, y as i32);
-                let (a, b, c, d) = (
-                    x as f32 * 2.,
-                    y as f32 * 2.,
-                    (x + 1) as f32 * 2.,
-                    (y + 1) as f32 * 2.,
-                );
-                quad(
-                    v3(a, b, 0.),
-                    v3(c, b, 0.),
-                    v3(c, d, 0.),
-                    v3(a, d, 0.),
-                    mat::FLOOR,
-                );
-                quad(
-                    v3(a, b, 3.4),
-                    v3(c, b, 3.4),
-                    v3(c, d, 3.4),
-                    v3(a, d, 3.4),
-                    mat::STONE_DARK,
-                );
-                for (dx, dy, ax, ay, bx, by) in [
-                    (0, -1, a, b, c, b),
-                    (0, 1, a, d, c, d),
-                    (-1, 0, a, b, a, d),
-                    (1, 0, c, b, c, d),
-                ] {
-                    if dm::MAP[(y + dy) as usize].as_bytes()[(x + dx) as usize] == b'#' {
-                        quad(
-                            v3(ax, ay, 0.),
-                            v3(bx, by, 0.),
-                            v3(bx, by, 3.4),
-                            v3(ax, ay, 3.4),
-                            mat::STONE,
-                        );
-                        // A narrow foot course makes the silhouettes easy to read.
-                        quad(
-                            v3(ax, ay, 0.03),
-                            v3(bx, by, 0.03),
-                            v3(bx, by, 0.18),
-                            v3(ax, ay, 0.18),
-                            mat::ARMOR,
-                        );
-                    }
-                }
-            }
-        }
-        m
-    })
 }
 fn barriers(s: &Session) -> Mesh {
     let mut m = Mesh::new();
@@ -162,6 +104,17 @@ fn name(s: &Session, id: u32, n: usize) -> String {
         |f| f.hero.name.to_uppercase().chars().take(n).collect(),
     )
 }
+/// How the seat `me` calls a knight: `YOU` for themselves, else the name
+/// (`KNIGHT n` for a knight who still carries the default `You`).
+fn called(s: &Session, id: u32, me: u32, n: usize) -> String {
+    if id == me {
+        return "YOU".into();
+    }
+    match name(s, id, n).as_str() {
+        "YOU" => format!("KNIGHT {id}"),
+        other => other.to_string(),
+    }
+}
 fn pickup(kind: Pickup) -> Img {
     let mut im = Img::new(9, 10);
     im.rect(2, 2, 5, 7, 'G');
@@ -193,6 +146,33 @@ fn pickup(kind: Pickup) -> Img {
     }
     im
 }
+/// The seat's own eyes: the knight's height, and when they fall, a camera
+/// that sinks, looks up and turns to whoever did it; at the winning blow, a
+/// punch in.
+/// Ticks into the winning blow's moment: the freeze sweeps the first six, the play after carries on.
+fn beat(run: &Run, s: &Session) -> u32 {
+    if run.hitstop.frozen() { 6 - run.hitstop.left.min(6) } else { s.ended + 6 }
+}
+fn camera(run: &Run, s: &Session, f: &Fighter) -> View3 {
+    use crate::motion::ease;
+    let (mut yaw, mut z, mut pitch, mut fov) = (f.yaw, 1.35, 0., 1.45);
+    if f.respawn > 0 {
+        let age = dm::RESPAWN.saturating_sub(f.respawn) as f32;
+        let sink = ease::out((age / 10.).min(1.));
+        (z, pitch) = (1.35 - 0.9 * sink, 0.22 * sink);
+        let killer = s.feed.iter().rev().find(|k| s.fighters.get(&k.victim).is_some_and(|v| (v.hero.x, v.hero.y) == (f.hero.x, f.hero.y)));
+        if let Some(k) = killer.and_then(|k| s.fighters.get(&k.killer)) {
+            let want = (k.hero.y - f.hero.y).atan2(k.hero.x - f.hero.x);
+            let turn = (want - f.yaw).sin().atan2((want - f.yaw).cos());
+            yaw += turn * ease::both((age / 16.).min(1.));
+        }
+    }
+    if s.winner.is_some() {
+        // The freeze sweeps the first of the punch; the play after carries on from there.
+        fov = 1.45 - 0.32 * ease::out((beat(run, s) as f32 / 18.).min(1.));
+    }
+    View3 { pos: v3(f.hero.x, f.hero.y, z), heading_rad: yaw, pitch, fov_rad: fov }
+}
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     let s = run.deathmatch.as_ref().unwrap();
     let seat = focus
@@ -201,6 +181,10 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     let Some(id) = seat else {
         return (Img::black(384, 224), Img::new(384, 224));
     };
+    // The end: once the winning blow has had its moment, the podium owns the screen.
+    if s.winner.is_some() && s.ended >= moments::FINALE {
+        return (podium::scene(s, id, s.ended), Img::new(384, 224));
+    }
     let predicted = OWN.with(|cell| {
         cell.borrow()
             .as_ref()
@@ -208,15 +192,10 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
             .map(|(_, f)| f.clone())
     });
     let f = predicted.as_ref().unwrap_or(&s.fighters[&id]);
-    let view = View3 {
-        pos: v3(f.hero.x, f.hero.y, if f.respawn > 0 { 0.45 } else { 1.35 }),
-        heading_rad: f.yaw,
-        pitch: 0.,
-        fov_rad: 1.45,
-    };
+    let view = camera(run, s, f);
     let walls = barriers(s);
     let (rgba, depth) = raster::render_meshes(
-        &[mesh(), &walls],
+        &[pit::mesh(), &walls],
         &view,
         192,
         90,
@@ -224,60 +203,114 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
         24.,
         Backdrop::Dark([8, 8, 9]),
     );
-    let mut small = Img::black(192, 90);
-    for (i, c) in rgba.as_raw().chunks_exact(4).enumerate() {
-        let l = (u16::from(c[0]) * 3 + u16::from(c[1]) * 5 + u16::from(c[2]) * 2) / 10;
-        let l = (8 + l * 8 / 5).min(96) as u8 / 8 * 8;
-        small.set(i as i32 % 192, i as i32 / 192, [l, l, l]);
+    // The crowd is up for a kill and for the last blow; a hush otherwise. Knights each stand in a small shadow.
+    let fever = s
+        .show
+        .blows
+        .iter()
+        .filter(|b| b.weight >= crate::rules::juice::Weight::Kill)
+        .map(|b| 1.0 - b.age(s.ticks) as f32 / 48.0)
+        .fold(if s.winner.is_some() { 1.0 } else { 0.0f32 }, f32::max)
+        .clamp(0.0, 1.0);
+    let feet: Vec<(f32, f32)> = s.fighters.iter().filter(|(other, f)| **other != id && f.alive()).map(|(_, f)| (f.hero.x, f.hero.y)).collect();
+    // The pit takes light from the fight: a blow's flash, a bolt in flight, a muzzle.
+    let mut flashes: Vec<pit::Flash> = Vec::new();
+    for b in &s.show.blows {
+        let age = b.age(s.ticks);
+        if age >= 8 || !dm::sight((f.hero.x, f.hero.y), (b.x, b.y)) {
+            continue;
+        }
+        use crate::rules::juice::Weight;
+        let (k, r, tint) = match b.weight {
+            Weight::Graze => (0.35, 3.5, [1.0, 0.85, 0.6]),
+            Weight::Solid => (0.6, 4.5, [1.0, 0.8, 0.55]),
+            Weight::Crushing => (0.9, 5.5, [1.0, 0.7, 0.45]),
+            Weight::Kill => (1.3, 7.0, [1.0, 0.6, 0.38]),
+            Weight::Finale => (1.8, 9.0, [1.0, 0.65, 0.4]),
+        };
+        let fade = 1.0 - age as f32 / 8.0;
+        flashes.push(pit::Flash { x: b.x, y: b.y, z: 1.1, r, k: k * fade * fade, tint });
     }
+    for p in s.shots.iter().filter(|p| dm::sight((f.hero.x, f.hero.y), (p.x, p.y))).take(6) {
+        flashes.push(pit::Flash { x: p.x, y: p.y, z: 1.0, r: 3.6, k: 0.5, tint: [1.0, 0.72, 0.42] });
+    }
+    for (other, g) in s.fighters.iter().filter(|(other, g)| **other != id && g.flash > 0 && g.alive() && dm::sight((f.hero.x, f.hero.y), (g.hero.x, g.hero.y))).take(4) {
+        let _ = other;
+        flashes.push(pit::Flash { x: g.hero.x + g.yaw.cos() * 0.7, y: g.hero.y + g.yaw.sin() * 0.7, z: 1.2, r: 4.2, k: 0.45 * g.flash as f32 / 4.0, tint: [1.0, 0.8, 0.5] });
+    }
+    let mut small = pit::paint(rgba.as_raw(), &depth, &view, s.ticks, fever, &feet, &flashes, 192, 90);
+    world::braziers(&mut small, &depth, &view, s.ticks);
+    // A knight just slain stays a moment in one flash of light before the burst takes them.
+    let dying = |who: u32| s.show.blows.iter().any(|b| b.target == who && b.weight >= crate::rules::juice::Weight::Kill && b.age(s.ticks) < 4);
     let mut actors: Vec<_> = s
         .fighters
         .iter()
-        .filter(|(other, f)| **other != id && f.alive())
+        .filter(|(other, f)| **other != id && (f.alive() || dying(**other)))
         .map(|(&id, f)| ((f.hero.x - view.pos.x).hypot(f.hero.y - view.pos.y), id, f))
         .collect();
     actors.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    let leader = s.order().first().copied().filter(|l| s.fighters[l].kills > 0);
     for (_, other, rival) in actors {
-        let sprite = toned(&knights::figure(&rival.hero, other));
-        let sprite = if s.melee.hits.iter().any(|h| h.foe == other && h.tier == crate::rules::melee::Tier::Heavy && h.ttl >= 5) {
-            let mut flash=sprite.clone();
-            for y in 0..flash.h { for x in 0..flash.w { if flash.get(x,y).is_some_and(|c| c != super::super::ink::BLACK) { flash.put(x,y,'u'); } }}
-            flash
-        } else {sprite};
-        let feet = v3(rival.hero.x, rival.hero.y, 0.);
+        // A fresh ward blinks; a struck knight stands in one light ink, squashed and
+        // knocked back along the blow, then springs home.
+        if rival.protection > 0 && (s.ticks / 2) % 2 == 0 {
+            continue;
+        }
+        let mut sprite = toned(&knights::figure(&rival.hero, other));
+        let (mut tall, mut feet) = (1.65, (rival.hero.x, rival.hero.y));
+        let struck = s.show.blows.iter().filter(|b| b.target == other).min_by_key(|b| b.age(s.ticks));
+        if let Some(b) = struck.filter(|b| b.age(s.ticks) < 14) {
+            let age = b.age(s.ticks);
+            if age < b.weight.flash() {
+                sprite = juice::impact_frame(&sprite, 'H');
+            }
+            let (img, grow) = juice::squash_stretch(&sprite, age, b.weight.squash());
+            (sprite, tall) = (img, tall * grow);
+            let way = b.way();
+            let push = juice::lurch(b.weight, age);
+            feet = (feet.0 + way.0 * push, feet.1 + way.1 * push);
+        }
         if let Some((x, y)) = race3d::stand(
             &mut small,
             &depth,
             &view,
             &sprite,
-            feet,
+            v3(feet.0, feet.1, 0.),
             v3(rival.hero.x, rival.hero.y, 0.8),
-            1.65,
+            tall,
             192,
             90,
         ) {
-            // A quiet warm tab identifies the seated knight, even in grey kit.
             if (0..192).contains(&x)
                 && (0..90).contains(&y)
+                && rival.alive()
                 && dm::sight((f.hero.x, f.hero.y), (rival.hero.x, rival.hero.y))
             {
+                // A quiet warm tab names the seat; a thin bar shows their health; the leader wears a crown.
                 word(&mut small, x - 2, y - 9, &other.to_string(), true);
+                let share = rival.hero.hp as f32 / rival.hero.max_hp.max(1) as f32;
+                small.rect(x - 7, y - 12, 14, 3, 'k');
+                small.rect(x - 6, y - 11, (12. * share).ceil() as i32, 1, if share < 0.3 { '7' } else { 'o' });
+                if leader == Some(other) {
+                    for (dx, dy) in [(0, 2), (2, 0), (4, 2), (1, 3), (2, 3), (3, 3)] {
+                        small.put(x - 2 + dx, y - 17 + dy, 't');
+                    }
+                }
             }
         }
     }
     for (k, &(x, y, kind)) in dm::PICKUPS.iter().enumerate() {
-        if s.pickups[k] == 0 {
-            race3d::stand(
-                &mut small,
-                &depth,
-                &view,
-                &pickup(kind),
-                v3(x, y, 0.),
-                v3(x, y, 0.4),
-                0.65,
-                192,
-                90,
-            );
+        let soon = s.pickups[k] > 0 && s.pickups[k] <= 8 && s.ticks % 2 == 0;
+        if s.pickups[k] == 0 || soon {
+            let art = pickup(kind);
+            let art = if soon { juice::impact_frame(&art, 'H') } else { art };
+            let lift = world::bob(s.ticks, k);
+            race3d::stand(&mut small, &depth, &view, &art, v3(x, y, lift), v3(x, y, 0.4), 0.65, 192, 90);
+            if let Some((px, py, _)) = raster::project_point(&view, 192, 90, v3(x, y, 0.5)) {
+                if s.pickups[k] == 0 {
+                    world::sparkle(&mut small, px, py, s.ticks, k);
+                }
+            }
         }
     }
     let shot = toned(&Img::from_rows(&[".h.", "hih", ".h."]));
@@ -349,8 +382,37 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
             90,
         );
     }
+    // The blows' weight shakes the world (not the HUD); a hit-stop's own ticks keep it alive.
+    let phase = u64::from(s.ticks) * 3 + u64::from(run.hitstop.left) * 5;
+    let mut shake = juice::shake(
+        s.show
+            .blows
+            .iter()
+            .filter(|b| b.owner == id || b.target == id || dm::sight((f.hero.x, f.hero.y), (b.x, b.y)))
+            .map(|b| {
+                // Blows you take or land are felt in full; the rest across the arena at a third.
+                let mine = b.owner == id || b.target == id;
+                (if mine { b.weight } else { b.weight.min(crate::rules::juice::Weight::Solid) }, b.age(s.ticks) + if mine { 0 } else { 3 })
+            }),
+        phase,
+    );
+    if s.winner.is_some() && s.ended < 30 {
+        let (a, b) = juice::shake([(crate::rules::juice::Weight::Finale, s.ended)], phase);
+        shake = (shake.0 + a, shake.1 + b);
+    }
+    let (open_age, open_amp) = moments::opening_shake(s.ticks);
+    if open_amp > 0. {
+        let (a, b) = crate::motion::shake(phase, 12u32.saturating_sub(open_age), 12, open_amp);
+        shake = (shake.0 + a, shake.1 + b);
+    }
+    let (ox, oy) = (shake.0.clamp(-9, 9), shake.1.clamp(-9, 9));
     let mut im = Img::black(384, 224);
-    im.stamp_times(&small, 0, 0, 2);
+    im.stamp_times(&small, ox, oy, 2);
+    let proj = |x: f32, y: f32, z: f32| -> Option<(i32, i32)> {
+        let (px, py, _) = raster::project_point(&view, 192, 90, v3(x, y, z))?;
+        let (cx, cy) = (px as i32 * 2 + ox, py as i32 * 2 + oy);
+        (-30..414).contains(&cx).then_some(()).filter(|_| (-30..210).contains(&cy)).map(|_| (cx, cy))
+    };
     if let Some(swing) = s.melee.swings.iter().find(|s| s.owner == id && s.ttl > 2) {
         use crate::rules::melee::Stroke;
         let age=crate::rules::melee::SWING_TICKS-swing.ttl;
@@ -367,13 +429,88 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
         }
     }
     if f.alive() {
-        held(&mut im, f);
+        held(&mut im, f, s.melee.swings.iter().find(|w| w.owner == id && w.ttl > 0).map(|w| (w.combo, w.ttl)));
     }
-    status(&mut im, s, id);
+    // Blows: sparks where they land, a knight's end in shards and smoke, damage that
+    // rises off what you struck, and the mark at your own crosshair.
+    for b in &s.show.blows {
+        let age = b.age(s.ticks);
+        let seen = b.target != id && dm::sight((f.hero.x, f.hero.y), (b.x, b.y));
+        let seed = (b.born as u32).wrapping_mul(0x9e37).wrapping_add(b.target);
+        if seen {
+            if let Some(at) = proj(b.x, b.y, 1.0) {
+                if age < 18 {
+                    juice::impact_burst(&mut im, (at.0 as f32, at.1 as f32), age, seed, b.weight, u64::from(s.ticks));
+                }
+                if b.weight >= crate::rules::juice::Weight::Kill && age < 36 {
+                    juice::death_burst(&mut im, (at.0 as f32, at.1 as f32), age, seed ^ 0x77, u64::from(s.ticks));
+                }
+            }
+            if b.owner == id {
+                if let Some(head) = proj(b.x, b.y, 2.0) {
+                    let (scale, fill) = match b.weight {
+                        crate::rules::juice::Weight::Graze | crate::rules::juice::Weight::Solid => (1, 'H'),
+                        crate::rules::juice::Weight::Crushing => (2, 'T'),
+                        _ => (2, '@'),
+                    };
+                    juice::pop_number(&mut im, &format!("{}", b.lost), (head.0, head.1 - 4), age, 28, scale, fill);
+                }
+            }
+        }
+        if b.owner == id {
+            juice::hitmarker(&mut im, (192, 90), age, b.weight >= crate::rules::juice::Weight::Kill);
+        }
+    }
+    for (k, &(x, y, _)) in dm::PICKUPS.iter().enumerate() {
+        if let (Some(age), Some(at)) = (world::taken(s, k), proj(x, y, 0.6)) {
+            if age < 14 && dm::sight((f.hero.x, f.hero.y), (x, y)) {
+                juice::impact_burst(&mut im, (at.0 as f32, at.1 as f32), age, k as u32 * 11, crate::rules::juice::Weight::Solid, u64::from(s.ticks));
+            }
+        }
+    }
+    moments::fly_ups(&mut im, s, id, |victim| {
+        s.fighters.get(&victim).and_then(|v| proj(v.hero.x, v.hero.y, 1.4)).unwrap_or((192, 60))
+    });
+    hud::danger(&mut im, s, f, id, view.heading_rad);
+    if s.ticks <= dm::TITLE + 28 {
+        moments::curtain(&mut im, s.ticks);
+    }
+    hud::status(&mut im, s, id);
+    if s.winner.is_none() {
+        hud::board(&mut im, s, id);
+        hud::feed(&mut im, s, id);
+    }
+    if s.winner.is_none() && f.respawn == 0 && f.protection > 0 && s.ticks > dm::TITLE && (s.ticks / 4) % 2 == 0 {
+        word(&mut im, 146, 165, "SPAWN WARD", true);
+    }
+    if s.winner.is_none() {
+        moments::callouts(&mut im, s, id);
+    }
+    if f.respawn > 0 && s.winner.is_none() {
+        moments::slain(&mut im, s, id);
+    }
+    if s.ticks <= dm::TITLE + 28 && s.winner.is_none() {
+        moments::opening(&mut im, s);
+    }
+    if s.winner.is_some() {
+        moments::finale(&mut im, s, s.ended, beat(run, s), id);
+    }
     (im, Img::new(384, 224))
 }
-fn held(im: &mut Img, f: &Fighter) {
+fn held(im: &mut Img, f: &Fighter, swing: Option<(u8, u8)>) {
+    if arm::is_sword(f) {
+        arm::draw(im, f, swing);
+        for dx in [-5, -4, 4, 5] {
+            im.set(192 + dx, 90, [114, 112, 108]);
+        }
+        for dy in [-5, -4, 4, 5] {
+            im.set(192, 90 + dy, [114, 112, 108]);
+        }
+        return;
+    }
     let h = &f.hero;
+    // What the world was where the weapon will be drawn, so only the weapon is greyed below.
+    let behind: Vec<Option<[u8; 3]>> = (105..180).flat_map(|py| (130..255).map(move |px| (px, py))).map(|(px, py)| im.get(px, py)).collect();
     let bob = (f.bob.sin() * 3.) as i32;
     let kick = if f.flash > 0 { -3 } else { 0 };
     let (x, y) = (192 + (f.bob * 0.5).cos() as i32 * 2, 151 + bob + kick);
@@ -462,6 +599,9 @@ fn held(im: &mut Img, f: &Fighter) {
     for py in 105..180 {
         for px in 130..255 {
             if let Some(c) = im.get(px, py) {
+                if behind[((py - 105) * 125 + (px - 130)) as usize] == Some(c) {
+                    continue;
+                }
                 let l = (u16::from(c[0]) + u16::from(c[1]) + u16::from(c[2])) / 3;
                 im.set(px, py, [l.min(170) as u8; 3]);
             }
@@ -496,101 +636,6 @@ fn held(im: &mut Img, f: &Fighter) {
     }
     for dy in [-5, -4, 4, 5] {
         im.set(192, 90 + dy, [114, 112, 108]);
-    }
-}
-fn status(im: &mut Img, s: &Session, id: u32) {
-    let f = &s.fighters[&id];
-    let h = &f.hero;
-    panel(im, 0, 180, 384, 44);
-    for x in [71, 139, 194, 271, 330] {
-        for y in 184..220 {
-            im.set(x, y, EDGE);
-        }
-    }
-    word(im, 8, 186, "HEALTH", false);
-    word(im, 8, 202, &format!("{}", h.hp), false);
-    word(im, 79, 186, "ARMOR", false);
-    word(im, 79, 202, &format!("{}", h.armor), false);
-    let face = enlarge(&toned(&knights::portrait(h, id)), 1.7);
-    im.stamp(&face, 166 - face.w / 2, 218 - face.h);
-    word(im, 201, 186, "REARM", false);
-    word(im, 201, 202, &format!("{}", h.fire_cooldown), false);
-    word(im, 279, 186, "KILLS", false);
-    word(im, 279, 202, &format!("{}/10", f.kills), true);
-    word(im, 337, 186, "POWER", false);
-    word(
-        im,
-        337,
-        202,
-        &format!("{}", f.power.div_ceil(HZ)),
-        f.power > 0,
-    );
-    // Scores always stay visible; tags are seat numbers, named in the feed.
-    panel(im, 6, 6, 92, 16 + s.fighters.len() as i32 * 10);
-    word(im, 12, 10, "FIRST TO TEN", true);
-    for (k, other) in s.order().into_iter().enumerate() {
-        word(
-            im,
-            12,
-            21 + k as i32 * 10,
-            &format!(
-                "{} {:9} {:2}",
-                other,
-                name(s, other, 8),
-                s.fighters[&other].kills
-            ),
-            other == id,
-        );
-    }
-    for (k, frag) in s.feed.iter().rev().take(3).enumerate() {
-        let line = format!("{} > {}", name(s, frag.killer, 9), name(s, frag.victim, 9));
-        word(im, 378 - text_width(&line), 8 + k as i32 * 10, &line, false);
-    }
-    if let Some(winner) = s.winner {
-        panel(im, 79, 48, 226, 113);
-        word(im, 95, 59, "KNIGHTS WISH", true);
-        word(im, 95, 77, &format!("{} WINS", name(s, winner, 16)), false);
-        word(im, 95, 94, &format!("TEN KILLS  +{} GOLD", s.purse), true);
-        word(
-            im,
-            95,
-            115,
-            if winner == id {
-                "THE LAUREL IS YOURS"
-            } else {
-                "THE LAUREL IS THEIRS"
-            },
-            false,
-        );
-        word(im, 95, 143, "RETURNING TO TOWN", false);
-    } else if s.ticks <= dm::TITLE {
-        panel(im, 91, 52, 202, 107);
-        word(im, 107, 63, "KNIGHTS WISH", true);
-        word(im, 107, 80, "MOVE  TURN  FIRE", false);
-        word(im, 107, 96, "WASD  ARROWS  F", false);
-        word(im, 107, 112, "SPACE GUARD  1-4 CAST", false);
-        word(
-            im,
-            107,
-            139,
-            if s.fighters.len() < 2 {
-                "WAITING FOR FRIENDS"
-            } else {
-                "FIRST TO TEN"
-            },
-            true,
-        );
-    } else if f.respawn > 0 {
-        panel(im, 114, 75, 156, 32);
-        word(
-            im,
-            127,
-            87,
-            &format!("RISE IN {}", f.respawn.div_ceil(HZ)),
-            true,
-        );
-    } else if f.protection > 0 {
-        word(im, 146, 165, "SPAWN WARD", true);
     }
 }
 /// The browser's surrounding bands use the round's kit and timers too.

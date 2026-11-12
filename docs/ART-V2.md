@@ -23,7 +23,7 @@ The terminal's **true black is the ground of the picture**. Rooms, settlements
 and fields are lit islands. The old full-frame stone/grass fill and navy haze
 are superseded. Black belongs to gameplay scenery as well as transitions.
 
-`cockpit/src/stage/world_viz/art.rs` owns the shared material palette, grade,
+`cockpit/delve-cart/src/world_viz/art.rs` owns the shared material palette, grade,
 coloured outline rule, compact light falloff, floor extinction threshold,
 navy/brass UI inks, key gutter, native dot composition and terminal cell painter.
 The Delve renderer and mini-viz kingdom walk both consume this contract.

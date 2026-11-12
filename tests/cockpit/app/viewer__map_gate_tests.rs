@@ -231,8 +231,11 @@ fn the_tile_map_accepts_every_real_graphics_protocol() {
     }
 }
 
+#[cfg(feature = "delve")]
 #[test]
 fn sixel_prefers_living_braille_unless_backed_map_forced() {
+    use crate::delve::cart::viewer::map_desired;
+    use angel_plug::viewer::Graphics;
     // Capability stays open (operator can force plates), but the default
     // picture on sixel is the living braille world — static sixel plates
     // were reading as a broken still.
@@ -242,15 +245,15 @@ fn sixel_prefers_living_braille_unless_backed_map_forced() {
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_TILE_MAP") };
     assert!(map_supported(ProtocolType::Sixel));
-    assert!(!map_desired(ProtocolType::Sixel));
-    assert!(map_desired(ProtocolType::Kitty));
-    assert!(map_desired(ProtocolType::Iterm2));
+    assert!(!map_desired(Graphics::Sixel));
+    assert!(map_desired(Graphics::Kitty));
+    assert!(map_desired(Graphics::Iterm2));
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_BACKED_MAP", "1") };
-    assert!(map_desired(ProtocolType::Sixel));
+    assert!(map_desired(Graphics::Sixel));
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::set_var("ANGEL_BACKED_MAP", "0") };
-    assert!(!map_desired(ProtocolType::Kitty));
+    assert!(!map_desired(Graphics::Kitty));
     // TODO: Audit that the environment access only happens in single-threaded code.
     unsafe { std::env::remove_var("ANGEL_BACKED_MAP") };
 }

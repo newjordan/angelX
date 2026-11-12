@@ -174,6 +174,18 @@ pub enum Effect {
     /// Hedge Maze: a square of hedge walls rises round the aim, with one
     /// gap facing the caster (a spell's cast).
     Hedge(u32),
+    /// Vesper Bell: everything with wings falls out of the air and must
+    /// walk, for a moment (a spell's cast).
+    Vesper(u32),
+    /// Monk's Patience: for six seconds the knight may not fire, takes
+    /// half of every blow, and mends a little (a spell's cast).
+    Patience(u32),
+    /// Plague of Frogs: every small monster in the ring becomes a frog
+    /// for six seconds (a spell's cast).
+    Frogs(u32),
+    /// Excommunicate: the nearest monster is read out of the room (a
+    /// spell's cast).
+    Excommunicate(u32),
     Heal(u32),
     Gold(u32),
     Bombs(u32),
@@ -276,6 +288,9 @@ pub enum Effect {
     /// Soul Rip: every foe near the aim takes N, and what is torn mends the
     /// caster and their dead (a spell's cast).
     Rip(u32),
+    /// An area cast (`zones`): a wave, burst, cone, line, field, pillar or
+    /// nova of one element, `cast wave frost`. Appended, so saved names keep.
+    Area(Area),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -293,6 +308,179 @@ impl Shape {
             Self::Ring => "ring",
             Self::Meteor => "meteor",
         }
+    }
+}
+
+/// The shape an area spell takes on the field (`zones`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Form {
+    /// A front rolling out from the knight along the aim, widening, that
+    /// meets each foe once.
+    Wave,
+    /// An eruption at the aim point, then a pool that lingers there.
+    Burst,
+    /// A wide cone held in front of the knight, pulsing (breath, jets).
+    Cone,
+    /// The ground erupting along the aim, segment by segment.
+    Line,
+    /// A zone that lingers at the aim and pulses (storm, cloud, blizzard).
+    Field,
+    /// A column from the sky at the aim after a short telegraph.
+    Pillar,
+    /// A ring racing out from the knight all round.
+    Nova,
+}
+
+impl Form {
+    pub const ALL: [Form; 7] =
+        [Form::Wave, Form::Burst, Form::Cone, Form::Line, Form::Field, Form::Pillar, Form::Nova];
+
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Wave => "wave",
+            Self::Burst => "burst",
+            Self::Cone => "cone",
+            Self::Line => "line",
+            Self::Field => "field",
+            Self::Pillar => "pillar",
+            Self::Nova => "nova",
+        }
+    }
+}
+
+/// What an area spell is made of: what it does to the foes it reaches.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Element {
+    /// Burns, and the pools it leaves keep burning.
+    Fire,
+    /// Chills, and at size 2 and up freezes; a frozen foe shatters on a kill.
+    Frost,
+    /// Arcs on between the foes it strikes.
+    Storm,
+    /// Poisons, and a cloud lingers.
+    Poison,
+    /// Strikes, and mends the knights it covers.
+    Holy,
+    /// Drags foes in toward its middle.
+    Arcane,
+    /// Shoves and stuns.
+    Earth,
+}
+
+impl Element {
+    pub const ALL: [Element; 7] = [
+        Element::Fire,
+        Element::Frost,
+        Element::Storm,
+        Element::Poison,
+        Element::Holy,
+        Element::Arcane,
+        Element::Earth,
+    ];
+
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Fire => "fire",
+            Self::Frost => "frost",
+            Self::Storm => "storm",
+            Self::Poison => "poison",
+            Self::Holy => "holy",
+            Self::Arcane => "arcane",
+            Self::Earth => "earth",
+        }
+    }
+}
+
+/// An area cast: its shape, what it is made of, and how big (1 to 3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Area {
+    pub form: Form,
+    pub element: Element,
+    #[serde(default = "Area::first_size")]
+    pub size: u8,
+}
+
+impl Area {
+    pub const SIZES: (u8, u8) = (1, 3);
+
+    fn first_size() -> u8 {
+        1
+    }
+
+    /// The card line's words after `cast`: `wave frost`, `burst fire 2`.
+    pub fn words(self) -> String {
+        let (form, element) = (self.form.word(), self.element.word());
+        if self.size > 1 {
+            format!("{form} {element} {}", self.size)
+        } else {
+            format!("{form} {element}")
+        }
+    }
+
+    /// An area cast read from the words after `cast`: a form, an element and
+    /// a size 1 to 3, in any order, a few plain synonyms allowed (ice for
+    /// frost, lightning for storm). `Ok(None)` when no word names a form
+    /// (it is a bolt, ring or meteor, or nothing). The note says what was
+    /// assumed or clamped.
+    pub fn read(rest: &str) -> Result<Option<(Area, Option<String>)>, String> {
+        let lower = rest.to_ascii_lowercase();
+        let words: Vec<&str> = lower
+            .split(|c: char| c.is_whitespace() || c == ',')
+            .filter(|w| !w.is_empty())
+            .collect();
+        let form_of = |w: &str| Form::ALL.into_iter().find(|f| f.word() == w);
+        let element_of = |w: &str| match w {
+            "fire" | "flame" | "lava" | "magma" | "burning" => Some(Element::Fire),
+            "frost" | "ice" | "cold" | "freezing" => Some(Element::Frost),
+            "storm" | "lightning" | "thunder" | "electric" => Some(Element::Storm),
+            "poison" | "venom" | "toxic" | "acid" => Some(Element::Poison),
+            "holy" | "light" | "sacred" | "divine" => Some(Element::Holy),
+            "arcane" | "void" | "gravity" | "magic" => Some(Element::Arcane),
+            "earth" | "stone" | "quake" | "rock" => Some(Element::Earth),
+            _ => None,
+        };
+        let mut forms = words.iter().filter_map(|w| form_of(w));
+        let Some(form) = forms.next() else {
+            return Ok(None);
+        };
+        if forms.next().is_some() {
+            return Err("cast takes one shape: wave, burst, cone, line, field, pillar or nova".into());
+        }
+        let mut element = None;
+        let mut size = None;
+        let mut note = None;
+        for w in words {
+            if form_of(w).is_some() {
+                continue;
+            }
+            if let Some(e) = element_of(w) {
+                if element.replace(e).is_some() {
+                    return Err(format!("cast {} takes one element, not two", form.word()));
+                }
+            } else if let Ok(n) = w.parse::<u32>() {
+                let (low, high) = (u32::from(Self::SIZES.0), u32::from(Self::SIZES.1));
+                let clamped = n.clamp(low, high);
+                if clamped != n {
+                    note = Some(format!("size {n} clamped to {clamped}"));
+                }
+                if size.replace(clamped as u8).is_some() {
+                    return Err(format!("cast {} takes one size", form.word()));
+                }
+            } else {
+                return Err(format!(
+                    "cast {}: `{w}` is not an element ({}) or a size 1-3",
+                    form.word(),
+                    Element::ALL.map(Element::word).join(", ")
+                ));
+            }
+        }
+        let element = element.unwrap_or_else(|| {
+            note = Some(format!("cast {} named no element: arcane", form.word()));
+            Element::Arcane
+        });
+        Ok(Some((Area { form, element, size: size.unwrap_or(1) }, note)))
     }
 }
 
@@ -316,7 +504,7 @@ const CAST_SPEC: Spec = Spec {
     hold: false,
     spend: false,
     make: |_| Effect::Cast(Shape::Bolt),
-    says: "launch bolt, ring or meteor with your shot traits",
+    says: "launch bolt, ring or meteor with your shot traits, or cast an area: `cast <wave|burst|cone|line|field|pillar|nova> <fire|frost|storm|poison|holy|arcane|earth> [size 1-3]`",
 };
 
 const SUMMON_SPEC: Spec = Spec {
@@ -360,6 +548,46 @@ const SPECS: &[Spec] = &[
         spend: false,
         make: Effect::Hedge,
         says: "a hedge rises round your aim, with a gap for you",
+    },
+    Spec {
+        word: "vesper",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: false,
+        make: Effect::Vesper,
+        says: "the evening bell rings once, and everything with wings must walk",
+    },
+    Spec {
+        word: "patience",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: false,
+        make: Effect::Patience,
+        says: "for six seconds you may not fire, take half of every blow, and mend",
+    },
+    Spec {
+        word: "frogs",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: false,
+        make: Effect::Frogs,
+        says: "every small monster near becomes a frog for six seconds",
+    },
+    Spec {
+        word: "excommunicate",
+        low: 1,
+        high: 1,
+        cap: 0,
+        hold: false,
+        spend: false,
+        make: Effect::Excommunicate,
+        says: "the nearest monster is read out of the room, to the corner, ashamed",
     },
     Spec {
         word: "blink",
@@ -919,11 +1147,15 @@ impl Effect {
 
     pub(super) fn parts(self) -> (&'static str, u32) {
         let value = match self {
-            Effect::Cast(_) => return ("cast", 0),
+            Effect::Cast(_) | Effect::Area(_) => return ("cast", 0),
             Effect::Cabbages(v) => return ("cabbages", v),
             Effect::Summon(v, _) => return ("summon", v),
             Effect::Imposture(_) => return ("imposture", 1),
             Effect::Hedge(_) => return ("hedge", 1),
+            Effect::Vesper(_) => return ("vesper", 1),
+            Effect::Patience(_) => return ("patience", 1),
+            Effect::Frogs(_) => return ("frogs", 1),
+            Effect::Excommunicate(_) => return ("excommunicate", 1),
             Effect::Heal(v)
             | Effect::Gold(v)
             | Effect::Bombs(v)
@@ -989,6 +1221,9 @@ impl Effect {
         if let Effect::Cast(shape) = self {
             return format!("cast {}", shape.word());
         }
+        if let Effect::Area(area) = self {
+            return format!("cast {}", area.words());
+        }
         if let Effect::Summon(n, behaviour) = self {
             return format!("summon {n} {}", behaviour.word());
         }
@@ -1030,6 +1265,7 @@ pub struct Card {
     pub effects: Vec<Effect>,
     pub arm: Option<Arm>,
     /// Ink rows, at most 16 by 16; empty means the kind's own glyph.
+    #[serde(serialize_with = "super::runtime_state::serialize_card_art")]
     pub art: Vec<String>,
     /// The only delve it drops in; none drops anywhere.
     #[serde(default)]
@@ -1172,6 +1408,7 @@ impl Card {
     pub fn line(effect: Effect) -> String {
         match effect {
             Effect::Cast(shape) => format!("cast {}", shape.word()),
+            Effect::Area(area) => format!("cast {}", area.words()),
             Effect::Summon(n, behaviour) => format!("summon {n} {}", behaviour.word()),
             _ => {
                 let (word, value) = effect.parts();
@@ -1355,6 +1592,7 @@ pub fn slug(name: &str) -> String {
 /// private parts, slurs, the strongest swearing. Toilet humour (a fart, a
 /// poop) is the game's own and stays. Whole words only, any case; kept in
 /// rot13 so the list itself reads clean.
+#[cfg_attr(private_table, allow(dead_code))]
 const NOT_FOR_WORK: &[&str] = &[
     "frk", "frkl", "frkhny", "cravf", "cravfrf", "qvpx", "qvpxf", "pbpx", "pbpxf", "fpuybat",
     "crpxre", "jrvare", "jvrare", "grfgvpyr", "grfgvpyrf", "fpebghz", "onyyfnpx", "ahgfnpx",
@@ -1382,8 +1620,26 @@ pub fn not_for_work(text: &str) -> Option<String> {
     };
     text.split(|c: char| !c.is_alphanumeric())
         .filter(|w| !w.is_empty())
-        .find(|w| NOT_FOR_WORK.contains(&rot13(w).as_str()))
+        .find(|w| refused_words().contains(&rot13(w).as_str()))
         .map(str::to_lowercase)
+}
+
+/// The words a card or a wish never carries here: `NOT_FOR_WORK`, or at a
+/// private table (`private_table`) its slurs alone.
+fn refused_words() -> &'static [&'static str] {
+    #[cfg(private_table)]
+    return super::private_table::NOT_AT_THE_TABLE;
+    #[cfg(not(private_table))]
+    NOT_FOR_WORK
+}
+
+/// What the genie is told of rude asks at a private table, where this
+/// build has one (`private_table`); `None`: every wish stays safe for work.
+pub fn table_rules() -> Option<&'static str> {
+    #[cfg(private_table)]
+    return Some(super::private_table::GENIE);
+    #[cfg(not(private_table))]
+    None
 }
 
 /// Check one card file. `id` usually comes from the file name.
@@ -1610,9 +1866,16 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                     "meteor" => Some(Shape::Meteor),
                     _ => None,
                 };
-                match shape {
-                    Some(shape) => effects.push((n, &CAST_SPEC, Effect::Cast(shape))),
-                    None => errors.push(format!("line {n}: cast takes bolt, ring or meteor")),
+                match (shape, Area::read(rest)) {
+                    (Some(shape), _) => effects.push((n, &CAST_SPEC, Effect::Cast(shape))),
+                    (None, Ok(Some((area, note)))) => {
+                        notes.extend(note.map(|note| format!("line {n}: {note}")));
+                        effects.push((n, &CAST_SPEC, Effect::Area(area)));
+                    }
+                    (None, Ok(None)) => errors.push(format!(
+                        "line {n}: cast takes bolt, ring, meteor or an area: wave, burst, cone, line, field, pillar or nova with an element (fire, frost, storm, poison, holy, arcane, earth)"
+                    )),
+                    (None, Err(why)) => errors.push(format!("line {n}: {why}")),
                 }
             }
             "rarity" => match rest.to_ascii_lowercase().as_str() {
@@ -1968,9 +2231,14 @@ pub fn check(id: &str, raw: &str) -> Result<Checked, Rejected> {
                         | Effect::Nova(_)
                         | Effect::Ward(_)
                         | Effect::Cast(_)
+                        | Effect::Area(_)
                         | Effect::Cabbages(_)
                         | Effect::Imposture(_)
                         | Effect::Hedge(_)
+                        | Effect::Vesper(_)
+                        | Effect::Patience(_)
+                        | Effect::Frogs(_)
+                        | Effect::Excommunicate(_)
                         | Effect::Summon(..)
                         | Effect::Feat(_)
                         | Effect::Ghoul(_)
@@ -2313,6 +2581,7 @@ pub struct Book {
     /// Content changes, including replacement, require a whole mirror update.
     #[serde(default)]
     pub revision: usize,
+    #[serde(serialize_with = "super::runtime_state::serialize_book_cards")]
     pub cards: Vec<Card>,
 }
 
@@ -2525,6 +2794,22 @@ pub const BUILTIN: &[(&str, &str)] = &[
     (
         "hedge-maze",
         include_str!("../../../../cockpit/assets/dungeon/cards/hedge-maze.card"),
+    ),
+    (
+        "vesper-bell",
+        include_str!("../../../../cockpit/assets/dungeon/cards/vesper-bell.card"),
+    ),
+    (
+        "monks-patience",
+        include_str!("../../../../cockpit/assets/dungeon/cards/monks-patience.card"),
+    ),
+    (
+        "plague-of-frogs",
+        include_str!("../../../../cockpit/assets/dungeon/cards/plague-of-frogs.card"),
+    ),
+    (
+        "excommunicate",
+        include_str!("../../../../cockpit/assets/dungeon/cards/excommunicate.card"),
     ),
     (
         "twin-string",
@@ -2758,6 +3043,14 @@ pub const BUILTIN: &[(&str, &str)] = &[
     ("javelin", include_str!("../../../../cockpit/assets/dungeon/cards/javelin.card")),
     ("vault", include_str!("../../../../cockpit/assets/dungeon/cards/vault.card")),
     ("brace", include_str!("../../../../cockpit/assets/dungeon/cards/brace.card")),
+    ("phantom-lance", include_str!("../../../../cockpit/assets/dungeon/cards/phantom-lance.card")),
+    ("spirit-lance", include_str!("../../../../cockpit/assets/dungeon/cards/spirit-lance.card")),
+    ("doppelganger", include_str!("../../../../cockpit/assets/dungeon/cards/doppelganger.card")),
+    ("juxtapose", include_str!("../../../../cockpit/assets/dungeon/cards/juxtapose.card")),
+    ("mirage-foil", include_str!("../../../../cockpit/assets/dungeon/cards/mirage-foil.card")),
+    ("swashbuckle", include_str!("../../../../cockpit/assets/dungeon/cards/swashbuckle.card")),
+    ("mirror-swap", include_str!("../../../../cockpit/assets/dungeon/cards/mirror-swap.card")),
+    ("echo-strike", include_str!("../../../../cockpit/assets/dungeon/cards/echo-strike.card")),
     ("chain-haul", include_str!("../../../../cockpit/assets/dungeon/cards/chain-haul.card")),
     ("flask-bandolier", include_str!("../../../../cockpit/assets/dungeon/cards/flask-bandolier.card")),
     ("miasma-flask", include_str!("../../../../cockpit/assets/dungeon/cards/miasma-flask.card")),
@@ -3055,7 +3348,7 @@ by     <your name>\n\
 drop   <0–100 weight in monster drops>   chest <0–100 weight as a chest prize>\n\
 where  crypt | mines | keep | anywhere   (which delve it drops in)\n\
 <effect> <number>   at most {MAX_EFFECTS}:\n{effects}\n\
-Spell cards: `cooldown <1–120 seconds>` is required; use heal, bombs, nova, ward or `cast bolt|ring|meteor`. Shapes carry your shot traits.\n\
+Spell cards: `cooldown <1–120 seconds>` is required; use heal, bombs, nova, ward or `cast bolt|ring|meteor`. Shapes carry your shot traits. An area spell is `cast <wave|burst|cone|line|field|pillar|nova> <fire|frost|storm|poison|holy|arcane|earth> [1-3]`: a frost wave rolls out and chills, a fire burst erupts and leaves burning ground, a storm field arcs between foes, a poison cloud lingers, a holy pillar strikes and mends, an earth line cracks and stuns.\n\
 Arm cards: `arm bow|crossbow|handgonne|notes`, or Forge rune lines (bolt/spread/melee/look; see /dungeon forge).\n\
 Summons (spell or play cards): `summon N swarm|guard|turret` — {summon}.\n\
 Looks on the field: `draw <slot>` then rows of inks, 1–{frames} frames side by side with `|` between (a worn piece drawn small may add `at=<place>`: {places}):\n{slots}\n\

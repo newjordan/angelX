@@ -95,19 +95,89 @@ pub enum SubmissionPhase {
 }
 
 impl SubmissionPhase {
+    /// The fleet row's reading of a board status word.
     pub fn from_status(status: &str) -> Self {
-        match status.trim().to_ascii_lowercase().as_str() {
-            "queued" | "pending" | "submitted" => Self::Queued,
-            "validating" | "running" | "in-flight" | "in_flight" => Self::Running,
-            "accepted" | "promoted" | "complete" | "completed" => Self::Accepted,
-            "timeout" | "timed_out" | "timed-out" => Self::TimedOut,
-            "rejected" | "failed" | "promotion failed" | "error" | "cancelled" | "canceled" => {
-                Self::Rejected
-            }
-            _ => Self::Unknown,
-        }
+        StatusWord::find(status).map_or(Self::Unknown, |row| row.fleet)
     }
 }
+
+/// What the slot watcher makes of a board status word: still waiting, or
+/// settled one of three ways. Only a word it recognises settles the slot; a
+/// status it has never seen is not evidence of acceptance, so it waits.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SlotOutcome {
+    InFlight,
+    Accepted,
+    Rejected,
+    TimedOut,
+}
+
+impl SlotOutcome {
+    pub fn from_status(status: &str) -> Self {
+        StatusWord::find(status).map_or(Self::InFlight, |row| row.slot)
+    }
+
+    pub fn is_settled(self) -> bool {
+        !matches!(self, Self::InFlight)
+    }
+}
+
+/// One status word a competition board is known to send, and how each reader
+/// takes it. Matching ignores ASCII case and surrounding whitespace.
+struct StatusWord {
+    word: &'static str,
+    fleet: SubmissionPhase,
+    slot: SlotOutcome,
+}
+
+impl StatusWord {
+    fn find(status: &str) -> Option<&'static StatusWord> {
+        let status = status.trim();
+        STATUS_WORDS
+            .iter()
+            .find(|row| row.word.eq_ignore_ascii_case(status))
+    }
+}
+
+const fn word(word: &'static str, fleet: SubmissionPhase, slot: SlotOutcome) -> StatusWord {
+    StatusWord { word, fleet, slot }
+}
+
+use SlotOutcome as Slot;
+use SubmissionPhase as Fleet;
+
+/// Every status word, read both ways: by the fleet row (`SubmissionPhase`)
+/// and by the slot watcher (`SlotOutcome`). The two agree on every row but
+/// four, marked DISAGREE. Those four are kept as each reader has always read
+/// them, until the operator rules; `tests/status_words.rs` pins them. A word
+/// not listed is unknown: `Unknown` to the fleet row, still waiting to the
+/// slot watcher.
+const STATUS_WORDS: &[StatusWord] = &[
+    word("queued", Fleet::Queued, Slot::InFlight),
+    word("pending", Fleet::Queued, Slot::InFlight),
+    word("submitted", Fleet::Queued, Slot::InFlight),
+    word("validating", Fleet::Running, Slot::InFlight),
+    word("running", Fleet::Running, Slot::InFlight),
+    word("in-flight", Fleet::Running, Slot::InFlight),
+    word("in_flight", Fleet::Running, Slot::InFlight),
+    word("accepted", Fleet::Accepted, Slot::Accepted),
+    word("promoted", Fleet::Accepted, Slot::Accepted),
+    // DISAGREE: the fleet row counts these as accepted; the watcher keeps waiting.
+    word("complete", Fleet::Accepted, Slot::InFlight),
+    word("completed", Fleet::Accepted, Slot::InFlight),
+    word("timeout", Fleet::TimedOut, Slot::TimedOut),
+    word("timed_out", Fleet::TimedOut, Slot::TimedOut),
+    word("timed-out", Fleet::TimedOut, Slot::TimedOut),
+    word("rejected", Fleet::Rejected, Slot::Rejected),
+    word("failed", Fleet::Rejected, Slot::Rejected),
+    // DISAGREE: the fleet row counts this as rejected; the watcher keeps waiting.
+    word("promotion failed", Fleet::Rejected, Slot::InFlight),
+    word("error", Fleet::Rejected, Slot::Rejected),
+    word("cancelled", Fleet::Rejected, Slot::Rejected),
+    word("canceled", Fleet::Rejected, Slot::Rejected),
+    // DISAGREE: the watcher settles it as rejected; the fleet row has no reading for it.
+    word("superseded", Fleet::Unknown, Slot::Rejected),
+];
 
 // ---- subsystem health (was knowledge::{memory::store, atlas, atlas_clerk}) ----
 

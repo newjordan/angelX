@@ -350,10 +350,16 @@ impl Home {
     /// Fill the board to three. Wren pins what the floors the party has
     /// reached make fair, the ones she has paid least often first, in her
     /// order: every job comes round before any comes round twice, and a
-    /// new floor's jobs go up first. Returns those just pinned.
+    /// new floor's jobs go up first. With the Type-Foundry's type in the
+    /// case she prints up to `NOTICES_PRINTED` more, `TYPE_PER_NOTICE` type
+    /// each. Returns those just pinned.
     pub fn pin_bounties(&mut self) -> Vec<&'static Bounty> {
         let mut pinned = Vec::new();
-        while self.bounties.len() < PINNED {
+        while self.bounties.len() < PINNED + super::goods::NOTICES_PRINTED {
+            let printed = self.bounties.len() >= PINNED;
+            if printed && self.goods.have(super::goods::Good::Type) < super::goods::TYPE_PER_NOTICE {
+                break;
+            }
             let next = BOUNTIES
                 .iter()
                 .enumerate()
@@ -365,6 +371,9 @@ impl Home {
             let Some((_, next)) = next else {
                 break;
             };
+            if printed {
+                self.goods.take(super::goods::Good::Type, super::goods::TYPE_PER_NOTICE);
+            }
             self.bounties.push(Pinned {
                 id: next.id.to_string(),
                 have: 0,

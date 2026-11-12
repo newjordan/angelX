@@ -13,8 +13,14 @@ autotests = false
 [features]
 default = ["renderer"]
 renderer = ["dep:image", "dep:angel-stage"]
+# Opt-in native dev shortcut (hold N, tap P); no gameplay change by default. The Test drive
+# stands a fixture floor up with the library's own test helpers, so the dev feature turns them on.
+creator-dev = ["renderer", "testing"]
 # The test helpers the cockpit's own tests reach for.
 testing = []
+# A crate whose tests assert the old map (realm-host's mini view) stands the
+# full realm up in its test builds, as this crate's own tests do.
+full-realm-tests = ["testing"]
 # Native hosts: with no engine installed, Bend rules run on the Kernel's
 # shipped generations (angel-live's V8 backend). Off for the browser client.
 bend-engine = ["dep:angel-live"]
@@ -38,6 +44,7 @@ bend-cases-games-c = []
 bend-cases-numerics = []
 
 [dependencies]
+angel-kingdom = { path = "../kingdom" }
 angel-net = { path = "../net" }
 angel-live = { path = "../live", features = ["v8"], optional = true }
 # A frame as a stage the window and the browser draw.

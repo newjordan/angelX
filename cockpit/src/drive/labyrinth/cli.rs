@@ -1,6 +1,7 @@
 //! Explicit local benchmark runs with exact source and fresh score receipts.
 //! This entrypoint launches only the argv supplied by its caller. It neither
 //! submits to a board nor grants rewards/proof tiers from a process exit code.
+use super::campaign::RunStatus;
 use super::{initialize, observe_measurement};
 use crate::agent::harness::{confined_read_limited_no_symlinks, workspace_evidence_sha256};
 use crate::agent::sandbox::process_owner::OwnedCommandExt;
@@ -37,10 +38,9 @@ pub(crate) fn cli(args: impl Iterator<Item = OsString>) -> std::io::Result<()> {
         let result = campaign_cli(&workspace, &args[at + 1..]).map_err(invalid)?;
         println!("{}", serde_json::to_string_pretty(&result)?);
         if args.get(at + 1).is_some_and(|arg| arg == "run")
-            && matches!(
-                result["status"].as_str(),
-                Some("budget_exhausted" | "deadline" | "execution_blocked" | "cancelled")
-            )
+            && result["status"]
+                .as_str()
+                .is_some_and(|word| RunStatus::parse(word).left_unfinished())
         {
             return Err(std::io::Error::other(
                 "campaign did not complete; its exact outcome and reports were retained",

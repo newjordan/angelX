@@ -12,6 +12,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+// The cockpit's build tests run every function in this file; the script uses some of them.
+#[allow(dead_code)]
 #[path = "build_fast.rs"]
 mod build_fast;
 #[path = "../web/rules_js.rs"]
@@ -65,7 +67,7 @@ fn delve_web() {
         fs::write(
             &code,
             "/// No browser page in this build.\npub static BUNDLE: Option<(&str, &[(&str, &[u8])])> = None;\n\
-             pub static SOUNDS: &str = \"\";\npub static BESIDE: &[(&str, &str)] = &[];\n",
+             pub static SOUNDS: &str = \"\";\npub static BESIDE: &[(&str, &str)] = &[];\npub static PREPARED_FILES: &[angel_serve::http::StaticFile] = &[];\n",
         )
             .expect("write delve_web.rs");
         return;
@@ -75,6 +77,9 @@ fn delve_web() {
         web.join("src"),
         game.clone(),
         crates.join("delve").join("src"),
+        crates.join("kingdom"),
+        crates.join("../delve/kingdom"),
+        crates.join("../cockpit/assets/kingdom"),
         crates.join("net").join("src"),
         crates.join("stage").join("src"),
         web.join("render"),
@@ -132,10 +137,12 @@ fn delve_web() {
     let _ = fs::remove_dir_all(&dist);
     fs::create_dir_all(&dist).expect("make the bundle's folder");
     let mut files: Vec<(String, PathBuf)> = Vec::new();
+    // Keep the conventional dist mirror, but capture and bound the original
+    // bytes before copying. Compiler includes use only the captured outputs.
+    let mut mirrored = Vec::new();
     let mut copy = |name: String, from: &Path| {
-        let to = dist.join(&name);
-        fs::copy(from, &to).unwrap_or_else(|e| panic!("copy {} into the bundle: {e}", from.display()));
-        files.push((name, to));
+        mirrored.push(name.clone());
+        files.push((name, from.to_path_buf()));
     };
     copy(format!("{DELVE}.wasm"), &wasm);
     let mut shell: Vec<PathBuf> = fs::read_dir(web.join("shell"))
@@ -228,25 +235,33 @@ fn delve_web() {
         .replace("@@RENDERERS@@", &renderers);
     let index_path = dist.join("index.html");
     fs::write(&index_path, index).expect("write the bundle's page");
-    let entries: String = files
-        .iter()
-        .map(|(name, path)| format!("    ({name:?}, include_bytes!({:?})),\n", path.display().to_string()))
+    for (_, path) in &files {
+        if !path.starts_with(&out) { println!("cargo:rerun-if-changed={}", path.display()); }
+    }
+    let prepared = angel_serve::http::build::capture_static(&files, &out.join("browser-prepared-v1"))
+        .expect("capture and prepare the browser's embedded bytes");
+    for (name, path) in prepared.files() {
+        if mirrored.contains(name) {
+            fs::copy(path, dist.join(name)).unwrap_or_else(|e| panic!("mirror captured browser file {name}: {e}"));
+        }
+    }
+    let entries: String = prepared.files()
+        .iter().enumerate()
+        .map(|(index, (name, _))| format!("    ({name:?}, BROWSER_FILE_{index}),\n"))
         .collect();
-    fs::write(
-        &code,
-        format!(
+    let generated = format!(
             "/// The Delve's browser page: its `index.html`, then every other file.\n\
              pub static BUNDLE: Option<(&str, &[(&str, &[u8])])> = Some((include_str!({:?}), &[\n{entries}]));\n\
              /// The page's sounds manifest without its braces, for the sounds in `BUNDLE`.\n\
              pub static SOUNDS: &str = {:?};\n\
              /// Sound folders that ship beside the binary: (name prefix, folder in the repository).\n\
-             pub static BESIDE: &[(&str, &str)] = &[{}];\n",
+             pub static BESIDE: &[(&str, &str)] = &[{}];\n{prepared}",
             index_path.display().to_string(),
             sounds.join(","),
-            beside.join(", ")
-        ),
-    )
-    .expect("write delve_web.rs");
+            beside.join(", "),
+            prepared = prepared.rust(),
+        );
+    prepared.publish(&code, &generated).expect("publish the browser's captured build");
 }
 
 /// A cargo for the browser's wasm: a clean environment, none of this build's

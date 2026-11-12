@@ -4,21 +4,25 @@
 //! it spins, and the wedge it stops on is the delve's mode — so its pointer
 //! and the winning wedge glow; the rest is the realm's material inks.
 
-use std::f32::consts::{FRAC_PI_2, TAU};
+use std::f32::consts::TAU;
 
 use super::super::ink::{Img, hash, text_width};
 use super::super::kit::{self, RockKind, Tiles};
 use super::{TILE, at, dusk, fire, flags, home, stand};
 use crate::rules::feats::Tier;
 use crate::rules::fortune::{
-    self, BENCHES, COFFER, COFFER_PLATE, FORTUNE_AT, FORTUNE_PLATE, LEVER, Mode, SPIN_TICKS,
+    self, BENCHES, Beat, COFFER, COFFER_PLATE, FORTUNE_AT, FORTUNE_PLATE, LEVER, Luck, Mode,
     WHEEL_STAND,
 };
 use crate::rules::home::Station;
 use crate::rules::{HZ, Run, Tile};
 use crate::render::overworld::light::Light;
 
-const RADIUS: f32 = 40.0;
+mod claims;
+pub(super) mod dare;
+mod moments;
+mod show;
+mod wheel;
 
 /// The wheel's hub, in native pixels.
 fn hub() -> (i32, i32) {
@@ -184,11 +188,6 @@ fn slab(cv: &mut Img, (c, r, w, h): (i32, i32, i32, i32), lit: bool, station: Op
     cv.stamp(&mark, x + (pw - mark.w) / 2, y + (ph - mark.h) / 2);
 }
 
-/// The wheel's turn now, radians clockwise: still where it last stopped.
-fn turn(run: &Run) -> f32 {
-    run.spin.map_or(0.0, |spin| spin.angle(run.tick))
-}
-
 /// The wedges as Fortune's ladder has opened them.
 fn opened(run: &Run) -> Vec<u8> {
     fortune::open_wedges(run.home.level(Station::Wheel))
@@ -267,20 +266,29 @@ fn icon(mode: Mode) -> Img {
 /// knights stand on.
 pub(super) fn figures(cv: &mut Img, run: &Run) {
     let tick = run.tick as u32;
-    wheel(cv, run);
-    let spinning = run.spin.is_some_and(|s| !s.done(run.tick));
-    let landed_late = run.spin.is_some_and(|s| {
-        s.done(run.tick) && run.tick.saturating_sub(s.started) < u64::from(SPIN_TICKS + 4 * HZ)
-    });
-    // Fortune raises her hand while the wheel turns.
+    let st = show::of(run);
+    wheel::draw(cv, run, st.as_ref());
+    if let Some(st) = &st {
+        wheel::clicks(cv, run, st);
+    }
+    let spinning = st.as_ref().is_some_and(|s| s.since.is_none());
+    let hanging = st.as_ref().is_some_and(|s| s.beat == Beat::Hang);
+    // How the room takes the wheel once it has landed: a roar for a grand
+    // wedge, a cheer for a fair one, a shrug for the plain road.
+    let landed = st.as_ref().and_then(|s| s.since.map(|l| (l, s.luck)));
+    let roar = landed.is_some_and(|(l, luck)| luck != Luck::Plain && l < 4 * HZ + 70);
+    let shrug = landed.is_some_and(|(l, luck)| luck == Luck::Plain && l < 3 * HZ);
+    // Fortune raises her hand while the wheel turns, and again as it lands.
     let (fx, fy) = at(FORTUNE_AT.0 * 2.0, FORTUNE_AT.1 * 2.0);
-    let fortune = if spinning || (landed_late && (tick / 8).is_multiple_of(2)) {
+    let fortune = if spinning || (roar && (tick / 8).is_multiple_of(2)) {
         Img::from_rows(&FORTUNE_UP)
     } else {
         Img::from_rows(&FORTUNE)
     };
-    stand(cv, &fortune, fx, fy);
-    // The audience: on their feet and cheering while it turns and lands.
+    let hop = i32::from(roar && (tick / 4).is_multiple_of(2));
+    stand(cv, &fortune, fx, fy - hop);
+    // The audience: on their feet while it turns, hands to their faces as it
+    // hangs, and then as the wedge pays.
     let tunics = ['p', 'E', 'u', 'R', 'B', 'q', 'r', 'e'];
     for (b, bench) in BENCHES.iter().enumerate() {
         let (c, r, w, _) = *bench;
@@ -289,10 +297,11 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 let id = (b * 12 + row * 6 + seat) as i32;
                 let x = c * TILE + 6 + seat as i32 * (w * TILE - 12) / 6;
                 let y = r * TILE + 6 + row as i32 * 15;
-                let excited = spinning || landed_late;
+                let excited = spinning || roar || (shrug && hash(id, 9, 4).is_multiple_of(3));
                 let cheer = excited && (tick / 5 + hash(id, 7, 3)).is_multiple_of(2);
                 let fidget = !excited && hash(id, (tick / 45) as i32, 5).is_multiple_of(9);
-                let im = if cheer { &FAN_CHEER } else { &FAN };
+                let gasp = hanging && !hash(id, 5, 6).is_multiple_of(4);
+                let im = if gasp { &FAN_GASP } else if cheer { &FAN_CHEER } else { &FAN };
                 let tunic = tunics[(hash(id, 1, 77) % tunics.len() as u32) as usize];
                 let face = if hash(id, 2, 78).is_multiple_of(3) {
                     'o'
@@ -301,7 +310,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
                 };
                 let hair = ['h', 'b', 'n', 'r', 'T'][(hash(id, 3, 79) % 5) as usize];
                 let fan = Img::from_rows(im).recolor(&[('p', tunic), ('O', face), ('h', hair)]);
-                let lift = i32::from(cheer) * 2 + i32::from(fidget);
+                // A roar leaps; a grand one leaps higher.
+                let jump = if roar && cheer { 1 + i32::from(landed.is_some_and(|(_, l)| l == Luck::Grand)) } else { 0 };
+                let lift = i32::from(cheer) * 2 + i32::from(fidget) + jump * 2;
                 cv.stamp(&fan, x, y - fan.h + 3 - lift);
             }
         }
@@ -339,78 +350,9 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
     coffer(cv, run, reading_coffer);
 }
 
-/// The wheel: wedges round a hub, pegs on the rim, each opened wedge's
-/// mark, the pointer at the top, and the winning wedge glowing once it
-/// stops.
-fn wheel(cv: &mut Img, run: &Run) {
-    let (hx, hy) = hub();
-    let rot = turn(run);
-    let open = opened(run);
-    let n = Mode::WHEEL.len() as f32;
-    let w = TAU / n;
-    let landed = run.spin.filter(|s| s.done(run.tick)).map(|s| s.wedge);
-    let blink = (run.tick / 6).is_multiple_of(2);
-    for y in hy - 42..hy + 42 {
-        for x in hx - 42..hx + 42 {
-            let (dx, dy) = (x as f32 + 0.5 - hx as f32, y as f32 + 0.5 - hy as f32);
-            let r = dx.hypot(dy);
-            if r > RADIUS {
-                continue;
-            }
-            // Clockwise from the top, in the wheel's own turn.
-            let a = (dy.atan2(dx) + FRAC_PI_2 - rot).rem_euclid(TAU);
-            let index = ((a / w) as usize).min(Mode::WHEEL.len() - 1);
-            let mode = Mode::WHEEL[index];
-            let edge = (a / w).fract() < 0.04 || (a / w).fract() > 0.96;
-            let ink = if r > RADIUS - 2.5 {
-                if edge { 'H' } else { 'O' }
-            } else if r > RADIUS - 4.0 {
-                'b'
-            } else if r < 5.0 {
-                if r < 2.5 { '6' } else { '4' }
-            } else if r < 7.0 || edge {
-                'b'
-            } else if !open.contains(&(index as u8)) {
-                if (x + y) % 2 == 0 { 'K' } else { 'k' }
-            } else if landed == Some(index as u8) && r > RADIUS - 7.0 && blink {
-                '6'
-            } else {
-                let (dark, light) = wedge_ink(mode);
-                if r < RADIUS * 0.55 { dark } else { light }
-            };
-            cv.put(x, y, ink);
-        }
-    }
-    // Each wedge's mark (or a question for a closed one), upright.
-    for (i, mode) in Mode::WHEEL.iter().enumerate() {
-        let mid = (i as f32 + 0.5) * w + rot - FRAC_PI_2;
-        let (mx, my) = (
-            hx + (mid.cos() * RADIUS * 0.62).round() as i32,
-            hy + (mid.sin() * RADIUS * 0.62).round() as i32,
-        );
-        if open.contains(&(i as u8)) {
-            let im = icon(*mode);
-            cv.stamp(&im, mx - im.w / 2, my - im.h / 2);
-        } else {
-            cv.text(mx - 2, my - 3, "?", 'G');
-        }
-    }
-    // The pointer, gold, over the top of the rim.
-    for k in 0..6 {
-        cv.line(
-            hx - (5 - k),
-            hy - 44 + k,
-            hx + (5 - k),
-            hy - 44 + k,
-            if k < 2 { '6' } else { '5' },
-        );
-    }
-    cv.put(hx, hy - 38, '4');
-}
-
-/// Over everything: Fortune's ledger, the lever's word, and the wheel's
-/// verdict.
-pub(super) fn boards(cv: &mut Img, run: &Run) {
+/// Over everything: Fortune's ledger, the lever's word, the coffer's, and the
+/// spin's own moments. Every box of words is laid through `moments::lay`.
+pub(super) fn boards(cv: &mut Img, run: &Run, focus: Option<u32>) {
     let on = |p: (i32, i32, i32, i32)| {
         run.players
             .iter()
@@ -424,7 +366,13 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
                     .then_some(id)
             })
     };
-    let (hx, hy) = hub();
+    let st = show::of(run);
+    if let Some(st) = &st {
+        moments::over(cv, run, st, focus);
+        moments::faces(cv, run, st);
+    }
+    // While the spin is being called, the plates' boards keep quiet.
+    let calling = moments::calling(run);
     if let Some((at, tier, label)) = &run.unboxed
         && run.tick.saturating_sub(*at) < 4 * u64::from(HZ)
     {
@@ -433,25 +381,10 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             (label.to_uppercase(), 'h'),
         ]);
         let (cx, cy) = coffer_top();
-        cv.stamp(&board, (cx - 8).max(2), cy - 46);
+        moments::lay(cv, "box", &board, (cx - 8).max(2), cy - 38);
     }
-    if let Some(spin) = run.spin.filter(|s| s.done(run.tick)) {
-        // The verdict, for a few seconds after it lands; then a plaque.
-        let mode = Mode::WHEEL[usize::from(spin.wedge)];
-        let fresh = run.tick.saturating_sub(spin.started) < u64::from(SPIN_TICKS + 4 * HZ);
-        let lines = if fresh {
-            vec![
-                (mode.name().to_uppercase(), '6'),
-                (mode.says().to_uppercase(), 'h'),
-            ]
-        } else {
-            vec![(format!("THIS DELVE: {}", mode.name().to_uppercase()), '9')]
-        };
-        let board = home::board(&lines);
-        let y = if fresh { hy - board.h / 2 } else { hy + 47 };
-        cv.stamp(&board, hx - board.w / 2, y);
-    }
-    if on(COFFER_PLATE).is_some() {
+    if !calling && let Some(id) = on(COFFER_PLATE) {
+        let _ = id;
         let n = run.home.boxes.len();
         let lines = if n == 0 {
             vec![
@@ -474,19 +407,21 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
         };
         let board = home::board(&lines);
         let (c, r, w, h) = COFFER_PLATE;
-        cv.stamp(
+        moments::lay(
+            cv,
+            "coffer",
             &board,
             (c * TILE + w * TILE / 2 - board.w / 2).max(2),
             (r + h) * TILE + 4,
         );
     }
-    if let Some(id) = on(FORTUNE_PLATE) {
+    if !calling && let Some(id) = on(FORTUNE_PLATE) {
         let buying = run.players.get(&id).map_or(0, |h| h.buying);
         let board = home::ledger_board(run, Station::Wheel, buying);
         let (c, r, w, _) = FORTUNE_PLATE;
         let x = (c * TILE + w * TILE / 2 - board.w / 2).clamp(2, cv.w - board.w - 2);
-        cv.stamp(&board, x, r * TILE - board.h - 4);
-    } else if let Some(id) = on(LEVER)
+        moments::lay(cv, "ledger", &board, x, r * TILE - board.h - 4);
+    } else if !calling && let Some(id) = on(LEVER)
         && run.spin.is_none()
     {
         let buying = run.players.get(&id).map_or(0, |h| h.buying);
@@ -503,7 +438,7 @@ pub(super) fn boards(cv: &mut Img, run: &Run) {
             / crate::rules::home::BUY_HOLD) as i32;
         super::super::chrome::meter(&mut board, (after + 4, 22, bar_w, 5), fill, super::super::ink::ink('5').unwrap_or_default());
         let (c, r, w, _) = LEVER;
-        cv.stamp(&board, c * TILE + w * TILE / 2 - board.w / 2, r * TILE + 22);
+        moments::lay(cv, "lever", &board, c * TILE + w * TILE / 2 - board.w / 2, r * TILE + 22);
     }
 }
 
@@ -639,4 +574,15 @@ const FORTUNE_UP: [&str; 17] = [
 
 const FAN: [&str; 6] = ["..hh..", ".hOOh.", ".OOOO.", "..OO..", ".pppp.", "pppppp"];
 
+/// Hands to the face, mouth open: the room as the wheel hangs.
+const FAN_GASP: [&str; 6] = ["..hh..", ".hOOh.", "OOkkOO", ".OOOO.", ".pppp.", "pppppp"];
+
 const FAN_CHEER: [&str; 6] = ["O....O", "OhhhhO", ".hOOh.", ".OOOO.", "..OO..", ".pppp."];
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__fortune__tests.rs"]
+mod tests;
+
+#[cfg(test)]
+#[path = "../../../../tests/render/arena__fortune_time__tests.rs"]
+mod time_tests;

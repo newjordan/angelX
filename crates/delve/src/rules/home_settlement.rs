@@ -126,6 +126,8 @@ pub struct HomePolicyRequest {
 impl HomePolicyRequest {
     pub fn validate(&self) -> Result<(), String> {
         if !self.transfer.valid()
+            || !self.context.home.industry.valid(crate::kingdom::catalog())
+            || !self.context.home.kingdom_gear.valid()
             || self.host.len() > 1024
             || self.context.reclaimed.len() > 64
             || self.context.reclaimed.keys().any(|key| key.len() > 1024)
@@ -275,9 +277,12 @@ impl HomeObserved {
             && self.view.squire_academy == run.home.squire_academy
             && self.view.privy_wall == run.home.privy_wall
             && self.view.salvage == run.home.salvage
+            && self.view.industry == run.home.industry
+            && self.view.kingdom_gear == run.home.kingdom_gear
             && self.view.wished == run.home.wished
             && self.view.sky == run.home.sky
             && self.view.deep == run.home.deep
+            && self.view.rites == run.home.rites
             && self.view.countryside.games == run.home.countryside.games
             && self.view.landing == run.home.landing
             && self.depth == run.dungeon.depth
@@ -449,7 +454,9 @@ impl HomeTransfer {
         Ok(())
     }
     pub fn valid(&self) -> bool {
-        self.orders.len() <= 64
+        self.view.industry.valid(crate::kingdom::catalog())
+            && self.view.kingdom_gear.valid()
+            && self.orders.len() <= 64
             && self.lane_squire_orders.len() <= 64
             && self.raise_orders.len() <= 64
             && self.raw_purchases.len() <= 64
@@ -591,6 +598,14 @@ pub fn settle(
     }
     // The salvage yard changes in the run (a find, a wish, a build): the
     // realm keeps it when the run's is newer (`salvage`).
+    if transfer.view.industry.rev > realm.home.industry.rev {
+        realm.home.industry = transfer.view.industry.clone();
+        changed = true;
+    }
+    if transfer.view.kingdom_gear.rev > realm.home.kingdom_gear.rev {
+        realm.home.kingdom_gear = transfer.view.kingdom_gear.clone();
+        changed = true;
+    }
     if transfer.view.salvage.rev > realm.home.salvage.rev {
         realm.home.salvage = transfer.view.salvage.clone();
         changed = true;
@@ -611,6 +626,11 @@ pub fn settle(
     if realm.home.deep != transfer.view.deep && transfer.view.deep.valid() {
         realm.home.deep = transfer.view.deep.clone();
         changed = true;
+    }
+    // The rites the realm keeps (`rite`): only the game writes them, and only
+    // ever to add, so the two records meet.
+    if transfer.view.rites.valid() {
+        changed |= realm.home.rites.merge(&transfer.view.rites);
     }
     changed |= realm.home.countryside.games.merge(&country_games);
     let (country_changed, mut country_news) =
@@ -635,6 +655,12 @@ pub fn settle(
         game::raisings::settle(&mut realm.home.raised, realm.treasury, &transfer.raise_orders);
     changed |= raised_changed;
     country_news.extend(raised_news);
+    // Bomrekedan's works ride the same orders (`bom:` plans), paid here only.
+    let (works_changed, works_news) = game::world::bomrekedan::works::settle(
+        &mut realm.home.bomrekedan, realm.treasury, &transfer.raise_orders,
+    );
+    changed |= works_changed;
+    country_news.extend(works_news);
     let mut said: Vec<(String, String)> = country_news
         .into_iter()
         .map(|line| ("country".into(), line))
@@ -1146,6 +1172,8 @@ impl HomeResult {
     }
     pub fn valid_for(&self, transfer: &HomeTransfer) -> bool {
         transfer.valid()
+            && self.home.industry.valid(crate::kingdom::catalog())
+            && self.home.kingdom_gear.valid()
             && self.reclaimed.len() <= 64
             && self.reclaimed.keys().all(|key| key.len() <= 1024)
             && self.sales.len() <= 3
@@ -1211,6 +1239,8 @@ impl HomeResult {
         if run.home.privy_wall != transfer.view.privy_wall {
             home.privy_wall = run.home.privy_wall.clone();
         }
+        if run.home.industry.rev > home.industry.rev { home.industry = run.home.industry.clone(); }
+        if run.home.kingdom_gear.rev > home.kingdom_gear.rev { home.kingdom_gear = run.home.kingdom_gear.clone(); }
         if run.home.salvage.rev > home.salvage.rev {
             home.salvage = run.home.salvage.clone();
         }
@@ -1222,6 +1252,9 @@ impl HomeResult {
         }
         if run.home.deep != transfer.view.deep {
             home.deep = run.home.deep.clone();
+        }
+        if run.home.rites != transfer.view.rites {
+            home.rites.merge(&run.home.rites);
         }
         home.countryside.games.merge(&run.home.countryside.games);
         if transfer.company_reserved {

@@ -243,9 +243,9 @@ struct Shared {
     serve_stats: Mutex<Vec<String>>,
     /// Published ticks, counted, for the service to wake on.
     published: (Mutex<u64>, Condvar),
-    /// The hosted session's door and join key, for the checkpoint to
-    /// record (`Sim::host`): a restart opens the same link again.
-    invitation: Mutex<Option<(String, String)>>,
+    /// The door the run is behind, for the checkpoint to record
+    /// (`Sim::host`): a restart opens the same link again.
+    doorway: Mutex<Doorway>,
     stop: AtomicBool,
     /// A friend holds knight 1's seat: the host only watches, behind a door
     /// opened for that (`Sim::host_as`). Said by the server each tick.
@@ -256,6 +256,15 @@ struct Shared {
     tune: Mutex<Tune>,
     live_tune: Mutex<LiveTune>,
     tune_file: Mutex<Option<PathBuf>>,
+}
+
+/// The lock if it is free now (a poisoned one is taken as `lock` takes it).
+fn try_lock<T>(mutex: &Mutex<T>) -> Option<MutexGuard<'_, T>> {
+    match mutex.try_lock() {
+        Ok(guard) => Some(guard),
+        Err(std::sync::TryLockError::Poisoned(poisoned)) => Some(poisoned.into_inner()),
+        Err(std::sync::TryLockError::WouldBlock) => None,
+    }
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -319,11 +328,12 @@ fn step_system(core: &mut Core, inputs: &BTreeMap<u32, Input>, step: bool) {
     };
     let result = (|| {
         use angel_delve::rules::{phrasebook, runtime_state};
-        let state = runtime_state::capture_for_rules(&core.run)?.into_value();
+        let state = runtime_state::capture_for_step(&core.run)?.into_value();
         let event = serde_json::json!({"inputs":inputs, "settings":angel_delve::settings::get(), "phrasebook":phrasebook::snapshot(), "step":step});
         let validated = std::cell::RefCell::new(None);
-        engine.apply(state, event, |state| {
-            let run = runtime_state::restore_value(state)?;
+        engine.apply_discarding(state, event, |state| {
+            let mut run = runtime_state::restore_value(state)?;
+            runtime_state::lay_book_art(&mut run, &core.run);
             if !run.module_visuals.is_empty() || run.players.values().any(|hero| hero.avatar.is_some()) {
                 return Err("rules worker returned host-owned appearance data".into());
             }
@@ -388,7 +398,7 @@ impl Shared {
             timings: TickLog::wanted().then(|| Mutex::new(Vec::new())),
             serve_stats: Mutex::new(Vec::new()),
             published: (Mutex::new(0), Condvar::new()),
-            invitation: Mutex::new(None),
+            doorway: Mutex::new(Doorway::Solo),
             stop: AtomicBool::new(false),
             first_is_friends: AtomicBool::new(false),
             tune: Mutex::new(Tune::default()),
@@ -456,6 +466,9 @@ pub struct DelveServer {
     /// host busy settling the realm the first time still takes the party
     /// home.
     again_for: Option<(u64, u32)>,
+    /// The garage's ledger (`.angel/dungeon/garage.json`) as the race gate reads and writes it:
+    /// each knight's career and time-trial ghosts, opened the first time a race is on.
+    racers: Option<angel_delve::garage::Bank>,
 }
 
 /// Ticks between telling the host again that the party is due home.
@@ -490,6 +503,22 @@ impl DelveServer {
             arrival: None,
             unseated: BTreeMap::new(),
             again_for: None,
+            racers: None,
+        }
+    }
+
+    /// Between ticks of a race at the gate: the garage's bank sits knights down with their
+    /// careers, writes what a race won or a part cost, and lays the time-trial ghost on the road.
+    /// With no workspace folder (a test, a bare host) the careers stay in the race.
+    fn pump_racers(&mut self, run: &mut Run) {
+        let Some(race) = run.knight_racers.as_mut() else { return };
+        if self.racers.is_none() {
+            let dungeon = lock(&self.shared.tune_file).as_deref().and_then(|t| t.parent()).map(|p| p.to_path_buf());
+            let Some(dungeon) = dungeon else { return };
+            self.racers = Some(angel_delve::garage::Bank::open(angel_delve::garage::Store::in_dungeon(&dungeon)));
+        }
+        if let Some(bank) = self.racers.as_mut() {
+            bank.pump(race);
         }
     }
 
@@ -803,6 +832,7 @@ impl GameServer for DelveServer {
             }
             step_system(&mut core, &inputs, false);
         }
+        self.pump_racers(&mut core.run);
         for voice in core.abilities.media.take() {
             send(events, &wire::Event::Sound {hear:wire::Hear::Party,name:voice.name()});
             events.lease_last(Arc::clone(&voice.sound.file));
@@ -934,7 +964,7 @@ impl Service {
             // Take the snapshot *after* acquiring the fence. A snapshot
             // taken while settlement had drained its marks is not a save.
             let _checkpoint = lock(&shared.checkpoint);
-            let snapshot = shared.fresh();
+            let _snapshot = shared.fresh();
             self.last_saved = Some(now);
             if let Err(error) = write_shared_checkpoint(path, *raid_serial, shared) {
                 tracing::warn!(%error, "could not save the delve");
@@ -1047,6 +1077,10 @@ struct Saving<'a> {
     brew_outbox: Option<&'a Vec<shooter::cauldron::Brewing>>,
     /// The hosted session's door and join key.
     invitation: Option<(String, String)>,
+    /// The host plays no knight (`/dungeon host --watch`): a restart opens
+    /// the door the same way. Absent for a host that plays its own.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    watch: bool,
     // Historical field name: also carries the pending Squires' Yard debit.
     country_intents: BTreeMap<String, u32>,
     /// Ordinary Run saves omit transient triumphs. An unclaimed later victory
@@ -1059,6 +1093,7 @@ fn encode_checkpoint(
     raid_serial: u64,
     run: &Run,
     invitation: Option<(String, String)>,
+    watch: bool,
     commands: Option<&angel_delve::rules::host_commands::Journal>,
 ) -> Result<Vec<u8>, String> {
     if let Some(commands) = commands {
@@ -1080,6 +1115,7 @@ fn encode_checkpoint(
         raid_serial,
         run,
         invitation,
+        watch,
         commands,
         home_outbox: commands
             .map(|_| angel_delve::rules::home_settlement::HomeOutbox::capture(run))
@@ -1113,18 +1149,202 @@ fn persist_checkpoint(
     // exactly. This payload contains no harness conversation or credentials.
     angel_live::host::workspace_store::write_private_atomic_exact(path, &bytes)
 }
+use angel_delve::rules::home_settlement as home_claims;
+use angel_delve::rules::host_commands::RealmClaim;
+
+/// The game's shared state for the host's settlement, held off the
+/// cockpit's frame: claims, their results and checkpoints go through it
+/// while the server steps on its own threads.
+#[derive(Clone)]
+pub struct Link(Arc<Shared>);
+
+impl Link {
+    pub fn claim_realm(&self) -> Result<Option<RealmClaim>, String> {
+        claim_realm_on(&self.0)
+    }
+    pub fn acknowledge_realm(&self, claim: &RealmClaim) -> Result<(), String> {
+        acknowledge_realm_on(&self.0, claim)
+    }
+    pub fn sync_home(&self, home: angel_delve::rules::home::Home, treasury: angel_delve::realm::Spoils) -> Result<(), String> {
+        sync_home_on(&self.0, home, treasury)
+    }
+    pub fn claim_home_with_context(&self, context: &home_claims::HomeContext) -> Result<Option<home_claims::HomeClaim>, String> {
+        claim_home_on(&self.0, Some(context))
+    }
+    pub fn home_completion(&self, claim: &home_claims::HomeClaim) -> Result<Option<home_claims::HomeCompletion>, String> {
+        home_completion_on(&self.0, claim)
+    }
+    pub fn evaluate_home(&self, request: &home_claims::HomePolicyRequest) -> Result<home_claims::HomeResult, String> {
+        evaluate_home_on(&self.0, request)
+    }
+    pub fn complete_home(&self, claim: &home_claims::HomeClaim, result: home_claims::HomeResult) -> Result<(), String> {
+        complete_home_on(&self.0, claim, result)
+    }
+    pub fn acknowledge_home(&self, claim: &home_claims::HomeClaim, completed: &home_claims::HomeCompletion) -> Result<(), String> {
+        acknowledge_home_on(&self.0, claim, completed)
+    }
+    pub fn home_facts_pending(&self) -> bool {
+        home_facts_on(&self.0)
+    }
+    pub fn acknowledge_brew(
+        &self,
+        claim: &angel_delve::rules::brew_jobs::Claim,
+        done: &angel_delve::rules::brew_jobs::Completion,
+    ) -> Result<(), String> {
+        let mut core = lock(&self.0.core);
+        core.commands.acknowledge_brew(claim, done)?;
+        core.edited = true;
+        Ok(())
+    }
+    pub fn acknowledge_reforge(
+        &self,
+        claim: &angel_delve::rules::reforge_jobs::Claim,
+        done: &angel_delve::rules::reforge_jobs::Completion,
+    ) -> Result<(), String> {
+        let mut core = lock(&self.0.core);
+        core.commands.acknowledge_reforge(claim, done)?;
+        core.edited = true;
+        Ok(())
+    }
+    pub fn acknowledge_wish(
+        &self,
+        claim: &angel_delve::rules::wish_jobs::Claim,
+        done: &angel_delve::rules::wish_jobs::Completion,
+    ) -> Result<(), String> {
+        let mut core = lock(&self.0.core);
+        core.commands.acknowledge_wish(claim, done)?;
+        core.edited = true;
+        Ok(())
+    }
+    /// A checkpoint, serialized with the service's own under the same gate.
+    pub fn checkpoint(&self, path: &Path, raid_serial: u64) -> Result<(), String> {
+        let _gate = lock(&self.0.checkpoint);
+        write_shared_checkpoint(path, raid_serial, &self.0)
+    }
+}
+
+fn evaluate_home_on(shared: &Shared, request: &home_claims::HomePolicyRequest) -> Result<home_claims::HomeResult, String> {
+    use home_claims::{HomeResult, POLICY_API, POLICY_CONTRACT};
+    request.validate()?;
+    let mut core = lock(&shared.core);
+    let Some(engine) = core.engine.as_mut() else {
+        return request.evaluate();
+    };
+
+        let validated = std::cell::RefCell::new(None);
+        engine.compute(
+            POLICY_CONTRACT,
+            POLICY_API,
+            serde_json::to_value(request).map_err(|e| e.to_string())?,
+            |value| {
+                let result = <HomeResult as serde::Deserialize>::deserialize(value)
+                    .map_err(|e| e.to_string())?;
+                request.validate_result(&result)?;
+                validated.replace(Some(result));
+                Ok(())
+            },
+        )?;
+        validated
+            .into_inner()
+            .ok_or("home policy reply was not validated".into())
+}
+
+/// Whether the run holds facts a home claim carries: orders, sales, deeds,
+/// marks. With none, a claim can only re-read what the home already holds.
+fn home_facts_on(shared: &Shared) -> bool {
+    let core = lock(&shared.core);
+    let run = &core.run;
+    !(run.orders.is_empty()
+        && run.lane_squire_orders.is_empty()
+        && run.raise_orders.is_empty()
+        && run.peddled.is_empty()
+        && run.feats.is_empty()
+        && run.marks.is_empty())
+}
+
+fn claim_realm_on(shared: &Shared) -> Result<Option<RealmClaim>, String> {
+    let mut core = lock(&shared.core);
+    let Core { run, commands, edited, .. } = &mut *core;
+    let had_pending = commands.has_pending_realm();
+    let claim = commands.claim_realm(run)?;
+    *edited |= !had_pending && claim.is_some();
+    Ok(claim)
+}
+
+fn acknowledge_realm_on(shared: &Shared, claim: &RealmClaim) -> Result<(), String> {
+    let mut core = lock(&shared.core);
+    core.commands.acknowledge_realm(claim)?;
+    core.edited = true;
+    Ok(())
+}
+
+fn claim_home_on(shared: &Shared, context: Option<&home_claims::HomeContext>) -> Result<Option<home_claims::HomeClaim>, String> {
+    let mut core = lock(&shared.core);
+    let Core { run, commands, edited, .. } = &mut *core;
+    let had_pending = commands.has_pending_home();
+    let claim = match context {
+        Some(context) => commands.claim_home_with_context(run, context)?,
+        None => commands.claim_home(run)?,
+    };
+    *edited |= !had_pending && claim.is_some();
+    Ok(claim)
+}
+
+fn home_completion_on(shared: &Shared, claim: &home_claims::HomeClaim) -> Result<Option<home_claims::HomeCompletion>, String> {
+    lock(&shared.core).commands.home_completion(claim)
+}
+
+fn complete_home_on(shared: &Shared, claim: &home_claims::HomeClaim, result: home_claims::HomeResult) -> Result<(), String> {
+    let mut core = lock(&shared.core);
+    let Core { run, commands, edited, .. } = &mut *core;
+    commands.complete_home(run, claim, result)?;
+    *edited = true;
+    Ok(())
+}
+
+fn acknowledge_home_on(shared: &Shared, claim: &home_claims::HomeClaim, completed: &home_claims::HomeCompletion) -> Result<(), String> {
+    let mut core = lock(&shared.core);
+    core.commands.acknowledge_home(claim, completed)?;
+    core.edited = true;
+    Ok(())
+}
+
+fn sync_home_on(shared: &Shared, home: angel_delve::rules::home::Home, treasury: angel_delve::realm::Spoils) -> Result<(), String> {
+    let mut core = lock(&shared.core);
+    let Core { run, commands, edited, .. } = &mut *core;
+    *edited |= commands.sync_home(run, home, treasury)?;
+    Ok(())
+}
+
 fn write_shared_checkpoint(path: &Path, raid_serial: u64, shared: &Shared) -> Result<(), String> {
-    persist_checkpoint(path, || {
-        let (run, invitation, commands) = {
+    let t0 = Instant::now();
+    let inner = std::cell::Cell::new((0.0f64, 0.0f64, 0.0f64));
+    let out = persist_checkpoint(path, || {
+        let a = Instant::now();
+        let (run, doorway, commands) = {
             let core = lock(&shared.core);
-            (
+            let b = Instant::now();
+            let got = (
                 core.run.clone(),
-                lock(&shared.invitation).clone(),
+                lock(&shared.doorway).clone(),
                 core.commands.clone(),
-            )
+            );
+            inner.set(((b - a).as_secs_f64() * 1e3, b.elapsed().as_secs_f64() * 1e3, 0.0));
+            got
         };
-        encode_checkpoint(raid_serial, &run, invitation, Some(&commands))
-    })
+        let c = Instant::now();
+        let (invitation, watch) = doorway.saved();
+        let encoded = encode_checkpoint(raid_serial, &run, invitation, watch, Some(&commands));
+        let (l, k, _) = inner.get();
+        inner.set((l, k, c.elapsed().as_secs_f64() * 1e3));
+        encoded
+    });
+    let (l, k, e) = inner.get();
+    let total = t0.elapsed().as_secs_f64() * 1e3;
+    if crate::stress_log() {
+        eprintln!("stress-ckpt: core-lock-wait {l:.1} clone {k:.1} encode {e:.1} write+sync {:.1} total {total:.1} ms", total - l - k - e);
+    }
+    out
 }
 /// Legacy checkpoint fixture, also proving schema-1 restore compatibility.
 #[cfg(any(test, feature = "testing"))]
@@ -1135,7 +1355,7 @@ pub fn write_checkpoint(
     invitation: Option<(String, String)>,
 ) -> Result<(), String> {
     persist_checkpoint(path, || {
-        encode_checkpoint(raid_serial, run, invitation, None)
+        encode_checkpoint(raid_serial, run, invitation, false, None)
     })
 }
 /// Whether the run holds something the cockpit's realm takes in: spoils
@@ -1184,6 +1404,63 @@ impl Door {
     }
 }
 
+/// Which door the run is behind, as a checkpoint records it: one value under
+/// one lock, so a save never reads a link without the watch it was opened
+/// with. `Sim::host_prepared` opens it, `Sim::unhost` closes it, and a
+/// restore that cannot open its saved link again keeps it (`Kept`).
+#[derive(Clone, Default, PartialEq, Eq)]
+pub enum Doorway {
+    /// Loopback only: nobody has a link, and nothing is saved.
+    #[default]
+    Solo,
+    /// Open to friends at `addr` behind the join key `key`. `watch`: the
+    /// host plays no knight (`Hosting::watch`).
+    Hosted { addr: String, key: String, watch: bool },
+    /// A link a saved session had that could not be opened again (its
+    /// address is gone, its port busy). Nothing listens, but the next
+    /// checkpoint writes it back as it was, so a later start can open it:
+    /// a failed re-bind must never cost the friends their link.
+    Kept { addr: String, key: String, watch: bool },
+}
+
+/// The join key lets anyone into the run: it never reaches a log or a failed
+/// assertion through `{:?}`.
+impl std::fmt::Debug for Doorway {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let (name, addr, watch) = match self {
+            Doorway::Solo => return f.write_str("Solo"),
+            Doorway::Hosted { addr, watch, .. } => ("Hosted", addr, watch),
+            Doorway::Kept { addr, watch, .. } => ("Kept", addr, watch),
+        };
+        f.debug_struct(name)
+            .field("addr", addr)
+            .field("key", &"<withheld>")
+            .field("watch", watch)
+            .finish()
+    }
+}
+
+impl Doorway {
+    /// What a checkpoint records: the door's link, open or kept, and
+    /// whether its host watches.
+    fn saved(self) -> (Option<(String, String)>, bool) {
+        match self {
+            Doorway::Solo => (None, false),
+            Doorway::Hosted { addr, key, watch } | Doorway::Kept { addr, key, watch } => {
+                (Some((addr, key)), watch)
+            }
+        }
+    }
+
+    /// The server behind it stopped: an open door is shut. A kept link was
+    /// never open, and stays on record.
+    fn shut(&mut self) {
+        if matches!(self, Doorway::Hosted { .. }) {
+            *self = Doorway::Solo;
+        }
+    }
+}
+
 /// The HD art pack the pages are served at `/hd/` (docs/LADDER.md, "The
 /// browser"), behind `ANGEL_DELVE_HD_WEB=1`: the window's own pack
 /// (`ANGEL_GLASS_ART`, else `~/.angelX/art/delve`), for a page opened with
@@ -1209,6 +1486,8 @@ struct Running {
     server: Server,
     manual: Option<Manual<DelveServer>>,
     hosted: bool,
+    /// The host plays no knight (read only when `hosted`).
+    watch: bool,
     /// The server's counts at the last `serve` line, while the frame-timing
     /// log is on.
     counted: Option<(Instant, angel_serve::Totals)>,
@@ -1284,10 +1563,19 @@ impl Live {
         hosted: bool,
         watch: bool,
     ) -> Result<(), String> {
+        self.serve_prepared(shared, thread, door, hosted, watch, None)
+    }
+
+    fn serve_prepared(
+        &mut self, shared: Arc<Shared>, thread: bool, door: Door,
+        hosted: bool, watch: bool,
+        assets: Option<angel_serve::http::PreparedAssets>,
+    ) -> Result<(), String> {
         shared.stop.store(false, Ordering::Relaxed);
         shared.first_is_friends.store(false, Ordering::Relaxed);
         let game = DelveServer::new(Arc::clone(&shared), door.seats, watch);
         let mut config = door.config();
+        config.prepared_assets = assets;
         config.live_assets = lock(&shared.core).abilities.media.files.clone();
         config.tune_file = lock(&shared.tune_file).clone();
         // The workspace's paintings, beside its knobs (`.angel/dungeon/`),
@@ -1351,6 +1639,7 @@ impl Live {
             server,
             manual,
             hosted,
+            watch,
             counted,
         });
         Ok(())
@@ -1410,11 +1699,18 @@ pub struct Sim {
 
 /// All appearance resources were decoded before selection; installation only
 /// changes native presentation and preserves each hero's gameplay state.
-fn install_appearances(run: &mut Run, resources: &[angel_live::kernel::Resource]) -> bool {
+fn install_appearances(
+    run: &mut Run,
+    abilities: &mut crate::together_abilities::Runtime,
+    resources: &[angel_live::kernel::Resource],
+) -> bool {
     let mut changed = false;
     for resource in resources {
         if let Some(appearance) = resource.binding::<crate::together_appearance::Appearance>() {
-            changed |= appearance.install(run);
+            if appearance.install(run) {
+                abilities.retire_motion(appearance.player);
+                changed = true;
+            }
         }
     }
     changed
@@ -1456,29 +1752,8 @@ impl Sim {
         &mut self,
         request: &angel_delve::rules::home_settlement::HomePolicyRequest,
     ) -> Result<angel_delve::rules::home_settlement::HomeResult, String> {
-        use angel_delve::rules::home_settlement::{HomeResult, POLICY_CONTRACT, POLICY_API};
-        request.validate()?;
         let live = self.live.as_mut().ok_or("no active game session")?;
-        let mut core = lock(&live.shared().core);
-        let Some(engine) = core.engine.as_mut() else {
-            return request.evaluate();
-        };
-        let validated = std::cell::RefCell::new(None);
-        engine.compute(
-            POLICY_CONTRACT,
-            POLICY_API,
-            serde_json::to_value(request).map_err(|e| e.to_string())?,
-            |value| {
-                let result = <HomeResult as serde::Deserialize>::deserialize(value)
-                    .map_err(|e| e.to_string())?;
-                request.validate_result(&result)?;
-                validated.replace(Some(result));
-                Ok(())
-            },
-        )?;
-        validated
-            .into_inner()
-            .ok_or("home policy reply was not validated".into())
+        evaluate_home_on(live.shared(), request)
     }
 
     pub fn command(
@@ -1513,6 +1788,7 @@ impl Sim {
             commands,
             edited,
             engine,
+            abilities,
             ..
         } = &mut *core;
         let request = angel_delve::rules::host_commands::Request {
@@ -1527,6 +1803,7 @@ impl Sim {
         if receipt.result.is_ok() {
             for (player, avatar) in avatars {
                 if let Some(hero) = run.players.get_mut(&player) {
+                    abilities.retire_motion(player);
                     hero.avatar = avatar;
                 }
             }
@@ -1562,27 +1839,14 @@ impl Sim {
             return Ok(None);
         };
         live.view.take();
-        let mut core = lock(&live.shared().core);
-        let Core {
-            run,
-            commands,
-            edited,
-            ..
-        } = &mut *core;
-        let had_pending = commands.has_pending_home();
-        let claim = match context {
-            Some(context) => commands.claim_home_with_context(run, context)?,
-            None => commands.claim_home(run)?,
-        };
-        *edited |= !had_pending && claim.is_some();
-        Ok(claim)
+        claim_home_on(live.shared(), context)
     }
     pub fn home_completion(
         &self,
         claim: &angel_delve::rules::home_settlement::HomeClaim,
     ) -> Result<Option<angel_delve::rules::home_settlement::HomeCompletion>, String> {
         let live = self.live.as_ref().ok_or("no active game session")?;
-        lock(&live.shared().core).commands.home_completion(claim)
+        home_completion_on(live.shared(), claim)
     }
     pub fn complete_home(
         &mut self,
@@ -1591,16 +1855,7 @@ impl Sim {
     ) -> Result<(), String> {
         let live = self.live.as_mut().ok_or("no active game session")?;
         live.view.take();
-        let mut core = lock(&live.shared().core);
-        let Core {
-            run,
-            commands,
-            edited,
-            ..
-        } = &mut *core;
-        commands.complete_home(run, claim, result)?;
-        *edited = true;
-        Ok(())
+        complete_home_on(live.shared(), claim, result)
     }
     pub fn acknowledge_home(
         &mut self,
@@ -1608,10 +1863,7 @@ impl Sim {
         completed: &angel_delve::rules::home_settlement::HomeCompletion,
     ) -> Result<(), String> {
         let live = self.live.as_mut().ok_or("no active game session")?;
-        let mut core = lock(&live.shared().core);
-        core.commands.acknowledge_home(claim, completed)?;
-        core.edited = true;
-        Ok(())
+        acknowledge_home_on(live.shared(), claim, completed)
     }
     pub fn sync_home(
         &mut self,
@@ -1622,15 +1874,7 @@ impl Sim {
             return Ok(());
         };
         live.view.take();
-        let mut core = lock(&live.shared().core);
-        let Core {
-            run,
-            commands,
-            edited,
-            ..
-        } = &mut *core;
-        *edited |= commands.sync_home(run, home, treasury)?;
-        Ok(())
+        sync_home_on(live.shared(), home, treasury)
     }
 
     pub fn claim_realm(
@@ -1640,18 +1884,7 @@ impl Sim {
             return Ok(None);
         };
         live.view.take();
-        let shared = live.shared();
-        let mut core = lock(&shared.core);
-        let Core {
-            run,
-            commands,
-            edited,
-            ..
-        } = &mut *core;
-        let had_pending = commands.has_pending_realm();
-        let claim = commands.claim_realm(run)?;
-        *edited |= !had_pending && claim.is_some();
-        Ok(claim)
+        claim_realm_on(live.shared())
     }
     pub fn prepare_votes(
         &mut self,
@@ -1701,10 +1934,7 @@ impl Sim {
     ) -> Result<(), String> {
         let live = self.live.as_mut().ok_or("no active game session")?;
         live.view.take();
-        let mut core = lock(&live.shared().core);
-        core.commands.acknowledge_realm(claim)?;
-        core.edited = true;
-        Ok(())
+        acknowledge_realm_on(live.shared(), claim)
     }
     pub fn save_checkpoint(&self, path: &Path, raid_serial: u64) -> Result<(), String> {
         let Some(live) = &self.live else {
@@ -1723,12 +1953,38 @@ impl Sim {
         };
         live.view.take();
         let mut core = lock(&live.shared().core);
-        let Some(hero) = core.run.players.get_mut(&player) else {
+        let Core { run, abilities, .. } = &mut *core;
+        let Some(hero) = run.players.get_mut(&player) else {
             return false;
         };
+        abilities.retire_motion(player);
         hero.avatar = avatar;
         core.edited = true;
         true
+    }
+    /// The live voices for a frame's sounds, under one lock of the game.
+    pub fn live_voices(&self, names: &[String]) -> Vec<Option<crate::together_media::Voice>> {
+        let Some(live) = self.live.as_ref() else {
+            return names.iter().map(|_| None).collect();
+        };
+        let mut core = lock(&live.shared().core);
+        names.iter().map(|name| core.abilities.media.voice(name)).collect()
+    }
+    /// The wish session, without waiting: `None` while the game's lock is
+    /// held (the caller keeps what it last knew), `Some(None)` with no game.
+    pub fn try_wish_session(&self) -> Option<Option<String>> {
+        let Some(live) = self.live.as_ref() else {
+            return Some(None);
+        };
+        let core = try_lock(&live.shared().core)?;
+        Some(Some(core.commands.session().to_owned()))
+    }
+    /// Whether the playtest votes are ready, without waiting: `None` while
+    /// the game's lock is held.
+    pub fn try_playtest_votes_ready(&self) -> Option<bool> {
+        let Some(live) = self.live.as_ref() else { return Some(false); };
+        let core = try_lock(&live.shared().core)?;
+        Some(core.commands.votes_ready(&core.run))
     }
     pub fn live_voice(&self, name: &str) -> Option<crate::together_media::Voice> {
         let shared = self.live.as_ref()?.shared();
@@ -1846,7 +2102,7 @@ impl Sim {
             });
             let Core { run, abilities, .. } = &mut *core;
             abilities.set_sources(self.live_abilities.clone(), run);
-            install_appearances(run, &self.live_appearances);
+            install_appearances(run, abilities, &self.live_appearances);
             core.edited = true;
             shared.outbox.store(true, Ordering::Relaxed);
             return;
@@ -1861,7 +2117,7 @@ impl Sim {
             let mut core = lock(&shared.core);
             let Core { run, abilities, .. } = &mut *core;
             abilities.set_sources(self.live_abilities.clone(), run);
-            install_appearances(run, &self.live_appearances);
+            install_appearances(run, abilities, &self.live_appearances);
             core.edited = true;
         }
     }
@@ -1873,8 +2129,7 @@ impl Sim {
         sources: impl Iterator<Item = &'a angel_live::kernel::Resource> + Clone,
     ) {
         let abilities = sources.clone().filter(|source| {
-            source.contract == crate::together_abilities::CONTRACT
-                || source.contract == crate::together_loadouts::CONTRACT
+            source.binding::<crate::together_abilities::Loadout>().is_some()
         });
         let abilities_changed = !self.live_abilities.iter().eq(abilities.clone());
         if abilities_changed {
@@ -1897,7 +2152,8 @@ impl Sim {
             if abilities_changed {
                 abilities.set_sources(self.live_abilities.clone(), run);
             }
-            let changed = install_appearances(run, &self.live_appearances) | abilities_changed;
+            let changed =
+                install_appearances(run, abilities, &self.live_appearances) | abilities_changed;
             core.edited |= changed;
             changed
         };
@@ -1945,6 +2201,20 @@ impl Sim {
 
     /// The caller may hold this independent fence across realm IO without
     /// borrowing Sim or stopping its ticks. Acquire it before taking Core.
+    /// Whether the run holds facts for a home claim (`home_facts_on`).
+    pub fn home_facts_pending(&self) -> bool {
+        self.live.as_ref().is_some_and(|live| home_facts_on(live.shared()))
+    }
+
+    /// The game's shared state for host work off the cockpit's frame, while
+    /// the server steps on its own threads.
+    pub fn link(&self) -> Option<Link> {
+        if !self.threaded() {
+            return None;
+        }
+        self.live.as_ref().map(|live| Link(Arc::clone(live.shared())))
+    }
+
     pub fn checkpoint_gate(&self) -> Option<Arc<Mutex<()>>> {
         self.live.as_ref().map(|live| Arc::clone(&live.shared().checkpoint))
     }
@@ -2020,9 +2290,16 @@ impl Sim {
     /// the run (the host's knight as stone, a couch partner, a wish being
     /// forged) is seen by the next read, as an edit's is.
     pub fn set_controls(&mut self, controls: Controls) {
+        let threaded = self.threaded();
         let Some(live) = self.live.as_mut() else {
             return;
         };
+        // On its own threads the server applies them at its next step: the
+        // host's frame never waits on the game's lock for its own controls.
+        if threaded {
+            *lock(&live.shared().controls) = controls;
+            return;
+        }
         let shared = live.shared();
         let mut core = lock(&shared.core);
         if apply_controls(&mut core.run, &controls, shared.first_is_friends.load(Ordering::Relaxed)) {
@@ -2156,6 +2433,11 @@ impl Sim {
     /// `host`, for a host who plays no knight when `watch`: its own seat
     /// only watches, and every seat behind the door is a friend's.
     pub fn host_as(&mut self, door: Door, watch: bool) -> Result<(), String> {
+        self.host_prepared(door, watch, None)
+    }
+
+    /// The browser generation loads independently of native session activation.
+    pub fn host_prepared(&mut self, door: Door, watch: bool, assets: Option<angel_serve::http::PreparedAssets>) -> Result<(), String> {
         let thread = self.thread.unwrap_or_else(threaded);
         let Some(live) = self.live.as_mut() else {
             return Err("no delve is running".into());
@@ -2169,8 +2451,9 @@ impl Sim {
         let door = Door { bind, ..door };
         let shared = live.stop();
         live.view.take();
-        if let Err(error) = live.serve(Arc::clone(&shared), thread, door, true, watch) {
+        if let Err(error) = live.serve_prepared(Arc::clone(&shared), thread, door, true, watch, assets) {
             // The run goes back to a solo door rather than standing still.
+            lock(&shared.doorway).shut();
             if let Err(again) = live.serve(shared, thread, Door::solo(), false, false) {
                 tracing::warn!(error = %again, "the delve's server did not start again");
             }
@@ -2190,7 +2473,7 @@ impl Sim {
         };
         let shared = live.stop();
         live.view.take();
-        *lock(&shared.invitation) = None;
+        *lock(&shared.doorway) = Doorway::Solo;
         live.serve(shared, thread, Door::solo(), false, false)
     }
 
@@ -2199,16 +2482,50 @@ impl Sim {
         let Some(live) = &self.live else {
             return;
         };
-        if live.running.as_ref().is_some_and(|r| r.hosted)
-            && let Some(server) = self.server()
-        {
-            *lock(&live.shared().invitation) = Some((server.addr().to_string(), server.key()));
+        if let Some(running) = live.running.as_ref().filter(|r| r.hosted) {
+            *lock(&live.shared().doorway) = Doorway::Hosted {
+                addr: running.server.addr().to_string(),
+                key: running.server.key(),
+                watch: running.watch,
+            };
         }
     }
 
-    /// The hosted session's door and join key, as the checkpoint records them.
+    /// A saved session's link, which is about to be opened again
+    /// (`host_prepared`): on record until it is, so that a door that cannot
+    /// be bound leaves the next checkpoint writing the link it read. A door
+    /// that is open stays as it is.
+    pub fn keep_door(&self, addr: String, key: String, watch: bool) {
+        let Some(live) = &self.live else {
+            return;
+        };
+        let mut doorway = lock(&live.shared().doorway);
+        if *doorway == Doorway::Solo {
+            *doorway = Doorway::Kept { addr, key, watch };
+        }
+    }
+
+    pub fn browser_failure(&self) -> Option<String> { self.server()?.browser_failure() }
+    pub fn take_browser_failure(&self) -> Option<String> { self.server()?.take_browser_failure() }
+    pub fn retry_browser(&self, generation: angel_serve::http::PreparedAssets) -> Result<(), String> {
+        self.server().ok_or("no hosted server")?.retry_browser(generation).map_err(|e| e.to_string())
+    }
+
+    /// The door the run is behind, as the checkpoint records it.
+    pub fn doorway(&self) -> Doorway {
+        self.live
+            .as_ref()
+            .map(|live| lock(&live.shared().doorway).clone())
+            .unwrap_or_default()
+    }
+
+    /// The open door's address and join key: none while solo, or while a
+    /// saved link is only kept.
     pub fn invitation(&self) -> Option<(String, String)> {
-        lock(&self.live.as_ref()?.shared().invitation).clone()
+        match self.doorway() {
+            Doorway::Hosted { addr, key, .. } => Some((addr, key)),
+            Doorway::Solo | Doorway::Kept { .. } => None,
+        }
     }
 
     #[cfg(any(test, feature = "testing"))]
@@ -2229,6 +2546,10 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/together_sim__bench.rs"]
 mod bench;
+
+#[cfg(test)]
+#[path = "../tests/together_sim__optimize_bench.rs"]
+mod optimize_bench;
 
 #[cfg(test)]
 #[path = "../tests/together_sim__presence.rs"]

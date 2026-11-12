@@ -5,9 +5,13 @@ pub mod bj;
 mod bundle;
 mod contracts;
 pub mod delta;
+pub mod game;
 pub mod host;
 pub mod kernel;
 mod outcome;
+pub mod policy;
+mod policy_control;
+pub use policy_control::{PolicyControl, PolicyControlAction};
 pub mod realm;
 #[cfg(feature = "v8")]
 pub mod shipped;
@@ -22,7 +26,7 @@ pub use outcome::{Board, Outcome, WINDOW};
 use bundle::Bundle;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock, mpsc};
 use std::time::{Duration, Instant};
@@ -95,6 +99,10 @@ pub const CALL_MARKER: &str = "/*angel:call:";
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Snapshot {
+    pub withdrawal: Option<kernel::WithdrawalStatus>,
+    pub withdrawal_jobs: Vec<kernel::Job>,
+    pub disabled_modules: BTreeSet<String>,
+    pub policy_control: Option<PolicyControl>,
     pub resources: BTreeMap<String, kernel::Resource>,
     pub assets: BTreeMap<String, Arc<Asset>>,
     pub revision: u64,
@@ -147,8 +155,195 @@ impl Snapshot {
         for status in &self.statuses {
             lines.push(status.line(None));
         }
+        lines.push(
+            "withdrawal controls: system drains or immediate policy overrides; no mixed batches; disable intent is process-local; policy fallback remains".into(),
+        );
+        if let Some(status) = &self.withdrawal {
+            lines.push(withdrawal_text(status));
+        }
+        if !self.disabled_modules.is_empty() {
+            lines.push(format!(
+                "disabled modules: {}",
+                self.disabled_modules
+                    .iter()
+                    .cloned()
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ));
+        }
+        if let Some(status) = &self.policy_control {
+            lines.push(format!("policy-control/1 {:?} published: {:?}; shipped/default fallback and pinned work remain", status.action, status.generations));
+        }
+        for job in &self.withdrawal_jobs {
+            lines.push(format!("withdrawal job: {job:?}"));
+        }
         lines.join("\n")
     }
+}
+
+/// Describe acceptance separately from publication; callers must bind the
+/// corresponding snapshot before displaying a terminal receipt.
+pub fn withdrawal_text(status: &kernel::WithdrawalStatus) -> String {
+    let phase = match status.phase {
+        kernel::WithdrawalPhase::Draining => {
+            if status.abort_requested {
+                "draining before abort"
+            } else {
+                "draining; withdrawal not yet published"
+            }
+        }
+        kernel::WithdrawalPhase::Published => "published",
+        kernel::WithdrawalPhase::Aborted => "aborted; final drained state restored",
+    };
+    let mut text = format!(
+        "withdrawal {}: {phase}; {} pending requests",
+        status.id, status.pending_requests
+    );
+    if let Some(error) = &status.error {
+        text.push_str(&format!("; {error}; retry or abort this operation"));
+    }
+    text
+}
+
+/// Partition changed modules by overlapping downstream rebind closures, not
+/// by shared upstream reads. Old AND proposed imports/routes participate so
+/// removing an edge or transferring a route cannot split an atomic handoff.
+fn system_transaction_groups(
+    candidates: &[(String, Arc<Bundle>)],
+    modules: &BTreeMap<String, Module>,
+) -> Vec<(Vec<(String, Arc<Bundle>)>, BTreeSet<String>, Vec<String>)> {
+    // Unsettled captures can only defer a selected ready group. With no
+    // ready root there is nothing to publish, so keep captures/cache intact
+    // and avoid rebuilding the accepted dependency/route graph on every poll.
+    if candidates.is_empty() {
+        return Vec::new();
+    }
+    let ready = candidates
+        .iter()
+        .map(|(id, _)| id.clone())
+        .collect::<BTreeSet<_>>();
+    let mut candidates = candidates.to_vec();
+    candidates.extend(
+        modules
+            .iter()
+            .filter(|(id, m)| !ready.contains(*id) && !m.settled)
+            .filter_map(|(id, m)| {
+                m.captured
+                    .as_ref()
+                    .filter(|b| {
+                        b.manifest.kind == "system"
+                            && m.active
+                                .as_ref()
+                                .is_none_or(|active| active.digest != b.digest)
+                    })
+                    .map(|b| (id.clone(), Arc::clone(b)))
+            }),
+    );
+    candidates.sort_by(|a, b| a.0.cmp(&b.0));
+    let manifests = modules
+        .values()
+        .filter_map(|m| m.active.as_ref())
+        .filter(|b| b.manifest.kind == "system")
+        .chain(candidates.iter().map(|(_, b)| b))
+        .map(|b| b.manifest.system_manifest())
+        .collect::<Vec<_>>();
+    let mut consumers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut providers: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+    let mut owners: BTreeMap<(kernel::Kind, String), BTreeSet<String>> = BTreeMap::new();
+    for manifest in &manifests {
+        for import in &manifest.imports {
+            consumers
+                .entry(import.module.clone())
+                .or_default()
+                .insert(manifest.id.clone());
+            providers
+                .entry(manifest.id.clone())
+                .or_default()
+                .insert(import.module.clone());
+        }
+        for export in &manifest.exports {
+            if export.kind != kernel::Kind::Resource {
+                owners
+                    .entry((export.kind.clone(), export.name.clone()))
+                    .or_default()
+                    .insert(manifest.id.clone());
+            }
+        }
+    }
+    fn closure(
+        mut ids: BTreeSet<String>,
+        edges: &BTreeMap<String, BTreeSet<String>>,
+    ) -> BTreeSet<String> {
+        let mut queue = ids.iter().cloned().collect::<Vec<_>>();
+        while let Some(id) = queue.pop() {
+            for next in edges.get(&id).into_iter().flatten() {
+                if ids.insert(next.clone()) {
+                    queue.push(next.clone());
+                }
+            }
+        }
+        ids
+    }
+    let impacts = candidates
+        .iter()
+        .map(|(id, _)| closure(BTreeSet::from([id.clone()]), &consumers))
+        .collect::<Vec<_>>();
+    let routes = impacts
+        .iter()
+        .map(|impact| {
+            owners
+                .iter()
+                .filter(|(_, ids)| !ids.is_disjoint(impact))
+                .map(|(route, _)| route.clone())
+                .collect::<BTreeSet<_>>()
+        })
+        .collect::<Vec<_>>();
+    let mut remaining = (0..candidates.len()).collect::<BTreeSet<_>>();
+    let mut groups = Vec::new();
+    while let Some(first) = remaining.pop_first() {
+        let mut members = BTreeSet::from([first]);
+        let mut queue = vec![first];
+        while let Some(i) = queue.pop() {
+            let joined = remaining
+                .iter()
+                .copied()
+                .filter(|j| {
+                    !impacts[i].is_disjoint(&impacts[*j]) || !routes[i].is_disjoint(&routes[*j])
+                })
+                .collect::<Vec<_>>();
+            for j in joined {
+                remaining.remove(&j);
+                members.insert(j);
+                queue.push(j);
+            }
+        }
+        let mut relevant = members
+            .iter()
+            .flat_map(|i| impacts[*i].iter().cloned())
+            .collect::<BTreeSet<_>>();
+        // Include unchanged route owners and upstream reads only in the cache
+        // fingerprint. They do not unnecessarily couple sibling consumers.
+        for i in &members {
+            for route in &routes[*i] {
+                relevant.extend(owners[route].iter().cloned());
+            }
+        }
+        relevant = closure(relevant, &providers);
+        let waiting = members
+            .iter()
+            .filter(|i| !ready.contains(&candidates[**i].0))
+            .map(|i| candidates[*i].0.clone())
+            .collect::<Vec<_>>();
+        let selected = members
+            .into_iter()
+            .filter(|i| ready.contains(&candidates[*i].0))
+            .map(|i| candidates[i].clone())
+            .collect::<Vec<_>>();
+        if !selected.is_empty() {
+            groups.push((selected, relevant, waiting));
+        }
+    }
+    groups
 }
 
 struct Module {
@@ -226,7 +421,11 @@ pub fn shipped_program(
     validator: Validator,
 ) -> Result<Program, String> {
     let bundle = Arc::new(Bundle::from_files(id, files)?);
-    let program = Program { bundle, evaluator, validator };
+    let program = Program {
+        bundle,
+        evaluator,
+        validator,
+    };
     program.render(&program.bundle.manifest.probe)?;
     Ok(program)
 }
@@ -263,9 +462,14 @@ pub struct Registry {
     error: Option<String>,
     binder: ResourceBinder,
     kernel: kernel::Kernel,
+    disabled_modules: BTreeSet<String>,
+    disabled_policies: BTreeSet<String>,
+    policy_control: Option<PolicyControl>,
+    withdrawal_modules: BTreeSet<String>,
+    withdrawal: Option<kernel::WithdrawalStatus>,
     work: std::collections::VecDeque<kernel::IssuedEffect>,
     completions: std::collections::VecDeque<(kernel::Job, Value)>,
-    failed_system_transaction: Option<Vec<(String, String, u64)>>,
+    failed_system_transactions: BTreeMap<Vec<String>, (Vec<(String, String, u64)>, String)>,
     scans: u64,
     /// Lets a module whose capture matched the disk skip the metadata
     /// comparison until something under it changes. Only the loader's worker
@@ -297,9 +501,14 @@ impl Registry {
             error: None,
             binder,
             kernel: Default::default(),
+            disabled_modules: Default::default(),
+            disabled_policies: Default::default(),
+            policy_control: None,
+            withdrawal_modules: Default::default(),
+            withdrawal: None,
             work: Default::default(),
             completions: Default::default(),
-            failed_system_transaction: None,
+            failed_system_transactions: BTreeMap::new(),
             scans: 0,
             watch: None,
         }
@@ -371,8 +580,22 @@ impl Registry {
         ids.extend(self.modules.keys().cloned());
         let mut systems = Vec::new();
         for id in ids {
+            // Explicit desired state is independent of source presence. Pinned
+            // source edits are transient and recaptured after the drain.
+            if self.kernel.generation_pinned(&id) {
+                if let Some(module) = self.modules.get_mut(&id) {
+                    module.settled = false;
+                    module.error = Some("handoff deferred until pending withdrawal settles".into());
+                }
+                continue;
+            }
+            if self.disabled_modules.contains(&id) {
+                continue;
+            }
             if !self.modules.contains_key(&id) && self.modules.len() >= MAX_MODULES {
-                self.error = Some(format!("at most {MAX_MODULES} retained live modules are supported"));
+                self.error = Some(format!(
+                    "at most {MAX_MODULES} retained live modules are supported"
+                ));
                 continue;
             }
             let module = self.modules.entry(id.clone()).or_default();
@@ -450,6 +673,10 @@ impl Registry {
                 module.error = None;
                 module.staged = None;
                 module.rejected = None;
+                // Returning to accepted bytes ends the failed-candidate
+                // lifecycle. Reintroducing bad bytes must restore diagnostics.
+                self.failed_system_transactions
+                    .retain(|key, _| !key.contains(&id));
                 continue;
             }
             if !force
@@ -486,7 +713,11 @@ impl Registry {
                 });
             match probe {
                 Ok(value) => {
-                    module.generation += 1;
+                    let Some(generation) = module.generation.checked_add(1) else {
+                        module.error = Some("module generation exhausted".into());
+                        continue;
+                    };
+                    module.generation = generation;
                     module.previous = module.active.take().zip(module.cached.take());
                     module.active = Some(candidate);
                     module.cached = Some(value);
@@ -500,30 +731,67 @@ impl Registry {
                 }
             }
         }
-        if !systems.is_empty() {
+        let groups = system_transaction_groups(&systems, &self.modules);
+        let previous_failures = std::mem::take(&mut self.failed_system_transactions);
+        let mut failures = previous_failures.clone();
+        for (systems, relevant, waiting) in groups {
+            if !waiting.is_empty() {
+                for (id, _) in &systems {
+                    let module = self.modules.get_mut(id).unwrap();
+                    module.settled = false;
+                    module.error = Some(format!(
+                        "handoff deferred until captured candidates settle: {}",
+                        waiting.join(", ")
+                    ));
+                }
+                continue;
+            }
+            let key = systems.iter().map(|(id, _)| id.clone()).collect::<Vec<_>>();
+            // Replace overlapping old partitions, while retaining untouched
+            // failures through debounce. Disjoint keys keep this bounded by
+            // retained module count even as the dependency graph changes.
+            failures.retain(|old, _| !old.iter().any(|id| key.contains(id)));
+            // Cache only this component's candidates and actual reads. A bad
+            // sibling must neither block nor get retried by unrelated edits.
             let transaction = systems
                 .iter()
                 .map(|(id, bundle)| {
                     (
                         id.clone(),
-                        bundle.digest.clone(),
+                        format!("candidate:{}", bundle.digest),
                         self.kernel.state_revision(id),
                     )
                 })
-                .chain(self.modules.iter().filter_map(|(id, module)| {
-                    module
-                        .active
-                        .as_ref()
-                        .map(|b| (id.clone(), b.digest.clone(), self.kernel.state_revision(id)))
+                .chain(relevant.iter().map(|id| {
+                    let digest = self
+                        .modules
+                        .get(id)
+                        .and_then(|m| m.active.as_ref())
+                        .map(|b| b.digest.as_str())
+                        .unwrap_or("absent");
+                    (
+                        id.clone(),
+                        format!(
+                            "active:{digest}:generation:{}",
+                            self.kernel.generation(id).unwrap_or(0)
+                        ),
+                        self.kernel.state_revision(id),
+                    )
                 }))
                 .collect::<Vec<_>>();
-            if !force && self.failed_system_transaction.as_ref() == Some(&transaction) {
-                for (id, _) in &systems {
+            if let Some((_, error)) = previous_failures
+                .get(&key)
+                .filter(|(fingerprint, _)| !force && fingerprint == &transaction)
+            {
+                for (id, bundle) in &systems {
                     if let Some(module) = self.modules.get_mut(id) {
                         module.settled = true;
+                        module.rejected = Some(bundle.digest.clone());
+                        module.error = Some(error.clone());
                     }
                 }
-                return;
+                failures.insert(key, (transaction, error.clone()));
+                continue;
             }
             let candidates = systems
                 .iter()
@@ -542,10 +810,11 @@ impl Registry {
                 .kernel
                 .stage(candidates)
                 .and_then(|group| self.kernel.commit(group));
-            self.failed_system_transaction = match &result {
-                Err(error) if !error.contains("handoff deferred") => Some(transaction),
-                _ => None,
-            };
+            if let Err(error) = &result {
+                if !error.contains("handoff deferred") {
+                    failures.insert(key, (transaction, error.clone()));
+                }
+            }
             for (id, bundle) in systems {
                 let module = self.modules.get_mut(&id).unwrap();
                 match &result {
@@ -569,6 +838,136 @@ impl Registry {
                 }
             }
         }
+        self.failed_system_transactions = failures;
+    }
+
+    /// Explicit system drain or immediate pure-policy override withdrawal.
+    /// Mixed batches are refused before mutation. Policy controls return a
+    /// policy-control/1 receipt, not a retryable/abortable Kernel operation.
+    /// File absence remains a failed candidate, never an implicit unload.
+    pub fn withdraw(&mut self, expected: Vec<(String, u64)>) -> Result<Value, String> {
+        if expected.iter().any(|(id, _)| self.is_policy_control(id)) {
+            return self.withdraw_policies(expected);
+        }
+        let modules = expected
+            .iter()
+            .map(|(id, _)| id.clone())
+            .collect::<BTreeSet<_>>();
+        let status = self.kernel.begin_withdraw(expected)?;
+        self.withdrawal_modules = modules;
+        self.disabled_modules
+            .extend(self.withdrawal_modules.iter().cloned());
+        self.sync_withdrawal();
+        serde_json::to_value(status).map_err(|error| error.to_string())
+    }
+    fn sync_withdrawal(&mut self) {
+        let status = self.kernel.latest_withdrawal();
+        if status == self.withdrawal {
+            return;
+        }
+        if let Some(status) = &status {
+            match status.phase {
+                kernel::WithdrawalPhase::Published => {
+                    for id in &self.withdrawal_modules {
+                        self.modules.remove(id);
+                    }
+                    self.failed_system_transactions.clear();
+                    self.error = None;
+                }
+                kernel::WithdrawalPhase::Aborted => {
+                    for id in &self.withdrawal_modules {
+                        self.disabled_modules.remove(id);
+                    }
+                    self.failed_system_transactions.clear();
+                    self.error = None;
+                }
+                kernel::WithdrawalPhase::Draining => {}
+            }
+        }
+        self.withdrawal = status;
+        self.revision += 1;
+    }
+    pub fn withdrawal_status(&self, id: u64) -> Result<Value, String> {
+        serde_json::to_value(self.kernel.withdrawal_status(id)?).map_err(|error| error.to_string())
+    }
+    pub fn retry_withdraw(&mut self, id: u64) -> Result<Value, String> {
+        let status = self.kernel.retry_withdraw(id)?;
+        self.sync_withdrawal();
+        serde_json::to_value(status).map_err(|error| error.to_string())
+    }
+    pub fn abort_withdraw(&mut self, id: u64) -> Result<Value, String> {
+        let status = self.kernel.abort_withdraw(id)?;
+        self.sync_withdrawal();
+        serde_json::to_value(status).map_err(|error| error.to_string())
+    }
+    /// Re-admit disabled systems or pure policy overrides as one validated group.
+    /// Failed preparation preserves suppression and never publishes a subset.
+    pub fn enable(&mut self, ids: Vec<String>) -> Result<Value, String> {
+        if self.kernel.withdrawal_pending() || ids.is_empty() || ids.len() > 64 {
+            return Err("enable busy or invalid transaction size".into());
+        }
+        let unique = ids.iter().cloned().collect::<BTreeSet<_>>();
+        if unique.len() != ids.len() || unique.iter().any(|id| !self.disabled_modules.contains(id))
+        {
+            return Err("module is not disabled or enable is duplicated".into());
+        }
+        // Enable must honor the same retained-metadata bound as refresh.
+        // Count distinct absent IDs before reading source or preparing code so
+        // refusal cannot publish a Kernel generation or change desired state.
+        let absent = unique
+            .iter()
+            .filter(|id| !self.modules.contains_key(*id))
+            .count();
+        if self
+            .modules
+            .len()
+            .checked_add(absent)
+            .is_none_or(|total| total > MAX_MODULES)
+        {
+            return Err(format!(
+                "at most {MAX_MODULES} retained live modules are supported"
+            ));
+        }
+        if unique.iter().any(|id| self.disabled_policies.contains(id)) {
+            return self.enable_policies(unique);
+        }
+        let mut bundles = Vec::new();
+        for id in ids {
+            let bundle = Arc::new(Bundle::read(&self.root.join(&id), &id)?);
+            if bundle.manifest.kind != "system" {
+                return Err("enable supports Kernel system modules only".into());
+            }
+            if let Some(error) = &bundle.build_error {
+                return Err(error.clone());
+            }
+            bundles.push((id, bundle));
+        }
+        let candidates = bundles
+            .iter()
+            .map(|(_, bundle)| kernel::Candidate {
+                manifest: bundle.manifest.system_manifest(),
+                identity: bundle.digest.clone(),
+                implementation: Arc::new(SystemProgram::new(
+                    Arc::clone(bundle),
+                    self.evaluator,
+                    self.validator,
+                    self.binder,
+                )),
+            })
+            .collect();
+        let prepared = self.kernel.stage(candidates)?;
+        self.kernel.commit(prepared)?;
+        for (id, bundle) in bundles {
+            let mut module = Module::default();
+            module.captured = Some(Arc::clone(&bundle));
+            module.active = Some(bundle);
+            module.generation = self.kernel.generation(&id).unwrap();
+            self.modules.insert(id.clone(), module);
+            self.disabled_modules.remove(&id);
+        }
+        self.failed_system_transactions.clear();
+        self.revision += 1;
+        Ok(json!({"enabled":unique}))
     }
 
     pub fn dispatch(
@@ -585,8 +984,12 @@ impl Registry {
 
     pub fn complete(&mut self, job: &kernel::Job, result: Value) -> Result<Value, String> {
         let response = self.kernel.complete(job, result)?;
+        self.work.retain(|issued| issued.job != *job);
+        self.completions.retain(|(other, _)| other != job);
         self.work.extend(response.effects.iter().cloned());
         self.revision += 1;
+        self.error = None;
+        self.sync_withdrawal();
         serde_json::to_value(response).map_err(|e| e.to_string())
     }
 
@@ -604,6 +1007,7 @@ impl Registry {
         self.work.retain(|issued| issued.job != job);
         self.error = None;
         self.revision += 1;
+        self.sync_withdrawal();
         Ok(json!(format!(
             "abandoned module request {request}; no effect replayed"
         )))
@@ -659,14 +1063,16 @@ impl Registry {
             module.error = Some(format!("request failed: {error}"));
             module.rejected = Some(active.digest.clone());
             self.revision += 1;
-            if let Some((previous, cached)) = module.previous.take() {
+            if module.previous.is_some() {
+                let generation = module.generation.checked_add(1).ok_or("module generation exhausted")?;
+                let (previous, cached) = module.previous.take().unwrap();
                 // These modules are pure projections: retrying their transform
                 // cannot repeat a model call, tool execution or external effect.
                 let fallback = evaluate(&previous, input, self.evaluator)
                     .and_then(|value| validate(&previous.manifest.kind, value));
                 module.active = Some(previous);
                 module.cached = Some(cached);
-                module.generation += 1;
+                module.generation = generation;
                 return fallback;
             }
         }
@@ -675,6 +1081,10 @@ impl Registry {
 
     pub fn snapshot(&self) -> Snapshot {
         let mut snapshot = Snapshot {
+            withdrawal: self.kernel.latest_withdrawal(),
+            withdrawal_jobs: self.kernel.withdrawal_jobs(),
+            disabled_modules: self.disabled_modules.clone(),
+            policy_control: self.policy_control.clone(),
             revision: self.revision,
             error: self.error.clone(),
             routes: self.kernel.routes(),
@@ -719,7 +1129,11 @@ impl Registry {
                     .and_then(|v| serde_json::from_value(v).ok())
                     .map(Arc::new);
             }
-            if let Some(bundle) = module.active.as_ref().filter(|b| b.manifest.kind == "policy") {
+            if let Some(bundle) = module
+                .active
+                .as_ref()
+                .filter(|b| b.manifest.kind == "policy")
+            {
                 snapshot.policies.insert(
                     id.clone(),
                     Program {
@@ -839,13 +1253,23 @@ impl kernel::Implementation for SystemProgram {
         &self,
         resources: &kernel::Resources,
     ) -> Result<Option<Arc<dyn kernel::Implementation>>, String> {
-        let values = resources.iter().map(|(key, resource)| {
-            (key, serde_json::json!({
+        let mut values = resources.iter().map(|(key, resource)| {
+            (key.clone(), serde_json::json!({
                 "module":resource.module,"name":resource.name,"generation":resource.generation,
                 "revision":resource.revision,"identity":resource.identity,
                 "contract":resource.contract,"value":resource.value.as_ref()
             }))
         }).collect::<BTreeMap<_, _>>();
+        let optional_providers = resources
+            .optional_providers()
+            .map(|(module, contract)| serde_json::json!({"module":module,"contract":contract}))
+            .collect::<Vec<_>>();
+        if !optional_providers.is_empty() {
+            values.insert(
+                "@optional-providers".into(),
+                serde_json::json!(optional_providers),
+            );
+        }
         let resource_json = serde_json::to_string(&values).map_err(|e| e.to_string())?;
         if resource_json.len() > MAX_INPUT {
             return Err("imported resource metadata exceeds 512 KiB".into());
@@ -858,7 +1282,6 @@ impl kernel::Implementation for SystemProgram {
         program.setup = program.build_setup();
         Ok(Some(Arc::new(program)))
     }
-
     fn rebind(&self, previous: &kernel::Checkpoint) -> Result<kernel::PreparedState, String> {
         let previous = serde_json::to_value(previous).map_err(|e| e.to_string())?;
         let value = self.evaluate("rebind", &previous, &Value::Null)?;
@@ -988,6 +1411,11 @@ fn validate(kind: &str, value: Value) -> Result<Value, String> {
 }
 
 enum Request {
+    Withdraw(Vec<(String, u64)>, mpsc::SyncSender<Result<Value, String>>),
+    AbortWithdrawal(u64, mpsc::SyncSender<Result<Value, String>>),
+    RetryWithdrawal(u64, mpsc::SyncSender<Result<Value, String>>),
+    WithdrawalStatus(u64, mpsc::SyncSender<Result<Value, String>>),
+    Enable(Vec<String>, mpsc::SyncSender<Result<Value, String>>),
     Render(String, Value, mpsc::SyncSender<Result<Value, String>>),
     Reload(mpsc::SyncSender<Result<Value, String>>),
     Dispatch(
@@ -1060,6 +1488,19 @@ impl Client {
                     } else {
                         Duration::from_millis(1)
                     }) {
+                        Ok(Request::Withdraw(expected, reply)) => {
+                            Some((reply, registry.withdraw(expected)))
+                        }
+                        Ok(Request::AbortWithdrawal(id, reply)) => {
+                            Some((reply, registry.abort_withdraw(id)))
+                        }
+                        Ok(Request::RetryWithdrawal(id, reply)) => {
+                            Some((reply, registry.retry_withdraw(id)))
+                        }
+                        Ok(Request::WithdrawalStatus(id, reply)) => {
+                            Some((reply, registry.withdrawal_status(id)))
+                        }
+                        Ok(Request::Enable(ids, reply)) => Some((reply, registry.enable(ids))),
                         Ok(Request::Render(id, input, reply)) => {
                             Some((reply, registry.render(&id, &input)))
                         }
@@ -1173,6 +1614,43 @@ impl Client {
             .as_ref()
             .ok_or("module host is disabled")?
             .try_send(Request::Dispatch(kind, name, event, reply))
+            .map_err(|_| "module mailbox is busy")?;
+        Ok(rx)
+    }
+
+    pub fn withdraw(
+        &self,
+        expected: Vec<(String, u64)>,
+    ) -> Result<mpsc::Receiver<Result<Value, String>>, String> {
+        self.change_request(|reply| Request::Withdraw(expected, reply))
+    }
+    pub fn abort_withdraw(&self, id: u64) -> Result<mpsc::Receiver<Result<Value, String>>, String> {
+        self.change_request(|reply| Request::AbortWithdrawal(id, reply))
+    }
+    pub fn retry_withdraw(&self, id: u64) -> Result<mpsc::Receiver<Result<Value, String>>, String> {
+        self.change_request(|reply| Request::RetryWithdrawal(id, reply))
+    }
+    pub fn withdrawal_status(
+        &self,
+        id: u64,
+    ) -> Result<mpsc::Receiver<Result<Value, String>>, String> {
+        self.change_request(|reply| Request::WithdrawalStatus(id, reply))
+    }
+    pub fn enable(
+        &self,
+        ids: Vec<String>,
+    ) -> Result<mpsc::Receiver<Result<Value, String>>, String> {
+        self.change_request(|reply| Request::Enable(ids, reply))
+    }
+    fn change_request(
+        &self,
+        request: impl FnOnce(mpsc::SyncSender<Result<Value, String>>) -> Request,
+    ) -> Result<mpsc::Receiver<Result<Value, String>>, String> {
+        let (reply, rx) = mpsc::sync_channel(1);
+        self.tx
+            .as_ref()
+            .ok_or("module host is disabled")?
+            .try_send(request(reply))
             .map_err(|_| "module mailbox is busy")?;
         Ok(rx)
     }

@@ -4,7 +4,7 @@
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
@@ -17,6 +17,11 @@ import {
   factBelief,
 } from '../../lib/dossier/core.mjs'
 import { killed } from '../../scripts/runtime/dossier-tick.mjs'
+import {
+  TICK_LOCK_TTL_MS,
+  tickLockHolder,
+  tickLockOwner,
+} from '../../scripts/runtime/worker-lock.mjs'
 import * as probeCore from '../../lib/dossier/probes.mjs'
 import * as probeWorker from '../../scripts/runtime/dossier-tick.mjs'
 import {
@@ -321,3 +326,110 @@ test(
     }
   },
 )
+
+// ─── the state-dir lock ──────────────────────────────────────────────────────
+// runGraphCli's lease keys on the graph path. The tick's own lock keys on its
+// state dir (heartbeat, budget), so it stays; what it must not do is outlive a
+// tick that was killed outright.
+
+const deadPid = () => spawnSync(process.execPath, ['-e', '0']).pid
+
+// One forced tick over three fresh ledger passes, with an optional lock already
+// sitting in the state dir. Returns what the tick left behind.
+function tickWithLock(lock) {
+  const dir = mkdtempSync(join(tmpdir(), 'angel-dossier-lock-'))
+  try {
+    const repoRoot = join(dir, 'repo')
+    const stateDir = join(dir, 'state')
+    const cutDir = join(dir, 'cut')
+    const ledger = join(dir, 'ledger.jsonl')
+    mkdirSync(repoRoot)
+    mkdirSync(cutDir)
+    mkdirSync(stateDir)
+    const ts = Math.floor(Date.now() / 1000)
+    const rows = [1, 2, 3].map((session) => ({
+      ...cmd(`cd "${repoRoot}" && cargo check 2>&1 | tail -20`, 0, session),
+      v: 3,
+      ts,
+      repo: { key: KEY, root: repoRoot, slug: 'local/probe' },
+    }))
+    writeFileSync(ledger, rows.map((row) => JSON.stringify(row)).join('\n') + '\n')
+    const lockPath = join(stateDir, 'lock')
+    if (lock) writeFileSync(lockPath, JSON.stringify(lock))
+    const run = spawnSync(
+      process.execPath,
+      [
+        'scripts/runtime/dossier-tick.mjs',
+        '--force',
+        '--max',
+        '1',
+        '--repo',
+        KEY,
+        '--ledger',
+        ledger,
+        '--graph',
+        join(dir, 'graph.json'),
+        '--cut',
+        cutDir,
+        '--state-dir',
+        stateDir,
+        '--out',
+        join(dir, 'out'),
+      ],
+      { cwd: new URL('../..', import.meta.url), encoding: 'utf8' },
+    )
+    const beat = join(stateDir, 'heartbeat.json')
+    return {
+      run,
+      heartbeat: existsSync(beat) ? JSON.parse(readFileSync(beat, 'utf8')) : null,
+      lockLeft: existsSync(lockPath) ? JSON.parse(readFileSync(lockPath, 'utf8')) : null,
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+}
+
+test('a lock left by a tick that was killed does not hold the next tick', () => {
+  // The shape an earlier version wrote: pid and a fresh timestamp, owner gone.
+  const { run, heartbeat, lockLeft } = tickWithLock({ pid: deadPid(), ts: Date.now() })
+  assert.equal(run.status, 0, run.stderr || run.stdout)
+  assert.match(run.stdout, /1 probe\(s\) · 1 dossier\(s\) recompiled/)
+  assert.equal(heartbeat.action, 'ran')
+  assert.equal(lockLeft, null, 'the tick that took the lock releases it')
+})
+
+test('a live tick keeps the lock, and the skip says why on the heartbeat', () => {
+  const holder = tickLockOwner(Date.now())
+  const { run, heartbeat, lockLeft } = tickWithLock(holder)
+  assert.equal(run.status, 0, run.stderr || run.stdout)
+  assert.match(run.stdout, /another tick holds the lock; skipping\./)
+  assert.equal(heartbeat?.action, 'skip')
+  assert.match(heartbeat?.reason, /^another tick holds the lock — .*alive/)
+  assert.equal(lockLeft?.token, holder.token, 'a skipped tick never touches the holder\'s lock')
+})
+
+test('an hour-old lock is free even when its pid is still running', () => {
+  const old = Date.now() - TICK_LOCK_TTL_MS - 1000
+  const { run, heartbeat } = tickWithLock({ pid: process.pid, ts: old })
+  assert.equal(run.status, 0, run.stderr || run.stdout)
+  assert.equal(heartbeat.action, 'ran')
+})
+
+test('tick lock: the record keeps pid and ts, and the holder rules are the lease rules', () => {
+  const now = Date.now()
+  const mine = tickLockOwner(now)
+  assert.equal(mine.pid, process.pid)
+  assert.equal(mine.ts, now)
+
+  assert.equal(tickLockHolder(null, now), null, 'no file, no holder')
+  assert.equal(tickLockHolder({ ts: now }, now), null, 'no pid, no holder')
+  assert.equal(tickLockHolder({ pid: deadPid(), ts: now }, now), null, 'dead pid is free at once')
+  assert.equal(tickLockHolder(mine, now)?.pid, process.pid, 'a live owner holds it')
+  assert.equal(tickLockHolder(mine, now + TICK_LOCK_TTL_MS), null, 'and lets go after an hour')
+  const foreign = { ...mine, host: 'another-host', process_start: null }
+  assert.ok(
+    tickLockHolder(foreign, now + 60_000),
+    'a pid on another host cannot be judged dead here',
+  )
+  assert.equal(tickLockHolder(foreign, now + TICK_LOCK_TTL_MS), null)
+})

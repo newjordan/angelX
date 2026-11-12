@@ -1,0 +1,160 @@
+{
+  "name": "Sir Cheeks — cyclops",
+  "image": "sprite-sheet.png",
+  "imageSize": [
+    1774,
+    887
+  ],
+  "canvasSize": [
+    640,
+    512
+  ],
+  "origin": [
+    256,
+    448
+  ],
+  "sampling": "nearest",
+  "note": "Use explicit source rectangles; the generated sheet has approximate grid spacing. Anchors align the stance and boot baseline. Source pixels are preserved.",
+  "frames": [
+    {
+      "name": "idle-0",
+      "rect": [
+        21,
+        21,
+        399,
+        368
+      ],
+      "anchor": [
+        160,
+        360
+      ],
+      "duration": 220
+    },
+    {
+      "name": "idle-1",
+      "rect": [
+        466,
+        30,
+        397,
+        359
+      ],
+      "anchor": [
+        159,
+        351
+      ],
+      "duration": 160
+    },
+    {
+      "name": "idle-2",
+      "rect": [
+        908,
+        25,
+        400,
+        364
+      ],
+      "anchor": [
+        160,
+        356
+      ],
+      "duration": 160
+    },
+    {
+      "name": "idle-3",
+      "rect": [
+        1352,
+        24,
+        399,
+        365
+      ],
+      "anchor": [
+        160,
+        357
+      ],
+      "duration": 220
+    },
+    {
+      "name": "windup",
+      "rect": [
+        23,
+        448,
+        294,
+        385
+      ],
+      "anchor": [
+        163,
+        376
+      ],
+      "duration": 240
+    },
+    {
+      "name": "slash",
+      "rect": [
+        412,
+        511,
+        436,
+        336
+      ],
+      "anchor": [
+        134,
+        313
+      ],
+      "duration": 90
+    },
+    {
+      "name": "follow-through",
+      "rect": [
+        852,
+        558,
+        485,
+        274
+      ],
+      "anchor": [
+        130,
+        266
+      ],
+      "duration": 170
+    },
+    {
+      "name": "recover",
+      "rect": [
+        1352,
+        465,
+        399,
+        367
+      ],
+      "anchor": [
+        160,
+        359
+      ],
+      "duration": 260
+    }
+  ],
+  "animations": {
+    "idle": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "attack": [
+      4,
+      5,
+      6,
+      7
+    ],
+    "demo": [
+      0,
+      1,
+      2,
+      3,
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ]
+  }
+}

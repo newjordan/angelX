@@ -143,12 +143,22 @@ impl App {
         if let Some(shell) = self.shell.as_ref()
             && !shell.is_alive()
         {
-            self.shell = None;
-            self.shell_focused = false;
-            let _ = self
-                .module_host
-                .suspend(&crate::platform::runtime::ModuleId::new("shell"));
-            self.system_msg("shell process exited".to_string());
+            self.close_shell(Some("shell process exited"));
+        }
+    }
+
+    /// Drop the shell pane and everything that points at it: its focus, and the
+    /// module host's "shell" (which runs while the pane has focus, so a pane
+    /// that is gone must not leave it listed as active). `notice` is the system
+    /// line for a pane that ended on its own.
+    pub(crate) fn close_shell(&mut self, notice: Option<&str>) {
+        self.shell = None;
+        self.shell_focused = false;
+        let _ = self
+            .module_host
+            .suspend(&crate::platform::runtime::ModuleId::new("shell"));
+        if let Some(notice) = notice {
+            self.system_msg(notice);
         }
     }
 

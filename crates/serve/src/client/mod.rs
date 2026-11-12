@@ -17,7 +17,7 @@ use crate::hash::base64;
 use crate::limits::WRITE_TIMEOUT;
 use crate::ws::{self, BINARY, CLOSE, Message, PONG, Parser, Role, close_payload};
 use std::io::{self, ErrorKind, Read, Write};
-use std::net::{Shutdown, SocketAddr, TcpStream};
+use std::net::{Shutdown, TcpStream};
 use std::time::{Duration, Instant};
 
 /// A server message is at most this (`angel_net::proto::MAX_SERVER_MESSAGE`).

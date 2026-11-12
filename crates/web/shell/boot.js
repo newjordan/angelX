@@ -588,6 +588,7 @@
   let slots = [];
   const stageBox = $('stage');
   let drag = null;
+  let builderContext = false;
   // The marks a drag lays over the picture: the plate it left, the plate
   // it would land on, and its outline riding the pointer.
   const dragFrom = el('div', 'drag-mark from'), dragTo = el('div', 'drag-mark to'), dragGhost = el('div', 'drag-mark ghost');
@@ -627,6 +628,17 @@
     stageBox.classList.remove('dragging');
   }
   stageBox.addEventListener('pointerdown', e => {
+    builderContext = false;
+    if (!drag && pic && x && typeof x.angel_pointer === 'function' && (e.button === 0 || e.button === 2)) {
+      const fx = Math.floor((e.clientX - pic.left) / pic.unit);
+      const fy = Math.floor((e.clientY - pic.top) / pic.unit);
+      if (fx >= 0 && fy >= 0 && x.angel_pointer(fx, fy, e.button)) {
+        builderContext = e.button === 2;
+        e.preventDefault();
+        flush();
+        return;
+      }
+    }
     const d = A.controls && A.controls.drag;
     if (!d || !x || drag || e.button !== 0) return;
     const plate = slotAt(e);
@@ -637,6 +649,9 @@
     cover(dragFrom, plate);
     stageBox.classList.add('dragging');
     follow(e);
+  });
+  stageBox.addEventListener('contextmenu', e => {
+    if (builderContext) { e.preventDefault(); builderContext = false; }
   });
   stageBox.addEventListener('pointermove', e => {
     if (drag && e.pointerId === drag.id) follow(e);
@@ -911,6 +926,10 @@
     console.error(e);
     say('the game stopped' + (lastPanic ? ': ' + lastPanic : '') + '. Reload to rejoin.');
     drop();
+    // A tab hidden when the game trapped is still being kept idle; the
+    // visibility handler will not clear that once the page is crashed.
+    clearInterval(hiddenTimer);
+    hiddenTimer = 0;
   }
 
   // ---- the frame loop ----
@@ -1200,6 +1219,7 @@
     playButton.textContent = 'Play';
   }).catch(e => {
     console.error(e);
+    if (A.status === 'loading') A.status = 'failed';
     say('the game did not load: ' + e);
   });
 

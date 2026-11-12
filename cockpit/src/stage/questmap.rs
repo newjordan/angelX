@@ -178,60 +178,115 @@ pub(crate) struct Theme {
     outcome_lost: &'static str,
 }
 
+mod quest_text {
+    pub(super) const QUEST_ARENA_OVERWORLD: &str = "the king's road";
+    pub(super) const QUEST_ARENA_DUNGEON: &str = "the undercroft";
+    pub(super) const QUEST_ARENA_VOYAGE: &str = "the grail sea";
+
+    pub(super) const QUEST_PARTY_OVERWORLD: [&str; 8] = [
+        "Sir Kay",
+        "Sir Bedivere",
+        "Sir Gawain",
+        "Sir Percival",
+        "Sir Bors",
+        "Sir Lamorak",
+        "Sir Tristan",
+        "Sir Galahad",
+    ];
+    pub(super) const QUEST_PARTY_DUNGEON: [&str; 8] = [
+        "Lancelot", "Galahad", "Gawain", "Percival", "Tristan", "Bors", "Kay", "Bedivere",
+    ];
+    pub(super) const QUEST_PARTY_VOYAGE: [&str; 8] = [
+        "the Petrel",
+        "the Cormorant",
+        "the Kestrel",
+        "the Albatross",
+        "the Gannet",
+        "the Fulmar",
+        "the Skua",
+        "the Tern",
+    ];
+
+    pub(super) const QUEST_LEAGUE: &str = "league";
+    pub(super) const QUEST_LEAGUES: &str = "leagues";
+    pub(super) const QUEST_CHAMBER: &str = "chamber";
+    pub(super) const QUEST_CHAMBERS: &str = "chambers";
+    pub(super) const QUEST_DAY_OUT: &str = "day out";
+    pub(super) const QUEST_DAYS_OUT: &str = "days out";
+    pub(super) const QUEST_FALLS: &str = "falls";
+    pub(super) const QUEST_TURNS_BACK: &str = "turns back";
+    pub(super) const QUEST_REACHES_CASTLE: &str = "reaches the castle";
+    pub(super) const QUEST_OVERWORLD_WANDERING: &str = "still wandering when the chronicle ends";
+    pub(super) const QUEST_CASTLE_WON: &str = "the castle is won";
+    pub(super) const QUEST_CASTLE_UNTAKEN: &str = "the castle stands untaken";
+    pub(super) const QUEST_HITS_DEAD_END: &str = "hits a dead end";
+    pub(super) const QUEST_DOUBLES_BACK: &str = "doubles back";
+    pub(super) const QUEST_LIFTS_TREASURE: &str = "lifts the treasure";
+    pub(super) const QUEST_TORCH_LIT: &str = "torch still lit when the chronicle ends";
+    pub(super) const QUEST_TREASURE_CLAIMED: &str = "the treasure is claimed";
+    pub(super) const QUEST_VAULT_SEALED: &str = "the vault stays sealed";
+    pub(super) const QUEST_WRECKS: &str = "wrecks";
+    pub(super) const QUEST_COMES_ABOUT: &str = "comes about";
+    pub(super) const QUEST_MAKES_PORT: &str = "makes port";
+    pub(super) const QUEST_STILL_AT_SEA: &str = "still at sea when the chronicle ends";
+    pub(super) const QUEST_LANDFALL: &str = "landfall";
+    pub(super) const QUEST_NO_LANDFALL: &str = "no landfall";
+}
+
 /// The theme roster. Variety is the point: which skin a model gets is a
 /// stable hash of its label, so Sir Percival's map and the Kestrel's chart
 /// can chronicle the same question side by side.
 pub(crate) const THEMES: &[Theme] = &[
     Theme {
         name: "overworld",
-        arena: crate::stage::identity::QUEST_ARENA_OVERWORLD,
-        party: crate::stage::identity::QUEST_PARTY_OVERWORLD,
-        step_one: crate::stage::identity::QUEST_LEAGUE,
-        step_many: crate::stage::identity::QUEST_LEAGUES,
+        arena: quest_text::QUEST_ARENA_OVERWORLD,
+        party: quest_text::QUEST_PARTY_OVERWORLD,
+        step_one: quest_text::QUEST_LEAGUE,
+        step_many: quest_text::QUEST_LEAGUES,
         start_glyph: '⚐',
         fall_glyph: '☠',
-        fall_verb: crate::stage::identity::QUEST_FALLS,
-        turn_verb: crate::stage::identity::QUEST_TURNS_BACK,
+        fall_verb: quest_text::QUEST_FALLS,
+        turn_verb: quest_text::QUEST_TURNS_BACK,
         win_glyph: '♜',
-        win_phrase: crate::stage::identity::QUEST_REACHES_CASTLE,
+        win_phrase: quest_text::QUEST_REACHES_CASTLE,
         wander_glyph: '~',
-        wander_phrase: crate::stage::identity::QUEST_OVERWORLD_WANDERING,
-        outcome_won: crate::stage::identity::QUEST_CASTLE_WON,
-        outcome_lost: crate::stage::identity::QUEST_CASTLE_UNTAKEN,
+        wander_phrase: quest_text::QUEST_OVERWORLD_WANDERING,
+        outcome_won: quest_text::QUEST_CASTLE_WON,
+        outcome_lost: quest_text::QUEST_CASTLE_UNTAKEN,
     },
     Theme {
         name: "dungeon",
-        arena: crate::stage::identity::QUEST_ARENA_DUNGEON,
-        party: crate::stage::identity::QUEST_PARTY_DUNGEON,
-        step_one: crate::stage::identity::QUEST_CHAMBER,
-        step_many: crate::stage::identity::QUEST_CHAMBERS,
+        arena: quest_text::QUEST_ARENA_DUNGEON,
+        party: quest_text::QUEST_PARTY_DUNGEON,
+        step_one: quest_text::QUEST_CHAMBER,
+        step_many: quest_text::QUEST_CHAMBERS,
         start_glyph: '▼',
         fall_glyph: '✗',
-        fall_verb: crate::stage::identity::QUEST_HITS_DEAD_END,
-        turn_verb: crate::stage::identity::QUEST_DOUBLES_BACK,
+        fall_verb: quest_text::QUEST_HITS_DEAD_END,
+        turn_verb: quest_text::QUEST_DOUBLES_BACK,
         win_glyph: '◆',
-        win_phrase: crate::stage::identity::QUEST_LIFTS_TREASURE,
+        win_phrase: quest_text::QUEST_LIFTS_TREASURE,
         wander_glyph: '·',
-        wander_phrase: crate::stage::identity::QUEST_TORCH_LIT,
-        outcome_won: crate::stage::identity::QUEST_TREASURE_CLAIMED,
-        outcome_lost: crate::stage::identity::QUEST_VAULT_SEALED,
+        wander_phrase: quest_text::QUEST_TORCH_LIT,
+        outcome_won: quest_text::QUEST_TREASURE_CLAIMED,
+        outcome_lost: quest_text::QUEST_VAULT_SEALED,
     },
     Theme {
         name: "voyage",
-        arena: crate::stage::identity::QUEST_ARENA_VOYAGE,
-        party: crate::stage::identity::QUEST_PARTY_VOYAGE,
-        step_one: crate::stage::identity::QUEST_DAY_OUT,
-        step_many: crate::stage::identity::QUEST_DAYS_OUT,
+        arena: quest_text::QUEST_ARENA_VOYAGE,
+        party: quest_text::QUEST_PARTY_VOYAGE,
+        step_one: quest_text::QUEST_DAY_OUT,
+        step_many: quest_text::QUEST_DAYS_OUT,
         start_glyph: '⚓',
         fall_glyph: '✘',
-        fall_verb: crate::stage::identity::QUEST_WRECKS,
-        turn_verb: crate::stage::identity::QUEST_COMES_ABOUT,
+        fall_verb: quest_text::QUEST_WRECKS,
+        turn_verb: quest_text::QUEST_COMES_ABOUT,
         win_glyph: '⚑',
-        win_phrase: crate::stage::identity::QUEST_MAKES_PORT,
+        win_phrase: quest_text::QUEST_MAKES_PORT,
         wander_glyph: '~',
-        wander_phrase: crate::stage::identity::QUEST_STILL_AT_SEA,
-        outcome_won: crate::stage::identity::QUEST_LANDFALL,
-        outcome_lost: crate::stage::identity::QUEST_NO_LANDFALL,
+        wander_phrase: quest_text::QUEST_STILL_AT_SEA,
+        outcome_won: quest_text::QUEST_LANDFALL,
+        outcome_lost: quest_text::QUEST_NO_LANDFALL,
     },
 ];
 

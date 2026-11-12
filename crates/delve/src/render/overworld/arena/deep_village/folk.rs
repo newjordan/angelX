@@ -614,7 +614,7 @@ fn accessory(cv: &mut Img, culture: Culture, who: usize, (x, y): (i32, i32), hop
 }
 
 /// A speech bubble: three dots, the last blinking.
-fn bubble(cv: &mut Img, x: i32, y: i32, tick: u32) {
+pub(super) fn bubble(cv: &mut Img, x: i32, y: i32, tick: u32) {
     cv.rect(x - 7, y - 4, 15, 8, 'W');
     cv.frame(x - 8, y - 5, 17, 10, 'h');
     cv.put(x - 1, y + 5, 'W');

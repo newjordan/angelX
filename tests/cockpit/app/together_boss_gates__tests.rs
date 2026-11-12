@@ -1,7 +1,7 @@
 //! The boss gates on the cockpit's screens and a guest's.
 
-use crate::drive::together_shooter::*;
-use crate::drive::together_shooter::boss_gate_testing::*;
+use crate::together_shooter::*;
+use crate::together_shooter::boss_gate_testing::*;
 use std::collections::BTreeMap;
 
 #[test]
@@ -17,14 +17,14 @@ fn boss_gates_guest_state_carries_progress_and_input_claims_cannot_grant_defeat(
     assert!(run.guardian_locked());
     assert!(!run.boss_gates.as_ref().unwrap().leaders[0].defeated);
     // What a friend's client is sent, read back as it reads it.
-    let (_, guest, _) = crate::drive::together_seat::guest_view(&run, 2);
+    let (_, guest, _) = crate::together_seat::guest_view(&run, 2);
     assert!(guest.boss_gate_plain()[0].contains("key's carrier"));
     assert!(!guest.boss_gates.as_ref().unwrap().leaders[0].defeated);
     // The carrier falls in its own room: the route opens, and the guest's
     // copy says so.
     kill_leader(&mut run, 0);
     run.enter(gate, Some(2));
-    let (_, guest, _) = crate::drive::together_seat::guest_view(&run, 2);
+    let (_, guest, _) = crate::together_seat::guest_view(&run, 2);
     assert!(guest.boss_gates.as_ref().unwrap().leaders[0].defeated);
     assert!(guest.boss_gate_plain()[0].contains("may be fought"));
 }
@@ -40,7 +40,7 @@ fn boss_ecology_together_shooter_native_renderer_compact_normal_and_guest_projec
             ratatui::Terminal::new(ratatui::backend::TestBackend::new(width, height)).unwrap();
         terminal
             .draw(|frame| {
-                assert!(crate::ui::viz::shooter_viz::render(
+                assert!(crate::shooter_viz::render(
                     frame,
                     &run,
                     frame.area(),
@@ -70,7 +70,7 @@ fn boss_ecology_together_shooter_native_renderer_compact_normal_and_guest_projec
         let snapshot = text.clone();
         terminal
             .draw(|frame| {
-                crate::ui::viz::shooter_viz::render(
+                crate::shooter_viz::render(
                     frame,
                     &run,
                     frame.area(),
@@ -99,7 +99,7 @@ fn boss_ecology_together_shooter_native_renderer_compact_normal_and_guest_projec
         );
         println!("ECOLOGY_RENDER {width}x{height} {text}");
     }
-    let (_, guest, _) = crate::drive::together_seat::guest_view(&run, 2);
+    let (_, guest, _) = crate::together_seat::guest_view(&run, 2);
     assert!(guest.boss_support_line().unwrap().contains("control lost"));
     assert_eq!(
         serde_json::to_value(guest.boss_gate_state()).unwrap(),

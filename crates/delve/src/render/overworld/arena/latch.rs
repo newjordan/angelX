@@ -9,6 +9,13 @@ use crate::rules::{
     latch::{Beat, Duel, GOLD_PER_SEAT},
 };
 use std::sync::{Mutex, OnceLock};
+
+mod finish;
+mod fx;
+mod hud;
+mod moments;
+mod scene;
+
 struct Art {
     damage: std::collections::BTreeMap<(usize, &'static str), [Img; 2]>,
     states: [[Img; 9]; 3],
@@ -539,10 +546,10 @@ struct KnightArt {
     imported: bool,
     cells: [Img; 5],
 }
-fn knight(base: &mut Img, run: &Run, id: u32, d: &Duel, shake: i32, cells: bool) {
-    let Some(hero) = run.players.get(&id) else {
-        return;
-    };
+/// The seat's knight in `pose` (guard high, guard low, thrust brace, contact, recover), baked once
+/// per colours and kit.
+fn knight_img(run: &Run, id: u32, pose: usize, cells: bool) -> Option<Img> {
+    let hero = run.players.get(&id)?;
     let colours = if hero.colours().is_empty() {
         super::knights::seat_colours(id)
     } else {
@@ -635,7 +642,15 @@ fn knight(base: &mut Img, run: &Run, id: u32, d: &Duel, shake: i32, cells: bool)
             });
             cache.len() - 1
         });
-    let pose = if d.beat == Beat::Clean {
+    Some(if cells && imported {
+        cache[index].cells[pose].clone()
+    } else {
+        cache[index].poses[pose].clone()
+    })
+}
+/// Which of the knight's five bodies a duel shows: the guard, or the three beats of a thrust.
+fn knight_pose(run: &Run, d: &Duel) -> usize {
+    if d.beat == Beat::Clean {
         let age = run.tune.latch_recover.saturating_sub(d.ticks);
         2 + if d.freeze == run.tune.latch_stop {
             0
@@ -646,19 +661,21 @@ fn knight(base: &mut Img, run: &Run, id: u32, d: &Duel, shake: i32, cells: bool)
         }
     } else {
         usize::from(d.guard > 0)
+    }
+}
+fn knight(base: &mut Img, run: &Run, id: u32, d: &Duel, shake: i32, cells: bool) {
+    let Some(figure) = knight_img(run, id, knight_pose(run, d), cells) else {
+        return;
     };
-    base.stamp(
-        if cells && imported {
-            &cache[index].cells[pose]
-        } else {
-            &cache[index].poses[pose]
-        },
-        126 - shake,
-        76 + if d.beat == Beat::Miss { 3 } else { 0 },
-    );
+    base.stamp(&figure, 126 - shake, 76 + if d.beat == Beat::Miss { 3 } else { 0 });
 }
 pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
-    draw(run, focus, true)
+    // The bench's "before": the screen as it was, kept in this build for it.
+    #[cfg(test)]
+    if juice_tests::before() {
+        return draw(run, focus, true);
+    }
+    scene::layers(run, focus)
 }
 pub(super) fn terminal_layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
     draw(run, focus, false)
@@ -687,6 +704,56 @@ fn pose(d: &Duel) -> usize {
             _ => 7,
         },
     }
+}
+/// The body Clasp shows for a duel: its state (wind-up, sweep, flinch, collapse) at the plates it
+/// has lost, painted at 100 by 100 for the room (`labels`) or the cells.
+fn clasp_body(run: &Run, d: &Duel, labels: bool) -> &'static Img {
+    let a = art();
+    let stage = usize::from(d.counters.min(2));
+    let state = match d.beat {
+        Beat::Tell => {
+            if d.height < 0 {
+                "high-tell"
+            } else {
+                "low-tell"
+            }
+        }
+        Beat::Miss => {
+            if d.ticks > run.tune.latch_recover / 2 {
+                if d.height < 0 {
+                    "high-attack"
+                } else {
+                    "low-attack"
+                }
+            } else if d.height < 0 {
+                "recover-high"
+            } else {
+                "recover-low"
+            }
+        }
+        Beat::Clean if d.counters == 3 && d.freeze == 0 => "defeat-first",
+        Beat::Clean => "flinch",
+        Beat::Defeat => "defeat",
+        Beat::Rest if d.ticks < 12 => {
+            if d.height < 0 {
+                "recover-high"
+            } else {
+                "recover-low"
+            }
+        }
+        Beat::Rest => "idle",
+    };
+    a
+        .damage
+        .get(&(stage, state))
+        .map(|bank| &bank[usize::from(!labels)])
+        .unwrap_or_else(|| {
+            if labels {
+                &a.states[stage][pose(d)]
+            } else {
+                &a.cells[stage][pose(d)]
+            }
+        })
 }
 fn draw(run: &Run, focus: Option<u32>, labels: bool) -> (Img, Img) {
     let s = run.latch.as_ref().expect("Latch showing");
@@ -769,51 +836,7 @@ fn draw(run: &Run, focus: Option<u32>, labels: bool) -> (Img, Img) {
     } else {
         0
     };
-    let stage = usize::from(d.counters.min(2));
-    let state = match d.beat {
-        Beat::Tell => {
-            if d.height < 0 {
-                "high-tell"
-            } else {
-                "low-tell"
-            }
-        }
-        Beat::Miss => {
-            if d.ticks > run.tune.latch_recover / 2 {
-                if d.height < 0 {
-                    "high-attack"
-                } else {
-                    "low-attack"
-                }
-            } else if d.height < 0 {
-                "recover-high"
-            } else {
-                "recover-low"
-            }
-        }
-        Beat::Clean if d.counters == 3 && d.freeze == 0 => "defeat-first",
-        Beat::Clean => "flinch",
-        Beat::Defeat => "defeat",
-        Beat::Rest if d.ticks < 12 => {
-            if d.height < 0 {
-                "recover-high"
-            } else {
-                "recover-low"
-            }
-        }
-        Beat::Rest => "idle",
-    };
-    let body = a
-        .damage
-        .get(&(stage, state))
-        .map(|bank| &bank[usize::from(!labels)])
-        .unwrap_or_else(|| {
-            if labels {
-                &a.states[stage][pose(d)]
-            } else {
-                &a.cells[stage][pose(d)]
-            }
-        });
+    let body = clasp_body(run, d, labels);
     base.stamp(body, 217 + recoil + shake, 56);
     knight(&mut base, run, id, d, shake, !labels);
     if d.beat == Beat::Clean {
@@ -971,6 +994,10 @@ pub(super) fn sign(cv: &mut Img, run: &Run) {
     cv.rect(256, 134, 2, 2, 't');
     cv.rect(263, 134, 2, 2, 't');
 }
+
+#[cfg(test)]
+#[path = "../../../../tests/render/latch__juice_tests.rs"]
+mod juice_tests;
 
 #[cfg(test)]
 mod slot_tests {

@@ -76,7 +76,10 @@ pub(super) fn scenery(run: &Run) -> Img {
             }
         }
     }
-    super::bounties::furniture(&mut cv);
+    super::bounties::furniture(
+        &mut cv,
+        run.home.bounties.len().saturating_sub(crate::rules::bounties::PINNED).min(crate::rules::goods::NOTICES_PRINTED),
+    );
     for spot in &SPOTS {
         plate(&mut cv, spot.plate, false, spot.station);
     }

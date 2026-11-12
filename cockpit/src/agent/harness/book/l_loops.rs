@@ -797,3 +797,118 @@ fn write_canonical_json(tool: &str, value: &Value, out: &mut String) {
         other => out.push_str(&other.to_string()),
     }
 }
+
+/// On when `ANGEL_LOOP_COLLAPSE=1`, which a small workspace's headless task
+/// sets by default. When one tool batch has come back with
+/// the same outcome [`COLLAPSE_AT`] times (calls and results compared with
+/// their digits masked), the request keeps its first sighting and drops the
+/// later copies, their results and the `⛔` turns that followed them. Only the
+/// outbound copy changes: the stored history keeps every hop.
+///
+/// Why: in a locked loop DeepSeek Flash repeats the call it sees repeated. A
+/// replay of the loops of 2026-09-30 broke 16 of 50 with the copies collapsed
+/// and 0 of 50 as sent; a new page or the 0.1.6 English alone broke none.
+/// The 2026-11-11 wave P loops (js-bowling, js-forth) broke 5 of 6 collapsed,
+/// 0 of 6 as sent and 0 of 6 with the page's English sent again.
+pub(crate) const LOOP_COLLAPSE_ENV: &str = "ANGEL_LOOP_COLLAPSE";
+
+/// Sightings of one batch, with one outcome, before its copies are collapsed.
+pub(crate) const COLLAPSE_AT: usize = 3;
+
+/// The request as the model should see it in a locked loop; see
+/// [`LOOP_COLLAPSE_ENV`].
+pub(crate) fn collapse_repeats(
+    messages: &[crate::agent::club::ChatMsg],
+) -> std::borrow::Cow<'_, [crate::agent::club::ChatMsg]> {
+    use crate::agent::club::ChatRole;
+    if !env_flag(LOOP_COLLAPSE_ENV, false) {
+        return std::borrow::Cow::Borrowed(messages);
+    }
+    // One signature per assistant batch: its calls and their results.
+    let mut signatures: Vec<Option<u64>> = vec![None; messages.len()];
+    let mut counts: std::collections::HashMap<u64, usize> = std::collections::HashMap::new();
+    for (index, message) in messages.iter().enumerate() {
+        if message.role != ChatRole::Assistant || message.tool_calls.is_empty() {
+            continue;
+        }
+        let mut hasher = DefaultHasher::new();
+        for call in message.tool_calls.iter() {
+            mask_digits(&toolcall_storm_signature(call)).hash(&mut hasher);
+        }
+        for result in messages[index + 1..]
+            .iter()
+            .take_while(|next| next.role == ChatRole::Tool)
+        {
+            mask_digits(&result.content).hash(&mut hasher);
+        }
+        let signature = hasher.finish();
+        signatures[index] = Some(signature);
+        *counts.entry(signature).or_default() += 1;
+    }
+    if !counts.values().any(|count| *count >= COLLAPSE_AT) {
+        return std::borrow::Cow::Borrowed(messages);
+    }
+    let mut kept = Vec::with_capacity(messages.len());
+    let mut seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut dropping = false;
+    for (index, message) in messages.iter().enumerate() {
+        match signatures[index] {
+            Some(signature) if counts[&signature] >= COLLAPSE_AT => {
+                dropping = !seen.insert(signature);
+                if !dropping {
+                    kept.push(message.clone());
+                }
+            }
+            Some(_) => {
+                dropping = false;
+                kept.push(message.clone());
+            }
+            None => {
+                let rides_a_copy = dropping
+                    && (message.role == ChatRole::Tool
+                        || (matches!(message.role, ChatRole::Harness | ChatRole::User)
+                            && message.content.starts_with(WARNING)));
+                if !rides_a_copy {
+                    dropping = false;
+                    kept.push(message.clone());
+                }
+            }
+        }
+    }
+    // When the latest batch is itself a dropped copy, the view would end where
+    // an earlier one did, and at temperature 0 the model gives the same call
+    // again: a fixed point (rust-decimal, 2026-11-11, hops 43-60). One loop
+    // turn closes the request instead, a different book page each repeat.
+    // The latest sighting of a collapsed batch is always one of its copies.
+    if let Some(signature) = signatures.iter().rev().flatten().next()
+        && counts[signature] >= COLLAPSE_AT
+    {
+        kept.push(crate::agent::club::ChatMsg::harness(rotation_turn(
+            counts[signature],
+        )));
+    }
+    std::borrow::Cow::Owned(kept)
+}
+
+/// The loop turn that closes a collapsed request on its `repeats`-th copy:
+/// the same-batch page with the count, then the `⠇⠓` pages in the order they
+/// broke frozen replays on 2026-11-11 (⠇⠓⠁ last: it broke none), each with
+/// its own words from the book.
+fn rotation_turn(repeats: usize) -> String {
+    const ORDER: [usize; 5] = [1, 2, 3, 4, 0];
+    let step = (repeats - COLLAPSE_AT) % (ORDER.len() + 1);
+    if step == 0 {
+        let page = PRIMARY
+            .subs
+            .iter()
+            .find(|sub| sub.name == "same-batch")
+            .and_then(|sub| sub.pages.first())
+            .copied()
+            .unwrap_or_default();
+        let cells = SAME_BATCH.cells();
+        return format!("{WARNING}{cells} ×{repeats}\n\n{cells} {page}");
+    }
+    let page = ORDER[step - 1];
+    let cells = format!("{}{}", UNSTUCK.cells(), super::DIGITS[page]);
+    format!("{WARNING}{cells}\n\n{cells} {}", UNSTUCK_PAGES[page])
+}
