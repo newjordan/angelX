@@ -38,11 +38,11 @@ pub(crate) fn fixture(kind: Guardian) -> (Run, industry::Deposit) {
         deposit.id.clone(),
         crate::kingdom::Claim {
             resource: deposit.resource.into(),
-            name: deposit.name.into(),
+            name: deposit.name.clone(),
             source: "test encounter".into(),
             secured: false,
-            rate: 2,
-        },
+            rate: deposit.seam.rate(),
+            yields: deposit.seam.yields(), surface: false },
     );
     (run, deposit)
 }
@@ -354,11 +354,11 @@ pub(crate) fn play_claim_with_industry(
             d.id.clone(),
             crate::kingdom::Claim {
                 resource: d.resource.into(),
-                name: d.name.into(),
+                name: d.name.clone(),
                 source: "village expedition".into(),
                 secured: false,
-                rate: 2,
-            }
+                rate: d.seam.rate(),
+                yields: d.seam.yields(), surface: false }
         ));
     }
     run.outfit(1, knights::knight("percival").unwrap());

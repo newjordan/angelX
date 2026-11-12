@@ -1,0 +1,66 @@
+wave-fire: no strip, code body only
+wave-frost: no strip, code body only
+wave-storm: no strip, code body only
+wave-poison: no strip, code body only
+wave-holy: no strip, code body only
+wave-arcane: no strip, code body only
+line-frost: spun ice/ice-lance by half a turn so the art runs east (it was drawn behind its origin)
+
+name bbox need length lenNeed up fill scale
+wave-earth bbox=47.0 need=- length=94.0 lenNeed=- up=40.0 fill=30.6% scale=1.00
+burst-fire bbox=151.0 need=51.2 length=122.0 lenNeed=- up=142.0 fill=33.5% scale=1.00
+burst-frost bbox=39.0 need=51.2 length=26.0 lenNeed=- up=35.0 fill=70.8% scale=1.00
+burst-storm bbox=90.0 need=51.2 length=52.0 lenNeed=- up=78.0 fill=34.2% scale=1.00
+burst-poison bbox=31.0 need=51.2 length=28.0 lenNeed=- up=26.0 fill=30.8% scale=1.00
+burst-holy bbox=79.0 need=51.2 length=34.0 lenNeed=- up=42.0 fill=18.5% scale=1.00
+burst-arcane bbox=61.0 need=51.2 length=32.0 lenNeed=- up=61.0 fill=51.4% scale=1.00
+burst-earth bbox=124.0 need=51.2 length=126.0 lenNeed=- up=117.0 fill=28.1% scale=1.00
+cone-fire bbox=120.0 need=- length=120.0 lenNeed=57.8 up=71.0 fill=23.2% scale=1.00
+cone-frost bbox=120.0 need=- length=120.0 lenNeed=57.8 up=71.0 fill=23.1% scale=1.00
+cone-storm bbox=115.0 need=- length=120.0 lenNeed=57.8 up=68.0 fill=23.9% scale=1.00
+cone-poison bbox=120.0 need=- length=120.0 lenNeed=57.8 up=71.0 fill=23.2% scale=1.00
+cone-holy bbox=108.0 need=- length=120.0 lenNeed=57.8 up=64.0 fill=25.1% scale=1.00
+cone-arcane bbox=115.0 need=- length=120.0 lenNeed=57.8 up=68.0 fill=23.8% scale=1.00
+cone-earth bbox=122.0 need=- length=120.0 lenNeed=57.8 up=74.0 fill=22.6% scale=1.00
+line-fire bbox=76.0 need=- length=136.0 lenNeed=88.4 up=44.0 fill=20.2% scale=1.00
+line-frost bbox=22.0 need=- length=144.0 lenNeed=88.4 up=11.0 fill=37.3% scale=1.00
+line-storm bbox=44.0 need=- length=113.0 lenNeed=88.4 up=42.0 fill=22.5% scale=1.00
+line-poison bbox=42.0 need=- length=147.0 lenNeed=88.4 up=5.0 fill=15.4% scale=1.00
+line-holy bbox=57.0 need=- length=200.0 lenNeed=88.4 up=64.0 fill=26.6% scale=1.00
+line-arcane bbox=57.0 need=- length=200.0 lenNeed=88.4 up=64.0 fill=26.6% scale=1.00
+line-earth bbox=50.0 need=- length=42.0 lenNeed=88.4 up=47.0 fill=18.2% scale=1.00
+field-fire bbox=34.0 need=60.8 length=49.0 lenNeed=- up=24.0 fill=38.6% scale=1.00
+field-frost bbox=77.0 need=60.8 length=96.0 lenNeed=- up=69.0 fill=12.7% scale=1.00
+field-storm bbox=142.0 need=60.8 length=70.0 lenNeed=- up=158.0 fill=27.5% scale=1.00
+field-poison bbox=31.0 need=60.8 length=62.0 lenNeed=- up=29.0 fill=39.9% scale=1.00
+field-holy bbox=42.0 need=60.8 length=49.0 lenNeed=- up=31.0 fill=26.9% scale=1.00
+field-arcane bbox=77.0 need=60.8 length=49.0 lenNeed=- up=59.0 fill=15.9% scale=1.00
+field-earth bbox=53.0 need=60.8 length=56.0 lenNeed=- up=47.0 fill=38.2% scale=1.00
+pillar-fire bbox=168.0 need=- length=83.0 lenNeed=- up=161.0 fill=18.7% scale=1.00
+pillar-frost bbox=53.0 need=- length=31.0 lenNeed=- up=84.0 fill=21.2% scale=1.00
+pillar-storm bbox=68.0 need=- length=29.0 lenNeed=- up=227.0 fill=28.5% scale=1.00
+pillar-poison bbox=94.0 need=- length=46.0 lenNeed=- up=127.0 fill=23.1% scale=1.00
+pillar-holy bbox=182.0 need=- length=86.0 lenNeed=- up=204.0 fill=11.9% scale=1.00
+pillar-arcane bbox=119.0 need=- length=51.0 lenNeed=- up=122.0 fill=26.6% scale=1.00
+pillar-earth bbox=126.0 need=- length=96.0 lenNeed=- up=121.0 fill=19.9% scale=1.00
+nova-fire bbox=178.0 need=115.2 length=88.0 lenNeed=- up=89.0 fill=12.8% scale=1.00
+nova-frost bbox=65.0 need=115.2 length=32.0 lenNeed=- up=56.0 fill=74.6% scale=1.00
+nova-storm bbox=91.0 need=115.2 length=54.0 lenNeed=- up=78.0 fill=45.3% scale=1.00
+nova-poison bbox=81.0 need=115.2 length=98.0 lenNeed=- up=69.0 fill=15.7% scale=1.00
+nova-holy bbox=80.0 need=115.2 length=39.0 lenNeed=- up=107.0 fill=52.0% scale=1.00
+nova-arcane bbox=114.0 need=115.2 length=56.0 lenNeed=- up=111.0 fill=55.1% scale=1.00
+nova-earth bbox=106.0 need=115.2 length=107.0 lenNeed=- up=99.0 fill=30.5% scale=1.00
+
+burst-frost: peak bbox 39.0px < 80% of reach diameter 51.2px
+burst-poison: peak bbox 31.0px < 80% of reach diameter 51.2px
+line-earth: peak length 42.0px < 85% of reach 88.4px
+field-fire: peak bbox 34.0px < 80% of reach diameter 60.8px
+field-poison: peak bbox 31.0px < 80% of reach diameter 60.8px
+field-holy: peak bbox 42.0px < 80% of reach diameter 60.8px
+field-earth: peak bbox 53.0px < 80% of reach diameter 60.8px
+nova-frost: peak bbox 65.0px < 80% of reach diameter 115.2px
+nova-storm: peak bbox 91.0px < 80% of reach diameter 115.2px
+nova-poison: peak bbox 81.0px < 80% of reach diameter 115.2px
+nova-holy: peak bbox 80.0px < 80% of reach diameter 115.2px
+nova-arcane: peak bbox 114.0px < 80% of reach diameter 115.2px
+nova-earth: peak bbox 106.0px < 80% of reach diameter 115.2px

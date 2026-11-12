@@ -17,7 +17,7 @@ pub fn laps(race: &rules::Session) -> u32 { race.laps() }
 pub fn course_name(race: &rules::Session) -> &'static str { race.course().name() }
 pub fn zone(race: &rules::Session, s: f32) -> &'static str { race.course().zone(s.rem_euclid(lap_len(race))).1 }
 pub fn course_pose(race: &rules::Session, s: f32) -> (f32, f32, f32) { race.course().pose(s) }
-pub fn course_len(race: &rules::Session) -> f32 { lap_len(race) * laps(race) as f32 }
+pub fn course_len(race: &rules::Session) -> f32 { race.distance() }
 
 /// Race seconds since the lights went out.
 pub fn race_time(ticks: u32) -> f32 { ticks.saturating_sub(GRID_TICKS) as f32 / HZ }

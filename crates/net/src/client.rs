@@ -118,6 +118,11 @@ pub trait GameClient: Sized {
     /// A pointer press in final frame pixels. True means the game's current
     /// screen consumed it; otherwise the shell may continue its normal input.
     fn pointer(&mut self, _frame_x:u32, _frame_y:u32, _button:u8)->bool { false }
+    /// The pointer moved to a frame pixel with a button this game took (`pointer`) still
+    /// held: true when the game used it.
+    fn pointer_move(&mut self, _frame_x:u32, _frame_y:u32)->bool { false }
+    /// The button a game took was let go on a frame pixel.
+    fn pointer_up(&mut self, _frame_x:u32, _frame_y:u32, _button:u8)->bool { false }
     /// Picks beside the text line (`controls.text`), for a page to show
     /// while the line is open (the Delve's "Upgrade what you hold"): a
     /// heading line, then one pick a line as `key\tlabel\ttag\ttip\twords`,
@@ -550,6 +555,14 @@ impl<G: GameClient> Runtime<G> {
 
     pub fn pointer(&mut self, frame_x:u32, frame_y:u32, button:u8)->bool {
         self.game.as_mut().is_some_and(|game|game.pointer(frame_x,frame_y,button))
+    }
+
+    pub fn pointer_move(&mut self, frame_x:u32, frame_y:u32)->bool {
+        self.game.as_mut().is_some_and(|game|game.pointer_move(frame_x,frame_y))
+    }
+
+    pub fn pointer_up(&mut self, frame_x:u32, frame_y:u32, button:u8)->bool {
+        self.game.as_mut().is_some_and(|game|game.pointer_up(frame_x,frame_y,button))
     }
 
     /// The picks beside the text line (`GameClient::picks`).

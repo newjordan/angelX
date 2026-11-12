@@ -4,10 +4,11 @@
 //! This is the code that used to run in `race3d.rs` (`roll_ball`, `bump_balls`,
 //! `ride_cart`, `bump_carts`, `fly_griffin`, `fly_bolts` and the course arms of
 //! `tick_race3d`), with the three private helpers it leant on (`wreck`,
-//! `rope_back`, `pick_up`) copied beside it, and one change: see `hyp`. It runs
-//! only in tests: `crates/delve`'s own, through an engine that answers
-//! from here, and the cockpit's parity test, which ticks the shipped leg and
-//! this side by side and compares every bit of the state.
+//! `rope_back`, `pick_up`) copied beside it, and one change: see `hyp`. The
+//! shipped leg rolls the Shaft Run alone, so in play this ticks the Ore Cart
+//! and the Griffin Run (`Run::tick_race3d`). In tests it is also the engine
+//! that answers for the leg in `crates/delve`, and the cockpit's parity test
+//! ticks the shipped leg and this side by side over the Shaft Run.
 //!
 //! It is included by `#[path]` from both trees, so it may only name what a
 //! `super::` can supply: the race's types and course, and `Input` and `HZ`.
@@ -605,6 +606,7 @@ struct Ask {
 
 /// The oracle's engine: the one op the leg answers, answered natively, in the
 /// shape the leg answers it.
+#[cfg_attr(not(test), allow(dead_code))]
 pub fn answer(id: &str, input: &serde_json::Value) -> Result<serde_json::Value, String> {
     if id != "race3d-rules" {
         return Err(format!("no oracle for {id}"));

@@ -80,7 +80,8 @@ pub(super) fn boss_figure(run: &Run, index: u8) -> Option<Img> {
     } else if let Some(art) = crate::rules::bosses::Art::for_id(&boss.id) {
         super::boss_art::body(art)
     } else {
-        Img::from_rows(&boss.art.iter().map(String::as_str).collect::<Vec<_>>())
+        let rows: Vec<&str> = boss.art.iter().map(String::as_str).collect();
+        super::autorig::boss_still(run, index, &rows).unwrap_or_else(|| Img::from_rows(&rows))
     };
     let floor = if run.guardian_room() { GUARDIAN } else { CHIEF };
     let art = if boss.id == crate::rules::signatures::RIPPER {

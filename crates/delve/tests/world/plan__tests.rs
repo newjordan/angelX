@@ -31,8 +31,9 @@ fn the_switch_is_one_constant_and_the_shipped_realm_is_the_blank_slate() {
 fn one_camp_for_each_house_and_one_tiny_castle_all_inside_the_map() {
     assert_eq!(CAMPS.len(), houses::all().len());
     assert_eq!(CAMPS.len(), 16);
-    // The tiny castle is small enough to see whole (the view is 24 x 14 tiles).
-    assert!(KEEP.2 <= 10 && KEEP.3 <= 6, "the Keep is {KEEP:?}");
+    // The Keep is the Works' site: the great tower and its ditch, as big as it
+    // bakes (`world::works`), wholly on the map.
+    assert_eq!(KEEP, crate::world::works::castle(crate::world::works::KEEP).expect("the great tower").tiles());
     for r in std::iter::once(KEEP).chain(CAMPS).chain([DELVE_GATE]) {
         assert!(r.0 > 1 && r.1 > 1 && r.0 + r.2 < MAP_W - 1 && r.1 + r.3 < MAP_H - 1, "{r:?} is off the map");
     }
@@ -81,12 +82,18 @@ fn nothing_stands_on_a_camp_the_castle_or_the_gate_and_they_keep_apart() {
     assert_eq!(closed.len(), 18, "the Keep, the gate and sixteen camps");
     for (i, a) in closed.iter().enumerate() {
         for b in &closed[i + 1..] {
+            // The Delve's gate stands inside the Keep's bailey, by design.
+            if (*a == KEEP && *b == DELVE_GATE) || (*a == DELVE_GATE && *b == KEEP) {
+                continue;
+            }
             assert!(!overlap(*a, *b, 2), "{a:?} and {b:?} touch");
         }
     }
-    // The Keep and the Delve's gate share the middle chunk; neither is a camp.
-    assert_eq!(tabula::chunk_of(KEEP), Some((5, 5)));
+    // The Keep's site spreads over four chunks and holds the Delve's gate, which
+    // is wholly in the middle one; neither is a camp.
+    assert_eq!(tabula::chunk_of(KEEP), None);
     assert_eq!(tabula::chunk_of(DELVE_GATE), Some((5, 5)));
+    assert!(inside(KEEP, DELVE_GATE.0, DELVE_GATE.1) && inside(KEEP, DELVE_GATE.0 + DELVE_GATE.2 - 1, DELVE_GATE.1 + DELVE_GATE.3 - 1));
     // The knight's stand and the spawn are open ground, never inside what they serve.
     for r in CAMPS {
         let (sx, sy) = tabula::camp_stand(r);
@@ -96,7 +103,8 @@ fn nothing_stands_on_a_camp_the_castle_or_the_gate_and_they_keep_apart() {
     assert!(tabula::walkable(KEEP_STAND.0, KEEP_STAND.1));
     let (dx, dy) = tabula::delve_stand();
     assert!(tabula::walkable(dx, dy));
-    assert_eq!(KEEP_STAND, (KEEP.0 + KEEP.2 / 2, KEEP.1 + KEEP.3));
+    // The spawn is in the Keep's bailey, in the lee of the gate (the castle is raised over the way down).
+    assert!(inside(KEEP, KEEP_STAND.0, KEEP_STAND.1));
 }
 
 #[test]
@@ -105,8 +113,9 @@ fn every_camp_and_the_delve_door_are_reachable_on_foot_from_the_spawn() {
     for r in CAMPS {
         assert!(tabula::reaches(tabula::camp_stand(r)), "{r:?} is not reachable");
     }
-    // The only way to a closed tile is not on foot.
-    assert!(!tabula::reaches((KEEP.0 + 1, KEEP.1 + 1)));
+    // The only way to a closed tile is not on foot. (The Keep's site is open to
+    // this reckoning: what shuts in it is the Works', walked in `world::works`.)
+    assert!(!tabula::reaches((DELVE_GATE.0 + 1, DELVE_GATE.1 + 1)));
 }
 
 #[test]
@@ -136,8 +145,10 @@ fn the_only_door_is_the_delve_and_it_is_reachable_from_the_spawn() {
     assert!(super::tabula(), "{NEEDS_TABULA}");
     use crate::world::doors::{self, Door};
     assert_eq!(doors::doors(), &[(tabula::delve_stand(), Door::Delve)]);
-    assert!(doors::walkable(crate::world::kingdom::keep_stand()));
-    assert!(doors::walkable(tabula::delve_stand()));
+    // The spawn and the Delve's stand stand in the Keep's bailey: the map holds the whole
+    // site shut for the walkers and lots, and the Works opens the bailey for the knights
+    // (walked at every stage of the build in `world::works`).
+    assert!(inside(KEEP, KEEP_STAND.0, KEEP_STAND.1) && inside(KEEP, tabula::delve_stand().0, tabula::delve_stand().1));
     assert_eq!(crate::world::kingdom::keep_stand(), KEEP_STAND);
     let geo = crate::world::kingdom::geography(&[]);
     assert_eq!(geo.sites.len(), 1);
@@ -163,9 +174,15 @@ fn the_walkers_ground_is_everywhere_but_the_castle_the_camps_and_the_gate() {
             }
         }
     }
-    // Every other tile one in from the rim is walkable, level with the plan's own idea.
+    // Every other tile one in from the rim is walkable, level with the plan's own
+    // idea; but the Keep's site, which the map holds closed (the walkers keep to
+    // the open country) and the Works opens for the knights.
     for y in 1..MAP_H - 1 {
         for x in 1..MAP_W - 1 {
+            if inside(KEEP, x, y) {
+                assert_eq!(step_cost(x, y), None, "{x},{y}");
+                continue;
+            }
             assert_eq!(step_cost(x, y).is_some(), tabula::walkable(x, y), "{x},{y}");
         }
     }

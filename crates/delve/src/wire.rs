@@ -407,6 +407,10 @@ impl Publisher {
             } else {
                 match name {
                     "feel" => fields.field(name, field, None, None, |v| reckon_feel(v, tick))?,
+                    "caves" => {
+                        let key = run.caves.fingerprint().to_le_bytes();
+                        fields.field(name, field, Some(&key), None, |v| shape(name, v, tick, &absent))?
+                    }
                     _ => fields.field(name, field, Some(&shape_key(name, &absent)), None, |v| shape(name, v, tick, &absent))?,
                 }
             };
@@ -612,10 +616,24 @@ pub fn seat_tree(tree: &Value, seat: Option<u32>) -> Cow<'_, Value> {
         .is_some_and(|heats| heats.iter().any(|(key, _)| !mine(key)));
     let outside = map_of(tree.field("exits").and_then(|e| e.field("outside")))
         .is_some_and(|outside| outside.iter().any(|(key, _)| mine(key)));
-    if !others_heats && !outside {
+    // The numbers made for a seat (its card, its production screen, its list of chokes) are
+    // that seat's alone: the builder boards of the others go without.
+    let others_numbers = map_of(tree.field("kingdom").and_then(|k| k.field("industry")))
+        .is_some_and(|boards| boards.iter().any(|(key, b)| !mine(key) && b.field("rig").is_some_and(|r| r.field("numbers").is_some())));
+    if !others_heats && !outside && !others_numbers {
         return Cow::Borrowed(tree);
     }
     let mut view = tree.clone();
+    if others_numbers
+        && let Some(Value::Map(boards)) = view.field_mut("kingdom").and_then(|k| k.field_mut("industry"))
+    {
+        for (key, board) in boards.iter_mut().filter(|(key, _)| !mine(key)) {
+            let _ = key;
+            if let Some(Value::Struct(fields)) = board.field_mut("rig").map(Value::get_mut) {
+                fields.retain(|(name, _)| name != "numbers");
+            }
+        }
+    }
     if others_heats
         && let Some(Value::Map(heats)) = view.field_mut("pastimes").and_then(|p| p.field_mut("heats"))
     {

@@ -588,10 +588,12 @@ impl Run {
             // The Bard's song is its own music box, heard by the Bard
             // alone; every other ultimate rises like a guardian.
             if matches!(ult, Ult::Lullaby) {
-                // Its song's breakdown; the next groove is the next song.
+                // Its song's breakdown; the next groove is the next song,
+                // from its top.
                 let songs = self.players.get_mut(&id).map_or(0, |h| {
                     let was = h.songs;
                     h.songs = was.wrapping_add(1);
+                    (h.tune, h.groove) = (0, 0);
                     was
                 });
                 self.seat_sounds.push((id, bard::lullaby(bard::song_of(id, songs))));

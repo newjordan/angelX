@@ -6,7 +6,7 @@ use angel_net::input::{Hands, button};
 
 /// The rite's invitation to the Creator on a newcomer's own screen: a slip for the first seconds
 /// after they arrive, then a corner hint for as long as the rite is owed. It never holds a key
-/// but C, never blocks the knight and is the client's alone.
+/// but C while N is held, never blocks the knight and is the client's alone.
 #[derive(Default)]
 pub(super) struct Invite {
     owed: bool,
@@ -28,7 +28,7 @@ impl Invite {
         self.owed = owed;
     }
 
-    /// Whether C opens the Creator for the rite now.
+    /// Whether N held and C opens the Creator for the rite now.
     pub fn up(&self) -> bool {
         self.owed
     }

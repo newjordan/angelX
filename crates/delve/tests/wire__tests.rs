@@ -891,12 +891,20 @@ fn crowded_floor_seat_streams_keep_their_bytes() {
     // `patience` on every knight, `grounded`, `frog` and `shunned` on every monster, `thick`
     // on every barricade, and the four cards' words and icons in the book; no play moves
     // (the tune traces play as before); before them, 5423067574289220033.
-    assert_eq!(hash, 15918512744042566721, "a seat's stream changed");
+// Re-pinned 2026-11-11: the built-in card book stays off the wire and out of
+// the seats' views (`Book::wire_omits`); a guest restores it. With it on the
+// wire, 15918512744042566721.
+    assert_eq!(hash, 797692494598269949, "a seat's stream changed");
     let held = publisher.fields.held();
     let prints: usize = held.iter().map(|row| row.2).sum();
     let caps: usize = held.iter().map(|row| row.3).sum();
+    // 2026-11-11: with the built-in book off the wire (`Book::wire_omits`)
+    // the prints fell from 1095673 to 190299 bytes and what is held from
+    // 1578205 to 492542; the spare beside the prints fell too (482532 to
+    // 302243), but the book was most of the tightly held print, so the floor
+    // moved from 256 KiB to 512 KiB.
     assert!(
-        caps <= prints.saturating_mul(2).max(256 * 1024),
+        caps <= prints.saturating_mul(2).max(512 * 1024),
         "fingerprint spare {caps} for {prints} bytes of print"
     );
     drop((run, publisher, kept));
@@ -963,7 +971,14 @@ fn wall_stock_catalog_does_not_change_crowded_play_or_seat_views() {
         for seat in &mut kept {
             legacy_hash = seat_send(&old, seat, legacy_hash);
         }
-        *current.field_mut("book").unwrap() = old.field("book").unwrap().clone();
+        // The built-in book stays off the wire (`Book::wire_omits`) while the
+        // legacy run's trimmed book travels: compare the trees without it.
+        let mut old = old;
+        for tree in [&mut current, &mut old] {
+            if let Value::Struct(fields) = tree.get_mut() {
+                fields.retain(|(name, _)| name != "book");
+            }
+        }
         assert_eq!(current, old, "published state at tick {}", run.tick);
         for seat in 0..6 {
             assert_eq!(seat_tree(&current, Some(seat)), seat_tree(&old, Some(seat)), "seat {seat} at tick {}", run.tick);
@@ -1261,7 +1276,10 @@ fn melee_presentation_keeps_the_original_combat_stream() {
 // `patience` on every knight, `grounded`, `frog` and `shunned` on every monster, `thick`
 // on every barricade, and the four cards' words and icons in the book; no play moves
 // (the tune traces play as before); before them, 6546419143770473883.
-assert_eq!(melee_stream(), 5599650319494895517, "fields other than melee and ranged feedback changed");
+// Re-pinned 2026-11-11: the built-in card book stays off the wire and out of
+// the seats' views (`Book::wire_omits`); a guest restores it. With it on the
+// wire, 5599650319494895517.
+assert_eq!(melee_stream(), 8885039444074300839, "fields other than melee and ranged feedback changed");
 }
 
 /// The open melee's seat streams with the melee and ranged feedback left
@@ -1334,7 +1352,10 @@ fn before_the_melee_pass_both_open_melee_streams_are_as_they_were() {
 // `patience` on every knight, `grounded`, `frog` and `shunned` on every monster, `thick`
 // on every barricade, and the four cards' words and icons in the book; no play moves
 // (the tune traces play as before); before them, 14157752563549125783.
-assert_eq!(crowded, 14029830480052148679, "the seat streams before the pass");
+// Re-pinned 2026-11-11: the built-in card book stays off the wire and out of
+// the seats' views (`Book::wire_omits`); a guest restores it. With it on the
+// wire, 14029830480052148679.
+assert_eq!(crowded, 8040765818133305361, "the seat streams before the pass");
     // Re-pinned 2026-10-30 for Astra's night: about two hundred cards join the
     // loot table, the spells at their old share (`cards::SPELL_DROP_SHARE`);
     // with those cards out of the book it is 4246741471458056213 again.
@@ -1357,7 +1378,9 @@ assert_eq!(crowded, 14029830480052148679, "the seat streams before the pass");
     // Re-pinned 2026-11-07: the Fungelder and the monk's four cards (Vesper Bell, Monk's
     // Patience, Plague of Frogs, Excommunicate) ride the stream, as in `crowded_floor_seat_streams_keep_their_bytes`;
     // before them, 16766325799530759611.
-    assert_eq!(stripped, 9727552776567430085, "the combat stream before the pass");
+    // Re-pinned 2026-11-11: the built-in card book stays off the wire and out of
+    // the seats' views (`Book::wire_omits`); with it on the wire, 9727552776567430085.
+    assert_eq!(stripped, 18317157578272895223, "the combat stream before the pass");
 }
 
 /// A bullet turned off a knight's blade is the knight's on every seat: the
@@ -1499,4 +1522,22 @@ fn a_crossroads_clock_and_a_race_read_by_putting_their_fields_back_are_the_run_a
         last = next;
     }
     assert_eq!(guest.stats().1, 1, "only the first read was whole (it forced one for: {})", guest.stats().2);
+}
+
+#[test]
+fn the_builtin_book_stays_off_the_wire_but_saves_and_rules_captures_keep_it() {
+    let run = fight();
+    assert!(run.book.is_builtin());
+    let tree = publish(&run).unwrap();
+    assert!(tree.field("book").is_none(), "a guest restores the built-in book itself");
+    assert!(read_back(&tree).book.is_builtin());
+    let save = serde_json::to_value(&run).unwrap();
+    assert!(save.get("book").is_some(), "a save keeps the book whole");
+    let step = crate::rules::runtime_state::capture_for_step(&run).unwrap();
+    assert!(step.run.get("book").is_some(), "the rules read run.book");
+    let mut changed = run.clone();
+    changed.book.revision += 1;
+    let tree = publish(&changed).unwrap();
+    assert!(tree.field("book").is_some(), "a changed book travels");
+    assert_eq!(read_back(&tree).book.revision, changed.book.revision);
 }

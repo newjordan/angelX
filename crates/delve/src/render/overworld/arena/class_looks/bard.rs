@@ -4,7 +4,7 @@
 //! - **A note** (`classes::SONG`): a gold ♪ or ♫ by its lane in the volley,
 //!   bobbing across its flight, a neon wake of mint and teal swaying behind
 //!   it on the path it took.
-//! - **A volley** (`bard::volley_sounds`): sound blasting off the horn,
+//! - **A volley** (`bard::strum`): sound blasting off the horn,
 //!   lit arcs opening along the aim; on the beat, the first volley of each
 //!   slice of the song (`bard::on_beat`), notes thrown out of the bell and
 //!   the kick thumping out across the floor, a shock with a dark wake; with

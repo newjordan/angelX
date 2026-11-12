@@ -116,17 +116,36 @@ fn clock_plate(im: &mut Img, c: &Ctx, now: f32, lap_n: u32, count: u32) {
     plate(im, 70, 5, 208, 34);
     im.text(76, 8, state::course_name(race), 'T');
     if race.ticks < state::GRID_TICKS {
-        im.text(76, 19, &format!("{} LAPS  {:.1} KM A LAP", count, state::lap_len(race) / 1000.), 'h');
-        im.text(76, 29, "BEST --:--.--", 't');
+        match race.left() {
+            // A sprint short of a lap: its length and its clock.
+            Some(left) => {
+                im.text(76, 19, &format!("SPRINT  {:.1} KM", race.distance() / 1000.), 'h');
+                im.text(76, 29, &format!("CLOCK {}:{:02}", left as u32 / 60, left as u32 % 60), 'T');
+            }
+            None => {
+                im.text(76, 19, &format!("{} LAPS  {:.1} KM A LAP", count, state::lap_len(race) / 1000.), 'h');
+                im.text(76, 29, "BEST --:--.--", 't');
+            }
+        }
         return;
     }
     let last_lap = lap_n + 1 == count && car_running(c.car);
+    let shown = c.car.finish.unwrap_or(now.max(0.));
+    if let Some(left) = race.left() {
+        // A sprint: the metres to the flag, the time run, and the clock counting down.
+        let to_go = (race.distance() - c.car.d.max(0.)).max(0.);
+        im.text(76, 19, &format!("{:.1} KM TO GO", to_go / 1000.), 'H');
+        im.text(76, 29, &format!("TIME {}", state::stamp(shown)), 't');
+        let s = left.ceil() as u32;
+        let low = s <= 10 && car_running(c.car);
+        im.text(176, 19, &format!("LEFT {}:{:02}", s / 60, s % 60), if low && lamp(race.ticks) { 'O' } else if low { 'T' } else { 'H' });
+        return;
+    }
     if last_lap && lamp(race.ticks) {
         im.text(76, 19, "FINAL LAP", 'O');
     } else {
         im.text(76, 19, &format!("LAP {}/{}", (lap_n + 1).min(count), count), 'H');
     }
-    let shown = c.car.finish.unwrap_or(now.max(0.));
     im.text(150, 19, &format!("TIME {}", state::stamp(shown)), 'T');
     if let Some(s) = c.clocks.seats.get(&c.seat) {
         let this = if c.car.finish.is_some() { s.times.last().copied().unwrap_or(0.) } else { s.lap_time(now) };
@@ -243,7 +262,7 @@ fn progress(im: &mut Img, c: &Ctx) {
     let total = state::course_len(c.race);
     let len = state::lap_len(c.race);
     im.rect(x0, y, x1 - x0, 1, 'j');
-    for l in 0..=state::laps(c.race) {
+    for l in (0..=state::laps(c.race)).filter(|&l| l as f32 * len <= total + 1.) {
         let x = x0 + (l as f32 * len / total * (x1 - x0) as f32) as i32;
         im.rect(x.min(x1 - 1), y - 2, 1, 5, 'h');
     }

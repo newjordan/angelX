@@ -174,14 +174,33 @@ struct Staged {
     bake: DungeonBake,
 }
 
-static LIVE_SCENERY: OnceLock<std::sync::Mutex<Option<LiveScenery>>> = OnceLock::new();
+/// A painter's last lit room, shared with the baker that lands the next one.
+type Slot = std::sync::Arc<std::sync::Mutex<Option<LiveScenery>>>;
+
+// The live slot is the painting thread's own. It was one for the whole process, and a process
+// with two painters (every test that draws a live frame, the dev host's seats) had them
+// overwrite each other's room: a painter's key flipped under it, and a baker's job for one
+// room landed in the other's slot. A painter keeps its own last room, as a window's
+// paint thread always has; the baker is shared and its jobs carry the slot they are for.
+std::thread_local! {
+    static LIVE_SCENERY: Slot = Slot::default();
+}
+
+fn live_slot() -> Slot {
+    LIVE_SCENERY.with(Slot::clone)
+}
 
 
 
 static SCENERY_DRAW: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
 
+/// A job for the baker: the slot it is for, the generation that slot asked for, the room's steady
+/// key and torch step, and the run to draw.
 #[cfg(not(target_arch = "wasm32"))]
-static BAKE_TX: OnceLock<std::sync::mpsc::SyncSender<(u64, SteadyKey, u64, Run)>> = OnceLock::new();
+type Job = (Slot, u64, SteadyKey, u64, Run);
+
+#[cfg(not(target_arch = "wasm32"))]
+static BAKE_TX: OnceLock<std::sync::mpsc::SyncSender<Job>> = OnceLock::new();
 
 fn scenery_draw_lock() -> std::sync::MutexGuard<'static, ()> {
     SCENERY_DRAW
@@ -193,22 +212,19 @@ fn scenery_draw_lock() -> std::sync::MutexGuard<'static, ()> {
 /// The baker beside the painter. A wasm build has no threads: there a
 /// torch step is drawn at once, like a room change.
 #[cfg(not(target_arch = "wasm32"))]
-fn bake_sender() -> &'static std::sync::mpsc::SyncSender<(u64, SteadyKey, u64, Run)> {
+fn bake_sender() -> &'static std::sync::mpsc::SyncSender<Job> {
     BAKE_TX.get_or_init(|| {
         // One queued job: a slow baker skips torch steps (the flicker rides
         // the stage lights) instead of holding a `Run` clone per step.
-        let (tx, rx) = std::sync::mpsc::sync_channel::<(u64, SteadyKey, u64, Run)>(1);
+        let (tx, rx) = std::sync::mpsc::sync_channel::<Job>(1);
         std::thread::Builder::new()
             .name("delve-scenery".into())
             .spawn(move || {
-                while let Ok((generation, steady, flicker, run)) = rx.recv() {
+                while let Ok((slot, generation, steady, flicker, run)) = rx.recv() {
                     // This thread draws the room the way the paint thread asked.
                     props_meshes(steady.11.0);
                     let img = lit_scenery(&run);
                     props_meshes(false);
-                    let Some(slot) = LIVE_SCENERY.get() else {
-                        continue;
-                    };
                     let Ok(mut guard) = slot.lock() else {
                         continue;
                     };
@@ -243,7 +259,7 @@ fn bake_sender() -> &'static std::sync::mpsc::SyncSender<(u64, SteadyKey, u64, R
 fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
     let steady = steady_key(run);
     let flicker = torch_step(run);
-    let slot = LIVE_SCENERY.get_or_init(|| std::sync::Mutex::new(None));
+    let slot = live_slot();
     let sync_generation = {
         let mut guard = slot.lock().unwrap_or_else(|err| err.into_inner());
         match guard.as_mut() {
@@ -254,7 +270,7 @@ fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
             Some(live) if live.steady == steady => {
                 let stale = std::sync::Arc::clone(&live.img);
                 if live.baking != Some(live.generation) {
-                    let job = (live.generation, steady, flicker, run.clone());
+                    let job = (Slot::clone(&slot), live.generation, steady, flicker, run.clone());
                     if bake_sender().try_send(job).is_ok() {
                         live.baking = Some(live.generation);
                     }
@@ -275,7 +291,7 @@ fn scenery_live(run: &Run) -> std::sync::Arc<Img> {
                 let stale = std::sync::Arc::clone(&live.img);
                 if live.baking != Some(live.generation) {
                     let next = live.generation.wrapping_add(1);
-                    let job = (next, steady, flicker, run.clone());
+                    let job = (Slot::clone(&slot), next, steady, flicker, run.clone());
                     if bake_sender().try_send(job).is_ok() {
                         live.generation = next;
                         live.baking = Some(live.generation);
@@ -895,11 +911,19 @@ pub(super) fn room_fixtures(run: &Run, cv: &mut Img, lights: &mut Vec<Light>) {
             let first = room.tile(col, row) == Tile::Stairs
                 && room.tile(col - 1, row) != Tile::Stairs
                 && room.tile(col, row - 1) != Tile::Stairs;
-            if first {
+            if first
+                && crate::rules::caves::floor_mouth(run.room().kind, col, row).is_none()
+                && crate::rules::caves::yard_mouth(run.room().kind, col, row).is_none()
+            {
                 cv.stamp(&sprites::stairs(!barred), col * TILE, row * TILE);
             }
         }
     }
+    if run.dungeon.depth == 1 && run.room().kind == crate::rules::caves::FLOOR_MOUTH.room {
+        let (x, y, _, _) = crate::rules::caves::FLOOR_MOUTH.at;
+        super::super::cave_seat::stamp_mouth(cv, x * TILE + (TILE - 32) / 2, y * TILE - 9, 1);
+    }
+    super::super::cave_seat::mouth_line(cv, run);
     room_details(run, cv, lights);
 }
 
@@ -1088,9 +1112,7 @@ mod live_flip_tests {
     /// A room change still draws at once.
     #[test]
     fn a_fight_flip_relights_beside_the_painter_and_a_room_change_draws_now() {
-        *LIVE_SCENERY.get_or_init(|| std::sync::Mutex::new(None))
-            .lock()
-            .unwrap_or_else(|err| err.into_inner()) = None;
+        *live_slot().lock().unwrap_or_else(|err| err.into_inner()) = None;
         let mut run = Run::new(3, 1, Some("Flip"));
         while run.dungeon.depth < 3 {
             run.descend_for_test();
@@ -1114,11 +1136,14 @@ mod live_flip_tests {
             "a fight flip must show the last art, not relight on the paint thread"
         );
 
-        // The baker lands the relit room beside the painter.
+        // The baker lands the relit room beside the painter. The painter goes on painting frames
+        // while it waits, as a window does: the baker is one thread for every painter in the
+        // process and holds one job, so a frame that finds it busy asks again on the next.
         let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
         let landed = loop {
             std::thread::sleep(std::time::Duration::from_millis(5));
-            let slot = LIVE_SCENERY.get().expect("the live slot stands");
+            let _ = scenery_live(&run);
+            let slot = live_slot();
             let guard = slot.lock().unwrap_or_else(|err| err.into_inner());
             let live = guard.as_ref().expect("the live slot was emptied mid-test");
             if !std::sync::Arc::ptr_eq(&live.img, &first) {

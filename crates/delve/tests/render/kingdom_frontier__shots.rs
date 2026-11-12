@@ -65,7 +65,7 @@ fn claim(run: &mut Run, mine: u32, id: &str, resource: &str) {
             source: "Visual review encounter fixture".into(),
             secured: false,
             rate: 2,
-        },
+            yields: Default::default(), surface: false },
     );
     run.home.industry.secure(id);
     run.home

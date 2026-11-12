@@ -222,7 +222,8 @@ fn malformed_worlds_cannot_gain_hidden_land_or_clear_outside_their_charter() {
     for change in [0, 1, 2, 3, 4, 5] {
         let mut world = good.clone();
         match change {
-            0 => world.version = 2,
+            // Version 2 is the hillside now; 3 is a layout no code knows.
+            0 => world.version = 3,
             1 => {
                 world.parcels.remove(&(0, 0));
             }

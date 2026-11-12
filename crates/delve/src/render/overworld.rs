@@ -27,6 +27,7 @@ pub mod dressing;
 pub mod glass;
 pub mod ground;
 pub use crate::ink;
+pub mod keep_flat;
 pub mod kingdom;
 pub mod kit;
 pub mod landmarks;
@@ -38,6 +39,11 @@ pub mod school;
 pub mod signs;
 pub mod sky;
 pub mod wishes;
+pub mod cave_fx;
+pub mod cave_adit;
+pub mod cave_paint;
+pub mod cave_seat;
+pub mod works_kit;
 
 // The realm's map is the world's; the drawing reads it here.
 pub use crate::world::map;

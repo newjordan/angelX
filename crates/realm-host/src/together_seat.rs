@@ -325,6 +325,11 @@ impl Seat {
     /// not its room is on screen (its frames are drawn on a render worker
     /// when it is). A frame being drawn elsewhere is never waited for: it
     /// does the same.
+    pub fn set_knob(&self, name: &str, value: f64) -> bool {
+        let Ok(mut inner) = self.core.inner.lock() else { return false };
+        inner.link.set_knob(name, value).is_some()
+    }
+
     pub fn tick(&self, now: Instant) {
         let core = &self.core;
         let Ok(mut inner) = core.inner.try_lock() else {
@@ -419,6 +424,11 @@ impl Seat {
     /// The run as this seat's client holds it: the newest tick it has.
     pub fn run(&self) -> Option<Run> {
         self.run_arc().map(|run| (*run).clone())
+    }
+
+    /// Bytes this seat's socket has read and written since it joined.
+    pub fn socket_bytes(&self) -> (u64, u64) {
+        lock(&self.core.inner).link.bytes()
     }
 
     /// Shared reference to the newest run this seat's client holds, avoiding

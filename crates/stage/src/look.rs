@@ -47,7 +47,15 @@ pub const MAX_PIXEL_WIDTH: u32 = 8192;
 pub const LAMP_MAX: usize = 16;
 
 /// The most zones a look has, besides its own ramp.
-pub const ZONE_MAX: usize = 4;
+pub const ZONE_MAX: usize = 16;
+
+/// The most zones the renderer mixes at one pixel. The shader weighs every
+/// zone once for a pixel, keeps those that cover it (weight over 0), and
+/// mixes only those into the ramp; a pixel covered by more than this many
+/// keeps the last ones, which lie over the rest. A zone that lies wholly
+/// under later ones loses nothing; only a fifth feather overlapping at one
+/// pixel changes how that pixel is mixed.
+pub const ZONE_ACTIVE_MAX: usize = 4;
 
 /// The most points a look keeps in sight (`reveal` and `reveals`).
 pub const REVEALS_MAX: usize = 4;
@@ -829,12 +837,24 @@ impl Look {
             .collect()
     }
 
-    /// The ramp seen at ground point `(x, z)`: the look's own, each zone
-    /// mixed over it in turn by its weight there, entry by entry (as 0..1
-    /// colours). The shader does the same per pixel.
+    /// The zones the renderer mixes at ground point `(x, z)`: their index
+    /// and weight, in the zones' order. Only the zones that cover the point
+    /// (weight over 0) count, and of those the last [`ZONE_ACTIVE_MAX`],
+    /// which lie over the rest. The shader weighs each zone once for a pixel
+    /// and keeps these.
+    pub fn active_zones(&self, x: f32, z: f32) -> Vec<(usize, f32)> {
+        let covering: Vec<(usize, f32)> = self.zone_weights(x, z).into_iter().enumerate().filter(|&(_, w)| w > 0.0).collect();
+        covering[covering.len().saturating_sub(ZONE_ACTIVE_MAX)..].to_vec()
+    }
+
+    /// The ramp seen at ground point `(x, z)`: the look's own, each active
+    /// zone ([`Look::active_zones`]) mixed over it in turn by its weight
+    /// there, entry by entry (as 0..1 colours). The shader does the same per
+    /// pixel.
     pub fn ramp_at(&self, x: f32, z: f32) -> Vec<[f32; 3]> {
         let mut ramp: Vec<[f32; 3]> = self.ramp.iter().map(|&c| unit_rgb(c)).collect();
-        for (zone, w) in self.zones.iter().zip(self.zone_weights(x, z)) {
+        for (k, w) in self.active_zones(x, z) {
+            let zone = &self.zones[k];
             for (entry, &c) in ramp.iter_mut().zip(&zone.ramp) {
                 let c = unit_rgb(c);
                 for k in 0..3 {
@@ -1324,6 +1344,79 @@ mod tests {
         assert!(near(outside[3], unit_rgb(look.ramp[3])), "{:?}", outside[3]);
         let between = look.ramp_at(13.0, 0.0)[3];
         assert!((0..3).all(|k| between[k] >= inside[3][k].min(outside[3][k]) && between[k] <= inside[3][k].max(outside[3][k])));
+    }
+
+    /// `n` zones in a row along x, a box ten across each with a gap of ten
+    /// between, each its own flat ramp of grey `10 * k` (so a pixel's zone
+    /// can be told from its colour).
+    fn row_of_zones(n: usize, feather: f32) -> Look {
+        let mut look = blues();
+        look.zones = (0..n)
+            .map(|k| Zone { ramp: vec![[10 * (k as u8 + 1); 3]; 7], at: [k as f32 * 20.0, 0.0], half: [5.0, 5.0], radius: 0.0, feather })
+            .collect();
+        look
+    }
+
+    #[test]
+    fn a_look_keeps_up_to_sixteen_zones_and_no_more() {
+        assert_eq!(ZONE_MAX, 16);
+        let look = row_of_zones(ZONE_MAX, 2.0);
+        assert_eq!(look.validate(), Ok(()));
+        assert_eq!(look.normalized().unwrap().zones.len(), ZONE_MAX);
+        let over = row_of_zones(ZONE_MAX + 1, 2.0);
+        assert_eq!(over.validate(), Err(LookError::Zones));
+        let kept = over.normalized().unwrap();
+        assert_eq!(kept.zones.len(), ZONE_MAX, "the first sixteen are kept");
+        assert_eq!(kept.zones, over.zones[..ZONE_MAX]);
+    }
+
+    #[test]
+    fn sixteen_zones_go_to_text_and_back_exactly() {
+        let mut look = row_of_zones(ZONE_MAX, 3.5);
+        look.sun = Some(sun());
+        assert_eq!(Look::from_text(&look.to_text()), Some(look.clone()));
+        // The text stays small enough for a frame's look (stage::wire::MAX_LOOK_TEXT).
+        assert!(look.to_text().len() < 4096, "{}", look.to_text().len());
+    }
+
+    #[test]
+    fn each_of_sixteen_zones_is_its_own_ramp_at_its_own_place() {
+        let look = row_of_zones(ZONE_MAX, 2.0);
+        for k in 0..ZONE_MAX {
+            let at = look.ramp_at(k as f32 * 20.0, 0.0);
+            let want = unit_rgb([10 * (k as u8 + 1); 3]);
+            assert!((0..3).all(|c| (at[3][c] - want[c]).abs() < 1e-6), "zone {k}: {:?} against {want:?}", at[3]);
+            assert_eq!(look.active_zones(k as f32 * 20.0, 0.0), vec![(k, 1.0)], "only zone {k} covers its own middle");
+        }
+        // Between two, outside both feathers: the look's own.
+        let gap = look.ramp_at(10.0, 0.0);
+        assert!((0..3).all(|c| (gap[3][c] - unit_rgb(look.ramp[3])[c]).abs() < 1e-6));
+        assert_eq!(look.active_zones(10.0, 0.0), vec![]);
+    }
+
+    #[test]
+    fn a_pixel_mixes_the_zones_that_cover_it_and_at_most_the_last_four() {
+        // Seven zones piled on one place, later over earlier; none else.
+        let mut look = blues();
+        look.zones = (0..7)
+            .map(|k| Zone { ramp: vec![[20 * (k as u8 + 1); 3]; 7], at: [0.0, 0.0], half: [5.0, 5.0], radius: 0.0, feather: 2.0 })
+            .collect();
+        // Whole weight at the middle: the last four, in order; the first three give way.
+        let active: Vec<usize> = look.active_zones(0.0, 0.0).into_iter().map(|(k, _)| k).collect();
+        assert_eq!(active, vec![3, 4, 5, 6]);
+        // The last, whole, hides everything under it: the colour is the last zone's.
+        let top = look.ramp_at(0.0, 0.0)[3];
+        assert!((top[0] - unit_rgb([140; 3])[0]).abs() < 1e-6);
+        // In the feather of all of them every zone covers the point, still four.
+        let rim = look.active_zones(6.0, 0.0);
+        assert_eq!(rim.len(), ZONE_ACTIVE_MAX);
+        assert!(rim.iter().all(|&(_, w)| w > 0.0 && w < 1.0));
+        // Past every feather there is none, and the ramp is the look's.
+        assert_eq!(look.active_zones(9.0, 0.0), vec![]);
+        // A zone with no weight is not among them, wherever it stands in the list.
+        let mut far = row_of_zones(6, 2.0);
+        far.zones.insert(0, Zone { ramp: vec![[250; 3]; 7], at: [500.0, 0.0], half: [1.0, 1.0], radius: 0.0, feather: 1.0 });
+        assert_eq!(far.active_zones(0.0, 0.0), vec![(1, 1.0)]);
     }
 
     #[test]

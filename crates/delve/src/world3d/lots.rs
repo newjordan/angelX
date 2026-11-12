@@ -427,9 +427,24 @@ fn herald_posts(wishes: &[Wish]) -> Vec<Piece> {
         .collect()
 }
 
+/// The Great Shaft's head on the Delve gate's crown, at the tier the run has
+/// raised the shaft to (`rules::stockyard`): one more piece the chunk's own set
+/// has not, stood as its heap's, in the chunk the gate is in.
+fn shaft_head(tier: crate::rules::stockyard::Tier) -> Piece {
+    // The chunks are made with no wishes, so the gate is where they stand it.
+    let geo = crate::world::kingdom::geography(&[]);
+    let gate = chunks::delve_gate_on(&geo);
+    let chunk = (gate.foot.0.div_euclid(chunks::CHUNK.0), gate.foot.1.div_euclid(chunks::CHUNK.1));
+    Piece::stood(chunk, super::realm_place::shaft_head(&gate, tier))
+}
+
 /// What the run is made from, to keep its lots by.
 #[derive(Clone, PartialEq)]
 struct Made {
+    tier: crate::rules::stockyard::Tier,
+    /// The industry is the hillside kingdom: its own lift is a building of the works
+    /// (`works_kit`, a piece a tier), and this head would be a second at the gate.
+    hill: bool,
     wishes: Arc<Vec<Wish>>,
     finds: Vec<(usize, Find)>,
     found: u32,
@@ -443,6 +458,8 @@ pub fn of(run: &Run) -> Option<Arc<Lots>> {
     type Kept = Mutex<VecDeque<(Made, Option<Arc<Lots>>)>>;
     static KEPT_LOTS: Kept = Mutex::new(VecDeque::new());
     let made = Made {
+        tier: run.home.stockyard.tier,
+        hill: run.sim_hillside(),
         wishes: Arc::clone(&run.kingdom.wishes),
         finds: run.standing_finds(),
         found: run.kingdom.found,
@@ -455,6 +472,9 @@ pub fn of(run: &Run) -> Option<Arc<Lots>> {
     }
     let (wished, plaques) = &*built(&made.wishes);
     let mut pieces = wished.clone();
+    if !made.hill {
+        pieces.push(shaft_head(made.tier));
+    }
     pieces.extend(made.finds.iter().map(|(i, f)| find_blocks(f, *i, made.found & (1 << i) != 0)));
     if made.herald {
         pieces.extend(herald_posts(&made.wishes));

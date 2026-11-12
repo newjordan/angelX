@@ -271,6 +271,8 @@ fn valid_command_reply(
         | C::AddCard { .. }
         | C::DropOffer { .. }
         | C::TurnOffer { .. }
+        | C::OpenWishLine { .. }
+        | C::TypeWishLetter { .. }
         | C::MirrorName { .. }
         | C::RevealVessel
         | C::DropMirrorLook { .. }
@@ -288,6 +290,7 @@ fn valid_command_reply(
         | C::ConfigureSession { .. }
         | C::EquipForged { .. }
         | C::MoveCard { .. }
+        | C::CarryBlock { .. }
         | C::LeaveActivity { .. }
         | C::Vote { .. }
         | C::DismissFloorPlate { .. }

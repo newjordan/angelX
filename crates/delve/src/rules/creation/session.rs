@@ -131,9 +131,31 @@ pub struct Chat {
 pub const MAX_WISH_CHARS: usize = 160;
 const KEPT_LINES: usize = 24;
 
+/// A hub row's typed wish on this scroll. The words go out as the genie's
+/// existing request; the reply, or the offline parser, becomes the thing.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Door {
+    pub row: Option<u8>,
+    pub waiting: bool,
+    pub words: String,
+    /// "THE MODEL" or "OFFLINE KEYWORDS". Empty until one of them answers.
+    pub answered: String,
+    pub ink: Vec<String>,
+    pub thing: String,
+    pub sent: bool,
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Session {
     pub open: bool,
+    /// The wish hub is the front of this scroll. The maker's pages stay behind it.
+    pub hub: bool,
+    pub gate: super::hub::WishGate,
+    /// One line when words named a kind this row cannot make.
+    pub note: String,
+    pub door: Door,
+    /// A confirmed power, reforge or look row, taken by the client so the existing line opens.
+    pub leave: Option<u8>,
     pub creation: Creation,
     pub weapon: WeaponCreation,
     pub step: Step,
@@ -162,6 +184,9 @@ const NAMES: [&str; 5] = ["Emberkin", "Mossguard", "Ashling", "Bellwether", "Lit
 impl Session {
     pub fn open(&mut self, tick: u64, maker: &str) {
         self.open = true;
+        self.hub = false;
+        self.note.clear();
+        self.leave = None;
         self.opened = tick;
         self.entered = tick;
         if !self.started {
@@ -258,8 +283,144 @@ impl Session {
         self.sealed_weapon = None;
     }
 
+    /// The front door. `prefer` is the lamp's row, the mirror's, or none for T's fitting row.
+    pub fn open_hub(&mut self, tick: u64, maker: &str, gate: super::hub::WishGate, prefer: Option<super::hub::HubRow>) {
+        self.open(tick, maker);
+        self.hub = true;
+        self.gate = gate;
+        self.row = prefer.unwrap_or_else(|| gate.fitting()).index();
+        self.note.clear();
+        self.leave = None;
+    }
+
+    fn hub_key(&mut self, action: Action, tick: u64) {
+        use super::hub::HubRow;
+        match action {
+            Action::Close | Action::Back => {
+                self.hub = false;
+                self.open = false;
+                self.note.clear();
+            }
+            Action::Up => {
+                self.row = (self.row + 5) % 6;
+                self.note.clear();
+            }
+            Action::Down => {
+                self.row = (self.row + 1) % 6;
+                self.note.clear();
+            }
+            Action::Row(n) if (n as usize) < 6 => {
+                self.row = n as usize;
+                self.note.clear();
+            }
+            Action::Confirm => self.confirm_hub(tick),
+            _ => {}
+        }
+    }
+
+    /// Words typed on the hub's row. A kind this row cannot make is named and kept.
+    /// A power, reforge or look that fits sets `leave` so the existing line opens.
+    pub fn hear_wish(&mut self, words: &str) -> bool {
+        use super::hub::HubRow;
+        if self.door.row.is_some() && self.door.words.is_empty() {
+            return self.door_hear(words);
+        }
+        let Some(row) = HubRow::from_index(self.row) else {
+            return true;
+        };
+        if let Some(line) = super::hub::redirect_line(row, words) {
+            self.note = line;
+            self.leave = None;
+            return true;
+        }
+        if !self.gate.open(row) {
+            self.note = row.grey(self.gate).to_string();
+            return true;
+        }
+        match row {
+            HubRow::Power | HubRow::Reforge | HubRow::Look => {
+                self.leave = Some(row.index() as u8);
+                self.hub = false;
+                self.open = false;
+                false
+            }
+            HubRow::Creature | HubRow::Person | HubRow::Weapon => {
+                self.hub = false;
+                self.note.clear();
+                self.say(words, 0);
+                true
+            }
+        }
+    }
+
+    fn door_hear(&mut self, words: &str) -> bool {
+        use super::hub::HubRow;
+        let words = words.trim();
+        if words.is_empty() {
+            return false;
+        }
+        let Some(row) = self.door.row.and_then(|n| HubRow::from_index(usize::from(n))) else {
+            return false;
+        };
+        if let Some(line) = super::hub::redirect_line(row, words) {
+            self.note = line;
+            self.door = Door::default();
+            self.chat.open = false;
+            return true;
+        }
+        self.door.words = words.to_string();
+        self.door.waiting = true;
+        self.door.sent = false;
+        self.chat.open = false;
+        self.note.clear();
+        self.chat.lines.push(ChatLine {
+            who: Who::You,
+            text: words.to_string(),
+        });
+        if !door_live() {
+            // No reply reaches this scroll in play yet, so the keywords answer at once.
+            self.give_up(0);
+        }
+        true
+    }
+
+    fn confirm_hub(&mut self, tick: u64) {
+        use super::hub::HubRow;
+        let Some(row) = HubRow::from_index(self.row) else {
+            return;
+        };
+        if !self.gate.open(row) {
+            self.note = row.grey(self.gate).to_string();
+            return;
+        }
+        self.note.clear();
+        match row {
+            HubRow::Power if door_live() => self.begin_door(row.index() as u8),
+            HubRow::Creature | HubRow::Person | HubRow::Weapon => {
+                self.begin_door(row.index() as u8);
+            }
+            HubRow::Power | HubRow::Reforge | HubRow::Look => {
+                self.leave = Some(row.index() as u8);
+                self.hub = false;
+                self.open = false;
+            }
+        }
+    }
+
+    fn enter_role(&mut self, role: Role, _tick: u64) {
+        self.hub = false;
+        self.note.clear();
+        self.creation.role = role;
+        self.step = Step::Role;
+        self.row = Role::ALL.iter().position(|r| *r == role).unwrap_or(0);
+    }
+
     pub fn action(&mut self, action: Action, tick: u64) {
         if !self.open {
+            return;
+        }
+        if self.hub {
+            self.hub_key(action, tick);
             return;
         }
         match action {
@@ -732,9 +893,157 @@ impl Session {
             _ => String::new(),
         }
     }
+
+    /// The four making rows open a typed line on this scroll. The words are
+    /// the same ones the genie scroll sends; this does not add any.
+    pub fn begin_door(&mut self, row: u8) {
+        self.door = Door { row: Some(row), ..Door::default() };
+        self.chat.open = true;
+        self.chat.quip.clear();
+        self.note.clear();
+        self.hub = true;
+        self.row = usize::from(row);
+    }
+
+    /// Words waiting to be sent on the genie's existing request. One send.
+    pub fn take_ask(&mut self) -> Option<String> {
+        if self.door.waiting && !self.door.sent && !self.door.words.is_empty() {
+            self.door.sent = true;
+            let row = self.door.row?;
+            return Some(format!("creator-wish {row} {}", self.door.words));
+        }
+        None
+    }
+
+    /// A stub or a live reply. The entry's name and ink become the thing.
+    /// A reply that names nothing is refused, so the fallback can still run.
+    pub fn take_reply(&mut self, reply: &str, tick: u64) -> bool {
+        let Some(row) = self.door.row else {
+            return false;
+        };
+        if !self.door.waiting {
+            return false;
+        }
+        let parsed = parse_entry(reply);
+        if parsed.name.is_empty() && parsed.ink.is_empty() {
+            return false;
+        }
+        self.finish_model(row, &parsed, tick);
+        true
+    }
+
+    /// No model answered. The offline parser makes the thing, and the scroll
+    /// says so. A row is never bent into another kind here: that was redirected.
+    pub fn give_up(&mut self, tick: u64) {
+        let Some(row) = self.door.row else {
+            return;
+        };
+        if !self.door.waiting {
+            return;
+        }
+        let spec = wish::wish_to_spec(&self.door.words, &self.chat.turns);
+        self.apply(&spec, tick);
+        self.door.waiting = false;
+        self.door.answered = "OFFLINE KEYWORDS".into();
+        self.door.thing = match &spec.make {
+            wish::Make::Creature(c) => c.name.clone(),
+            wish::Make::Weapon(w) => w.name.clone(),
+        };
+        self.door.row = Some(row);
+        self.hub = true;
+        self.chat.lines.push(ChatLine {
+            who: Who::Genie,
+            text: "ANSWERED BY OFFLINE KEYWORDS".into(),
+        });
+        self.chat.said_at = Some(tick);
+    }
+
+    fn finish_model(&mut self, row: u8, parsed: &Parsed, tick: u64) {
+        self.door.waiting = false;
+        self.door.answered = "THE MODEL".into();
+        self.door.ink = parsed.ink.clone();
+        self.door.thing = parsed.name.clone();
+        self.door.row = Some(row);
+        self.hub = true;
+        self.granted = Some(tick);
+        self.chat.said_at = Some(tick);
+        self.chat.lines.push(ChatLine {
+            who: Who::Genie,
+            text: "ANSWERED BY THE MODEL".into(),
+        });
+        match HubRow::from_index(usize::from(row)) {
+            Some(HubRow::Creature) => {
+                self.creation.role = Role::Minion;
+                if !parsed.name.is_empty() {
+                    self.creation.name = parsed.name.clone();
+                }
+            }
+            Some(HubRow::Person) => {
+                self.creation.role = Role::Folk;
+                if !parsed.name.is_empty() {
+                    self.creation.name = parsed.name.clone();
+                }
+            }
+            Some(HubRow::Weapon) => {
+                self.creation.role = Role::Weapon;
+                if !parsed.name.is_empty() {
+                    self.weapon.name = parsed.name.clone();
+                }
+            }
+            _ => {}
+        }
+    }
+
 }
 
 fn cycle<T: Copy + PartialEq>(value: &mut T, choices: &[T], dir: i32) {
     let at = choices.iter().position(|v| v == value).unwrap_or(0) as i32;
     *value = choices[(at + dir).rem_euclid(choices.len() as i32) as usize];
+}
+
+struct Parsed {
+    name: String,
+    ink: Vec<String>,
+}
+
+fn parse_entry(reply: &str) -> Parsed {
+    let mut name = String::new();
+    let mut ink = Vec::new();
+    let mut drawing = false;
+    for line in reply.lines() {
+        if let Some(rest) = line.trim().strip_prefix("wish ") {
+            if let Some((_, n)) = rest.split_once('|') {
+                name = n.trim().to_string();
+            }
+            drawing = false;
+            continue;
+        }
+        let trimmed = line.trim();
+        if trimmed.starts_with("draw ") {
+            drawing = true;
+            ink.clear();
+            continue;
+        }
+        if drawing {
+            if trimmed.is_empty()
+                || trimmed.starts_with("art")
+                || trimmed.starts_with("tier")
+                || trimmed.starts_with("kind")
+                || trimmed.starts_with("say")
+            {
+                drawing = false;
+            } else {
+                ink.push(line.trim_end().to_string());
+            }
+        }
+    }
+    Parsed { name, ink }
+}
+
+/// Whether a wish typed on the Creator scroll waits on the model. In play the
+/// reply is not yet carried back to this scroll, so it is off unless
+/// `ANGEL_WISH_DOOR=live`: a power opens the genie's own line and the other
+/// rows are answered by the keywords.
+fn door_live() -> bool {
+    cfg!(test) || std::env::var("ANGEL_WISH_DOOR").ok().as_deref() == Some("live")
 }

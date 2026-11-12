@@ -46,6 +46,10 @@ pub fn camera_exact(run: &Run, focus: Option<u32>) -> (f32, f32) {
         } else { (hero.x, hero.y) });
     }
     if run.room().kind == RoomKind::Kingdom {
+        // A seat sent to look at a place (the list of what chokes the works) sees it, until it walks.
+        if let Some((x, y)) = focus.and_then(|id| run.kingdom.industry.get(&id)).and_then(|b| b.rig.look) {
+            return corner((x * crate::rules::TILE_UNITS, y * crate::rules::TILE_UNITS));
+        }
         let hero = focus
             .and_then(|id| run.players.get(&id))
             .or_else(|| run.players.get(&1))
@@ -125,16 +129,31 @@ pub(in super::super) fn pointer(
         }
     }
     let label = name.to_uppercase();
+    let (at, arrow) = pointer_spots((ax, ay), (ux, uy), name, edge);
+    let tag = chrome::label(over, at, &label, 'O', chrome::Tone::KEY);
+    vec![tag, arrow]
+}
+
+/// Where [`pointer`] sets its name's text and the arrow's box.
+fn pointer_spots((ax, ay): (f32, f32), (_, uy): (f32, f32), name: &str, edge: bool) -> ((i32, i32), (i32, i32, i32, i32)) {
+    let label = name.to_uppercase();
     let w = super::super::ink::text_width(&label);
     let lx = (ax.round() as i32 - w / 2).clamp(4, NATIVE_W - w - 4);
-    let ly = if edge && ay < (NATIVE_H / 2) as f32 || !edge && uy < -0.5 {
+    let raw = if edge && ay < (NATIVE_H / 2) as f32 || !edge && uy < -0.5 {
         ay.round() as i32 + 13
     } else {
         ay.round() as i32 - 21
-    }
-    .clamp(4, NATIVE_H - 13);
-    let tag = chrome::label(over, (lx, ly), &label, 'O', chrome::Tone::KEY);
-    vec![tag, (ax as i32 - 10, ay as i32 - 10, 21, 21)]
+    };
+    // Over the arrow when there is room for it there; under it when the view's top edge is in
+    // the way (a name pushed up to the edge would lie on its own arrow).
+    let ly = if raw < 4 { ay.round() as i32 + 13 } else { raw }.clamp(4, NATIVE_H - 13);
+    ((lx, ly), (ax as i32 - 10, ay as i32 - 10, 21, 21))
+}
+
+/// The rectangles [`pointer`] would fill, `(tag, arrow)`, without drawing them.
+pub(in super::super) fn pointer_boxes(at: (f32, f32), toward: (f32, f32), name: &str, edge: bool) -> ((i32, i32, i32, i32), (i32, i32, i32, i32)) {
+    let (text, arrow) = pointer_spots(at, toward, name, edge);
+    (chrome::label_rect(text, &name.to_uppercase()), arrow)
 }
 
 /// Where a box `w` wide over room pixel `x` starts: centred on `x`, kept

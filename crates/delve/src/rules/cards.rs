@@ -2618,6 +2618,26 @@ impl Default for Book {
     }
 }
 
+impl Book {
+    /// Leave the book out of a tree only on the wire or a seat's view, and
+    /// only while it is the built-in catalog.
+    pub fn wire_omits(&self) -> bool {
+        super::scrolls::in_public() && self.is_builtin()
+    }
+
+    /// The built-in catalog, which a reader restores when the field is absent.
+    /// A changed book still travels: every insert or replacement bumps
+    /// `revision`, and a card that differs from the catalog fails this check
+    /// even if a damaged save left `revision` at 0.
+    pub fn is_builtin(&self) -> bool {
+        static BUILTIN: std::sync::OnceLock<Book> = std::sync::OnceLock::new();
+        let builtin = BUILTIN.get_or_init(Book::builtin);
+        self.revision == builtin.revision
+            && self.cards.len() == builtin.cards.len()
+            && self.cards.iter().zip(builtin.cards.iter()).all(|(have, want)| have == want)
+    }
+}
+
 /// The delve's own cards, as files a friend can copy.
 /// What all the spells together weigh on an ordinary drop and as a chest's
 /// prize: what the book's first nine spells weighed before the 10-30

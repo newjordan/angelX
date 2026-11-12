@@ -1285,6 +1285,34 @@ mod tests {
     }
 
     #[test]
+    fn a_look_with_sixteen_zones_crosses_the_wire_whole() {
+        // The most zones a look keeps (ZONE_MAX), each with a full eight-step ramp,
+        // an exact feather; the text stays well under what a frame may carry.
+        let mut frame = with_world(Some("set a\n"), vec![]);
+        let ramp: Vec<[u8; 3]> = (0..8u8).map(|k| [14 + 20 * k, 19 + 21 * k, 12 + 15 * k]).collect();
+        let mut look = crate::look::Look::new(ramp.clone());
+        look.zones = (0..crate::look::ZONE_MAX)
+            .map(|k| crate::look::Zone {
+                ramp: ramp.iter().map(|c| [c[0].saturating_add(k as u8), c[1], c[2]]).collect(),
+                at: [12.5 * k as f32 + 0.25, 40.0 - 3.5 * k as f32],
+                half: [8.0 + k as f32, 6.0],
+                radius: 0.0,
+                feather: 8.0,
+            })
+            .collect();
+        assert_eq!(look.validate(), Ok(()));
+        assert!(look.to_text().len() < MAX_LOOK_TEXT / 8, "{} bytes", look.to_text().len());
+        frame.props.as_mut().unwrap().world.as_mut().unwrap().look = Some(look.clone());
+        let mut out = Vec::new();
+        encode(&frame, &[], &mut out);
+        assert_eq!(&out[..4], TAG_LOOK);
+        let world = decode(&out).unwrap().frame.props.unwrap().world.unwrap();
+        let back = world.look.expect("the look came back");
+        assert_eq!(back.zones.len(), crate::look::ZONE_MAX, "all sixteen zones");
+        assert_eq!(back, look, "the look, exactly");
+    }
+
+    #[test]
     fn a_world_of_several_sets_goes_by_each_ones_reference() {
         let mut frame = with_world(Some("set a\n"), vec![]);
         let more = vec![

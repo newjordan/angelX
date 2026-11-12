@@ -22,7 +22,6 @@ use super::light::{Light, darker};
 use super::map::TILE;
 use super::scene::Prop;
 use super::View;
-use crate::world::castles;
 use crate::world::houses::{self, House, HouseId};
 use std::sync::OnceLock;
 
@@ -352,17 +351,9 @@ fn idle(id: HouseId) -> &'static Img {
 pub fn stage(march: &March, props: &mut Vec<Prop>, lights: &mut Vec<Light>, tick: u32, view: Option<View>) {
     let shows = |x: i32, base: i32, img: &Img| view.is_none_or(|v| v.touches(x, base - img.h, img.w, img.h));
     let breath = |k: u32| 0.92 + 0.08 * (tick as f32 * 0.5 + k as f32 * 2.3).sin();
-    // The Keep begun, its torch burning at the gate for the night's work.
-    let (kx, ky, kw, kh) = castles::keep_foot();
-    let img = keep_begun();
-    let (x, base) = (kx * TILE + (kw * TILE - img.w) / 2, (ky + kh) * TILE);
-    if shows(x, base, img) {
-        props.push(Prop { x, base, img: img.clone() });
-        for (i, tx) in [x + 54, x + 74].into_iter().enumerate() {
-            props.push(Prop { x: tx, base: base - 2, img: kit::torch(tick, i as u32) });
-            lights.push(Light { x: (tx + 2) as f32, y: (base - 14) as f32, r: 30.0, s: 0.5 * breath(i as u32), fire: true });
-        }
-    }
+    // The Keep is the Works' site: the great tower raised stone by stone from
+    // the run's state (`keep_flat`, in the arena's view), not part of this
+    // standing picture.
     for id in houses::ids() {
         let h = houses::get(id);
         let (tx, ty, tw, th) = houses::footprint(id);

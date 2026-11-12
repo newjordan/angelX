@@ -885,6 +885,7 @@ fn dungeon_write_delve_screens() {
                 pick: None,
                 known: None,
                 sanctuary: true,
+                hub_row: 0,
             });
         }
         if name == "delve_sanctuary1" {
@@ -2360,7 +2361,7 @@ fn the_scroll_offers_three_ways_to_have_a_wish_and_esc_rolls_it_up() {
     app.terminal_focused = true;
     paint(&mut app, 160, 48);
     let wishes = held(&app, 1);
-    press(&mut app, KeyCode::Char('t'));
+    app.open_reforge();
     assert!(app.realm.dungeon.forge.draft.is_some(), "the scroll opens");
     assert!(paint(&mut app, 160, 48).contains("THE WISH SCROLL"));
     press(&mut app, KeyCode::Enter);
@@ -2379,7 +2380,7 @@ fn the_scroll_offers_three_ways_to_have_a_wish_and_esc_rolls_it_up() {
     );
     assert_eq!(held(&app, 1), wishes, "nothing is spent by asking");
     // T again does not open a second scroll over it.
-    press(&mut app, KeyCode::Char('t'));
+    app.open_reforge();
     assert!(app.realm.dungeon.forge.draft.is_none());
     // Esc rolls it up, through the seat's menu key: nothing spent.
     press(&mut app, KeyCode::Esc);
@@ -2400,7 +2401,7 @@ fn a_won_room_grants_a_known_wish_at_once_without_leaving_the_game() {
     shooter.clear_for_test();
     let wishes = held(&app, 1);
     assert_eq!(wishes, 3, "a delve starts with three wishes held");
-    press(&mut app, KeyCode::Char('t'));
+    app.open_reforge();
     let screen = paint(&mut app, 160, 48);
     assert!(
         screen.contains("Triple Volley I"),
@@ -2427,7 +2428,7 @@ fn a_won_room_grants_a_known_wish_at_once_without_leaving_the_game() {
     );
     assert_eq!(held(&app, 1), wishes - 1, "the wish spends one held");
     // Typed words find a known wish too, with the wishes still held.
-    press(&mut app, KeyCode::Char('t'));
+    app.open_reforge();
     for c in "bounce my shots".chars() {
         press(&mut app, KeyCode::Char(c));
     }
@@ -2529,7 +2530,7 @@ fn until_granted(app: &mut App) {
 
 /// Knight 1 speaks `words` on the scroll: its choices open.
 fn speak(app: &mut App, words: &str) {
-    press(app, KeyCode::Char('t'));
+    app.open_reforge();
     for c in words.chars() {
         press(app, KeyCode::Char(c));
     }
@@ -3994,7 +3995,7 @@ fn wishing_app(name: &str) -> (App, std::path::PathBuf) {
 }
 
 fn wish(app: &mut App, words: &str) {
-    press(app, KeyCode::Char('t'));
+    app.open_reforge();
     for c in words.chars() {
         press(app, KeyCode::Char(c));
     }
@@ -4454,7 +4455,7 @@ fn write_wish_scroll_cells() {
     let mut pages = Vec::new();
     for moment in ["typing", "choices", "upgrades", "max", "no-wishes"] {
         if moment == "typing" {
-            press(&mut app, KeyCode::Char('t'));
+            app.open_reforge();
             press(&mut app, KeyCode::Down);
         } else if moment == "choices" {
             press(&mut app, KeyCode::Enter);
@@ -4475,7 +4476,7 @@ fn write_wish_scroll_cells() {
                 let hero = run.players.get_mut(&1).unwrap();
                 (hero.wishes, hero.great_wishes) = (0, 0);
             }
-            press(&mut app, KeyCode::Char('t'));
+            app.open_reforge();
             if moment == "max" { press(&mut app, KeyCode::PageDown); }
         }
         let mut terminal = Terminal::new(TestBackend::new(160, 48)).unwrap();
@@ -4943,7 +4944,7 @@ fn dungeon_wish_upgrades_show_spells_first_and_pick_exactly_the_next_tier() {
         run.grant(1, &spell).unwrap();
     }
     let wishes = held(&app, 1);
-    press(&mut app, KeyCode::Char('t'));
+    app.open_reforge();
     for (w, h) in [(160, 48), (80, 24)] {
         let screen = paint(&mut app, w, h);
         assert!(screen.contains("Upgrade what you hold"), "{screen}");
@@ -4966,7 +4967,7 @@ fn dungeon_wish_upgrades_show_spells_first_and_pick_exactly_the_next_tier() {
     speak(&mut app, "upgrade Triple Volley");
     assert_eq!(run(&app).players[&1].offer.as_ref().unwrap().choices[0].gives, "Triple Volley II");
     press(&mut app, KeyCode::Esc);
-    press(&mut app, KeyCode::Char('t'));
+    app.open_reforge();
     press(&mut app, KeyCode::Char('a'));
     press(&mut app, KeyCode::Char('1'));
     assert_eq!(app.realm.dungeon.forge.draft.as_ref().unwrap().words, "a1");
@@ -4987,7 +4988,7 @@ fn dungeon_wish_upgrades_show_max_and_open_greyed_when_no_wishes_remain() {
         let hero = run.players.get_mut(&1).unwrap();
         (hero.wishes, hero.great_wishes) = (0, 0);
     }
-    press(&mut app, KeyCode::Char('t'));
+    app.open_reforge();
     let screen = paint(&mut app, 160, 48);
     assert!(screen.contains("Firebolt  V  MAX"), "{screen}");
     assert!(screen.contains("No wishes held: each floor brings two"), "{screen}");
@@ -5007,7 +5008,7 @@ fn dungeon_wish_upgrade_pages_reach_every_held_ladder() {
         app.realm.dungeon.shooter.edit().unwrap().grant(1, wish).unwrap();
     }
     let last = app.realm.dungeon.wish_upgrades(1).0.last().unwrap().clone();
-    press(&mut app, KeyCode::Char('t'));
+    app.open_reforge();
     for _ in 0..5 { press(&mut app, KeyCode::PageDown); }
     let screen = paint(&mut app, 160, 48);
     assert!(screen.contains(&last.name), "the twelfth held wish is reachable: {screen}");

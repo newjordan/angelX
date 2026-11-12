@@ -179,6 +179,7 @@ pub(super) fn under(cv: &mut Img, run: &Run) {
     for z in &run.zones.zones {
         let v = view(run, z);
         floor(&mut pen, &v);
+        outline(&mut pen, &v);
     }
     for s in &run.zones.shards {
         let k = f32::from(s.age) / f32::from(SHARD_TICKS);
@@ -366,7 +367,7 @@ fn decal(pen: &mut Pen, element: Element, c: (f32, f32), r: f32, fade: f32, seed
     // The ring that bounds it, drawn in the element's own light.
     let k = 1.0 - fade;
     if matches!(element, Element::Holy | Element::Arcane) {
-        pen.ring(c, r * 0.98, 0.9, 1.0, ramp, k);
+        pen.ring(c, r * 0.98, 0.9, 1.0, ramp, 0.45 + k * 0.55);
     }
     if element == Element::Holy || element == Element::Arcane {
         let rot = (phase / 6) as f32 * 0.35;
@@ -556,7 +557,82 @@ fn telegraph(pen: &mut Pen, v: &V, c: (f32, f32), r: f32, k: f32) {
 
 // ─── the bodies ──────────────────────────────────────────────────────────────
 
+/// The damage area, drawn under the strip and dimmer than the telegraph so
+/// the warning still reads and the reach stays clear.
+fn outline(pen: &mut Pen, v: &V) {
+    let waiting = match v.z.area.form {
+        Form::Burst => v.age < BURST_WAIT as f32,
+        Form::Pillar => v.age < PILLAR_WAIT as f32,
+        Form::Line => v.age < LINE_WAIT as f32,
+        _ => false,
+    };
+    if waiting {
+        return;
+    }
+    let reach = v.reach();
+    if reach < 2.0 {
+        return;
+    }
+    match v.z.area.form {
+        Form::Burst | Form::Field | Form::Pillar | Form::Nova => {
+            pen.ring(v.o, reach, 0.7, 1.0, v.ramp, 0.72);
+        }
+        Form::Wave | Form::Cone => {
+            let half = if v.z.area.form == Form::Wave { 0.95 } else { 0.62 };
+            let aim = v.d.1.atan2(v.d.0);
+            let n = (reach * 0.6) as i32 + 8;
+            for s in 0..=n {
+                let q = s as f32 / n as f32;
+                let ang = aim - half + 2.0 * half * q;
+                pen.light(
+                    (v.o.0 + ang.cos() * reach).round() as i32,
+                    (v.o.1 + ang.sin() * reach).round() as i32,
+                    v.ramp.step(3),
+                );
+            }
+            for ang in [aim - half, aim + half] {
+                pen.line(v.o, (v.o.0 + ang.cos() * reach, v.o.1 + ang.sin() * reach), v.ramp.step(3));
+            }
+        }
+        Form::Line => {
+            pen.line(v.o, (v.o.0 + v.d.0 * reach, v.o.1 + v.d.1 * reach), v.ramp.step(2));
+        }
+    }
+}
+
+/// The zone pass, for the strip tests and the contact sheets.
+pub(crate) fn paint_for_test(cv: &mut Img, run: &Run) {
+    under(cv, run);
+    over(cv, run);
+}
+
+/// Today's code-drawn marks, without the wish strips, for the before sheets.
+pub(crate) fn paint_marks_for_test(cv: &mut Img, run: &Run) {
+    if run.zones.zones.is_empty() {
+        return;
+    }
+    let mut pen = Pen::new(cv, UNDER_BUDGET);
+    for z in &run.zones.zones {
+        floor(&mut pen, &view(run, z));
+    }
+    let mut pen = Pen::new(cv, OVER_BUDGET);
+    for z in &run.zones.zones {
+        body_marks(&mut pen, run, &view(run, z));
+    }
+}
+
 fn body(pen: &mut Pen, run: &Run, v: &V) {
+    // Layer, never replace. The code-drawn body always draws at full
+    // strength. The strip, when there is one, stamps on top as the hero
+    // piece. A missing strip is none. No dither disc is filled in to stand
+    // for the body. The footprint still draws in `outline`.
+    body_marks(pen, run, v);
+    if v.sprite.is_none() {
+        super::wishstrips::stand(pen.cv, v.z);
+    }
+}
+
+fn body_marks(pen: &mut Pen, run: &Run, v: &V) {
     match v.z.area.form {
         Form::Wave => wave(pen, v),
         Form::Nova => nova(pen, v),

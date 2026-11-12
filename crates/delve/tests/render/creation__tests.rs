@@ -2,7 +2,7 @@ use super::*;
 use crate::render::overworld::{arena, ink::said};
 use crate::rules::{
     Run,
-    creation::{Action, Role},
+    creation::{Action, HubRow, Role, WishGate},
 };
 
 fn session() -> Session {
@@ -197,6 +197,28 @@ fn write_creator_shots() {
     s.go(Step::Life, run.tick);
     s.action(Action::Confirm, run.tick);
     save("07-over-budget-768.png", &seat(&run, &s, 768, 572));
+
+    // The wish hub: its open face, each gate's page, a shut scroll, and a wrong-row notice.
+    let mut hub = Session::default();
+    hub.open_hub(0, "Ada", WishGate { power: true, made: 2, wishes: 2, ..Default::default() }, Some(HubRow::Power));
+    for (name, row, gate, note) in [
+        ("hub-wish", HubRow::Power, WishGate { power: true, made: 2, wishes: 2, ..Default::default() }, ""),
+        ("hub-sanctuary", HubRow::Reforge, WishGate { reforge: true, sanctuary: true, made: 1, ..Default::default() }, ""),
+        ("hub-mirror", HubRow::Look, WishGate { look: true, ..Default::default() }, ""),
+        ("hub-shut", HubRow::Look, WishGate::default(), ""),
+        (
+            "hub-wrong",
+            HubRow::Reforge,
+            WishGate { reforge: true, sanctuary: true, ..Default::default() },
+            "THAT IS A CREATURE: PRESS 4",
+        ),
+    ] {
+        hub.open_hub(0, "Ada", gate, Some(row));
+        hub.note = note.to_string();
+        for (w, h) in [(384, 286), (768, 572)] {
+            save(&format!("{name}-{w}.png"), &seat(&run, &hub, w, h));
+        }
+    }
 }
 
 fn shots_dir(sub: &str) -> std::path::PathBuf {
@@ -2538,4 +2560,170 @@ fn write_slice6_shots() {
         canvas = big;
         save_png(&dir, &format!("caption-drive-{tag}-768.png"), &canvas);
     }
+}
+
+/// The hub's rows: each opens or greys as the gate says, in the painter's own words.
+#[test]
+fn the_hub_rows_open_and_grey_as_the_gate_says() {
+    let shut = WishGate::default();
+    let held = WishGate { power: true, made: 2, wishes: 2, ..shut };
+    for row in HubRow::ALL {
+        assert_eq!(shut.open(row), matches!(row, HubRow::Creature | HubRow::Person | HubRow::Weapon));
+        assert_eq!(held.open(row), matches!(row, HubRow::Power | HubRow::Creature | HubRow::Person | HubRow::Weapon));
+    }
+    assert!(shut.open(HubRow::Creature) && shut.open(HubRow::Person) && shut.open(HubRow::Weapon));
+    assert!(!shut.open(HubRow::Power) && !shut.open(HubRow::Reforge) && !shut.open(HubRow::Look));
+    assert_eq!(HubRow::Power.grey(shut), "NO WISH HELD");
+    assert_eq!(HubRow::Look.grey(shut), "ONLY AT THE MIRROR");
+    let full = WishGate { made: 6, ..shut };
+    assert!(!full.open(HubRow::Weapon));
+    assert_eq!(HubRow::Weapon.grey(full), "SIX ALREADY MADE");
+    // Held wishes show themselves beside the row they feed; none held shows nothing.
+    assert_eq!(held.wishes_label().as_deref(), Some("WISHES 2"));
+    assert_eq!(shut.wishes_label(), None);
+}
+
+/// The hub page: the scroll's header, keys and notice read at both widths; no shut row wears a
+/// minus.
+#[test]
+fn the_hub_page_reads_at_both_widths() {
+    for (name, row, gate, note) in [
+        ("wish", HubRow::Power, WishGate { power: true, made: 2, wishes: 2, ..Default::default() }, ""),
+        ("sanctuary", HubRow::Reforge, WishGate { reforge: true, sanctuary: true, made: 1, ..Default::default() }, ""),
+        ("mirror", HubRow::Look, WishGate { look: true, ..Default::default() }, ""),
+        ("shut", HubRow::Look, WishGate::default(), ""),
+        (
+            "wrong",
+            HubRow::Reforge,
+            WishGate { reforge: true, sanctuary: true, ..Default::default() },
+            "THAT IS A CREATURE: PRESS 4",
+        ),
+    ] {
+        let mut s = Session::default();
+        s.open_hub(0, "Ada", gate, Some(row));
+        s.note = note.to_string();
+        for h in [188, 214] {
+            let (_, text) = said::read(|| frame(&s, 20, h, None));
+            let lines: Vec<&str> = text.lines.iter().map(|l| l.text.as_str()).collect();
+            assert!(lines.contains(&"THE WISH SCROLL"), "{name}, h={h}: {:?}", text.lines);
+            assert!(lines.contains(&"WHAT DO YOU WISH FOR?"), "{name}, h={h}");
+            assert!(lines.contains(&"ARROWS: PICK   E: OPEN   Q: CLOSE"), "{name}, h={h}");
+            for r in HubRow::ALL {
+                assert!(lines.contains(&r.title()), "{name}, h={h}: {} missing", r.title());
+                // The painter cuts a long note to the room beside the name (`cut_to`).
+                let cost = if gate.open(r) { r.need() } else { r.grey(gate) };
+                assert!(
+                    lines.iter().any(|l| l.len() >= cost.len().min(6) && cost.starts_with(l)),
+                    "{name}, h={h}: {cost:?} missing"
+                );
+            }
+            assert!(!lines.iter().any(|l| l.starts_with('-')), "{name}: a minus sign on a shut row");
+            if !note.is_empty() {
+                assert!(lines.contains(&note), "{name}, h={h}: the notice went missing");
+            }
+            for line in &text.lines {
+                assert!(
+                    line.at.0 >= 0 && line.at.1 >= 0 && line.at.0 + text_width(&line.text) <= line.on.0 && line.at.1 + 7 <= line.on.1,
+                    "{name}, h={h}: {line:?}"
+                );
+            }
+        }
+    }
+}
+
+/// While the hub is up the tab strip above the scroll is not drawn, and the stage shows a picture
+/// for the selected row rather than the stand-in knight (the Creature row alone may borrow one)
+/// or the maker's own name plate.
+#[test]
+#[ignore = "the wish hub is off unless ANGEL_WISH_HUB=1, and its row pictures were never drawn"]
+fn the_hub_hides_the_tab_strip_and_the_stand_in_knight() {
+    let words = |s: &Session| {
+        let (_, text) = said::read(|| frame(s, 20, HEIGHT, None));
+        text.lines.into_iter().map(|l| l.text).collect::<Vec<_>>()
+    };
+    let held = WishGate { power: true, made: 2, wishes: 2, ..Default::default() };
+    for row in [HubRow::Power, HubRow::Reforge, HubRow::Look, HubRow::Person, HubRow::Weapon] {
+        let mut s = Session::default();
+        s.open_hub(0, "Ada", held, Some(row));
+        let lines = words(&s);
+        assert!(!lines.iter().any(|l| l.starts_with("1 ROLE")), "{row:?}: the tab strip still draws: {lines:?}");
+        assert!(!lines.iter().any(|l| l == "STAND-IN: KNIGHT"), "{row:?}: the knight still stands in");
+        // The maker's pages stay behind the hub: its name plate never shows.
+        assert!(!lines.iter().any(|l| l == "HERO  /  BIPED"), "{row:?}: the maker's name plate shows");
+        assert!(lines.contains(&format!("A {}", row.kind_word())), "{row:?}: the plate does not name the row");
+    }
+}
+
+
+const WALK: &[&str] = &[
+    "......kk......",
+    ".....kkkk.....",
+    ".....kwwk.....",
+    "......kk......",
+    "....kkkkkk....",
+    "...kkkkkkkk...",
+    "..kkkkkkkkkk..",
+    "...kkkkkkkk...",
+    "....kkkkkk....",
+    ".....kkkk.....",
+    ".....k..k.....",
+    ".....k..k.....",
+    ".....k..k.....",
+    "....kk..kk....",
+    "...kk....kk...",
+    "..kk......kk..",
+];
+
+fn door_shot(row: HubRow, words: &str, reply: &str, tick: u64) -> Session {
+    let mut s = session();
+    s.hub = true;
+    s.row = row.index();
+    s.gate.power = true;
+    s.action(Action::Confirm, 1);
+    let _ = s.hear_wish(words);
+    if reply.is_empty() {
+        return s;
+    }
+    if reply == "fallback" {
+        s.give_up(tick);
+    } else {
+        let _ = s.take_reply(reply, tick);
+    }
+    s
+}
+
+#[test]
+#[ignore]
+fn write_u2_door_shots() {
+    let dir = std::path::PathBuf::from(std::env::var_os("ANGEL_CREATOR_SHOTS").unwrap_or_else(|| ".we-out/unify/u2".into()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let mut run = Run::new(41, 3, Some("Ada"));
+    let ink = WALK.join("\n");
+    let creature = format!("wish golden-devil | Golden devil\nkind spell\nsay a tiny golden devil | tiny devil\ndraw summon\n{ink}\n");
+    let person = format!("wish tall-smith | Tall smith\nkind hold\nsay a tall smith | smith\ndraw worn\n{ink}\n");
+    let weapon = format!("wish long-spear | Long spear\nkind hold\nsay a long spear | spear\ndraw worn\n{ink}\n");
+    let power = "wish fire-bolt | Fire bolt\nkind hold\nsay a fire bolt | fire\ntier damage 2 :: a hotter bolt\n";
+    let flows = [
+        ("power", HubRow::Power, "a fire bolt", power),
+        ("creature", HubRow::Creature, "a tiny golden devil", creature.as_str()),
+        ("person", HubRow::Person, "a tall smith", person.as_str()),
+        ("weapon", HubRow::Weapon, "a long spear", weapon.as_str()),
+    ];
+    for (name, row, words, reply) in flows {
+        for (w, h, tag) in [(384, 286, "384"), (768, 572, "768")] {
+            let mut typed = door_shot(row, "", "", 2);
+            typed.chat.draft = words.to_string();
+            save_png(&dir, &format!("{name}-typed-{tag}.png"), &seat(&run, &typed, w, h));
+            let waiting = door_shot(row, words, "", 2);
+            save_png(&dir, &format!("{name}-waiting-{tag}.png"), &seat(&run, &waiting, w, h));
+            let done = door_shot(row, words, reply, 8);
+            save_png(&dir, &format!("{name}-result-{tag}.png"), &seat(&run, &done, w, h));
+        }
+    }
+    let mut walk = door_shot(HubRow::Creature, "a tiny golden devil", &creature, 4);
+    for frame in 0..24 {
+        run.tick = frame * 3;
+        save_png(&dir, &format!("walk-{frame:02}.png"), &seat(&run, &walk, 384, 286));
+    }
+    let _ = walk;
 }

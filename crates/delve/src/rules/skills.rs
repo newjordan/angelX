@@ -469,6 +469,8 @@ impl Run {
         {
             return;
         }
+        // A carpenter braces the barricades they raise (`trades`).
+        let brace = self.brace_for(id);
         let Some(hero) = self.players.get(&id) else {
             return;
         };
@@ -625,10 +627,11 @@ impl Run {
                     self.boom(mid.0, mid.1, BoomKind::Dust, 1.6);
                 }
                 if self.works.barricades.len() < 24 {
+                    // A carpenter braces it.
                     self.works.barricades.push(Barricade {
                         a,
                         b,
-                        hp: WALL_HP,
+                        hp: WALL_HP * (100 + brace) / 100,
                         age: 0,
                         owner: id,
                         fall: None,

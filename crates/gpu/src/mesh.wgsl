@@ -531,10 +531,10 @@ struct SceneLook {
     // Two a lamp: xyz where, w reach; then x strength.
     lamps: array<vec4<f32>, 32>,
     // Two a zone: x and z of its middle, its radius, its feather; then its
-    // box's half width and depth.
-    zones: array<vec4<f32>, 8>,
+    // box's half width and depth. Sixteen zones (`ZONE_MAX`).
+    zones: array<vec4<f32>, 32>,
     // 16 entries a zone.
-    zone_ramps: array<vec4<f32>, 64>,
+    zone_ramps: array<vec4<f32>, 256>,
     water: array<vec4<f32>, 16>,
     // Each point kept in sight: xyz, w the opening's radius (0: none).
     reveal: array<vec4<f32>, 4>,
@@ -660,20 +660,55 @@ fn lighting(world: vec3<f32>, n: vec3<f32>, flat_face: bool) -> vec2<f32> {
     return vec2<f32>(light, warm);
 }
 
-// How far ground point `xz` is in zone `z`, 0..1.
-fn zone_weight(z: u32, xz: vec2<f32>) -> f32 {
-    let zone = scene_look.zones[2u * z];
-    let half = scene_look.zones[2u * z + 1u].xy;
-    let d = length(max(abs(xz - zone.xy) - half, vec2<f32>(0.0)));
-    return 1.0 - smoothstep(zone.z, zone.z + max(zone.w, 1e-6), d);
+// The zones that cover a ground point, found once for a pixel: each zone is
+// weighed once (0..1, 1 inside its radius, falling to 0 over its feather),
+// and the ones with weight over 0 are kept in their order, with their
+// weights. At most four are kept (`ZONE_ACTIVE_MAX`): when more cover the
+// point the first give way to the last, which lie over them. So a pixel's
+// ramp is mixed from at most four zones, however many the look has.
+struct Covering {
+    // Which zones, in order, the first `n` of them.
+    index: vec4<u32>,
+    weight: vec4<f32>,
+    n: u32,
 }
 
-// Ramp entry `i` at ground point `xz`: the look's own, each zone mixed over
-// it by its weight there, then toward the warm ramp by `warm`.
-fn entry_at(i: u32, xz: vec2<f32>, weights: vec4<f32>, warm: f32) -> vec3<f32> {
-    var c = scene_look.ramp[i].rgb;
+fn covering_zones(xz: vec2<f32>) -> Covering {
+    var cover: Covering;
+    cover.index = vec4<u32>(0u);
+    cover.weight = vec4<f32>(0.0);
+    cover.n = 0u;
     for (var z = 0u; z < scene_look.counts.y; z = z + 1u) {
-        c = mix(c, scene_look.zone_ramps[z * 16u + i].rgb, weights[z]);
+        let zone = scene_look.zones[2u * z];
+        let off = max(abs(xz - zone.xy) - scene_look.zones[2u * z + 1u].xy, vec2<f32>(0.0));
+        let edge = zone.z + max(zone.w, 1e-6);
+        // Past the feather it weighs nothing: no root, no smoothstep.
+        if dot(off, off) >= edge * edge {
+            continue;
+        }
+        let w = 1.0 - smoothstep(zone.z, edge, length(off));
+        if w <= 0.0 {
+            continue;
+        }
+        if cover.n < 4u {
+            cover.index[cover.n] = z;
+            cover.weight[cover.n] = w;
+            cover.n = cover.n + 1u;
+        } else {
+            cover.index = vec4<u32>(cover.index.yzw, z);
+            cover.weight = vec4<f32>(cover.weight.yzw, w);
+        }
+    }
+    return cover;
+}
+
+// Ramp entry `i` at the ground point `cover` was found for: the look's own,
+// each covering zone mixed over it by its weight there, then toward the warm
+// ramp by `warm`.
+fn entry_at(i: u32, cover: Covering, warm: f32) -> vec3<f32> {
+    var c = scene_look.ramp[i].rgb;
+    for (var k = 0u; k < cover.n; k = k + 1u) {
+        c = mix(c, scene_look.zone_ramps[cover.index[k] * 16u + i].rgb, cover.weight[k]);
     }
     if scene_look.flags.x == 1u {
         c = mix(c, scene_look.warm[i].rgb, warm);
@@ -681,26 +716,22 @@ fn entry_at(i: u32, xz: vec2<f32>, weights: vec4<f32>, warm: f32) -> vec3<f32> {
     return c;
 }
 
-// The pixel's place on its ramp: the ramp at its ground point, its
+// The pixel's place on its ramp: the ramp at its ground point (`cover`), its
 // brightness placed between the two entries that hold it by the Bayer
 // threshold at internal pixel `p` (as look.wgsl's `pick`).
-fn on_ramp(level: f32, xz: vec2<f32>, warm: f32, p: vec2<u32>, water: bool) -> vec3<f32> {
-    var weights = vec4<f32>(0.0);
-    for (var z = 0u; z < scene_look.counts.y; z = z + 1u) {
-        weights[z] = zone_weight(z, xz);
-    }
+fn on_ramp(level: f32, cover: Covering, warm: f32, p: vec2<u32>, water: bool) -> vec3<f32> {
     if water {
         return on_water(level, p);
     }
     let n = scene_look.counts.x;
     let t = bayer(p);
-    var lo = entry_at(0u, xz, weights, warm);
+    var lo = entry_at(0u, cover, warm);
     var lo_level = luma(lo);
     if level <= lo_level {
         return lo;
     }
     for (var i = 1u; i < n; i = i + 1u) {
-        let hi = entry_at(i, xz, weights, warm);
+        let hi = entry_at(i, cover, warm);
         // Levels never fall: an entry darker than the last is held at it.
         let hi_level = max(luma(hi), lo_level);
         if level < hi_level {
@@ -905,12 +936,12 @@ fn lit_look(in: Varyings, front: bool, base: vec3<f32>, fog: f32) -> LookOut {
     if role == 5u {
         // An ember: its own tone on the warm ramp, breathing slowly.
         let breath = 1.0 + 0.08 * sin(scene_look.fog.w * 1.7 + in.world.x * 0.05 + in.world.z * 0.07);
-        out.color = vec4<f32>(on_ramp(luma(base) * breath, xz, 1.0, p, false), 1.0);
+        out.color = vec4<f32>(on_ramp(luma(base) * breath, covering_zones(xz), 1.0, p, false), 1.0);
         return out;
     }
     if role == 4u {
         // The sky: its own brightness, on the ramp of where the eye stands.
-        out.color = vec4<f32>(on_ramp(luma(base), scene_look.eye.xz, 0.0, p, false), 1.0);
+        out.color = vec4<f32>(on_ramp(luma(base), covering_zones(scene_look.eye.xz), 0.0, p, false), 1.0);
         return out;
     }
     var lit = vec2<f32>(1.0, 0.0);
@@ -931,33 +962,34 @@ fn lit_look(in: Varyings, front: bool, base: vec3<f32>, fog: f32) -> LookOut {
         }
     }
     let warm = clamp(lit.y * 1.4, 0.0, 1.0);
+    let own_water = role == 3u && scene_look.sun_more.z > 0.5;
+    // The zones over this point, weighed once for the fog, the ceiling and
+    // the ramp (water on its own ramp is in none).
+    var cover: Covering;
+    cover.index = vec4<u32>(0u);
+    cover.weight = vec4<f32>(0.0);
+    cover.n = 0u;
+    if !own_water {
+        cover = covering_zones(xz);
+    }
     // The fog pulls the brightness toward its entry of the ramp here.
     if scene_look.fog.z > 0.5 {
         let fog_entry = u32(scene_look.fog_color.w);
-        var weights = vec4<f32>(0.0);
-        for (var z = 0u; z < scene_look.counts.y; z = z + 1u) {
-            weights[z] = zone_weight(z, xz);
-        }
-        var fog_level = luma(entry_at(fog_entry, xz, weights, 0.0));
-        if role == 3u && scene_look.sun_more.z > 0.5 {
+        var fog_level = luma(entry_at(fog_entry, cover, 0.0));
+        if own_water {
             fog_level = luma(scene_look.water[fog_entry].rgb);
         }
         level = mix(level, fog_level, fog);
     }
-    let own_water = role == 3u && scene_look.sun_more.z > 0.5;
     // The brand guide's ceiling (docs/BRAND.md): however it is lit, a
     // surface goes no brighter than its class's step of the ramp here.
     let ceiling = draw.flags.z >> 8u;
     if ceiling > 0u && !own_water {
         let last = max(scene_look.counts.x, 1u) - 1u;
         let step = min(u32(round(f32(ceiling - 1u) * f32(last) / 7.0)), last);
-        var weights = vec4<f32>(0.0);
-        for (var z = 0u; z < scene_look.counts.y; z = z + 1u) {
-            weights[z] = zone_weight(z, xz);
-        }
-        level = min(level, luma(entry_at(step, xz, weights, 0.0)));
+        level = min(level, luma(entry_at(step, cover, 0.0)));
     }
-    out.color = vec4<f32>(on_ramp(level, xz, warm * (1.0 - fog), p, own_water), 1.0);
+    out.color = vec4<f32>(on_ramp(level, cover, warm * (1.0 - fog), p, own_water), 1.0);
     return out;
 }
 

@@ -45,6 +45,9 @@ use std::sync::{Arc, OnceLock};
 
 use serde::Deserialize;
 
+pub mod auto;
+pub mod smart;
+
 use super::super::ink::{self, Img};
 use crate::rules::looks::{Body, Sprite};
 

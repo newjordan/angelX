@@ -106,7 +106,13 @@ impl Run {
             .enemies
             .iter()
             .filter(|e| {
-                e.kind == EnemyKind::Goblin && e.hp > 0 && e.age >= TELEGRAPH && e.frozen == 0 && !e.asleep(self.tick)
+                e.kind == EnemyKind::Goblin
+                    && e.hp > 0
+                    && e.age >= TELEGRAPH
+                    && e.frozen == 0
+                    && !e.asleep(self.tick)
+                    // A raider marching for the works is not a pickpocket after a knight's purse.
+                    && !self.raider_marches(e)
             })
             .map(|e| e.id)
             .collect();

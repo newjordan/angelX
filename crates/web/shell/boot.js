@@ -589,6 +589,8 @@
   const stageBox = $('stage');
   let drag = null;
   let builderContext = false;
+  let gamePointer = null;
+  const framePoint = e => [Math.floor((e.clientX - pic.left) / pic.unit), Math.floor((e.clientY - pic.top) / pic.unit)];
   // The marks a drag lays over the picture: the plate it left, the plate
   // it would land on, and its outline riding the pointer.
   const dragFrom = el('div', 'drag-mark from'), dragTo = el('div', 'drag-mark to'), dragGhost = el('div', 'drag-mark ghost');
@@ -634,6 +636,11 @@
       const fy = Math.floor((e.clientY - pic.top) / pic.unit);
       if (fx >= 0 && fy >= 0 && x.angel_pointer(fx, fy, e.button)) {
         builderContext = e.button === 2;
+        // A press the game took stays the game's while the button is held: a row dragged out.
+        if (e.button === 0 && typeof x.angel_pointer_move === 'function') {
+          gamePointer = e.pointerId;
+          try { stageBox.setPointerCapture(e.pointerId); } catch { /* moves within the stage still come */ }
+        }
         e.preventDefault();
         flush();
         return;
@@ -654,10 +661,23 @@
     if (builderContext) { e.preventDefault(); builderContext = false; }
   });
   stageBox.addEventListener('pointermove', e => {
+    if (gamePointer === e.pointerId && pic && x && typeof x.angel_pointer_move === 'function') {
+      const [fx, fy] = framePoint(e);
+      if (fx >= 0 && fy >= 0 && x.angel_pointer_move(fx, fy)) flush();
+      return;
+    }
     if (drag && e.pointerId === drag.id) follow(e);
     else if (!drag && e.pointerType === 'mouse') stageBox.classList.toggle('over-slot', !!slotAt(e));
   });
   stageBox.addEventListener('pointerup', e => {
+    if (gamePointer === e.pointerId) {
+      gamePointer = null;
+      if (pic && x && typeof x.angel_pointer_up === 'function') {
+        const [fx, fy] = framePoint(e);
+        if (fx >= 0 && fy >= 0 && x.angel_pointer_up(fx, fy, e.button)) flush();
+      }
+      return;
+    }
     if (!drag || e.pointerId !== drag.id) return;
     const d = A.controls && A.controls.drag, from = drag.plate[0], over = slotAt(e);
     letGo();
@@ -665,7 +685,10 @@
     withString(JSON.stringify({ from, to: over[0] }), (p, l) => x.angel_action(d.kind >>> 0, p, l));
     flush();
   });
-  stageBox.addEventListener('pointercancel', e => { if (drag && e.pointerId === drag.id) letGo(); });
+  stageBox.addEventListener('pointercancel', e => {
+    if (gamePointer === e.pointerId) gamePointer = null;
+    if (drag && e.pointerId === drag.id) letGo();
+  });
 
   // The page's own knobs, for the dev panel: whole-number scaling, a
   // frame-rate cap (0: the display's own rate) and the GPU renderer's post

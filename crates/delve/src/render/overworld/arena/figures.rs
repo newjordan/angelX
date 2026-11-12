@@ -258,7 +258,7 @@ pub(super) fn figures(cv: &mut Img, run: &Run) {
 /// A knight as the room draws them this tick: the rig's own sample and what
 /// it wears (`knights::dressed_frame`), or the body their save gives them,
 /// and whether a body is wished over their shape.
-fn dressed_knight(run: &Run, id: u32, hero: &crate::rules::Hero) -> (knights::DressedFrame, bool) {
+pub(super) fn dressed_knight(run: &Run, id: u32, hero: &crate::rules::Hero) -> (knights::DressedFrame, bool) {
     let tick = run.tick as u32;
     // A raised shield just struck is knocked back and flashes.
     let struck = vfx::struck(run, id);
@@ -698,7 +698,7 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Opti
     for (&id, hero) in run
         .players
         .iter()
-        .filter(|(id, h)| (h.hp > 0 || crossroads) && h.privy == 0 && h.soak == 0 && !riding.contains(id) && !run.star_falling())
+        .filter(|(id, h)| (h.hp > 0 || crossroads) && h.privy == 0 && h.soak == 0 && !riding.contains(id) && !run.star_falling() && !run.caves.inside(**id))
     {
         // Up a tower or in the air off its top (`shoulders`).
         let perch = shoulders::perch(run, id, hero, tick);
@@ -771,6 +771,17 @@ pub(super) fn figures_with(cv: &mut Img, run: &Run, view: (i32,i32), focus: Opti
                 let skull = bones::skull();
                 let bob = [0, 1, 2, 1][(tick / 6 % 4) as usize];
                 cv.stamp(&skull, x - skull.w / 2, y - im.h - CARRIED_SKULL_GAP - skull.h - bob);
+            }
+            if let Some(stone) = hero.block.as_deref() {
+                // A rough block of stone on the shoulders, sagging a pixel
+                // with each step.
+                let block = super::kingdom::shaft::carried_img(stone);
+                let sag = (tick / 7 % 2) as i32;
+                // The crown of the knight's drawing, not of its padding.
+                let crown = (0..im.h)
+                    .find(|&row| (0..im.w).any(|col| im.get(col, row).is_some()))
+                    .unwrap_or(0);
+                cv.stamp(&block, x - block.w / 2, y - im.h + crown - block.h + 11 + sag);
             }
             if hero.has_rune(crate::rules::runes::RuneKind::Invisibility) {
                 // Under Invisibility: only half there.

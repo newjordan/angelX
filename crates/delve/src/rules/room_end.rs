@@ -17,6 +17,10 @@ impl Run {
         if self.wayfarer_rout() {
             return;
         }
+        // Beaten by the Deep's raiders at the works: knocked down, not killed.
+        if self.deep_rout() {
+            return;
+        }
         // A party falls only when every knight someone plays has fallen. A
         // knight turned to stone because its player is away is still in the
         // run, waiting for them, and keeps it up: one knight's fall never

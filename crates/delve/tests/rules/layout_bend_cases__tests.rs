@@ -261,6 +261,7 @@ fn dump_world_tables() {
             let to_v = match e.to {
                 Dest::Room(k, (x, y)) => json!({"room": to(&k), "at": [x, y]}),
                 Dest::Delve(p) => json!({"delve": to(&p)}),
+                Dest::Cave => json!({"cave": true}),
             };
             json!({"id": e.id, "room": to(&e.room), "at": e.at, "to": to_v, "label": e.label, "needs": e.needs})
         })

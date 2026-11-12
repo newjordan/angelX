@@ -35,6 +35,7 @@ pub fn nested_web_profile(profile_env: &str, out_dir: &str) -> &'static str {
     let name = profile_from_out_dir(out_dir).unwrap_or(profile_env);
     match name {
         "release" | "bench" => "web",
+        "fast" => "web-size",
         _ => "web-fast",
     }
 }
@@ -185,14 +186,14 @@ mod tests {
 
     #[test]
     fn working_builds_skip_fat_lto() {
-        assert_eq!(nested_web_profile("fast", ""), "web-fast");
+        assert_eq!(nested_web_profile("fast", ""), "web-size");
         assert_eq!(nested_web_profile("dev", ""), "web-fast");
         assert_eq!(nested_web_profile("release", ""), "web");
         assert_eq!(nested_web_profile("bench", ""), "web");
         // `--profile fast` still reports PROFILE=release on this toolchain.
         assert_eq!(
             nested_web_profile("release", "/work/targets/s9/fast/build/angelX-cockpit-hash/out"),
-            "web-fast"
+            "web-size"
         );
         assert_eq!(
             nested_web_profile("release", "/work/targets/s9/release/build/angelX-cockpit-hash/out"),

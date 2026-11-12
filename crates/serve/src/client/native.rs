@@ -292,6 +292,10 @@ impl<G: GameClient> NativeLink<G> {
         &self.status
     }
 
+    pub fn set_knob(&mut self, name: &str, value: f64) -> Option<f64> {
+        self.rt.set_knob(name, value)
+    }
+
     pub fn runtime(&self) -> &Runtime<G> {
         &self.rt
     }

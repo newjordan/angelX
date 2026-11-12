@@ -45,6 +45,7 @@ fn ranch_and_fields_are_reached_from_the_stables_and_lead_back() {
             .filter_map(|e| match e.to {
                 Dest::Room(k, _) => Some(k),
                 Dest::Delve(_) => None,
+                Dest::Cave => None,
             })
             .collect::<Vec<_>>()
     };

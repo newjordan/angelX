@@ -19,6 +19,7 @@ export const DOC_SOURCES = [
   ['CARTRIDGES.md', 'Plug a tool or command in as a folder'],
   ['MEMORY.md', 'What the cockpit keeps'],
   ['LABYRINTH.md', 'Questions, evidence and refutations on one map'],
+  ['RELEASE_0.2.86.md', 'angelX 0.2.86 release notes'],
   ['RELEASE_0.2.85.md', 'angelX 0.2.85 release notes'],
   ['RELEASE_0.2.7.md', 'angelX 0.2.7 release notes'],
 ]

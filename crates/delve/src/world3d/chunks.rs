@@ -489,16 +489,7 @@ fn builds(geo: &Geography) -> Vec<Build> {
             seed: seed_of(foot),
         });
     }
-    let gate = wishes::delve_gate();
-    let foot = (gate.tx, gate.ty, gate.tw, gate.th);
-    out.push(Build {
-        name: "the Delve's gate".into(),
-        place: None,
-        kit: Kit::DelveGate,
-        foot,
-        face: face_to(foot, wishes::delve_stand()),
-        seed: seed_of(foot),
-    });
+    out.push(delve_gate());
     for site in &geo.sites {
         let Some(lot) = site.lot else {
             continue;
@@ -522,6 +513,29 @@ fn builds(geo: &Geography) -> Vec<Build> {
 /// A footprint that holds ground a knight walks (a road through a gate's
 /// tiles) gives it up: the build stands on the rest, its front to the
 /// open ground.
+/// The Delve's gate as the generator stands it, before it is kept off open
+/// ground ([`delve_gate_on`] is that, for what the run stands on it).
+fn delve_gate() -> Build {
+    let gate = wishes::delve_gate();
+    let foot = (gate.tx, gate.ty, gate.tw, gate.th);
+    Build {
+        name: "the Delve's gate".into(),
+        place: None,
+        kit: Kit::DelveGate,
+        foot,
+        face: face_to(foot, wishes::delve_stand()),
+        seed: seed_of(foot),
+    }
+}
+
+/// The Delve's gate exactly as the chunks stand it on `geo`, so what a run
+/// puts on its crown (the Great Shaft's head, `lots`) sits where its heap is.
+pub(crate) fn delve_gate_on(geo: &Geography) -> Build {
+    let mut b = delve_gate();
+    keep_off_open(geo, &mut b);
+    b
+}
+
 fn keep_off_open(geo: &Geography, b: &mut Build) {
     let (c, r, w, h) = b.foot;
     let walk = |x: i32, y: i32| geo.room.tile(x, y) == Tile::Floor;

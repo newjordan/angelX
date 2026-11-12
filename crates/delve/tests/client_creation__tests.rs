@@ -666,8 +666,13 @@ fn newcomer_in_the_bar() -> Run {
     run
 }
 
+/// The rite's invitation keys: N held, C pressed.
+fn rite_keys() -> angel_net::input::Hands {
+    angel_net::input::Hands { held: button::MAP, pressed: button::X11, ..Default::default() }
+}
+
 #[test]
-fn a_newcomers_screen_is_invited_and_c_opens_the_creator_without_blocking_anything() {
+fn a_newcomers_screen_is_invited_and_n_with_c_opens_the_creator_while_c_alone_still_rides() {
     let mut host = Host::new(newcomer_in_the_bar());
     assert!(host.run.owes_rite(1));
     let mut c = client(Some(0));
@@ -676,8 +681,10 @@ fn a_newcomers_screen_is_invited_and_c_opens_the_creator_without_blocking_anythi
     assert!(c.creation.invite.shown(host.run.tick).is_some_and(|(_, slip)| slip), "the full slip first");
     assert!(!c.creation.session.open);
     assert_ne!(c.command(&held(button::RIGHT)), DelveCmd::neutral(), "the knight is not held");
-    // C opens it, and the ride key is the rite's while the rite is owed.
-    assert_eq!(c.command(&tap(button::X11)), DelveCmd::neutral());
+    // C alone is the shoulder ride even while the rite is owed; N held and C opens the Creator.
+    assert!(c.command(&tap(button::X11)).input().ride, "C alone rides");
+    assert!(!c.creation.session.open);
+    assert_eq!(c.command(&rite_keys()), DelveCmd::neutral());
     assert!(c.creation.session.open);
     // Esc puts it off; the slip shrinks to its hint and the knight is as free as before.
     assert_eq!(c.command(&tap(button::MENU)), DelveCmd::neutral());
@@ -685,7 +692,7 @@ fn a_newcomers_screen_is_invited_and_c_opens_the_creator_without_blocking_anythi
     assert!(c.creation.invite.shown(host.run.tick + 1000).is_some_and(|(_, slip)| !slip), "then the corner hint");
     assert!(!c.menu, "nothing was left open behind it");
     // It can be opened again.
-    c.command(&tap(button::X11));
+    c.command(&rite_keys());
     assert!(c.creation.session.open);
 }
 
@@ -706,7 +713,7 @@ fn what_is_brought_to_life_goes_to_the_host_once_and_the_host_keeps_it_credited_
     let mut host = Host::new(newcomer_in_the_bar());
     let mut c = client(Some(0));
     host.send(&mut c);
-    c.command(&tap(button::X11));
+    c.command(&rite_keys());
     // A minion, through the pages to Life, and sealed there.
     c.creation.session.creation.role = Role::Minion;
     c.creation.session.creation.name = "Pip".into();
@@ -735,7 +742,7 @@ fn a_weapon_brought_to_life_goes_the_same_way() {
     let mut host = Host::new(newcomer_in_the_bar());
     let mut c = client(Some(0));
     host.send(&mut c);
-    c.command(&tap(button::X11));
+    c.command(&rite_keys());
     c.creation.session.creation.role = Role::Weapon;
     let tick = host.run.tick;
     c.creation.session.go(Step::Life, tick);

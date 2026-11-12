@@ -24,7 +24,8 @@
 mod drift;
 pub mod leg;
 pub mod show;
-#[cfg(test)]
+/// The Ore Cart's and the Griffin Run's tick, which the Bend leg does not carry
+/// (it rolls the Shaft Run alone), and in tests the engine that answers for the leg.
 mod oracle;
 pub use drift::*;
 
@@ -994,13 +995,25 @@ impl Run {
         // module never sees it, and `observe` reads what the tick changed.
         let show = std::mem::take(&mut race.show);
         let before = race.clone();
-        if race.course != Course::Touge {
-            // The ball, the cart and the griffin tick in the module: no answer leaves the race standing.
+        if race.course == Course::Shaft {
+            // The ball ticks in the module: no answer leaves the race standing.
             if let Ok(ran) = leg::run(&mut race, inputs, &standing) {
                 self.sounds.extend(ran.sounds);
                 if ran.all_home || ran.timed_out {
                     self.finish_race3d(&mut race);
                 }
+            }
+            self.keep_show(race, show, &before);
+            return;
+        }
+        if matches!(race.course, Course::Cart | Course::Griffin) {
+            // The Bend leg rolls the Shaft Run alone and hands a cart or a griffin back untouched,
+            // so asked for them the field never left the line (2026-11-10: "griffin run is broken,
+            // on multiplayer it freezes"). They tick natively, as before the leg.
+            let (all_home, timed_out, sounds) = oracle::tick(&mut race, inputs, &standing);
+            self.sounds.extend(sounds);
+            if all_home || timed_out {
+                self.finish_race3d(&mut race);
             }
             self.keep_show(race, show, &before);
             return;

@@ -926,6 +926,7 @@ impl Run {
             let mut gold = crossroads::gold(place);
             let mut spoils = Spoils::default();
             spoils.add(Spoil::Gold, gold);
+            self.tally_coin(&spoils);
             self.bank.push(Haul { hero: id, spoils, why: "encounter prize".into() });
             // The ante comes back to the winner of a game for the table, and
             // the pot goes to the first of a game between them.

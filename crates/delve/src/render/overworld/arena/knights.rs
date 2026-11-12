@@ -110,6 +110,12 @@ fn realm_body(hero: &Hero, thrown: bool, floating: bool) -> Img {
     })
 }
 
+/// Whether a knight is drawn by the code rig (so their tool is in the rig's
+/// hand), and not by a look or an identity that carries its own.
+pub(super) fn rig_drawn(hero: &Hero, seat: u32) -> bool {
+    default_rig(hero, seat).is_some()
+}
+
 // Quick rigs deliberately opt out of authored identities and missing-gear
 // stages. Those paths carry their own silhouettes, helmets and save semantics.
 // A plain knight is drawn as their seat's design (`quick_rig::Design`).
@@ -265,8 +271,10 @@ fn rig_sample_at<'a>(
         }
     }
     if hero.swing > 0 {
+        // A tool of a trade comes down, a blade slashes.
+        let clip = if hero.tool != 0 { Clip::Overhead } else { Clip::Slash };
         return rig.action(
-            Clip::Slash,
+            clip,
             hero.swing,
             if hero.sword { 8 } else { 6 },
             false,
@@ -423,7 +431,19 @@ fn rig_art_sample(
         }
     }
     let a = fit.right.anchor;
-    if native_weapon
+    if native_weapon && let Some((tool, load)) = super::kingdom::tools::of(hero.tool) {
+        // A knight at a trade has its tool in hand, not their arm: it rides up
+        // and out at rest and follows the rig's hand through a stroke.
+        let (_, dx, top) = stage(sample);
+        let tip = sample.anchors().tip;
+        let (mut tx, mut ty) = ((tip[0] + dx - a.0) as f32, (tip[1] + top - a.1) as f32);
+        let striking = hero.swing > 0 && matches!(sample.clip, Clip::Overhead | Clip::Slash);
+        if !striking || ty > 0.0 && matches!(sample.clip, Clip::Idle | Clip::Walk | Clip::Run) {
+            let out = (a.0 - im.w / 2).signum() as f32;
+            (tx, ty) = (out * 0.75, -1.0);
+        }
+        super::kingdom::tools::draw(&mut im, tool, load, (a.0 as f32, a.1 as f32), (tx, ty), striking);
+    } else if native_weapon
         && (held == Held::Sword || hero.forged.as_ref().is_some_and(|w| w.melee.is_some()))
     {
         // The arm itself along the rig's grip-to-tip: blade, guard and
@@ -1615,6 +1635,13 @@ pub(super) fn dressed_frame(
     struck: Struck,
     seat: Option<u32>,
 ) -> DressedFrame {
+    if let Some((sprite, rig)) = super::autorig::whole_install(hero, book) {
+        if quick_rig::sprite_rig(sprite).is_none() {
+            return quick_rig::with_sprite_rig(sprite, rig, || {
+                dressed_frame(fallback, hero, book, tick, phase, cast_age, thrown, struck, seat)
+            });
+        }
+    }
     let wished = wished_rig(hero, book);
     let worn = hero.worn(book);
     let whole = worn

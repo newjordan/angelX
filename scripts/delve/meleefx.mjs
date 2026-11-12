@@ -1,0 +1,136 @@
+#!/usr/bin/env node
+// Bake wished melee swings as pixelfx strips, fitted to the Delve's inks.
+//
+//     node scripts/delve/meleefx.mjs [/path/to/pixelfx]
+//
+// The code-drawn crescent stays. These strips play on top, one row per aim
+// (east, then clockwise), two ticks a frame, and no longer than the swing.
+// Size is the effect's own option where it has one (radius, reach); nothing
+// here scales or rotates a finished frame. Every pixel is a game ink, opaque.
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { inks, init, makePixel, pack, play, trim } from "./fxfit.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const PFX = process.argv[2] ?? process.env.PIXELFX;
+if (!PFX) {
+  console.error("meleefx: name a pixelfx checkout, as the argument or $PIXELFX");
+  process.exit(2);
+}
+const OUT = join(ROOT, "crates/delve/assets/meleefx");
+const INK_RS = join(ROOT, "crates/delve/src/render/overworld/ink.rs");
+const SPEC = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "meleefx.json"), "utf8"));
+const PX = 8;
+
+const { encodePNG } = await init(PFX);
+const pixel = makePixel(inks(INK_RS));
+mkdirSync(OUT, { recursive: true });
+
+const manifest = {};
+
+function holdThick(dirs) {
+  const counts = dirs[0].frames.map((_, f) =>
+    dirs.reduce((n, d) => n + [...d.frames[f]].filter((_, i) => i % 4 === 3 && d.frames[f][i]).length, 0),
+  );
+  const peak = Math.max(...counts, 1);
+  for (const d of dirs) {
+    let held = null;
+    d.frames.forEach((px, f) => {
+      if (counts[f] >= peak * 0.45) held = px.slice();
+      else if (held) px.set(held);
+    });
+  }
+}
+function seat(dirs, reachPx) {
+  // The effect draws around its own actor, not the hand. Shift each aimed row
+  // toward the origin so the swing sits inside the reach. No scale, no rotate.
+  const slack = Math.max(4, reachPx);
+  for (const d of dirs) {
+    let sx = 0, sy = 0, n = 0, far = 0;
+    for (const px of d.frames)
+      for (let y = 0; y < d.h; y++)
+        for (let x = 0; x < d.w; x++)
+          if (px[(y * d.w + x) * 4 + 3]) {
+            const dx = x - d.ox, dy = y - d.oy;
+            sx += dx; sy += dy; n++;
+            far = Math.max(far, Math.hypot(dx, dy));
+          }
+    if (!n || far <= slack) continue;
+    const pull = far - slack;
+    const len = Math.hypot(sx, sy) || 1;
+    const mx = Math.round((sx / len) * pull), my = Math.round((sy / len) * pull);
+    for (const px of d.frames) {
+      const next = new Uint8ClampedArray(px.length);
+      for (let y = 0; y < d.h; y++)
+        for (let x = 0; x < d.w; x++) {
+          const nx = x - mx, ny = y - my;
+          if (nx < 0 || ny < 0 || nx >= d.w || ny >= d.h) continue;
+          const s = (y * d.w + x) * 4, t = (ny * d.w + nx) * 4;
+          if (!px[s + 3]) continue;
+          next[t] = px[s]; next[t + 1] = px[s + 1]; next[t + 2] = px[s + 2]; next[t + 3] = 255;
+        }
+      px.set(next);
+    }
+  }
+}
+
+async function bake(name, spec, reachPx) {
+  const dirs = [];
+  for (let k = 0; k < 8; k++) {
+    dirs.push(await play(PFX, { ...spec, pixel }, (k * Math.PI) / 4));
+  }
+  if (reachPx) seat(dirs, reachPx);
+  holdThick(dirs);
+  const box = trim(dirs);
+  const packed = pack(dirs, box);
+  writeFileSync(join(OUT, `${name}.png`), encodePNG(packed.sw, packed.sh, packed.sheet));
+  const [x0, y0] = box;
+  manifest[name] = {
+    fx: spec.fx,
+    w: packed.fw,
+    h: packed.fh,
+    ox: Math.round(dirs[0].ox - x0),
+    oy: Math.round(dirs[0].oy - y0),
+    frames: packed.n,
+    dirs: packed.dirs,
+    ticks: 2,
+  };
+  console.log(`${name.padEnd(18)} ${spec.fx.padEnd(22)} ${packed.n}f x ${packed.dirs}  ${packed.fw}x${packed.fh}`);
+}
+
+function specFor(fx, from, to, reachPx, kind) {
+  const opts = { palette: null, seed: 2, light: 0.4 };
+  if (kind?.radius) opts.radius = reachPx;
+  if (kind?.reachOpt) opts.reach = reachPx;
+  const aim = Math.ceil((kind?.radius || kind?.reachOpt ? reachPx : 48) + 18);
+  return { fx, from, to, aim, opts, glow: 1.35, halo: 120 };
+}
+
+for (const [kind, row] of Object.entries(SPEC.kinds)) {
+  const reachPx = row.reach * PX;
+  for (const [look, pal] of Object.entries(SPEC.looks)) {
+    const spec = specFor(row.fx, row.from, row.to, reachPx, row);
+    spec.opts.palette = pal;
+    await bake(`${kind}-${look}`, spec, reachPx);
+  }
+}
+
+for (const [look, pal] of Object.entries(SPEC.looks)) {
+  const spec = specFor(SPEC.hit.fx, SPEC.hit.from, SPEC.hit.to, 16, {});
+  spec.opts.palette = pal;
+  spec.opts.height = 12;
+  spec.opts.aim = 0;
+  spec.aim = 28;
+  await bake(`hit-${look}`, spec, 18);
+}
+
+writeFileSync(join(OUT, "meleefx.json"), JSON.stringify(manifest, null, 1) + "\n");
+const arms = Object.keys(manifest)
+  .map((name) => `        "${name}" => include_bytes!("../../../../assets/meleefx/${name}.png"),`)
+  .join("\n");
+writeFileSync(
+  join(ROOT, "crates/delve/src/render/overworld/arena/meleefx_png.rs"),
+  `// Generated by scripts/delve/meleefx.mjs. Do not edit by hand.\npub(super) fn png(name: &str) -> &'static [u8] {\n    match name {\n${arms}\n        _ => &[],\n    }\n}\n`,
+);
+console.log(`baked ${Object.keys(manifest).length} strips`);

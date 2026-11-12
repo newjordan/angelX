@@ -12,13 +12,59 @@ mod mouth;
 // The waystations beside the roads (`crate::world::waystations`).
 #[path = "waystation.rs"]
 mod waystation;
+// The Keep's masons and hodmen, and its tally board.
+#[path = "crew.rs"]
+mod crew;
+// The trades' tools in a knight's hand, and the work at the Keep drawn: the
+// teachers, the outcrop, the gauges over a knight at a job.
+#[path = "tools.rs"]
+pub(super) mod tools;
+#[path = "hands_art.rs"]
+pub(super) mod hands_art;
+// The hillside works: buildings, roads, lines, carts, people, the ghost, the flow overlay.
+#[path = "hillside_art.rs"]
+pub(super) mod hillside_art;
 // The travellers on the roads, and the talk with one.
 #[path = "wayfarers.rs"]
 pub(super) mod wayfarers;
 // The places of the knight's missions, beside the doors.
 #[path = "missions.rs"]
 pub(super) mod missions;
+// The Great Shaft over the Delve's gate and its stockyard.
+#[path = "shaft.rs"]
+pub(super) mod shaft;
 use crate::rules::kingdom::Goal;
+
+/// The rectangles the surface's HUD lays down in a frame, by name, read back by the layout test
+/// (`the_hud_never_overlaps_at_any_frame`). Nothing is kept outside a test build.
+pub(super) mod hud_log {
+    pub type Rect = (i32, i32, i32, i32);
+
+    #[cfg(test)]
+    std::thread_local! {
+        static LOG: std::cell::RefCell<Option<Vec<(&'static str, Rect)>>> = const { std::cell::RefCell::new(None) };
+    }
+
+    /// `f`, and every box the HUD noted while it ran.
+    #[cfg(test)]
+    pub fn read<R>(f: impl FnOnce() -> R) -> (R, Vec<(&'static str, Rect)>) {
+        let was = LOG.with(|l| l.borrow_mut().replace(Vec::new()));
+        let out = f();
+        let boxes = LOG.with(|l| std::mem::replace(&mut *l.borrow_mut(), was)).unwrap_or_default();
+        (out, boxes)
+    }
+
+    /// The HUD lays a box down: `rect` in the view's pixels.
+    #[inline]
+    pub fn note(_name: &'static str, _rect: Rect) {
+        #[cfg(test)]
+        LOG.with(|l| {
+            if let Some(log) = l.borrow_mut().as_mut() {
+                log.push((_name, _rect));
+            }
+        });
+    }
+}
 
 pub(super) fn layers_with(run: &Run, focus: Option<u32>, legible: bool) -> (Img, Img) {
     paint(run, focus, legible, None)
@@ -40,6 +86,15 @@ pub(super) fn layers_3d(run: &Run, focus: Option<u32>) -> (Img, Img, Vec<Figure>
     (over, three.screen, three.figures)
 }
 
+/// The Keep's crew and tally as figures over a window of `size` at `origin`
+/// (the kingdom's pixels), for a view stood back (`stand_back`): `paint` draws
+/// them only in the knight's own view.
+pub(super) fn crew_in(figures: &mut Vec<Figure>, run: &Run, origin: (i32, i32), size: (i32, i32)) {
+    crew::draw(&mut Img::new(1, 1), run, origin, size, Some(figures));
+    hands_art::props(&mut Img::new(1, 1), run, origin, size, Some(figures));
+    hands_art::work(&mut Img::new(1, 1), run, origin, size, Some(figures), None);
+}
+
 /// Where `paint` puts what a window in 3D draws apart.
 struct Three {
     screen: Img,
@@ -49,7 +104,7 @@ struct Three {
 /// A knight as a figure of the kingdom in 3D: its contact shadow and its
 /// sprite where `paint` lays them, on a picture of their own, its feet its
 /// depth.
-fn knight_figure(im: &Img, hero: &crate::rules::Hero, book: &crate::rules::cards::Book) -> Figure {
+fn knight_figure(im: &Img, hero: &crate::rules::Hero, book: &crate::rules::cards::Book, lift: f32) -> Figure {
     let (hx, hy) = (hero.x * UNIT, hero.y * UNIT);
     let (fx, fy) = (hx.floor() as i32, hy.floor() as i32);
     let (sx, sy) = (hx - knights::rig_centre(hero, book, im.w), hy - im.h as f32 + 1.0 + knights::rig_floor_offset(hero, book) as f32);
@@ -59,10 +114,39 @@ fn knight_figure(im: &Img, hero: &crate::rules::Hero, book: &crate::rules::cards
     let mut img = Img::new(x1 - x0, y1 - y0);
     knights::shadow(&mut img, fx - x0, fy - y0);
     img.stamp_sub(im, sx - x0 as f32, sy - y0 as f32);
-    Figure { img, x: x0, y: y0, frac: (0.0, 0.0), depth: hero.y, height: 0.0, additive: false, bodies: Vec::new(), foe: false, paints: Vec::new() }
+    Figure { img, x: x0, y: y0, frac: (0.0, 0.0), depth: hero.y, height: lift, additive: false, bodies: Vec::new(), foe: false, paints: Vec::new() }
+}
+
+/// The Keep's site as two pictures of the view: what lies behind the focused
+/// knight's feet (laid under the knights) and what lies before them and the
+/// falsework (laid over them); `None` while it is out of view.
+fn site_layers(run: &Run, origin: (i32, i32), focus: Option<u32>) -> Option<(Img, Img)> {
+    use super::super::keep_flat;
+    if !crate::world::works::on_map() {
+        return None;
+    }
+    let site = run.sites.keep()?;
+    let castle = site.castle()?;
+    if !keep_flat::in_view(castle, origin, (NATIVE_W, NATIVE_H)) {
+        return None;
+    }
+    let hero = focus.and_then(|id| run.players.get(&id)).or_else(|| run.players.values().next());
+    let feet = hero.map_or(f32::MAX, |h| h.y * UNIT);
+    let knight = hero.map(|h| ((h.x * UNIT) as i32 - origin.0, (h.y * UNIT) as i32 - origin.1));
+    let shown = run.site_shown(site);
+    let flat = if site.bands.is_empty() { keep_flat::flat_gapped(castle, shown, &site.lost) } else { keep_flat::flat_banded(castle, shown, &site.lost, &site.bands) };
+    let (back, mut front) = flat.split(origin, (NATIVE_W, NATIVE_H), feet, knight);
+    let built = if run.site_replay.is_some() { shown } else { run.hands.yard.timber };
+    let work = keep_flat::falsework_built(castle, shown, built, (run.crane_seconds() * crate::rules::HZ as f32) as u32);
+    front.stamp(&work, flat.at.0 - origin.0, flat.at.1 - origin.1);
+    Some((back, front))
 }
 
 fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Three>) -> (Img, Img) {
+    // Stood back at the Keep, the flat view is the map shrunk (`stand_back`).
+    if three.is_none() && super::stand_back::on() {
+        return super::stand_back::flat(run, focus);
+    }
     let origin = camera(run, focus);
     let scenery = if three.is_some() {
         Img::new(NATIVE_W, NATIVE_H)
@@ -70,11 +154,12 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
         crop(&map::atlas(&run.kingdom.wishes), origin)
     };
     let mut over = Img::new(NATIVE_W, NATIVE_H);
-    // The label is the screen's: in 3D on the blank-slate map it stays put on
-    // the screen layer, with the goal's arrow, rather than tipping with the
-    // floor under the tents.
-    let screen = three.as_deref_mut().filter(|_| crate::world::plan::tabula()).map(|three| &mut three.screen);
-    screen.unwrap_or(&mut over).text(8, 8, WORKS_LABEL, 'y');
+    // (On the blank slate the label and the Keep's readout are one block, the screen's, laid
+    // last over everything of the world, with the goal's arrow: `stand_back::corner`, below.
+    // Elsewhere the label is laid early, as ever.)
+    if !crate::world::plan::tabula() {
+        over.text(8, 8, WORKS_LABEL, 'y');
+    }
     super::forest_road::kingdom(&mut over, run, origin);
     super::roundtable::kingdom(&mut over, run, origin);
     let geo = map::geography(&run.kingdom.wishes);
@@ -83,6 +168,27 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
     let lettered = map::letter_regions(&mut over, origin);
     // So are the waystations: a knight walks in front of the counter.
     waystation::draw(&mut over, run, origin);
+    // The shaft head over the Delve's gate and the stockyard beside it.
+    shaft::paint(&mut over, run, origin);
+    // The hillside works (`world::hillside`): in the flat view the roads and tracks, and
+    // the buildings behind the knight, laid on the ground; the buildings before them
+    // go over the knights (below).
+    let hill_view = crate::world::hillside::of(run);
+    let mut hill_front = None;
+    if let Some(hv) = hill_view.as_ref().filter(|_| three.is_none()) {
+        let feet = focus.and_then(|id| run.players.get(&id)).or_else(|| run.players.values().next()).map_or(f32::MAX, |h| h.y * UNIT);
+        over.stamp(&hillside_art::ground(run, hv, origin, (NATIVE_W, NATIVE_H)), 0, 0);
+        let (back, front) = hillside_art::buildings(run, hv, origin, (NATIVE_W, NATIVE_H), feet);
+        over.stamp(&back, 0, 0);
+        hill_front = Some(front);
+    }
+    if let Some(hv) = &hill_view {
+        hillside_art::movers(&mut over, run, hv, origin, (NATIVE_W, NATIVE_H), three.as_deref_mut().map(|t| &mut t.figures));
+    }
+    if let Some(hv) = &hill_view {
+        hillside_art::plans(&mut over, run, hv, origin, (NATIVE_W, NATIVE_H), three.is_none());
+    }
+    hillside_art::ghost(&mut over, run, origin, focus, three.is_none());
     let tick = run.tick as u32;
     let local = |x: f32, y: f32| {
         let (x, y) = at(x, y);
@@ -233,6 +339,16 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
             over.stamp(&im, x - im.w / 2, y - im.h);
         }
     }
+    // The Keep's site, in the flat view: the part of the castle behind the
+    // knight's feet before the knights, the rest after (`keep_flat`).
+    let site = three.is_none().then(|| site_layers(run, origin, focus)).flatten();
+    if let Some((back, _)) = &site {
+        over.stamp(back, 0, 0);
+    }
+    // The Keep's fixtures, under the knights who walk over them.
+    if !super::stand_back::on() {
+        hands_art::props(&mut over, run, origin, (NATIVE_W, NATIVE_H), three.as_deref_mut().map(|t| &mut t.figures));
+    }
     // The road's travellers stand behind the knights who come up to them.
     let road = wayfarers::bodies(&mut over, run, origin, focus, three.as_deref_mut().map(|t| &mut t.figures));
     for (&id, hero) in &run.players {
@@ -252,6 +368,26 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
         let mut im = knights::dressed_event(&im, hero, &run.book, run.tick, 0, None, run.shield_out(id), Default::default(), Some(id)).0;
         if let Some(shape) = hero.shape.filter(|_| bodied) {
             knights::emblem(&mut im, shape);
+        }
+        // A look or an identity that is not the code rig carries its tool in a
+        // hand of its own: held at the side, up.
+        if !knights::rig_drawn(hero, id)
+            && let Some((tool, load)) = tools::of(hero.tool)
+        {
+            let hand = (im.w as f32 * 0.72, im.h as f32 * 0.55);
+            tools::draw(&mut im, tool, load, hand, (0.75, -1.0), hero.swing > 0);
+        }
+        // A rough block carried up from the Delve, on the shoulders and
+        // sagging a pixel at each step: the picture is made taller to hold it.
+        if let Some(stone) = hero.block.as_deref() {
+            let block = shaft::carried_img(stone);
+            let pad = block.h + 2;
+            let crown = (0..im.h).find(|&row| (0..im.w).any(|col| im.get(col, row).is_some())).unwrap_or(0);
+            let mut tall = Img::new(im.w.max(block.w), im.h + pad);
+            tall.stamp(&im, (tall.w - im.w) / 2, pad);
+            let sag = (tick / 7 % 2) as i32;
+            tall.stamp(&block, (tall.w - block.w) / 2, pad + crown - block.h + 11 + sag);
+            im = tall;
         }
         if hero.aim_x < -0.3 {
             im = im.flip_h();
@@ -288,18 +424,31 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
                 );
             }
         }
+        // Up the scaffold with a load: the knight rises as they climb.
+        let lift = run.hands.seats.get(&id).map_or(0.0, |h| h.climb() * 18.0);
         if hero.hp == 0 {
             bones::draw(&mut over, hero, id, run.tick, false, x, y, true);
         } else if let Some(three) = three.as_deref_mut() {
-            three.figures.push(knight_figure(&im, hero, &run.book));
+            three.figures.push(knight_figure(&im, hero, &run.book, lift));
         } else {
             knights::shadow(&mut over, x, y);
             over.stamp_sub(
                 &im,
                 hero.x * UNIT - origin.0 as f32 - knights::rig_centre(hero, &run.book, im.w),
-                hero.y * UNIT - origin.1 as f32 - im.h as f32 + 1.0 + knights::rig_floor_offset(hero, &run.book) as f32,
+                hero.y * UNIT - origin.1 as f32 - im.h as f32 + 1.0 + knights::rig_floor_offset(hero, &run.book) as f32 - lift,
             );
         }
+    }
+    if let Some((_, front)) = &site {
+        over.stamp(front, 0, 0);
+    }
+    if let Some(front) = &hill_front {
+        over.stamp(front, 0, 0);
+    }
+    // (Stood back, the crew is drawn with the wider view: `kingdom_scene`.)
+    if !super::stand_back::on() {
+        crew::draw(&mut over, run, origin, (NATIVE_W, NATIVE_H), three.as_deref_mut().map(|t| &mut t.figures));
+        hands_art::work(&mut over, run, origin, (NATIVE_W, NATIVE_H), three.as_deref_mut().map(|t| &mut t.figures), focus);
     }
     for shot in &run.projectiles {
         let (x, y) = local(shot.x, shot.y);
@@ -330,7 +479,8 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
     taken.extend(lettered);
     taken.extend(road);
     taken.extend(trinkets(&mut over, run, &geo, origin, focus, legible));
-    taken.extend(mouth::draw(&mut over, run, &geo, origin));
+    let mouths = mouth::draw(&mut over, run, &geo, origin);
+    taken.extend(mouths.iter().copied());
     if legible {
         taken.extend(waystation::marks(&mut over, run, origin, focus));
     }
@@ -353,17 +503,53 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
         };
     }
     super::team::panel(ui!(),run,focus);
+    // The flow overlay's marks and their words, which the goal's arrow keeps clear of.
+    let mut marks: Vec<(i32, i32, i32, i32)> = Vec::new();
+    // The card of what the cursor points at is up: it has the view's side, and the goal's arrow stands down.
+    let mut card_up: Option<(i32, i32, i32, i32)> = None;
+    if let Some(hv) = &hill_view {
+        marks = hillside_art::overlay(&mut over, three.as_deref_mut().map(|t| &mut t.figures), run, hv, origin, (NATIVE_W, NATIVE_H), focus);
+        hillside_art::clerk(ui!(), run, hv, focus);
+        hillside_art::hud(ui!(), run, focus);
+        let plate = hillside_art::goal_plate(ui!(), run, focus);
+        let corner = crate::world::plan::tabula().then(|| super::stand_back::corner_rect(run, focus));
+        let mut clear: Vec<_> = plate.into_iter().chain(corner).collect();
+        // The night plate yields to what already stands, then the card and the goal's arrow yield to it.
+        let night = hillside_art::deep_plate(ui!(), run, focus, &clear);
+        clear.extend(night);
+        marks.extend(plate);
+        marks.extend(night);
+        card_up = hillside_art::card(ui!(), run, focus, origin, &clear);
+        marks.extend(card_up);
+        hillside_art::ledger(ui!(), run, focus);
+    }
     survey_ghost(&mut over, run, origin, focus);
     survey_panel(ui!(), run, focus);
     // The goal's arrow and name go down first; plaques make way for them.
     let mut goal_layer = Img::new(NATIVE_W, NATIVE_H);
     let mut aimed = Vec::new();
-    if let Some(goal) = &goal {
-        aimed = goal_marker(&mut goal_layer, goal, origin, tick);
+    // The ledger lies over the world, and nothing floats over it.
+    let ledger_open = hillside_art::ledger_open(run, focus);
+    if let Some(goal) = goal.as_ref().filter(|_| !ledger_open && card_up.is_none()) {
+        // The corner block is the goal's to keep clear of, as every floating mark does.
+        let mut avoid: Vec<_> = crate::world::plan::tabula().then(|| super::stand_back::corner_rect(run, focus)).into_iter().collect();
+        // And the signs of the ways down.
+        avoid.extend(mouths.iter().copied());
+        avoid.extend(marks.iter().copied());
+        // While the builder is out its strip, and the Clerk's lines over it, hold the view's foot.
+        let floor = if focus.is_some_and(|id| crate::rules::hillside::building(run, id)) { (NATIVE_H - hillside_art::STRIP_H - 2 - 38 - 12) as f32 } else { NATIVE_H as f32 };
+        aimed = goal_marker(&mut goal_layer, goal, origin, tick, &avoid, floor);
     }
     // The knight's own missions, each at the door where it can be done.
-    let marked = missions::doors(&mut goal_layer, run, focus.unwrap_or(1), origin, tick, &aimed);
+    let marked = if ledger_open { Vec::new() } else { missions::doors(&mut goal_layer, run, focus.unwrap_or(1), origin, tick, &aimed) };
+    for &rect in &aimed {
+        hud_log::note("goal", rect);
+    }
+    for &rect in &marked {
+        hud_log::note("door", rect);
+    }
     taken.extend(aimed);
+    taken.extend(marks.iter().copied());
     taken.extend(marked);
     if legible {
         let hero = run.players.get(&focus.unwrap_or(1)).map(|h| (h.x / TILE_UNITS, h.y / TILE_UNITS));
@@ -374,9 +560,19 @@ fn paint(run: &Run, focus: Option<u32>, legible: bool, mut three: Option<&mut Th
         biome_title(ui!(), run, focus.unwrap_or(1), &taken);
         plaques(&mut over, &geo, origin, goal.as_ref(), hero, taken);
     }
+    // The corner block: the label, the Keep's readout and the trade plate, over everything of the
+    // world, under the goal's arrow, which keeps clear of it.
+    if crate::world::plan::tabula() {
+        super::stand_back::corner(ui!(), run, focus);
+    }
     ui!().stamp(&goal_layer, 0, 0);
     // A keeper's talk lies over the goal's arrow, as it is what the knight reads.
     waystation::talk(ui!(), run, focus);
+    // The Great Shaft's ledger, over the plaques, while a knight stands at its
+    // winch.
+    if legible {
+        let _ = shaft::ledger(ui!(), run, focus, &geo);
+    }
     // The ballot covers the view: the door's footer would only peek out
     // under it.
     let ballot = run
@@ -747,6 +943,7 @@ fn trinkets(
                 }
                 continue;
             }
+            Thing::Winch => shaft::winch(over, run, x, y, live),
             Thing::Bucket => {
                 // Kicked: up and away in an arc, then back on its spot.
                 let (dx, dy) = live.map_or((0, 0), |t| {
@@ -961,33 +1158,33 @@ fn picture(kind: RoomKind, name: &str) -> Option<[&'static str; 7]> {
 
 /// The way to the knight's goal: over its door when it is in view, and at
 /// the edge of the view, pointing, with its name, when it is not.
-fn goal_marker(over: &mut Img, goal: &Goal, origin: (i32, i32), tick: u32) -> Vec<(i32, i32, i32, i32)> {
+fn goal_marker(over: &mut Img, goal: &Goal, origin: (i32, i32), tick: u32, avoid: &[(i32, i32, i32, i32)], floor: f32) -> Vec<(i32, i32, i32, i32)> {
     let (gx, gy) = (
         goal.stand.0 * TILE + TILE / 2 - origin.0,
         goal.stand.1 * TILE - origin.1,
     );
-    // The works' label owns the view's top left: on the blank-slate map the
-    // goal's arrow slides along the edge past it rather than over it.
-    let label = crate::world::plan::tabula().then(|| 8 + super::super::ink::text_width(WORKS_LABEL) + 14);
-    pointer_with(over, (gx, gy), &goal.name, tick, label)
+    // The works' corner block owns the view's top left: on the blank-slate map
+    // the goal's arrow and its name slide along past it rather than over it.
+    pointer_with(over, (gx, gy), &goal.name, tick, crate::world::plan::tabula(), avoid, floor)
 }
 
 /// The label the surface keeps in its top left corner.
-const WORKS_LABEL: &str = "[4] KINGDOM WORKS";
+pub(super) const WORKS_LABEL: &str = "[4] KINGDOM WORKS";
 
 /// A pointer to the view's pixel `(gx, gy)`, named `name`: bobbing over it,
 /// pointing down, while it is in view, and at the edge of the view toward
 /// it when it is not.
 pub(super) fn pointer_toward(over: &mut Img, (gx, gy): (i32, i32), name: &str, tick: u32) -> Vec<(i32, i32, i32, i32)> {
-    pointer_with(over, (gx, gy), name, tick, None)
+    pointer_with(over, (gx, gy), name, tick, false, &[], NATIVE_H as f32)
 }
 
-/// [`pointer_toward`], on the blank-slate map's terms when `past` is a pixel
-/// column: an arrow at the view's top edge is kept right of it, a door only
-/// just off the side of the view is pointed at from over where it would be,
-/// not from the edge over its own sign, and an arrow below holds lower.
-fn pointer_with(over: &mut Img, (gx, gy): (i32, i32), name: &str, tick: u32, past: Option<i32>) -> Vec<(i32, i32, i32, i32)> {
-    let gx = if past.is_some() && (-40..NATIVE_W + 40).contains(&gx) { gx.clamp(24, NATIVE_W - 25) } else { gx };
+/// [`pointer_toward`], on the blank-slate map's terms when `tabula`: the arrow and its
+/// name keep clear of every box in `avoid` (the HUD's corner, the signs of the ways
+/// down) by sliding along, none is lower than `floor`, a door only just off the side
+/// of the view is pointed at from over where it would be, not from the edge over its
+/// own sign, and an arrow below holds lower.
+fn pointer_with(over: &mut Img, (gx, gy): (i32, i32), name: &str, tick: u32, tabula: bool, avoid: &[(i32, i32, i32, i32)], floor: f32) -> Vec<(i32, i32, i32, i32)> {
+    let gx = if tabula && (-40..NATIVE_W + 40).contains(&gx) { gx.clamp(24, NATIVE_W - 25) } else { gx };
     let inside = (24..NATIVE_W - 24).contains(&gx) && (56..NATIVE_H - 8).contains(&gy);
     let (ax, ay, ux, uy) = if inside {
         // Bobbing over the door, pointing down at it.
@@ -999,18 +1196,39 @@ fn pointer_with(over: &mut Img, (gx, gy): (i32, i32), name: &str, tick: u32, pas
         // Below, it stops above the footer and the banners' names (on the
         // blank-slate map a little lower, clear of the knight at the middle,
         // whose feet its name would stand over).
-        let below = if past.is_some() { 44 } else { 64 };
+        let below = if tabula { 44 } else { 64 };
         let reach_y = if dy > 0.0 { NATIVE_H / 2 - below } else { NATIVE_H / 2 - 14 };
         let k = ((NATIVE_W / 2 - 14) as f32 / dx.abs().max(0.01))
             .min(reach_y as f32 / dy.abs().max(0.01));
         let len = dx.hypot(dy).max(0.01);
         (cx + dx * k, cy + dy * k, dx / len, dy / len)
     };
-    let ax = match past {
-        Some(past) if !inside && ay < 30.0 => ax.max(past as f32),
-        _ => ax,
-    };
+    // Never lower than the HUD at the view's foot allows.
+    let ay = ay.min(floor);
+    // Clear of what the HUD keeps in the corner: the arrow and its name slide right along the
+    // edge until neither touches it.
+    let (mut ax, mut ay) = (ax, ay);
+    for pass in 0..8 {
+        let (tag, arrow) = super::camera::pointer_boxes((ax, ay), (ux, uy), name, !inside);
+        let hit = avoid.iter().find(|r| overlaps(r, &tag) || overlaps(r, &arrow));
+        let Some(&(rx, ry, rw, rh)) = hit else { break };
+        if pass < 3 {
+            // Past it on its right when the view has the room, else on its left.
+            let half = tag.2.max(arrow.2) / 2 + 2;
+            let right = rx + rw + 4 + half;
+            ax = if right <= NATIVE_W - 26 { right as f32 } else { (rx - 4 - half).max(24) as f32 };
+        } else {
+            // Neither side is clear (two boxes share the band): below it.
+            let top = tag.1.min(arrow.1);
+            ay = (ay + (ry + rh + 3 - top) as f32).min(floor);
+        }
+    }
     pointer(over, (ax, ay), (ux, uy), name, !inside)
+}
+
+/// Whether two rectangles `(x, y, w, h)` share a pixel.
+fn overlaps(a: &(i32, i32, i32, i32), b: &(i32, i32, i32, i32)) -> bool {
+    a.0 < b.0 + b.2 && b.0 < a.0 + a.2 && a.1 < b.1 + b.3 && b.1 < a.1 + a.3
 }
 
 pub(super) fn hall(run: &Run) -> Img {

@@ -260,7 +260,7 @@ impl Tilt {
             near: tilt / h,
             // Zoomed so the near edge lands on the stage's bottom edge: the
             // whole floor stays in view.
-            zoom: (1.0 - tilt * (1.0 - PIVOT)) / squash,
+            zoom: (1.0 - tilt * (1.0 - PIVOT)) / squash * if tilt >= 0.55 { 0.78 } else { 1.0 },
             squash,
         })
     }

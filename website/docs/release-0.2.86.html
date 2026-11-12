@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>angelX 0.2.86: the caves update — angelX docs</title>
+  <meta name="description" content="angelX 0.2.86 release notes. Rendered from docs/RELEASE_0.2.86.md in the angelX repository.">
+  <link rel="canonical" href="https://omni-space.tech/docs/release-0.2.86.html">
+  <meta property="og:title" content="angelX 0.2.86: the caves update — angelX docs">
+  <meta property="og:description" content="angelX 0.2.86 release notes. Rendered from docs/RELEASE_0.2.86.md in the angelX repository.">
+  <meta property="og:url" content="https://omni-space.tech/docs/release-0.2.86.html">
+  <meta property="og:type" content="website">
+  <meta property="og:image" content="https://omni-space.tech/assets/glass-hero-16x9.jpg">
+  <meta name="theme-color" content="#07090d">
+  <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/css/site.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="nav">
+  <div class="wrap nav-in">
+    <a class="wordmark" href="/" aria-label="omni-space.tech home"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></a>
+    <nav class="nav-links" aria-label="Product">
+      <a href="/">Product</a><a href="/install.html">Install</a><a href="/docs/" aria-current="page">Docs</a><a href="/glass.html">Glass</a><a href="/evidence.html">Evidence</a><a href="/company.html">Company</a>
+      <a class="btn" href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a>
+    </nav>
+  </div>
+</header>
+<main id="content">
+<section class="section"><div class="wrap prose">
+<p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/RELEASE_0.2.86.md" rel="noopener">docs/RELEASE_0.2.86.md</a></p>
+<h1 id="angelx-0286-the-caves-update">angelX 0.2.86: the caves update</h1>
+<p>Knights Wish gets a living cave under its first floor, mines that ship stone home to the kingdom, and rock that burns, steams and melts. The coding harness is the same as 0.2.85.</p>
+<h2 id="upgrade">Upgrade</h2>
+<pre><code class="language-sh">angelX update</code></pre>
+<p>Or install fresh with the one line in the <a href="https://github.com/newjordan/angelX/blob/main/README.md" rel="noopener">README</a>. From a source checkout, <code>git pull</code> and run <code>./bin/angelX</code> again.</p>
+<h2 id="the-cave">The cave</h2>
+<p>Stairs in the first floor's start room and in the kingdom yard lead down into one seeded cavern of four regions, the mine, the foundry, the frost and the hollow, each with its own stone. The knight's lamp lights the rock around them and falls off into the dark.</p>
+<ul><li><p><strong>Digging.</strong> The shovel cracks rock, which crumbles to rubble or blasts open with magic, in each region's colour. The stone it gives goes to the home stockyard. A dig to the north cracks the rock above the knight, and nothing is drawn over them.</p></li><li><p><strong>The mouth</strong> is a boulder arch over a stone stair.</p></li><li><p><strong>Ice slides.</strong> Grip boots and blades lie on the cave floor as pickups and set how far a knight slides.</p></li><li><p><strong>Every knight is drawn as themselves</strong> in the cave, with a spade.</p></li><li><p>Guests and late joiners see the same cave, and a walking frame draws in about 1.5 ms.</p></li></ul>
+<h2 id="mines">Mines</h2>
+<p>Every cave holds eight seeded ore bodies, drawn as veins in their region's colours. See eight cells of one and it is proven; press E at it to sink a mine, and a timbered head goes into the rock. The kingdom takes a claim on that region's seam and raises a quarry at one of eight sites on the surface, and carts haul its stone to the stockyard. The cave and its mines belong to the home, so they stay across runs and in a hosted game.</p>
+<h2 id="materials">Materials</h2>
+<ul><li><p>Fire spreads through wood, grass and fungus and leaves ash with fading embers.</p></li><li><p>Water puts fire out in a burst of steam.</p></li><li><p>Acid eats into walls.</p></li><li><p>Lava lights wood and melts ice into steam.</p></li><li><p>Pools of lava, water and acid are drawn as glowing crust, ripples and fizz.</p></li></ul>
+<p>A burning or melting cell keeps its state through a host rebuild, and the fluid step visits only the cells that are moving, about 6 µs a tick.</p>
+<h2 id="also-in-knights-wish">Also in Knights Wish</h2>
+<ul><li><p><strong>The wish scroll.</strong> T opens the genie's parchment scroll with its three choices.</p></li><li><p><strong>Wished sprites move.</strong> A sprite drawn at game size is rigged into walk, cast and swing clips.</p></li><li><p><strong>The Keep</strong> rises stone by stone from its yard, and each stone keeps its kind, so the walls band limestone, green-veined stone, basalt and ice-stone.</p></li><li><p><strong>C</strong> climbs on a friend's shoulders on every keyboard, and <strong>Tab</strong> opens the cards.</p></li><li><p>A knight picked at the pub shows over a wished whole look.</p></li><li><p>The crossroads race between floors is a quarter-lap sprint against a 90 s clock.</p></li><li><p>Griffin Run and the Ore Cart move every rider again.</p></li></ul>
+</div></section>
+</main>
+<footer class="foot">
+  <div class="wrap foot-in">
+    <span class="wordmark"><span class="dot" aria-hidden="true"></span><span>omni-space<span class="tld">.tech</span></span></span>
+    <span>© 2026 OmniSpace Technologies LLC. angelX is a product of OmniSpace Technologies LLC.</span>
+    <span><a href="/install.html">Install</a> · <a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+<script src="/js/site.js"></script>
+</body>
+</html>

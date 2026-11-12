@@ -16,14 +16,27 @@ const LATE_S = 0.25;
 // Delve's host plays it at 0.15 too).
 const MUSIC_LEVEL = 0.15;
 // The Bard's songs (`rules::bard`): a track of Knight Shift Radio cut into one-beat slices,
-// `bard_<song>_<beat>`, the first volley of each beat naming the next. Each slice carries 16 ms of
-// the next beat's start, faded, so a slice that starts on time crossfades into the one before it:
-// they are never counted among the six effect voices or cut by them, and they sit in a bank of
-// their own (the first beats of every song and the Lullabies stay in it, the rest turn over).
+// `bard_<song>_<beat>`, the held trigger naming each beat and `bard_rest` its letting go. The page
+// lays the slices on its own audio clock a beat apart (`song`). Each slice carries 16 ms of the
+// next beat's start, faded, so laid on time it crossfades into the one before it: they are never
+// counted among the six effect voices or cut by them, and they sit in a bank of their own (the
+// first beats of every song and the Lullabies stay in it, the rest turn over).
 const BARD = /^bard_[a-h]_(\d{3}|lull)$/;
+// Named once when the held trigger is let go: the song stops now.
+const BARD_REST = 'bard_rest';
 const BARD_VOICES = 3;
 const BARD_BANK = 240;
-const BARD_AHEAD = 6;
+const BARD_AHEAD = 8;
+// The song's clock: a beat is 0.4 s; 96 beats, then round the last 64 again.
+const BARD_BEAT_S = 0.4;
+const BARD_BEATS = 96;
+const BARD_LOOP_FROM = 32;
+// Slices are laid this far ahead on the audio clock, from a pump this often.
+const BARD_LEAD_S = 0.3;
+const BARD_PUMP_MS = 25;
+// No beat named for this long and no rest heard: the fire stopped (or the link did), so stop.
+const BARD_KEEP_MS = 1500;
+const BARD_FADE_S = 0.03;
 const BARD_OPENING = 6;
 const BARD_SONGS = 'abcdefgh';
 const MUSIC_RETRY_MS = 1000;
@@ -51,7 +64,9 @@ function makeSound(manifest) {
   const voices = []; // playing sources, oldest first
   const songBuffers = new Map(); // the Bard's slices: name -> Promise<AudioBuffer | null>
   const songPinned = new Set();
-  const songVoices = []; // the Bard's playing slices, oldest first
+  const songVoices = []; // the Bard's Lullabies sounding, oldest first
+  const songDecoded = new Map(); // the Bard's slices decoded: name -> AudioBuffer
+  let lane = null, laneTimer = null; // the held song (`song`)
   let played = 0;
   let volume = Math.min(1, Math.max(0, Number(remembered(VOLUME_KEY, 0.8)) || 0));
   let muted = remembered(MUTE_KEY, false) === true;
@@ -89,6 +104,10 @@ function makeSound(manifest) {
       p = !url ? Promise.resolve(null) : fetch(url)
         .then(r => (r.ok ? r.arrayBuffer() : Promise.reject(r.status)))
         .then(bytes => ctx.decodeAudioData(bytes))
+        .then(buffer => {
+          if (songBuffers.get(name) === p) songDecoded.set(name, buffer);
+          return buffer;
+        })
         .catch(() => {
           if (songBuffers.get(name) === p) songBuffers.delete(name);
           return null;
@@ -96,7 +115,7 @@ function makeSound(manifest) {
       songBuffers.set(name, p);
       if (songBuffers.size > BARD_BANK) {
         for (const key of songBuffers.keys()) {
-          if (!songPinned.has(key)) { songBuffers.delete(key); break; }
+          if (!songPinned.has(key)) { songBuffers.delete(key); songDecoded.delete(key); break; }
         }
       }
     }
@@ -115,17 +134,10 @@ function makeSound(manifest) {
     }
   }
 
-  function song(name, beat) {
-    if (!ctx || ctx.state !== 'running') return;
+  // Bard sounds that are not the held song: its Lullaby, played as it comes.
+  function oneShot(name) {
     const now = () => typeof performance === 'undefined' ? Date.now() : performance.now();
     const asked = now(), epoch = effectsGeneration;
-    // The next beats, fetched while this one plays.
-    if (beat >= 0) {
-      for (let i = 1; i <= BARD_AHEAD; i++) {
-        const next = sliceName(name[5], beat + i);
-        if (manifest[next]) loadSlice(next);
-      }
-    }
     loadSlice(name).then(buffer => {
       if (!buffer || epoch !== effectsGeneration || ctx.state !== 'running'
           || now() - asked > LATE_S * 1000) return;
@@ -145,6 +157,95 @@ function makeSound(manifest) {
         played++;
       } catch (e) { src.onended(); }
     });
+  }
+
+  function beatAt(beat) {
+    return beat < BARD_BEATS ? beat : BARD_LOOP_FROM + (beat - BARD_LOOP_FROM) % (BARD_BEATS - BARD_LOOP_FROM);
+  }
+
+  function wall() {
+    return typeof performance === 'undefined' ? Date.now() : performance.now();
+  }
+
+  // The held song. While the Bard holds its trigger the page plays the song on its own audio clock,
+  // each slice laid exactly a beat after the last, so a slice named early or late (the network, a
+  // busy tab) never moves it and nothing restarts mid-song. A press starts it on the beat the game
+  // names (where the last press let go); the rest (`bard_rest`) stops it at once.
+  function stopLane() {
+    if (laneTimer !== null) { clearInterval(laneTimer); laneTimer = null; }
+    if (!lane) return;
+    const held = lane;
+    lane = null;
+    const t = ctx ? ctx.currentTime : 0;
+    try {
+      held.gain.gain.setValueAtTime(held.gain.gain.value, t);
+      held.gain.gain.linearRampToValueAtTime(0, t + BARD_FADE_S);
+    } catch (e) { /* closed context */ }
+    for (const src of held.sources) {
+      try { src.stop(t + BARD_FADE_S + 0.01); } catch (e) { /* already stopped */ }
+    }
+    setTimeout(() => held.gain.disconnect(), 250);
+  }
+
+  function pumpLane() {
+    if (!lane || !ctx) return;
+    if (ctx.state !== 'running' || wall() - lane.heard > BARD_KEEP_MS) { stopLane(); return; }
+    for (let i = 0; i < BARD_AHEAD; i++) {
+      const next = sliceName(lane.song, beatAt(lane.beat + i));
+      if (manifest[next]) loadSlice(next);
+    }
+    const now = ctx.currentTime;
+    if (lane.at === null) {
+      // Not started: wait for the beat it starts on to be decoded, then go.
+      if (!songDecoded.has(sliceName(lane.song, beatAt(lane.beat)))) return;
+      lane.at = now + 0.02;
+    }
+    if (lane.at < now) {
+      // The clock ran on without us (a hidden tab): rejoin it on the next beat.
+      const missed = Math.ceil((now - lane.at) / BARD_BEAT_S);
+      lane.beat += missed;
+      lane.at += missed * BARD_BEAT_S;
+    }
+    while (lane.at < now + BARD_LEAD_S) {
+      const buffer = songDecoded.get(sliceName(lane.song, beatAt(lane.beat)));
+      if (buffer) {
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.connect(lane.gain);
+        const owner = lane;
+        src.onended = () => {
+          src.disconnect();
+          const i = owner.sources.indexOf(src);
+          if (i >= 0) owner.sources.splice(i, 1);
+          src.buffer = null;
+        };
+        try {
+          src.start(lane.at);
+          lane.sources.push(src);
+          played++;
+        } catch (e) { src.onended(); }
+      }
+      lane.beat++;
+      lane.at += BARD_BEAT_S;
+    }
+  }
+
+  function song(name, beat) {
+    if (!ctx || ctx.state !== 'running') return;
+    if (beat < 0) { oneShot(name); return; }
+    const letter = name[5];
+    if (lane && lane.song === letter) {
+      // Held: the page's clock carries the song; the named beat only keeps it going.
+      lane.heard = wall();
+      return;
+    }
+    stopLane();
+    const gain = ctx.createGain();
+    gain.connect(master);
+    lane = { song: letter, beat, at: null, heard: wall(), gain, sources: [] };
+    loadSlice(name);
+    pumpLane();
+    laneTimer = setInterval(pumpLane, BARD_PUMP_MS);
   }
 
   function loadEffect(name) {
@@ -176,6 +277,7 @@ function makeSound(manifest) {
 
   function sfx(name) {
     if (!ctx || ctx.state !== 'running') return;
+    if (name === BARD_REST) { stopLane(); return; }
     const bard = BARD.exec(name);
     if (bard) return song(name, bard[1] === 'lull' ? -1 : Number(bard[1]));
     let gain = 1;
@@ -298,6 +400,7 @@ function makeSound(manifest) {
     music,
     suspend() {
       effectsGeneration++; // A frozen audio clock must not preserve old SFX.
+      stopLane();
       for (const bank of [voices, songVoices]) {
         while (bank.length) {
           const src = bank.shift();

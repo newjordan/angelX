@@ -1,10 +1,16 @@
 //! The frontier's build desk and the resource veins below it.
-use super::super::ink::{BLACK, nearest_plain, palette_index};
 use super::*;
 use crate::kingdom::catalog;
+// The rock faces (declared here, not in `arena`, whose source the arcade
+// cell gate fingerprints).
+#[path = "seams.rs"]
+pub(super) mod seams;
 
 pub(super) fn showing(run: &Run, focus: Option<u32>) -> bool {
+    // On the hillside the builder and the ledger are over the world, not a desk
+    // instead of it (`hillside_art`).
     run.dungeon.depth == 0
+        && !run.sim_hillside()
         && run.room().kind == RoomKind::Kingdom
         && run
             .kingdom
@@ -579,9 +585,11 @@ fn claims(im: &mut Img, run: &Run, selection: usize, focus: Option<u32>) {
         24,
         110,
         &format!(
-            "{} / {} ACTIVE CLAIM SLOTS",
+            "{} / {} ACTIVE CLAIM SLOTS   THE DEEP STIRS {}/{}",
             k.claims.len(),
-            crate::kingdom::MAX_CLAIMS
+            crate::kingdom::MAX_CLAIMS,
+            run.kingdom.stir.level,
+            crate::rules::stir::MAX
         ),
         't',
     );
@@ -590,7 +598,7 @@ fn claims(im: &mut Img, run: &Run, selection: usize, focus: Option<u32>) {
             im,
             24,
             128,
-            "Your kingdom's rare resources are still below. Delve into the Mines, clear a seam and challenge its guardian with E.",
+            "Every stone worth building with is still below. Delve, clear a seam and challenge its guardian with E.",
             34,
             5,
             'w',
@@ -610,7 +618,11 @@ fn claims(im: &mut Img, run: &Run, selection: usize, focus: Option<u32>) {
             y + 27,
             &format!(
                 "{}  /  {}",
-                q.resource,
+                q.output()
+                    .iter()
+                    .map(|(r, n)| format!("{} {n}", catalog().resources[r].name.to_uppercase()))
+                    .collect::<Vec<_>>()
+                    .join(", "),
                 if !q.secured {
                     "GUARDIAN HOLDS CLAIM"
                 } else if k.buildings.values().any(|b| b.claim.as_ref() == Some(id)) {
@@ -624,10 +636,13 @@ fn claims(im: &mut Img, run: &Run, selection: usize, focus: Option<u32>) {
     }
     text(im, 490, 105, "DELVE. CLAIM. BUILD.", 'y');
     let q = k.claims.values().nth(selection);
-    let monster = q.map_or("ironroot-colossus", |q| match q.resource.as_str() {
-        "coal" | "ember" => "cindermaw",
-        "crystal" => "amethyst-crowned-wyrm",
-        _ => "ironroot-colossus",
+    let monster = q.map_or("ironroot-colossus", |q| {
+        use crate::rules::claim_bosses::Guardian;
+        match Guardian::for_resource(&q.resource) {
+            Some(Guardian::Cindermaw) => "cindermaw",
+            Some(Guardian::Amethyst) => "amethyst-crowned-wyrm",
+            _ => "ironroot-colossus",
+        }
     });
     portrait(im, monster, 542, 132, 128);
     small(im, 490, 270, "ONE SECURED SEAM PER OUTPOST", 't');
@@ -655,48 +670,71 @@ fn claims(im: &mut Img, run: &Run, selection: usize, focus: Option<u32>) {
         }
     }
 }
+/// `text` in the small hand, broken at spaces into at most `lines` lines of
+/// `width` letters, nine pixels apart. Returns the row below the last.
+fn small_words(im: &mut Img, x: i32, y: i32, text: &str, width: usize, lines: usize, ink: char) -> i32 {
+    let mut rows: Vec<String> = Vec::new();
+    for word in text.split_whitespace() {
+        match rows.last_mut() {
+            Some(row) if row.len() + 1 + word.len() <= width => {
+                row.push(' ');
+                row.push_str(word);
+            }
+            _ => rows.push(word.to_string()),
+        }
+    }
+    for (i, row) in rows.iter().take(lines).enumerate() {
+        small(im, x, y + i as i32 * 9, row, ink);
+    }
+    y + rows.len().min(lines) as i32 * 9
+}
 fn ore_guide(im: &mut Img, run: &Run, selection: usize) {
-    use crate::rules::{industry::ORES, ore_threats::OreKind};
-    text(im, 24, 91, "READ THE ROCK. KNOW THE THREAT.", 'y');
-    for (i, (id, name, route, _)) in ORES.iter().enumerate() {
-        let y = 123 + i as i32 * 60;
-        panel(im, 24, y, 424, 54);
+    use crate::rules::geology::{ROWS, seam_at};
+    text(im, 24, 87, "READ THE ROCK. KNOW THE THREAT.", 'y');
+    for (i, row) in ROWS.iter().enumerate() {
+        let y = 106 + i as i32 * 40;
+        panel(im, 24, y, 424, 36);
         if i == selection {
-            fill(im, 24, y, 3, 54, 0xd6bd79);
+            fill(im, 24, y, 3, 36, 0xd6bd79);
         }
-        let icon = match *id {
-            "iron-ore" => "ore-iron",
-            "coal" => "ore-coal",
-            "crystal" => "ore-crystal",
-            _ => "ore-ember",
-        };
-        frontier_art::paint_prop(im, icon, 51, y + 50, 42);
-        if let Some(kind) = OreKind::for_resource(id) {
-            ore_threats::portrait(im, kind, 391, y + 4, 46);
-        }
-        text(im, 88, y + 8, name, 'w');
-        small(im, 88, y + 31, route, 't');
-        let known = run.home.industry.claims.values().any(|q| q.resource == *id);
+        let seam = seam_at(row.pack, 4);
+        let face = seams::face_img(row.face, seam.grade(), 7 + i as u32);
+        im.stamp(&face, 30, y + 3);
+        let name = crate::rules::geology::rock_name(row.stone).to_uppercase();
+        text(im, 80, y + 2, &name, 'w');
+        small(im, 80, y + 19, row.whence, 't');
+        let known = run
+            .home
+            .industry
+            .claims
+            .values()
+            .any(|q| q.resource == row.stone);
         small(
             im,
-            88,
-            y + 43,
-            if known {
-                "SIGNS RECORDED"
-            } else {
-                "PROSPECTOR'S FORECAST"
-            },
+            80,
+            y + 27,
+            if known { "SIGNS RECORDED" } else { "PROSPECTOR'S FORECAST" },
             'y',
         );
+        ore_threats::portrait(im, row.guard, 410, y, 36);
     }
-    let (id, _, _, uses) = ORES[selection % ORES.len()];
-    if let Some(kind) = OreKind::for_resource(id) {
-        small(im, 490, 103, "WATCH FOR THESE ENEMIES", 't');
-        words(im, 490, 120, kind.name(), 21, 2, 'y');
-        words(im, 490, 164, kind.warning(), 21, 4, 'w');
-        small(im, 490, 240, "SURVIVE THE ENCOUNTER", 't');
-        words(im, 490, 255, kind.counter(), 21, 4, 'y');
-        words(im, 490, 333, uses, 21, 2, 'w');
+    let row = &ROWS[selection % ROWS.len()];
+    let kind = row.guard;
+    let seam = seam_at(row.pack, 4);
+    small(im, 490, 100, "WATCH FOR THESE ENEMIES", 't');
+    words(im, 490, 114, kind.name(), 21, 2, 'y');
+    small_words(im, 490, 134, kind.warning(), 40, 3, 'w');
+    small(im, 490, 168, "SURVIVE THE ENCOUNTER", 't');
+    small_words(im, 490, 180, kind.counter(), 40, 3, 'y');
+    small(im, 490, 220, "THE ROCK IS GOOD FOR", 't');
+    let mut at = small_words(im, 490, 232, row.uses, 40, 3, 'w');
+    let also = seam.also();
+    if !also.is_empty() {
+        at = small_words(im, 490, at + 4, &also.to_uppercase(), 40, 2, 't');
+    }
+    small(im, 490, at + 4, &format!("CUT {} A SHIFT ON FLOOR 1, {} ON FLOOR 6", seam_at(row.pack, 1).rate(), seam_at(row.pack, 6).rate()), 't');
+    if row.pack == crate::rules::Pack::Cavern {
+        small(im, 490, at + 15, "EVEN FLOORS: PRISM STALKERS", 't');
     }
 }
 fn gallery(im: &mut Img) {
@@ -871,7 +909,12 @@ pub(super) fn layers(run: &Run, focus: Option<u32>) -> (Img, Img) {
 pub(super) fn landscape(run: &Run, focus: Option<u32>) -> (Img, Img) {
     layers(run, focus)
 }
+/// A seam's own seed: the same face every time it is drawn.
+fn seam_seed(id: &str) -> u32 {
+    id.bytes().fold(0x9e37_79b9u32, |h, b| h.rotate_left(5) ^ u32::from(b)).wrapping_mul(0x85eb_ca6b)
+}
 pub(super) fn deposits(im: &mut Img, run: &Run, focus: Option<u32>) {
+    let _ = focus;
     for d in run.industry_deposits() {
         let (x, y) = at(d.x, d.y);
         let secured = run
@@ -880,59 +923,159 @@ pub(super) fn deposits(im: &mut Img, run: &Run, focus: Option<u32>) {
             .claims
             .get(&d.id)
             .is_some_and(|q| q.secured);
-        let icon = match d.resource {
-            "iron-ore" => "ore-iron",
-            "coal" => "ore-coal",
-            "crystal" => "ore-crystal",
-            _ => "ore-ember",
+        let camp = secured
+            && run
+                .home
+                .industry
+                .buildings
+                .values()
+                .any(|b| b.claim.as_ref() == Some(&d.id) && b.construction == 0);
+        let stir = &run.kingdom.stir;
+        let st = seams::State {
+            secured,
+            camp,
+            cut: stir.cut.get(&d.id).copied().unwrap_or(0),
+            struck: stir
+                .struck
+                .as_ref()
+                .filter(|(k, _)| *k == d.id)
+                .map(|(_, at)| run.tick.saturating_sub(*at)),
+            raided: stir.raiding(&d.id),
+            tick: run.tick,
         };
-        frontier_art::paint_prop(im, icon, x, y + 4, 24);
-        // The atlas prop is blended from its own colours; in a room every
-        // pixel is on the palette or black paper (`ink`), so what it touched
-        // is set to the nearest plain ink, as `clerks` does for its figures.
-        for py in y - 20..y + 4 {
-            for px in x - 12..x + 12 {
-                if let Some(c) = im.get(px, py)
-                    && c != BLACK
-                    && palette_index(c).is_none()
-                {
-                    im.set(px, py, nearest_plain(c.map(f32::from)));
+        seams::paint(im, d.seam.face(), d.seam.grade(), seam_seed(&d.id), x, y + 4, st);
+    }
+}
+/// Where a seam's plate stands: `w` wide and `h` tall of words, over the face
+/// at `(x, y)` in a view `view_w` wide, as far from its edges as the plate's
+/// own margin. Returns its top left.
+pub(super) fn plate_place(x: i32, y: i32, w: i32, h: i32, view_w: i32) -> (i32, i32) {
+    ((x - w / 2).clamp(2, (view_w - w - 2).max(2)), (y - 30 - h).max(2))
+}
+
+/// What each seam says of itself to a knight who stands by it, over the
+/// figures so nothing stands on the words: what the stone is, what it is
+/// good for, and what to do about it.
+pub(super) fn plates(im: &mut Img, run: &Run, focus: Option<u32>) {
+    let Some(hero) = run.players.get(&focus.unwrap_or(1)) else {
+        return;
+    };
+    for d in run.industry_deposits() {
+        if (hero.x - d.x).hypot(hero.y - d.y) >= 9.0 {
+            continue;
+        }
+        let (x, y) = at(d.x, d.y);
+        let stir = &run.kingdom.stir;
+        let secured = run
+            .home
+            .industry
+            .claims
+            .get(&d.id)
+            .is_some_and(|q| q.secured);
+        let held = !run.ore_sentries_defeated(&d.id)
+            || run
+                .kingdom
+                .claim_bosses
+                .get(&d.id)
+                .is_some_and(|e| !e.defeated);
+        let prompt = if secured {
+            if stir.raiding(&d.id) {
+                "RAIDERS HOLD THE FACE"
+            } else if stir.cut.get(&d.id).copied().unwrap_or(0) >= crate::rules::stir::FACE_BLOCKS {
+                "WORKED OUT. DIG DEEPER"
+            } else {
+                "SWING AT THE FACE TO CUT"
+            }
+        } else if run.claim_guardian_defeated(&d.id) {
+            "[E] SECURE CLAIM"
+        } else if !run.ore_sentries_defeated(&d.id) {
+            "CLEAR ORE SENTRIES"
+        } else if d.clear {
+            "[E] CHALLENGE GUARDIAN"
+        } else {
+            "CLEAR THE GUARDS"
+        };
+        let lines: Vec<String> = if held && !secured {
+            vec![d.name.to_uppercase(), format!("GOOD FOR {}", d.seam.good())]
+        } else {
+            vec![
+                d.name.to_uppercase(),
+                format!("GOOD FOR {}", d.seam.good()),
+                prompt.to_string(),
+            ]
+        };
+        let w = lines.iter().map(|l| l.len()).max().unwrap_or(0) as i32 * 6 + 8;
+        // Over the face, never on it, and never past the room's edge: a seam
+        // by the right wall slides its plate left, as one by the top does down.
+        let (left, top) = plate_place(x, y, w, 9 * lines.len() as i32, im.w);
+        // A room's pixels are the palette's: a dark stone plate, gold for
+        // the name, tan for the use, green for what to do.
+        im.rect(left, top, w, 9 * lines.len() as i32 + 2, 's');
+        for (i, l) in lines.iter().enumerate() {
+            let ink = if i == 0 {
+                'T'
+            } else if i + 1 == lines.len() && lines.len() == 3 {
+                'y'
+            } else {
+                't'
+            };
+            im.text(left + 4, top + 2 + i as i32 * 9, l, ink);
+        }
+    }
+}
+
+#[cfg(test)]
+mod plate_tests {
+    use super::*;
+    use crate::rules::layout;
+    use crate::rules::industry::SEAM_EVERY;
+
+    /// The longest a seam's plate is, in letters: the words each state of a
+    /// seam can put on it.
+    fn widest(d: &crate::rules::industry::Deposit) -> usize {
+        [
+            d.name.to_uppercase(),
+            format!("GOOD FOR {}", d.seam.good()),
+            "[E] CHALLENGE GUARDIAN".to_string(),
+            "SWING AT THE FACE TO CUT".to_string(),
+        ]
+        .iter()
+        .map(|l| l.len())
+        .max()
+        .unwrap_or(0)
+    }
+
+    #[test]
+    fn a_seams_plate_never_runs_off_the_edge_of_the_room() {
+        let (mut seams, mut ran_off_before) = (0, 0);
+        for (pack, depths) in [
+            (Pack::Cavern, 1..=6),
+            (Pack::Crypt, 1..=2),
+            (Pack::Hellforge, 3..=3),
+            (Pack::Archive, 4..=4),
+            (Pack::Fungal, 5..=5),
+            (Pack::Swamp, 1..=2),
+            (Pack::Unknown, 6..=6),
+        ] {
+            for depth in depths {
+                let floor = layout::floor(depth, pack, &mut crate::rules::Rng::new(10));
+                for room in (1..floor.rooms.len()).filter(|i| i % SEAM_EVERY == 1) {
+                    let mut run = Run::new(511, 7, None);
+                    run.dungeon = floor.clone();
+                    run.boss_gates = None;
+                    run.enter(room, None);
+                    let Some(d) = run.industry_deposits().into_iter().next() else { continue };
+                    let (x, y) = at(d.x, d.y);
+                    let w = widest(&d) as i32 * 6 + 8;
+                    let h = 9 * 3;
+                    let (left, top) = plate_place(x, y, w, h, NATIVE_W);
+                    seams += 1;
+                    ran_off_before += i32::from(x - w / 2 < 2 || x - w / 2 + w > NATIVE_W - 2);
+                    assert!(left >= 2 && left + w <= NATIVE_W - 2 && top >= 2, "{pack:?} floor {depth} room {room}: plate at ({left}, {top}) {w} wide in a view {NATIVE_W} wide");
                 }
             }
         }
-        im.ellipse(
-            x as f32,
-            y as f32 + 2.0,
-            10.0,
-            3.0,
-            if secured { 'g' } else { 'y' },
-        );
-        if let Some(hero) = run.players.get(&focus.unwrap_or(1)) {
-            if (hero.x - d.x).hypot(hero.y - d.y) < 9.0 {
-                if !run.ore_sentries_defeated(&d.id)
-                    || run
-                        .kingdom
-                        .claim_bosses
-                        .get(&d.id)
-                        .is_some_and(|e| !e.defeated)
-                {
-                    continue;
-                }
-                let label = if secured {
-                    "CLAIM SECURED"
-                } else if run.claim_guardian_defeated(&d.id) {
-                    "[E] SECURE CLAIM"
-                } else if !run.ore_sentries_defeated(&d.id) {
-                    "CLEAR ORE SENTRIES"
-                } else if d.clear {
-                    "[E] CHALLENGE GUARDIAN"
-                } else {
-                    "CLEAR THE GUARDS"
-                };
-                let w = label.len() as i32 * 6 + 8;
-                fill(im, x - w / 2, y - 25, w, 11, 0x142029);
-                im.text(x - w / 2 + 4, y - 22, label, 'y');
-            }
-        }
+        assert!(seams >= 20, "{seams} seams looked at");
+        println!("{ran_off_before} of {seams} seams' plates would have run off the room's edge");
     }
 }

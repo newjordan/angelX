@@ -76,6 +76,7 @@ pub mod dares;
 pub mod depths;
 pub mod chronicle;
 pub mod bombs;
+pub mod caves;
 pub mod desperate;
 mod encounter_catalog;
 pub mod exhibits;
@@ -137,8 +138,15 @@ pub mod items;
 pub mod joust;
 pub mod keyring;
 pub mod kingdom;
+pub mod hillside;
 pub mod industry;
+pub mod geology;
+pub mod stockyard;
+pub mod stir;
+pub mod deep_raid;
+pub mod quarrying;
 pub mod builder_input;
+pub mod builder_rig;
 pub mod kingdom_gear;
 pub mod tune;
 pub mod runtime_state;
@@ -283,6 +291,10 @@ pub mod trophies;
 pub mod ults;
 pub mod votes;
 pub mod works;
+pub mod site;
+pub mod trades;
+pub mod hands;
+pub mod works_seam;
 pub mod world;
 pub mod yard;
 
@@ -1313,6 +1325,25 @@ define_run! {
     /// (`minions`). Left out while there are none, so a save is as it was.
     #[serde(default, skip_serializing_if = "minions::Pack::is_empty")]
     pub minions: minions::Pack,
+    /// The castles raised on the map and how far each has got (the Works,
+    /// `world::works`): the Keep's site, partway up while a run is new.
+    /// Left out of a save and the wire while it is as a run starts, and an
+    /// old save with none gets the Keep partway up.
+    #[serde(default, skip_serializing_if = "site::Sites::is_default")]
+    pub sites: site::Sites,
+    /// The Chronicle: the tick a replay of the Keep's whole build began, while
+    /// one is shown to everyone at the site (`site::CHRONICLE_TICKS` long).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub site_replay: Option<u64>,
+    /// Ticks each knight has held E at the site, toward the Chronicle.
+    #[serde(default, skip_serializing_if = "crate::rules::runtime_state::omit", deserialize_with = "crate::rules::runtime_state::transient")]
+    pub site_hold: BTreeMap<u32, u32>,
+    /// The Keep's wall built by hand: each knight's tool and work in hand, the
+    /// stone chain between the outcrop and the course, and the clock of the
+    /// crane (`hands`). Left out of a save and the wire while nothing has been
+    /// done.
+    #[serde(default, skip_serializing_if = "hands::Hands::is_default")]
+    pub hands: hands::Hands,
     /// A bout at the lists, while one is ridden.
     #[serde(default)]
     pub joust: Option<joust::Joust>,
@@ -1445,8 +1476,11 @@ define_run! {
     /// The floors' guardians; its own copy, so a save replays.
     #[serde(default = "bosses::builtin")]
     pub bosses: Vec<Boss>,
-    /// The cards this run can find; its own copy, so a save replays.
-    #[serde(default)]
+    /// The cards this run can find. On the wire and in a seat's view the
+    /// built-in catalog is omitted and a reader restores it; a changed book
+    /// still travels. Saves and the rules' captures keep it whole: the rules
+    /// read `run.book`.
+    #[serde(default, skip_serializing_if = "Book::wire_omits")]
     pub book: Book,
     /// The last card taken or played, by whom and when, for the notice line.
     #[serde(default)]
@@ -1579,6 +1613,9 @@ define_run! {
     /// Handgonne bursts: where, and ticks left.
     #[serde(default)]
     pub blasts: Vec<(f32, f32, u8)>,
+    /// The living cave: seed plus changed cells. Quiet when nobody has opened it.
+    #[serde(default, skip_serializing_if = "caves::Field::quiet")]
+    pub caves: caves::Field,
     /// How the arms feel: sparks, stuck shafts, smoke, deaths, a room's
     /// end in coins (`feel`).
     #[serde(default, skip_serializing_if = "runtime_state::feel_quiet")]
@@ -1969,6 +2006,8 @@ impl Run {
         (0..=DEEPEST).contains(&self.dungeon.depth)
             && self.seat_epochs.keys().all(|id| (1..=MAX_PLAYERS).contains(id))
             && self.kingdom.valid()
+            && self.sites.valid()
+            && self.hands.valid()
             && self.tune.valid()
             && self.hitstop.valid()
             && self.team.valid()
@@ -2014,6 +2053,9 @@ impl Run {
             && self.home.sky.valid()
             && self.home.industry.valid(crate::kingdom::catalog())
             && self.home.kingdom_gear.valid()
+            && self.home.stockyard.valid()
+            && self.kingdom.stir.valid()
+            && self.players.values().all(|h| h.block.as_deref().is_none_or(geology::is_stone))
             && self.players.values().all(|h| h.freedom_wishes <= freedom::MOST_HELD)
             && self.home.ranch.valid()
             && self.folly.as_ref().is_none_or(|f| f.valid() && f.room < self.dungeon.rooms.len())
@@ -2218,6 +2260,10 @@ impl Run {
             countryside_squire_holds: BTreeMap::new(),
             squire_academy: Default::default(),
             minions: Default::default(),
+            sites: Default::default(),
+            site_replay: None,
+            site_hold: BTreeMap::new(),
+            hands: Default::default(),
             squire_guild: Default::default(),
             joust: None,
             chariot: None,
@@ -2360,6 +2406,7 @@ impl Run {
             next_id: 0,
             rng,
             seed,
+            caves: caves::Field::default(),
         };
         run.populate_boss_gates();
         run.stock_gear_cache();
@@ -2451,11 +2498,13 @@ impl Run {
         if whole { self.keep_all_gear(); }
         self.bank_coins();
         let pay = self.mode.spoils();
+        let mut gold = Spoils::default();
         for (&id, hero) in &mut self.players {
             let carried = std::mem::take(&mut hero.carried);
             let spoils = if whole { carried } else { carried.half() };
             let spoils = spoils.scaled(pay);
             if !spoils.is_empty() {
+                gold.add(Spoil::Gold, spoils.get(Spoil::Gold));
                 self.bank.push(Haul {
                     hero: id,
                     spoils,
@@ -2463,6 +2512,8 @@ impl Run {
                 });
             }
         }
+        // The Delve pays: the gold banked here is the kingdom's coin too.
+        self.tally_coin(&gold);
     }
 
     /// The party turns back from an unfinished run: half comes home.
@@ -2589,6 +2640,9 @@ impl Run {
         if let Some(race) = &mut self.race3d { race.riders.remove(&id); }
         self.keep_gear(id);
         if self.players.contains_key(&id) { self.retire_wish_seat(id); }
+        // What they carried at the Keep goes back to the yard.
+        self.release_hand(id);
+        self.hands.seats.remove(&id);
         self.countryside_squires.retain(|c| c.owner != id);
         self.countryside_squire_holds.remove(&id);
         self.squire_hall.companions.retain(|c| c.owner != id);
@@ -2598,6 +2652,7 @@ impl Run {
             return;
         };
         if !hero.carried.is_empty() {
+            self.tally_coin(&hero.carried);
             self.bank.push(Haul {
                 hero: id,
                 spoils: hero.carried,
@@ -3133,6 +3188,21 @@ impl Run {
         };
         self.close_behind_the_away();
         let detached = self.detached_seats(&inputs);
+        self.offer_cave_mouth();
+        self.tick_caves(inputs);
+        let cave_held;
+        let inputs = if self.players.keys().any(|id| self.caves.inside(*id)) {
+            let mut owned = inputs.clone();
+            for id in owned.keys().copied().collect::<Vec<_>>() {
+                if self.caves.inside(id) {
+                    owned.insert(id, Input::default());
+                }
+            }
+            cave_held = owned;
+            &cave_held
+        } else {
+            inputs
+        };
         if self.players.is_empty() {
             self.players.extend(detached);
             return;
@@ -3208,6 +3278,10 @@ impl Run {
         // Those the fellowship waits for are called to it (`fellowship`).
         self.call_fellowship();
         self.flush_questlines();
+        // A knight who has gone below carries nothing of the Keep's.
+        if self.room().kind != RoomKind::Kingdom {
+            self.release_all_hands();
+        }
         self.tick_teachers(&inputs);
         self.follow_kingdom_cameras();
         if let Some(seen) = seen {

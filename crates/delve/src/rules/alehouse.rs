@@ -835,6 +835,16 @@ impl Run {
             return;
         }
         if self.take_up(id, p.kit) {
+            // One of the four code-drawn knights is picked to be seen: a
+            // whole-body wish look worn now is set aside (its power stays), so
+            // the design shows. Anyone else picked wears their looks again.
+            let aside = match self.players.get(&id) {
+                Some(h) if knights::plain_seat(p.kit).is_some() => h.whole_looks(&self.book),
+                _ => Vec::new(),
+            };
+            if let Some(h) = self.players.get_mut(&id) {
+                h.set_aside = aside;
+            }
             let name = self.players.get(&id).map_or_else(String::new, |h| h.name.to_uppercase());
             self.found = Some((self.tick, id, format!("{name}: NOW THE {}", p.label.to_uppercase())));
             let loadout = company_loadout(p.kit, &self.book).unwrap_or_default();

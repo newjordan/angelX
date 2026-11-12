@@ -42,6 +42,7 @@
 //! | `angel_choices() -> len` | the game's choices to tap, one a line, in the text buffer |
 //! | `angel_choose(n)` | the player tapped choice `n` |
 //! | `angel_pointer(x, y, button) -> consumed` | optional game-local pointer action in final frame pixels; 0 left/touch, 2 right |
+//! | `angel_pointer_move(x, y)`, `angel_pointer_up(x, y, button)` | optional: the pointer moving, and the button let go, after a press the game took (a row dragged out) |
 //! | `angel_picks() -> len` | the game's picks beside its text line, a heading then one a line (`GameClient::picks`), in the text buffer |
 //! | `angel_text_ptr()` | where the text calls above wrote |
 //! | `angel_bye()`, `angel_action(kind, ptr, len)` | leaving on purpose; a one-off choice |
@@ -359,6 +360,14 @@ impl<G: GameClient> Glue<G> {
 
     pub fn pointer(&mut self, x:u32, y:u32, button:u32)->bool {
         u8::try_from(button).ok().is_some_and(|button|self.rt.pointer(x,y,button))
+    }
+
+    pub fn pointer_move(&mut self, x:u32, y:u32)->bool {
+        self.rt.pointer_move(x,y)
+    }
+
+    pub fn pointer_up(&mut self, x:u32, y:u32, button:u32)->bool {
+        u8::try_from(button).ok().is_some_and(|button|self.rt.pointer_up(x,y,button))
     }
 
     /// The game's picks beside its text line, in the text buffer.
@@ -735,6 +744,16 @@ macro_rules! export_client {
             }
 
             #[unsafe(no_mangle)]
+            pub extern "C" fn angel_pointer_move(x:u32, y:u32)->u32 {
+                with(|g| u32::from(g.pointer_move(x,y)))
+            }
+
+            #[unsafe(no_mangle)]
+            pub extern "C" fn angel_pointer_up(x:u32, y:u32, button:u32)->u32 {
+                with(|g| u32::from(g.pointer_up(x,y,button)))
+            }
+
+            #[unsafe(no_mangle)]
             pub extern "C" fn angel_picks() -> usize {
                 with(|g| g.picks().len())
             }
@@ -869,6 +888,12 @@ mod tests {
         fn pointer(&mut self, x:u32, y:u32, button:u8)->bool {
             x==1 && y==0 && button==2
         }
+        fn pointer_move(&mut self, x:u32, y:u32)->bool {
+            x==3 && y==4
+        }
+        fn pointer_up(&mut self, x:u32, y:u32, button:u8)->bool {
+            x==5 && y==6 && button==0
+        }
     }
 
     #[test]
@@ -881,6 +906,18 @@ mod tests {
         assert!(!glue.pointer(1,1,2));
         assert!(!glue.pointer(1,0,0));
         assert!(!glue.pointer(1,0,258));
+    }
+
+    #[test]
+    fn a_pointer_dragged_and_let_go_reaches_the_game_the_same_way() {
+        let mut glue=Glue::<Pixel>::new();
+        assert!(!glue.pointer_move(3,4));
+        assert!(glue.recv(&welcome(),0.));
+        assert!(glue.pointer_move(3,4));
+        assert!(!glue.pointer_move(4,4));
+        assert!(glue.pointer_up(5,6,0));
+        assert!(!glue.pointer_up(5,6,2));
+        assert!(!glue.pointer_up(5,6,256));
     }
 
     fn welcome() -> Vec<u8> {

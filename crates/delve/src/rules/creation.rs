@@ -8,10 +8,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub mod drive;
+mod hub;
 mod session;
 mod weapon;
 pub mod wish;
 pub use drive::{Act, Blow, Drive, DriveInput, Ground, Hurt, Pose, Shot, Timing, Way};
+pub use hub::{blocks_reforge, enabled as wish_hub_enabled, redirect_line, HubRow, WishGate};
 pub use session::{Action, Chat, ChatLine, Session, Step, Who};
 pub use weapon::*;
 
@@ -880,3 +882,7 @@ impl Creation {
 #[cfg(test)]
 #[path = "../../tests/rules/creation__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/creation_door__tests.rs"]
+mod door_tests;

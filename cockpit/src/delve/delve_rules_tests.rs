@@ -297,3 +297,24 @@ fn the_shaft_tick_is_a_small_slice_of_a_frame_at_four_riders() {
     );
     assert!(median < 4_000.0, "the tick took {median:.0} us of a {frame_us:.0} us frame");
 }
+
+/// The shipped leg rolls the Shaft Run alone: it hands an ore cart or a griffin
+/// back untouched, which is why `Run::tick_race3d` ticks those two natively. A
+/// leg that learns to fly them must pass the parity above on them first, and
+/// then the race may ask it.
+#[test]
+fn the_shipped_leg_rolls_the_shaft_alone_and_leaves_the_cart_and_the_griffin_to_rust() {
+    let _alone = ENGINE.lock().unwrap_or_else(|p| p.into_inner());
+    crate::agent::harness::live_policy::install_scripted_rules();
+    for course in [Course::Shaft, Course::Cart, Course::Griffin] {
+        let mut race = Race3d { course, ..field(2) };
+        let ids: Vec<u32> = race.riders.keys().copied().collect();
+        let up: BTreeMap<u32, Input> = ids.iter().map(|&id| (id, Input { move_y: -1, ..Input::default() })).collect();
+        for _ in 0..120 {
+            race.t += 1;
+            leg::run(&mut race, &up, &ids).expect("the leg answers");
+        }
+        let moved = race.riders.values().any(|r| r.s > 2.5);
+        assert_eq!(moved, course == Course::Shaft, "{course:?}: the leg moved it {moved}");
+    }
+}

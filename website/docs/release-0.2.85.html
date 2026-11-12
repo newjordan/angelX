@@ -30,7 +30,7 @@
 <section class="section"><div class="wrap prose">
 <p class="crumbs"><a href="/docs/">Docs</a> · <a href="https://github.com/newjordan/angelX/blob/main/docs/RELEASE_0.2.85.md" rel="noopener">docs/RELEASE_0.2.85.md</a></p>
 <h1 id="angelx-0285-the-speed-update">angelX 0.2.85: the speed update</h1>
-<p>A headless task in a small workspace now starts with its files already read, gets its tests run with every write, and ends the moment the full suite passes. On DeepSeek V4.1 Flash, angelX solved all 136 polyglot tasks on each of three seeds in 19 to 23 minutes. pi 1.5.0, on the same model the same day, solved 127 in 103 minutes.</p>
+<p>On DeepSeek V4.1 Flash, angelX solved all 136 polyglot tasks on each of three seeds in 19 to 23 minutes. pi 1.5.0, on the same model the same day, solved 127 in 103 minutes.</p>
 <h2 id="upgrade">Upgrade</h2>
 <pre><code class="language-sh">angelX update</code></pre>
 <p>Or install fresh with the one line in the <a href="https://github.com/newjordan/angelX/blob/main/README.md" rel="noopener">README</a>. From a source checkout, <code>git pull</code> and run <code>./bin/angelX</code> again.</p>
@@ -42,6 +42,7 @@
 <div class="table-wrap"><table><thead><tr><th>DeepSeek V4.1 Flash</th><th style="text-align:right">angelX 0.2.85</th><th style="text-align:right">pi 1.5.0</th></tr></thead><tbody><tr><td>solved</td><td style="text-align:right"><strong>113 / 133</strong></td><td style="text-align:right">101 / 133</td></tr><tr><td>agent time</td><td style="text-align:right"><strong>21.4 min</strong></td><td style="text-align:right">137.6 min</td></tr><tr><td>cost</td><td style="text-align:right"><strong>$0.17</strong></td><td style="text-align:right">$1.45</td></tr></tbody></table></div>
 <p><strong>A language we never tuned on.</strong> Go, 36 polyglot exercises.</p>
 <div class="table-wrap"><table><thead><tr><th>DeepSeek V4.1 Flash</th><th style="text-align:right">angelX 0.2.85</th><th style="text-align:right">pi 1.5.0</th></tr></thead><tbody><tr><td>solved</td><td style="text-align:right"><strong>36 / 36</strong></td><td style="text-align:right">32 / 36</td></tr><tr><td>agent time</td><td style="text-align:right"><strong>9.1 min</strong></td><td style="text-align:right">44.3 min</td></tr><tr><td>median task</td><td style="text-align:right"><strong>3.6 s</strong></td><td style="text-align:right">7.3 s</td></tr><tr><td>cost</td><td style="text-align:right"><strong>$0.06</strong></td><td style="text-align:right">$0.35</td></tr></tbody></table></div>
+<p>Two more seeds: angelX 35 / 36 and 36 / 36, pi 34 / 36 and 32 / 36.</p>
 <p>&lt;sub&gt;Prime Intellect Verifiers v0.3.1 · DeepSeek V4.1 Flash, thinking off · temperature 0 · 8,192-token output cap · one attempt per task, 600 s, fresh environment · 2026-11-11&lt;/sub&gt;</p>
 <h2 id="what-makes-it-fast">What makes it fast</h2>
 <p>These are on for a headless task (<code>angel --task</code>) in a workspace of 40 files or fewer. Set the variable to <code>0</code> to turn one off.</p>

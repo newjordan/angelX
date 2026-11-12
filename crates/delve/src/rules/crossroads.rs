@@ -6,11 +6,16 @@ use super::votes::{Action, Command};
 pub const VOTE_TIME: u32 = 20 * HZ;
 pub const RESULTS_TIME: u32 = 5 * HZ;
 pub const DEATHMATCH_TIME: u32 = 3 * 60 * HZ;
-/// The most a Knight Racers card runs: one lap is about three and a half minutes for the
-/// leader, so a knight who stops driving cannot hold the floor for ever.
+/// The most a Knight Racers card runs at all, a backstop behind the race's own clock
+/// (`RACERS_LIMIT`), so a knight who stops driving cannot hold the floor for ever.
 pub const RACERS_TIME: u32 = 5 * 60 * HZ;
 /// The seconds the race keeps running after the last knight crosses the line.
 pub const RACERS_GRACE: u32 = 2 * HZ;
+/// The share of one lap the crossroads race runs (2026-11-10: "race is way too long ... can be
+/// .25 that map length"): about 2.3 km of a cup course, near 55 s for the rivals.
+pub const RACERS_SHARE: f32 = 0.25;
+/// The race's clock after the flag, counted down on the screen; the order then stands.
+pub const RACERS_LIMIT: u32 = 90 * HZ;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -205,7 +210,7 @@ impl Run {
                         Some(s) => {
                             let home = s.finished || s.cars.values().filter(|car| !car.cpu).all(|car| car.finish.is_some());
                             if home { c.left = c.left.min(RACERS_GRACE); }
-                            if c.left == 0 {
+                            if c.left == 0 || s.time_up() {
                                 let order = s.order();
                                 self.finish_crossroads(order);
                             }
@@ -304,7 +309,10 @@ impl Run {
         for (id, car) in s.cars.iter_mut() {
             if !car.cpu { car.pod = knight_racers::pods::seat_pod(*id); }
         }
+        // A sprint: a quarter of one lap, against the clock.
         s.laps = 1;
+        s.length = s.course().lap() * RACERS_SHARE;
+        s.limit = RACERS_LIMIT;
         self.knight_racers = Some(s);
     }
 
@@ -316,15 +324,19 @@ impl Run {
         c.order = order;
         self.deathmatch = None;
         self.knight_racers = None;
+        let mut purses = Spoils::default();
         for (place, &id) in c.order.iter().enumerate() {
             let mut spoils = Spoils::default();
             spoils.add(Spoil::Gold, gold(place));
+            purses.merge(&spoils);
             self.bank.push(Haul { hero: id, spoils, why: "crossroads prize".into() });
             if let Some(h) = self.players.get_mut(&id) {
                 h.laurel = place == 0;
                 if place == 0 { h.wishes = h.wishes.saturating_add(1).min(overclass::MOST_WISHES); }
             }
         }
+        // The Delve pays: the prize gold is the kingdom's coin too.
+        self.tally_coin(&purses);
         self.sounds.push("gold");
     }
 }

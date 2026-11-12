@@ -42,6 +42,9 @@ impl App {
     pub(crate) fn wish_offer_open(&self, id: u32) -> bool { self.realm.dungeon.wish_offer_open(id) }
     pub(crate) fn can_leave_dungeon_activity(&self, id: u32) -> bool { self.realm.dungeon.can_leave_dungeon_activity(id) }
     pub(crate) fn open_lamp_wish(&mut self) { self.with_realm(|r, cx| r.session(cx).open_lamp_wish()); }
+    /// The terminal's wish scroll, as a Sanctuary and the lamp's reforge row open it (T opens the
+    /// genie's line in the game).
+    pub(crate) fn open_reforge(&mut self) { self.with_realm(|r, cx| r.session(cx).open_reforge()); }
     pub(crate) fn mirror_key(&mut self, key: event::KeyEvent) -> Option<bool> { self.with_realm(|r, cx| r.session(cx).mirror_key(key)) }
     pub(crate) fn activity_key(&mut self, key: event::KeyEvent) -> bool { self.with_realm(|r, cx| r.session(cx).activity_key(key)) }
     pub(crate) fn flush_speculative(&mut self) -> bool { self.with_realm(|r, cx| r.session(cx).flush_speculative()) }

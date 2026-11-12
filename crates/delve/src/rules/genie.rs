@@ -408,9 +408,50 @@ impl Run {
 
     /// Knight `id` rolls the scroll up: nothing is spent.
     pub fn drop_offer(&mut self, id: u32) -> bool {
-        if let Some(h) = self.players.get_mut(&id) { h.mirror_wish = false; h.place_wish = None; }
+        if let Some(h) = self.players.get_mut(&id) {
+            h.mirror_wish = false;
+            h.place_wish = None;
+            h.wish_open = false;
+            h.wish_line.clear();
+        }
         self.drop_city_wish(id);
         self.players.get_mut(&id).and_then(|h| h.offer.take()).is_some()
+    }
+
+    /// Knight `id` opens the genie's typed line. An offer already open stays.
+    pub fn open_wish_line(&mut self, id: u32) -> bool {
+        let Some(hero) = self.players.get_mut(&id) else {
+            return false;
+        };
+        if hero.offer.is_some() {
+            return false;
+        }
+        hero.wish_open = true;
+        hero.wish_line.clear();
+        hero.wish_pick = 0;
+        true
+    }
+
+    /// A letter on the open typed line. False when the line is not taking letters.
+    pub fn type_wish_letter(&mut self, id: u32, c: char) -> bool {
+        let Some(hero) = self.players.get_mut(&id) else {
+            return false;
+        };
+        if !hero.wish_open || hero.offer.is_some() {
+            return false;
+        }
+        if c == '\u{8}' || c == '\u{7f}' {
+            hero.wish_line.pop();
+            return true;
+        }
+        if !c.is_ascii_graphic() && c != ' ' {
+            return false;
+        }
+        if hero.wish_line.len() >= 80 {
+            return true;
+        }
+        hero.wish_line.push(c);
+        true
     }
 
     /// Knight `id` picks choice `n` (from 0) of their open scroll: the wish
@@ -587,6 +628,10 @@ impl Run {
         let top = tier + 1 >= wish.tiers.len();
         let cheer = grade.is_some_and(|g| g >= artistry::Grade::Masterwork) || top;
         let grade = grade.map_or(String::new(), |g| format!("{g} "));
+        if let Some(hero) = self.players.get_mut(&id) {
+            hero.wish_open = false;
+            hero.wish_line.clear();
+        }
         self.genie.last = Some(Sealed {
             knight: id,
             tick: self.tick,
@@ -642,13 +687,15 @@ impl Run {
     /// The scroll's keys: a knight with a scroll open picks with 1, 2 or 3
     /// (the spell keys), turns whom a summoner's wish is for with 4
     /// (`dead_wishes`), and rolls it up with the menu key, and those keys do
-    /// nothing else that tick. A number still held after a pick casts
-    /// nothing until it is let go.
+    /// nothing else that tick. Letters that also steer or fire do neither
+    /// while the typed line or the choices are open.
     pub(super) fn offer_inputs(&mut self, inputs: &BTreeMap<u32, Input>) -> Option<BTreeMap<u32, Input>> {
         self.offer_keys.retain(|id, _| inputs.contains_key(id));
         let busy = inputs.iter().any(|(&id, input)| {
+            let scroll = self.players.get(&id).is_some_and(|h| h.wish_open || h.offer.is_some());
             input.valid()
-                && (self.players.get(&id).is_some_and(|h| h.offer.is_some() || ((h.mirror_wish || h.place_wish.is_some()) && input.activity_menu))
+                && (scroll
+                    || (self.players.get(&id).is_some_and(|h| (h.mirror_wish || h.place_wish.is_some()) && input.activity_menu))
                     || (self.city_wishing(id) && input.activity_menu)
                     || self.offer_keys.get(&id).copied().unwrap_or(0) != 0)
         });
@@ -660,13 +707,37 @@ impl Run {
             if !input.valid() {
                 continue;
             }
-            let open = self.players.get(&id).is_some_and(|h| h.offer.is_some() || ((h.mirror_wish || h.place_wish.is_some()) && input.activity_menu))
+            let scroll = self.players.get(&id).is_some_and(|h| h.wish_open || h.offer.is_some());
+            let open = scroll
+                || (self.players.get(&id).is_some_and(|h| (h.mirror_wish || h.place_wish.is_some()) && input.activity_menu))
                 || (self.city_wishing(id) && input.activity_menu);
+            if scroll {
+                let n = self.players.get(&id).and_then(|h| h.offer.as_ref()).map(|o| o.choices.len()).unwrap_or(0);
+                if n > 0 && input.aim_y < 0 {
+                    if let Some(hero) = self.players.get_mut(&id) {
+                        hero.wish_pick = hero.wish_pick.saturating_sub(1);
+                    }
+                } else if n > 0 && input.aim_y > 0 {
+                    if let Some(hero) = self.players.get_mut(&id) {
+                        let cap = (n - 1) as u8;
+                        hero.wish_pick = hero.wish_pick.saturating_add(1).min(cap);
+                    }
+                }
+                input.move_x = 0;
+                input.move_y = 0;
+                input.fire = false;
+                input.dash = false;
+                input.bomb = false;
+                input.swing = false;
+                input.aim_x = 0;
+                input.aim_y = 0;
+                input.interact = false;
+            }
             let was = self.offer_keys.get(&id).copied().unwrap_or(0);
             if !open && was == 0 {
                 continue;
             }
-            if open && input.activity_menu {
+            if open && input.activity_menu && !self.players.get(&id).is_some_and(|h| h.wish_open && h.offer.is_none()) {
                 input.activity_menu = false;
                 self.drop_offer(id);
             } else if open && input.cast != 0 && input.cast != was && !(input.cast == 4 && self.turn_wish(id)) {
@@ -692,3 +763,7 @@ impl Run {
 #[cfg(test)]
 #[path = "../../tests/rules/genie__tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../../tests/rules/wish_scroll__tests.rs"]
+mod wish_scroll_tests;

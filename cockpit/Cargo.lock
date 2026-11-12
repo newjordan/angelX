@@ -319,7 +319,7 @@ dependencies = [
 
 [[package]]
 name = "angelX-cockpit"
-version = "0.2.85"
+version = "0.2.86"
 dependencies = [
  "angel-code-mode",
  "angel-delve",

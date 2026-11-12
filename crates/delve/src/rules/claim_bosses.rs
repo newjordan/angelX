@@ -15,13 +15,19 @@ pub enum Guardian {
 
 impl Guardian {
     pub const ALL: [Self; 3] = [Self::Ironroot, Self::Cindermaw, Self::Amethyst];
+    /// The guardian of a seam whose claim is of `resource`: an ore, or the
+    /// quarry stone of its pack, by the sentries that hold it (`geology`).
     pub fn for_resource(resource: &str) -> Option<Self> {
-        Some(match resource {
-            "iron-ore" => Self::Ironroot,
-            "coal" | "ember" => Self::Cindermaw,
-            "crystal" => Self::Amethyst,
-            _ => return None,
-        })
+        super::geology::guard_for(resource).map(Self::for_kind)
+    }
+    /// The guardian that stands behind a set of sentries.
+    pub fn for_kind(kind: super::ore_threats::OreKind) -> Self {
+        use super::ore_threats::OreKind;
+        match kind {
+            OreKind::Iron => Self::Ironroot,
+            OreKind::Coal | OreKind::Ember => Self::Cindermaw,
+            OreKind::Crystal => Self::Amethyst,
+        }
     }
     pub fn for_id(id: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|g| g.id() == id)
@@ -148,9 +154,7 @@ impl Run {
         {
             return;
         }
-        let Some(kind) = Guardian::for_resource(deposit.resource) else {
-            return;
-        };
+        let kind = Guardian::for_kind(deposit.seam.guard());
         if !self
             .home
             .industry
@@ -278,7 +282,10 @@ impl Run {
                     && e.here(self)
                     && e.enemy == enemy.id
                     && self.home.industry.claims.get(id).is_some_and(|c| {
-                        !c.secured && Guardian::for_resource(&c.resource) == Some(e.guardian)
+                        !c.secured
+                            && super::geology::guards_for(&c.resource)
+                                .into_iter()
+                                .any(|k| Guardian::for_kind(k) == e.guardian)
                     })
                     && enemy
                         .boss

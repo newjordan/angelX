@@ -244,7 +244,7 @@ pub fn band_of(run: &Run, focus: Option<u32>, party: Option<&BTreeMap<u32, Hero>
     for (i, (id, hero)) in knights.into_iter().enumerate() {
         let x = card_x(i as i32, n);
         let unmade = hero.unmade(&run.book);
-        card(&mut out, (x, 1, w, spacing(n).1), id, hero, own == Some(id), wish_of(run, id, hero), unmade);
+        card(&mut out, (x, 1, w, spacing(n).1), id, hero, own == Some(id), wish_of(run, id, hero), unmade, run.caves.inside(id));
     }
     // A hairline under the band, where the room begins.
     for x in 0..NATIVE_W {
@@ -305,6 +305,7 @@ fn card(
     own: bool,
     wish: WishHud,
     unmade: bool,
+    in_cave: bool,
 ) {
     let fallen = hero.hp == 0;
     let away = hero.away || hero.stone;
@@ -350,7 +351,9 @@ fn card(
     };
     out.text(tx, y + 3, &name, if own { 'O' } else if fallen || away { 'J' } else { 'i' });
     // The longest word is shortened where the card is too narrow for it.
-    let word = if fallen {
+    let word = if in_cave {
+        Some((if super::super::ink::text_width("IN THE CAVE") <= room { "IN THE CAVE" } else { "IN CAVE" }, 'h'))
+    } else if fallen {
         Some((if super::super::ink::text_width("FALLEN") <= room { "FALLEN" } else { "DOWN" }, '7'))
     } else if hero.away {
         Some(("AWAY", 'h'))

@@ -179,6 +179,7 @@ pub fn paint(out: &mut Img, run: &Run, focus: Option<u32>) {
     };
     let body = match &hero.offer {
         Some(offer) => Body::Offer(offer),
+        None if hero.wish_open => Body::Line(hero.wish_line.as_str()),
         None => Body::Sealed(run.genie.last.as_ref().map_or("", |s| s.line.as_str())),
     };
     let view_h = out.h / k;
@@ -190,6 +191,7 @@ pub fn paint(out: &mut Img, run: &Run, focus: Option<u32>) {
             let age = run.tick.saturating_sub(offer.opened) as f32;
             (age, ease::out(age / OPEN_TICKS))
         }
+        Body::Line(_) => (OPEN_TICKS, 1.0),
         Body::Sealed(_) => {
             let age = run.genie.last.as_ref().map_or(0, |s| run.tick.saturating_sub(s.tick)) as f32;
             let shut = genie::GRANTED_TICKS as f32 - SHUT_TICKS;
@@ -235,11 +237,12 @@ pub fn paint(out: &mut Img, run: &Run, focus: Option<u32>) {
     // His words over his head, on a slip of the same paper.
     let line = match &body {
         Body::Offer(offer) => offer.line.as_str(),
+        Body::Line(_) => "Tell me your wish.",
         Body::Sealed(_) if mood == Mood::Cheer => "Now THAT is a wish!",
         Body::Sealed(_) if mood == Mood::Free => "Happy to help, friend!",
         Body::Sealed(_) => "Done! Use it well.",
     };
-    let bubble = bubble(line, (gw + 24).max(80));
+    let bubble = bubble(line, (gw - 8).max(40));
     let by = (gy / k - bubble.h - 2).max(2);
     out.stamp_times(&bubble, (x0 - 6).max(0) * k, by * k, k);
 }
@@ -312,7 +315,7 @@ pub fn mood(run: &Run, id: u32) -> Option<Mood> {
         return Some(Mood::Free);
     }
     let hero = run.players.get(&id)?;
-    let mood = if hero.offer.is_some() {
+    let mood = if hero.offer.is_some() || hero.wish_open {
         Mood::Talk
     } else {
         run.genie
@@ -331,6 +334,7 @@ pub fn freeing(run: &Run) -> bool {
 
 enum Body<'a> {
     Offer(&'a genie::Offer),
+    Line(&'a str),
     Sealed(&'a str),
 }
 
@@ -475,13 +479,20 @@ fn scroll(run: &Run, hero: &crate::rules::Hero, body: &Body, view_h: i32) -> Img
             rows.push((Row::Said(label, fit(&offer.said.to_uppercase(), room)), 0));
             rows.push((Row::Gap(3), 5));
             for (i, choice) in offer.choices.iter().enumerate() {
-                rows.push((Row::Choice(i, choice.clone()), 0));
+                rows.push((Row::Choice(i, choice.clone(), i == usize::from(hero.wish_pick)), 0));
+            rows.push((Row::Gap(6), 0));
             }
             // A summoner's scroll says whom the wish is for (`dead_wishes`).
             if let Some(target) = offer.target {
                 rows.push((Row::Gap(1), 7));
                 rows.push((Row::Target(target), 0));
             }
+        }
+        Body::Line(line) => {
+            let shown = if line.is_empty() { "_" } else { line };
+            rows.push((Row::Said("YOU WISH:", fit(&shown.to_uppercase(), most - 10)), 0));
+            rows.push((Row::Gap(3), 0));
+            rows.push((Row::Small("ENTER SEALS IT. ESC ROLLS IT UP.".into()), 0));
         }
         Body::Sealed(line) => {
             rows.push((Row::Said("SEALED:", fit(&line.to_uppercase(), most - 8)), 0));
@@ -575,7 +586,7 @@ fn scroll(run: &Run, hero: &crate::rules::Hero, body: &Body, view_h: i32) -> Img
                 let after = im.text(x, y + 2, label, INK_SOFT);
                 bold(&mut im, after + GLYPH_ADVANCE, y + 2, s, INK);
             }
-            Row::Choice(i, c) => choice(&mut im, x, y, inner, *i, c),
+            Row::Choice(i, c, on) => choice(&mut im, x, y, inner, *i, c, *on),
             Row::Target(t) => target(&mut im, x, y, inner, *t),
             Row::Gauge => gauge(&mut im, x, y, inner, run),
             Row::Keys => {
@@ -597,7 +608,7 @@ enum Row {
     Rule,
     Small(String),
     Said(&'static str, String),
-    Choice(usize, Choice),
+    Choice(usize, Choice, bool),
     Target(Target),
     Gauge,
     Keys,
@@ -619,7 +630,14 @@ impl Row {
 
 /// One choice: its seal, its heading and cost, and what it gives. The
 /// genie's own deal is his: a band of shade behind it, and his lamp.
-fn choice(im: &mut Img, x: i32, y: i32, w: i32, i: usize, c: &Choice) {
+fn choice(im: &mut Img, x: i32, y: i32, w: i32, i: usize, c: &Choice, on: bool) {
+    if on {
+        im.rect(x - 2, y - 2, w + 4, 20, 'T');
+        im.rect(x - 2, y - 2, w + 4, 1, 'n');
+        im.rect(x - 2, y + 17, w + 4, 1, 'n');
+        im.rect(x - 2, y - 2, 1, 20, 'n');
+        im.rect(x + w + 1, y - 2, 1, 20, 'n');
+    }
     let genies = matches!(c.take, Take::Deal | Take::Whim);
     if genies {
         for py in y - 2..y + 18 {
@@ -679,7 +697,8 @@ fn gauge(im: &mut Img, x: i32, y: i32, w: i32, run: &Run) {
         im.rect(bx - 8, y + 1, 3, 3, PAPER);
     }
     let count = format!("{}/{}", run.genie.freedom.min(genie::FREEDOM), genie::FREEDOM);
-    let bw = w - (bx - x) - text_width(&count) - 6;
+    let count_x = x + w - text_width(&count) - 8;
+    let bw = (count_x - bx - 6).max(8);
     im.rect(bx, y + 2, bw, 9, ROLL_LINE);
     im.rect(bx + 1, y + 3, bw - 2, 7, PAPER_SHADE);
     let fill = if run.genie.free() {
@@ -692,7 +711,7 @@ fn gauge(im: &mut Img, x: i32, y: i32, w: i32, run: &Run) {
         im.rect(bx + 1 + px, y + 3, 1, 7, if notch { 'r' } else { 'R' });
         im.put(bx + 1 + px, y + 3, 'o');
     }
-    im.text(x + w - text_width(&count), y + 3, &count, INK);
+    im.text(count_x, y + 3, &count, INK);
 }
 
 /// The genie's words on a slip of paper, `w` wide at most, its tail

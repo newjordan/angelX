@@ -20,6 +20,10 @@ impl Drop for PublicScope {
 pub fn public_scope() -> PublicScope {
     PublicScope(PUBLIC.replace(true))
 }
+/// True while a tree is being built for the wire or a seat's view.
+pub fn in_public() -> bool {
+    PUBLIC.get()
+}
 pub fn omit(binding: &Option<Binding>) -> bool {
     PUBLIC.get() || binding.is_none()
 }

@@ -15,6 +15,8 @@ use std::collections::VecDeque;
 
 /// A keg or a hob's bomb this close to the crack brings it down too.
 pub const CRACK_REACH: f32 = 7.0;
+/// How near the crack a Master Mason's swing works it free, arena units.
+const EYE_HAND: f32 = 2.5;
 /// How close a knight comes before Snibbet pays up, and how many piles.
 const SNIBBET_REACH: f32 = 5.0;
 const HUSH_MONEY: usize = 8;
@@ -144,6 +146,46 @@ impl Run {
         }
         self.found = Some((self.tick, 0, "A secret room!".into()));
         self.notice("secret_room");
+    }
+
+    /// A mason's eye (`trades`): a knight with the cutter's, the setter's or
+    /// the Master Mason's trade hears the cracked wall ring hollow from as
+    /// far as their rank reaches, and a Master's mallet works it free with a
+    /// swing, no bomb wanted.
+    pub(super) fn tick_mason_eye(&mut self, inputs: &BTreeMap<u32, Input>) {
+        let Some((host, cx, cy)) = self.dungeon.crack() else { return };
+        if host != self.at {
+            return;
+        }
+        let mut found = None;
+        let mut free = false;
+        for (&id, hero) in &self.players {
+            if hero.hp == 0 || hero.stone {
+                continue;
+            }
+            let reach = self.eye_for(id);
+            let d = (hero.x - cx).hypot(hero.y - cy);
+            if reach <= 0.0 || d > reach {
+                continue;
+            }
+            let master = self.rank_of(id, trades::Trade::Setter).max(self.rank_of(id, trades::Trade::BankerMason)).max(self.rank_of(id, trades::Trade::MasterMason)) == Some(trades::Rank::Master);
+            if master && d <= EYE_HAND && inputs.get(&id).is_some_and(|i| i.valid() && i.swing) {
+                free = true;
+            }
+            found.get_or_insert(id);
+        }
+        if free {
+            self.found = Some((self.tick, 0, "THE MASON SOUNDS THE STONE AND WORKS IT FREE".into()));
+            self.blast_wall(None);
+            return;
+        }
+        if let Some(id) = found
+            && self.sounded_at.get("mason_eye").is_none_or(|&t| self.tick < t || self.tick - t >= 20 * u64::from(HZ))
+        {
+            self.sounded_at.insert("mason_eye", self.tick);
+            self.seat_sounds.push((id, "clang"));
+            self.found = Some((self.tick, id, "A MASON'S EYE: THE WALL RINGS HOLLOW".into()));
+        }
     }
 
     /// A knight's bomb on an open map: the crack comes down when it went

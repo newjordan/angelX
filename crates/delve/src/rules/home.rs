@@ -325,6 +325,11 @@ pub struct Home {
     pub industry: crate::kingdom::Kingdom,
     #[serde(default, skip_serializing_if = "super::kingdom_gear::Ledger::is_empty")]
     pub kingdom_gear: super::kingdom_gear::Ledger,
+    /// The Delve gate's stockyard and the Great Shaft over it
+    /// (`stockyard`): rough blocks come up here, and the shaft's tier is the
+    /// number the production game reads. Left out while nothing has come up.
+    #[serde(default, skip_serializing_if = "super::stockyard::Stockyard::is_empty")]
+    pub stockyard: super::stockyard::Stockyard,
     #[serde(default)]
     pub squires: super::squires::Yard,
     #[serde(default, skip_serializing_if = "super::lane_squires::Company::is_default")]
@@ -497,6 +502,25 @@ pub struct Home {
     /// on its own, like the stable; left out while nobody has been met.
     #[serde(default, skip_serializing_if = "super::wayfarers::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub wayfarers: super::wayfarers::Ledger,
+    /// What each knight's hands have learned (`trades`): their deeds in each
+    /// trade, by the name the realm keeps a knight's records under. Decoded
+    /// on its own, so a bad subtree never costs the realm; left out while
+    /// empty, so an older save loads as it was.
+    #[serde(default, skip_serializing_if = "super::trades::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub trades: super::trades::Ledger,
+    /// The cave the realm keeps. 0 means the first entry has not chosen it yet.
+    #[serde(default, skip_serializing_if = "u64_is_zero")]
+    pub cave_seed: u64,
+    /// Mines sunk in that cave, by body index. Left out while none are sunk.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mines: BTreeMap<u8, super::caves::mines::SunkMine>,
+    /// This return has already paid the yard. Not saved.
+    #[serde(skip)]
+    pub delve_paid: bool,
+}
+
+fn u64_is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 #[derive(Deserialize)]
@@ -505,6 +529,8 @@ struct SavedHome {
     industry: crate::kingdom::Kingdom,
     #[serde(default)]
     kingdom_gear: super::kingdom_gear::Ledger,
+    #[serde(default)]
+    stockyard: super::stockyard::Stockyard,
     #[serde(default)]
     squires_lodge: super::squires_lodge::Guild,
     #[serde(default)]
@@ -672,11 +698,39 @@ struct SavedHome {
     /// on its own, like the stable; left out while nobody has been met.
     #[serde(default, skip_serializing_if = "super::wayfarers::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
     pub wayfarers: super::wayfarers::Ledger,
+    /// What each knight's hands have learned (`trades`): their deeds in each
+    /// trade, by the name the realm keeps a knight's records under. Decoded
+    /// on its own, so a bad subtree never costs the realm; left out while
+    /// empty, so an older save loads as it was.
+    #[serde(default, skip_serializing_if = "super::trades::Ledger::is_empty", deserialize_with = "crate::realm::chivalry::lenient")]
+    pub trades: super::trades::Ledger,
+    /// The cave the realm keeps. 0 means the first entry has not chosen it yet.
+    #[serde(default, skip_serializing_if = "u64_is_zero")]
+    pub cave_seed: u64,
+    /// Mines sunk in that cave, by body index. Left out while none are sunk.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mines: BTreeMap<u8, super::caves::mines::SunkMine>,
+}
+
+impl Home {
+    /// A realm home with no cave yet must not wipe the run's seed or mines.
+    pub(crate) fn keep_cave(
+        &mut self,
+        seed: u64,
+        mines: &BTreeMap<u8, super::caves::mines::SunkMine>,
+    ) {
+        if self.cave_seed == 0 {
+            self.cave_seed = seed;
+        }
+        for (key, mine) in mines {
+            self.mines.entry(*key).or_insert_with(|| mine.clone());
+        }
+    }
 }
 
 impl<'de> Deserialize<'de> for Home {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
-        let SavedHome { industry, kingdom_gear, raised, bomrekedan, mut squires_lodge, squires, mut squire_guild, mut squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, goods, holdings, salvage, countryside, deep, recruit_ults, rites, wayfarers } = SavedHome::deserialize(deserializer)?;
+        let SavedHome { industry, kingdom_gear, stockyard, raised, bomrekedan, mut squires_lodge, squires, mut squire_guild, mut squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, goods, holdings, salvage, countryside, deep, recruit_ults, rites, wayfarers, trades, cave_seed, mines } = SavedHome::deserialize(deserializer)?;
         let squires = match squires {
             SavedHomeSquires::Guild(guild) => { squire_guild = guild; Default::default() },
             SavedHomeSquires::Yard(yard) => yard,
@@ -686,7 +740,7 @@ impl<'de> Deserialize<'de> for Home {
                 Default::default()
             }
         };
-        Ok(Self { industry, kingdom_gear, raised, bomrekedan, squires_lodge, squires, squire_guild, squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, goods, holdings, salvage, countryside, deep, recruit_ults, rites, wayfarers })
+        Ok(Self { industry, kingdom_gear, stockyard, raised, bomrekedan, squires_lodge, squires, squire_guild, squire_academy, lane_squires, squire_company, squire_hall, siege_campaign_begun, roundtable, wardrobe, privy_wall, wished, sky, college, levels, deepest, landing, feats, boxes, opened, goblins, trophies, bestiary, residents, knights, questlines, bounties, bounties_paid, raids, round, song, hire, stable, ranch, barony, goods, holdings, salvage, countryside, deep, recruit_ults, rites, wayfarers, trades, cave_seed, mines, delve_paid: false })
     }
 }
 
@@ -996,13 +1050,18 @@ impl Run {
         let salvage = std::mem::take(&mut self.home.salvage);
         let industry = std::mem::take(&mut self.home.industry);
         let kingdom_gear = std::mem::take(&mut self.home.kingdom_gear);
+        let stockyard = std::mem::take(&mut self.home.stockyard);
         let rites = std::mem::take(&mut self.home.rites);
-        self.home = home;
+        let cave_seed = self.home.cave_seed;
+    let mines = self.home.mines.clone();
+    self.home = home;
+    self.home.keep_cave(cave_seed, &mines);
         // A rite made in the run and not yet settled stays: the realm's
         // record only ever adds (`rite`).
         self.home.rites.merge(&rites);
         if industry.rev > self.home.industry.rev { self.home.industry = industry; }
         if kingdom_gear.rev > self.home.kingdom_gear.rev { self.home.kingdom_gear = kingdom_gear; }
+        if stockyard.rev > self.home.stockyard.rev { self.home.stockyard = stockyard; }
         for hero in self.players.values() {
             self.home.adopt(&super::talents::knight_key(hero), &super::talents::profile_key(hero));
         }

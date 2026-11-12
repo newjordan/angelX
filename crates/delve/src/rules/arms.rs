@@ -150,6 +150,8 @@ impl Run {
             }
             hero.vigil_key = input.vigil;
             if hero.hp == 0 || hero.stone {
+                // A fallen or stone Bard's song stops where it was.
+                super::bard::strum(*id, hero, false, &mut self.seat_sounds);
                 continue;
             }
             // Hexed: a frog hops about, and does nothing else (aiming is
@@ -259,7 +261,7 @@ impl Run {
                 fx::ground_pace(h, &self.webs, self.song.as_deref(), roads.as_deref(), &self.tune)
             });
             // A carrier goes slower for every rider (`shoulders`).
-            let speed = speed * self.shoulders.pace(*id);
+            let speed = speed * self.shoulders.pace(*id) * self.hands.pace(*id);
             if blinked {
                 self.sounds.push("roll");
             }
@@ -524,11 +526,13 @@ impl Run {
                 }
             }
             hero.sword_cooldown = hero.sword_cooldown.saturating_sub(1);
+            // A knight at a job of their trade swings at the work, not the air.
             if input.swing
                 && !hero.unarmed()
                 && hero.possessed.is_none()
                 && hero.sword_cooldown == 0
                 && hero.dash_ticks == 0
+                && !self.hands.striking.contains(id)
             {
                 hero.sword_cooldown = hero.cooldown(SWORD_REARM);
                 hero.swing = 8;
@@ -547,7 +551,8 @@ impl Run {
                         .abs();
                     dx.hypot(dy) <= reach && delta <= half
                 };
-                let damage = hero.scaled(SWORD_DAMAGE);
+                // A smith keeps the blade keen.
+                let damage = hero.scaled(SWORD_DAMAGE) * (100 + trades::Reading { home: &self.home.trades, marks: &self.marks }.edge(hero)) / 100;
                 let (hx, hy) = (hero.x, hero.y);
                 // The slash past the blade goes no further through stone
                 // than the blade would.
@@ -595,13 +600,16 @@ impl Run {
             // The Monk's Patience holds the fire too: the monk needs nothing.
             let guarded = hero.flee_ticks > 0 || hero.dash_ticks > 0 || hero.shielding || hero.walling || hero.spin > 0
                 || hero.champ.busy() || hero.hero_kit.charging || hero.patience > 0;
-            // The Bard's groove breaks on a ready beat with nothing loosed;
-            // one that reached the drop leaves its song for the next.
-            if hero.fire_cooldown == 0 && !(input.fire || ax != 0.0 || ay != 0.0) {
-                if hero.groove >= super::bard::DROP_AT {
-                    hero.songs = hero.songs.wrapping_add(1);
+            // The Bard's song: held, it plays on at its own clock whatever
+            // the weapon's rate, a dash or a shield; let go, it stops and
+            // keeps its place for the next press (`bard::strum`).
+            if classes::is_bard(hero) || (hero.forged.is_none() && hero.weapon == Weapon::Notes) {
+                let held = !arcade && hero.possessed.is_none() && (input.fire || ax != 0.0 || ay != 0.0);
+                if super::bard::strum(*id, hero, held, &mut self.seat_sounds) {
+                    // Three bars into the song, the horn overloads: the drop.
+                    self.found = Some((self.tick, *id, "Wub wub!".to_string()));
+                    self.fx.push(Fx::Shake(3));
                 }
-                hero.groove = 0;
             }
             if !arcade
                 && (input.fire || ax != 0.0 || ay != 0.0)
@@ -776,10 +784,15 @@ impl Run {
                         // A forged weapon's throw or bolts (`Hero::loose`).
                         let rng = mix(self.seed ^ self.tick.wrapping_mul(0x9e37) ^ u64::from(*id) << 48);
                         let flying = volley_in_flight(&self.projectiles, *id);
-                        match hero.loose(*id, &self.book, false, rng, flying, &mut shots) {
+                        let loosed = hero.loose(*id, &self.book, false, rng, flying, &mut shots);
+                        // A Bard's wished weapon has no shot sound of its own: its held trigger plays the song.
+                        let sings = classes::is_bard(hero) && matches!(loosed, Some(Loosed::Throw | Loosed::Bolts(_)));
+                        match loosed {
                             Some(Loosed::Throw) => self.sounds.push("swing"),
                             Some(Loosed::Bolts(count)) => {
-                                self.sounds.push("shot_bolt");
+                                if !sings {
+                                    self.sounds.push("shot_bolt");
+                                }
                                 let shots = &mut self.floor_tally.line(*id).shots;
                                 *shots = shots.saturating_add(count);
                                 if feel::ledger_on() {
@@ -792,16 +805,9 @@ impl Run {
                     }
                 } else {
                     // A Mage's bolt and a Healer's spark sound their own; the
-                    // Bard's notes play its song, a slice on each beat
-                    // (`bard`).
+                    // Bard's notes have none: its held trigger plays its
+                    // song (`bard::strum`, above).
                     if hero.weapon == Weapon::Notes || classes::is_bard(hero) {
-                        hero.groove = hero.groove.saturating_add(1);
-                        super::bard::volley_sounds(*id, hero.songs, hero.groove, &mut self.seat_sounds);
-                        if hero.groove == super::bard::DROP_AT {
-                            // Held long enough, the horn overloads: the drop.
-                            self.found = Some((self.tick, *id, "Wub wub!".to_string()));
-                            self.fx.push(Fx::Shake(3));
-                        }
                     } else {
                         self.sounds.push(classes::shot_sound(hero).unwrap_or(match hero.weapon {
                             Weapon::Fists => unreachable!("fists use the punch branch"),

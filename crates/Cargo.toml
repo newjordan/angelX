@@ -70,3 +70,12 @@ inherits = "web"
 lto = false
 codegen-units = 256
 incremental = true
+
+# The play build's browser page. Size, not fat LTO: a native rebuild of the
+# game crates stays on `fast` and does not wait on this profile.
+[profile.web-size]
+inherits = "web-fast"
+opt-level = 3
+debug = false
+strip = "symbols"
+panic = "abort"

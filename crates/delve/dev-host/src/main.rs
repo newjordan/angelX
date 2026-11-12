@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! delve-dev-host [--port 8820] [--bind 127.0.0.1] [--bundle DIR] [--key KEY]
-//!                [--scene fight|boss|kingdom|night|first|volley|cinder|latch|mossbell|brasswake|rafterwake|pennon|forest|lanternward|moonfall|bannerpeak|griffinwing|lightgallop|hall|book-hop|drift] [--boss ID] [--snapshot-hz 30]
+//!                [--scene fight|boss|kingdom|night|first|volley|cinder|latch|mossbell|brasswake|rafterwake|pennon|forest|lanternward|moonfall|bannerpeak|griffinwing|lightgallop|hall|book-hop|drift|works|works-won|works-small|works-big|works-castle|works-face|works-block|works-old|works-gate] [--boss ID] [--snapshot-hz 30]
 //!                [--bots N] [--bots-after SECS] [--bots-draw] [--log SECS]
 //!                [--dev] [--tune FILE] [--snapshot FILE] [--squad-fixture] [--idle-bots]
 //!                [--depth N] [--beat-every SECS] [--grant-after SECS] [--night-dir DIR]
@@ -70,6 +70,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 mod night;
+mod works;
 
 static IDLE_BOTS: AtomicBool = AtomicBool::new(false);
 
@@ -96,6 +97,8 @@ enum Scene {
     Drift,
     /// A delve as the live box begins one (`first_session::live_start_first`).
     Live,
+    /// The Works' scenes (`works.rs`), by name.
+    Works(&'static str),
 }
 
 impl Scene {
@@ -107,6 +110,7 @@ impl Scene {
             Scene::Night => { let mut run = Run::new(7, 1, None); run.come_to_the_gate(); run.walk_kingdom(None); run },
             Scene::First => Run::new(7, 1, None),
             Scene::Live => angel_delve::first_session::live_start_first(1, 1),
+            Scene::Works(name) => works::run(name),
             Scene::Volley => {
                 let mut run = testing::fight();
                 run.enemies.clear();
@@ -555,6 +559,7 @@ fn args() -> Result<Args, String> {
                     "book-hop" => Scene::BookHop,
                     "drift" => Scene::Drift,
                     "live" => Scene::Live,
+                    other if works::scene(other).is_some() => Scene::Works(works::scene(other).unwrap_or("works")),
                     other => return Err(format!("no scene {other}: fight, boss, kingdom, night, first, volley, cinder, latch, mossbell, brasswake, rafterwake, pennon, forest, lanternward, moonfall, bannerpeak, griffinwing, lightgallop, hall, book-hop or drift")),
                 }
             }
@@ -576,7 +581,7 @@ fn args() -> Result<Args, String> {
             "--beat-every" => a.beat_every = Some(value()?.parse().map_err(|_| "--beat-every takes seconds")?),
             "-h" | "--help" => {
                 println!(
-                    "delve-dev-host [--port 8820] [--bind 127.0.0.1] [--bundle DIR] [--key KEY] [--scene fight|boss|kingdom|night|first|volley|cinder|latch|mossbell|brasswake|rafterwake|pennon|forest|lanternward|moonfall|bannerpeak|griffinwing|lightgallop|hall|book-hop|drift] [--boss ID] [--snapshot-hz 30] [--bots N] [--bots-after SECS] [--bots-draw] [--log SECS] [--dev] [--tune FILE] [--snapshot FILE] [--squad-fixture] [--idle-bots] [--depth N] [--beat-every SECS] [--grant-after SECS] [--night-dir DIR] [--newbie SEED]"
+                    "delve-dev-host [--port 8820] [--bind 127.0.0.1] [--bundle DIR] [--key KEY] [--scene fight|boss|kingdom|night|first|volley|cinder|latch|mossbell|brasswake|rafterwake|pennon|forest|lanternward|moonfall|bannerpeak|griffinwing|lightgallop|hall|book-hop|drift|works|works-won|works-small|works-big|works-castle|works-face|works-block|works-old|works-gate] [--boss ID] [--snapshot-hz 30] [--bots N] [--bots-after SECS] [--bots-draw] [--log SECS] [--dev] [--tune FILE] [--snapshot FILE] [--squad-fixture] [--idle-bots] [--depth N] [--beat-every SECS] [--grant-after SECS] [--night-dir DIR] [--newbie SEED]"
                 );
                 std::process::exit(0);
             }

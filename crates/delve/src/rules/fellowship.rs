@@ -97,7 +97,7 @@ impl Run {
     /// Whether knight `id` counts for the fellowship: alive, here, awake and
     /// not turned to stone.
     pub(super) fn counts_in_fellowship(&self, id: u32) -> bool {
-        self.players.get(&id).is_some_and(|h| h.hp > 0 && !h.stone && !h.absent) && !self.away(id)
+        self.players.get(&id).is_some_and(|h| h.hp > 0 && !h.stone && !h.absent) && !self.away(id) && !self.caves.inside(id)
     }
 
     /// The way the most knights wait in (the first, on a tie), and how many.

@@ -3,7 +3,11 @@ use crate::economy::{add, capped_add, neighbours, take};
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 
 impl Kingdom {
-    fn delivery_request(&self, c: &Catalog, b: &Building) -> Option<(Stock, Stock)> {
+    pub(crate) fn delivery_request(&self, c: &Catalog, b: &Building) -> Option<(Stock, Stock)> {
+        let p = &c.plans[&b.plan];
+        if p.watch > 0 {
+            return Some((Stock::from([(crate::defence::ARROW.to_string(), u32::from(p.quiver))]), Stock::new()));
+        }
         if c.plans[&b.plan]
             .power
             .as_ref()
@@ -59,7 +63,8 @@ impl Kingdom {
             .iter()
             .filter(|s| s.resource == resource)
             .map(|s| s.amount)
-            .sum()
+            .sum::<u32>()
+            + self.hauled(resource)
     }
     /// Counts delivered, buffered and travelling material for conservation checks
     /// and the supply ledger. Construction spends only delivered camp stock.
@@ -76,6 +81,10 @@ impl Kingdom {
                 .sum::<u32>()
     }
     pub(crate) fn transport(&mut self, c: &Catalog) {
+        // The hillside hauls on real lines; the valley keeps its carriers.
+        if self.world.is_hillside() {
+            return self.haul(c);
+        }
         let capacity = self.report(c).capacity;
         let mut moving = std::mem::take(&mut self.shipments);
         for cart in &mut moving {

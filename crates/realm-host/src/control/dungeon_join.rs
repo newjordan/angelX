@@ -50,8 +50,8 @@ impl Session<'_> {
             KeyCode::Char(c) => KeyCode::Char(c.to_ascii_lowercase()),
             code => code,
         };
-        // Shift+C is the ride key (`rules::shoulders`); c alone is the cards.
-        let code = if code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::SHIFT) {
+        // C, with or without Shift, is the ride key (`rules::shoulders`); Tab is the cards.
+        let code = if code == KeyCode::Char('c') {
             KeyCode::Char('C')
         } else {
             code
@@ -112,7 +112,7 @@ impl Session<'_> {
             // The card screen: your cards, then the host's book.
             let pages = self.dungeon.joined_card_pages();
             match code {
-                KeyCode::Esc | KeyCode::Tab | KeyCode::Char('c') => self.dungeon.cards_open = false,
+                KeyCode::Esc | KeyCode::Tab => self.dungeon.cards_open = false,
                 KeyCode::Right | KeyCode::Char('d') => self.dungeon.cards_sel += 1,
                 KeyCode::Left | KeyCode::Char('a') => {
                     self.dungeon.cards_sel = self.dungeon.cards_sel.saturating_sub(1)
@@ -139,7 +139,7 @@ impl Session<'_> {
                 self.collapse_dungeon();
                 return true;
             }
-            KeyCode::Tab | KeyCode::Char('c') => {
+            KeyCode::Tab => {
                 self.dungeon.cards_open = true;
                 self.dungeon.held.clear();
                 self.cx.redraw();
@@ -276,11 +276,20 @@ impl Session<'_> {
             self.dungeon.activity_menu = open.then(|| self.dungeon.joined_actor());
         }
         if news.ask && self.dungeon.forge.draft.is_none() {
-            // The lamp: a wish, never a Sanctuary's reforge.
             let me = self.dungeon.joined_actor();
             let window = self.dungeon.joined_knight().is_some_and(|v| v["can_wish"].as_bool() == Some(true));
             if window {
-                self.dungeon.forge.draft = Some(super::dungeon_reforge::ReforgeDraft::new(me, false));
+                match news.wish_row.unwrap_or(0) {
+                    1 => self.open_reforge(),
+                    row => {
+                        self.dungeon.forge.draft = Some(super::dungeon_reforge::ReforgeDraft::new(me, false));
+                        if row == 2 {
+                            if let Some(draft) = self.dungeon.forge.draft.as_mut() {
+                                draft.hub_row = 2;
+                            }
+                        }
+                    }
+                }
             }
         }
         for sound in news.sounds {

@@ -15,6 +15,9 @@ pub const BLOW_MOST: u32 = 30;
 /// leave them on their last sliver, never fell them whole (the operator,
 /// 2026-10-18: "no one shots, but a 90% shot is ok").
 pub const ONE_HIT_MOST: u32 = 90;
+fn no_tool(code: &u8) -> bool {
+    *code == 0
+}
 fn is_unblessed(ticks: &u32) -> bool {
     *ticks == 0
 }
@@ -234,17 +237,26 @@ pub struct Hero {
     /// Shots loosed since the run began, for a volley's cadence.
     #[serde(default)]
     pub loosed: u32,
-    /// The Bard's groove: volleys of its notes loosed without a break
-    /// (`bard::BASS_AT`, `bard::DROP_AT`); a ready beat with nothing
-    /// loosed ends it. Never written at rest, so a knight who never plays
-    /// saves and sends as before.
+    /// The Bard's groove: counts of its song (one every four ticks) since
+    /// the trigger was pressed (`bard::strum`); letting go ends it. Never
+    /// written at rest, so a knight who never plays saves and sends as
+    /// before.
     #[serde(default, skip_serializing_if = "is_zero_floor")]
     pub groove: u32,
-    /// Songs the Bard has moved on from: a groove that reached the drop, and
-    /// each Lullaby, turn it to the next song of the set (`bard::song_of`).
-    /// Never written at rest, like `groove`.
+    /// Songs the Bard has moved on from: each Lullaby turns it to the next
+    /// song of the set (`bard::song_of`). Never written at rest, like
+    /// `groove`.
     #[serde(default, skip_serializing_if = "is_zero_floor")]
     pub songs: u32,
+    /// Beats of its current song the Bard has played: the next beat a press
+    /// plays. Letting go keeps it, so the next press picks the song up where
+    /// it stopped; only a new song (a Lullaby) puts it back to the top.
+    #[serde(default, skip_serializing_if = "is_zero_floor")]
+    pub tune: u32,
+    /// Ticks the Bard's trigger has been held, 0 when it is not: the song's
+    /// own clock (`bard::strum`).
+    #[serde(default, skip_serializing_if = "is_zero_floor")]
+    pub strum: u32,
     /// The privy: a stop under way, stops done, the buffs they left.
     #[serde(default)]
     pub pit: super::pitstop::Pit,
@@ -449,6 +461,13 @@ pub struct Hero {
     /// The next wish is ink alone, handed off by the tavern mirror.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub mirror_wish: bool,
+    /// The whole-body wish looks (by card id, a mirror look by its key) this
+    /// knight set aside by picking one of the four code-drawn knights at the
+    /// pub (`Run::pick_patron`): each wish keeps its power, only its whole
+    /// picture is not drawn over the design. A look worn after the pick is
+    /// not in it, and draws as it always has.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub set_aside: Vec<String>,
     /// The floor whose budget holds this knight's wishes (`cards::WISH_BUDGET`):
     /// the floor they stand on, kept by `Run::step`.
     #[serde(default, skip_serializing_if = "is_zero_floor")]
@@ -460,6 +479,10 @@ pub struct Hero {
     /// What those wishes give each of his dead, counted with `bonus`.
     #[serde(default, skip_serializing_if = "super::dead_wishes::Gifts::none")]
     pub dead_gifts: super::dead_wishes::Gifts,
+    /// The rough block of stone this knight carries up from a claimed face,
+    /// by its stone's catalogue id (`quarrying`): heavy, so it slows them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub block: Option<String>,
     /// The fallen friend whose skull this knight carries (`skulls`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub carrying_skull: Option<u32>,
@@ -470,6 +493,11 @@ pub struct Hero {
     /// Ground covered since the last footstep.
     #[serde(default)]
     pub stride: f32,
+    /// The tool of the trade in this knight's hand, at the Keep's site
+    /// (`trades::Tool::code`); 0 for bare hands. The host sets it, and every
+    /// view draws it in the knight's hand (`hands`).
+    #[serde(default, skip_serializing_if = "no_tool")]
+    pub tool: u8,
     pub fire_cooldown: u32,
     pub dash_ticks: u32,
     pub(super) dash_x: f32,
@@ -489,6 +517,15 @@ pub struct Hero {
     /// A Mage's essences and spells' cooldowns (`weave`).
     #[serde(default, skip_serializing_if = "weave::Weave::is_empty")]
     pub weave: weave::Weave,
+    /// The genie's wish scroll is open on its typed line (no offer yet).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub wish_open: bool,
+    /// Letters typed on that line. Empty while the line is open and blank.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub wish_line: String,
+    /// Which choice row is highlighted (0, 1 or 2).
+    #[serde(default, skip_serializing_if = "no_tool")]
+    pub wish_pick: u8,
 }
 
 impl Hero {
@@ -579,6 +616,8 @@ impl Hero {
             loosed: 0,
             groove: 0,
             songs: 0,
+            tune: 0,
+            strum: 0,
             relieved: None,
             home_hp: 0,
             winds: 0,
@@ -639,12 +678,15 @@ impl Hero {
             star_wish: false,
             offer: None,
             mirror_wish: false,
+            set_aside: Vec::new(),
             wish_floor: 0,
             dead_wishes: BTreeMap::new(),
             dead_gifts: Default::default(),
+            block: None,
             carrying_skull: None,
             skull_at: None,
             stride: 0.0,
+            tool: 0,
             fire_cooldown: 0,
             dash_ticks: 0,
             dash_x: 0.0,
@@ -654,6 +696,9 @@ impl Hero {
             champ: champions::Stance::default(),
             hero_kit: heroes::Stance::default(),
             weave: weave::Weave::default(),
+            wish_open: false,
+            wish_line: String::new(),
+            wish_pick: 0,
         }
     }
 

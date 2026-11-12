@@ -14,6 +14,18 @@ pub struct State {
     pub claim_bosses: BTreeMap<String, super::claim_bosses::Encounter>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub ore_sentries: BTreeMap<String, super::ore_threats::Encounter>,
+    /// How stirred the Deep is by the party's digging, the faces cut this
+    /// expedition and the claims under raid (`stir`).
+    #[serde(default, skip_serializing_if = "super::stir::Stir::is_calm")]
+    pub stir: super::stir::Stir,
+    /// The knights whose E was down last tick, so a press that takes a block
+    /// from a friend is one press (`quarrying`). Never saved nor sent.
+    #[serde(
+        default,
+        skip_serializing_if = "crate::rules::runtime_state::omit",
+        deserialize_with = "crate::rules::runtime_state::transient"
+    )]
+    pub carry_held: std::collections::BTreeSet<u32>,
     /// Capacity notices are once per seam/room entry, never save evidence.
     #[serde(skip)]
     pub claim_capacity_notice: super::frontier_claims::CapacityNotice,
@@ -220,12 +232,18 @@ impl Run {
             return;
         }
         let geo = map::geography(&self.kingdom.wishes);
+        // The map holds the Keep's site closed; what stands there open or
+        // shut is the Works' (`site::patch_room`).
+        let mut room = geo.room.clone();
+        if crate::world::works::on_map() {
+            super::site::patch_room(&mut room, &self.sites);
+        }
         if let Some(i) = world::room_of(&self.dungeon, RoomKind::Kingdom) {
-            if self.dungeon.rooms[i].fingerprint() != geo.room.fingerprint() {
+            if self.dungeon.rooms[i].fingerprint() != room.fingerprint() {
                 // A save from before the kingdom opened carries the old,
                 // smaller map: its spots on it mean nothing on this one.
                 let resized = (self.dungeon.rooms[i].cols, self.dungeon.rooms[i].rows) != (geo.room.cols, geo.room.rows);
-                self.dungeon.rooms[i] = geo.room.clone();
+                self.dungeon.rooms[i] = room;
                 self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
                 if resized {
                     self.rehome_on_new_map(&geo);
@@ -234,7 +252,7 @@ impl Run {
                 }
             }
         } else {
-            self.dungeon.rooms.push(geo.room.clone());
+            self.dungeon.rooms.push(room);
             self.dungeon.world_revision = self.dungeon.world_revision.wrapping_add(1);
         }
         if world::room_of(&self.dungeon, RoomKind::RealmHall).is_none() {
@@ -546,6 +564,12 @@ impl Run {
         if let Some((halt, stand)) = self.rally_call(id) {
             return Some(Goal { name: format!("RALLY: {}", halt.to_uppercase()), stand });
         }
+        // A knight who has carried a block up from below has one place to go: the stockyard,
+        // where it is set down (`quarrying`).
+        if crate::world::plan::tabula() && hero.block.is_some() {
+            let (x, y) = super::quarrying::yard_spot();
+            return Some(Goal { name: "THE STOCKYARD".into(), stand: ((x / TILE_UNITS) as i32, (y / TILE_UNITS) as i32) });
+        }
         let geo = map::geography(&self.kingdom.wishes);
         let delve = geo.sites.iter().find(|s| s.room == RoomKind::Gate)?;
         let far = |s: &&map::Site| {
@@ -629,10 +653,14 @@ impl Run {
         if self.tick_roundtable_entry(inputs) || self.roundtable_showing() { return; }
         self.tick_class_stones(inputs);
         if self.room().kind != RoomKind::Kingdom {
+            // A knight who has gone below carries nothing of the Keep's.
+            self.release_all_hands();
             self.kingdom.stops.talks.clear();
             self.kingdom.stops.held.clear();
             return;
         }
+        // The masons at the Keep's wall, and the tiles under it.
+        self.tick_sites(inputs);
         let geo = map::geography(&self.kingdom.wishes);
         // Each knight crossing into another biome: its name, for a moment.
         let tick = self.tick;

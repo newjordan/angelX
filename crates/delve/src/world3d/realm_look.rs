@@ -282,7 +282,7 @@ pub fn look(view: &View, lamps: &[SetLamp]) -> Look {
         .collect();
     // The blank slate's camps and Keep dye their cloth, over the hillside's.
     look.zones.extend(camp_zones(view));
-    look.zones.truncate(angel_stage::look::ZONE_MAX);
+    look.zones.truncate(BIOME_ZONES + CAMP_ZONES);
     // The lamps nearest the view's middle, each flickering on its own.
     let mut near: Vec<&SetLamp> = lamps.iter().collect();
     let away = |l: &SetLamp| (l.at[0] - centre[0]).hypot(l.at[2] - centre[1]);
@@ -314,8 +314,21 @@ pub const TENT_FEATHER: f32 = 8.0;
 pub const BANNER_FEATHER: f32 = 4.0;
 /// How far past the view's edge a camp's cloth is still taken for in sight:
 /// the tipped floor shows more of the world than the view's size says (six
-/// tiles, as far as the stage's far edge reaches).
-const SEEN_BEYOND: f32 = 96.0;
+/// tiles, as far as the stage's far edge reaches). The Works' buildings
+/// (`works_look`) are taken for in sight the same way.
+pub const SEEN_BEYOND: f32 = 96.0;
+
+/// A look has sixteen zones (`angel_stage::look::ZONE_MAX`), shared out so no
+/// kind starves the others: the neighbouring biomes of the full plan take at
+/// most this many,
+pub const BIOME_ZONES: usize = 4;
+/// the camps' cloth (two to a camp, tents and banner) at most this many,
+pub const CAMP_ZONES: usize = 4;
+/// and the Keep three (`works_site::dye`, which pushes them last: its limestone
+/// and over it the crane's timber yard and the lane to it). The Works' buildings
+/// (`works_look::dye_buildings`) have what is left.
+pub const KEEP_ZONES: usize = 3;
+
 /// The colour a house's cloth gives its ramp's chroma, at least, as a part of
 /// the ramp's brightness (dusk inks are dim and nearly grey; a tent that is
 /// plainly its house's colour wants more than they carry).
@@ -353,10 +366,10 @@ pub fn cloth_ramp(cloth: [u8; 3], base: &[[u8; 3]; 8]) -> [[u8; 3]; 8] {
 /// is one ramp a place, so a camp's tents and banner would take the hillside's
 /// green. Each camp near the view lies two small zones over its cloth, the
 /// tents and the banner, in a ramp of its house's own colour (the flat map's,
-/// `render::overworld::camps`), and the Keep's banner one in the Keep's red,
-/// each as tight as its cloth, for what lies under them takes the dye too.
-/// The nearest the view's middle, at most as many as a look keeps; the
-/// farthest first, so the nearest lies over them. None in the full plan.
+/// `render::overworld::camps`), each as tight as its cloth, for what lies
+/// under them takes the dye too.
+/// The nearest the view's middle, at most [`CAMP_ZONES`]; the farthest
+/// first, so the nearest lies over them. None in the full plan.
 pub fn camp_zones(view: &View) -> Vec<Zone> {
     use crate::render::overworld::camps;
     use crate::world::houses;
@@ -373,8 +386,6 @@ pub fn camp_zones(view: &View) -> Vec<Zone> {
         cloths.push((tents, cloth, TENT_FEATHER));
         cloths.push((banner, cloth, BANNER_FEATHER));
     }
-    let keep = super::blockout::px(crate::world::castles::keep_foot());
-    cloths.push((super::realm_camp::keep_banner_box(keep), camps::keep_cloth(), BANNER_FEATHER));
     let mut near: Vec<(f32, Zone)> = cloths
         .into_iter()
         .filter(|(b, _, f)| {
@@ -394,13 +405,13 @@ pub fn camp_zones(view: &View) -> Vec<Zone> {
         })
         .collect();
     near.sort_by(|a, b| a.0.total_cmp(&b.0));
-    near.truncate(angel_stage::look::ZONE_MAX);
+    near.truncate(CAMP_ZONES);
     near.reverse();
     near.into_iter().map(|(_, zone)| zone).collect()
 }
 
 /// The biome under `centre` (the look's own ramp) and the nearest others
-/// as zones, at most four, the farthest first so the nearest lies over
+/// as zones, at most [`BIOME_ZONES`], the farthest first so the nearest lies over
 /// them: each the largest box of its chunks round the nearest of them in
 /// the five by five chunks round the view, `[x0, z0, x1, z1]` in the
 /// kingdom's pixels.
@@ -460,7 +471,7 @@ pub fn zones(centre: [f32; 2]) -> (Biome, Vec<(Biome, [f32; 4])>) {
         found.push((away(px), b, px));
     }
     found.sort_by(|a, b| a.0.total_cmp(&b.0));
-    found.truncate(angel_stage::look::ZONE_MAX);
+    found.truncate(BIOME_ZONES);
     found.reverse();
     (base, found.into_iter().map(|(_, b, r)| (b, r)).collect())
 }

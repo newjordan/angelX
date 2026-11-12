@@ -168,7 +168,7 @@ fn unused_claim_release_needs_two_separate_presses_and_keeps_earned_progress() {
             source: "test seam".into(),
             secured: false,
             rate: 2,
-        },
+            yields: Default::default(), surface: false },
     ));
     assert!(r.home.industry.secure("retire-iron"));
     press(
@@ -566,8 +566,8 @@ fn browser_e_builds_once_and_p_changes_page_after_missing_input_releases() {
 fn ore_forecast_matches_real_route_and_reaches_player_notice_wire() {
     let mut r = home();
     for (first, current, expected_next) in [
-        (Pack::Crypt, Pack::Crypt, "Moon crystal"),
-        (Pack::Cavern, Pack::Cavern, "Coal"),
+        (Pack::Crypt, Pack::Crypt, "moon crystal"),
+        (Pack::Cavern, Pack::Cavern, "Flint, with coal"),
     ] {
         r.first = first;
         r.dungeon.depth = 1;
@@ -582,7 +582,7 @@ fn ore_forecast_matches_real_route_and_reaches_player_notice_wire() {
     r.dungeon.pack = Pack::Crypt;
     r.notices.clear();
     r.announce_ore_forecast();
-    assert!(r.notices[0].contains("Living ember"));
+    assert!(r.notices[0].contains("Basalt, with living ember"));
     r.dungeon.depth = 0;
     r.notices.clear();
     r.announce_ore_forecast();
@@ -592,12 +592,18 @@ fn ore_forecast_matches_real_route_and_reaches_player_notice_wire() {
 fn each_actual_deposit_has_an_ore_threat_and_useful_field_guide() {
     for first in [Pack::Crypt, Pack::Cavern, Pack::Swamp] {
         for depth in 1..=6 {
-            let (resource, _) = ore_at(Pack::at(depth, first), depth);
-            assert!(catalog().resources.contains_key(resource));
-            let kind = crate::rules::ore_threats::OreKind::for_resource(resource).unwrap();
+            let seam = geology::seam_at(Pack::at(depth, first), depth);
+            for resource in seam.yields().keys() {
+                assert!(catalog().resources.contains_key(resource), "{resource} is in the catalogue");
+            }
+            let kind = crate::rules::ore_threats::OreKind::for_resource(seam.stone()).unwrap();
             assert!(!kind.warning().is_empty());
             assert!(!kind.counter().is_empty());
-            assert!(ORES.iter().any(|(id, _, _, _)| *id == resource));
+            assert!(
+                industry::guide().iter().any(|row| row.stone == seam.stone()),
+                "{} has a page in the field guide",
+                seam.stone()
+            );
         }
     }
 }
@@ -623,7 +629,7 @@ fn changing_region_cannot_alias_another_ore_and_legacy_claims_keep_their_identit
             source: "test".into(),
             secured: false,
             rate: 2,
-        },
+            yields: Default::default(), surface: false },
     );
     r.home.industry.secure(&coal.id);
     r.dungeon.pack = Pack::Cavern;
@@ -638,7 +644,7 @@ fn changing_region_cannot_alias_another_ore_and_legacy_claims_keep_their_identit
             source: "test".into(),
             secured: false,
             rate: 2,
-        },
+            yields: Default::default(), surface: false },
     );
     r.home.industry.secure(&legacy);
     assert_eq!(r.industry_deposits()[0].id, legacy);
@@ -664,7 +670,7 @@ fn fresh_expeditions_retire_abandoned_sightings_but_preserve_mine_output_nodes()
                 source: "old expedition".into(),
                 secured: false,
                 rate: 2,
-            },
+                yields: Default::default(), surface: false },
         );
     }
     r.home.industry.secure("kept");
