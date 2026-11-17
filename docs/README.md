@@ -57,10 +57,7 @@ its link dependencies is an intentional release change.
 
 ## Backlog and historical evidence
 
-- [Bugs](BUGS.md): recorded issues; inspect
-  current source before treating a historical entry as an unresolved defect.
-- [Speed-loop handoff](SPEED_LOOP.md): campaign context and evidence.
-- [Telemetry](telemetry/): dated experiments, measurements and handoffs. Their
+- [Telemetry](telemetry/): dated experiments and measurements. Their
   reported results apply to their recorded source/settings, not every checkout.
 - [Stables and the lists](architecture/stables-tournament.md): the joust, played
   in rooms of the world beside the Delve's gate.
