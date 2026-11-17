@@ -57,7 +57,7 @@ its link dependencies is an intentional release change.
 
 ## Backlog and historical evidence
 
-- [Bugs](BUGS.md) and [wishlist](WISHLIST.md): recorded issues and ideas; inspect
+- [Bugs](BUGS.md): recorded issues; inspect
   current source before treating a historical entry as an unresolved defect.
 - [Speed-loop handoff](SPEED_LOOP.md): campaign context and evidence.
 - [Telemetry](telemetry/): dated experiments, measurements and handoffs. Their
