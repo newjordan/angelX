@@ -41,10 +41,15 @@ fn main() {
     // wishes are granted as asked. Before the rules-only return below, so
     // the rules worker is built the same way.
     println!("cargo:rustc-check-cfg=cfg(private_table)");
-    println!("cargo:rerun-if-changed=src/rules/private_table.rs");
     let manifest = std::env::var("CARGO_MANIFEST_DIR").expect("cargo sets CARGO_MANIFEST_DIR");
     if std::path::Path::new(&manifest).join("src/rules/private_table.rs").exists() {
+        println!("cargo:rerun-if-changed=src/rules/private_table.rs");
         println!("cargo:rustc-cfg=private_table");
+    } else {
+        // The public tree has no such file. Naming a missing file as an input makes
+        // every build dirty and stops the web bundle, which refuses an input it cannot
+        // find. Watch the folder instead: the table is still picked up when it appears.
+        println!("cargo:rerun-if-changed=src/rules");
     }
     // A rules-only worker embeds no renderer or image assets.
     if std::env::var_os("CARGO_FEATURE_RENDERER").is_none() {
